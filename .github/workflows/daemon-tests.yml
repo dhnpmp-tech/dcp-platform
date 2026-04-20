@@ -1,0 +1,80 @@
+name: Daemon Tests (Python)
+
+# Runs the provider daemon pytest suite.
+#
+# Rationale (2026-04-20, Nexus review of the daemon tech spec):
+# The unbounded-backup-retention bug that shipped in v4.0.2 (and was patched
+# in v4.0.3) would have been caught by a pytest gate on PR. The daemon is
+# stdlib-only in production, so CI installs only pytest.
+#
+# Scope:
+#   - backend/installers/tests/  (daemon monolith tests, v4.1.0+)
+# Out of scope (own workflow: backend-tests.yml):
+#   - backend/tests/  (Node/Jest integration tests)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/installers/**'
+      - '.github/workflows/daemon-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/installers/**'
+      - '.github/workflows/daemon-tests.yml'
+
+# Cancel superseded runs on rapid push (keeps PR feedback fast).
+concurrency:
+  group: daemon-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Test the daemon against the oldest supported Python (provider boxes
+      # often run system Python 3.8) and the newest stable so we catch
+      # deprecations early.
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pytest only (daemon itself is stdlib-only)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest==8.4.2
+
+      - name: Run daemon tests
+        working-directory: backend/installers
+        # -x: stop on first failure; keeps logs readable. Remove if we want
+        # full matrix of failures per run.
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Fail if daemon monolith grew without a test delta
+        # Guardrail: if dcp_daemon.py changed by more than 100 net lines and
+        # no file under tests/ changed, warn. Not a hard failure yet —
+        # flip to `exit 1` once the test suite is dense enough.
+        if: github.event_name == 'pull_request'
+        run: |
+          set -e
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          git fetch origin "$BASE" --depth=1 || true
+          DAEMON_DELTA=$(git diff --numstat "$BASE" "$HEAD" -- backend/installers/dcp_daemon.py | awk '{print $1+$2}')
+          TEST_CHANGED=$(git diff --name-only "$BASE" "$HEAD" -- backend/installers/tests/ | wc -l)
+          DAEMON_DELTA=${DAEMON_DELTA:-0}
+          echo "Daemon delta lines: $DAEMON_DELTA"
+          echo "Test files changed: $TEST_CHANGED"
+          if [ "$DAEMON_DELTA" -gt 100 ] && [ "$TEST_CHANGED" -eq 0 ]; then
+            echo "::warning::Daemon grew by $DAEMON_DELTA lines with no test changes. Consider adding tests."
+          fi
