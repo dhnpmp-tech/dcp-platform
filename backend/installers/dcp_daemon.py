@@ -1281,9 +1281,14 @@ def perform_update(new_version, preferred_download_url=None):
         return False
 
 def update_check_loop():
-    """Background thread: check for updates periodically."""
+    """Background thread: check for updates periodically.
+
+    Sleep is jittered ±UPDATE_CHECK_JITTER_PCT so the fleet doesn't all
+    GET /download/daemon at the same 5-min boundary.
+    """
     while True:
-        time.sleep(AUTO_UPDATE_CHECK)
+        jitter = AUTO_UPDATE_CHECK * UPDATE_CHECK_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(30.0, AUTO_UPDATE_CHECK + jitter))
         try:
             if check_for_update():
                 # Wait for any running job to finish before restarting
@@ -3254,7 +3259,8 @@ def passive_update_check_loop():
             check_for_updates()
         except Exception as e:
             log.debug(f"[update] passive loop error: {e}")
-        time.sleep(300)  # Every 5 minutes
+        jitter = 300 * UPDATE_CHECK_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(30.0, 300 + jitter))  # ~5 min ± jitter
 
 
 # ─── v4.0.3 (Phase 1.5 / Fix D+E): RUNPOD COST + RUNWAY SELF-REPORT ─
