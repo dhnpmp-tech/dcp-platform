@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DCP Provider Daemon v4.0.0-alpha.2 — GPU Compute Marketplace
+DCP Provider Daemon v4.0.3 — GPU Compute Marketplace
 Runs as a background service on provider machines.
 
 Features:
@@ -25,7 +25,7 @@ Features:
   - v3.5.0: Concurrency capacity estimation based on engine type (reported in heartbeat)
   - v3.5.0: Graceful drain on SIGTERM/SIGINT with final draining-status heartbeat
   - v3.5.0: Passive daemon-version update check (logs when newer version is available)
-  - v4.0.0-alpha.2 (Phase 1.5): Seven targeted Round-4 fixes:
+  - v4.0.3 (Phase 1.5): Seven targeted Round-4 fixes:
       A. Engine KV-cache-dtype introspection (fixes safe-context 4x overestimate)
       B. Memory-bandwidth performance prediction + drift detection
       C. Dual-identity cached_models (Ollama tag + HF canonical + vLLM variants)
@@ -45,6 +45,7 @@ import sys
 import time
 import json
 import hmac
+import random
 import hashlib
 import logging
 import platform
@@ -67,8 +68,13 @@ API_URL = "{{API_URL}}"
 HMAC_SECRET = "{{HMAC_SECRET}}"
 
 HEARTBEAT_INTERVAL = 30   # seconds
+HEARTBEAT_JITTER_PCT = 0.15          # ±15% jitter to avoid thundering herd
+HEARTBEAT_MAX_BACKOFF = 300          # cap exponential backoff at 5 min
+HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
-DAEMON_VERSION = "4.0.0-alpha.2"
+JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
+UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
+DAEMON_VERSION = "4.0.3"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -167,7 +173,7 @@ _effective_context_lock = threading.Lock()
 _cpu_offload_state = {"detected": False, "last_check": None, "details": ""}
 _cpu_offload_lock = threading.Lock()
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix G): DAEMON CODE HASH ───────────────────
+# ─── v4.0.3 (Phase 1.5 / Fix G): DAEMON CODE HASH ───────────────────
 # A sha256 prefix of this file's bytes lets the backend detect silent code
 # drift across the fleet even when DAEMON_VERSION is identical. Computed once
 # at import time; constant for the lifetime of the process.
@@ -186,7 +192,7 @@ def _compute_code_hash():
 
 _CODE_HASH = _compute_code_hash()
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix D+E): RUNPOD COST CACHES ───────────────
+# ─── v4.0.3 (Phase 1.5 / Fix D+E): RUNPOD COST CACHES ───────────────
 # Hourly cost does not change during a pod's lifetime, so we resolve it once
 # on startup and reuse. Account runway requires an account-scoped key and is
 # rate-limited to once per 10 minutes.
@@ -196,7 +202,7 @@ _ACCOUNT_RUNWAY_LAST_CHECK = 0.0
 _ACCOUNT_RUNWAY_INTERVAL_S = 600  # 10 minutes
 _runpod_cache_lock = threading.Lock()
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix F): PORT MISMATCH STATE ────────────────
+# ─── v4.0.3 (Phase 1.5 / Fix F): PORT MISMATCH STATE ────────────────
 _PORT_MISMATCH_STATE = {
     "mismatch": False,
     "engine_port": None,
@@ -491,19 +497,44 @@ def report_event(event_type, details=None, job_id=None, severity="info"):
     # Always save to local crash journal as backup
     _save_local_event(payload)
 
+# Events log rotation: size-based, because each event line can be kilobytes
+# (task spec echoes, stack traces). Line-count rotation used to let the file
+# grow many megabytes before trimming.
+_EVENTS_MAX_BYTES = 5 * 1024 * 1024     # 5 MB per active file
+_EVENTS_ROTATE_KEEP = 3                  # events.jsonl.1, .2, .3
+
+def _rotate_events_if_needed(path):
+    """Rotate events.jsonl → events.jsonl.1 → .2 → .3 when > _EVENTS_MAX_BYTES.
+    Best-effort; failures are swallowed."""
+    try:
+        if not path.exists() or path.stat().st_size < _EVENTS_MAX_BYTES:
+            return
+        # Shift: .2 -> .3, .1 -> .2, current -> .1
+        for i in range(_EVENTS_ROTATE_KEEP, 0, -1):
+            if i == 1:
+                src = path
+            else:
+                src = path.with_suffix(path.suffix + f".{i-1}")
+            dst = path.with_suffix(path.suffix + f".{i}")
+            if src.exists():
+                try:
+                    if dst.exists():
+                        dst.unlink()
+                    src.rename(dst)
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
 def _save_local_event(payload):
     """Save event to local JSON-lines file (survives backend outages)."""
     try:
         journal_path = LOG_DIR / "events.jsonl"
+        _rotate_events_if_needed(journal_path)
         with open(journal_path, "a") as f:
             f.write(json.dumps(payload) + "\n")
-        # Rotate: keep last 1000 events (trim when over 1200)
-        try:
-            lines = journal_path.read_text().splitlines()
-            if len(lines) > 1200:
-                journal_path.write_text("\n".join(lines[-1000:]) + "\n")
-        except: pass
-    except: pass
+    except Exception:
+        pass
 
 # ─── GRACEFUL SHUTDOWN ──────────────────────────────────────────────────────
 
@@ -607,6 +638,7 @@ def _get_or_create_peer_id():
 
 _DEDUP_FILE = CONFIG_DIR / "seen_jobs.json"
 _DEDUP_TTL = 3600  # 1 hour — forget jobs older than this
+_DEDUP_MAX_ENTRIES = 10_000  # size cap so a misbehaving backend can't grow this unbounded
 
 def _load_seen_jobs():
     """Load seen job IDs from disk. Returns dict {job_id: timestamp}."""
@@ -616,15 +648,20 @@ def _load_seen_jobs():
             # Clean expired entries
             now = time.time()
             return {k: v for k, v in data.items() if now - v < _DEDUP_TTL}
-    except:
+    except Exception:
         pass
     return {}
 
 def _save_seen_jobs(seen):
-    """Save seen job IDs to disk."""
+    """Save seen job IDs to disk. Caps total entries to _DEDUP_MAX_ENTRIES
+    by keeping the most recent by timestamp."""
     try:
+        if len(seen) > _DEDUP_MAX_ENTRIES:
+            # Keep the newest _DEDUP_MAX_ENTRIES
+            sorted_items = sorted(seen.items(), key=lambda kv: kv[1], reverse=True)
+            seen = dict(sorted_items[:_DEDUP_MAX_ENTRIES])
         _DEDUP_FILE.write_text(json.dumps(seen))
-    except:
+    except Exception:
         pass
 
 def is_duplicate_job(job_id):
@@ -1038,6 +1075,92 @@ def _resolve_download_url(download_url):
         return f"{CANONICAL_API_BASE_URL}{url}"
     return None
 
+def _detect_nvidia_windows_fallback():
+    """Windows fallback when `nvidia-smi` is not on PATH.
+
+    Returns (gpu_name, vram_mib, driver_version) tuple or None.
+
+    Strategy:
+      1) Try C:\\Windows\\System32\\nvidia-smi.exe (standard driver install path).
+      2) Query the display-adapter registry for qwMemorySize (uint64; the
+         authoritative VRAM size written by the driver). Avoids the WMI
+         AdapterRAM uint32 overflow that caps at 4 GB.
+      3) Give up and return None — never guess VRAM from a substring match.
+    """
+    # (1) nvidia-smi.exe at absolute path
+    for abs_path in (
+        r"C:\Windows\System32\nvidia-smi.exe",
+        r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+    ):
+        try:
+            r = subprocess.run(
+                [abs_path, "--query-gpu=name,memory.total,driver_version",
+                 "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=5,
+            )
+            out = (r.stdout or "").strip()
+            if out:
+                parts = [p.strip() for p in out.split(",")]
+                if len(parts) >= 2 and parts[0] and parts[1]:
+                    name = parts[0]
+                    vram_mib = int(float(parts[1]))
+                    driver = parts[2] if len(parts) > 2 else "unknown"
+                    log.info(f"GPU detected via nvidia-smi.exe absolute path: {name} ({vram_mib} MiB)")
+                    return (name, vram_mib, driver)
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            continue
+        except Exception as e:
+            log.debug(f"nvidia-smi.exe at {abs_path} failed: {e}")
+            continue
+
+    # (2) Registry — iterate display-adapter subkeys and emit qwMemorySize (uint64)
+    try:
+        ps_script = (
+            r"$base='HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}';"
+            r"Get-ChildItem $base -ErrorAction SilentlyContinue | ForEach-Object {"
+            r"  $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue;"
+            r"  if ($p -and $p.DriverDesc -like '*NVIDIA*') {"
+            r"    $qw = $p.'HardwareInformation.qwMemorySize';"
+            r"    Write-Output ($p.DriverDesc + '|' + $qw + '|' + $p.DriverVersion)"
+            r"  }"
+            r"}"
+        )
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+            capture_output=True, text=True, timeout=10,
+        )
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if not line or "|" not in line:
+                continue
+            parts = line.split("|")
+            if len(parts) < 3:
+                continue
+            name = parts[0].strip()
+            qw_raw = parts[1].strip()
+            driver = parts[2].strip() or "unknown"
+            try:
+                vram_bytes = int(qw_raw)
+            except ValueError:
+                continue
+            if vram_bytes <= 0:
+                continue
+            vram_mib = vram_bytes // (1024 * 1024)
+            log.info(f"GPU detected via registry qwMemorySize: {name} ({vram_mib} MiB)")
+            return (name, vram_mib, driver)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    except Exception as e:
+        log.debug(f"registry qwMemorySize probe failed: {e}")
+
+    log.warning(
+        "Windows NVIDIA GPU detection failed: nvidia-smi not in PATH, "
+        "absolute-path binaries missing, and registry qwMemorySize unavailable. "
+        "Refusing to guess VRAM."
+    )
+    return None
+
+
 def get_gpu_info():
     """Return GPU info as a dict for the heartbeat payload.
 
@@ -1066,6 +1189,32 @@ def get_gpu_info():
         return {"gpu_name": None, "vram_mb": None, "driver_version": None,
                 "cuda_version": None, "raw": raw or "nvidia-smi produced no output"}
     except FileNotFoundError:
+        # No nvidia-smi — check if this is Apple Silicon with unified memory
+        if platform.system() == "Darwin":
+            try:
+                arch = subprocess.run(["uname", "-m"], capture_output=True, text=True, timeout=3).stdout.strip()
+                if arch == "arm64":
+                    mem_bytes = int(subprocess.run(["sysctl", "-n", "hw.memsize"],
+                                                    capture_output=True, text=True, timeout=3).stdout.strip())
+                    mem_total_mb = mem_bytes // (1024 * 1024)
+                    # Metal practical ceiling: ~75% of unified memory. The OS, other apps,
+                    # and wired kernel pages consume the rest. Reporting 100% causes the
+                    # backend to accept jobs that OOM on the GPU.
+                    mem_mb = int(mem_total_mb * 0.75)
+                    chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"],
+                                           capture_output=True, text=True, timeout=3).stdout.strip()
+                    return {"gpu_name": f"Apple Silicon ({chip})", "vram_mb": mem_mb,
+                            "driver_version": "Metal", "cuda_version": None,
+                            "is_apple_silicon": True}
+            except Exception:
+                pass
+        # Windows: nvidia-smi absolute path → registry qwMemorySize fallback
+        if platform.system() == "Windows":
+            fb = _detect_nvidia_windows_fallback()
+            if fb is not None:
+                name, vram_mib, driver = fb
+                return {"gpu_name": name, "vram_mb": vram_mib,
+                        "driver_version": driver, "cuda_version": None}
         return {"gpu_name": "CPU only", "vram_mb": 0, "driver_version": None,
                 "cuda_version": None}
     except Exception as e:
@@ -1146,9 +1295,50 @@ def perform_update(new_version, preferred_download_url=None):
         shutil.copy2(current_path, backup_path)
         log.info(f"Backed up current daemon to {backup_path}")
 
-        # Write new version
-        current_path.write_text(new_code, encoding="utf-8")
-        log.info(f"Updated daemon file to v{new_version}")
+        # Atomic write: create sibling tempfile, fsync, then os.replace.
+        # Prior behavior used current_path.write_text which is non-atomic —
+        # a crash mid-write would leave a truncated daemon that won't restart.
+        tmp_fd, tmp_name = tempfile.mkstemp(
+            prefix=".dcp_daemon.", suffix=".new",
+            dir=str(current_path.parent), text=True,
+        )
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+                f.write(new_code)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass  # fsync not supported on all filesystems
+            # Preserve the original file mode (executable bit etc.)
+            try:
+                os.chmod(tmp_path, current_path.stat().st_mode)
+            except OSError:
+                pass
+            os.replace(tmp_path, current_path)
+        except Exception:
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+            raise
+        log.info(f"Updated daemon file to v{new_version} (atomic write)")
+
+        # Prune old backups: keep the 2 most recent .bak files. The watchdog's
+        # auto-rollback only uses the newest one (within 90s of restart), but
+        # keeping one extra as a safety margin costs a few MB. Older backups
+        # are no longer actionable and just accumulate on long-lived providers.
+        try:
+            all_backups = _find_backup_files(current_path)
+            for stale in all_backups[2:]:
+                try:
+                    stale.unlink()
+                    log.debug(f"Pruned stale backup: {stale.name}")
+                except OSError as _prune_err:
+                    log.debug(f"Could not prune {stale.name}: {_prune_err}")
+        except Exception as _prune_wrap:
+            log.debug(f"Backup prune wrapper error: {_prune_wrap}")
 
         report_event("update_success", f"Updated {DAEMON_VERSION} → {new_version}")
 
@@ -1163,9 +1353,14 @@ def perform_update(new_version, preferred_download_url=None):
         return False
 
 def update_check_loop():
-    """Background thread: check for updates periodically."""
+    """Background thread: check for updates periodically.
+
+    Sleep is jittered ±UPDATE_CHECK_JITTER_PCT so the fleet doesn't all
+    GET /download/daemon at the same 5-min boundary.
+    """
     while True:
-        time.sleep(AUTO_UPDATE_CHECK)
+        jitter = AUTO_UPDATE_CHECK * UPDATE_CHECK_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(30.0, AUTO_UPDATE_CHECK + jitter))
         try:
             if check_for_update():
                 # Wait for any running job to finish before restarting
@@ -1245,6 +1440,55 @@ def detect_gpu():
         primary["all_gpus"] = all_gpus
         return primary
     except FileNotFoundError:
+        # No nvidia-smi — check for Apple Silicon
+        if platform.system() == "Darwin":
+            try:
+                arch = subprocess.run(["uname", "-m"], capture_output=True, text=True, timeout=3).stdout.strip()
+                if arch == "arm64":
+                    mem_bytes = int(subprocess.run(["sysctl", "-n", "hw.memsize"],
+                                                    capture_output=True, text=True, timeout=3).stdout.strip())
+                    mem_total_mib = mem_bytes // (1024 * 1024)
+                    # Metal practical ceiling: ~75% of unified memory. OS + other apps
+                    # reserve the rest. Reporting 100% causes backend to accept OOM'ing jobs.
+                    mem_mib = int(mem_total_mib * 0.75)
+                    chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"],
+                                           capture_output=True, text=True, timeout=3).stdout.strip()
+                    gpu = {
+                        "index": 0,
+                        "gpu_name": f"Apple Silicon ({chip})",
+                        "gpu_vram_mib": mem_mib,
+                        "free_vram_mib": mem_mib,  # Unified memory, dynamically allocated
+                        "memory_used_mb": 0,
+                        "gpu_util_pct": 0,
+                        "temp_c": 0,
+                        "power_w": None,
+                        "driver_version": "Metal",
+                        "compute_capability": "Metal",
+                        "cuda_version": None,
+                        "is_apple_silicon": True,
+                        "all_gpus": [],
+                    }
+                    gpu["all_gpus"] = [gpu.copy()]
+                    del gpu["all_gpus"][0]["all_gpus"]
+                    log.info(f"Apple Silicon detected: {chip} — {mem_mib}/{mem_total_mib} MiB usable (75% of unified)")
+                    return gpu
+            except Exception as e2:
+                log.warning(f"Apple Silicon detection failed: {e2}")
+        # Windows: nvidia-smi absolute path → registry qwMemorySize fallback
+        if platform.system() == "Windows":
+            fb = _detect_nvidia_windows_fallback()
+            if fb is not None:
+                name, vram_mib, driver = fb
+                gpu = {
+                    "index": 0, "gpu_name": name, "gpu_vram_mib": vram_mib,
+                    "free_vram_mib": vram_mib, "memory_used_mb": 0,
+                    "gpu_util_pct": 0, "temp_c": 0, "power_w": None,
+                    "driver_version": driver, "compute_capability": "unknown",
+                    "cuda_version": None, "all_gpus": [],
+                }
+                gpu["all_gpus"] = [gpu.copy()]
+                del gpu["all_gpus"][0]["all_gpus"]
+                return gpu
         log.warning("nvidia-smi not found — no NVIDIA GPU detected")
         return None
     except Exception as e:
@@ -1768,7 +2012,7 @@ def detect_served_models():
     except Exception:
         pass
 
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix C): dual-identity expansion.
+    # v4.0.3 (Phase 1.5 / Fix C): dual-identity expansion.
     # For every raw model id we detected, append ALL known aliases (Ollama tag,
     # HF canonical, vLLM variants). The backend no longer has to consult an
     # OLLAMA_MODEL_ALIASES lookup at candidate-selection time — the daemon now
@@ -2019,7 +2263,7 @@ MODEL_ARCH_TABLE = {
     "falcon-h1-7b":      {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0},
 }
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix B): GPU MEMORY BANDWIDTH TABLE ─────────
+# ─── v4.0.3 (Phase 1.5 / Fix B): GPU MEMORY BANDWIDTH TABLE ─────────
 #
 # Memory bandwidth (GB/s) for the GPUs DCP cares about. Decode-time autoregressive
 # inference is memory-bandwidth bound: every decoded token requires reading the
@@ -2078,7 +2322,7 @@ def predicted_peak_tok_s(gpu_name, model_size_gb):
     return float(bw) / size
 
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix C): DUAL-IDENTITY MODEL TABLE ──────────
+# ─── v4.0.3 (Phase 1.5 / Fix C): DUAL-IDENTITY MODEL TABLE ──────────
 #
 # Round 4 routing exposed that the backend had to consult OLLAMA_MODEL_ALIASES
 # at candidate-selection time because daemons reported `allam:7b` (Ollama tag)
@@ -2666,7 +2910,7 @@ def _pick_probe_target(detected):
         tuple or None: (engine, port, model_id) or None if nothing reachable.
     """
     engines = detected.get("engines", []) if isinstance(detected, dict) else []
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix C): use the RAW model list for the probe
+    # v4.0.3 (Phase 1.5 / Fix C): use the RAW model list for the probe
     # target id. Ollama's /api/generate needs the Ollama tag form (e.g.
     # "allam:7b"), not the HF canonical. The expanded cached_models list is
     # for backend routing; the probe speaks directly to the local engine.
@@ -2855,7 +3099,7 @@ def probe_concurrency_capacity(force_reprobe=None):
         "concurrency_probed_at": None,
         "probe_aggregate_tps": None,
         "model_id": first_model,
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix B): bandwidth-drift fields
+        # v4.0.3 (Phase 1.5 / Fix B): bandwidth-drift fields
         "single_user_tps": None,
         "predicted_peak_tok_s": None,
         "performance_ratio": None,
@@ -2875,7 +3119,7 @@ def probe_concurrency_capacity(force_reprobe=None):
                     "probe_aggregate_tps": cached.get("aggregate_tps"),
                     "concurrency_probe_method": "cached",
                     "concurrency_probed_at": cached.get("probed_at"),
-                    # v4.0.0-alpha.2 (Phase 1.5 / Fix B): preserve bandwidth fields
+                    # v4.0.3 (Phase 1.5 / Fix B): preserve bandwidth fields
                     "single_user_tps": cached.get("single_user_tps"),
                     "predicted_peak_tok_s": cached.get("predicted_peak_tok_s"),
                     "performance_ratio": cached.get("performance_ratio"),
@@ -2911,7 +3155,7 @@ def probe_concurrency_capacity(force_reprobe=None):
 
     probed_at = datetime.utcnow().isoformat() + "Z"
 
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix B): single-user throughput measurement
+    # v4.0.3 (Phase 1.5 / Fix B): single-user throughput measurement
     # for memory-bandwidth drift detection. We fire ONE extra probe request
     # at concurrency=1 to measure the decode tok/s a single user actually
     # sees, then compare against the bandwidth-predicted ceiling.
@@ -3087,10 +3331,11 @@ def passive_update_check_loop():
             check_for_updates()
         except Exception as e:
             log.debug(f"[update] passive loop error: {e}")
-        time.sleep(300)  # Every 5 minutes
+        jitter = 300 * UPDATE_CHECK_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(30.0, 300 + jitter))  # ~5 min ± jitter
 
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix D+E): RUNPOD COST + RUNWAY SELF-REPORT ─
+# ─── v4.0.3 (Phase 1.5 / Fix D+E): RUNPOD COST + RUNWAY SELF-REPORT ─
 
 def detect_pod_hourly_cost_usd():
     """Query the RunPod GraphQL API for this pod's `costPerHr`.
@@ -3187,7 +3432,7 @@ def detect_account_runway_hours():
     return runway
 
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix F): PORT MISMATCH DETECTION ────────────
+# ─── v4.0.3 (Phase 1.5 / Fix F): PORT MISMATCH DETECTION ────────────
 
 def detect_port_mismatch():
     """Check whether the local inference engine is on a port with no
@@ -3404,7 +3649,7 @@ def apply_port_mismatch_remedy():
     return dict(state)
 
 
-def send_heartbeat(final=False, status=None):
+def send_heartbeat(final=False, status=None):  # returns HTTP status code or None on transport error
     """Send heartbeat with GPU metrics to backend and P2P network.
 
     Kwargs (v3.5.0):
@@ -3485,7 +3730,7 @@ def send_heartbeat(final=False, status=None):
         }
         payload["draining"] = is_draining()
         # v3.5.0: Model auto-detection across all inference engines.
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix C): cached_models now contains the
+        # v4.0.3 (Phase 1.5 / Fix C): cached_models now contains the
         # dual-identity alias expansion (Ollama tag + HF canonical + vLLM
         # variants). The pre-expansion list is also surfaced as
         # cached_models_raw for backward-compat / debugging.
@@ -3508,14 +3753,14 @@ def send_heartbeat(final=False, status=None):
                 payload["probed_concurrency"] = capacity.get("probed_concurrency")
                 payload["concurrency_probed_at"] = capacity.get("concurrency_probed_at")
                 payload["concurrency_probe_method"] = capacity.get("concurrency_probe_method")
-                # v4.0.0-alpha.2 (Phase 1.5 / Fix B): bandwidth drift signal
+                # v4.0.3 (Phase 1.5 / Fix B): bandwidth drift signal
                 payload["single_user_tps"] = capacity.get("single_user_tps")
                 payload["predicted_peak_tok_s"] = capacity.get("predicted_peak_tok_s")
                 payload["performance_ratio"] = capacity.get("performance_ratio")
         except Exception as _cap_err:
             log.debug(f"estimate_concurrency_capacity failed: {_cap_err}")
         # v4.0.0-alpha: per-model architecture classification.
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix C): use the raw (pre-expansion) list
+        # v4.0.3 (Phase 1.5 / Fix C): use the raw (pre-expansion) list
         # so we do not emit duplicate arch entries for each alias of the same
         # underlying model.
         try:
@@ -3564,18 +3809,18 @@ def send_heartbeat(final=False, status=None):
         except Exception as _off_err:
             log.debug(f"get_cpu_offload_state failed: {_off_err}")
             payload["cpu_offload_detected"] = False
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix G): daemon code hash for version-skew
+        # v4.0.3 (Phase 1.5 / Fix G): daemon code hash for version-skew
         payload["code_hash"] = _CODE_HASH
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix D): RunPod pod hourly cost (cached)
+        # v4.0.3 (Phase 1.5 / Fix D): RunPod pod hourly cost (cached)
         payload["pod_hourly_cost_usd"] = _POD_HOURLY_COST_USD
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix E): account runway hours (best-effort,
+        # v4.0.3 (Phase 1.5 / Fix E): account runway hours (best-effort,
         # rate-limited internally; None if the key is pod-scoped)
         try:
             payload["account_runway_hours"] = detect_account_runway_hours()
         except Exception as _rw_err:
             log.debug(f"detect_account_runway_hours failed: {_rw_err}")
             payload["account_runway_hours"] = None
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix F): port-mismatch state
+        # v4.0.3 (Phase 1.5 / Fix F): port-mismatch state
         try:
             with _port_mismatch_lock:
                 pm_state = dict(_PORT_MISMATCH_STATE)
@@ -3635,9 +3880,11 @@ def send_heartbeat(final=False, status=None):
             log.warning(f"Heartbeat HTTP {code}: {resp}")
     except Exception as e:
         log.error(f"Heartbeat failed: {e}")
+        code = None
 
     # Emit P2P heartbeat (non-blocking)
     emit_p2p_heartbeat(peer_id, gpu, gpu_status)
+    return code
 
 def heartbeat_loop():
     """Background thread: send heartbeat every HEARTBEAT_INTERVAL seconds.
@@ -3645,8 +3892,15 @@ def heartbeat_loop():
     v4.0.0-alpha: Also runs verify_no_cpu_offload() on every heartbeat tick
     (matches the spec's 60s cadence closely given HEARTBEAT_INTERVAL=30s,
     so we gate to once per ~60s via a local timestamp).
+
+    Sleep strategy:
+      - Jitter ±HEARTBEAT_JITTER_PCT to avoid fleet-wide thundering herd
+        after backend restarts.
+      - On non-2xx / transport error: exponential backoff, capped at
+        HEARTBEAT_MAX_BACKOFF. Reset to baseline on first 2xx.
     """
     last_offload_probe = 0.0
+    consecutive_failures = 0
     while True:
         try:
             now = time.time()
@@ -3658,8 +3912,26 @@ def heartbeat_loop():
                 last_offload_probe = now
         except Exception as _probe_err:
             log.debug(f"heartbeat offload-probe wrapper error: {_probe_err}")
-        send_heartbeat()
-        time.sleep(HEARTBEAT_INTERVAL)
+
+        code = send_heartbeat()
+
+        if code is not None and 200 <= code < 300:
+            consecutive_failures = 0
+            base_sleep = float(HEARTBEAT_INTERVAL)
+        else:
+            consecutive_failures += 1
+            backoff_steps = min(consecutive_failures, 8)  # cap the exponent
+            base_sleep = min(
+                float(HEARTBEAT_MAX_BACKOFF),
+                HEARTBEAT_INTERVAL * (HEARTBEAT_BACKOFF_BASE ** backoff_steps),
+            )
+            log.warning(
+                f"[hb] non-OK code={code} failures={consecutive_failures} "
+                f"backing off {base_sleep:.0f}s"
+            )
+
+        jitter = base_sleep * HEARTBEAT_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(1.0, base_sleep + jitter))
 
 # ─── MACHINE VERIFICATION ───────────────────────────────────────────────────
 
@@ -4620,6 +4892,51 @@ def execute_job(job):
         with _job_lock:
             _current_job_id = None
 
+# ── Per-endpoint circuit breaker for the job-poll cascade ──
+# After N consecutive failures, skip that endpoint for OPEN_SECONDS so we
+# don't pay three timeouts per poll cycle when one endpoint is down.
+_endpoint_breakers = {}
+_endpoint_breakers_lock = threading.Lock()
+_CIRCUIT_FAIL_THRESHOLD = 5
+_CIRCUIT_OPEN_SECONDS = 60
+
+# Auth-failure reporting (401/403). These are NOT endpoint-health failures —
+# retrying won't fix a rejected credential — so they bypass the breaker. But
+# they ARE a high-severity signal: if the backend stops accepting our key, we
+# go silent (no jobs) and nobody notices. Report via report_event, throttled
+# to once per endpoint per REPORT_INTERVAL to avoid log spam on a sustained
+# outage.
+_auth_failure_last_report = {}
+_auth_failure_lock = threading.Lock()
+_AUTH_FAILURE_REPORT_INTERVAL = 300  # seconds
+
+
+def _circuit_ok(name):
+    with _endpoint_breakers_lock:
+        b = _endpoint_breakers.get(name)
+        if not b:
+            return True
+        return b["open_until"] <= time.time()
+
+
+def _circuit_record(name, ok):
+    with _endpoint_breakers_lock:
+        b = _endpoint_breakers.setdefault(name, {"fails": 0, "open_until": 0.0})
+        if ok:
+            if b["fails"] > 0:
+                log.info(f"[circuit] {name} recovered after {b['fails']} failures")
+            b["fails"] = 0
+            b["open_until"] = 0.0
+        else:
+            b["fails"] += 1
+            if b["fails"] >= _CIRCUIT_FAIL_THRESHOLD and b["open_until"] <= time.time():
+                b["open_until"] = time.time() + _CIRCUIT_OPEN_SECONDS
+                log.warning(
+                    f"[circuit] {name} opened for {_CIRCUIT_OPEN_SECONDS}s "
+                    f"after {b['fails']} consecutive failures"
+                )
+
+
 def poll_and_execute():
     """Poll for assigned jobs and execute them."""
     # Skip polling if draining (finishing current jobs, no new ones)
@@ -4639,18 +4956,22 @@ def poll_and_execute():
     # as a last-resort fallback for older backend deployments that still parse
     # the key from the URL path; we send the Bearer header on that request too
     # so newer backends ignore the path-baked credential.
-    urls = [
-        f"{API_URL}/api/providers/jobs/next",
-        f"{API_URL}/api/providers/{API_KEY}/jobs",
-        f"{API_URL}/api/jobs/assigned",
+    endpoints = [
+        ("jobs_next",   f"{API_URL}/api/providers/jobs/next"),
+        ("jobs_legacy", f"{API_URL}/api/providers/{API_KEY}/jobs"),
+        ("jobs_assigned", f"{API_URL}/api/jobs/assigned"),
     ]
 
     job = None
     admission_feedback = None
-    for url in urls:
+    for name, url in endpoints:
+        if not _circuit_ok(name):
+            log.debug(f"[circuit] skipping {name} (breaker open)")
+            continue
         try:
             code, resp = http_get(url, headers=_auth_headers())
             if code == 200:
+                _circuit_record(name, True)
                 if isinstance(resp, dict):
                     admission_feedback = resp.get("admission") if isinstance(resp.get("admission"), dict) else admission_feedback
                     job = resp.get("job")
@@ -4658,8 +4979,42 @@ def poll_and_execute():
                     job = None
                 if job:
                     break
+            elif code in (401, 403):
+                # Auth failure: the breaker can't fix this — retrying with the
+                # same rejected credential won't help. Bypass the breaker
+                # entirely (neither success nor failure) and surface upstream
+                # via a throttled report_event so the backend can alert.
+                now_ts = time.time()
+                with _auth_failure_lock:
+                    last = _auth_failure_last_report.get(name, 0.0)
+                    should_report = (now_ts - last) >= _AUTH_FAILURE_REPORT_INTERVAL
+                    if should_report:
+                        _auth_failure_last_report[name] = now_ts
+                log.warning(
+                    f"[auth] Job-poll {name} returned {code} — credential rejected by backend"
+                )
+                if should_report:
+                    try:
+                        report_event(
+                            "auth_failure",
+                            f"Job-poll endpoint {name} returned HTTP {code}; credential rejected",
+                            severity="error",
+                        )
+                    except Exception:
+                        pass
+            else:
+                # Other 4xx/5xx: treat as breaker failure (but 404 on a legacy
+                # endpoint on a new backend is the norm, so we only count
+                # 5xx + 429 + 408)
+                if code in (408, 429) or (code is not None and 500 <= code < 600):
+                    _circuit_record(name, False)
+                else:
+                    _circuit_record(name, True)
         except Exception as e:
-            log.debug(f"Job poll failed on {url}: {e}")
+            # Log by endpoint name, not url — the jobs_legacy URL contains
+            # the API_KEY in the path.
+            log.debug(f"Job poll failed on {name}: {e}")
+            _circuit_record(name, False)
             continue
 
     if not job:
@@ -4846,7 +5201,15 @@ def poll_and_execute():
     thread.start()
 
 def job_poll_loop():
-    """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds."""
+    """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds.
+
+    Sleep is jittered ±JOB_POLL_JITTER_PCT to avoid synchronized
+    poll storms across the fleet.
+    """
+    def _sleep():
+        jitter = JOB_POLL_INTERVAL * JOB_POLL_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(1.0, JOB_POLL_INTERVAL + jitter))
+
     while True:
         if is_shutdown_requested():
             log.info("Shutdown requested — stopping job poll loop")
@@ -4854,12 +5217,12 @@ def job_poll_loop():
         # v3.5.0: Feature 4 — skip job polling while draining so no new work
         # is picked up between SIGTERM and final shutdown.
         if is_draining():
-            time.sleep(JOB_POLL_INTERVAL)
+            _sleep()
             continue
         poll_and_execute()
         # Also check for verification challenges every cycle
         check_pending_verification()
-        time.sleep(JOB_POLL_INTERVAL)
+        _sleep()
 
 # ─── AUTO VERIFICATION ON STARTUP ───────────────────────────────────────────
 
@@ -5070,7 +5433,7 @@ def main():
         log.debug(f"startup detect_served_models failed: {_srv_err}")
         served_info = {"models": [], "engines": []}
 
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix C): iterate the raw (pre-expansion) list
+    # v4.0.3 (Phase 1.5 / Fix C): iterate the raw (pre-expansion) list
     # so we do not run architecture/geometry lookups once per alias.
     served_ids = served_info.get("models_raw") if isinstance(served_info, dict) else None
     if not served_ids:
@@ -5099,7 +5462,7 @@ def main():
                 # Heuristic: ~0.6 GB per active B for int4 dense models.
                 model_size_gb = max(1.0, arch.get("active_params_b", 0.0) * 0.6)
 
-            # v4.0.0-alpha.2 (Phase 1.5 / Fix A): introspect the engine's ACTUAL
+            # v4.0.3 (Phase 1.5 / Fix A): introspect the engine's ACTUAL
             # KV cache dtype. The previous code hard-coded 4 bits when TurboQuant
             # was off, which overestimated safe context by ~4x on every fp16
             # provider (the real Ollama/vLLM default).
@@ -5161,7 +5524,7 @@ def main():
     except Exception as _probe_err:
         log.debug(f"[v4] initial concurrency probe failed: {_probe_err}")
 
-    # Step 4d: v4.0.0-alpha.2 (Phase 1.5 / Fix D) — resolve RunPod pod hourly
+    # Step 4d: v4.0.3 (Phase 1.5 / Fix D) — resolve RunPod pod hourly
     # cost once. Cached for the lifetime of the process.
     global _POD_HOURLY_COST_USD
     try:
@@ -5175,7 +5538,7 @@ def main():
     except Exception as _cost_err:
         log.debug(f"[v4] pod hourly cost detection failed: {_cost_err}")
 
-    # Step 4e: v4.0.0-alpha.2 (Phase 1.5 / Fix F) — port mismatch auto-remedy.
+    # Step 4e: v4.0.3 (Phase 1.5 / Fix F) — port mismatch auto-remedy.
     # If vLLM is on :8000 but only :11434 is publicly mapped (the A5000 case),
     # auto-install socat and forward. If unfixable, log loudly.
     try:
@@ -5244,6 +5607,40 @@ def main():
         target=_concurrency_reprobe_loop, daemon=True, name="DC1-ConcurrencyReprobe"
     )
     cr_thread.start()
+
+    # Thread supervisor: observe-only. If a worker thread dies from an
+    # uncaught exception, daemon=True makes it silent. Supervisor logs +
+    # reports the death so the backend can surface it. No auto-restart —
+    # restart policy is a design decision left to the watchdog process.
+    _supervised_threads = [
+        hb_thread, job_thread, update_thread, bw_thread,
+        nq_thread, ew_thread, puc_thread, cr_thread,
+    ]
+
+    def _thread_supervisor():
+        seen_dead = set()
+        while True:
+            try:
+                for t in _supervised_threads:
+                    if not t.is_alive() and t.name not in seen_dead:
+                        seen_dead.add(t.name)
+                        log.error(f"[supervisor] thread {t.name} has died")
+                        try:
+                            report_event(
+                                "thread_died",
+                                f"Background thread {t.name} terminated unexpectedly",
+                                severity="error",
+                            )
+                        except Exception:
+                            pass
+            except Exception as e:
+                log.debug(f"[supervisor] check error: {e}")
+            time.sleep(30)
+
+    sup_thread = threading.Thread(
+        target=_thread_supervisor, daemon=True, name="DC1-Supervisor"
+    )
+    sup_thread.start()
 
     # Step 8: Initialize multi-GPU job slots
     log.info("Initializing GPU job slots...")
