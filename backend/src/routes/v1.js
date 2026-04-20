@@ -1324,6 +1324,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
       const routedModelId = assignedProviderProxyModel.proxyModelId;
 
+      const proxyStartedAt = new Date().toISOString();
       const proxyResult = await proxyToProvider({
         endpointUrl: assignedProvider.vllm_endpoint_url,
         modelId: routedModelId,
@@ -1384,8 +1385,8 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
               ?, ?, ?,
               'v1:proxy:chat/completions', ?, ?, 8)`
           ).run(
-            proxyJobId, providerForUsage?.id, req.renter.id, modelReq.model_id, proxyNow,
-            proxyNow, proxyNow, proxyCostHalala, proxyCostHalala, proxyProviderEarned,
+            proxyJobId, providerForUsage?.id, req.renter.id, modelReq.model_id, proxyStartedAt,
+            proxyStartedAt, proxyNow, proxyCostHalala, proxyCostHalala, proxyProviderEarned,
             proxyPromptTokens, proxyCompletionTokens, proxyResultJson,
             proxyNow, proxyNow
           );
@@ -1394,9 +1395,10 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             db.prepare(
               `UPDATE providers SET total_jobs = total_jobs + 1,
                 total_earnings = total_earnings + ?,
+                total_earnings_halala = COALESCE(total_earnings_halala, 0) + ?,
                 claimable_earnings_halala = claimable_earnings_halala + ?
                WHERE id = ?`
-            ).run(proxyProviderEarned / 100, proxyProviderEarned, providerForUsage.id);
+            ).run(proxyProviderEarned / 100, proxyProviderEarned, proxyProviderEarned, providerForUsage.id);
           }
           // Update renter totals
           if (req.renter?.id) {
