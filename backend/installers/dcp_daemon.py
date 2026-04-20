@@ -1325,6 +1325,21 @@ def perform_update(new_version, preferred_download_url=None):
             raise
         log.info(f"Updated daemon file to v{new_version} (atomic write)")
 
+        # Prune old backups: keep the 2 most recent .bak files. The watchdog's
+        # auto-rollback only uses the newest one (within 90s of restart), but
+        # keeping one extra as a safety margin costs a few MB. Older backups
+        # are no longer actionable and just accumulate on long-lived providers.
+        try:
+            all_backups = _find_backup_files(current_path)
+            for stale in all_backups[2:]:
+                try:
+                    stale.unlink()
+                    log.debug(f"Pruned stale backup: {stale.name}")
+                except OSError as _prune_err:
+                    log.debug(f"Could not prune {stale.name}: {_prune_err}")
+        except Exception as _prune_wrap:
+            log.debug(f"Backup prune wrapper error: {_prune_wrap}")
+
         report_event("update_success", f"Updated {DAEMON_VERSION} → {new_version}")
 
         # Signal the watchdog to restart us
@@ -4885,6 +4900,16 @@ _endpoint_breakers_lock = threading.Lock()
 _CIRCUIT_FAIL_THRESHOLD = 5
 _CIRCUIT_OPEN_SECONDS = 60
 
+# Auth-failure reporting (401/403). These are NOT endpoint-health failures —
+# retrying won't fix a rejected credential — so they bypass the breaker. But
+# they ARE a high-severity signal: if the backend stops accepting our key, we
+# go silent (no jobs) and nobody notices. Report via report_event, throttled
+# to once per endpoint per REPORT_INTERVAL to avoid log spam on a sustained
+# outage.
+_auth_failure_last_report = {}
+_auth_failure_lock = threading.Lock()
+_AUTH_FAILURE_REPORT_INTERVAL = 300  # seconds
+
 
 def _circuit_ok(name):
     with _endpoint_breakers_lock:
@@ -4954,15 +4979,41 @@ def poll_and_execute():
                     job = None
                 if job:
                     break
+            elif code in (401, 403):
+                # Auth failure: the breaker can't fix this — retrying with the
+                # same rejected credential won't help. Bypass the breaker
+                # entirely (neither success nor failure) and surface upstream
+                # via a throttled report_event so the backend can alert.
+                now_ts = time.time()
+                with _auth_failure_lock:
+                    last = _auth_failure_last_report.get(name, 0.0)
+                    should_report = (now_ts - last) >= _AUTH_FAILURE_REPORT_INTERVAL
+                    if should_report:
+                        _auth_failure_last_report[name] = now_ts
+                log.warning(
+                    f"[auth] Job-poll {name} returned {code} — credential rejected by backend"
+                )
+                if should_report:
+                    try:
+                        report_event(
+                            "auth_failure",
+                            f"Job-poll endpoint {name} returned HTTP {code}; credential rejected",
+                            severity="error",
+                        )
+                    except Exception:
+                        pass
             else:
-                # 4xx/5xx: treat as breaker failure (but 404 on a legacy endpoint
-                # on a new backend is the norm, so we only count 5xx + 429 + 408)
+                # Other 4xx/5xx: treat as breaker failure (but 404 on a legacy
+                # endpoint on a new backend is the norm, so we only count
+                # 5xx + 429 + 408)
                 if code in (408, 429) or (code is not None and 500 <= code < 600):
                     _circuit_record(name, False)
                 else:
                     _circuit_record(name, True)
         except Exception as e:
-            log.debug(f"Job poll failed on {url}: {e}")
+            # Log by endpoint name, not url — the jobs_legacy URL contains
+            # the API_KEY in the path.
+            log.debug(f"Job poll failed on {name}: {e}")
             _circuit_record(name, False)
             continue
 
