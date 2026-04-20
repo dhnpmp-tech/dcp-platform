@@ -45,6 +45,7 @@ import sys
 import time
 import json
 import hmac
+import random
 import hashlib
 import logging
 import platform
@@ -67,7 +68,12 @@ API_URL = "{{API_URL}}"
 HMAC_SECRET = "{{HMAC_SECRET}}"
 
 HEARTBEAT_INTERVAL = 30   # seconds
+HEARTBEAT_JITTER_PCT = 0.15          # ±15% jitter to avoid thundering herd
+HEARTBEAT_MAX_BACKOFF = 300          # cap exponential backoff at 5 min
+HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
+JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
+UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
 DAEMON_VERSION = "4.0.3"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
@@ -3565,7 +3571,7 @@ def apply_port_mismatch_remedy():
     return dict(state)
 
 
-def send_heartbeat(final=False, status=None):
+def send_heartbeat(final=False, status=None):  # returns HTTP status code or None on transport error
     """Send heartbeat with GPU metrics to backend and P2P network.
 
     Kwargs (v3.5.0):
@@ -3796,9 +3802,11 @@ def send_heartbeat(final=False, status=None):
             log.warning(f"Heartbeat HTTP {code}: {resp}")
     except Exception as e:
         log.error(f"Heartbeat failed: {e}")
+        code = None
 
     # Emit P2P heartbeat (non-blocking)
     emit_p2p_heartbeat(peer_id, gpu, gpu_status)
+    return code
 
 def heartbeat_loop():
     """Background thread: send heartbeat every HEARTBEAT_INTERVAL seconds.
@@ -3806,8 +3814,15 @@ def heartbeat_loop():
     v4.0.0-alpha: Also runs verify_no_cpu_offload() on every heartbeat tick
     (matches the spec's 60s cadence closely given HEARTBEAT_INTERVAL=30s,
     so we gate to once per ~60s via a local timestamp).
+
+    Sleep strategy:
+      - Jitter ±HEARTBEAT_JITTER_PCT to avoid fleet-wide thundering herd
+        after backend restarts.
+      - On non-2xx / transport error: exponential backoff, capped at
+        HEARTBEAT_MAX_BACKOFF. Reset to baseline on first 2xx.
     """
     last_offload_probe = 0.0
+    consecutive_failures = 0
     while True:
         try:
             now = time.time()
@@ -3819,8 +3834,26 @@ def heartbeat_loop():
                 last_offload_probe = now
         except Exception as _probe_err:
             log.debug(f"heartbeat offload-probe wrapper error: {_probe_err}")
-        send_heartbeat()
-        time.sleep(HEARTBEAT_INTERVAL)
+
+        code = send_heartbeat()
+
+        if code is not None and 200 <= code < 300:
+            consecutive_failures = 0
+            base_sleep = float(HEARTBEAT_INTERVAL)
+        else:
+            consecutive_failures += 1
+            backoff_steps = min(consecutive_failures, 8)  # cap the exponent
+            base_sleep = min(
+                float(HEARTBEAT_MAX_BACKOFF),
+                HEARTBEAT_INTERVAL * (HEARTBEAT_BACKOFF_BASE ** backoff_steps),
+            )
+            log.warning(
+                f"[hb] non-OK code={code} failures={consecutive_failures} "
+                f"backing off {base_sleep:.0f}s"
+            )
+
+        jitter = base_sleep * HEARTBEAT_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(1.0, base_sleep + jitter))
 
 # ─── MACHINE VERIFICATION ───────────────────────────────────────────────────
 
