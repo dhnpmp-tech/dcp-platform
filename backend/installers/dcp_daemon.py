@@ -2291,6 +2291,64 @@ GPU_MEMORY_BANDWIDTH_GBPS = {
     "NVIDIA L40S":                 864,
 }
 
+# ─── v4.1.0 (Task A7): APPLE SILICON UNIFIED-MEMORY BANDWIDTH TABLE ─────────
+#
+# Apple Silicon chips expose their unified memory to the GPU (via Metal / MLX
+# / llama.cpp Metal backend), so the same memory-bandwidth-bound decode
+# ceiling that governs CUDA GPUs applies to M-series Macs:
+#     peak tok/s ~= chip_bandwidth_GBps / model_size_gb
+#
+# Values below are the published per-chip unified-memory bandwidth peaks.
+# Sources: Apple tech briefs (M1/M2/M3/M4 product pages), AnandTech teardowns.
+# Practical sustained throughput on llama.cpp Metal is typically 60-80% of
+# these peaks (the rest is lost to cache misses, kernel launch overhead,
+# and CPU-side tokenization/sampling).
+#
+# Keys match the suffix produced by `sysctl -n machdep.cpu.brand_string`
+# on macOS (e.g. "Apple M2 Ultra"). More-specific variants must come before
+# less-specific ones in the matcher below — "M2 Ultra" must win over "M2".
+APPLE_SILICON_BANDWIDTH_GBPS = {
+    # M1 family (2020-2022)
+    "Apple M1 Ultra": 800,
+    "Apple M1 Max":   400,
+    "Apple M1 Pro":   200,
+    "Apple M1":        68,   # 68.25 GB/s rounded down
+    # M2 family (2022-2023)
+    "Apple M2 Ultra": 800,
+    "Apple M2 Max":   400,
+    "Apple M2 Pro":   200,
+    "Apple M2":       100,
+    # M3 family (2023-2025)
+    "Apple M3 Ultra": 800,   # Mac Studio 2025
+    "Apple M3 Max":   400,   # high-bin 16/40-core variant
+    "Apple M3 Pro":   150,
+    "Apple M3":       100,
+    # M4 family (2024-)
+    "Apple M4 Max":   546,
+    "Apple M4 Pro":   273,
+    "Apple M4":       120,
+}
+
+
+def _apple_silicon_bandwidth(gpu_name):
+    """Look up unified-memory bandwidth for an Apple Silicon gpu_name string.
+
+    Apple Silicon gpu_name is reported as ``Apple Silicon (Apple M2 Ultra)``
+    where the inner chip label comes from ``sysctl machdep.cpu.brand_string``.
+    We match the longest chip label first so "M2 Ultra" wins over "M2".
+
+    Returns:
+        int (GB/s) on match, else None.
+    """
+    if not gpu_name:
+        return None
+    # Match longest keys first so "Apple M1 Ultra" beats "Apple M1".
+    # Pre-sorted descending by length for deterministic dispatch.
+    for chip in sorted(APPLE_SILICON_BANDWIDTH_GBPS.keys(), key=len, reverse=True):
+        if chip in gpu_name:
+            return APPLE_SILICON_BANDWIDTH_GBPS[chip]
+    return None
+
 
 def predicted_peak_tok_s(gpu_name, model_size_gb):
     """Compute the memory-bandwidth-bound decode throughput ceiling.
@@ -2318,7 +2376,12 @@ def predicted_peak_tok_s(gpu_name, model_size_gb):
         return None
     bw = GPU_MEMORY_BANDWIDTH_GBPS.get(gpu_name)
     if not bw:
-        return None
+        # v4.1.0 (Task A7): fall through to Apple Silicon unified-memory table
+        # so M-series Macs get a real bandwidth-bound tok/s prediction instead
+        # of returning None (which would silently disable drift detection).
+        bw = _apple_silicon_bandwidth(gpu_name)
+        if not bw:
+            return None
     return float(bw) / size
 
 
