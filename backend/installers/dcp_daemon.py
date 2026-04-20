@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DCP Provider Daemon v4.0.0-alpha.2 — GPU Compute Marketplace
+DCP Provider Daemon v4.0.1 — GPU Compute Marketplace
 Runs as a background service on provider machines.
 
 Features:
@@ -25,7 +25,7 @@ Features:
   - v3.5.0: Concurrency capacity estimation based on engine type (reported in heartbeat)
   - v3.5.0: Graceful drain on SIGTERM/SIGINT with final draining-status heartbeat
   - v3.5.0: Passive daemon-version update check (logs when newer version is available)
-  - v4.0.0-alpha.2 (Phase 1.5): Seven targeted Round-4 fixes:
+  - v4.0.1 (Phase 1.5): Seven targeted Round-4 fixes:
       A. Engine KV-cache-dtype introspection (fixes safe-context 4x overestimate)
       B. Memory-bandwidth performance prediction + drift detection
       C. Dual-identity cached_models (Ollama tag + HF canonical + vLLM variants)
@@ -68,7 +68,7 @@ HMAC_SECRET = "{{HMAC_SECRET}}"
 
 HEARTBEAT_INTERVAL = 30   # seconds
 JOB_POLL_INTERVAL = 10    # seconds
-DAEMON_VERSION = "4.0.0-alpha.2"
+DAEMON_VERSION = "4.0.3"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -167,7 +167,7 @@ _effective_context_lock = threading.Lock()
 _cpu_offload_state = {"detected": False, "last_check": None, "details": ""}
 _cpu_offload_lock = threading.Lock()
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix G): DAEMON CODE HASH ───────────────────
+# ─── v4.0.1 (Phase 1.5 / Fix G): DAEMON CODE HASH ───────────────────
 # A sha256 prefix of this file's bytes lets the backend detect silent code
 # drift across the fleet even when DAEMON_VERSION is identical. Computed once
 # at import time; constant for the lifetime of the process.
@@ -186,7 +186,7 @@ def _compute_code_hash():
 
 _CODE_HASH = _compute_code_hash()
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix D+E): RUNPOD COST CACHES ───────────────
+# ─── v4.0.1 (Phase 1.5 / Fix D+E): RUNPOD COST CACHES ───────────────
 # Hourly cost does not change during a pod's lifetime, so we resolve it once
 # on startup and reuse. Account runway requires an account-scoped key and is
 # rate-limited to once per 10 minutes.
@@ -196,7 +196,7 @@ _ACCOUNT_RUNWAY_LAST_CHECK = 0.0
 _ACCOUNT_RUNWAY_INTERVAL_S = 600  # 10 minutes
 _runpod_cache_lock = threading.Lock()
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix F): PORT MISMATCH STATE ────────────────
+# ─── v4.0.1 (Phase 1.5 / Fix F): PORT MISMATCH STATE ────────────────
 _PORT_MISMATCH_STATE = {
     "mismatch": False,
     "engine_port": None,
@@ -1066,6 +1066,62 @@ def get_gpu_info():
         return {"gpu_name": None, "vram_mb": None, "driver_version": None,
                 "cuda_version": None, "raw": raw or "nvidia-smi produced no output"}
     except FileNotFoundError:
+        # No nvidia-smi — check if this is Apple Silicon with unified memory
+        import platform
+        if platform.system() == "Darwin":
+            try:
+                import subprocess as _sp
+                arch = _sp.run(["uname", "-m"], capture_output=True, text=True, timeout=3).stdout.strip()
+                if arch == "arm64":
+                    mem_bytes = int(_sp.run(["sysctl", "-n", "hw.memsize"],
+                                            capture_output=True, text=True, timeout=3).stdout.strip())
+                    mem_mb = mem_bytes // (1024 * 1024)
+                    chip = _sp.run(["sysctl", "-n", "machdep.cpu.brand_string"],
+                                   capture_output=True, text=True, timeout=3).stdout.strip()
+                    return {"gpu_name": f"Apple Silicon ({chip})", "vram_mb": mem_mb,
+                            "driver_version": "Metal/MLX", "cuda_version": None,
+                            "is_apple_silicon": True}
+            except Exception:
+                pass
+        # Windows: try WMI as fallback when nvidia-smi is not in PATH
+        if platform.system() == "Windows":
+            try:
+                wmi_result = subprocess.run(
+                    ["powershell", "-Command",
+                     "Get-WmiObject Win32_VideoController | Where-Object {$_.Name -like '*NVIDIA*'} | Select-Object Name, AdapterRAM | Format-List"],
+                    capture_output=True, text=True, timeout=10
+                )
+                wmi_out = wmi_result.stdout.strip()
+                if "NVIDIA" in wmi_out:
+                    gpu_name = ""
+                    vram_bytes = 0
+                    for line in wmi_out.splitlines():
+                        line = line.strip()
+                        if line.startswith("Name"):
+                            gpu_name = line.split(":", 1)[-1].strip()
+                        elif line.startswith("AdapterRAM"):
+                            try:
+                                vram_bytes = int(line.split(":", 1)[-1].strip())
+                            except ValueError:
+                                pass
+                    if gpu_name:
+                        vram_mb = vram_bytes // (1024 * 1024)
+                        # WMI caps AdapterRAM at 4GB for some GPUs, check known models
+                        if vram_mb <= 4096 and "3060" in gpu_name:
+                            vram_mb = 8192  # RTX 3060 Ti = 8GB
+                        elif vram_mb <= 4096 and "3070" in gpu_name:
+                            vram_mb = 8192
+                        elif vram_mb <= 4096 and "3080" in gpu_name:
+                            vram_mb = 10240
+                        elif vram_mb <= 4096 and "3090" in gpu_name:
+                            vram_mb = 24576
+                        elif vram_mb <= 4096 and "4090" in gpu_name:
+                            vram_mb = 24576
+                        log.info(f"GPU detected via WMI fallback: {gpu_name} ({vram_mb} MiB)")
+                        return {"gpu_name": gpu_name, "vram_mb": vram_mb,
+                                "driver_version": "WMI-detected", "cuda_version": None}
+            except Exception as e2:
+                log.warning(f"WMI GPU detection failed: {e2}")
         return {"gpu_name": "CPU only", "vram_mb": 0, "driver_version": None,
                 "cuda_version": None}
     except Exception as e:
@@ -1245,6 +1301,77 @@ def detect_gpu():
         primary["all_gpus"] = all_gpus
         return primary
     except FileNotFoundError:
+        # No nvidia-smi — check for Apple Silicon
+        import platform
+        if platform.system() == "Darwin":
+            try:
+                arch = subprocess.run(["uname", "-m"], capture_output=True, text=True, timeout=3).stdout.strip()
+                if arch == "arm64":
+                    mem_bytes = int(subprocess.run(["sysctl", "-n", "hw.memsize"],
+                                                    capture_output=True, text=True, timeout=3).stdout.strip())
+                    mem_mib = mem_bytes // (1024 * 1024)
+                    chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"],
+                                           capture_output=True, text=True, timeout=3).stdout.strip()
+                    gpu = {
+                        "index": 0,
+                        "gpu_name": f"Apple Silicon ({chip})",
+                        "gpu_vram_mib": mem_mib,
+                        "free_vram_mib": mem_mib,  # Unified memory, dynamically allocated
+                        "memory_used_mb": 0,
+                        "gpu_util_pct": 0,
+                        "temp_c": 0,
+                        "power_w": None,
+                        "driver_version": "Metal/MLX",
+                        "compute_capability": "Apple Neural Engine",
+                        "cuda_version": None,
+                        "is_apple_silicon": True,
+                        "all_gpus": [],
+                    }
+                    gpu["all_gpus"] = [gpu.copy()]
+                    del gpu["all_gpus"][0]["all_gpus"]
+                    log.info(f"Apple Silicon detected: {chip} with {mem_mib} MiB unified memory")
+                    return gpu
+            except Exception as e2:
+                log.warning(f"Apple Silicon detection failed: {e2}")
+        # Windows: WMI fallback for detect_gpu
+        if platform.system() == "Windows":
+            try:
+                wmi_result = subprocess.run(
+                    ["powershell", "-Command",
+                     "Get-WmiObject Win32_VideoController | Where-Object {$_.Name -like '*NVIDIA*'} | Select-Object Name, AdapterRAM | Format-List"],
+                    capture_output=True, text=True, timeout=10
+                )
+                wmi_out = wmi_result.stdout.strip()
+                if "NVIDIA" in wmi_out:
+                    gpu_name = ""
+                    vram_bytes = 0
+                    for line in wmi_out.splitlines():
+                        line = line.strip()
+                        if line.startswith("Name"):
+                            gpu_name = line.split(":", 1)[-1].strip()
+                        elif line.startswith("AdapterRAM"):
+                            try: vram_bytes = int(line.split(":", 1)[-1].strip())
+                            except: pass
+                    if gpu_name:
+                        vram_mib = vram_bytes // (1024 * 1024)
+                        if vram_mib <= 4096 and "3060" in gpu_name: vram_mib = 8192
+                        elif vram_mib <= 4096 and "3070" in gpu_name: vram_mib = 8192
+                        elif vram_mib <= 4096 and "3080" in gpu_name: vram_mib = 10240
+                        elif vram_mib <= 4096 and "3090" in gpu_name: vram_mib = 24576
+                        elif vram_mib <= 4096 and "4090" in gpu_name: vram_mib = 24576
+                        log.info(f"GPU detected via WMI in detect_gpu: {gpu_name} ({vram_mib} MiB)")
+                        gpu = {
+                            "index": 0, "gpu_name": gpu_name, "gpu_vram_mib": vram_mib,
+                            "free_vram_mib": vram_mib, "memory_used_mb": 0,
+                            "gpu_util_pct": 0, "temp_c": 0, "power_w": None,
+                            "driver_version": "WMI-detected", "compute_capability": "unknown",
+                            "cuda_version": None, "all_gpus": [],
+                        }
+                        gpu["all_gpus"] = [gpu.copy()]
+                        del gpu["all_gpus"][0]["all_gpus"]
+                        return gpu
+            except Exception as e3:
+                log.warning(f"WMI detect_gpu failed: {e3}")
         log.warning("nvidia-smi not found — no NVIDIA GPU detected")
         return None
     except Exception as e:
@@ -1768,7 +1895,7 @@ def detect_served_models():
     except Exception:
         pass
 
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix C): dual-identity expansion.
+    # v4.0.1 (Phase 1.5 / Fix C): dual-identity expansion.
     # For every raw model id we detected, append ALL known aliases (Ollama tag,
     # HF canonical, vLLM variants). The backend no longer has to consult an
     # OLLAMA_MODEL_ALIASES lookup at candidate-selection time — the daemon now
@@ -2019,7 +2146,7 @@ MODEL_ARCH_TABLE = {
     "falcon-h1-7b":      {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0},
 }
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix B): GPU MEMORY BANDWIDTH TABLE ─────────
+# ─── v4.0.1 (Phase 1.5 / Fix B): GPU MEMORY BANDWIDTH TABLE ─────────
 #
 # Memory bandwidth (GB/s) for the GPUs DCP cares about. Decode-time autoregressive
 # inference is memory-bandwidth bound: every decoded token requires reading the
@@ -2078,7 +2205,7 @@ def predicted_peak_tok_s(gpu_name, model_size_gb):
     return float(bw) / size
 
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix C): DUAL-IDENTITY MODEL TABLE ──────────
+# ─── v4.0.1 (Phase 1.5 / Fix C): DUAL-IDENTITY MODEL TABLE ──────────
 #
 # Round 4 routing exposed that the backend had to consult OLLAMA_MODEL_ALIASES
 # at candidate-selection time because daemons reported `allam:7b` (Ollama tag)
@@ -2666,7 +2793,7 @@ def _pick_probe_target(detected):
         tuple or None: (engine, port, model_id) or None if nothing reachable.
     """
     engines = detected.get("engines", []) if isinstance(detected, dict) else []
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix C): use the RAW model list for the probe
+    # v4.0.1 (Phase 1.5 / Fix C): use the RAW model list for the probe
     # target id. Ollama's /api/generate needs the Ollama tag form (e.g.
     # "allam:7b"), not the HF canonical. The expanded cached_models list is
     # for backend routing; the probe speaks directly to the local engine.
@@ -2855,7 +2982,7 @@ def probe_concurrency_capacity(force_reprobe=None):
         "concurrency_probed_at": None,
         "probe_aggregate_tps": None,
         "model_id": first_model,
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix B): bandwidth-drift fields
+        # v4.0.1 (Phase 1.5 / Fix B): bandwidth-drift fields
         "single_user_tps": None,
         "predicted_peak_tok_s": None,
         "performance_ratio": None,
@@ -2875,7 +3002,7 @@ def probe_concurrency_capacity(force_reprobe=None):
                     "probe_aggregate_tps": cached.get("aggregate_tps"),
                     "concurrency_probe_method": "cached",
                     "concurrency_probed_at": cached.get("probed_at"),
-                    # v4.0.0-alpha.2 (Phase 1.5 / Fix B): preserve bandwidth fields
+                    # v4.0.1 (Phase 1.5 / Fix B): preserve bandwidth fields
                     "single_user_tps": cached.get("single_user_tps"),
                     "predicted_peak_tok_s": cached.get("predicted_peak_tok_s"),
                     "performance_ratio": cached.get("performance_ratio"),
@@ -2911,7 +3038,7 @@ def probe_concurrency_capacity(force_reprobe=None):
 
     probed_at = datetime.utcnow().isoformat() + "Z"
 
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix B): single-user throughput measurement
+    # v4.0.1 (Phase 1.5 / Fix B): single-user throughput measurement
     # for memory-bandwidth drift detection. We fire ONE extra probe request
     # at concurrency=1 to measure the decode tok/s a single user actually
     # sees, then compare against the bandwidth-predicted ceiling.
@@ -3090,7 +3217,7 @@ def passive_update_check_loop():
         time.sleep(300)  # Every 5 minutes
 
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix D+E): RUNPOD COST + RUNWAY SELF-REPORT ─
+# ─── v4.0.1 (Phase 1.5 / Fix D+E): RUNPOD COST + RUNWAY SELF-REPORT ─
 
 def detect_pod_hourly_cost_usd():
     """Query the RunPod GraphQL API for this pod's `costPerHr`.
@@ -3187,7 +3314,7 @@ def detect_account_runway_hours():
     return runway
 
 
-# ─── v4.0.0-alpha.2 (Phase 1.5 / Fix F): PORT MISMATCH DETECTION ────────────
+# ─── v4.0.1 (Phase 1.5 / Fix F): PORT MISMATCH DETECTION ────────────
 
 def detect_port_mismatch():
     """Check whether the local inference engine is on a port with no
@@ -3485,7 +3612,7 @@ def send_heartbeat(final=False, status=None):
         }
         payload["draining"] = is_draining()
         # v3.5.0: Model auto-detection across all inference engines.
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix C): cached_models now contains the
+        # v4.0.1 (Phase 1.5 / Fix C): cached_models now contains the
         # dual-identity alias expansion (Ollama tag + HF canonical + vLLM
         # variants). The pre-expansion list is also surfaced as
         # cached_models_raw for backward-compat / debugging.
@@ -3508,14 +3635,14 @@ def send_heartbeat(final=False, status=None):
                 payload["probed_concurrency"] = capacity.get("probed_concurrency")
                 payload["concurrency_probed_at"] = capacity.get("concurrency_probed_at")
                 payload["concurrency_probe_method"] = capacity.get("concurrency_probe_method")
-                # v4.0.0-alpha.2 (Phase 1.5 / Fix B): bandwidth drift signal
+                # v4.0.1 (Phase 1.5 / Fix B): bandwidth drift signal
                 payload["single_user_tps"] = capacity.get("single_user_tps")
                 payload["predicted_peak_tok_s"] = capacity.get("predicted_peak_tok_s")
                 payload["performance_ratio"] = capacity.get("performance_ratio")
         except Exception as _cap_err:
             log.debug(f"estimate_concurrency_capacity failed: {_cap_err}")
         # v4.0.0-alpha: per-model architecture classification.
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix C): use the raw (pre-expansion) list
+        # v4.0.1 (Phase 1.5 / Fix C): use the raw (pre-expansion) list
         # so we do not emit duplicate arch entries for each alias of the same
         # underlying model.
         try:
@@ -3564,18 +3691,18 @@ def send_heartbeat(final=False, status=None):
         except Exception as _off_err:
             log.debug(f"get_cpu_offload_state failed: {_off_err}")
             payload["cpu_offload_detected"] = False
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix G): daemon code hash for version-skew
+        # v4.0.1 (Phase 1.5 / Fix G): daemon code hash for version-skew
         payload["code_hash"] = _CODE_HASH
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix D): RunPod pod hourly cost (cached)
+        # v4.0.1 (Phase 1.5 / Fix D): RunPod pod hourly cost (cached)
         payload["pod_hourly_cost_usd"] = _POD_HOURLY_COST_USD
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix E): account runway hours (best-effort,
+        # v4.0.1 (Phase 1.5 / Fix E): account runway hours (best-effort,
         # rate-limited internally; None if the key is pod-scoped)
         try:
             payload["account_runway_hours"] = detect_account_runway_hours()
         except Exception as _rw_err:
             log.debug(f"detect_account_runway_hours failed: {_rw_err}")
             payload["account_runway_hours"] = None
-        # v4.0.0-alpha.2 (Phase 1.5 / Fix F): port-mismatch state
+        # v4.0.1 (Phase 1.5 / Fix F): port-mismatch state
         try:
             with _port_mismatch_lock:
                 pm_state = dict(_PORT_MISMATCH_STATE)
@@ -5070,7 +5197,7 @@ def main():
         log.debug(f"startup detect_served_models failed: {_srv_err}")
         served_info = {"models": [], "engines": []}
 
-    # v4.0.0-alpha.2 (Phase 1.5 / Fix C): iterate the raw (pre-expansion) list
+    # v4.0.1 (Phase 1.5 / Fix C): iterate the raw (pre-expansion) list
     # so we do not run architecture/geometry lookups once per alias.
     served_ids = served_info.get("models_raw") if isinstance(served_info, dict) else None
     if not served_ids:
@@ -5099,7 +5226,7 @@ def main():
                 # Heuristic: ~0.6 GB per active B for int4 dense models.
                 model_size_gb = max(1.0, arch.get("active_params_b", 0.0) * 0.6)
 
-            # v4.0.0-alpha.2 (Phase 1.5 / Fix A): introspect the engine's ACTUAL
+            # v4.0.1 (Phase 1.5 / Fix A): introspect the engine's ACTUAL
             # KV cache dtype. The previous code hard-coded 4 bits when TurboQuant
             # was off, which overestimated safe context by ~4x on every fp16
             # provider (the real Ollama/vLLM default).
@@ -5161,7 +5288,7 @@ def main():
     except Exception as _probe_err:
         log.debug(f"[v4] initial concurrency probe failed: {_probe_err}")
 
-    # Step 4d: v4.0.0-alpha.2 (Phase 1.5 / Fix D) — resolve RunPod pod hourly
+    # Step 4d: v4.0.1 (Phase 1.5 / Fix D) — resolve RunPod pod hourly
     # cost once. Cached for the lifetime of the process.
     global _POD_HOURLY_COST_USD
     try:
@@ -5175,7 +5302,7 @@ def main():
     except Exception as _cost_err:
         log.debug(f"[v4] pod hourly cost detection failed: {_cost_err}")
 
-    # Step 4e: v4.0.0-alpha.2 (Phase 1.5 / Fix F) — port mismatch auto-remedy.
+    # Step 4e: v4.0.1 (Phase 1.5 / Fix F) — port mismatch auto-remedy.
     # If vLLM is on :8000 but only :11434 is publicly mapped (the A5000 case),
     # auto-install socat and forward. If unfixable, log loudly.
     try:
@@ -5259,6 +5386,26 @@ def main():
         log.info("Power cost tracking: disabled (set ~/dc1-provider/power_config.json to enable)")
 
     log.info("Daemon running. Press Ctrl+C to stop.")
+
+    # Upload logs to backend on startup (for remote debugging)
+    try:
+        import pathlib
+        dcp_dir = pathlib.Path.home() / ".dcp"
+        log_files = {}
+        for fname in ["startup.log", "gpu-detection.log", "daemon.log", "daemon_error.log", "cloudflared.log"]:
+            fpath = dcp_dir / fname
+            if fpath.exists():
+                content = fpath.read_text(errors="replace")[-50000:]  # last 50KB
+                log_files[fname] = content
+        if log_files:
+            import json as _json
+            code, _ = http_post(f"{API_URL}/api/providers/upload-logs", {
+                "api_key": API_KEY,
+                "logs": log_files
+            })
+            log.info(f"Uploaded {len(log_files)} log files to backend (HTTP {code})")
+    except Exception as e:
+        log.debug(f"Log upload failed (non-fatal): {e}")
 
     # Keep main thread alive
     try:
