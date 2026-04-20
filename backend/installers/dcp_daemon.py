@@ -1038,6 +1038,92 @@ def _resolve_download_url(download_url):
         return f"{CANONICAL_API_BASE_URL}{url}"
     return None
 
+def _detect_nvidia_windows_fallback():
+    """Windows fallback when `nvidia-smi` is not on PATH.
+
+    Returns (gpu_name, vram_mib, driver_version) tuple or None.
+
+    Strategy:
+      1) Try C:\\Windows\\System32\\nvidia-smi.exe (standard driver install path).
+      2) Query the display-adapter registry for qwMemorySize (uint64; the
+         authoritative VRAM size written by the driver). Avoids the WMI
+         AdapterRAM uint32 overflow that caps at 4 GB.
+      3) Give up and return None — never guess VRAM from a substring match.
+    """
+    # (1) nvidia-smi.exe at absolute path
+    for abs_path in (
+        r"C:\Windows\System32\nvidia-smi.exe",
+        r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+    ):
+        try:
+            r = subprocess.run(
+                [abs_path, "--query-gpu=name,memory.total,driver_version",
+                 "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=5,
+            )
+            out = (r.stdout or "").strip()
+            if out:
+                parts = [p.strip() for p in out.split(",")]
+                if len(parts) >= 2 and parts[0] and parts[1]:
+                    name = parts[0]
+                    vram_mib = int(float(parts[1]))
+                    driver = parts[2] if len(parts) > 2 else "unknown"
+                    log.info(f"GPU detected via nvidia-smi.exe absolute path: {name} ({vram_mib} MiB)")
+                    return (name, vram_mib, driver)
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            continue
+        except Exception as e:
+            log.debug(f"nvidia-smi.exe at {abs_path} failed: {e}")
+            continue
+
+    # (2) Registry — iterate display-adapter subkeys and emit qwMemorySize (uint64)
+    try:
+        ps_script = (
+            r"$base='HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}';"
+            r"Get-ChildItem $base -ErrorAction SilentlyContinue | ForEach-Object {"
+            r"  $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue;"
+            r"  if ($p -and $p.DriverDesc -like '*NVIDIA*') {"
+            r"    $qw = $p.'HardwareInformation.qwMemorySize';"
+            r"    Write-Output ($p.DriverDesc + '|' + $qw + '|' + $p.DriverVersion)"
+            r"  }"
+            r"}"
+        )
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+            capture_output=True, text=True, timeout=10,
+        )
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if not line or "|" not in line:
+                continue
+            parts = line.split("|")
+            if len(parts) < 3:
+                continue
+            name = parts[0].strip()
+            qw_raw = parts[1].strip()
+            driver = parts[2].strip() or "unknown"
+            try:
+                vram_bytes = int(qw_raw)
+            except ValueError:
+                continue
+            if vram_bytes <= 0:
+                continue
+            vram_mib = vram_bytes // (1024 * 1024)
+            log.info(f"GPU detected via registry qwMemorySize: {name} ({vram_mib} MiB)")
+            return (name, vram_mib, driver)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    except Exception as e:
+        log.debug(f"registry qwMemorySize probe failed: {e}")
+
+    log.warning(
+        "Windows NVIDIA GPU detection failed: nvidia-smi not in PATH, "
+        "absolute-path binaries missing, and registry qwMemorySize unavailable. "
+        "Refusing to guess VRAM."
+    )
+    return None
+
+
 def get_gpu_info():
     """Return GPU info as a dict for the heartbeat payload.
 
@@ -1085,45 +1171,13 @@ def get_gpu_info():
                             "is_apple_silicon": True}
             except Exception:
                 pass
-        # Windows: try WMI as fallback when nvidia-smi is not in PATH
+        # Windows: nvidia-smi absolute path → registry qwMemorySize fallback
         if platform.system() == "Windows":
-            try:
-                wmi_result = subprocess.run(
-                    ["powershell", "-Command",
-                     "Get-WmiObject Win32_VideoController | Where-Object {$_.Name -like '*NVIDIA*'} | Select-Object Name, AdapterRAM | Format-List"],
-                    capture_output=True, text=True, timeout=10
-                )
-                wmi_out = wmi_result.stdout.strip()
-                if "NVIDIA" in wmi_out:
-                    gpu_name = ""
-                    vram_bytes = 0
-                    for line in wmi_out.splitlines():
-                        line = line.strip()
-                        if line.startswith("Name"):
-                            gpu_name = line.split(":", 1)[-1].strip()
-                        elif line.startswith("AdapterRAM"):
-                            try:
-                                vram_bytes = int(line.split(":", 1)[-1].strip())
-                            except ValueError:
-                                pass
-                    if gpu_name:
-                        vram_mb = vram_bytes // (1024 * 1024)
-                        # WMI caps AdapterRAM at 4GB for some GPUs, check known models
-                        if vram_mb <= 4096 and "3060" in gpu_name:
-                            vram_mb = 8192  # RTX 3060 Ti = 8GB
-                        elif vram_mb <= 4096 and "3070" in gpu_name:
-                            vram_mb = 8192
-                        elif vram_mb <= 4096 and "3080" in gpu_name:
-                            vram_mb = 10240
-                        elif vram_mb <= 4096 and "3090" in gpu_name:
-                            vram_mb = 24576
-                        elif vram_mb <= 4096 and "4090" in gpu_name:
-                            vram_mb = 24576
-                        log.info(f"GPU detected via WMI fallback: {gpu_name} ({vram_mb} MiB)")
-                        return {"gpu_name": gpu_name, "vram_mb": vram_mb,
-                                "driver_version": "WMI-detected", "cuda_version": None}
-            except Exception as e2:
-                log.warning(f"WMI GPU detection failed: {e2}")
+            fb = _detect_nvidia_windows_fallback()
+            if fb is not None:
+                name, vram_mib, driver = fb
+                return {"gpu_name": name, "vram_mb": vram_mib,
+                        "driver_version": driver, "cuda_version": None}
         return {"gpu_name": "CPU only", "vram_mb": 0, "driver_version": None,
                 "cuda_version": None}
     except Exception as e:
@@ -1337,45 +1391,21 @@ def detect_gpu():
                     return gpu
             except Exception as e2:
                 log.warning(f"Apple Silicon detection failed: {e2}")
-        # Windows: WMI fallback for detect_gpu
+        # Windows: nvidia-smi absolute path → registry qwMemorySize fallback
         if platform.system() == "Windows":
-            try:
-                wmi_result = subprocess.run(
-                    ["powershell", "-Command",
-                     "Get-WmiObject Win32_VideoController | Where-Object {$_.Name -like '*NVIDIA*'} | Select-Object Name, AdapterRAM | Format-List"],
-                    capture_output=True, text=True, timeout=10
-                )
-                wmi_out = wmi_result.stdout.strip()
-                if "NVIDIA" in wmi_out:
-                    gpu_name = ""
-                    vram_bytes = 0
-                    for line in wmi_out.splitlines():
-                        line = line.strip()
-                        if line.startswith("Name"):
-                            gpu_name = line.split(":", 1)[-1].strip()
-                        elif line.startswith("AdapterRAM"):
-                            try: vram_bytes = int(line.split(":", 1)[-1].strip())
-                            except: pass
-                    if gpu_name:
-                        vram_mib = vram_bytes // (1024 * 1024)
-                        if vram_mib <= 4096 and "3060" in gpu_name: vram_mib = 8192
-                        elif vram_mib <= 4096 and "3070" in gpu_name: vram_mib = 8192
-                        elif vram_mib <= 4096 and "3080" in gpu_name: vram_mib = 10240
-                        elif vram_mib <= 4096 and "3090" in gpu_name: vram_mib = 24576
-                        elif vram_mib <= 4096 and "4090" in gpu_name: vram_mib = 24576
-                        log.info(f"GPU detected via WMI in detect_gpu: {gpu_name} ({vram_mib} MiB)")
-                        gpu = {
-                            "index": 0, "gpu_name": gpu_name, "gpu_vram_mib": vram_mib,
-                            "free_vram_mib": vram_mib, "memory_used_mb": 0,
-                            "gpu_util_pct": 0, "temp_c": 0, "power_w": None,
-                            "driver_version": "WMI-detected", "compute_capability": "unknown",
-                            "cuda_version": None, "all_gpus": [],
-                        }
-                        gpu["all_gpus"] = [gpu.copy()]
-                        del gpu["all_gpus"][0]["all_gpus"]
-                        return gpu
-            except Exception as e3:
-                log.warning(f"WMI detect_gpu failed: {e3}")
+            fb = _detect_nvidia_windows_fallback()
+            if fb is not None:
+                name, vram_mib, driver = fb
+                gpu = {
+                    "index": 0, "gpu_name": name, "gpu_vram_mib": vram_mib,
+                    "free_vram_mib": vram_mib, "memory_used_mb": 0,
+                    "gpu_util_pct": 0, "temp_c": 0, "power_w": None,
+                    "driver_version": driver, "compute_capability": "unknown",
+                    "cuda_version": None, "all_gpus": [],
+                }
+                gpu["all_gpus"] = [gpu.copy()]
+                del gpu["all_gpus"][0]["all_gpus"]
+                return gpu
         log.warning("nvidia-smi not found — no NVIDIA GPU detected")
         return None
     except Exception as e:
