@@ -61,6 +61,17 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 
+# v4.1.0 (Task A8): pre-flight validation gate. Imported lazily-capable —
+# the module is pure stdlib so the import is cheap and side-effect free.
+try:
+    import preflight as _preflight
+except ImportError:
+    _preflight = None
+
+# v4.1.0 (Task A8): soft-warn preflight results carry through to every
+# heartbeat under `preflight_warnings` so the backend can surface them.
+_PREFLIGHT_WARNINGS: list = []
+
 # ─── CONFIGURATION (injected by download endpoint) ──────────────────────────
 
 API_KEY = "{{API_KEY}}"
@@ -3835,6 +3846,12 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             payload["final_heartbeat"] = True
         if status:
             payload["status"] = status
+        # v4.1.0 (Task A8): surface pre-flight soft warnings so the backend
+        # can flag providers whose disk is low / driver missing / etc.
+        # without blocking registration. Empty list is elided to keep
+        # nominal-case payloads small.
+        if _PREFLIGHT_WARNINGS:
+            payload["preflight_warnings"] = _PREFLIGHT_WARNINGS
         # Defensive: ensure payload is JSON-safe before sending. Historically
         # we've seen "Circular reference detected" here when a GPU or network
         # stats object contained a back-reference. Sanitize first, then send.
@@ -5397,6 +5414,52 @@ def main():
         log.info(f"Driver: {gpu['driver_version']}")
     else:
         log.warning("No NVIDIA GPU detected — daemon will run in limited mode")
+
+    # v4.1.0 (Task A8): Pre-flight validation gate.
+    # 3-tier: hard → exit(1), soft → heartbeat warnings, info → log-only.
+    # Runs before Docker/precache so we fail loudly on misconfigured hosts
+    # instead of wasting minutes downloading models only to discover the
+    # provider cannot register. The check is skipped only if the module
+    # is unavailable (import-time guard above).
+    global _PREFLIGHT_WARNINGS
+    if _preflight is not None:
+        log.info("Running pre-flight validation gate...")
+        _gpu_info_for_preflight = {
+            "gpu_name": gpu["gpu_name"] if gpu else None,
+            "vram_mb": (gpu.get("gpu_vram_mib") if gpu else 0),
+            "driver_version": gpu.get("driver_version") if gpu else None,
+            "is_apple_silicon": gpu.get("is_apple_silicon", False) if gpu else False,
+        }
+        try:
+            _pf_result = _preflight.run_all_checks(gpu_info=_gpu_info_for_preflight)
+        except Exception as _pf_err:
+            log.warning(f"Preflight run failed unexpectedly: {_pf_err} — continuing without gate")
+            _pf_result = {"passed": True, "hard_failures": [], "warnings": [], "info": [], "checks": []}
+        # Always dump a report to stdout/log for operator visibility.
+        try:
+            _pf_report = _preflight.format_preflight_report(_pf_result)
+            for _ln in _pf_report.splitlines():
+                log.info(_ln)
+        except Exception:
+            pass
+        # Persist to ~/.dcp/preflight.json regardless of pass/fail for support.
+        try:
+            _pf_path = Path(os.path.expanduser("~/.dcp/preflight.json"))
+            _pf_path.parent.mkdir(parents=True, exist_ok=True)
+            _pf_path.write_text(json.dumps(_pf_result, default=str, indent=2))
+        except Exception as _pf_write_err:
+            log.debug(f"preflight.json write failed: {_pf_write_err}")
+        if not _pf_result.get("passed", True):
+            log.error("Pre-flight HARD failures — refusing to register. See report above.")
+            report_event("daemon_crash", "preflight_hard_fail",
+                         severity="critical")
+            sys.exit(1)
+        _PREFLIGHT_WARNINGS = list(_pf_result.get("warnings", []))
+        if _PREFLIGHT_WARNINGS:
+            log.warning(f"Pre-flight PASSED with {len(_PREFLIGHT_WARNINGS)} warning(s) — "
+                        "surfacing in heartbeat payload")
+    else:
+        log.debug("preflight module unavailable — skipping pre-flight gate")
 
     # Step 2: Check Docker
     log.info("Checking Docker + NVIDIA Container Toolkit...")
