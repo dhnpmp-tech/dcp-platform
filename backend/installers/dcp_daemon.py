@@ -2538,6 +2538,99 @@ def detect_model_architecture(model_id):
     }
 
 
+# ─── v4.1.0: CONSOLIDATED MODEL DETAILS FOR HEARTBEAT ───────────────────────
+#
+# Backend routing needs architecture + geometry + identity together on a
+# per-model basis. Previously heartbeats exposed these under separate keys
+# (`architectures_by_model`, scattered geometry lookups, alias expansion) and
+# the router had to stitch them back together. v4.1.0 surfaces one
+# `model_details_by_model` map with everything the candidate-selection pass
+# needs, so the router does not need to duplicate lookup tables.
+
+def _kv_cache_bytes_per_token(num_layers, hidden_size, kv_dtype_bytes=2):
+    """Per-token KV cache cost in bytes.
+
+    Formula: 2 (K + V) * num_layers * hidden_size * dtype_bytes.
+    kv_dtype_bytes defaults to 2 (fp16 / bf16); set 1 for fp8, 0.5 for fp4.
+    """
+    try:
+        return int(2 * int(num_layers) * int(hidden_size) * float(kv_dtype_bytes))
+    except (TypeError, ValueError):
+        return 0
+
+
+def build_model_details(model_id):
+    """Return a consolidated routing-ready detail dict for one model.
+
+    Combines architecture (MoE/dense + param counts), geometry (layers,
+    hidden size, size_gb), identity (canonical / ollama tag / HF formats /
+    vLLM variants), and a fp16 KV-cache-per-token estimate.
+
+    Shape:
+      {
+        "model_id": "<raw id as reported>",
+        "canonical_key": "<key in MODEL_ARCH_TABLE or None>",
+        "architecture": {"type": "moe"|"dense",
+                         "total_params_b": float,
+                         "active_params_b": float,
+                         "confidence": "known"|"inferred"},
+        "geometry": {"num_layers": int, "hidden_size": int,
+                     "size_gb": float|None},
+        "identity": {"canonical": str|None, "ollama": str|None,
+                     "hf_formats": [str], "vllm_variants": [str]},
+        "kv_cache_bytes_per_token_fp16": int,
+      }
+
+    Never raises; on any failure returns a safe, minimally-populated dict.
+    """
+    raw = model_id or ""
+    try:
+        canonical = _canonicalize_model_id(raw)
+        arch = detect_model_architecture(raw)
+        num_layers, hidden_size = _lookup_geometry(raw, arch.get("type"))
+        size_gb = None
+        if canonical and canonical in MODEL_GEOMETRY_TABLE:
+            try:
+                size_gb = float(MODEL_GEOMETRY_TABLE[canonical].get("size_gb", 0.0))
+            except (TypeError, ValueError):
+                size_gb = None
+
+        identity_entry = MODEL_IDENTITY_TABLE.get(canonical, {}) if canonical else {}
+        identity = {
+            "canonical": identity_entry.get("canonical"),
+            "ollama": identity_entry.get("ollama"),
+            "hf_formats": list(identity_entry.get("hf_formats", []) or []),
+            "vllm_variants": list(identity_entry.get("vllm_variants", []) or []),
+        }
+
+        return {
+            "model_id": raw,
+            "canonical_key": canonical,
+            "architecture": arch,
+            "geometry": {
+                "num_layers": int(num_layers),
+                "hidden_size": int(hidden_size),
+                "size_gb": size_gb,
+            },
+            "identity": identity,
+            "kv_cache_bytes_per_token_fp16": _kv_cache_bytes_per_token(
+                num_layers, hidden_size, kv_dtype_bytes=2
+            ),
+        }
+    except Exception as e:
+        log.debug(f"[model_details] build_model_details({raw!r}) failed: {e}")
+        return {
+            "model_id": raw,
+            "canonical_key": None,
+            "architecture": {"type": "unknown", "total_params_b": 0.0,
+                             "active_params_b": 0.0, "confidence": "inferred"},
+            "geometry": {"num_layers": 0, "hidden_size": 0, "size_gb": None},
+            "identity": {"canonical": None, "ollama": None,
+                         "hf_formats": [], "vllm_variants": []},
+            "kv_cache_bytes_per_token_fp16": 0,
+        }
+
+
 # ─── v4.0.0-alpha: SMART CONTEXT WINDOW CALCULATION ─────────────────────────
 #
 # Round 3 showed that Ollama's default 131k context on Llama 3.3 70B forces
@@ -3777,6 +3870,11 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
                       "active_params_b": 0.0, "confidence": "inferred"}
             )
             payload["architectures_by_model"] = arch_report
+            # v4.1.0 Feature 3: consolidated per-model details for the router
+            # (architecture + geometry + identity + fp16 KV/token).
+            payload["model_details_by_model"] = {
+                mid: build_model_details(mid) for mid in served_ids
+            }
         except Exception as _arch_err:
             log.debug(f"detect_model_architecture failed: {_arch_err}")
         # v4.0.0-alpha: effective context the engine was launched with
