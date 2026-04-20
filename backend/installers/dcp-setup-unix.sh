@@ -189,8 +189,12 @@ Wants=docker.service
 Type=simple
 User=$ACTUAL_USER
 ExecStart=/usr/bin/python3 ${INSTALL_DIR}/dcp_daemon.py
+# v4.1.0 (Task A11): Watchdog supervision — Restart=always ensures the
+# daemon is revived on any exit (crash, clean exit, OOM kill, signal),
+# not just failures. RestartSec=5 keeps recovery tight so claim-token
+# handshake and heartbeat cadence are minimally disrupted.
 Restart=always
-RestartSec=10
+RestartSec=5
 Environment=HOME=$ACTUAL_HOME
 
 [Install]
