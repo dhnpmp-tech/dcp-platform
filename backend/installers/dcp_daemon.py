@@ -5040,7 +5040,15 @@ def poll_and_execute():
     thread.start()
 
 def job_poll_loop():
-    """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds."""
+    """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds.
+
+    Sleep is jittered ±JOB_POLL_JITTER_PCT to avoid synchronized
+    poll storms across the fleet.
+    """
+    def _sleep():
+        jitter = JOB_POLL_INTERVAL * JOB_POLL_JITTER_PCT * (2 * random.random() - 1)
+        time.sleep(max(1.0, JOB_POLL_INTERVAL + jitter))
+
     while True:
         if is_shutdown_requested():
             log.info("Shutdown requested — stopping job poll loop")
@@ -5048,12 +5056,12 @@ def job_poll_loop():
         # v3.5.0: Feature 4 — skip job polling while draining so no new work
         # is picked up between SIGTERM and final shutdown.
         if is_draining():
-            time.sleep(JOB_POLL_INTERVAL)
+            _sleep()
             continue
         poll_and_execute()
         # Also check for verification challenges every cycle
         check_pending_verification()
-        time.sleep(JOB_POLL_INTERVAL)
+        _sleep()
 
 # ─── AUTO VERIFICATION ON STARTUP ───────────────────────────────────────────
 
