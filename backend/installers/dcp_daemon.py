@@ -497,19 +497,44 @@ def report_event(event_type, details=None, job_id=None, severity="info"):
     # Always save to local crash journal as backup
     _save_local_event(payload)
 
+# Events log rotation: size-based, because each event line can be kilobytes
+# (task spec echoes, stack traces). Line-count rotation used to let the file
+# grow many megabytes before trimming.
+_EVENTS_MAX_BYTES = 5 * 1024 * 1024     # 5 MB per active file
+_EVENTS_ROTATE_KEEP = 3                  # events.jsonl.1, .2, .3
+
+def _rotate_events_if_needed(path):
+    """Rotate events.jsonl → events.jsonl.1 → .2 → .3 when > _EVENTS_MAX_BYTES.
+    Best-effort; failures are swallowed."""
+    try:
+        if not path.exists() or path.stat().st_size < _EVENTS_MAX_BYTES:
+            return
+        # Shift: .2 -> .3, .1 -> .2, current -> .1
+        for i in range(_EVENTS_ROTATE_KEEP, 0, -1):
+            if i == 1:
+                src = path
+            else:
+                src = path.with_suffix(path.suffix + f".{i-1}")
+            dst = path.with_suffix(path.suffix + f".{i}")
+            if src.exists():
+                try:
+                    if dst.exists():
+                        dst.unlink()
+                    src.rename(dst)
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
 def _save_local_event(payload):
     """Save event to local JSON-lines file (survives backend outages)."""
     try:
         journal_path = LOG_DIR / "events.jsonl"
+        _rotate_events_if_needed(journal_path)
         with open(journal_path, "a") as f:
             f.write(json.dumps(payload) + "\n")
-        # Rotate: keep last 1000 events (trim when over 1200)
-        try:
-            lines = journal_path.read_text().splitlines()
-            if len(lines) > 1200:
-                journal_path.write_text("\n".join(lines[-1000:]) + "\n")
-        except: pass
-    except: pass
+    except Exception:
+        pass
 
 # ─── GRACEFUL SHUTDOWN ──────────────────────────────────────────────────────
 
