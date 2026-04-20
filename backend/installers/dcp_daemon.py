@@ -5421,26 +5421,6 @@ def main():
 
     log.info("Daemon running. Press Ctrl+C to stop.")
 
-    # Upload logs to backend on startup (for remote debugging)
-    try:
-        import pathlib
-        dcp_dir = pathlib.Path.home() / ".dcp"
-        log_files = {}
-        for fname in ["startup.log", "gpu-detection.log", "daemon.log", "daemon_error.log", "cloudflared.log"]:
-            fpath = dcp_dir / fname
-            if fpath.exists():
-                content = fpath.read_text(errors="replace")[-50000:]  # last 50KB
-                log_files[fname] = content
-        if log_files:
-            import json as _json
-            code, _ = http_post(f"{API_URL}/api/providers/upload-logs", {
-                "api_key": API_KEY,
-                "logs": log_files
-            })
-            log.info(f"Uploaded {len(log_files)} log files to backend (HTTP {code})")
-    except Exception as e:
-        log.debug(f"Log upload failed (non-fatal): {e}")
-
     # Keep main thread alive
     try:
         while True:
