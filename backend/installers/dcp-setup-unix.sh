@@ -173,6 +173,26 @@ cat > "${INSTALL_DIR}/config.json" << CONF
 }
 CONF
 
+# v4.1.0 (Task A10): Claim-token emitter.
+# Generate a random 32-byte token and write it to ~/.dcp/claim.json with
+# 0600 perms. The daemon picks this up on first boot and attaches it to
+# its very first heartbeat, then clears it from memory (one-shot). The
+# backend matches the token to the pending wizard session so the user
+# never has to copy-paste anything.
+CLAIM_DIR="${HOME:-/root}/.dcp"
+mkdir -p "$CLAIM_DIR"
+# Prefer /dev/urandom hex (portable; macOS + Linux + BSD).
+CLAIM_TOKEN=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+CLAIM_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+cat > "${CLAIM_DIR}/claim.json" << CLAIM
+{
+  "claim_token": "${CLAIM_TOKEN}",
+  "generated_at": "${CLAIM_AT}"
+}
+CLAIM
+chmod 600 "${CLAIM_DIR}/claim.json" 2>/dev/null || true
+echo "  Claim token emitted: ${CLAIM_DIR}/claim.json (0600)"
+
 # Create systemd service (Linux) or launchd plist (Mac)
 echo "[8/8] Creating background service..."
 

@@ -144,6 +144,36 @@ $config = @{
 } | ConvertTo-Json
 $config | Out-File "$INSTALL_DIR\config.json" -Encoding UTF8
 
+# v4.1.0 (Task A10): Claim-token emitter.
+# Generates a random 32-byte token and writes it to %USERPROFILE%\.dcp\claim.json
+# so the daemon can attach it to its first heartbeat. The wizard polls
+# the backend for a matching heartbeat and advances the provider through
+# onboarding without copy-paste. ACL on the claim file restricts read to
+# the current user only.
+$claimDir = Join-Path $env:USERPROFILE ".dcp"
+New-Item -ItemType Directory -Path $claimDir -Force | Out-Null
+$claimBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($claimBytes)
+$claimToken = -join ($claimBytes | ForEach-Object { $_.ToString("x2") })
+$claimAt    = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$claimPath  = Join-Path $claimDir "claim.json"
+@{
+    claim_token  = $claimToken
+    generated_at = $claimAt
+} | ConvertTo-Json | Out-File $claimPath -Encoding UTF8
+# Lock down ACL — only current user may read.
+try {
+    $acl = Get-Acl $claimPath
+    $acl.SetAccessRuleProtection($true, $false)
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        $env:USERNAME, "FullControl", "Allow")
+    $acl.AddAccessRule($rule)
+    Set-Acl -Path $claimPath -AclObject $acl
+} catch {
+    Write-Host "  [WARN] Could not tighten ACL on $claimPath : $_" -ForegroundColor Yellow
+}
+Write-Host "  Claim token emitted: $claimPath"
+
 # ── Step 8: Scheduled task ──────────────────────────────────────────────
 Write-Host "[8/8] Creating Windows scheduled task..." -ForegroundColor Yellow
 

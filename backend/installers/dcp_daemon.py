@@ -60,6 +60,42 @@ import shlex
 import uuid
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
+
+# ─── v4.1.0 (Task A10) CLAIM-TOKEN HANDSHAKE ────────────────────────────────
+# The installer (dcp-setup-unix.sh / dcp-setup-windows.ps1) generates a
+# random 32-byte hex token at install time and writes it to
+# ~/.dcp/claim.json. The daemon reads it on first startup, attaches it
+# to the very first heartbeat payload, then zeros the in-memory copy
+# (one-shot delivery) so subsequent heartbeats carry no token. The
+# backend matches the token to the pending wizard session and completes
+# the provider onboarding without any copy-paste by the user.
+_CLAIM_TOKEN: Optional[str] = None
+_CLAIM_SENT: bool = False
+
+
+def _load_claim_token_once() -> Optional[str]:
+    """Read ~/.dcp/claim.json once at daemon boot and return the token.
+
+    Returns None if the file is missing, malformed, or the token field
+    is absent/empty. The file is left on disk — it is the backend's
+    responsibility to invalidate the token server-side once claimed.
+    """
+    claim_path = Path(os.path.expanduser("~/.dcp/claim.json"))
+    if not claim_path.exists():
+        return None
+    try:
+        data = json.loads(claim_path.read_text())
+    except (ValueError, OSError):
+        # Silent tolerate — logger may not be configured at import.
+        return None
+    if not isinstance(data, dict):
+        return None
+    tok = data.get("claim_token")
+    if not isinstance(tok, str) or not tok.strip():
+        return None
+    return tok.strip()
+
 
 # ─── CONFIGURATION (injected by download endpoint) ──────────────────────────
 
@@ -3835,6 +3871,17 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             payload["final_heartbeat"] = True
         if status:
             payload["status"] = status
+        # v4.1.0 (Task A10): attach claim_token on the first heartbeat only
+        # (one-shot delivery). Subsequent heartbeats omit the field so
+        # logs/telemetry cannot leak the token indefinitely. The in-memory
+        # token is cleared after the payload is built so even a stacktrace
+        # dump cannot reveal it.
+        global _CLAIM_TOKEN, _CLAIM_SENT
+        if _CLAIM_TOKEN and not _CLAIM_SENT:
+            payload["claim_token"] = _CLAIM_TOKEN
+            _CLAIM_TOKEN = None   # clear from memory
+            _CLAIM_SENT = True
+            log.info("[claim] attaching claim_token to first heartbeat (one-shot)")
         # Defensive: ensure payload is JSON-safe before sending. Historically
         # we've seen "Circular reference detected" here when a GPU or network
         # stats object contained a back-reference. Sanitize first, then send.
@@ -5316,7 +5363,7 @@ def main():
     )
     args = parser.parse_args()
 
-    global API_KEY, API_URL, _FORCE_REPROBE_CONCURRENCY
+    global API_KEY, API_URL, _FORCE_REPROBE_CONCURRENCY, _CLAIM_TOKEN
     if args.key:
         API_KEY = args.key
     if args.url:
@@ -5324,6 +5371,14 @@ def main():
     if args.force_reprobe:
         _FORCE_REPROBE_CONCURRENCY = True
         log.info("[probe] --force-reprobe set; concurrency cache will be ignored this run")
+
+    # v4.1.0 (Task A10): load the claim token left by the installer so it
+    # can be attached to the very first heartbeat. Silent-None on missing
+    # or malformed file — existing installs without a claim file just
+    # behave identically to pre-4.1.0 registration.
+    _CLAIM_TOKEN = _load_claim_token_once()
+    if _CLAIM_TOKEN:
+        log.info("[claim] claim.json loaded — will attach to first heartbeat")
 
     # Validate configuration
     if API_KEY == "INJECT_KEY_HERE" or not API_KEY:
