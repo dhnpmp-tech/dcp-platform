@@ -58,3 +58,6 @@ sdk/python/dcp_provider.egg-info/
 
 # Desktop app installers (served from production, not git)
 backend/public/dcp-provider-setup.*
+
+# TypeScript incremental build cache (root tsconfig)
+dist/tsconfig.tsbuildinfo
