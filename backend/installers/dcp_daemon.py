@@ -58,6 +58,7 @@ import shutil
 import signal
 import shlex
 import uuid
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -2066,13 +2067,195 @@ def check_engine_health(engine_type, port):
         return False
 
 
-def restart_engine(engine_type):
+# ─── v4.1.0: argv-capture helpers for vLLM / llama.cpp restart ──────────────
+#
+# These helpers let the watchdog re-spawn a crashed vLLM or llama.cpp server
+# using the *exact* argv the provider originally launched it with, rather
+# than trying to reconstruct a brittle command line from config. We read
+# argv by querying the OS for the PID currently listening on the engine's
+# port, then reading that PID's command line.
+#
+# Stdlib-only (ss / lsof / netstat / /proc / ps / wmic). No new deps.
+
+def _pids_listening_on_port(port):
+    """Return PIDs (ints) of processes currently listening on the given TCP port.
+
+    Tries ss -> lsof -> netstat in order; returns on first success. Any
+    single failure is logged at debug level and we fall through to the
+    next tool. Returns [] if every tool fails or none report a PID.
+    """
+    # Attempt 1: ss -tlnp (Linux)
+    try:
+        proc = subprocess.run(
+            ["ss", "-tlnp"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            pids = []
+            port_suffix = f":{port}"
+            for line in proc.stdout.splitlines():
+                # We want lines whose local-address column ends in :<port>.
+                # Format varies; check for the token explicitly.
+                cols = line.split()
+                if len(cols) < 4:
+                    continue
+                local = cols[3] if cols[0] == "LISTEN" else (cols[0] if len(cols) >= 4 else "")
+                # Handle both "LISTEN 0 128 *:8000 ..." and "tcp LISTEN 0 128 *:8000 ..."
+                if not local.endswith(port_suffix):
+                    # Scan all columns — different ss versions pad differently.
+                    if not any(c.endswith(port_suffix) for c in cols):
+                        continue
+                for m in re.finditer(r"pid=(\d+)", line):
+                    try:
+                        pids.append(int(m.group(1)))
+                    except ValueError:
+                        pass
+            if pids:
+                return pids
+    except Exception as e:
+        log.debug(f"[watchdog] ss lookup failed: {e}")
+
+    # Attempt 2: lsof -iTCP:<port> -sTCP:LISTEN -nP (Linux/macOS)
+    try:
+        proc = subprocess.run(
+            ["lsof", f"-iTCP:{port}", "-sTCP:LISTEN", "-nP"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            pids = []
+            # lsof header: COMMAND PID USER FD TYPE ...
+            for line in proc.stdout.splitlines()[1:]:
+                cols = line.split()
+                if len(cols) >= 2:
+                    try:
+                        pids.append(int(cols[1]))
+                    except ValueError:
+                        pass
+            if pids:
+                return pids
+    except Exception as e:
+        log.debug(f"[watchdog] lsof lookup failed: {e}")
+
+    # Attempt 3: netstat -tlnp (fallback)
+    try:
+        proc = subprocess.run(
+            ["netstat", "-tlnp"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            pids = []
+            port_suffix = f":{port}"
+            for line in proc.stdout.splitlines():
+                cols = line.split()
+                if not any(c.endswith(port_suffix) for c in cols):
+                    continue
+                # netstat -tlnp PID/prog column, e.g. "12345/python"
+                for c in cols:
+                    if "/" in c:
+                        head = c.split("/", 1)[0]
+                        try:
+                            pids.append(int(head))
+                        except ValueError:
+                            pass
+            if pids:
+                return pids
+    except Exception as e:
+        log.debug(f"[watchdog] netstat lookup failed: {e}")
+
+    return []
+
+
+def _read_proc_cmdline(pid):
+    """Return the argv of <pid> as a list of strings.
+
+    - Linux: parse /proc/<pid>/cmdline (\\x00-separated, authoritative)
+    - macOS: `ps -p <pid> -o command=` — space-split approximation;
+             arguments containing embedded spaces may be merged.
+    - Windows: `wmic process where ProcessId=<pid> get CommandLine /format:list`
+               — approximation (string split on spaces).
+    Returns [] on any failure.
+    """
+    try:
+        if sys.platform.startswith("linux"):
+            p = Path(f"/proc/{pid}/cmdline")
+            if not p.exists():
+                return []
+            raw = p.read_bytes()
+            parts = raw.split(b"\x00")
+            # Drop trailing empty entries (cmdline is typically \x00-terminated).
+            while parts and parts[-1] == b"":
+                parts.pop()
+            return [x.decode("utf-8", errors="replace") for x in parts]
+
+        if sys.platform == "darwin":
+            proc = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                capture_output=True, text=True, timeout=3,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                return proc.stdout.strip().split()
+            return []
+
+        if sys.platform.startswith("win"):
+            proc = subprocess.run(
+                ["wmic", "process", "where", f"ProcessId={pid}",
+                 "get", "CommandLine", "/format:list"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                for line in proc.stdout.splitlines():
+                    line = line.strip()
+                    if line.lower().startswith("commandline="):
+                        cmd = line.split("=", 1)[1].strip()
+                        if cmd:
+                            return cmd.split()
+            return []
+    except Exception as e:
+        log.debug(f"[watchdog] _read_proc_cmdline({pid}) failed: {e}")
+
+    return []
+
+
+def _capture_engine_argv(port, engine_sentinels):
+    """Find the engine process on <port> and return its argv if it matches.
+
+    Args:
+        port: TCP port the engine is listening on.
+        engine_sentinels: substrings (case-insensitive) to look for in the
+            first 4 argv tokens, e.g. ["vllm", "vllm.entrypoints"] for vLLM
+            or ["llama-server", "llama_cpp", "llama.cpp"] for llama.cpp.
+
+    Returns:
+        The argv (list[str]) on match, else None. We require a sentinel
+        match to avoid accidentally re-spawning some unrelated process that
+        happens to bind the port (e.g. a stale ssh tunnel).
+    """
+    pids = _pids_listening_on_port(port)
+    for pid in pids:
+        argv = _read_proc_cmdline(pid)
+        if not argv:
+            continue
+        head_tokens = [tok.lower() for tok in argv[:4]]
+        for sentinel in engine_sentinels:
+            needle = sentinel.lower()
+            if any(needle in tok for tok in head_tokens):
+                return argv
+    return None
+
+
+def restart_engine(engine_type, port=None):
     """
     Attempt to restart the inference engine.
     - ollama: pkill + re-launch `ollama serve` with flash-attention enabled.
-    - vllm: cannot safely re-launch (complex command line, GPU binding) — log
-            critical event for manual intervention.
-    - llamacpp: similar to vllm; log for human operator.
+    - vllm: gated behind ENABLE_VLLM_RESTART; capture argv from the listening
+            PID and re-spawn identically. Returns True on spawn.
+    - llamacpp: gated behind ENABLE_LLAMACPP_RESTART; same argv-capture
+            approach. Returns True on spawn.
+
+    Returns:
+        bool: True if a restart was actually attempted (process spawned),
+              False otherwise. (Historically this function returned None;
+              callers that ignore the return value are unaffected.)
     """
     log.warning(f"[watchdog] Restarting {engine_type}...")
     try:
@@ -2115,17 +2298,79 @@ def restart_engine(engine_type):
                              f"Ollama restart failed: {e}",
                              severity="critical")
         elif engine_type == "vllm":
-            log.error("[watchdog] vLLM down — manual restart required")
-            report_event("engine_down",
-                         "vLLM process down, manual restart needed",
-                         severity="critical")
+            if os.environ.get("ENABLE_VLLM_RESTART", "").lower() not in ("1", "true", "yes"):
+                log.info("[watchdog] vllm restart skipped: ENABLE_VLLM_RESTART not set")
+                report_event("engine_down",
+                             "vLLM process down, auto-restart disabled",
+                             severity="critical")
+                return False
+            if port is None:
+                log.warning("[watchdog] vllm restart: no port provided")
+                return False
+            argv = _capture_engine_argv(port, ["vllm", "vllm.entrypoints"])
+            if not argv:
+                log.warning(f"[watchdog] vllm restart: could not capture argv on port {port}")
+                report_event("engine_restart_failed",
+                             f"vLLM argv capture failed on port {port}",
+                             severity="critical")
+                return False
+            try:
+                subprocess.Popen(
+                    argv,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                log.info(f"[watchdog] vllm restarted on port {port} with captured argv")
+                report_event("engine_restart",
+                             f"vLLM restarted by watchdog on port {port}",
+                             severity="warning")
+                return True
+            except Exception as e:
+                log.error(f"[watchdog] vllm Popen failed: {e}")
+                report_event("engine_restart_failed",
+                             f"vLLM Popen failed: {e}",
+                             severity="critical")
+                return False
         elif engine_type == "llamacpp":
-            log.error("[watchdog] llama.cpp down — manual restart required")
-            report_event("engine_down",
-                         "llama.cpp process down, manual restart needed",
-                         severity="critical")
+            if os.environ.get("ENABLE_LLAMACPP_RESTART", "").lower() not in ("1", "true", "yes"):
+                log.info("[watchdog] llamacpp restart skipped: ENABLE_LLAMACPP_RESTART not set")
+                report_event("engine_down",
+                             "llama.cpp process down, auto-restart disabled",
+                             severity="critical")
+                return False
+            if port is None:
+                log.warning("[watchdog] llamacpp restart: no port provided")
+                return False
+            argv = _capture_engine_argv(port, ["llama-server", "llama_cpp", "llama.cpp"])
+            if not argv:
+                log.warning(f"[watchdog] llamacpp restart: could not capture argv on port {port}")
+                report_event("engine_restart_failed",
+                             f"llama.cpp argv capture failed on port {port}",
+                             severity="critical")
+                return False
+            try:
+                subprocess.Popen(
+                    argv,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                log.info(f"[watchdog] llamacpp restarted on port {port} with captured argv")
+                report_event("engine_restart",
+                             f"llama.cpp restarted by watchdog on port {port}",
+                             severity="warning")
+                return True
+            except Exception as e:
+                log.error(f"[watchdog] llamacpp Popen failed: {e}")
+                report_event("engine_restart_failed",
+                             f"llama.cpp Popen failed: {e}",
+                             severity="critical")
+                return False
     except Exception as e:
         log.error(f"[watchdog] restart_engine({engine_type}) crashed: {e}")
+        return False
+    return False
 
 
 def _discover_engines_for_watchdog():
@@ -2181,7 +2426,7 @@ def engine_watchdog_loop():
                             _engine_failure_counts[key] = 0
                             do_restart = True  # release lock before expensive restart
                 if do_restart:
-                    restart_engine(engine_type)
+                    restart_engine(engine_type, port=port)
         except Exception as e:
             log.debug(f"[watchdog] loop iteration error: {e}")
         time.sleep(ENGINE_WATCHDOG_INTERVAL)
