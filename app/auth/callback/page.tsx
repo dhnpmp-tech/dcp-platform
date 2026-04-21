@@ -75,7 +75,14 @@ export default function AuthCallbackPage() {
             userName: data.provider?.name,
             email: data.provider?.email,
           })
-          router.replace('/provider')
+          // If the user started in the /setup wizard, return them there
+          // instead of the generic /provider dashboard.
+          let next = '/provider'
+          try {
+            const pending = sessionStorage.getItem('dcp_wizard_redirect_after_auth')
+            if (pending && pending.startsWith('/')) next = pending
+          } catch { /* ignore */ }
+          router.replace(next)
         } else {
           throw new Error('Unknown account role')
         }
