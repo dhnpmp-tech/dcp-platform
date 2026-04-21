@@ -493,6 +493,20 @@ app.use('/api/auth', authRouter);
 const providersRouter = require('./routes/providers');
 app.use('/api/providers', providersRouter);
 
+// Legacy / fallback aliases for the daemon download endpoint.
+//   GET /daemon?key=…             — fallback URL hardcoded in install.sh
+//   GET /installers/daemon?key=…  — CANONICAL_INSTALLER_DOWNLOAD_URL in dcp_daemon.py
+// Both 302-redirect to the canonical handler. This keeps the distribution
+// channels Tito's audit expected (and that install.sh / dcp_daemon.py already
+// reference) working without duplicating the handler logic.
+function legacyDaemonAlias(req, res) {
+    const qIdx = req.url.indexOf('?');
+    const qs = qIdx >= 0 ? req.url.slice(qIdx) : '';
+    res.redirect(302, `/api/providers/download/daemon${qs}`);
+}
+app.get('/daemon', legacyDaemonAlias);
+app.get('/installers/daemon', legacyDaemonAlias);
+
 const adminRouter = require('./routes/admin');
 app.use('/api/admin', adminRouter);
 const openRouterSettlementRouter = require('./routes/openrouter-settlement');
