@@ -24,6 +24,7 @@ const {
   vllmStreamLimiter,
 } = rateLimiterMiddleware;
 const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
+const { deduplicateModelAliases, DASH_TO_CANONICAL } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
 const {
@@ -542,7 +543,11 @@ router.get('/models', (req, res) => {
       };
     });
 
-    return res.json({ object: 'list', data });
+    // Tito audit: collapse dash/colon-form alias duplicates so the same
+    // underlying model doesn't appear twice with split provider counts.
+    // Canonical form = Ollama tag (colon). See src/lib/model-aliases.js.
+    const deduped = deduplicateModelAliases(data);
+    return res.json({ object: 'list', data: deduped });
   } catch (error) {
     console.error('[v1/models] Error:', error);
     return sendV1Error(res, {
@@ -803,34 +808,12 @@ function collectProviderOptionalPassthroughFields(requestBody = {}) {
 
 // ── Ollama model alias mapping ──────────────────────────────────────────────
 // Renters request models by HuggingFace ID but Ollama providers serve by
-// Ollama-native names.  When the provider endpoint is on the Ollama port
+// Ollama-native names. When the provider endpoint is on the Ollama port
 // (:11434), map known HuggingFace IDs to their Ollama equivalents.
-const OLLAMA_MODEL_ALIASES = {
-  // Dashboard model IDs (dash format) → Ollama tags (colon format)
-  'qwen3-30b-a3b': 'qwen3:30b-a3b',
-  'qwen3-8b': 'qwen3:8b',
-  'qwen3-4b': 'qwen3:4b',
-  'qwen3-14b': 'qwen3:14b',
-  'qwen2.5-7b': 'qwen2.5:7b',
-  'qwen2.5-14b': 'qwen2.5:14b',
-  'qwen3.5-35b-a3b': 'qwen3.5:35b-a3b',
-  'mistral-7b': 'mistral:7b',
-  'llama3.1-8b': 'llama3.1:8b',
-  'deepseek-r1-7b': 'deepseek-r1:7b',
-  'glm4-9b': 'glm4:9b',
-  'falcon3-7b': 'falcon3:7b',
-  'nemotron-30b-a3b': 'nemotron:30b-a3b',
-  'gemma3-27b': 'gemma3:27b',
-  // HuggingFace IDs → Ollama tags
-  'qwen/qwen3-30b-a3b-gptq-int4': 'qwen3:30b-a3b',
-  'qwen/qwen3.5-35b-a3b-gptq-int4': 'qwen3.5:35b-a3b',
-  'qwen/qwen2.5-7b-instruct-awq': 'qwen2.5:7b',
-  'qwen/qwen2.5-14b-instruct-awq': 'qwen2.5:14b',
-  'qwen/qwen2.5-3b-instruct': 'qwen2.5:3b',
-  'meta-llama/meta-llama-3-8b-instruct': 'llama3.1:8b',
-  'mistralai/mistral-7b-instruct-v0.2': 'mistral:7b',
-  'thebloke/mistral-7b-instruct-v0.2-awq': 'mistral:7b',
-};
+//
+// Canonical source is src/lib/model-aliases.js (also used by the /v1/models
+// dedupe pass, so the two can't drift out of sync).
+const OLLAMA_MODEL_ALIASES = DASH_TO_CANONICAL;
 
 // Reverse lookup: HuggingFace-style id -> Ollama name is already in
 // OLLAMA_MODEL_ALIASES. We also need Ollama -> HF (for when the request
