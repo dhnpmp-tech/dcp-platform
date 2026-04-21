@@ -59,9 +59,14 @@ module.exports = {
         BASE_RPC_URL: 'https://sepolia.base.org',
 
         // ── P2P Network (DCP-612) ─────────────────────────────────────────────
-        // Bootstrap node multiaddr: /ip4/76.13.179.86/tcp/4001/p2p/12D3KooWDYjwG3BrC8pVoGVFw3efshDxDKgTWSxqpXxqv6U4bUdc
-        DCP_P2P_BOOTSTRAP: '/ip4/76.13.179.86/tcp/4001/p2p/12D3KooWDYjwG3BrC8pVoGVFw3efshDxDKgTWSxqpXxqv6U4bUdc',
-        P2P_DISCOVERY_ENABLED: 'true'
+        // Bootstrap multiaddr MUST be supplied via the host environment — never
+        // commit a real multiaddr (includes IP + libp2p peer identity) to the
+        // repo. Example format (for operators only, supplied out-of-band):
+        //   /ip4/<IP>/tcp/4001/p2p/<PEER_ID>
+        // P2P_DISCOVERY_ENABLED also reads from env so it can be disabled in
+        // CI/dev without editing this file.
+        DCP_P2P_BOOTSTRAP: process.env.DCP_P2P_BOOTSTRAP || '',
+        P2P_DISCOVERY_ENABLED: process.env.P2P_DISCOVERY_ENABLED || 'true'
       }
     },
     {

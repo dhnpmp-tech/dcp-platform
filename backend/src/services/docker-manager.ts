@@ -15,7 +15,9 @@ import type {
   AuditPayload,
 } from '../types/jobs.ts';
 
-const MC_BASE = process.env['MC_API_URL'] ?? 'http://76.13.179.86:8084/api';
+// MC_API_URL must be supplied via env — no hardcoded production IP in the repo.
+// Empty default fails fast at first call instead of silently routing traffic.
+const MC_BASE = process.env['MC_API_URL'] ?? '';
 const MC_TOKEN = process.env['MC_TOKEN'] ?? 'dc1-mc-gate0-2026';
 const AGENT_NAME = 'VOLT-DOCKER';
 const DEFAULT_PIDS_LIMIT = Number(process.env['DC1_CONTAINER_PIDS_LIMIT'] ?? 256);
