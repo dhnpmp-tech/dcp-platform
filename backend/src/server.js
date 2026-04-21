@@ -545,6 +545,12 @@ app.use('/api/pricing', pricingRouter);
 const v1Router = require('./routes/v1');
 app.use('/v1', v1Router);
 
+// Provider-onboarding wizard surface (auth bridge + provider endpoints).
+// Mounted after v1Router so OpenAI-compat routes win on shared prefix;
+// wizard router only claims /auth/* and /provider/* below /v1/.
+const v1WizardRouter = require('./routes/v1-wizard');
+app.use('/v1', v1WizardRouter);
+
 const verificationRouter = require('./routes/verification');
 app.use('/api/verification', verificationRouter);
 
