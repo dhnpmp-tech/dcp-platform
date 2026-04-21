@@ -3,7 +3,10 @@
  * These test the route logic by mocking fetch to the Express backend.
  */
 
-const BACKEND = 'http://76.13.179.86:8083';
+// Backend URL resolves from env to avoid hardcoding production infra in
+// repository history. Tests only use this value to label fetch mocks; no
+// network calls are actually made against a live host.
+const BACKEND = process.env.DCP_TEST_BACKEND_URL || 'http://localhost:8083';
 
 // Helper: simulate what the status route does
 function computeStatusResponse(job) {

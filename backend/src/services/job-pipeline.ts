@@ -22,7 +22,11 @@ import {
   wipeGPUMemory,
 } from './docker-manager.js';
 
-const MC_BASE = process.env['MC_API_URL'] ?? 'http://76.13.179.86:8084/api';
+// MC_API_URL must be supplied via env. We intentionally do not hardcode a
+// production IP here so the repo can be published/reviewed without leaking
+// backend infra. Empty default causes explicit startup failure at first call
+// rather than silently routing traffic to a stale host.
+const MC_BASE = process.env['MC_API_URL'] ?? '';
 const MC_TOKEN = process.env['MC_TOKEN'] ?? 'dc1-mc-gate0-2026';
 const AGENT_NAME = 'VOLT-DOCKER';
 const DEFAULT_MEMORY_LIMIT = 20 * 1024 * 1024 * 1024; // 20 GB
