@@ -138,8 +138,22 @@ app.use('/api/webhooks', express.raw({ type: 'application/json' }), (req, _res, 
   }
   next();
 });
-app.use(express.json({ limit: '50mb' }));  // Large limit for base64 image results (512x512 PNG ~ 500KB base64)
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// ── Body-size policy (DoS mitigation, Tito audit) ─────────────────────────
+// Global default is tight (2MB). Routes that legitimately accept larger
+// payloads — today only /api/providers/job-result which carries base64 image
+// results from SDXL/SD workers — mount their own higher-limit parser BEFORE
+// the global one, so the express matcher uses the local parser first.
+//
+// If a new large-body endpoint is added in the future, add a per-route
+// limiter here rather than bumping the global cap.
+const LARGE_BODY_LIMIT = process.env.DCP_LARGE_BODY_LIMIT || '10mb';
+const GLOBAL_BODY_LIMIT = process.env.DCP_GLOBAL_BODY_LIMIT || '2mb';
+
+app.use('/api/providers/job-result', express.json({ limit: LARGE_BODY_LIMIT }));
+app.use('/api/providers/job-result', express.urlencoded({ extended: true, limit: LARGE_BODY_LIMIT }));
+
+app.use(express.json({ limit: GLOBAL_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: GLOBAL_BODY_LIMIT }));
 app.use(sensitiveAuditLogger);
 
 // ── Security Headers (DCP-879) ───────────────────────────────────────────
