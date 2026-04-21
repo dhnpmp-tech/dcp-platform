@@ -1,14 +1,12 @@
 # DEPLOY REQUEST: v4.1.0 daemon + web wizard (Tracks 1-4 + C)
 
-**Priority:** critical
 **Author:** Peter (setup@oida.ae)
 **Branch:** main (all work already merged)
 **Date drafted:** 2026-04-21
 
-Per the mandatory deployment rule in `CLAUDE.md` (2026-03-23 14:45 UTC), this
-document describes EXACTLY what needs to be deployed and which commands to run.
-**No agent may execute any of these steps until the founder approves in the
-corresponding Paperclip issue.**
+This document describes EXACTLY what needs to be deployed and which commands
+to run. **Founder approval is required before any of the backend deploy steps
+are executed** — the frontend auto-deploys via Vercel on merge to `main`.
 
 ---
 
@@ -65,7 +63,7 @@ git pull origin main
 
 # 2. Install any new backend deps (no new ones expected, verify)
 cd backend
-npm ci --production
+npm ci --omit=dev
 
 # 3. Run /v1 tests in-place against the real SQLite DB snapshot if desired
 #    (optional — already green locally)
@@ -137,5 +135,5 @@ Supabase magic-link redirect URL (`SITE_URL`) already configured.
 2. Any `pm2 reload` / `pm2 restart`
 3. Any `git pull` on the VPS
 
-Per the standing rule, this request stays in `needs-approval` status until
-Peter posts explicit approval in the Paperclip issue.
+Peter (setup@oida.ae) is the single approver. Approval form: a "GO" reply on
+this PR or in direct chat is sufficient — no external ticket system.
