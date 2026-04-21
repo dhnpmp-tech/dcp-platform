@@ -1,53 +1,39 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import Header from '../../components/layout/Header'
-import Footer from '../../components/layout/Footer'
-import ProviderRegistrationWizard from '../components/ProviderRegistrationWizard'
-import { usePublicMetricsContract } from '../../lib/usePublicMetricsContract'
+// Legacy provider registration entry point.
+//
+// Provider registration is now Step 1 of the unified six-step wizard at
+// /setup (see app/setup/page.tsx). This page forwards any remaining
+// /provider/onboard traffic there.
+//
+// Preserves query params so any deep links carrying tracking/ref params
+// still land correctly.
 
-export default function ProviderOnboardPage() {
+import { Suspense, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+function RedirectInner() {
   const router = useRouter()
-  const { snapshot } = usePublicMetricsContract()
+  const params = useSearchParams()
 
-  const registeredProviders = snapshot?.providersRegistered ?? null
-  const snapshotAt = snapshot?.snapshotAt
-    ? new Date(snapshot.snapshotAt).toLocaleString()
-    : null
-  const networkSnapshotCopy = registeredProviders !== null
-    ? `Network snapshot: ${registeredProviders.toLocaleString()} providers registered${snapshotAt ? ` (updated ${snapshotAt})` : ''}.`
-    : 'Network snapshot is temporarily unavailable. Setup still takes under 5 minutes.'
+  useEffect(() => {
+    const qs = params.toString()
+    router.replace(qs ? `/setup?${qs}` : '/setup')
+  }, [router, params])
 
   return (
-    <>
-      <Header />
-      <main className="min-h-screen bg-dc1-void px-4 py-12">
-        <div className="mx-auto max-w-2xl">
-          {/* Page header */}
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-dc1-text-primary">
-              Start earning with your GPU
-            </h1>
-            <p className="mt-2 text-dc1-text-secondary">
-              {networkSnapshotCopy}
-            </p>
-          </div>
+    <p className="text-dc1-text-secondary text-sm">Redirecting to /setup…</p>
+  )
+}
 
-          <ProviderRegistrationWizard
-            onComplete={(providerId) => {
-              router.push(`/provider/dashboard?welcome=1&id=${encodeURIComponent(providerId)}`)
-            }}
-          />
-
-          <p className="mt-6 text-center text-xs text-dc1-text-muted">
-            Already have an account?{' '}
-            <a href="/provider/register" className="text-dc1-amber hover:underline">
-              Sign in to your provider dashboard
-            </a>
-          </p>
-        </div>
-      </main>
-      <Footer />
-    </>
+export default function ProviderOnboardRedirect() {
+  return (
+    <div className="min-h-screen bg-dc1-void flex items-center justify-center">
+      <Suspense
+        fallback={<p className="text-dc1-text-secondary text-sm">Redirecting…</p>}
+      >
+        <RedirectInner />
+      </Suspense>
+    </div>
   )
 }
