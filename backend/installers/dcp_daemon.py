@@ -58,6 +58,7 @@ import shutil
 import signal
 import shlex
 import uuid
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -2066,13 +2067,281 @@ def check_engine_health(engine_type, port):
         return False
 
 
-def restart_engine(engine_type):
+# ─── v4.1.0: argv-capture helpers for vLLM / llama.cpp restart ──────────────
+#
+# These helpers let the watchdog re-spawn a crashed vLLM or llama.cpp server
+# using the *exact* argv the provider originally launched it with, rather
+# than trying to reconstruct a brittle command line from config. We read
+# argv by querying the OS for the PID currently listening on the engine's
+# port, then reading that PID's command line.
+#
+# Stdlib-only (ss / lsof / netstat / /proc / ps / wmic). No new deps.
+
+# Hoisted for hot-path performance (B2/N2 review fix).
+_SS_PID_RE = re.compile(r"pid=(\d+)")
+
+# Shells / utilities that can host our sentinel in their args without
+# actually being the engine. We reject these as the first argv token so
+# a stray `grep llama-server ...` or `sh -c "vllm ..."` never triggers a
+# respawn. (B1 review fix.)
+_SHELL_DENYLIST = frozenset({
+    "sh", "bash", "zsh", "dash", "ksh", "fish", "ash",
+    "grep", "egrep", "fgrep", "rg", "ag",
+    "awk", "gawk", "mawk", "sed",
+    "tail", "head", "cat", "less", "more",
+    "tee", "xargs", "watch", "strace", "ltrace",
+    "gdb", "lldb", "valgrind",
+})
+
+
+def _token_matches_sentinel(token, needle_lower):
+    """B1 review fix: exact-token OR path-basename match (not substring).
+
+    `"vllm"` matches argv tokens `"vllm"` or `"/opt/venv/bin/vllm"`,
+    but NOT `"wait-for-vllm-debug"` or `"grep vllm /var/log"`.
+    """
+    tl = token.lower()
+    if tl == needle_lower:
+        return True
+    try:
+        base = os.path.basename(tl)
+    except Exception:
+        return False
+    if base == needle_lower:
+        return True
+    # Allow module-style sentinels like "vllm.entrypoints" to match
+    # argv tokens that are the full module path.
+    if "." in needle_lower and tl == needle_lower:
+        return True
+    return False
+
+
+def _pid_uid(pid):
+    """Return the UID owning <pid>, or None if we can't determine it.
+
+    Used for the B3 trust check: before we respawn argv captured from a
+    foreign PID, confirm that PID is owned by the same UID as this daemon.
+    If not (or if we can't tell), skip it.
+    """
+    try:
+        if sys.platform.startswith("linux"):
+            return os.stat(f"/proc/{int(pid)}").st_uid
+        if sys.platform == "darwin":
+            proc = subprocess.run(
+                ["ps", "-o", "uid=", "-p", str(int(pid))],
+                capture_output=True, text=True, timeout=3,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                return int(proc.stdout.strip().split()[0])
+            return None
+        # Windows: skip UID check (no direct equivalent without extra deps)
+        return None
+    except Exception as e:
+        log.debug(f"[watchdog] _pid_uid({pid}) failed: {e}")
+        return None
+
+
+def _pids_listening_on_port(port):
+    """Return PIDs (ints) of processes currently listening on the given TCP port.
+
+    Tries ss -> lsof -> netstat in order; returns on first success. Any
+    single failure is logged at debug level and we fall through to the
+    next tool. Returns [] if every tool fails or none report a PID.
+    """
+    # Attempt 1: ss with native sport filter (Linux) — B2 review fix:
+    # Let ss do the port filtering server-side, so we only scan PIDs on
+    # rows that already match the listening port.
+    try:
+        port_int = int(port)
+        proc = subprocess.run(
+            ["ss", "-Hltnp", f"sport = :{port_int}"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            pids = []
+            for line in proc.stdout.splitlines():
+                for m in _SS_PID_RE.finditer(line):
+                    try:
+                        pids.append(int(m.group(1)))
+                    except ValueError:
+                        pass
+            if pids:
+                return pids
+    except Exception as e:
+        log.debug(f"[watchdog] ss lookup failed: {e}")
+
+    # Attempt 2: lsof -iTCP:<port> -sTCP:LISTEN -nP (Linux/macOS)
+    try:
+        proc = subprocess.run(
+            ["lsof", f"-iTCP:{port}", "-sTCP:LISTEN", "-nP"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            pids = []
+            # lsof header: COMMAND PID USER FD TYPE ...
+            for line in proc.stdout.splitlines()[1:]:
+                cols = line.split()
+                if len(cols) >= 2:
+                    try:
+                        pids.append(int(cols[1]))
+                    except ValueError:
+                        pass
+            if pids:
+                return pids
+    except Exception as e:
+        log.debug(f"[watchdog] lsof lookup failed: {e}")
+
+    # Attempt 3: netstat -tlnp (fallback)
+    try:
+        proc = subprocess.run(
+            ["netstat", "-tlnp"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            pids = []
+            port_suffix = f":{port}"
+            for line in proc.stdout.splitlines():
+                cols = line.split()
+                if not any(c.endswith(port_suffix) for c in cols):
+                    continue
+                # netstat -tlnp PID/prog column, e.g. "12345/python"
+                for c in cols:
+                    if "/" in c:
+                        head = c.split("/", 1)[0]
+                        try:
+                            pids.append(int(head))
+                        except ValueError:
+                            pass
+            if pids:
+                return pids
+    except Exception as e:
+        log.debug(f"[watchdog] netstat lookup failed: {e}")
+
+    return []
+
+
+def _read_proc_cmdline(pid):
+    """Return the argv of <pid> as a list of strings.
+
+    - Linux: parse /proc/<pid>/cmdline (\\x00-separated, authoritative)
+    - macOS: `ps -p <pid> -o command=` — space-split approximation;
+             arguments containing embedded spaces may be merged.
+    - Windows: `wmic process where ProcessId=<pid> get CommandLine /format:list`
+               — approximation (string split on spaces).
+    Returns [] on any failure.
+    """
+    try:
+        if sys.platform.startswith("linux"):
+            p = Path(f"/proc/{pid}/cmdline")
+            if not p.exists():
+                return []
+            raw = p.read_bytes()
+            parts = raw.split(b"\x00")
+            # Drop trailing empty entries (cmdline is typically \x00-terminated).
+            while parts and parts[-1] == b"":
+                parts.pop()
+            return [x.decode("utf-8", errors="replace") for x in parts]
+
+        if sys.platform == "darwin":
+            proc = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                capture_output=True, text=True, timeout=3,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                return proc.stdout.strip().split()
+            return []
+
+        if sys.platform.startswith("win"):
+            proc = subprocess.run(
+                ["wmic", "process", "where", f"ProcessId={pid}",
+                 "get", "CommandLine", "/format:list"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                for line in proc.stdout.splitlines():
+                    line = line.strip()
+                    if line.lower().startswith("commandline="):
+                        cmd = line.split("=", 1)[1].strip()
+                        if cmd:
+                            return cmd.split()
+            return []
+    except Exception as e:
+        log.debug(f"[watchdog] _read_proc_cmdline({pid}) failed: {e}")
+
+    return []
+
+
+def _capture_engine_argv(port, engine_sentinels):
+    """Find the engine process on <port> and return its argv if it matches.
+
+    Args:
+        port: TCP port the engine is listening on.
+        engine_sentinels: tokens (case-insensitive) to match against the
+            first 4 argv tokens by EXACT equality or by path-basename, e.g.
+            ["vllm", "vllm.entrypoints"] for vLLM or
+            ["llama-server", "llama_cpp", "llama.cpp"] for llama.cpp.
+
+    Security hardening (review B1 + B3):
+      - Match is exact-token or basename, never substring, so a stray
+        `grep llama-server /var/log/app.log` can't trigger a respawn.
+      - Reject argv whose first-token basename is a known shell or
+        utility (grep/sed/bash/…).
+      - Verify the listening PID's UID matches this daemon's UID before
+        trusting its argv for re-exec. If UID can't be determined (or
+        mismatches), skip the PID.
+
+    Returns:
+        The argv (list[str]) on match, else None.
+    """
+    pids = _pids_listening_on_port(port)
+    my_uid = None
+    try:
+        my_uid = os.getuid()  # not on Windows
+    except Exception:
+        my_uid = None
+
+    for pid in pids:
+        # B3: trust boundary — only respawn argv from a process owned by us.
+        if my_uid is not None:
+            owner_uid = _pid_uid(pid)
+            if owner_uid is None or owner_uid != my_uid:
+                log.debug(f"[watchdog] pid {pid} uid={owner_uid} != daemon uid={my_uid}, skipping")
+                continue
+
+        argv = _read_proc_cmdline(pid)
+        if not argv:
+            continue
+
+        # B1: reject shells / utilities hosting the sentinel in their args.
+        try:
+            first_base = os.path.basename(argv[0].lower())
+        except Exception:
+            first_base = ""
+        if first_base in _SHELL_DENYLIST:
+            log.debug(f"[watchdog] pid {pid} first arg '{argv[0]}' on denylist, skipping")
+            continue
+
+        head_tokens = argv[:4]
+        for sentinel in engine_sentinels:
+            needle = sentinel.lower()
+            if any(_token_matches_sentinel(t, needle) for t in head_tokens):
+                return argv
+    return None
+
+
+def restart_engine(engine_type, port=None):
     """
     Attempt to restart the inference engine.
     - ollama: pkill + re-launch `ollama serve` with flash-attention enabled.
-    - vllm: cannot safely re-launch (complex command line, GPU binding) — log
-            critical event for manual intervention.
-    - llamacpp: similar to vllm; log for human operator.
+    - vllm: gated behind ENABLE_VLLM_RESTART; capture argv from the listening
+            PID and re-spawn identically. Returns True on spawn.
+    - llamacpp: gated behind ENABLE_LLAMACPP_RESTART; same argv-capture
+            approach. Returns True on spawn.
+
+    Returns:
+        bool: True if a restart was actually attempted (process spawned),
+              False otherwise. (Historically this function returned None;
+              callers that ignore the return value are unaffected.)
     """
     log.warning(f"[watchdog] Restarting {engine_type}...")
     try:
@@ -2083,9 +2352,28 @@ def restart_engine(engine_type):
                 log.debug(f"[watchdog] pkill ollama failed: {e}")
             time.sleep(2)
             try:
+                env = {**os.environ, "OLLAMA_HOST": "0.0.0.0:11434", "OLLAMA_FLASH_ATTENTION": "1"}
+                # v4.1.0 Feature 2: inject safe context for any primary model we recognize.
+                # When multiple models are served, pick the most restrictive (smallest safe ctx).
+                try:
+                    served_info = detect_served_models()
+                    served = served_info.get("models", []) if isinstance(served_info, dict) else []
+                    gpu_vram_gb = _detect_total_vram_gb()
+                    if served and gpu_vram_gb:
+                        safe_ctxes = [
+                            calculate_safe_context(_canonical_model_id(m), gpu_vram_gb)
+                            for m in served
+                        ]
+                        if safe_ctxes:
+                            chosen = min(safe_ctxes)
+                            env["OLLAMA_NUM_CTX"] = str(chosen)
+                            log.info(f"[ctx] OLLAMA_NUM_CTX={chosen} (safe for {len(served)} models on {gpu_vram_gb:.1f}GB)")
+                except Exception as _ctx_err:
+                    log.debug(f"safe-context injection failed: {_ctx_err}")
+
                 subprocess.Popen(
                     ["ollama", "serve"],
-                    env={**os.environ, "OLLAMA_HOST": "0.0.0.0:11434", "OLLAMA_FLASH_ATTENTION": "1"},
+                    env=env,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -2096,17 +2384,81 @@ def restart_engine(engine_type):
                              f"Ollama restart failed: {e}",
                              severity="critical")
         elif engine_type == "vllm":
-            log.error("[watchdog] vLLM down — manual restart required")
-            report_event("engine_down",
-                         "vLLM process down, manual restart needed",
-                         severity="critical")
+            if os.environ.get("ENABLE_VLLM_RESTART", "").lower() not in ("1", "true", "yes"):
+                log.info("[watchdog] vllm restart skipped: ENABLE_VLLM_RESTART not set")
+                report_event("engine_down",
+                             "vLLM process down, auto-restart disabled",
+                             severity="critical")
+                return False
+            if port is None:
+                log.warning("[watchdog] vllm restart: no port provided")
+                return False
+            argv = _capture_engine_argv(port, ["vllm", "vllm.entrypoints"])
+            if not argv:
+                log.warning(f"[watchdog] vllm restart: could not capture argv on port {port}")
+                report_event("engine_restart_failed",
+                             f"vLLM argv capture failed on port {port}",
+                             severity="critical")
+                return False
+            try:
+                subprocess.Popen(
+                    argv,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                log.info(f"[watchdog] vllm restarted on port {port} with captured argv")
+                report_event("engine_restart",
+                             f"vLLM restarted by watchdog on port {port}",
+                             severity="warning")
+                return True
+            except Exception as e:
+                log.error(f"[watchdog] vllm Popen failed: {e}")
+                report_event("engine_restart_failed",
+                             f"vLLM Popen failed: {e}",
+                             severity="critical")
+                return False
         elif engine_type == "llamacpp":
-            log.error("[watchdog] llama.cpp down — manual restart required")
-            report_event("engine_down",
-                         "llama.cpp process down, manual restart needed",
-                         severity="critical")
+            if os.environ.get("ENABLE_LLAMACPP_RESTART", "").lower() not in ("1", "true", "yes"):
+                log.info("[watchdog] llamacpp restart skipped: ENABLE_LLAMACPP_RESTART not set")
+                report_event("engine_down",
+                             "llama.cpp process down, auto-restart disabled",
+                             severity="critical")
+                return False
+            if port is None:
+                log.warning("[watchdog] llamacpp restart: no port provided")
+                return False
+            argv = _capture_engine_argv(port, ["llama-server", "llama_cpp", "llama.cpp"])
+            if not argv:
+                log.warning(f"[watchdog] llamacpp restart: could not capture argv on port {port}")
+                report_event("engine_restart_failed",
+                             f"llama.cpp argv capture failed on port {port}",
+                             severity="critical")
+                return False
+            try:
+                subprocess.Popen(
+                    argv,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                log.info(f"[watchdog] llamacpp restarted on port {port} with captured argv")
+                report_event("engine_restart",
+                             f"llama.cpp restarted by watchdog on port {port}",
+                             severity="warning")
+                return True
+            except Exception as e:
+                log.error(f"[watchdog] llamacpp Popen failed: {e}")
+                report_event("engine_restart_failed",
+                             f"llama.cpp Popen failed: {e}",
+                             severity="critical")
+                return False
     except Exception as e:
         log.error(f"[watchdog] restart_engine({engine_type}) crashed: {e}")
+        return False
+    return False
 
 
 def _discover_engines_for_watchdog():
@@ -2162,7 +2514,7 @@ def engine_watchdog_loop():
                             _engine_failure_counts[key] = 0
                             do_restart = True  # release lock before expensive restart
                 if do_restart:
-                    restart_engine(engine_type)
+                    restart_engine(engine_type, port=port)
         except Exception as e:
             log.debug(f"[watchdog] loop iteration error: {e}")
         time.sleep(ENGINE_WATCHDOG_INTERVAL)
@@ -2226,41 +2578,82 @@ def get_turboquant_config():
 # KV-cache geometry: num_layers, hidden_size per model family.
 # Sources: official HF config.json files verified against the model cards.
 MODEL_GEOMETRY_TABLE = {
-    "qwen3-30b-a3b":     {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0},
-    "qwen3.5-35b-a3b":   {"num_layers": 48, "hidden_size": 2560, "size_gb": 22.0},
-    "nemotron-nano-30b-a3b": {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0},
-    "gemma-4-26b-a4b":   {"num_layers": 46, "hidden_size": 3584, "size_gb": 16.0},
-    "qwen2.5-32b":       {"num_layers": 64, "hidden_size": 5120, "size_gb": 20.0},
-    "llama-3.3-70b":     {"num_layers": 80, "hidden_size": 8192, "size_gb": 42.0},
-    "qwen2.5-14b":       {"num_layers": 48, "hidden_size": 5120, "size_gb": 9.0},
-    "qwen2.5-7b":        {"num_layers": 28, "hidden_size": 3584, "size_gb": 4.7},
-    "llama-3.1-8b":      {"num_layers": 32, "hidden_size": 4096, "size_gb": 5.0},
-    "glm4-9b":           {"num_layers": 40, "hidden_size": 4096, "size_gb": 5.8},
-    "mistral-7b":        {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5},
-    "allam-7b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5},
-    "jais-13b":          {"num_layers": 40, "hidden_size": 5120, "size_gb": 8.0},
-    "falcon-h1-7b":      {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5},
+    "qwen3-30b-a3b":         {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0, "kv_cache_per_1k_gb": 0.40},
+    "qwen3.5-35b-a3b":       {"num_layers": 48, "hidden_size": 2560, "size_gb": 22.0, "kv_cache_per_1k_gb": 0.50},
+    "nemotron-nano-30b-a3b": {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0, "kv_cache_per_1k_gb": 0.40},
+    "gemma-4-26b-a4b":       {"num_layers": 46, "hidden_size": 3584, "size_gb": 16.0, "kv_cache_per_1k_gb": 0.66},
+    "qwen2.5-32b":           {"num_layers": 64, "hidden_size": 5120, "size_gb": 20.0, "kv_cache_per_1k_gb": 1.31},
+    "llama-3.3-70b":         {"num_layers": 80, "hidden_size": 8192, "size_gb": 42.0, "kv_cache_per_1k_gb": 2.62},
+    "qwen2.5-14b":           {"num_layers": 48, "hidden_size": 5120, "size_gb": 9.0,  "kv_cache_per_1k_gb": 0.98},
+    "qwen2.5-7b":            {"num_layers": 28, "hidden_size": 3584, "size_gb": 4.7,  "kv_cache_per_1k_gb": 0.40},
+    "llama-3.1-8b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 5.0,  "kv_cache_per_1k_gb": 0.52},
+    "glm4-9b":               {"num_layers": 40, "hidden_size": 4096, "size_gb": 5.8,  "kv_cache_per_1k_gb": 0.65},
+    "mistral-7b":            {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.52},
+    "allam-7b":              {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.52},
+    "jais-13b":              {"num_layers": 40, "hidden_size": 5120, "size_gb": 8.0,  "kv_cache_per_1k_gb": 0.82},
+    "falcon-h1-7b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.26},
 }
 
 # Architecture table: MoE vs dense with verified parameter counts (billions).
 # Total = nominal parameter count; Active = per-token active params for MoE.
 MODEL_ARCH_TABLE = {
-    "qwen3-30b-a3b":     {"type": "moe",   "total_params_b": 30.0, "active_params_b": 3.0},
-    "qwen3.5-35b-a3b":   {"type": "moe",   "total_params_b": 35.0, "active_params_b": 3.0},
-    "nemotron-nano-30b-a3b": {"type": "moe", "total_params_b": 30.0, "active_params_b": 3.0},
-    "gemma-4-26b-a4b":   {"type": "moe",   "total_params_b": 26.0, "active_params_b": 4.0},
-    "qwen2.5-32b":       {"type": "dense", "total_params_b": 32.0, "active_params_b": 32.0},
-    "llama-3.3-70b":     {"type": "dense", "total_params_b": 70.0, "active_params_b": 70.0},
-    "qwen2.5-14b":       {"type": "dense", "total_params_b": 14.0, "active_params_b": 14.0},
-    "qwen2.5-7b":        {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0},
-    "llama-3.1-8b":      {"type": "dense", "total_params_b": 8.0,  "active_params_b": 8.0},
-    "glm4-9b":           {"type": "dense", "total_params_b": 9.0,  "active_params_b": 9.0},
-    "mistral-7b":        {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0},
-    "allam-7b":          {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0},
-    "jais-13b":          {"type": "dense", "total_params_b": 13.0, "active_params_b": 13.0},
+    "qwen3-30b-a3b":         {"type": "moe",   "total_params_b": 30.0, "active_params_b": 3.0,  "category": "flagship_moe_24gb",   "default_ctx_risk": "safe"},
+    "qwen3.5-35b-a3b":       {"type": "moe",   "total_params_b": 35.0, "active_params_b": 3.0,  "category": "flagship_moe_32gb",   "default_ctx_risk": "safe"},
+    "nemotron-nano-30b-a3b": {"type": "moe",   "total_params_b": 30.0, "active_params_b": 3.0,  "category": "flagship_moe_24gb",   "default_ctx_risk": "safe"},
+    "gemma-4-26b-a4b":       {"type": "moe",   "total_params_b": 26.0, "active_params_b": 4.0,  "category": "small_moe",           "default_ctx_risk": "safe"},
+    "qwen2.5-32b":           {"type": "dense", "total_params_b": 32.0, "active_params_b": 32.0, "category": "dense_workhorse",     "default_ctx_risk": "safe"},
+    "llama-3.3-70b":         {"type": "dense", "total_params_b": 70.0, "active_params_b": 70.0, "category": "dense_70b_tight_fit", "default_ctx_risk": "cpu_offload_risk"},
+    "qwen2.5-14b":           {"type": "dense", "total_params_b": 14.0, "active_params_b": 14.0, "category": "small_efficient",     "default_ctx_risk": "safe"},
+    "qwen2.5-7b":            {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0,  "category": "small_efficient",     "default_ctx_risk": "safe"},
+    "llama-3.1-8b":          {"type": "dense", "total_params_b": 8.0,  "active_params_b": 8.0,  "category": "small_efficient",     "default_ctx_risk": "safe"},
+    "glm4-9b":               {"type": "dense", "total_params_b": 9.0,  "active_params_b": 9.0,  "category": "small_efficient",     "default_ctx_risk": "safe"},
+    "mistral-7b":            {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0,  "category": "small_efficient",     "default_ctx_risk": "safe"},
+    "allam-7b":              {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0,  "category": "small_efficient",     "default_ctx_risk": "safe"},
+    "jais-13b":              {"type": "dense", "total_params_b": 13.0, "active_params_b": 13.0, "category": "small_efficient",     "default_ctx_risk": "safe"},
     # Falcon H1 is technically a hybrid SSM/attention model. Mark as dense
     # for now; revisit once we have a dedicated hybrid code path.
-    "falcon-h1-7b":      {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0},
+    "falcon-h1-7b":          {"type": "dense", "total_params_b": 7.0,  "active_params_b": 7.0,  "category": "small_efficient",     "default_ctx_risk": "safe"},
+}
+
+# ─── v4.1.0 Feature 1: MODEL MARKET DATA TABLE ─────────────────────
+#
+# Policy-driven fields kept separate from intrinsic arch/geometry so that
+# pricing/benchmark updates do not touch model physics tables. OpenRouter
+# prices as of 2026-04 (USD per million tokens, output-weighted estimate).
+# verified_speeds are real measurements from testing logs (see
+# docs/superpowers/plans/2026-04-20-daemon-v4.1.0-features.md).
+MODEL_MARKET_DATA = {
+    "qwen3-30b-a3b": {
+        "openrouter_price_per_m_usd": 0.20,
+        "verified_speeds": {
+            "RTX 4090 vLLM": 197,
+            "RTX 4090 Ollama": 168,
+            "RTX 3090 vLLM": 176,
+            "RTX 5090 Ollama": 182,
+        },
+    },
+    "qwen3.5-35b-a3b": {
+        "openrouter_price_per_m_usd": None,
+        "verified_speeds": {"RTX 5090 Ollama": 123},
+    },
+    "qwen2.5-32b": {
+        "openrouter_price_per_m_usd": 0.90,
+        "verified_speeds": {"RTX A40 Ollama": 25},
+    },
+    "llama-3.3-70b": {
+        "openrouter_price_per_m_usd": 0.40,
+        "verified_speeds": {"RTX A6000 Ollama 8k": 16.9},
+    },
+    "gemma-4-26b-a4b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "nemotron-nano-30b-a3b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "qwen2.5-14b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "qwen2.5-7b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "llama-3.1-8b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "glm4-9b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "mistral-7b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "allam-7b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "jais-13b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
+    "falcon-h1-7b": {"openrouter_price_per_m_usd": None, "verified_speeds": {}},
 }
 
 # ─── v4.0.3 (Phase 1.5 / Fix B): GPU MEMORY BANDWIDTH TABLE ─────────
@@ -2320,6 +2713,73 @@ def predicted_peak_tok_s(gpu_name, model_size_gb):
     if not bw:
         return None
     return float(bw) / size
+
+
+# v4.1.0 Feature 2: Smart Context Window Calculation
+#
+# Pick the largest context window that fits in (total_vram - model_size - overhead).
+# Silently letting Ollama default to 131K on a 70B/48GB box causes CPU offload
+# and 30x throughput collapse (Round 4 finding: 0.6 tok/s vs 17 tok/s).
+CONTEXT_OVERHEAD_GB = 2.0  # CUDA context, KV cache allocator padding, activations
+CONTEXT_LADDER = [131072, 65536, 32768, 16384, 8192, 4096, 2048]
+
+
+def calculate_safe_context(model_id, total_vram_gb):
+    """Return the largest power-of-two context window that fits in VRAM.
+
+    Returns 4096 for unknown models (safe universal default) and 2048
+    when the model itself barely fits (hard floor).
+    """
+    geo = MODEL_GEOMETRY_TABLE.get(model_id)
+    if not geo:
+        return 4096
+    try:
+        vram = float(total_vram_gb)
+    except (TypeError, ValueError):
+        return 4096
+
+    model_size = float(geo.get("size_gb", 0))
+    kv_per_1k = float(geo.get("kv_cache_per_1k_gb", 0.5))  # conservative fallback
+    if kv_per_1k <= 0:
+        return 4096
+
+    free_for_kv = vram - model_size - CONTEXT_OVERHEAD_GB
+    if free_for_kv <= 0:
+        return 2048  # hard floor; model barely fits, accept tiny context
+
+    max_tokens = int((free_for_kv / kv_per_1k) * 1024)
+    for ctx in CONTEXT_LADDER:
+        if max_tokens >= ctx:
+            return ctx
+    return 2048
+
+
+def _detect_total_vram_gb():
+    """Return total VRAM in GB across all visible GPUs, or None if unknown."""
+    try:
+        gpu = detect_gpu()  # returns flat dict; 'gpu_vram_mib' is the key
+        mib = gpu.get("gpu_vram_mib") or 0
+        return float(mib) / 1024.0 if mib else None
+    except Exception:
+        return None
+
+
+def _canonical_model_id(served_name):
+    """Map a served model name (Ollama tag or HF id) to MODEL_GEOMETRY_TABLE key."""
+    if not served_name:
+        return served_name
+    if served_name in MODEL_GEOMETRY_TABLE:
+        return served_name
+    low = served_name.lower()
+    for key, ident in MODEL_IDENTITY_TABLE.items():
+        if ident.get("ollama", "").lower() == low:
+            return key
+        if ident.get("canonical", "").lower() == low:
+            return key
+        for var in ident.get("vllm_variants", []) + ident.get("hf_formats", []):
+            if var.lower() == low:
+                return key
+    return served_name  # unchanged — calculate_safe_context will hit its fallback
 
 
 # ─── v4.0.3 (Phase 1.5 / Fix C): DUAL-IDENTITY MODEL TABLE ──────────
@@ -2659,8 +3119,8 @@ def detect_kv_cache_bits(engine_type, turboquant_enabled):
     return 16
 
 
-def calculate_safe_context(model_size_gb, quant_bits, gpu_vram_gb, model_architecture,
-                           model_id=None):
+def _calculate_safe_context_v1(model_size_gb, quant_bits, gpu_vram_gb, model_architecture,
+                               model_id=None):
     """Compute a KV-cache-safe context length that stays in VRAM.
 
     Formula:
@@ -5479,7 +5939,7 @@ def main():
                 _engine_for_kv = "unknown"
             quant_bits = detect_kv_cache_bits(_engine_for_kv, bool(tq_cfg.get("enabled", False)))
 
-            safe_ctx = calculate_safe_context(
+            safe_ctx = _calculate_safe_context_v1(
                 model_size_gb=model_size_gb,
                 quant_bits=quant_bits,
                 gpu_vram_gb=total_vram_gb,
