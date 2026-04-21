@@ -108,6 +108,36 @@ describe('POST /v1/provider/gpu-profile', () => {
     expect(res.body.unknown_gpu).toBe(false);
   });
 
+  test('wizard-style underscored model ids match pricing (rtx_4090 → 0.267)', async () => {
+    // The wizard's gpu-catalog.ts ships ids like 'rtx_4090', 'm3_max'.
+    // Regression guard for the QA bug where every catalog pick resolved to $0.
+    createProvider({ apiKey: 'k_underscore' });
+    const res = await request(buildApp())
+      .post('/v1/provider/gpu-profile')
+      .set('Authorization', 'Bearer k_underscore')
+      .send({
+        gpus: [{ vendor: 'nvidia', model: 'rtx_4090', vram_gb: 24, count: 1 }],
+        os: 'linux', detected_by: 'manual_web',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.estimated_hourly_rate).toBe(0.267);
+    expect(res.body.unknown_gpu).toBe(false);
+  });
+
+  test('wizard-style underscored Apple ids match pricing (m3_max → 0.35)', async () => {
+    createProvider({ apiKey: 'k_apple_underscore' });
+    const res = await request(buildApp())
+      .post('/v1/provider/gpu-profile')
+      .set('Authorization', 'Bearer k_apple_underscore')
+      .send({
+        gpus: [{ vendor: 'apple', model: 'm3_max', vram_gb: 96, count: 1 }],
+        os: 'macos',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.estimated_hourly_rate).toBe(0.35);
+    expect(res.body.bandwidth_gbps).toBe(400);
+  });
+
   test('Apple Silicon is recognised with bandwidth', async () => {
     createProvider({ apiKey: 'k_m3' });
     const res = await request(buildApp())

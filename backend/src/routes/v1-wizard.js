@@ -299,7 +299,10 @@ const APPLE_SILICON_RATES = {
 
 function lookupGpuRate(vendor, model) {
   const v = (vendor || '').toLowerCase();
-  const m = (model || '').toLowerCase().replace(/[\s\-]+/g, ' ').trim();
+  // Normalise separators so callers can send 'rtx 4090', 'rtx-4090', or 'rtx_4090'.
+  // The wizard's gpu-catalog.ts ships ids like 'rtx_4090' / 'm3_max' — without
+  // the underscore pass here, every catalog pick resolved to unknown_gpu (= $0).
+  const m = (model || '').toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
 
   if (v === 'apple') {
     const key = m.replace(/\s+/g, '_');
