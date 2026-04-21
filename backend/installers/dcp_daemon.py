@@ -2685,6 +2685,148 @@ GPU_MEMORY_BANDWIDTH_GBPS = {
 }
 
 
+# ─── v4.1.0: PROVIDER TIER CLASSIFICATION ──────────────────────────────────
+#
+# The backend router prefers different tiers for different workloads:
+#   - consumer: cheapest tok/s; good for batch, dev, non-latency-critical
+#   - workstation: mid; good for moderate MoE + multi-tenant
+#   - datacenter: HBM-backed; required for H100/H200-class models and
+#                 latency-SLO traffic
+#   - apple_silicon: unified-memory Macs; good for Gemma/Qwen on-device
+#   - cpu_only: no GPU — daemon should not accept GPU jobs
+#
+# Classification is deterministic from the reported GPU model name(s). If
+# multiple GPUs are present, the HIGHEST tier observed wins (a rig with
+# one H100 + some RTX 4090s classifies as datacenter).
+
+# Exact prefix matches, most specific first. Anything not matched falls
+# through to "unknown".
+_PROVIDER_TIER_PATTERNS = [
+    # Datacenter HBM class
+    ("datacenter", ["NVIDIA H200", "NVIDIA H100", "NVIDIA A100"]),
+    # Workstation / pro-vis
+    ("workstation", [
+        "NVIDIA RTX A6000", "NVIDIA RTX A5000", "NVIDIA RTX A4000",
+        "NVIDIA A40", "NVIDIA L40S", "NVIDIA L40", "NVIDIA L4",
+        "NVIDIA RTX 6000 Ada", "NVIDIA RTX 5000 Ada", "NVIDIA RTX 4500 Ada",
+    ]),
+    # Consumer GeForce
+    ("consumer", [
+        "NVIDIA GeForce RTX 5090", "NVIDIA GeForce RTX 5080",
+        "NVIDIA GeForce RTX 4090", "NVIDIA GeForce RTX 4080",
+        "NVIDIA GeForce RTX 3090", "NVIDIA GeForce RTX 3080",
+        "NVIDIA GeForce RTX 4070", "NVIDIA GeForce RTX 3070",
+    ]),
+    # Apple Silicon — reported as "Apple M<x>", sometimes "Apple Mx Ultra"
+    ("apple_silicon", ["Apple M1", "Apple M2", "Apple M3", "Apple M4"]),
+]
+
+# Tier ranking used when reconciling multi-GPU rigs (higher = better).
+_TIER_RANK = {
+    "cpu_only": 0,
+    "unknown": 1,
+    "apple_silicon": 2,
+    "consumer": 3,
+    "workstation": 4,
+    "datacenter": 5,
+}
+
+
+def _classify_single_gpu_name(gpu_name):
+    """Return the tier for a single GPU name, or 'unknown'."""
+    if not gpu_name:
+        return "unknown"
+    name = str(gpu_name)
+    for tier, prefixes in _PROVIDER_TIER_PATTERNS:
+        for prefix in prefixes:
+            if name.startswith(prefix) or prefix in name:
+                return tier
+    return "unknown"
+
+
+def classify_provider_tier(gpu_info):
+    """Classify the provider hardware into a routing tier.
+
+    Args:
+        gpu_info: The dict returned by detect_gpu(). Expected keys
+            (all optional for robustness):
+              - gpu_name: str
+              - all_gpus: list[dict] with per-GPU gpu_name entries
+              - gpu_vram_mib: int (single-GPU VRAM, MiB)
+              - any other fields are ignored
+
+    Returns:
+        dict: {
+          "tier": "datacenter"|"workstation"|"consumer"|"apple_silicon"|
+                   "cpu_only"|"unknown",
+          "tier_rank": int,        # 0 (cpu_only) .. 5 (datacenter)
+          "total_vram_gb": float,  # summed VRAM across all detected GPUs
+          "gpu_count": int,
+          "primary_gpu": str|None, # highest-tier GPU name
+          "all_tiers": [str],      # per-GPU tier list, order matches all_gpus
+        }
+    """
+    if not gpu_info or not isinstance(gpu_info, dict):
+        return {
+            "tier": "cpu_only",
+            "tier_rank": _TIER_RANK["cpu_only"],
+            "total_vram_gb": 0.0,
+            "gpu_count": 0,
+            "primary_gpu": None,
+            "all_tiers": [],
+        }
+
+    all_gpus = gpu_info.get("all_gpus") or []
+    if not all_gpus and gpu_info.get("gpu_name"):
+        # Single-GPU fallback: build a synthetic list from top-level fields.
+        all_gpus = [{
+            "gpu_name": gpu_info.get("gpu_name"),
+            "gpu_vram_mib": gpu_info.get("gpu_vram_mib", 0),
+        }]
+
+    if not all_gpus:
+        return {
+            "tier": "cpu_only",
+            "tier_rank": _TIER_RANK["cpu_only"],
+            "total_vram_gb": 0.0,
+            "gpu_count": 0,
+            "primary_gpu": None,
+            "all_tiers": [],
+        }
+
+    per_gpu_tiers = []
+    total_vram_mib = 0
+    best_tier = "unknown"
+    best_rank = _TIER_RANK["unknown"]
+    best_gpu_name = None
+
+    for g in all_gpus:
+        name = g.get("gpu_name") if isinstance(g, dict) else None
+        tier = _classify_single_gpu_name(name)
+        per_gpu_tiers.append(tier)
+        try:
+            total_vram_mib += int(g.get("gpu_vram_mib", 0) or 0)
+        except (TypeError, ValueError):
+            pass
+        rank = _TIER_RANK.get(tier, _TIER_RANK["unknown"])
+        if rank > best_rank:
+            best_rank = rank
+            best_tier = tier
+            best_gpu_name = name
+
+    # If every detected GPU fell through to "unknown" but we do have
+    # entries, keep "unknown" rather than implying "cpu_only" — the
+    # daemon did detect a GPU, we just don't recognize the model.
+    return {
+        "tier": best_tier,
+        "tier_rank": best_rank,
+        "total_vram_gb": round(total_vram_mib / 1024.0, 2),
+        "gpu_count": len(all_gpus),
+        "primary_gpu": best_gpu_name or (all_gpus[0].get("gpu_name") if isinstance(all_gpus[0], dict) else None),
+        "all_tiers": per_gpu_tiers,
+    }
+
+
 def predicted_peak_tok_s(gpu_name, model_size_gb):
     """Compute the memory-bandwidth-bound decode throughput ceiling.
 
@@ -4237,6 +4379,16 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             "compute_capability": gpu.get("compute_capability"),
             "cuda_version": gpu.get("cuda_version"),
         }
+    # v4.1.0 Feature 4: deterministic provider tier (consumer / workstation /
+    # datacenter / apple_silicon / cpu_only / unknown). Computed from detected
+    # GPU model(s); multi-GPU rigs resolve to the highest-tier card present.
+    try:
+        gpu_status["provider_tier"] = classify_provider_tier(gpu)
+    except Exception as _tier_err:
+        log.debug(f"classify_provider_tier failed: {_tier_err}")
+        gpu_status["provider_tier"] = {"tier": "unknown", "tier_rank": 1,
+                                       "total_vram_gb": 0.0, "gpu_count": 0,
+                                       "primary_gpu": None, "all_tiers": []}
     gpu_status["model_cache_path"] = cache_metrics["path"]
     gpu_status["model_cache_exists"] = cache_metrics["exists"]
     gpu_status["model_cache_total_gb"] = cache_metrics["total_gb"]
