@@ -69,5 +69,11 @@ function buildLoginRedirect(request: NextRequest, expectedRole: string): NextRes
 }
 
 export const config = {
-  matcher: ['/provider/:path*', '/renter/:path*', '/admin/:path*'],
+  matcher: [
+    '/provider/:path*',
+    '/provider-onboarding/:path*',
+    '/provider-onboarding',
+    '/renter/:path*',
+    '/admin/:path*',
+  ],
 }
