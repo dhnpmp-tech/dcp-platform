@@ -33,6 +33,34 @@ function WizardPage() {
       sessionStorage.setItem(WIZARD_RETURN_FLAG, '/setup')
     } catch { /* ignore */ }
 
+    // Legacy-link bootstrap: the old /provider/wizard accepted credentials as
+    // query params (providerId/apiKey, plus snake_case variants). Middleware
+    // now 308-redirects those URLs to /setup with the query string preserved.
+    // Seed localStorage from any such params so users don't lose their session,
+    // then strip the credentials from the URL so they don't linger in history.
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const urlApiKey =
+        sp.get('apiKey') ?? sp.get('api_key') ?? sp.get('providerKey')
+      const urlEmail = sp.get('email')
+      if (urlApiKey) {
+        localStorage.setItem('dc1_provider_key', urlApiKey)
+        if (urlEmail) {
+          localStorage.setItem(
+            'dc1_session',
+            JSON.stringify({ email: urlEmail, role: 'provider' }),
+          )
+        }
+        // Strip credential params (and optional email) from the URL without a reload.
+        sp.delete('apiKey'); sp.delete('api_key'); sp.delete('providerKey')
+        sp.delete('providerId'); sp.delete('provider_id'); sp.delete('email')
+        const clean = sp.toString()
+          ? `${window.location.pathname}?${sp.toString()}`
+          : window.location.pathname
+        window.history.replaceState({}, '', clean)
+      }
+    } catch { /* ignore */ }
+
     // Pick up credentials if the user has already completed magic-link auth.
     // localStorage key matches what /auth/callback writes today.
     try {

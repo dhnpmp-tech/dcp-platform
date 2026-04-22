@@ -251,6 +251,43 @@ test.describe('Setup Wizard — /setup', () => {
     await expect(page.getByText(/step 2 of 6/i)).toBeVisible();
   });
 
+  test('legacy link with ?apiKey= seeds localStorage, strips URL, advances past step 1', async ({ page }) => {
+    // Reproduces the Tito P1 from PR #281: legacy /provider/wizard?providerId=...&apiKey=...
+    // URLs that the middleware 308-redirects to /setup must NOT drop the user back
+    // into Step 1 magic-link auth — the creds should bootstrap the wizard into Step 2.
+    await mockAllV1Routes(page);
+    await suppressLangModal(page);
+
+    const legacyUrl = `/setup?providerId=prov_legacy_001&apiKey=${encodeURIComponent(MOCK_API_KEY)}&email=${encodeURIComponent(MOCK_EMAIL)}`;
+    await page.goto(legacyUrl);
+
+    // Step 2 should be visible — user is NOT stuck on Step 1.
+    await expect(page.getByRole('heading', { name: /can your machine run dcp/i })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText(/step 2 of 6/i)).toBeVisible();
+
+    // Credentials must be in localStorage.
+    const storedKey = await page.evaluate(() => localStorage.getItem('dc1_provider_key'));
+    expect(storedKey).toBe(MOCK_API_KEY);
+    const storedSession = await page.evaluate(() => localStorage.getItem('dc1_session'));
+    expect(storedSession).not.toBeNull();
+    expect(JSON.parse(storedSession as string)).toMatchObject({
+      email: MOCK_EMAIL,
+      role: 'provider',
+    });
+
+    // Credential params must be stripped from the URL so they don't linger in history.
+    const url = new URL(page.url());
+    expect(url.searchParams.get('apiKey')).toBeNull();
+    expect(url.searchParams.get('api_key')).toBeNull();
+    expect(url.searchParams.get('providerKey')).toBeNull();
+    expect(url.searchParams.get('providerId')).toBeNull();
+    expect(url.searchParams.get('provider_id')).toBeNull();
+    expect(url.searchParams.get('email')).toBeNull();
+    expect(url.pathname).toBe('/setup');
+  });
+
   // ── Step 2 ──────────────────────────────────────────────────────────────────
 
   test('eligibility step shows "eligible" when API returns eligible=true', async ({ page }) => {
