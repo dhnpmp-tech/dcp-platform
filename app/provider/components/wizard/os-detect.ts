@@ -18,7 +18,7 @@ export function detectOS(): DetectedOS {
 export interface OSProfile {
   os: DetectedOS
   label: string
-  flag: string
+  tagline: string
   minReqs: string[]
   gpuDetectHint: string
 }
@@ -27,49 +27,49 @@ export const OS_PROFILES: Record<DetectedOS, OSProfile> = {
   windows: {
     os: 'windows',
     label: 'Windows',
-    flag: '🪟',
+    tagline: 'CUDA-ready desktops & workstations',
     minReqs: [
-      'Windows 10/11 (64-bit)',
-      'NVIDIA GPU (GTX 1060 6GB+)',
+      'Windows 10 or 11 (64-bit)',
+      'NVIDIA GPU — GTX 1060 6GB or newer',
       'NVIDIA driver 525 or newer',
-      '16 GB RAM, 50 GB free disk',
-      '5+ Mbps upload',
+      '16 GB RAM / 50 GB free disk',
+      '5+ Mbps sustained upload',
     ],
-    gpuDetectHint: 'Open Task Manager → Performance → GPU.',
+    gpuDetectHint: 'Open Task Manager → Performance → GPU to see your model and driver version.',
   },
   macos: {
     os: 'macos',
     label: 'macOS',
-    flag: '🍎',
+    tagline: 'Apple Silicon inference nodes',
     minReqs: [
-      'macOS 13 (Ventura) or later',
-      'Apple Silicon M1/M2/M3/M4',
+      'macOS 13 Ventura or later',
+      'Apple Silicon M1, M2, M3 or M4',
       '16 GB unified memory minimum',
-      '50 GB free disk, 5+ Mbps upload',
+      '50 GB free disk / 5+ Mbps upload',
     ],
-    gpuDetectHint: ' menu → About This Mac. Look for Chip: Apple M…',
+    gpuDetectHint: 'Apple menu → About This Mac — confirm the "Chip" row reads "Apple M…".',
   },
   linux: {
     os: 'linux',
     label: 'Linux',
-    flag: '🐧',
+    tagline: 'Servers, rigs, bare-metal GPUs',
     minReqs: [
-      'Ubuntu 20.04+ / Debian 11+ / RHEL 8+',
-      'NVIDIA GPU + driver 525+  OR  AMD (ROCm 5.4+)',
-      '16 GB RAM, 50 GB free disk',
-      '5+ Mbps upload',
+      'Ubuntu 20.04+, Debian 11+, or RHEL 8+',
+      'NVIDIA driver 525+ — or AMD ROCm 5.4+',
+      '16 GB RAM / 50 GB free disk',
+      '5+ Mbps sustained upload',
     ],
-    gpuDetectHint: 'Run `nvidia-smi` or `rocminfo` in a terminal.',
+    gpuDetectHint: 'Run `nvidia-smi` (NVIDIA) or `rocminfo` (AMD) in a terminal to confirm the GPU is visible.',
   },
   unknown: {
     os: 'unknown',
-    label: 'Your Machine',
-    flag: '💻',
+    label: 'Your machine',
+    tagline: 'We couldn\u2019t auto-detect your OS',
     minReqs: [
-      'Modern discrete GPU (NVIDIA 525+ / AMD ROCm / Apple Silicon)',
-      '16 GB RAM, 50 GB free disk',
-      '5+ Mbps upload',
+      'Modern discrete GPU (NVIDIA 525+, AMD ROCm, or Apple Silicon)',
+      '16 GB RAM / 50 GB free disk',
+      '5+ Mbps sustained upload',
     ],
-    gpuDetectHint: 'Check your system info for GPU model and driver.',
+    gpuDetectHint: 'Check your system info panel for GPU model and driver version.',
   },
 }
