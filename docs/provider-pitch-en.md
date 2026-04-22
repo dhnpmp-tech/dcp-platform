@@ -17,7 +17,7 @@ Saudi energy conditions and local container infrastructure can make sustained AI
 ## How It Works
 
 ### Step 1 — Register
-Go to **[dcp.sa/provider/register](https://dcp.sa/provider/register)**. Enter your name, email, and GPU model. Keep your Provider API Key ready for daemon setup.
+Go to **[dcp.sa/setup](https://dcp.sa/setup)**. Enter your name, email, and GPU model. Keep your Provider API Key ready for daemon setup.
 
 ### Step 2 — Install the Daemon
 Download and run the DCP daemon — a lightweight Python script that runs in the background. It sends a heartbeat every 30 seconds and executes jobs inside isolated Docker containers on your GPU.
@@ -127,7 +127,7 @@ Provider pricing controls are planned for a future phase. Current participation 
 
 ## Ready to Start?
 
-**Register now:** [dcp.sa/provider/register](https://dcp.sa/provider/register)
+**Register now:** [dcp.sa/setup](https://dcp.sa/setup)
 
 **Questions:** support@dcp.sa | [Hsoub.com](https://hsoub.com)
 

@@ -173,4 +173,4 @@ Owner: Copywriter / Content Strategist
 - Homepage: `app/page.tsx`
 - Header/Footer labels: `app/components/layout/Header.tsx`, `app/components/layout/Footer.tsx`
 - Renter quickstart copy touchpoints: `app/docs/page.tsx`, `app/docs/quickstart/page.tsx`
-- Provider conversion/supporting copy: `app/earn/page.tsx`, `app/provider/register/page.tsx`
+- Provider conversion/supporting copy: `app/earn/page.tsx`, `app/setup/page.tsx`

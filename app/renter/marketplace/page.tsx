@@ -1079,7 +1079,7 @@ export default function MarketplacePage() {
       key: 'provider_onboarding',
       label: t('path_chooser.provider.label'),
       description: t('path_chooser.provider.desc'),
-      href: '/provider/register?source=renter_marketplace_path_chooser&lane=provider_onboarding',
+      href: '/setup?source=renter_marketplace_path_chooser&lane=provider_onboarding',
     },
     {
       key: 'enterprise_intake',

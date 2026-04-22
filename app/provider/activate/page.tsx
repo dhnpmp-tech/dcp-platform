@@ -58,7 +58,7 @@ export default function ProviderActivatePage() {
     const stored = localStorage.getItem('dc1_provider_key')
     if (!stored) {
       setProviderLoadError(
-        'No provider API key found. Please register first at /provider/register.'
+        'No provider API key found. Please register first at /setup.'
       )
       return
     }
@@ -201,7 +201,7 @@ export default function ProviderActivatePage() {
           {providerLoadError && (
             <div className="mb-6 rounded-lg border border-status-error bg-status-error-bg p-4 text-status-error text-sm">
               {providerLoadError}{' '}
-              <Link href="/provider/register" className="underline">
+              <Link href="/setup" className="underline">
                 Register here
               </Link>
             </div>
@@ -455,7 +455,7 @@ export default function ProviderActivatePage() {
               Contact provider support
             </Link>{' '}
             ·{' '}
-            <Link href="/provider/register" className="text-dc1-amber hover:underline">
+            <Link href="/setup" className="text-dc1-amber hover:underline">
               Back to registration
             </Link>
           </p>

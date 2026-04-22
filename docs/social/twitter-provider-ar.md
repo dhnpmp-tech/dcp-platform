@@ -81,7 +81,7 @@
 
 كيف تبدأ؟ أسهل مما تتخيل ⚡
 
-الخطوة 1: سجّل على dcp.sa/provider/register
+الخطوة 1: سجّل على dcp.sa/setup
 
 الخطوة 2: حمّل الـ daemon وشغّله
 ```
@@ -113,7 +113,7 @@ python3 dcp_daemon.py
 لا تخلي بطاقتك تظل خاملة.
 
 👇 سجّل الآن:
-🔗 dcp.sa/provider/register
+🔗 dcp.sa/setup
 
 أسئلة؟ راسلنا على support@dcp.sa أو في الردود 👇
 

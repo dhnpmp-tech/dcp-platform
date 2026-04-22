@@ -58,7 +58,7 @@ DCP is a GPU compute marketplace connecting providers (who earn SAR) with renter
 - Website: https://dcp.sa
 - API: https://api.dcp.sa (OpenAI-compatible at /v1/chat/completions)
 - Support: support@dcp.sa
-- Provider registration: https://dcp.sa/provider/register
+- Provider onboarding wizard: https://dcp.sa/setup
 - Renter registration: https://dcp.sa/renter/register
 - Pricing: https://dcp.sa/renter/pricing
 - Live dashboard: https://api.dcp.sa/dashboard

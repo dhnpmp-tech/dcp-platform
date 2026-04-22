@@ -141,7 +141,7 @@ export default function ProviderGuidePage() {
       num: '2',
       title: t('pg.step2_title'),
       desc: t('pg.step2_desc'),
-      link: { href: '/provider/register', label: t('pg.cta_button') },
+      link: { href: '/setup', label: t('pg.cta_button') },
     },
     {
       num: '3',
@@ -233,7 +233,7 @@ export default function ProviderGuidePage() {
               {t('pg.subtitle')}
             </p>
             <div className="flex flex-wrap gap-3 mt-8">
-              <Link href="/provider/register" className="btn btn-primary btn-sm">
+              <Link href="/setup" className="btn btn-primary btn-sm">
                 {t('pg.cta_button')}
               </Link>
               <Link href="/docs/api" className="btn btn-secondary btn-sm">
@@ -420,7 +420,7 @@ export default function ProviderGuidePage() {
               {t('pg.cta_desc')}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/provider/register" className="btn btn-primary btn-lg w-full sm:w-auto">
+              <Link href="/setup" className="btn btn-primary btn-lg w-full sm:w-auto">
                 {t('pg.cta_button')}
               </Link>
               <Link href="/login" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">

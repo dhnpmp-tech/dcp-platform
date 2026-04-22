@@ -75,13 +75,13 @@ PDPL-compliant. Saudi hardware. 🔒
 
 Onboarding and verification are typically lightweight once setup steps are complete:
 
-1️⃣ Register → dcp.sa/provider/register
+1️⃣ Register → dcp.sa/setup
 2️⃣ Download the daemon (Linux/Mac/Windows)
 3️⃣ Run it, then wait for the dashboard to show the provider as online
 
 Jobs are routed when readiness and demand align. Payout timing and thresholds are in your provider dashboard settings.
 
-Register now: dcp.sa/provider/register
+Register now: dcp.sa/setup
 
 #DCP #GPU #AI #SaudiArabia #Tech
 
@@ -184,13 +184,13 @@ dcp.sa 🔗
 
 الإعداد يكون سريعًا عادةً: ثبّت الحساب، فعّل الديمون، وتابع حالة الاتصال:
 
-1️⃣ سجّل ← dcp.sa/provider/register
+1️⃣ سجّل ← dcp.sa/setup
 2️⃣ حمّل البرنامج (Linux / Mac / ملف .exe لويندوز)
 3️⃣ شغّله ثم راقب الحالة حتى تظهر كـ online
 
 المهام تُقترح على جهازك وفق التوافر والطلب. توقيت وصيغ السحب تظهر في إعدادات المحفظة باللوحة.
 
-سجّل الآن: dcp.sa/provider/register
+سجّل الآن: dcp.sa/setup
 
 #DCP #GPU #ذكاء_اصطناعي #ريادة_الأعمال #المملكة_العربية_السعودية
 

@@ -46,7 +46,7 @@ You get 75% of every job you run. No upfront cost. No minimum hardware spec (8 G
 curl -O https://dcp.sa/releases/dcp-daemon-v3.0.tar.gz
 tar -xzf dcp-daemon-v3.0.tar.gz
 
-# 2. Register at https://dcp.sa/provider/register
+# 2. Register at https://dcp.sa/setup
 # (You'll get a provider_id and auth token)
 
 # 3. Start daemon
@@ -73,7 +73,7 @@ Your provider rating is public. High uptime (>99%) + low latency (<500ms) = get 
 
 Renters are joining today. First 24 hours, GPUs with >99% uptime get featured. This is your moment to stand out.
 
-Register now: https://dcp.sa/provider/register
+Register now: https://dcp.sa/setup
 
 Cheers,
 The DCP Team
@@ -94,7 +94,7 @@ RTX 4090: 80–120 SAR/day
 A40: 100–150 SAR/day
 H100: 200–300 SAR/day
 
-5 min setup. Register: https://dcp.sa/provider/register
+5 min setup. Register: https://dcp.sa/setup
 
 #GPU #PassiveIncome #Saudi
 
@@ -125,7 +125,7 @@ If your GPU isn't running ETH mining anymore, here's an alternative: DCP.
 **Setup:**
 ```
 1. Download: https://dcp.sa/releases/dcp-daemon-v3.0.tar.gz
-2. Register: https://dcp.sa/provider/register
+2. Register: https://dcp.sa/setup
 3. Run: ./dcp-daemon --provider-id X --auth-token Y
 4. Earnings appear in dashboard in real-time
 ```
@@ -165,7 +165,7 @@ You're already earning with DCP. Here's how to earn more: referrals.
 
 **How it works:**
 ```
-Share your unique link: https://dcp.sa/provider/register?ref=YOUR_PROVIDER_ID
+Share your unique link: https://dcp.sa/setup?ref=YOUR_PROVIDER_ID
 
 Every signup from that link → 500 SAR to your wallet
 ```

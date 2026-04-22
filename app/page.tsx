@@ -275,7 +275,7 @@ export default function HomePage() {
       key: 'provider_onboarding',
       label: t('path_chooser.provider.label'),
       description: t('path_chooser.provider.desc'),
-      href: '/provider/register?source=landing_path_chooser&lane=provider_onboarding',
+      href: '/setup?source=landing_path_chooser&lane=provider_onboarding',
     },
     {
       key: 'enterprise_intake',
@@ -348,13 +348,13 @@ export default function HomePage() {
                 {t('landing.cta_renter')}
               </Link>
               <Link
-                href="/provider/register?source=landing_first_fold&intent=provider"
+                href="/setup?source=landing_first_fold&intent=provider"
                 onClick={() => {
                   updateIntent('provider', 'landing_first_fold', 'primary_cta')
                   trackLandingEvent('landing_primary_cta_clicked', {
                     role_intent: 'provider',
                     surface: 'hero_primary_cta',
-                    destination: '/provider/register?source=landing_first_fold&intent=provider',
+                    destination: '/setup?source=landing_first_fold&intent=provider',
                     step: 'primary_cta',
                   })
                 }}
@@ -1003,7 +1003,7 @@ provider.start()  # initialize, heartbeat, and serve inference workloads`}</pre>
             <Link href="/renter/register" className="btn btn-primary btn-lg w-full sm:w-auto">
               {t('landing.cta_register_renter')}
             </Link>
-            <Link href="/provider/register" className="btn btn-secondary btn-lg w-full sm:w-auto">
+            <Link href="/setup" className="btn btn-secondary btn-lg w-full sm:w-auto">
               {t('landing.cta_register_provider')}
             </Link>
           </div>

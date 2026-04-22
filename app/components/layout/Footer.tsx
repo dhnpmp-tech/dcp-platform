@@ -32,7 +32,7 @@ export default function Footer() {
             <h4 className="text-sm font-semibold text-dc1-text-primary mb-4">{t('footer.platform')}</h4>
             <ul className="space-y-2">
               <li><Link href="/renter/register" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.rent_gpus')}</Link></li>
-              <li><Link href="/provider/register" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.earn_with_gpus')}</Link></li>
+              <li><Link href="/setup" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.earn_with_gpus')}</Link></li>
               <li><Link href="/marketplace" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.marketplace')}</Link></li>
             </ul>
           </div>

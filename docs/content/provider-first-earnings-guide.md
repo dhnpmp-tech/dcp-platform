@@ -64,7 +64,7 @@ Track progress in provider dashboard metrics and earnings views as jobs complete
 
 ## CTA
 ### Complete your first provider earnings run
-- Register provider account: `/provider/register`
+- Register provider account: `/setup`
 - Use provider onboarding docs: `/docs/provider-guide`
 - Review API reference for provider endpoints: `/docs/api`
 - Open provider dashboard status view: `/provider`

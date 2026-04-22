@@ -34,7 +34,7 @@ For GPU owners:
 ⚡ Automatic scaling — earn when renters submit jobs
 📊 Real-time earnings dashboard
 
-Register: https://dcp.sa/provider/register
+Register: https://dcp.sa/setup
 ```
 
 **Tweet 4: Cost advantage (6 mins after)**
@@ -114,7 +114,7 @@ DCP (Decentralized Compute Platform) launches today — a GPU compute marketplac
 
 **Get started:**
 Renters: https://dcp.sa/renter/register (get 50 SAR test credit)
-Providers: https://dcp.sa/provider/register (earn 75% of job revenue)
+Providers: https://dcp.sa/setup (earn 75% of job revenue)
 
 Migration guides available for RunPod/Vast users.
 
@@ -157,7 +157,7 @@ We just launched the GPU compute marketplace you've been testing.
 ✅ Admin: KPI dashboard, provider leaderboard, machine health metrics
 
 Renters → https://dcp.sa/renter/register
-Providers → https://dcp.sa/provider/register
+Providers → https://dcp.sa/setup
 Docs → https://dcp.sa/docs
 
 First 50 renters get +25 SAR bonus (run more jobs, hit 75% discount tier faster).
@@ -177,7 +177,7 @@ DCP launches today.
 If you've been waiting to try a 35–50% cheaper alternative to RunPod or Vast.ai, we're ready for you.
 
 [Get API key + 50 SAR free](https://dcp.sa/renter/register)
-[Register as provider + start earning](https://dcp.sa/provider/register)
+[Register as provider + start earning](https://dcp.sa/setup)
 
 You're already on the beta list. We'll prioritize your support if you onboard today.
 

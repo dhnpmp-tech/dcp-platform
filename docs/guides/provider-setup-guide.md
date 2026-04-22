@@ -15,7 +15,7 @@ This guide covers the current onboarding path:
 
 ## Step 1: Register and get your provider key
 
-- Visit `https://dcp.sa/provider/register`
+- Visit `https://dcp.sa/setup`
 - Complete registration and save your provider key
 - Open your provider dashboard after registration
 

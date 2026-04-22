@@ -259,7 +259,7 @@ docker run --gpus all -p 8000:8000 dc1/llm-worker:latest
 
 ### Provider Registration
 
-1. Provider registers at dcp.sa/provider/register
+1. Provider registers at dcp.sa/setup
 2. Daemon downloads image: `docker pull dc1/llm-worker:latest`
 3. Daemon starts inference server
 4. Provider appears as "online" in marketplace

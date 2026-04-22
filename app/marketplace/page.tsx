@@ -435,7 +435,7 @@ export default function MarketplacePage() {
       key: 'provider_onboarding',
       label: t('path_chooser.provider.label'),
       description: t('path_chooser.provider.desc'),
-      href: '/provider/register?source=public_marketplace_path_chooser&lane=provider_onboarding',
+      href: '/setup?source=public_marketplace_path_chooser&lane=provider_onboarding',
     },
     {
       key: 'enterprise_intake',
@@ -677,7 +677,7 @@ export default function MarketplacePage() {
                 <Link href="/renter/register" className="btn btn-primary btn-lg">
                   {t('marketplace.create_renter')}
                 </Link>
-                <Link href="/provider/register" className="btn btn-secondary btn-lg">
+                <Link href="/setup" className="btn btn-secondary btn-lg">
                   {t('marketplace.become_provider')}
                 </Link>
               </div>

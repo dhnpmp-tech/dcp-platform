@@ -35,7 +35,7 @@ export default function NotFound() {
             Sign In
           </Link>
           <Link
-            href="/provider/register"
+            href="/setup"
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-dc1-surface-l2 border border-dc1-border text-dc1-text-primary hover:border-dc1-amber hover:text-dc1-amber transition-colors text-sm"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -342,7 +342,7 @@ function LoginPageInner() {
               <div className="mt-4 space-y-2 text-center text-sm">
                 <p className="text-dc1-text-secondary">
                   {t('login.new_to_dc1')}{' '}
-                  <a href="/provider/register" className="text-dc1-amber hover:text-dc1-amber/80 font-medium">{t('login.become_provider')}</a>
+                  <a href="/setup" className="text-dc1-amber hover:text-dc1-amber/80 font-medium">{t('login.become_provider')}</a>
                 </p>
                 <p className="text-dc1-text-secondary">
                   {t('login.want_to_rent')}{' '}

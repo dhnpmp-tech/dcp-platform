@@ -33,6 +33,6 @@ Provider value proposition:
 - Earnings are estimates, not guarantees; realized income depends on utilization, workload mix, uptime, and GPU tier.
 
 ## CTA Flow
-1. Primary CTA: `/provider/register` — start or complete provider registration.
+1. Primary CTA: `/setup` — start or complete provider registration.
 2. Guided CTA: `/provider-onboarding` — open guided onboarding flow.
 3. Dashboard CTA: `/provider` — monitor activation state and earnings readiness.

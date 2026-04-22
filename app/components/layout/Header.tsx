@@ -52,14 +52,14 @@ export default function Header() {
       { label: t('header.nav.playground'), href: '/renter/playground?starter=1', matchPath: '/renter/playground' },
       { label: t('header.nav.container_api'), href: docsHref, matchPath: '/docs' },
       { label: t('header.nav.enterprise'), href: supportHref, matchPath: '/support' },
-      { label: t('header.nav.earn'), href: '/provider/register' },
+      { label: t('header.nav.earn'), href: '/setup' },
     ],
     [docsHref, supportHref, t]
   )
 
   const primaryHref =
     roleIntent === 'provider'
-      ? '/provider/register'
+      ? '/setup'
       : roleIntent === 'enterprise'
         ? '/support?category=enterprise&source=header-primary-cta#contact-form'
         : '/renter/register'

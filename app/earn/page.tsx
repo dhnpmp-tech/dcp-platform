@@ -100,7 +100,7 @@ export default function EarnPage() {
               {t('earn.hero_subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/provider/register" className="btn btn-primary btn-lg w-full sm:w-auto">
+              <Link href="/setup" className="btn btn-primary btn-lg w-full sm:w-auto">
                 {t('earn.cta_primary')}
               </Link>
               <Link href="/marketplace" className="btn btn-secondary btn-lg w-full sm:w-auto">
@@ -276,7 +276,7 @@ export default function EarnPage() {
                 </div>
               </div>
 
-              <Link href="/provider/register" className="btn btn-primary btn-lg w-full text-center block">
+              <Link href="/setup" className="btn btn-primary btn-lg w-full text-center block">
                 {t('earn.cta_primary')} →
               </Link>
             </div>
@@ -422,7 +422,7 @@ export default function EarnPage() {
           {t('earn.cta_desc')}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/provider/register" className="btn btn-primary btn-lg w-full sm:w-auto">
+          <Link href="/setup" className="btn btn-primary btn-lg w-full sm:w-auto">
             {t('earn.cta_register')}
           </Link>
           <Link href="/login" className="btn btn-secondary btn-lg w-full sm:w-auto">

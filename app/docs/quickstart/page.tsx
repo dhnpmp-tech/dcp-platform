@@ -122,7 +122,7 @@ const copy = {
       title: 'I am a provider',
       desc: 'Register your GPU (NVIDIA or Apple Silicon), download the 4 MB app, and go online. No Docker needed.',
       cta: 'Start provider onboarding',
-      href: '/provider/register',
+      href: '/setup',
     },
     {
       title: 'I am integrating API',
@@ -247,7 +247,7 @@ const copy = {
       title: 'أنا مزود',
       desc: 'سجّل وحدة GPU (NVIDIA أو Apple Silicon)، نزّل التطبيق بحجم 4 ميغابايت، وابدأ. لا حاجة لـ Docker.',
       cta: 'ابدأ إعداد المزود',
-      href: '/provider/register',
+      href: '/setup',
     },
     {
       title: 'أنا أدمج API',

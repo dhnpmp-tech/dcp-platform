@@ -46,7 +46,7 @@ Before you register, make sure your setup meets the minimum spec:
 
 ### Step 1 — Register
 
-Go to [dcp.sa/provider/register](https://dcp.sa/provider/register) and fill in your details: name, email, GPU model, and VRAM. Keep the returned **provider API key** in a secure location; it authenticates your daemon and your dashboard access.
+Go to [dcp.sa/setup](https://dcp.sa/setup) and fill in your details: name, email, GPU model, and VRAM. Keep the returned **provider API key** in a secure location; it authenticates your daemon and your dashboard access.
 
 ### Step 2 — Install the Daemon
 
@@ -102,7 +102,7 @@ We recommend estimating operating cost against your local electricity tariff and
 
 ## Start Earning Today
 
-Register at **[dcp.sa/provider/register](https://dcp.sa/provider/register)** to begin onboarding.
+Register at **[dcp.sa/setup](https://dcp.sa/setup)** to begin onboarding.
 
 Questions? Reach us at **support@dcp.sa** or join the discussion on [Hsoub.com](https://hsoub.com).
 

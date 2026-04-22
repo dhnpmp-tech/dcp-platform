@@ -15,7 +15,7 @@
 ## كيف يعمل — 3 خطوات
 
 ### الخطوة 1 — التسجيل
-انتقل إلى **[dcp.sa/provider/register](https://dcp.sa/provider/register)**. أدخل اسمك وبريدك الإلكتروني وطراز بطاقتك الرسومية. ستحصل على مفتاح API الخاص بك للبدء في الإعداد.
+انتقل إلى **[dcp.sa/setup](https://dcp.sa/setup)**. أدخل اسمك وبريدك الإلكتروني وطراز بطاقتك الرسومية. ستحصل على مفتاح API الخاص بك للبدء في الإعداد.
 
 ### الخطوة 2 — تثبيت خدمة Daemon
 نزّل وشغّل خدمة DCP daemon — سكريبت Python خفيف يعمل في الخلفية. يُرسل نبضة قلب كل 30 ثانية وينفّذ المهام داخل حاويات Docker معزولة على بطاقتك الرسومية.
@@ -125,7 +125,7 @@ irm https://dcp.sa/api/providers/download/setup?key=YOUR_KEY^&os=windows | iex
 
 ## جاهز للبدء؟
 
-**سجّل الآن:** [dcp.sa/provider/register](https://dcp.sa/provider/register)
+**سجّل الآن:** [dcp.sa/setup](https://dcp.sa/setup)
 
 **أسئلة؟** support@dcp.sa | [هسوب](https://hsoub.com)
 

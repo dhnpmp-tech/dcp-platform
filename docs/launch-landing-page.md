@@ -17,7 +17,7 @@ DCP is the first decentralized GPU compute marketplace powered by energy arbitra
 **[Launch as Renter →](https://dcp.sa/renter/register)** Get API key and 50 SAR test credit
 
 ### CTA (Secondary)
-**[Earn with Your GPU →](https://dcp.sa/provider/register)** Register provider, install daemon, start earning
+**[Earn with Your GPU →](https://dcp.sa/setup)** Register provider, install daemon, start earning
 
 ---
 
@@ -114,7 +114,7 @@ Turn spare GPU capacity into passive income. Install daemon. Get jobs. Earn. No 
 3. Install daemon (5 minutes)
 4. Start earning
 
-[Register as Provider](https://dcp.sa/provider/register)
+[Register as Provider](https://dcp.sa/setup)
 
 ---
 
@@ -212,7 +212,7 @@ Get API key + 50 SAR test credit immediately.
 
 ### For Providers
 **Turn your GPUs into income.**
-[Register as Provider](https://dcp.sa/provider/register)
+[Register as Provider](https://dcp.sa/setup)
 Earn 75% + smart contract escrow protection.
 
 ---

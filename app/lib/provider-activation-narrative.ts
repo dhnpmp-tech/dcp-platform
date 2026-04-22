@@ -32,7 +32,7 @@ const EN_NARRATIVE: ProviderActivationNarrative = {
   ],
   ctaFlowTitle: 'Activation flow',
   ctaFlow: [
-    { label: 'Open Provider Registration', href: '/provider/register' },
+    { label: 'Open Provider Registration', href: '/setup' },
     { label: 'Open Guided Onboarding', href: '/provider-onboarding' },
   ],
 }
@@ -60,7 +60,7 @@ const AR_NARRATIVE: ProviderActivationNarrative = {
   ],
   ctaFlowTitle: 'مسار التفعيل',
   ctaFlow: [
-    { label: 'فتح تسجيل المزود', href: '/provider/register' },
+    { label: 'فتح تسجيل المزود', href: '/setup' },
     { label: 'فتح الإعداد الإرشادي', href: '/provider-onboarding' },
   ],
 }

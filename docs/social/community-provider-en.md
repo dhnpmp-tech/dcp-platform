@@ -18,7 +18,7 @@ Quick question — does anyone here have an NVIDIA GPU sitting idle when they're
 I've been using **DCP** (dcp.sa) to earn from active AI compute jobs on my NVIDIA GPU. You can offer capacity when your machine is available and get compensated for workloads after completion and settlement.
 
 **How it works:**
-- Register your GPU at dcp.sa/provider/register
+- Register your GPU at dcp.sa/setup
 - Run the lightweight background daemon
 - Earn through platform payout workflow after completed jobs
 
@@ -54,7 +54,7 @@ curl -sL "https://dcp.sa/api/dc1/providers/download/setup?key=YOUR_KEY&os=linux"
 
 Payout timing and visibility are shown in the provider wallet and payout settings after completed jobs settle.
 
-Sign up: **dcp.sa/provider/register**
+Sign up: **dcp.sa/setup**
 
 ---
 
@@ -70,7 +70,7 @@ Sharing something that might be useful for GPU owners in KSA:
 
 Setup is lightweight. Jobs execute in isolated Docker containers and the host is separated from job file systems.
 
-More info: dcp.sa/provider/register
+More info: dcp.sa/setup
 
 ---
 
@@ -87,7 +87,7 @@ Gamers with RTX cards — your GPU could be earning while you're at school/work/
 Run jobs while your card is available and review payouts inside DCP.
 No crypto. Setup is quick.
 
-→ dcp.sa/provider/register
+→ dcp.sa/setup
 
 ---
 
@@ -105,7 +105,7 @@ RTX 3090 and RTX 4090 owners can estimate returns in the dashboard based on live
 
 Payout settings and settlement timing are managed through provider wallet controls.
 
-التسجيل: dcp.sa/provider/register
+التسجيل: dcp.sa/setup
 
 ---
 
@@ -127,5 +127,5 @@ Payout settings and settlement timing are managed through provider wallet contro
 > Hey [name], saw you have a [GPU model] — happy to help you get set up on DCP if you want. Takes about 10 minutes. The setup guide is at dcp.sa/docs/provider-guide
 
 ### Tracking
-- Use UTM params on links for campaign tracking: `dcp.sa/provider/register?utm_source=discord&utm_campaign=provider-q1-2026`
+- Use UTM params on links for campaign tracking: `dcp.sa/setup?utm_source=discord&utm_campaign=provider-q1-2026`
 - Track signups by asking new providers where they heard about DCP
