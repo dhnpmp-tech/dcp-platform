@@ -362,6 +362,23 @@ router.get('/provider/eligibility', requireProvider, (req, res) => {
   });
 });
 
+// ── GET /v1/provider/me ────────────────────────────────────────────
+// Returns provider identity + PDPL compliance state. Used by Step 5
+// of the /setup wizard to decide whether to show the consent modal.
+
+router.get('/provider/me', requireProvider, (req, res) => {
+  const p = req.provider;
+  return res.json({
+    provider_id: p.id,
+    email: p.email || null,
+    full_name: p.full_name || null,
+    phone: p.phone || null,
+    city: p.city || null,
+    country: p.country || null,
+    pdpl_consented_at: p.pdpl_consented_at || null,
+  });
+});
+
 // ── POST /v1/provider/gpu-profile ──────────────────────────────────
 
 router.post('/provider/gpu-profile', requireProvider, (req, res) => {
@@ -459,8 +476,65 @@ router.post('/provider/config', requireProvider, (req, res) => {
 // ── POST /v1/provider/install-token ───────────────────────────────
 // Generates a single-use token the wizard embeds in the install command.
 // The daemon presents it to /provider/register-node on first run.
+//
+// On first mint for a given provider, also captures PDPL compliance
+// fields (fullName, phone, city, country, pdplConsent) and records the
+// consent timestamp. Subsequent mints may omit those fields — but only
+// if the provider has already consented. pdpl_consented_at is immutable
+// once set (audit integrity).
+
+const PHONE_RE = /^[+]?[0-9][0-9\s\-().]{6,19}$/;
+const ISO_COUNTRY_RE = /^[A-Z]{2}$/;
+const COMPLIANCE_KEYS = ['fullName', 'phone', 'city', 'country', 'pdplConsent'];
+
+function validateCompliance(body) {
+  if (body.pdplConsent !== true) {
+    return { error: 'consent_required' };
+  }
+  const missing = [];
+  const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
+  if (fullName.length < 2 || fullName.length > 120) missing.push('fullName');
+  const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+  if (!phone) missing.push('phone');
+  const city = typeof body.city === 'string' ? body.city.trim() : '';
+  if (city.length < 2 || city.length > 80) missing.push('city');
+  const country = typeof body.country === 'string' ? body.country.trim().toUpperCase() : '';
+  if (!ISO_COUNTRY_RE.test(country)) missing.push('country');
+  if (missing.length) return { error: 'missing_fields', fields: missing };
+  if (!PHONE_RE.test(phone)) return { error: 'invalid_phone' };
+  return { ok: true, clean: { fullName, phone, city, country } };
+}
 
 router.post('/provider/install-token', requireProvider, (req, res) => {
+  const body = req.body || {};
+  const hasAnyComplianceField = COMPLIANCE_KEYS.some((k) => k in body);
+
+  if (hasAnyComplianceField) {
+    const v = validateCompliance(body);
+    if (v.error === 'consent_required') {
+      return wizardError(res, 400, 'consent_required', 'PDPL consent required');
+    }
+    if (v.error === 'missing_fields') {
+      return res.status(400).json({
+        error: { code: 'missing_fields', message: 'Required compliance fields missing', fields: v.fields },
+      });
+    }
+    if (v.error === 'invalid_phone') {
+      return wizardError(res, 400, 'invalid_phone', 'Phone number format not recognised');
+    }
+    // Upsert identity fields always; set consent timestamp only if currently NULL.
+    db.run(
+      `UPDATE providers
+         SET full_name = ?, phone = ?, city = ?, country = ?,
+             pdpl_consented_at = COALESCE(pdpl_consented_at, datetime('now'))
+       WHERE id = ?`,
+      v.clean.fullName, v.clean.phone, v.clean.city, v.clean.country, req.provider.id,
+    );
+  } else if (!req.provider.pdpl_consented_at) {
+    return wizardError(res, 400, 'pdpl_consent_required',
+      'PDPL consent required before minting install token');
+  }
+
   const token = `dcpt_${crypto.randomBytes(12).toString('hex')}`;
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   db.run(
