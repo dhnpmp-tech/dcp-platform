@@ -20,6 +20,7 @@ import {
   type WizardConfig,
 } from './types'
 import { detectOS, type DetectedOS } from './os-detect'
+import type { ProbeReport } from './hardware-probe'
 import { Step1Auth } from './steps/Step1Auth'
 import { Step2Requirements } from './steps/Step2Requirements'
 import { Step3GpuProfile } from './steps/Step3GpuProfile'
@@ -62,9 +63,14 @@ export function WizardShell({ initialCredentials, onComplete }: WizardShellProps
     // and advances automatically.
   }, [])
 
-  const handleRequirementsContinue = useCallback((pickedOs: DetectedOS) => {
+  const handleRequirementsContinue = useCallback((pickedOs: DetectedOS, report: ProbeReport | null) => {
     setOs(pickedOs)
-    setSession((prev) => ({ ...prev, requirementsAck: true, currentStep: 3 }))
+    setSession((prev) => ({
+      ...prev,
+      requirementsAck: true,
+      probeReport: report,
+      currentStep: 3,
+    }))
   }, [])
 
   const handleGpuSaved = useCallback((gpus: GpuSelection[], hourlyUsd: number) => {
@@ -101,6 +107,7 @@ export function WizardShell({ initialCredentials, onComplete }: WizardShellProps
       {session.currentStep === 2 && apiKey && (
         <Step2Requirements
           initialOs={os}
+          initialReport={session.probeReport}
           onContinue={handleRequirementsContinue}
           onBack={() => setStep(1)}
         />
@@ -110,6 +117,7 @@ export function WizardShell({ initialCredentials, onComplete }: WizardShellProps
         <Step3GpuProfile
           apiKey={apiKey}
           os={os}
+          probeReport={session.probeReport}
           initialGpus={session.gpus}
           onSaved={handleGpuSaved}
           onBack={() => setStep(2)}

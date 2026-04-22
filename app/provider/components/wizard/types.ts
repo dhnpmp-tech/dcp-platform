@@ -1,5 +1,7 @@
 // Shared wizard types + session-state shape.
 
+import type { ProbeReport } from './hardware-probe'
+
 export type StepId = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface Credentials {
@@ -34,6 +36,10 @@ export interface WizardSession {
   installToken: string | null
   installTokenExpires: string | null
   requirementsAck: boolean
+  // Hardware probe snapshot from Step 2 — pre-fills Step 3 GPU hint and
+  // tagged onto /v1/provider/gpu-profile as `detected_by: 'browser_webgpu'`
+  // when we got a real WebGPU vendor back. Null until Step 2 runs.
+  probeReport: ProbeReport | null
 }
 
 export const DEFAULT_CONFIG: WizardConfig = {
@@ -57,6 +63,7 @@ export function defaultSession(): WizardSession {
     installToken: null,
     installTokenExpires: null,
     requirementsAck: false,
+    probeReport: null,
   }
 }
 

@@ -14,10 +14,12 @@ import {
 } from '../gpu-catalog'
 import type { GpuSelection } from '../types'
 import type { DetectedOS } from '../os-detect'
+import type { ProbeReport } from '../hardware-probe'
 
 interface Step3Props {
   apiKey: string
   os: DetectedOS
+  probeReport?: ProbeReport | null
   initialGpus?: GpuSelection[]
   onSaved: (gpus: GpuSelection[], hourlyUsd: number) => void
   onBack: () => void
@@ -31,21 +33,42 @@ interface GpuProfileResponse {
   bandwidth_gbps?: number
 }
 
-export function Step3GpuProfile({ apiKey, os, initialGpus, onSaved, onBack }: Step3Props) {
+// Map catalog group labels back to the vendor guess emitted by the probe.
+function groupVendorKey(label: string): 'nvidia' | 'apple' | 'amd' | null {
+  if (label === 'NVIDIA') return 'nvidia'
+  if (label === 'Apple Silicon') return 'apple'
+  if (label.startsWith('AMD')) return 'amd'
+  return null
+}
+
+export function Step3GpuProfile({ apiKey, os, probeReport, initialGpus, onSaved, onBack }: Step3Props) {
   const [selected, setSelected] = useState<GpuSelection[]>(initialGpus ?? [])
   const [filter, setFilter] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
 
+  // If Step 2 got a reliable WebGPU vendor, surface the matching group
+  // first so the provider doesn't have to scroll past vendors they don't have.
+  const detectedVendor = probeReport?.gpu.status === 'detected' ? probeReport.gpu.vendorGuess : null
+  const gpuDetectedViaBrowser = detectedVendor === 'nvidia' || detectedVendor === 'amd' || detectedVendor === 'apple'
+
   // Default vendor group based on OS: macOS → Apple only; else NVIDIA first.
-  const groups = os === 'macos'
+  const allGroups = os === 'macos'
     ? [{ label: 'Apple Silicon', gpus: APPLE_GPUS }]
     : [
         { label: 'NVIDIA', gpus: NVIDIA_GPUS },
         { label: 'Apple Silicon', gpus: APPLE_GPUS },
         { label: 'AMD (ROCm)', gpus: AMD_GPUS },
       ]
+
+  const groups = detectedVendor && detectedVendor !== 'unknown' && detectedVendor !== 'intel'
+    ? [...allGroups].sort((a, b) => {
+        const av = groupVendorKey(a.label) === detectedVendor ? -1 : 0
+        const bv = groupVendorKey(b.label) === detectedVendor ? -1 : 0
+        return av - bv
+      })
+    : allGroups
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return groups
@@ -84,7 +107,10 @@ export function Step3GpuProfile({ apiKey, os, initialGpus, onSaved, onBack }: St
         gpus: selected.map(g => ({
           vendor: g.vendor, model: g.id, vram_gb: g.vramGb, count: g.count,
         })),
-        detected_by: 'manual_web' as const,
+        // Tag the detection path so the backend can tell browser-hinted
+        // registrations from cold manual ones. 'auto_installer' stays
+        // reserved for the Phase 2 native installer handshake.
+        detected_by: gpuDetectedViaBrowser ? 'browser_webgpu' as const : 'manual_web' as const,
         os,
       }
       const resp = await v1Fetch<GpuProfileResponse>('/provider/gpu-profile', {
@@ -110,6 +136,14 @@ export function Step3GpuProfile({ apiKey, os, initialGpus, onSaved, onBack }: St
         <p className="mt-1 text-sm text-dc1-text-secondary">
           Select your hardware. The daemon will verify these details on first run.
         </p>
+        {gpuDetectedViaBrowser && (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-status-success/30 bg-status-success/10 px-2.5 py-1 text-xs text-status-success">
+            <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m5 10.5 3.5 3.5L15 6.5" />
+            </svg>
+            Detected {detectedVendor === 'apple' ? 'Apple GPU' : detectedVendor === 'nvidia' ? 'NVIDIA GPU' : 'AMD GPU'} — pick the exact model below.
+          </p>
+        )}
       </div>
 
       {/* Search */}
