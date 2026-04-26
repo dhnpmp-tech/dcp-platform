@@ -164,16 +164,16 @@ register_provider_if_needed() {
   # Ask for existing key first
   if [ -r /dev/tty ]; then
     echo ""
-    info "Register at https://dcp.sa/provider/register to get your API key."
+    info "Register at https://dcp.sa/setup to get your API key."
     echo ""
-    read -r -p "  Enter your DCP provider API key (dc1-provider-...): " DCP_PROVIDER_KEY </dev/tty
+    read -r -p "  Enter your DCP provider API key (dcp-provider-...): " DCP_PROVIDER_KEY </dev/tty
     echo ""
     if [ -n "${DCP_PROVIDER_KEY}" ]; then
-      if echo "${DCP_PROVIDER_KEY}" | grep -q "^dc1-provider-"; then
+      if echo "${DCP_PROVIDER_KEY}" | grep -q "^dcp-provider-"; then
         success "API key accepted"
         return
       else
-        warn "Key doesn't look right (expected dc1-provider-...). Trying auto-registration."
+        warn "Key doesn't look right (expected dcp-provider-...). Trying auto-registration."
         DCP_PROVIDER_KEY=""
       fi
     fi
@@ -185,7 +185,7 @@ register_provider_if_needed() {
   if [ -z "${DCP_PROVIDER_EMAIL}" ] && [ -r /dev/tty ]; then
     read -r -p "  No API key? Enter your email to register: " DCP_PROVIDER_EMAIL </dev/tty
   fi
-  [ -n "${DCP_PROVIDER_EMAIL}" ] || fail "API key or email required. Register at https://dcp.sa/provider/register"
+  [ -n "${DCP_PROVIDER_EMAIL}" ] || fail "API key or email required. Register at https://dcp.sa/setup"
 
   local payload
   payload=$(cat <<JSON

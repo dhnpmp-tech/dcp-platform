@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #############################################################################
-# DC1 Provider Setup Script — GPU Auto-Detect + Self-Registration
+# DCP Provider Setup Script — GPU Auto-Detect + Self-Registration
 # Adapted from Nexus's autodetect design for our Express+SQLite backend
 #############################################################################
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 # --- Injected or provided API key ---
 DC1_API_KEY="${1:-}"
 DC1_API_URL="${2:-https://api.dcp.sa}"
-DC1_PROVIDER_DIR="$HOME/dc1-provider"
+DC1_PROVIDER_DIR="$HOME/dcp-provider"
 
 # --- Colors ---
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -18,7 +18,7 @@ log_success() { echo -e "${GREEN}✓ $1${NC}"; }
 log_error()   { echo -e "${RED}✗ $1${NC}"; exit 1; }
 log_info()    { echo -e "${YELLOW}ℹ $1${NC}"; }
 
-log_header "DC1 Provider Setup — Starting"
+log_header "DCP Provider Setup — Starting"
 
 # ============================================================================
 # STEP 1: VALIDATE API KEY
@@ -183,11 +183,11 @@ log_success "Configuration saved"
 # ============================================================================
 # STEP 6: CREATE HEARTBEAT DAEMON
 # ============================================================================
-log_header "Starting DC1 Daemon"
+log_header "Starting DCP Daemon"
 
 cat > "$DC1_PROVIDER_DIR/heartbeat.sh" << 'DAEMON_EOF'
 #!/bin/bash
-source "$HOME/dc1-provider/config/.env"
+source "$HOME/dcp-provider/config/.env"
 LOGS="$PROVIDER_DIR/logs/daemon.log"
 
 log_msg() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGS"; }
