@@ -30,6 +30,7 @@ const {
     announceFromProviderHeartbeat,
 } = require('../services/p2p-discovery');
 const { getBenchmarkResult } = require('../services/benchmarkRunner');
+const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const {
     appendAttemptLogLines,
     appendAttemptRawText,
@@ -497,6 +498,15 @@ router.post('/register', registerLimiter, validateBody(providerRegisterSchema), 
         if (similar.length > 0) {
             const matches = similar.map(s => `${s.name} (${s.email}, ${s.status})`).join('; ');
             console.warn(`[registration] Potential duplicate for "${cleanName}" <${cleanEmail}>: ${matches}`);
+        }
+
+        // Cross-role guard: this email may already hold a renter account.
+        // See backend/migrations/006_fadi_cross_role_cleanup.sql for the
+        // historical incident that motivated this check.
+        const conflict = findActiveAccountByEmail(db, cleanEmail);
+        if (conflict && conflict.role !== 'provider') {
+            const err = buildConflictResponse(conflict.role, 'provider');
+            return res.status(409).json({ error: err.message, code: err.code, existing_role: err.existing_role });
         }
 
         // Generate unique API key

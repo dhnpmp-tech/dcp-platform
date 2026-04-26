@@ -34,6 +34,7 @@ const { createClient } = require('@supabase/supabase-js');
 const db = require('../db');
 const { sendOtp } = require('../services/auth-otp');
 const { reconcileRenterByEmailFromSupabase } = require('../services/renter-identity-reconciliation');
+const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
 
 const router = express.Router();
@@ -116,6 +117,15 @@ router.post('/auth/register', async (req, res) => {
     // Note: password field in req.body is deliberately ignored. DCP auth
     // is magic-link only; the wizard spec documents password but the
     // confirmed implementation bridges to OTP/magic-link.
+
+    // Cross-role guard: a single email may only hold one role on DCP.
+    // See backend/migrations/006_fadi_cross_role_cleanup.sql for the
+    // historical incident that motivated this check.
+    const conflict = findActiveAccountByEmail(db, email);
+    if (conflict && conflict.role !== role) {
+      const err = buildConflictResponse(conflict.role, role);
+      return wizardError(res, 409, err.code, err.message);
+    }
 
     // For new providers we pre-stage a row so verify-otp/magic-link-exchange
     // can find them. Renters are created on first magic-link exchange.

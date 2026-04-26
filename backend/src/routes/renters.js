@@ -13,6 +13,7 @@ const {
   buildShadowCycleSummary,
 } = require('../services/p2p-discovery');
 const { reconcileRenterByEmailFromSupabase } = require('../services/renter-identity-reconciliation');
+const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const { isPublicWebhookUrl } = require('../lib/webhook-security');
 const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/validateWebhookUrl');
 const { validateBody } = require('../middleware/validate');
@@ -374,6 +375,15 @@ router.post('/register', validateBody(renterRegisterSchema), (req, res) => {
 
     if (!cleanName || !cleanEmail) {
       return res.status(400).json({ error: 'Missing required fields: name, email' });
+    }
+
+    // Cross-role guard: this email may already hold a provider account.
+    // See backend/migrations/006_fadi_cross_role_cleanup.sql for the
+    // historical incident that motivated this check.
+    const conflict = findActiveAccountByEmail(db, cleanEmail);
+    if (conflict && conflict.role !== 'renter') {
+      const err = buildConflictResponse(conflict.role, 'renter');
+      return res.status(409).json({ error: err.message, code: err.code, existing_role: err.existing_role });
     }
 
     const api_key = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
