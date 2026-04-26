@@ -14,7 +14,7 @@ Features:
   - Machine verification challenge support (anti-fraud GPU benchmarking)
   - 2MB stdout capture for LLM/image outputs
   - HMAC verification of task_spec before execution
-  - Structured logging to ~/dc1-provider/logs/
+  - Structured logging to ~/dcp-provider/logs/
   - Crash watchdog with auto-restart (max 5 restarts in 10 min)
   - Event logging to backend (crashes, job results, daemon lifecycle)
   - Self-updating: downloads new daemon from backend when update_available
@@ -58,6 +58,7 @@ import hmac
 import random
 import hashlib
 import logging
+from logging.handlers import RotatingFileHandler
 import platform
 import subprocess
 import threading
@@ -72,6 +73,24 @@ import re
 from pathlib import Path
 from datetime import datetime
 
+# ─── WINDOWS CONSOLE / SUBPROCESS HARDENING ─────────────────────────────────
+# Without CREATE_NO_WINDOW, every subprocess.run/Popen call (nvidia-smi, docker,
+# ping, etc.) pops a visible cmd.exe window on Windows — they stack indefinitely
+# in tray-app deployments. Also reconfigure stdout/stderr to UTF-8 so log lines
+# containing arrows (↑↓) don't crash with UnicodeEncodeError on cp1256 consoles.
+if sys.platform == 'win32':
+    _CREATE_NO_WINDOW = 0x08000000
+    _orig_popen_init = subprocess.Popen.__init__
+    def _popen_init_no_window(self, *args, **kwargs):
+        kwargs['creationflags'] = kwargs.get('creationflags', 0) | _CREATE_NO_WINDOW
+        _orig_popen_init(self, *args, **kwargs)
+    subprocess.Popen.__init__ = _popen_init_no_window
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, OSError):
+        pass
+
 # ─── CONFIGURATION (injected by download endpoint) ──────────────────────────
 
 API_KEY = "{{API_KEY}}"
@@ -85,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.1.0"
+DAEMON_VERSION = "4.2.0"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -129,7 +148,7 @@ VRAM_DEFAULT_REQUIREMENT = 2000  # Default if job type unknown
 
 # ─── POWER COST AWARENESS ────────────────────────────────────────────────────
 # Provider can set electricity cost in config.json to skip unprofitable jobs
-POWER_COST_CONFIG_FILE = Path.home() / "dc1-provider" / "power_config.json"
+POWER_COST_CONFIG_FILE = Path.home() / "dcp-provider" / "power_config.json"
 DEFAULT_ELECTRICITY_COST_KWH = 0.0  # 0 = disabled (accept all jobs)
 DEFAULT_GPU_TDP_WATTS = 300          # Default TDP for profitability calc
 
@@ -156,15 +175,28 @@ DISK_MIN_TEMP_MB = 500           # 500 MB minimum for /tmp scripts
 
 # ─── SETUP LOGGING ──────────────────────────────────────────────────────────
 
-LOG_DIR = Path.home() / "dc1-provider" / "logs"
+# DC1→DCP rename (4.2.0): one-time migration of provider home directory.
+# Older daemons used ~/dc1-provider/. If that exists and the new ~/dcp-provider/
+# does not, atomically rename it so logs/peer_id/config carry forward. Failures
+# are non-fatal — we fall through to the mkdir below and start fresh.
+_OLD_PROVIDER_HOME = Path.home() / "dc1-provider"
+_NEW_PROVIDER_HOME = Path.home() / "dcp-provider"
+if _OLD_PROVIDER_HOME.exists() and not _NEW_PROVIDER_HOME.exists():
+    try:
+        os.rename(str(_OLD_PROVIDER_HOME), str(_NEW_PROVIDER_HOME))
+    except OSError:
+        pass
+
+LOG_DIR = Path.home() / "dcp-provider" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-CONFIG_DIR = Path.home() / "dc1-provider"
+CONFIG_DIR = Path.home() / "dcp-provider"
 PEER_ID_FILE = CONFIG_DIR / "peer_id"
 UPDATE_SUPPRESSION_FILE = CONFIG_DIR / "update_suppression.json"
 
 # ─── v4.0.0-alpha: DCP CONFIG + CACHES ──────────────────────────────────────
 # v4.0 introduces a forward-looking ~/.dcp/ directory for daemon v4+ config
-# and runtime caches. Older ~/dc1-provider/ paths remain for backward compat.
+# and runtime caches. The legacy ~/dc1-provider/ home is auto-migrated to
+# ~/dcp-provider/ on first 4.2.0 launch (see migration block above).
 DCP_DIR = Path.home() / ".dcp"
 DCP_CONFIG_FILE = DCP_DIR / "config.json"
 DCP_CONCURRENCY_CACHE_FILE = DCP_DIR / "concurrency_cache.json"
@@ -227,7 +259,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler(LOG_DIR / "daemon.log"),
+        # 4.1.2 — rotate to prevent unbounded daemon.log growth (G30)
+        RotatingFileHandler(LOG_DIR / "daemon.log", maxBytes=10 * 1024 * 1024, backupCount=5),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -1180,7 +1213,8 @@ def get_gpu_info():
     """
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total,driver_version",
+            # 4.1.2 — include compute_cap so backend can populate gpu_compute / gpu_tier (G31)
+            ["nvidia-smi", "--query-gpu=name,memory.total,driver_version,compute_cap",
              "--format=csv,noheader,nounits"],
             capture_output=True,
             text=True,
@@ -1193,6 +1227,7 @@ def get_gpu_info():
                 "gpu_name": parts[0] if len(parts) > 0 else None,
                 "vram_mb": int(float(parts[1])) if len(parts) > 1 and parts[1] else None,
                 "driver_version": parts[2] if len(parts) > 2 else None,
+                "compute_capability": parts[3] if len(parts) > 3 and parts[3] else None,
                 "cuda_version": None,
             }
         # nvidia-smi present but returned nothing useful
@@ -2533,7 +2568,7 @@ def engine_watchdog_loop():
 # ─── v4.0.0-alpha: DAEMON CONFIG LOADER ─────────────────────────────────────
 #
 # v4.0 introduces ~/.dcp/config.json for forward-looking daemon configuration
-# (TurboQuant, assignment overrides, etc.). The old ~/dc1-provider/ files
+# (TurboQuant, assignment overrides, etc.). The old ~/dcp-provider/ files
 # remain in place for backward compatibility; this loader is additive.
 
 def load_daemon_config():
@@ -6292,39 +6327,39 @@ def main():
 
     # Step 7: Start background threads
     log.info("Starting heartbeat thread (every %ds)...", HEARTBEAT_INTERVAL)
-    hb_thread = threading.Thread(target=heartbeat_loop, daemon=True, name="DC1-Heartbeat")
+    hb_thread = threading.Thread(target=heartbeat_loop, daemon=True, name="DCP-Heartbeat")
     hb_thread.start()
 
     log.info("Starting job poll thread (every %ds)...", JOB_POLL_INTERVAL)
-    job_thread = threading.Thread(target=job_poll_loop, daemon=True, name="DC1-JobPoll")
+    job_thread = threading.Thread(target=job_poll_loop, daemon=True, name="DCP-JobPoll")
     job_thread.start()
 
     log.info("Starting update check thread (every %ds)...", AUTO_UPDATE_CHECK)
-    update_thread = threading.Thread(target=update_check_loop, daemon=True, name="DC1-AutoUpdate")
+    update_thread = threading.Thread(target=update_check_loop, daemon=True, name="DCP-AutoUpdate")
     update_thread.start()
 
     log.info("Starting bandwidth monitor (every %ds)...", BANDWIDTH_CHECK_INTERVAL)
-    bw_thread = threading.Thread(target=bandwidth_loop, daemon=True, name="DC1-Bandwidth")
+    bw_thread = threading.Thread(target=bandwidth_loop, daemon=True, name="DCP-Bandwidth")
     bw_thread.start()
 
     log.info("Starting network quality monitor (every %ds)...", NETWORK_QUALITY_INTERVAL)
-    nq_thread = threading.Thread(target=network_quality_loop, daemon=True, name="DC1-NetQuality")
+    nq_thread = threading.Thread(target=network_quality_loop, daemon=True, name="DCP-NetQuality")
     nq_thread.start()
 
     # v3.5.0: Feature 2 — Engine watchdog (auto-restart Ollama / alert on vLLM)
     log.info("Starting engine watchdog (every %ds)...", ENGINE_WATCHDOG_INTERVAL)
-    ew_thread = threading.Thread(target=engine_watchdog_loop, daemon=True, name="DC1-EngineWatchdog")
+    ew_thread = threading.Thread(target=engine_watchdog_loop, daemon=True, name="DCP-EngineWatchdog")
     ew_thread.start()
 
     # v3.5.0: Feature 5 — Passive daemon version check (informational)
     log.info("Starting passive daemon version check (every 300s)...")
-    puc_thread = threading.Thread(target=passive_update_check_loop, daemon=True, name="DC1-PassiveUpdate")
+    puc_thread = threading.Thread(target=passive_update_check_loop, daemon=True, name="DCP-PassiveUpdate")
     puc_thread.start()
 
     # v4.0.0-alpha: Periodic concurrency reprobe (every 6 hours)
     log.info("Starting concurrency reprobe loop (every 6h)...")
     cr_thread = threading.Thread(
-        target=_concurrency_reprobe_loop, daemon=True, name="DC1-ConcurrencyReprobe"
+        target=_concurrency_reprobe_loop, daemon=True, name="DCP-ConcurrencyReprobe"
     )
     cr_thread.start()
 
@@ -6358,7 +6393,7 @@ def main():
             time.sleep(30)
 
     sup_thread = threading.Thread(
-        target=_thread_supervisor, daemon=True, name="DC1-Supervisor"
+        target=_thread_supervisor, daemon=True, name="DCP-Supervisor"
     )
     sup_thread.start()
 
@@ -6373,7 +6408,7 @@ def main():
         log.info(f"Power cost tracking: ENABLED — {power_cfg.get('electricity_cost_kwh')} SAR/kWh, "
                  f"TDP={power_cfg.get('gpu_tdp_watts')}W, min margin={power_cfg.get('min_profit_margin_pct')}%")
     else:
-        log.info("Power cost tracking: disabled (set ~/dc1-provider/power_config.json to enable)")
+        log.info("Power cost tracking: disabled (set ~/dcp-provider/power_config.json to enable)")
 
     log.info("Daemon running. Press Ctrl+C to stop.")
 

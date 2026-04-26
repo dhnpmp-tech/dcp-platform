@@ -52,7 +52,9 @@ jobs:
       - name: Install pytest only (daemon itself is stdlib-only)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest==8.4.2
+          # pytest 8.4.x dropped Python 3.8 support; 8.3.x is the last line
+          # that supports our oldest matrix entry. Pin minor, allow patch.
+          python -m pip install 'pytest>=8.3,<8.4'
 
       - name: Run daemon tests
         working-directory: backend/installers
