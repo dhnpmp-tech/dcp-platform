@@ -2374,7 +2374,7 @@ function GpuPlayground() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-white/60 mb-1.5">{t('playground.max_tokens')}</label>
-                    <input type="number" min={32} max={4096} className={inputCls} value={maxTokens} onChange={e => setMaxTokens(Number(e.target.value))} disabled={isRunning} />
+                    <input type="number" min={32} max={16384} className={inputCls} value={maxTokens} onChange={e => setMaxTokens(Number(e.target.value))} disabled={isRunning} />
                   </div>
                   <div>
                     <label className="block text-sm text-white/60 mb-1.5">{t('playground.temperature')}: {temperature.toFixed(1)}</label>
