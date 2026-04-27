@@ -196,7 +196,7 @@ function StepAccount({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/dc1/auth/register', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email.trim(), password: form.password }),
@@ -514,7 +514,7 @@ function StepApiKey({
       return
     }
     // Fetch API key if not provided from registration
-    fetch('/api/dc1/renters/me/api-key', {
+    fetch('/api/renters/me/api-key', {
       headers: { 'Content-Type': 'application/json' },
     })
       .then((r) => r.json())

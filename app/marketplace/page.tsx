@@ -343,7 +343,7 @@ export default function MarketplacePage() {
   const fetchProviders = useCallback(async () => {
     try {
       // Try /providers/public first (no auth, 30s cached), then fall back
-      let res = await fetch('/api/dc1/providers/public')
+      let res = await fetch('/api/providers/public')
       if (res.ok) {
         const data: PublicProvider[] = await res.json()
         if (Array.isArray(data)) {
@@ -355,8 +355,8 @@ export default function MarketplacePage() {
       }
 
       // Fallback to /providers/marketplace then /providers/available
-      res = await fetch('/api/dc1/providers/marketplace')
-      if (!res.ok) res = await fetch('/api/dc1/providers/available')
+      res = await fetch('/api/providers/marketplace')
+      if (!res.ok) res = await fetch('/api/providers/available')
       if (res.ok) {
         const data = await res.json()
         const list: Provider[] = Array.isArray(data)

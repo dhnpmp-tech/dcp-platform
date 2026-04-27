@@ -59,8 +59,8 @@ interface CopyBundle {
 }
 
 const API_SECTIONS = {
-  evidence: '/api/dc1/trust-center/evidence',
-  roadmap: '/api/dc1/trust-center/roadmap',
+  evidence: '/api/trust-center/evidence',
+  roadmap: '/api/trust-center/roadmap',
 } as const
 
 const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {

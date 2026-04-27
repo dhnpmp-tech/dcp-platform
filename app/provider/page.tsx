@@ -277,7 +277,7 @@ export default function ProviderDashboard() {
         if (!data?.version) return
         setLatestDaemon({
           version: String(data.version),
-          download_url: String(data.download_url || '/api/dc1/providers/download/daemon'),
+          download_url: String(data.download_url || '/api/providers/download/daemon'),
           changelog: typeof data.changelog === 'string' ? data.changelog : undefined,
         })
       } catch {
@@ -416,7 +416,7 @@ export default function ProviderDashboard() {
 
   const daemonDownloadUrl = (() => {
     if (!providerApiKey) return ''
-    const base = latestDaemon?.download_url || '/api/dc1/providers/download/daemon'
+    const base = latestDaemon?.download_url || '/api/providers/download/daemon'
     const separator = base.includes('?') ? '&' : '?'
     return `${base}${separator}key=${encodeURIComponent(providerApiKey)}`
   })()
@@ -432,19 +432,19 @@ export default function ProviderDashboard() {
       id: 'windows',
       label: 'Windows Tray App',
       details: 'Best for Windows 10/11 hosts. Launches as a tray process.',
-      href: '/api/dc1/providers/download/tray-windows',
+      href: '/api/providers/download/tray-windows',
     },
     {
       id: 'linux',
       label: 'Linux Tray App',
       details: 'Desktop tray helper for Ubuntu and other Linux distributions.',
-      href: '/api/dc1/providers/download/tray-linux',
+      href: '/api/providers/download/tray-linux',
     },
     {
       id: 'macos',
       label: 'macOS Menubar App',
       details: 'Native status indicator for macOS menu bar.',
-      href: '/api/dc1/providers/download/tray-mac',
+      href: '/api/providers/download/tray-mac',
     },
   ]
   const detectedNativeAppLabel = detectedNativeAppOs === 'windows'

@@ -27,7 +27,7 @@ export function usePublicMetricsContract() {
 
     const fetchSnapshot = async () => {
       try {
-        const res = await fetch('/api/dc1/health/detailed', { cache: 'no-store' })
+        const res = await fetch('/api/health/detailed', { cache: 'no-store' })
         if (!res.ok) return
 
         const payload = (await res.json()) as HealthDetailedResponse

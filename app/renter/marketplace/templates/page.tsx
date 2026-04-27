@@ -665,7 +665,7 @@ export default function TemplateCatalogPage() {
   const [loadingTemplates, setLoadingTemplates] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dc1/templates')
+    fetch('/api/templates')
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => {
         const list: Record<string, unknown>[] = Array.isArray(data?.templates) ? data.templates : []
@@ -795,7 +795,7 @@ export default function TemplateCatalogPage() {
     const apiKey = localStorage.getItem('dc1_renter_key') || localStorage.getItem('dc1_api_key') || ''
     setDeploy(d => ({ ...d, loading: true, error: '' }))
     try {
-      const res = await fetch(`/api/dc1/templates/${encodeURIComponent(tmpl.id)}/deploy`, {
+      const res = await fetch(`/api/templates/${encodeURIComponent(tmpl.id)}/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-renter-key': apiKey },
         body: JSON.stringify({ duration_minutes: 60 }),

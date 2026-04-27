@@ -24,14 +24,14 @@ describe('Renter dashboard canonical auth redirect', () => {
   describe('Invalid or expired key handling', () => {
     it('redirects with reason=invalid_credentials on 401/403 non-expired auth failures', () => {
       // Given: persisted renter key is invalid
-      // When: /api/dc1/renters/me returns 401/403 without expired/session markers
+      // When: /api/renters/me returns 401/403 without expired/session markers
       // Then: localStorage renter key is cleared
       // And: redirect includes reason=invalid_credentials
     })
 
     it('redirects with reason=expired_session when backend indicates session expiration', () => {
       // Given: persisted renter key exists
-      // When: /api/dc1/renters/me responds with error containing expired/session semantics
+      // When: /api/renters/me responds with error containing expired/session semantics
       // Then: localStorage renter key is cleared
       // And: redirect includes reason=expired_session
     })

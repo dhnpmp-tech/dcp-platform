@@ -169,13 +169,13 @@ export default function RenterRegisterPage() {
       localStorage.setItem('dc1_renter_key', data.api_key)
       trackRegisterEvent('renter_register_success', {
         surface: 'registration_form',
-        destination: '/api/dc1/renters/register',
+        destination: '/api/renters/register',
         step: 'submit_success',
       })
     } catch (err) {
       trackRegisterEvent('renter_register_failed', {
         surface: 'registration_form',
-        destination: '/api/dc1/renters/register',
+        destination: '/api/renters/register',
         step: 'submit_failure',
         error: err instanceof Error ? err.message : 'unknown_error',
       })

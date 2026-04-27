@@ -735,7 +735,7 @@ export default function MarketplaceTemplatesPage() {
     })
 
     try {
-      const res = await fetch(`/api/dc1/templates/${encodeURIComponent(template.id)}/deploy`, {
+      const res = await fetch(`/api/templates/${encodeURIComponent(template.id)}/deploy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

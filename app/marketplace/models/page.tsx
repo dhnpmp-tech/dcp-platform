@@ -44,7 +44,7 @@ interface ModelListItem {
   tier?: string | null
   prewarm_class?: string | null
   arabic_capability?: boolean   // from DCP-950: authoritative Arabic flag from backend
-  arabic?: boolean              // alias returned by GET /api/dc1/models
+  arabic?: boolean              // alias returned by GET /api/models
 }
 
 // ── Competitive pricing table (SAR per hour, from strategic brief) ─────────────

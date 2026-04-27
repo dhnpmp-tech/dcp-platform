@@ -110,7 +110,7 @@ export default function JobsPage() {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch('/api/dc1/jobs/active');
+      const res = await fetch('/api/jobs/active');
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
 

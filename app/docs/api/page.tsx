@@ -243,7 +243,7 @@ function toProxyPath(path: string) {
   if (!path.startsWith('/api/')) {
     return path
   }
-  return `/api/dc1/${path.slice('/api/'.length)}`
+  return `/api/${path.slice('/api/'.length)}`
 }
 
 function withPathParams(path: string, jobId: string) {

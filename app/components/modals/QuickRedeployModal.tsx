@@ -398,7 +398,7 @@ function StepConfirmLaunch({
     trackEvent('redeploy_clicked', { job_id: job.job_id, gpu: selectedGpuId, model })
 
     try {
-      const res = await fetch(`/api/dc1/jobs/${job.job_id}/retry`, {
+      const res = await fetch(`/api/jobs/${job.job_id}/retry`, {
         method: 'POST',
         headers: { 'X-Renter-Key': key },
       })

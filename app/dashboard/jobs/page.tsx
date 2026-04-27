@@ -7,8 +7,8 @@ import Link from 'next/link'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import { type Job } from '../../components/JobCard'
 
-// NOTE: Backend should implement GET /api/dc1/renters/jobs returning provider_name,
-// template_id, and enriched fields per DCP-889. Falling back to /api/dc1/jobs/history.
+// NOTE: Backend should implement GET /api/renters/jobs returning provider_name,
+// template_id, and enriched fields per DCP-889. Falling back to /api/jobs/history.
 const API_BASE = '/api/dc1'
 const PAGE_SIZE = 20
 

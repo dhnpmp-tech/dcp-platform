@@ -72,7 +72,7 @@ interface ModelListItem {
   prewarm_class?: string | null
   template_id?: string | null
   arabic_capability?: boolean   // authoritative Arabic flag from DCP-950
-  arabic?: boolean              // alias returned by GET /api/dc1/models
+  arabic?: boolean              // alias returned by GET /api/models
 }
 
 interface DeployState {
