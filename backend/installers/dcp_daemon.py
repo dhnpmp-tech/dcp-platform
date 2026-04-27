@@ -104,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.0"
+DAEMON_VERSION = "4.2.1"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -4479,6 +4479,22 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             "free": get_free_gpu_slot_count(),
         }
         payload["draining"] = is_draining()
+        # v4.2.1: explicit "ready to take jobs" gate. The backend used to
+        # treat any heartbeating provider as a candidate, so an Ollama-dead
+        # but daemon-alive box would still get traffic. accepting_jobs is
+        # True only if at least one configured engine answers its health
+        # endpoint right now.
+        try:
+            _engines_for_gate = _discover_engines_for_watchdog()
+            if _engines_for_gate:
+                payload["accepting_jobs"] = any(
+                    check_engine_health(et, p) for et, p in _engines_for_gate
+                )
+            else:
+                payload["accepting_jobs"] = False
+        except Exception as _gate_err:
+            log.debug(f"accepting_jobs gate failed: {_gate_err}")
+            payload["accepting_jobs"] = False
         # v3.5.0: Model auto-detection across all inference engines.
         # v4.0.3 (Phase 1.5 / Fix C): cached_models now contains the
         # dual-identity alias expansion (Ollama tag + HF canonical + vLLM
@@ -4597,7 +4613,9 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             json.dumps(payload)
             safe_payload = payload
         except (TypeError, ValueError) as ser_err:
-            log.warning(f"Heartbeat payload not JSON-safe ({ser_err}); sanitizing")
+            # v4.2.1: was log.warning — sanitization handles this correctly,
+            # so the warning was log noise on every heartbeat cycle.
+            log.debug(f"Heartbeat payload not JSON-safe ({ser_err}); sanitizing")
             safe_payload = _sanitize_for_json(payload)
         try:
             code, resp = http_post(url, safe_payload)
