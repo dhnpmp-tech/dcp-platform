@@ -28,10 +28,13 @@ export async function GET(
       );
     }
 
-    const job = await res.json();
+    // Backend already returns { job: {...} } — forward as-is. Wrapping again
+    // produced { job: { job: {...} } }, which made every consumer's
+    // `data.job.job_id` undefined and rendered "#undefined" in the UI.
+    const data = await res.json();
 
     return NextResponse.json(
-      { job },
+      data,
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   } catch (error) {
