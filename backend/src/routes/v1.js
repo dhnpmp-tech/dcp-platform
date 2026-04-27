@@ -1345,27 +1345,41 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             ? proxySnapshot.costHalala
             : Math.max(1, Math.round((modelReq.fallback_rate_halala_per_min || 2) * ((proxyPromptTokens + proxyCompletionTokens) / 30)));
           const proxyProviderEarned = Math.max(1, Math.round(proxyCostHalala * 0.85));
-          // Extract response text for job result storage. Ollama in thinking
-          // mode (e.g. qwen3:4b) returns the assistant text in `reasoning`
-          // (not `reasoning_content`) and leaves `content` empty — without the
-          // bare `reasoning` fallback every v1:proxy job got persisted with
-          // response="" and the playground MD/JSON exports showed "(no
-          // response recorded)". The Ollama→OpenAI merge below at L1402-1409
-          // fixes the live response shipped to the renter, but happens AFTER
-          // this insert, so we have to mirror its sources here.
-          const proxyResponseText = resultBody?.choices?.[0]?.message?.content
-            || resultBody?.choices?.[0]?.message?.reasoning_content
-            || resultBody?.choices?.[0]?.message?.reasoning
-            || '';
+          // Extract response text for job result storage. Save ONLY the final
+          // assistant `content` — never the model's internal `reasoning` /
+          // `reasoning_content`. With thinking models (qwen3:4b, etc.) and a
+          // small max_tokens budget, the model can burn the entire budget on
+          // internal monologue and return zero content; in that case we
+          // deliberately persist an empty response rather than dumping a wall
+          // of "Hmm, the user is asking..." into the renter's playground. The
+          // renter sees an empty response as a signal to bump max_tokens. The
+          // live response body shipped to the renter is independently merged
+          // at L1402-1409 so callers still see whatever the model produced.
+          const proxyResponseText = resultBody?.choices?.[0]?.message?.content || '';
+
+          // Tokens/sec — Ollama's OpenAI-compat /v1 endpoint strips the
+          // llama.cpp `timings` block, so `timings.predicted_per_second` is
+          // almost always undefined. Fall back to wall-clock: the elapsed
+          // time from proxy start to end is a tight upper bound on inference
+          // time (it includes a tiny TLS+proxy hop) and gives renters a
+          // useful number instead of "0 tok/s" on every history detail page.
+          const wallSeconds = Math.max(0.001, (Date.parse(proxyNow) - Date.parse(proxyStartedAt)) / 1000);
+          const reportedTps = resultBody?.timings?.predicted_per_second;
+          const reportedGenMs = resultBody?.timings?.predicted_ms;
+          const tokensPerSecond = reportedTps && reportedTps > 0
+            ? reportedTps
+            : (proxyCompletionTokens > 0 ? +(proxyCompletionTokens / wallSeconds).toFixed(2) : 0);
+          const genTimeS = reportedGenMs ? reportedGenMs / 1000 : +wallSeconds.toFixed(3);
+
           const proxyResultJson = JSON.stringify({
             type: 'llm_inference',
             prompt: messages?.[messages.length - 1]?.content || '',
             response: proxyResponseText.slice(0, 10000),
             model: resultBody?.model || modelReq.model_id,
             tokens_generated: proxyCompletionTokens,
-            tokens_per_second: resultBody?.timings?.predicted_per_second || 0,
-            gen_time_s: resultBody?.timings?.predicted_ms ? resultBody.timings.predicted_ms / 1000 : 0,
-            total_time_s: resultBody?.timings?.predicted_ms ? resultBody.timings.predicted_ms / 1000 : 0,
+            tokens_per_second: tokensPerSecond,
+            gen_time_s: genTimeS,
+            total_time_s: genTimeS,
             device: providerForUsage?.gpu_model || 'GPU',
           });
           db.prepare(
