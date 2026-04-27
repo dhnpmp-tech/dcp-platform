@@ -1572,8 +1572,9 @@ router.get('/me/jobs', (req, res) => {
     const key = req.headers['x-renter-key'] || req.query.key;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
-    if (!renter) return res.status(401).json({ error: 'Invalid API key' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(401).json({ error: 'Invalid API key' });
+    const renter = { id: renterId };
 
     const page = Math.max(parseInt(req.query.page) || 0, 0);
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
@@ -1699,8 +1700,9 @@ router.get('/me/jobs/:jobId', (req, res) => {
   try {
     const renterKey = req.headers['x-renter-key'] || req.query.key;
     if (!renterKey) return res.status(401).json({ error: 'API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', renterKey, 'active');
-    if (!renter) return res.status(401).json({ error: 'Invalid API key' });
+    const renterId = resolveRenterIdByKey(renterKey);
+    if (!renterId) return res.status(401).json({ error: 'Invalid API key' });
+    const renter = { id: renterId };
 
     const { jobId } = req.params;
     const job = db.get(`
@@ -1733,8 +1735,9 @@ router.get('/me/spending', (req, res) => {
   try {
     const renterKey = req.headers['x-renter-key'] || req.query.key;
     if (!renterKey) return res.status(401).json({ error: 'API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', renterKey, 'active');
-    if (!renter) return res.status(401).json({ error: 'Invalid API key' });
+    const renterId = resolveRenterIdByKey(renterKey);
+    if (!renterId) return res.status(401).json({ error: 'Invalid API key' });
+    const renter = { id: renterId };
 
     const monthly = db.all(`
       SELECT
