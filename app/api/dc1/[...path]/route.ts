@@ -1,6 +1,17 @@
+// Legacy proxy for /api/dc1/* — kept because several frontend pages still use
+// API_BASE = '/api/dc1' (renter dashboard, jobs, billing, models, etc.).
+//
+// BACKEND is hardcoded to the public api.dcp.sa hostname for the same reason
+// app/api/[...path]/route.ts is: Vercel BACKEND_URL was misconfigured and
+// the env var resolved to a private IP, so every /api/dc1/* request 404'd
+// with x-vercel-error: DNS_HOSTNAME_RESOLVED_PRIVATE.
+//
+// Once all frontend fetches are swept from /api/dc1/* → /api/*, this whole
+// file can be deleted.
+
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND = process.env.BACKEND_URL || 'https://api.dcp.sa';
+const BACKEND = 'https://api.dcp.sa';
 
 function buildBackendUrl(pathSegments: string[], search: string): string {
   const safePath = pathSegments.map((segment) => encodeURIComponent(segment)).join('/');
