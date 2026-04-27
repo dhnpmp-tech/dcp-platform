@@ -422,6 +422,7 @@ function GpuPlayground() {
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [templateError, setTemplateError] = useState('');
 
   // Container spec
   const [imageType, setImageType] = useState<ImageType>('pytorch-cuda');
@@ -612,9 +613,9 @@ function GpuPlayground() {
     setHistoryActionError('');
 
     try {
-      // Fetch output
+      // Fetch output (renter key required — server returns 403 without it)
       const outRes = await fetch(`${API_BASE}/jobs/${job.id}/output`, {
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Accept': 'application/json', 'x-renter-key': renterKey },
       });
 
       if (outRes.ok) {
@@ -1277,6 +1278,7 @@ function GpuPlayground() {
   async function saveTemplate() {
     if (!templateName.trim()) return;
     setSavingTemplate(true);
+    setTemplateError('');
     try {
       let model = jobType === 'llm_inference' ? llmModel : jobType === 'image_generation' ? sdModel : vllmModel;
       const res = await fetch(`${API_BASE}/renters/me/templates?key=${encodeURIComponent(renterKey)}`, {
@@ -1302,8 +1304,13 @@ function GpuPlayground() {
         setTemplateSaved(true);
         fetchTemplates();
         setTimeout(() => setTemplateSaved(false), 3000);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setTemplateError(body.error || `Save failed (HTTP ${res.status})`);
       }
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      setTemplateError(err?.message || 'Network error — could not save template');
+    }
     finally { setSavingTemplate(false); }
   }
 
@@ -2709,9 +2716,12 @@ print(response.choices[0].message.content)`}</pre>
             autoFocus
             maxLength={120}
           />
+          {templateError && (
+            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{templateError}</p>
+          )}
           <div className="flex gap-3 justify-end">
             <button
-              onClick={() => setSaveTemplateModal(false)}
+              onClick={() => { setSaveTemplateModal(false); setTemplateError(''); }}
               disabled={savingTemplate}
               className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 text-white/50 hover:bg-white/10 border border-white/10 transition"
             >

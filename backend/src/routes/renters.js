@@ -1792,16 +1792,28 @@ router.get('/me/spending', (req, res) => {
 
 // ─── JOB TEMPLATES ─── (DCP-304)
 
+// Resolve renter id from either the legacy renters.api_key column or the
+// renter_api_keys multi-key table (dcp- prefixed keys live there).
+function resolveRenterIdByKey(key) {
+  if (!key) return null;
+  const direct = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
+  if (direct) return direct.id;
+  const ak = db.get('SELECT renter_id FROM renter_api_keys WHERE key = ? AND revoked_at IS NULL', key);
+  if (!ak) return null;
+  const linked = db.get('SELECT id FROM renters WHERE id = ? AND status = ?', ak.renter_id, 'active');
+  return linked ? linked.id : null;
+}
+
 // GET /api/renters/me/templates?key=
 router.get('/me/templates', (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
-    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
     const templates = db.all(
       'SELECT id, name, job_type, model, system_prompt, max_tokens, resource_spec_json, created_at FROM job_templates WHERE renter_id = ? ORDER BY created_at DESC',
-      renter.id
+      renterId
     );
     res.json({ templates });
   } catch (error) {
@@ -1815,8 +1827,8 @@ router.post('/me/templates', (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
-    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
 
     const { name, job_type, model, system_prompt, max_tokens, resource_spec_json } = req.body;
     const cleanName = normalizeString(name, { maxLen: 120 });
@@ -1827,7 +1839,7 @@ router.post('/me/templates', (req, res) => {
     }
 
     // Cap templates per renter at 50
-    const count = db.get('SELECT COUNT(*) AS n FROM job_templates WHERE renter_id = ?', renter.id);
+    const count = db.get('SELECT COUNT(*) AS n FROM job_templates WHERE renter_id = ?', renterId);
     if (count && count.n >= 50) {
       return res.status(409).json({ error: 'Template limit reached (50). Delete one to save more.' });
     }
@@ -1836,9 +1848,9 @@ router.post('/me/templates', (req, res) => {
     const result = runStatement(
       `INSERT INTO job_templates (renter_id, name, job_type, model, system_prompt, max_tokens, resource_spec_json, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      renter.id, cleanName, cleanJobType, cleanModel,
+      renterId, cleanName, cleanJobType, cleanModel,
       normalizeString(system_prompt, { maxLen: 2000 }) || null,
-      toFiniteInt(max_tokens, { min: 1, max: 4096 }) || null,
+      toFiniteInt(max_tokens, { min: 1, max: 16384 }) || null,
       normalizeString(resource_spec_json, { maxLen: 2000 }) || null,
       now
     );
@@ -1855,13 +1867,13 @@ router.delete('/me/templates/:id', (req, res) => {
     const { key } = req.query;
     const { id } = req.params;
     if (!key) return res.status(400).json({ error: 'API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
-    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
     const templateId = toFiniteInt(id, { min: 1 });
     if (!templateId) return res.status(400).json({ error: 'Invalid template ID' });
     const result = runStatement(
       'DELETE FROM job_templates WHERE id = ? AND renter_id = ?',
-      templateId, renter.id
+      templateId, renterId
     );
     if (result.changes === 0) return res.status(404).json({ error: 'Template not found' });
     res.json({ success: true });
