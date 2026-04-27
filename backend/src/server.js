@@ -105,12 +105,17 @@ const CORS_ALLOWED_HEADERS = [
   'X-DCP-Event',
   'X-Paperclip-Run-Id',
 ];
+// Vercel deployments: prod + branch previews (e.g. dc1-platform.vercel.app,
+// dc1-platform-git-foo-peter.vercel.app). Safe because we own the project.
+const VERCEL_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (daemon, curl, server-to-server)
     if (!origin) return callback(null, true);
     // Allow exact matches
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    // Allow our Vercel deployments (production + branch previews)
+    if (VERCEL_ORIGIN_RE.test(origin)) return callback(null, true);
     console.warn(`[cors] Blocked origin: ${origin}`);
     callback(new Error('Not allowed by CORS'));
   },
