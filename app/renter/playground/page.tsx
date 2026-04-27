@@ -1048,6 +1048,25 @@ function GpuPlayground() {
             actual_cost_sar: usage.pricing?.usd_total ? (parseFloat(usage.pricing.usd_total) * 3.75).toFixed(4) : '0.01',
           },
         });
+        // Populate Execution Proof panel for v1 inference path (no polling, no /jobs/:id/proof)
+        const inferProvider = providerId ? providers.find((p) => p.id === providerId) || null : null;
+        const costH = usage.pricing?.usd_total ? Math.round(parseFloat(usage.pricing.usd_total) * 375) : 1;
+        const nowIso = new Date().toISOString();
+        const durationMin = timings.predicted_ms ? timings.predicted_ms / 60000 : 0;
+        setProof({
+          job_id: chatcmplId || '',
+          provider_name: inferProvider?.name || providerGpu || 'Unknown',
+          provider_gpu: inferProvider?.gpu_model || providerGpu || 'GPU',
+          provider_hostname: inferProvider?.name || providerGpu || '',
+          status: 'completed',
+          started_at: nowIso,
+          completed_at: nowIso,
+          actual_duration_minutes: durationMin,
+          cost_halala: costH,
+          provider_earned_halala: Math.round(costH * 0.75),
+          dc1_fee_halala: Math.round(costH * 0.25),
+          raw_log: '',
+        });
         setPhase('done');
         trackPlaygroundEvent('job_submit_success', {
           job_type: 'llm_inference',
@@ -1502,7 +1521,8 @@ function GpuPlayground() {
       },
     });
   }
-  if (isRunning) {
+  // Only block on a genuinely stuck previous job (polling), not on the user's own in-flight submit
+  if (phase === 'polling') {
     submitBlockers.push({
       code: 'job_in_progress',
       reason: t('playground.blocker.job_in_progress.reason'),
