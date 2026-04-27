@@ -1345,9 +1345,18 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             ? proxySnapshot.costHalala
             : Math.max(1, Math.round((modelReq.fallback_rate_halala_per_min || 2) * ((proxyPromptTokens + proxyCompletionTokens) / 30)));
           const proxyProviderEarned = Math.max(1, Math.round(proxyCostHalala * 0.85));
-          // Extract response text for job result storage
+          // Extract response text for job result storage. Ollama in thinking
+          // mode (e.g. qwen3:4b) returns the assistant text in `reasoning`
+          // (not `reasoning_content`) and leaves `content` empty — without the
+          // bare `reasoning` fallback every v1:proxy job got persisted with
+          // response="" and the playground MD/JSON exports showed "(no
+          // response recorded)". The Ollama→OpenAI merge below at L1402-1409
+          // fixes the live response shipped to the renter, but happens AFTER
+          // this insert, so we have to mirror its sources here.
           const proxyResponseText = resultBody?.choices?.[0]?.message?.content
-            || resultBody?.choices?.[0]?.message?.reasoning_content || '';
+            || resultBody?.choices?.[0]?.message?.reasoning_content
+            || resultBody?.choices?.[0]?.message?.reasoning
+            || '';
           const proxyResultJson = JSON.stringify({
             type: 'llm_inference',
             prompt: messages?.[messages.length - 1]?.content || '',
