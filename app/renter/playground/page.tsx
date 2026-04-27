@@ -731,43 +731,130 @@ function GpuPlayground() {
     });
   }
 
-  function exportViewingOutput() {
+  // Build a structured snapshot of the viewed job for JSON / MD export.
+  // Pulls fields from both viewingResult (model output) and viewingProof
+  // (billing + status), and falls back gracefully when fields are missing.
+  function buildExportSnapshot() {
+    if (!viewingResult || !viewingJobId) return null;
+    const proof = viewingProof || {} as any;
+    return {
+      job_id: proof.job_id || `#${viewingJobId}`,
+      status: proof.status || null,
+      type: viewingResult.type || null,
+      model: viewingResult.model || null,
+      device: viewingResult.device || null,
+      prompt: viewingResult.prompt || null,
+      response: viewingResult.type === 'text' ? (viewingResult.response || null) : null,
+      tokens_generated: viewingResult.tokens_generated ?? null,
+      tokens_per_second: viewingResult.tokens_per_second ?? null,
+      gen_time_s: viewingResult.gen_time_s ?? null,
+      total_time_s: viewingResult.total_time_s ?? null,
+      image: viewingResult.type === 'image' ? {
+        format: (viewingResult as any).format || 'png',
+        width: (viewingResult as any).width || null,
+        height: (viewingResult as any).height || null,
+        seed: (viewingResult as any).seed || null,
+      } : null,
+      billing: {
+        cost_halala: proof.cost_halala ?? 0,
+        cost_sar: ((proof.cost_halala ?? 0) / 100).toFixed(2),
+        provider_earned_halala: proof.provider_earned_halala ?? 0,
+        dcp_fee_halala: proof.dc1_fee_halala ?? 0,
+      },
+      timing: {
+        started_at: proof.started_at || null,
+        completed_at: proof.completed_at || null,
+        actual_duration_minutes: proof.actual_duration_minutes ?? null,
+      },
+    };
+  }
+
+  function buildExportMarkdown() {
+    const snap = buildExportSnapshot();
+    if (!snap) return '';
+    const lines: string[] = [];
+    lines.push(`# DCP Job ${snap.job_id}`);
+    lines.push('');
+    lines.push(`- **Status:** ${snap.status || 'unknown'}`);
+    if (snap.model) lines.push(`- **Model:** ${snap.model}`);
+    if (snap.device) lines.push(`- **Device:** ${snap.device}`);
+    if (snap.timing.completed_at) lines.push(`- **Completed:** ${snap.timing.completed_at}`);
+    if (snap.tokens_generated != null) {
+      const speed = snap.tokens_per_second ? ` (${snap.tokens_per_second} tok/s)` : '';
+      lines.push(`- **Tokens:** ${snap.tokens_generated}${speed}`);
+    }
+    lines.push(`- **Cost:** ${snap.billing.cost_halala} halala (${snap.billing.cost_sar} SAR)`);
+    lines.push('');
+    if (snap.prompt) {
+      lines.push('## Prompt');
+      lines.push('');
+      lines.push(snap.prompt);
+      lines.push('');
+    }
+    if (snap.type === 'text') {
+      lines.push('## Response');
+      lines.push('');
+      lines.push(snap.response || '_(no response recorded)_');
+      lines.push('');
+    } else if (snap.type === 'image' && snap.image) {
+      lines.push('## Image');
+      lines.push('');
+      lines.push(`- **Format:** ${snap.image.format}`);
+      if (snap.image.width && snap.image.height) {
+        lines.push(`- **Dimensions:** ${snap.image.width}×${snap.image.height}`);
+      }
+      if (snap.image.seed != null) lines.push(`- **Seed:** ${snap.image.seed}`);
+      lines.push('');
+      lines.push('_Use the PNG/JPEG/WebP buttons to download the image binary._');
+      lines.push('');
+    }
+    return lines.join('\n');
+  }
+
+  function downloadBlob(content: string, filename: string, mime: string) {
+    const blob = new Blob([content], { type: mime });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(href);
+  }
+
+  function exportViewingOutputAsJson() {
     if (!viewingResult || !viewingJobId) {
       setHistoryActionError(t('playground.history_error.export_requires_completed_output'));
       return;
     }
+    const snap = buildExportSnapshot();
+    if (!snap) return;
     setHistoryActionError('');
-    if (viewingResult.type === 'text' && viewingResult.response) {
-      const textBlob = new Blob([viewingResult.response], { type: 'text/plain;charset=utf-8' });
-      const href = URL.createObjectURL(textBlob);
-      const link = document.createElement('a');
-      link.href = href;
-      link.download = `dcp-job-${viewingJobId}-output.txt`;
-      link.click();
-      URL.revokeObjectURL(href);
-      trackPlaygroundEvent('output_exported', {
-        source: 'playground_history',
-        job_id: viewingJobId,
-        format: 'txt',
-        output_type: 'text',
-      });
+    const label = viewingProof?.job_id || String(viewingJobId);
+    downloadBlob(JSON.stringify(snap, null, 2), `dcp-job-${label}.json`, 'application/json');
+    trackPlaygroundEvent('output_exported', {
+      source: 'playground_history',
+      job_id: viewingJobId,
+      format: 'json',
+      output_type: viewingResult.type,
+    });
+  }
+
+  function exportViewingOutputAsMarkdown() {
+    if (!viewingResult || !viewingJobId) {
+      setHistoryActionError(t('playground.history_error.export_requires_completed_output'));
       return;
     }
-    if (viewingResult.type === 'image') {
-      if (viewingResult.image_base64) {
-        downloadImage(viewingResult.image_base64, 'png', viewingProof?.job_id || String(viewingJobId));
-      } else {
-        downloadFromBackend(viewingJobId, 'png', viewingProof?.job_id || String(viewingJobId));
-      }
-      trackPlaygroundEvent('output_exported', {
-        source: 'playground_history',
-        job_id: viewingJobId,
-        format: 'png',
-        output_type: 'image',
-      });
-      return;
-    }
-    setHistoryActionError(t('playground.history_error.export_unavailable'));
+    const md = buildExportMarkdown();
+    if (!md) return;
+    setHistoryActionError('');
+    const label = viewingProof?.job_id || String(viewingJobId);
+    downloadBlob(md, `dcp-job-${label}.md`, 'text/markdown;charset=utf-8');
+    trackPlaygroundEvent('output_exported', {
+      source: 'playground_history',
+      job_id: viewingJobId,
+      format: 'md',
+      output_type: viewingResult.type,
+    });
   }
 
   // ── Image download helper ─────────────────────────────────────────
@@ -1871,11 +1958,19 @@ function GpuPlayground() {
                         </button>
                         <button
                           type="button"
-                          onClick={exportViewingOutput}
+                          onClick={exportViewingOutputAsJson}
                           disabled={!viewingResult}
                           className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-white/80 hover:bg-white/15 transition border border-white/20 disabled:opacity-50"
                         >
-                          Export output
+                          Download JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={exportViewingOutputAsMarkdown}
+                          disabled={!viewingResult}
+                          className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-white/80 hover:bg-white/15 transition border border-white/20 disabled:opacity-50"
+                        >
+                          Download MD
                         </button>
                       </div>
                       {historyActionError && (
