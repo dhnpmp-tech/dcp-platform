@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import DashboardLayout from '../../../components/layout/DashboardLayout'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 const PLATFORM_FEE_RATE = 0.15
 
 interface JobDetail {

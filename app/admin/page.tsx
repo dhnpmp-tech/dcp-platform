@@ -7,7 +7,7 @@ import StatCard from '../components/ui/StatCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import { useLanguage } from '../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 interface NavItem { label: string; href: string; icon: React.ReactNode }
 

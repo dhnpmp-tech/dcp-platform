@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 const SAR_TO_USD = 1 / 3.75
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import StatCard from '../../components/ui/StatCard'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin', icon: <span className="w-5 h-5 text-center">⌂</span> },

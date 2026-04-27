@@ -141,7 +141,7 @@ class PlaygroundErrorBoundary extends Component<
   }
 }
 
-const API_BASE = '/api/dc1';
+const API_BASE = '/api';
 
 type JobType = 'llm_inference' | 'image_generation' | 'vllm_serve';
 

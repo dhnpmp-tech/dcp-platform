@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useLanguage, LanguageToggle } from '../lib/i18n'
 
-const API = '/api/dc1'
+const API = '/api'
 const REFRESH_MS = 30_000
 const HISTORY_MAX = 720
 

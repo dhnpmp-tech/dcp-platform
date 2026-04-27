@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-const API_BASE = '/api/dc1';
+const API_BASE = '/api';
 
 const JOB_TYPES = [
   { value: 'llm-inference', label: 'LLM Inference', rate: 15 },

@@ -52,7 +52,7 @@ export default function ProviderWizard({
     if (step !== 2 || heartbeatDetected || !apiKey) return
 
     let cancelled = false
-    const API_BASE = '/api/dc1'
+    const API_BASE = '/api'
 
     const pollHeartbeat = async () => {
       try {

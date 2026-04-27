@@ -5,7 +5,7 @@ import Header from '../../components/layout/Header'
 import Footer from '../../components/layout/Footer'
 import { useLanguage } from '../../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 interface RegistrationResult {
   renter_id: number

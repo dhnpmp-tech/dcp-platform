@@ -8,7 +8,7 @@ import StatCard from '../../components/ui/StatCard'
 import { useLanguage } from '../../lib/i18n'
 import { StakeWidget } from '../components/StakeWidget'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 const GPU_MARKET_PRICES_SAR: Record<string, number> = {
   'RTX 4090': 7500,

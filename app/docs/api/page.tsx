@@ -345,7 +345,7 @@ export default function ApiDocsPage() {
           <p className="text-xs uppercase tracking-[0.16em] text-dc1-amber">DCP API</p>
           <h1 className="mt-2 text-3xl font-bold text-dc1-text-primary sm:text-4xl">API Reference + Try It Out</h1>
           <p className="mt-3 text-dc1-text-secondary">
-            Use proxy base <code className="rounded bg-dc1-surface-l3 px-1 py-0.5">/api/dc1</code> in browser and direct base{' '}
+            Use proxy base <code className="rounded bg-dc1-surface-l3 px-1 py-0.5">/api</code> in browser and direct base{' '}
             <code className="rounded bg-dc1-surface-l3 px-1 py-0.5">https://api.dcp.sa/api</code> for backend/server-side calls.
           </p>
           <p className="mt-2 text-dc1-text-secondary">

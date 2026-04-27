@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import { useLanguage } from '../../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // ── Nav icon components ───────────────────────────────────────────────────────
 const HomeIcon = () => (

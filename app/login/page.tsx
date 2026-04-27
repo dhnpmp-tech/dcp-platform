@@ -13,7 +13,7 @@ import {
 } from '../lib/renter-auth-intent'
 
 // Use the catch-all proxy at app/api/[...path]/route.ts (PR #298) instead of
-// the legacy /api/dc1 path which 404s on Vercel due to BACKEND_URL env being
+// the legacy /api path which 404s on Vercel due to BACKEND_URL env being
 // rejected as DNS_HOSTNAME_RESOLVED_PRIVATE.
 const API_BASE = '/api'
 

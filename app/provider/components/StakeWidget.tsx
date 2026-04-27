@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // Minimum stake display in SAR (1 SAR = 100 halala; wei values come from backend)
 // We display wei values converted to SAR via a fixed rate placeholder

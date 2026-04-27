@@ -48,9 +48,9 @@ const AGENT_ROSTER: AgentHeartbeat[] = [
 
 function getApiBase(): string {
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return '/api/dc1';
+    return '/api';
   }
-  return '/api/dc1';
+  return '/api';
 }
 
 export default function ConnectionsPage() {

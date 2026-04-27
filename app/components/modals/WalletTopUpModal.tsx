@@ -10,7 +10,7 @@ interface WalletTopUpModalProps {
 
 type Step = 'amount' | 'confirm' | 'success' | 'error'
 const PRESET_AMOUNTS_SAR = [50, 100, 500]
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 function formatSAR(halala: number): string { return (halala / 100).toFixed(2) }
 function sarToHalala(sar: number): number { return Math.round(sar * 100) }

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { getProviderActivationNarrative } from '../../lib/provider-activation-narrative'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 /**
  * ProviderActivationCard — 3-screen provider activation onboarding flow

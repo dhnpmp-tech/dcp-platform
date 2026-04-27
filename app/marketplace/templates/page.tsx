@@ -7,7 +7,7 @@ import Header from '../../components/layout/Header'
 import Footer from '../../components/layout/Footer'
 import { useLanguage, type Language } from '../../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 type CategoryKey = 'all' | 'llm' | 'embedding' | 'image' | 'training' | 'notebook'
 type DeployContractState =

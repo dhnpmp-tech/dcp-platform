@@ -33,9 +33,9 @@ function getAdminToken(): string | null {
 
 function getApiBase(): string {
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return '/api/dc1';
+    return '/api';
   }
-  return '/api/dc1';
+  return '/api';
 }
 
 const MC_BASE = (process.env.NEXT_PUBLIC_MC_URL || '') + '/api';

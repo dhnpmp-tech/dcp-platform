@@ -13,7 +13,7 @@ import {
   type RenterAuthIntent,
 } from '../../lib/renter-auth-intent'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // ── Types ──────────────────────────────────────────────────────────
 interface CostRates {

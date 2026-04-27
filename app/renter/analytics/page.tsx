@@ -6,7 +6,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout'
 import StatCard from '../../components/ui/StatCard'
 import { useLanguage } from '../../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // ── Types ──────────────────────────────────────────────────────────
 interface DailySpend {

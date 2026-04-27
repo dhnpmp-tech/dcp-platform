@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Header from '../../components/layout/Header'
 import Footer from '../../components/layout/Footer'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // Monthly earnings estimates by tier at 70% utilisation (SAR @ 3.75 rate)
 const TIER_EARNINGS: Record<string, { minUSD: number; maxUSD: number; label: string }> = {

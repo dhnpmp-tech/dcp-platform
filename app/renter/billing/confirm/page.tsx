@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import DashboardLayout from '../../../components/layout/DashboardLayout'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // ── Nav Icons ──────────────────────────────────────────────────────
 const HomeIcon = () => (

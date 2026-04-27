@@ -2,11 +2,11 @@
  * DC1 Platform API utilities
  *
  * Centralizes API base URL logic and auth helpers.
- * On production (https), uses the Vercel proxy at /api/dc1.
+ * On production (https), uses the Vercel proxy at /api.
  * On local dev (http), hits the VPS directly.
  */
 
-const PROXY_PATH = '/api/dc1';
+const PROXY_PATH = '/api';
 
 /**
  * Returns the correct API base URL for the current environment.

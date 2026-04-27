@@ -12,7 +12,7 @@ import JobCard, { type Job } from '../components/JobCard'
 import QuickRedeployModal, { type Job as ModalJob } from '../components/modals/QuickRedeployModal'
 import { useLanguage } from '../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 interface RenterProfile {
   name: string

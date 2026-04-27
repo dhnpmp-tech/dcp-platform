@@ -7,10 +7,6 @@ const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
     return [
-      {
-        source: '/api/dc1/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
       // Provider auto-installer: curl dcp.sa/install | bash
       // Rewrites /install and /install.sh to backend /install endpoint
       {

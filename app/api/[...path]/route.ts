@@ -1,11 +1,11 @@
 // Catch-all backend proxy for the post-rename frontend.
 //
-// Mirror of app/api/dc1/[...path]/route.ts but hardcoded to https://api.dcp.sa
+// Mirror of app/api/[...path]/route.ts but hardcoded to https://api.dcp.sa
 // because Vercel BACKEND_URL env was misconfigured (rejected with
-// DNS_HOSTNAME_RESOLVED_PRIVATE), and ALL /api/dc1/* AND /api/* rewrites
+// DNS_HOSTNAME_RESOLVED_PRIVATE), and ALL /api/* AND /api/* rewrites
 // in next.config.js were 404ing.
 //
-// After PR #297 swept frontend fetches from /api/dc1/* → /api/*, those
+// After PR #297 swept frontend fetches from /api/* → /api/*, those
 // requests had no route handler. This catch-all proxies them straight to
 // the public backend over HTTPS so Vercel's private-IP guard never trips.
 //

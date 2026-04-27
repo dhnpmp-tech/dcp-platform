@@ -9,7 +9,7 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import EarningsProjections from '../components/EarningsProjections'
 import { useLanguage } from '../../lib/i18n'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 interface TrendPoint {
   date: string

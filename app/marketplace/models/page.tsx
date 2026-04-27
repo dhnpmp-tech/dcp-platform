@@ -6,7 +6,7 @@ import Header from '../../components/layout/Header'
 import Footer from '../../components/layout/Footer'
 import ProviderAvailabilityBadge from '../../components/marketplace/ProviderAvailabilityBadge'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // Known Arabic names for specific models (displayed as subtitle)
 const ARABIC_MODEL_NAMES: Record<string, string> = {

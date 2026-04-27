@@ -9,7 +9,7 @@ import { type Job } from '../../components/JobCard'
 
 // NOTE: Backend should implement GET /api/renters/jobs returning provider_name,
 // template_id, and enriched fields per DCP-889. Falling back to /api/jobs/history.
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 const PAGE_SIZE = 20
 
 interface JobWithProvider extends Job {

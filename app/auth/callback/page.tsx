@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { setSession } from '../../lib/auth'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 /**
  * /auth/callback — handles Supabase magic link redirects.

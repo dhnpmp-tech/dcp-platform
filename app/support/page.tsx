@@ -85,7 +85,7 @@ function ContactForm({
     setStatus('sending');
     setFallbackMailto('');
     try {
-      const API = '/api/dc1';
+      const API = '/api';
       const res = await fetch(`${API}/support/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -182,7 +182,7 @@ export default function ProviderDashboard() {
     if (!providerData) return
     const apiKey = localStorage.getItem('dc1_provider_key')
     if (!apiKey) return
-    const API_BASE = '/api/dc1'
+    const API_BASE = '/api'
     const endpoint = providerData.isPaused ? 'resume' : 'pause'
     setTogglingPause(true)
     try {
@@ -212,7 +212,7 @@ export default function ProviderDashboard() {
     setProfileError('')
     setProfileSaved(false)
     try {
-      const API_BASE = '/api/dc1'
+      const API_BASE = '/api'
       const res = await fetch(`${API_BASE}/providers/me/gpu-profile?key=${encodeURIComponent(providerApiKey)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -270,7 +270,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     const fetchLatestDaemonVersion = async () => {
       try {
-        const API_BASE = '/api/dc1'
+        const API_BASE = '/api'
         const res = await fetch(`${API_BASE}/daemon/latest-version`)
         if (!res.ok) return
         const data = await res.json()
@@ -289,7 +289,7 @@ export default function ProviderDashboard() {
   }, [])
 
   useEffect(() => {
-    const API_BASE = '/api/dc1'
+    const API_BASE = '/api'
 
     const redirectToLogin = (reason: 'missing_credentials' | 'invalid_credentials' | 'expired_session') => {
       router.push(`/login?role=provider&method=apikey&reason=${reason}`)

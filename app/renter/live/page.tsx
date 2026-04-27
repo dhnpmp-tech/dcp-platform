@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 interface ActiveRequest {
   requestId: string

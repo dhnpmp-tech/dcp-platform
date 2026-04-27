@@ -9,7 +9,7 @@ import { useLanguage } from '../../lib/i18n'
 import QuickRedeployModal from '../../components/modals/QuickRedeployModal'
 import WalletTopUpModal from '../../components/modals/WalletTopUpModal'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // ── Types ──────────────────────────────────────────────────────────
 

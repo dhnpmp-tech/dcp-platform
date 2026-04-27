@@ -11,7 +11,7 @@ import { clearSession } from '../lib/auth'
 import OnboardingWizard, { isOnboarded } from '../components/OnboardingWizard'
 import JobCard, { Job as JobCardJob } from '../components/JobCard'
 
-const API_BASE = '/api/dc1'
+const API_BASE = '/api'
 
 // ── Types ──────────────────────────────────────────────────────────
 interface V1UsageSummary {
