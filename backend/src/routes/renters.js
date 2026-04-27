@@ -437,7 +437,12 @@ router.get('/me', (req, res) => {
     const key = req.query.key || req.headers['x-renter-key'];
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT * FROM renters WHERE api_key = ? AND status = ?', key, 'active');
+    // Accept either the legacy renters.api_key column or any active sub-key
+    // in renter_api_keys (dcp- prefixed keys minted via /me/keys live there).
+    const renterId = resolveRenterIdByKey(key);
+    const renter = renterId
+      ? db.get('SELECT * FROM renters WHERE id = ? AND status = ?', renterId, 'active')
+      : null;
     if (!renter) return res.status(404).json({ error: 'Renter not found' });
 
     // Get recent jobs
