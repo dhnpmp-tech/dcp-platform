@@ -1023,6 +1023,12 @@ providerLivenessMonitor.start();
 const cleanup = require('./services/cleanup');
 cleanup.schedule();
 
+// Audit C3 — backend-side endpoint reachability probe (30s loop).
+// Detects providers whose daemon heartbeats but whose vllm_endpoint_url is
+// dead from this VPS (Cloudflare tunnel killed, WG mesh IP not routable, etc).
+const providerProbe = require('./lib/provider-probe');
+providerProbe.startProbeLoop();
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`DC1 Platform API (headless) running on port ${PORT}`);

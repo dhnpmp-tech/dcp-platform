@@ -765,6 +765,12 @@ function getCapableProviders(minVramMb, requestedModelId) {
   for (const p of providers) {
     const hbMs = p.last_heartbeat ? Date.parse(p.last_heartbeat) : NaN;
     if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
+    // Audit C3 — backend-side reachability probe. The probe writes 0 when the
+    // provider's vllm_endpoint_url is unreachable from this VPS even though
+    // its daemon heartbeats fine (e.g. dead Cloudflare tunnel). Treat NULL
+    // (never probed yet) as reachable so newly registered providers can serve
+    // immediately while the next probe pass classifies them.
+    if (p.endpoint_reachable === 0) continue;
     if (!parseComputeTypes(p.supported_compute_types).has('inference')) continue;
     if (resolveProviderVramMb(p) < minVramMb) continue;
     if (requestedLower) {
