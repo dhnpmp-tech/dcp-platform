@@ -72,7 +72,17 @@ function getLatestDaemonVersion() {
 
 // ── CORS Lockdown (DCP-879 + audit M1) ────────────────────────────────────
 // Additional origins can be injected via CORS_ORIGINS (comma-separated)
-const _isDev = process.env.NODE_ENV !== 'production';
+//
+// M1 follow-up — fail-secure default: the loopback hard-stop is ON unless an
+// operator explicitly opts out. The previous gate (`NODE_ENV !== 'production'`)
+// silently bypassed lockdown on hosts that hadn't set NODE_ENV (our VPS PM2
+// process is one such host), which made the audit fix dormant in production.
+// Local dev now opts in via NODE_ENV=development OR DCP_ALLOW_LOOPBACK_CORS=1.
+const _isDev = process.env.NODE_ENV === 'development'
+  || process.env.DCP_ALLOW_LOOPBACK_CORS === '1';
+console.log(`[cors] Loopback lockdown ${_isDev ? 'DISABLED (dev mode)' : 'ACTIVE'} — `
+  + `NODE_ENV=${process.env.NODE_ENV || '<unset>'} `
+  + `DCP_ALLOW_LOOPBACK_CORS=${process.env.DCP_ALLOW_LOOPBACK_CORS || '<unset>'}`);
 
 // M1 — defence-in-depth: in production, never allow loopback hostnames
 // regardless of how they were injected (CORS_ORIGINS env, FRONTEND_URL, or
