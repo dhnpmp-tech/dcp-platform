@@ -26,6 +26,7 @@ const db = require('../db');
 const { requireAdminAuth, getBearerToken } = require('../middleware/auth');
 const { requireAdminRbac, logAdminAction } = require('../middleware/adminAuth');
 const { verifyProviderKey } = require('../services/apiKeyService');
+const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 const {
   requestPayout,
   getPayoutHistory,
@@ -83,16 +84,26 @@ function resolveProvider(req) {
   return db.get('SELECT * FROM providers WHERE api_key = ? AND deleted_at IS NULL', [legacyKey]);
 }
 
+// Resolve+attach provider, gating downstream middleware/handlers behind auth.
+// Required so the financial-idempotency cache cannot replay a 2xx response
+// to an unauthenticated caller who guesses the (provider_id, key) tuple.
+function requireProviderAuth(req, res, next) {
+  const provider = resolveProvider(req);
+  if (!provider) return res.status(401).json({ error: 'Provider authentication required' });
+  if (String(provider.id) !== String(req.params.id)) {
+    return res.status(403).json({ error: 'Forbidden: cannot request payout for another provider' });
+  }
+  req.provider = provider;
+  next();
+}
+
 // ── POST /api/providers/:id/payouts ──────────────────────────────────────────
-router.post('/providers/:id/payouts', (req, res) => {
+router.post('/providers/:id/payouts', requireProviderAuth, withFinancialIdempotency({
+  subjectType: 'provider',
+  subjectId: (req) => req.provider.id,
+}), (req, res) => {
   try {
-    const provider = resolveProvider(req);
-    if (!provider) {
-      return res.status(401).json({ error: 'Provider authentication required' });
-    }
-    if (String(provider.id) !== String(req.params.id)) {
-      return res.status(403).json({ error: 'Forbidden: cannot request payout for another provider' });
-    }
+    const provider = req.provider;
 
     const amountUsd = parseFloat(req.body.amount_usd);
     if (!isFinite(amountUsd)) {

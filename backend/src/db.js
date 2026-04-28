@@ -94,6 +94,37 @@ try {
   db.prepare('ALTER TABLE providers ADD COLUMN wallet_address_updated_at TEXT').run();
 } catch (_) {}
 
+// ─── Audit C3 — backend-side endpoint reachability columns ──────────────────
+// Heartbeat alone is not enough: a daemon can heartbeat from one host while
+// its inference endpoint URL (Cloudflare tunnel, WG mesh IP, etc.) is dead.
+// `lib/provider-probe.js` runs a 30s background loop that pings each
+// online provider's vllm_endpoint_url and writes the result here. v1.js
+// routing filters `capableProviders` on `endpoint_reachable = 1`.
+try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_reachable INTEGER DEFAULT 1').run(); } catch (_) {}
+try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probed_at TEXT').run(); } catch (_) {}
+try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probe_error TEXT').run(); } catch (_) {}
+
+// ─── Audit C2 — financial idempotency table ─────────────────────────────────
+// DB-backed (not in-memory like H6's inference cache) so a server restart
+// can't drop the cache mid-flight and let a retry create a second billing
+// row. 24h TTL by default. Keyed by (subject_type|subject_id):endpoint:client_key
+// so two different renters can use the same Idempotency-Key string without
+// colliding.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS idempotency_keys (
+    key_hash TEXT PRIMARY KEY,
+    subject_type TEXT NOT NULL,    -- 'renter' | 'provider'
+    subject_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    request_method TEXT NOT NULL,
+    response_status INTEGER NOT NULL,
+    response_body TEXT,            -- JSON string, may be NULL for non-json bodies
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_idempotency_expires ON idempotency_keys(expires_at)`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

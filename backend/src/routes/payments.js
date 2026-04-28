@@ -7,6 +7,7 @@ const https = require('https');
 const router = express.Router();
 const db = require('../db');
 const { looksLikeProviderKey } = require('../middleware/auth');
+const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 
 function flattenRunParams(params) {
   if (params.length === 1 && Array.isArray(params[0])) return params[0];
@@ -245,7 +246,10 @@ router.get('/balance', requireRenter, (req, res) => {
 // Initiate a SAR top-up. bank_transfer returns IBAN instructions (Phase 1, manual).
 // creditcard/applepay go through Moyasar (Phase 2).
 // Body: { amount_halala: number, payment_method: "creditcard"|"applepay"|"bank_transfer" }
-router.post('/topup', requireRenter, (req, res) => {
+router.post('/topup', requireRenter, withFinancialIdempotency({
+  subjectType: 'renter',
+  subjectId: (req) => req.renter && req.renter.id,
+}), (req, res) => {
   const renter = req.renter;
   const { amount_halala, payment_method, amount_sar, source_type, callback_url } = req.body || {};
   const methodRaw = payment_method || source_type || 'creditcard';
