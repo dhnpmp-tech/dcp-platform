@@ -104,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.3"
+DAEMON_VERSION = "4.2.4"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -2209,6 +2209,266 @@ _SERVED_MODELS_CACHE_TTL = 60  # seconds
 _served_models_lock = threading.Lock()
 
 
+# ─── v4.2.4: OLLAMA BLOB INTEGRITY (audit M2) ───────────────────────────────
+#
+# Audit M2 — manifest can survive an unclean shutdown while the corresponding
+# blob in ~/.ollama/models/blobs/sha256-... is truncated. `ollama list`
+# (= GET /api/tags) reads only the manifest, so the daemon would historically
+# advertise such a model in cached_models. The next renter request would then
+# fail at inference time, hurting UX.
+#
+# Strategy: on a periodic sweep (and at startup before the first heartbeat),
+# probe each installed Ollama model with POST /api/show. A 200 means manifest
+# + config blob are readable; anything else is treated as broken. Broken
+# models are kept out of cached_models in the heartbeat so the catalog never
+# advertises them. Optionally, with DCP_OLLAMA_AUTO_REPULL=1, the daemon
+# spawns `ollama pull <name>` in the background — throttled per-name to one
+# attempt per OLLAMA_REPULL_THROTTLE_SEC to avoid loops on a permanently
+# broken model.
+#
+# Why /api/show instead of `ollama show <name>`:
+#   - No subprocess spawn per check (sweeps many models, per-tick cost).
+#   - Distinguishes structured 4xx from network-layer errors.
+#   - Same client surface the rest of the daemon already uses.
+
+OLLAMA_INTEGRITY_INTERVAL = int(os.environ.get("DCP_OLLAMA_INTEGRITY_INTERVAL", "300"))
+OLLAMA_INTEGRITY_TIMEOUT = int(os.environ.get("DCP_OLLAMA_INTEGRITY_TIMEOUT", "5"))
+OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
+OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
+
+_OLLAMA_INTEGRITY = {
+    "models": {},          # name -> {"ok": bool, "checked_at": float, "error": str|None}
+    "last_full_sweep": 0.0,
+}
+_OLLAMA_INTEGRITY_LOCK = threading.Lock()
+_OLLAMA_REPULL_HISTORY = {}      # name -> last_repull_attempt_ts
+_OLLAMA_REPULL_ACTIVE = set()    # set of names currently being re-pulled (gates accepting_jobs)
+_OLLAMA_REPULL_LOCK = threading.Lock()
+
+
+def _ollama_list_installed():
+    """List Ollama-installed models from /api/tags as dicts {name, digest, size}.
+    Returns [] on any failure. Digest is the manifest sha256 when present in
+    the response (Ollama populates this); used as the cross-provider
+    correlation key in `model_integrity_failed` events.
+    """
+    try:
+        if HAS_REQUESTS:
+            r = requests.get("http://localhost:11434/api/tags", timeout=OLLAMA_INTEGRITY_TIMEOUT)
+            if r.ok:
+                data = r.json()
+            else:
+                return []
+        else:
+            code, data = http_get("http://localhost:11434/api/tags", timeout=OLLAMA_INTEGRITY_TIMEOUT)
+            if code != 200 or not isinstance(data, dict):
+                return []
+    except Exception as e:
+        log.debug(f"[integrity] /api/tags failed: {e}")
+        return []
+    out = []
+    for m in data.get("models", []):
+        n = m.get("name") or m.get("model")
+        if n:
+            out.append({
+                "name": n,
+                "digest": m.get("digest") or "",
+                "size": m.get("size") or 0,
+            })
+    return out
+
+
+def verify_ollama_model(name):
+    """Probe one Ollama model via POST /api/show. Returns (ok: bool, error: str|None).
+
+    - HTTP 200            -> ok=True, error=None
+    - HTTP 4xx/5xx        -> ok=False, error=f"http_{status}"
+    - timeout / refused / DNS -> ok=False, error=truncated message
+    """
+    url = "http://localhost:11434/api/show"
+    body = {"name": name}
+    try:
+        if HAS_REQUESTS:
+            r = requests.post(url, json=body, timeout=OLLAMA_INTEGRITY_TIMEOUT)
+            if r.status_code == 200:
+                return True, None
+            return False, f"http_{r.status_code}"
+        else:
+            code, _ = http_post(url, body, timeout=OLLAMA_INTEGRITY_TIMEOUT)
+            if code == 200:
+                return True, None
+            return False, f"http_{code}"
+    except Exception as e:
+        return False, str(e)[:200]
+
+
+def _maybe_repull(name):
+    """If DCP_OLLAMA_AUTO_REPULL=1, spawn `ollama pull <name>` in background.
+    Throttled per-name to one attempt per OLLAMA_REPULL_THROTTLE_SEC.
+    Marks the name as actively re-pulling (gates accepting_jobs in the
+    heartbeat) and starts a watcher thread that clears the flag on exit.
+    Returns True if a pull was spawned, False otherwise.
+    """
+    if not OLLAMA_REPULL_ENABLED:
+        return False
+    now = time.time()
+    with _OLLAMA_REPULL_LOCK:
+        last = _OLLAMA_REPULL_HISTORY.get(name, 0.0)
+        if now - last < OLLAMA_REPULL_THROTTLE_SEC:
+            log.debug(f"[integrity] auto-repull throttled for {name} ({int(now - last)}s since last)")
+            return False
+        _OLLAMA_REPULL_HISTORY[name] = now
+        _OLLAMA_REPULL_ACTIVE.add(name)
+    try:
+        log.warning(f"[integrity] auto-repull starting: ollama pull {name}")
+        report_event("model_repull_start", f"name={name}", severity="warning")
+        proc = subprocess.Popen(
+            ["ollama", "pull", name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        def _watch_repull():
+            try:
+                rc = proc.wait()
+            except Exception as _w_err:
+                log.debug(f"[integrity] repull watcher error for {name}: {_w_err}")
+                rc = -1
+            with _OLLAMA_REPULL_LOCK:
+                _OLLAMA_REPULL_ACTIVE.discard(name)
+            if rc == 0:
+                log.info(f"[integrity] auto-repull finished ok: {name}")
+                report_event("model_repull_finished", f"name={name} rc=0", severity="info")
+                # Clear the broken flag for this model so the next /api/show
+                # sweep can decide. The cache will refresh on the next loop tick.
+                with _OLLAMA_INTEGRITY_LOCK:
+                    _OLLAMA_INTEGRITY["models"].pop(name, None)
+            else:
+                log.warning(f"[integrity] auto-repull failed: name={name} rc={rc}")
+                report_event("model_repull_finished", f"name={name} rc={rc}", severity="warning")
+
+        threading.Thread(target=_watch_repull, daemon=True, name=f"DCP-OllamaRepull-{name}").start()
+        return True
+    except Exception as e:
+        with _OLLAMA_REPULL_LOCK:
+            _OLLAMA_REPULL_ACTIVE.discard(name)
+        log.error(f"[integrity] auto-repull spawn failed for {name}: {e}")
+        return False
+
+
+def is_repull_in_flight():
+    """True iff at least one auto-repull subprocess is currently running.
+    Used by the heartbeat to force `accepting_jobs=False` so the backend
+    does not route renter traffic at a provider whose blob store is mid-fix.
+    """
+    with _OLLAMA_REPULL_LOCK:
+        return len(_OLLAMA_REPULL_ACTIVE) > 0
+
+
+def verify_all_ollama_models():
+    """Sweep all installed Ollama models and refresh the integrity cache.
+
+    Returns {"ok": [names], "broken": [names], "errors": {name: err}}.
+    Side effects:
+      - _OLLAMA_INTEGRITY["models"] updated for every installed model.
+      - Stale entries (model removed since last sweep) pruned.
+      - report_event("model_integrity_failed", ...) for every newly-broken model.
+      - _SERVED_MODELS_CACHE busted so the next heartbeat reflects the verified set.
+      - If DCP_OLLAMA_AUTO_REPULL=1, throttled `ollama pull` for broken models.
+    """
+    entries = _ollama_list_installed()
+    if not entries:
+        # Either Ollama isn't running on this provider or has no models.
+        # Leave the cache untouched — non-Ollama providers should not have
+        # an empty dict treated as authoritative.
+        with _OLLAMA_INTEGRITY_LOCK:
+            _OLLAMA_INTEGRITY["last_full_sweep"] = time.time()
+        return {"ok": [], "broken": [], "errors": {}}
+
+    ok_list = []
+    broken_list = []
+    errors = {}
+    now = time.time()
+    for ent in entries:
+        name = ent["name"]
+        digest = ent.get("digest", "")
+        ok, err = verify_ollama_model(name)
+        with _OLLAMA_INTEGRITY_LOCK:
+            _OLLAMA_INTEGRITY["models"][name] = {
+                "ok": bool(ok),
+                "checked_at": now,
+                "error": err,
+                "digest": digest,
+            }
+        if ok:
+            ok_list.append(name)
+        else:
+            broken_list.append(name)
+            errors[name] = err
+            log.warning(f"[integrity] model={name} digest={digest[:16]} BROKEN: {err}")
+            try:
+                # Roadmap item 4: keying the audit event by the manifest sha256
+                # lets the backend correlate the same broken model across
+                # providers (= bad upstream upload) vs. one provider only
+                # (= local corruption from a crash).
+                report_event(
+                    "model_integrity_failed",
+                    f"name={name} digest={digest} error={err}",
+                    severity="warning",
+                )
+            except Exception as _ev_err:
+                log.debug(f"[integrity] report_event failed: {_ev_err}")
+            _maybe_repull(name)
+
+    # Prune entries for models that disappeared since the last sweep.
+    live = {ent["name"] for ent in entries}
+    with _OLLAMA_INTEGRITY_LOCK:
+        for stale in [n for n in list(_OLLAMA_INTEGRITY["models"].keys()) if n not in live]:
+            del _OLLAMA_INTEGRITY["models"][stale]
+        _OLLAMA_INTEGRITY["last_full_sweep"] = time.time()
+
+    # Bust the served-models cache so the next heartbeat reflects the
+    # new verified set immediately rather than waiting for the 60s TTL.
+    with _served_models_lock:
+        _SERVED_MODELS_CACHE["data"] = None
+        _SERVED_MODELS_CACHE["timestamp"] = 0.0
+
+    log.info(f"[integrity] swept {len(entries)} model(s): {len(ok_list)} ok, {len(broken_list)} broken")
+    return {"ok": ok_list, "broken": broken_list, "errors": errors}
+
+
+def is_ollama_model_verified(name):
+    """Return True iff `name` should be advertised in heartbeat.cached_models.
+
+    Rules:
+      - Name positively classified ok in cache  -> True
+      - Name positively classified broken       -> False
+      - Name not in cache (vLLM/llama.cpp model, or first heartbeat before
+        sweep ran)                              -> True (don't filter unknowns)
+    """
+    with _OLLAMA_INTEGRITY_LOCK:
+        entry = _OLLAMA_INTEGRITY["models"].get(name)
+    if entry is None:
+        return True
+    return bool(entry.get("ok"))
+
+
+def ollama_integrity_loop():
+    """Background thread: sweep installed Ollama models every
+    OLLAMA_INTEGRITY_INTERVAL seconds. The first sweep is run synchronously
+    in main() at startup before any heartbeat goes out — see daemon main().
+    """
+    log.info(f"[integrity] Ollama integrity loop started (interval={OLLAMA_INTEGRITY_INTERVAL}s)")
+    while True:
+        try:
+            verify_all_ollama_models()
+        except Exception as e:
+            log.debug(f"[integrity] loop tick failed: {e}")
+        time.sleep(OLLAMA_INTEGRITY_INTERVAL)
+
+
 def detect_served_models():
     """
     Detect which models are currently loaded/served on this provider.
@@ -2226,6 +2486,10 @@ def detect_served_models():
     engines_found = []
 
     # Ollama
+    # Audit M2 (v4.2.4): only advertise models that pass the integrity sweep.
+    # `is_ollama_model_verified` returns True for unknown names so the first
+    # heartbeat (before the sweep has run) is not blocked, and so non-Ollama
+    # engines below are unaffected.
     try:
         if HAS_REQUESTS:
             r = requests.get("http://localhost:11434/api/tags", timeout=5)
@@ -2233,7 +2497,7 @@ def detect_served_models():
                 data = r.json()
                 for m in data.get("models", []):
                     name = m.get("name") or m.get("model")
-                    if name:
+                    if name and is_ollama_model_verified(name):
                         models.add(name)
                 engines_found.append("ollama")
         else:
@@ -2241,7 +2505,7 @@ def detect_served_models():
             if code == 200 and isinstance(data, dict):
                 for m in data.get("models", []):
                     name = m.get("name") or m.get("model")
-                    if name:
+                    if name and is_ollama_model_verified(name):
                         models.add(name)
                 engines_found.append("ollama")
     except Exception:
@@ -4757,6 +5021,12 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
                 )
             else:
                 payload["accepting_jobs"] = False
+            # v4.2.4 / audit M2 item 3a: while an auto-repull is in flight,
+            # force accepting_jobs=False — the engine may be live, but the
+            # blob store is mid-rewrite, so renter traffic is unsafe.
+            if payload["accepting_jobs"] and is_repull_in_flight():
+                payload["accepting_jobs"] = False
+                payload["repull_in_flight"] = True
         except Exception as _gate_err:
             log.debug(f"accepting_jobs gate failed: {_gate_err}")
             payload["accepting_jobs"] = False
@@ -6492,6 +6762,21 @@ def main():
     log.info("Pre-caching LLM models...")
     precache_models()
 
+    # v4.2.4 / audit M2: synchronous Ollama integrity sweep before the first
+    # heartbeat goes out. If a model's blob was truncated by a prior crash,
+    # this catches it now so cached_models in the very first heartbeat is
+    # already truthful — no "ghost" model advertised even briefly.
+    try:
+        log.info("[integrity] running startup Ollama integrity sweep...")
+        _initial_sweep = verify_all_ollama_models()
+        if _initial_sweep.get("broken"):
+            log.warning(
+                "[integrity] startup found %d broken model(s): %s",
+                len(_initial_sweep["broken"]), _initial_sweep["broken"],
+            )
+    except Exception as _int_err:
+        log.debug(f"[integrity] startup sweep failed: {_int_err}")
+
     # ─── v4.0.0-alpha: STARTUP INTROSPECTION ────────────────────────────
     # Step 4a: Detect served models and classify architecture (MoE/dense).
     # Step 4b: Compute safe context for each loaded model and warn loudly
@@ -6667,6 +6952,14 @@ def main():
     log.info("Starting engine watchdog (every %ds)...", ENGINE_WATCHDOG_INTERVAL)
     ew_thread = threading.Thread(target=engine_watchdog_loop, daemon=True, name="DCP-EngineWatchdog")
     ew_thread.start()
+
+    # v4.2.4 / audit M2: Ollama blob-integrity loop. Verifies each installed
+    # Ollama model via POST /api/show on a periodic sweep so a crash that
+    # truncates a blob is detected and the model is dropped from heartbeat
+    # cached_models within one OLLAMA_INTEGRITY_INTERVAL window.
+    log.info("Starting Ollama integrity loop (every %ds)...", OLLAMA_INTEGRITY_INTERVAL)
+    oi_thread = threading.Thread(target=ollama_integrity_loop, daemon=True, name="DCP-OllamaIntegrity")
+    oi_thread.start()
 
     # v3.5.0: Feature 5 — Passive daemon version check (informational)
     log.info("Starting passive daemon version check (every 300s)...")
