@@ -268,12 +268,18 @@ def test_repull_throttle_blocks_second_attempt(monkeypatch):
     """Two _maybe_repull calls in quick succession should produce one Popen."""
     monkeypatch.setattr(d, "OLLAMA_REPULL_ENABLED", True)
     monkeypatch.setattr(d, "OLLAMA_REPULL_THROTTLE_SEC", 3600)
+    # v4.2.5 — disable retry inside the throttle test so it asserts only the
+    # name-level throttle, not the per-attempt retry budget.
+    monkeypatch.setattr(d, "OLLAMA_REPULL_MAX_ATTEMPTS", 1)
+    monkeypatch.setattr(d, "OLLAMA_REPULL_BACKOFF_SEC", 0)
+    monkeypatch.setattr(d, "OLLAMA_REPULL_BACKOFF_CAP_SEC", 0)
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: (True, None))
     monkeypatch.setattr(d, "report_event", lambda *a, **kw: None)
 
     spawned = []
 
     class FakeProc:
-        def wait(self):
+        def wait(self, timeout=None):
             return 0
 
     def fake_popen(cmd, *args, **kwargs):
@@ -295,6 +301,189 @@ def test_is_repull_in_flight_reflects_active_set():
     with d._OLLAMA_REPULL_LOCK:
         d._OLLAMA_REPULL_ACTIVE.discard("foo")
     assert d.is_repull_in_flight() is False
+
+
+# ─── detect_served_models filtering ──────────────────────────────────────────
+
+
+# ─── audit M3: repull retry + post-pull verify (v4.2.5) ──────────────────────
+
+
+def _stub_repull_env(monkeypatch, max_attempts=3, backoff_sec=0):
+    """Configure _maybe_repull's retry tunables for fast tests."""
+    monkeypatch.setattr(d, "OLLAMA_REPULL_ENABLED", True)
+    monkeypatch.setattr(d, "OLLAMA_REPULL_THROTTLE_SEC", 0)
+    monkeypatch.setattr(d, "OLLAMA_REPULL_MAX_ATTEMPTS", max_attempts)
+    monkeypatch.setattr(d, "OLLAMA_REPULL_BACKOFF_SEC", backoff_sec)
+    monkeypatch.setattr(d, "OLLAMA_REPULL_BACKOFF_CAP_SEC", backoff_sec)
+    monkeypatch.setattr(d, "OLLAMA_PULL_TIMEOUT_SEC", 60)
+    # No real sleeping in tests.
+    monkeypatch.setattr(d.time, "sleep", lambda _s: None)
+
+
+class _FakeProc:
+    def __init__(self, rc):
+        self._rc = rc
+
+    def wait(self, timeout=None):
+        return self._rc
+
+    def kill(self):
+        pass
+
+
+def _wait_for_thread_join(timeout=2.0):
+    """Block until the Repull watcher thread finishes (it's daemon=True)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        active = [t for t in threading.enumerate() if t.name.startswith("DCP-OllamaRepull-")]
+        if not active:
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def test_repull_succeeds_first_attempt_and_marks_verified(monkeypatch):
+    """rc=0 + verify ok on attempt 1 => integrity cache flipped to ok=True,
+    no retry, no exhaustion event."""
+    _stub_repull_env(monkeypatch, max_attempts=3, backoff_sec=0)
+
+    popens = []
+    monkeypatch.setattr(d.subprocess, "Popen", lambda *a, **kw: (popens.append(a) or _FakeProc(0)))
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: (True, None))
+    events = []
+    monkeypatch.setattr(d, "report_event", lambda *a, **kw: events.append((a, kw)))
+
+    # Pre-mark broken so we can confirm the post-success flip.
+    with d._OLLAMA_INTEGRITY_LOCK:
+        d._OLLAMA_INTEGRITY["models"]["m1"] = {"ok": False, "checked_at": 0.0, "error": "http_500"}
+
+    assert d._maybe_repull("m1") is True
+    assert _wait_for_thread_join()
+
+    assert len(popens) == 1
+    with d._OLLAMA_INTEGRITY_LOCK:
+        assert d._OLLAMA_INTEGRITY["models"]["m1"]["ok"] is True
+    # No exhaustion event on success.
+    assert not any(ev[0][0] == "model_repull_exhausted" for ev in events)
+    # Active flag cleared.
+    assert d.is_repull_in_flight() is False
+
+
+def test_repull_retries_on_nonzero_then_succeeds(monkeypatch):
+    """First two pulls rc!=0; third rc=0 + verify ok => 3 Popens, marked ok."""
+    _stub_repull_env(monkeypatch, max_attempts=3, backoff_sec=0)
+
+    rc_sequence = iter([1, 1, 0])
+    popens = []
+
+    def fake_popen(*a, **kw):
+        popens.append(a)
+        return _FakeProc(next(rc_sequence))
+
+    monkeypatch.setattr(d.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: (True, None))
+    monkeypatch.setattr(d, "report_event", lambda *a, **kw: None)
+
+    assert d._maybe_repull("m2") is True
+    assert _wait_for_thread_join()
+
+    assert len(popens) == 3
+    with d._OLLAMA_INTEGRITY_LOCK:
+        assert d._OLLAMA_INTEGRITY["models"]["m2"]["ok"] is True
+
+
+def test_repull_exhausted_after_max_attempts(monkeypatch):
+    """All N attempts rc!=0 => exhausted event, integrity cache untouched."""
+    _stub_repull_env(monkeypatch, max_attempts=2, backoff_sec=0)
+
+    monkeypatch.setattr(d.subprocess, "Popen", lambda *a, **kw: _FakeProc(99))
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: (True, None))
+    events = []
+    monkeypatch.setattr(d, "report_event", lambda *a, **kw: events.append((a, kw)))
+
+    with d._OLLAMA_INTEGRITY_LOCK:
+        d._OLLAMA_INTEGRITY["models"]["m3"] = {"ok": False, "checked_at": 0.0, "error": "http_500"}
+
+    assert d._maybe_repull("m3") is True
+    assert _wait_for_thread_join()
+
+    # Exhaustion event reported.
+    assert any(ev[0][0] == "model_repull_exhausted" for ev in events)
+    # Cache still ok=False (not promoted).
+    with d._OLLAMA_INTEGRITY_LOCK:
+        assert d._OLLAMA_INTEGRITY["models"]["m3"]["ok"] is False
+
+
+def test_repull_rc0_but_verify_fails_counts_as_attempt(monkeypatch):
+    """rc=0 but /api/show says broken => verify_failed event + retry consumed."""
+    _stub_repull_env(monkeypatch, max_attempts=2, backoff_sec=0)
+
+    monkeypatch.setattr(d.subprocess, "Popen", lambda *a, **kw: _FakeProc(0))
+    # First verify fails, second succeeds.
+    verify_seq = iter([(False, "http_404"), (True, None)])
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: next(verify_seq))
+    events = []
+    monkeypatch.setattr(d, "report_event", lambda *a, **kw: events.append((a, kw)))
+
+    assert d._maybe_repull("m4") is True
+    assert _wait_for_thread_join()
+
+    # Verify failure surfaced as its own event.
+    assert any(ev[0][0] == "model_repull_verify_failed" for ev in events)
+    # Eventual success on attempt 2 marks ok.
+    with d._OLLAMA_INTEGRITY_LOCK:
+        assert d._OLLAMA_INTEGRITY["models"]["m4"]["ok"] is True
+
+
+def test_repull_keeps_active_flag_for_full_retry_window(monkeypatch):
+    """is_repull_in_flight stays True across all attempts so the heartbeat
+    keeps accepting_jobs=False until the watcher exits."""
+    _stub_repull_env(monkeypatch, max_attempts=2, backoff_sec=0)
+
+    seen_active = []
+
+    def fake_popen(*a, **kw):
+        # Snapshot is_repull_in_flight at each spawn — should be True every time.
+        seen_active.append(d.is_repull_in_flight())
+        return _FakeProc(1)
+
+    monkeypatch.setattr(d.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: (True, None))
+    monkeypatch.setattr(d, "report_event", lambda *a, **kw: None)
+
+    assert d._maybe_repull("m5") is True
+    assert _wait_for_thread_join()
+
+    assert seen_active == [True, True]
+    assert d.is_repull_in_flight() is False
+
+
+def test_repull_pull_timeout_classified_as_attempt(monkeypatch):
+    """Subprocess timeout counts as a failed attempt and feeds the retry loop."""
+    import subprocess as _sp
+    _stub_repull_env(monkeypatch, max_attempts=2, backoff_sec=0)
+
+    class _TimeoutProc:
+        def __init__(self):
+            self.killed = False
+
+        def wait(self, timeout=None):
+            raise _sp.TimeoutExpired(cmd="ollama pull", timeout=timeout or 1)
+
+        def kill(self):
+            self.killed = True
+
+    monkeypatch.setattr(d.subprocess, "Popen", lambda *a, **kw: _TimeoutProc())
+    monkeypatch.setattr(d, "verify_ollama_model", lambda name: (True, None))
+    events = []
+    monkeypatch.setattr(d, "report_event", lambda *a, **kw: events.append((a, kw)))
+
+    assert d._maybe_repull("m6") is True
+    assert _wait_for_thread_join()
+
+    # Two attempts were made and exhaustion was reported.
+    assert any(ev[0][0] == "model_repull_exhausted" for ev in events)
 
 
 # ─── detect_served_models filtering ──────────────────────────────────────────

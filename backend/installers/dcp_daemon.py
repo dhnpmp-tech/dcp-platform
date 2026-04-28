@@ -104,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.4"
+DAEMON_VERSION = "4.2.5"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -2235,6 +2235,17 @@ OLLAMA_INTEGRITY_INTERVAL = int(os.environ.get("DCP_OLLAMA_INTEGRITY_INTERVAL", 
 OLLAMA_INTEGRITY_TIMEOUT = int(os.environ.get("DCP_OLLAMA_INTEGRITY_TIMEOUT", "5"))
 OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
+# Audit M3 — retry + post-pull checksum. On a non-zero `ollama pull` exit
+# (network blip, registry 5xx, partial blob) we retry up to MAX_ATTEMPTS with
+# exponential backoff (BACKOFF_SEC, doubles each attempt, capped at 240s).
+# After every rc==0 we synchronously call verify_ollama_model() — if /api/show
+# rejects the freshly-pulled model the pull is treated as failed and counts
+# against the attempt budget. Tunable via env so a stuck registry doesn't
+# burn provider bandwidth.
+OLLAMA_REPULL_MAX_ATTEMPTS = max(1, int(os.environ.get("DCP_OLLAMA_REPULL_MAX_ATTEMPTS", "3")))
+OLLAMA_REPULL_BACKOFF_SEC = max(1, int(os.environ.get("DCP_OLLAMA_REPULL_BACKOFF_SEC", "30")))
+OLLAMA_REPULL_BACKOFF_CAP_SEC = max(OLLAMA_REPULL_BACKOFF_SEC, int(os.environ.get("DCP_OLLAMA_REPULL_BACKOFF_CAP_SEC", "240")))
+OLLAMA_PULL_TIMEOUT_SEC = max(60, int(os.environ.get("DCP_OLLAMA_PULL_TIMEOUT_SEC", "1800")))  # 30 min default per attempt
 
 _OLLAMA_INTEGRITY = {
     "models": {},          # name -> {"ok": bool, "checked_at": float, "error": str|None}
@@ -2320,34 +2331,84 @@ def _maybe_repull(name):
         _OLLAMA_REPULL_HISTORY[name] = now
         _OLLAMA_REPULL_ACTIVE.add(name)
     try:
-        log.warning(f"[integrity] auto-repull starting: ollama pull {name}")
-        report_event("model_repull_start", f"name={name}", severity="warning")
-        proc = subprocess.Popen(
-            ["ollama", "pull", name],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        log.warning(f"[integrity] auto-repull starting: ollama pull {name} (max_attempts={OLLAMA_REPULL_MAX_ATTEMPTS})")
+        report_event("model_repull_start", f"name={name} max_attempts={OLLAMA_REPULL_MAX_ATTEMPTS}", severity="warning")
 
         def _watch_repull():
+            # Audit M3 — retry on transient pull failures + post-pull checksum
+            # via /api/show. We mark the active flag set on entry (already done
+            # by caller) and only discard it on the way out so the heartbeat
+            # keeps accepting_jobs=False for the entire retry window.
+            success = False
+            last_error = None
+            backoff = OLLAMA_REPULL_BACKOFF_SEC
             try:
-                rc = proc.wait()
-            except Exception as _w_err:
-                log.debug(f"[integrity] repull watcher error for {name}: {_w_err}")
-                rc = -1
-            with _OLLAMA_REPULL_LOCK:
-                _OLLAMA_REPULL_ACTIVE.discard(name)
-            if rc == 0:
-                log.info(f"[integrity] auto-repull finished ok: {name}")
-                report_event("model_repull_finished", f"name={name} rc=0", severity="info")
-                # Clear the broken flag for this model so the next /api/show
-                # sweep can decide. The cache will refresh on the next loop tick.
-                with _OLLAMA_INTEGRITY_LOCK:
-                    _OLLAMA_INTEGRITY["models"].pop(name, None)
-            else:
-                log.warning(f"[integrity] auto-repull failed: name={name} rc={rc}")
-                report_event("model_repull_finished", f"name={name} rc={rc}", severity="warning")
+                for attempt in range(1, OLLAMA_REPULL_MAX_ATTEMPTS + 1):
+                    rc = -1
+                    proc = None
+                    try:
+                        proc = subprocess.Popen(
+                            ["ollama", "pull", name],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            stdin=subprocess.DEVNULL,
+                            start_new_session=True,
+                        )
+                        try:
+                            rc = proc.wait(timeout=OLLAMA_PULL_TIMEOUT_SEC)
+                        except subprocess.TimeoutExpired:
+                            log.warning(f"[integrity] auto-repull timeout (attempt {attempt}/{OLLAMA_REPULL_MAX_ATTEMPTS}) for {name}; killing")
+                            try:
+                                proc.kill()
+                            except Exception:
+                                pass
+                            rc = -2
+                            last_error = f"timeout_after_{OLLAMA_PULL_TIMEOUT_SEC}s"
+                    except Exception as _spawn_err:
+                        last_error = f"spawn_failed:{str(_spawn_err)[:100]}"
+                        log.warning(f"[integrity] auto-repull spawn error (attempt {attempt}) for {name}: {_spawn_err}")
+
+                    if rc == 0:
+                        # Pull exited clean — now verify integrity before declaring victory.
+                        ok, verify_err = verify_ollama_model(name)
+                        if ok:
+                            success = True
+                            log.info(f"[integrity] auto-repull verified ok: {name} (attempt {attempt})")
+                            report_event("model_repull_finished", f"name={name} rc=0 attempt={attempt} verified=true", severity="info")
+                            with _OLLAMA_INTEGRITY_LOCK:
+                                _OLLAMA_INTEGRITY["models"][name] = {
+                                    "ok": True,
+                                    "checked_at": time.time(),
+                                    "error": None,
+                                }
+                            break
+                        # Pull succeeded by exit code but the model still won't show.
+                        last_error = f"verify_failed:{verify_err}"
+                        log.warning(f"[integrity] auto-repull verify failed (attempt {attempt}/{OLLAMA_REPULL_MAX_ATTEMPTS}) for {name}: {verify_err}")
+                        report_event("model_repull_verify_failed", f"name={name} attempt={attempt} error={verify_err}", severity="warning")
+                    else:
+                        last_error = last_error or f"rc_{rc}"
+                        log.warning(f"[integrity] auto-repull rc={rc} (attempt {attempt}/{OLLAMA_REPULL_MAX_ATTEMPTS}) for {name}")
+
+                    # Don't sleep after the last attempt.
+                    if attempt < OLLAMA_REPULL_MAX_ATTEMPTS:
+                        sleep_for = min(backoff, OLLAMA_REPULL_BACKOFF_CAP_SEC)
+                        log.info(f"[integrity] auto-repull backing off {sleep_for}s before attempt {attempt + 1} for {name}")
+                        time.sleep(sleep_for)
+                        backoff = min(backoff * 2, OLLAMA_REPULL_BACKOFF_CAP_SEC)
+
+                if not success:
+                    log.error(f"[integrity] auto-repull exhausted: name={name} attempts={OLLAMA_REPULL_MAX_ATTEMPTS} last_error={last_error}")
+                    report_event(
+                        "model_repull_exhausted",
+                        f"name={name} attempts={OLLAMA_REPULL_MAX_ATTEMPTS} last_error={last_error}",
+                        severity="error",
+                    )
+            except Exception as _watch_err:
+                log.error(f"[integrity] repull watcher fatal error for {name}: {_watch_err}")
+            finally:
+                with _OLLAMA_REPULL_LOCK:
+                    _OLLAMA_REPULL_ACTIVE.discard(name)
 
         threading.Thread(target=_watch_repull, daemon=True, name=f"DCP-OllamaRepull-{name}").start()
         return True
