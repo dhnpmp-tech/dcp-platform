@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 const hyperagent = require('../services/hyperagent');
 const { secureTokenEqual, normalizeCredential } = require('../middleware/auth');
+const { safeErrorPayload } = require('../lib/error-response');
 
 const TAG = '[ha-api]';
 
@@ -50,7 +51,8 @@ router.get('/health', (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ status: 'error', error: error.message });
+    console.error(`${TAG} Health check error:`, error);
+    res.status(500).json({ status: 'error', ...safeErrorPayload(error, 'Health check failed') });
   }
 });
 
@@ -61,8 +63,8 @@ router.get('/dashboard', requireAdmin, (req, res) => {
     const dashboard = hyperagent.getDashboard();
     res.json(dashboard);
   } catch (error) {
-    console.error(`${TAG} Dashboard error:`, error.message);
-    res.status(500).json({ error: error.message });
+    console.error(`${TAG} Dashboard error:`, error);
+    res.status(500).json(safeErrorPayload(error, 'Dashboard fetch failed'));
   }
 });
 
@@ -76,7 +78,8 @@ router.get('/strategies', requireAdmin, (req, res) => {
       stats: dashboard.stats,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(`${TAG} Strategies error:`, error);
+    res.status(500).json(safeErrorPayload(error, 'Strategies fetch failed'));
   }
 });
 
@@ -88,7 +91,8 @@ router.get('/strategy/:gpu', (req, res) => {
     const strategy = hyperagent.getStrategy(gpuModel);
     res.json(strategy);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(`${TAG} Strategy error:`, error);
+    res.status(500).json(safeErrorPayload(error, 'Strategy fetch failed'));
   }
 });
 
@@ -100,8 +104,8 @@ router.post('/meta-cycle', requireAdmin, async (req, res) => {
     const result = await hyperagent.runMetaCycle();
     res.json(result);
   } catch (error) {
-    console.error(`${TAG} Meta-cycle error:`, error.message);
-    res.status(500).json({ error: error.message });
+    console.error(`${TAG} Meta-cycle error:`, error);
+    res.status(500).json(safeErrorPayload(error, 'Meta-cycle failed'));
   }
 });
 
@@ -134,8 +138,8 @@ router.post('/record-outcome', (req, res) => {
 
     res.json({ ok: true });
   } catch (error) {
-    console.error(`${TAG} Record outcome error:`, error.message);
-    res.status(500).json({ error: error.message });
+    console.error(`${TAG} Record outcome error:`, error);
+    res.status(500).json(safeErrorPayload(error, 'Record outcome failed'));
   }
 });
 

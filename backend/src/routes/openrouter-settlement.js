@@ -9,6 +9,7 @@ const {
   computeDryRunSummary,
   executeOpenRouterSettlement,
 } = require('../services/openrouterSettlementService');
+const { safeErrorPayload } = require('../lib/error-response');
 
 function requireAdmin(req, res, next) {
   if (!isAdminRequest(req)) {
@@ -96,7 +97,8 @@ router.post('/settlements/dry-run', (req, res) => {
     }));
     return res.json({ dry_run: true, summary });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to compute OpenRouter dry run' });
+    console.error('[openrouter-settlement] dry-run error:', error);
+    return res.status(500).json(safeErrorPayload(error, 'Failed to compute OpenRouter dry run'));
   }
 });
 
@@ -127,7 +129,8 @@ router.post('/settlements/run', (req, res) => {
       alerts: result.alerts || [],
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to execute OpenRouter settlement' });
+    console.error('[openrouter-settlement] run error:', error);
+    return res.status(500).json(safeErrorPayload(error, 'Failed to execute OpenRouter settlement'));
   }
 });
 
@@ -144,7 +147,8 @@ router.get('/settlements', (req, res) => {
     );
     return res.json({ settlements: rows.map((row) => enrichSettlement(row)), count: rows.length });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to list OpenRouter settlements' });
+    console.error('[openrouter-settlement] list error:', error);
+    return res.status(500).json(safeErrorPayload(error, 'Failed to list OpenRouter settlements'));
   }
 });
 
@@ -185,7 +189,8 @@ router.get('/settlements/:id', (req, res) => {
       topup: enrichTopup(topup),
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to fetch OpenRouter settlement details' });
+    console.error('[openrouter-settlement] details error:', error);
+    return res.status(500).json(safeErrorPayload(error, 'Failed to fetch OpenRouter settlement details'));
   }
 });
 

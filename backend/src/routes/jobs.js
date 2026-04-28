@@ -2608,7 +2608,8 @@ router.post('/:job_id/pause', (req, res) => {
     try {
       runDockerCommand(['checkpoint', 'create', containerId, checkpointName]);
     } catch (error) {
-      return res.status(500).json({ error: `Failed to create checkpoint: ${error.message}` });
+      console.error('[jobs] checkpoint create error:', error);
+      return res.status(500).json({ error: 'Failed to create checkpoint' });
     }
 
     const now = new Date().toISOString();
@@ -2675,7 +2676,8 @@ router.post('/:job_id/resume', (req, res) => {
     try {
       runDockerCommand(['start', '--checkpoint', String(job.checkpoint_name), containerId]);
     } catch (error) {
-      return res.status(500).json({ error: `Failed to resume checkpoint: ${error.message}` });
+      console.error('[jobs] checkpoint resume error:', error);
+      return res.status(500).json({ error: 'Failed to resume checkpoint' });
     }
 
     const now = new Date().toISOString();

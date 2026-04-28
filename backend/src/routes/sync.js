@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const sync = require('../services/supabase-sync');
+const { safeErrorPayload } = require('../lib/error-response');
 
 const MC_TOKEN = process.env.MC_TOKEN;
 
@@ -23,7 +24,8 @@ router.post('/run', requireAuth, async (req, res) => {
     if (!result) return res.status(503).json({ error: 'Sync not initialized (SUPABASE_SERVICE_ROLE_KEY missing?)' });
     res.json({ success: true, ...result });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[sync] run error:', e);
+    res.status(500).json(safeErrorPayload(e, 'Sync run failed'));
   }
 });
 
@@ -33,7 +35,8 @@ router.post('/stale', requireAuth, async (req, res) => {
     await sync.markStaleOffline();
     res.json({ success: true, message: 'Stale providers marked offline' });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[sync] stale error:', e);
+    res.status(500).json(safeErrorPayload(e, 'Stale sweep failed'));
   }
 });
 

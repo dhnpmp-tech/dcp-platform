@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const engine = require('../services/reconciliation-engine');
+const { safeErrorPayload } = require('../lib/error-response');
 
 // GET /api/reconciliation/summary
 router.get('/summary', (req, res) => {
@@ -20,7 +21,8 @@ router.get('/summary', (req, res) => {
       runAt: result.runAt
     });
   } catch (error) {
-    res.status(500).json({ error: 'Reconciliation failed', detail: error.message });
+    console.error('[reconciliation] summary error:', error);
+    res.status(500).json(safeErrorPayload(error, 'Reconciliation failed'));
   }
 });
 
@@ -41,7 +43,8 @@ router.get('/jobs', (req, res) => {
     });
     res.json({ jobs: breakdown, count: breakdown.length });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch jobs', detail: error.message });
+    console.error('[reconciliation] jobs error:', error);
+    res.status(500).json(safeErrorPayload(error, 'Failed to fetch jobs'));
   }
 });
 
@@ -54,7 +57,8 @@ router.get('/discrepancies', (req, res) => {
       count: result.jobsFlagged
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch discrepancies', detail: error.message });
+    console.error('[reconciliation] discrepancies error:', error);
+    res.status(500).json(safeErrorPayload(error, 'Failed to fetch discrepancies'));
   }
 });
 
@@ -66,7 +70,8 @@ router.post('/verify/:job_id', (req, res) => {
     const proof = engine.verifyProofHash(job_id);
     res.json({ billing, proof });
   } catch (error) {
-    res.status(500).json({ error: 'Verification failed', detail: error.message });
+    console.error('[reconciliation] verify error:', error);
+    res.status(500).json(safeErrorPayload(error, 'Verification failed'));
   }
 });
 
@@ -76,7 +81,8 @@ router.get('/report', (req, res) => {
     const report = engine.generateReport();
     res.json(report);
   } catch (error) {
-    res.status(500).json({ error: 'Report generation failed', detail: error.message });
+    console.error('[reconciliation] report error:', error);
+    res.status(500).json(safeErrorPayload(error, 'Report generation failed'));
   }
 });
 

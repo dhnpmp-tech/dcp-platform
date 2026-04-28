@@ -17,6 +17,7 @@ const { sendWithdrawalApprovedEmail } = require('../services/emailService');
 const { resolveAttemptLogPath } = require('../services/job-execution-logs');
 const { buildFunnelReport } = require('../services/conversionFunnelService');
 const { buildDaemonHealthSummary } = require('../services/daemonHealthSummary');
+const { safeErrorPayload } = require('../lib/error-response');
 const {
   listPolicies: listControlPlanePolicies,
   updatePolicy: updateControlPlanePolicy,
@@ -4144,7 +4145,7 @@ router.get('/health', (req, res) => {
     });
   } catch (error) {
     console.error('Health check error:', error);
-    res.status(500).json({ status: 'error', error: error.message });
+    res.status(500).json({ status: 'error', ...safeErrorPayload(error, 'Health check failed') });
   }
 });
 
@@ -4482,7 +4483,10 @@ router.post('/payments/:paymentId/refund', (req, res) => {
       }
     });
   });
-  apiReq.on('error', err => res.status(502).json({ error: 'Moyasar API unreachable', details: err.message }));
+  apiReq.on('error', err => {
+    console.error('[admin] Moyasar API unreachable:', err);
+    res.status(502).json(safeErrorPayload(err, 'Moyasar API unreachable'));
+  });
   apiReq.write(bodyStr);
   apiReq.end();
 });

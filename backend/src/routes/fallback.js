@@ -3,13 +3,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { getStatus } = require('../services/fallback-loop');
+const { safeErrorPayload } = require('../lib/error-response');
 
 // GET /api/fallback/status
 router.get('/status', (req, res) => {
   try {
     res.json(getStatus());
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[fallback] status error:', err);
+    res.status(500).json(safeErrorPayload(err, 'Fallback status failed'));
   }
 });
 
@@ -21,7 +23,8 @@ router.get('/bottlenecks', (req, res) => {
     );
     res.json(events);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[fallback] bottlenecks error:', err);
+    res.status(500).json(safeErrorPayload(err, 'Bottlenecks fetch failed'));
   }
 });
 
@@ -33,7 +36,8 @@ router.get('/disconnects', (req, res) => {
     );
     res.json(events);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[fallback] disconnects error:', err);
+    res.status(500).json(safeErrorPayload(err, 'Disconnects fetch failed'));
   }
 });
 
@@ -57,7 +61,8 @@ router.post('/simulate', (req, res) => {
 
     res.json({ success: true, message: 'Bottleneck event simulated' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[fallback] simulate error:', err);
+    res.status(500).json(safeErrorPayload(err, 'Simulate failed'));
   }
 });
 

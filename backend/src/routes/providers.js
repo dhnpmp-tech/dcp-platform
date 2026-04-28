@@ -18,6 +18,7 @@ const {
 } = require('../middleware/rateLimiter');
 const { isAdminRequest, getBearerToken } = require('../middleware/auth');
 const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
+const { safeErrorPayload } = require('../lib/error-response');
 const { getChainEscrow } = require('../services/escrow-chain');
 const { sendAlert } = require('../services/notifications');
 const {
@@ -1490,7 +1491,7 @@ router.post('/:id/benchmark', validateBody(providerBenchmarkSchema), (req, res) 
         });
     } catch (error) {
         console.error('[providers/:id/benchmark]', error);
-        return res.status(500).json({ error: 'Benchmark submission failed', details: error.message });
+        return res.status(500).json(safeErrorPayload(error, 'Benchmark submission failed'));
     }
 });
 
@@ -6229,7 +6230,7 @@ router.post('/:id/benchmark-submit', function(req, res) {
         });
     } catch (error) {
         console.error('[providers/:id/benchmark-submit]', error);
-        return res.status(500).json({ error: 'Benchmark submission failed', details: error.message });
+        return res.status(500).json(safeErrorPayload(error, 'Benchmark submission failed'));
     }
 });
 
@@ -6287,7 +6288,7 @@ router.post('/:id/activate', function(req, res) {
         }
     } catch (error) {
         console.error('[providers/:id/activate]', error);
-        return res.status(500).json({ error: 'Activation failed', details: error.message });
+        return res.status(500).json(safeErrorPayload(error, 'Activation failed'));
     }
 });
 
@@ -6449,7 +6450,7 @@ router.get('/activation-scorecard', (req, res) => {
         return res.json(scorecard);
     } catch (error) {
         console.error('[providers/activation-scorecard GET]', error);
-        return res.status(500).json({ error: 'Failed to build activation scorecard', details: error.message });
+        return res.status(500).json(safeErrorPayload(error, 'Failed to build activation scorecard'));
     }
 });
 
@@ -6861,7 +6862,7 @@ router.get('/self-test', (req, res) => {
         });
     } catch (error) {
         console.error('[providers/self-test GET]', error);
-        res.status(500).json({ error: 'Self-test check failed', details: error.message });
+        res.status(500).json(safeErrorPayload(error, 'Self-test check failed'));
     }
 });
 
