@@ -1,5 +1,34 @@
 const crypto = require('crypto');
 
+// ── DCP-audit H1: API-key prefix scheme ────────────────────────────────────
+// Renter and provider API keys are minted with explicit prefixes (renters.js,
+// providers.js, admin.js). Callers that *expect* one role can reject keys that
+// look like the other role early — before any DB lookup — to prevent
+// cross-role key-confusion (e.g. a leaked provider key accidentally accepted
+// at /v1/chat/completions because the renter table happened to have a row
+// with that string). Scoped renter sub-keys (renter_api_keys.key) historically
+// don't carry the prefix, so we only reject keys that *actively look like the
+// wrong role* — unknown-prefix keys still flow through and are validated by
+// the existing DB lookup.
+const RENTER_KEY_PREFIXES = ['dcp-renter-', 'dc1-renter-'];
+const PROVIDER_KEY_PREFIXES = ['dcp-provider-', 'dc1-provider-'];
+
+function looksLikeRenterKey(key) {
+  if (typeof key !== 'string') return false;
+  return RENTER_KEY_PREFIXES.some((p) => key.startsWith(p));
+}
+
+function looksLikeProviderKey(key) {
+  if (typeof key !== 'string') return false;
+  return PROVIDER_KEY_PREFIXES.some((p) => key.startsWith(p));
+}
+
+function detectKeyType(key) {
+  if (looksLikeRenterKey(key)) return 'renter';
+  if (looksLikeProviderKey(key)) return 'provider';
+  return 'unknown';
+}
+
 function normalizeCredential(value, { maxLen = 512 } = {}) {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
@@ -84,4 +113,10 @@ module.exports = {
   normalizeCredential,
   requireAdminAuth,
   secureTokenEqual,
+  // H1: key-type prefix helpers
+  looksLikeRenterKey,
+  looksLikeProviderKey,
+  detectKeyType,
+  RENTER_KEY_PREFIXES,
+  PROVIDER_KEY_PREFIXES,
 };

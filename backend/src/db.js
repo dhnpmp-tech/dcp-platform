@@ -1050,6 +1050,11 @@ const migrations = [
   // Audit H5: WireGuard mesh IP advertised by the daemon. When set, v1.js
   // prefers it over vllm_endpoint_url so traffic stays on the mesh.
   'ALTER TABLE providers ADD COLUMN wg_mesh_ip TEXT',
+  // Audit M6: per-renter HMAC secret for outbound webhook signatures.
+  // Replaces the legacy fallback that used the renter's API key as the signing
+  // secret — leaking the API key inside webhook signatures sent to URLs the
+  // renter (or anyone reading their webhook traffic) controls.
+  'ALTER TABLE renters ADD COLUMN webhook_secret TEXT',
 ];
 
 migrations.forEach(sql => {

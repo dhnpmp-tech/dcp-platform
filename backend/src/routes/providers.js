@@ -17,6 +17,7 @@ const {
     registerLimiter,
 } = require('../middleware/rateLimiter');
 const { isAdminRequest, getBearerToken } = require('../middleware/auth');
+const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
 const { getChainEscrow } = require('../services/escrow-chain');
 const { sendAlert } = require('../services/notifications');
 const {
@@ -446,7 +447,11 @@ async function notifyRenterJobWebhook(job, eventName, details = {}) {
             billing: details.billing || null,
         };
         const payloadJson = JSON.stringify(payload);
-        const secret = process.env.DCP_WEBHOOK_SECRET || renter.api_key;
+        // Audit M6 — per-renter webhook secret, never the api_key.
+        const secret = resolveRenterWebhookSecret(renter.id);
+        if (!secret) {
+            return { sent: false, reason: 'webhook_secret_unavailable' };
+        }
         const signature = signWebhookPayload(secret, payloadJson);
 
         const response = await fetch(renter.webhook_url, {

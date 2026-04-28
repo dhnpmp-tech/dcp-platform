@@ -70,13 +70,44 @@ function getLatestDaemonVersion() {
   return '3.3.0';
 }
 
-// ── CORS Lockdown (DCP-879) ───────────────────────────────────────────────
+// ── CORS Lockdown (DCP-879 + audit M1) ────────────────────────────────────
 // Additional origins can be injected via CORS_ORIGINS (comma-separated)
-const _extraOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-  : [];
-const _frontendOrigin = (process.env.FRONTEND_URL || '').trim();
 const _isDev = process.env.NODE_ENV !== 'production';
+
+// M1 — defence-in-depth: in production, never allow loopback hostnames
+// regardless of how they were injected (CORS_ORIGINS env, FRONTEND_URL, or
+// future helpers). The stage-2 audit flagged "localhost in production CORS"
+// as a real risk after past misconfigurations bled localhost entries through.
+const _LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+function _isLoopbackOrigin(origin) {
+  if (typeof origin !== 'string' || !origin) return false;
+  try {
+    const u = new URL(origin);
+    return _LOOPBACK_HOSTS.has(u.hostname);
+  } catch {
+    return false;
+  }
+}
+function _filterProdSafe(origins) {
+  if (_isDev) return origins;
+  return origins.filter((o) => {
+    if (_isLoopbackOrigin(o)) {
+      console.warn(`[cors] Dropping loopback origin in production: ${o}`);
+      return false;
+    }
+    return true;
+  });
+}
+
+const _extraOrigins = _filterProdSafe(
+  process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : []
+);
+const _frontendOriginRaw = (process.env.FRONTEND_URL || '').trim();
+const _frontendOrigin = _isDev || !_isLoopbackOrigin(_frontendOriginRaw)
+  ? _frontendOriginRaw
+  : '';
 const ALLOWED_ORIGINS = [
   'https://dcp.sa',
   'https://www.dcp.sa',
@@ -105,13 +136,27 @@ const CORS_ALLOWED_HEADERS = [
   'X-DCP-Event',
   'X-Paperclip-Run-Id',
 ];
-// Vercel deployments: prod + branch previews (e.g. dc1-platform.vercel.app,
-// dc1-platform-git-foo-peter.vercel.app). Safe because we own the project.
-const VERCEL_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+// Vercel deployments: prod + branch previews. M1 — narrowed from any
+// *.vercel.app to project-specific subdomains so a third-party Vercel app
+// can't speak as us. Configurable via VERCEL_PROJECT_NAMES (comma-separated)
+// to cover renames; defaults to the two we own today.
+const _vercelProjects = (process.env.VERCEL_PROJECT_NAMES || 'dc1-platform,dcp,dcp-platform')
+  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+const _vercelProjectAlt = _vercelProjects.map((p) => p.replace(/[^a-z0-9-]/g, '')).join('|');
+const VERCEL_ORIGIN_RE = new RegExp(
+  `^https:\\/\\/(?:${_vercelProjectAlt})(?:-[a-z0-9-]+)?\\.vercel\\.app$`,
+  'i'
+);
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (daemon, curl, server-to-server)
     if (!origin) return callback(null, true);
+    // M1 — production hard-stop on any loopback origin even if it slipped
+    // through earlier filters.
+    if (!_isDev && _isLoopbackOrigin(origin)) {
+      console.warn(`[cors] Blocked loopback origin in production: ${origin}`);
+      return callback(new Error('Not allowed by CORS'));
+    }
     // Allow exact matches
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     // Allow our Vercel deployments (production + branch previews)

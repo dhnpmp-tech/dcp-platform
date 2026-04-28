@@ -36,6 +36,7 @@ const { sendOtp } = require('../services/auth-otp');
 const { reconcileRenterByEmailFromSupabase } = require('../services/renter-identity-reconciliation');
 const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
+const { looksLikeRenterKey } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -277,6 +278,10 @@ function requireProvider(req, res, next) {
   const key = extractBearer(req);
   if (!key) {
     return wizardError(res, 401, 'missing_token', 'Authorization: Bearer <token> required');
+  }
+  // H1 — reject renter-prefixed keys on a provider-only path.
+  if (looksLikeRenterKey(key)) {
+    return wizardError(res, 401, 'wrong_key_type', 'Renter key cannot be used on provider endpoint');
   }
   const provider = db.get('SELECT * FROM providers WHERE api_key = ?', key);
   if (!provider) {

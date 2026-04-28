@@ -32,6 +32,7 @@ const {
   recordStreamOutcome,
   resolveProviderTier,
 } = require('../services/inferenceLatencyBudgetGate');
+const { looksLikeProviderKey } = require('../middleware/auth');
 
 const router = express.Router();
 const VLLM_COMPATIBILITY_MATRIX_PATH = path.join(__dirname, '../../../infra/vllm-configs/compatibility-matrix.json');
@@ -232,6 +233,16 @@ function requireAuth(req, res, next) {
     type: 'authentication_error',
     code: 'authentication_required',
     message: 'API key required. Pass via Authorization: Bearer <key>',
+    retryable: false,
+  });
+
+  // H1 — reject keys that look like a provider key on a renter-only path.
+  // Avoids cross-role key confusion + DB-lookup oracle for leaked provider keys.
+  if (looksLikeProviderKey(key)) return sendV1Error(res, {
+    status: 401,
+    type: 'authentication_error',
+    code: 'wrong_key_type',
+    message: 'Provider API key cannot be used for /v1 inference. Use a renter key.',
     retryable: false,
   });
 

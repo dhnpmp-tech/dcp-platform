@@ -5,9 +5,10 @@ const { execFileSync } = require('child_process');
 const router = express.Router();
 const db = require('../db');
 const { retryJobLimiter, jobCreateLimiter } = require('../middleware/rateLimiter');
-const { getApiKeyFromReq, isAdminRequest, requireAdminAuth } = require('../middleware/auth');
+const { getApiKeyFromReq, isAdminRequest, requireAdminAuth, looksLikeProviderKey } = require('../middleware/auth');
 const { validateAndNormalizeImageRef, isApprovedImageRef } = require('../lib/container-registry');
 const { isPublicWebhookUrl, isResolvablePublicWebhookUrl } = require('../lib/webhook-security');
+const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
 const { validateBody } = require('../middleware/validate');
 const { jobSubmitSchema } = require('../schemas/jobs.schema');
 const { getChainEscrow } = require('../services/escrow-chain');
@@ -130,7 +131,12 @@ async function notifyRenterJobWebhook(job, eventName, details = {}) {
       billing: details.billing || null,
     };
     const payloadJson = JSON.stringify(payload);
-    const secret = process.env.DCP_WEBHOOK_SECRET || renter.api_key;
+    // Audit M6 — per-renter secret, never the api_key. Skip sending if no
+    // secret can be derived rather than signing with a guessable value.
+    const secret = resolveRenterWebhookSecret(renter.id);
+    if (!secret) {
+      return { sent: false, reason: 'webhook_secret_unavailable' };
+    }
     const signature = signWebhookPayload(secret, payloadJson);
 
     const response = await fetch(renter.webhook_url, {
@@ -695,6 +701,10 @@ function requireRenter(req, res, next) {
   });
   if (!key) {
     return res.status(401).json({ error: 'Renter API key required (x-renter-key header or renter_key query)' });
+  }
+  // H1 — reject provider-prefixed keys on a renter-only path.
+  if (looksLikeProviderKey(key)) {
+    return res.status(401).json({ error: 'Wrong key type: provider key cannot be used on renter endpoint', code: 'wrong_key_type' });
   }
   const renter = db.get('SELECT * FROM renters WHERE api_key = ? AND status = ?', key, 'active');
   if (!renter) {

@@ -1,5 +1,10 @@
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
-const { getAdminTokenFromReq, getBearerToken } = require('./auth');
+const {
+  getAdminTokenFromReq,
+  getBearerToken,
+  looksLikeRenterKey,
+  looksLikeProviderKey,
+} = require('./auth');
 
 function ipFallbackKey(req) {
   return `ip:${ipKeyGenerator(req.ip || '0.0.0.0')}`;
@@ -65,6 +70,8 @@ function createRateLimiter({ windowMs, max, keyGenerator, buildBody = defaultRat
 }
 
 function getRenterKey(req, { includeGenericQueryKey = true } = {}) {
+  // H2 — prefix-aware: skip values that look like a provider key so they
+  // don't share a rate-limit bucket with renter keys (and vice versa).
   const candidates = [
     req.headers['x-renter-key'],
     req.query.renter_key,
@@ -73,6 +80,7 @@ function getRenterKey(req, { includeGenericQueryKey = true } = {}) {
   candidates.push(getBearerToken(req));
 
   for (const candidate of candidates) {
+    if (typeof candidate === 'string' && looksLikeProviderKey(candidate.trim())) continue;
     const normalized = normalizeLimiterCredential(candidate, 'renter');
     if (normalized) return normalized;
   }
@@ -80,11 +88,24 @@ function getRenterKey(req, { includeGenericQueryKey = true } = {}) {
 }
 
 function getProviderKey(req) {
-  const providerKey = req.headers['x-provider-key'] || req.query.provider_key || req.query.key;
-  if (providerKey) return `provider:${String(providerKey)}`;
+  // H2 — prefix-aware: only accept candidates that don't look like a renter key.
+  const candidates = [
+    req.headers['x-provider-key'],
+    req.query.provider_key,
+    req.query.key,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    if (looksLikeRenterKey(trimmed)) continue;
+    return `provider:${trimmed}`;
+  }
   return null;
 }
 
+// Typed API key — when both renter and provider candidates are present,
+// returns the one whose prefix actually matches the channel it arrived on.
 function getApiKey(req) { return getRenterKey(req) || getProviderKey(req); }
 function getAdminToken(req) { return getAdminTokenFromReq(req); }
 

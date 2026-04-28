@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const path = require('path');
 const db = require('../db');
 const { publicEndpointLimiter, authenticatedEndpointLimiter } = require('../middleware/rateLimiter');
+const { looksLikeProviderKey } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -63,6 +64,11 @@ function getRenterKey(req) {
 function requireRenter(req, res, next) {
   const key = getRenterKey(req);
   if (!key) return res.status(401).json({ error: 'Renter API key required (x-renter-key header or ?key=)' });
+
+  // H1 — reject provider-prefixed keys on a renter-only path.
+  if (looksLikeProviderKey(key)) {
+    return res.status(401).json({ error: 'Wrong key type: provider key cannot be used on renter endpoint', code: 'wrong_key_type' });
+  }
 
   const now = new Date().toISOString();
 

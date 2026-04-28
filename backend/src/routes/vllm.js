@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { vllmCompleteLimiter, vllmStreamLimiter } = require('../middleware/rateLimiter');
 const db = require('../db');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
+const { looksLikeProviderKey } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -100,6 +101,11 @@ function getRenterKey(req) {
 function requireRenter(req, res, next) {
   const key = getRenterKey(req);
   if (!key) return res.status(401).json({ error: 'Renter API key required (?key= or x-renter-key)' });
+
+  // H1 — reject provider-prefixed keys on a renter-only path.
+  if (looksLikeProviderKey(key)) {
+    return res.status(401).json({ error: 'Wrong key type: provider key cannot be used on renter endpoint', code: 'wrong_key_type' });
+  }
 
   // Sprint 25 Gap 2: check scoped sub-keys first (renter_api_keys table)
   const now = new Date().toISOString();

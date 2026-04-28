@@ -4,6 +4,7 @@ const path = require('path');
 const router = express.Router();
 const db = require('../db');
 const { publicEndpointLimiter, modelDeployLimiter, modelCatalogLimiter } = require('../middleware/rateLimiter');
+const { looksLikeProviderKey } = require('../middleware/auth');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
 
 const PROVIDER_FRESHNESS_MS = 10 * 60 * 1000;
@@ -269,6 +270,11 @@ function getRenterKey(req) {
 function requireRenter(req, res, next) {
   const key = getRenterKey(req);
   if (!key) return res.status(401).json({ error: 'Renter API key required (?key= or x-renter-key)' });
+
+  // H1 — reject provider-prefixed keys on a renter-only path.
+  if (looksLikeProviderKey(key)) {
+    return res.status(401).json({ error: 'Wrong key type: provider key cannot be used on renter endpoint', code: 'wrong_key_type' });
+  }
 
   const renter = db.get(
     'SELECT id, api_key, balance_halala, status FROM renters WHERE api_key = ? AND status = ?',

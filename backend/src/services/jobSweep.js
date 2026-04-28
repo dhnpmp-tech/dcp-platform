@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { sendJobCompleteEmail } = require('./emailService');
 const { isPublicWebhookUrl, isResolvablePublicWebhookUrl } = require('../lib/webhook-security');
+const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
 
 let sweepTimer = null;
 let loggedRetryMigrationHint = false;
@@ -632,7 +633,12 @@ async function sweepOfflineProviders(db) {
           },
           message: 'Provider went offline. Job has been returned to the queue and will be reassigned.',
         });
-        const secret = process.env.DCP_WEBHOOK_SECRET || job.renter_api_key || '';
+        // Audit M6 — per-renter webhook secret, never the api_key.
+        const secret = resolveRenterWebhookSecret(job.renter_id);
+        if (!secret) {
+          console.warn(`[providerSweep] no webhook secret for renter ${job.renter_id}, skipping job ${job.job_id || job.id}`);
+          continue;
+        }
         const signature = createWebhookSignature(secret, payload);
         fetch(job.webhook_url, {
           method: 'POST',

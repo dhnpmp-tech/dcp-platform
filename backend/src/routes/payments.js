@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const https = require('https');
 const router = express.Router();
 const db = require('../db');
+const { looksLikeProviderKey } = require('../middleware/auth');
 
 function flattenRunParams(params) {
   if (params.length === 1 && Array.isArray(params[0])) return params[0];
@@ -211,6 +212,8 @@ function markPaymentRefundedOnce(paymentId, renterId, refundAmountHalala, nowIso
 function getRenter(req) {
   const key = req.headers['x-renter-key'] || req.query.key;
   if (!key) return null;
+  // H1 — reject provider-prefixed keys before DB lookup.
+  if (looksLikeProviderKey(key)) return null;
   return db.get('SELECT * FROM renters WHERE api_key = ? AND status = ?', key, 'active');
 }
 
