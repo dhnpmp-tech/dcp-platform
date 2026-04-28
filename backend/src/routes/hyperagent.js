@@ -17,20 +17,22 @@
 const express = require('express');
 const router = express.Router();
 const hyperagent = require('../services/hyperagent');
+const { secureTokenEqual, normalizeCredential } = require('../middleware/auth');
 
 const TAG = '[ha-api]';
 
 // ── Middleware: admin auth for write endpoints ────────────────────────────────
+// Audit M4 — token compare goes through secureTokenEqual (timing-safe). The
+// previous `token !== expected` was leaking a per-byte timing oracle.
 
 function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'] || req.query.admin_token;
-  const expected = process.env.DC1_ADMIN_TOKEN;
-
+  const expected = normalizeCredential(process.env.DC1_ADMIN_TOKEN);
   if (!expected) {
     return res.status(503).json({ error: 'Admin token not configured' });
   }
 
-  if (!token || token !== expected) {
+  const provided = normalizeCredential(req.headers['x-admin-token'] || req.query.admin_token);
+  if (!secureTokenEqual(provided, expected)) {
     return res.status(401).json({ error: 'Unauthorised' });
   }
 

@@ -7503,9 +7503,12 @@ router.get('/me/power-config', (req, res) => {
 });
 
 // Admin: broadcast recommended power configs for all providers
+// Audit M4 — token compare goes through secureTokenEqual (timing-safe).
 router.post('/admin/broadcast-power-config', (req, res) => {
-    const token = req.headers['x-admin-token'] || req.query.admin_token;
-    if (!token || token !== process.env.DC1_ADMIN_TOKEN) {
+    const { secureTokenEqual, normalizeCredential } = require('../middleware/auth');
+    const provided = normalizeCredential(req.headers['x-admin-token'] || req.query.admin_token);
+    const expected = normalizeCredential(process.env.DC1_ADMIN_TOKEN);
+    if (!secureTokenEqual(provided, expected)) {
         return res.status(403).json({ error: 'Admin token required' });
     }
 
