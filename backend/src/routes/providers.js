@@ -3515,6 +3515,43 @@ router.post('/:id/jobs/:jobId/complete', async (req, res) => {
 });
 
 // ============================================================================
+// Daemon download + manifest helpers
+// ============================================================================
+
+// Resolve the on-disk daemon path. Daemon filename compat (Option A): the
+// canonical filename is dcp_daemon.py. The candidate list retains the legacy
+// dc1_daemon.py / dc1-daemon.py names so that an older backend deploy
+// (pre-rename) or a mixed working tree still resolves.
+function _resolveDaemonPath() {
+    const daemonCandidates = [
+        path.join(__dirname, '../../installers/dcp_daemon.py'),
+        path.join(__dirname, '../../installers/dc1_daemon.py'),
+        path.join(__dirname, '../../installers/dc1-daemon.py'),
+    ];
+    return daemonCandidates.find(candidate => fs.existsSync(candidate)) || null;
+}
+
+// Build the exact bytes the /download/daemon route would send for `cleanKey`.
+// Both /download/daemon and /download/daemon/manifest go through this so the
+// sha256 in the manifest matches the bytes a client subsequently downloads.
+function _buildInjectedDaemonScript(cleanKey) {
+    const daemonPath = _resolveDaemonPath();
+    if (!daemonPath) return null;
+    const script = fs.readFileSync(daemonPath, 'utf-8');
+    const versionMatch = script.match(/DAEMON_VERSION\s*=\s*"([^"]+)"/);
+    const currentVersion = versionMatch ? versionMatch[1] : 'unknown';
+    const apiUrl = process.env.BACKEND_URL || process.env.DC1_BACKEND_URL || 'https://api.dcp.sa';
+    const hmacSecret = process.env.DC1_HMAC_SECRET || '';
+    const injected = script
+        .replace('API_KEY = "{{API_KEY}}"', `API_KEY = "${cleanKey}"`)
+        .replace('API_URL = "{{API_URL}}"', `API_URL = "${apiUrl}"`)
+        .replace('HMAC_SECRET = "{{HMAC_SECRET}}"', `HMAC_SECRET = "${hmacSecret}"`)
+        .replace('API_KEY = "INJECT_KEY_HERE"', `API_KEY = "${cleanKey}"`)
+        .replace('API_URL = "INJECT_URL_HERE"', `API_URL = "${apiUrl}"`);
+    return { daemonPath, injected, currentVersion };
+}
+
+// ============================================================================
 // GET /api/providers/download/daemon - Serve dcp_daemon.py with injected key
 // ============================================================================
 router.get('/download/daemon', (req, res) => {
@@ -3526,26 +3563,9 @@ router.get('/download/daemon', (req, res) => {
         const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
         if (!provider) return res.status(401).json({ error: 'Invalid API key' });
 
-        // Daemon filename compat (Option A): the canonical filename is dcp_daemon.py.
-        // The candidate list retains the legacy dc1_daemon.py / dc1-daemon.py names
-        // so that an older backend deploy (pre-rename) or a mixed working tree still
-        // resolves. Existing v3.5.0 providers download from the filename-agnostic
-        // /api/providers/download/daemon route, so the on-disk filename can change
-        // without breaking their self-update loop.
-        const daemonCandidates = [
-            path.join(__dirname, '../../installers/dcp_daemon.py'),
-            path.join(__dirname, '../../installers/dc1_daemon.py'),
-            path.join(__dirname, '../../installers/dc1-daemon.py'),
-        ];
-        const daemonPath = daemonCandidates.find(candidate => fs.existsSync(candidate));
-        if (!daemonPath) {
-            return res.status(404).json({ error: 'Daemon file not found' });
-        }
-
-        // Extract version from the daemon file
-        const script = fs.readFileSync(daemonPath, 'utf-8');
-        const versionMatch = script.match(/DAEMON_VERSION\s*=\s*"([^"]+)"/);
-        const currentVersion = versionMatch ? versionMatch[1] : 'unknown';
+        const built = _buildInjectedDaemonScript(cleanKey);
+        if (!built) return res.status(404).json({ error: 'Daemon file not found' });
+        const { daemonPath, injected, currentVersion } = built;
 
         // check_only mode: return version info without downloading the file
         if (check_only === 'true') {
@@ -3556,17 +3576,6 @@ router.get('/download/daemon', (req, res) => {
                 download_url: `/api/providers/download/daemon?key=${cleanKey}`,
             });
         }
-
-        // Full download: inject API key, URL, and HMAC secret for task_spec signature verification
-        // Supports both placeholder styles: {{API_KEY}} (v3.2.0+) and INJECT_KEY_HERE (legacy)
-        const apiUrl = process.env.BACKEND_URL || process.env.DC1_BACKEND_URL || 'https://api.dcp.sa';
-        const hmacSecret = process.env.DC1_HMAC_SECRET || '';
-        let injected = script
-            .replace('API_KEY = "{{API_KEY}}"', `API_KEY = "${cleanKey}"`)
-            .replace('API_URL = "{{API_URL}}"', `API_URL = "${apiUrl}"`)
-            .replace('HMAC_SECRET = "{{HMAC_SECRET}}"', `HMAC_SECRET = "${hmacSecret}"`)
-            .replace('API_KEY = "INJECT_KEY_HERE"', `API_KEY = "${cleanKey}"`)
-            .replace('API_URL = "INJECT_URL_HERE"', `API_URL = "${apiUrl}"`);
 
         const downloadName = path.basename(daemonPath);
         recordActivationEvent(provider.id, 'daemon_downloaded', {
@@ -3580,6 +3589,43 @@ router.get('/download/daemon', (req, res) => {
     } catch (error) {
         console.error('Daemon download error:', error);
         res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// ============================================================================
+// GET /api/providers/download/daemon/manifest - sha256 + size + version
+// ----------------------------------------------------------------------------
+// Audit G19 (Tier 4.17): the Tauri update_daemon path downloads bytes from
+// /download/daemon and writes them into ~/.dcp atomically without verifying
+// what it received. A path-injection or in-flight tamper would be silently
+// installed. The manifest endpoint returns the sha256 of the EXACT bytes the
+// /download/daemon route would serve for the same `key` (post-injection of
+// API_KEY / API_URL / HMAC_SECRET). The Tauri side fetches manifest first,
+// downloads the daemon, hashes the bytes locally, and aborts the install on
+// mismatch.
+// ============================================================================
+router.get('/download/daemon/manifest', (req, res) => {
+    try {
+        const { key } = req.query;
+        const cleanKey = normalizeSingleQueryParam(key, { maxLen: 128 });
+        if (!cleanKey) return res.status(400).json({ error: 'API key required' });
+
+        const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
+        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
+
+        const built = _buildInjectedDaemonScript(cleanKey);
+        if (!built) return res.status(404).json({ error: 'Daemon file not found' });
+
+        const buf = Buffer.from(built.injected, 'utf-8');
+        const sha256 = crypto.createHash('sha256').update(buf).digest('hex');
+        return res.json({
+            version: built.currentVersion,
+            size: buf.length,
+            sha256,
+        });
+    } catch (error) {
+        console.error('Daemon manifest error:', error);
+        res.status(500).json({ error: 'Manifest failed' });
     }
 });
 
