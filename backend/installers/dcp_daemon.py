@@ -104,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.2"
+DAEMON_VERSION = "4.2.3"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -200,6 +200,13 @@ UPDATE_SUPPRESSION_FILE = CONFIG_DIR / "update_suppression.json"
 DCP_DIR = Path.home() / ".dcp"
 DCP_CONFIG_FILE = DCP_DIR / "config.json"
 DCP_CONCURRENCY_CACHE_FILE = DCP_DIR / "concurrency_cache.json"
+# Audit C4 — daemon crash detection state marker. Atomic JSON write of
+# {"state": "running"|"clean", "pid": <pid>, "version": <ver>, "ts": <iso>}.
+# Read on startup to classify the previous shutdown as first_run / clean /
+# unclean. Lets the backend distinguish "daemon crashed and was restarted by
+# the watchdog" from "daemon was stopped by user" without inferring from
+# heartbeat gaps. See _check_previous_exit_clean() in main().
+DCP_STATE_FILE = DCP_DIR / "daemon_state.json"
 try:
     DCP_DIR.mkdir(parents=True, exist_ok=True)
 except OSError:
@@ -579,6 +586,90 @@ def _save_local_event(payload):
             f.write(json.dumps(payload) + "\n")
     except Exception:
         pass
+
+# ─── AUDIT C4 — DAEMON CRASH DETECTION ──────────────────────────────────────
+#
+# We write a state marker on startup ("running" + our PID) and rewrite it on
+# graceful shutdown ("clean"). On the next startup, if the previous marker
+# said "running" AND the recorded PID is no longer alive, the previous exit
+# was unclean (crash, OOM kill, kernel panic, container kill -9, etc.).
+#
+# Reported to the backend via report_event so on-call can see crash counts
+# without inferring from heartbeat gaps. Three classifications:
+#   first_run  — no marker file exists (fresh install or freshly cleared)
+#   clean      — last marker was "clean" (shutdown via SIGTERM/SIGINT)
+#   unclean    — last marker was "running" and PID is dead (crash/kill)
+#
+# A side benefit: if the marker still says "running" with our OWN current
+# PID, we are looking at our own previous run that did not get the chance
+# to update — same classification as unclean.
+
+def _is_pid_alive(pid):
+    """Return True iff a process with `pid` is currently running."""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    try:
+        # signal 0 = no-op; raises ProcessLookupError if pid is gone, or
+        # PermissionError if pid exists but is owned by another user
+        # (also indicates "alive" for our purposes).
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+def _read_state_marker():
+    """Return parsed marker dict or None if missing/corrupt."""
+    try:
+        with open(DCP_STATE_FILE, "r") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return None
+        return data
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+def _write_state_marker(state, pid=None):
+    """Atomically write the marker. `state` is "running" or "clean"."""
+    payload = {
+        "state": state,
+        "pid": int(pid) if pid is not None else os.getpid(),
+        "version": DAEMON_VERSION,
+        "ts": datetime.utcnow().isoformat() + "Z",
+    }
+    tmp = DCP_STATE_FILE.with_suffix(".tmp")
+    try:
+        with open(tmp, "w") as f:
+            json.dump(payload, f)
+        os.replace(str(tmp), str(DCP_STATE_FILE))
+    except OSError as e:
+        log.debug(f"[c4] state marker write failed: {e}")
+
+def _classify_previous_exit():
+    """Read last marker and classify previous exit.
+    Returns ("first_run"|"clean"|"unclean", details_dict)."""
+    prev = _read_state_marker()
+    if prev is None:
+        return ("first_run", {})
+    state = prev.get("state")
+    if state == "clean":
+        return ("clean", prev)
+    if state == "running":
+        prev_pid = prev.get("pid")
+        if prev_pid and _is_pid_alive(prev_pid) and int(prev_pid) != os.getpid():
+            # Another daemon instance is alive with this PID. We will treat
+            # this as unclean for our reporting (someone needs to look)
+            # but call out the still-alive case so logs are unambiguous.
+            return ("unclean", {**prev, "note": "previous_pid_still_alive"})
+        return ("unclean", prev)
+    return ("unclean", prev)
 
 # ─── GRACEFUL SHUTDOWN ──────────────────────────────────────────────────────
 
@@ -6314,6 +6405,13 @@ def main():
         except Exception as _final_err:
             log.debug(f"[drain] final heartbeat failed: {_final_err}")
 
+        # Audit C4 — mark this exit as clean so the next startup can tell
+        # "stopped by user/systemd" from "crashed and watchdog restarted us".
+        try:
+            _write_state_marker("clean")
+        except Exception as _c4_err:
+            log.debug(f"[c4] clean-marker write failed: {_c4_err}")
+
         sys.exit(0)
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
@@ -6331,6 +6429,33 @@ def main():
     log.info(f"Logs: {LOG_DIR}")
     log.info(f"Max stdout: {MAX_STDOUT} bytes")
     log.info("=" * 60)
+
+    # Audit C4 — classify previous shutdown before we overwrite the marker.
+    # Done BEFORE daemon_start so the controller sees the pair (prev_exit,
+    # daemon_start) in the audit log if there was a crash.
+    try:
+        prev_exit, prev_details = _classify_previous_exit()
+        if prev_exit == "unclean":
+            prev_pid = prev_details.get("pid")
+            prev_ver = prev_details.get("version")
+            prev_ts = prev_details.get("ts")
+            note = prev_details.get("note") or "previous_pid_dead"
+            log.warning(
+                f"[c4] previous daemon exit was UNCLEAN (pid={prev_pid} ver={prev_ver} ts={prev_ts} note={note}) — likely crash, OOM, kernel panic, or kill -9"
+            )
+            report_event(
+                "daemon_unclean_exit",
+                f"prev_pid={prev_pid} prev_ver={prev_ver} prev_ts={prev_ts} note={note}",
+                severity="warning",
+            )
+        elif prev_exit == "first_run":
+            log.info("[c4] no prior state marker — treating as first run on this host")
+        else:
+            log.info(f"[c4] previous daemon exit was clean ({prev_details.get('ts')})")
+    except Exception as _c4_err:
+        # Never let crash-detection fail daemon startup.
+        log.debug(f"[c4] previous-exit classification failed: {_c4_err}")
+    _write_state_marker("running")
 
     # Report daemon start
     gpu = detect_gpu()
