@@ -164,8 +164,10 @@ export default function ProviderEarningsDashboard() {
         status: p.status === 'online' || p.status === 'idle' ? 'online' : 'offline',
         isPaused: Boolean(p.is_paused),
         gpuModel: p.gpu_model || 'Unknown GPU',
-        gpuUtil: Number(p.gpu_usage || 0),
-        vramUtil: Number(p.vram_usage || 0),
+        gpuUtil: Number(p.gpu_metrics?.utilization_pct || 0),
+        vramUtil: p.gpu_vram_mib > 0
+          ? Math.round((Number(p.gpu_metrics?.vram_used_mib || 0) / Number(p.gpu_vram_mib)) * 100)
+          : 0,
         activeJobId: p.active_job?.job_id || null,
         totalEarningsHalala: Number(p.total_earnings_halala || 0),
         todayEarningsHalala: Number(p.today_earnings_halala || 0),

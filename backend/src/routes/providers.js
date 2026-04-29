@@ -1678,10 +1678,12 @@ router.get('/me', async (req, res) => {
         const provider = db.get('SELECT * FROM providers WHERE api_key = ?', [key]);
         if (!provider) return res.status(404).json({ error: 'Provider not found' });
 
-        // Today and week earnings
+        // Today, week, and month earnings
         const todayStart = new Date();
         todayStart.setUTCHours(0, 0, 0, 0);
         const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthStart = new Date(todayStart);
+        monthStart.setUTCDate(1);
 
         const todayEarnings = db.get(
             `SELECT COALESCE(SUM(provider_earned_halala), 0) as total FROM jobs WHERE provider_id = ? AND status = 'completed' AND completed_at >= ?`,
@@ -1690,6 +1692,10 @@ router.get('/me', async (req, res) => {
         const weekEarnings = db.get(
             `SELECT COALESCE(SUM(provider_earned_halala), 0) as total FROM jobs WHERE provider_id = ? AND status = 'completed' AND completed_at >= ?`,
             provider.id, weekStart.toISOString()
+        );
+        const monthEarnings = db.get(
+            `SELECT COALESCE(SUM(provider_earned_halala), 0) as total FROM jobs WHERE provider_id = ? AND status = 'completed' AND completed_at >= ?`,
+            provider.id, monthStart.toISOString()
         );
 
         // Active job
@@ -1770,6 +1776,7 @@ router.get('/me', async (req, res) => {
                 gpu_metrics: gpuMetrics,
                 today_earnings_halala: todayEarnings.total,
                 week_earnings_halala: weekEarnings.total,
+                month_earnings_halala: monthEarnings.total,
                 active_job: activeJob || null
             },
             recent_jobs: recentJobs
