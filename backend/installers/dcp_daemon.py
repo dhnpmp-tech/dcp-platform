@@ -425,8 +425,9 @@ def _sanitize_for_json(obj, _seen=None, _depth=0):
     except Exception:
         return "<unserializable>"
 
-def http_post(url, data, timeout=15):
+def http_post(url, data, timeout=15, headers=None):
     """POST JSON to URL, returns (status_code, response_dict)."""
+    merged_headers = {**_auth_headers(), **(headers or {})}
     # Guard against circular references / non-serializable payloads.
     try:
         json.dumps(data)
@@ -436,14 +437,15 @@ def http_post(url, data, timeout=15):
         safe_data = _sanitize_for_json(data)
     if HAS_REQUESTS:
         try:
-            r = requests.post(url, json=safe_data, timeout=timeout)
+            r = requests.post(url, json=safe_data, timeout=timeout,
+                              headers=merged_headers)
         except Exception as e:
             # Final fallback: use default=str so we never raise "Circular reference detected"
             body = json.dumps(safe_data, default=str)
             r = requests.post(
                 url,
                 data=body,
-                headers={"Content-Type": "application/json"},
+                headers={**merged_headers, "Content-Type": "application/json"},
                 timeout=timeout,
             )
             log.warning(f"http_post: requests.post(json=...) failed ({e}); used default=str fallback")
@@ -454,7 +456,8 @@ def http_post(url, data, timeout=15):
             body = json.dumps(safe_data).encode()
         except (TypeError, ValueError):
             body = json.dumps(safe_data, default=str).encode()
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=body,
+                                     headers={**merged_headers, "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.getcode(), _safe_json(resp.read())
@@ -494,10 +497,12 @@ def _auth_headers():
     """
     return {"Authorization": f"Bearer {API_KEY}"}
 
-def http_patch(url, data, timeout=15):
+def http_patch(url, data, timeout=15, headers=None):
     """PATCH JSON to URL, returns (status_code, response_dict)."""
+    merged_headers = {**_auth_headers(), **(headers or {})}
     if HAS_REQUESTS:
-        r = requests.patch(url, json=data, timeout=timeout)
+        r = requests.patch(url, json=data, timeout=timeout,
+                           headers=merged_headers)
         return r.status_code, _safe_json(r.text)
     else:
         import urllib.request, urllib.error
@@ -505,7 +510,7 @@ def http_patch(url, data, timeout=15):
         req = urllib.request.Request(
             url,
             data=body,
-            headers={"Content-Type": "application/json"},
+            headers={**merged_headers, "Content-Type": "application/json"},
             method="PATCH",
         )
         try:
@@ -3014,9 +3019,13 @@ def restart_engine(engine_type, port=None):
     try:
         if engine_type == "ollama":
             try:
-                subprocess.run(["pkill", "-f", "ollama serve"], timeout=5)
+                if platform.system() == "Windows":
+                    subprocess.run(["taskkill", "/F", "/IM", "ollama.exe"],
+                                   timeout=5, capture_output=True)
+                else:
+                    subprocess.run(["pkill", "-f", "ollama serve"], timeout=5)
             except Exception as e:
-                log.debug(f"[watchdog] pkill ollama failed: {e}")
+                log.debug(f"[watchdog] kill ollama failed: {e}")
             time.sleep(2)
             try:
                 env = {**os.environ, "OLLAMA_HOST": "0.0.0.0:11434", "OLLAMA_FLASH_ATTENTION": "1"}
@@ -3339,6 +3348,8 @@ GPU_MEMORY_BANDWIDTH_GBPS = {
     "NVIDIA GeForce RTX 4080":    717,
     "NVIDIA GeForce RTX 3090":    936,
     "NVIDIA GeForce RTX 3090 Ti": 1008,
+    "NVIDIA GeForce RTX 3060 Ti": 448.0,
+    "NVIDIA GeForce RTX 3060":    360.0,
     "NVIDIA GeForce RTX 5090":    1792,
     "NVIDIA GeForce RTX 5080":     960,
     "NVIDIA RTX A5000":            768,
@@ -3385,6 +3396,7 @@ _PROVIDER_TIER_PATTERNS = [
         "NVIDIA GeForce RTX 4090", "NVIDIA GeForce RTX 4080",
         "NVIDIA GeForce RTX 3090", "NVIDIA GeForce RTX 3080",
         "NVIDIA GeForce RTX 4070", "NVIDIA GeForce RTX 3070",
+        "NVIDIA GeForce RTX 3060",
     ]),
     # Apple Silicon — reported as "Apple M<x>", sometimes "Apple Mx Ultra"
     ("apple_silicon", ["Apple M1", "Apple M2", "Apple M3", "Apple M4"]),
