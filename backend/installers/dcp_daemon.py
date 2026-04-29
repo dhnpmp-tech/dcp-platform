@@ -104,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.6"
+DAEMON_VERSION = "4.2.7"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -5482,8 +5482,9 @@ def verify_task_spec_hmac(task_spec_str, expected_hmac):
             return False
         try:
             code, resp = http_get(
-                f"{API_URL}/api/jobs/verify-hmac-local?key={API_KEY}&hmac={expected_hmac}",
-                timeout=10
+                f"{API_URL}/api/jobs/verify-hmac-local?hmac={expected_hmac}",
+                timeout=10,
+                headers=_auth_headers(),
             )
             if code == 200 and resp.get("valid"):
                 return True
@@ -6260,7 +6261,10 @@ def run_vllm_serve_job(task_spec, job_id=None):
             break
         # Check if the backend job is still running
         try:
-            code, job_status_resp = http_get(f"{API_URL}/api/jobs/{job_id}?key={API_KEY}")
+            code, job_status_resp = http_get(
+                f"{API_URL}/api/jobs/{job_id}",
+                headers=_auth_headers(),
+            )
             if code == 200:
                 current_status = job_status_resp.get("job", {}).get("status", "running")
                 if current_status not in ("running", "pulling", "assigned"):
