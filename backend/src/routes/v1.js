@@ -900,7 +900,8 @@ function getCapableProviders(minVramMb, requestedModelId) {
   const providers = db.all(
     `SELECT * FROM providers
      WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
-       AND deleted_at IS NULL`
+       AND deleted_at IS NULL
+       AND vllm_endpoint_url IS NOT NULL AND vllm_endpoint_url != ''`
   );
   const nowMs = Date.now();
   const capable = [];
@@ -1680,8 +1681,14 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           retryable: true,
         });
       }
+      // H5 routing preference: prefer WG mesh IP when available (lower latency, more reliable)
+      let effectiveEndpointUrl = assignedProvider.vllm_endpoint_url;
+      if (assignedProvider.wg_mesh_ip) {
+        effectiveEndpointUrl = `http://${assignedProvider.wg_mesh_ip}:11434`;
+      }
+
       const proxyResult = await proxyToProvider({
-        endpointUrl: assignedProvider.vllm_endpoint_url,
+        endpointUrl: effectiveEndpointUrl,
         modelId: routedModelId,
         messages,
         maxTokens,
@@ -2028,8 +2035,14 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         // rather than stacking onto a busy Ollama instance.
         if (!tryAcquireSlot(fallbackProvider.id)) continue;
 
+        // H5 routing preference: prefer WG mesh IP for fallback too
+        let fallbackEffectiveUrl = fallbackProvider.vllm_endpoint_url;
+        if (fallbackProvider.wg_mesh_ip) {
+          fallbackEffectiveUrl = `http://${fallbackProvider.wg_mesh_ip}:11434`;
+        }
+
         const fallbackResult = await proxyToProvider({
-          endpointUrl: fallbackProvider.vllm_endpoint_url,
+          endpointUrl: fallbackEffectiveUrl,
           modelId: fallbackProxyModel.proxyModelId,
           messages,
           maxTokens,

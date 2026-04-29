@@ -48,11 +48,7 @@ function _normalizeBaseUrl(url) {
   return trimmed;
 }
 
-async function _probeOne(provider) {
-  const base = _normalizeBaseUrl(provider.vllm_endpoint_url);
-  if (!base) {
-    return { ok: false, error: 'no_endpoint_url' };
-  }
+async function _probeEndpoint(base) {
   // Try /v1/models first (works for both Ollama-OAI and vLLM). If that
   // 404s or otherwise fails the network layer, try /. We only mark
   // unreachable on actual network/timeout errors — a 4xx still means
@@ -63,12 +59,8 @@ async function _probeOne(provider) {
         method: 'GET',
         signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
       });
-      // Any response (even 4xx/5xx) means the endpoint is up. Only
-      // network-layer failures (timeout, ECONNREFUSED, DNS) classify it
-      // as unreachable.
       return { ok: true, error: null, status: res.status };
     } catch (err) {
-      // Try next path before giving up; only the last failure is reported.
       if (path === '/') {
         const msg = String(err && err.message ? err.message : err).slice(0, 200);
         return { ok: false, error: msg };
@@ -78,10 +70,26 @@ async function _probeOne(provider) {
   return { ok: false, error: 'unknown' };
 }
 
+async function _probeOne(provider) {
+  // H5 routing preference: probe WG mesh IP first when available
+  if (provider.wg_mesh_ip) {
+    const wgBase = `http://${provider.wg_mesh_ip}:11434`;
+    const wgResult = await _probeEndpoint(wgBase);
+    if (wgResult.ok) return wgResult;
+    // WG unreachable — fall through to vllm_endpoint_url
+  }
+
+  const base = _normalizeBaseUrl(provider.vllm_endpoint_url);
+  if (!base) {
+    return { ok: false, error: 'no_endpoint_url' };
+  }
+  return _probeEndpoint(base);
+}
+
 function _onlineProviders() {
   const cutoff = new Date(Date.now() - PROBE_HEARTBEAT_STALE_MS).toISOString();
   return db.all(
-    `SELECT id, vllm_endpoint_url FROM providers
+    `SELECT id, vllm_endpoint_url, wg_mesh_ip FROM providers
      WHERE status = 'online'
        AND COALESCE(is_paused, 0) = 0
        AND deleted_at IS NULL

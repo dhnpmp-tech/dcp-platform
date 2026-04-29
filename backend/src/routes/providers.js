@@ -956,7 +956,7 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           gpu_profile_source = 'daemon',
           gpu_profile_updated_at = ?,
           vllm_endpoint_url = COALESCE(?, vllm_endpoint_url),
-          wg_mesh_ip = COALESCE(?, wg_mesh_ip)
+          wg_mesh_ip = ?
           WHERE id = ?`,
           JSON.stringify(normalizedGpuStatus || {}), providerIp || null, providerHostname || null, now, providerRuntimeStatus,
           peerId || p.p2p_peer_id,
