@@ -11,6 +11,21 @@ def test_geometry_has_kv_cache_field():
         assert 0 < meta["kv_cache_per_1k_gb"] < 5.0, f"{name} kv_cache looks wrong"
 
 
+def test_geometry_has_gqa_fields():
+    """Every entry must have kv_heads, head_dim, max_context (may be None)."""
+    for name, meta in d.MODEL_GEOMETRY_TABLE.items():
+        assert "kv_heads" in meta, f"{name} missing kv_heads"
+        assert "head_dim" in meta, f"{name} missing head_dim"
+        assert "max_context" in meta, f"{name} missing max_context"
+        # When present, kv_heads/head_dim must be positive ints
+        if meta["kv_heads"] is not None:
+            assert isinstance(meta["kv_heads"], int) and meta["kv_heads"] > 0
+        if meta["head_dim"] is not None:
+            assert isinstance(meta["head_dim"], int) and meta["head_dim"] > 0
+        if meta["max_context"] is not None:
+            assert isinstance(meta["max_context"], int) and meta["max_context"] >= 2048
+
+
 def test_arch_has_category_field():
     valid = {"flagship_moe_24gb", "flagship_moe_32gb", "dense_workhorse",
              "dense_70b_tight_fit", "small_efficient", "small_moe", "flagship_tier"}

@@ -3245,20 +3245,22 @@ def get_turboquant_config():
 # KV-cache geometry: num_layers, hidden_size per model family.
 # Sources: official HF config.json files verified against the model cards.
 MODEL_GEOMETRY_TABLE = {
-    "qwen3-30b-a3b":         {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0, "kv_cache_per_1k_gb": 0.40},
-    "qwen3.5-35b-a3b":       {"num_layers": 48, "hidden_size": 2560, "size_gb": 22.0, "kv_cache_per_1k_gb": 0.50},
-    "nemotron-nano-30b-a3b": {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0, "kv_cache_per_1k_gb": 0.40},
-    "gemma-4-26b-a4b":       {"num_layers": 46, "hidden_size": 3584, "size_gb": 16.0, "kv_cache_per_1k_gb": 0.66},
-    "qwen2.5-32b":           {"num_layers": 64, "hidden_size": 5120, "size_gb": 20.0, "kv_cache_per_1k_gb": 1.31},
-    "llama-3.3-70b":         {"num_layers": 80, "hidden_size": 8192, "size_gb": 42.0, "kv_cache_per_1k_gb": 2.62},
-    "qwen2.5-14b":           {"num_layers": 48, "hidden_size": 5120, "size_gb": 9.0,  "kv_cache_per_1k_gb": 0.98},
-    "qwen2.5-7b":            {"num_layers": 28, "hidden_size": 3584, "size_gb": 4.7,  "kv_cache_per_1k_gb": 0.40},
-    "llama-3.1-8b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 5.0,  "kv_cache_per_1k_gb": 0.52},
-    "glm4-9b":               {"num_layers": 40, "hidden_size": 4096, "size_gb": 5.8,  "kv_cache_per_1k_gb": 0.65},
-    "mistral-7b":            {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.52},
-    "allam-7b":              {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.52},
-    "jais-13b":              {"num_layers": 40, "hidden_size": 5120, "size_gb": 8.0,  "kv_cache_per_1k_gb": 0.82},
-    "falcon-h1-7b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.26},
+    # kv_heads / head_dim / max_context sourced from GGUF metadata & HF config.json.
+    # Models without verified GQA values keep those fields as None -> fallback MHA formula.
+    "qwen3-30b-a3b":         {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0, "kv_cache_per_1k_gb": 0.40, "kv_heads": 4,    "head_dim": 128, "max_context": 32768},
+    "qwen3.5-35b-a3b":       {"num_layers": 48, "hidden_size": 2560, "size_gb": 22.0, "kv_cache_per_1k_gb": 0.50, "kv_heads": None, "head_dim": None, "max_context": None},
+    "nemotron-nano-30b-a3b": {"num_layers": 48, "hidden_size": 2048, "size_gb": 18.0, "kv_cache_per_1k_gb": 0.40, "kv_heads": None, "head_dim": None, "max_context": None},
+    "gemma-4-26b-a4b":       {"num_layers": 46, "hidden_size": 3584, "size_gb": 16.0, "kv_cache_per_1k_gb": 0.66, "kv_heads": 16,   "head_dim": 128, "max_context": 32768},
+    "qwen2.5-32b":           {"num_layers": 64, "hidden_size": 5120, "size_gb": 20.0, "kv_cache_per_1k_gb": 1.31, "kv_heads": 8,    "head_dim": 128, "max_context": 131072},
+    "llama-3.3-70b":         {"num_layers": 80, "hidden_size": 8192, "size_gb": 42.0, "kv_cache_per_1k_gb": 2.62, "kv_heads": 8,    "head_dim": 128, "max_context": 131072},
+    "qwen2.5-14b":           {"num_layers": 48, "hidden_size": 5120, "size_gb": 9.0,  "kv_cache_per_1k_gb": 0.98, "kv_heads": 4,    "head_dim": 128, "max_context": 131072},
+    "qwen2.5-7b":            {"num_layers": 28, "hidden_size": 3584, "size_gb": 4.7,  "kv_cache_per_1k_gb": 0.40, "kv_heads": 4,    "head_dim": 128, "max_context": 131072},
+    "llama-3.1-8b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 5.0,  "kv_cache_per_1k_gb": 0.52, "kv_heads": 8,    "head_dim": 128, "max_context": 131072},
+    "glm4-9b":               {"num_layers": 40, "hidden_size": 4096, "size_gb": 5.8,  "kv_cache_per_1k_gb": 0.65, "kv_heads": None, "head_dim": None, "max_context": None},
+    "mistral-7b":            {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.52, "kv_heads": 8,    "head_dim": 128, "max_context": 32768},
+    "allam-7b":              {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.52, "kv_heads": None, "head_dim": None, "max_context": None},
+    "jais-13b":              {"num_layers": 40, "hidden_size": 5120, "size_gb": 8.0,  "kv_cache_per_1k_gb": 0.82, "kv_heads": None, "head_dim": None, "max_context": None},
+    "falcon-h1-7b":          {"num_layers": 32, "hidden_size": 4096, "size_gb": 4.5,  "kv_cache_per_1k_gb": 0.26, "kv_heads": None, "head_dim": None, "max_context": None},
 }
 
 # Architecture table: MoE vs dense with verified parameter counts (billions).
@@ -3836,14 +3838,25 @@ def detect_model_architecture(model_id):
 # `model_details_by_model` map with everything the candidate-selection pass
 # needs, so the router does not need to duplicate lookup tables.
 
-def _kv_cache_bytes_per_token(num_layers, hidden_size, kv_dtype_bytes=2):
-    """Per-token KV cache cost in bytes.
+def _kv_cache_bytes_per_token(num_layers, hidden_size, kv_dtype_bytes=2,
+                              kv_heads=None, head_dim=None):
+    """Per-token KV cache cost in bytes, GQA-aware.
 
-    Formula: 2 (K + V) * num_layers * hidden_size * dtype_bytes.
+    When *kv_heads* and *head_dim* are known (GQA / MQA models such as
+    Llama 3.x, Qwen2.5, Gemma), uses the exact formula:
+        kv_per_token = 2 * num_layers * kv_heads * head_dim * dtype_bytes
+
+    Otherwise falls back to the original conservative (MHA) formula:
+        kv_per_token = 2 * num_layers * hidden_size * dtype_bytes
+
     kv_dtype_bytes defaults to 2 (fp16 / bf16); set 1 for fp8, 0.5 for fp4.
     """
     try:
-        return int(2 * int(num_layers) * int(hidden_size) * float(kv_dtype_bytes))
+        nl = int(num_layers)
+        db = float(kv_dtype_bytes)
+        if kv_heads is not None and head_dim is not None:
+            return int(2 * nl * int(kv_heads) * int(head_dim) * db)
+        return int(2 * nl * int(hidden_size) * db)
     except (TypeError, ValueError):
         return 0
 
@@ -3864,10 +3877,13 @@ def build_model_details(model_id):
                          "active_params_b": float,
                          "confidence": "known"|"inferred"},
         "geometry": {"num_layers": int, "hidden_size": int,
-                     "size_gb": float|None},
+                     "size_gb": float|None,
+                     "kv_heads": int|None, "head_dim": int|None,
+                     "max_context": int|None},
         "identity": {"canonical": str|None, "ollama": str|None,
                      "hf_formats": [str], "vllm_variants": [str]},
         "kv_cache_bytes_per_token_fp16": int,
+        "recommended_parallel_slots": int|None,
       }
 
     Never raises; on any failure returns a safe, minimally-populated dict.
@@ -3878,11 +3894,18 @@ def build_model_details(model_id):
         arch = detect_model_architecture(raw)
         num_layers, hidden_size = _lookup_geometry(raw, arch.get("type"))
         size_gb = None
+        kv_heads = None
+        head_dim = None
+        max_context = None
         if canonical and canonical in MODEL_GEOMETRY_TABLE:
+            geom = MODEL_GEOMETRY_TABLE[canonical]
             try:
-                size_gb = float(MODEL_GEOMETRY_TABLE[canonical].get("size_gb", 0.0))
+                size_gb = float(geom.get("size_gb", 0.0))
             except (TypeError, ValueError):
                 size_gb = None
+            kv_heads = geom.get("kv_heads")
+            head_dim = geom.get("head_dim")
+            max_context = geom.get("max_context")
 
         identity_entry = MODEL_IDENTITY_TABLE.get(canonical, {}) if canonical else {}
         identity = {
@@ -3892,6 +3915,27 @@ def build_model_details(model_id):
             "vllm_variants": list(identity_entry.get("vllm_variants", []) or []),
         }
 
+        kv_fp16 = _kv_cache_bytes_per_token(
+            num_layers, hidden_size, kv_dtype_bytes=2,
+            kv_heads=kv_heads, head_dim=head_dim,
+        )
+
+        # Parallel slot recommendation (requires GPU info at build time;
+        # set to None when VRAM is unknown — caller can re-derive).
+        recommended_slots = None
+        try:
+            total_vram_gb = _detect_total_vram_gb()
+            if total_vram_gb and size_gb is not None and kv_fp16 > 0:
+                vram_after_model = (total_vram_gb - size_gb - _CONTEXT_VRAM_HEADROOM_GB) * 1e9
+                if vram_after_model > 0:
+                    # Use max_context as context estimate; fall back to 8192
+                    ctx_est = max_context if max_context else 8192
+                    recommended_slots = calculate_parallel_slots(
+                        vram_after_model, ctx_est, kv_fp16,
+                    )
+        except Exception:
+            pass  # non-critical; leave as None
+
         return {
             "model_id": raw,
             "canonical_key": canonical,
@@ -3900,11 +3944,13 @@ def build_model_details(model_id):
                 "num_layers": int(num_layers),
                 "hidden_size": int(hidden_size),
                 "size_gb": size_gb,
+                "kv_heads": kv_heads,
+                "head_dim": head_dim,
+                "max_context": max_context,
             },
             "identity": identity,
-            "kv_cache_bytes_per_token_fp16": _kv_cache_bytes_per_token(
-                num_layers, hidden_size, kv_dtype_bytes=2
-            ),
+            "kv_cache_bytes_per_token_fp16": kv_fp16,
+            "recommended_parallel_slots": recommended_slots,
         }
     except Exception as e:
         log.debug(f"[model_details] build_model_details({raw!r}) failed: {e}")
@@ -3913,10 +3959,12 @@ def build_model_details(model_id):
             "canonical_key": None,
             "architecture": {"type": "unknown", "total_params_b": 0.0,
                              "active_params_b": 0.0, "confidence": "inferred"},
-            "geometry": {"num_layers": 0, "hidden_size": 0, "size_gb": None},
+            "geometry": {"num_layers": 0, "hidden_size": 0, "size_gb": None,
+                         "kv_heads": None, "head_dim": None, "max_context": None},
             "identity": {"canonical": None, "ollama": None,
                          "hf_formats": [], "vllm_variants": []},
             "kv_cache_bytes_per_token_fp16": 0,
+            "recommended_parallel_slots": None,
         }
 
 
@@ -4045,13 +4093,14 @@ def _calculate_safe_context_v1(model_size_gb, quant_bits, gpu_vram_gb, model_arc
                                model_id=None):
     """Compute a KV-cache-safe context length that stays in VRAM.
 
-    Formula:
+    Formula (GQA-aware when geometry is known):
         usable_vram    = gpu_vram_gb - model_size_gb - headroom(2 GB)
-        kv_bytes/token = num_layers * 2 * hidden_size * (quant_bits / 8)
+        kv_bytes/token = _kv_cache_bytes_per_token(..., kv_heads, head_dim)
         safe_ctx       = floor(usable_vram * 1e9 / kv_bytes_per_token)
 
-    The result is rounded DOWN to the nearest 1024, capped at 131072, and
-    floored at 2048 tokens.
+    The result is rounded DOWN to the nearest 1024, clamped to the model's
+    native max_context (to prevent exceeding the training window), capped at
+    131072, and floored at 2048 tokens.
 
     Args:
         model_size_gb: Model weights footprint in GB (in VRAM).
@@ -4077,9 +4126,19 @@ def _calculate_safe_context_v1(model_size_gb, quant_bits, gpu_vram_gb, model_arc
         return _CONTEXT_MIN
 
     num_layers, hidden_size = _lookup_geometry(model_id, model_architecture)
-    # KV cache footprint per token: 2 (K + V) tensors, num_layers deep,
-    # hidden_size wide, in quant_bits precision.
-    kv_bytes_per_token = num_layers * 2 * hidden_size * (quant_bits / 8.0)
+
+    # Resolve GQA fields from geometry table when available.
+    canonical = _canonicalize_model_id(model_id) if model_id else None
+    geom = MODEL_GEOMETRY_TABLE.get(canonical, {}) if canonical else {}
+    kv_heads = geom.get("kv_heads")
+    head_dim = geom.get("head_dim")
+    max_context = geom.get("max_context")
+
+    # GQA-aware KV cost per token.
+    kv_bytes_per_token = _kv_cache_bytes_per_token(
+        num_layers, hidden_size, kv_dtype_bytes=(quant_bits / 8.0),
+        kv_heads=kv_heads, head_dim=head_dim,
+    )
     if kv_bytes_per_token <= 0:
         return _CONTEXT_MIN
 
@@ -4089,9 +4148,41 @@ def _calculate_safe_context_v1(model_size_gb, quant_bits, gpu_vram_gb, model_arc
     rounded = (raw // _CONTEXT_ROUND) * _CONTEXT_ROUND
     if rounded < _CONTEXT_MIN:
         return _CONTEXT_MIN
+    # Clamp to model's native max context to prevent quality degradation.
+    if max_context is not None and rounded > max_context:
+        rounded = max_context
     if rounded > _CONTEXT_MAX:
         return _CONTEXT_MAX
     return rounded
+
+
+def calculate_parallel_slots(vram_after_model_bytes, context_size, kv_bytes_per_token):
+    """Co-plan parallel inference slots with context size (Mesh-LLM pattern).
+
+    Returns a slot count from {1, 2, 4, 8, 16, 32}.
+    Total KV budget = slots * context_size * kv_bytes_per_token must fit in
+    the VRAM remaining after model weights, with a 15 % safety margin.
+
+    Args:
+        vram_after_model_bytes: Free VRAM after model weights in bytes.
+        context_size: Chosen context length (tokens).
+        kv_bytes_per_token: KV cache cost per token in bytes.
+
+    Returns:
+        int: Recommended parallel slot count.
+    """
+    _SLOT_OPTIONS = [32, 16, 8, 4, 2, 1]
+    try:
+        kv_per_slot = int(context_size) * float(kv_bytes_per_token)
+    except (TypeError, ValueError):
+        return 4  # safe default
+    if kv_per_slot <= 0:
+        return 4  # safe default
+    max_slots = int(float(vram_after_model_bytes) * 0.85 / kv_per_slot)
+    for s in _SLOT_OPTIONS:
+        if s <= max_slots:
+            return s
+    return 1
 
 
 # ─── v4.0.0-alpha: CPU OFFLOAD DETECTION ────────────────────────────────────
