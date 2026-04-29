@@ -898,8 +898,11 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
         const now = new Date().toISOString();
 
         // Verify API key (sync — better-sqlite3)
+        // Tier 4.16 / G47: include is_paused so the response can echo it back
+        // to the daemon. The daemon flips its local _REMOTE_PAUSED flag from
+        // this field, which forces accepting_jobs=false on the next heartbeat.
         const p = db.get(
-            `SELECT id, approval_status, model_preload_status, model_preload_model, p2p_peer_id, available_gpu_tiers
+            `SELECT id, approval_status, model_preload_status, model_preload_model, p2p_peer_id, available_gpu_tiers, is_paused
              FROM providers
              WHERE api_key = ? AND deleted_at IS NULL`,
             cleanApiKey
@@ -1155,6 +1158,11 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             min_version: MIN_DAEMON_VERSION,
             approval_status: approvalStatus,
             approved: approvalStatus === 'approved',
+            // Tier 4.16 / G47: echo the providers.is_paused bit back to the
+            // daemon. Daemon mirrors this into _REMOTE_PAUSED and uses it to
+            // force accepting_jobs=false on the next heartbeat. Always 0 or 1
+            // (numeric) to keep parsing simple on the daemon side.
+            is_paused: p.is_paused ? 1 : 0,
             preload_model: preloadModel && effectivePreloadStatus === 'downloading'
                 ? { model_name: preloadModel, status: 'downloading' }
                 : null,

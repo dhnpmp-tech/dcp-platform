@@ -104,7 +104,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.5"
+DAEMON_VERSION = "4.2.6"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -2255,6 +2255,67 @@ _OLLAMA_INTEGRITY_LOCK = threading.Lock()
 _OLLAMA_REPULL_HISTORY = {}      # name -> last_repull_attempt_ts
 _OLLAMA_REPULL_ACTIVE = set()    # set of names currently being re-pulled (gates accepting_jobs)
 _OLLAMA_REPULL_LOCK = threading.Lock()
+
+# Tier 4.16 / G47 — remote-pause state mirrored from the heartbeat response.
+# Backend toggles providers.is_paused via POST /api/providers/{pause,resume}
+# and echoes the bit back on every heartbeat response. The daemon mirrors it
+# here and uses it to force accepting_jobs=false on the next heartbeat tick.
+# One heartbeat-cycle of staleness (~30s) is acceptable: routing filters on
+# providers.is_paused server-side already, so no jobs reach a paused provider
+# even before the daemon notices. This flag exists so observability (the
+# accepting_jobs payload field) tells the truth.
+_REMOTE_PAUSED = False
+_REMOTE_PAUSED_LOCK = threading.Lock()
+
+
+def is_remote_paused():
+    """True iff the most recent heartbeat response carried is_paused=1.
+
+    Used by the heartbeat payload builder to force accepting_jobs=false so
+    operators looking at provider state see a consistent paused signal
+    rather than "paused on the backend but still claims to take jobs".
+    """
+    with _REMOTE_PAUSED_LOCK:
+        return _REMOTE_PAUSED
+
+
+def _apply_remote_pause_state(value):
+    """Update _REMOTE_PAUSED from a heartbeat response field.
+
+    `value` is the raw is_paused value from the response (None, 0, 1, bool,
+    or string). None means the field was absent — older backends don't send
+    it and we must not change state. Anything truthy flips to paused; falsy
+    flips to unpaused. Emits provider_remote_paused / provider_remote_resumed
+    events on transitions only (no spam each heartbeat).
+    """
+    global _REMOTE_PAUSED
+    if value is None:
+        return
+    try:
+        new_state = bool(int(value))
+    except (TypeError, ValueError):
+        new_state = bool(value)
+    with _REMOTE_PAUSED_LOCK:
+        prev = _REMOTE_PAUSED
+        _REMOTE_PAUSED = new_state
+    if prev == new_state:
+        return
+    if new_state:
+        log.info("[remote-pause] backend toggled is_paused=1 — daemon will report accepting_jobs=false")
+        try:
+            report_event("provider_remote_paused",
+                         "Backend toggled providers.is_paused=1 via heartbeat response",
+                         severity="info")
+        except Exception as _ev_err:
+            log.debug(f"report_event(provider_remote_paused) failed: {_ev_err}")
+    else:
+        log.info("[remote-pause] backend toggled is_paused=0 — daemon will resume accepting jobs")
+        try:
+            report_event("provider_remote_resumed",
+                         "Backend toggled providers.is_paused=0 via heartbeat response",
+                         severity="info")
+        except Exception as _ev_err:
+            log.debug(f"report_event(provider_remote_resumed) failed: {_ev_err}")
 
 
 def _ollama_list_installed():
@@ -5088,6 +5149,14 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             if payload["accepting_jobs"] and is_repull_in_flight():
                 payload["accepting_jobs"] = False
                 payload["repull_in_flight"] = True
+            # v4.2.6 / Tier 4.16 / G47: while the backend reports is_paused=1
+            # for this provider, force accepting_jobs=False. Backend routing
+            # already filters on is_paused server-side; this mirror exists
+            # so the heartbeat payload tells a consistent story (no "paused
+            # on backend but still claims jobs" observability gap).
+            if payload["accepting_jobs"] and is_remote_paused():
+                payload["accepting_jobs"] = False
+                payload["remote_paused"] = True
         except Exception as _gate_err:
             log.debug(f"accepting_jobs gate failed: {_gate_err}")
             payload["accepting_jobs"] = False
@@ -5245,6 +5314,16 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
                 raise
         if code == 200:
             log.info("Heartbeat OK (200)")
+            # v4.2.6 / Tier 4.16 / G47: mirror is_paused from the response
+            # into _REMOTE_PAUSED so the next heartbeat reports
+            # accepting_jobs=False if the operator paused the provider via
+            # the tray menu / dashboard. Tolerant of missing field — older
+            # backends don't send it and we treat that as "no change".
+            try:
+                if isinstance(resp, dict):
+                    _apply_remote_pause_state(resp.get("is_paused"))
+            except Exception as _rp_err:
+                log.debug(f"apply remote pause state failed: {_rp_err}")
         else:
             log.warning(f"Heartbeat HTTP {code}: {resp}")
     except Exception as e:
