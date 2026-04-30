@@ -7024,6 +7024,29 @@ def main():
     except Exception as _int_err:
         log.debug(f"[integrity] startup sweep failed: {_int_err}")
 
+    # ─── Windows firewall: ensure Ollama port is open for WireGuard ─────
+    # Runs once on startup, idempotent (netsh checks before adding).
+    # Without this, every Windows provider is invisible through WG mesh.
+    if platform.system() == "Windows":
+        try:
+            # Check if rule already exists
+            check = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "show", "rule", "name=DCP Ollama"],
+                capture_output=True, timeout=10,
+            )
+            if check.returncode != 0:
+                subprocess.run(
+                    ["netsh", "advfirewall", "firewall", "add", "rule",
+                     "name=DCP Ollama", "dir=in", "action=allow",
+                     "protocol=TCP", "localport=11434"],
+                    capture_output=True, timeout=10,
+                )
+                log.info("[firewall] Added Windows firewall rule for Ollama port 11434")
+            else:
+                log.debug("[firewall] Windows firewall rule 'DCP Ollama' already exists")
+        except Exception as _fw_err:
+            log.warning(f"[firewall] Could not configure Windows firewall: {_fw_err}")
+
     # ─── v4.0.0-alpha: STARTUP INTROSPECTION ────────────────────────────
     # Step 4a: Detect served models and classify architecture (MoE/dense).
     # Step 4b: Compute safe context for each loaded model and warn loudly
