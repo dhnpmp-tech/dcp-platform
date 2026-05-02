@@ -7303,6 +7303,26 @@ def main():
     )
     cr_thread.start()
 
+    # Check if WG should be active but isn't (one-time startup reactivation)
+    _wg_conf = os.path.expanduser("~/.dcp/wg0.conf")
+    if os.path.exists(_wg_conf):
+        _mesh_ip = _detect_wg_mesh_ip()
+        if not _mesh_ip:
+            log.info("[wg] Config exists but tunnel not active — attempting activation...")
+            try:
+                _wg_quick = "/opt/homebrew/bin/wg-quick" if platform.system() == "Darwin" and os.path.exists("/opt/homebrew/bin/wg-quick") else "wg-quick"
+                subprocess.run([_wg_quick, "up", _wg_conf], capture_output=True, timeout=15)
+                _mesh_ip = _detect_wg_mesh_ip()
+                if _mesh_ip:
+                    log.info(f"[wg] Tunnel reactivated: {_mesh_ip}")
+                    report_event("wg_tunnel_reactivated", f"WG tunnel reactivated on daemon start: {_mesh_ip}")
+                else:
+                    log.warning("[wg] Tunnel activation command ran but no mesh IP detected")
+            except Exception as _e:
+                log.warning(f"[wg] Tunnel reactivation failed: {_e}")
+        else:
+            log.info(f"[wg] Tunnel already active: {_mesh_ip}")
+
     # WireGuard tunnel health monitor (restart if tunnel drops)
     log.info("Starting WG health monitor (every %ds)...", WG_HEALTH_INTERVAL)
     wg_thread = threading.Thread(target=_wg_health_monitor, daemon=True, name="DCP-WGHealth")

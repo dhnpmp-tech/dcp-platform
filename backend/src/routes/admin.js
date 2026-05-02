@@ -4870,4 +4870,40 @@ router.get('/demand', (req, res) => {
   }
 });
 
+// ── GET /api/admin/provider-logs — list all providers with uploaded logs ──────
+router.get('/provider-logs', (req, res) => {
+  const baseDir = path.join(__dirname, '..', 'data', 'provider-logs');
+  if (!fs.existsSync(baseDir)) return res.json({ providers: [], count: 0 });
+  try {
+    const providers = fs.readdirSync(baseDir).filter(d =>
+      fs.statSync(path.join(baseDir, d)).isDirectory()
+    );
+    res.json({ providers, count: providers.length });
+  } catch (error) {
+    console.error('[admin/provider-logs]', error);
+    res.status(500).json({ error: 'Failed to list provider logs' });
+  }
+});
+
+// ── GET /api/admin/provider-logs/:id — read a provider's install logs ────────
+router.get('/provider-logs/:id', (req, res) => {
+  const logDir = path.join(__dirname, '..', 'data', 'provider-logs', req.params.id);
+  if (!fs.existsSync(logDir)) {
+    return res.status(404).json({ error: 'No logs for this provider' });
+  }
+  try {
+    const files = fs.readdirSync(logDir).sort().reverse();
+    const logs = {};
+    for (const file of files.slice(0, 20)) {
+      try {
+        logs[file] = fs.readFileSync(path.join(logDir, file), 'utf8');
+      } catch { /* skip unreadable files */ }
+    }
+    res.json({ provider_id: req.params.id, files: files.length, logs });
+  } catch (error) {
+    console.error('[admin/provider-logs/:id]', error);
+    res.status(500).json({ error: 'Failed to read provider logs' });
+  }
+});
+
 module.exports = router;
