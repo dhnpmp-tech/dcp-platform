@@ -1302,6 +1302,66 @@ def _detect_wg_mesh_ip():
     return None
 
 
+# ── WireGuard tunnel health monitor ──────────────────────────────────────
+WG_HEALTH_INTERVAL = 300  # 5 minutes
+
+
+def _wg_health_monitor():
+    """Check WG tunnel health every 5 minutes. Restart if down.
+
+    If wg_mesh_ip was previously detected but is now gone, the tunnel
+    has dropped. Attempt an automatic restart via wg-quick (macOS/Linux)
+    or wireguard.exe (Windows). Reports a ``wg_tunnel_restart`` event
+    to the backend so the ops team can see it.
+    """
+    last_known_ip = None
+    while True:
+        time.sleep(WG_HEALTH_INTERVAL)
+        try:
+            current_ip = _detect_wg_mesh_ip()
+        except Exception as exc:
+            log.debug("[wg-health] _detect_wg_mesh_ip error: %s", exc)
+            current_ip = None
+
+        if last_known_ip and not current_ip:
+            log.warning("[wg-health] Tunnel appears down (was %s). Attempting restart...", last_known_ip)
+            conf_path = os.path.expanduser("~/.dcp/wg0.conf")
+            try:
+                system = platform.system()
+                if system == "Darwin":
+                    # macOS: wg-quick lives in Homebrew paths
+                    wq = "/opt/homebrew/bin/wg-quick"
+                    if not os.path.exists(wq):
+                        wq = "/usr/local/bin/wg-quick"
+                    if not os.path.exists(wq):
+                        wq = "wg-quick"
+                    subprocess.run([wq, "down", conf_path],
+                                   capture_output=True, timeout=10)
+                    subprocess.run([wq, "up", conf_path],
+                                   capture_output=True, timeout=10)
+                elif system == "Linux":
+                    subprocess.run(["wg-quick", "down", conf_path],
+                                   capture_output=True, timeout=10)
+                    subprocess.run(["wg-quick", "up", conf_path],
+                                   capture_output=True, timeout=10)
+                elif system == "Windows":
+                    subprocess.run(["wireguard", "/uninstalltunnelservice", "wg0"],
+                                   capture_output=True, timeout=10)
+                    time.sleep(1)
+                    subprocess.run(["wireguard", "/installtunnelservice", conf_path],
+                                   capture_output=True, timeout=10)
+                log.info("[wg-health] Tunnel restart attempted (was %s)", last_known_ip)
+                try:
+                    report_event("wg_tunnel_restart",
+                                 f"WG tunnel restarted (was {last_known_ip})")
+                except Exception:
+                    pass
+            except Exception as e:
+                log.error("[wg-health] Tunnel restart failed: %s", e)
+        if current_ip:
+            last_known_ip = current_ip
+
+
 def _detect_nvidia_windows_fallback():
     """Windows fallback when `nvidia-smi` is not on PATH.
 
@@ -7243,13 +7303,18 @@ def main():
     )
     cr_thread.start()
 
+    # WireGuard tunnel health monitor (restart if tunnel drops)
+    log.info("Starting WG health monitor (every %ds)...", WG_HEALTH_INTERVAL)
+    wg_thread = threading.Thread(target=_wg_health_monitor, daemon=True, name="DCP-WGHealth")
+    wg_thread.start()
+
     # Thread supervisor: observe-only. If a worker thread dies from an
     # uncaught exception, daemon=True makes it silent. Supervisor logs +
     # reports the death so the backend can surface it. No auto-restart —
     # restart policy is a design decision left to the watchdog process.
     _supervised_threads = [
         hb_thread, job_thread, update_thread, bw_thread,
-        nq_thread, ew_thread, puc_thread, cr_thread,
+        nq_thread, ew_thread, puc_thread, cr_thread, wg_thread,
     ]
 
     def _thread_supervisor():
