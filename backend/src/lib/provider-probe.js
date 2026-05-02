@@ -73,7 +73,8 @@ async function _probeEndpoint(base) {
 async function _probeOne(provider) {
   // H5 routing preference: probe WG mesh IP first when available
   if (provider.wg_mesh_ip) {
-    const wgBase = `http://${provider.wg_mesh_ip}:11434`;
+    const wgPort = (provider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
+    const wgBase = `http://${provider.wg_mesh_ip}:${wgPort}`;
     const wgResult = await _probeEndpoint(wgBase);
     if (wgResult.ok) return wgResult;
     // WG unreachable — fall through to vllm_endpoint_url
