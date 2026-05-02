@@ -99,6 +99,12 @@ function _onlineProviders() {
   );
 }
 
+// Track consecutive probe failures per provider. Only mark unreachable
+// after 3 consecutive failures — prevents flapping on transient network
+// hiccups, WG tunnel reconnects, or engine restarts.
+const _consecutiveFailures = new Map(); // provider_id -> count
+const UNREACHABLE_THRESHOLD = 3;
+
 async function runProbeOnce() {
   const providers = _onlineProviders();
   if (!providers.length) return { probed: 0 };
@@ -115,16 +121,34 @@ async function runProbeOnce() {
     providers.map(async (p) => {
       const { ok, error } = await _probeOne(p);
       const nowIso = new Date().toISOString();
-      try {
-        updateStmt.run(ok ? 1 : 0, nowIso, ok ? null : (error || 'unknown'), p.id);
-      } catch (e) {
-        console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
-        return;
-      }
-      if (ok) reachable += 1;
-      else {
-        unreachable += 1;
-        console.warn(`[provider-probe] provider ${p.id} unreachable at ${p.vllm_endpoint_url}: ${error}`);
+      const pid = Number(p.id);
+
+      if (ok) {
+        // Reset failure counter on success
+        _consecutiveFailures.delete(pid);
+        try { updateStmt.run(1, nowIso, null, p.id); } catch (e) {
+          console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
+        }
+        reachable += 1;
+      } else {
+        // Increment consecutive failures
+        const fails = (_consecutiveFailures.get(pid) || 0) + 1;
+        _consecutiveFailures.set(pid, fails);
+
+        if (fails >= UNREACHABLE_THRESHOLD) {
+          // Mark unreachable only after 3+ consecutive failures
+          try { updateStmt.run(0, nowIso, error || 'unknown', p.id); } catch (e) {
+            console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
+          }
+          unreachable += 1;
+          console.warn(`[provider-probe] provider ${p.id} unreachable (${fails} consecutive failures): ${error}`);
+        } else {
+          // Keep current reachable state — don't flip on single failure
+          try { updateStmt.run(p.endpoint_reachable ?? 1, nowIso, `probe_fail_${fails}/${UNREACHABLE_THRESHOLD}`, p.id); } catch (e) {
+            console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
+          }
+          console.log(`[provider-probe] provider ${p.id} probe failed (${fails}/${UNREACHABLE_THRESHOLD}), keeping current state`);
+        }
       }
     })
   );
