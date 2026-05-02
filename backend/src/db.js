@@ -1081,6 +1081,11 @@ const migrations = [
   // Audit H5: WireGuard mesh IP advertised by the daemon. When set, v1.js
   // prefers it over vllm_endpoint_url so traffic stays on the mesh.
   'ALTER TABLE providers ADD COLUMN wg_mesh_ip TEXT',
+  // WG auto-provisioning: store the provider's WireGuard public key so we
+  // can idempotently return their existing config on re-registration.
+  'ALTER TABLE providers ADD COLUMN wg_public_key TEXT',
+  // WG key rotation: track last rotation timestamp for rate limiting (max 1/24h)
+  'ALTER TABLE providers ADD COLUMN wg_last_rotation_at TEXT',
   // Audit M6: per-renter HMAC secret for outbound webhook signatures.
   // Replaces the legacy fallback that used the renter's API key as the signing
   // secret — leaking the API key inside webhook signatures sent to URLs the
