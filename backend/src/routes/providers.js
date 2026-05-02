@@ -7597,20 +7597,27 @@ router.post('/admin/broadcast-power-config', (req, res) => {
 // ============================================================================
 router.post('/wg/register', async (req, res) => {
     try {
+        // ── HMAC enforcement (mandatory — not warn-only) ────────────────
+        const hmacResult = verifyHeartbeatHmac(req);
+        if (!hmacResult.valid) {
+            console.warn(`[wg/register] HMAC rejected: ${hmacResult.reason}`);
+            return res.status(401).json({ error: 'Invalid signature', detail: hmacResult.reason });
+        }
+
         const api_key = req.headers['x-provider-key'] || req.query.key;
         if (!api_key) {
             return res.status(401).json({ error: 'API key required (x-provider-key header or ?key= query)' });
         }
 
         const provider = db.get(
-            'SELECT id, wg_mesh_ip, wg_public_key FROM providers WHERE api_key = ? AND deleted_at IS NULL',
+            'SELECT id, wg_mesh_ip, wg_public_key, wg_last_rotation_at FROM providers WHERE api_key = ? AND deleted_at IS NULL',
             [api_key]
         );
         if (!provider) {
             return res.status(404).json({ error: 'Provider not found' });
         }
 
-        const { public_key } = req.body || {};
+        const { public_key, rotate } = req.body || {};
         const cleanPubKey = normalizeString(public_key, { maxLen: 64, trim: true });
         if (!cleanPubKey) {
             return res.status(400).json({ error: 'public_key required (base64-encoded WireGuard public key)' });
@@ -7623,6 +7630,75 @@ router.post('/wg/register', async (req, res) => {
 
         const WG_SERVER_PUBKEY = 'zVxlVgKwnxq4Z9l6jGgD0yMJH5meHrlodJYyRHrL+wM=';
         const WG_SERVER_ENDPOINT = '76.13.179.86:51820';
+        const { execSync } = require('child_process');
+
+        // ── Key rotation path ───────────────────────────────────────────
+        if (rotate === true && provider.wg_mesh_ip && provider.wg_public_key) {
+            // Rate limit: max 1 rotation per 24 hours
+            if (provider.wg_last_rotation_at) {
+                const lastRotation = new Date(provider.wg_last_rotation_at).getTime();
+                const hoursSince = (Date.now() - lastRotation) / (1000 * 60 * 60);
+                if (hoursSince < 24) {
+                    return res.status(429).json({
+                        error: 'Key rotation rate limited',
+                        detail: `Last rotation was ${Math.round(hoursSince)}h ago. Max 1 per 24h.`,
+                    });
+                }
+            }
+
+            const oldPubKey = provider.wg_public_key;
+            const keepIp = provider.wg_mesh_ip;
+
+            // Remove old peer from wg0
+            try {
+                execSync(`wg set wg0 peer "${oldPubKey}" remove`, { timeout: 5000 });
+                console.log(`[wg/register] Removed old peer ${oldPubKey} for provider ${provider.id} (rotation)`);
+            } catch (e) {
+                console.warn(`[wg/register] Failed to remove old peer (may already be gone): ${e.message}`);
+            }
+
+            // Generate new PSK
+            let psk;
+            try {
+                psk = execSync('wg genpsk', { timeout: 5000 }).toString().trim();
+            } catch (e) {
+                console.error('[wg/register] Failed to generate PSK during rotation:', e.message);
+                return res.status(500).json({ error: 'Failed to generate PSK during rotation' });
+            }
+
+            // Add new peer with same IP
+            try {
+                const pskPath = `/tmp/wg_psk_${provider.id}_${Date.now()}`;
+                fs.writeFileSync(pskPath, psk + '\n', { mode: 0o600 });
+                execSync(
+                    `wg set wg0 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${keepIp}/32 persistent-keepalive 25`,
+                    { timeout: 5000 }
+                );
+                execSync('wg-quick save wg0', { timeout: 5000 });
+                try { fs.unlinkSync(pskPath); } catch (_) {}
+            } catch (e) {
+                console.error('[wg/register] Failed to add rotated peer:', e.message);
+                return res.status(500).json({ error: 'Failed to add rotated WG peer: ' + e.message });
+            }
+
+            // Update DB with new key + rotation timestamp
+            runStatement(
+                'UPDATE providers SET wg_public_key = ?, wg_last_rotation_at = ? WHERE id = ?',
+                cleanPubKey, new Date().toISOString(), provider.id
+            );
+
+            console.log(`[wg/register] Provider ${provider.id} rotated WG key, kept IP ${keepIp}`);
+
+            return res.json({
+                ip: keepIp,
+                server_pubkey: WG_SERVER_PUBKEY,
+                server_endpoint: WG_SERVER_ENDPOINT,
+                psk: psk,
+                rotated: true,
+            });
+        }
+
+        // ── Normal registration path (unchanged) ────────────────────────
 
         // Idempotent: if provider already has a WG IP and matching key, return existing config
         if (provider.wg_mesh_ip && provider.wg_public_key === cleanPubKey) {
@@ -7652,7 +7728,6 @@ router.post('/wg/register', async (req, res) => {
         }
 
         // Generate PSK on the server
-        const { execSync } = require('child_process');
         let psk;
         try {
             psk = execSync('wg genpsk', { timeout: 5000 }).toString().trim();
