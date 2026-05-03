@@ -17,7 +17,7 @@ interface Step6Props {
 
 interface NodeStatusResponse {
   connected: boolean
-  status: 'pending' | 'registered' | 'active' | 'inactive'
+  status: 'pending' | 'registered' | 'active' | 'online' | 'inactive'
   node_id?: string
   last_seen_at?: string | null
   daemon_version?: string | null
@@ -58,7 +58,7 @@ export function Step6Verify({ apiKey, onBack, onDone }: Step6Props) {
     }
   }, [apiKey])
 
-  const connected = status?.connected && status.status === 'active'
+  const connected = status?.connected && (status.status === 'active' || status.status === 'online')
 
   if (connected) {
     return (
