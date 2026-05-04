@@ -41,6 +41,21 @@ const nextConfig = {
         source: '/v1/:path*',
         destination: `${backendUrl}/v1/:path*`,
       },
+      // Payments API — Moyasar integration (DCP-31)
+      {
+        source: '/api/payments/:path*',
+        destination: `${backendUrl}/api/payments/:path*`,
+      },
+      // Renters API — profile, settings, balance
+      {
+        source: '/api/renters/:path*',
+        destination: `${backendUrl}/api/renters/:path*`,
+      },
+      // Admin API — dashboard, payments, providers management
+      {
+        source: '/api/admin/:path*',
+        destination: `${backendUrl}/api/admin/:path*`,
+      },
     ];
   },
 }

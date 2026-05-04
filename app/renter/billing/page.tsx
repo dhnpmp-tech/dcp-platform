@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
+import Script from 'next/script'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import { useLanguage } from '../../lib/i18n'
 import { getApiBase } from '../../../lib/api'
@@ -50,102 +52,283 @@ const GearIcon = () => (
   </svg>
 )
 
-interface StatCardProps {
-  label: string
-  value: string | number
-  subtitle?: string
-  helpText?: string
-  tooltip?: string
+// ── Types ────────────────────────────────────────────────────────────────────
+interface PaymentRecord {
+  payment_id: string
+  moyasar_id?: string
+  amount_sar: number
+  amount_halala: number
+  status: string
+  source_type?: string
+  payment_method?: string
+  description?: string
+  created_at: string
+  confirmed_at?: string
+  refunded_at?: string
+  refund_amount_halala?: number
 }
 
-const StatCard: React.FC<StatCardProps> = ({
-  label,
-  value,
-  subtitle,
-  helpText,
-  tooltip,
-}) => {
-  const [showTooltip, setShowTooltip] = useState(false)
-
-  return (
-    <div className="relative">
-      <div className="bg-dc1-bg-secondary rounded-lg border border-dc1-border p-6 hover:border-dc1-border-hover transition">
-        <div className="flex items-start justify-between">
-          <p className="text-dc1-text-secondary text-sm font-medium">{label}</p>
-          {tooltip && (
-            <div className="relative">
-              <button
-                className="text-dc1-text-muted hover:text-dc1-text-primary transition"
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-                title={tooltip}
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </button>
-              {showTooltip && (
-                <div className="absolute right-0 mt-2 w-48 p-2 bg-dc1-bg-primary border border-dc1-border rounded shadow-lg z-10 text-xs text-dc1-text-secondary">
-                  {tooltip}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <p className="text-2xl font-bold text-dc1-text-primary mt-2">{value}</p>
-        {subtitle && <p className="text-sm text-dc1-text-muted mt-1">{subtitle}</p>}
-        {helpText && <p className="text-xs text-dc1-text-muted mt-2 font-medium">{helpText}</p>}
-      </div>
-    </div>
-  )
-}
-
-interface RenterData {
-  name: string
+interface BalanceData {
+  balance_sar: number
   balance_halala: number
-  total_spent_halala: number
-  total_jobs: number
-  recent_jobs: any[]
+  name?: string
+  email?: string
 }
 
-export default function BillingPage() {
+type CallbackStatus = 'verifying' | 'paid' | 'failed' | 'timeout' | null
+
+// Preset SAR amounts for top-up
+const TOPUP_PRESETS = [10, 50, 100, 500]
+
+// ── Moyasar form type declaration ────────────────────────────────────────────
+declare global {
+  interface Window {
+    Moyasar?: {
+      init: (config: Record<string, unknown>) => void
+    }
+  }
+}
+
+// ── Inner component (needs useSearchParams inside Suspense) ──────────────────
+function BillingPageInner() {
   const { t } = useLanguage()
-  const [loading, setLoading] = useState(true)
-  const [renter, setRenter] = useState<RenterData | null>(null)
-  const [renterName, setRenterName] = useState('')
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const API_BASE = getApiBase()
 
-  const fetchRenterData = useCallback(async (key: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/renters/me?key=${encodeURIComponent(key)}`)
-      if (res.ok) {
-        const data = await res.json()
-        if (data.renter) {
-          setRenter(data.renter)
-          setRenterName(data.renter.name || 'Renter')
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch renter data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [API_BASE])
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [loading, setLoading] = useState(true)
+  const [renterName, setRenterName] = useState('')
+  const [renterKey, setRenterKey] = useState<string | null>(null)
+  const [balance, setBalance] = useState<BalanceData | null>(null)
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [paymentsPagination, setPaymentsPagination] = useState({ total: 0, limit: 20, offset: 0 })
+  const [totalPaidSar, setTotalPaidSar] = useState(0)
 
+  // Top-up form
+  const [topupAmount, setTopupAmount] = useState<number>(50)
+  const [customAmount, setCustomAmount] = useState('')
+  const [isCustom, setIsCustom] = useState(false)
+  const [topupLoading, setTopupLoading] = useState(false)
+  const [topupError, setTopupError] = useState('')
+
+  // Moyasar form
+  const [moyasarReady, setMoyasarReady] = useState(false)
+  const [showMoyasarForm, setShowMoyasarForm] = useState(false)
+  const moyasarFormRef = useRef<HTMLDivElement>(null)
+  const moyasarPublishableKey = process.env.NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY || ''
+
+  // Payment callback verification
+  const [callbackStatus, setCallbackStatus] = useState<CallbackStatus>(null)
+  const [callbackAttempt, setCallbackAttempt] = useState(0)
+
+  // ── Check for payment callback ─────────────────────────────────────────────
+  const isCallback = searchParams.get('payment') === 'callback'
+  const callbackPaymentId = searchParams.get('id') || searchParams.get('payment_id')
+  const callbackPaymentStatus = searchParams.get('status')
+
+  // ── Auth + initial data ────────────────────────────────────────────────────
   useEffect(() => {
     const key = typeof window !== 'undefined' ? localStorage.getItem('dc1_renter_key') : null
-    if (key) {
-      fetchRenterData(key)
-    } else {
+    if (!key) {
       setLoading(false)
+      return
     }
-  }, [fetchRenterData])
+    setRenterKey(key)
+  }, [])
 
-  const balance = renter ? (renter.balance_halala / 100).toFixed(2) : '0.00'
-  const totalSpent = renter ? ((renter.total_spent_halala || 0) / 100).toFixed(2) : '0.00'
-  const totalJobs = renter?.total_jobs || 0
-  const recentJobs = renter?.recent_jobs || []
+  const fetchBalance = useCallback(async () => {
+    if (!renterKey) return
+    try {
+      const res = await fetch(`${API_BASE}/payments/balance`, {
+        headers: { 'x-renter-key': renterKey },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setBalance(data)
+        setRenterName(data.name || 'Renter')
+      }
+    } catch (err) {
+      console.error('Failed to fetch balance:', err)
+    }
+  }, [API_BASE, renterKey])
 
+  const fetchHistory = useCallback(async (offset = 0) => {
+    if (!renterKey) return
+    try {
+      const res = await fetch(`${API_BASE}/payments/history?limit=20&offset=${offset}`, {
+        headers: { 'x-renter-key': renterKey },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPayments(data.payments || [])
+        setPaymentsPagination(data.pagination || { total: 0, limit: 20, offset: 0 })
+        setTotalPaidSar(data.summary?.total_paid_sar || 0)
+      }
+    } catch (err) {
+      console.error('Failed to fetch payment history:', err)
+    }
+  }, [API_BASE, renterKey])
+
+  useEffect(() => {
+    if (!renterKey) return
+    Promise.all([fetchBalance(), fetchHistory()]).finally(() => setLoading(false))
+  }, [renterKey, fetchBalance, fetchHistory])
+
+  // ── Payment callback verification ──────────────────────────────────────────
+  useEffect(() => {
+    if (!isCallback || !callbackPaymentId || !renterKey) return
+
+    setCallbackStatus('verifying')
+    let cancelled = false
+    let retryCount = 0
+    const MAX_RETRIES = 10
+
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const res = await fetch(`${API_BASE}/payments/verify/${callbackPaymentId}`, {
+          headers: { 'x-renter-key': renterKey },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.status === 'paid') {
+            if (!cancelled) {
+              setCallbackStatus('paid')
+              fetchBalance()
+              fetchHistory()
+            }
+            return
+          }
+          if (data.status === 'failed') {
+            if (!cancelled) setCallbackStatus('failed')
+            return
+          }
+        }
+      } catch {
+        // network error -- keep polling
+      }
+
+      retryCount++
+      if (!cancelled) setCallbackAttempt(retryCount)
+
+      if (retryCount >= MAX_RETRIES) {
+        if (!cancelled) setCallbackStatus('timeout')
+        return
+      }
+
+      setTimeout(poll, 2000)
+    }
+
+    poll()
+    return () => { cancelled = true }
+  }, [isCallback, callbackPaymentId, renterKey, API_BASE, fetchBalance, fetchHistory])
+
+  // Auto-redirect after successful callback
+  useEffect(() => {
+    if (callbackStatus !== 'paid') return
+    const timer = setTimeout(() => {
+      router.replace('/renter/billing')
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [callbackStatus, router])
+
+  // ── Moyasar form initialization ────────────────────────────────────────────
+  useEffect(() => {
+    if (!showMoyasarForm || !moyasarReady || !moyasarPublishableKey || !renterKey) return
+    if (!window.Moyasar) return
+
+    // Clear previous form
+    if (moyasarFormRef.current) {
+      moyasarFormRef.current.innerHTML = ''
+    }
+
+    const effectiveAmount = isCustom ? parseFloat(customAmount) : topupAmount
+    if (!effectiveAmount || effectiveAmount < 1 || effectiveAmount > 10000) return
+
+    const amountHalala = Math.round(effectiveAmount * 100)
+
+    try {
+      window.Moyasar.init({
+        element: '.mysr-form',
+        amount: amountHalala,
+        currency: 'SAR',
+        description: `DCP balance top-up - ${effectiveAmount} SAR`,
+        publishable_api_key: moyasarPublishableKey,
+        callback_url: `${window.location.origin}/renter/billing?payment=callback`,
+        supported_networks: ['visa', 'mastercard', 'mada'],
+        methods: ['creditcard'],
+        on_initiating: function() {
+          setTopupLoading(true)
+          setTopupError('')
+        },
+        on_failure: function(error: unknown) {
+          setTopupLoading(false)
+          const errMsg = error && typeof error === 'object' && 'message' in error
+            ? (error as { message: string }).message
+            : 'Payment failed'
+          setTopupError(errMsg)
+        },
+      })
+    } catch (err) {
+      console.error('Failed to initialize Moyasar form:', err)
+      setTopupError('Failed to initialize payment form')
+    }
+  }, [showMoyasarForm, moyasarReady, moyasarPublishableKey, topupAmount, customAmount, isCustom, renterKey])
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handlePresetClick = (amount: number) => {
+    setIsCustom(false)
+    setTopupAmount(amount)
+    setCustomAmount('')
+    setTopupError('')
+    setShowMoyasarForm(false)
+  }
+
+  const handleCustomChange = (val: string) => {
+    setCustomAmount(val)
+    setIsCustom(true)
+    setTopupError('')
+    setShowMoyasarForm(false)
+  }
+
+  const getEffectiveAmount = (): number => {
+    return isCustom ? parseFloat(customAmount) || 0 : topupAmount
+  }
+
+  const handleProceedToPayment = () => {
+    const amount = getEffectiveAmount()
+    if (amount < 1) {
+      setTopupError('Minimum top-up is 1 SAR')
+      return
+    }
+    if (amount > 10000) {
+      setTopupError('Maximum top-up is 10,000 SAR')
+      return
+    }
+    setTopupError('')
+    setShowMoyasarForm(true)
+  }
+
+  const handleCancelPayment = () => {
+    setShowMoyasarForm(false)
+    setTopupLoading(false)
+    setTopupError('')
+  }
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const handleNextPage = () => {
+    const next = paymentsPagination.offset + paymentsPagination.limit
+    if (next < paymentsPagination.total) {
+      fetchHistory(next)
+    }
+  }
+  const handlePrevPage = () => {
+    const prev = Math.max(0, paymentsPagination.offset - paymentsPagination.limit)
+    fetchHistory(prev)
+  }
+
+  // ── Nav items ──────────────────────────────────────────────────────────────
   const navItems = [
     { label: t('nav.dashboard'), href: '/renter', icon: <HomeIcon /> },
     { label: t('nav.marketplace'), href: '/renter/marketplace', icon: <MarketplaceIcon /> },
@@ -157,172 +340,433 @@ export default function BillingPage() {
     { label: t('nav.settings'), href: '/renter/settings', icon: <GearIcon /> },
   ]
 
+  const balanceSar = balance ? balance.balance_sar.toFixed(2) : '0.00'
+  const isLowBalance = balance ? balance.balance_sar < 5 : false
+
+  // ── Status helpers ─────────────────────────────────────────────────────────
+  const statusStyles: Record<string, { label: string; bg: string; text: string }> = {
+    paid: { label: 'Paid', bg: 'bg-green-500/10', text: 'text-green-400' },
+    pending: { label: 'Pending', bg: 'bg-yellow-500/10', text: 'text-yellow-400' },
+    initiated: { label: 'Initiated', bg: 'bg-blue-500/10', text: 'text-blue-400' },
+    failed: { label: 'Failed', bg: 'bg-red-500/10', text: 'text-red-400' },
+    refunded: { label: 'Refunded', bg: 'bg-orange-500/10', text: 'text-orange-400' },
+  }
+
+  const methodLabels: Record<string, string> = {
+    creditcard: 'Card',
+    applepay: 'Apple Pay',
+    bank_transfer: 'Bank Transfer',
+    sandbox: 'Sandbox',
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout navItems={navItems} role="renter" userName={renterName || undefined}>
+      {/* Moyasar SDK script */}
+      <Script
+        src="https://cdn.moyasar.com/mpf/1.14.0/moyasar.js"
+        onReady={() => setMoyasarReady(true)}
+        strategy="lazyOnload"
+      />
+      <link rel="stylesheet" href="https://cdn.moyasar.com/mpf/1.14.0/moyasar.css" />
+
       <div className="min-h-screen bg-dc1-bg-primary text-dc1-text-primary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="space-y-8">
 
-            {/* Header */}
+            {/* ── Payment Callback Banner ──────────────────────────────────── */}
+            {isCallback && callbackStatus && (
+              <div className="rounded-lg border overflow-hidden">
+                {callbackStatus === 'verifying' && (
+                  <div className="bg-blue-500/5 border-blue-500/20 border p-6 text-center">
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                      <div className="animate-spin h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full" />
+                      <h2 className="text-lg font-semibold text-dc1-text-primary">Verifying Payment...</h2>
+                    </div>
+                    <p className="text-dc1-text-secondary text-sm">
+                      Confirming your payment with the gateway. Attempt {callbackAttempt + 1} of 10.
+                    </p>
+                  </div>
+                )}
+
+                {callbackStatus === 'paid' && (
+                  <div className="bg-green-500/5 border-green-500/20 border p-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-dc1-text-primary mb-1">Payment Successful</h2>
+                    <p className="text-dc1-text-secondary text-sm mb-3">
+                      Your balance has been updated. Redirecting in 5 seconds...
+                    </p>
+                    <button
+                      onClick={() => router.replace('/renter/billing')}
+                      className="text-sm text-dc1-accent-primary hover:underline"
+                    >
+                      Go to Billing now
+                    </button>
+                  </div>
+                )}
+
+                {(callbackStatus === 'failed' || callbackStatus === 'timeout') && (
+                  <div className="bg-red-500/5 border-red-500/20 border p-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-dc1-text-primary mb-1">Payment Not Completed</h2>
+                    <p className="text-dc1-text-secondary text-sm mb-3">
+                      {callbackStatus === 'timeout'
+                        ? 'We could not confirm your payment in time. If you completed the payment, your balance will update shortly.'
+                        : 'The payment was not completed or could not be verified.'}
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => router.replace('/renter/billing')}
+                        className="px-4 py-2 bg-dc1-accent-primary text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+                      >
+                        Try Again
+                      </button>
+                      <Link
+                        href="/renter"
+                        className="px-4 py-2 border border-dc1-border text-dc1-text-primary rounded-lg hover:bg-dc1-bg-secondary transition text-sm font-medium"
+                      >
+                        Back to Dashboard
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Header ──────────────────────────────────────────────────── */}
             <div>
-              <h1 className="text-3xl font-bold text-dc1-text-primary">Billing & Usage</h1>
+              <h1 className="text-3xl font-bold text-dc1-text-primary">Billing & Payments</h1>
               <p className="text-dc1-text-secondary mt-1">
-                Track your compute spending, API usage, and credits
+                Manage your balance, top up with mada/Visa/Mastercard, and view payment history
               </p>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <StatCard
-                label="Account Balance"
-                value={`${balance} SAR`}
-                helpText="Available balance for running jobs"
-                tooltip="Top up your balance to submit inference jobs"
-              />
-              <StatCard
-                label="Total Spent"
-                value={`${totalSpent} SAR`}
-                helpText="Lifetime spending across all jobs"
-                tooltip="Sum of all completed and billable job costs"
-              />
-              <StatCard
-                label="Jobs Run"
-                value={totalJobs}
-                helpText="Total jobs submitted"
-                tooltip="Includes completed, failed, and cancelled jobs"
-              />
-              <StatCard
-                label="Recent Jobs"
-                value={recentJobs.length}
-                helpText="Jobs in recent history"
-                tooltip="Recent job activity on your account"
-              />
+            {/* ── Balance + Top-Up Section ─────────────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Balance Card */}
+              <div className="lg:col-span-1">
+                <div className="bg-dc1-bg-secondary rounded-lg border border-dc1-border p-6 h-full">
+                  <p className="text-dc1-text-secondary text-sm font-medium mb-1">Account Balance</p>
+                  {loading ? (
+                    <div className="animate-pulse h-10 bg-dc1-border rounded w-32 mt-2" />
+                  ) : (
+                    <>
+                      <p className={`text-4xl font-bold mt-2 ${isLowBalance ? 'text-red-400' : 'text-dc1-text-primary'}`}>
+                        {balanceSar}
+                        <span className="text-lg font-normal text-dc1-text-secondary ml-2">SAR</span>
+                      </p>
+                      {isLowBalance && (
+                        <p className="text-xs text-red-400 mt-2 font-medium">
+                          Low balance -- top up to keep jobs running
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  <div className="mt-6 pt-4 border-t border-dc1-border space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-dc1-text-secondary">Total Deposited</span>
+                      <span className="text-dc1-text-primary font-medium">{totalPaidSar.toFixed(2)} SAR</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-dc1-text-secondary">Transactions</span>
+                      <span className="text-dc1-text-primary font-medium">{paymentsPagination.total}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top-Up Card */}
+              <div className="lg:col-span-2">
+                <div className="bg-dc1-bg-secondary rounded-lg border border-dc1-border p-6">
+                  <h2 className="text-lg font-semibold text-dc1-text-primary mb-4">Top Up Balance</h2>
+
+                  {!moyasarPublishableKey ? (
+                    <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-4">
+                      <p className="text-yellow-400 font-medium text-sm">Payment gateway not configured</p>
+                      <p className="text-dc1-text-secondary text-xs mt-1">
+                        NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY is not set. Contact support to enable payments.
+                      </p>
+                    </div>
+                  ) : !showMoyasarForm ? (
+                    <>
+                      {/* Amount Presets */}
+                      <div className="mb-4">
+                        <label className="text-sm text-dc1-text-secondary font-medium mb-2 block">Select Amount</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {TOPUP_PRESETS.map((amount) => (
+                            <button
+                              key={amount}
+                              onClick={() => handlePresetClick(amount)}
+                              className={`py-3 px-4 rounded-lg border text-sm font-semibold transition ${
+                                !isCustom && topupAmount === amount
+                                  ? 'border-dc1-accent-primary bg-dc1-accent-primary/10 text-dc1-accent-primary'
+                                  : 'border-dc1-border text-dc1-text-primary hover:border-dc1-border-hover hover:bg-dc1-bg-primary'
+                              }`}
+                            >
+                              {amount} SAR
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Custom Amount */}
+                      <div className="mb-4">
+                        <label className="text-sm text-dc1-text-secondary font-medium mb-2 block">Or enter custom amount</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="1"
+                            max="10000"
+                            step="0.01"
+                            placeholder="Enter amount..."
+                            value={customAmount}
+                            onChange={(e) => handleCustomChange(e.target.value)}
+                            onFocus={() => setIsCustom(true)}
+                            className={`w-full bg-dc1-bg-primary border rounded-lg px-4 py-3 pr-16 text-dc1-text-primary placeholder-dc1-text-muted focus:outline-none focus:ring-1 transition ${
+                              isCustom && customAmount
+                                ? 'border-dc1-accent-primary focus:ring-dc1-accent-primary'
+                                : 'border-dc1-border focus:ring-dc1-accent-primary'
+                            }`}
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-dc1-text-muted text-sm font-medium">
+                            SAR
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Error */}
+                      {topupError && (
+                        <div className="mb-4 p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+                          <p className="text-red-400 text-sm">{topupError}</p>
+                        </div>
+                      )}
+
+                      {/* Proceed Button */}
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={handleProceedToPayment}
+                          disabled={topupLoading}
+                          className="px-6 py-3 bg-dc1-accent-primary text-white rounded-lg hover:opacity-90 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {topupLoading ? 'Processing...' : `Pay ${getEffectiveAmount().toFixed(2)} SAR`}
+                        </button>
+                        <div className="flex items-center gap-2 text-dc1-text-muted text-xs">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          <span>Secure payment via Moyasar</span>
+                        </div>
+                      </div>
+
+                      {/* Supported Networks */}
+                      <div className="mt-4 flex items-center gap-3 text-xs text-dc1-text-muted">
+                        <span>Accepted:</span>
+                        <span className="px-2 py-0.5 rounded bg-dc1-bg-primary border border-dc1-border font-medium">mada</span>
+                        <span className="px-2 py-0.5 rounded bg-dc1-bg-primary border border-dc1-border font-medium">Visa</span>
+                        <span className="px-2 py-0.5 rounded bg-dc1-bg-primary border border-dc1-border font-medium">Mastercard</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Moyasar Embedded Payment Form */}
+                      <div className="mb-4 p-3 bg-dc1-bg-primary rounded-lg border border-dc1-border">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-dc1-text-primary">
+                              Top-up: {getEffectiveAmount().toFixed(2)} SAR
+                            </p>
+                            <p className="text-xs text-dc1-text-muted mt-0.5">
+                              Enter your card details below
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleCancelPayment}
+                            className="text-sm text-dc1-text-secondary hover:text-dc1-text-primary transition"
+                          >
+                            Change amount
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Error */}
+                      {topupError && (
+                        <div className="mb-4 p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+                          <p className="text-red-400 text-sm">{topupError}</p>
+                        </div>
+                      )}
+
+                      {/* Moyasar form container */}
+                      <div ref={moyasarFormRef} className="mysr-form" />
+
+                      {!moyasarReady && (
+                        <div className="text-center py-8">
+                          <div className="animate-spin h-6 w-6 border-2 border-dc1-accent-primary border-t-transparent rounded-full mx-auto mb-3" />
+                          <p className="text-dc1-text-muted text-sm">Loading payment form...</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Usage Table */}
+            {/* ── Payment History ──────────────────────────────────────────── */}
             <div className="bg-dc1-bg-secondary rounded-lg border border-dc1-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-dc1-border">
-                <h2 className="text-lg font-semibold text-dc1-text-primary">
-                  Recent Usage
-                </h2>
+              <div className="px-6 py-4 border-b border-dc1-border flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-dc1-text-primary">Payment History</h2>
+                {paymentsPagination.total > 0 && (
+                  <span className="text-sm text-dc1-text-muted">
+                    {paymentsPagination.total} transaction{paymentsPagination.total !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
 
               {loading ? (
                 <div className="px-6 py-12 text-center text-dc1-text-muted">
                   <div className="animate-spin h-6 w-6 border-2 border-dc1-accent-primary border-t-transparent rounded-full mx-auto mb-3" />
-                  <p>Loading usage data...</p>
+                  <p>Loading payment history...</p>
                 </div>
-              ) : recentJobs.length === 0 ? (
+              ) : payments.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <p className="text-dc1-text-primary font-semibold">No inference jobs yet</p>
-                  <p className="text-dc1-text-secondary mt-2">
-                    Submit your first job from the Playground to see usage data here.
+                  <svg className="w-12 h-12 text-dc1-text-muted mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m4 0h1M9 19h6a2 2 0 002-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-dc1-text-primary font-semibold">No payments yet</p>
+                  <p className="text-dc1-text-secondary mt-1 text-sm">
+                    Top up your balance above to get started with DCP compute.
                   </p>
-                  <Link
-                    href="/renter/playground"
-                    className="mt-4 inline-block text-dc1-accent-primary hover:underline font-medium"
-                  >
-                    Open Playground →
-                  </Link>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-dc1-bg-primary border-b border-dc1-border">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
-                          Duration
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
-                          Cost
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-dc1-border">
-                      {recentJobs.map((job: any, i: number) => {
-                        const statusMap: Record<string, { label: string; bg: string; text: string }> = {
-                          completed: { label: '✓ Complete', bg: 'bg-green-100', text: 'text-green-700' },
-                          running: { label: '⏳ Running', bg: 'bg-blue-100', text: 'text-blue-700' },
-                          queued: { label: '⏳ Queued', bg: 'bg-blue-100', text: 'text-blue-700' },
-                          failed: { label: '✗ Failed', bg: 'bg-red-100', text: 'text-red-700' },
-                          cancelled: { label: '⊘ Cancelled', bg: 'bg-orange-100', text: 'text-orange-700' },
-                        }
-                        const status = statusMap[job.status] || statusMap.completed
-                        const costSar = job.actual_cost_halala ? (job.actual_cost_halala / 100).toFixed(2) : '—'
-                        const date = job.submitted_at ? new Date(job.submitted_at).toLocaleDateString() : '—'
-                        const duration = job.actual_duration_minutes
-                          ? `${Math.floor(job.actual_duration_minutes)}m ${Math.round((job.actual_duration_minutes % 1) * 60)}s`
-                          : '—'
-                        return (
-                          <tr key={job.id || i} className="hover:bg-dc1-bg-primary transition">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-dc1-text-secondary">
-                              {date}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-dc1-text-primary font-medium">
-                              {job.job_type || 'gpu_job'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-dc1-text-secondary">
-                              {duration}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-dc1-accent-primary">
-                              {costSar !== '—' ? `${costSar} SAR` : '—'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span className={`px-3 py-1 rounded-full ${status.bg} ${status.text} text-xs font-medium`}>
-                                {status.label}
-                              </span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-dc1-bg-primary border-b border-dc1-border">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
+                            Method
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">
+                            Reference
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-dc1-border">
+                        {payments.map((p) => {
+                          const style = statusStyles[p.status] || statusStyles.pending
+                          const method = methodLabels[p.payment_method || p.source_type || ''] || p.payment_method || p.source_type || '--'
+                          const date = p.created_at ? new Date(p.created_at).toLocaleDateString('en-SA', {
+                            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                          }) : '--'
+                          const refId = p.payment_id ? p.payment_id.slice(-8).toUpperCase() : '--'
+
+                          return (
+                            <tr key={p.payment_id} className="hover:bg-dc1-bg-primary transition">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-dc1-text-secondary">
+                                {date}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-dc1-text-primary">
+                                {p.amount_sar.toFixed(2)} SAR
+                                {p.status === 'refunded' && p.refund_amount_halala && (
+                                  <span className="text-orange-400 text-xs ml-1">
+                                    (-{(p.refund_amount_halala / 100).toFixed(2)})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-dc1-text-secondary">
+                                {method}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span className={`px-2.5 py-1 rounded-full ${style.bg} ${style.text} text-xs font-medium`}>
+                                  {style.label}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-xs text-dc1-text-muted font-mono">
+                                {refId}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {paymentsPagination.total > paymentsPagination.limit && (
+                    <div className="px-6 py-3 border-t border-dc1-border flex items-center justify-between">
+                      <p className="text-xs text-dc1-text-muted">
+                        Showing {paymentsPagination.offset + 1}-{Math.min(paymentsPagination.offset + paymentsPagination.limit, paymentsPagination.total)} of {paymentsPagination.total}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handlePrevPage}
+                          disabled={paymentsPagination.offset === 0}
+                          className="px-3 py-1.5 text-xs border border-dc1-border rounded-lg text-dc1-text-secondary hover:bg-dc1-bg-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={handleNextPage}
+                          disabled={paymentsPagination.offset + paymentsPagination.limit >= paymentsPagination.total}
+                          className="px-3 py-1.5 text-xs border border-dc1-border rounded-lg text-dc1-text-secondary hover:bg-dc1-bg-primary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {/* CTA Buttons & Quick Actions */}
+            {/* ── Quick Actions ────────────────────────────────────────────── */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Primary Action */}
-              <div className="bg-dc1-accent-primary bg-opacity-10 border border-dc1-accent-primary rounded-lg p-4">
-                <p className="text-sm font-semibold text-dc1-accent-primary mb-2">💳 Add Funds</p>
-                <p className="text-sm text-dc1-text-secondary mb-3">
-                  Top up your account to continue running inference jobs
-                </p>
-                <Link
-                  href="#topup"
-                  className="inline-block px-4 py-2 bg-dc1-accent-primary text-white rounded-lg hover:opacity-90 transition font-medium text-sm"
-                >
-                  Add Credits Now
-                </Link>
-              </div>
-
-              {/* Secondary Action */}
               <div className="bg-dc1-bg-secondary border border-dc1-border rounded-lg p-4">
-                <p className="text-sm font-semibold text-dc1-text-primary mb-2">🔑 API Integration</p>
+                <p className="text-sm font-semibold text-dc1-text-primary mb-2">API Integration</p>
                 <p className="text-sm text-dc1-text-secondary mb-3">
                   Manage your API keys and integrate DCP into your application
                 </p>
                 <Link
                   href="/renter/settings"
-                  className="inline-block px-4 py-2 border border-dc1-border text-dc1-text-primary rounded-lg hover:bg-dc1-border transition font-medium text-sm"
+                  className="inline-block px-4 py-2 border border-dc1-border text-dc1-text-primary rounded-lg hover:bg-dc1-bg-primary transition font-medium text-sm"
                 >
                   Manage Keys
                 </Link>
               </div>
 
-              {/* Tertiary Action */}
               <div className="bg-dc1-bg-secondary border border-dc1-border rounded-lg p-4">
-                <p className="text-sm font-semibold text-dc1-text-primary mb-2">📄 Invoices</p>
+                <p className="text-sm font-semibold text-dc1-text-primary mb-2">Playground</p>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Test AI models and submit inference jobs directly from the browser
+                </p>
+                <Link
+                  href="/renter/playground"
+                  className="inline-block px-4 py-2 border border-dc1-border text-dc1-text-primary rounded-lg hover:bg-dc1-bg-primary transition font-medium text-sm"
+                >
+                  Open Playground
+                </Link>
+              </div>
+
+              <div className="bg-dc1-bg-secondary border border-dc1-border rounded-lg p-4">
+                <p className="text-sm font-semibold text-dc1-text-primary mb-2">Invoices</p>
                 <p className="text-sm text-dc1-text-secondary mb-3">
                   Download invoices and billing reports for accounting
                 </p>
@@ -340,5 +784,18 @@ export default function BillingPage() {
         </div>
       </div>
     </DashboardLayout>
+  )
+}
+
+// ── Suspense wrapper (useSearchParams requires it) ───────────────────────────
+export default function BillingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-dc1-bg-primary flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-2 border-dc1-accent-primary border-t-transparent rounded-full" />
+      </div>
+    }>
+      <BillingPageInner />
+    </Suspense>
   )
 }
