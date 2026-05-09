@@ -996,7 +996,9 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           gpu_profile_source = 'daemon',
           gpu_profile_updated_at = ?,
           vllm_endpoint_url = COALESCE(?, vllm_endpoint_url),
-          wg_mesh_ip = ?
+          wg_mesh_ip = ?,
+          wg_tunnel_healthy = ?,
+          wg_handshake_age_s = ?
           WHERE id = ?`,
           JSON.stringify(normalizedGpuStatus || {}), providerIp || null, providerHostname || null, now, providerRuntimeStatus,
           peerId || p.p2p_peer_id,
@@ -1015,6 +1017,11 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           now,
           cleanVllmEndpointUrl,
           cleanWgMeshIp,
+          // Tier 2: persist the derived booleans/age so /api/providers/me can
+          // surface them to the dashboard badge without recomputing.
+          // SQLite has no native bool, store 1/0/null.
+          wgTunnelHealthy === true ? 1 : (wgTunnelHealthy === false ? 0 : null),
+          wgHandshakeAgeS != null ? Math.round(wgHandshakeAgeS) : null,
           p.id
         );
 
@@ -1817,7 +1824,18 @@ router.get('/me', async (req, res) => {
                 today_earnings_halala: todayEarnings.total,
                 week_earnings_halala: weekEarnings.total,
                 month_earnings_halala: monthEarnings.total,
-                active_job: activeJob || null
+                active_job: activeJob || null,
+                // Tier 2: WG tunnel state for the dashboard badge.
+                //   true  -> "Tunnel OK"
+                //   false -> "Tunnel zombied — auto-healing"
+                //   null  -> "Tunnel not in use" (wg not installed / not in scope)
+                // Persisted in the heartbeat handler from the daemon's wg_health payload.
+                wg_tunnel_healthy: provider.wg_tunnel_healthy == null
+                    ? null
+                    : provider.wg_tunnel_healthy === 1,
+                wg_handshake_age_s: provider.wg_handshake_age_s != null
+                    ? Number(provider.wg_handshake_age_s)
+                    : null,
             },
             recent_jobs: recentJobs
         };
@@ -7671,6 +7689,17 @@ router.post('/wg/register', async (req, res) => {
 
         const WG_SERVER_PUBKEY = 'zVxlVgKwnxq4Z9l6jGgD0yMJH5meHrlodJYyRHrL+wM=';
         const WG_SERVER_ENDPOINT = '76.13.179.86:51820';
+        // Tier 2: optional UDP/443 fallback endpoint, served by a second WG
+        // listener (wg1) on the VPS for clients behind ISPs/firewalls that
+        // block UDP/51820. We expose these to the daemon only when the
+        // operator has actually provisioned wg1 on the server side and set
+        // the env vars accordingly. Behavior is unchanged when env unset.
+        const WG_FALLBACK_ENDPOINT = (process.env.DCP_WG_FALLBACK_ENDPOINT || '').trim() || null;
+        const WG_FALLBACK_PUBKEY = (process.env.DCP_WG_FALLBACK_PUBKEY || '').trim() || WG_SERVER_PUBKEY;
+        // Optional override for the fallback subnet's tunnel target IP. wg1
+        // lives on 10.9.0.0/24 so the in-tunnel ping target is 10.9.0.1
+        // unless the operator overrides it.
+        const WG_FALLBACK_TUNNEL_TARGET = (process.env.DCP_WG_FALLBACK_TUNNEL_TARGET || '10.9.0.1').trim();
         const { execSync } = require('child_process');
 
         // ── Key rotation path ───────────────────────────────────────────
@@ -7736,6 +7765,12 @@ router.post('/wg/register', async (req, res) => {
                 server_endpoint: WG_SERVER_ENDPOINT,
                 psk: psk,
                 rotated: true,
+                ...(WG_FALLBACK_ENDPOINT ? {
+                    fallback_endpoint: WG_FALLBACK_ENDPOINT,
+                    fallback_server_public_key: WG_FALLBACK_PUBKEY,
+                    fallback_tunnel_target: WG_FALLBACK_TUNNEL_TARGET,
+                    fallback_subnet: '10.9.0.0/24',
+                } : {}),
             });
         }
 
@@ -7749,6 +7784,12 @@ router.post('/wg/register', async (req, res) => {
                 server_pubkey: WG_SERVER_PUBKEY,
                 server_endpoint: WG_SERVER_ENDPOINT,
                 already_registered: true,
+                ...(WG_FALLBACK_ENDPOINT ? {
+                    fallback_endpoint: WG_FALLBACK_ENDPOINT,
+                    fallback_server_public_key: WG_FALLBACK_PUBKEY,
+                    fallback_tunnel_target: WG_FALLBACK_TUNNEL_TARGET,
+                    fallback_subnet: '10.9.0.0/24',
+                } : {}),
             });
         }
 
@@ -7807,6 +7848,12 @@ router.post('/wg/register', async (req, res) => {
             server_pubkey: WG_SERVER_PUBKEY,
             server_endpoint: WG_SERVER_ENDPOINT,
             psk: psk,
+            ...(WG_FALLBACK_ENDPOINT ? {
+                fallback_endpoint: WG_FALLBACK_ENDPOINT,
+                fallback_server_public_key: WG_FALLBACK_PUBKEY,
+                fallback_tunnel_target: WG_FALLBACK_TUNNEL_TARGET,
+                fallback_subnet: '10.9.0.0/24',
+            } : {}),
         });
     } catch (error) {
         console.error('[wg/register] Unexpected error:', error);

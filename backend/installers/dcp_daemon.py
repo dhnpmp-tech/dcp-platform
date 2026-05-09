@@ -1323,31 +1323,105 @@ _WG_LAST_HEAL_TS = 0.0  # monotonic timestamp of the last self-heal cycle
 _WG_HEAL_COOLDOWN_S = 120.0  # don't bounce the tunnel more than once per 2 min
 _WG_STALE_HANDSHAKE_S = 180.0  # >3 min since last handshake → tunnel zombie
 
+# ── Tier 2: MTU auto-tune state ──────────────────────────────────────────
+# Classic broken-NAT/PPPoE/cellular failure mode: handshake completes
+# (encrypted UDP packets fit) but in-tunnel pings drop (1500-byte ICMP packets
+# get fragmented and dropped). Detection: N consecutive heartbeat cycles where
+# the handshake is fresh AND last_ping_ms is None. Remediation: drop MTU to
+# 1280 (the IPv6 minimum, safe under any plausible PMTU).
+_WG_PING_FAIL_STREAK = 0          # consecutive heartbeats with handshake-but-no-ping
+_WG_PING_FAIL_THRESHOLD = 5       # tune after this many in a row
+_WG_LAST_MTU_TUNE_TS = 0.0        # monotonic ts of last MTU tune
+_WG_MTU_TUNE_COOLDOWN_S = 1800.0  # 30 min — don't thrash MTU
+_WG_TUNED_MTU = 1280              # safe fallback MTU
+_WG_MTU_TUNED = False             # set True once we've dropped MTU this run
+
+# ── Tier 2: UDP/443 fallback (wg1) state ─────────────────────────────────
+# After this many consecutive *failed* heal cycles (i.e. heal ran, then the
+# next heartbeat still saw a dead tunnel) we assume the primary endpoint is
+# unreachable from this network and switch to wg1 (UDP/443). Sticky decision —
+# persisted to ~/.dcp/wireguard/active.txt so it survives daemon restart.
+_WG_FAIL_HEALS_STREAK = 0
+_WG_FAIL_HEALS_THRESHOLD = 3
+_WG_ACTIVE_IFACE = None           # populated by _wg_load_active_iface()
+
+
+def _wg_active_iface_path():
+    """Path to the file that records which WG iface is currently active
+    (wg0 = primary UDP/51820, wg1 = UDP/443 fallback). Survives reboots."""
+    return os.path.expanduser("~/.dcp/wireguard/active.txt")
+
+
+def _wg_load_active_iface(default="wg0"):
+    """Read the persisted active-iface marker; default to wg0 if absent."""
+    global _WG_ACTIVE_IFACE
+    if _WG_ACTIVE_IFACE:
+        return _WG_ACTIVE_IFACE
+    try:
+        with open(_wg_active_iface_path(), "r") as f:
+            v = (f.read() or "").strip()
+            if v in ("wg0", "wg1"):
+                _WG_ACTIVE_IFACE = v
+                return v
+    except (FileNotFoundError, OSError):
+        pass
+    except Exception as e:
+        log.debug(f"[wg] read active.txt failed: {e}")
+    _WG_ACTIVE_IFACE = default
+    return default
+
+
+def _wg_save_active_iface(iface):
+    """Persist the active iface choice so it survives daemon restart/reboot."""
+    global _WG_ACTIVE_IFACE
+    _WG_ACTIVE_IFACE = iface
+    try:
+        os.makedirs(os.path.dirname(_wg_active_iface_path()), exist_ok=True)
+        with open(_wg_active_iface_path(), "w") as f:
+            f.write(iface + "\n")
+    except Exception as e:
+        log.warning(f"[wg] failed to persist active iface={iface}: {e}")
+
+
+def _wg_iface_ping_target(iface):
+    """In-tunnel ping target for a given iface. Tier 1 used hardcoded 10.8.0.1
+    for wg0; the wg1 fallback subnet is 10.9.0.0/24 so target is 10.9.0.1."""
+    return "10.9.0.1" if iface == "wg1" else "10.8.0.1"
+
 
 def _get_wg_health():
     """Return WireGuard health telemetry for the heartbeat payload.
 
-    Output (None values when wg isn't installed or wg0 isn't up):
+    Output (None values when wg isn't installed or the active iface isn't up):
       {
-        'present': bool, 'iface': 'wg0',
+        'present': bool, 'iface': 'wg0' | 'wg1',
         'handshake_age_s': float | None,
         'rx_bytes': int | None, 'tx_bytes': int | None,
         'last_ping_ms': float | None,
         'peer_endpoint': str | None,
+        'mtu_tuned': bool,             # Tier 2: did we drop MTU on this iface
       }
 
-    Reads `wg show wg0 dump`. Field order per wireguard-tools(8):
+    Reads `wg show <iface> dump`. Field order per wireguard-tools(8):
       public_key preshared_key endpoint allowed_ips latest_handshake
       transfer_rx transfer_tx persistent_keepalive
+
+    Tier 2 additions:
+      - iface tracks the currently-active interface (wg0 or wg1 fallback).
+      - After 5 consecutive heartbeats with fresh-handshake-but-no-ping,
+        we drop MTU to 1280 (cooldown-gated to 30 min). This catches the
+        broken-NAT/PPPoE/cellular case.
     """
+    iface = _wg_load_active_iface()
     health = {
-        'present': False, 'iface': 'wg0',
+        'present': False, 'iface': iface,
         'handshake_age_s': None, 'rx_bytes': None, 'tx_bytes': None,
         'last_ping_ms': None, 'peer_endpoint': None,
+        'mtu_tuned': _WG_MTU_TUNED,
     }
     try:
         r = subprocess.run(
-            ["wg", "show", "wg0", "dump"],
+            ["wg", "show", iface, "dump"],
             capture_output=True, text=True, timeout=3,
         )
         if r.returncode != 0 or not r.stdout:
@@ -1378,7 +1452,7 @@ def _get_wg_health():
     # Single in-tunnel ping — surfaces dead tunnels even when handshake_age
     # looks healthy due to stale local state.
     try:
-        ping_target = "10.8.0.1"
+        ping_target = _wg_iface_ping_target(iface)
         ping_cmd = (["ping", "-c", "1", "-W", "1", ping_target]
                     if platform.system() != "Windows"
                     else ["ping", "-n", "1", "-w", "1000", ping_target])
@@ -1390,14 +1464,152 @@ def _get_wg_health():
         pass
     except Exception as e:
         log.debug(f"_get_wg_health ping failed: {e}")
+
+    # ── Tier 2: MTU auto-tune ────────────────────────────────────────────
+    # Trigger when handshake is fresh (<60s) but ping doesn't go through.
+    # This is the textbook broken-NAT/PPPoE signature.
+    try:
+        _maybe_tune_wg_mtu(iface, health)
+        # Reflect post-tune state so the heartbeat tells the backend.
+        health['mtu_tuned'] = _WG_MTU_TUNED
+    except Exception as e:
+        log.debug(f"[wg-mtu] auto-tune check failed: {e}")
     return health
 
 
+def _maybe_tune_wg_mtu(iface, health):
+    """Drop MTU on the active WG iface if pings keep failing despite a fresh
+    handshake. Cooldown-gated. Persists the new MTU into the iface's conf
+    file so it sticks across `wg-quick` cycles."""
+    global _WG_PING_FAIL_STREAK, _WG_LAST_MTU_TUNE_TS, _WG_MTU_TUNED
+    age = health.get('handshake_age_s')
+    ping_ms = health.get('last_ping_ms')
+    handshake_fresh = age is not None and age < 60.0
+    ping_failed = ping_ms is None
+    if handshake_fresh and ping_failed:
+        _WG_PING_FAIL_STREAK += 1
+    else:
+        # Any successful ping resets the streak. We never *raise* MTU back,
+        # though — once 1280 has worked, leave it alone.
+        if ping_ms is not None:
+            _WG_PING_FAIL_STREAK = 0
+        return
+    if _WG_PING_FAIL_STREAK < _WG_PING_FAIL_THRESHOLD:
+        return
+    now = time.monotonic()
+    if (now - _WG_LAST_MTU_TUNE_TS) < _WG_MTU_TUNE_COOLDOWN_S:
+        log.debug("[wg-mtu] would tune but cooldown active "
+                  f"({int(_WG_MTU_TUNE_COOLDOWN_S - (now - _WG_LAST_MTU_TUNE_TS))}s left)")
+        return
+    _WG_LAST_MTU_TUNE_TS = now
+    log.warning(f"[wg-mtu] {iface}: handshake fresh ({age:.0f}s) but pings "
+                f"failing for {_WG_PING_FAIL_STREAK} cycles — dropping MTU to "
+                f"{_WG_TUNED_MTU} (broken-NAT/PPPoE/cellular workaround).")
+    _apply_wg_mtu(iface, _WG_TUNED_MTU)
+    _persist_wg_mtu_in_conf(iface, _WG_TUNED_MTU)
+    _WG_MTU_TUNED = True
+    # Reset the streak so we don't re-tune on the next cycle.
+    _WG_PING_FAIL_STREAK = 0
+
+
+def _apply_wg_mtu(iface, mtu):
+    """Live-set the MTU on the running WG interface. Linux uses `ip link`,
+    macOS uses `ifconfig` against a utunN (we look up the real device name
+    from `wg show <iface> interface` output via wg's internal mapping).
+    Best-effort: log on failure but don't raise."""
+    system = platform.system()
+    try:
+        if system == "Linux":
+            subprocess.run(["sudo", "-n", "ip", "link", "set", "mtu", str(mtu),
+                            "dev", iface],
+                           capture_output=True, timeout=5, check=False)
+            return
+        if system == "Darwin":
+            # On macOS, wg-quick creates utunN interfaces. Map iface -> utun
+            # by reading `wg show <iface>` (which is keyed by the wg name)
+            # and then probing `ifconfig` for the matching wg listen-port.
+            # Simpler heuristic: scan ifconfig for any utun in 10.8.0.0/24
+            # (wg0) or 10.9.0.0/24 (wg1) and apply MTU there.
+            try:
+                rr = subprocess.run(["ifconfig"], capture_output=True,
+                                    text=True, timeout=3)
+                want = "10.8." if iface == "wg0" else "10.9."
+                cur_dev = None
+                for line in (rr.stdout or "").splitlines():
+                    if line and not line.startswith("\t") and not line.startswith(" "):
+                        cur_dev = line.split(":")[0]
+                    if cur_dev and cur_dev.startswith("utun") and want in line:
+                        subprocess.run(["sudo", "-n", "ifconfig", cur_dev,
+                                        "mtu", str(mtu)],
+                                       capture_output=True, timeout=5,
+                                       check=False)
+                        log.info(f"[wg-mtu] applied mtu={mtu} to {cur_dev} "
+                                 f"(maps to {iface})")
+                        return
+            except Exception as e:
+                log.debug(f"[wg-mtu] mac ifconfig probe failed: {e}")
+            return
+        # Windows: wireguard.exe owns the iface; mtu is set in the .conf
+        # file and re-applied on reload. Persistence below handles it.
+    except Exception as e:
+        log.debug(f"[wg-mtu] live MTU set failed for {iface}: {e}")
+
+
+def _persist_wg_mtu_in_conf(iface, mtu):
+    """Rewrite the [Interface] block of /etc/wireguard/<iface>.conf (and the
+    daemon's own copy at ~/.dcp/wireguard/<iface>.conf) so the MTU survives
+    the next `wg-quick up`. Best-effort, swallows file errors."""
+    candidates = [
+        f"/etc/wireguard/{iface}.conf",
+        os.path.expanduser(f"~/.dcp/wireguard/{iface}.conf"),
+    ]
+    for path in candidates:
+        try:
+            if not os.path.exists(path):
+                continue
+            with open(path, "r") as f:
+                lines = f.read().splitlines()
+            new_lines, in_iface, mtu_set = [], False, False
+            for ln in lines:
+                stripped = ln.strip()
+                if stripped.startswith("["):
+                    if in_iface and not mtu_set:
+                        new_lines.append(f"MTU = {mtu}")
+                        mtu_set = True
+                    in_iface = (stripped.lower() == "[interface]")
+                if in_iface and stripped.lower().startswith("mtu"):
+                    new_lines.append(f"MTU = {mtu}")
+                    mtu_set = True
+                    continue
+                new_lines.append(ln)
+            if in_iface and not mtu_set:
+                new_lines.append(f"MTU = {mtu}")
+            tmp = path + ".tmp"
+            with open(tmp, "w") as f:
+                f.write("\n".join(new_lines) + "\n")
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, path)
+            log.info(f"[wg-mtu] persisted MTU={mtu} in {path}")
+        except PermissionError:
+            # /etc/wireguard requires root; daemon is unprivileged. The
+            # systemd/launchd cycle still re-applies live MTU on `wg-quick
+            # up` because we set it on the iface above.
+            log.debug(f"[wg-mtu] no write perm for {path}; skipping persist")
+        except Exception as e:
+            log.debug(f"[wg-mtu] persist to {path} failed: {e}")
+
+
 def _self_heal_wg(health):
-    """If the WG tunnel looks dead, cycle it. Cooldown-gated to 1× per 2 min."""
-    global _WG_LAST_HEAL_TS
+    """If the WG tunnel looks dead, cycle it. Cooldown-gated to 1× per 2 min.
+
+    Tier 2: after 3 consecutive failed heal cycles on wg0, switch to the wg1
+    fallback (UDP/443) if a ~/.dcp/wireguard/wg1.conf exists. That decision
+    is sticky — persisted via _wg_save_active_iface — so reboots remember it.
+    """
+    global _WG_LAST_HEAL_TS, _WG_FAIL_HEALS_STREAK
     if not health.get('present'):
         return
+    iface = health.get('iface') or _wg_load_active_iface()
     age = health.get('handshake_age_s')
     ping_ms = health.get('last_ping_ms')
     dead = False
@@ -1406,6 +1618,9 @@ def _self_heal_wg(health):
     elif age is None and health.get('peer_endpoint') and ping_ms is None:
         dead = True
     if not dead:
+        # Healthy → reset the failed-heal streak. We only count *consecutive*
+        # failures so an intermittent recovery resets the fallback trigger.
+        _WG_FAIL_HEALS_STREAK = 0
         return
     now = time.monotonic()
     if (now - _WG_LAST_HEAL_TS) < _WG_HEAL_COOLDOWN_S:
@@ -1413,16 +1628,46 @@ def _self_heal_wg(health):
                   f"({int(_WG_HEAL_COOLDOWN_S - (now - _WG_LAST_HEAL_TS))}s left)")
         return
     _WG_LAST_HEAL_TS = now
-    log.warning(f"[wg-heal] tunnel zombied (handshake_age={age}, ping={ping_ms}); "
-                f"cycling wg0")
+    _WG_FAIL_HEALS_STREAK += 1
+    log.warning(f"[wg-heal] tunnel zombied iface={iface} "
+                f"(handshake_age={age}, ping={ping_ms}, "
+                f"fail_streak={_WG_FAIL_HEALS_STREAK}); cycling {iface}")
     try:
-        subprocess.run(["sudo", "-n", "wg-quick", "down", "wg0"],
+        subprocess.run(["sudo", "-n", "wg-quick", "down", iface],
                        capture_output=True, timeout=10)
-        subprocess.run(["sudo", "-n", "wg-quick", "up", "wg0"],
+        subprocess.run(["sudo", "-n", "wg-quick", "up", iface],
                        capture_output=True, timeout=15)
-        log.info("[wg-heal] wg-quick down/up complete")
+        log.info(f"[wg-heal] wg-quick down/up complete for {iface}")
     except Exception as e:
         log.warning(f"[wg-heal] wg-quick cycle failed: {e}")
+        return
+
+    # Tier 2: if wg0 has failed to recover this many heal cycles in a row,
+    # try the UDP/443 fallback iface. Only do the swap once — once we're on
+    # wg1 and it's still dead, we stop bouncing (operator must intervene).
+    if iface == "wg0" and _WG_FAIL_HEALS_STREAK >= _WG_FAIL_HEALS_THRESHOLD:
+        fallback_conf = os.path.expanduser("~/.dcp/wireguard/wg1.conf")
+        etc_fallback_conf = "/etc/wireguard/wg1.conf"
+        if os.path.exists(fallback_conf) or os.path.exists(etc_fallback_conf):
+            log.warning("[wg-heal] wg0 has failed %d heal cycles in a row — "
+                        "switching to UDP/443 fallback (wg1).",
+                        _WG_FAIL_HEALS_STREAK)
+            try:
+                subprocess.run(["sudo", "-n", "wg-quick", "down", "wg0"],
+                               capture_output=True, timeout=10)
+                subprocess.run(["sudo", "-n", "wg-quick", "up", "wg1"],
+                               capture_output=True, timeout=15)
+                _wg_save_active_iface("wg1")
+                _WG_FAIL_HEALS_STREAK = 0
+                log.info("[wg-heal] now active on wg1 (UDP/443 fallback). "
+                         "Persisted in active.txt.")
+            except Exception as e:
+                log.warning(f"[wg-heal] fallback to wg1 failed: {e}")
+        else:
+            log.warning("[wg-heal] wg0 dead and no wg1.conf present — "
+                        "operator must enable UDP/443 fallback "
+                        "(set DCP_WG_FALLBACK_ENDPOINT on the backend and "
+                        "re-run the installer).")
 
 
 def _detect_wg_mesh_ip():

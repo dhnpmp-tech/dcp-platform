@@ -105,6 +105,10 @@ interface ProviderInfo {
   name: string; status: 'online' | 'offline'; isPaused: boolean
   gpuModel: string; gpuUtil: number; vramUtil: number; activeJobId: string | null
   totalEarningsHalala: number; todayEarningsHalala: number; monthEarningsHalala: number
+  // Tier 2: WG tunnel state. true = healthy, false = zombied/auto-healing,
+  // null = wg not in scope (e.g. Apple Silicon dev box, Windows pre-install).
+  wgTunnelHealthy: boolean | null
+  wgHandshakeAgeS: number | null
 }
 interface MetricsStats {
   jobsCompleted: number; avgJobDurationMinutes: number
@@ -172,6 +176,9 @@ export default function ProviderEarningsDashboard() {
         totalEarningsHalala: Number(p.total_earnings_halala || 0),
         todayEarningsHalala: Number(p.today_earnings_halala || 0),
         monthEarningsHalala: Number(p.month_earnings_halala || 0),
+        // Tier 2: tunnel-state badge data. p.wg_tunnel_healthy is true|false|null.
+        wgTunnelHealthy: typeof p.wg_tunnel_healthy === 'boolean' ? p.wg_tunnel_healthy : null,
+        wgHandshakeAgeS: typeof p.wg_handshake_age_s === 'number' ? p.wg_handshake_age_s : null,
       })
       if (metricsRes.ok) {
         const m = await metricsRes.json()
@@ -288,13 +295,45 @@ export default function ProviderEarningsDashboard() {
         <div className={`rounded-xl border p-5 transition-colors ${isEarning ? 'border-status-success/40 bg-status-success/5' : 'border-dc1-border bg-dc1-surface-l1'}`}>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <StatusDot earning={isEarning} online={isOnline} />
                 <span className={`text-sm font-semibold ${isEarning ? 'text-status-success' : isOnline ? 'text-dc1-text-primary' : 'text-dc1-text-muted'}`}>
                   {isEarning ? '⚡ Earning' : isOnline ? 'Online — Idle' : 'Offline'}
                 </span>
                 {provider.isPaused && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-status-warning/20 text-status-warning border border-status-warning/30">Paused</span>
+                )}
+                {/* Tier 2: WireGuard tunnel-state badge. Sits next to the
+                    Online/Offline pill so ops can spot zombied tunnels at a
+                    glance — most "Online" providers with stale handshakes
+                    used to look fine here. */}
+                {provider.wgTunnelHealthy === true && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full bg-status-success/20 text-status-success border border-status-success/30"
+                    title={provider.wgHandshakeAgeS != null
+                      ? `Last handshake ${provider.wgHandshakeAgeS}s ago`
+                      : 'WireGuard tunnel handshake fresh'}
+                  >
+                    Tunnel OK
+                  </span>
+                )}
+                {provider.wgTunnelHealthy === false && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full bg-status-warning/20 text-status-warning border border-status-warning/30"
+                    title={provider.wgHandshakeAgeS != null
+                      ? `Handshake stale (${provider.wgHandshakeAgeS}s) — daemon is auto-healing`
+                      : 'No tunnel handshake — daemon is auto-healing'}
+                  >
+                    Tunnel zombied — auto-healing
+                  </span>
+                )}
+                {provider.wgTunnelHealthy === null && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full bg-dc1-surface-l3 text-dc1-text-muted border border-dc1-border"
+                    title="No WireGuard interface detected. Tunnel is optional on Apple Silicon and Windows."
+                  >
+                    Tunnel not in use
+                  </span>
                 )}
               </div>
               <p className="text-dc1-text-secondary text-sm truncate">{provider.gpuModel}</p>

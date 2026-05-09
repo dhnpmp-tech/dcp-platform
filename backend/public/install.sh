@@ -341,24 +341,53 @@ setup_wireguard() {
   local wg_pubkey
   wg_pubkey="$(cat "${wg_dir}/public.key")"
 
-  # Register WireGuard public key with the backend
+  # Register WireGuard public key with the backend. The backend handler at
+  # /api/providers/wg/register returns:
+  #   ip, server_pubkey, server_endpoint, psk
+  # Tier 2 also returns (when DCP_WG_FALLBACK_ENDPOINT is set on the backend):
+  #   fallback_endpoint, fallback_server_public_key, fallback_tunnel_target,
+  #   fallback_subnet
+  # If the fallback fields are present we write a *second* config (wg1.conf)
+  # pointing at UDP/443 so the daemon can fail over when UDP/51820 is blocked.
   local wg_response
-  wg_response="$(curl -sS -X POST "${API_BASE}/api/providers/wireguard" \
+  wg_response="$(curl -sS -X POST "${API_BASE}/api/providers/wg/register" \
     -H "Content-Type: application/json" \
     -H "x-provider-key: ${DCP_PROVIDER_KEY}" \
     -d "{\"public_key\":\"${wg_pubkey}\"}" 2>/dev/null || echo "{}")"
 
   local wg_ip
-  wg_ip="$(json_get_string "${wg_response}" "assigned_ip")"
+  wg_ip="$(json_get_string "${wg_response}" "ip")"
   local wg_endpoint
-  wg_endpoint="$(json_get_string "${wg_response}" "endpoint")"
+  wg_endpoint="$(json_get_string "${wg_response}" "server_endpoint")"
   local wg_server_pubkey
-  wg_server_pubkey="$(json_get_string "${wg_response}" "server_public_key")"
+  wg_server_pubkey="$(json_get_string "${wg_response}" "server_pubkey")"
+  local wg_psk
+  wg_psk="$(json_get_string "${wg_response}" "psk")"
+  # Tier 2: optional UDP/443 fallback fields. Empty when the operator hasn't
+  # provisioned wg1 on the VPS yet — install proceeds with primary-only.
+  local wg_fb_endpoint
+  wg_fb_endpoint="$(json_get_string "${wg_response}" "fallback_endpoint")"
+  local wg_fb_server_pubkey
+  wg_fb_server_pubkey="$(json_get_string "${wg_response}" "fallback_server_public_key")"
+  local wg_fb_tunnel_target
+  wg_fb_tunnel_target="$(json_get_string "${wg_response}" "fallback_tunnel_target")"
+  [ -n "${wg_fb_tunnel_target}" ] || wg_fb_tunnel_target="10.9.0.1"
+  # Compute the fallback IP for this peer: same last octet as wg0, in 10.9.0.0/24.
+  local wg_fb_ip=""
+  if [ -n "${wg_ip}" ]; then
+    local octet="${wg_ip##*.}"
+    wg_fb_ip="10.9.0.${octet}"
+  fi
 
   if [ -n "${wg_ip}" ] && [ -n "${wg_server_pubkey}" ]; then
-    # Write WireGuard config. MTU 1420 is WG's default and works on most
-    # links; the daemon's self-heal loop drops to 1280 if pings fail (broken
-    # NAT/PPPoE/cellular). PersistentKeepalive=25 keeps NAT bindings alive.
+    # Write primary WireGuard config. MTU 1420 is WG's default and works on
+    # most links; the daemon's MTU auto-tune drops to 1280 when pings fail
+    # despite a fresh handshake (broken NAT/PPPoE/cellular). PersistentKeepalive
+    # keeps NAT bindings alive.
+    local psk_line=""
+    if [ -n "${wg_psk}" ]; then
+      psk_line="PresharedKey = ${wg_psk}"
+    fi
     cat > "${wg_dir}/wg0.conf" <<WGCONF
 [Interface]
 PrivateKey = $(cat "${wg_dir}/private.key")
@@ -367,8 +396,9 @@ MTU = 1420
 
 [Peer]
 PublicKey = ${wg_server_pubkey}
+${psk_line}
 Endpoint = ${wg_endpoint:-vpn.dcp.sa:51820}
-AllowedIPs = 10.0.0.0/24
+AllowedIPs = 10.8.0.0/24
 PersistentKeepalive = 25
 WGCONF
     chmod 600 "${wg_dir}/wg0.conf"
@@ -378,29 +408,53 @@ WGCONF
       sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
         || sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
     else
+      sudo mkdir -p /etc/wireguard
       sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
-        || sudo mkdir -p /etc/wireguard && sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
+        || sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
+    fi
+
+    # ── Tier 2: write wg1.conf (UDP/443 fallback) when backend provided one ──
+    # We always *write* it if the backend exposes a fallback, but only
+    # *activate* wg1 if wg0 fails its in-tunnel ping verification below.
+    if [ -n "${wg_fb_endpoint}" ] && [ -n "${wg_fb_server_pubkey}" ] && [ -n "${wg_fb_ip}" ]; then
+      cat > "${wg_dir}/wg1.conf" <<FBCONF
+[Interface]
+PrivateKey = $(cat "${wg_dir}/private.key")
+Address = ${wg_fb_ip}/24
+MTU = 1420
+
+[Peer]
+PublicKey = ${wg_fb_server_pubkey}
+${psk_line}
+Endpoint = ${wg_fb_endpoint}
+AllowedIPs = 10.9.0.0/24
+PersistentKeepalive = 25
+FBCONF
+      chmod 600 "${wg_dir}/wg1.conf"
+      if [ "${DCP_OS}" = "linux" ]; then
+        sudo install -m 600 "${wg_dir}/wg1.conf" /etc/wireguard/wg1.conf 2>/dev/null \
+          || sudo cp "${wg_dir}/wg1.conf" /etc/wireguard/wg1.conf
+      else
+        sudo mkdir -p /etc/wireguard
+        sudo install -m 600 "${wg_dir}/wg1.conf" /etc/wireguard/wg1.conf 2>/dev/null \
+          || sudo cp "${wg_dir}/wg1.conf" /etc/wireguard/wg1.conf
+      fi
+      info "Wrote UDP/443 fallback config (wg1) → ${wg_fb_endpoint}"
     fi
 
     info "WireGuard config written. Activating tunnel..."
     # Bring it up once interactively so we can verify before persisting.
     sudo wg-quick down wg0 2>/dev/null || true
     if ! sudo wg-quick up wg0 2>&1 | tail -3; then
-      fail "wg-quick up failed. Check 'sudo wg show' and the endpoint at ${wg_endpoint:-vpn.dcp.sa:51820}."
+      warn "wg-quick up wg0 failed. Will try UDP/443 fallback if available."
     fi
 
     # ── Verify the handshake actually completed ─────────────────────────
     # A "successful" wg-quick up doesn't mean the peer responded. Ping the
     # VPS WG IP from inside the tunnel; if no reply in 5 attempts, the
-    # tunnel is dead-on-arrival and we must fail loudly.
-    local server_wg_ip="${wg_endpoint%%:*}"
-    # If endpoint resolves to a public IP/hostname, the in-tunnel IP is the
-    # first usable address in AllowedIPs. Default to 10.0.0.1.
-    local tunnel_target
-    tunnel_target="$(echo "${wg_response}" | sed -n 's/.*"server_tunnel_ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
-    [ -n "${tunnel_target}" ] || tunnel_target="10.0.0.1"
-
-    info "Verifying tunnel reachability (target: ${tunnel_target})..."
+    # tunnel is dead-on-arrival and we should try the fallback.
+    local tunnel_target="10.8.0.1"
+    info "Verifying primary tunnel reachability (target: ${tunnel_target})..."
     local ok=0 i
     for i in 1 2 3 4 5; do
       if ping -c 1 -W 2 "${tunnel_target}" >/dev/null 2>&1; then
@@ -408,26 +462,57 @@ WGCONF
       fi
       sleep 1
     done
+
+    local active_iface="wg0"
     if [ "${ok}" -eq 1 ]; then
       success "Tunnel handshake confirmed (ping to ${tunnel_target} OK)."
+    elif [ -n "${wg_fb_endpoint}" ] && [ -f "/etc/wireguard/wg1.conf" ]; then
+      warn "Primary tunnel (UDP/51820) unreachable. Trying UDP/443 fallback..."
+      sudo wg-quick down wg0 2>/dev/null || true
+      if sudo wg-quick up wg1 2>&1 | tail -3; then
+        local fb_ok=0
+        for i in 1 2 3 4 5; do
+          if ping -c 1 -W 2 "${wg_fb_tunnel_target}" >/dev/null 2>&1; then
+            fb_ok=1; break
+          fi
+          sleep 1
+        done
+        if [ "${fb_ok}" -eq 1 ]; then
+          success "UDP/443 fallback tunnel up (ping to ${wg_fb_tunnel_target} OK)."
+          active_iface="wg1"
+        else
+          warn "Fallback tunnel up but no ping reply. Daemon will keep self-healing."
+          active_iface="wg1"
+        fi
+      else
+        warn "wg-quick up wg1 failed. Tunnel will remain offline; daemon will retry."
+      fi
     else
       warn "Tunnel up but no reply from ${tunnel_target}. Daemon will retry + self-heal."
-      warn "If this persists, your network may be blocking UDP/51820. Tier 2 work will add a UDP/443 fallback."
+      warn "Your network may be blocking UDP/51820. Ask DCP ops to enable the UDP/443 fallback."
     fi
+
+    # Persist the active-iface marker so the daemon picks it up on first run.
+    mkdir -p "${wg_dir}"
+    echo "${active_iface}" > "${wg_dir}/active.txt"
 
     # ── Persist the tunnel across reboots / sleep / network changes ─────
     if [ "${DCP_OS}" = "linux" ]; then
-      # systemd unit shipped by wireguard-tools — just enable it.
+      # systemd unit shipped by wireguard-tools — just enable the active iface.
       if command -v systemctl >/dev/null 2>&1; then
-        sudo systemctl enable --now wg-quick@wg0.service 2>&1 | tail -2 \
-          && success "WireGuard persisted via wg-quick@wg0.service" \
-          || warn "Could not enable wg-quick@wg0 systemd unit. Tunnel won't survive reboot."
+        sudo systemctl enable --now "wg-quick@${active_iface}.service" 2>&1 | tail -2 \
+          && success "WireGuard persisted via wg-quick@${active_iface}.service" \
+          || warn "Could not enable wg-quick@${active_iface} systemd unit. Tunnel won't survive reboot."
       else
         warn "No systemctl found; tunnel won't survive reboot. Add a init.d script manually."
       fi
     elif [ "${DCP_OS}" = "mac" ]; then
       # launchd LaunchDaemon — runs as root, KeepAlive on network change,
-      # re-ups tunnel after wake-from-sleep.
+      # re-ups tunnel after wake-from-sleep. The wake-hook plist below is a
+      # *separate* job (Tier 2): keeping it separate from the main persist
+      # plist means we can restart the wake hook independently without
+      # disturbing tunnel state, and a crash loop in one doesn't take the
+      # other down.
       local plist=/Library/LaunchDaemons/com.dcp.wireguard.plist
       sudo tee "${plist}" >/dev/null <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -436,7 +521,7 @@ WGCONF
   <key>Label</key><string>com.dcp.wireguard</string>
   <key>ProgramArguments</key><array>
     <string>/bin/sh</string><string>-c</string>
-    <string>/usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick down wg0 2>/dev/null; /usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick up wg0</string>
+    <string>IFACE=\$(cat ${wg_dir}/active.txt 2>/dev/null || echo wg0); /usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick down \$IFACE 2>/dev/null; /usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick up \$IFACE</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>NetworkState</key><true/></dict>
@@ -448,8 +533,41 @@ PLIST
       sudo launchctl load -w "${plist}" 2>&1 | tail -2 \
         && success "WireGuard persisted via launchd (re-ups on wake/network change)" \
         || warn "Could not load launchd plist. Tunnel won't survive reboot/sleep."
+
+      # ── Tier 2: separate wake-hook plist ────────────────────────────────
+      # KeepAlive.NetworkState is best-effort — it misses some wake events
+      # where the network reachability flag flips back to "true" before
+      # launchd polls. WatchPaths on /etc/resolv.conf gives us a second,
+      # event-driven trigger: any DNS/network reconfiguration (which always
+      # happens on wake) bumps resolv.conf's mtime and fires this job.
+      # Kept as its own plist so a flap in the wake hook can't crash-loop
+      # the persistent tunnel job above.
+      local wake_plist=/Library/LaunchDaemons/com.dcp.wireguard.wakehook.plist
+      sudo tee "${wake_plist}" >/dev/null <<WAKEPLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.dcp.wireguard.wakehook</string>
+  <key>ProgramArguments</key><array>
+    <string>/bin/sh</string><string>-c</string>
+    <string>IFACE=\$(cat ${wg_dir}/active.txt 2>/dev/null || echo wg0); /usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick down \$IFACE 2>/dev/null; /usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick up \$IFACE</string>
+  </array>
+  <key>WatchPaths</key><array>
+    <string>/etc/resolv.conf</string>
+    <string>/var/run/resolv.conf</string>
+  </array>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/var/log/dcp-wireguard-wakehook.log</string>
+  <key>StandardErrorPath</key><string>/var/log/dcp-wireguard-wakehook.log</string>
+</dict></plist>
+WAKEPLIST
+      sudo launchctl unload "${wake_plist}" 2>/dev/null || true
+      sudo launchctl load -w "${wake_plist}" 2>&1 | tail -2 \
+        && success "Wake-hook plist installed (re-ups tunnel on resolv.conf change)" \
+        || warn "Could not load wake-hook plist. Wake recovery may be slower."
     fi
     info "VPN public key: ${wg_pubkey}"
+    info "Active tunnel iface: ${active_iface}"
   else
     info "WireGuard public key: ${wg_pubkey}"
     info "VPN config will be assigned by DCP after approval."

@@ -1086,6 +1086,12 @@ const migrations = [
   'ALTER TABLE providers ADD COLUMN wg_public_key TEXT',
   // WG key rotation: track last rotation timestamp for rate limiting (max 1/24h)
   'ALTER TABLE providers ADD COLUMN wg_last_rotation_at TEXT',
+  // Tier 2: persist derived tunnel-health flag from heartbeat for the
+  // dashboard badge. NULL = wg not in scope, 1 = healthy, 0 = zombied.
+  'ALTER TABLE providers ADD COLUMN wg_tunnel_healthy INTEGER',
+  // Tier 2: most recent handshake age in seconds (rounded). Lets the
+  // dashboard render a tooltip without re-deriving from raw wg_health.
+  'ALTER TABLE providers ADD COLUMN wg_handshake_age_s INTEGER',
   // Audit M6: per-renter HMAC secret for outbound webhook signatures.
   // Replaces the legacy fallback that used the renter's API key as the signing
   // secret — leaking the API key inside webhook signatures sent to URLs the
