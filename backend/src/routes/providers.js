@@ -506,13 +506,13 @@ router.post('/register', registerLimiter, validateBody(providerRegisterSchema), 
             console.warn(`[registration] Potential duplicate for "${cleanName}" <${cleanEmail}>: ${matches}`);
         }
 
-        // Cross-role guard: this email may already hold a renter account.
-        // See backend/migrations/006_fadi_cross_role_cleanup.sql for the
-        // historical incident that motivated this check.
+        // Dual-role allowed: the historical hard block (see migration 006) was
+        // softened on 2026-05-09 because real users (Tareq, Fadi) hit it during
+        // onboarding. The same email can now hold both a provider and a
+        // renter row. We log cross-role state for visibility.
         const conflict = findActiveAccountByEmail(db, cleanEmail);
         if (conflict && conflict.role !== 'provider') {
-            const err = buildConflictResponse(conflict.role, 'provider');
-            return res.status(409).json({ error: err.message, code: err.code, existing_role: err.existing_role });
+            console.log(`[providers/register] dual-role onboarding: ${cleanEmail} already has ${conflict.role} (id=${conflict.id})`);
         }
 
         // Generate unique API key
@@ -750,7 +750,24 @@ function computeReputationScore(providerId) {
 //
 // HEARTBEAT API CONTRACT
 // ----------------------
-// Called by dcp_daemon.py every 30 seconds while the provider is active.
+// What this endpoint is for:
+//   The DCP daemon (dcp_daemon.py) running on the provider's machine sends
+//   a periodic snapshot of GPU telemetry, daemon health, and reachability
+//   info. The backend uses these heartbeats to keep the provider's status
+//   fresh in the marketplace, score reputation, and feed the live
+//   "providers online" metric on the dashboard.
+//
+// Frequency: every 30 seconds while the provider is active.
+//
+// IMPORTANT — POST ONLY:
+//   This endpoint accepts ONLY HTTP POST. A manual `curl https://api.dcp.sa
+//   /api/providers/heartbeat` (default GET) returns 404 because Express has
+//   no GET handler at this path — that 404 is *not* an outage, it's normal
+//   method-not-found. To probe the endpoint by hand, send a POST with a
+//   minimal JSON body, e.g.
+//     curl -X POST https://api.dcp.sa/api/providers/heartbeat \
+//       -H 'Content-Type: application/json' \
+//       -d '{"api_key":"<your-key>","gpu_status":{},"provider_ip":"x.x.x.x","provider_hostname":"host"}'
 //
 // Endpoint : POST /api/providers/heartbeat
 // Auth     : api_key in request body (no header required)

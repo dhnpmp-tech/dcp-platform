@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useState, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Header from '../components/layout/Header'
 import Footer from '../components/layout/Footer'
@@ -12,14 +12,15 @@ import {
   withRenterIntentInPath,
 } from '../lib/renter-auth-intent'
 
-// Use the catch-all proxy at app/api/[...path]/route.ts (PR #298) instead of
-// the legacy /api path which 404s on Vercel due to BACKEND_URL env being
-// rejected as DNS_HOSTNAME_RESOLVED_PRIVATE.
+// Magic-link-only sign-in (state-of-the-art passwordless, GitHub/Anthropic
+// style). The user enters their email, we send a single sign-in link, and
+// the click on the link itself authenticates them via /auth/verify. No code
+// field, no second step.
 const API_BASE = '/api'
 
 type Role = 'provider' | 'renter' | 'admin'
 type LoginMethod = 'email' | 'apikey'
-type AuthStep = 'email' | 'otp'
+type AuthStep = 'email' | 'sent'
 
 function LoginPageInner() {
   const router = useRouter()
@@ -28,7 +29,6 @@ function LoginPageInner() {
 
   const [email, setEmail] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [otpCode, setOtpCode] = useState('')
   const [role, setRole] = useState<Role>('renter')
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email')
   const [authStep, setAuthStep] = useState<AuthStep>('email')
@@ -36,17 +36,12 @@ function LoginPageInner() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [countdown, setCountdown] = useState(0)
-  const otpInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (countdown <= 0) return
     const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
     return () => clearTimeout(timer)
   }, [countdown])
-
-  useEffect(() => {
-    if (authStep === 'otp' && otpInputRef.current) otpInputRef.current.focus()
-  }, [authStep])
 
   const getSafeRedirect = (fallback: string) => {
     const redirectParam = searchParams.get('redirect')
@@ -74,10 +69,6 @@ function LoginPageInner() {
 
   const normalizeAuthError = (status: number, rawError: string, fallback: string) => {
     const lower = rawError.toLowerCase()
-    // OTP-specific: if the error mentions token/code/otp expiry, show the code-specific message
-    if (lower.includes('token') || lower.includes('otp') || lower.includes('code') || lower.includes('verification')) {
-      return t('login.error.invalid_or_expired_code')
-    }
     if (status === 401 || status === 403) {
       if (lower.includes('session')) return t('auth.error.expired_session')
       return t('auth.error.invalid_credentials')
@@ -95,11 +86,21 @@ function LoginPageInner() {
     if (reasonParam) setError(getReasonMessage(reasonParam))
   }, [getReasonMessage, searchParams])
 
-  const handleSendOtp = async () => {
+  // Persist the intended post-login destination (provider vs renter) so that
+  // /auth/verify, which has no Role context, can redirect correctly when the
+  // user clicks the link in their email.
+  const persistRolePreference = (chosen: Role) => {
+    try {
+      sessionStorage.setItem('dcp_login_prefer_role', chosen)
+    } catch { /* ignore */ }
+  }
+
+  const handleSendMagicLink = async () => {
     setError(''); setSuccessMsg(''); setIsLoading(true)
     try {
       if (!email.trim()) { setError(t('login.enter_email')); setIsLoading(false); return }
       if (role === 'admin') { setError(t('login.admin_needs_key')); setIsLoading(false); return }
+      persistRolePreference(role)
       const endpoint = role === 'renter' ? 'renters/send-otp' : 'providers/send-otp'
       const res = await fetch(`${API_BASE}/${endpoint}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -107,44 +108,18 @@ function LoginPageInner() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || t('login.error.send_failed'))
+        throw new Error(data.error || 'Failed to send sign-in link.')
       }
-      setAuthStep('otp')
-      setSuccessMsg(t('login.otp.sent_success'))
+      setAuthStep('sent')
+      setSuccessMsg('Check your email — we sent you a sign-in link.')
       setCountdown(60)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('login.error.send_failed'))
+      setError(err instanceof Error ? err.message : 'Failed to send sign-in link.')
     } finally { setIsLoading(false) }
   }
 
-  const handleVerifyOtp = async () => {
-    setError(''); setSuccessMsg(''); setIsLoading(true)
-    try {
-      if (!otpCode.trim()) { setError(t('login.error.enter_verification_code')); setIsLoading(false); return }
-      const endpoint = role === 'renter' ? 'renters/verify-otp' : 'providers/verify-otp'
-      const res = await fetch(`${API_BASE}/${endpoint}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), token: otpCode.trim() }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(normalizeAuthError(res.status, data.error || t('login.error.verification_failed'), t('login.error.invalid_or_expired_code')))
-      }
-      const data = await res.json()
-      if (!data.success || !data.api_key) throw new Error(t('login.error.verification_failed'))
-      if (role === 'renter') {
-        localStorage.setItem('dc1_renter_key', data.api_key)
-        await setSession({ role: 'renter', userName: data.renter?.name, email: data.renter?.email })
-        router.push(getRenterPostLoginRedirect())
-      } else {
-        localStorage.setItem('dc1_provider_key', data.api_key)
-        await setSession({ role: 'provider', userName: data.provider?.name, email: data.provider?.email })
-        router.push('/provider')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('login.error.verification_failed'))
-    } finally { setIsLoading(false) }
-  }
+  const handleResendLink = () => { if (countdown > 0) return; handleSendMagicLink() }
+  const handleBackToEmail = () => { setAuthStep('email'); setError(''); setSuccessMsg(''); setCountdown(0) }
 
   const handleApiKeyLogin = async () => {
     setError(''); setIsLoading(true)
@@ -181,31 +156,14 @@ function LoginPageInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (loginMethod === 'apikey') return handleApiKeyLogin()
-    if (authStep === 'email') return handleSendOtp()
-    return handleVerifyOtp()
+    if (authStep === 'email') return handleSendMagicLink()
+    // 'sent' step has no submit — only Resend / Back
   }
 
-  const handleResendOtp = () => { if (countdown > 0) return; setOtpCode(''); handleSendOtp() }
-  const handleBackToEmail = () => { setAuthStep('email'); setOtpCode(''); setError(''); setSuccessMsg(''); setCountdown(0) }
   const helperRows = [
-    {
-      id: 'renter',
-      roleLabel: t('login.role.renter'),
-      authLabel: t('login.auth_mode.email_otp'),
-      destination: '/renter/playground',
-    },
-    {
-      id: 'provider',
-      roleLabel: t('login.role.provider'),
-      authLabel: t('login.auth_mode.email_otp'),
-      destination: '/provider',
-    },
-    {
-      id: 'admin',
-      roleLabel: t('login.role.admin'),
-      authLabel: t('login.auth_mode.api_key'),
-      destination: '/admin',
-    },
+    { id: 'renter', roleLabel: t('login.role.renter'), authLabel: 'Magic link', destination: '/renter/playground' },
+    { id: 'provider', roleLabel: t('login.role.provider'), authLabel: 'Magic link', destination: '/provider' },
+    { id: 'admin', roleLabel: t('login.role.admin'), authLabel: t('login.auth_mode.api_key'), destination: '/admin' },
   ]
 
   return (
@@ -219,7 +177,9 @@ function LoginPageInner() {
             </div>
             <h1 className="text-2xl font-bold text-dc1-text-primary text-center mb-2">{t('auth.sign_in')}</h1>
             <p className="text-sm text-dc1-text-secondary text-center mb-6">
-              {authStep === 'otp' ? t('login.otp.step_description') : t('login.sign_in_desc')}
+              {authStep === 'sent'
+                ? 'We sent a sign-in link to your email.'
+                : 'Sign in with a one-click link sent to your email.'}
             </p>
 
             {authStep === 'email' && (
@@ -282,40 +242,41 @@ function LoginPageInner() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {loginMethod === 'email' ? (
-                <>
-                  {authStep === 'email' ? (
-                    <div>
-                      <label htmlFor="email" className="label">{t('login.email_address')}</label>
-                      <input id="email" type="email" placeholder="you@example.com" value={email}
-                        onChange={(e) => setEmail(e.target.value)} className="input" disabled={isLoading} required autoFocus />
+                authStep === 'email' ? (
+                  <div>
+                    <label htmlFor="email" className="label">{t('login.email_address')}</label>
+                    <input id="email" type="email" placeholder="you@example.com" value={email}
+                      onChange={(e) => setEmail(e.target.value)} className="input" disabled={isLoading} required autoFocus />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2/60 p-5 text-center">
+                    <svg className="w-12 h-12 mx-auto text-dc1-amber mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-sm text-dc1-text-primary mb-1">Link sent to</p>
+                    <p className="text-base text-dc1-amber font-mono mb-4 break-all">{email}</p>
+                    <p className="text-xs text-dc1-text-secondary mb-4">
+                      Open the email and click <span className="text-dc1-text-primary font-semibold">Sign In to DCP</span>.
+                      The link expires in 15 minutes.
+                    </p>
+                    <div className="flex flex-col gap-2 items-center">
+                      {countdown > 0 ? (
+                        <span className="text-xs text-dc1-text-secondary">
+                          You can request a new link in {countdown}s
+                        </span>
+                      ) : (
+                        <button type="button" onClick={handleResendLink} disabled={isLoading}
+                          className="text-sm text-dc1-amber hover:text-dc1-amber/80 font-medium">
+                          Resend link
+                        </button>
+                      )}
+                      <button type="button" onClick={handleBackToEmail}
+                        className="text-xs text-dc1-text-secondary hover:text-dc1-text-primary">
+                        Use a different email
+                      </button>
                     </div>
-                  ) : (
-                    <div>
-                      <div className="mb-4 p-3 bg-dc1-surface-l2 rounded-md">
-                        <p className="text-xs text-dc1-text-secondary">{t('login.otp.sending_to')}</p>
-                        <p className="text-sm text-dc1-text-primary font-medium">{email}</p>
-                        <button type="button" onClick={handleBackToEmail} className="text-xs text-dc1-amber hover:text-dc1-amber/80 mt-1">{t('login.otp.change_email')}</button>
-                      </div>
-                      <label htmlFor="otpCode" className="label">{t('login.otp.code_label')}</label>
-                      <p className="mb-2 text-xs text-dc1-text-secondary">
-                        {t('login.otp.expectation')}
-                      </p>
-                      <input id="otpCode" ref={otpInputRef} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
-                        placeholder={t('login.otp.placeholder')} value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="input text-center text-2xl tracking-[0.5em] font-mono" disabled={isLoading} required autoComplete="one-time-code" />
-                      <div className="mt-2 text-center">
-                        {countdown > 0 ? (
-                          <span className="text-xs text-dc1-text-secondary">{t('login.otp.resend_in').replace('{seconds}', String(countdown))}</span>
-                        ) : (
-                          <button type="button" onClick={handleResendOtp} className="text-xs text-dc1-amber hover:text-dc1-amber/80" disabled={isLoading}>
-                            {t('login.otp.resend')}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
+                  </div>
+                )
               ) : (
                 <div>
                   <label htmlFor="apiKey" className="label">{t('login.api_key')}</label>
@@ -326,17 +287,21 @@ function LoginPageInner() {
                 </div>
               )}
 
-              <button type="submit" disabled={isLoading} className="btn btn-primary w-full">
-                {isLoading
-                  ? (authStep === 'otp' ? t('login.otp.verifying') : t('login.signing_in'))
-                  : (loginMethod === 'email' ? (authStep === 'otp' ? t('login.otp.verify_cta') : t('login.otp.send_cta')) : t('auth.sign_in'))}
-              </button>
+              {(authStep === 'email' || loginMethod === 'apikey') && (
+                <button type="submit" disabled={isLoading} className="btn btn-primary w-full">
+                  {isLoading
+                    ? (loginMethod === 'email' ? 'Sending link…' : t('login.signing_in'))
+                    : (loginMethod === 'email' ? 'Send Sign-In Link' : t('auth.sign_in'))}
+                </button>
+              )}
             </form>
 
             <div className="mt-6 pt-6 border-t border-dc1-border/30">
-              <p className="text-xs text-dc1-text-secondary text-center mb-3">
+              <p className="text-xs text-dc1-text-secondary text-center">
                 {loginMethod === 'email'
-                  ? (authStep === 'otp' ? t('login.otp.check_inbox') : t('login.otp.send_notice'))
+                  ? (authStep === 'sent'
+                      ? "Didn't get the email? Check your spam folder, or click Resend above."
+                      : "We'll email you a one-click sign-in link. No password, no codes.")
                   : t('login.apikey_hint')}
               </p>
             </div>

@@ -377,13 +377,13 @@ router.post('/register', validateBody(renterRegisterSchema), (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: name, email' });
     }
 
-    // Cross-role guard: this email may already hold a provider account.
-    // See backend/migrations/006_fadi_cross_role_cleanup.sql for the
-    // historical incident that motivated this check.
+    // Dual-role allowed: the historical hard block (see migration 006) was
+    // softened on 2026-05-09 because real users (Tareq, Fadi) hit it during
+    // onboarding. The same email can now hold both a provider and a renter
+    // row. We log cross-role state for visibility.
     const conflict = findActiveAccountByEmail(db, cleanEmail);
     if (conflict && conflict.role !== 'renter') {
-      const err = buildConflictResponse(conflict.role, 'renter');
-      return res.status(409).json({ error: err.message, code: err.code, existing_role: err.existing_role });
+      console.log(`[renters/register] dual-role onboarding: ${cleanEmail} already has ${conflict.role} (id=${conflict.id})`);
     }
 
     const api_key = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');

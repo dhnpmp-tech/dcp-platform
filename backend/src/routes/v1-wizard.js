@@ -30,18 +30,13 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
 const db = require('../db');
-const { sendOtp } = require('../services/auth-otp');
-const { reconcileRenterByEmailFromSupabase } = require('../services/renter-identity-reconciliation');
+const { sendOtp, verifyOtp, verifyMagicToken } = require('../services/auth-otp');
 const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
 const { looksLikeRenterKey } = require('../middleware/auth');
 
 const router = express.Router();
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 // ── Schema (idempotent) ─────────────────────────────────────────────
 // Wizard-specific tables. Kept narrow to avoid coupling with the
@@ -119,13 +114,13 @@ router.post('/auth/register', async (req, res) => {
     // is magic-link only; the wizard spec documents password but the
     // confirmed implementation bridges to OTP/magic-link.
 
-    // Cross-role guard: a single email may only hold one role on DCP.
-    // See backend/migrations/006_fadi_cross_role_cleanup.sql for the
-    // historical incident that motivated this check.
+    // Dual-role allowed: the historical hard block (see migration 006) was
+    // softened on 2026-05-09 because real users (Tareq, Fadi) hit it during
+    // onboarding. We still log the cross-role state so we can monitor for
+    // anomalies and offer a role switch in the UI.
     const conflict = findActiveAccountByEmail(db, email);
     if (conflict && conflict.role !== role) {
-      const err = buildConflictResponse(conflict.role, role);
-      return wizardError(res, 409, err.code, err.message);
+      console.log(`[v1-wizard/register] dual-role onboarding: ${email} already has ${conflict.role} (id=${conflict.id}), now registering as ${role}`);
     }
 
     // For new providers we pre-stage a row so verify-otp/magic-link-exchange
@@ -190,45 +185,46 @@ router.post('/auth/login', async (req, res) => {
 });
 
 // ── POST /v1/auth/session ───────────────────────────────────────────
-// Exchanges a Supabase access_token (received by the browser after the
-// magic-link click) for a DCP api_key. Delegates to the same lookup
-// logic as /api/auth/magic-link-exchange.
+// Accepts either:
+//   { magic_token: "..." }  — from clicking the email link
+//   { email: "...", code: "..." }  — from entering the 6-digit OTP
+// Returns the DCP api_key for the matching provider/renter.
 
 router.post('/auth/session', async (req, res) => {
   try {
-    const accessToken = typeof req.body?.access_token === 'string'
-      ? req.body.access_token.trim()
-      : null;
-    if (!accessToken) {
-      return wizardError(res, 400, 'missing_access_token', 'access_token is required');
-    }
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      return wizardError(res, 503, 'auth_unconfigured', 'Supabase auth is not configured on this server');
+    let email = null;
+
+    // Option 1: Magic link token (from clicking the email button)
+    const magicToken = typeof req.body?.magic_token === 'string' ? req.body.magic_token.trim() : null;
+    // Also accept access_token for backward compat (old frontend may send this)
+    const accessToken = typeof req.body?.access_token === 'string' ? req.body.access_token.trim() : null;
+    const token = magicToken || accessToken;
+
+    if (token && token.length === 64) {
+      // Looks like our magic token (64 hex chars)
+      const result = verifyMagicToken(token);
+      if (!result.success) {
+        return wizardError(res, 401, 'invalid_session', result.error || 'Invalid or expired sign-in link');
+      }
+      email = result.user.email;
+    } else if (req.body?.email && req.body?.code) {
+      // Option 2: Email + OTP code
+      const cleanEmail = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : null;
+      if (!cleanEmail) return wizardError(res, 400, 'invalid_email', 'Valid email is required');
+      const otpResult = await verifyOtp(cleanEmail, req.body.code);
+      if (!otpResult.success) {
+        return wizardError(res, 401, 'invalid_code', otpResult.error || 'Invalid verification code');
+      }
+      email = cleanEmail;
+    } else {
+      return wizardError(res, 400, 'missing_credentials', 'Provide magic_token (from email link) or email + code (6-digit OTP)');
     }
 
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { data, error } = await supabaseClient.auth.getUser(accessToken);
-    if (error || !data?.user?.email) {
-      return wizardError(res, 401, 'invalid_session', 'Invalid or expired sign-in link');
-    }
-
-    const email = data.user.email.toLowerCase().trim();
-
-    let renter = db.get(
+    // Look up provider or renter by email
+    const renter = db.get(
       'SELECT * FROM renters WHERE LOWER(email) = LOWER(?) AND status = ?',
       email, 'active',
     );
-    if (!renter) {
-      try {
-        const reconcile = await reconcileRenterByEmailFromSupabase({ db, email });
-        if (reconcile.reconciled && reconcile.renter?.status === 'active') {
-          renter = reconcile.renter;
-        }
-      } catch (reconcileErr) {
-        console.warn('[V1-WIZARD] renter reconciliation failed:', reconcileErr.message);
-      }
-    }
-
     if (renter) {
       return res.json({
         role: 'renter',
