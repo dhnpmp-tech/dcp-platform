@@ -598,7 +598,7 @@ router.post('/send-otp', loginEmailLimiter, async (req, res) => {
       return res.status(500).json({ error: result.error || 'Failed to send verification code' });
     }
 
-    res.json({ success: true, message: 'Verification code sent to your email' });
+    res.json({ success: true, message: 'Sign-in link sent to your email' });
   } catch (error) {
     console.error('Provider OTP send error:', error);
     res.status(500).json({ error: 'Failed to send verification code' });

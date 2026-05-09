@@ -59,7 +59,7 @@ export function WizardShell({ initialCredentials, onComplete }: WizardShellProps
   const handleEmailSent = useCallback(() => {
     // Step 1's work is done — the user now has to click the magic link. We
     // leave them on Step 1's "check your email" confirmation; when they come
-    // back via /auth/callback the shell re-mounts with initialCredentials
+    // back via /auth/verify the shell re-mounts with initialCredentials
     // and advances automatically.
   }, [])
 

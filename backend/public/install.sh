@@ -22,9 +22,16 @@ case "${OS_UNAME}" in
   *) DCP_OS="linux" ;;
 esac
 
-# Accept provider key as first positional arg (curl ... | bash -s KEY)
-# or via DCP_PROVIDER_KEY env var.
-DCP_PROVIDER_KEY="${DCP_PROVIDER_KEY:-${1:-}}"
+# Inputs (any can come via env vars):
+#   DCP_PROVIDER_KEY    long-lived daemon api_key (dcpk_… or legacy dcp-provider-…)
+#   DCP_INSTALL_TOKEN   short-lived wizard token (dcpt_…) — exchanged once for an api_key
+#   DCP_PROVIDER_EMAIL  email for self-register fallback
+#   DCP_PROVIDER_NAME   display name override
+#   DCP_PROVIDER_PHONE  phone for PDPL onboarding
+#   DCP_API_BASE        override API_BASE (defaults to https://api.dcp.sa)
+#   DCP_SYSTEMD_MODE    user|system (Linux only, default user)
+DCP_PROVIDER_KEY="${DCP_PROVIDER_KEY:-}"
+DCP_INSTALL_TOKEN="${DCP_INSTALL_TOKEN:-}"
 DCP_PROVIDER_ID="${DCP_PROVIDER_ID:-}"
 DCP_PROVIDER_EMAIL="${DCP_PROVIDER_EMAIL:-}"
 DCP_PROVIDER_NAME="${DCP_PROVIDER_NAME:-}"
@@ -34,17 +41,65 @@ DCP_SYSTEMD_MODE="${DCP_SYSTEMD_MODE:-user}" # user (default) or system
 # Engine selection: "vllm" or "ollama" — set by select_engine()
 DCP_ENGINE="${DCP_ENGINE:-vllm}"
 
-# Positional args for non-interactive install:
-#   curl -sSL https://dcp.sa/install | bash -s -- email@example.com
-#   curl -sSL https://dcp.sa/install | bash -s -- "" https://custom.api.url
-#   curl -sSL https://dcp.sa/install | bash -s -- email@example.com https://custom.api.url
-if [ -n "${1:-}" ] && [ -z "${DCP_PROVIDER_KEY}" ]; then
-  # First arg is email when no API key is set
-  DCP_PROVIDER_EMAIL="${1}"
-fi
-if [ -n "${2:-}" ]; then
-  API_BASE="${2}"
-fi
+# ── Argument parser ───────────────────────────────────────────────────────
+# Supports both flag style (preferred, what the wizard emits) and the legacy
+# positional style for backward compatibility:
+#
+#   curl … | bash -s -- --token dcpt_xxx                    (wizard)
+#   curl … | bash -s -- --api-key dcp-provider-xxx          (manual)
+#   curl … | bash -s -- --email me@example.com              (self-register)
+#   curl … | bash -s -- me@example.com https://api.foo      (legacy positional)
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --token|-t)
+      DCP_INSTALL_TOKEN="${2:-}"; shift 2 ;;
+    --api-key|-k)
+      DCP_PROVIDER_KEY="${2:-}"; shift 2 ;;
+    --email|-e)
+      DCP_PROVIDER_EMAIL="${2:-}"; shift 2 ;;
+    --name)
+      DCP_PROVIDER_NAME="${2:-}"; shift 2 ;;
+    --phone)
+      DCP_PROVIDER_PHONE="${2:-}"; shift 2 ;;
+    --api-base)
+      API_BASE="${2:-${API_BASE}}"; shift 2 ;;
+    --systemd-mode)
+      DCP_SYSTEMD_MODE="${2:-${DCP_SYSTEMD_MODE}}"; shift 2 ;;
+    --engine)
+      DCP_ENGINE="${2:-${DCP_ENGINE}}"; shift 2 ;;
+    --help|-h)
+      cat <<'USAGE'
+DCP provider installer.
+
+Usage:
+  curl -fsSL https://dcp.sa/install.sh | sudo bash -s -- [flags]
+
+Flags:
+  --token TOKEN       wizard install_token (preferred path)
+  --api-key KEY       existing provider api_key (manual install)
+  --email EMAIL       email for self-register fallback
+  --name NAME         display name (defaults to hostname)
+  --phone PHONE       phone for PDPL onboarding
+  --api-base URL      API base (default https://api.dcp.sa)
+  --systemd-mode MODE user|system (Linux only, default user)
+  --engine ENG        vllm|ollama (default vllm; auto-falls-back on Mac/Linux)
+USAGE
+      exit 0 ;;
+    --) shift; break ;;
+    -*)
+      printf 'WARN: unknown flag %s\n' "$1" >&2; shift ;;
+    *)
+      # Legacy positional: $1 = email|api-key, $2 = api-base
+      if [ -z "${DCP_PROVIDER_KEY}" ] && echo "$1" | grep -qE '^(dcp-provider-|dcpk_)'; then
+        DCP_PROVIDER_KEY="$1"
+      elif [ -z "${DCP_PROVIDER_EMAIL}" ] && echo "$1" | grep -q '@'; then
+        DCP_PROVIDER_EMAIL="$1"
+      elif echo "$1" | grep -qE '^https?://'; then
+        API_BASE="$1"
+      fi
+      shift ;;
+  esac
+done
 
 step()    { printf '\n==> %s\n' "$1"; }
 info()    { printf '  - %s\n' "$1"; }
@@ -155,7 +210,41 @@ ensure_python() {
   fi
 }
 
+exchange_install_token() {
+  # Wizard path: trade a short-lived install_token for a long-lived api_key
+  # via POST /v1/provider/register-node. Idempotent only on the first call —
+  # the backend marks the token consumed atomically.
+  [ -n "${DCP_INSTALL_TOKEN}" ] || return 0
+  [ -n "${DCP_PROVIDER_KEY}" ] && return 0  # api_key already known, skip
+
+  step "Exchanging wizard install token for API key"
+  local hostname os payload response api_key err
+  hostname="$(hostname 2>/dev/null || echo unknown)"
+  os="${DCP_OS}"
+  payload=$(cat <<JSON
+{"install_token":"$(json_escape "${DCP_INSTALL_TOKEN}")","hostname":"$(json_escape "${hostname}")","os":"${os}","gpu_detected":[{"vendor":"$(json_escape "${GPU_VENDOR:-NVIDIA}")","model":"$(json_escape "${GPU_MODEL:-unknown}")","vram_mb":${VRAM_MB:-0}}],"daemon_version":"installer-${DCP_OS}"}
+JSON
+)
+  response="$(curl -sS -X POST "${API_BASE}/v1/provider/register-node" -H "Content-Type: application/json" -d "${payload}" || true)"
+  api_key="$(json_get_string "${response}" "api_key")"
+  if [ -z "${api_key}" ]; then
+    err="$(json_get_string "${response}" "message")"
+    [ -n "${err}" ] || err="$(json_get_string "${response}" "error")"
+    [ -n "${err}" ] || err="register-node returned: ${response}"
+    fail "Install-token exchange failed: ${err}"
+  fi
+  DCP_PROVIDER_KEY="${api_key}"
+  DCP_PROVIDER_ID="$(json_get_string "${response}" "node_id")"
+  success "API key minted from install token (provider node ${DCP_PROVIDER_ID:-unknown})."
+}
+
 register_provider_if_needed() {
+  # Preferred path: wizard-issued install token → /v1/provider/register-node.
+  if [ -n "${DCP_INSTALL_TOKEN}" ] && [ -z "${DCP_PROVIDER_KEY}" ]; then
+    exchange_install_token
+    [ -n "${DCP_PROVIDER_KEY}" ] && return
+  fi
+
   if [ -n "${DCP_PROVIDER_KEY}" ]; then
     info "Provider key found."
     return
@@ -166,14 +255,14 @@ register_provider_if_needed() {
     echo ""
     info "Register at https://dcp.sa/setup to get your API key."
     echo ""
-    read -r -p "  Enter your DCP provider API key (dcp-provider-...): " DCP_PROVIDER_KEY </dev/tty
+    read -r -p "  Enter your DCP provider API key (dcp-provider-... or dcpk_...): " DCP_PROVIDER_KEY </dev/tty
     echo ""
     if [ -n "${DCP_PROVIDER_KEY}" ]; then
-      if echo "${DCP_PROVIDER_KEY}" | grep -q "^dcp-provider-"; then
+      if echo "${DCP_PROVIDER_KEY}" | grep -qE "^(dcp-provider-|dcpk_)"; then
         success "API key accepted"
         return
       else
-        warn "Key doesn't look right (expected dcp-provider-...). Trying auto-registration."
+        warn "Key doesn't look right (expected dcp-provider-… or dcpk_…). Trying auto-registration."
         DCP_PROVIDER_KEY=""
       fi
     fi

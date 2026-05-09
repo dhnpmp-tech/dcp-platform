@@ -6,10 +6,10 @@
 // dcp.sa (no subdomain yet) the same wizard mounts here.
 //
 // Flow:
-//   1. Write a session flag so the shared /auth/callback page knows to
+//   1. Write a session flag so the shared /auth/verify page knows to
 //      redirect back here after the user clicks the magic link.
 //   2. Hydrate any existing provider credentials from localStorage (written
-//      by /auth/callback on successful magic-link exchange).
+//      by /auth/verify on successful magic-link exchange).
 //   3. Mount the WizardShell.
 
 import { Suspense, useEffect, useState } from 'react'
@@ -26,9 +26,9 @@ function WizardPage() {
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    // Breadcrumb for /auth/callback: when the user clicks the magic link,
-    // Supabase redirects to /auth/callback which will read this flag and
-    // bounce them back here instead of /provider.
+    // Breadcrumb for /auth/verify: when the user clicks the magic link in
+    // their email, /auth/verify exchanges the token for an api_key and
+    // reads this flag to bounce them back here instead of /provider.
     try {
       sessionStorage.setItem(WIZARD_RETURN_FLAG, '/setup')
     } catch { /* ignore */ }
@@ -62,7 +62,7 @@ function WizardPage() {
     } catch { /* ignore */ }
 
     // Pick up credentials if the user has already completed magic-link auth.
-    // localStorage key matches what /auth/callback writes today.
+    // localStorage key matches what /auth/verify writes today.
     try {
       const apiKey = localStorage.getItem('dc1_provider_key') || ''
       const rawSession = localStorage.getItem('dc1_session')

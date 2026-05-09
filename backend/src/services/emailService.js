@@ -74,44 +74,99 @@ async function sendEmail({ to, subject, html, text }) {
 
 function buildWelcomeTemplate({ name, apiKey, role }) {
   const frontend = getFrontendUrl();
-  const dashboardPath = role === 'provider' ? '/provider' : '/renter';
-  const dashboardUrl = `${frontend}${dashboardPath}`;
-  const quickstartUrl = `${frontend}/docs`;
-  const roleLabel = role === 'provider' ? 'Provider' : 'Renter';
-  const roleLabelAr = role === 'provider' ? 'مزود' : 'مستأجر';
+  const isProvider = role === 'provider';
+  const dashboardUrl = `${frontend}${isProvider ? '/provider' : '/renter/marketplace'}`;
+  const loginUrl = `${frontend}/login?role=${isProvider ? 'provider' : 'renter'}`;
+  const docsUrl = `${frontend}/docs`;
+  const setupUrl = `${frontend}/setup`;
+  const roleLabel = isProvider ? 'Provider' : 'Renter';
+  const roleLabelAr = isProvider ? 'مزود' : 'مستأجر';
+  const nextStepEn = isProvider
+    ? 'Open the dashboard to verify your daemon, see live earnings, and download a tray app for your OS.'
+    : 'Open the marketplace to pick a model, top up if needed, and run your first inference.';
+  const nextStepAr = isProvider
+    ? 'افتح لوحة التحكم للتحقق من تشغيل الـ daemon، ومتابعة الأرباح، وتنزيل تطبيق المهام لنظامك.'
+    : 'افتح السوق لاختيار نموذج، وشحن رصيدك إذا لزم الأمر، وتشغيل أول استنتاج.';
 
   return {
-    subject: 'Welcome to DCP — your API key | مرحباً بك في DCP — مفتاح API الخاص بك',
+    subject: `Welcome to DCP, ${name} | مرحباً بك في DCP`,
     text: [
       `Welcome to DCP, ${name}!`,
       '',
-      `Your ${roleLabel} API key: ${apiKey}`,
-      `Dashboard: ${dashboardUrl}`,
-      `Quickstart Guide: ${quickstartUrl}`,
+      `Your ${roleLabel} account is ready.`,
       '',
-      'Save this key securely. It will not be shown again.',
+      `Sign in any time at: ${loginUrl}`,
+      `We'll email you a one-click sign-in link — no password, no codes.`,
+      '',
+      `Dashboard: ${dashboardUrl}`,
+      `Docs: ${docsUrl}`,
+      '',
+      `Optional API key (for SDK / CLI use): ${apiKey}`,
+      `Treat it like a password. You can rotate it anytime from your account settings.`,
+      '',
+      nextStepEn,
+      '',
+      '— The DCP team',
+      '',
+      '----',
       '',
       `مرحباً بك في DCP، ${name}!`,
       '',
-      `مفتاح API الخاص بحساب ${roleLabelAr}: ${apiKey}`,
-      `لوحة التحكم: ${dashboardUrl}`,
-      `دليل البدء السريع: ${quickstartUrl}`,
+      `حسابك كـ ${roleLabelAr} جاهز.`,
       '',
-      'يرجى حفظ هذا المفتاح لأنه لن يظهر مرة أخرى.',
+      `سجّل دخولك في أي وقت من: ${loginUrl}`,
+      `سنرسل لك رابطًا لتسجيل الدخول — بدون كلمة سر أو رموز.`,
+      '',
+      `لوحة التحكم: ${dashboardUrl}`,
+      `الدليل: ${docsUrl}`,
+      '',
+      `مفتاح API (اختياري، للاستخدام عبر SDK/CLI): ${apiKey}`,
+      `تعامل معه ككلمة سر. يمكنك تدويره في أي وقت من إعدادات الحساب.`,
+      '',
+      nextStepAr,
+      '',
+      '— فريق DCP',
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Welcome to DCP</h2>
-        <p>Hello ${escapeHtml(name)}, your <strong>${escapeHtml(roleLabel)}</strong> account is ready.</p>
-        <p><strong>API Key:</strong><br><code>${escapeHtml(apiKey)}</code></p>
-        <p><a href="${dashboardUrl}">Open dashboard</a> | <a href="${quickstartUrl}">Quickstart guide</a></p>
-        <hr />
-        <h2>مرحباً بك في DCP</h2>
-        <p>مرحباً ${escapeHtml(name)}، حسابك كـ <strong>${escapeHtml(roleLabelAr)}</strong> جاهز.</p>
-        <p><strong>مفتاح API:</strong><br><code>${escapeHtml(apiKey)}</code></p>
-        <p><a href="${dashboardUrl}">لوحة التحكم</a> | <a href="${quickstartUrl}">دليل البدء السريع</a></p>
-      </div>
-    `,
+    html: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#07070E;font-family:'Inter',Arial,sans-serif;color:#E5E5E5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#07070E;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#111118;border-radius:12px;overflow:hidden;max-width:520px;">
+        <tr><td style="background:#F5A524;padding:20px 32px;">
+          <h1 style="margin:0;color:#07070E;font-size:22px;font-weight:700;">DCP</h1>
+        </td></tr>
+        <tr><td style="padding:36px 32px;">
+          <h2 style="color:#E5E5E5;font-size:22px;font-weight:700;margin:0 0 8px;">Welcome, ${escapeHtml(name)}</h2>
+          <p style="color:#A0A0B0;font-size:15px;margin:0 0 24px;line-height:1.5;">Your <strong style="color:#E5E5E5;">${escapeHtml(roleLabel)}</strong> account is ready.</p>
+
+          <p style="color:#A0A0B0;font-size:14px;margin:0 0 8px;line-height:1.5;">Sign in any time — we'll email you a one-click link, no password or codes.</p>
+          <p style="margin:0 0 24px;"><a href="${loginUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;">Open Sign-In</a> &nbsp; <a href="${dashboardUrl}" style="color:#F5A524;font-size:14px;text-decoration:none;">Go to dashboard →</a></p>
+
+          <p style="color:#6B6B7A;font-size:13px;margin:0 0 4px;">Next:</p>
+          <p style="color:#A0A0B0;font-size:14px;margin:0 0 24px;line-height:1.5;">${escapeHtml(nextStepEn)}</p>
+
+          <hr style="border:none;border-top:1px solid #2A2A3A;margin:24px 0;" />
+
+          <p style="color:#6B6B7A;font-size:12px;margin:0 0 4px;">Optional API key (SDK / CLI use):</p>
+          <p style="margin:0 0 6px;"><code style="background:#07070E;color:#F5A524;padding:8px 12px;border-radius:6px;font-size:12px;font-family:'Courier New',monospace;display:inline-block;word-break:break-all;">${escapeHtml(apiKey)}</code></p>
+          <p style="color:#6B6B7A;font-size:11px;margin:0 0 24px;">Treat it like a password. Rotate from account settings anytime.</p>
+
+          <p style="color:#6B6B7A;font-size:12px;margin:0;">Need help? <a href="${docsUrl}" style="color:#F5A524;text-decoration:none;">Docs</a> · <a href="${setupUrl}" style="color:#F5A524;text-decoration:none;">Provider setup</a></p>
+
+          <hr style="border:none;border-top:1px solid #2A2A3A;margin:32px 0 24px;" />
+
+          <h2 style="color:#E5E5E5;font-size:22px;font-weight:700;margin:0 0 8px;direction:rtl;text-align:right;">مرحبًا، ${escapeHtml(name)}</h2>
+          <p style="color:#A0A0B0;font-size:15px;margin:0 0 24px;line-height:1.6;direction:rtl;text-align:right;">حسابك كـ <strong style="color:#E5E5E5;">${escapeHtml(roleLabelAr)}</strong> جاهز.</p>
+          <p style="color:#A0A0B0;font-size:14px;margin:0 0 8px;line-height:1.6;direction:rtl;text-align:right;">سجّل دخولك في أي وقت — سنرسل لك رابطًا بنقرة واحدة، بدون كلمة سر أو رموز.</p>
+          <p style="margin:0 0 24px;direction:rtl;text-align:right;"><a href="${loginUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;">تسجيل الدخول</a> &nbsp; <a href="${dashboardUrl}" style="color:#F5A524;font-size:14px;text-decoration:none;">فتح لوحة التحكم →</a></p>
+          <p style="color:#A0A0B0;font-size:14px;margin:0 0 24px;line-height:1.6;direction:rtl;text-align:right;">${escapeHtml(nextStepAr)}</p>
+          <p style="color:#6B6B7A;font-size:12px;margin:0;direction:rtl;text-align:right;">— فريق DCP</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
   };
 }
 

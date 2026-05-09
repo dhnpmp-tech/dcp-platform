@@ -2,13 +2,15 @@
 
 // Step 1: Welcome + Sign Up / Sign In.
 //
-// DCP auth is magic-link. Backend /v1/auth/{register,login} both call
-// Supabase signInWithOtp → user clicks email link → Supabase returns an
-// access_token which we POST to /v1/auth/session to resolve to a DCP api_key.
+// DCP auth is magic-link only (state-of-the-art passwordless, GitHub /
+// Anthropic style). Backend /v1/auth/{register,login} both call our native
+// auth-otp.sendOtp(), which stores a 32-byte single-use token in SQLite and
+// emails a single sign-in link via Resend — no 6-digit code is ever shown.
 //
-// From this step's perspective the flow is "collect email → request
-// magic-link → tell the user to check their inbox". Credentials return to
-// the wizard asynchronously via the /auth/callback page (Step 1.5).
+// From this step's perspective the flow is "collect email → request the
+// link → tell the user to check their inbox". Credentials return to the
+// wizard asynchronously via the /auth/verify page, which exchanges the
+// token for an api_key and writes localStorage before bouncing back here.
 
 import { useState } from 'react'
 import { ErrorBox, PrimaryButton, v1Fetch, V1Error } from '../primitives'
@@ -61,7 +63,7 @@ export function Step1Auth({ onEmailSent }: Step1AuthProps) {
           We sent a magic link to <strong>{trimmed}</strong>. Click it to continue.
         </p>
         <p className="text-xs text-dc1-text-muted">
-          Link expires in 1 hour. Didn&apos;t get it? Check spam, or{' '}
+          Link expires in 15 minutes. Didn&apos;t get it? Check spam, or{' '}
           <button
             type="button"
             onClick={() => { setSent(false); setError(null) }}
