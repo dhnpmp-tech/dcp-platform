@@ -1318,7 +1318,10 @@ def _resolve_download_url(download_url):
         return f"{CANONICAL_API_BASE_URL}{url}"
     return None
 
-_WG_MESH_SUBNET_RE = re.compile(r'^10\.8\.\d{1,3}\.\d{1,3}$')
+_WG_MESH_SUBNET_RE = re.compile(r'^10\.[89]\.\d{1,3}\.\d{1,3}$')
+# Match either 10.8.x.x (wg0 / primary) or 10.9.x.x (wg1 / UDP/443 fallback).
+# When a daemon falls over to wg1 the heartbeat must still announce a mesh
+# IP so the backend's inference proxy keeps routing through the tunnel.
 _WG_LAST_HEAL_TS = 0.0  # monotonic timestamp of the last self-heal cycle
 _WG_HEAL_COOLDOWN_S = 120.0  # don't bounce the tunnel more than once per 2 min
 _WG_STALE_HANDSHAKE_S = 180.0  # >3 min since last handshake → tunnel zombie
@@ -1671,44 +1674,48 @@ def _self_heal_wg(health):
 
 
 def _detect_wg_mesh_ip():
-    """Detect this provider's WireGuard mesh IP (10.8.0.0/24) if any.
+    """Detect this provider's WireGuard mesh IP (10.8.0.0/24 or 10.9.0.0/24).
 
-    Returns the IPv4 string assigned to the local end of the wg0 tunnel, or
-    None if no WireGuard interface is present. Used by the heartbeat payload
-    so the backend can prefer the mesh address over the public vllm endpoint.
+    Returns the IPv4 string assigned to the local end of either the primary
+    wg0 tunnel (10.8.x.x) or the UDP/443 fallback wg1 (10.9.x.x), whichever
+    is up. Used by the heartbeat payload so the backend can prefer the mesh
+    address over the public vllm endpoint regardless of which interface the
+    daemon ended up on.
 
-    Strategy (best portable, no extra deps):
-      1) Linux: parse `ip -4 -o addr show dev wg0`.
-      2) Windows: parse `wg show wg0` then fall back to `netsh interface
+    Probe order:
+      1) Linux: `ip -4 -o addr show dev wg0` then wg1.
+      2) Windows: `wg show wg0|wg1` then fall back to `netsh interface
          ipv4 show ipaddresses`.
-      3) macOS: parse `ifconfig` for an inet in 10.8.0.0/24 (WG on Mac uses
-         utunN names, not wg0, so the subnet match is the only reliable cue).
-      4) Linux fallback: `ip -4 -o addr` and pick first 10.8.0.0/24 match.
+      3) macOS: parse `ifconfig` for an inet in 10.8/16 or 10.9/16 (WG on
+         Mac uses utunN names, not wg{0,1}, so subnet match is the only
+         reliable cue).
+      4) Linux fallback: scan `ip -4 -o addr` for any 10.8.x.x or 10.9.x.x.
     """
     system = platform.system()
 
     if system == "Linux":
-        try:
-            r = subprocess.run(
-                ["ip", "-4", "-o", "addr", "show", "dev", "wg0"],
-                capture_output=True, text=True, timeout=3,
-            )
-            if r.returncode == 0:
-                m = re.search(r'inet (\d+\.\d+\.\d+\.\d+)/', r.stdout or "")
-                if m and _WG_MESH_SUBNET_RE.match(m.group(1)):
-                    return m.group(1)
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            pass
-        except Exception as e:
-            log.debug(f"ip addr show wg0 failed: {e}")
+        for iface in ("wg0", "wg1"):
+            try:
+                r = subprocess.run(
+                    ["ip", "-4", "-o", "addr", "show", "dev", iface],
+                    capture_output=True, text=True, timeout=3,
+                )
+                if r.returncode == 0:
+                    m = re.search(r'inet (\d+\.\d+\.\d+\.\d+)/', r.stdout or "")
+                    if m and _WG_MESH_SUBNET_RE.match(m.group(1)):
+                        return m.group(1)
+            except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+                continue
+            except Exception as e:
+                log.debug(f"ip addr show {iface} failed: {e}")
 
-        # Fallback: scan all interfaces for any 10.8.0.0/24 address.
+        # Fallback: scan all interfaces for any 10.8/16 or 10.9/16 address.
         try:
             r = subprocess.run(
                 ["ip", "-4", "-o", "addr"],
                 capture_output=True, text=True, timeout=3,
             )
-            for m in re.finditer(r'inet (10\.8\.\d{1,3}\.\d{1,3})/', r.stdout or ""):
+            for m in re.finditer(r'inet (10\.[89]\.\d{1,3}\.\d{1,3})/', r.stdout or ""):
                 return m.group(1)
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             pass
@@ -1717,17 +1724,18 @@ def _detect_wg_mesh_ip():
         return None
 
     if system == "Windows":
-        # `wg show wg0` prints "address: 10.8.0.X/24" when a wg-quick managed
-        # interface exists; the bundled WireGuard for Windows GUI also shows
-        # it but uses tunnel names rather than wg0. The 10.8.x.x match below
-        # catches both.
+        # `wg show wg{0,1}` prints "address: 10.{8,9}.0.X/24" when a wg-quick
+        # managed interface exists; the bundled WireGuard for Windows GUI
+        # also shows it but uses tunnel names rather than wg0. The match
+        # below catches both 10.8 (primary) and 10.9 (UDP/443 fallback).
         for cmd in (
             ["wg", "show", "wg0"],
+            ["wg", "show", "wg1"],
             ["netsh", "interface", "ipv4", "show", "ipaddresses"],
         ):
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
-                m = re.search(r'(10\.8\.\d{1,3}\.\d{1,3})', r.stdout or "")
+                m = re.search(r'(10\.[89]\.\d{1,3}\.\d{1,3})', r.stdout or "")
                 if m:
                     return m.group(1)
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
@@ -1743,7 +1751,7 @@ def _detect_wg_mesh_ip():
                 ["ifconfig"],
                 capture_output=True, text=True, timeout=3,
             )
-            m = re.search(r'inet (10\.8\.\d{1,3}\.\d{1,3})\b', r.stdout or "")
+            m = re.search(r'inet (10\.[89]\.\d{1,3}\.\d{1,3})\b', r.stdout or "")
             if m:
                 return m.group(1)
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):

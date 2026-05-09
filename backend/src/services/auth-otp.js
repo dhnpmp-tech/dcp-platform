@@ -30,7 +30,12 @@ function generateCode() {
 }
 
 // ── Send OTP via Resend ───────────────────────────────────────────────────
-async function sendOtp(email) {
+//
+// `requestedRole` ('provider' | 'renter') is optional. When set, it's
+// persisted on the otp_codes row and surfaced by verifyMagicToken so the
+// /api/auth/magic-link handler can pick the right dashboard even when the
+// link is opened on a different device with no sessionStorage breadcrumb.
+async function sendOtp(email, { requestedRole = null } = {}) {
   try {
     // Invalidate any existing unused codes for this email
     db.prepare(`UPDATE otp_codes SET used = 1 WHERE email = ? AND used = 0`).run(email.toLowerCase());
@@ -38,9 +43,12 @@ async function sendOtp(email) {
     const code = generateCode();
     const magicToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+    const role = requestedRole === 'provider' || requestedRole === 'renter' ? requestedRole : null;
 
     // Store in DB
-    db.prepare(`INSERT INTO otp_codes (email, code, magic_token, expires_at) VALUES (?, ?, ?, ?)`).run(email.toLowerCase(), code, magicToken, expiresAt);
+    db.prepare(
+      `INSERT INTO otp_codes (email, code, magic_token, expires_at, requested_role) VALUES (?, ?, ?, ?, ?)`
+    ).run(email.toLowerCase(), code, magicToken, expiresAt, role);
 
     // Send via Resend
     const apiKey = process.env.RESEND_API_KEY;
@@ -127,27 +135,69 @@ async function verifyOtp(email, token) {
 }
 
 // ── Verify magic link token ───────────────────────────────────────────────
+//
+// Idempotency window: the same link clicked twice within 60 seconds returns
+// success on both calls. This protects against:
+//   - browsers / mobile mail clients that pre-fetch links before the user
+//     even sees the page (and thus burn the token);
+//   - users who refresh /auth/verify after the first response loads;
+//   - double-clicks on slow networks.
+//
+// We track first-use time on the row (used_at) and treat tokens used <60s
+// ago as still valid. After the window expires the row is treated as fully
+// used and the user is asked to request a new link.
+const _MAGIC_REUSE_WINDOW_MS = 60 * 1000;
+try { db.prepare(`ALTER TABLE otp_codes ADD COLUMN used_at TEXT`).run(); } catch (_) {}
+// requested_role: 'provider' | 'renter'. Set by sendOtp() so that when the
+// email is opened on a different device (no sessionStorage breadcrumb),
+// /api/auth/magic-link still picks the right dashboard.
+try { db.prepare(`ALTER TABLE otp_codes ADD COLUMN requested_role TEXT`).run(); } catch (_) {}
+
 function verifyMagicToken(token) {
   if (!token || typeof token !== 'string') {
     return { success: false, error: 'Invalid link.' };
   }
   try {
     const row = db.prepare(`
-      SELECT id, email, expires_at FROM otp_codes
-      WHERE magic_token = ? AND used = 0 LIMIT 1
+      SELECT id, email, expires_at, used, used_at, requested_role FROM otp_codes
+      WHERE magic_token = ? LIMIT 1
     `).get(token.trim());
 
     if (!row) {
-      return { success: false, error: 'This link has already been used or is invalid.' };
+      return { success: false, error: 'This link is invalid.' };
     }
+
     if (new Date(row.expires_at) < new Date()) {
-      db.prepare(`UPDATE otp_codes SET used = 1 WHERE id = ?`).run(row.id);
+      if (!row.used) {
+        db.prepare(`UPDATE otp_codes SET used = 1 WHERE id = ?`).run(row.id);
+      }
       return { success: false, error: 'This link has expired. Please request a new one.' };
     }
 
-    db.prepare(`UPDATE otp_codes SET used = 1 WHERE id = ?`).run(row.id);
+    // Re-use within idempotency window: replay first-click result.
+    if (row.used) {
+      const usedAtMs = row.used_at ? new Date(row.used_at).getTime() : 0;
+      if (usedAtMs > 0 && (Date.now() - usedAtMs) < _MAGIC_REUSE_WINDOW_MS) {
+        console.log(`[AUTH] Magic link replayed for ${row.email} (within idempotency window)`);
+        return {
+          success: true,
+          user: { email: row.email },
+          requested_role: row.requested_role || null,
+          replayed: true,
+        };
+      }
+      return { success: false, error: 'This link has already been used. Please request a new one.' };
+    }
+
+    db.prepare(
+      `UPDATE otp_codes SET used = 1, used_at = datetime('now') WHERE id = ?`
+    ).run(row.id);
     console.log(`[AUTH] Magic link verified for ${row.email}`);
-    return { success: true, user: { email: row.email } };
+    return {
+      success: true,
+      user: { email: row.email },
+      requested_role: row.requested_role || null,
+    };
   } catch (err) {
     console.error('[AUTH] Magic token verify error:', err.message);
     return { success: false, error: 'Verification failed.' };

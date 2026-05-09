@@ -141,7 +141,7 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
-    const sent = await sendOtp(email);
+    const sent = await sendOtp(email, { requestedRole: role });
     if (!sent.success) {
       return wizardError(res, 502, 'email_send_failed', sent.error || 'Failed to send sign-in email');
     }
@@ -168,7 +168,10 @@ router.post('/auth/login', async (req, res) => {
       return wizardError(res, 400, 'invalid_email', 'A valid email is required');
     }
 
-    const sent = await sendOtp(email);
+    // Wizard /auth/login is provider-only (the wizard itself is the provider
+    // onboarding flow). Tag the otp_codes row so cross-device clicks land
+    // on the provider dashboard.
+    const sent = await sendOtp(email, { requestedRole: 'provider' });
     if (!sent.success) {
       return wizardError(res, 502, 'email_send_failed', sent.error || 'Failed to send sign-in email');
     }
