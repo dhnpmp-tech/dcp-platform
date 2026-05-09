@@ -7,9 +7,13 @@ import { useLanguage } from '../../lib/i18n'
 
 const API_BASE = '/api'
 
+// 2026-05-09: register now returns 202 + {next:'check_email', email, message}
+// (no api_key). The user clicks the magic link in their inbox; that flow
+// finalizes the row and lands them on /renter/marketplace.
 interface RegistrationResult {
-  renter_id: number
-  api_key: string
+  renter_id?: number
+  next: 'check_email'
+  email: string
   message: string
 }
 
@@ -164,13 +168,24 @@ export default function RenterRegisterPage() {
       }
 
       const data = await res.json()
-      setResult(data)
+      setResult({
+        renter_id: data.renter_id,
+        next: 'check_email',
+        email: data.email || formData.email.trim(),
+        message: data.message || `We sent a sign-in link to ${formData.email.trim()}. Click it to finish creating your account.`,
+      })
       setSuccess(true)
-      localStorage.setItem('dc1_renter_key', data.api_key)
-      trackRegisterEvent('renter_register_success', {
+      // Persist the role intent so /auth/verify lands the user on
+      // /renter/marketplace when they click the magic link.
+      try {
+        sessionStorage.setItem('dcp_login_prefer_role', 'renter')
+      } catch {
+        /* ignore — Safari private mode etc. */
+      }
+      trackRegisterEvent('renter_register_link_sent', {
         surface: 'registration_form',
         destination: '/api/renters/register',
-        step: 'submit_success',
+        step: 'magic_link_sent',
       })
     } catch (err) {
       trackRegisterEvent('renter_register_failed', {
@@ -185,18 +200,12 @@ export default function RenterRegisterPage() {
     }
   }
 
-  const copyApiKey = () => {
-    if (!result) return
-    navigator.clipboard.writeText(result.api_key)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const loginWithKey = () => {
-    if (!result) return
-    localStorage.setItem('dc1_renter_key', result.api_key)
-    window.location.href = '/renter'
-  }
+  // The api_key is no longer surfaced in the registration response (2026-05-09
+  // — magic-link verification gates account activation), so the inline copy /
+  // direct-login affordances were removed. `copied` state is preserved as a
+  // no-op to avoid unrelated changes to the unused-state lint surface.
+  void copied
+  void setCopied
 
   useEffect(() => {
     const node = billingExplainerRef.current
@@ -248,32 +257,26 @@ export default function RenterRegisterPage() {
         <main className="min-h-screen bg-dc1-void flex items-center justify-center px-4 py-12">
           <div className="w-full max-w-2xl">
             <div className="card bg-dc1-surface-l1 border border-dc1-border rounded-lg p-8 text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-status-success/10 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
+              {/* Magic-link sent state — mirrors /login post-send UI. The user's
+                  account is staged but not active until they click the link. */}
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2/60 p-6 text-center mb-6">
+                <svg className="w-12 h-12 mx-auto text-dc1-amber mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <h2 className="text-2xl font-bold text-dc1-text-primary mb-1">Check your email</h2>
+                <p className="text-sm text-dc1-text-secondary mb-2">
+                  We sent a sign-in link to
+                </p>
+                <p className="text-base text-dc1-amber font-mono mb-4 break-all">{result.email}</p>
+                <p className="text-xs text-dc1-text-secondary mb-2">
+                  Open the email and click <span className="text-dc1-text-primary font-semibold">Sign In to DCP</span>.
+                  The link expires in 15 minutes and can only be used once.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Didn&apos;t get it? Check your spam folder, or <a href="/renter/register" className="text-dc1-amber hover:underline">try again</a>.
+                </p>
               </div>
-              <h2 className="text-3xl font-bold text-dc1-text-primary mb-2">{t('register.renter.success_title')}</h2>
-              <p className="text-dc1-text-secondary mb-8">{result.message}</p>
-
-              <div className="bg-dc1-surface-l3 border border-dc1-border rounded-lg p-6 mb-6 text-left">
-                <p className="text-sm text-dc1-text-secondary mb-2">{t('register.renter.api_key_title')}</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-sm font-mono text-dc1-amber break-all">{result.api_key}</code>
-                  <button
-                    onClick={copyApiKey}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    {copied ? t('register.renter.copied') : t('register.renter.copy')}
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-sm text-status-warning bg-status-warning/5 border border-status-warning/20 rounded-lg p-4 mb-6">
-                {t('register.renter.key_security')}
-              </p>
 
               <div className={`rounded-lg border border-dc1-amber/30 bg-dc1-amber/10 p-5 mb-6 ${isRTL ? 'text-right' : 'text-left'}`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-dc1-amber mb-2">

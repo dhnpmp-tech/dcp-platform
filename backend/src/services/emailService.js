@@ -35,6 +35,75 @@ function notificationFooterHtml() {
   return `<p style="margin-top:16px;color:#666;font-size:13px">Manage notifications at <a href="https://dcp.sa/renter/settings">dcp.sa/renter/settings</a></p>`;
 }
 
+// ── DCP-brand email shell ─────────────────────────────────────────────────
+// Shared layout used by all transactional emails (job lifecycle, withdrawals,
+// data-export). Matches buildWelcomeTemplate: 520px wide table on a #07070E
+// body, amber #F5A524 header, EN section, <hr>, AR section. Each call passes
+// EN + AR bodies (ready-rendered HTML strings) plus a single primary action.
+//
+// Keep this in sync with buildWelcomeTemplate's HTML so the brand reads as
+// one product family across all touchpoints.
+function buildBrandShell({
+  headlineEn,
+  headlineAr,
+  bodyEn,
+  bodyAr,
+  ctaLabel,
+  ctaLabelAr,
+  ctaUrl,
+  footerEn,
+  footerAr,
+}) {
+  const cta = ctaUrl
+    ? `<p style="margin:0 0 24px;"><a href="${ctaUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;">${escapeHtml(ctaLabel || 'Open in DCP')}</a></p>`
+    : '';
+  const ctaAr = ctaUrl
+    ? `<p style="margin:0 0 24px;direction:rtl;text-align:right;"><a href="${ctaUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;">${escapeHtml(ctaLabelAr || ctaLabel || 'فتح')}</a></p>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#07070E;font-family:'Inter',Arial,sans-serif;color:#E5E5E5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#07070E;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#111118;border-radius:12px;overflow:hidden;max-width:520px;">
+        <tr><td style="background:#F5A524;padding:20px 32px;">
+          <h1 style="margin:0;color:#07070E;font-size:22px;font-weight:700;">DCP</h1>
+        </td></tr>
+        <tr><td style="padding:36px 32px;">
+          <h2 style="color:#E5E5E5;font-size:20px;font-weight:700;margin:0 0 12px;">${escapeHtml(headlineEn)}</h2>
+          ${bodyEn}
+          ${cta}
+          ${footerEn ? `<p style="color:#6B6B7A;font-size:12px;margin:0;">${escapeHtml(footerEn)}</p>` : ''}
+
+          <hr style="border:none;border-top:1px solid #2A2A3A;margin:32px 0 24px;" />
+
+          <h2 style="color:#E5E5E5;font-size:20px;font-weight:700;margin:0 0 12px;direction:rtl;text-align:right;">${escapeHtml(headlineAr)}</h2>
+          <div style="direction:rtl;text-align:right;">${bodyAr}</div>
+          ${ctaAr}
+          ${footerAr ? `<p style="color:#6B6B7A;font-size:12px;margin:0;direction:rtl;text-align:right;">${escapeHtml(footerAr)}</p>` : ''}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+// Helper for the labelled metadata rows used by job/withdrawal templates.
+// Produces a vertical stack of muted-label / bright-value pairs, RTL-aware.
+function brandMetaRows(rows, { rtl = false } = {}) {
+  const align = rtl ? 'right' : 'left';
+  const itemsHtml = rows
+    .map(({ label, value }) => `
+      <tr><td style="padding:6px 0;text-align:${align};">
+        <span style="color:#6B6B7A;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(label)}</span>
+        <br /><span style="color:#E5E5E5;font-size:14px;font-weight:600;">${escapeHtml(value)}</span>
+      </td></tr>
+    `)
+    .join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #2A2A3A;border-radius:8px;background:#0E0E18;padding:8px 16px;">${itemsHtml}</table>`;
+}
+
 async function sendEmail({ to, subject, html, text }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -240,6 +309,27 @@ function buildJobQueuedTemplate({
   const safeImageType = imageType || 'default';
   const footer = notificationFooterText();
 
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your job <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> has been accepted into the DCP queue.</p>
+    ${brandMetaRows([
+      { label: 'Job type', value: safeJobType },
+      { label: 'Container image type', value: safeImageType },
+      { label: 'Quoted cost', value: `${quotedCostLabel} SAR` },
+      { label: 'Queue position', value: queueLabel },
+      { label: 'Estimated duration', value: durationLabel },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">تم إدراج الطلب <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> في طابور DCP.</p>
+    ${brandMetaRows([
+      { label: 'نوع المهمة', value: safeJobType },
+      { label: 'نوع الحاوية', value: safeImageType },
+      { label: 'التكلفة التقديرية', value: `${quotedCostLabel} ريال` },
+      { label: 'ترتيب الطابور', value: queueLabel },
+      { label: 'المدة التقديرية', value: durationLabel },
+    ], { rtl: true })}
+  `;
+
   return {
     subject: `Job queued on DCP — #${jobId} | تم إدراج الطلب في طابور DCP`,
     text: [
@@ -261,32 +351,17 @@ function buildJobQueuedTemplate({
       '',
       footer,
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Job Queued on DCP</h2>
-        <p>Your job <strong>#${escapeHtml(jobId)}</strong> has been queued.</p>
-        <ul>
-          <li><strong>Job type:</strong> ${escapeHtml(safeJobType)}</li>
-          <li><strong>Container image type:</strong> ${escapeHtml(safeImageType)}</li>
-          <li><strong>Quoted cost:</strong> ${escapeHtml(quotedCostLabel)} SAR</li>
-          <li><strong>Queue position:</strong> ${escapeHtml(queueLabel)}</li>
-          <li><strong>Estimated duration:</strong> ${escapeHtml(durationLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">Track this job</a></p>
-        <hr />
-        <h2>تم إدراج الطلب في الطابور</h2>
-        <p>تم إدراج الطلب <strong>#${escapeHtml(jobId)}</strong> في الطابور.</p>
-        <ul>
-          <li><strong>نوع المهمة:</strong> ${escapeHtml(safeJobType)}</li>
-          <li><strong>نوع الحاوية:</strong> ${escapeHtml(safeImageType)}</li>
-          <li><strong>التكلفة التقديرية:</strong> ${escapeHtml(quotedCostLabel)} ريال</li>
-          <li><strong>ترتيب الطابور:</strong> ${escapeHtml(queueLabel)}</li>
-          <li><strong>المدة التقديرية:</strong> ${escapeHtml(durationLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">متابعة الطلب</a></p>
-        ${notificationFooterHtml()}
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Job queued on DCP',
+      headlineAr: 'تم إدراج الطلب في الطابور',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Track this job',
+      ctaLabelAr: 'متابعة الطلب',
+      ctaUrl: jobDetailUrl,
+      footerEn: footer,
+      footerAr: 'إدارة الإشعارات من dcp.sa/renter/settings',
+    }),
   };
 }
 
@@ -305,6 +380,23 @@ function buildJobStartedTemplate({
   const safeImageType = imageType || 'default';
   const footer = notificationFooterText();
 
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your job <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> is now running on a DCP provider.</p>
+    ${brandMetaRows([
+      { label: 'Job type', value: safeJobType },
+      { label: 'Container image type', value: safeImageType },
+      { label: 'Estimated duration', value: durationLabel },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">الطلب <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> قيد التنفيذ الآن على مزود DCP.</p>
+    ${brandMetaRows([
+      { label: 'نوع المهمة', value: safeJobType },
+      { label: 'نوع الحاوية', value: safeImageType },
+      { label: 'المدة التقديرية', value: durationLabel },
+    ], { rtl: true })}
+  `;
+
   return {
     subject: `Your DCP job has started — #${jobId} | بدأ تنفيذ طلبك على DCP`,
     text: [
@@ -322,28 +414,17 @@ function buildJobStartedTemplate({
       '',
       footer,
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Your Job Has Started</h2>
-        <p>Your job <strong>#${escapeHtml(jobId)}</strong> is now running on a DCP provider.</p>
-        <ul>
-          <li><strong>Job type:</strong> ${escapeHtml(safeJobType)}</li>
-          <li><strong>Container image type:</strong> ${escapeHtml(safeImageType)}</li>
-          <li><strong>Estimated duration:</strong> ${escapeHtml(durationLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">Track progress</a></p>
-        <hr />
-        <h2>بدأ تنفيذ الطلب</h2>
-        <p>الطلب <strong>#${escapeHtml(jobId)}</strong> قيد التنفيذ الآن على مزود DCP.</p>
-        <ul>
-          <li><strong>نوع المهمة:</strong> ${escapeHtml(safeJobType)}</li>
-          <li><strong>نوع الحاوية:</strong> ${escapeHtml(safeImageType)}</li>
-          <li><strong>المدة التقديرية:</strong> ${escapeHtml(durationLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">متابعة التنفيذ</a></p>
-        ${notificationFooterHtml()}
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Your job has started',
+      headlineAr: 'بدأ تنفيذ الطلب',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Track progress',
+      ctaLabelAr: 'متابعة التنفيذ',
+      ctaUrl: jobDetailUrl,
+      footerEn: footer,
+      footerAr: 'إدارة الإشعارات من dcp.sa/renter/settings',
+    }),
   };
 }
 
@@ -361,6 +442,25 @@ function buildJobCompletedTemplate({
   const safeJobType = jobType || 'general';
   const safeImageType = imageType || 'default';
   const footer = notificationFooterText();
+
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your job <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> is complete and results are ready.</p>
+    ${brandMetaRows([
+      { label: 'Job type', value: safeJobType },
+      { label: 'Container image type', value: safeImageType },
+      { label: 'Actual cost', value: `${costLabel} SAR` },
+      { label: 'GPU seconds used', value: gpuSecondsLabel },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">تم اكتمال الطلب <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> والنتائج جاهزة.</p>
+    ${brandMetaRows([
+      { label: 'نوع المهمة', value: safeJobType },
+      { label: 'نوع الحاوية', value: safeImageType },
+      { label: 'التكلفة الفعلية', value: `${costLabel} ريال` },
+      { label: 'ثواني GPU المستخدمة', value: gpuSecondsLabel },
+    ], { rtl: true })}
+  `;
 
   return {
     subject: `Job complete — results ready (#${jobId}) | اكتمل الطلب والنتائج جاهزة`,
@@ -381,30 +481,17 @@ function buildJobCompletedTemplate({
       '',
       footer,
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Job Completed</h2>
-        <p>Your job <strong>#${escapeHtml(jobId)}</strong> is complete and results are ready.</p>
-        <ul>
-          <li><strong>Job type:</strong> ${escapeHtml(safeJobType)}</li>
-          <li><strong>Container image type:</strong> ${escapeHtml(safeImageType)}</li>
-          <li><strong>Actual cost:</strong> ${escapeHtml(costLabel)} SAR</li>
-          <li><strong>GPU seconds used:</strong> ${escapeHtml(gpuSecondsLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">Open results</a></p>
-        <hr />
-        <h2>اكتمل الطلب</h2>
-        <p>تم اكتمال الطلب <strong>#${escapeHtml(jobId)}</strong> والنتائج جاهزة.</p>
-        <ul>
-          <li><strong>نوع المهمة:</strong> ${escapeHtml(safeJobType)}</li>
-          <li><strong>نوع الحاوية:</strong> ${escapeHtml(safeImageType)}</li>
-          <li><strong>التكلفة الفعلية:</strong> ${escapeHtml(costLabel)} ريال</li>
-          <li><strong>ثواني GPU المستخدمة:</strong> ${escapeHtml(gpuSecondsLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">عرض النتائج</a></p>
-        ${notificationFooterHtml()}
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Job complete — results ready',
+      headlineAr: 'اكتمل الطلب والنتائج جاهزة',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Open results',
+      ctaLabelAr: 'عرض النتائج',
+      ctaUrl: jobDetailUrl,
+      footerEn: footer,
+      footerAr: 'إدارة الإشعارات من dcp.sa/renter/settings',
+    }),
   };
 }
 
@@ -420,6 +507,23 @@ function buildJobFailedTemplate({
   const retryLabel = Number.isFinite(Number(retryAttempts)) ? String(Number(retryAttempts)) : '0';
   const safeError = lastError || 'No additional error details reported.';
   const footer = notificationFooterText();
+
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your job <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> failed. Your balance has been fully refunded.</p>
+    ${brandMetaRows([
+      { label: 'Last error', value: safeError },
+      { label: 'Refunded amount', value: `${refundLabel} SAR` },
+      { label: 'Retry attempts', value: retryLabel },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">الطلب <strong style="color:#E5E5E5;">#${escapeHtml(jobId)}</strong> فشل وتم رد الرصيد بالكامل.</p>
+    ${brandMetaRows([
+      { label: 'آخر خطأ', value: safeError },
+      { label: 'المبلغ المرتجع', value: `${refundLabel} ريال` },
+      { label: 'عدد المحاولات', value: retryLabel },
+    ], { rtl: true })}
+  `;
 
   return {
     subject: `Job failed — funds refunded (#${jobId}) | فشل الطلب وتم رد المبلغ`,
@@ -438,53 +542,57 @@ function buildJobFailedTemplate({
       '',
       footer,
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Job Failed — Funds Refunded</h2>
-        <p>Your job <strong>#${escapeHtml(jobId)}</strong> failed and your balance was refunded.</p>
-        <ul>
-          <li><strong>Last error:</strong> ${escapeHtml(safeError)}</li>
-          <li><strong>Refunded amount:</strong> ${escapeHtml(refundLabel)} SAR</li>
-          <li><strong>Retry attempts:</strong> ${escapeHtml(retryLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">View job details</a></p>
-        <hr />
-        <h2>فشل الطلب وتم رد المبلغ</h2>
-        <p>الطلب <strong>#${escapeHtml(jobId)}</strong> فشل وتم رد الرصيد.</p>
-        <ul>
-          <li><strong>آخر خطأ:</strong> ${escapeHtml(safeError)}</li>
-          <li><strong>المبلغ المرتجع:</strong> ${escapeHtml(refundLabel)} ريال</li>
-          <li><strong>عدد المحاولات:</strong> ${escapeHtml(retryLabel)}</li>
-        </ul>
-        <p><a href="${jobDetailUrl}">عرض تفاصيل الطلب</a></p>
-        ${notificationFooterHtml()}
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Job failed — funds refunded',
+      headlineAr: 'فشل الطلب وتم رد المبلغ',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'View job details',
+      ctaLabelAr: 'عرض تفاصيل الطلب',
+      ctaUrl: jobDetailUrl,
+      footerEn: footer,
+      footerAr: 'إدارة الإشعارات من dcp.sa/renter/settings',
+    }),
   };
 }
 
 function buildWithdrawalApprovedTemplate({ amountSar }) {
   const amountLabel = formatSar(amountSar);
+  const frontend = getFrontendUrl();
+  const earningsUrl = `${frontend}/provider/earnings`;
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your withdrawal of <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} SAR</strong> has been approved and queued for processing.</p>
+    ${brandMetaRows([
+      { label: 'Amount', value: `${amountLabel} SAR` },
+      { label: 'Expected processing time', value: '3-5 business days' },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">تمت الموافقة على السحب بقيمة <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} ريال</strong> وهو الآن قيد المعالجة.</p>
+    ${brandMetaRows([
+      { label: 'المبلغ', value: `${amountLabel} ريال` },
+      { label: 'المدة المتوقعة', value: 'من 3 إلى 5 أيام عمل' },
+    ], { rtl: true })}
+  `;
   return {
     subject: `DCP: Withdrawal of ${amountLabel} SAR approved | تمت الموافقة على السحب`,
     text: [
       `Your withdrawal request for ${amountLabel} SAR has been approved.`,
       'Expected processing time: 3-5 business days.',
+      `Earnings: ${earningsUrl}`,
       '',
       `تمت الموافقة على طلب السحب بمبلغ ${amountLabel} ريال.`,
       'المدة المتوقعة للتحويل: من 3 إلى 5 أيام عمل.',
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Withdrawal Approved</h2>
-        <p>Your withdrawal of <strong>${escapeHtml(amountLabel)} SAR</strong> has been approved.</p>
-        <p>Expected processing time: <strong>3-5 business days</strong>.</p>
-        <hr />
-        <h2>تمت الموافقة على السحب</h2>
-        <p>تمت الموافقة على السحب بقيمة <strong>${escapeHtml(amountLabel)} ريال</strong>.</p>
-        <p>المدة المتوقعة للتحويل: <strong>من 3 إلى 5 أيام عمل</strong>.</p>
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Withdrawal approved',
+      headlineAr: 'تمت الموافقة على السحب',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'View earnings',
+      ctaLabelAr: 'عرض الأرباح',
+      ctaUrl: earningsUrl,
+    }),
   };
 }
 
@@ -492,30 +600,43 @@ function buildWithdrawalRejectedTemplate({ amountSar, reason }) {
   const amountLabel = formatSar(amountSar);
   const safeReason = (reason || '').trim() || 'Not specified';
   const safeReasonAr = (reason || '').trim() || 'غير محدد';
+  const frontend = getFrontendUrl();
+  const earningsUrl = `${frontend}/provider/earnings`;
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your withdrawal request for <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} SAR</strong> was rejected. The amount has been returned to your DCP balance.</p>
+    ${brandMetaRows([
+      { label: 'Amount', value: `${amountLabel} SAR` },
+      { label: 'Reason', value: safeReason },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">تم رفض طلب السحب بقيمة <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} ريال</strong>. تمت إعادة المبلغ إلى رصيدك في DCP.</p>
+    ${brandMetaRows([
+      { label: 'المبلغ', value: `${amountLabel} ريال` },
+      { label: 'السبب', value: safeReasonAr },
+    ], { rtl: true })}
+  `;
   return {
     subject: `DCP: Withdrawal of ${amountLabel} SAR rejected | تم رفض طلب السحب`,
     text: [
       `Your withdrawal request for ${amountLabel} SAR was rejected.`,
       `Reason: ${safeReason}`,
       'The amount has been returned to your DCP balance.',
+      `Earnings: ${earningsUrl}`,
       '',
       `تم رفض طلب السحب بمبلغ ${amountLabel} ريال.`,
       `السبب: ${safeReasonAr}`,
       'تمت إعادة المبلغ إلى رصيدك في DCP.',
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>Withdrawal Rejected</h2>
-        <p>Your withdrawal request for <strong>${escapeHtml(amountLabel)} SAR</strong> was rejected.</p>
-        <p><strong>Reason:</strong> ${escapeHtml(safeReason)}</p>
-        <p>The amount has been returned to your DCP balance.</p>
-        <hr />
-        <h2>تم رفض طلب السحب</h2>
-        <p>تم رفض طلب السحب بقيمة <strong>${escapeHtml(amountLabel)} ريال</strong>.</p>
-        <p><strong>السبب:</strong> ${escapeHtml(safeReasonAr)}</p>
-        <p>تمت إعادة المبلغ إلى رصيدك في DCP.</p>
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Withdrawal rejected',
+      headlineAr: 'تم رفض طلب السحب',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Open earnings',
+      ctaLabelAr: 'فتح الأرباح',
+      ctaUrl: earningsUrl,
+    }),
   };
 }
 
@@ -532,6 +653,23 @@ function buildDataExportReadyTemplate({ accountType, requestedAt, deliveryMode }
     ? 'تم تسليم التصدير مباشرة في استجابة واجهة API.'
     : 'تصدير بياناتك جاهز للتنزيل من صفحة الإعدادات.';
 
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">We received your PDPL data export request for your <strong style="color:#E5E5E5;">${escapeHtml(safeAccountType)}</strong> account.</p>
+    ${brandMetaRows([
+      { label: 'Requested at', value: requestedLabel },
+      { label: 'Account type', value: safeAccountType },
+      { label: 'Status', value: deliveryText },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">تم استلام طلب تصدير البيانات (PDPL) لحساب <strong style="color:#E5E5E5;">${escapeHtml(safeAccountType)}</strong>.</p>
+    ${brandMetaRows([
+      { label: 'وقت الطلب', value: requestedLabel },
+      { label: 'نوع الحساب', value: safeAccountType },
+      { label: 'الحالة', value: deliveryTextAr },
+    ], { rtl: true })}
+  `;
+
   return {
     subject: 'DCP data export request received | تم استلام طلب تصدير البيانات',
     text: [
@@ -545,25 +683,15 @@ function buildDataExportReadyTemplate({ accountType, requestedAt, deliveryMode }
       deliveryTextAr,
       `الإعدادات: ${settingsUrl}`,
     ].join('\n'),
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6">
-        <h2>PDPL Data Export Request</h2>
-        <p>We received your data export request for your <strong>${escapeHtml(safeAccountType)}</strong> account.</p>
-        <ul>
-          <li><strong>Requested at:</strong> ${escapeHtml(requestedLabel)}</li>
-          <li><strong>Status:</strong> ${escapeHtml(deliveryText)}</li>
-        </ul>
-        <p><a href="${settingsUrl}">Open account settings</a></p>
-        <hr />
-        <h2>طلب تصدير البيانات (PDPL)</h2>
-        <p>تم استلام طلب تصدير البيانات لحساب <strong>${escapeHtml(safeAccountType)}</strong>.</p>
-        <ul>
-          <li><strong>وقت الطلب:</strong> ${escapeHtml(requestedLabel)}</li>
-          <li><strong>الحالة:</strong> ${escapeHtml(deliveryTextAr)}</li>
-        </ul>
-        <p><a href="${settingsUrl}">فتح إعدادات الحساب</a></p>
-      </div>
-    `,
+    html: buildBrandShell({
+      headlineEn: 'Data export request received',
+      headlineAr: 'تم استلام طلب تصدير البيانات',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Open account settings',
+      ctaLabelAr: 'فتح الإعدادات',
+      ctaUrl: settingsUrl,
+    }),
   };
 }
 

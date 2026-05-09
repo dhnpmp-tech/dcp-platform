@@ -9,6 +9,7 @@ import StatCard from '../components/ui/StatCard'
 import { useLanguage } from '../lib/i18n'
 import ProviderWizard from './components/ProviderWizard'
 import ProviderActivationCard from './components/ProviderActivationCard'
+import InstallCommandPanel from './components/InstallCommandPanel'
 import { getProviderActivationNarrative } from '../lib/provider-activation-narrative'
 import {
   buildProviderTroubleshootingHref,
@@ -483,9 +484,21 @@ export default function ProviderDashboard() {
     )
   }
 
+  // Daemon-pending = no heartbeat has ever arrived. We treat this as the
+  // "status === 'pending'" guard from the onboarding bundle: the install
+  // command panel is the FIRST widget the user sees until their daemon
+  // checks in (then it auto-hides). Independent from the approval-status
+  // pending banner above, which is moderation-related.
+  const daemonPending = !providerData.lastHeartbeat
+
   return (
     <DashboardLayout navItems={getNavItems()} role="provider" userName={providerData.name}>
       <div className="space-y-8">
+        {/* Install command panel — surfaced first when no daemon has ever
+            heartbeated, hidden as soon as the dashboard sees a heartbeat. */}
+        {daemonPending && providerApiKey && (
+          <InstallCommandPanel apiKey={providerApiKey} />
+        )}
         {providerData.approvalStatus === 'pending' && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-100 text-sm">
             {t('provider.pending_approval')}

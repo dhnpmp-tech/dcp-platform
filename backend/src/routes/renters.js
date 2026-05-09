@@ -14,6 +14,7 @@ const {
 } = require('../services/p2p-discovery');
 const { reconcileRenterByEmailFromSupabase } = require('../services/renter-identity-reconciliation');
 const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
+const { sendOtp: sendOtpAtRegister } = require('../services/auth-otp');
 const { isPublicWebhookUrl } = require('../lib/webhook-security');
 const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/validateWebhookUrl');
 const { validateBody } = require('../middleware/validate');
@@ -363,7 +364,24 @@ function hashedDeletedEmail(rawEmail, accountId) {
 }
 
 // POST /api/renters/register
-router.post('/register', validateBody(renterRegisterSchema), (req, res) => {
+//
+// Two-step magic-link flow (DCP onboarding bundle 2026-05-09).
+// ─────────────────────────────────────────────────────────────────────────
+// Before: this endpoint synchronously inserted a renter row with status='active',
+//   minted an api_key, granted the 1000-halala starter balance, and returned
+//   the api_key in the response body. This let *anyone* with any (typoed,
+//   throwaway, abusive) email farm credits without proving ownership.
+//
+// After: we pre-stage the row with status='pending' (no api_key, no balance),
+//   then send a magic-link sign-in email via auth-otp.sendOtp(). When the
+//   user clicks the link, /auth/verify → POST /api/auth/magic-link finalizes
+//   the row: mints the api_key, flips status='active', credits 1000 halala
+//   on the *first* magic-link click, and fires the welcome email there.
+//
+//   The finalization is idempotent — clicking the link twice (or a stale
+//   link landing after the row is already active) returns the same api_key
+//   without double-crediting the balance. See routes/auth.js.
+router.post('/register', validateBody(renterRegisterSchema), async (req, res) => {
   try {
     const { name, email, organization, use_case, useCase, phone } = req.body;
     const cleanName = normalizeString(name, { maxLen: 120 });
@@ -386,29 +404,75 @@ router.post('/register', validateBody(renterRegisterSchema), (req, res) => {
       console.log(`[renters/register] dual-role onboarding: ${cleanEmail} already has ${conflict.role} (id=${conflict.id})`);
     }
 
-    const api_key = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
     const now = new Date().toISOString();
-
-    const result = runStatement(
-      `INSERT INTO renters (name, email, api_key, organization, use_case, phone, status, balance_halala, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', 1000, ?)`,
-      cleanName, cleanEmail, api_key, cleanOrg || null, cleanUseCase || null, cleanPhone || null, now
+    const existing = db.get(
+      'SELECT id, status, api_key FROM renters WHERE LOWER(email) = LOWER(?)',
+      cleanEmail
     );
 
-    const renterId = result.lastInsertRowid;
-    res.status(201).json({
+    let renterId;
+    if (existing) {
+      if (existing.status === 'active' && existing.api_key) {
+        // Already verified — don't leak the api_key, but resend a magic link
+        // so they can sign back in. This avoids the 409 dead-end that real
+        // users hit when they re-submit the form.
+        console.log(`[renters/register] resend magic link for already-active ${cleanEmail}`);
+        renterId = existing.id;
+      } else if (existing.status === 'pending') {
+        // Refresh the staged row's profile fields — user may have corrected a typo.
+        runStatement(
+          `UPDATE renters
+              SET name = ?, organization = ?, use_case = ?, phone = ?, updated_at = ?
+            WHERE id = ?`,
+          cleanName, cleanOrg || null, cleanUseCase || null, cleanPhone || null, now, existing.id
+        );
+        renterId = existing.id;
+      } else {
+        // Other states (e.g. soft-deleted) — surface the legacy duplicate path.
+        return res.status(409).json({ error: 'A renter with this email already exists' });
+      }
+    } else {
+      // Pre-stage: status='pending', NO api_key, NO starter balance.
+      // The api_key column is UNIQUE NOT NULL, so we satisfy it with a
+      // disposable placeholder that is rotated to a real `dcp-renter-…`
+      // key during magic-link finalization. Placeholder is namespaced so
+      // it can never be confused with a real key by route auth handlers.
+      const pendingPlaceholder = 'pending-renter-' + crypto.randomBytes(16).toString('hex');
+      const result = runStatement(
+        `INSERT INTO renters (name, email, api_key, organization, use_case, phone, status, balance_halala, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
+        cleanName, cleanEmail, pendingPlaceholder, cleanOrg || null, cleanUseCase || null, cleanPhone || null, now
+      );
+      renterId = result.lastInsertRowid;
+    }
+
+    // Send the magic link. Even if email delivery fails we don't roll the row
+    // back — the user can retry by re-submitting the form (we resend above).
+    const otpResult = await sendOtpAtRegister(cleanEmail);
+    if (!otpResult || otpResult.success !== true) {
+      console.error('[renters.register] sendOtp failed:', otpResult && otpResult.error);
+      return res.status(502).json({
+        error: (otpResult && otpResult.error) || 'Could not send sign-in email. Try again in a moment.',
+      });
+    }
+
+    // 202 Accepted — the renter is staged, but not yet active until they
+    // click the link in their email.
+    res.status(202).json({
       success: true,
+      next: 'check_email',
+      email: cleanEmail,
       renter_id: renterId,
-      api_key,
-      message: `Welcome ${cleanName}! Save your API key — it won't be shown again.`
+      message: `We sent a sign-in link to ${cleanEmail}. Click it to finish creating your account.`,
     });
 
-    // Fire-and-forget: welcome email + analytics
-    sendWelcomeEmail(cleanEmail, cleanName, api_key, 'renter')
-      .catch((e) => console.error('[renters.register] welcome email failed:', e.message));
+    // Fire-and-forget: register-stage analytics. The welcome email is
+    // deliberately deferred to magic-link finalization (in routes/auth.js)
+    // so unverified emails don't receive credentials.
     analytics.renter.signupComplete(renterId, {
       organization: cleanOrg || null,
       use_case: cleanUseCase || null,
+      stage: 'pending_email_verification',
     }).catch(() => {});
     conversionFunnel.trackStage({
       journey: 'renter',
@@ -420,6 +484,7 @@ router.post('/register', validateBody(renterRegisterSchema), (req, res) => {
       metadata: {
         organization: cleanOrg || null,
         use_case: cleanUseCase || null,
+        verification_state: 'pending',
       },
     });
   } catch (error) {

@@ -17,10 +17,62 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../db');
 const { verifyMagicToken } = require('../services/auth-otp');
+const { sendWelcomeEmail } = require('../services/emailService');
 
 const router = express.Router();
+
+// Renter starter balance, granted exactly once when the renter clicks
+// their magic-link verification email (DCP onboarding bundle 2026-05-09).
+const RENTER_STARTER_BALANCE_HALALA = 1000;
+
+/**
+ * Idempotently finalize a pending renter row on first magic-link click.
+ *
+ * - If status='pending' and api_key starts with 'pending-renter-': mint a real
+ *   `dcp-renter-…` key, flip status='active', and credit the starter balance.
+ *   Fire-and-forget the welcome email.
+ * - If status='active' already: no-op (subsequent clicks return the same key
+ *   without double-crediting). Returns the row as-is.
+ *
+ * Returns the *fresh* renter row (post-update on the first call), or null if
+ * the email doesn't have a renter row at all.
+ */
+function finalizePendingRenter(email) {
+  const row = db.get(
+    'SELECT * FROM renters WHERE LOWER(email) = LOWER(?)',
+    email
+  );
+  if (!row) return null;
+  if (row.status !== 'pending') return row;
+
+  const realKey = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
+  const now = new Date().toISOString();
+
+  // Single UPDATE so two concurrent magic-link clicks can't double-mint.
+  // The WHERE clause re-checks status='pending' as an optimistic lock; if
+  // a racing request already finalized the row, this UPDATE matches 0 rows
+  // and we just re-read the now-active row below.
+  db.prepare(
+    `UPDATE renters
+        SET api_key = ?,
+            status = 'active',
+            balance_halala = balance_halala + ?,
+            updated_at = ?
+      WHERE id = ? AND status = 'pending'`
+  ).run(realKey, RENTER_STARTER_BALANCE_HALALA, now, row.id);
+
+  const finalized = db.get('SELECT * FROM renters WHERE id = ?', row.id);
+
+  // Only send welcome email if *we* finalized (not if the racing request did).
+  if (finalized && finalized.api_key === realKey) {
+    sendWelcomeEmail(finalized.email, finalized.name, realKey, 'renter')
+      .catch((e) => console.error('[auth.magic-link] renter welcome email failed:', e.message));
+  }
+  return finalized;
+}
 
 /**
  * POST /api/auth/magic-link
@@ -54,10 +106,11 @@ function handleMagicLink(req, res) {
       'SELECT * FROM providers WHERE LOWER(email) = LOWER(?)',
       email
     );
-    const renterRow = db.get(
-      "SELECT * FROM renters WHERE LOWER(email) = LOWER(?) AND status = 'active'",
-      email
-    );
+    // Finalize a pending renter (registered via the new email-verification
+    // flow) on the first click. Idempotent: subsequent clicks just return
+    // the active row without double-crediting the starter balance.
+    const finalizedRenter = finalizePendingRenter(email);
+    const renterRow = finalizedRenter && finalizedRenter.status === 'active' ? finalizedRenter : null;
 
     // Apply preference when both exist; otherwise return whichever is found.
     const preferProvider = prefer === 'provider';

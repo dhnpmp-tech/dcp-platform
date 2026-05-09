@@ -67,6 +67,26 @@ async function registerRenter(overrides = {}) {
   return request(app).post('/api/renters/register').send(payload);
 }
 
+// 2026-05-09: register only stages a pending row. To get a usable api_key
+// for downstream tests we have to simulate the magic-link finalization that
+// runs in routes/auth.js. We bypass the email round-trip by writing the
+// finalized state directly via the same logic.
+function finalizeRenterForTest(email) {
+  const crypto = require('crypto');
+  const realKey = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
+  const now = new Date().toISOString();
+  db.run(
+    `UPDATE renters
+        SET api_key = ?,
+            status = 'active',
+            balance_halala = balance_halala + 1000,
+            updated_at = ?
+      WHERE LOWER(email) = LOWER(?) AND status = 'pending'`,
+    realKey, now, email
+  );
+  return realKey;
+}
+
 // ── Setup / Teardown ──────────────────────────────────────────────────────────
 
 beforeEach(() => cleanDb());
@@ -327,21 +347,34 @@ describe('Provider API — GET /api/providers/:api_key/jobs', () => {
 // =============================================================================
 
 describe('Renter API — POST /api/renters/register', () => {
-  it('returns 201 with api_key on success', async () => {
+  // 2026-05-09: register now stages a pending row and emails a magic link
+  // instead of issuing the api_key inline. The api_key + starter balance
+  // are issued on first magic-link click via /api/auth/magic-link.
+  it('returns 202 next=check_email, no api_key in response, row staged as pending with 0 balance', async () => {
     const res = await registerRenter();
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(202);
     expect(res.body.success).toBe(true);
-    expect(typeof res.body.api_key).toBe('string');
-    expect(res.body.api_key).toMatch(/^dc1-renter-/);
+    expect(res.body.next).toBe('check_email');
+    expect(res.body.email).toBeDefined();
+    expect(res.body.api_key).toBeUndefined();
     expect(res.body.renter_id).toBeDefined();
+
+    const row = db.get('SELECT status, balance_halala, api_key FROM renters WHERE id = ?', res.body.renter_id);
+    expect(row.status).toBe('pending');
+    expect(row.balance_halala).toBe(0);
+    expect(row.api_key).toMatch(/^pending-renter-/);
   });
 
-  it('returns 409 for duplicate email', async () => {
+  it('re-submitting the same email while pending refreshes profile and re-sends link (no 409)', async () => {
     const email = `dup-renter-${Date.now()}@dc1.test`;
-    await registerRenter({ email });
-    const res = await registerRenter({ email });
-    expect(res.status).toBe(409);
-    expect(res.body.error).toMatch(/already exists/i);
+    const first = await registerRenter({ email, name: 'Original Name' });
+    expect(first.status).toBe(202);
+    const res = await registerRenter({ email, name: 'Corrected Name' });
+    expect(res.status).toBe(202);
+    expect(res.body.next).toBe('check_email');
+    const row = db.get('SELECT name, status FROM renters WHERE LOWER(email) = LOWER(?)', email);
+    expect(row.name).toBe('Corrected Name');
+    expect(row.status).toBe('pending');
   });
 
   it('returns 400 when name is missing', async () => {
@@ -365,17 +398,20 @@ describe('Renter API — POST /api/renters/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('new renter starts with 1000 halala starter balance', async () => {
+  it('staged renter has 0 balance until magic-link finalization', async () => {
     const res = await registerRenter();
-    const row = db.get('SELECT balance_halala FROM renters WHERE api_key = ?', res.body.api_key);
-    expect(row.balance_halala).toBe(1000);
+    const row = db.get('SELECT balance_halala, status FROM renters WHERE id = ?', res.body.renter_id);
+    expect(row.balance_halala).toBe(0);
+    expect(row.status).toBe('pending');
   });
 });
 
 describe('Renter API — GET /api/renters/me', () => {
   it('returns renter profile for valid key', async () => {
-    const reg = await registerRenter({ name: 'Aisha Al-Farsi' });
-    const apiKey = reg.body.api_key;
+    const email = `aisha-${Date.now()}@dc1.test`;
+    await registerRenter({ name: 'Aisha Al-Farsi', email });
+    // Simulate the magic-link click: stage → active, mint api_key, credit balance.
+    const apiKey = finalizeRenterForTest(email);
 
     const res = await request(app).get(`/api/renters/me?key=${apiKey}`);
     expect(res.status).toBe(200);
