@@ -593,7 +593,7 @@ router.post('/send-otp', loginEmailLimiter, async (req, res) => {
     const cleanEmail = normalizeEmail(email);
     if (!cleanEmail) return res.status(400).json({ error: 'Valid email is required' });
 
-    const result = await sendOtp(cleanEmail);
+    const result = await sendOtp(cleanEmail, { requestedRole: 'provider' });
     if (!result.success) {
       return res.status(500).json({ error: result.error || 'Failed to send verification code' });
     }
@@ -996,7 +996,9 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           gpu_profile_source = 'daemon',
           gpu_profile_updated_at = ?,
           vllm_endpoint_url = COALESCE(?, vllm_endpoint_url),
-          wg_mesh_ip = ?
+          wg_mesh_ip = COALESCE(?, wg_mesh_ip),
+          wg_tunnel_healthy = COALESCE(?, wg_tunnel_healthy),
+          wg_handshake_age_s = COALESCE(?, wg_handshake_age_s)
           WHERE id = ?`,
           JSON.stringify(normalizedGpuStatus || {}), providerIp || null, providerHostname || null, now, providerRuntimeStatus,
           peerId || p.p2p_peer_id,
@@ -1015,6 +1017,8 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           now,
           cleanVllmEndpointUrl,
           cleanWgMeshIp,
+          wgTunnelHealthy == null ? null : (wgTunnelHealthy ? 1 : 0),
+          wgHandshakeAgeS == null ? null : Math.round(wgHandshakeAgeS),
           p.id
         );
 
@@ -7722,6 +7726,28 @@ router.post('/wg/register', async (req, res) => {
                     { timeout: 5000 }
                 );
                 execSync('wg-quick save wg0', { timeout: 5000 });
+
+                // Mirror the rotated peer onto wg1 (UDP/443 fallback) too.
+                // Without this, a key rotation would leave wg1 advertising the
+                // OLD pubkey while the daemon now uses the new one — a daemon
+                // that's already on wg1 would silently lose its tunnel.
+                if (WG_FALLBACK_ENDPOINT) {
+                    try {
+                        // Remove old peer from wg1 (best-effort) before adding new one.
+                        try { execSync(`wg set wg1 peer "${oldPubKey}" remove`, { timeout: 5000 }); }
+                        catch (_) { /* old peer may not exist on wg1; ignore */ }
+                        const mirroredIp = keepIp.replace(/^10\.8\./, '10.9.');
+                        execSync(
+                            `wg set wg1 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${mirroredIp}/32 persistent-keepalive 25`,
+                            { timeout: 5000 }
+                        );
+                        execSync('wg-quick save wg1', { timeout: 5000 });
+                        console.log(`[wg/register] Rotated peer mirrored onto wg1 as ${mirroredIp}`);
+                    } catch (mirrorErr) {
+                        console.error(`[wg/register] wg1 rotation mirror failed (non-fatal): ${mirrorErr.message}`);
+                    }
+                }
+
                 try { fs.unlinkSync(pskPath); } catch (_) {}
             } catch (e) {
                 console.error('[wg/register] Failed to add rotated peer:', e.message);

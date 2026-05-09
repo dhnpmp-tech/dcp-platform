@@ -88,7 +88,13 @@ function finalizePendingRenter(email) {
 function handleMagicLink(req, res) {
   try {
     const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
-    const prefer = req.body?.prefer === 'renter' ? 'renter' : 'provider';
+    // Client-supplied preference (from a sessionStorage breadcrumb on the
+    // device that started the flow). May be missing on cross-device clicks
+    // — that's why we also persist `requested_role` on the otp_codes row at
+    // sendOtp time. Server-side `requested_role` is the strong signal;
+    // `clientPrefer` only matters when the row was created without a role.
+    const clientPrefer = req.body?.prefer === 'renter' || req.body?.prefer === 'provider'
+      ? req.body.prefer : null;
 
     if (!token) {
       return res.status(400).json({ error: 'token is required' });
@@ -100,7 +106,11 @@ function handleMagicLink(req, res) {
     }
 
     const email = verification.user.email.toLowerCase().trim();
-    console.log(`[AUTH] Magic-link verified for ${email} (prefer=${prefer})`);
+    // Server-side requested_role wins over client-supplied prefer. Falls back
+    // to client preference, then to 'provider' as the historical default.
+    const prefer = verification.requested_role || clientPrefer || 'provider';
+    console.log(`[AUTH] Magic-link verified for ${email} ` +
+                `(requested_role=${verification.requested_role}, clientPrefer=${clientPrefer}, prefer=${prefer})`);
 
     const providerRow = db.get(
       'SELECT * FROM providers WHERE LOWER(email) = LOWER(?)',

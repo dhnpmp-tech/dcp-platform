@@ -448,7 +448,7 @@ router.post('/register', validateBody(renterRegisterSchema), async (req, res) =>
 
     // Send the magic link. Even if email delivery fails we don't roll the row
     // back — the user can retry by re-submitting the form (we resend above).
-    const otpResult = await sendOtpAtRegister(cleanEmail);
+    const otpResult = await sendOtpAtRegister(cleanEmail, { requestedRole: 'renter' });
     if (!otpResult || otpResult.success !== true) {
       console.error('[renters.register] sendOtp failed:', otpResult && otpResult.error);
       return res.status(502).json({
@@ -1069,7 +1069,7 @@ router.post('/send-otp', loginEmailLimiter, async (req, res) => {
     const cleanEmail = normalizeEmail(email);
     if (!cleanEmail) return res.status(400).json({ error: 'Valid email is required' });
 
-    const result = await sendOtp(cleanEmail);
+    const result = await sendOtp(cleanEmail, { requestedRole: 'renter' });
     if (!result.success) {
       return res.status(500).json({ error: result.error || 'Failed to send verification code' });
     }

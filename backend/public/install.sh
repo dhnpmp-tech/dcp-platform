@@ -128,6 +128,15 @@ json_get_number() {
 }
 
 load_config() {
+  # If a wizard install token was passed (--token / DCP_INSTALL_TOKEN), the
+  # operator wants a *fresh* registration — even if ~/.dcp/config has a
+  # cached api_key from a previous install. Skip loading the cache so the
+  # token-exchange path runs and the new account binds to this machine.
+  if [ -n "${DCP_INSTALL_TOKEN:-}" ]; then
+    info "Install token present — skipping cached config load."
+    return 0
+  fi
+
   local env_key="${DCP_PROVIDER_KEY:-}"
   local env_id="${DCP_PROVIDER_ID:-}"
   local env_email="${DCP_PROVIDER_EMAIL:-}"
@@ -180,7 +189,9 @@ write_config() {
 }
 
 detect_gpu() {
+  GPU_VENDOR=""
   if command -v nvidia-smi >/dev/null 2>&1; then
+    GPU_VENDOR="NVIDIA"
     GPU_MODEL="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     VRAM_MIB_RAW="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d '[:space:]')"
     if [ -z "${GPU_MODEL}" ]; then
@@ -188,8 +199,10 @@ detect_gpu() {
     fi
     if [ -n "${VRAM_MIB_RAW}" ] && [ "${VRAM_MIB_RAW}" -ge 0 ] 2>/dev/null; then
       VRAM_GB="$(( (VRAM_MIB_RAW + 512) / 1024 ))"
+      VRAM_MB="${VRAM_MIB_RAW}"
     else
       VRAM_GB=0
+      VRAM_MB=0
     fi
     # Detect compute capability and driver version
     GPU_COMPUTE_CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d '[:space:]')"
@@ -197,6 +210,7 @@ detect_gpu() {
   else
     GPU_MODEL="CPU"
     VRAM_GB=0
+    VRAM_MB=0
     GPU_COMPUTE_CAP=""
     DRIVER_VERSION=""
   fi
@@ -404,14 +418,12 @@ WGCONF
     chmod 600 "${wg_dir}/wg0.conf"
 
     # Move to the OS-canonical path so wg-quick / systemd / launchd find it.
-    if [ "${DCP_OS}" = "linux" ]; then
-      sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
-        || sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
-    else
-      sudo mkdir -p /etc/wireguard
-      sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
-        || sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
-    fi
+    # Always mkdir first — on a host where wireguard-tools was installed
+    # without ever running wg-quick, /etc/wireguard may not exist yet, and
+    # `set -e` would abort the installer here.
+    sudo mkdir -p /etc/wireguard
+    sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
+      || sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
 
     # ── Tier 2: write wg1.conf (UDP/443 fallback) when backend provided one ──
     # We always *write* it if the backend exposes a fallback, but only
@@ -595,6 +607,8 @@ select_engine() {
       total_mem_gb="$(sysctl -n hw.memsize 2>/dev/null | awk '{printf "%d", $1/1073741824}')"
       DCP_ENGINE="mlx"
       VRAM_GB="${total_mem_gb}"
+      VRAM_MB="$((total_mem_gb * 1024))"
+      GPU_VENDOR="Apple"
       GPU_MODEL="${chip_name}"
       info "Apple Silicon detected: ${chip_name} (${total_mem_gb} GB unified memory)"
       info "Using MLX engine (3x faster than Ollama on Apple Silicon)"
