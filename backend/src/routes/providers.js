@@ -996,9 +996,7 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           gpu_profile_source = 'daemon',
           gpu_profile_updated_at = ?,
           vllm_endpoint_url = COALESCE(?, vllm_endpoint_url),
-          wg_mesh_ip = ?,
-          wg_tunnel_healthy = ?,
-          wg_handshake_age_s = ?
+          wg_mesh_ip = ?
           WHERE id = ?`,
           JSON.stringify(normalizedGpuStatus || {}), providerIp || null, providerHostname || null, now, providerRuntimeStatus,
           peerId || p.p2p_peer_id,
@@ -1017,11 +1015,6 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           now,
           cleanVllmEndpointUrl,
           cleanWgMeshIp,
-          // Tier 2: persist the derived booleans/age so /api/providers/me can
-          // surface them to the dashboard badge without recomputing.
-          // SQLite has no native bool, store 1/0/null.
-          wgTunnelHealthy === true ? 1 : (wgTunnelHealthy === false ? 0 : null),
-          wgHandshakeAgeS != null ? Math.round(wgHandshakeAgeS) : null,
           p.id
         );
 
@@ -1824,18 +1817,7 @@ router.get('/me', async (req, res) => {
                 today_earnings_halala: todayEarnings.total,
                 week_earnings_halala: weekEarnings.total,
                 month_earnings_halala: monthEarnings.total,
-                active_job: activeJob || null,
-                // Tier 2: WG tunnel state for the dashboard badge.
-                //   true  -> "Tunnel OK"
-                //   false -> "Tunnel zombied — auto-healing"
-                //   null  -> "Tunnel not in use" (wg not installed / not in scope)
-                // Persisted in the heartbeat handler from the daemon's wg_health payload.
-                wg_tunnel_healthy: provider.wg_tunnel_healthy == null
-                    ? null
-                    : provider.wg_tunnel_healthy === 1,
-                wg_handshake_age_s: provider.wg_handshake_age_s != null
-                    ? Number(provider.wg_handshake_age_s)
-                    : null,
+                active_job: activeJob || null
             },
             recent_jobs: recentJobs
         };
@@ -7689,16 +7671,11 @@ router.post('/wg/register', async (req, res) => {
 
         const WG_SERVER_PUBKEY = 'zVxlVgKwnxq4Z9l6jGgD0yMJH5meHrlodJYyRHrL+wM=';
         const WG_SERVER_ENDPOINT = '76.13.179.86:51820';
-        // Tier 2: optional UDP/443 fallback endpoint, served by a second WG
-        // listener (wg1) on the VPS for clients behind ISPs/firewalls that
-        // block UDP/51820. We expose these to the daemon only when the
-        // operator has actually provisioned wg1 on the server side and set
-        // the env vars accordingly. Behavior is unchanged when env unset.
+        // Tier 2 fallback (UDP/443). Activated by setting these env vars on
+        // the VPS after `wg-quick up wg1`. When absent, the response shape is
+        // identical to Tier 1 — daemons just don't see the fallback fields.
         const WG_FALLBACK_ENDPOINT = (process.env.DCP_WG_FALLBACK_ENDPOINT || '').trim() || null;
         const WG_FALLBACK_PUBKEY = (process.env.DCP_WG_FALLBACK_PUBKEY || '').trim() || WG_SERVER_PUBKEY;
-        // Optional override for the fallback subnet's tunnel target IP. wg1
-        // lives on 10.9.0.0/24 so the in-tunnel ping target is 10.9.0.1
-        // unless the operator overrides it.
         const WG_FALLBACK_TUNNEL_TARGET = (process.env.DCP_WG_FALLBACK_TUNNEL_TARGET || '10.9.0.1').trim();
         const { execSync } = require('child_process');
 
@@ -7828,6 +7805,29 @@ router.post('/wg/register', async (req, res) => {
             );
             // Persist the config so it survives wg0 restarts
             execSync('wg-quick save wg0', { timeout: 5000 });
+
+            // ── Mirror peer onto wg1 (UDP/443 fallback) when configured ──
+            // wg1 is only present on the VPS when the operator provisioned
+            // it; backend signals readiness via DCP_WG_FALLBACK_ENDPOINT.
+            // The mirrored peer uses the SAME pubkey + PSK but a swapped
+            // mesh IP (10.8.0.N → 10.9.0.N) so daemons on broken-NAT
+            // links can fall over without re-authenticating.
+            if (WG_FALLBACK_ENDPOINT) {
+                try {
+                    const mirroredIp = assignedIp.replace(/^10\.8\./, '10.9.');
+                    execSync(
+                        `wg set wg1 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${mirroredIp}/32 persistent-keepalive 25`,
+                        { timeout: 5000 }
+                    );
+                    execSync('wg-quick save wg1', { timeout: 5000 });
+                    console.log(`[wg/register] Mirrored ${cleanPubKey.slice(0,12)}… onto wg1 as ${mirroredIp}`);
+                } catch (mirrorErr) {
+                    // Don't fail the request if the fallback mirror fails —
+                    // primary wg0 already succeeded. Just log loudly.
+                    console.error(`[wg/register] wg1 mirror failed (non-fatal): ${mirrorErr.message}`);
+                }
+            }
+
             // Clean up temp PSK file
             try { fs.unlinkSync(pskPath); } catch (_) {}
         } catch (e) {
