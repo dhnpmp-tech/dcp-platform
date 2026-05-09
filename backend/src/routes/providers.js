@@ -841,6 +841,7 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             vllm_endpoint_url,   // DCP-922
             vllm_models,
             wg_mesh_ip,          // Audit H5: WireGuard mesh IP advertised by daemon
+            wg_health,           // Tier-1 WG telemetry (handshake age, rx/tx, ping)
         } = req.body;
         const cleanApiKey = normalizeString(api_key, { maxLen: 128, trim: false });
         if (!cleanApiKey) return res.status(400).json({ error: 'api_key required' });
@@ -909,6 +910,28 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             const rawIp = normalizeString(wg_mesh_ip, { maxLen: 64, trim: true });
             if (rawIp && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(rawIp)) {
                 cleanWgMeshIp = rawIp;
+            }
+        }
+
+        // Tier-1 WG telemetry. We only persist the derived "tunnel_healthy"
+        // boolean + handshake age — the raw rx/tx counters are noisy and not
+        // worth a column. Heuristic: tunnel_healthy = present AND
+        // (handshake_age_s is null OR < 180s) AND (last_ping_ms != null when
+        // peer_endpoint set).
+        let wgTunnelHealthy = null;     // null = wg not installed / not in scope
+        let wgHandshakeAgeS = null;
+        if (isPlainObject(wg_health) && wg_health.present === true) {
+            const age = toFiniteNumber(wg_health.handshake_age_s, { min: 0, max: 86400 });
+            const ping = toFiniteNumber(wg_health.last_ping_ms, { min: 0, max: 60000 });
+            const hasPeer = typeof wg_health.peer_endpoint === 'string' && wg_health.peer_endpoint.length > 0;
+            wgHandshakeAgeS = age;
+            // Healthy if either the handshake is fresh, or we have a recent
+            // in-tunnel ping reply. Either alone is sufficient.
+            const handshakeOk = age == null || age < 180;
+            const pingOk = ping != null;
+            wgTunnelHealthy = (handshakeOk || pingOk) && (!hasPeer || ping != null || handshakeOk);
+            if (!wgTunnelHealthy) {
+                console.warn(`[providers/heartbeat] WG tunnel UNHEALTHY for api_key=${cleanApiKey.slice(0,12)}… handshake_age=${age} ping=${ping} peer=${hasPeer}`);
             }
         }
 

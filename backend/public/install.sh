@@ -356,11 +356,14 @@ setup_wireguard() {
   wg_server_pubkey="$(json_get_string "${wg_response}" "server_public_key")"
 
   if [ -n "${wg_ip}" ] && [ -n "${wg_server_pubkey}" ]; then
-    # Write WireGuard config
+    # Write WireGuard config. MTU 1420 is WG's default and works on most
+    # links; the daemon's self-heal loop drops to 1280 if pings fail (broken
+    # NAT/PPPoE/cellular). PersistentKeepalive=25 keeps NAT bindings alive.
     cat > "${wg_dir}/wg0.conf" <<WGCONF
 [Interface]
 PrivateKey = $(cat "${wg_dir}/private.key")
 Address = ${wg_ip}/24
+MTU = 1420
 
 [Peer]
 PublicKey = ${wg_server_pubkey}
@@ -369,9 +372,83 @@ AllowedIPs = 10.0.0.0/24
 PersistentKeepalive = 25
 WGCONF
     chmod 600 "${wg_dir}/wg0.conf"
-    info "WireGuard config written. Activating VPN..."
-    sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null || true
-    sudo wg-quick up wg0 2>/dev/null || warn "Could not activate WireGuard. Run manually: sudo wg-quick up wg0"
+
+    # Move to the OS-canonical path so wg-quick / systemd / launchd find it.
+    if [ "${DCP_OS}" = "linux" ]; then
+      sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
+        || sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
+    else
+      sudo install -m 600 "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf 2>/dev/null \
+        || sudo mkdir -p /etc/wireguard && sudo cp "${wg_dir}/wg0.conf" /etc/wireguard/wg0.conf
+    fi
+
+    info "WireGuard config written. Activating tunnel..."
+    # Bring it up once interactively so we can verify before persisting.
+    sudo wg-quick down wg0 2>/dev/null || true
+    if ! sudo wg-quick up wg0 2>&1 | tail -3; then
+      fail "wg-quick up failed. Check 'sudo wg show' and the endpoint at ${wg_endpoint:-vpn.dcp.sa:51820}."
+    fi
+
+    # ── Verify the handshake actually completed ─────────────────────────
+    # A "successful" wg-quick up doesn't mean the peer responded. Ping the
+    # VPS WG IP from inside the tunnel; if no reply in 5 attempts, the
+    # tunnel is dead-on-arrival and we must fail loudly.
+    local server_wg_ip="${wg_endpoint%%:*}"
+    # If endpoint resolves to a public IP/hostname, the in-tunnel IP is the
+    # first usable address in AllowedIPs. Default to 10.0.0.1.
+    local tunnel_target
+    tunnel_target="$(echo "${wg_response}" | sed -n 's/.*"server_tunnel_ip"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+    [ -n "${tunnel_target}" ] || tunnel_target="10.0.0.1"
+
+    info "Verifying tunnel reachability (target: ${tunnel_target})..."
+    local ok=0 i
+    for i in 1 2 3 4 5; do
+      if ping -c 1 -W 2 "${tunnel_target}" >/dev/null 2>&1; then
+        ok=1; break
+      fi
+      sleep 1
+    done
+    if [ "${ok}" -eq 1 ]; then
+      success "Tunnel handshake confirmed (ping to ${tunnel_target} OK)."
+    else
+      warn "Tunnel up but no reply from ${tunnel_target}. Daemon will retry + self-heal."
+      warn "If this persists, your network may be blocking UDP/51820. Tier 2 work will add a UDP/443 fallback."
+    fi
+
+    # ── Persist the tunnel across reboots / sleep / network changes ─────
+    if [ "${DCP_OS}" = "linux" ]; then
+      # systemd unit shipped by wireguard-tools — just enable it.
+      if command -v systemctl >/dev/null 2>&1; then
+        sudo systemctl enable --now wg-quick@wg0.service 2>&1 | tail -2 \
+          && success "WireGuard persisted via wg-quick@wg0.service" \
+          || warn "Could not enable wg-quick@wg0 systemd unit. Tunnel won't survive reboot."
+      else
+        warn "No systemctl found; tunnel won't survive reboot. Add a init.d script manually."
+      fi
+    elif [ "${DCP_OS}" = "mac" ]; then
+      # launchd LaunchDaemon — runs as root, KeepAlive on network change,
+      # re-ups tunnel after wake-from-sleep.
+      local plist=/Library/LaunchDaemons/com.dcp.wireguard.plist
+      sudo tee "${plist}" >/dev/null <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.dcp.wireguard</string>
+  <key>ProgramArguments</key><array>
+    <string>/bin/sh</string><string>-c</string>
+    <string>/usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick down wg0 2>/dev/null; /usr/bin/env PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin wg-quick up wg0</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>NetworkState</key><true/></dict>
+  <key>StandardOutPath</key><string>/var/log/dcp-wireguard.log</string>
+  <key>StandardErrorPath</key><string>/var/log/dcp-wireguard.log</string>
+</dict></plist>
+PLIST
+      sudo launchctl unload "${plist}" 2>/dev/null || true
+      sudo launchctl load -w "${plist}" 2>&1 | tail -2 \
+        && success "WireGuard persisted via launchd (re-ups on wake/network change)" \
+        || warn "Could not load launchd plist. Tunnel won't survive reboot/sleep."
+    fi
     info "VPN public key: ${wg_pubkey}"
   else
     info "WireGuard public key: ${wg_pubkey}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DCP Provider Daemon v4.1.0 — GPU Compute Marketplace
+DCP Provider Daemon v4.3.0 — GPU Compute Marketplace
 Runs as a background service on provider machines.
 
 Features:
@@ -43,6 +43,22 @@ Features:
       - Pre-flight gate + link-level remediation
       - Claim-token handshake for fresh installs
       - Six-step web wizard at /setup + v1 API surface
+  - v4.3.0: Seven must-have reliability + security improvements:
+      1. Thread supervisor auto-restart (dead thread re-create, cap 3/10min)
+      2. In-memory job dedup with 60s flush (was disk I/O every call)
+      3. API key removed from URL query params (moved to Authorization header)
+      4. http_get() always sends auth headers (matches http_post/http_patch)
+      5. Removed trust_remote_code=True from model pre-cache (security risk)
+      6. Provider status file (~/.dcp/status.json updated every heartbeat)
+      7. Windows sleep/resume detection (wall-clock jump re-inits network)
+  - v4.3.0: Seven should-have improvements:
+      8.  Provider earnings query (GET /api/providers/earnings/summary every 5 min)
+      9.  GPU temperature throttle detection (warn + event if temp_c > 80, 5min cooldown)
+      10. Cache detect_gpu() for 10s (avoids redundant nvidia-smi calls in same cycle)
+      11. Job failure reason summary (append JSON lines to ~/.dcp/job_history.jsonl, cap 1000)
+      12. Remove duplicate passive update check (DCP-PassiveUpdate thread removed)
+      13. Fix Windows ping flag (-n/-w ms instead of -c/-W s)
+      14. Daemon local health endpoint (127.0.0.1:19876/healthz JSON status)
 
 Usage:
   python3 dcp_daemon.py                    # Uses injected key
@@ -104,7 +120,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.2.7"
+DAEMON_VERSION = "4.3.0"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -207,10 +223,21 @@ DCP_CONCURRENCY_CACHE_FILE = DCP_DIR / "concurrency_cache.json"
 # the watchdog" from "daemon was stopped by user" without inferring from
 # heartbeat gaps. See _check_previous_exit_clean() in main().
 DCP_STATE_FILE = DCP_DIR / "daemon_state.json"
+# v4.3.0 (Item 6): Provider status file — updated on every heartbeat for
+# real-time provider/admin visibility.
+DCP_STATUS_FILE = DCP_DIR / "status.json"
 try:
     DCP_DIR.mkdir(parents=True, exist_ok=True)
 except OSError:
     pass
+
+# v4.3.0: Daemon start timestamp (monotonic + wall-clock) for uptime calc
+# and sleep/resume detection.
+_DAEMON_START_MONO = time.monotonic()
+_DAEMON_START_WALL = time.time()
+# v4.3.0 (Item 6): Track last job completion time for status file.
+_last_job_completed_at = None
+_last_job_completed_lock = threading.Lock()
 
 # CLI flag: set by main() when --force-reprobe is passed. Skips concurrency cache.
 _FORCE_REPROBE_CONCURRENCY = False
@@ -222,6 +249,33 @@ _effective_context_lock = threading.Lock()
 # Runtime cache of cpu-offload detection result (updated by verify_no_cpu_offload).
 _cpu_offload_state = {"detected": False, "last_check": None, "details": ""}
 _cpu_offload_lock = threading.Lock()
+
+# ─── v4.3.0 (Item 10): detect_gpu() CACHE ────────────────────────────
+# nvidia-smi subprocess is expensive (~50-100ms). Cache the result for 10s
+# to avoid hammering it on every heartbeat + job guard + profitability check
+# in the same cycle.
+_gpu_cache = None
+_gpu_cache_time = 0.0
+_GPU_CACHE_TTL = 10  # seconds
+
+# ─── v4.3.0 (Item 9): GPU THERMAL WARNING STATE ─────────────────────
+_GPU_THERMAL_THRESHOLD = 80  # degrees C
+_GPU_THERMAL_COOLDOWN = 300  # 5 minutes between warnings
+_gpu_thermal_last_warn = 0.0
+
+# ─── v4.3.0 (Item 8): EARNINGS QUERY STATE ──────────────────────────
+_EARNINGS_QUERY_INTERVAL = 300  # 5 minutes
+_earnings_last_query = 0.0
+_earnings_data = None
+_earnings_lock = threading.Lock()
+
+# ─── v4.3.0 (Item 11): JOB HISTORY FILE ──��──────────────────────────
+_JOB_HISTORY_FILE = Path.home() / ".dcp" / "job_history.jsonl"
+_JOB_HISTORY_MAX_LINES = 1000
+_job_history_lock = threading.Lock()
+
+# ─── v4.3.0 (Item 14): LOCAL HEALTH ENDPOINT ────────────────────────
+_HEALTH_PORT = 19876
 
 # ─── v4.0.3 (Phase 1.5 / Fix G): DAEMON CODE HASH ───────────────────
 # A sha256 prefix of this file's bytes lets the backend detect silent code
@@ -472,8 +526,11 @@ def http_get(url, timeout=15, headers=None):
         timeout: Request timeout in seconds.
         headers: Optional dict of request headers. Prefer passing credentials
             via Authorization header rather than embedding them in the URL.
+
+    v4.3.0: Always merges _auth_headers() (matching http_post/http_patch)
+    so callsites no longer need to pass credentials manually.
     """
-    hdrs = dict(headers) if headers else None
+    hdrs = {**_auth_headers(), **(headers or {})}
     if HAS_REQUESTS:
         r = requests.get(url, timeout=timeout, headers=hdrs)
         return r.status_code, _safe_json(r.text)
@@ -774,44 +831,80 @@ def _get_or_create_peer_id():
         _provider_peer_id = candidate
         return candidate
 
-# ─── JOB DEDUP ──────────────────────────────────────────────────────────────
+# ─── JOB DEDUP (v4.3.0: in-memory with 60s periodic flush) ──────────────────
 
 _DEDUP_FILE = CONFIG_DIR / "seen_jobs.json"
 _DEDUP_TTL = 3600  # 1 hour — forget jobs older than this
 _DEDUP_MAX_ENTRIES = 10_000  # size cap so a misbehaving backend can't grow this unbounded
+_DEDUP_FLUSH_INTERVAL = 60  # seconds between disk flushes (was every call pre-4.3.0)
 
-def _load_seen_jobs():
-    """Load seen job IDs from disk. Returns dict {job_id: timestamp}."""
+# In-memory dedup state — protects against concurrent access from job poll
+# thread and any future callers. Loaded from disk once at startup, flushed
+# to disk every _DEDUP_FLUSH_INTERVAL seconds.
+_seen_jobs_mem: dict = {}   # {job_id_str: unix_timestamp}
+_seen_jobs_lock = threading.Lock()
+_seen_jobs_last_flush = 0.0
+_seen_jobs_dirty = False
+
+def _load_seen_jobs_from_disk():
+    """Load seen job IDs from disk into _seen_jobs_mem at startup."""
+    global _seen_jobs_mem, _seen_jobs_last_flush
     try:
         if _DEDUP_FILE.exists():
             data = json.loads(_DEDUP_FILE.read_text())
-            # Clean expired entries
             now = time.time()
-            return {k: v for k, v in data.items() if now - v < _DEDUP_TTL}
+            _seen_jobs_mem = {k: v for k, v in data.items() if now - v < _DEDUP_TTL}
     except Exception:
-        pass
-    return {}
+        _seen_jobs_mem = {}
+    _seen_jobs_last_flush = time.time()
 
-def _save_seen_jobs(seen):
-    """Save seen job IDs to disk. Caps total entries to _DEDUP_MAX_ENTRIES
-    by keeping the most recent by timestamp."""
+def _flush_seen_jobs():
+    """Write the in-memory dedup set to disk. Called periodically (60s)."""
+    global _seen_jobs_last_flush, _seen_jobs_dirty
     try:
-        if len(seen) > _DEDUP_MAX_ENTRIES:
-            # Keep the newest _DEDUP_MAX_ENTRIES
-            sorted_items = sorted(seen.items(), key=lambda kv: kv[1], reverse=True)
-            seen = dict(sorted_items[:_DEDUP_MAX_ENTRIES])
-        _DEDUP_FILE.write_text(json.dumps(seen))
+        with _seen_jobs_lock:
+            if not _seen_jobs_dirty:
+                _seen_jobs_last_flush = time.time()
+                return
+            # Evict expired entries
+            now = time.time()
+            live = {k: v for k, v in _seen_jobs_mem.items() if now - v < _DEDUP_TTL}
+            # Cap to _DEDUP_MAX_ENTRIES (keep newest)
+            if len(live) > _DEDUP_MAX_ENTRIES:
+                sorted_items = sorted(live.items(), key=lambda kv: kv[1], reverse=True)
+                live = dict(sorted_items[:_DEDUP_MAX_ENTRIES])
+            _seen_jobs_mem.clear()
+            _seen_jobs_mem.update(live)
+            snapshot = json.dumps(live)
+            _seen_jobs_dirty = False
+            _seen_jobs_last_flush = now
+        # Write outside the lock to minimise hold time
+        _DEDUP_FILE.write_text(snapshot)
     except Exception:
         pass
+
+def _maybe_flush_seen_jobs():
+    """Flush to disk if _DEDUP_FLUSH_INTERVAL has elapsed since last flush."""
+    if time.time() - _seen_jobs_last_flush >= _DEDUP_FLUSH_INTERVAL:
+        _flush_seen_jobs()
 
 def is_duplicate_job(job_id):
-    """Check if we've already seen this job. Mark it as seen if not."""
-    seen = _load_seen_jobs()
-    if str(job_id) in seen:
-        log.warning(f"Job dedup: {job_id} already seen — skipping")
-        return True
-    seen[str(job_id)] = time.time()
-    _save_seen_jobs(seen)
+    """Check if we've already seen this job. Mark it as seen if not.
+
+    v4.3.0: Operates entirely in-memory; disk is flushed every 60s by
+    _maybe_flush_seen_jobs() (called after the check).
+    """
+    global _seen_jobs_dirty
+    jid = str(job_id)
+    with _seen_jobs_lock:
+        now = time.time()
+        ts = _seen_jobs_mem.get(jid)
+        if ts is not None and (now - ts) < _DEDUP_TTL:
+            log.warning(f"Job dedup: {job_id} already seen — skipping")
+            return True
+        _seen_jobs_mem[jid] = now
+        _seen_jobs_dirty = True
+    _maybe_flush_seen_jobs()
     return False
 
 # ─── BANDWIDTH MONITOR ──────────────────────────────────────────────────────
@@ -830,7 +923,7 @@ def measure_bandwidth():
     # Latency — time a lightweight GET
     try:
         start = time.time()
-        http_get(f"{API_URL}/api/providers/download/daemon?key={API_KEY}&check_only=true", timeout=10)
+        http_get(f"{API_URL}/api/providers/download/daemon?check_only=true", timeout=10)
         latency_ms = round((time.time() - start) * 1000)
     except:
         latency_ms = None
@@ -841,13 +934,15 @@ def measure_bandwidth():
         start = time.time()
         if HAS_REQUESTS:
             import requests as req_lib
-            r = req_lib.get(f"{API_URL}/api/providers/download/daemon?key={API_KEY}", timeout=30)
+            r = req_lib.get(f"{API_URL}/api/providers/download/daemon", timeout=30, headers=_auth_headers())
             size = len(r.content)
         else:
             import urllib.request
-            with urllib.request.urlopen(
-                f"{API_URL}/api/providers/download/daemon?key={API_KEY}", timeout=30
-            ) as resp:
+            _bw_req = urllib.request.Request(
+                f"{API_URL}/api/providers/download/daemon",
+                headers=_auth_headers(),
+            )
+            with urllib.request.urlopen(_bw_req, timeout=30) as resp:
                 data = resp.read()
                 size = len(data)
         elapsed = time.time() - start
@@ -883,7 +978,7 @@ def measure_bandwidth():
         global _bandwidth_stats
         _bandwidth_stats = new_stats
 
-    log.info(f"Bandwidth: ↓{download_mbps} Mbps ↑{upload_mbps} Mbps, latency {latency_ms}ms")
+    log.info(f"Bandwidth: D:{download_mbps} Mbps U:{upload_mbps} Mbps, latency {latency_ms}ms")
 
     # Report to backend as event (not bandwidth_test — that's the raw payload)
     report_event("bandwidth_report",
@@ -917,9 +1012,17 @@ def measure_network_quality():
         from urllib.parse import urlparse
         host = urlparse(API_URL).hostname or "api.dcp.sa"
 
-        ping_cmd = ["ping", "-c", str(NETWORK_QUALITY_PING_COUNT), "-W", "3", host]
-        if platform.system() == "Darwin":
+        # v4.3.0 (Item 13): Platform-aware ping flags.
+        # Linux:   -c N -W <seconds>
+        # macOS:   -c N -W <milliseconds>
+        # Windows: -n N -w <milliseconds>  (no -c, no -W)
+        _ping_sys = platform.system()
+        if _ping_sys == "Windows":
+            ping_cmd = ["ping", "-n", str(NETWORK_QUALITY_PING_COUNT), "-w", "3000", host]
+        elif _ping_sys == "Darwin":
             ping_cmd = ["ping", "-c", str(NETWORK_QUALITY_PING_COUNT), "-W", "3000", host]
+        else:
+            ping_cmd = ["ping", "-c", str(NETWORK_QUALITY_PING_COUNT), "-W", "3", host]
 
         result = subprocess.run(ping_cmd, capture_output=True, text=True, timeout=20)
         output = result.stdout
@@ -1216,6 +1319,110 @@ def _resolve_download_url(download_url):
     return None
 
 _WG_MESH_SUBNET_RE = re.compile(r'^10\.8\.\d{1,3}\.\d{1,3}$')
+_WG_LAST_HEAL_TS = 0.0  # monotonic timestamp of the last self-heal cycle
+_WG_HEAL_COOLDOWN_S = 120.0  # don't bounce the tunnel more than once per 2 min
+_WG_STALE_HANDSHAKE_S = 180.0  # >3 min since last handshake → tunnel zombie
+
+
+def _get_wg_health():
+    """Return WireGuard health telemetry for the heartbeat payload.
+
+    Output (None values when wg isn't installed or wg0 isn't up):
+      {
+        'present': bool, 'iface': 'wg0',
+        'handshake_age_s': float | None,
+        'rx_bytes': int | None, 'tx_bytes': int | None,
+        'last_ping_ms': float | None,
+        'peer_endpoint': str | None,
+      }
+
+    Reads `wg show wg0 dump`. Field order per wireguard-tools(8):
+      public_key preshared_key endpoint allowed_ips latest_handshake
+      transfer_rx transfer_tx persistent_keepalive
+    """
+    health = {
+        'present': False, 'iface': 'wg0',
+        'handshake_age_s': None, 'rx_bytes': None, 'tx_bytes': None,
+        'last_ping_ms': None, 'peer_endpoint': None,
+    }
+    try:
+        r = subprocess.run(
+            ["wg", "show", "wg0", "dump"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode != 0 or not r.stdout:
+            return health
+        health['present'] = True
+        lines = [ln for ln in r.stdout.strip().split('\n') if ln]
+        if len(lines) >= 2:
+            parts = lines[1].split('\t')
+            if len(parts) >= 7:
+                health['peer_endpoint'] = parts[2] or None
+                try:
+                    last_hs = int(parts[4])
+                    if last_hs > 0:
+                        health['handshake_age_s'] = max(0.0, time.time() - last_hs)
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    health['rx_bytes'] = int(parts[5])
+                    health['tx_bytes'] = int(parts[6])
+                except (ValueError, TypeError):
+                    pass
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return health
+    except Exception as e:
+        log.debug(f"_get_wg_health wg show failed: {e}")
+        return health
+
+    # Single in-tunnel ping — surfaces dead tunnels even when handshake_age
+    # looks healthy due to stale local state.
+    try:
+        ping_target = "10.8.0.1"
+        ping_cmd = (["ping", "-c", "1", "-W", "1", ping_target]
+                    if platform.system() != "Windows"
+                    else ["ping", "-n", "1", "-w", "1000", ping_target])
+        t0 = time.monotonic()
+        pr = subprocess.run(ping_cmd, capture_output=True, text=True, timeout=2)
+        if pr.returncode == 0:
+            health['last_ping_ms'] = round((time.monotonic() - t0) * 1000.0, 1)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+    except Exception as e:
+        log.debug(f"_get_wg_health ping failed: {e}")
+    return health
+
+
+def _self_heal_wg(health):
+    """If the WG tunnel looks dead, cycle it. Cooldown-gated to 1× per 2 min."""
+    global _WG_LAST_HEAL_TS
+    if not health.get('present'):
+        return
+    age = health.get('handshake_age_s')
+    ping_ms = health.get('last_ping_ms')
+    dead = False
+    if age is not None and age > _WG_STALE_HANDSHAKE_S:
+        dead = True
+    elif age is None and health.get('peer_endpoint') and ping_ms is None:
+        dead = True
+    if not dead:
+        return
+    now = time.monotonic()
+    if (now - _WG_LAST_HEAL_TS) < _WG_HEAL_COOLDOWN_S:
+        log.debug(f"[wg-heal] tunnel unhealthy but cooldown active "
+                  f"({int(_WG_HEAL_COOLDOWN_S - (now - _WG_LAST_HEAL_TS))}s left)")
+        return
+    _WG_LAST_HEAL_TS = now
+    log.warning(f"[wg-heal] tunnel zombied (handshake_age={age}, ping={ping_ms}); "
+                f"cycling wg0")
+    try:
+        subprocess.run(["sudo", "-n", "wg-quick", "down", "wg0"],
+                       capture_output=True, timeout=10)
+        subprocess.run(["sudo", "-n", "wg-quick", "up", "wg0"],
+                       capture_output=True, timeout=15)
+        log.info("[wg-heal] wg-quick down/up complete")
+    except Exception as e:
+        log.warning(f"[wg-heal] wg-quick cycle failed: {e}")
 
 
 def _detect_wg_mesh_ip():
@@ -1329,16 +1536,17 @@ def _wg_health_monitor():
             try:
                 system = platform.system()
                 if system == "Darwin":
-                    # macOS: wg-quick lives in Homebrew paths
+                    # macOS: wg-quick needs root. Use osascript for admin prompt.
                     wq = "/opt/homebrew/bin/wg-quick"
                     if not os.path.exists(wq):
                         wq = "/usr/local/bin/wg-quick"
                     if not os.path.exists(wq):
                         wq = "wg-quick"
-                    subprocess.run([wq, "down", conf_path],
-                                   capture_output=True, timeout=10)
-                    subprocess.run([wq, "up", conf_path],
-                                   capture_output=True, timeout=10)
+                    cmd = f"export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; {wq} down wg0 2>/dev/null; {wq} up wg0"
+                    subprocess.run(
+                        ["osascript", "-e",
+                         f'do shell script "{cmd}" with administrator privileges'],
+                        capture_output=True, timeout=30)
                 elif system == "Linux":
                     subprocess.run(["wg-quick", "down", conf_path],
                                    capture_output=True, timeout=10)
@@ -1578,7 +1786,7 @@ def check_for_update():
 
     for endpoint in _candidate_update_endpoints():
         try:
-            url = f"{endpoint}?key={API_KEY}&check_only=true"
+            url = f"{endpoint}?check_only=true"
             code, resp = http_get(url)
             if code != 200 or not isinstance(resp, dict) or not resp.get("version"):
                 continue
@@ -1603,22 +1811,24 @@ def perform_update(new_version, preferred_download_url=None):
         if preferred_download_url:
             download_candidates.append(preferred_download_url)
         for endpoint in _candidate_download_urls():
-            download_candidates.append(f"{endpoint}?key={API_KEY}")
+            download_candidates.append(endpoint)
 
         new_code = None
         used_url = None
         last_error = None
+        _dl_auth = _auth_headers()
         for download_url in download_candidates:
             try:
                 if HAS_REQUESTS:
                     import requests as req_lib
-                    r = req_lib.get(download_url, timeout=30)
+                    r = req_lib.get(download_url, timeout=30, headers=_dl_auth)
                     if r.status_code != 200:
                         raise Exception(f"Download HTTP {r.status_code}")
                     candidate_code = r.text
                 else:
                     import urllib.request
-                    with urllib.request.urlopen(download_url, timeout=30) as resp:
+                    _dl_req = urllib.request.Request(download_url, headers=_dl_auth)
+                    with urllib.request.urlopen(_dl_req, timeout=30) as resp:
                         candidate_code = resp.read().decode("utf-8")
 
                 if ("DCP Provider Daemon" not in candidate_code and "DC1 Provider Daemon" not in candidate_code) or "def main()" not in candidate_code:
@@ -1745,7 +1955,23 @@ def _get_cuda_version():
     return None
 
 def detect_gpu():
-    """Detect NVIDIA GPU(s) via nvidia-smi. Returns dict for GPU 0 (or None), plus all_gpus list."""
+    """Detect NVIDIA GPU(s) via nvidia-smi. Returns dict for GPU 0 (or None), plus all_gpus list.
+
+    v4.3.0 (Item 10): Results are cached for 10 seconds to avoid redundant
+    nvidia-smi subprocess calls within the same heartbeat/poll cycle.
+    """
+    global _gpu_cache, _gpu_cache_time
+    now = time.time()
+    if _gpu_cache is not None and (now - _gpu_cache_time) < _GPU_CACHE_TTL:
+        return _gpu_cache
+    result = _detect_gpu_uncached()
+    _gpu_cache = result
+    _gpu_cache_time = now
+    return result
+
+
+def _detect_gpu_uncached():
+    """Raw GPU detection (no cache). Called by detect_gpu()."""
     try:
         # Query includes compute_cap for CUDA compute capability
         result = subprocess.run(
@@ -5194,6 +5420,162 @@ def apply_port_mismatch_remedy():
     return dict(state)
 
 
+# ─── v4.3.0 (Item 6): PROVIDER STATUS FILE ──────────────────────────────────
+
+def _record_job_completion():
+    """Record last job completion time (called after a job finishes)."""
+    global _last_job_completed_at
+    with _last_job_completed_lock:
+        _last_job_completed_at = datetime.utcnow().isoformat() + "Z"
+
+def _write_status_file(gpu_status, served_model=None):
+    """Write ~/.dcp/status.json on every heartbeat for provider/admin visibility.
+
+    Contents: daemon version, uptime, GPU info, served model, WG status,
+    last heartbeat time, last job time. Atomic write via tmp+rename.
+    """
+    try:
+        uptime_s = round(time.monotonic() - _DAEMON_START_MONO)
+        wg_ip = None
+        try:
+            wg_ip = _detect_wg_mesh_ip()
+        except Exception:
+            pass
+        with _last_job_completed_lock:
+            last_job = _last_job_completed_at
+        status_payload = {
+            "daemon_version": DAEMON_VERSION,
+            "uptime_seconds": uptime_s,
+            "uptime_human": f"{uptime_s // 3600}h {(uptime_s % 3600) // 60}m {uptime_s % 60}s",
+            "gpu": {
+                "name": gpu_status.get("gpu_name"),
+                "vram_mib": gpu_status.get("gpu_vram_mib") or gpu_status.get("vram_mb"),
+                "free_vram_mib": gpu_status.get("free_vram_mib"),
+                "util_pct": gpu_status.get("gpu_util_pct"),
+                "temp_c": gpu_status.get("temp_c"),
+                "power_w": gpu_status.get("power_w"),
+                "driver_version": gpu_status.get("driver_version"),
+            },
+            "served_model": served_model or os.environ.get("DCP_SERVED_MODEL", ""),
+            "wireguard": {
+                "connected": wg_ip is not None,
+                "mesh_ip": wg_ip,
+            },
+            "last_heartbeat": datetime.utcnow().isoformat() + "Z",
+            "last_job_completed": last_job,
+            "pid": os.getpid(),
+            "code_hash": _CODE_HASH,
+        }
+        # v4.3.0 (Item 8): Include earnings data if available
+        with _earnings_lock:
+            if _earnings_data:
+                status_payload["earnings"] = dict(_earnings_data)
+        tmp_path = DCP_STATUS_FILE.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(status_payload, indent=2))
+        tmp_path.replace(DCP_STATUS_FILE)
+    except Exception as e:
+        log.debug(f"[status] Failed to write status.json: {e}")
+
+
+def _check_gpu_thermal(gpu):
+    """v4.3.0 (Item 9): Check GPU temperature and warn if above throttle threshold.
+
+    Fires at most once per _GPU_THERMAL_COOLDOWN seconds to avoid log spam.
+    Reports a gpu_thermal_warning event to the backend on trigger.
+    """
+    global _gpu_thermal_last_warn
+    if not gpu:
+        return
+    temp_c = gpu.get("temp_c")
+    if temp_c is None:
+        return
+    try:
+        temp_c = int(temp_c)
+    except (TypeError, ValueError):
+        return
+    if temp_c <= _GPU_THERMAL_THRESHOLD:
+        return
+    now = time.time()
+    if (now - _gpu_thermal_last_warn) < _GPU_THERMAL_COOLDOWN:
+        return  # cooldown active
+    _gpu_thermal_last_warn = now
+    log.warning(
+        f"[gpu-thermal] GPU temperature {temp_c}\u00b0C exceeds throttle threshold "
+        f"({_GPU_THERMAL_THRESHOLD}\u00b0C)"
+    )
+    try:
+        report_event(
+            "gpu_thermal_warning",
+            f"GPU temperature {temp_c}\u00b0C exceeds {_GPU_THERMAL_THRESHOLD}\u00b0C threshold",
+            severity="warning",
+        )
+    except Exception:
+        pass
+
+
+def _query_provider_earnings():
+    """v4.3.0 (Item 8): Query provider earnings summary from the backend.
+
+    Called periodically (every _EARNINGS_QUERY_INTERVAL seconds). The result
+    is stored in _earnings_data and surfaced in status.json. Handles 404
+    gracefully (endpoint may not exist yet on all backends).
+    """
+    global _earnings_last_query, _earnings_data
+    now = time.time()
+    if (now - _earnings_last_query) < _EARNINGS_QUERY_INTERVAL:
+        return  # not time yet
+    _earnings_last_query = now
+    try:
+        url = f"{API_URL}/api/providers/earnings/summary"
+        code, resp = http_get(url, headers=_auth_headers())
+        if code == 200 and isinstance(resp, dict):
+            with _earnings_lock:
+                _earnings_data = {
+                    "total_earned": resp.get("total_earned"),
+                    "pending": resp.get("pending"),
+                    "last_payout": resp.get("last_payout"),
+                    "queried_at": datetime.utcnow().isoformat() + "Z",
+                }
+            log.info(
+                "[earnings] total_earned=%s pending=%s last_payout=%s",
+                resp.get("total_earned"), resp.get("pending"), resp.get("last_payout"),
+            )
+        elif code == 404:
+            log.debug("[earnings] endpoint not found (404) — backend may not support it yet")
+        else:
+            log.debug(f"[earnings] query returned HTTP {code}")
+    except Exception as e:
+        log.debug(f"[earnings] query failed: {e}")
+
+
+def _append_job_history(entry):
+    """v4.3.0 (Item 11): Append a JSON line to ~/.dcp/job_history.jsonl.
+
+    Caps the file at _JOB_HISTORY_MAX_LINES by truncating from the beginning.
+    Thread-safe via _job_history_lock.
+    """
+    with _job_history_lock:
+        try:
+            line = json.dumps(entry, default=str) + "\n"
+            # Ensure parent dir exists
+            _JOB_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            # Append the new line
+            with open(_JOB_HISTORY_FILE, "a", encoding="utf-8") as f:
+                f.write(line)
+            # Check line count and truncate if needed
+            try:
+                with open(_JOB_HISTORY_FILE, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                if len(lines) > _JOB_HISTORY_MAX_LINES:
+                    # Keep the most recent _JOB_HISTORY_MAX_LINES lines
+                    with open(_JOB_HISTORY_FILE, "w", encoding="utf-8") as f:
+                        f.writelines(lines[-_JOB_HISTORY_MAX_LINES:])
+            except OSError:
+                pass  # truncation is best-effort
+        except Exception as e:
+            log.debug(f"[job-history] failed to write: {e}")
+
+
 def send_heartbeat(final=False, status=None):  # returns HTTP status code or None on transport error
     """Send heartbeat with GPU metrics to backend and P2P network.
 
@@ -5202,6 +5584,19 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
       status: Optional status override, e.g. 'draining'. Included in payload.
     """
     gpu = detect_gpu()
+
+    # v4.3.0 (Item 9): GPU thermal throttle detection
+    try:
+        _check_gpu_thermal(gpu)
+    except Exception as _therm_err:
+        log.debug(f"[gpu-thermal] check failed: {_therm_err}")
+
+    # v4.3.0 (Item 8): Query provider earnings periodically
+    try:
+        _query_provider_earnings()
+    except Exception as _earn_err:
+        log.debug(f"[earnings] query wrapper failed: {_earn_err}")
+
     gpu_info = get_gpu_info()
     cache_metrics = get_model_cache_metrics()
     vllm_models = detect_vllm_models()
@@ -5271,6 +5666,16 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
                 payload["wg_mesh_ip"] = wg_ip
         except Exception as _wg_err:
             log.debug(f"_detect_wg_mesh_ip failed: {_wg_err}")
+        # Tier-1 WG health: handshake age, rx/tx, in-tunnel ping. The backend
+        # uses these to flag "online but tunnel zombied" providers separately
+        # from heartbeat-online. Self-heal kicks the tunnel locally if it
+        # looks dead (cooldown-gated).
+        try:
+            wg_health = _get_wg_health()
+            payload["wg_health"] = wg_health
+            _self_heal_wg(wg_health)
+        except Exception as _wgh_err:
+            log.debug(f"_get_wg_health failed: {_wgh_err}")
         # Include bandwidth stats if available
         with _bw_lock:
             if _bandwidth_stats.get("download_mbps") is not None:
@@ -5437,44 +5842,13 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
         # Defensive: ensure payload is JSON-safe before sending. Historically
         # we've seen "Circular reference detected" here when a GPU or network
         # stats object contained a back-reference. Sanitize first, then send.
+        # v4.3.1: Nuclear safe serialization - guarantees no circular reference
         try:
-            json.dumps(payload)
-            safe_payload = payload
-        except (TypeError, ValueError) as ser_err:
-            # v4.2.1: was log.warning — sanitization handles this correctly,
-            # so the warning was log noise on every heartbeat cycle.
-            log.debug(f"Heartbeat payload not JSON-safe ({ser_err}); sanitizing")
-            safe_payload = _sanitize_for_json(payload)
-        try:
-            code, resp = http_post(url, safe_payload)
-        except ValueError as ve:
-            # Catches "Circular reference detected" from json encoder
-            if "circular" in str(ve).lower():
-                log.warning(f"Heartbeat hit circular reference ({ve}); retrying with default=str")
-                # Build a fully-stringified fallback using default=str
-                body = json.dumps(_sanitize_for_json(payload), default=str)
-                if HAS_REQUESTS:
-                    r = requests.post(
-                        url,
-                        data=body,
-                        headers={"Content-Type": "application/json"},
-                        timeout=15,
-                    )
-                    code, resp = r.status_code, _safe_json(r.text)
-                else:
-                    import urllib.request, urllib.error
-                    req = urllib.request.Request(
-                        url,
-                        data=body.encode(),
-                        headers={"Content-Type": "application/json"},
-                    )
-                    try:
-                        with urllib.request.urlopen(req, timeout=15) as response:
-                            code, resp = response.getcode(), _safe_json(response.read())
-                    except urllib.error.HTTPError as he:
-                        code, resp = he.code, _safe_json(he.read())
-            else:
-                raise
+            safe_payload = json.loads(json.dumps(_sanitize_for_json(payload), default=str))
+        except Exception as ser_err:
+            log.warning("Heartbeat payload serialization failed (%s); using minimal payload" % ser_err)
+            safe_payload = {"provider_id": payload.get("provider_id"), "status": "online", "daemon_version": DAEMON_VERSION}
+        code, resp = http_post(url, safe_payload)
         if code == 200:
             log.info("Heartbeat OK (200)")
             # v4.2.6 / Tier 4.16 / G47: mirror is_paused from the response
@@ -5495,6 +5869,13 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
 
     # Emit P2P heartbeat (non-blocking)
     emit_p2p_heartbeat(peer_id, gpu, gpu_status)
+
+    # v4.3.0 (Item 6): Write provider status file on every heartbeat
+    try:
+        _write_status_file(gpu_status, served_model=os.environ.get("DCP_SERVED_MODEL", ""))
+    except Exception as _sf_err:
+        log.debug(f"[status] _write_status_file failed: {_sf_err}")
+
     return code
 
 def heartbeat_loop():
@@ -6742,9 +7123,24 @@ def poll_and_execute():
             log.error(f"Job {job_id} CRASHED after {elapsed}s: {error_detail[:500]}")
             report_event("job_failure", error_detail, job_id=job_id, severity="critical")
             outcome = {"success": False, "error": error_detail[:1000]}
+            # v4.3.0 (Item 11): Log crashed job to history
+            try:
+                _task_spec = job.get("task_spec", {})
+                _append_job_history({
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "job_id": job_id,
+                    "status": "failed",
+                    "error": str(e)[:500],
+                    "duration_s": elapsed,
+                    "model": job.get("model") or (_task_spec.get("model") if isinstance(_task_spec, dict) else None),
+                })
+            except Exception:
+                pass
         finally:
             # Release GPU slot regardless of outcome
             release_gpu_slot(gpu_slot, job_id)
+            # v4.3.0 (Item 6): record job completion time for status.json
+            _record_job_completion()
 
         elapsed = round(time.time() - start_time, 1)
         gpu_count = get_detected_gpu_count()
@@ -6756,12 +7152,36 @@ def poll_and_execute():
             report_event("job_success",
                 f"Job completed in {elapsed}s, result size: {result_size} bytes",
                 job_id=job_id)
+            # v4.3.0 (Item 11): Log successful job to history
+            try:
+                _append_job_history({
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "job_id": job_id,
+                    "status": "completed",
+                    "tokens": outcome.get("metrics", {}).get("tokens") if isinstance(outcome.get("metrics"), dict) else None,
+                    "duration_s": elapsed,
+                    "model": job.get("model") or (task_spec.get("model") if isinstance(task_spec, dict) else None),
+                })
+            except Exception:
+                pass
         else:
             error_msg = outcome.get("error", "Unknown error")
             severity = "critical" if "timed out" in str(error_msg).lower() else "error"
             report_event("job_failure",
                 f"Job failed after {elapsed}s: {error_msg[:1000]}",
                 job_id=job_id, severity=severity)
+            # v4.3.0 (Item 11): Log failed job to history
+            try:
+                _append_job_history({
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "job_id": job_id,
+                    "status": "failed",
+                    "error": str(error_msg)[:500],
+                    "duration_s": elapsed,
+                    "model": job.get("model") or (task_spec.get("model") if isinstance(task_spec, dict) else None),
+                })
+            except Exception:
+                pass
 
         # Stream collected logs to backend (non-blocking, best-effort)
         stdout_output = outcome.get("result", "") if isinstance(outcome.get("result"), str) else ""
@@ -6888,7 +7308,7 @@ def precache_models():
 
                 # Download tokenizer (small, fast)
                 log.info(f"[precache] Downloading tokenizer: {model_id}")
-                AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+                AutoTokenizer.from_pretrained(model_id)
 
                 # Download model weights (the big download)
                 log.info(f"[precache] Downloading model weights: {model_id}")
@@ -6896,7 +7316,6 @@ def precache_models():
                     model_id,
                     torch_dtype=torch.float16,
                     device_map="auto",
-                    trust_remote_code=True
                 )
 
                 log.info(f"[precache] Model ready: {model_id}")
@@ -6916,6 +7335,59 @@ def precache_models():
 
     except Exception as e:
         log.warning(f"[precache] Pre-cache setup failed: {e}")
+
+# ─── v4.3.0 (Item 14): LOCAL HEALTH ENDPOINT ────────────────────────────────
+
+def _start_health_server():
+    """Start a tiny HTTP server on localhost:_HEALTH_PORT serving /healthz.
+
+    Returns JSON: {"status": "ok", "version": "4.3.0", "uptime_s": N, "pid": PID}
+    Only binds to 127.0.0.1 for security (not 0.0.0.0).
+    Runs as a daemon thread so it does not block shutdown.
+    Handles port-in-use gracefully (logs warning, continues without health endpoint).
+    """
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    class _HealthHandler(BaseHTTPRequestHandler):
+        """Minimal handler for /healthz."""
+
+        def do_GET(self):
+            if self.path == "/healthz" or self.path == "/healthz/":
+                uptime_s = round(time.monotonic() - _DAEMON_START_MONO)
+                body = json.dumps({
+                    "status": "ok",
+                    "version": DAEMON_VERSION,
+                    "uptime_s": uptime_s,
+                    "pid": os.getpid(),
+                })
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(body.encode("utf-8"))
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, format, *args):
+            """Suppress default access log to avoid noise in daemon.log."""
+            pass
+
+    def _serve():
+        try:
+            server = HTTPServer(("127.0.0.1", _HEALTH_PORT), _HealthHandler)
+            server.timeout = 1  # so shutdown isn't stuck
+            log.info(f"[health] Local health endpoint running on http://127.0.0.1:{_HEALTH_PORT}/healthz")
+            server.serve_forever()
+        except OSError as e:
+            # Port in use or bind error — log and continue without health endpoint
+            log.warning(f"[health] Could not start health endpoint on port {_HEALTH_PORT}: {e}")
+        except Exception as e:
+            log.warning(f"[health] Health endpoint error: {e}")
+
+    t = threading.Thread(target=_serve, daemon=True, name="DCP-HealthEndpoint")
+    t.start()
+    return t
+
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
@@ -6993,11 +7465,9 @@ def main():
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
-    # Initialize job dedup file
-    if not _DEDUP_FILE.exists():
-        try:
-            _DEDUP_FILE.write_text(json.dumps({}))
-        except: pass
+    # v4.3.0: Load in-memory dedup set from disk (replaces per-call disk I/O)
+    _load_seen_jobs_from_disk()
+    log.info(f"[dedup] Loaded {len(_seen_jobs_mem)} seen jobs from disk (flush every {_DEDUP_FLUSH_INTERVAL}s)")
 
     log.info("=" * 60)
     log.info(f"DCP Provider Daemon v{DAEMON_VERSION}")
@@ -7025,6 +7495,29 @@ def main():
                 f"prev_pid={prev_pid} prev_ver={prev_ver} prev_ts={prev_ts} note={note}",
                 severity="warning",
             )
+            # ── Crash log capture: read last 50 lines of daemon.log and report ──
+            try:
+                log.info("[c4] previous exit was UNCLEAN — reporting crash event with log tail")
+                _crash_log_path = LOG_DIR / "daemon.log"
+                _crash_log_lines = ""
+                if _crash_log_path.exists():
+                    import collections
+                    with open(_crash_log_path, "r", errors="replace") as _clf:
+                        _tail = collections.deque(_clf, maxlen=50)
+                    _crash_log_lines = "".join(_tail)
+                else:
+                    _crash_log_lines = "(daemon.log not found)"
+                _crash_detail = (
+                    f"prev_pid={prev_pid} prev_ver={prev_ver} prev_ts={prev_ts} note={note}\n"
+                    f"--- last 50 lines of daemon.log ---\n{_crash_log_lines}"
+                )
+                report_event(
+                    "daemon_crash",
+                    _crash_detail[:5000],
+                    severity="critical",
+                )
+            except Exception as _crash_err:
+                log.debug(f"[c4] crash log capture failed: {_crash_err}")
         elif prev_exit == "first_run":
             log.info("[c4] no prior state marker — treating as first run on this host")
         else:
@@ -7258,50 +7751,54 @@ def main():
     auto_verify()
 
     # Step 7: Start background threads
+    # v4.3.0 (Item 1): Thread registry for supervisor auto-restart.
+    # Each entry: (name, target_func, current_thread_obj).
+    # The supervisor can re-create any dead thread from its target_func.
+    _thread_registry = []  # list of [name, target_func, thread_obj]
+
+    def _start_supervised_thread(name, target):
+        """Create, start, and register a daemon thread under supervision."""
+        t = threading.Thread(target=target, daemon=True, name=name)
+        t.start()
+        _thread_registry.append([name, target, t])
+        return t
+
     log.info("Starting heartbeat thread (every %ds)...", HEARTBEAT_INTERVAL)
-    hb_thread = threading.Thread(target=heartbeat_loop, daemon=True, name="DCP-Heartbeat")
-    hb_thread.start()
+    _start_supervised_thread("DCP-Heartbeat", heartbeat_loop)
 
     log.info("Starting job poll thread (every %ds)...", JOB_POLL_INTERVAL)
-    job_thread = threading.Thread(target=job_poll_loop, daemon=True, name="DCP-JobPoll")
-    job_thread.start()
+    _start_supervised_thread("DCP-JobPoll", job_poll_loop)
 
     log.info("Starting update check thread (every %ds)...", AUTO_UPDATE_CHECK)
-    update_thread = threading.Thread(target=update_check_loop, daemon=True, name="DCP-AutoUpdate")
-    update_thread.start()
+    _start_supervised_thread("DCP-AutoUpdate", update_check_loop)
 
     log.info("Starting bandwidth monitor (every %ds)...", BANDWIDTH_CHECK_INTERVAL)
-    bw_thread = threading.Thread(target=bandwidth_loop, daemon=True, name="DCP-Bandwidth")
-    bw_thread.start()
+    _start_supervised_thread("DCP-Bandwidth", bandwidth_loop)
 
     log.info("Starting network quality monitor (every %ds)...", NETWORK_QUALITY_INTERVAL)
-    nq_thread = threading.Thread(target=network_quality_loop, daemon=True, name="DCP-NetQuality")
-    nq_thread.start()
+    _start_supervised_thread("DCP-NetQuality", network_quality_loop)
 
     # v3.5.0: Feature 2 — Engine watchdog (auto-restart Ollama / alert on vLLM)
     log.info("Starting engine watchdog (every %ds)...", ENGINE_WATCHDOG_INTERVAL)
-    ew_thread = threading.Thread(target=engine_watchdog_loop, daemon=True, name="DCP-EngineWatchdog")
-    ew_thread.start()
+    _start_supervised_thread("DCP-EngineWatchdog", engine_watchdog_loop)
 
-    # v4.2.4 / audit M2: Ollama blob-integrity loop. Verifies each installed
-    # Ollama model via POST /api/show on a periodic sweep so a crash that
-    # truncates a blob is detected and the model is dropped from heartbeat
-    # cached_models within one OLLAMA_INTEGRITY_INTERVAL window.
+    # v4.2.4 / audit M2: Ollama blob-integrity loop.
     log.info("Starting Ollama integrity loop (every %ds)...", OLLAMA_INTEGRITY_INTERVAL)
-    oi_thread = threading.Thread(target=ollama_integrity_loop, daemon=True, name="DCP-OllamaIntegrity")
-    oi_thread.start()
+    _start_supervised_thread("DCP-OllamaIntegrity", ollama_integrity_loop)
 
-    # v3.5.0: Feature 5 — Passive daemon version check (informational)
-    log.info("Starting passive daemon version check (every 300s)...")
-    puc_thread = threading.Thread(target=passive_update_check_loop, daemon=True, name="DCP-PassiveUpdate")
-    puc_thread.start()
+    # v4.3.0 (Item 12): Removed duplicate passive update check thread.
+    # The active update_check_loop (DCP-AutoUpdate) already checks for updates
+    # every 5 min and logs before performing the update. The passive
+    # passive_update_check_loop was a redundant second check hitting a
+    # different endpoint for informational logging only.
+
+    # v4.3.0 (Item 14): Local health endpoint on localhost:19876
+    log.info("Starting local health endpoint on 127.0.0.1:%d...", _HEALTH_PORT)
+    _start_health_server()
 
     # v4.0.0-alpha: Periodic concurrency reprobe (every 6 hours)
     log.info("Starting concurrency reprobe loop (every 6h)...")
-    cr_thread = threading.Thread(
-        target=_concurrency_reprobe_loop, daemon=True, name="DCP-ConcurrencyReprobe"
-    )
-    cr_thread.start()
+    _start_supervised_thread("DCP-ConcurrencyReprobe", _concurrency_reprobe_loop)
 
     # Check if WG should be active but isn't (one-time startup reactivation)
     _wg_conf = os.path.expanduser("~/.dcp/wg0.conf")
@@ -7325,30 +7822,68 @@ def main():
 
     # WireGuard tunnel health monitor (restart if tunnel drops)
     log.info("Starting WG health monitor (every %ds)...", WG_HEALTH_INTERVAL)
-    wg_thread = threading.Thread(target=_wg_health_monitor, daemon=True, name="DCP-WGHealth")
-    wg_thread.start()
+    _start_supervised_thread("DCP-WGHealth", _wg_health_monitor)
 
-    # Thread supervisor: observe-only. If a worker thread dies from an
-    # uncaught exception, daemon=True makes it silent. Supervisor logs +
-    # reports the death so the backend can surface it. No auto-restart —
-    # restart policy is a design decision left to the watchdog process.
-    _supervised_threads = [
-        hb_thread, job_thread, update_thread, bw_thread,
-        nq_thread, ew_thread, puc_thread, cr_thread, wg_thread,
-    ]
+    # v4.3.0 (Item 1): Thread supervisor with auto-restart.
+    # Dead thread -> re-create from registry. Capped at 3 restarts per thread
+    # per 10-minute window to avoid infinite restart storms.
+    _SUPERVISOR_MAX_RESTARTS = 3
+    _SUPERVISOR_WINDOW_S = 600  # 10 minutes
+    _thread_restart_times = {}  # {thread_name: [restart_timestamps]}
 
     def _thread_supervisor():
-        seen_dead = set()
         while True:
             try:
-                for t in _supervised_threads:
-                    if not t.is_alive() and t.name not in seen_dead:
-                        seen_dead.add(t.name)
-                        log.error(f"[supervisor] thread {t.name} has died")
+                now = time.time()
+                for entry in _thread_registry:
+                    name, target, thread_obj = entry
+                    if thread_obj.is_alive():
+                        continue
+                    # Thread is dead — check restart budget
+                    restart_history = _thread_restart_times.get(name, [])
+                    # Purge restarts outside the window
+                    restart_history = [t for t in restart_history if now - t < _SUPERVISOR_WINDOW_S]
+                    _thread_restart_times[name] = restart_history
+
+                    if len(restart_history) >= _SUPERVISOR_MAX_RESTARTS:
+                        log.error(
+                            f"[supervisor] thread {name} died but restart cap reached "
+                            f"({_SUPERVISOR_MAX_RESTARTS}/{_SUPERVISOR_WINDOW_S}s) — NOT restarting"
+                        )
                         try:
                             report_event(
-                                "thread_died",
-                                f"Background thread {t.name} terminated unexpectedly",
+                                "thread_restart_cap",
+                                f"Thread {name} exceeded restart cap "
+                                f"({_SUPERVISOR_MAX_RESTARTS} in {_SUPERVISOR_WINDOW_S}s)",
+                                severity="error",
+                            )
+                        except Exception:
+                            pass
+                        continue
+
+                    # Restart the thread
+                    log.warning(
+                        f"[supervisor] thread {name} died — restarting "
+                        f"({len(restart_history)+1}/{_SUPERVISOR_MAX_RESTARTS} in window)"
+                    )
+                    try:
+                        new_thread = threading.Thread(target=target, daemon=True, name=name)
+                        new_thread.start()
+                        entry[2] = new_thread  # update registry with new thread obj
+                        restart_history.append(now)
+                        _thread_restart_times[name] = restart_history
+                        report_event(
+                            "thread_restarted",
+                            f"Thread {name} auto-restarted by supervisor "
+                            f"(restart {len(restart_history)}/{_SUPERVISOR_MAX_RESTARTS})",
+                            severity="warning",
+                        )
+                    except Exception as restart_err:
+                        log.error(f"[supervisor] failed to restart thread {name}: {restart_err}")
+                        try:
+                            report_event(
+                                "thread_restart_failed",
+                                f"Thread {name} restart failed: {restart_err}",
                                 severity="error",
                             )
                         except Exception:
@@ -7377,10 +7912,109 @@ def main():
 
     log.info("Daemon running. Press Ctrl+C to stop.")
 
-    # Keep main thread alive
+    # v4.3.0 (Item 7): Windows sleep/resume detection.
+    # If wall-clock time jumps by more than SLEEP_DETECT_THRESHOLD between
+    # loop iterations, the machine likely went to sleep. On detection:
+    # re-init network (DNS flush), refresh WG tunnel, force a heartbeat.
+    _SLEEP_DETECT_THRESHOLD = 60  # seconds — anything > this is a sleep/resume
+
+    def _handle_sleep_resume(gap_s):
+        """Called when a wall-clock jump indicates sleep/resume."""
+        log.warning(
+            f"[sleep-resume] Wall-clock jump detected ({gap_s:.0f}s). "
+            "Re-initializing network and forcing heartbeat..."
+        )
+        try:
+            report_event(
+                "sleep_resume_detected",
+                f"Wall-clock gap {gap_s:.0f}s — re-initializing",
+                severity="warning",
+            )
+        except Exception:
+            pass
+
+        # 1) Flush DNS cache (platform-specific, best-effort)
+        try:
+            system = platform.system()
+            if system == "Windows":
+                subprocess.run(["ipconfig", "/flushdns"],
+                               capture_output=True, timeout=10)
+            elif system == "Darwin":
+                subprocess.run(["dscacheutil", "-flushcache"],
+                               capture_output=True, timeout=5)
+            elif system == "Linux":
+                # systemd-resolved or nscd
+                for cmd in (
+                    ["systemd-resolve", "--flush-caches"],
+                    ["resolvectl", "flush-caches"],
+                ):
+                    try:
+                        subprocess.run(cmd, capture_output=True, timeout=5)
+                        break
+                    except (FileNotFoundError, OSError):
+                        continue
+        except Exception as _dns_err:
+            log.debug(f"[sleep-resume] DNS flush failed: {_dns_err}")
+
+        # 2) Restart WireGuard tunnel if config exists
+        _wg_conf = os.path.expanduser("~/.dcp/wg0.conf")
+        if os.path.exists(_wg_conf):
+            try:
+                system = platform.system()
+                if system == "Darwin":
+                    wq = "/opt/homebrew/bin/wg-quick"
+                    if not os.path.exists(wq):
+                        wq = "/usr/local/bin/wg-quick"
+                    if not os.path.exists(wq):
+                        wq = "wg-quick"
+                    subprocess.run([wq, "down", _wg_conf],
+                                   capture_output=True, timeout=10)
+                    subprocess.run([wq, "up", _wg_conf],
+                                   capture_output=True, timeout=10)
+                elif system == "Linux":
+                    subprocess.run(["wg-quick", "down", _wg_conf],
+                                   capture_output=True, timeout=10)
+                    subprocess.run(["wg-quick", "up", _wg_conf],
+                                   capture_output=True, timeout=10)
+                elif system == "Windows":
+                    subprocess.run(["wireguard", "/uninstalltunnelservice", "wg0"],
+                                   capture_output=True, timeout=10)
+                    time.sleep(1)
+                    subprocess.run(["wireguard", "/installtunnelservice", _wg_conf],
+                                   capture_output=True, timeout=10)
+                wg_ip = _detect_wg_mesh_ip()
+                if wg_ip:
+                    log.info(f"[sleep-resume] WG tunnel restored: {wg_ip}")
+                else:
+                    log.warning("[sleep-resume] WG tunnel restart attempted but no mesh IP")
+            except Exception as _wg_err:
+                log.warning(f"[sleep-resume] WG restart failed: {_wg_err}")
+
+        # 3) Force an immediate heartbeat so backend knows we're back
+        try:
+            send_heartbeat()
+            log.info("[sleep-resume] Forced heartbeat sent")
+        except Exception as _hb_err:
+            log.warning(f"[sleep-resume] Forced heartbeat failed: {_hb_err}")
+
+    # Keep main thread alive (with sleep/resume detection)
+    _last_loop_wall = time.time()
     try:
         while True:
-            time.sleep(60)
+            time.sleep(10)  # shorter tick for better sleep detection
+            now = time.time()
+            gap = now - _last_loop_wall
+            if gap > _SLEEP_DETECT_THRESHOLD:
+                try:
+                    _handle_sleep_resume(gap)
+                except Exception as _sr_err:
+                    log.error(f"[sleep-resume] handler error: {_sr_err}")
+            _last_loop_wall = now
+            # v4.3.0 (Item 2): periodic dedup flush
+            try:
+                _maybe_flush_seen_jobs()
+            except Exception:
+                pass
     except KeyboardInterrupt:
         log.info("Daemon stopped by user.")
         report_event("daemon_stop", "Stopped by user (KeyboardInterrupt)")
