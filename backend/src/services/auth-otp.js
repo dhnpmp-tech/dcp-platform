@@ -35,7 +35,25 @@ function generateCode() {
 // persisted on the otp_codes row and surfaced by verifyMagicToken so the
 // /api/auth/magic-link handler can pick the right dashboard even when the
 // link is opened on a different device with no sessionStorage breadcrumb.
-async function sendOtp(email, { requestedRole = null } = {}) {
+//
+// `desktopCallback` is optional. When set, it's a `http://127.0.0.1:<port>/...`
+// URL that the native DCP Provider desktop app spun up locally so the magic
+// link it triggered will deliver `{api_key, role}` back to the running app
+// instead of leaving the user logged in on the web. We only honor strict
+// loopback URLs (127.0.0.1 / [::1] / localhost) — anything else is dropped
+// before being embedded in the email so an attacker cannot abuse send-otp
+// to exfiltrate api_keys to a remote host.
+function isLoopbackCallback(raw) {
+  if (!raw || typeof raw !== 'string') return false;
+  if (raw.length > 256) return false;
+  let u;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.protocol !== 'http:') return false;
+  const host = u.hostname;
+  return host === '127.0.0.1' || host === 'localhost' || host === '[::1]' || host === '::1';
+}
+
+async function sendOtp(email, { requestedRole = null, desktopCallback = null } = {}) {
   try {
     // Invalidate any existing unused codes for this email
     db.prepare(`UPDATE otp_codes SET used = 1 WHERE email = ? AND used = 0`).run(email.toLowerCase());
@@ -57,7 +75,12 @@ async function sendOtp(email, { requestedRole = null } = {}) {
       return { success: false, error: 'Email service not configured. Contact support.' };
     }
 
-    const magicUrl = `${SITE_URL}/auth/verify?token=${magicToken}`;
+    let magicUrl = `${SITE_URL}/auth/verify?token=${magicToken}`;
+    if (desktopCallback && isLoopbackCallback(desktopCallback)) {
+      magicUrl += `&desktop_callback=${encodeURIComponent(desktopCallback)}`;
+    } else if (desktopCallback) {
+      console.warn(`[AUTH] Rejecting non-loopback desktop_callback for ${email}`);
+    }
     const res = await fetch(RESEND_API_URL, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
