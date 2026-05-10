@@ -1,0 +1,54 @@
+name: Claude PR review
+
+# Anthropic's official Claude Code Action.
+# Trigger paths:
+#   1. New PR opened or pushed       → automatic review
+#   2. @claude mention in any comment → on-demand review or task
+#
+# Required repo secret: ANTHROPIC_API_KEY (set under Settings → Secrets → Actions)
+# Source: https://github.com/anthropics/claude-code-action
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    # On comment events, only run when "@claude" is in the body — skip otherwise.
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            You are reviewing a DCP pull request.
+
+            Priorities, in order:
+            1. Correctness — would this break a real provider? Test it against the
+               cross-platform reality (Mac/Linux/Windows). Reference our
+               three-layer testing rule (CI smoke + local VM + real user).
+            2. Security — never trust unverified input. WG configs must use
+               AllowedIPs = 10.8.0.0/24 (split tunnel), not 0.0.0.0/0. Never log
+               secrets, never embed tokens in client-shipped code.
+            3. UX — first-run flows must require zero terminal input from the
+               provider after a single permission grant. Magic-link only, no codes.
+            4. Backward compat — don't break existing providers. Heartbeat schema
+               additions must be COALESCE'd, not required.
+
+            Post inline comments where it matters. End with a one-paragraph
+            summary: ship / ship-with-changes / block, with a single sentence why.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
