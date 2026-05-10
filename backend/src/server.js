@@ -522,6 +522,19 @@ app.get('/install.sh', (req, res) => {
     return res.sendFile(INSTALL_SCRIPT_PATH);
 });
 
+// Agent-driven install (curl https://api.dcp.sa/install/agent | bash -s -- --token TOKEN)
+// This is the new path: bootstrap the DCP Agent (Hermes fork), and the
+// agent itself orchestrates the rest of the install via its skills.
+const AGENT_INSTALL_SCRIPT_PATH = path.join(__dirname, '..', 'public', 'agent-install.sh');
+app.get('/install/agent', (req, res) => {
+    if (!fs.existsSync(AGENT_INSTALL_SCRIPT_PATH)) {
+        return res.status(404).json({ error: 'Agent install script not found' });
+    }
+    res.setHeader('Content-Type', 'text/x-shellscript; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="agent-install.sh"');
+    return res.sendFile(AGENT_INSTALL_SCRIPT_PATH);
+});
+
 // Tauri auto-updater endpoint — serves update manifest
 // Format: https://api.dcp.sa/api/providers/updates/{target}/{current_version}
 app.get('/api/providers/updates/:target/:current_version', (req, res) => {
