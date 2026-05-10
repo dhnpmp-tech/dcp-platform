@@ -184,10 +184,21 @@ export function Step5Install({
                   <span>🪟</span> Download for Windows
                 </a>
               )}
-              {os === 'linux' && (
-                <p className="text-xs text-dc1-text-muted">
-                  Linux: use the terminal command above. Desktop app coming soon.
-                </p>
+              {(os === 'linux' || os === 'unknown') && (
+                <>
+                  <a
+                    href="https://api.dcp.sa/download/linux"
+                    className="inline-flex items-center gap-2 rounded-lg border border-dc1-border bg-dc1-surface-l2 px-4 py-2 text-sm font-medium text-dc1-text-primary hover:border-dc1-amber transition-colors"
+                  >
+                    <span>🐧</span> Download for Linux (.AppImage)
+                  </a>
+                  <a
+                    href="https://api.dcp.sa/download/linux/deb"
+                    className="inline-flex items-center gap-2 rounded-lg border border-dc1-border bg-dc1-surface-l2 px-4 py-2 text-sm font-medium text-dc1-text-primary hover:border-dc1-amber transition-colors"
+                  >
+                    <span>🐧</span> Linux .deb (Debian / Ubuntu)
+                  </a>
+                </>
               )}
             </div>
           </div>

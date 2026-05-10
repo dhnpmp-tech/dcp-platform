@@ -586,6 +586,16 @@ app.get('/download/mac', (req, res) => {
     return res.status(404).json({ error: 'macOS installer coming soon — use install.sh for now' });
 });
 
+// Linux: 302-redirect to the latest GitHub Release asset on dcp-desktop.
+// The desktop repo's build-desktop.yml workflow renames assets to stable
+// filenames on tag push (dcp-provider-linux.AppImage / .deb), so this URL
+// stays valid across releases without code changes.
+const LINUX_APPIMAGE_URL = 'https://github.com/dhnpmp-tech/dcp-desktop/releases/latest/download/dcp-provider-linux.AppImage';
+const LINUX_DEB_URL      = 'https://github.com/dhnpmp-tech/dcp-desktop/releases/latest/download/dcp-provider-linux.deb';
+app.get('/download/linux',          (req, res) => res.redirect(302, LINUX_APPIMAGE_URL));
+app.get('/download/linux/appimage', (req, res) => res.redirect(302, LINUX_APPIMAGE_URL));
+app.get('/download/linux/deb',      (req, res) => res.redirect(302, LINUX_DEB_URL));
+
 // Renter live inference dashboard (RunPod-style)
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'renter-dashboard.html'));

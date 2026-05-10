@@ -69,8 +69,9 @@ export default function ProviderDownloadPage() {
         id: 'linux',
         label: 'Linux',
         icon: '🐧',
-        primaryLabel: t('register.provider.copy_install_command'),
-        description: 'Ubuntu 20.04+ with NVIDIA GPU. Auto-installs Ollama or vLLM based on VRAM.',
+        primaryLabel: 'Download DCP Provider (.AppImage)',
+        description: 'Ubuntu 20.04+ with NVIDIA GPU. Auto-installs Ollama or vLLM based on VRAM. .deb available too.',
+        downloadUrl: 'https://api.dcp.sa/download/linux',
       },
     ],
     [t]
