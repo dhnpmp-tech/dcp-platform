@@ -589,11 +589,18 @@ const { sendOtp, verifyOtp } = require('../services/auth-otp');
 // POST /api/providers/send-otp - Send magic link OTP code via Supabase Auth
 router.post('/send-otp', loginEmailLimiter, async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, desktop_callback } = req.body;
     const cleanEmail = normalizeEmail(email);
     if (!cleanEmail) return res.status(400).json({ error: 'Valid email is required' });
 
-    const result = await sendOtp(cleanEmail, { requestedRole: 'provider' });
+    // `desktop_callback` is optional. When the native DCP Provider desktop
+    // app initiates sign-in, it spins up a local loopback HTTP server and
+    // passes its URL here. auth-otp.js validates loopback-only and embeds
+    // it in the magic-link URL; non-loopback URLs are dropped silently.
+    const result = await sendOtp(cleanEmail, {
+      requestedRole: 'provider',
+      desktopCallback: typeof desktop_callback === 'string' ? desktop_callback : null,
+    });
     if (!result.success) {
       return res.status(500).json({ error: result.error || 'Failed to send verification code' });
     }

@@ -10,13 +10,37 @@ import { setSession } from '../../lib/auth'
 //
 // This is the only sign-in path. There is no 6-digit code anywhere in the
 // user-visible flow (state-of-the-art passwordless, GitHub/Anthropic style).
+//
+// `?desktop_callback=http://127.0.0.1:<port>/exchange` — set when the native
+// DCP Provider desktop app initiated sign-in. After a successful exchange,
+// instead of redirecting the browser to the web dashboard, we POST the
+// {api_key, role} blob to the loopback URL the app is listening on. We
+// validate STRICT loopback (127.0.0.1 / [::1] / localhost) here as a
+// belt-and-braces check on top of the backend filter in auth-otp.js —
+// never trust a URL from the wire without verifying it's pointed at the
+// local machine.
 
 const API_BASE = '/api'
+
+// Loopback validator. MUST stay in sync with isLoopbackCallback() in
+// backend/src/services/auth-otp.js. If you change one, change both.
+function isLoopbackCallback(raw: string | null): boolean {
+  if (!raw || raw.length > 256) return false
+  let u: URL
+  try {
+    u = new URL(raw)
+  } catch {
+    return false
+  }
+  if (u.protocol !== 'http:') return false
+  const host = u.hostname
+  return host === '127.0.0.1' || host === 'localhost' || host === '[::1]' || host === '::1'
+}
 
 function VerifyPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [status, setStatus] = useState<'verifying' | 'error'>('verifying')
+  const [status, setStatus] = useState<'verifying' | 'desktop_done' | 'desktop_failed' | 'error'>('verifying')
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
@@ -49,7 +73,51 @@ function VerifyPageInner() {
           throw new Error(data.error || 'This sign-in link is invalid or has expired.')
         }
 
-        // Store credentials by role
+        // ── Native desktop sign-in path ────────────────────────────────
+        // If the magic link was triggered by the desktop app, it embedded
+        // a `desktop_callback` query param pointing at a local loopback
+        // listener. Forward {api_key, role, ...} there and stop — do NOT
+        // store credentials in this browser tab and do NOT redirect.
+        const rawCallback = searchParams.get('desktop_callback')
+        if (rawCallback) {
+          if (!isLoopbackCallback(rawCallback)) {
+            console.warn('[auth/verify] Refusing non-loopback desktop_callback:', rawCallback)
+            setStatus('desktop_failed')
+            setErrorMsg(
+              'The desktop sign-in link was malformed. Please open the DCP Provider app and try again.'
+            )
+            return
+          }
+
+          try {
+            const cbRes = await fetch(rawCallback, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                api_key: data.api_key,
+                role: data.role,
+                provider: data.provider,
+                renter: data.renter,
+              }),
+              // Loopback only; CORS errors here mean the app already
+              // shut its listener down (timeout / user closed it).
+            })
+            if (!cbRes.ok) {
+              throw new Error(`Desktop app responded ${cbRes.status}`)
+            }
+            setStatus('desktop_done')
+            return
+          } catch (cbErr) {
+            console.error('[auth/verify] desktop_callback POST failed:', cbErr)
+            setStatus('desktop_failed')
+            setErrorMsg(
+              "Couldn't reach the DCP Provider app on this machine. Make sure it's still running and try the sign-in link from the same computer."
+            )
+            return
+          }
+        }
+
+        // ── Browser sign-in path (unchanged) ───────────────────────────
         if (data.role === 'renter') {
           localStorage.setItem('dc1_renter_key', data.api_key)
           await setSession({
@@ -90,7 +158,29 @@ function VerifyPageInner() {
     run()
   }, [router, searchParams])
 
-  if (status === 'error') {
+  if (status === 'desktop_done') {
+    return (
+      <div className="flex flex-col min-h-screen bg-dc1-void items-center justify-center px-4">
+        <div className="w-full max-w-md card border-dc1-border/50 shadow-lg text-center">
+          <div className="mb-4">
+            <svg className="w-12 h-12 mx-auto text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-dc1-text-primary mb-2">You&apos;re signed in</h1>
+          <p className="text-sm text-dc1-text-secondary mb-2">
+            DCP Provider has received your credentials and is finishing setup.
+          </p>
+          <p className="text-sm text-dc1-text-secondary">
+            You can close this tab and return to the DCP Provider app.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === 'desktop_failed' || status === 'error') {
     return (
       <div className="flex flex-col min-h-screen bg-dc1-void items-center justify-center px-4">
         <div className="w-full max-w-md card border-dc1-border/50 shadow-lg text-center">

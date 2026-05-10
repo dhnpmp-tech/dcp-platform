@@ -1065,11 +1065,15 @@ const { sendOtp, verifyOtp } = require('../services/auth-otp');
 // POST /api/renters/send-otp - Send magic link OTP code via Supabase Auth
 router.post('/send-otp', loginEmailLimiter, async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, desktop_callback } = req.body;
     const cleanEmail = normalizeEmail(email);
     if (!cleanEmail) return res.status(400).json({ error: 'Valid email is required' });
 
-    const result = await sendOtp(cleanEmail, { requestedRole: 'renter' });
+    // See providers.js /send-otp for the desktop_callback contract.
+    const result = await sendOtp(cleanEmail, {
+      requestedRole: 'renter',
+      desktopCallback: typeof desktop_callback === 'string' ? desktop_callback : null,
+    });
     if (!result.success) {
       return res.status(500).json({ error: result.error || 'Failed to send verification code' });
     }
