@@ -161,6 +161,77 @@ function toFiniteInt(value, { min = null, max = null } = {}) {
     return num;
 }
 
+// Audit C1 (SSRF mitigation, 2026-05-11): the prior validator on
+// vllm_endpoint_url was a regex `^https?://.+` — that admits
+// http://169.254.169.254/latest/meta-data/iam/security-credentials/
+// (AWS metadata), http://127.0.0.1:8083/api/admin/... (own backend),
+// http://metadata.google.internal/ (GCP), Redis sockets, etc. Once the
+// renter hits /v1/chat/completions, the backend issues fetch(url) and
+// returns the body to the renter → credential exfiltration.
+//
+// New rule (synchronous — no DNS round-trip):
+//   1. URL parses, scheme is http:// or https://
+//   2. Hostname is a dotted-quad IPv4 (no DNS hostnames at all)
+//   3. IPv4 is either:
+//      - WG mesh: 10.8.0.0/24 (legitimate provider endpoint), OR
+//      - Public unicast (NOT 10.0.0.0/8 outside mesh, 127/8, 169.254/16,
+//        172.16/12, 192.168/16, 0.0.0.0, link-local, multicast, broadcast)
+//   4. Port is in the inference allowlist:
+//      8000 (vLLM default), 11434 (Ollama), 8080 (common alt)
+//      or 9000-9999 (custom provider ports)
+function _isPrivateIPv4(parts) {
+    const [a, b] = parts;
+    if (a === 0) return true;                      // 0.0.0.0/8
+    if (a === 127) return true;                    // loopback
+    if (a === 169 && b === 254) return true;       // link-local + AWS/GCP metadata
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12
+    if (a === 192 && b === 168) return true;       // 192.168/16
+    if (a >= 224) return true;                     // multicast / reserved
+    return false;
+}
+function _isWgMeshIPv4(parts) {
+    // Our WireGuard mesh on the VPS uses 10.8.0.0/24 per
+    // infra_wireguard_server.md. Providers registering 10.8.0.X is
+    // legitimate; any other 10.x.x.x is a rogue private network.
+    return parts[0] === 10 && parts[1] === 8 && parts[2] === 0;
+}
+function _isPrivateNonMeshIPv4(parts) {
+    if (parts[0] === 10 && !(parts[1] === 8 && parts[2] === 0)) return true;
+    return _isPrivateIPv4(parts);
+}
+const _ALLOWED_INFERENCE_PORTS = new Set([8000, 11434, 8080]);
+function _portAllowed(port) {
+    if (_ALLOWED_INFERENCE_PORTS.has(port)) return true;
+    if (port >= 9000 && port <= 9999) return true;
+    return false;
+}
+function sanitizeVllmEndpointUrl(rawUrl) {
+    let u;
+    try {
+        u = new URL(rawUrl);
+    } catch {
+        return null;
+    }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    // hostname must be dotted-quad IPv4 (refuse FQDNs that would need DNS,
+    // refuse IPv6, refuse anything weird)
+    const ipMatch = u.hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!ipMatch) return null;
+    const parts = ipMatch.slice(1, 5).map(Number);
+    if (parts.some((n) => n < 0 || n > 255)) return null;
+    // Allow WG mesh OR public unicast (block everything private/special)
+    if (_isWgMeshIPv4(parts)) {
+        // mesh IP — allowed
+    } else if (_isPrivateNonMeshIPv4(parts)) {
+        return null;
+    }
+    // Port allowlist
+    const port = Number(u.port) || (u.protocol === 'https:' ? 443 : 80);
+    if (!_portAllowed(port)) return null;
+    // Return canonical form (strip trailing slash, normalize)
+    return `${u.protocol}//${u.hostname}:${port}`.replace(/\/+$/, '');
+}
+
 const PROVIDER_REACTIVATION_TOKEN_TTL_SECONDS = 15 * 60;
 const PROVIDER_REACTIVATION_TOKEN_MIN_TTL_SECONDS = 1;
 const PROVIDER_REACTIVATION_TOKEN_MAX_TTL_SECONDS = 60 * 60;
@@ -900,12 +971,23 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             (modelCacheTotalMb > 0 ? (modelCacheUsedMb / modelCacheTotalMb) * 100 : null);
         const modelCacheUsedPct = modelCacheUsedPctRaw != null ? Number(modelCacheUsedPctRaw.toFixed(2)) : 0;
 
-        // DCP-922: validate and sanitize provider-registered vLLM endpoint URL
+        // DCP-922 + audit C1 (SSRF): validate and sanitize provider-registered
+        // vLLM endpoint URL. Regex alone (the prior fix) does NOT prevent a
+        // malicious provider from registering http://169.254.169.254/... or
+        // http://127.0.0.1:8083/api/admin/... — once the renter hits
+        // /v1/chat/completions the backend fetch() to that URL leaks AWS IAM
+        // creds / internal admin / Redis. Defence:
+        //   1. URL must parse
+        //   2. Hostname must be a public IPv4 OR a private 10.8.0.0/24 mesh IP
+        //      (our own WG mesh — providers legitimately serve from there)
+        //   3. Reject RFC1918 outside the mesh, loopback, link-local, ULA,
+        //      and cloud-metadata FQDNs
+        //   4. Port must be one of the inference-ports allowlist
         let cleanVllmEndpointUrl = null;
         if (vllm_endpoint_url) {
             const rawUrl = normalizeString(vllm_endpoint_url, { maxLen: 512, trim: true });
-            if (rawUrl && /^https?:\/\/.+/.test(rawUrl)) {
-                cleanVllmEndpointUrl = rawUrl.replace(/\/+$/, '');
+            if (rawUrl) {
+                cleanVllmEndpointUrl = sanitizeVllmEndpointUrl(rawUrl);
             }
         }
 
@@ -7688,7 +7770,7 @@ router.post('/wg/register', async (req, res) => {
         const WG_FALLBACK_ENDPOINT = (process.env.DCP_WG_FALLBACK_ENDPOINT || '').trim() || null;
         const WG_FALLBACK_PUBKEY = (process.env.DCP_WG_FALLBACK_PUBKEY || '').trim() || WG_SERVER_PUBKEY;
         const WG_FALLBACK_TUNNEL_TARGET = (process.env.DCP_WG_FALLBACK_TUNNEL_TARGET || '10.9.0.1').trim();
-        const { execSync } = require('child_process');
+        const { execSync, execFileSync } = require('child_process');
 
         // ── Key rotation path ───────────────────────────────────────────
         if (rotate === true && provider.wg_mesh_ip && provider.wg_public_key) {
@@ -7709,7 +7791,16 @@ router.post('/wg/register', async (req, res) => {
 
             // Remove old peer from wg0
             try {
-                execSync(`wg set wg0 peer "${oldPubKey}" remove`, { timeout: 5000 });
+                // Audit H1 (command injection): use execFileSync array
+                // form + re-validate oldPubKey from DB before passing to
+                // shell. Even though all DB writers go through the
+                // 42-44-char base64 regex today, a future direct UPDATE
+                // (admin tool, migration script) could put `"$(rm -rf /)`
+                // payload into wg_public_key and we'd run it as root.
+                if (!/^[A-Za-z0-9+/]{42,44}={0,2}$/.test(String(oldPubKey || ''))) {
+                    throw new Error('invalid oldPubKey shape — refusing to shell out');
+                }
+                execFileSync('wg', ['set', 'wg0', 'peer', oldPubKey, 'remove'], { timeout: 5000 });
                 console.log(`[wg/register] Removed old peer ${oldPubKey} for provider ${provider.id} (rotation)`);
             } catch (e) {
                 console.warn(`[wg/register] Failed to remove old peer (may already be gone): ${e.message}`);
@@ -7741,7 +7832,13 @@ router.post('/wg/register', async (req, res) => {
                 if (WG_FALLBACK_ENDPOINT) {
                     try {
                         // Remove old peer from wg1 (best-effort) before adding new one.
-                        try { execSync(`wg set wg1 peer "${oldPubKey}" remove`, { timeout: 5000 }); }
+                        // Same H1 defence as wg0 — array form + key shape re-check.
+                        try {
+                            if (!/^[A-Za-z0-9+/]{42,44}={0,2}$/.test(String(oldPubKey || ''))) {
+                                throw new Error('invalid oldPubKey shape — refusing to shell out');
+                            }
+                            execFileSync('wg', ['set', 'wg1', 'peer', oldPubKey, 'remove'], { timeout: 5000 });
+                        }
                         catch (_) { /* old peer may not exist on wg1; ignore */ }
                         const mirroredIp = keepIp.replace(/^10\.8\./, '10.9.');
                         execSync(
