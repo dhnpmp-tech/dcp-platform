@@ -535,6 +535,20 @@ app.get('/install/agent', (req, res) => {
     return res.sendFile(AGENT_INSTALL_SCRIPT_PATH);
 });
 
+// Provider self-heal one-liner. Existing providers run this to apply
+// today's fixes (WG re-register via /api/providers/wg/install-config +
+// OLLAMA_HOST persist + health probe) without re-installing from scratch.
+//   curl -sSL https://api.dcp.sa/fix-provider | bash -s -- --api-key dcp-provider-XXX
+const FIX_PROVIDER_SCRIPT_PATH = path.join(__dirname, '..', 'public', 'fix-provider.sh');
+app.get('/fix-provider', (req, res) => {
+    if (!fs.existsSync(FIX_PROVIDER_SCRIPT_PATH)) {
+        return res.status(404).json({ error: 'Self-heal script not found' });
+    }
+    res.setHeader('Content-Type', 'text/x-shellscript; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="fix-provider.sh"');
+    return res.sendFile(FIX_PROVIDER_SCRIPT_PATH);
+});
+
 // Tauri auto-updater endpoint — serves update manifest
 // Format: https://api.dcp.sa/api/providers/updates/{target}/{current_version}
 app.get('/api/providers/updates/:target/:current_version', (req, res) => {
