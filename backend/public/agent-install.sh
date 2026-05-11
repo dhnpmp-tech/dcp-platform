@@ -216,6 +216,99 @@ if ! command -v wg-quick >/dev/null 2>&1; then
 fi
 command -v wg-quick >/dev/null 2>&1 && ok "WireGuard tools present."
 
+# ── 7b. WG bootstrap — call /api/providers/wg/install-config and apply ──
+# The server generates a keypair + PSK, pre-registers the peer, returns a
+# paste-ready wg0.conf. No manual key generation, no half-installed
+# tunnels. Idempotent: re-running this section is safe.
+if [ -n "${PROVIDER_KEY}" ]; then
+  say "Provisioning WireGuard tunnel via api.dcp.sa"
+  WG_RESP_TMP="$(mktemp)"
+  WG_HTTP=$(curl -sS -o "${WG_RESP_TMP}" -w "%{http_code}" \
+    -X POST "https://api.dcp.sa/api/providers/wg/install-config" \
+    -H "x-provider-key: ${PROVIDER_KEY}" \
+    -H 'Content-Type: application/json')
+
+  if [ "${WG_HTTP}" = "200" ]; then
+    # Tiny JSON parse: jq if available, python3 fallback.
+    if command -v jq >/dev/null 2>&1; then
+      WG_CONF_BODY="$(jq -r '.wg_conf // empty' < "${WG_RESP_TMP}")"
+      WG_MESH_IP="$(jq -r '.mesh_ip // empty' < "${WG_RESP_TMP}")"
+    else
+      WG_CONF_BODY="$(python3 -c "import json,sys; print(json.load(open('${WG_RESP_TMP}')).get('wg_conf',''))")"
+      WG_MESH_IP="$(python3 -c "import json,sys; print(json.load(open('${WG_RESP_TMP}')).get('mesh_ip',''))")"
+    fi
+    if [ -n "${WG_CONF_BODY}" ] && [ -n "${WG_MESH_IP}" ]; then
+      if [ "${PLATFORM}" = linux ] && command -v wg-quick >/dev/null 2>&1; then
+        sudo bash -c "umask 077; printf '%s' '${WG_CONF_BODY}' > /etc/wireguard/wg0.conf"
+        sudo chmod 600 /etc/wireguard/wg0.conf
+        sudo wg-quick down wg0 2>/dev/null || true
+        sudo wg-quick up wg0
+        ok "WG tunnel up at ${WG_MESH_IP}"
+      elif [ "${PLATFORM}" = mac ] && command -v wg-quick >/dev/null 2>&1; then
+        sudo bash -c "umask 077; printf '%s' '${WG_CONF_BODY}' > /etc/wireguard/wg0.conf"
+        sudo chmod 600 /etc/wireguard/wg0.conf
+        sudo wg-quick down wg0 2>/dev/null || true
+        sudo wg-quick up wg0
+        ok "WG tunnel up at ${WG_MESH_IP}"
+      else
+        warn "wg-quick not available — agent will retry tunnel bootstrap on next loop."
+        warn "Config received but not applied. Manual import path on macOS uses WireGuard.app."
+      fi
+    else
+      warn "WG config response was empty — agent self-heal skill will retry."
+    fi
+  else
+    warn "WG install-config returned HTTP ${WG_HTTP} — agent self-heal skill will retry."
+    cat "${WG_RESP_TMP}" 2>/dev/null | head -c 500
+    echo
+  fi
+  rm -f "${WG_RESP_TMP}"
+fi
+
+# ── 7c. Ollama bind fix — only relevant if Ollama is running locally ────
+# Ollama defaults to 127.0.0.1:11434, unreachable from the WG mesh. Persist
+# OLLAMA_HOST=0.0.0.0:11434 so the VPS can route inference here. Skipped
+# entirely on vLLM-based providers (Ollama not installed).
+if command -v ollama >/dev/null 2>&1; then
+  say "Configuring Ollama to bind 0.0.0.0:11434"
+  if [ "${PLATFORM}" = mac ]; then
+    launchctl setenv OLLAMA_HOST '0.0.0.0:11434' 2>/dev/null || true
+    LAUNCH_PLIST="${HOME}/Library/LaunchAgents/sa.dcp.ollama-host.plist"
+    mkdir -p "$(dirname "${LAUNCH_PLIST}")"
+    cat > "${LAUNCH_PLIST}" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>sa.dcp.ollama-host</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/launchctl</string>
+    <string>setenv</string>
+    <string>OLLAMA_HOST</string>
+    <string>0.0.0.0:11434</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+PLIST
+    launchctl unload "${LAUNCH_PLIST}" 2>/dev/null || true
+    launchctl load   "${LAUNCH_PLIST}" 2>/dev/null || true
+    ok "OLLAMA_HOST persisted via LaunchAgent (sa.dcp.ollama-host)"
+  elif [ "${PLATFORM}" = linux ]; then
+    if [ -d /etc/systemd/system ]; then
+      sudo mkdir -p /etc/systemd/system/ollama.service.d
+      sudo bash -c 'cat > /etc/systemd/system/ollama.service.d/override.conf <<EOF
+[Service]
+Environment=OLLAMA_HOST=0.0.0.0:11434
+EOF'
+      sudo systemctl daemon-reload 2>/dev/null || true
+      sudo systemctl restart ollama 2>/dev/null || true
+      ok "OLLAMA_HOST persisted via systemd drop-in + restarted ollama"
+    fi
+  fi
+fi
+
 # ── 8. Hand off to the agent ─────────────────────────────────────────────
 if [ "${NO_LAUNCH}" = 1 ]; then
   cat <<NEXT
