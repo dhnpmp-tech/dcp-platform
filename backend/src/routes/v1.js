@@ -978,6 +978,29 @@ function resolveTokenRateHalala(modelId) {
   }
 }
 
+// Migration 011: separate input vs output per-1M-token rates from
+// model_registry. Returns {in, out} in halala-per-1M-tokens; null on either
+// side means "no rate configured — caller falls back to legacy token_rate".
+function resolveModelRegistryRates(modelId) {
+  try {
+    const row = db.get(
+      `SELECT price_in_halala_per_1m_tok, price_out_halala_per_1m_tok
+         FROM model_registry
+        WHERE model_id = ? OR LOWER(model_id) = LOWER(?)
+        LIMIT 1`,
+      modelId, modelId
+    );
+    if (!row) return { in: null, out: null };
+    return {
+      in: toFiniteInt(row.price_in_halala_per_1m_tok, { min: 0, max: 100_000_000 }),
+      out: toFiniteInt(row.price_out_halala_per_1m_tok, { min: 0, max: 100_000_000 }),
+    };
+  } catch (error) {
+    // Migration not yet applied or column missing — fall through to legacy.
+    return { in: null, out: null };
+  }
+}
+
 function extractRequestId(req) {
   return normalizeString(
     req.headers['idempotency-key']
@@ -1008,19 +1031,51 @@ function computeUsageCostBreakdown({
   completionTokens = 0,
   totalTokens = 0,
   tokenRateHalala = DEFAULT_TOKEN_RATE_HALALA,
+  // Migration 011: separate input vs output per-1M-token rates. When set,
+  // these win over the legacy `tokenRateHalala`. If only the legacy is set
+  // (older callers / fallback path) we apply the same rate to both sides
+  // — which preserves the prior "prompt and completion billed equally"
+  // semantics for backward compat.
+  inRateHalalaPer1m = null,
+  outRateHalalaPer1m = null,
 }) {
   const safePromptTokens = toFiniteInt(promptTokens, { min: 0, max: 1_000_000_000 }) ?? 0;
   const safeCompletionTokens = toFiniteInt(completionTokens, { min: 0, max: 1_000_000_000 }) ?? 0;
   const safeTotalTokens = toFiniteInt(totalTokens, { min: 0, max: 1_000_000_000 })
     ?? (safePromptTokens + safeCompletionTokens);
-  const totalCostHalala = computeTokenCostHalala(safeTotalTokens, tokenRateHalala);
-  if (totalCostHalala <= 0 || safeTotalTokens <= 0) {
-    return { promptCostHalala: 0, completionCostHalala: 0, totalCostHalala: 0 };
+
+  // Resolve effective rates.
+  // Legacy `tokenRateHalala` is per-token-halala (typically very small) —
+  // it's NOT the same unit as the new per-1M rates. Existing rows in
+  // `cost_rates` use that field; we convert.
+  let inRate = toFiniteInt(inRateHalalaPer1m, { min: 0, max: 100_000_000 });
+  let outRate = toFiniteInt(outRateHalalaPer1m, { min: 0, max: 100_000_000 });
+  if ((inRate == null || outRate == null) && tokenRateHalala != null) {
+    const legacyAsPer1m = toFiniteInt(tokenRateHalala, { min: 0, max: 100_000_000 }) ?? 0;
+    // legacy `tokenRateHalala` is halala-per-token NOT per-1M. The legacy
+    // computeTokenCostHalala formula divides by TOKEN_RATE_BILLING_UNIT_TOKENS
+    // (1_000_000), so the legacy rate already IS in halala-per-1M when
+    // expressed against `tokens` in that formula. Keep the unit
+    // consistent — `legacyAsPer1m` here IS halala-per-1M.
+    if (inRate == null) inRate = legacyAsPer1m;
+    if (outRate == null) outRate = legacyAsPer1m;
+  }
+  inRate = Math.max(0, inRate || 0);
+  outRate = Math.max(0, outRate || 0);
+
+  if (safeTotalTokens <= 0 || (inRate === 0 && outRate === 0)) {
+    return {
+      promptCostHalala: 0,
+      completionCostHalala: 0,
+      totalCostHalala: 0,
+    };
   }
 
-  const promptShare = Math.max(0, Math.min(1, safePromptTokens / safeTotalTokens));
-  const promptCostHalala = Math.round(totalCostHalala * promptShare);
-  const completionCostHalala = Math.max(0, totalCostHalala - promptCostHalala);
+  // Bill prompt and completion separately. Ceil at the per-side level so
+  // we don't lose halala to rounding on small calls.
+  const promptCostHalala = Math.ceil((safePromptTokens * inRate) / TOKEN_RATE_BILLING_UNIT_TOKENS);
+  const completionCostHalala = Math.ceil((safeCompletionTokens * outRate) / TOKEN_RATE_BILLING_UNIT_TOKENS);
+  const totalCostHalala = promptCostHalala + completionCostHalala;
 
   return {
     promptCostHalala,
@@ -1029,7 +1084,7 @@ function computeUsageCostBreakdown({
   };
 }
 
-function withUsdUsagePricing(rawUsage = {}, tokenRateHalala = DEFAULT_TOKEN_RATE_HALALA) {
+function withUsdUsagePricing(rawUsage = {}, tokenRateHalala = DEFAULT_TOKEN_RATE_HALALA, perTokenRates = null) {
   const promptTokens = toFiniteInt(rawUsage.prompt_tokens, { min: 0, max: 1_000_000_000 }) ?? 0;
   const completionTokens = toFiniteInt(rawUsage.completion_tokens, { min: 0, max: 1_000_000_000 }) ?? 0;
   const totalTokens = toFiniteInt(rawUsage.total_tokens, { min: 0, max: 1_000_000_000 })
@@ -1039,6 +1094,8 @@ function withUsdUsagePricing(rawUsage = {}, tokenRateHalala = DEFAULT_TOKEN_RATE
     completionTokens,
     totalTokens,
     tokenRateHalala,
+    inRateHalalaPer1m: perTokenRates?.in ?? null,
+    outRateHalalaPer1m: perTokenRates?.out ?? null,
   });
 
   return {
@@ -1526,6 +1583,11 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
     const tokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
+    // Migration 011: prefer per-1M in/out rates from model_registry. Falls
+    // back to legacy `tokenRateHalala` applied symmetrically when null.
+    const modelRegRates = resolveModelRegistryRates(modelReq.model_id);
+    const inRateHalalaPer1m = modelRegRates.in;
+    const outRateHalalaPer1m = modelRegRates.out;
     const meteringRequestId = extractRequestId(req);
     let usagePersisted = false;
     const dbHandle = db._db || db;
@@ -1554,6 +1616,8 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         completionTokens: billedCompletionTokens,
         totalTokens: billedTotalTokens,
         tokenRateHalala,
+        inRateHalalaPer1m,
+        outRateHalalaPer1m,
       });
       return {
         promptTokens: billedPromptTokens,
@@ -1707,7 +1771,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           requestedModelId: modelReq.model_id,
           routedModelId: resultBody?.model || routedModelId,
         });
-        const usageForResponse = withUsdUsagePricing(resultBody?.usage || {}, tokenRateHalala);
+        const usageForResponse = withUsdUsagePricing(resultBody?.usage || {}, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m });
         debitAndPersistUsage({
           providerForUsage,
           providerResponseId: normalizeString(resultBody?.id, { maxLen: 200 }),
@@ -1885,7 +1949,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
                 inferenceTracker.trackTokens(meteringRequestId, 1);
               }
               if (parsed && parsed.usage && typeof parsed.usage === 'object') {
-                const usageWithPricing = withUsdUsagePricing(parsed.usage, tokenRateHalala);
+                const usageWithPricing = withUsdUsagePricing(parsed.usage, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m });
                 parsed.usage = usageWithPricing;
                 finalUsage = usageWithPricing;
               }
@@ -2145,7 +2209,8 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         const cTokens = job.completion_tokens || approximateTokenCount(text);
         const usage = withUsdUsagePricing(
           { prompt_tokens: promptTokens, completion_tokens: cTokens, total_tokens: promptTokens + cTokens },
-          tokenRateHalala
+          tokenRateHalala,
+          { in: inRateHalalaPer1m, out: outRateHalalaPer1m }
         );
         const completionId = `chatcmpl-${jobId}`;
 
