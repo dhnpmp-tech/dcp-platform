@@ -8095,6 +8095,7 @@ router.post('/wg/register', async (req, res) => {
 // ============================================================================
 router.post('/wg/install-config', async (req, res) => {
     try {
+        const { execSync, execFileSync } = require('child_process');
         const api_key = req.headers['x-provider-key'] || req.query.key;
         if (!api_key) {
             return res.status(401).json({ error: 'x-provider-key header required' });
