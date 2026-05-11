@@ -1209,7 +1209,13 @@ function resolveOllamaModelId(modelId, endpointUrl, providerCachedModels) {
   );
 
   // Forward mapping: HF-style id -> Ollama name.
-  if (OLLAMA_MODEL_ALIASES[normalized] && (endpointLooksOllama || cachedLooksOllama)) {
+  // Critical: cachedLooksOllama alone is NOT sufficient. A vLLM provider's
+  // cached_models can include Ollama-style tags as informational metadata
+  // (e.g. Tareq's RTX 3090 lists `qwen3:30b-a3b` alongside the canonical
+  // `Qwen/Qwen3-30B-A3B-GPTQ-Int4`). Only rewrite to the Ollama tag when
+  // the endpoint itself looks like Ollama. Otherwise the renter's HF id
+  // passes through verbatim to vLLM, which is case-sensitive.
+  if (endpointLooksOllama && OLLAMA_MODEL_ALIASES[normalized]) {
     return OLLAMA_MODEL_ALIASES[normalized];
   }
 
