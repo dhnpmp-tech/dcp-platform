@@ -77,7 +77,7 @@ interface Template {
   sort_order: number
 }
 
-type TemplateCategory = 'Arabic AI' | 'LLM' | 'Training' | 'Dev Tools' | 'Image'
+type TemplateCategory = 'Arabic AI' | 'LLM' | 'Embeddings' | 'Tools'
 
 const TEMPLATES: Template[] = [
   // ── Arabic AI ──────────────────────────────────────────────────────────────
@@ -222,158 +222,18 @@ const TEMPLATES: Template[] = [
     is_arabic: false,
     sort_order: 10,
   },
-  // ── Training ──────────────────────────────────────────────────────────────
-  {
-    id: 'lora-finetune',
-    name: 'LoRA Fine-Tuning',
-    description: 'Parameter-efficient LoRA fine-tuning workflow for adapter training with low VRAM overhead.',
-    icon: '🧩',
-    category: 'Training',
-    min_vram_gb: 16,
-    estimated_price_sar_per_hour: 14,
-    hyperscaler_price_sar_per_hour: 40,
-    tags: ['lora', 'fine-tuning', 'llm', 'peft'],
-    difficulty: 'medium',
-    is_arabic: false,
-    sort_order: 11,
-  },
-  {
-    id: 'qlora-finetune',
-    name: 'QLoRA Fine-Tuning',
-    description: '4-bit QLoRA fine-tuning optimized for memory-constrained GPUs. Train 7B models on 12 GB VRAM.',
-    icon: '🧠',
-    category: 'Training',
-    min_vram_gb: 12,
-    estimated_price_sar_per_hour: 13,
-    hyperscaler_price_sar_per_hour: 35,
-    tags: ['qlora', 'fine-tuning', 'quantization', 'llm'],
-    difficulty: 'medium',
-    is_arabic: false,
-    sort_order: 12,
-  },
-  {
-    id: 'pytorch-training',
-    name: 'PyTorch Training',
-    description: 'Run PyTorch training jobs on GPU. Supports custom scripts with dataset mounting and checkpoint saving.',
-    icon: '🔥',
-    category: 'Training',
-    min_vram_gb: 8,
-    estimated_price_sar_per_hour: 9,
-    hyperscaler_price_sar_per_hour: 22,
-    tags: ['training', 'pytorch', 'ml', 'deep-learning'],
-    difficulty: 'medium',
-    is_arabic: false,
-    sort_order: 13,
-  },
-  {
-    id: 'pytorch-single-gpu',
-    name: 'PyTorch Single GPU',
-    description: 'One-command PyTorch training/inference on a single GPU with deterministic CUDA seeds.',
-    icon: '🔥',
-    category: 'Training',
-    min_vram_gb: 12,
-    estimated_price_sar_per_hour: 11,
-    hyperscaler_price_sar_per_hour: 28,
-    tags: ['pytorch', 'single-gpu', 'training', 'inference'],
-    difficulty: 'easy',
-    is_arabic: false,
-    sort_order: 14,
-  },
-  {
-    id: 'pytorch-multi-gpu',
-    name: 'PyTorch Multi GPU',
-    description: 'Multi-GPU PyTorch template for distributed workloads with NCCL-friendly defaults.',
-    icon: '⚡',
-    category: 'Training',
-    min_vram_gb: 24,
-    estimated_price_sar_per_hour: 18,
-    hyperscaler_price_sar_per_hour: 60,
-    tags: ['pytorch', 'multi-gpu', 'distributed', 'training'],
-    difficulty: 'advanced',
-    is_arabic: false,
-    sort_order: 15,
-  },
-  {
-    id: 'jupyter-gpu',
-    name: 'Jupyter GPU Notebook',
-    description: 'GPU-accelerated Jupyter notebook with PyTorch, CUDA, and popular ML libraries pre-installed.',
-    icon: '📓',
-    category: 'Dev Tools',
-    min_vram_gb: 4,
-    estimated_price_sar_per_hour: 9,
-    hyperscaler_price_sar_per_hour: 22,
-    tags: ['jupyter', 'notebook', 'interactive', 'development', 'training'],
-    difficulty: 'easy',
-    is_arabic: false,
-    sort_order: 16,
-  },
-  // ── Dev Tools ─────────────────────────────────────────────────────────────
-  {
-    id: 'python-scientific-compute',
-    name: 'Python Scientific Compute',
-    description: 'CUDA-ready scientific Python template for linear algebra, simulation, and data processing.',
-    icon: '🔬',
-    category: 'Dev Tools',
-    min_vram_gb: 8,
-    estimated_price_sar_per_hour: 10,
-    hyperscaler_price_sar_per_hour: 22,
-    tags: ['scientific', 'python', 'cuda', 'simulation'],
-    difficulty: 'easy',
-    is_arabic: false,
-    sort_order: 17,
-  },
-  {
-    id: 'custom-container',
-    name: 'Custom Container',
-    description: 'Bring your own Docker image. Run any GPU workload using an approved base image. Full flexibility.',
-    icon: '📦',
-    category: 'Dev Tools',
-    min_vram_gb: 4,
-    estimated_price_sar_per_hour: 9,
-    hyperscaler_price_sar_per_hour: 14,
-    tags: ['custom', 'advanced', 'bring-your-own', 'flexible'],
-    difficulty: 'advanced',
-    is_arabic: false,
-    sort_order: 18,
-  },
-  // ── Image ─────────────────────────────────────────────────────────────────
-  {
-    id: 'sdxl',
-    name: 'Stable Diffusion XL',
-    description: 'Stability AI SDXL — high-resolution 1024×1024 image generation. Significantly better than SD 1.5.',
-    icon: '🎨',
-    category: 'Image',
-    min_vram_gb: 8,
-    estimated_price_sar_per_hour: 12,
-    hyperscaler_price_sar_per_hour: 28,
-    tags: ['image-gen', 'diffusion', 'sdxl', 'creative', 'art', '1024px'],
-    difficulty: 'easy',
-    is_arabic: false,
-    sort_order: 19,
-  },
-  {
-    id: 'stable-diffusion',
-    name: 'Stable Diffusion',
-    description: 'Image generation with Stable Diffusion. Generate high-quality images from text prompts.',
-    icon: '🎨',
-    category: 'Image',
-    min_vram_gb: 4,
-    estimated_price_sar_per_hour: 12,
-    hyperscaler_price_sar_per_hour: 22,
-    tags: ['image-gen', 'diffusion', 'creative', 'art'],
-    difficulty: 'easy',
-    is_arabic: false,
-    sort_order: 20,
-  },
+  // Training / Dev Tools / Image templates removed as part of Phase C-2
+  // (inference-only rewrite, 2026-05-11). The backend still accepts
+  // template_id strings for legacy jobs, but the renter-facing catalog
+  // now surfaces inference templates only.
 ]
 
 const CATEGORIES: { id: TemplateCategory | 'all'; label: string; emoji: string }[] = [
-  { id: 'all',       label: 'All Templates', emoji: '🗂️' },
-  { id: 'Arabic AI', label: 'Arabic AI',     emoji: '🌙' },
-  { id: 'LLM',       label: 'LLM',           emoji: '🤖' },
-  { id: 'Training',  label: 'Training',      emoji: '🧠' },
-  { id: 'Dev Tools', label: 'Dev Tools',     emoji: '🛠️' },
-  { id: 'Image',     label: 'Image Gen',     emoji: '🎨' },
+  { id: 'all',        label: 'All Templates', emoji: '🗂️' },
+  { id: 'Arabic AI',  label: 'Arabic AI',     emoji: '🌙' },
+  { id: 'LLM',        label: 'LLM',           emoji: '🤖' },
+  { id: 'Embeddings', label: 'Embeddings',    emoji: '📐' },
+  { id: 'Tools',      label: 'Tools',         emoji: '🛠️' },
 ]
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -394,11 +254,10 @@ function deriveCategory(id: string, tags: string[]): TemplateCategory {
   const tagSet = tags.map(t => t.toLowerCase())
   if (lower.includes('arabic') || lower.includes('allam') || lower.includes('jais') ||
       tagSet.includes('arabic')) return 'Arabic AI'
-  if (lower.includes('sdxl') || lower.includes('stable-diff') || tagSet.includes('image')) return 'Image'
-  if (lower.includes('lora') || lower.includes('qlora') || lower.includes('finetune') ||
-      tagSet.includes('training')) return 'Training'
-  if (lower.includes('jupyter') || lower.includes('python-scientific') ||
-      tagSet.includes('notebook')) return 'Dev Tools'
+  if (lower.includes('embed') || lower.includes('rerank') || lower.includes('bge') ||
+      tagSet.includes('embedding') || tagSet.includes('reranking')) return 'Embeddings'
+  if (tagSet.includes('tools') || tagSet.includes('function-calling') ||
+      tagSet.includes('agents')) return 'Tools'
   return 'LLM'
 }
 
@@ -410,9 +269,6 @@ function getSavingsPct(t: Template): number | null {
 
 function deriveTemplateIntentDefaults(template: Template): { mode: RenterJobType; model: string } {
   const lowerId = template.id.toLowerCase()
-  if (template.category === 'Image' || lowerId.includes('sdxl') || lowerId.includes('stable-diffusion')) {
-    return { mode: 'image_generation', model: 'CompVis/stable-diffusion-v1-4' }
-  }
   if (lowerId.includes('vllm')) {
     return { mode: 'vllm_serve', model: 'mistralai/Mistral-7B-Instruct-v0.2' }
   }
@@ -983,13 +839,11 @@ export default function TemplateCatalogPage() {
         {/* Bottom CTA */}
         <div className="border border-dc1-border rounded-2xl p-6 text-center bg-dc1-surface-l1">
           <p className="text-dc1-text-secondary text-sm mb-3">
-            Need a custom setup? Browse live providers directly or bring your own container.
+            Want raw API access instead of a template? Point your OpenAI SDK at <code className="text-dc1-amber">api.dcp.sa</code>.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link href="/renter/marketplace" className="btn btn-secondary btn-sm">Browse Providers</Link>
-            <button onClick={() => openDeploy(activeTemplates.find(t => t.id === 'custom-container') ?? activeTemplates[0])} className="btn btn-outline btn-sm">
-              📦 Custom Container
-            </button>
+            <Link href="/docs/api" className="btn btn-outline btn-sm">View API Docs</Link>
           </div>
         </div>
       </div>
