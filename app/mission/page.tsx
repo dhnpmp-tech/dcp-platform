@@ -247,6 +247,32 @@ export default function MissionControlPage() {
           background: var(--orange);
           box-shadow: 0 0 0 3px color-mix(in oklab, var(--orange) 25%, transparent);
         }
+        @media (max-width: 700px) { .mc-main { padding: 24px 18px 120px !important; } }
+        @keyframes mcMarq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .mc-marq-in { display: inline-flex; gap: 48px; animation: mcMarq 60s linear infinite; }
+        .mc-marq-in span { display: inline-flex; align-items: center; gap: 12px; }
+        .mc-marq-in span::before { content: '∞'; color: var(--teal); font-size: 13px; }
+        @media (prefers-reduced-motion: reduce) { .mc-marq-in { animation: none; } }
+        @media (max-width: 700px) { .mc-topbar { padding: 14px 18px !important; gap: 12px !important; } }
+        @media (max-width: 900px) { .mc-tabs { display: none !important; } }
+        @media (max-width: 900px) { .mc-stats-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 500px) { .mc-stats-grid { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 900px) { .mc-two-col { grid-template-columns: 1fr !important; gap: 24px !important; } }
+        @media (max-width: 900px) { .mc-goal-grid { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 600px) { .mc-goal-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 1100px) { .mc-board-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 760px) { .mc-board-grid { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 500px) { .mc-board-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 600px) { .mc-modal-grid { grid-template-columns: 1fr !important; } }
+        .mc-mobnav { display: none; }
+        @media (max-width: 900px) { .mc-mobnav { display: block !important; } }
+        .mc-row { transition: background .15s; }
+        .mc-row:hover { background: color-mix(in oklab, var(--ink) 4%, transparent); }
+        .mc-modal-overlay { align-items: flex-end; }
+        @media (min-width: 700px) { .mc-modal-overlay { align-items: center; } }
+        .mc-modal-sheet { position: relative; }
+        .mc-modal-sheet::before { content: ''; position: absolute; inset-inline: -1px; top: -1px; height: 2px; background: var(--grad); }
+        @media (min-width: 700px) { .mc-modal-sheet { box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); } }
       `}</style>
 
       <Marquee lastUpdated={lastUpdated} />
@@ -260,10 +286,6 @@ export default function MissionControlPage() {
       />
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 32px 120px' }} className="mc-main">
-        <style jsx>{`
-          @media (max-width: 700px) { .mc-main { padding: 24px 18px 120px !important; } }
-        `}</style>
-
         {error && (
           <div style={{
             border: '1px solid color-mix(in oklab, var(--orange) 40%, var(--line))',
@@ -337,13 +359,6 @@ function Marquee({ lastUpdated }: { lastUpdated: Date | null }) {
       whiteSpace: 'nowrap',
       padding: '9px 0',
     }}>
-      <style jsx>{`
-        @keyframes mcMarq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        .mc-marq-in { display: inline-flex; gap: 48px; animation: mcMarq 60s linear infinite; }
-        .mc-marq-in span { display: inline-flex; align-items: center; gap: 12px; }
-        .mc-marq-in span::before { content: '∞'; color: var(--teal); font-size: 13px; }
-        @media (prefers-reduced-motion: reduce) { .mc-marq-in { animation: none; } }
-      `}</style>
       <div className="mc-marq-in">
         {[...items, ...items, ...items].map((s, i) => <span key={i}>{s}</span>)}
       </div>
@@ -380,10 +395,6 @@ function TopBar({
         padding: '18px 32px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24,
       }} className="mc-topbar">
-        <style jsx>{`
-          @media (max-width: 700px) { .mc-topbar { padding: 14px 18px !important; gap: 12px !important; } }
-        `}</style>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
           <span className="mc-grad-text mc-serif" style={{ fontWeight: 700, fontSize: 24, lineHeight: 1 }}>∞</span>
           <span className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em', lineHeight: 1 }}>
@@ -392,9 +403,6 @@ function TopBar({
         </div>
 
         <nav style={{ display: 'flex', gap: 4, alignItems: 'center' }} className="mc-tabs">
-          <style jsx>{`
-            @media (max-width: 900px) { .mc-tabs { display: none !important; } }
-          `}</style>
           {tabs.map((t) => {
             const on = section === t.key
             return (
@@ -487,10 +495,6 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
           display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
           border: '1px solid var(--line)', background: 'var(--paper)',
         }}>
-          <style jsx>{`
-            @media (max-width: 900px) { .mc-stats-grid { grid-template-columns: repeat(2, 1fr) !important; } }
-            @media (max-width: 500px) { .mc-stats-grid { grid-template-columns: 1fr 1fr !important; } }
-          `}</style>
           {stats.map((s, i) => (
             <div key={s.label} style={{
               padding: '24px 20px',
@@ -512,9 +516,6 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
       <section>
         <SectionMeta index="02" label="Today & Blocked" right={`${today.length + blocked.length} items`} />
         <div className="mc-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-          <style jsx>{`
-            @media (max-width: 900px) { .mc-two-col { grid-template-columns: 1fr !important; gap: 24px !important; } }
-          `}</style>
           <ListCard title="Today" caption="In progress, review, or due in ≤ 24h" tasks={today} onOpen={onOpenTask} emptyText="Nothing on deck." />
           <ListCard title="Blocked" caption="Awaiting unblock" tasks={blocked} onOpen={onOpenTask} emptyText="No blockers." accentHot />
         </div>
@@ -524,10 +525,6 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
         <section>
           <SectionMeta index="03" label="Active Goals" />
           <div className="mc-goal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-            <style jsx>{`
-              @media (max-width: 900px) { .mc-goal-grid { grid-template-columns: 1fr 1fr !important; } }
-              @media (max-width: 600px) { .mc-goal-grid { grid-template-columns: 1fr !important; } }
-            `}</style>
             {active_goals.map((g) => <GoalChip key={g.id} goal={g} />)}
           </div>
         </section>
@@ -598,7 +595,6 @@ function TaskRow({ task, onOpen, isLast }: { task: Task; onOpen: (t: Task) => vo
       padding: '14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--hair)',
       cursor: 'pointer', transition: 'background .15s',
     }} className="mc-row">
-      <style jsx>{`.mc-row:hover { background: color-mix(in oklab, var(--ink) 4%, transparent); }`}</style>
       <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>{task.title}</div>
       <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 11, color: 'var(--mut)', letterSpacing: '.04em' }}>
         <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
@@ -655,11 +651,6 @@ function Board({
     <div>
       <SectionMeta index="02" label="Board" right={`${total} tasks`} />
       <div className="mc-board-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-        <style jsx>{`
-          @media (max-width: 1100px) { .mc-board-grid { grid-template-columns: repeat(3, 1fr) !important; } }
-          @media (max-width: 760px) { .mc-board-grid { grid-template-columns: 1fr 1fr !important; } }
-          @media (max-width: 500px) { .mc-board-grid { grid-template-columns: 1fr !important; } }
-        `}</style>
         {BOARD_COLUMNS.map((status) => {
           const accent = status === 'in_progress' ? 'var(--teal)' : status === 'blocked' ? 'var(--orange)' : status === 'done' ? 'var(--teal)' : 'var(--mut)'
           return (
@@ -784,9 +775,6 @@ function MobileNav({ section, onSection, onNewTask }: { section: Section; onSect
       borderTop: '1px solid var(--line)',
       display: 'none',
     }}>
-      <style jsx>{`
-        @media (max-width: 900px) { .mc-mobnav { display: block !important; } }
-      `}</style>
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
         maxWidth: 480, margin: '0 auto',
@@ -888,9 +876,6 @@ function TaskModal({
           <Textarea rows={3} value={description} onChange={(v) => setDescription(v)} />
         </Field>
         <div className="mc-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <style jsx>{`
-            @media (max-width: 600px) { .mc-modal-grid { grid-template-columns: 1fr !important; } }
-          `}</style>
           <Field label="Status">
             <Select value={status} onChange={(v) => setStatus(v as TaskStatus)} options={Object.entries(STATUS_LABEL).map(([v, l]) => ({ value: v, label: l }))} />
           </Field>
@@ -990,19 +975,10 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
       backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} className="mc-modal-overlay">
-      <style jsx>{`
-        @media (min-width: 700px) { .mc-modal-overlay { align-items: center !important; } }
-      `}</style>
       <div onClick={(e) => e.stopPropagation()} style={{
         width: '100%', maxWidth: 560,
         background: 'var(--paper)', border: '1px solid var(--line)',
-        borderTopWidth: 2, borderTopStyle: 'solid', borderImage: 'linear-gradient(90deg, var(--teal), var(--orange)) 1',
       }} className="mc-modal-sheet">
-        <style jsx>{`
-          @media (min-width: 700px) { .mc-modal-sheet { border-image: none !important; border-top: 2px solid; border-top-color: transparent !important; box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); position: relative; }
-            .mc-modal-sheet::before { content:''; position: absolute; insetInline: -1px; top: -1px; height: 2px; background: var(--grad); }
-          }
-        `}</style>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '16px 20px', borderBottom: '1px solid var(--hair)',
