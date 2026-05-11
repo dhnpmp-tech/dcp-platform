@@ -96,8 +96,8 @@ export default function DocsPage({ params }: DocsPageProps) {
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-dc1-amber">Saudi Energy Advantage</p>
-                <p className="mt-2 text-sm text-dc1-text-secondary">Built for practical Saudi deployment economics and transparent routing behavior.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-dc1-amber">Sovereign Compute</p>
+                <p className="mt-2 text-sm text-dc1-text-secondary">All requests and billing settle inside Saudi Arabia. No US or EU cloud dependency, no cross-border data.</p>
               </div>
               <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-dc1-amber">Arabic AI Models</p>

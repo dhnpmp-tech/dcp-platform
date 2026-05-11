@@ -258,9 +258,9 @@ export default function PricingPage() {
 
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-dc1-text-primary">GPU Pricing</h1>
+          <h1 className="text-3xl font-bold text-dc1-text-primary">Inference Pricing</h1>
           <p className="text-dc1-text-secondary mt-1">
-            DCP floor prices vs market — Saudi energy arbitrage passed directly to you
+            Per-token rates for every model — input and output priced separately, settled in real time.
           </p>
           {priceError && (
             <p className="text-xs text-dc1-text-muted mt-2 font-medium">{priceError}</p>

@@ -259,7 +259,7 @@ export default function PricingDisplay({ modelId, vramGb, pricePerHour, onPriceE
               {t('marketplace.cheaper_than') || 'cheaper than'} {benchmarkPrice?.provider}
             </p>
             <p className="text-xs text-dc1-text-secondary">
-              {t('marketplace.saudi_energy_arbitrage') || 'Saudi energy arbitrage — 33–51% savings vs hyperscalers'}
+              {t('marketplace.in_kingdom_pricing') || 'Per-token pricing — Saudi-hosted, OpenAI-compatible'}
             </p>
           </div>
         </div>

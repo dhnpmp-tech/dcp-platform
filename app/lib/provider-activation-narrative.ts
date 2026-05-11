@@ -12,7 +12,7 @@ export interface ProviderActivationNarrative {
 const EN_NARRATIVE: ProviderActivationNarrative = {
   headline: 'Activate idle GPUs and start weekly earnings',
   subheadline:
-    'Saudi energy pricing + local data demand creates a margin advantage. DCP handles routing, billing, and payout tracking while you focus on uptime.',
+    'Saudi-hosted inference demand is growing — PDPL-driven and Arabic-first. You serve traffic, earn 70% of revenue, and DCP handles routing, billing, and payout tracking.',
   valuePoints: [
     'Fast activation with guided onboarding in minutes',
     'Transparent earnings math with assumptions shown up front',

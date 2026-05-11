@@ -489,7 +489,7 @@ export default function MarketplaceModelsPage() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
               <h2 className="text-xl font-bold text-dc1-text-primary mb-2">Buyer Economics</h2>
               <p className="text-dc1-text-secondary text-sm mb-6">
-                DCP runs on Saudi energy (0.048 USD/kWh vs EU 0.27 USD/kWh). Providers pass the savings to renters.
+                Saudi-hosted providers compete directly for your inference traffic. You pay per token, providers earn 70% of revenue, no middleman markup.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">

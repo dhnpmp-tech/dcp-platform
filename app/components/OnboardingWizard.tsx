@@ -427,8 +427,8 @@ function StepWelcome({
         </h1>
         <p className="text-white/50 text-sm leading-relaxed max-w-md">
           {isRTL
-            ? 'منصة حوسبة GPU المفتوحة — أسعار تنافسية بفضل طاقة المملكة العربية السعودية. سيستغرق الإعداد أقل من دقيقتين.'
-            : 'The open GPU compute marketplace — competitive prices powered by Saudi energy. Setup takes under 2 minutes.'}
+            ? 'الاستدلال الذكي المستضاف داخل المملكة. واجهة متوافقة مع OpenAI. فوترة لكل توكن. الإعداد أقل من دقيقتين.'
+            : 'Saudi-hosted AI inference. OpenAI-compatible API. Per-token billing. Setup takes under 2 minutes.'}
         </p>
       </div>
 
