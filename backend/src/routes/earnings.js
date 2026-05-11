@@ -350,4 +350,97 @@ adminStatsRouter.get('/stats', requireAdminAuth, (req, res) => {
     }
 });
 
+// ============================================================================
+// GET /api/providers/:id/payout-queue
+// Migration 010: aggregate from usage_events (the new ledger with 70/30
+// split tracking). Returns pending + settled totals over the last 90 days,
+// plus a daily breakdown for the dashboard chart.
+//
+// Auth: Bearer dcp_prov_* (provider API key). Provider may only see their
+// own.
+// ============================================================================
+providerEarningsRouter.get('/:id/payout-queue', apiKeyAuth, (req, res) => {
+    try {
+        const requestedId = parseInt(req.params.id, 10);
+        if (isNaN(requestedId)) {
+            return res.status(400).json({ error: 'Invalid provider id' });
+        }
+        if (req.provider.id !== requestedId) {
+            return res.status(403).json({ error: 'Forbidden: you may only access your own payouts' });
+        }
+
+        // Aggregate totals by settlement_status. usage_events may not exist
+        // yet on databases that haven't run migration 010 — handle gracefully.
+        let totals;
+        try {
+            totals = db.all(
+                `SELECT settlement_status,
+                        COUNT(*) AS event_count,
+                        COALESCE(SUM(provider_payout_halala), 0) AS payout_halala,
+                        COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS tokens
+                   FROM usage_events
+                  WHERE provider_id = ?
+                    AND occurred_at >= datetime('now', '-90 days')
+                  GROUP BY settlement_status`,
+                [requestedId]
+            ) || [];
+        } catch (err) {
+            const msg = String(err?.message || '');
+            if (/no such table.*usage_events/i.test(msg)) {
+                return res.json({
+                    provider_id: requestedId,
+                    pending_payout_halala: 0,
+                    pending_payout_sar: 0,
+                    settled_payout_halala: 0,
+                    settled_payout_sar: 0,
+                    event_count: 0,
+                    tokens: 0,
+                    note: 'usage_events not yet populated — migration 010 pending',
+                });
+            }
+            throw err;
+        }
+
+        const byStatus = Object.fromEntries(totals.map(r => [r.settlement_status, r]));
+        const pending = byStatus.pending || { payout_halala: 0, event_count: 0, tokens: 0 };
+        const settled = byStatus.settled || { payout_halala: 0, event_count: 0, tokens: 0 };
+        const failed = byStatus.failed || { payout_halala: 0, event_count: 0, tokens: 0 };
+
+        // Daily breakdown over the last 30 days for a sparkline.
+        const daily = db.all(
+            `SELECT DATE(occurred_at) AS day,
+                    COALESCE(SUM(provider_payout_halala), 0) AS payout_halala,
+                    COUNT(*) AS event_count
+               FROM usage_events
+              WHERE provider_id = ?
+                AND occurred_at >= datetime('now', '-30 days')
+                AND settlement_status IN ('pending', 'settled')
+              GROUP BY DATE(occurred_at)
+              ORDER BY day ASC`,
+            [requestedId]
+        ) || [];
+
+        return res.json({
+            provider_id: requestedId,
+            pending_payout_halala: Number(pending.payout_halala || 0),
+            pending_payout_sar: halalaToSar(pending.payout_halala),
+            settled_payout_halala: Number(settled.payout_halala || 0),
+            settled_payout_sar: halalaToSar(settled.payout_halala),
+            failed_payout_halala: Number(failed.payout_halala || 0),
+            event_count: Number(pending.event_count || 0) + Number(settled.event_count || 0),
+            tokens: Number(pending.tokens || 0) + Number(settled.tokens || 0),
+            revenue_share_pct: 70,
+            daily: daily.map(d => ({
+                day: d.day,
+                payout_halala: Number(d.payout_halala || 0),
+                payout_sar: halalaToSar(d.payout_halala),
+                event_count: Number(d.event_count || 0),
+            })),
+        });
+    } catch (err) {
+        console.error('[GET /providers/:id/payout-queue]', err);
+        return res.status(500).json({ error: 'Failed to fetch payout queue' });
+    }
+});
+
 module.exports = { providerEarningsRouter, adminStatsRouter };

@@ -1666,6 +1666,48 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       } catch (error) {
         console.error('[v1/chat/completions] usage ledger persist failed:', error?.message || error);
       }
+      // Migration 010: also write to the new usage_events ledger with
+      // provider 70 / DCP 30 revenue split tracking. This is the table
+      // the new payout queue + renter dashboards will read from. Legacy
+      // openrouter_usage write stays for backward compat during transition.
+      try {
+        const providerPayoutHalala = Math.ceil((snapshot.costHalala || 0) * 0.70);
+        const dcpTakeHalala = Math.max(0, (snapshot.costHalala || 0) - providerPayoutHalala);
+        db.prepare(`INSERT INTO usage_events (
+          renter_id, provider_id, model_id,
+          prompt_tokens, completion_tokens,
+          prompt_cost_halala, completion_cost_halala, cost_halala,
+          provider_payout_halala, dcp_take_halala,
+          price_in_halala_per_1m_tok, price_out_halala_per_1m_tok,
+          occurred_at, request_id, source, settlement_status
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+          req.renter.id,
+          providerForUsage?.id || null,
+          modelReq.model_id,
+          snapshot.promptTokens || 0,
+          snapshot.completionTokens || 0,
+          snapshot.promptCostHalala || 0,
+          snapshot.completionCostHalala || 0,
+          snapshot.costHalala || 0,
+          providerPayoutHalala,
+          dcpTakeHalala,
+          inRateHalalaPer1m,
+          outRateHalalaPer1m,
+          new Date().toISOString(),
+          meteringRequestId || null,
+          'v1/chat',
+          settlementStatus
+        );
+      } catch (error) {
+        // Unique index on request_id may collide on SDK retry — that's
+        // expected and means the original was already billed. Other errors
+        // are logged but never fail the response (we already billed the
+        // legacy ledger above).
+        const msg = String(error?.message || error || '');
+        if (!/UNIQUE constraint failed.*usage_events/i.test(msg)) {
+          console.error('[v1/chat/completions] usage_events insert failed:', msg);
+        }
+      }
       usagePersisted = true;
     };
 
