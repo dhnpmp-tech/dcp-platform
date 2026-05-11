@@ -2088,6 +2088,91 @@ try { db.prepare('ALTER TABLE providers ADD COLUMN group_id INTEGER').run(); } c
 try { db.prepare('ALTER TABLE providers ADD COLUMN group_role TEXT DEFAULT \'member\'').run(); } catch (_) {}
 db.exec(`CREATE INDEX IF NOT EXISTS idx_providers_group ON providers(group_id)`);
 
+// ─── MISSION CONTROL TABLES ───
+// Native task/goal/milestone tracking for humans + agents. Single store,
+// no Plane/external dependency. See migrations/012_mission_control.sql
+// for the canonical schema documentation.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS mission_assignees (
+    id           TEXT    PRIMARY KEY,
+    display_name TEXT    NOT NULL,
+    kind         TEXT    NOT NULL CHECK(kind IN ('human','agent')),
+    avatar_url   TEXT,
+    external_id  TEXT,
+    active       INTEGER NOT NULL DEFAULT 1,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS mission_goals (
+    id          TEXT    PRIMARY KEY,
+    title       TEXT    NOT NULL,
+    description TEXT,
+    owner_id    TEXT,
+    status      TEXT    NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','done','dropped')),
+    target_date TEXT,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS mission_milestones (
+    id           TEXT    PRIMARY KEY,
+    goal_id      TEXT,
+    name         TEXT    NOT NULL,
+    description  TEXT,
+    status       TEXT    NOT NULL DEFAULT 'planned' CHECK(status IN ('planned','in_progress','done','dropped')),
+    target_date  TEXT,
+    completed_at TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS mission_tasks (
+    id             TEXT    PRIMARY KEY,
+    title          TEXT    NOT NULL,
+    description    TEXT,
+    status         TEXT    NOT NULL DEFAULT 'todo'
+                   CHECK(status IN ('todo','in_progress','blocked','review','done','cancelled')),
+    priority       TEXT    NOT NULL DEFAULT 'p2' CHECK(priority IN ('p0','p1','p2','p3')),
+    assignee_id    TEXT,
+    milestone_id   TEXT,
+    goal_id        TEXT,
+    created_by     TEXT,
+    due_date       TEXT,
+    blocked_reason TEXT,
+    source         TEXT,
+    source_url     TEXT,
+    external_id    TEXT,
+    created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+    completed_at   TEXT
+  );
+  CREATE TABLE IF NOT EXISTS mission_task_comments (
+    id         TEXT    PRIMARY KEY,
+    task_id    TEXT    NOT NULL,
+    author_id  TEXT,
+    body       TEXT    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_mission_tasks_status    ON mission_tasks(status, priority, due_date);
+  CREATE INDEX IF NOT EXISTS idx_mission_tasks_assignee  ON mission_tasks(assignee_id, status);
+  CREATE INDEX IF NOT EXISTS idx_mission_tasks_milestone ON mission_tasks(milestone_id);
+  CREATE INDEX IF NOT EXISTS idx_mission_tasks_goal      ON mission_tasks(goal_id);
+  CREATE INDEX IF NOT EXISTS idx_mission_tasks_updated   ON mission_tasks(updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_mission_milestones_goal ON mission_milestones(goal_id, status);
+  CREATE INDEX IF NOT EXISTS idx_mission_comments_task   ON mission_task_comments(task_id, created_at DESC);
+`);
+const _missionSeed = db.prepare(
+  `INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, external_id) VALUES (?, ?, ?, ?)`
+);
+for (const a of [
+  ['peter',  'Peter',        'human', '7652446182'],
+  ['tareq',  'Tareq',        'human', '5297693905'],
+  ['fadi',   'Fadi',         'human', null],
+  ['claude', 'Claude (dev)', 'agent', 'dcp_dev_bot'],
+  ['nexus',  'Nexus',        'agent', 'NexusDatacenter_bot'],
+  ['tito',   'Tito (bench)', 'agent', 'Tito_the_bot'],
+]) {
+  try { _missionSeed.run(...a); } catch (_) {}
+}
+
 // Compatibility wrapper: providers.js uses db.run/get/all (async sqlite3 style)
 // better-sqlite3 uses db.prepare().run/get/all - these wrappers bridge the gap
 function flatParams(params) {
