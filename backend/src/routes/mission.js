@@ -367,4 +367,332 @@ router.get('/overview', requireAuth, (req, res) => {
   });
 });
 
+// ── On-me view (drives the "blocked on me" + "my queue" cards) ─────────
+router.get('/on-me/:assignee_id', requireAuth, (req, res) => {
+  const id = String(req.params.assignee_id);
+  const queue = db.all(
+    `SELECT t.*, a.display_name AS assignee_name, a.kind AS assignee_kind, g.title AS goal_title
+     FROM mission_tasks t
+     LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     LEFT JOIN mission_goals g ON g.id = t.goal_id
+     WHERE (t.assignee_id = ? AND t.status IN ('todo','in_progress','review','blocked'))
+        OR (t.blocked_reason IS NOT NULL AND lower(t.blocked_reason) LIKE '%' || lower(?) || '%' AND t.status NOT IN ('done','cancelled'))
+     ORDER BY
+       CASE t.status WHEN 'blocked' THEN 0 WHEN 'review' THEN 1 WHEN 'in_progress' THEN 2 ELSE 3 END,
+       CASE t.priority WHEN 'p0' THEN 0 WHEN 'p1' THEN 1 WHEN 'p2' THEN 2 ELSE 3 END,
+       t.due_date IS NULL, t.due_date ASC, t.updated_at DESC
+     LIMIT 30`,
+    id, id
+  );
+  const decisions = db.all(
+    `SELECT t.*, a.display_name AS assignee_name, a.kind AS assignee_kind
+     FROM mission_tasks t LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.status = 'blocked' AND t.priority IN ('p0','p1')
+       AND (t.blocked_reason IS NOT NULL AND lower(t.blocked_reason) LIKE '%' || lower(?) || '%')
+     ORDER BY t.priority, t.updated_at DESC LIMIT 10`,
+    id
+  );
+  res.json({ assignee_id: id, queue, decisions });
+});
+
+// ── 24h pulse (what shipped + what moved + what came in) ───────────────
+router.get('/pulse', requireAuth, (req, res) => {
+  const sinceHours = Math.max(1, Math.min(168, Number(req.query.hours) || 24));
+  const since = new Date(Date.now() - sinceHours * 3600 * 1000).toISOString();
+  const shipped = db.all(
+    `SELECT t.*, a.display_name AS assignee_name, a.kind AS assignee_kind
+     FROM mission_tasks t LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.status = 'done' AND t.completed_at >= ? ORDER BY t.completed_at DESC LIMIT 25`,
+    since
+  );
+  const created = db.all(
+    `SELECT t.*, a.display_name AS assignee_name, a.kind AS assignee_kind
+     FROM mission_tasks t LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.created_at >= ? ORDER BY t.created_at DESC LIMIT 25`,
+    since
+  );
+  const moved = db.all(
+    `SELECT t.*, a.display_name AS assignee_name, a.kind AS assignee_kind
+     FROM mission_tasks t LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.updated_at >= ? AND t.status NOT IN ('done','cancelled')
+       AND t.created_at < ?
+     ORDER BY t.updated_at DESC LIMIT 25`,
+    since, since
+  );
+  res.json({ since, hours: sinceHours, shipped, created, moved });
+});
+
+// ── GitHub repo activity (read-only proxy w/ in-memory TTL cache) ──────
+// Hardcoded short list of repos we care about. Unauthenticated GitHub API
+// (60 req/hr per IP — plenty for 3-5 repos cached 60s). If GITHUB_TOKEN
+// env is set, uses it for the 5k/hr authenticated quota.
+const TRACKED_REPOS = [
+  { slug: 'dhnpmp-tech/dc1-platform', label: 'dc1-platform', tagline: 'Backend + Next.js' },
+  { slug: 'dhnpmp-tech/dcp-agent',    label: 'dcp-agent',    tagline: 'Agent runtime' },
+  { slug: 'dhnpmp-tech/dcp-desktop',  label: 'dcp-desktop',  tagline: 'Provider Tauri app' },
+];
+const _repoCache = new Map(); // slug -> { fetchedAt, data }
+const REPO_TTL_MS = 60 * 1000;
+
+async function fetchRepoMeta(slug) {
+  const cached = _repoCache.get(slug);
+  if (cached && Date.now() - cached.fetchedAt < REPO_TTL_MS) return cached.data;
+  const headers = { 'User-Agent': 'dcp-mission-control', Accept: 'application/vnd.github+json' };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  let data = { slug, error: null };
+  try {
+    const repoRes = await fetch(`https://api.github.com/repos/${slug}`, { headers, signal: AbortSignal.timeout(4000) });
+    if (!repoRes.ok) {
+      data.error = `HTTP ${repoRes.status}`;
+    } else {
+      const repo = await repoRes.json();
+      data.default_branch = repo.default_branch;
+      data.pushed_at = repo.pushed_at;
+      data.open_issues = repo.open_issues_count;
+      data.stargazers = repo.stargazers_count;
+      const commitsRes = await fetch(`https://api.github.com/repos/${slug}/commits?per_page=1`, { headers, signal: AbortSignal.timeout(4000) });
+      if (commitsRes.ok) {
+        const commits = await commitsRes.json();
+        if (Array.isArray(commits) && commits[0]) {
+          data.last_commit = {
+            sha: commits[0].sha?.slice(0, 7),
+            message: (commits[0].commit?.message || '').split('\n')[0].slice(0, 140),
+            author: commits[0].commit?.author?.name || commits[0].author?.login || '',
+            date: commits[0].commit?.author?.date || commits[0].commit?.committer?.date,
+            url: commits[0].html_url,
+          };
+        }
+      }
+    }
+  } catch (e) {
+    data.error = e?.message || 'fetch failed';
+  }
+  _repoCache.set(slug, { fetchedAt: Date.now(), data });
+  return data;
+}
+
+router.get('/repos', requireAuth, async (req, res) => {
+  const result = await Promise.all(TRACKED_REPOS.map(async (r) => ({
+    ...r, ...(await fetchRepoMeta(r.slug)),
+  })));
+  res.json({ repos: result, generated_at: new Date().toISOString() });
+});
+
+// ── PR state for a list of source_urls (one call, N parallel fetches) ──
+// Frontend calls this with the GitHub URLs from tasks with source_url, gets
+// back the current open/merged/draft/closed state + CI conclusion. Saves
+// fetching them client-side and exposing GitHub rate limits to browsers.
+const _prCache = new Map();
+const PR_TTL_MS = 120 * 1000;
+
+async function fetchPRState(url) {
+  const cached = _prCache.get(url);
+  if (cached && Date.now() - cached.fetchedAt < PR_TTL_MS) return cached.data;
+  const m = /github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/.exec(url);
+  if (!m) return { url, error: 'not a PR url' };
+  const headers = { 'User-Agent': 'dcp-mission-control', Accept: 'application/vnd.github+json' };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  let data = { url, error: null };
+  try {
+    const r = await fetch(`https://api.github.com/repos/${m[1]}/pulls/${m[2]}`, { headers, signal: AbortSignal.timeout(4000) });
+    if (!r.ok) {
+      data.error = `HTTP ${r.status}`;
+    } else {
+      const pr = await r.json();
+      data.number = pr.number;
+      data.state = pr.merged ? 'merged' : pr.draft ? 'draft' : pr.state; // open | closed | merged | draft
+      data.title = pr.title;
+    }
+  } catch (e) {
+    data.error = e?.message || 'fetch failed';
+  }
+  _prCache.set(url, { fetchedAt: Date.now(), data });
+  return data;
+}
+
+router.post('/pr-state', requireAuth, async (req, res) => {
+  const urls = Array.isArray(req.body?.urls) ? req.body.urls.filter((u) => typeof u === 'string').slice(0, 30) : [];
+  const results = await Promise.all(urls.map(fetchPRState));
+  res.json({ results });
+});
+
+// ── Files (Nextcloud quick-links) ──────────────────────────────────────
+// No WebDAV credentials shipped — UI just renders curated deep-links into
+// the Nextcloud instance. Cheaper than embedding the filebrowser, zero
+// auth risk. Edit FILE_LINKS to add new shortcuts.
+const FILE_LINKS = [
+  { label: 'Engineering reports', path: '/apps/files/?dir=/DCP/Reports', kind: 'folder' },
+  { label: 'Benchmarks',          path: '/apps/files/?dir=/DCP/Benchmarks', kind: 'folder' },
+  { label: 'Specs & docs',        path: '/apps/files/?dir=/DCP/Specs', kind: 'folder' },
+  { label: 'Decisions log',       path: '/apps/files/?dir=/DCP/Decisions', kind: 'folder' },
+  { label: 'Partner updates',     path: '/apps/files/?dir=/DCP/Partner-Updates', kind: 'folder' },
+];
+const NEXTCLOUD_BASE = process.env.NEXTCLOUD_BASE_URL || 'https://files.dcp.sa';
+router.get('/files', requireAuth, (_req, res) => {
+  res.json({
+    base: NEXTCLOUD_BASE,
+    links: FILE_LINKS.map((l) => ({ ...l, url: `${NEXTCLOUD_BASE}${l.path}` })),
+  });
+});
+
+// ── Digest (markdown, agent-friendly) ──────────────────────────────────
+// One-shot endpoint agents call when asked "what's open?" — returns ready
+// to paste markdown. No JSON wrapping, no client-side rendering needed.
+router.get('/digest', requireAuth, (req, res) => {
+  const inProgress = db.all(
+    `SELECT t.*, a.display_name AS assignee_name FROM mission_tasks t
+     LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.status = 'in_progress' ORDER BY t.priority, t.updated_at DESC LIMIT 10`
+  );
+  const blocked = db.all(
+    `SELECT t.*, a.display_name AS assignee_name FROM mission_tasks t
+     LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.status = 'blocked' ORDER BY t.priority, t.updated_at DESC LIMIT 10`
+  );
+  const todoP0P1 = db.all(
+    `SELECT t.*, a.display_name AS assignee_name FROM mission_tasks t
+     LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.status = 'todo' AND t.priority IN ('p0','p1') ORDER BY t.priority, t.due_date IS NULL, t.due_date LIMIT 10`
+  );
+  const sinceISO = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const shippedRecent = db.all(
+    `SELECT t.*, a.display_name AS assignee_name FROM mission_tasks t
+     LEFT JOIN mission_assignees a ON a.id = t.assignee_id
+     WHERE t.status = 'done' AND t.completed_at >= ? ORDER BY t.completed_at DESC LIMIT 10`,
+    sinceISO
+  );
+  const activeGoals = db.all(
+    `SELECT g.*,
+            (SELECT COUNT(*) FROM mission_tasks t WHERE t.goal_id = g.id) AS task_count,
+            (SELECT COUNT(*) FROM mission_tasks t WHERE t.goal_id = g.id AND t.status = 'done') AS task_done
+     FROM mission_goals g WHERE g.status = 'active' ORDER BY g.target_date IS NULL, g.target_date LIMIT 6`
+  );
+  const fmt = (t) => `- **${t.title}** _(${t.priority}, ${t.assignee_name || 'unassigned'})_${t.blocked_reason ? ` — ${t.blocked_reason}` : ''}${t.source_url ? ` · ${t.source_url}` : ''}`;
+  const lines = [];
+  lines.push(`# Mission Control — ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`);
+  if (inProgress.length) { lines.push('\n## In Progress'); for (const t of inProgress) lines.push(fmt(t)); }
+  if (blocked.length)    { lines.push('\n## Blocked');     for (const t of blocked)    lines.push(fmt(t)); }
+  if (todoP0P1.length)   { lines.push('\n## P0/P1 To-Do'); for (const t of todoP0P1)   lines.push(fmt(t)); }
+  if (shippedRecent.length) { lines.push('\n## Shipped (last 24h)'); for (const t of shippedRecent) lines.push(`- ${t.title} _(${t.assignee_name})_`); }
+  if (activeGoals.length) {
+    lines.push('\n## Active Goals');
+    for (const g of activeGoals) {
+      const pct = g.task_count ? Math.round((g.task_done / g.task_count) * 100) : 0;
+      lines.push(`- **${g.title}** — ${g.task_done}/${g.task_count} (${pct}%)${g.target_date ? ` · target ${g.target_date.slice(0, 10)}` : ''}`);
+    }
+  }
+  const md = lines.join('\n') + '\n';
+  const wantsJson = (req.headers['accept'] || '').includes('application/json') || req.query.format === 'json';
+  if (wantsJson) res.json({ markdown: md, generated_at: new Date().toISOString() });
+  else { res.set('Content-Type', 'text/markdown; charset=utf-8'); res.send(md); }
+});
+
+// ── Fleet (provider + renter glimpse for the Overview) ────────────────
+// Cheap aggregation off the providers + renters + jobs tables. Surfaces
+// the "who's online, what shipped, why is Fadi offline" view that lets
+// you glance at fleet health without leaving Mission Control.
+router.get('/fleet', requireAuth, (_req, res) => {
+  const now = Date.now();
+  const FRESH_MS  = 90  * 1000;
+  const STALE_MS  = 10  * 60 * 1000;
+
+  let providersRaw = [];
+  try {
+    providersRaw = db.all(
+      `SELECT id, name, status, is_paused, gpu_model, vllm_endpoint_url, wg_mesh_ip,
+              last_heartbeat, endpoint_reachable, vram_gb, gpu_vram_mib,
+              substr(cached_models, 1, 400) AS cached_models
+       FROM providers WHERE deleted_at IS NULL ORDER BY last_heartbeat DESC NULLS LAST`
+    );
+  } catch (_) {
+    providersRaw = db.all(
+      `SELECT id, name, status, is_paused, gpu_model, vllm_endpoint_url, wg_mesh_ip,
+              last_heartbeat, endpoint_reachable, vram_gb, gpu_vram_mib,
+              substr(cached_models, 1, 400) AS cached_models
+       FROM providers ORDER BY last_heartbeat DESC`
+    );
+  }
+
+  const classified = providersRaw.map((p) => {
+    const hbMs = p.last_heartbeat ? Date.parse(p.last_heartbeat) : NaN;
+    const age = Number.isFinite(hbMs) ? Math.max(0, now - hbMs) : null;
+    let state = 'unknown';
+    let reason = null;
+    if (p.is_paused) { state = 'paused'; reason = 'Paused by provider'; }
+    else if (age == null) { state = 'never_seen'; reason = 'No heartbeat recorded'; }
+    else if (age <= FRESH_MS) { state = 'online'; }
+    else if (age <= STALE_MS) { state = 'stale'; reason = `Last heartbeat ${Math.round(age / 1000)}s ago`; }
+    else { state = 'offline'; reason = `Last heartbeat ${formatAge(age)} ago`; }
+    if (p.endpoint_reachable === 0 && state === 'online') {
+      state = 'unreachable';
+      reason = 'WG tunnel/endpoint unreachable from VPS';
+    }
+    return {
+      id: p.id,
+      name: p.name,
+      state,
+      reason,
+      gpu_model: p.gpu_model,
+      vram_gb: p.vram_gb || (p.gpu_vram_mib ? Math.round(p.gpu_vram_mib / 1024) : null),
+      wg_mesh_ip: p.wg_mesh_ip,
+      last_heartbeat: p.last_heartbeat,
+      last_heartbeat_age_seconds: age == null ? null : Math.round(age / 1000),
+    };
+  });
+
+  const onlineList     = classified.filter((p) => p.state === 'online');
+  const staleList      = classified.filter((p) => p.state === 'stale');
+  const unreachable    = classified.filter((p) => p.state === 'unreachable');
+  const offlineRecent  = classified
+    .filter((p) => p.state === 'offline')
+    .slice(0, 12);
+  const pausedList     = classified.filter((p) => p.state === 'paused');
+
+  // Jobs in last 24h
+  let jobs24h = 0, jobsFailed24h = 0, jobsLifetime = 0;
+  try {
+    const since24 = new Date(now - 24 * 3600 * 1000).toISOString();
+    jobs24h        = (db.get(`SELECT COUNT(*) AS c FROM jobs WHERE created_at >= ?`, since24)?.c) || 0;
+    jobsFailed24h  = (db.get(`SELECT COUNT(*) AS c FROM jobs WHERE created_at >= ? AND status = 'failed'`, since24)?.c) || 0;
+    jobsLifetime   = (db.get(`SELECT COUNT(*) AS c FROM jobs`)?.c) || 0;
+  } catch (_) { /* jobs table may differ */ }
+
+  // Renters
+  let renterCount = 0, renterCount24h = 0;
+  try {
+    renterCount    = (db.get(`SELECT COUNT(*) AS c FROM renters`)?.c) || 0;
+    const since24  = new Date(now - 24 * 3600 * 1000).toISOString();
+    renterCount24h = (db.get(`SELECT COUNT(DISTINCT renter_id) AS c FROM jobs WHERE created_at >= ? AND renter_id IS NOT NULL`, since24)?.c) || 0;
+  } catch (_) { /* renters table may differ */ }
+
+  res.json({
+    counts: {
+      online: onlineList.length,
+      stale: staleList.length,
+      unreachable: unreachable.length,
+      paused: pausedList.length,
+      total: classified.length,
+    },
+    jobs: { last_24h: jobs24h, failed_24h: jobsFailed24h, lifetime: jobsLifetime },
+    renters: { total: renterCount, active_24h: renterCount24h },
+    online:        onlineList,
+    stale:         staleList,
+    unreachable:   unreachable,
+    offline_recent: offlineRecent,
+    paused:        pausedList,
+    generated_at: new Date().toISOString(),
+  });
+});
+
+function formatAge(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d}d`;
+}
+
 module.exports = router;

@@ -70,6 +70,46 @@ interface Overview {
   generated_at: string
 }
 
+interface FleetProvider {
+  id: number
+  name: string
+  state: 'online' | 'stale' | 'offline' | 'paused' | 'unreachable' | 'never_seen' | 'unknown'
+  reason: string | null
+  gpu_model: string | null
+  vram_gb: number | null
+  wg_mesh_ip: string | null
+  last_heartbeat: string | null
+  last_heartbeat_age_seconds: number | null
+}
+
+interface Fleet {
+  counts: { online: number; stale: number; unreachable: number; paused: number; total: number }
+  jobs: { last_24h: number; failed_24h: number; lifetime: number }
+  renters: { total: number; active_24h: number }
+  online: FleetProvider[]
+  stale: FleetProvider[]
+  unreachable: FleetProvider[]
+  offline_recent: FleetProvider[]
+  paused: FleetProvider[]
+}
+
+interface Repo {
+  slug: string
+  label: string
+  tagline?: string
+  default_branch?: string
+  pushed_at?: string
+  open_issues?: number
+  last_commit?: { sha: string; message: string; author: string; date: string; url: string }
+  error?: string | null
+}
+
+interface FileLink {
+  label: string
+  url: string
+  kind: 'folder' | 'file'
+}
+
 type Section = 'overview' | 'board' | 'goals'
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -125,6 +165,9 @@ export default function MissionControlPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [assignees, setAssignees] = useState<Assignee[]>([])
+  const [fleet, setFleet] = useState<Fleet | null>(null)
+  const [repos, setRepos] = useState<Repo[]>([])
+  const [fileLinks, setFileLinks] = useState<FileLink[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [showNewTask, setShowNewTask] = useState(false)
@@ -136,11 +179,14 @@ export default function MissionControlPage() {
     setError('')
     try {
       const headers = authHeaders()
-      const [ov, tk, gl, as] = await Promise.all([
+      const [ov, tk, gl, as, fl, rp, fi] = await Promise.all([
         fetch(`${API_BASE}/mission/overview`, { headers }),
         fetch(`${API_BASE}/mission/tasks`, { headers }),
         fetch(`${API_BASE}/mission/goals`, { headers }),
         fetch(`${API_BASE}/mission/assignees`, { headers }),
+        fetch(`${API_BASE}/mission/fleet`, { headers }),
+        fetch(`${API_BASE}/mission/repos`, { headers }),
+        fetch(`${API_BASE}/mission/files`, { headers }),
       ])
       if (ov.status === 401 || tk.status === 401) {
         const detail = await ov.json().catch(() => null) as { error?: string } | null
@@ -160,6 +206,9 @@ export default function MissionControlPage() {
       setTasks(tkJson.tasks || [])
       setGoals(glJson.goals || [])
       setAssignees(asJson.assignees || [])
+      if (fl.ok) { try { setFleet(await fl.json()) } catch {} }
+      if (rp.ok) { try { const j = await rp.json(); setRepos(j.repos || []) } catch {} }
+      if (fi.ok) { try { const j = await fi.json(); setFileLinks(j.links || []) } catch {} }
       setLastUpdated(new Date())
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'load failed')
@@ -302,7 +351,7 @@ export default function MissionControlPage() {
           <div className="mc-eyebrow" style={{ textAlign: 'center', padding: '80px 0' }}>Loading…</div>
         ) : (
           <>
-            {section === 'overview' && overview && <Overview overview={overview} onOpenTask={setEditingTask} />}
+            {section === 'overview' && overview && <Overview overview={overview} fleet={fleet} repos={repos} fileLinks={fileLinks} onOpenTask={setEditingTask} />}
             {section === 'board' && (
               <Board tasksByStatus={tasksByStatus} onMove={moveTask} onOpen={setEditingTask} />
             )}
@@ -477,7 +526,15 @@ function SectionMeta({ index, label, right }: { index: string; label: string; ri
 }
 
 // ── Overview ───────────────────────────────────────────────────────────
-function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t: Task) => void }) {
+function Overview({
+  overview, fleet, repos, fileLinks, onOpenTask,
+}: {
+  overview: Overview
+  fleet: Fleet | null
+  repos: Repo[]
+  fileLinks: FileLink[]
+  onOpenTask: (t: Task) => void
+}) {
   const { counts, today, blocked, recent_done, active_goals } = overview
   const stats: { label: string; value: number; tone: 'teal' | 'orange' | 'ink' | 'mut' }[] = [
     { label: 'In Progress', value: counts.in_progress || 0, tone: 'teal' },
@@ -513,8 +570,10 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
         </div>
       </section>
 
+      {fleet && <FleetGlimpse fleet={fleet} />}
+
       <section>
-        <SectionMeta index="02" label="Today & Blocked" right={`${today.length + blocked.length} items`} />
+        <SectionMeta index="03" label="Today & Blocked" right={`${today.length + blocked.length} items`} />
         <div className="mc-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
           <ListCard title="Today" caption="In progress, review, or due in ≤ 24h" tasks={today} onOpen={onOpenTask} emptyText="Nothing on deck." />
           <ListCard title="Blocked" caption="Awaiting unblock" tasks={blocked} onOpen={onOpenTask} emptyText="No blockers." accentHot />
@@ -523,16 +582,20 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
 
       {active_goals && active_goals.length > 0 && (
         <section>
-          <SectionMeta index="03" label="Active Goals" />
+          <SectionMeta index="04" label="Active Goals" />
           <div className="mc-goal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {active_goals.map((g) => <GoalChip key={g.id} goal={g} />)}
           </div>
         </section>
       )}
 
+      {repos.length > 0 && <ReposSection repos={repos} />}
+
+      {fileLinks.length > 0 && <FilesSection links={fileLinks} />}
+
       {recent_done && recent_done.length > 0 && (
         <section>
-          <SectionMeta index="04" label="Recently Shipped" />
+          <SectionMeta index="07" label="Recently Shipped" />
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--line)', background: 'var(--paper)' }}>
             {recent_done.map((t, i) => (
               <li key={t.id} onClick={() => onOpenTask(t)} style={{
@@ -541,10 +604,10 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
                 borderBottom: i === recent_done.length - 1 ? 'none' : '1px solid var(--hair)',
                 cursor: 'pointer',
               }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--teal)', flexShrink: 0 }} />
+                <Avatar name={t.assignee_name} kind={t.assignee_kind} size={22} />
                 <span style={{ fontSize: 14, color: 'var(--ink)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                 <span className="mc-mono" style={{ fontSize: 11, color: 'var(--mut)', flexShrink: 0 }}>
-                  {t.assignee_name || 'unassigned'} · {formatDate(t.completed_at)}
+                  {formatDate(t.completed_at)}
                 </span>
               </li>
             ))}
@@ -552,6 +615,187 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
         </section>
       )}
     </div>
+  )
+}
+
+// ── Avatar (initials bubble, color-coded by assignee kind) ─────────────
+function Avatar({ name, kind, size = 28 }: { name?: string | null; kind?: AssigneeKind | null; size?: number }) {
+  const initials = (() => {
+    if (!name) return '?'
+    const parts = name.split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return '?'
+    const ch = (parts[0]?.[0] || '') + (parts.length > 1 ? (parts[parts.length - 1][0] || '') : '')
+    return ch.toUpperCase().slice(0, 2)
+  })()
+  const bg = kind === 'agent' ? 'color-mix(in oklab, var(--teal) 22%, var(--paper))' : 'color-mix(in oklab, var(--orange) 14%, var(--paper))'
+  const fg = kind === 'agent' ? 'var(--teal)' : 'var(--ink)'
+  const border = kind === 'agent' ? 'color-mix(in oklab, var(--teal) 50%, transparent)' : 'color-mix(in oklab, var(--orange) 40%, transparent)'
+  return (
+    <span title={name || 'unassigned'} className="mc-mono" style={{
+      width: size, height: size, borderRadius: '50%',
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      background: bg, color: fg, border: `1px solid ${border}`,
+      fontSize: Math.round(size * 0.42), fontWeight: 600,
+      flexShrink: 0, letterSpacing: 0,
+    }}>{initials}</span>
+  )
+}
+
+// ── Fleet glimpse: who's online, who's offline + why, jobs ─────────────
+function FleetGlimpse({ fleet }: { fleet: Fleet }) {
+  const stateColor = (s: FleetProvider['state']) =>
+    s === 'online' ? 'var(--teal)'
+    : s === 'stale' || s === 'unreachable' ? 'var(--orange)'
+    : s === 'paused' ? '#e8a854'
+    : 'var(--mut)'
+  return (
+    <section>
+      <SectionMeta
+        index="02"
+        label="Fleet"
+        right={`${fleet.counts.online}/${fleet.counts.total} online · ${fleet.jobs.last_24h} jobs/24h · ${fleet.renters.active_24h} active renters`}
+      />
+      <div className="mc-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+        {/* Online */}
+        <div style={{ background: 'var(--paper)', border: '1px solid var(--line)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', insetInline: 0, top: 0, height: 2, background: 'var(--teal)' }} />
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '16px 18px', borderBottom: '1px solid var(--hair)' }}>
+            <div>
+              <div className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em' }}>Online</div>
+              <div className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', marginTop: 4, letterSpacing: '.08em' }}>
+                Heartbeat in the last 90s
+              </div>
+            </div>
+            <span className="mc-mono" style={{ fontSize: 11, color: 'var(--mut)' }}>{String(fleet.online.length).padStart(2, '0')}</span>
+          </div>
+          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+            {fleet.online.length === 0 ? (
+              <div className="mc-eyebrow" style={{ textAlign: 'center', padding: '32px 18px' }}>No providers online</div>
+            ) : fleet.online.map((p, i) => (
+              <div key={p.id} style={{ padding: '12px 18px', borderBottom: i === fleet.online.length - 1 ? 'none' : '1px solid var(--hair)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: stateColor(p.state), flexShrink: 0, boxShadow: `0 0 0 3px color-mix(in oklab, ${stateColor(p.state)} 25%, transparent)` }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 14 }}>{p.name}</div>
+                  <div className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', marginTop: 2, letterSpacing: '.04em' }}>
+                    {p.gpu_model || '—'}{p.vram_gb ? ` · ${p.vram_gb}GB` : ''}{p.wg_mesh_ip ? ` · ${p.wg_mesh_ip}` : ''}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Offline / stale / unreachable */}
+        <div style={{ background: 'var(--paper)', border: '1px solid var(--line)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', insetInline: 0, top: 0, height: 2, background: 'var(--orange)' }} />
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '16px 18px', borderBottom: '1px solid var(--hair)' }}>
+            <div>
+              <div className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em', color: 'var(--orange)' }}>Offline</div>
+              <div className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', marginTop: 4, letterSpacing: '.08em' }}>
+                Why each provider is down
+              </div>
+            </div>
+            <span className="mc-mono" style={{ fontSize: 11, color: 'var(--mut)' }}>{String(fleet.offline_recent.length + fleet.stale.length + fleet.unreachable.length).padStart(2, '0')}</span>
+          </div>
+          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+            {[...fleet.unreachable, ...fleet.stale, ...fleet.offline_recent].slice(0, 12).map((p, i, arr) => (
+              <div key={p.id} style={{ padding: '12px 18px', borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--hair)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: stateColor(p.state), flexShrink: 0 }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 14, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    {p.name}
+                    <span className="mc-mono" style={{ fontSize: 10, color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '.1em' }}>{p.state}</span>
+                  </div>
+                  {p.reason && <div className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', marginTop: 2 }}>{p.reason}</div>}
+                </div>
+              </div>
+            ))}
+            {fleet.offline_recent.length === 0 && fleet.stale.length === 0 && fleet.unreachable.length === 0 && (
+              <div className="mc-eyebrow" style={{ textAlign: 'center', padding: '32px 18px' }}>Whole fleet is up.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mc-mono" style={{ marginTop: 12, fontSize: 10.5, color: 'var(--mut)', letterSpacing: '.1em', textTransform: 'uppercase', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+        <span>Last 24h · <span style={{ color: 'var(--ink)' }}>{fleet.jobs.last_24h}</span> jobs</span>
+        <span>Failed · <span style={{ color: fleet.jobs.failed_24h > 0 ? 'var(--orange)' : 'var(--mut)' }}>{fleet.jobs.failed_24h}</span></span>
+        <span>Lifetime · <span style={{ color: 'var(--ink)' }}>{fleet.jobs.lifetime}</span></span>
+        <span>Renters · <span style={{ color: 'var(--ink)' }}>{fleet.renters.active_24h}</span> active / {fleet.renters.total} total</span>
+      </div>
+    </section>
+  )
+}
+
+// ── Repos: last commit per tracked GitHub repo ─────────────────────────
+function ReposSection({ repos }: { repos: Repo[] }) {
+  const since = (iso?: string) => {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '—'
+    const diffMs = Date.now() - d.getTime()
+    const mins = Math.round(diffMs / 60000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const h = Math.round(mins / 60)
+    if (h < 48) return `${h}h ago`
+    return `${Math.round(h / 24)}d ago`
+  }
+  return (
+    <section>
+      <SectionMeta index="05" label="Repos" right={`${repos.length} tracked`} />
+      <div className="mc-goal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {repos.map((r) => (
+          <a key={r.slug} href={r.last_commit?.url || `https://github.com/${r.slug}`} target="_blank" rel="noreferrer" style={{
+            display: 'block',
+            background: 'var(--paper)', border: '1px solid var(--line)', padding: '16px 18px',
+            color: 'inherit', textDecoration: 'none', transition: 'border-color .15s',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div className="mc-serif" style={{ fontSize: 19, letterSpacing: '-.01em' }}>{r.label}</div>
+                {r.tagline && <div className="mc-mono" style={{ fontSize: 10, color: 'var(--mut)', marginTop: 2, letterSpacing: '.08em' }}>{r.tagline}</div>}
+              </div>
+              <span className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', flexShrink: 0 }}>{since(r.last_commit?.date || r.pushed_at)}</span>
+            </div>
+            {r.last_commit ? (
+              <div style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as unknown as undefined, overflow: 'hidden' }}>
+                {r.last_commit.message}
+              </div>
+            ) : r.error ? (
+              <div className="mc-mono" style={{ marginTop: 10, fontSize: 11, color: 'var(--orange)' }}>{r.error}</div>
+            ) : null}
+            {r.last_commit && (
+              <div className="mc-mono" style={{ marginTop: 8, fontSize: 10.5, color: 'var(--mut)', letterSpacing: '.04em' }}>
+                {r.last_commit.author} · {r.last_commit.sha}{r.open_issues != null ? ` · ${r.open_issues} open issues` : ''}
+              </div>
+            )}
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ── Files (Nextcloud quick links) ──────────────────────────────────────
+function FilesSection({ links }: { links: FileLink[] }) {
+  return (
+    <section>
+      <SectionMeta index="06" label="Files" right="Nextcloud" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+        {links.map((l) => (
+          <a key={l.url} href={l.url} target="_blank" rel="noreferrer" style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: 'var(--paper)', border: '1px solid var(--line)', padding: '12px 14px',
+            color: 'inherit', textDecoration: 'none', transition: 'border-color .15s',
+          }}>
+            <span className="mc-serif mc-grad-text" style={{ fontSize: 22, lineHeight: 1, fontStyle: 'italic' }}>{l.kind === 'folder' ? '◰' : '▢'}</span>
+            <span style={{ fontSize: 13.5, flex: 1 }}>{l.label}</span>
+            <span className="mc-mono" style={{ fontSize: 10, color: 'var(--mut)' }}>↗</span>
+          </a>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -590,21 +834,42 @@ function ListCard({
 function TaskRow({ task, onOpen, isLast }: { task: Task; onOpen: (t: Task) => void; isLast?: boolean }) {
   const due = dueLabel(task.due_date)
   const dueColor = due?.tone === 'hot' ? 'var(--orange)' : due?.tone === 'warm' ? '#e8a854' : due?.tone === 'cool' ? 'var(--ink-2)' : 'var(--mut)'
+  const prMatch = task.source_url && /github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/.exec(task.source_url)
   return (
     <div onClick={() => onOpen(task)} style={{
       padding: '14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--hair)',
       cursor: 'pointer', transition: 'background .15s',
+      display: 'flex', gap: 12, alignItems: 'flex-start',
     }} className="mc-row">
-      <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>{task.title}</div>
-      <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 11, color: 'var(--mut)', letterSpacing: '.04em' }}>
-        <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
-          {PRIORITY_LABEL[task.priority]}
-        </span>
-        {task.assignee_name && (
-          <span>{task.assignee_kind === 'agent' ? '⚙ ' : ''}{task.assignee_name}</span>
+      <Avatar name={task.assignee_name} kind={task.assignee_kind} size={28} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.4, display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <span>{task.title}</span>
+          {prMatch && (
+            <a href={task.source_url || '#'} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mc-mono" style={{
+              fontSize: 10, color: 'var(--teal)', textDecoration: 'none',
+              border: '1px solid color-mix(in oklab, var(--teal) 40%, transparent)', padding: '1px 6px',
+              borderRadius: 2, letterSpacing: '.08em', textTransform: 'uppercase',
+            }}>PR #{prMatch[1]}</a>
+          )}
+        </div>
+        <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 11, color: 'var(--mut)', letterSpacing: '.04em' }}>
+          <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
+            {PRIORITY_LABEL[task.priority]}
+          </span>
+          {task.assignee_name && (
+            <span style={{ color: task.assignee_kind === 'agent' ? 'var(--teal)' : 'var(--ink-2)' }}>
+              {task.assignee_name}
+            </span>
+          )}
+          {task.goal_title && <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>↳ {task.goal_title}</span>}
+          {due && <span style={{ color: dueColor }}>{due.label}</span>}
+        </div>
+        {task.status === 'blocked' && task.blocked_reason && (
+          <div className="mc-mono" style={{ marginTop: 4, fontSize: 11, color: 'var(--orange)', letterSpacing: '.02em', lineHeight: 1.4 }}>
+            ↳ {task.blocked_reason}
+          </div>
         )}
-        {task.goal_title && <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>↳ {task.goal_title}</span>}
-        {due && <span style={{ color: dueColor }}>{due.label}</span>}
       </div>
     </div>
   )
@@ -694,12 +959,17 @@ function Board({
                       transition: 'border-color .15s',
                     }}
                   >
-                    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.35 }}>{task.title}</div>
-                    <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 10.5, color: 'var(--mut)' }}>
-                      <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
-                        {PRIORITY_LABEL[task.priority]}
-                      </span>
-                      {task.assignee_name && <span>{task.assignee_kind === 'agent' ? '⚙ ' : ''}{task.assignee_name}</span>}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <Avatar name={task.assignee_name} kind={task.assignee_kind} size={22} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.35 }}>{task.title}</div>
+                        <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 10.5, color: 'var(--mut)' }}>
+                          <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
+                            {PRIORITY_LABEL[task.priority]}
+                          </span>
+                          {task.assignee_name && <span style={{ color: task.assignee_kind === 'agent' ? 'var(--teal)' : 'var(--ink-2)' }}>{task.assignee_name}</span>}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
