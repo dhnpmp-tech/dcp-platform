@@ -1,9 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import Image from 'next/image'
+import { Inter, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
+
+// Page-scoped fonts. Matches the Claude Design "DCP Redesign" preview —
+// Instrument Serif for editorial display, Inter for body, JetBrains Mono
+// for tabular/metadata. Loaded only on /mission so the rest of the app
+// keeps its existing typography stack.
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--mc-sans' })
+const serif = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], variable: '--mc-serif' })
+const mono  = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--mc-mono' })
 
 const API_BASE = '/api'
 
@@ -75,23 +81,8 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
   cancelled: 'Cancelled',
 }
 
-const STATUS_COLORS: Record<TaskStatus, { dot: string; bg: string; text: string; ring: string }> = {
-  todo:        { dot: 'bg-dc1-text-muted',  bg: 'bg-dc1-text-muted/10',  text: 'text-dc1-text-muted',  ring: 'ring-dc1-text-muted/40' },
-  in_progress: { dot: 'bg-dc1-amber',       bg: 'bg-dc1-amber/10',       text: 'text-dc1-amber',       ring: 'ring-dc1-amber/40' },
-  review:      { dot: 'bg-status-info',     bg: 'bg-status-info/10',     text: 'text-status-info',     ring: 'ring-status-info/40' },
-  blocked:     { dot: 'bg-status-error',    bg: 'bg-status-error/10',    text: 'text-status-error',    ring: 'ring-status-error/40' },
-  done:        { dot: 'bg-status-success',  bg: 'bg-status-success/10',  text: 'text-status-success',  ring: 'ring-status-success/40' },
-  cancelled:   { dot: 'bg-dc1-text-muted',  bg: 'bg-dc1-text-muted/10',  text: 'text-dc1-text-muted',  ring: 'ring-dc1-text-muted/40' },
-}
-
 const PRIORITY_LABEL: Record<TaskPriority, string> = {
   p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3',
-}
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  p0: 'text-status-error',
-  p1: 'text-status-warning',
-  p2: 'text-dc1-text-secondary',
-  p3: 'text-dc1-text-muted',
 }
 
 const BOARD_COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'review', 'blocked', 'done']
@@ -111,33 +102,24 @@ function dueLabel(iso?: string | null) {
   if (Number.isNaN(d.getTime())) return null
   const now = new Date()
   const diffDays = Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return { label: `${-diffDays}d overdue`, color: 'text-status-error' }
-  if (diffDays === 0) return { label: 'Due today', color: 'text-status-warning' }
-  if (diffDays === 1) return { label: 'Due tomorrow', color: 'text-status-warning' }
-  if (diffDays <= 7) return { label: `Due in ${diffDays}d`, color: 'text-dc1-text-secondary' }
-  return { label: formatDate(iso) || '', color: 'text-dc1-text-muted' }
+  if (diffDays < 0) return { label: `${-diffDays}d overdue`, tone: 'hot' }
+  if (diffDays === 0) return { label: 'Due today', tone: 'hot' }
+  if (diffDays === 1) return { label: 'Due tomorrow', tone: 'warm' }
+  if (diffDays <= 7) return { label: `Due in ${diffDays}d`, tone: 'cool' }
+  return { label: formatDate(iso) || '', tone: 'mute' }
 }
 
 function authHeaders(): HeadersInit {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (typeof window === 'undefined') return h
-  // Admin token takes precedence — Mission Control is an internal surface and
-  // admins should see everything regardless of renter scoping. Key names match
-  // the rest of the app (see app/lib/auth.ts: STORAGE_KEYS).
   const adminToken = localStorage.getItem('dc1_admin_token')
-  if (adminToken) {
-    h['x-admin-token'] = adminToken
-    return h
-  }
+  if (adminToken) { h['x-admin-token'] = adminToken; return h }
   const renterKey = localStorage.getItem('dc1_renter_key')
-  if (renterKey) {
-    h['x-renter-key'] = renterKey
-  }
+  if (renterKey) h['x-renter-key'] = renterKey
   return h
 }
 
 export default function MissionControlPage() {
-  const router = useRouter()
   const [section, setSection] = useState<Section>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -148,6 +130,7 @@ export default function MissionControlPage() {
   const [showNewTask, setShowNewTask] = useState(false)
   const [showNewGoal, setShowNewGoal] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const fetchAll = useCallback(async () => {
     setError('')
@@ -160,9 +143,6 @@ export default function MissionControlPage() {
         fetch(`${API_BASE}/mission/assignees`, { headers }),
       ])
       if (ov.status === 401 || tk.status === 401) {
-        // Don't bounce-loop to /login. Show inline detail so the user can
-        // recover (paste admin token, re-sign-in as renter) instead of
-        // looping through magic-link unnecessarily.
         const detail = await ov.json().catch(() => null) as { error?: string } | null
         const hasAdmin = typeof window !== 'undefined' && !!localStorage.getItem('dc1_admin_token')
         const hasRenter = typeof window !== 'undefined' && !!localStorage.getItem('dc1_renter_key')
@@ -180,13 +160,13 @@ export default function MissionControlPage() {
       setTasks(tkJson.tasks || [])
       setGoals(glJson.goals || [])
       setAssignees(asJson.assignees || [])
+      setLastUpdated(new Date())
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'load failed'
-      setError(msg)
+      setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [])
 
   useEffect(() => {
     fetchAll()
@@ -202,7 +182,6 @@ export default function MissionControlPage() {
 
   const moveTask = useCallback(async (task: Task, status: TaskStatus) => {
     if (task.status === status) return
-    // Optimistic
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)))
     try {
       const res = await fetch(`${API_BASE}/mission/tasks/${task.id}`, {
@@ -214,46 +193,99 @@ export default function MissionControlPage() {
     }
   }, [fetchAll])
 
-  if (loading && !overview) {
-    return (
-      <div className="min-h-screen bg-dc1-void flex items-center justify-center">
-        <div className="text-dc1-text-secondary text-sm">Loading mission control…</div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-dc1-void text-dc1-text-primary">
+    <div className={`mc-root ${inter.variable} ${serif.variable} ${mono.variable}`}>
+      <style jsx global>{`
+        .mc-root {
+          /* Midnight palette ported from public/preview-bundle/DCP Redesign.html */
+          --bg:    #0a0b1a;
+          --bg-2:  #10122a;
+          --paper: #161834;
+          --ink:   #f5f3ee;
+          --ink-2: #c9c5bd;
+          --mut:   #7b7a92;
+          --dim:   #4e4d67;
+          --line:  #272848;
+          --hair:  #1f2040;
+          --teal:  #2dd4b6;
+          --orange:#ee7a3c;
+          --hot:   #ee7a3c;
+          --grad:  linear-gradient(90deg, #2dd4b6 0%, #2dd4b6 28%, #6bb39a 55%, #ee7a3c 100%);
+          --sans:  var(--mc-sans), system-ui, -apple-system, sans-serif;
+          --serif: var(--mc-serif), 'Times New Roman', serif;
+          --mono:  var(--mc-mono), ui-monospace, Menlo, monospace;
+          font-family: var(--sans);
+          color: var(--ink);
+          background: var(--bg);
+          min-height: 100vh;
+          -webkit-font-smoothing: antialiased;
+        }
+        .mc-root *, .mc-root *::before, .mc-root *::after { box-sizing: border-box; }
+        .mc-mono { font-family: var(--mono); }
+        .mc-serif { font-family: var(--serif); }
+        .mc-eyebrow {
+          font-family: var(--mono);
+          font-size: 10.5px;
+          letter-spacing: .14em;
+          text-transform: uppercase;
+          color: var(--mut);
+        }
+        .mc-grad-text {
+          background-image: var(--grad);
+          background-clip: text;
+          -webkit-background-clip: text;
+          color: transparent;
+        }
+        @keyframes mcPulse { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+        .mc-pulse-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: var(--teal);
+          box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 25%, transparent);
+          animation: mcPulse 1.8s ease-in-out infinite;
+        }
+        .mc-pulse-dot.hot {
+          background: var(--orange);
+          box-shadow: 0 0 0 3px color-mix(in oklab, var(--orange) 25%, transparent);
+        }
+      `}</style>
+
+      <Marquee lastUpdated={lastUpdated} />
       <TopBar
         section={section}
         onSection={setSection}
         onRefresh={fetchAll}
         onNewTask={() => setShowNewTask(true)}
         onNewGoal={() => setShowNewGoal(true)}
-        generatedAt={overview?.generated_at}
+        lastUpdated={lastUpdated}
       />
 
-      {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-          <div className="rounded-md border border-status-error/40 bg-status-error/10 p-3 text-sm text-status-error">
-            {error}
-          </div>
-        </div>
-      )}
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 32px 120px' }} className="mc-main">
+        <style jsx>{`
+          @media (max-width: 700px) { .mc-main { padding: 24px 18px 120px !important; } }
+        `}</style>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24 lg:pb-10">
-        {section === 'overview' && overview && (
-          <Overview overview={overview} onOpenTask={(t) => setEditingTask(t)} />
+        {error && (
+          <div style={{
+            border: '1px solid color-mix(in oklab, var(--orange) 40%, var(--line))',
+            background: 'color-mix(in oklab, var(--orange) 8%, var(--paper))',
+            padding: '14px 16px',
+            marginBottom: 24,
+            fontSize: 13.5,
+            color: 'var(--ink-2)',
+            lineHeight: 1.5,
+          }}>{error}</div>
         )}
-        {section === 'board' && (
-          <Board
-            tasksByStatus={tasksByStatus}
-            onMove={moveTask}
-            onOpen={(t) => setEditingTask(t)}
-          />
-        )}
-        {section === 'goals' && (
-          <Goals goals={goals} tasks={tasks} onOpenTask={(t) => setEditingTask(t)} />
+
+        {loading && !overview ? (
+          <div className="mc-eyebrow" style={{ textAlign: 'center', padding: '80px 0' }}>Loading…</div>
+        ) : (
+          <>
+            {section === 'overview' && overview && <Overview overview={overview} onOpenTask={setEditingTask} />}
+            {section === 'board' && (
+              <Board tasksByStatus={tasksByStatus} onMove={moveTask} onOpen={setEditingTask} />
+            )}
+            {section === 'goals' && <Goals goals={goals} tasks={tasks} onOpenTask={setEditingTask} />}
+          </>
         )}
       </main>
 
@@ -261,8 +293,7 @@ export default function MissionControlPage() {
 
       {showNewTask && (
         <TaskModal
-          assignees={assignees}
-          goals={goals}
+          assignees={assignees} goals={goals}
           onClose={() => setShowNewTask(false)}
           onSaved={() => { setShowNewTask(false); fetchAll() }}
         />
@@ -276,9 +307,7 @@ export default function MissionControlPage() {
       )}
       {editingTask && (
         <TaskModal
-          assignees={assignees}
-          goals={goals}
-          task={editingTask}
+          assignees={assignees} goals={goals} task={editingTask}
           onClose={() => setEditingTask(null)}
           onSaved={() => { setEditingTask(null); fetchAll() }}
         />
@@ -287,16 +316,51 @@ export default function MissionControlPage() {
   )
 }
 
-// ───────────────────────────── Top bar ─────────────────────────────────
+// ── Marquee strip (top of page) ─────────────────────────────────────────
+function Marquee({ lastUpdated }: { lastUpdated: Date | null }) {
+  const items = [
+    'MISSION CONTROL',
+    'TASKS · GOALS · MILESTONES',
+    'HUMANS + AGENTS',
+    'SAUDI SOVEREIGN COMPUTE',
+    lastUpdated ? `LAST SYNC ${lastUpdated.toLocaleTimeString()}` : 'LIVE',
+  ]
+  return (
+    <div style={{
+      background: '#04050d',
+      color: 'var(--ink-2)',
+      fontFamily: 'var(--mono)',
+      fontSize: 11,
+      letterSpacing: '.18em',
+      borderBottom: '1px solid var(--line)',
+      overflow: 'hidden',
+      whiteSpace: 'nowrap',
+      padding: '9px 0',
+    }}>
+      <style jsx>{`
+        @keyframes mcMarq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .mc-marq-in { display: inline-flex; gap: 48px; animation: mcMarq 60s linear infinite; }
+        .mc-marq-in span { display: inline-flex; align-items: center; gap: 12px; }
+        .mc-marq-in span::before { content: '∞'; color: var(--teal); font-size: 13px; }
+        @media (prefers-reduced-motion: reduce) { .mc-marq-in { animation: none; } }
+      `}</style>
+      <div className="mc-marq-in">
+        {[...items, ...items, ...items].map((s, i) => <span key={i}>{s}</span>)}
+      </div>
+    </div>
+  )
+}
+
+// ── Sticky top bar ─────────────────────────────────────────────────────
 function TopBar({
-  section, onSection, onRefresh, onNewTask, onNewGoal, generatedAt,
+  section, onSection, onRefresh, onNewTask, onNewGoal, lastUpdated,
 }: {
   section: Section
   onSection: (s: Section) => void
   onRefresh: () => void
   onNewTask: () => void
   onNewGoal: () => void
-  generatedAt?: string
+  lastUpdated: Date | null
 }) {
   const tabs: { key: Section; label: string }[] = [
     { key: 'overview', label: 'Overview' },
@@ -304,107 +368,185 @@ function TopBar({
     { key: 'goals',    label: 'Goals' },
   ]
   return (
-    <header className="sticky top-0 z-40 bg-dc1-surface-l1/80 backdrop-blur border-b border-dc1-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-        <Link href="/" className="shrink-0">
-          <Image src="/dcp-logo-primary.png" alt="DCP" width={88} height={28} className="h-7 w-auto" />
-        </Link>
-        <div className="flex-1 flex items-center gap-2">
-          <h1 className="text-base sm:text-lg font-semibold tracking-tight">Mission Control</h1>
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-dc1-amber/10 text-dc1-amber px-2 py-0.5 text-[10px] font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-dc1-amber animate-pulse" />
-            LIVE
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 40,
+      background: 'color-mix(in oklab, var(--bg) 88%, transparent)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      borderBottom: '1px solid var(--hair)',
+    }}>
+      <div style={{
+        maxWidth: 1280, margin: '0 auto',
+        padding: '18px 32px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24,
+      }} className="mc-topbar">
+        <style jsx>{`
+          @media (max-width: 700px) { .mc-topbar { padding: 14px 18px !important; gap: 12px !important; } }
+        `}</style>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <span className="mc-grad-text mc-serif" style={{ fontWeight: 700, fontSize: 24, lineHeight: 1 }}>∞</span>
+          <span className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em', lineHeight: 1 }}>
+            Mission <em className="mc-grad-text" style={{ fontStyle: 'italic' }}>Control</em>
           </span>
         </div>
-        <nav className="hidden lg:flex items-center gap-1 bg-dc1-surface-l2 rounded-md p-1">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => onSection(t.key)}
-              className={`px-3 py-1.5 text-sm rounded transition ${
-                section === t.key
-                  ? 'bg-dc1-amber text-dc1-void font-semibold'
-                  : 'text-dc1-text-secondary hover:text-dc1-text-primary'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+
+        <nav style={{ display: 'flex', gap: 4, alignItems: 'center' }} className="mc-tabs">
+          <style jsx>{`
+            @media (max-width: 900px) { .mc-tabs { display: none !important; } }
+          `}</style>
+          {tabs.map((t) => {
+            const on = section === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={() => onSection(t.key)}
+                className="mc-mono"
+                style={{
+                  padding: '8px 14px',
+                  fontSize: 11,
+                  letterSpacing: '.16em',
+                  textTransform: 'uppercase',
+                  color: on ? 'var(--ink)' : 'var(--mut)',
+                  border: '1px solid',
+                  borderColor: on ? 'var(--ink)' : 'transparent',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderRadius: 2,
+                  transition: 'all .15s',
+                }}
+              >
+                {t.label}
+              </button>
+            )
+          })}
         </nav>
-        <div className="flex items-center gap-1">
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="mc-mono" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '6px 12px', border: '1px solid var(--hair)', borderRadius: 999,
+            fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--mut)',
+          }} title={lastUpdated ? `Last sync ${lastUpdated.toLocaleTimeString()}` : 'Live'}>
+            <span className="mc-pulse-dot" />
+            LIVE
+          </span>
           <button
             onClick={onRefresh}
-            title={generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Refresh'}
-            className="hidden sm:inline-flex items-center gap-1 rounded-md border border-dc1-border bg-dc1-surface-l2 px-2.5 py-1.5 text-xs text-dc1-text-secondary hover:text-dc1-text-primary hover:border-dc1-border-light transition"
-          >
-            ↻
-          </button>
+            className="mc-mono mc-refresh"
+            title="Refresh"
+            style={{
+              padding: '8px 10px', fontSize: 12, color: 'var(--mut)',
+              border: '1px solid var(--hair)', borderRadius: 2, background: 'transparent', cursor: 'pointer',
+            }}
+          >↻</button>
           <button
             onClick={section === 'goals' ? onNewGoal : onNewTask}
-            className="hidden sm:inline-flex items-center gap-1 rounded-md bg-dc1-amber text-dc1-void px-3 py-1.5 text-xs font-semibold hover:bg-dc1-amber-hover transition"
-          >
-            + {section === 'goals' ? 'Goal' : 'Task'}
-          </button>
+            className="mc-mono mc-new"
+            style={{
+              padding: '8px 16px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
+              color: 'var(--bg)', background: 'var(--ink)', border: '1px solid var(--ink)',
+              borderRadius: 2, cursor: 'pointer',
+            }}
+          >+ {section === 'goals' ? 'Goal' : 'Task'}</button>
         </div>
       </div>
     </header>
   )
 }
 
-// ─── Overview ──────────────────────────────────────────────────────────
+// ── Section meta strip (mono eyebrow with index + label) ───────────────
+function SectionMeta({ index, label, right }: { index: string; label: string; right?: React.ReactNode }) {
+  return (
+    <div className="mc-eyebrow" style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      paddingBottom: 18, borderBottom: '1px solid var(--hair)', marginBottom: 28, gap: 16,
+    }}>
+      <span><span style={{ color: 'var(--ink)' }}>{index}</span> &nbsp; / &nbsp; {label}</span>
+      {right && <span>{right}</span>}
+    </div>
+  )
+}
+
+// ── Overview ───────────────────────────────────────────────────────────
 function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t: Task) => void }) {
   const { counts, today, blocked, recent_done, active_goals } = overview
-  const stats = [
-    { label: 'In Progress', value: counts.in_progress || 0, accent: 'text-dc1-amber',     border: 'border-dc1-amber/30' },
-    { label: 'To Do',       value: counts.todo || 0,        accent: 'text-dc1-text-primary', border: 'border-dc1-border' },
-    { label: 'Blocked',     value: counts.blocked || 0,     accent: 'text-status-error',  border: 'border-status-error/30' },
-    { label: 'Review',      value: counts.review || 0,      accent: 'text-status-info',   border: 'border-status-info/30' },
-    { label: 'Done',        value: counts.done || 0,        accent: 'text-status-success',border: 'border-status-success/30' },
+  const stats: { label: string; value: number; tone: 'teal' | 'orange' | 'ink' | 'mut' }[] = [
+    { label: 'In Progress', value: counts.in_progress || 0, tone: 'teal' },
+    { label: 'Review',      value: counts.review || 0,      tone: 'ink' },
+    { label: 'Blocked',     value: counts.blocked || 0,     tone: 'orange' },
+    { label: 'To Do',       value: counts.todo || 0,        tone: 'mut' },
+    { label: 'Done',        value: counts.done || 0,        tone: 'teal' },
   ]
+  const toneColor = { teal: 'var(--teal)', orange: 'var(--orange)', ink: 'var(--ink)', mut: 'var(--mut)' }
   return (
-    <div className="pt-6 space-y-8">
-      {/* Stats */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 56 }}>
       <section>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {stats.map((s) => (
-            <div key={s.label} className={`bg-dc1-surface-l1 border rounded-lg p-4 ${s.border}`}>
-              <p className="text-xs uppercase tracking-wide text-dc1-text-secondary mb-1">{s.label}</p>
-              <p className={`text-3xl font-bold ${s.accent}`}>{s.value}</p>
+        <SectionMeta index="01" label="Snapshot" right={overview.generated_at ? new Date(overview.generated_at).toLocaleTimeString() : ''} />
+        <div className="mc-stats-grid" style={{
+          display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+          border: '1px solid var(--line)', background: 'var(--paper)',
+        }}>
+          <style jsx>{`
+            @media (max-width: 900px) { .mc-stats-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+            @media (max-width: 500px) { .mc-stats-grid { grid-template-columns: 1fr 1fr !important; } }
+          `}</style>
+          {stats.map((s, i) => (
+            <div key={s.label} style={{
+              padding: '24px 20px',
+              borderRight: i < stats.length - 1 ? '1px solid var(--hair)' : 'none',
+              borderBottom: '1px solid var(--hair)',
+            }}>
+              <div className="mc-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)' }}>
+                {s.label}
+              </div>
+              <div className="mc-serif" style={{
+                fontSize: 52, lineHeight: 1, marginTop: 6, letterSpacing: '-.02em',
+                color: toneColor[s.tone],
+              }}>{s.value}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Today / Blocked */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ListCard title="Today" subtitle="In progress + review + due ≤24h" tasks={today} onOpen={onOpenTask} emptyText="Nothing on deck. Add a task." />
-        <ListCard title="Blocked" subtitle="Needs unblock" tasks={blocked} onOpen={onOpenTask} emptyText="No blockers." accent="error" />
+      <section>
+        <SectionMeta index="02" label="Today & Blocked" right={`${today.length + blocked.length} items`} />
+        <div className="mc-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+          <style jsx>{`
+            @media (max-width: 900px) { .mc-two-col { grid-template-columns: 1fr !important; gap: 24px !important; } }
+          `}</style>
+          <ListCard title="Today" caption="In progress, review, or due in ≤ 24h" tasks={today} onOpen={onOpenTask} emptyText="Nothing on deck." />
+          <ListCard title="Blocked" caption="Awaiting unblock" tasks={blocked} onOpen={onOpenTask} emptyText="No blockers." accentHot />
+        </div>
       </section>
 
-      {/* Active goals */}
       {active_goals && active_goals.length > 0 && (
         <section>
-          <h2 className="text-sm uppercase tracking-wide text-dc1-text-secondary mb-3">Active Goals</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {active_goals.map((g) => (
-              <GoalChip key={g.id} goal={g} />
-            ))}
+          <SectionMeta index="03" label="Active Goals" />
+          <div className="mc-goal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <style jsx>{`
+              @media (max-width: 900px) { .mc-goal-grid { grid-template-columns: 1fr 1fr !important; } }
+              @media (max-width: 600px) { .mc-goal-grid { grid-template-columns: 1fr !important; } }
+            `}</style>
+            {active_goals.map((g) => <GoalChip key={g.id} goal={g} />)}
           </div>
         </section>
       )}
 
-      {/* Recently done */}
       {recent_done && recent_done.length > 0 && (
         <section>
-          <h2 className="text-sm uppercase tracking-wide text-dc1-text-secondary mb-3">Recently Shipped</h2>
-          <ul className="space-y-2">
-            {recent_done.map((t) => (
-              <li key={t.id} onClick={() => onOpenTask(t)} className="flex items-center justify-between gap-3 rounded-md border border-dc1-border bg-dc1-surface-l1 px-3 py-2 cursor-pointer hover:border-dc1-border-light">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-status-success shrink-0" />
-                  <span className="text-sm truncate">{t.title}</span>
-                </div>
-                <span className="text-xs text-dc1-text-muted shrink-0">
+          <SectionMeta index="04" label="Recently Shipped" />
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--line)', background: 'var(--paper)' }}>
+            {recent_done.map((t, i) => (
+              <li key={t.id} onClick={() => onOpenTask(t)} style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 18px',
+                borderBottom: i === recent_done.length - 1 ? 'none' : '1px solid var(--hair)',
+                cursor: 'pointer',
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--teal)', flexShrink: 0 }} />
+                <span style={{ fontSize: 14, color: 'var(--ink)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                <span className="mc-mono" style={{ fontSize: 11, color: 'var(--mut)', flexShrink: 0 }}>
                   {t.assignee_name || 'unassigned'} · {formatDate(t.completed_at)}
                 </span>
               </li>
@@ -417,57 +559,56 @@ function Overview({ overview, onOpenTask }: { overview: Overview; onOpenTask: (t
 }
 
 function ListCard({
-  title, subtitle, tasks, onOpen, emptyText, accent,
+  title, caption, tasks, onOpen, emptyText, accentHot,
 }: {
-  title: string; subtitle?: string; tasks: Task[]
-  onOpen: (t: Task) => void; emptyText: string
-  accent?: 'error' | 'info' | 'default'
+  title: string; caption?: string; tasks: Task[]
+  onOpen: (t: Task) => void; emptyText: string; accentHot?: boolean
 }) {
-  const headerColor = accent === 'error' ? 'text-status-error' : 'text-dc1-text-primary'
   return (
-    <div className="bg-dc1-surface-l1 border border-dc1-border rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-dc1-border flex items-baseline justify-between">
+    <div style={{
+      background: 'var(--paper)', border: '1px solid var(--line)',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {accentHot && <div style={{ position: 'absolute', insetInline: 0, top: 0, height: 2, background: 'var(--orange)' }} />}
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        padding: '16px 18px', borderBottom: '1px solid var(--hair)',
+      }}>
         <div>
-          <h2 className={`text-base font-semibold ${headerColor}`}>{title}</h2>
-          {subtitle && <p className="text-xs text-dc1-text-muted mt-0.5">{subtitle}</p>}
+          <div className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em', color: accentHot ? 'var(--orange)' : 'var(--ink)' }}>{title}</div>
+          {caption && <div className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', marginTop: 4, letterSpacing: '.08em' }}>{caption}</div>}
         </div>
-        <span className="text-xs text-dc1-text-muted">{tasks.length}</span>
+        <span className="mc-mono" style={{ fontSize: 11, color: 'var(--mut)' }}>{tasks.length.toString().padStart(2, '0')}</span>
       </div>
-      <div className="divide-y divide-dc1-border max-h-96 overflow-y-auto">
+      <div style={{ maxHeight: 420, overflowY: 'auto' }}>
         {tasks.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-dc1-text-muted">{emptyText}</div>
+          <div className="mc-eyebrow" style={{ textAlign: 'center', padding: '40px 18px' }}>{emptyText}</div>
         )}
-        {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} onOpen={onOpen} />
-        ))}
+        {tasks.map((t, i) => <TaskRow key={t.id} task={t} onOpen={onOpen} isLast={i === tasks.length - 1} />)}
       </div>
     </div>
   )
 }
 
-function TaskRow({ task, onOpen }: { task: Task; onOpen: (t: Task) => void }) {
+function TaskRow({ task, onOpen, isLast }: { task: Task; onOpen: (t: Task) => void; isLast?: boolean }) {
   const due = dueLabel(task.due_date)
+  const dueColor = due?.tone === 'hot' ? 'var(--orange)' : due?.tone === 'warm' ? '#e8a854' : due?.tone === 'cool' ? 'var(--ink-2)' : 'var(--mut)'
   return (
-    <div onClick={() => onOpen(task)} className="px-4 py-3 cursor-pointer hover:bg-dc1-surface-l2/40">
-      <div className="flex items-start gap-3">
-        <span className={`mt-1.5 w-2 h-2 rounded-full ${STATUS_COLORS[task.status].dot} shrink-0`} />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-dc1-text-primary leading-snug">{task.title}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dc1-text-muted">
-            <span className={PRIORITY_COLORS[task.priority]}>{PRIORITY_LABEL[task.priority]}</span>
-            {task.assignee_name && (
-              <>
-                <span>·</span>
-                <span className="inline-flex items-center gap-1">
-                  {task.assignee_kind === 'agent' && <span className="text-dc1-amber">⚙</span>}
-                  {task.assignee_name}
-                </span>
-              </>
-            )}
-            {task.goal_title && (<><span>·</span><span className="truncate max-w-[10rem]">{task.goal_title}</span></>)}
-            {due && (<><span>·</span><span className={due.color}>{due.label}</span></>)}
-          </div>
-        </div>
+    <div onClick={() => onOpen(task)} style={{
+      padding: '14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--hair)',
+      cursor: 'pointer', transition: 'background .15s',
+    }} className="mc-row">
+      <style jsx>{`.mc-row:hover { background: color-mix(in oklab, var(--ink) 4%, transparent); }`}</style>
+      <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>{task.title}</div>
+      <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 11, color: 'var(--mut)', letterSpacing: '.04em' }}>
+        <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
+          {PRIORITY_LABEL[task.priority]}
+        </span>
+        {task.assignee_name && (
+          <span>{task.assignee_kind === 'agent' ? '⚙ ' : ''}{task.assignee_name}</span>
+        )}
+        {task.goal_title && <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>↳ {task.goal_title}</span>}
+        {due && <span style={{ color: dueColor }}>{due.label}</span>}
       </div>
     </div>
   )
@@ -478,22 +619,29 @@ function GoalChip({ goal }: { goal: Goal }) {
   const done = goal.task_done || 0
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   return (
-    <div className="bg-dc1-surface-l1 border border-dc1-border rounded-lg p-4">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold leading-tight">{goal.title}</h3>
+    <div style={{
+      background: 'var(--paper)', border: '1px solid var(--line)',
+      padding: '18px 18px 16px', position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <h3 className="mc-serif" style={{ fontSize: 19, letterSpacing: '-.01em', margin: 0, lineHeight: 1.2 }}>{goal.title}</h3>
         {goal.target_date && (
-          <span className="text-xs text-dc1-text-muted shrink-0">{formatDate(goal.target_date)}</span>
+          <span className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', flexShrink: 0, letterSpacing: '.06em' }}>
+            {formatDate(goal.target_date)}
+          </span>
         )}
       </div>
-      <div className="h-1.5 bg-dc1-surface-l3 rounded-full overflow-hidden">
-        <div className="h-full bg-dc1-amber" style={{ width: `${pct}%` }} />
+      <div style={{ height: 4, background: 'var(--hair)', position: 'relative', marginTop: 8 }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--grad)', transform: `scaleX(${pct / 100})`, transformOrigin: 'left', transition: 'transform .6s cubic-bezier(.2,.7,.2,1)' }} />
       </div>
-      <p className="mt-2 text-xs text-dc1-text-muted">{done}/{total} tasks · {pct}%</p>
+      <div className="mc-mono" style={{ marginTop: 10, fontSize: 10.5, letterSpacing: '.1em', color: 'var(--mut)', textTransform: 'uppercase' }}>
+        {done}/{total} · <span style={{ color: 'var(--ink)' }}>{pct}%</span>
+      </div>
     </div>
   )
 }
 
-// ─── Board (kanban) ────────────────────────────────────────────────────
+// ── Board (Kanban) ─────────────────────────────────────────────────────
 function Board({
   tasksByStatus, onMove, onOpen,
 }: {
@@ -502,139 +650,170 @@ function Board({
   onOpen: (t: Task) => void
 }) {
   const [dragId, setDragId] = useState<string | null>(null)
+  const total = BOARD_COLUMNS.reduce((acc, s) => acc + tasksByStatus[s].length, 0)
   return (
-    <div className="pt-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        {BOARD_COLUMNS.map((status) => (
-          <div
-            key={status}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (!dragId) return
-              const all = Object.values(tasksByStatus).flat()
-              const t = all.find((x) => x.id === dragId)
-              if (t) onMove(t, status)
-              setDragId(null)
-            }}
-            className={`bg-dc1-surface-l1 border border-dc1-border rounded-lg flex flex-col min-h-[200px] ${
-              dragId ? 'ring-2 ' + STATUS_COLORS[status].ring : ''
-            }`}
-          >
-            <div className="px-3 py-2 border-b border-dc1-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status].dot}`} />
-                <span className="text-xs font-semibold uppercase tracking-wide">{STATUS_LABEL[status]}</span>
+    <div>
+      <SectionMeta index="02" label="Board" right={`${total} tasks`} />
+      <div className="mc-board-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        <style jsx>{`
+          @media (max-width: 1100px) { .mc-board-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+          @media (max-width: 760px) { .mc-board-grid { grid-template-columns: 1fr 1fr !important; } }
+          @media (max-width: 500px) { .mc-board-grid { grid-template-columns: 1fr !important; } }
+        `}</style>
+        {BOARD_COLUMNS.map((status) => {
+          const accent = status === 'in_progress' ? 'var(--teal)' : status === 'blocked' ? 'var(--orange)' : status === 'done' ? 'var(--teal)' : 'var(--mut)'
+          return (
+            <div
+              key={status}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (!dragId) return
+                const all = Object.values(tasksByStatus).flat()
+                const t = all.find((x) => x.id === dragId)
+                if (t) onMove(t, status)
+                setDragId(null)
+              }}
+              style={{
+                background: 'var(--paper)', border: '1px solid var(--line)',
+                display: 'flex', flexDirection: 'column', minHeight: 240,
+                position: 'relative', overflow: 'hidden',
+              }}
+            >
+              <div style={{ position: 'absolute', insetInline: 0, top: 0, height: 1, background: accent, opacity: 0.6 }} />
+              <div style={{
+                padding: '12px 14px', borderBottom: '1px solid var(--hair)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <span className="mc-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink)' }}>
+                  {STATUS_LABEL[status]}
+                </span>
+                <span className="mc-mono" style={{ fontSize: 11, color: 'var(--mut)' }}>{tasksByStatus[status].length}</span>
               </div>
-              <span className="text-xs text-dc1-text-muted">{tasksByStatus[status].length}</span>
-            </div>
-            <div className="p-2 space-y-2 flex-1 overflow-y-auto max-h-[70vh]">
-              {tasksByStatus[status].map((task) => (
-                <div
-                  key={task.id}
-                  draggable
-                  onDragStart={() => setDragId(task.id)}
-                  onDragEnd={() => setDragId(null)}
-                  onClick={() => onOpen(task)}
-                  className="cursor-grab active:cursor-grabbing bg-dc1-surface-l2 border border-dc1-border rounded-md p-2.5 hover:border-dc1-border-light"
-                >
-                  <p className="text-sm leading-snug">{task.title}</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dc1-text-muted">
-                    <span className={PRIORITY_COLORS[task.priority]}>{PRIORITY_LABEL[task.priority]}</span>
-                    {task.assignee_name && (
-                      <span className="inline-flex items-center gap-1">
-                        {task.assignee_kind === 'agent' && <span className="text-dc1-amber">⚙</span>}
-                        {task.assignee_name}
+              <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8, flex: 1, maxHeight: '70vh', overflowY: 'auto' }}>
+                {tasksByStatus[status].map((task) => (
+                  <div
+                    key={task.id}
+                    draggable
+                    onDragStart={() => setDragId(task.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onClick={() => onOpen(task)}
+                    style={{
+                      background: 'var(--bg-2)', border: '1px solid var(--hair)',
+                      padding: '10px 12px', cursor: 'grab', borderRadius: 2,
+                      transition: 'border-color .15s',
+                    }}
+                  >
+                    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.35 }}>{task.title}</div>
+                    <div className="mc-mono" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 10.5, color: 'var(--mut)' }}>
+                      <span style={{ color: task.priority === 'p0' ? 'var(--orange)' : task.priority === 'p1' ? '#e8a854' : 'var(--mut)' }}>
+                        {PRIORITY_LABEL[task.priority]}
                       </span>
-                    )}
+                      {task.assignee_name && <span>{task.assignee_kind === 'agent' ? '⚙ ' : ''}{task.assignee_name}</span>}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {tasksByStatus[status].length === 0 && (
-                <div className="text-center text-xs text-dc1-text-muted py-4">empty</div>
-              )}
-              {/* Mobile move-to dropdown — keyboard/no-drag alt */}
-              <details className="lg:hidden">
-                <summary className="text-xs text-dc1-text-muted cursor-pointer">⋯</summary>
-              </details>
+                ))}
+                {tasksByStatus[status].length === 0 && (
+                  <div className="mc-eyebrow" style={{ textAlign: 'center', padding: '32px 0' }}>empty</div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
-      <p className="mt-3 text-xs text-dc1-text-muted">Tip: drag a card between columns to change status. Tap a card to edit details.</p>
+      <p className="mc-mono" style={{ marginTop: 16, fontSize: 10.5, color: 'var(--mut)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
+        Drag cards to move · Tap to edit
+      </p>
     </div>
   )
 }
 
-// ─── Goals ─────────────────────────────────────────────────────────────
+// ── Goals view ─────────────────────────────────────────────────────────
 function Goals({ goals, tasks, onOpenTask }: { goals: Goal[]; tasks: Task[]; onOpenTask: (t: Task) => void }) {
   return (
-    <div className="pt-6 space-y-4">
-      {goals.length === 0 && (
-        <div className="rounded-lg border border-dashed border-dc1-border bg-dc1-surface-l1 p-8 text-center text-sm text-dc1-text-muted">
-          No goals yet. Tap + Goal to add the first one.
-        </div>
-      )}
-      {goals.map((g) => {
-        const goalTasks = tasks.filter((t) => t.goal_id === g.id)
-        const done = goalTasks.filter((t) => t.status === 'done').length
-        const pct = goalTasks.length ? Math.round((done / goalTasks.length) * 100) : 0
-        return (
-          <div key={g.id} className="bg-dc1-surface-l1 border border-dc1-border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-dc1-border">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold">{g.title}</h3>
-                  {g.description && <p className="text-sm text-dc1-text-secondary mt-1">{g.description}</p>}
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-dc1-text-muted">
+    <div>
+      <SectionMeta index="03" label="Goals" right={`${goals.length}`} />
+      {goals.length === 0 ? (
+        <div className="mc-eyebrow" style={{
+          padding: '60px 20px', textAlign: 'center',
+          border: '1px dashed var(--line)', background: 'var(--paper)',
+        }}>No goals yet — tap + Goal to add the first one.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {goals.map((g) => {
+            const goalTasks = tasks.filter((t) => t.goal_id === g.id)
+            const done = goalTasks.filter((t) => t.status === 'done').length
+            const pct = goalTasks.length ? Math.round((done / goalTasks.length) * 100) : 0
+            return (
+              <div key={g.id} style={{ background: 'var(--paper)', border: '1px solid var(--line)' }}>
+                <div style={{ padding: '20px 22px', borderBottom: goalTasks.length ? '1px solid var(--hair)' : 'none' }}>
+                  <h3 className="mc-serif" style={{ fontSize: 26, letterSpacing: '-.01em', margin: 0, lineHeight: 1.15 }}>{g.title}</h3>
+                  {g.description && <p style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.5 }}>{g.description}</p>}
+                  <div className="mc-mono" style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 10.5, color: 'var(--mut)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
                     <span>{g.owner_name || 'unowned'}</span>
-                    {g.target_date && <span>· target {formatDate(g.target_date)}</span>}
-                    <span>· {done}/{goalTasks.length} tasks · {pct}%</span>
+                    {g.target_date && <span>Target · {formatDate(g.target_date)}</span>}
+                    <span>{done}/{goalTasks.length} · <span style={{ color: 'var(--ink)' }}>{pct}%</span></span>
+                  </div>
+                  <div style={{ height: 4, background: 'var(--hair)', position: 'relative', marginTop: 14 }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'var(--grad)', transform: `scaleX(${pct / 100})`, transformOrigin: 'left', transition: 'transform .6s' }} />
                   </div>
                 </div>
+                {goalTasks.length > 0 && goalTasks.map((t, i) => (
+                  <TaskRow key={t.id} task={t} onOpen={onOpenTask} isLast={i === goalTasks.length - 1} />
+                ))}
               </div>
-              <div className="mt-3 h-1.5 bg-dc1-surface-l3 rounded-full overflow-hidden">
-                <div className="h-full bg-dc1-amber" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-            {goalTasks.length > 0 && (
-              <div className="divide-y divide-dc1-border">
-                {goalTasks.map((t) => <TaskRow key={t.id} task={t} onOpen={onOpenTask} />)}
-              </div>
-            )}
-          </div>
-        )
-      })}
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Mobile bottom nav ─────────────────────────────────────────────────
+// ── Mobile bottom nav ──────────────────────────────────────────────────
 function MobileNav({ section, onSection, onNewTask }: { section: Section; onSection: (s: Section) => void; onNewTask: () => void }) {
-  const tabs: { key: Section; label: string; icon: string }[] = [
-    { key: 'overview', label: 'Today',  icon: '◉' },
-    { key: 'board',    label: 'Board',  icon: '▦' },
-    { key: 'goals',    label: 'Goals',  icon: '◎' },
+  const tabs: { key: Section; label: string; glyph: string }[] = [
+    { key: 'overview', label: 'Today', glyph: '◉' },
+    { key: 'board',    label: 'Board', glyph: '▦' },
+    { key: 'goals',    label: 'Goals', glyph: '◎' },
   ]
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-dc1-surface-l1/95 backdrop-blur border-t border-dc1-border">
-      <div className="grid grid-cols-4 max-w-md mx-auto">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => onSection(t.key)}
-            className={`flex flex-col items-center justify-center py-2 text-[11px] ${
-              section === t.key ? 'text-dc1-amber' : 'text-dc1-text-muted'
-            }`}
-          >
-            <span className="text-base leading-none mb-0.5">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
-        <button
-          onClick={onNewTask}
-          className="flex flex-col items-center justify-center py-2 text-[11px] text-dc1-amber"
-        >
-          <span className="text-base leading-none mb-0.5">＋</span>
+    <nav className="mc-mobnav" style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
+      background: 'color-mix(in oklab, var(--bg) 92%, transparent)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      borderTop: '1px solid var(--line)',
+      display: 'none',
+    }}>
+      <style jsx>{`
+        @media (max-width: 900px) { .mc-mobnav { display: block !important; } }
+      `}</style>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        maxWidth: 480, margin: '0 auto',
+      }}>
+        {tabs.map((t) => {
+          const on = section === t.key
+          return (
+            <button key={t.key} onClick={() => onSection(t.key)} className="mc-mono" style={{
+              padding: '12px 0 14px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: on ? 'var(--ink)' : 'var(--mut)',
+              fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
+            }}>
+              <span style={{ fontSize: 16, color: on ? 'var(--teal)' : 'var(--mut)' }}>{t.glyph}</span>
+              {t.label}
+            </button>
+          )
+        })}
+        <button onClick={onNewTask} className="mc-mono" style={{
+          padding: '12px 0 14px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: 'var(--teal)',
+          fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
+        }}>
+          <span style={{ fontSize: 16 }}>＋</span>
           New
         </button>
       </div>
@@ -642,14 +821,13 @@ function MobileNav({ section, onSection, onNewTask }: { section: Section; onSect
   )
 }
 
-// ─── Modals ────────────────────────────────────────────────────────────
+// ── Modals ─────────────────────────────────────────────────────────────
 function TaskModal({
   task, assignees, goals, onClose, onSaved,
 }: {
   task?: Task
   assignees: Assignee[]; goals: Goal[]
-  onClose: () => void
-  onSaved: () => void
+  onClose: () => void; onSaved: () => void
 }) {
   const [title, setTitle]             = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
@@ -682,21 +860,17 @@ function TaskModal({
         body: JSON.stringify(payload),
       })
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        setErr(j.error || 'save failed')
-        return
+        const j = await res.json().catch(() => ({})) as { error?: string }
+        setErr(j.error || 'save failed'); return
       }
       onSaved()
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'save failed')
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   const remove = async () => {
-    if (!task) return
-    if (!confirm('Delete this task?')) return
+    if (!task || !confirm('Delete this task?')) return
     setSaving(true)
     try {
       await fetch(`${API_BASE}/mission/tasks/${task.id}`, { method: 'DELETE', headers: authHeaders() })
@@ -706,64 +880,49 @@ function TaskModal({
 
   return (
     <ModalShell title={task ? 'Edit Task' : 'New Task'} onClose={onClose}>
-      <div className="space-y-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Field label="Title">
-          <input
-            type="text"
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber"
-          />
+          <Input autoFocus value={title} onChange={(v) => setTitle(v)} />
         </Field>
         <Field label="Description">
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber"
-          />
+          <Textarea rows={3} value={description} onChange={(v) => setDescription(v)} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="mc-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <style jsx>{`
+            @media (max-width: 600px) { .mc-modal-grid { grid-template-columns: 1fr !important; } }
+          `}</style>
           <Field label="Status">
-            <select value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber">
-              {(['todo','in_progress','review','blocked','done','cancelled'] as TaskStatus[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
-            </select>
+            <Select value={status} onChange={(v) => setStatus(v as TaskStatus)} options={Object.entries(STATUS_LABEL).map(([v, l]) => ({ value: v, label: l }))} />
           </Field>
           <Field label="Priority">
-            <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber">
-              {(['p0','p1','p2','p3'] as TaskPriority[]).map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
-            </select>
+            <Select value={priority} onChange={(v) => setPriority(v as TaskPriority)} options={Object.entries(PRIORITY_LABEL).map(([v, l]) => ({ value: v, label: l }))} />
           </Field>
           <Field label="Assignee">
-            <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber">
-              <option value="">Unassigned</option>
-              {assignees.map((a) => <option key={a.id} value={a.id}>{a.kind === 'agent' ? '⚙ ' : ''}{a.display_name}</option>)}
-            </select>
+            <Select value={assigneeId} onChange={(v) => setAssigneeId(v)} options={[{ value: '', label: 'Unassigned' }, ...assignees.map((a) => ({ value: a.id, label: `${a.kind === 'agent' ? '⚙ ' : ''}${a.display_name}` }))]} />
           </Field>
           <Field label="Goal">
-            <select value={goalId} onChange={(e) => setGoalId(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber">
-              <option value="">None</option>
-              {goals.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-            </select>
+            <Select value={goalId} onChange={(v) => setGoalId(v)} options={[{ value: '', label: 'None' }, ...goals.map((g) => ({ value: g.id, label: g.title }))]} />
           </Field>
           <Field label="Due">
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber" />
+            <Input type="date" value={dueDate} onChange={(v) => setDueDate(v)} />
           </Field>
         </div>
         {status === 'blocked' && (
           <Field label="Blocked reason">
-            <input type="text" value={blocked} onChange={(e) => setBlocked(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-status-error" />
+            <Input value={blocked} onChange={(v) => setBlocked(v)} />
           </Field>
         )}
-        {err && <p className="text-sm text-status-error">{err}</p>}
-        <div className="flex items-center justify-between gap-3 pt-2">
+        {err && <div className="mc-mono" style={{ color: 'var(--orange)', fontSize: 12 }}>{err}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
           {task ? (
-            <button onClick={remove} disabled={saving} className="text-sm text-status-error hover:underline">Delete</button>
+            <button onClick={remove} disabled={saving} className="mc-mono" style={{
+              fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
+              color: 'var(--orange)', background: 'transparent', border: 'none', cursor: 'pointer',
+            }}>Delete</button>
           ) : <span />}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm border border-dc1-border rounded-md hover:bg-dc1-surface-l2">Cancel</button>
-            <button onClick={save} disabled={saving} className="px-4 py-2 text-sm bg-dc1-amber text-dc1-void font-semibold rounded-md hover:bg-dc1-amber-hover disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn onClick={onClose}>Cancel</Btn>
+            <Btn primary onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Btn>
           </div>
         </div>
       </div>
@@ -793,9 +952,8 @@ function GoalModal({ assignees, onClose, onSaved }: { assignees: Assignee[]; onC
         }),
       })
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        setErr(j.error || 'save failed')
-        return
+        const j = await res.json().catch(() => ({})) as { error?: string }
+        setErr(j.error || 'save failed'); return
       }
       onSaved()
     } catch (e: unknown) {
@@ -805,24 +963,19 @@ function GoalModal({ assignees, onClose, onSaved }: { assignees: Assignee[]; onC
 
   return (
     <ModalShell title="New Goal" onClose={onClose}>
-      <div className="space-y-3">
-        <Field label="Title"><input autoFocus type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber" /></Field>
-        <Field label="Description"><textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber" /></Field>
-        <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Field label="Title"><Input autoFocus value={title} onChange={(v) => setTitle(v)} /></Field>
+        <Field label="Description"><Textarea rows={3} value={description} onChange={(v) => setDescription(v)} /></Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <Field label="Owner">
-            <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber">
-              <option value="">Unowned</option>
-              {assignees.map((a) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
-            </select>
+            <Select value={ownerId} onChange={(v) => setOwnerId(v)} options={[{ value: '', label: 'Unowned' }, ...assignees.map((a) => ({ value: a.id, label: a.display_name }))]} />
           </Field>
-          <Field label="Target date">
-            <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full bg-dc1-surface-l2 border border-dc1-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-dc1-amber" />
-          </Field>
+          <Field label="Target date"><Input type="date" value={targetDate} onChange={(v) => setTargetDate(v)} /></Field>
         </div>
-        {err && <p className="text-sm text-status-error">{err}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm border border-dc1-border rounded-md hover:bg-dc1-surface-l2">Cancel</button>
-          <button onClick={save} disabled={saving} className="px-4 py-2 text-sm bg-dc1-amber text-dc1-void font-semibold rounded-md hover:bg-dc1-amber-hover disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+        {err && <div className="mc-mono" style={{ color: 'var(--orange)', fontSize: 12 }}>{err}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 8 }}>
+          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn primary onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Btn>
         </div>
       </div>
     </ModalShell>
@@ -831,23 +984,84 @@ function GoalModal({ assignees, onClose, onSaved }: { assignees: Assignee[]; onC
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-dc1-void/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full sm:max-w-lg bg-dc1-surface-l1 border-t sm:border border-dc1-border sm:rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-dc1-border">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <button onClick={onClose} className="text-dc1-text-muted hover:text-dc1-text-primary text-xl leading-none">×</button>
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      background: 'color-mix(in oklab, var(--bg) 75%, transparent)',
+      backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }} className="mc-modal-overlay">
+      <style jsx>{`
+        @media (min-width: 700px) { .mc-modal-overlay { align-items: center !important; } }
+      `}</style>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 560,
+        background: 'var(--paper)', border: '1px solid var(--line)',
+        borderTopWidth: 2, borderTopStyle: 'solid', borderImage: 'linear-gradient(90deg, var(--teal), var(--orange)) 1',
+      }} className="mc-modal-sheet">
+        <style jsx>{`
+          @media (min-width: 700px) { .mc-modal-sheet { border-image: none !important; border-top: 2px solid; border-top-color: transparent !important; box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); position: relative; }
+            .mc-modal-sheet::before { content:''; position: absolute; insetInline: -1px; top: -1px; height: 2px; background: var(--grad); }
+          }
+        `}</style>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', borderBottom: '1px solid var(--hair)',
+        }}>
+          <h2 className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em', margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ color: 'var(--mut)', background: 'transparent', border: 'none', fontSize: 22, lineHeight: 1, cursor: 'pointer' }}>×</button>
         </div>
-        <div className="p-4 max-h-[80vh] overflow-y-auto">{children}</div>
+        <div style={{ padding: 20, maxHeight: '78vh', overflowY: 'auto' }}>{children}</div>
       </div>
     </div>
   )
 }
 
+// ── Form primitives ────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="text-xs uppercase tracking-wide text-dc1-text-secondary mb-1 block">{label}</span>
+    <label style={{ display: 'block' }}>
+      <div className="mc-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mut)', marginBottom: 6 }}>{label}</div>
       {children}
     </label>
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'var(--bg-2)',
+  border: '1px solid var(--hair)',
+  color: 'var(--ink)',
+  padding: '10px 12px',
+  fontSize: 14,
+  fontFamily: 'var(--sans)',
+  borderRadius: 2,
+  outline: 'none',
+}
+
+function Input({ value, onChange, type, autoFocus }: { value: string; onChange: (v: string) => void; type?: string; autoFocus?: boolean }) {
+  return <input type={type || 'text'} autoFocus={autoFocus} value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle} onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--teal)')} onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--hair)')} />
+}
+function Textarea({ value, onChange, rows }: { value: string; onChange: (v: string) => void; rows?: number }) {
+  return <textarea rows={rows} value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--teal)')} onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--hair)')} />
+}
+function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle} onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--teal)')} onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--hair)')}>
+      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  )
+}
+function Btn({ children, primary, onClick, disabled }: { children: React.ReactNode; primary?: boolean; onClick?: () => void; disabled?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled} className="mc-mono" style={{
+      padding: '10px 18px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
+      color: primary ? 'var(--bg)' : 'var(--ink)',
+      background: primary ? 'var(--ink)' : 'transparent',
+      border: '1px solid var(--ink)',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.5 : 1,
+      borderRadius: 2,
+      transition: 'all .15s',
+    }}>{children}</button>
   )
 }
