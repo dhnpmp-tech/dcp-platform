@@ -342,7 +342,7 @@ export default function PricingDisplay({ modelId, vramGb, pricePerHour, onPriceE
       {/* Info Box */}
       <div className="p-4 bg-dc1-surface border border-dc1-border rounded-lg">
         <p className="text-sm text-dc1-text-secondary">
-          {t('marketplace.pricing_info') || 'Pricing is real-time based on provider costs and market conditions. DC1 offers 33–51% savings vs hyperscalers through energy arbitrage in Saudi Arabia.'}
+          {t('marketplace.pricing_info') || 'Per-token rates, input and output priced separately, settled in real time as your requests complete. Saudi-hosted providers compete directly for your traffic.'}
         </p>
       </div>
     </div>
