@@ -1173,8 +1173,11 @@ function resolveOllamaModelId(modelId, endpointUrl, providerCachedModels) {
   if (!modelId) return modelId;
   const normalized = String(modelId).toLowerCase().trim();
 
-  // Direct alias lookup — always applies regardless of port or format
-  if (OLLAMA_MODEL_ALIASES[normalized]) {
+  // Direct alias lookup — only when endpoint looks like Ollama.
+  // Pre-flight detection inlined; full endpointLooksOllama is computed
+  // below for the other heuristics, but this branch needs it first.
+  const _epLooksOllamaEarly = !!(endpointUrl && (String(endpointUrl).includes(':11434') || /ollama/i.test(String(endpointUrl))));
+  if (_epLooksOllamaEarly && OLLAMA_MODEL_ALIASES[normalized]) {
     return OLLAMA_MODEL_ALIASES[normalized];
   }
 
