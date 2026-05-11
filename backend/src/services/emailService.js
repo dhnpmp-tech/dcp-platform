@@ -151,11 +151,11 @@ function buildWelcomeTemplate({ name, apiKey, role }) {
   const roleLabel = isProvider ? 'Provider' : 'Renter';
   const roleLabelAr = isProvider ? 'مزود' : 'مستأجر';
   const nextStepEn = isProvider
-    ? 'Open the dashboard to verify your daemon, see live earnings, and download a tray app for your OS.'
-    : 'Open the marketplace to pick a model, top up if needed, and run your first inference.';
+    ? 'Open the dashboard to verify your provider app is online, see live earnings, and download the tray app for your OS.'
+    : 'Open the marketplace to pick a model, top up if needed, and run your first inference call.';
   const nextStepAr = isProvider
-    ? 'افتح لوحة التحكم للتحقق من تشغيل الـ daemon، ومتابعة الأرباح، وتنزيل تطبيق المهام لنظامك.'
-    : 'افتح السوق لاختيار نموذج، وشحن رصيدك إذا لزم الأمر، وتشغيل أول استنتاج.';
+    ? 'افتح لوحة التحكم للتحقق من اتصال تطبيق المزوّد، ومتابعة الأرباح، وتنزيل تطبيق الشريط لنظامك.'
+    : 'افتح السوق لاختيار نموذج، اشحن رصيدك إذا لزم الأمر، وشغّل أول طلب استدلال.';
 
   return {
     subject: `Welcome to DCP, ${name} | مرحباً بك في DCP`,

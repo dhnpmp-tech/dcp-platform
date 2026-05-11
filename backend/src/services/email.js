@@ -34,15 +34,15 @@ function buildProviderEmail(name, apiKey) {
 
         <!-- Header -->
         <tr><td style="background:#F5A524;padding:24px 32px;">
-          <h1 style="margin:0;color:#07070E;font-size:24px;font-weight:700;letter-spacing:-0.5px;">DC1 GPU Marketplace</h1>
-          <p style="margin:4px 0 0;color:#07070E;opacity:0.75;font-size:14px;">Saudi Arabia's Compute Network</p>
+          <h1 style="margin:0;color:#07070E;font-size:24px;font-weight:700;letter-spacing:-0.5px;">DCP — AI Inference</h1>
+          <p style="margin:4px 0 0;color:#07070E;opacity:0.75;font-size:14px;">Saudi-hosted, PDPL-compliant inference network</p>
         </td></tr>
 
         <!-- Body -->
         <tr><td style="padding:32px;">
           <h2 style="color:#F5A524;margin:0 0 16px;font-size:20px;">Welcome, ${escapeHtml(name)}!</h2>
           <p style="color:#A0A0B0;line-height:1.6;margin:0 0 24px;">
-            Your provider account has been created. You are now registered on the DC1 GPU compute marketplace.
+            Your provider account is ready. You're now part of the DCP inference network — share your GPU, earn 70% of the inference revenue it serves.
             Save your API key — it won't be shown again.
           </p>
 
@@ -55,16 +55,16 @@ function buildProviderEmail(name, apiKey) {
           <!-- Next steps -->
           <h3 style="color:#E5E5E5;font-size:16px;margin:0 0 12px;">Get Started</h3>
           <ol style="color:#A0A0B0;line-height:1.8;margin:0 0 24px;padding-left:20px;">
-            <li>Download the DC1 daemon to register your GPU hardware</li>
-            <li>Run the daemon — it automatically connects and starts earning</li>
-            <li>Monitor your earnings and uptime on the provider dashboard</li>
+            <li>Download the DCP provider app — auto-detects your GPU, installs Ollama, joins the mesh</li>
+            <li>Let it run — the agent auto-pulls models on demand and serves inference traffic</li>
+            <li>Monitor earnings and uptime on the provider dashboard</li>
           </ol>
 
           <!-- Buttons -->
           <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
             <tr>
               <td style="padding-right:12px;">
-                <a href="${daemonUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;">Download Daemon</a>
+                <a href="${daemonUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;">Download Provider App</a>
               </td>
               <td>
                 <a href="${dashboardUrl}" style="display:inline-block;background:#1A1A28;color:#E5E5E5;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;border:1px solid #2A2A3A;">Provider Dashboard</a>
@@ -73,7 +73,7 @@ function buildProviderEmail(name, apiKey) {
           </table>
 
           <p style="color:#6B6B7A;font-size:12px;margin:0;">
-            DC1 Platform — Saudi Arabia GPU Compute Marketplace<br>
+            DCP — Saudi-hosted AI inference network<br>
             You are receiving this because you registered as a provider on dcp.sa.
           </p>
         </td></tr>
@@ -83,7 +83,7 @@ function buildProviderEmail(name, apiKey) {
   </table>
 </body>
 </html>`,
-    text: `Welcome to DC1, ${name}!\n\nYour provider account is ready.\n\nYour API Key: ${apiKey}\n\nNext steps:\n1. Download the DC1 daemon: ${daemonUrl}\n2. Run the daemon to register your GPU and start earning\n3. View your dashboard: ${dashboardUrl}\n\nSave your API key — it won't be shown again.\n\nDC1 Platform — dcp.sa`,
+    text: `Welcome to DCP, ${name}!\n\nYour provider account is ready.\n\nYour API Key: ${apiKey}\n\nNext steps:\n1. Download the DCP provider app: ${daemonUrl}\n2. Let it run — auto-detects GPU, joins the inference mesh, starts earning\n3. View your dashboard: ${dashboardUrl}\n\nSave your API key — it won't be shown again.\n\nDCP — Saudi-hosted AI inference network — dcp.sa`,
   };
 }
 
@@ -103,15 +103,15 @@ function buildRenterEmail(name, apiKey) {
 
         <!-- Header -->
         <tr><td style="background:#F5A524;padding:24px 32px;">
-          <h1 style="margin:0;color:#07070E;font-size:24px;font-weight:700;letter-spacing:-0.5px;">DC1 GPU Marketplace</h1>
-          <p style="margin:4px 0 0;color:#07070E;opacity:0.75;font-size:14px;">Saudi Arabia's Compute Network</p>
+          <h1 style="margin:0;color:#07070E;font-size:24px;font-weight:700;letter-spacing:-0.5px;">DCP — AI Inference</h1>
+          <p style="margin:4px 0 0;color:#07070E;opacity:0.75;font-size:14px;">Saudi-hosted, PDPL-compliant inference network</p>
         </td></tr>
 
         <!-- Body -->
         <tr><td style="padding:32px;">
           <h2 style="color:#F5A524;margin:0 0 16px;font-size:20px;">Welcome, ${escapeHtml(name)}!</h2>
           <p style="color:#A0A0B0;line-height:1.6;margin:0 0 24px;">
-            Your renter account has been created. You can now submit compute jobs and access GPUs on the DC1 marketplace.
+            Your renter account is ready. You can now hit our OpenAI-compatible API to run inference on ALLaM, JAIS, Llama, Qwen, and 50+ open models — all hosted inside Saudi Arabia.
             Save your API key — it won't be shown again.
           </p>
 
@@ -124,22 +124,22 @@ function buildRenterEmail(name, apiKey) {
           <!-- Account credit -->
           <div style="background:#0F2A1A;border:1px solid #1A4A2A;border-radius:8px;padding:16px;margin:0 0 24px;">
             <p style="color:#4ADE80;font-size:14px;margin:0;font-weight:600;">10 SAR starter credit added to your account</p>
-            <p style="color:#6B6B7A;font-size:12px;margin:4px 0 0;">Use this to submit your first compute job — no payment required.</p>
+            <p style="color:#6B6B7A;font-size:12px;margin:4px 0 0;">Use this for your first ~500K tokens on a Small-tier model — no payment required.</p>
           </div>
 
           <!-- Get started -->
           <h3 style="color:#E5E5E5;font-size:16px;margin:0 0 12px;">Get Started</h3>
           <ol style="color:#A0A0B0;line-height:1.8;margin:0 0 24px;padding-left:20px;">
-            <li>Log in to your dashboard with your API key</li>
-            <li>Browse available GPUs on the marketplace</li>
-            <li>Submit a compute job (LLM inference, image gen, training)</li>
+            <li>Point your OpenAI SDK at <code style="color:#F5A524;">https://api.dcp.sa</code> with your API key</li>
+            <li>Pick a model in the marketplace or call <code style="color:#F5A524;">/v1/chat/completions</code> directly</li>
+            <li>You only pay for tokens used — input and output priced separately</li>
           </ol>
 
           <!-- Dashboard button -->
           <a href="${dashboardUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;margin:0 0 24px;">Go to Dashboard</a>
 
           <p style="color:#6B6B7A;font-size:12px;margin:0;">
-            DC1 Platform — Saudi Arabia GPU Compute Marketplace<br>
+            DCP — Saudi-hosted AI inference network<br>
             You are receiving this because you registered as a renter on dcp.sa.
           </p>
         </td></tr>
@@ -149,7 +149,7 @@ function buildRenterEmail(name, apiKey) {
   </table>
 </body>
 </html>`,
-    text: `Welcome to DC1, ${name}!\n\nYour renter account is ready.\n\nYour API Key: ${apiKey}\n\nYou have 10 SAR starter credit — submit your first compute job now.\n\nDashboard: ${dashboardUrl}\n\nSave your API key — it won't be shown again.\n\nDC1 Platform — dcp.sa`,
+    text: `Welcome to DCP, ${name}!\n\nYour renter account is ready.\n\nYour API Key: ${apiKey}\n\nYou have 10 SAR starter credit — run your first inference call now via the OpenAI-compatible API at https://api.dcp.sa.\n\nDashboard: ${dashboardUrl}\n\nSave your API key — it won't be shown again.\n\nDCP — Saudi-hosted AI inference network — dcp.sa`,
   };
 }
 
