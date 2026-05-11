@@ -767,7 +767,10 @@ export default function RenterJobDetailPage() {
         if (jobData.job?.status === 'completed') {
           try {
             const outRes = await fetch(`${API_BASE}/jobs/${jobData.job.id}/output`, {
-              headers: { Accept: 'application/json' },
+              headers: {
+                Accept: 'application/json',
+                'x-renter-key': key,
+              },
             })
             if (outRes.ok) {
               const outData = await outRes.json()
