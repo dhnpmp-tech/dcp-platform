@@ -1242,6 +1242,38 @@ function resolveOllamaModelId(modelId, endpointUrl, providerCachedModels) {
     }
   }
 
+  // Final fallback: loose-match against provider's cached_models with
+  // original casing preserved. Handles the case where the renter sends
+  // the registry's canonical slug (e.g. "qwen3-30b-a3b") but the provider
+  // is serving the verbatim HF id (e.g. "Qwen/Qwen3-30B-A3B-GPTQ-Int4").
+  // vLLM is case-sensitive and only knows the id it loaded, so we return
+  // the cached entry verbatim. Strips slashes/dashes/colons/underscores
+  // and common quantization suffixes before comparing.
+  if (providerCachedModels) {
+    const cachedOriginal = Array.isArray(providerCachedModels)
+      ? providerCachedModels.map((s) => String(s).trim()).filter(Boolean)
+      : String(providerCachedModels)
+          .replace(/^\[|\]$/g, '')
+          .split(/[,\n]/)
+          .map((s) => s.replace(/^["'\s]+|["'\s]+$/g, ''))
+          .filter(Boolean);
+    const looseKey = (s) =>
+      String(s)
+        .toLowerCase()
+        .replace(/[\/:_\-\s.]/g, '')
+        .replace(/(gptq|awq|gguf|int4|int8|fp16|fp8|bf16|q4km|q4ks|q5km|q5ks|q6k|q8|km|ks)/g, '');
+    const wantLoose = looseKey(normalized);
+    if (wantLoose.length >= 4) {
+      const exact = cachedOriginal.find((s) => looseKey(s) === wantLoose);
+      if (exact) return exact;
+      const substr = cachedOriginal.find((s) => {
+        const c = looseKey(s);
+        return c && (c.includes(wantLoose) || wantLoose.includes(c));
+      });
+      if (substr) return substr;
+    }
+  }
+
   return modelId;
 }
 
