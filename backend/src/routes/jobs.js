@@ -4647,7 +4647,8 @@ router.post('/from-template', jobCreateLimiter, requireRenter, (req, res) => {
     let modelRow = null;
     if (modelId) {
       modelRow = db.get(
-        `SELECT model_id, display_name, min_gpu_vram_gb, default_price_halala_per_min, is_active
+        `SELECT model_id, display_name, min_gpu_vram_gb, default_price_halala_per_min, is_active,
+                ollama_pull_uri, vllm_model_uri, preferred_engine, download_size_bytes
            FROM model_registry
           WHERE model_id = ? OR LOWER(model_id) = LOWER(?)
           LIMIT 1`,
