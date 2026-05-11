@@ -90,26 +90,6 @@ const models: Model[] = [
     useCases: ['Efficient Inference', 'Instruction Following'],
     category: 'open',
   },
-  {
-    id: 'whisper-v3',
-    name: 'Whisper Large v3',
-    org: 'OpenAI',
-    params: 'Large',
-    vram: '10GB',
-    useCases: ['Transcription', 'Translation'],
-    category: 'open',
-    type: 'Speech-to-Text',
-  },
-  {
-    id: 'sdxl',
-    name: 'SDXL',
-    org: 'Stability AI',
-    params: 'N/A',
-    vram: '8GB',
-    useCases: ['Text-to-Image', 'Img2Img'],
-    category: 'open',
-    type: 'Image Generation',
-  },
 ]
 
 function ModelCard({ model }: { model: Model }) {

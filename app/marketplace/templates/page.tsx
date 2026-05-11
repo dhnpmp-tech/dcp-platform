@@ -9,7 +9,7 @@ import { useLanguage, type Language } from '../../lib/i18n'
 
 const API_BASE = '/api'
 
-type CategoryKey = 'all' | 'llm' | 'embedding' | 'image' | 'training' | 'notebook'
+type CategoryKey = 'all' | 'llm' | 'embedding' | 'arabic' | 'tools'
 type DeployContractState =
   | 'PUBLIC_NO_AUTH'
   | 'RENTER_READY'
@@ -66,27 +66,24 @@ const CATEGORY_EMOJI: Record<CategoryKey, string> = {
   all: '✦',
   llm: '🤖',
   embedding: '🔍',
-  image: '🎨',
-  training: '🎓',
-  notebook: '📓',
+  arabic: '🌙',
+  tools: '🛠️',
 }
 
 const CATEGORY_LABELS: Record<Language, Record<CategoryKey, string>> = {
   en: {
     all: 'All Templates',
-    llm: 'LLM / Inference',
+    llm: 'LLM Inference',
     embedding: 'Embeddings & RAG',
-    image: 'Image Generation',
-    training: 'Training & Fine-tune',
-    notebook: 'Notebooks & Dev',
+    arabic: 'Arabic AI',
+    tools: 'Tools & Agents',
   },
   ar: {
     all: 'كل القوالب',
-    llm: 'نماذج لغوية / استدلال',
-    embedding: 'تضمين و RAG',
-    image: 'توليد الصور',
-    training: 'تدريب وضبط دقيق',
-    notebook: 'دفاتر وأدوات تطوير',
+    llm: 'استدلال نماذج اللغة',
+    embedding: 'التضمينات و RAG',
+    arabic: 'الذكاء الاصطناعي العربي',
+    tools: 'الأدوات والوكلاء',
   },
 }
 
@@ -281,11 +278,15 @@ function getVramSavings(vramGb: number | undefined): { savingsPct: number } {
 function getCategoryForTemplate(t: DockerTemplate): CategoryKey {
   const tags = (t.tags ?? []).map((x) => x.toLowerCase())
   const id = t.id?.toLowerCase() ?? ''
-  if (tags.includes('training') || id.includes('finetune') || id.includes('lora') || id.includes('qlora')) return 'training'
-  if (tags.includes('embedding') || tags.includes('rag') || id.includes('embed') || id.includes('rerank')) return 'embedding'
-  if (tags.includes('image') || id.includes('sdxl') || id.includes('stable-diffusion') || id.includes('sd')) return 'image'
-  if (id.includes('jupyter') || id.includes('notebook') || id.includes('python-scientific')) return 'notebook'
-  if (tags.includes('llm') || tags.includes('inference') || id.includes('llm') || id.includes('vllm') || id.includes('ollama')) return 'llm'
+  if (tags.includes('embedding') || tags.includes('rag') || tags.includes('reranking')
+      || id.includes('embed') || id.includes('rerank')) return 'embedding'
+  if (tags.includes('arabic') || id.includes('allam') || id.includes('jais')
+      || id.includes('falcon-h1') || id.includes('arabic')) return 'arabic'
+  if (tags.includes('tools') || tags.includes('function-calling') || tags.includes('agents')
+      || id.includes('tool')) return 'tools'
+  // Default: anything else is LLM inference. Training/SDXL/notebook
+  // templates fall through here intentionally — they're surfaced in
+  // the catalog but won't get their own filter chip.
   return 'llm'
 }
 
@@ -574,7 +575,7 @@ export default function MarketplaceTemplatesPage() {
   })
 
   const categories = useMemo(
-    () => (['all', 'llm', 'embedding', 'image', 'training', 'notebook'] as CategoryKey[]).map((key) => ({
+    () => (['all', 'llm', 'embedding', 'arabic', 'tools'] as CategoryKey[]).map((key) => ({
       key,
       emoji: CATEGORY_EMOJI[key],
       label: CATEGORY_LABELS[language][key],
