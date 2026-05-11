@@ -662,6 +662,8 @@ app.use('/api/renters', rentersInvoiceRouter);
 
 const standupRouter = require('./routes/standup');
 app.use('/api/standup', standupRouter);
+const missionRouter = require('./routes/mission');
+app.use('/api/mission', missionRouter);
 const reconciliationRouter = require('./routes/reconciliation');
 app.use('/api/reconciliation', reconciliationRouter);
 const securityRouter = require('./routes/security');
