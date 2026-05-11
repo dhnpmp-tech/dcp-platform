@@ -249,11 +249,18 @@ function buildMagicLinkEmailHtml(magicUrl) {
           <p style="color:#6B6B7A;font-size:12px;margin:0 0 8px;">This link expires in ${OTP_TTL_MINUTES} minutes and can only be used once.</p>
           <p style="color:#6B6B7A;font-size:12px;margin:0;">If you didn't request this, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #2A2A3A;margin:32px 0;" />
-          <h2 style="color:#E5E5E5;font-size:22px;font-weight:700;margin:0 0 12px;direction:rtl;">تسجيل الدخول إلى DCP</h2>
-          <p style="color:#A0A0B0;font-size:15px;margin:0 0 32px;line-height:1.6;direction:rtl;">اضغط على الزر أدناه لتسجيل الدخول إلى حسابك.</p>
-          <a href="${magicUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:16px 40px;border-radius:8px;font-weight:700;font-size:16px;margin:0 0 24px;direction:rtl;">تسجيل الدخول</a>
-          <p style="color:#6B6B7A;font-size:12px;margin:0 0 8px;direction:rtl;">ينتهي هذا الرابط خلال ${OTP_TTL_MINUTES} دقيقة ويمكن استخدامه مرة واحدة فقط.</p>
-          <p style="color:#6B6B7A;font-size:12px;margin:0;direction:rtl;">إذا لم تطلب هذا، يمكنك تجاهل هذه الرسالة.</p>
+          <!-- Audit C7 fix: wrap AR section in a dir="rtl" container.
+               Inline direction:rtl on h2/p alone leaked LTR layout in
+               Outlook/Apple Mail because the parent td was text-align:
+               center. dir="rtl" attribute is more reliably honored than
+               inline CSS by email clients (Litmus confirms). -->
+          <div dir="rtl" style="text-align:right;direction:rtl;">
+            <h2 style="color:#E5E5E5;font-size:22px;font-weight:700;margin:0 0 12px;">تسجيل الدخول إلى DCP</h2>
+            <p style="color:#A0A0B0;font-size:15px;margin:0 0 32px;line-height:1.6;">اضغط على الزر أدناه لتسجيل الدخول إلى حسابك.</p>
+            <a href="${magicUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:16px 40px;border-radius:8px;font-weight:700;font-size:16px;margin:0 0 24px;">تسجيل الدخول</a>
+            <p style="color:#6B6B7A;font-size:12px;margin:0 0 8px;">ينتهي هذا الرابط خلال ${OTP_TTL_MINUTES} دقيقة ويمكن استخدامه مرة واحدة فقط.</p>
+            <p style="color:#6B6B7A;font-size:12px;margin:0;">إذا لم تطلب هذا، يمكنك تجاهل هذه الرسالة.</p>
+          </div>
         </td></tr>
       </table>
     </td></tr>
