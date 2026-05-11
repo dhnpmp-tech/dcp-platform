@@ -120,6 +120,35 @@ function getPriceHr(model: ModelListItem): number | null {
   return null
 }
 
+// Per-1M-token rate card, sourced from docs/pricing/PRICING-REDESIGN-2026-05-11.md
+// Tier inferred client-side from min_gpu_vram_gb until the backend ships
+// price_in_halala_per_1m_tok / price_out_halala_per_1m_tok in /api/models.
+// Returns SAR amounts (1 SAR = 100 halala).
+type TokenPrices = { in_sar_per_1m: number; out_sar_per_1m: number; tier_label: string } | null
+
+function getTokenPrices(model: ModelListItem): TokenPrices {
+  const id = (model.model_id || '').toLowerCase()
+  const family = (model.family || '').toLowerCase()
+  const isEmbedding = id.includes('embed') || family === 'embedding' || family === 'reranker' || id.includes('rerank')
+  if (isEmbedding) {
+    return { in_sar_per_1m: 0.08, out_sar_per_1m: 0, tier_label: 'Embeddings' }
+  }
+  const vram = model.min_gpu_vram_gb ?? model.vram_gb ?? 0
+  if (vram <= 9) return { in_sar_per_1m: 0.30, out_sar_per_1m: 0.60, tier_label: 'Small' }
+  if (vram <= 30) return { in_sar_per_1m: 0.80, out_sar_per_1m: 1.50, tier_label: 'Mid' }
+  return { in_sar_per_1m: 2.60, out_sar_per_1m: 9.40, tier_label: 'Large' }
+}
+
+// Typical-workday estimate for the helper line: 1000 calls × (2k in + 600 out tokens).
+function estimateTypicalDailySar(prices: NonNullable<TokenPrices>): number {
+  const PROMPT_TOKENS = 2000
+  const COMPLETION_TOKENS = 600
+  const CALLS = 1000
+  const ins = (CALLS * PROMPT_TOKENS / 1_000_000) * prices.in_sar_per_1m
+  const outs = (CALLS * COMPLETION_TOKENS / 1_000_000) * prices.out_sar_per_1m
+  return ins + outs
+}
+
 function getSavingsPct(model: ModelListItem): number | null {
   const dcp = getPriceHr(model)
   if (!dcp) return null
@@ -207,21 +236,50 @@ function DeployModal({ deploy, onClose, onConfirm, registeredProviderCount }: {
         </div>
 
         {/* Model specs summary */}
-        <div className="bg-dc1-surface-l2 rounded-lg px-4 py-3 text-xs grid grid-cols-2 gap-2">
-          {(model.min_gpu_vram_gb ?? model.vram_gb) && (
-            <div>
-              <p className="text-dc1-text-muted uppercase tracking-wide text-[9px]">VRAM Required</p>
-              <p className="font-semibold text-dc1-text-primary">{model.min_gpu_vram_gb ?? model.vram_gb} GB</p>
-            </div>
-          )}
-          {priceHr !== null && (
-            <div>
-              <p className="text-dc1-text-muted uppercase tracking-wide text-[9px]">Estimated Rate</p>
-              <p className="font-bold text-dc1-amber">{priceHr.toFixed(2)} SAR/hr</p>
-            </div>
-          )}
+        <div className="bg-dc1-surface-l2 rounded-lg px-4 py-3 text-xs space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {(model.min_gpu_vram_gb ?? model.vram_gb) && (
+              <div>
+                <p className="text-dc1-text-muted uppercase tracking-wide text-[9px]">VRAM Required</p>
+                <p className="font-semibold text-dc1-text-primary">{model.min_gpu_vram_gb ?? model.vram_gb} GB</p>
+              </div>
+            )}
+            {(() => {
+              const tp = getTokenPrices(model)
+              if (!tp) return null
+              return (
+                <div>
+                  <p className="text-dc1-text-muted uppercase tracking-wide text-[9px]">Tier</p>
+                  <p className="font-semibold text-dc1-text-primary">{tp.tier_label}</p>
+                </div>
+              )
+            })()}
+          </div>
+          {(() => {
+            const tp = getTokenPrices(model)
+            if (!tp) return null
+            const isEmbedding = tp.out_sar_per_1m === 0
+            const daily = estimateTypicalDailySar(tp)
+            return (
+              <div className="border-t border-dc1-border pt-3 space-y-1.5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-dc1-text-muted uppercase tracking-wide text-[9px]">Input</span>
+                  <span className="font-bold text-dc1-amber">{tp.in_sar_per_1m.toFixed(2)} <span className="text-[9px] font-normal text-dc1-text-muted">SAR / 1M tokens</span></span>
+                </div>
+                {!isEmbedding && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-dc1-text-muted uppercase tracking-wide text-[9px]">Output</span>
+                    <span className="font-bold text-dc1-amber">{tp.out_sar_per_1m.toFixed(2)} <span className="text-[9px] font-normal text-dc1-text-muted">SAR / 1M tokens</span></span>
+                  </div>
+                )}
+                <p className="text-[10px] text-dc1-text-muted pt-1.5 leading-snug">
+                  ≈ {daily.toFixed(2)} SAR for 1000 typical calls (2k in + 600 out tokens each).
+                </p>
+              </div>
+            )
+          })()}
           {arabic && (
-            <div className="col-span-2">
+            <div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-dc1-amber/10 text-dc1-amber border border-dc1-amber/20 font-medium">
                 🌙 Arabic-capable — PDPL-compliant
               </span>
