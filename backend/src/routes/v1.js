@@ -929,7 +929,22 @@ function getCapableProviders(minVramMb, requestedModelId) {
           m.includes(requestedLower) ||
           requestedLower.includes(m)
         );
-        if (!hasModel) continue;
+        // Loose-match fallback: handle the case where the requested id
+        // differs from the cached id only in punctuation / quant suffix.
+        // Example: requested "qwen3:30b-a3b" vs cached
+        // "qwen/qwen3-30b-a3b-gptq-int4" — colon-vs-slash breaks substring
+        // match, but they refer to the same model.
+        const looseKey = (s) =>
+          String(s)
+            .toLowerCase()
+            .replace(/[\/:_\-\s.]/g, '')
+            .replace(/(gptq|awq|gguf|int4|int8|fp16|fp8|bf16|q4km|q4ks|q5km|q5ks|q6k|q8|km|ks)/g, '');
+        const wantLoose = looseKey(requestedLower);
+        const hasLoose = wantLoose.length >= 4 && cached.some((m) => {
+          const c = looseKey(m);
+          return c && (c === wantLoose || c.includes(wantLoose) || wantLoose.includes(c));
+        });
+        if (!hasModel && !hasLoose) continue;
       }
     }
     capable.push(p);
