@@ -11,6 +11,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
+const { isAdminRequest } = require('../middleware/auth');
 
 // ── Auth helpers ───────────────────────────────────────────────────────
 // Reads: lightweight — any valid renter key OR admin token. We treat
@@ -22,8 +23,9 @@ const db = require('../db');
 const MISSION_AGENT_KEY = process.env.MISSION_AGENT_KEY || null;
 
 function isAuthed(req) {
-  const adminToken = req.headers['x-admin-token'];
-  if (adminToken && adminToken === process.env.DCP_ADMIN_TOKEN) return true;
+  // Admin (env-backed DC1_ADMIN_TOKEN, timing-safe compare via shared helper)
+  if (isAdminRequest(req)) return true;
+  // Renter API key (matches v1 inference path auth surface)
   const renterKey = req.headers['x-renter-key'] || req.query.key;
   if (renterKey) {
     try {
@@ -34,6 +36,7 @@ function isAuthed(req) {
       if (row) return true;
     } catch (_) { /* renter_api_keys may not exist in some env */ }
   }
+  // Dedicated agent key (off unless MISSION_AGENT_KEY env is set)
   if (MISSION_AGENT_KEY && req.headers['x-mission-agent-key'] === MISSION_AGENT_KEY) return true;
   return false;
 }

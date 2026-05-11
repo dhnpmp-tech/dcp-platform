@@ -118,15 +118,21 @@ function dueLabel(iso?: string | null) {
   return { label: formatDate(iso) || '', color: 'text-dc1-text-muted' }
 }
 
-function getKey(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('dc1_renter_key') || localStorage.getItem('dcp_admin_token') || null
-}
-
 function authHeaders(): HeadersInit {
-  const k = getKey()
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (k) h['x-renter-key'] = k
+  if (typeof window === 'undefined') return h
+  // Admin token takes precedence — Mission Control is an internal surface and
+  // admins should see everything regardless of renter scoping. Key names match
+  // the rest of the app (see app/lib/auth.ts: STORAGE_KEYS).
+  const adminToken = localStorage.getItem('dc1_admin_token')
+  if (adminToken) {
+    h['x-admin-token'] = adminToken
+    return h
+  }
+  const renterKey = localStorage.getItem('dc1_renter_key')
+  if (renterKey) {
+    h['x-renter-key'] = renterKey
+  }
   return h
 }
 
