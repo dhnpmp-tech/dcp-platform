@@ -56,6 +56,13 @@ const nextConfig = {
         source: '/api/admin/:path*',
         destination: `${backendUrl}/api/admin/:path*`,
       },
+      // Marketplace deploy modal: POST /api/jobs/from-template lives on Express.
+      // Rewrite this one path only — /api/jobs/[id] and /api/jobs/submit are
+      // handled by Next.js route handlers and must NOT be shadowed.
+      {
+        source: '/api/jobs/from-template',
+        destination: `${backendUrl}/api/jobs/from-template`,
+      },
     ];
   },
 }

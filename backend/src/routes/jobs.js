@@ -4598,6 +4598,218 @@ router.patch('/:job_id/fail', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/jobs/from-template
+ *
+ * Renter-facing one-click deploy from the marketplace deploy modal:
+ * "I want to run THIS model — find me an online provider that already
+ * caches it and meets its VRAM floor, then queue the job."
+ *
+ * Body: { model_id?, template_id?, duration_minutes? }
+ *  - At least one of model_id or template_id must be present.
+ *  - duration_minutes defaults to 60 if omitted (1..1440).
+ *
+ * Selection rules (provider must satisfy ALL):
+ *  - status = 'online' AND is_paused = 0
+ *  - fresh heartbeat (< 10 min)
+ *  - cached_models contains the model_id (case-insensitive substring)
+ *  - VRAM >= model_registry.min_gpu_vram_gb for the model
+ *
+ * 503 with capacity snapshot if nothing matches.
+ *
+ * Returns 201 { job_id, jobId, status, model, provider, totalCost }.
+ */
+router.post('/from-template', jobCreateLimiter, requireRenter, (req, res) => {
+  try {
+    const rawModelId = typeof req.body?.model_id === 'string' ? req.body.model_id.trim() : '';
+    const rawTemplateId = typeof req.body?.template_id === 'string' ? req.body.template_id.trim() : '';
+    const modelId = rawModelId.slice(0, 256);
+    const templateId = rawTemplateId.slice(0, 128);
+
+    if (!modelId && !templateId) {
+      return res.status(400).json({
+        error: 'model_id or template_id is required',
+        code: 'MISSING_TARGET',
+      });
+    }
+
+    const rawDuration = req.body?.duration_minutes;
+    const duration_minutes = rawDuration === undefined || rawDuration === null
+      ? 60
+      : Number(rawDuration);
+    if (!Number.isFinite(duration_minutes) || duration_minutes <= 0 || duration_minutes > 1440) {
+      return res.status(400).json({ error: 'duration_minutes must be between 1 and 1440' });
+    }
+
+    // ── Resolve the model row from the registry (authoritative source for VRAM) ──
+    // If model_id is missing but template_id is given, the template's job_type
+    // drives sizing instead; we still need *some* min_vram floor (0 = any).
+    let modelRow = null;
+    if (modelId) {
+      modelRow = db.get(
+        `SELECT model_id, display_name, min_gpu_vram_gb, default_price_halala_per_min, is_active
+           FROM model_registry
+          WHERE model_id = ? OR LOWER(model_id) = LOWER(?)
+          LIMIT 1`,
+        modelId, modelId
+      );
+      if (!modelRow) {
+        return res.status(404).json({
+          error: `Model '${modelId}' not found in catalog`,
+          code: 'MODEL_NOT_FOUND',
+        });
+      }
+      if (Number(modelRow.is_active) === 0) {
+        return res.status(410).json({
+          error: `Model '${modelId}' is no longer active in the catalog`,
+          code: 'MODEL_INACTIVE',
+        });
+      }
+    }
+
+    const minVramGb = Number(modelRow?.min_gpu_vram_gb) || 0;
+    const minVramMib = minVramGb * 1024;
+
+    // ── Provider lookup: model-cached + fresh + sufficient VRAM ──
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const modelLike = modelId ? `%${modelId.toLowerCase()}%` : null;
+
+    const providerSql = modelId
+      ? `SELECT p.id, p.name, p.gpu_model, p.vram_gb, p.gpu_vram_mib,
+                p.cached_models, p.last_heartbeat,
+                COUNT(CASE WHEN j.status IN ('assigned','pulling','running','pending') THEN 1 END) AS active_jobs
+           FROM providers p
+      LEFT JOIN jobs j ON j.provider_id = p.id
+          WHERE p.status = 'online'
+            AND COALESCE(p.is_paused, 0) = 0
+            AND p.last_heartbeat >= ?
+            AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?
+            AND LOWER(COALESCE(p.cached_models, '')) LIKE ?
+          GROUP BY p.id
+          ORDER BY active_jobs ASC, p.last_heartbeat DESC
+          LIMIT 1`
+      : `SELECT p.id, p.name, p.gpu_model, p.vram_gb, p.gpu_vram_mib,
+                p.cached_models, p.last_heartbeat,
+                COUNT(CASE WHEN j.status IN ('assigned','pulling','running','pending') THEN 1 END) AS active_jobs
+           FROM providers p
+      LEFT JOIN jobs j ON j.provider_id = p.id
+          WHERE p.status = 'online'
+            AND COALESCE(p.is_paused, 0) = 0
+            AND p.last_heartbeat >= ?
+            AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?
+          GROUP BY p.id
+          ORDER BY active_jobs ASC, p.last_heartbeat DESC
+          LIMIT 1`;
+    const providerArgs = modelId ? [tenMinAgo, minVramMib, modelLike] : [tenMinAgo, minVramMib];
+    const provider = db.get(providerSql, ...providerArgs);
+
+    if (!provider) {
+      // Capacity snapshot for the empathetic 503
+      const capable = db.all(
+        `SELECT id FROM providers
+          WHERE status = 'online'
+            AND COALESCE(is_paused, 0) = 0
+            AND last_heartbeat >= ?
+            AND COALESCE(gpu_vram_mib, vram_gb * 1024, 0) >= ?`,
+        tenMinAgo, minVramMib
+      );
+      return res.status(503).json({
+        error: modelId
+          ? `No online provider currently has '${modelId}' cached and meets the VRAM floor`
+          : 'No online provider currently meets the VRAM floor',
+        code: 'NO_PROVIDER_AVAILABLE',
+        required_vram_gb: minVramGb,
+        model_id: modelId || null,
+        capable_provider_count: Array.isArray(capable) ? capable.length : 0,
+        retry_after_seconds: 60,
+      });
+    }
+
+    // ── Cost & balance ──
+    const pricing_class = 'standard';
+    const cost_halala = pricingService.calculateCostHalala(
+      provider.gpu_model || null, duration_minutes, pricing_class, 'inference'
+    );
+    if (req.renter.balance_halala < cost_halala) {
+      return res.status(402).json({
+        error: 'Insufficient balance',
+        balance_halala: req.renter.balance_halala,
+        required_halala: cost_halala,
+        shortfall_halala: cost_halala - req.renter.balance_halala,
+      });
+    }
+
+    // ── Atomic insert + balance debit + counter bump ──
+    const now = new Date().toISOString();
+    const job_id = 'job-' + Date.now() + '-' + crypto.randomBytes(3).toString('hex');
+    const gpuReqs = minVramGb ? JSON.stringify({ min_vram_gb: minVramGb }) : null;
+    const taskSpec = JSON.stringify({
+      job_type: 'inference',
+      template_id: templateId || null,
+      model_id: modelId || null,
+      params: {},
+    });
+    const containerSpec = JSON.stringify({ pricing_class });
+    const timeoutSec = Math.min(Math.ceil(duration_minutes * 60) + 600, 86400);
+    const timeoutAt = new Date(Date.now() + timeoutSec * 1000).toISOString();
+
+    const JOB_COLS = new Set((db.all("PRAGMA table_info('jobs')") || []).map(r => r.name));
+    const hasTemplateId = JOB_COLS.has('template_id');
+    const hasModel = JOB_COLS.has('model');
+
+    const cols = [
+      'job_id', 'provider_id', 'renter_id', 'job_type', 'status', 'submitted_at',
+      'duration_minutes', 'cost_halala', 'gpu_requirements', 'container_spec', 'task_spec',
+      'max_duration_seconds', 'timeout_at', 'created_at', 'priority', 'pricing_class',
+      'prewarm_requested', 'workspace_volume_name', 'checkpoint_enabled',
+    ];
+    const vals = [
+      job_id, provider.id, req.renter.id, 'inference', 'pending', now,
+      duration_minutes, cost_halala, gpuReqs, containerSpec, taskSpec,
+      timeoutSec, timeoutAt, now, 2, pricing_class,
+      0, `dcp-job-${job_id}`, 0,
+    ];
+    if (hasTemplateId) { cols.push('template_id'); vals.push(templateId || null); }
+    if (hasModel && modelId) { cols.push('model'); vals.push(modelId); }
+
+    const placeholders = cols.map(() => '?').join(',');
+    const insertSql = `INSERT INTO jobs (${cols.join(',')}) VALUES (${placeholders})`;
+
+    const doInsert = () => {
+      db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ?')
+        .run(cost_halala, now, req.renter.id);
+      db.prepare(insertSql).run(...vals);
+      db.prepare('UPDATE renters SET total_jobs = total_jobs + 1, updated_at = ? WHERE id = ?')
+        .run(now, req.renter.id);
+    };
+    if (typeof db?._db?.transaction === 'function') {
+      db._db.transaction(doInsert)();
+    } else {
+      doInsert();
+    }
+
+    return res.status(201).json({
+      job_id,
+      jobId: job_id,
+      id: job_id,
+      status: 'pending',
+      model: modelRow
+        ? { model_id: modelRow.model_id, display_name: modelRow.display_name, min_gpu_vram_gb: modelRow.min_gpu_vram_gb }
+        : null,
+      provider: { id: provider.id, name: provider.name, gpu_model: provider.gpu_model },
+      duration_minutes,
+      totalCost: {
+        halala: cost_halala,
+        sar: (cost_halala / 100).toFixed(2),
+      },
+      message: `Job queued on provider "${provider.name}".`,
+    });
+  } catch (err) {
+    console.error('[POST /api/jobs/from-template] error:', err.message, err.stack);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
 module.exports.calculateCostHalala = calculateCostHalala;
 module.exports.COST_RATES = COST_RATES;
