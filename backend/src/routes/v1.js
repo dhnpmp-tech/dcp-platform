@@ -1150,7 +1150,42 @@ const PROVIDER_OPTIONAL_PASSTHROUGH_FIELDS = [
   'top_logprobs',
   'user',
   'metadata',
+  // Renter opt-in for reasoning/thinking. By default DCP disables thinking
+  // on thinking-capable models (Qwen3, QwQ, DeepSeek-R1) to avoid billing
+  // for tokens the renter did not ask for. Passing either of these as
+  // truthy turns it back on.
+  'enable_thinking',
+  'chat_template_kwargs',
 ];
+
+// Model families that emit <think>...</think> reasoning by default unless
+// the engine is explicitly told to disable thinking. Matched against the
+// effective model id with the leading "org/" stripped and lowercased.
+const THINKING_MODEL_PREFIX_RE = /^(qwen3|qwq|deepseek-r1|deepseek[_-]?ai\/deepseek-r1)/i;
+
+function isThinkingCapableModel(modelId) {
+  if (!modelId) return false;
+  const tail = String(modelId).replace(/^[^/]+\//, '').toLowerCase().trim();
+  if (THINKING_MODEL_PREFIX_RE.test(tail)) return true;
+  // Also catch the un-stripped form (e.g. "deepseek-ai/DeepSeek-R1-...")
+  return THINKING_MODEL_PREFIX_RE.test(String(modelId).toLowerCase());
+}
+
+function endpointLooksOllamaForThinking(endpointUrl) {
+  if (!endpointUrl) return false;
+  const raw = String(endpointUrl);
+  return raw.includes(':11434') || /ollama/i.test(raw);
+}
+
+// Strip <think>...</think> reasoning blocks from a model response. No-op
+// when no tags are present, so safe to apply unconditionally to thinking-
+// capable model responses.
+function stripThinkBlocks(text) {
+  if (typeof text !== 'string' || text.length === 0) return text;
+  // Greedy-but-non-overlapping match. Also tolerates leading whitespace
+  // after the closing tag so the user-visible answer doesn't start blank.
+  return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, '').trimStart();
+}
 
 function collectProviderOptionalPassthroughFields(requestBody = {}) {
   const passthrough = {};
@@ -1364,7 +1399,38 @@ async function proxyToProvider({
   }
   // Remap HuggingFace model IDs to Ollama names when targeting an Ollama provider
   const effectiveModelId = resolveOllamaModelId(modelId, endpointUrl, providerCachedModels);
-  const body = { model: effectiveModelId, messages, max_tokens: maxTokens, temperature, stream: !!stream, think: false, ...passthroughBody };
+
+  // Engine + model-family detection for thinking-disable injection.
+  // Thinking-capable models (Qwen3, QwQ, DeepSeek-R1) emit <think>...</think>
+  // by default. Each engine needs a different knob to turn that off:
+  //   - Ollama (/v1/chat/completions on :11434): top-level `think: false`
+  //   - vLLM:                                    `chat_template_kwargs.enable_thinking: false`
+  // The renter can opt back IN by passing `enable_thinking: true` or
+  // `chat_template_kwargs.enable_thinking: true` in the request body
+  // (both are now in the passthrough whitelist).
+  const _endpointIsOllamaLike = endpointLooksOllamaForThinking(endpointUrl);
+  const _modelIsThinkingCapable = isThinkingCapableModel(effectiveModelId);
+  const _userTplKwargs = (passthroughBody && typeof passthroughBody.chat_template_kwargs === 'object')
+    ? passthroughBody.chat_template_kwargs
+    : null;
+  const _userEnableThinkingOptIn =
+    passthroughBody?.enable_thinking === true ||
+    _userTplKwargs?.enable_thinking === true;
+  const _shouldDisableThinking = _modelIsThinkingCapable && !_userEnableThinkingOptIn;
+
+  const body = { model: effectiveModelId, messages, max_tokens: maxTokens, temperature, stream: !!stream, ...passthroughBody };
+  if (_shouldDisableThinking) {
+    if (_endpointIsOllamaLike) {
+      body.think = false;
+    } else {
+      // Merge with any user-provided chat_template_kwargs (e.g. tools_in_user_message)
+      body.chat_template_kwargs = { ..._userTplKwargs, enable_thinking: false };
+    }
+  } else if (_endpointIsOllamaLike && !_modelIsThinkingCapable) {
+    // Preserve historic behavior for non-thinking models on Ollama: it
+    // doesn't hurt and matches the prior unconditional `think: false`.
+    body.think = false;
+  }
   if (tools !== undefined) body.tools = tools;
   if (toolChoice !== undefined) body.tool_choice = toolChoice;
   let response;
@@ -1386,6 +1452,21 @@ async function proxyToProvider({
   let parsed;
   try { parsed = await response.json(); } catch (_) {
     return { proxyError: 'invalid_response', detail: 'Provider returned non-JSON body' };
+  }
+  // Belt-and-suspenders: strip <think>...</think> from the response when
+  // thinking should have been disabled. Covers the case where a provider
+  // engine doesn't recognize the disable knob (e.g. an older vLLM, or a
+  // future engine we haven't tested), or the model emits thinking tags
+  // anyway. No-op when no tags are present, so safe for every response.
+  if (_shouldDisableThinking && parsed && Array.isArray(parsed.choices)) {
+    for (const choice of parsed.choices) {
+      if (choice?.message && typeof choice.message.content === 'string') {
+        choice.message.content = stripThinkBlocks(choice.message.content);
+      }
+      if (choice?.delta && typeof choice.delta.content === 'string') {
+        choice.delta.content = stripThinkBlocks(choice.delta.content);
+      }
+    }
   }
   return { body: parsed };
 }
