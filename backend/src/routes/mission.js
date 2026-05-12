@@ -36,6 +36,19 @@ function isAuthed(req) {
       if (row) return true;
     } catch (_) { /* renter_api_keys may not exist in some env */ }
   }
+  // Provider API key — Mission Control is an internal team surface.
+  // Tareq + Fadi are providers; this lets them stay signed in normally
+  // (no need to swap sessions to admin just to see the board).
+  const providerKey = req.headers['x-provider-key'];
+  if (providerKey) {
+    try {
+      const row = db.get(
+        `SELECT 1 FROM providers WHERE api_key = ? AND deleted_at IS NULL LIMIT 1`,
+        providerKey
+      );
+      if (row) return true;
+    } catch (_) { /* providers table column may differ */ }
+  }
   // Dedicated agent key (off unless MISSION_AGENT_KEY env is set)
   if (MISSION_AGENT_KEY && req.headers['x-mission-agent-key'] === MISSION_AGENT_KEY) return true;
   return false;

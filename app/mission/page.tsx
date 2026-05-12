@@ -152,10 +152,16 @@ function dueLabel(iso?: string | null) {
 function authHeaders(): HeadersInit {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (typeof window === 'undefined') return h
+  // Accept any DCP token in localStorage so users can stay signed in to
+  // their normal role (renter / provider) and Mission Control just works.
+  // Priority: admin > renter > provider. Backend isAuthed() in
+  // backend/src/routes/mission.js mirrors this — all three are accepted.
   const adminToken = localStorage.getItem('dc1_admin_token')
   if (adminToken) { h['x-admin-token'] = adminToken; return h }
   const renterKey = localStorage.getItem('dc1_renter_key')
-  if (renterKey) h['x-renter-key'] = renterKey
+  if (renterKey) { h['x-renter-key'] = renterKey; return h }
+  const providerKey = localStorage.getItem('dc1_provider_key')
+  if (providerKey) { h['x-provider-key'] = providerKey; return h }
   return h
 }
 
