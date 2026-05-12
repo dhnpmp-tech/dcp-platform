@@ -124,26 +124,88 @@ if [ -z "${WG_CONF}" ] || [ -z "${MESH_IP}" ]; then
 fi
 ok "Got config for mesh IP ${MESH_IP}"
 
-# ── 3. Write /etc/wireguard/wg0.conf + bring up ───────────────────────
+# ── 3. Write /etc/wireguard/wg0.conf + bring up + persist ──────────────
+# Three things this step does, idempotently:
+#   1. Write the API-provided wg_conf to /etc/wireguard/wg0.conf.
+#   2. Safety-net sed: if AllowedIPs is wrong (legacy 0.0.0.0/0 trap), fix
+#      it BEFORE bringing the tunnel up. Without this, the provider's
+#      entire host traffic routes through the VPS, breaking their normal
+#      browsing. The current API config emits 10.8.0.0/24 already; this
+#      protects against future drift, manual edits, or legacy templates.
+#   3. systemctl enable wg-quick@wg0 so the tunnel auto-starts on every
+#      reboot. The bootstrap previously brought wg0 up via in-memory
+#      `wg setconf`, so reboots silently lost the tunnel. This is the
+#      permanent fix.
 say "Writing /etc/wireguard/wg0.conf"
-if [ "${PLATFORM}" = linux ]; then
+write_and_fix_conf() {
   sudo bash -c "umask 077; printf '%s' '${WG_CONF}' > /etc/wireguard/wg0.conf"
   sudo chmod 600 /etc/wireguard/wg0.conf
+  if sudo grep -qE '^[[:space:]]*AllowedIPs[[:space:]]*=[[:space:]]*0\.0\.0\.0/0' /etc/wireguard/wg0.conf; then
+    warn "Detected AllowedIPs = 0.0.0.0/0 in wg0.conf — patching to 10.8.0.0/24"
+    sudo sed -i.bak -E 's|^([[:space:]]*AllowedIPs[[:space:]]*=[[:space:]]*)0\.0\.0\.0/0|\110.8.0.0/24|' /etc/wireguard/wg0.conf
+    sudo rm -f /etc/wireguard/wg0.conf.bak
+  fi
+}
+
+bring_up_wg() {
   sudo wg-quick down wg0 2>/dev/null || true
   sudo wg-quick up wg0
+}
+
+if [ "${PLATFORM}" = linux ]; then
+  write_and_fix_conf
+  bring_up_wg
+  if command -v systemctl >/dev/null 2>&1; then
+    sudo systemctl enable wg-quick@wg0 >/dev/null 2>&1 && ok "wg-quick@wg0 enabled (auto-starts on reboot)"
+  else
+    warn "systemctl not found — wg0 may not auto-start on reboot"
+  fi
   ok "wg0 up"
 else
-  # macOS: install via WireGuard.app's CLI, or wg-quick if available
   if command -v wg-quick >/dev/null 2>&1; then
-    sudo bash -c "umask 077; printf '%s' '${WG_CONF}' > /etc/wireguard/wg0.conf"
-    sudo chmod 600 /etc/wireguard/wg0.conf
-    sudo wg-quick down wg0 2>/dev/null || true
-    sudo wg-quick up wg0
+    write_and_fix_conf
+    bring_up_wg
+    # macOS persistence via LaunchAgent. Brings wg0 up at login.
+    LAUNCH_WG_PLIST="${HOME}/Library/LaunchAgents/sa.dcp.wg0.plist"
+    mkdir -p "$(dirname "${LAUNCH_WG_PLIST}")"
+    cat > "${LAUNCH_WG_PLIST}" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>sa.dcp.wg0</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>/usr/bin/sudo /opt/homebrew/bin/wg-quick up wg0 || /usr/bin/sudo /usr/local/bin/wg-quick up wg0</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+</dict>
+</plist>
+PLIST
+    launchctl unload "${LAUNCH_WG_PLIST}" 2>/dev/null || true
+    launchctl load "${LAUNCH_WG_PLIST}" 2>/dev/null && ok "wg0 LaunchAgent installed (auto-starts on login)"
     ok "wg0 up"
   else
     warn "macOS without wg-quick — install WireGuard.app from App Store and import the config manually."
     printf "Config content:\n%s\n" "${WG_CONF}"
   fi
+fi
+
+# Verify what's actually configured on the live interface — guards against
+# the silent-misconfig case where the file is right but wg-quick used a
+# stale state.
+if command -v wg >/dev/null 2>&1 && sudo wg show wg0 >/dev/null 2>&1; then
+  LIVE_ALLOWED=$(sudo wg show wg0 allowed-ips 2>/dev/null | awk '{print $2}' | head -1)
+  if [ "${LIVE_ALLOWED}" = "0.0.0.0/0" ]; then
+    warn "Live AllowedIPs is STILL 0.0.0.0/0 — re-running wg-quick…"
+    sudo wg-quick down wg0 2>/dev/null || true
+    sudo wg-quick up wg0
+    LIVE_ALLOWED=$(sudo wg show wg0 allowed-ips 2>/dev/null | awk '{print $2}' | head -1)
+  fi
+  [ -n "${LIVE_ALLOWED}" ] && ok "Live AllowedIPs = ${LIVE_ALLOWED}"
 fi
 
 # ── 4. If Ollama is running locally, fix its bind to 0.0.0.0 ──────────
