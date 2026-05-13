@@ -7642,6 +7642,434 @@ def _start_health_server():
     return t
 
 
+# ─── v4.3.1: WG DIAGNOSTIC ENDPOINT (read-only, mesh-only) ──────────────────
+# Backend pulls this over the WG mesh to inspect a provider's actual
+# WireGuard runtime state without round-tripping through the user.
+# Binds ONLY to the WG mesh IP (10.8.0.0/24 or 10.9.0.0/24) — never 0.0.0.0,
+# never the public interface. Authenticated by the daemon's API_KEY.
+# Read-only: no exec, no write, no key material in the response.
+_WG_DIAG_PORT = 19877
+
+
+def _wg_diag_parse_config(iface):
+    """Parse /etc/wireguard/<iface>.conf for AllowedIPs / MTU / ListenPort / DNS.
+
+    Returns (allowed_ips_config: list[str], mtu_config: int|None,
+             listen_port_config: int|None, dns_config: list[str]).
+    Never returns secrets. Reads under sudo -n cat if direct read is denied
+    (daemon is unprivileged on most installs); falls back to empty if both
+    paths fail.
+    """
+    path = f"/etc/wireguard/{iface}.conf"
+    text = None
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except (PermissionError, OSError):
+        try:
+            r = subprocess.run(
+                ["sudo", "-n", "cat", path],
+                capture_output=True, text=True, timeout=3,
+            )
+            if r.returncode == 0:
+                text = r.stdout
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+        except Exception:
+            pass
+    if not text:
+        return [], None, None, []
+
+    allowed = []
+    mtu = None
+    listen_port = None
+    dns = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Strict key=value parse; never echo PrivateKey/PresharedKey.
+        m = re.match(r"^([A-Za-z]+)\s*=\s*(.+?)\s*$", line)
+        if not m:
+            continue
+        key, val = m.group(1), m.group(2)
+        kl = key.lower()
+        if kl == "allowedips":
+            allowed.extend([p.strip() for p in val.split(",") if p.strip()])
+        elif kl == "mtu":
+            try:
+                mtu = int(val)
+            except ValueError:
+                pass
+        elif kl == "listenport":
+            try:
+                listen_port = int(val)
+            except ValueError:
+                pass
+        elif kl == "dns":
+            # DNS = 1.1.1.1, 8.8.8.8 — wg-quick installs these into the
+            # system resolver via resolvconf. Tareq's Node 2 regression:
+            # MENA ISPs that block 1.1.1.1 produce "no internet" symptoms
+            # whenever wg is up, even though routing is fine.
+            dns.extend([p.strip() for p in val.split(",") if p.strip()])
+        # PrivateKey, PresharedKey, PublicKey, Endpoint: never returned.
+    return allowed, mtu, listen_port, dns
+
+
+def _wg_diag_runtime_allowed_ips(iface):
+    """Return runtime AllowedIPs for the peer via `wg show <iface> allowed-ips`."""
+    try:
+        r = subprocess.run(
+            ["wg", "show", iface, "allowed-ips"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode != 0 or not r.stdout:
+            return []
+        out = []
+        for line in r.stdout.strip().splitlines():
+            # Format: "<peer_pubkey>\t<ip1> <ip2> ..."
+            parts = line.split("\t", 1)
+            if len(parts) == 2:
+                out.extend([p for p in parts[1].split() if p])
+        return out
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return []
+    except Exception:
+        return []
+
+
+def _wg_diag_default_route_via_wg(iface):
+    """True iff the system default route currently egresses via <iface>.
+
+    Linux: `ip route show default`. macOS: `route -n get default`.
+    Windows: best-effort `route print 0.0.0.0` parse.
+    """
+    system = platform.system()
+    try:
+        if system == "Linux":
+            r = subprocess.run(
+                ["ip", "route", "show", "default"],
+                capture_output=True, text=True, timeout=3,
+            )
+            return bool(r.returncode == 0 and re.search(rf"\bdev\s+{re.escape(iface)}\b", r.stdout or ""))
+        if system == "Darwin":
+            r = subprocess.run(
+                ["route", "-n", "get", "default"],
+                capture_output=True, text=True, timeout=3,
+            )
+            # macOS wg shows as utunN; report true only if the named iface matches.
+            return bool(r.returncode == 0 and re.search(rf"interface:\s*{re.escape(iface)}\b", r.stdout or ""))
+        if system == "Windows":
+            r = subprocess.run(
+                ["route", "print", "0.0.0.0"],
+                capture_output=True, text=True, timeout=3,
+            )
+            return bool(r.returncode == 0 and re.search(r"\b0\.0\.0\.0\s+0\.0\.0\.0\s+\S+\s+\S+", r.stdout or ""))
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return False
+    except Exception:
+        return False
+    return False
+
+
+def _wg_diag_runtime(iface):
+    """Read `wg show <iface> dump` and return (public_key, peer_public_key,
+    listen_port, handshake_age_s, rx, tx, keepalive). Strips secrets."""
+    out = {
+        "public_key": None, "peer_public_key": None,
+        "listen_port_runtime": None,
+        "last_handshake_age_s": None,
+        "rx_bytes": None, "tx_bytes": None,
+        "persistent_keepalive_s": None,
+    }
+    try:
+        r = subprocess.run(
+            ["wg", "show", iface, "dump"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode != 0 or not r.stdout:
+            return out
+        lines = [ln for ln in r.stdout.strip().split("\n") if ln]
+        if not lines:
+            return out
+        # First line = interface: <private_key> <public_key> <listen_port> <fwmark>
+        # We deliberately DROP parts[0] (private_key).
+        iface_parts = lines[0].split("\t")
+        if len(iface_parts) >= 3:
+            out["public_key"] = iface_parts[1] or None
+            try:
+                out["listen_port_runtime"] = int(iface_parts[2])
+            except (ValueError, TypeError):
+                pass
+        # Second line (first peer) = <pub_key> <psk> <endpoint> <allowed_ips>
+        # <latest_handshake> <rx> <tx> <persistent_keepalive>
+        # We DROP parts[1] (preshared_key).
+        if len(lines) >= 2:
+            p = lines[1].split("\t")
+            if len(p) >= 8:
+                out["peer_public_key"] = p[0] or None
+                try:
+                    hs = int(p[4])
+                    if hs > 0:
+                        out["last_handshake_age_s"] = max(0.0, time.time() - hs)
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    out["rx_bytes"] = int(p[5])
+                    out["tx_bytes"] = int(p[6])
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    ka = int(p[7])
+                    out["persistent_keepalive_s"] = ka if ka > 0 else None
+                except (ValueError, TypeError):
+                    pass
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return out
+    except Exception as e:
+        log.debug(f"_wg_diag_runtime failed: {e}")
+    return out
+
+
+def _wg_diag_mtu(iface):
+    """Return live MTU on <iface> via `ip link show` (Linux) / ifconfig (mac).
+    Returns int or None."""
+    try:
+        if platform.system() == "Linux":
+            r = subprocess.run(
+                ["ip", "link", "show", iface],
+                capture_output=True, text=True, timeout=3,
+            )
+            if r.returncode == 0:
+                m = re.search(r"\bmtu\s+(\d+)\b", r.stdout or "")
+                if m:
+                    return int(m.group(1))
+        else:
+            r = subprocess.run(
+                ["ifconfig", iface],
+                capture_output=True, text=True, timeout=3,
+            )
+            if r.returncode == 0:
+                m = re.search(r"\bmtu\s+(\d+)\b", r.stdout or "")
+                if m:
+                    return int(m.group(1))
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    except Exception:
+        return None
+    return None
+
+
+def _wg_diag_dns_probe(dns_ip, timeout_s=2.0):
+    """Probe a DNS resolver reachability with a hand-built A query for
+    google.com. Used to detect Tareq's Node-2 regression where wg-quick
+    installs DNS=1.1.1.1 into the resolver but the ISP blocks it.
+
+    Returns True (got a non-empty DNS response from the server),
+    False (timeout / refused / unreachable),
+    None (probe itself failed — caller should log to the errors array).
+
+    We do NOT use socket.gethostbyname() because that hits the system
+    resolver, which may or may not be the WG-installed one depending on
+    /etc/nsswitch.conf and the OS. We probe the configured DNS IP
+    directly over UDP/53.
+    """
+    if not dns_ip:
+        return None
+    import socket
+    try:
+        # Minimal DNS query packet for "google.com" type A, class IN.
+        # Header (12 bytes): id=0x1234, flags=0x0100 (standard query, RD=1),
+        # qdcount=1, ancount=0, nscount=0, arcount=0.
+        header = b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+        qname = b"".join(
+            bytes([len(label)]) + label.encode("ascii")
+            for label in ("google", "com")
+        ) + b"\x00"
+        question = qname + b"\x00\x01\x00\x01"  # QTYPE=A, QCLASS=IN
+        packet = header + question
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(timeout_s)
+            s.sendto(packet, (dns_ip, 53))
+            data, _ = s.recvfrom(1024)
+        # Sanity: response echoes our 16-bit id and ancount > 0 OR rcode == 0.
+        if len(data) < 12:
+            return False
+        if data[0:2] != b"\x12\x34":
+            return False
+        rcode = data[3] & 0x0F
+        # rcode 0 = NOERROR (server answered the query at all). Anything
+        # else (REFUSED=5, SERVFAIL=2) still means we reached the server,
+        # but we count those as unreachable-for-our-purposes because the
+        # provider won't be able to resolve names through them either.
+        return rcode == 0
+    except socket.timeout:
+        return False
+    except OSError:
+        return False
+    except Exception as e:
+        log.debug(f"_wg_diag_dns_probe failed for {dns_ip}: {e}")
+        return None
+
+
+def _wg_diag_system_resolver_overridden(configured_dns):
+    """True iff /etc/resolv.conf currently lists the wg-quick-installed DNS.
+
+    Detection priority:
+      1. wg-quick / resolvconf marker comments in the file.
+      2. nameserver line that matches one of the configured DNS IPs.
+
+    Returns True / False; returns None on read failure.
+    """
+    try:
+        with open("/etc/resolv.conf", "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except (FileNotFoundError, PermissionError, OSError):
+        return None
+    except Exception:
+        return None
+
+    lower = text.lower()
+    # resolvconf(8) and systemd-resolved both annotate generated files.
+    # wg-quick's resolvconf path tags entries with the iface name.
+    if "wg-quick" in lower or "resolvconf" in lower or "# generated by" in lower:
+        # Marker alone isn't enough — confirm a configured DNS is actually
+        # in the active nameservers; otherwise the marker is stale.
+        pass
+
+    configured_set = {ip for ip in (configured_dns or []) if ip}
+    if not configured_set:
+        return False
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r"^nameserver\s+(\S+)", line, re.IGNORECASE)
+        if m and m.group(1) in configured_set:
+            return True
+    return False
+
+
+def _build_wg_diag_payload():
+    """Assemble the read-only WG diagnostic payload. No secrets ever."""
+    iface = _wg_load_active_iface()
+    runtime = _wg_diag_runtime(iface)
+    allowed_runtime = _wg_diag_runtime_allowed_ips(iface)
+    allowed_config, mtu_config, listen_port_config, dns_config = _wg_diag_parse_config(iface)
+    mtu_live = _wg_diag_mtu(iface)
+
+    # DNS override section (v0.2): only meaningful on Linux where wg-quick
+    # installs DNS into the resolver via resolvconf. macOS/Windows handle
+    # DNS via different mechanisms; we still surface `configured` so the
+    # backend can warn even if reachability can't be measured.
+    errors = []
+    dns_first = dns_config[0] if dns_config else None
+    if dns_first:
+        reachable = _wg_diag_dns_probe(dns_first)
+        if reachable is None:
+            errors.append(f"dns_probe_failed:{dns_first}")
+    else:
+        reachable = None
+    overridden = _wg_diag_system_resolver_overridden(dns_config) if dns_config else False
+    if overridden is None:
+        errors.append("system_resolver_read_failed")
+        overridden = None
+
+    payload = {
+        "interface": iface,
+        "mtu": mtu_live if mtu_live is not None else mtu_config,
+        "listen_port": runtime.get("listen_port_runtime") or listen_port_config,
+        "allowed_ips_runtime": allowed_runtime,
+        "allowed_ips_config": allowed_config,
+        "default_route_via_wg": _wg_diag_default_route_via_wg(iface),
+        "last_handshake_age_s": runtime.get("last_handshake_age_s"),
+        "transfer_rx_bytes": runtime.get("rx_bytes"),
+        "transfer_tx_bytes": runtime.get("tx_bytes"),
+        "public_key": runtime.get("public_key"),
+        "peer_public_key": runtime.get("peer_public_key"),
+        "mesh_ip": _detect_wg_mesh_ip(),
+        "persistent_keepalive_s": runtime.get("persistent_keepalive_s"),
+        "dns_override": {
+            "configured": dns_first,
+            "resolver_reachable_from_provider": reachable,
+            "system_resolver_overridden": overridden,
+        },
+        "errors": errors,
+        "daemon_version": DAEMON_VERSION,
+        "generated_at": int(time.time()),
+    }
+    return payload
+
+
+def _start_wg_diag_server():
+    """Start the read-only WG diagnostic HTTP server bound to the WG mesh IP.
+
+    Bind target: the local 10.8.x.x / 10.9.x.x address. Refuses to start if
+    no mesh IP is detected (mesh-only by construction). Auth: Bearer API_KEY.
+    Returns the thread or None if the mesh isn't up.
+    """
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    mesh_ip = _detect_wg_mesh_ip()
+    if not mesh_ip:
+        log.info("[wg-diag] No WG mesh IP detected; diag endpoint not started")
+        return None
+
+    class _WGDiagHandler(BaseHTTPRequestHandler):
+        def _unauthorized(self):
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error":"unauthorized"}')
+
+        def do_GET(self):
+            if self.path not in ("/v1/diag/wg", "/v1/diag/wg/"):
+                self.send_response(404)
+                self.end_headers()
+                return
+            auth = self.headers.get("Authorization", "")
+            if not auth.startswith("Bearer "):
+                return self._unauthorized()
+            token = auth[len("Bearer "):].strip()
+            # Constant-time compare; reject if daemon was never injected.
+            if not API_KEY or API_KEY == "INJECT_KEY_HERE":
+                return self._unauthorized()
+            if not hmac.compare_digest(token, API_KEY):
+                return self._unauthorized()
+            try:
+                body = json.dumps(_build_wg_diag_payload()).encode("utf-8")
+            except Exception as e:
+                log.warning(f"[wg-diag] payload build failed: {e}")
+                self.send_response(500)
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            return
+
+    def _serve():
+        try:
+            server = HTTPServer((mesh_ip, _WG_DIAG_PORT), _WGDiagHandler)
+            server.timeout = 1
+            log.info(f"[wg-diag] Diag endpoint on http://{mesh_ip}:{_WG_DIAG_PORT}/v1/diag/wg")
+            server.serve_forever()
+        except OSError as e:
+            log.warning(f"[wg-diag] Could not bind {mesh_ip}:{_WG_DIAG_PORT}: {e}")
+        except Exception as e:
+            log.warning(f"[wg-diag] server error: {e}")
+
+    t = threading.Thread(target=_serve, daemon=True, name="DCP-WGDiagEndpoint")
+    t.start()
+    return t
+
+
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -8048,6 +8476,12 @@ def main():
     # v4.3.0 (Item 14): Local health endpoint on localhost:19876
     log.info("Starting local health endpoint on 127.0.0.1:%d...", _HEALTH_PORT)
     _start_health_server()
+
+    # v4.3.1: Read-only WG diagnostic endpoint on the mesh IP only (port 19877)
+    try:
+        _start_wg_diag_server()
+    except Exception as e:
+        log.warning(f"[wg-diag] failed to start: {e}")
 
     # v4.0.0-alpha: Periodic concurrency reprobe (every 6 hours)
     log.info("Starting concurrency reprobe loop (every 6h)...")
