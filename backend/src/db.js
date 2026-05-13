@@ -2173,6 +2173,45 @@ for (const a of [
   try { _missionSeed.run(...a); } catch (_) {}
 }
 
+// ─── HERMES AGENT OBSERVABILITY TABLES ───
+// Closes the gap surfaced 2026-05-13 on Tareq Node 2: the provider's local
+// agent (Hermes) writes errors to ~/.dcp/agent.log but never ships them.
+// `provider_agent_liveness` is upserted on every Hermes beacon (60s cadence);
+// `provider_agent_log_snapshots` holds opt-in log tail uploads triggered by
+// admin setting `wants_logs_at`. See backend/src/routes/providers.js
+// agent-liveness/agent-logs routes for the ingest path.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_agent_liveness (
+    provider_id INTEGER PRIMARY KEY,
+    agent TEXT NOT NULL,
+    pid INTEGER,
+    uptime_s INTEGER,
+    dashboard_port INTEGER,
+    gateway_state TEXT,
+    active_agents INTEGER,
+    platforms_json TEXT,
+    last_error_excerpt TEXT,
+    last_error_at TEXT,
+    mem_rss_mb INTEGER,
+    log_tail_sha256 TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    wants_logs_at TEXT,
+    FOREIGN KEY (provider_id) REFERENCES providers(id)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_agent_log_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_id INTEGER NOT NULL,
+    captured_at TEXT NOT NULL DEFAULT (datetime('now')),
+    byte_count INTEGER,
+    log_excerpt TEXT,
+    FOREIGN KEY (provider_id) REFERENCES providers(id)
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_log_snapshots_provider ON provider_agent_log_snapshots(provider_id, captured_at)`);
+
 // Compatibility wrapper: providers.js uses db.run/get/all (async sqlite3 style)
 // better-sqlite3 uses db.prepare().run/get/all - these wrappers bridge the gap
 function flatParams(params) {
