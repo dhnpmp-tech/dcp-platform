@@ -8215,10 +8215,147 @@ router.post('/wg/install-config', async (req, res) => {
 });
 
 
+// ─── v4.3.1: WG DIAGNOSTIC PROXY (read-only) ─────────────────────────────
+// GET /api/providers/:id/diag/wg
+// Auth: admin token OR matching x-provider-key (provider's own api_key).
+// Pulls daemon's read-only WG state over the WG mesh and returns it with
+// a `warnings` array flagging the AllowedIPs=0.0.0.0/0 trap.
+// 30s in-memory cache per provider id.
+const WG_DIAG_PORT = 19877;
+const WG_DIAG_CACHE_TTL_MS = 30_000;
+const _wgDiagCache = new Map(); // providerId -> { at, payload }
+
+function _wgDiagFetch(meshIp, apiKey) {
+    return new Promise((resolve, reject) => {
+        const http = require('http');
+        // Defence-in-depth: only allow the WG mesh subnets we own.
+        if (!/^10\.(8|9)\.\d{1,3}\.\d{1,3}$/.test(meshIp)) {
+            return reject(new Error('mesh_ip_not_in_wg_subnet'));
+        }
+        const req = http.request({
+            host: meshIp,
+            port: WG_DIAG_PORT,
+            path: '/v1/diag/wg',
+            method: 'GET',
+            timeout: 5_000,
+            headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+        }, (resp) => {
+            let buf = '';
+            resp.setEncoding('utf8');
+            resp.on('data', (c) => {
+                buf += c;
+                if (buf.length > 64 * 1024) { // hard cap on diag payload
+                    req.destroy(new Error('diag_payload_too_large'));
+                }
+            });
+            resp.on('end', () => {
+                if (resp.statusCode !== 200) {
+                    return reject(new Error(`daemon_status_${resp.statusCode}`));
+                }
+                try {
+                    resolve(JSON.parse(buf));
+                } catch (e) {
+                    reject(new Error('daemon_invalid_json'));
+                }
+            });
+        });
+        req.on('timeout', () => req.destroy(new Error('daemon_timeout')));
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+function _wgDiagWarnings(payload) {
+    const warnings = [];
+    const cfg = Array.isArray(payload?.allowed_ips_config) ? payload.allowed_ips_config : [];
+    const runtime = Array.isArray(payload?.allowed_ips_runtime) ? payload.allowed_ips_runtime : [];
+    if (payload?.default_route_via_wg === true
+        || cfg.includes('0.0.0.0/0')
+        || runtime.includes('0.0.0.0/0')) {
+        warnings.push('routes_all_traffic_through_mesh');
+    }
+    if (payload?.last_handshake_age_s != null && payload.last_handshake_age_s > 300) {
+        warnings.push('handshake_stale');
+    }
+    // v0.2: DNS override warnings. Tareq Node 2 regression — `DNS = 1.1.1.1`
+    // in wg0.conf, ISP filters 1.1.1.1, every hostname lookup fails when
+    // WG is up.
+    const dns = payload && typeof payload.dns_override === 'object' ? payload.dns_override : null;
+    if (dns && dns.configured && dns.resolver_reachable_from_provider === false) {
+        warnings.push('dns_override_unreachable_from_provider');
+    }
+    if (dns && dns.system_resolver_overridden === true) {
+        warnings.push('dns_override_active');
+    }
+    return warnings;
+}
+
+router.get('/:id/diag/wg', async (req, res) => {
+    try {
+        const providerId = parseInt(req.params.id, 10);
+        if (!providerId) return res.status(400).json({ error: 'Invalid provider id' });
+
+        // Auth: admin OR matching provider key.
+        const isAdmin = isAdminRequest(req);
+        const submittedKey = normalizeString(
+            req.headers['x-provider-key'] || getBearerToken(req) || req.query.key,
+            { maxLen: 128, trim: false }
+        );
+        const provider = db.get(
+            'SELECT id, api_key, wg_mesh_ip FROM providers WHERE id = ? AND deleted_at IS NULL',
+            [providerId]
+        );
+        if (!provider) return res.status(404).json({ error: 'Provider not found' });
+        if (!isAdmin) {
+            if (!submittedKey || submittedKey !== provider.api_key) {
+                return res.status(403).json({ error: 'Forbidden: provider key or admin token required' });
+            }
+        }
+        if (!provider.wg_mesh_ip) {
+            return res.status(409).json({ error: 'Provider has no wg_mesh_ip; cannot reach daemon over mesh' });
+        }
+
+        // 30s cache (per provider id).
+        const cached = _wgDiagCache.get(providerId);
+        if (cached && (Date.now() - cached.at) < WG_DIAG_CACHE_TTL_MS) {
+            res.setHeader('Cache-Control', 'private, max-age=30');
+            return res.json({ ...cached.payload, cached: true });
+        }
+
+        let daemonPayload;
+        try {
+            daemonPayload = await _wgDiagFetch(provider.wg_mesh_ip, provider.api_key);
+        } catch (err) {
+            return res.status(502).json({
+                error: 'daemon_unreachable',
+                detail: String(err?.message || err),
+                mesh_ip: provider.wg_mesh_ip,
+            });
+        }
+
+        // Strip any unexpected secret-like fields defensively.
+        ['private_key', 'preshared_key', 'psk'].forEach((k) => { delete daemonPayload[k]; });
+
+        const out = {
+            provider_id: providerId,
+            ...daemonPayload,
+            warnings: _wgDiagWarnings(daemonPayload),
+            cached: false,
+        };
+        _wgDiagCache.set(providerId, { at: Date.now(), payload: out });
+        res.setHeader('Cache-Control', 'private, max-age=30');
+        return res.json(out);
+    } catch (err) {
+        console.error('[providers/:id/diag/wg]', err);
+        return res.status(500).json({ error: 'Failed to fetch WG diagnostic' });
+    }
+});
+
 module.exports = router;
 module.exports.__private = {
     discoverComputeTypesFromResourceSpec,
     inferVramGb,
+    _wgDiagWarnings,
     loadVllmCompatibilityIndex,
     evaluateLowVramInferenceCompatibility,
     evaluateProviderAdmission,
