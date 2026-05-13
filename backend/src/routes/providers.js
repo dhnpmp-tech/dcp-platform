@@ -8218,6 +8218,259 @@ router.post('/wg/install-config', async (req, res) => {
 });
 
 
+// ─── v4.4: HERMES AGENT LIVENESS + LOG SHIPPING ─────────────────────────
+// Closes the observability gap surfaced 2026-05-13 on Tareq Node 2: provider
+// daemon phones home, but Hermes (the local agent) does not. Errors live in
+// ~/.dcp/agent.log (134 MB on Tareq's node, never shipped). If Hermes crashes,
+// central has no signal.
+//
+// Routes:
+//   POST /api/providers/:id/agent-liveness   — Hermes posts a small JSON blob every 60s
+//   POST /api/providers/:id/agent-logs       — Hermes uploads tail when wants_logs_at is set
+//   GET  /api/providers/:id/agent-state      — admin OR provider-key reads combined state
+//
+// Auth: Bearer token (or x-provider-key) === providers.api_key. Admin token also accepted on GET.
+// Secrets are redacted server-side (defence-in-depth — client should redact too).
+
+const AGENT_LOG_MAX_BYTES = 64 * 1024;          // 64 KB tail cap
+const AGENT_LOG_SNAPSHOTS_PER_PROVIDER = 50;    // auto-prune older
+const AGENT_LIVENESS_STALE_MS = 5 * 60 * 1000;  // 5 min → agent_offline
+
+// Redaction patterns. Applied to log excerpts AND to last_error_excerpt.
+// Intentionally aggressive: prefer overshoot to a leaked credential.
+const _AGENT_REDACTION_RULES = [
+    // Bearer tokens
+    { re: /(bearer\s+)([A-Za-z0-9._\-]{8,})/gi, repl: '$1[REDACTED]' },
+    // Authorization: <anything>
+    { re: /(authorization["'\s:=]+)([^\s"',]+)/gi, repl: '$1[REDACTED]' },
+    // api_key / apikey / api-key in any kv form
+    { re: /(api[_\-]?key["'\s:=]+)([^\s"',]+)/gi, repl: '$1[REDACTED]' },
+    // password
+    { re: /(password["'\s:=]+)([^\s"',]+)/gi, repl: '$1[REDACTED]' },
+    // generic "secret"
+    { re: /(secret["'\s:=]+)([^\s"',]+)/gi, repl: '$1[REDACTED]' },
+    // JWTs (three dot-separated base64url segments, min lengths)
+    { re: /eyJ[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]{6,}/g, repl: '[REDACTED_JWT]' },
+    // DCP key prefixes — provider / renter keys leaking into logs
+    { re: /\bdcp-provider-[A-Za-z0-9_\-]{6,}/g, repl: 'dcp-provider-[REDACTED]' },
+    { re: /\bdcp-renter-[A-Za-z0-9_\-]{6,}/g, repl: 'dcp-renter-[REDACTED]' },
+    { re: /\bdc1-renter-[A-Za-z0-9_\-]{6,}/g, repl: 'dc1-renter-[REDACTED]' },
+];
+
+function _agentRedact(input) {
+    if (typeof input !== 'string' || input.length === 0) return input;
+    let out = input;
+    for (const { re, repl } of _AGENT_REDACTION_RULES) {
+        out = out.replace(re, repl);
+    }
+    return out;
+}
+
+// Pure function: given a liveness row + "now", decide whether to emit
+// agent_offline. Exposed for unit testing and for /diag/summary rollup.
+function _agentOfflineWarnings(liveness, nowMs = Date.now()) {
+    const warnings = [];
+    if (!liveness || !liveness.updated_at) {
+        warnings.push('agent_never_reported');
+        return warnings;
+    }
+    const updatedAtMs = Date.parse(liveness.updated_at);
+    if (!Number.isFinite(updatedAtMs)) return warnings;
+    if ((nowMs - updatedAtMs) > AGENT_LIVENESS_STALE_MS) {
+        warnings.push('agent_offline');
+    }
+    return warnings;
+}
+
+// Pure function: prune snapshots beyond the per-provider cap. Returns the
+// list of ids to delete. Newest first.
+function _agentSnapshotIdsToPrune(snapshotIdsNewestFirst, cap = AGENT_LOG_SNAPSHOTS_PER_PROVIDER) {
+    if (!Array.isArray(snapshotIdsNewestFirst)) return [];
+    if (snapshotIdsNewestFirst.length <= cap) return [];
+    return snapshotIdsNewestFirst.slice(cap);
+}
+
+// Shared: authenticate a provider-only route. Returns the provider row or
+// sends a 401/403/404 and returns null.
+function _agentAuthProvider(req, res, providerId, { allowAdmin = false } = {}) {
+    const isAdmin = allowAdmin && isAdminRequest(req);
+    const submittedKey = normalizeString(
+        req.headers['x-provider-key'] || getBearerToken(req) || req.query.key,
+        { maxLen: 128, trim: false }
+    );
+    const provider = db.get(
+        'SELECT id, api_key FROM providers WHERE id = ? AND deleted_at IS NULL',
+        [providerId]
+    );
+    if (!provider) {
+        res.status(404).json({ error: 'Provider not found' });
+        return null;
+    }
+    if (!isAdmin) {
+        if (!submittedKey || submittedKey !== provider.api_key) {
+            res.status(403).json({ error: 'Forbidden: provider key or admin token required' });
+            return null;
+        }
+    }
+    return provider;
+}
+
+router.post('/:id/agent-liveness', express.json({ limit: '16kb' }), (req, res) => {
+    try {
+        const providerId = parseInt(req.params.id, 10);
+        if (!providerId) return res.status(400).json({ error: 'Invalid provider id' });
+
+        const provider = _agentAuthProvider(req, res, providerId, { allowAdmin: false });
+        if (!provider) return;
+
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const agent = normalizeString(body.agent, { maxLen: 32 }) || 'hermes';
+        const pid = toFiniteInt(body.pid, { min: 0, max: 2 ** 31 - 1 });
+        const uptimeS = toFiniteInt(body.uptime_s, { min: 0, max: 2 ** 31 - 1 });
+        const dashboardPort = toFiniteInt(body.dashboard_port, { min: 1, max: 65535 });
+        const gatewayState = normalizeString(body.gateway_state, { maxLen: 32 });
+        const activeAgents = toFiniteInt(body.active_agents, { min: 0, max: 1000 });
+        const platforms = Array.isArray(body.platforms)
+            ? body.platforms.filter((p) => typeof p === 'string').slice(0, 20).map((p) => p.slice(0, 32))
+            : null;
+        const platformsJson = platforms ? JSON.stringify(platforms) : null;
+        const lastErrorExcerpt = _agentRedact(normalizeString(body.last_error_excerpt, { maxLen: 2000 }));
+        const lastErrorAt = normalizeString(body.last_error_at, { maxLen: 40 });
+        const memRssMb = toFiniteInt(body.mem_rss_mb, { min: 0, max: 1024 * 1024 });
+        const logTailSha = normalizeString(body.log_tail_sha256, { maxLen: 64, trim: false });
+
+        const nowIso = new Date().toISOString();
+        db.run(
+            `INSERT INTO provider_agent_liveness
+                (provider_id, agent, pid, uptime_s, dashboard_port, gateway_state,
+                 active_agents, platforms_json, last_error_excerpt, last_error_at,
+                 mem_rss_mb, log_tail_sha256, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+             ON CONFLICT(provider_id) DO UPDATE SET
+                agent = excluded.agent,
+                pid = excluded.pid,
+                uptime_s = excluded.uptime_s,
+                dashboard_port = excluded.dashboard_port,
+                gateway_state = excluded.gateway_state,
+                active_agents = excluded.active_agents,
+                platforms_json = excluded.platforms_json,
+                last_error_excerpt = excluded.last_error_excerpt,
+                last_error_at = excluded.last_error_at,
+                mem_rss_mb = excluded.mem_rss_mb,
+                log_tail_sha256 = excluded.log_tail_sha256,
+                updated_at = excluded.updated_at`,
+            [providerId, agent, pid, uptimeS, dashboardPort, gatewayState,
+             activeAgents, platformsJson, lastErrorExcerpt, lastErrorAt,
+             memRssMb, logTailSha, nowIso]
+        );
+
+        // Return the pull-trigger so Hermes knows whether to upload its log
+        // tail on the next tick.
+        const row = db.get(
+            'SELECT wants_logs_at FROM provider_agent_liveness WHERE provider_id = ?',
+            [providerId]
+        );
+        return res.json({ ok: true, wants_logs_at: row?.wants_logs_at || null });
+    } catch (err) {
+        console.error('[providers/:id/agent-liveness]', err);
+        return res.status(500).json({ error: 'Failed to record agent liveness' });
+    }
+});
+
+router.post('/:id/agent-logs', express.json({ limit: '128kb' }), (req, res) => {
+    try {
+        const providerId = parseInt(req.params.id, 10);
+        if (!providerId) return res.status(400).json({ error: 'Invalid provider id' });
+
+        const provider = _agentAuthProvider(req, res, providerId, { allowAdmin: false });
+        if (!provider) return;
+
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const rawExcerpt = typeof body.log_excerpt === 'string' ? body.log_excerpt : '';
+        if (!rawExcerpt) {
+            return res.status(400).json({ error: 'log_excerpt required' });
+        }
+        // Hard cap on payload size regardless of express limit.
+        const capped = rawExcerpt.slice(0, AGENT_LOG_MAX_BYTES);
+        const redacted = _agentRedact(capped);
+        const byteCount = Buffer.byteLength(redacted, 'utf8');
+
+        const nowIso = new Date().toISOString();
+        db.run(
+            `INSERT INTO provider_agent_log_snapshots
+                (provider_id, captured_at, byte_count, log_excerpt)
+             VALUES (?,?,?,?)`,
+            [providerId, nowIso, byteCount, redacted]
+        );
+
+        // Auto-prune: keep newest AGENT_LOG_SNAPSHOTS_PER_PROVIDER.
+        const ids = db.all(
+            `SELECT id FROM provider_agent_log_snapshots
+             WHERE provider_id = ? ORDER BY captured_at DESC, id DESC`,
+            [providerId]
+        ).map((r) => r.id);
+        const idsToDrop = _agentSnapshotIdsToPrune(ids);
+        if (idsToDrop.length) {
+            const placeholders = idsToDrop.map(() => '?').join(',');
+            db.run(
+                `DELETE FROM provider_agent_log_snapshots WHERE id IN (${placeholders})`,
+                idsToDrop
+            );
+        }
+
+        // Clear the pull trigger so Hermes doesn't re-upload on every tick.
+        db.run(
+            `UPDATE provider_agent_liveness SET wants_logs_at = NULL WHERE provider_id = ?`,
+            [providerId]
+        );
+
+        return res.json({ ok: true, byte_count: byteCount, pruned: idsToDrop.length });
+    } catch (err) {
+        console.error('[providers/:id/agent-logs]', err);
+        return res.status(500).json({ error: 'Failed to record agent log snapshot' });
+    }
+});
+
+router.get('/:id/agent-state', (req, res) => {
+    try {
+        const providerId = parseInt(req.params.id, 10);
+        if (!providerId) return res.status(400).json({ error: 'Invalid provider id' });
+
+        const provider = _agentAuthProvider(req, res, providerId, { allowAdmin: true });
+        if (!provider) return;
+
+        const liveness = db.get(
+            `SELECT agent, pid, uptime_s, dashboard_port, gateway_state, active_agents,
+                    platforms_json, last_error_excerpt, last_error_at, mem_rss_mb,
+                    log_tail_sha256, updated_at, wants_logs_at
+             FROM provider_agent_liveness WHERE provider_id = ?`,
+            [providerId]
+        );
+        const latestSnapshot = db.get(
+            `SELECT id, captured_at, byte_count, log_excerpt
+             FROM provider_agent_log_snapshots
+             WHERE provider_id = ? ORDER BY captured_at DESC, id DESC LIMIT 1`,
+            [providerId]
+        );
+
+        let platforms = null;
+        if (liveness && liveness.platforms_json) {
+            try { platforms = JSON.parse(liveness.platforms_json); } catch (_) { platforms = null; }
+        }
+        const warnings = _agentOfflineWarnings(liveness);
+
+        return res.json({
+            provider_id: providerId,
+            liveness: liveness ? { ...liveness, platforms, platforms_json: undefined } : null,
+            latest_snapshot: latestSnapshot || null,
+            warnings,
+        });
+    } catch (err) {
+        console.error('[providers/:id/agent-state]', err);
+        return res.status(500).json({ error: 'Failed to read agent state' });
+    }
+});
+
 // ─── v4.3.1: WG DIAGNOSTIC PROXY (read-only) ─────────────────────────────
 // GET /api/providers/:id/diag/wg
 // Auth: admin token OR matching x-provider-key (provider's own api_key).
@@ -8358,6 +8611,12 @@ module.exports = router;
 module.exports.__private = {
     discoverComputeTypesFromResourceSpec,
     inferVramGb,
+    _agentRedact,
+    _agentOfflineWarnings,
+    _agentSnapshotIdsToPrune,
+    AGENT_LIVENESS_STALE_MS,
+    AGENT_LOG_MAX_BYTES,
+    AGENT_LOG_SNAPSHOTS_PER_PROVIDER,
     _wgDiagWarnings,
     loadVllmCompatibilityIndex,
     evaluateLowVramInferenceCompatibility,
