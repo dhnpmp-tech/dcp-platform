@@ -6,7 +6,14 @@
 // <think>…</think> on the way in. Tests pin both behaviours.
 
 const { __test__ } = require('../routes/agent-gateway');
-const { isThinkingModel, injectDisableThinking, stripThinkBlocks, stripThinkFromResponse } = __test__;
+const {
+  isThinkingModel,
+  injectDisableThinking,
+  injectAnthropicDisableThinking,
+  stripThinkBlocks,
+  stripThinkFromResponse,
+  sanitizeAnthropicContent,
+} = __test__;
 
 describe('agent-gateway thinking-mode handling', () => {
   describe('isThinkingModel', () => {
@@ -149,6 +156,147 @@ describe('agent-gateway thinking-mode handling', () => {
       expect(() => stripThinkFromResponse(undefined)).not.toThrow();
       expect(() => stripThinkFromResponse({})).not.toThrow();
       expect(() => stripThinkFromResponse({ choices: [] })).not.toThrow();
+    });
+
+    test('reasoning_content promoted when content is empty', () => {
+      const json = {
+        choices: [
+          { message: { role: 'assistant', content: '', reasoning_content: 'the answer is 42' } },
+        ],
+      };
+      stripThinkFromResponse(json);
+      expect(json.choices[0].message.content).toBe('the answer is 42');
+    });
+
+    test('reasoning_content promoted when content is null', () => {
+      const json = {
+        choices: [
+          { message: { role: 'assistant', content: null, reasoning_content: 'computed result' } },
+        ],
+      };
+      stripThinkFromResponse(json);
+      expect(json.choices[0].message.content).toBe('computed result');
+    });
+
+    test('reasoning_content NOT promoted when content already non-empty', () => {
+      const json = {
+        choices: [
+          { message: { role: 'assistant', content: 'real answer', reasoning_content: 'scratch' } },
+        ],
+      };
+      stripThinkFromResponse(json);
+      expect(json.choices[0].message.content).toBe('real answer');
+    });
+  });
+
+  // The actual fix for Tareq Node 2: Hermes uses transport="anthropic_messages"
+  // and calls /v1/messages. The Anthropic Messages spec uses thinking:{type:...}
+  // and content-block types of `thinking`/`redacted_thinking`. The OpenAI-side
+  // fix from PR #399 didn't help that code path.
+  describe('injectAnthropicDisableThinking', () => {
+    test('thinking model gets thinking={type:"disabled"} injected', () => {
+      const body = { model: 'MiniMax-M2.7-highspeed', messages: [] };
+      injectAnthropicDisableThinking(body, 'MiniMax-M2.7-highspeed');
+      expect(body.thinking).toEqual({ type: 'disabled' });
+    });
+
+    test('non-thinking model unchanged', () => {
+      const body = { messages: [] };
+      injectAnthropicDisableThinking(body, 'claude-sonnet-4-6');
+      expect(body.thinking).toBeUndefined();
+    });
+
+    test('caller opt-in {type:"enabled"} preserved', () => {
+      const body = { thinking: { type: 'enabled', budget_tokens: 8000 }, messages: [] };
+      injectAnthropicDisableThinking(body, 'MiniMax-M2.7-highspeed');
+      expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: 8000 });
+    });
+  });
+
+  describe('sanitizeAnthropicContent', () => {
+    test('text block alongside thinking → thinking dropped, text kept', () => {
+      const json = {
+        content: [
+          { type: 'thinking', thinking: 'I should compute 2+2.' },
+          { type: 'text', text: '4' },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      expect(json.content).toEqual([{ type: 'text', text: '4' }]);
+    });
+
+    test('only thinking blocks → synthesize text from thinking (the Tareq fix)', () => {
+      const json = {
+        content: [
+          { type: 'thinking', thinking: 'PONG' },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      expect(json.content).toEqual([{ type: 'text', text: 'PONG' }]);
+    });
+
+    test('multiple thinking blocks concatenated with double newline', () => {
+      const json = {
+        content: [
+          { type: 'thinking', thinking: 'step one' },
+          { type: 'thinking', thinking: 'step two' },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      expect(json.content).toEqual([{ type: 'text', text: 'step one\n\nstep two' }]);
+    });
+
+    test('redacted_thinking dropped, kept out of salvage', () => {
+      const json = {
+        content: [
+          { type: 'redacted_thinking', data: 'opaque' },
+          { type: 'text', text: 'hi' },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      expect(json.content).toEqual([{ type: 'text', text: 'hi' }]);
+    });
+
+    test('tool_use counts as usable — no synthesis needed', () => {
+      const json = {
+        content: [
+          { type: 'thinking', thinking: 'choosing tool' },
+          { type: 'tool_use', id: 'tool_1', name: 'search', input: {} },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      expect(json.content).toEqual([{ type: 'tool_use', id: 'tool_1', name: 'search', input: {} }]);
+    });
+
+    test('empty text block + thinking → synthesize from thinking', () => {
+      const json = {
+        content: [
+          { type: 'thinking', thinking: 'real answer here' },
+          { type: 'text', text: '' },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      // empty text block is filtered out (no usable), thinking salvaged
+      expect(json.content).toEqual([
+        { type: 'text', text: '' },
+        { type: 'text', text: 'real answer here' },
+      ]);
+    });
+
+    test('<think> markup inside a text block still stripped', () => {
+      const json = {
+        content: [
+          { type: 'text', text: '<think>scratch</think>final' },
+        ],
+      };
+      sanitizeAnthropicContent(json);
+      expect(json.content).toEqual([{ type: 'text', text: 'final' }]);
+    });
+
+    test('no content array → no throw', () => {
+      expect(() => sanitizeAnthropicContent(null)).not.toThrow();
+      expect(() => sanitizeAnthropicContent({})).not.toThrow();
+      expect(() => sanitizeAnthropicContent({ content: 'not-an-array' })).not.toThrow();
     });
   });
 });
