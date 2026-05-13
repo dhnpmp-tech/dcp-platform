@@ -245,6 +245,63 @@ function proxyJson(targetUrl, body, extraHeaders = {}) {
   });
 }
 
+// Stream-pipe upstream's SSE response straight through to the client.
+// We deliberately do NOT JSON-buffer here — Hermes (and any other
+// OpenAI-SDK / Anthropic-SDK consumer) calling with `stream: true`
+// requires text/event-stream chunked back as it arrives. The earlier
+// gateway code only had proxyJson, which buffered the full body and
+// returned application/json — that's what produced "Empty response"
+// on Tareq Node 2: the SDK saw JSON instead of SSE and accumulated
+// zero deltas into `message.content`.
+function proxyStream(targetUrl, body, extraHeaders, res) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const u = new URL(targetUrl);
+    const upReq = https.request(
+      {
+        method: 'POST',
+        hostname: u.hostname,
+        port: u.port || 443,
+        path: u.pathname + (u.search || ''),
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+          Accept: 'text/event-stream',
+          ...extraHeaders,
+        },
+      },
+      (upRes) => {
+        // Mirror status + headers (content-type matters most so the
+        // SDK switches into stream-parse mode).
+        const passHeaders = {};
+        const ct = upRes.headers['content-type'];
+        if (ct) passHeaders['Content-Type'] = ct;
+        const cc = upRes.headers['cache-control'];
+        if (cc) passHeaders['Cache-Control'] = cc;
+        // Disable proxy buffering for nginx-fronted deployments.
+        passHeaders['X-Accel-Buffering'] = 'no';
+        res.writeHead(upRes.statusCode || 502, passHeaders);
+        let bytes = 0;
+        upRes.on('data', (chunk) => {
+          bytes += chunk.length;
+          res.write(chunk);
+        });
+        upRes.on('end', () => {
+          res.end();
+          resolve({ status: upRes.statusCode, bytes });
+        });
+        upRes.on('error', (err) => {
+          try { res.end(); } catch (_) {}
+          reject(err);
+        });
+      }
+    );
+    upReq.on('error', reject);
+    upReq.write(data);
+    upReq.end();
+  });
+}
+
 function shortKey(req) {
   const raw =
     req.headers['x-provider-key'] ||
@@ -275,20 +332,32 @@ router.post('/v1/messages', async (req, res) => {
     `upstream=${route.upstream} model=${model} msgs=${msgs}`
   );
   try {
+    // Pass-through body (preserves stream, tools, tool_choice, etc.)
+    // with surgical edits only — never rebuild from scratch, that's
+    // what dropped `stream:true` and broke Hermes.
     const body = { ...req.body, model };
-    // Inject both — Anthropic's `thinking:{type:"disabled"}` is the
-    // one MiniMax's Anthropic surface actually honors. The
-    // chat_template_kwargs.enable_thinking flag is harmless here and
-    // useful for any future vLLM upstream we add behind /v1/messages.
     injectAnthropicDisableThinking(body, model);
     injectDisableThinking(body, model);
-    const result = await proxyJson(upstream.anthropic_url, body, {
+    const extraHeaders = {
       ...authHeadersFor(route.upstream),
       'anthropic-version': req.headers['anthropic-version'] || '2023-06-01',
-    });
+    };
+    const isStreaming = body.stream === true;
+    if (isStreaming) {
+      // Pipe SSE through. We can't filter thinking blocks mid-stream
+      // without a real Anthropic SSE event parser — the renter SDK
+      // handles its own client-side stripping, and we already requested
+      // thinking:{type:"disabled"} so the upstream shouldn't emit them.
+      const result = await proxyStream(upstream.anthropic_url, body, extraHeaders, res);
+      console.log(
+        `[agent-gateway/anthropic] DONE-STREAM provider=${shortKey(req)} ` +
+        `bytes=${result.bytes} status=${result.status}`
+      );
+      return;
+    }
+    const result = await proxyJson(upstream.anthropic_url, body, extraHeaders);
     // Filter thinking/redacted_thinking blocks and synthesize a text
-    // block from salvaged thinking content if no usable block remains
-    // (the actual Tareq-Node-2 fix).
+    // block from salvaged thinking content if no usable block remains.
     sanitizeAnthropicContent(result.json);
     if (result.status >= 400) {
       console.warn(
@@ -305,7 +374,11 @@ router.post('/v1/messages', async (req, res) => {
     res.status(result.status).json(result.json || { error: 'upstream_text', raw: result.raw });
   } catch (err) {
     console.error(`[agent-gateway/anthropic] ERROR: ${err.message}`);
-    res.status(502).json({ error: 'gateway_failed', detail: err.message });
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'gateway_failed', detail: err.message });
+    } else {
+      try { res.end(); } catch (_) {}
+    }
   }
 });
 
@@ -327,17 +400,30 @@ router.post('/chat/completions', async (req, res) => {
     `upstream=${route.upstream} model=${model} msgs=${msgs}`
   );
   try {
-    const body = {
-      model,
-      messages: req.body.messages,
-      max_tokens: req.body.max_tokens || 4096,
-      temperature: req.body.temperature ?? 0.7,
-    };
-    // Renter opt-in passes through; otherwise injected for thinking models.
-    if (req.body.enable_thinking !== undefined) body.enable_thinking = req.body.enable_thinking;
-    if (req.body.chat_template_kwargs) body.chat_template_kwargs = req.body.chat_template_kwargs;
+    // Pass-through body (preserves stream, tools, tool_choice, stream_options,
+    // top_p, presence/frequency_penalty, response_format, seed, etc.) with
+    // surgical edits only. The previous code rebuilt the body from just
+    // {model, messages, max_tokens, temperature} which silently DROPPED
+    // `stream:true` from Hermes — root cause of Tareq Node 2 "Empty response".
+    const body = { ...req.body, model };
+    if (body.max_tokens === undefined) body.max_tokens = 4096;
+    if (body.temperature === undefined) body.temperature = 0.7;
     injectDisableThinking(body, model);
-    const result = await proxyJson(upstream.openai_url, body, authHeadersFor(route.upstream));
+    const extraHeaders = authHeadersFor(route.upstream);
+    const isStreaming = body.stream === true;
+    if (isStreaming) {
+      // Pipe SSE through. We could in principle parse SSE deltas and
+      // strip <think>...</think> across chunks, but in practice we've
+      // injected enable_thinking=false and the renter SDKs strip
+      // client-side. Trade: real-time tokens > server-side think strip.
+      const result = await proxyStream(upstream.openai_url, body, extraHeaders, res);
+      console.log(
+        `[agent-gateway/openai] DONE-STREAM provider=${shortKey(req)} ` +
+        `bytes=${result.bytes} status=${result.status}`
+      );
+      return;
+    }
+    const result = await proxyJson(upstream.openai_url, body, extraHeaders);
     stripThinkFromResponse(result.json);
     if (result.status >= 400) {
       console.warn(
@@ -354,7 +440,11 @@ router.post('/chat/completions', async (req, res) => {
     res.status(result.status).json(result.json || { error: 'upstream_text', raw: result.raw });
   } catch (err) {
     console.error(`[agent-gateway/openai] ERROR: ${err.message}`);
-    res.status(502).json({ error: 'gateway_failed', detail: err.message });
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'gateway_failed', detail: err.message });
+    } else {
+      try { res.end(); } catch (_) {}
+    }
   }
 });
 
