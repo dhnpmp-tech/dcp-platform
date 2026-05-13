@@ -87,6 +87,60 @@ function authHeadersFor(upstreamName) {
   return { [u.auth_header]: u.auth_prefix + key };
 }
 
+// ── Thinking-mode handling ───────────────────────────────────────────
+// Upstream models in the thinking family (Qwen3, MiniMax-M2.7, QwQ,
+// DeepSeek-R1) emit their entire output budget into a <think>…</think>
+// block by default. Without an explicit "disable thinking" flag, the
+// visible content is empty — caller sees `choices[0].message.content`
+// as "" and rightfully calls it broken (see Tareq Node 2 incident
+// 2026-05-13). Detection by model-name pattern, case-insensitive.
+const THINKING_MODEL_PATTERNS = [
+  /^qwen3[-_.]/i,
+  /^qwq[-_.]/i,
+  /^deepseek[-_.]?r1[-_.]/i,
+  /^minimax[-_.]?m2\.7[-_.]/i,
+];
+
+function isThinkingModel(model) {
+  if (!model || typeof model !== 'string') return false;
+  return THINKING_MODEL_PATTERNS.some((re) => re.test(model));
+}
+
+// Mutate-and-return: inject chat_template_kwargs.enable_thinking=false
+// for thinking-family models. Renter can opt back in by setting
+// `enable_thinking: true` in the request body (we leave it alone).
+function injectDisableThinking(body, model) {
+  if (!isThinkingModel(model)) return body;
+  const ctk = body.chat_template_kwargs || {};
+  // Renter opt-in: explicit `enable_thinking: true` at top-level OR in
+  // chat_template_kwargs passes through untouched.
+  if (body.enable_thinking === true) return body;
+  if (ctk.enable_thinking === true) return body;
+  body.chat_template_kwargs = { ...ctk, enable_thinking: false };
+  return body;
+}
+
+// Belt-and-suspenders: strip <think>…</think> from response content
+// even when the disable flag was injected. Catches models that ignore
+// the flag and older Ollama paths that use the `/no_think` prefix.
+const THINK_BLOCK_RE = /<think>[\s\S]*?<\/think>\s*/gi;
+
+function stripThinkBlocks(content) {
+  if (typeof content !== 'string') return content;
+  if (!content.includes('<think>')) return content;
+  return content.replace(THINK_BLOCK_RE, '').trimStart();
+}
+
+function stripThinkFromResponse(json) {
+  if (!json || !Array.isArray(json.choices)) return json;
+  for (const choice of json.choices) {
+    if (choice && choice.message && typeof choice.message.content === 'string') {
+      choice.message.content = stripThinkBlocks(choice.message.content);
+    }
+  }
+  return json;
+}
+
 function proxyJson(targetUrl, body, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
@@ -151,10 +205,20 @@ router.post('/v1/messages', async (req, res) => {
   );
   try {
     const body = { ...req.body, model };
+    injectDisableThinking(body, model);
     const result = await proxyJson(upstream.anthropic_url, body, {
       ...authHeadersFor(route.upstream),
       'anthropic-version': req.headers['anthropic-version'] || '2023-06-01',
     });
+    // Anthropic-format responses use `content` blocks (text/tool_use);
+    // strip <think> from any text block too.
+    if (result.json && Array.isArray(result.json.content)) {
+      for (const block of result.json.content) {
+        if (block && block.type === 'text' && typeof block.text === 'string') {
+          block.text = stripThinkBlocks(block.text);
+        }
+      }
+    }
     if (result.status >= 400) {
       console.warn(
         `[agent-gateway/anthropic] upstream=${route.upstream} status=${result.status} ` +
@@ -198,7 +262,12 @@ router.post('/chat/completions', async (req, res) => {
       max_tokens: req.body.max_tokens || 4096,
       temperature: req.body.temperature ?? 0.7,
     };
+    // Renter opt-in passes through; otherwise injected for thinking models.
+    if (req.body.enable_thinking !== undefined) body.enable_thinking = req.body.enable_thinking;
+    if (req.body.chat_template_kwargs) body.chat_template_kwargs = req.body.chat_template_kwargs;
+    injectDisableThinking(body, model);
     const result = await proxyJson(upstream.openai_url, body, authHeadersFor(route.upstream));
+    stripThinkFromResponse(result.json);
     if (result.status >= 400) {
       console.warn(
         `[agent-gateway/openai] upstream=${route.upstream} status=${result.status} ` +
@@ -228,3 +297,11 @@ router.get('/health', (req, res) => {
 });
 
 module.exports = router;
+// Internal helpers exported for unit tests (see
+// __tests__/agent-gateway-thinking-mode.test.js). Not used by app code.
+module.exports.__test__ = {
+  isThinkingModel,
+  injectDisableThinking,
+  stripThinkBlocks,
+  stripThinkFromResponse,
+};
