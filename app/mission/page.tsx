@@ -498,8 +498,11 @@ function TopBar({
             onClick={onRefresh}
             className="mc-mono mc-refresh"
             title="Refresh"
+            aria-label="Refresh"
             style={{
-              padding: '8px 10px', fontSize: 12, color: 'var(--mut)',
+              // min 44x44 hit area for touch (iOS HIG / WCAG 2.5.5)
+              padding: '8px 10px', fontSize: 14, color: 'var(--mut)',
+              minWidth: 44, minHeight: 44,
               border: '1px solid var(--hair)', borderRadius: 2, background: 'transparent', cursor: 'pointer',
             }}
           >↻</button>
@@ -1050,6 +1053,8 @@ function MobileNav({ section, onSection, onNewTask }: { section: Section; onSect
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
       borderTop: '1px solid var(--line)',
       display: 'none',
+      // Respect iPhone home-indicator safe area so labels are not clipped on notched devices
+      paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
@@ -1063,7 +1068,7 @@ function MobileNav({ section, onSection, onNewTask }: { section: Section; onSect
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
               background: 'transparent', border: 'none', cursor: 'pointer',
               color: on ? 'var(--ink)' : 'var(--mut)',
-              fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
+              fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase',
             }}>
               <span style={{ fontSize: 16, color: on ? 'var(--teal)' : 'var(--mut)' }}>{t.glyph}</span>
               {t.label}
@@ -1260,7 +1265,7 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
           padding: '16px 20px', borderBottom: '1px solid var(--hair)',
         }}>
           <h2 className="mc-serif" style={{ fontSize: 22, letterSpacing: '-.01em', margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ color: 'var(--mut)', background: 'transparent', border: 'none', fontSize: 22, lineHeight: 1, cursor: 'pointer' }}>×</button>
+          <button aria-label="Close" onClick={onClose} style={{ color: 'var(--mut)', background: 'transparent', border: 'none', fontSize: 24, lineHeight: 1, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginInlineEnd: -10 }}>×</button>
         </div>
         <div style={{ padding: 20, maxHeight: '78vh', overflowY: 'auto' }}>{children}</div>
       </div>
@@ -1284,7 +1289,8 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--hair)',
   color: 'var(--ink)',
   padding: '10px 12px',
-  fontSize: 14,
+  // 16px prevents iOS Safari auto-zoom on input focus. Do not lower below 16 without testing on a real iPhone.
+  fontSize: 16,
   fontFamily: 'var(--sans)',
   borderRadius: 2,
   outline: 'none',
