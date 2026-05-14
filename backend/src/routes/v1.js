@@ -2008,17 +2008,21 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             total_time_s: genTimeS,
             device: providerForUsage?.gpu_model || 'GPU',
           });
+          // P3 cosmetic: persist duration_seconds (rounded wall-clock) so the
+          // Mission Control job listings show a real duration instead of null.
+          // `wallSeconds` is already computed above from proxyStartedAt/proxyNow.
+          const proxyDurationSeconds = Math.max(0, Math.round(wallSeconds));
           db.prepare(
             `INSERT OR IGNORE INTO jobs (job_id, provider_id, renter_id, job_type, model, status, submitted_at,
-              started_at, completed_at, duration_minutes, cost_halala, actual_cost_halala, provider_earned_halala,
+              started_at, completed_at, duration_minutes, duration_seconds, cost_halala, actual_cost_halala, provider_earned_halala,
               prompt_tokens, completion_tokens, result,
               notes, created_at, updated_at, priority)
-             VALUES (?, ?, ?, 'inference', ?, 'completed', ?, ?, ?, 0, ?, ?, ?,
+             VALUES (?, ?, ?, 'inference', ?, 'completed', ?, ?, ?, 0, ?, ?, ?, ?,
               ?, ?, ?,
               'v1:proxy:chat/completions', ?, ?, 8)`
           ).run(
             proxyJobId, providerForUsage?.id, req.renter.id, modelReq.model_id, proxyStartedAt,
-            proxyStartedAt, proxyNow, proxyCostHalala, proxyCostHalala, proxyProviderEarned,
+            proxyStartedAt, proxyNow, proxyDurationSeconds, proxyCostHalala, proxyCostHalala, proxyProviderEarned,
             proxyPromptTokens, proxyCompletionTokens, proxyResultJson,
             proxyNow, proxyNow
           );
@@ -2185,6 +2189,10 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           try {
             const streamJobId = providerResponseId || `stream-${meteringRequestId}`;
             const streamNow = new Date().toISOString();
+            // P3 cosmetic: persist duration_seconds so streaming jobs are no
+            // longer null in Mission Control. `startedAt` (epoch ms) was
+            // captured at the top of writeStreamingResponse for SSE timing.
+            const streamDurationSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
             const streamPromptTokens = streamSnapshot.promptTokens || 0;
             const streamCompletionTokens = streamSnapshot.completionTokens || 0;
             const streamCostHalala = streamSnapshot.costHalala > 0
@@ -2193,15 +2201,15 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             const streamProviderEarned = Math.max(1, Math.round(streamCostHalala * 0.85));
             db.prepare(
               `INSERT OR IGNORE INTO jobs (job_id, provider_id, renter_id, job_type, model, status, submitted_at,
-                completed_at, duration_minutes, cost_halala, provider_earned_halala,
+                completed_at, duration_minutes, duration_seconds, cost_halala, provider_earned_halala,
                 prompt_tokens, completion_tokens,
                 notes, created_at, updated_at, priority)
-               VALUES (?, ?, ?, 'inference', ?, 'completed', ?, ?, 0, ?, ?,
+               VALUES (?, ?, ?, 'inference', ?, 'completed', ?, ?, 0, ?, ?, ?,
                 ?, ?,
                 'v1:proxy:stream', ?, ?, 8)`
             ).run(
               streamJobId, providerForUsage?.id, req.renter.id, modelReq.model_id, streamNow,
-              streamNow, streamCostHalala, streamProviderEarned,
+              streamNow, streamDurationSeconds, streamCostHalala, streamProviderEarned,
               streamPromptTokens, streamCompletionTokens,
               streamNow, streamNow
             );

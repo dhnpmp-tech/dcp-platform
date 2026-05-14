@@ -283,4 +283,69 @@ describe('v1 chat metering ledger persistence', () => {
 
     fetchSpy.mockRestore();
   });
+
+  test('persists duration_seconds on non-stream proxy job row (P3 cosmetic fix)', async () => {
+    wireBaselineDbMocks();
+
+    // Capture INSERT INTO jobs calls so we can inspect the row that gets
+    // written. The baseline mock returns a single shared `run` fn for every
+    // prepare(); for this test we want per-statement isolation.
+    const jobInsertRuns = [];
+    mockDb.prepare.mockReset();
+    mockDb.prepare.mockImplementation((sql) => {
+      const query = String(sql);
+      if (query.includes('INSERT OR IGNORE INTO jobs') && query.includes('v1:proxy:chat/completions')) {
+        return {
+          run: (...args) => {
+            jobInsertRuns.push({ sql: query, args });
+          },
+        };
+      }
+      return { run: jest.fn() };
+    });
+
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => {
+      // Introduce a small delay so duration_seconds rounds to >= 0 and the
+      // computation path is exercised. We don't assert a specific value
+      // because wall-clock under test is jittery — we just assert the column
+      // is in the SQL, the value is finite, and it's not null.
+      await new Promise((r) => setTimeout(r, 5));
+      return {
+        ok: true,
+        json: async () => ({
+          id: 'chatcmpl-duration-1',
+          object: 'chat.completion',
+          model: 'stream-model',
+          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+        }),
+      };
+    });
+
+    const res = await request(app)
+      .post('/v1/chat/completions')
+      .set('Authorization', 'Bearer test-key')
+      .set('Idempotency-Key', 'req-duration-1')
+      .send({
+        model: 'stream-model',
+        stream: false,
+        messages: [{ role: 'user', content: 'duration smoke' }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(jobInsertRuns.length).toBe(1);
+    const insert = jobInsertRuns[0];
+    // The column list must include duration_seconds.
+    expect(insert.sql).toMatch(/duration_seconds/);
+    // The proxy INSERT bind-order (post-fix):
+    //   proxyJobId, provider_id, renter_id, model, proxyStartedAt,
+    //   proxyStartedAt, proxyNow, proxyDurationSeconds, ...
+    // duration_seconds is the 8th positional arg.
+    const durationSecondsArg = insert.args[7];
+    expect(typeof durationSecondsArg).toBe('number');
+    expect(Number.isFinite(durationSecondsArg)).toBe(true);
+    expect(durationSecondsArg).toBeGreaterThanOrEqual(0);
+
+    fetchSpy.mockRestore();
+  });
 });
