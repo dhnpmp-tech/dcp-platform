@@ -253,7 +253,7 @@ function proxyJson(targetUrl, body, extraHeaders = {}) {
 // returned application/json — that's what produced "Empty response"
 // on Tareq Node 2: the SDK saw JSON instead of SSE and accumulated
 // zero deltas into `message.content`.
-function proxyStream(targetUrl, body, extraHeaders, res) {
+function proxyStream(targetUrl, body, extraHeaders, res, transformSse = null) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const u = new URL(targetUrl);
@@ -282,14 +282,44 @@ function proxyStream(targetUrl, body, extraHeaders, res) {
         passHeaders['X-Accel-Buffering'] = 'no';
         res.writeHead(upRes.statusCode || 502, passHeaders);
         let bytes = 0;
-        upRes.on('data', (chunk) => {
-          bytes += chunk.length;
-          res.write(chunk);
-        });
-        upRes.on('end', () => {
-          res.end();
-          resolve({ status: upRes.statusCode, bytes });
-        });
+        if (transformSse) {
+          // Buffer chunks at the event boundary (blank-line separated),
+          // run each through the transformer, and re-emit. This is what
+          // lets us swap `thinking` deltas → `text` deltas on the
+          // Anthropic Messages path without breaking the streaming
+          // contract — the client still gets SSE byte-by-byte; we just
+          // rewrite the JSON inside each `data: …` line as it goes by.
+          let carry = '';
+          upRes.setEncoding('utf8');
+          upRes.on('data', (chunk) => {
+            bytes += Buffer.byteLength(chunk, 'utf8');
+            carry += chunk;
+            let nl;
+            while ((nl = carry.indexOf('\n\n')) !== -1) {
+              const event = carry.slice(0, nl + 2);
+              carry = carry.slice(nl + 2);
+              const out = transformSse(event);
+              if (out) res.write(out);
+            }
+          });
+          upRes.on('end', () => {
+            if (carry) {
+              const out = transformSse(carry);
+              if (out) res.write(out);
+            }
+            res.end();
+            resolve({ status: upRes.statusCode, bytes });
+          });
+        } else {
+          upRes.on('data', (chunk) => {
+            bytes += chunk.length;
+            res.write(chunk);
+          });
+          upRes.on('end', () => {
+            res.end();
+            resolve({ status: upRes.statusCode, bytes });
+          });
+        }
         upRes.on('error', (err) => {
           try { res.end(); } catch (_) {}
           reject(err);
@@ -300,6 +330,64 @@ function proxyStream(targetUrl, body, extraHeaders, res) {
     upReq.write(data);
     upReq.end();
   });
+}
+
+// Transform a single Anthropic SSE event so that `thinking` content
+// blocks read as `text` content blocks to the downstream client.
+// Reasoning (Nexus 2026-05-14 lockup): MiniMax-on-Anthropic ignores
+// `thinking:{type:"disabled"}` and emits content_block events of type
+// `thinking` / `thinking_delta`. Anthropic-SDK clients that only iterate
+// text deltas see zero usable content → agent loop wedges, no reply.
+// Rewriting in flight is cleaner than buffering the entire stream.
+//
+// Anthropic spec events we touch:
+//   content_block_start with content_block.type === 'thinking'
+//     → flip type to 'text', rename `thinking`→`text` (with empty
+//       string default)
+//   content_block_delta with delta.type === 'thinking_delta'
+//     → flip type to 'text_delta', rename `thinking`→`text`
+//   redacted_thinking blocks → dropped entirely (no usable text to
+//     recover; emitting an empty text block would confuse stop_reason)
+// All other event types pass through untouched.
+function transformAnthropicStreamEvent(eventText) {
+  if (!eventText) return eventText;
+  // Each event is one or more lines like `event: …\ndata: …\n\n`.
+  // We only need to rewrite the `data:` JSON line(s).
+  const lines = eventText.split('\n');
+  let droppedBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.startsWith('data:')) continue;
+    const payload = line.slice(5).trimStart();
+    if (!payload || payload === '[DONE]') continue;
+    let obj;
+    try { obj = JSON.parse(payload); } catch (_) { continue; }
+    if (!obj || typeof obj !== 'object') continue;
+    if (obj.type === 'content_block_start' && obj.content_block) {
+      const blk = obj.content_block;
+      if (blk.type === 'thinking') {
+        blk.type = 'text';
+        const t = typeof blk.thinking === 'string' ? blk.thinking : '';
+        delete blk.thinking;
+        blk.text = t;
+      } else if (blk.type === 'redacted_thinking') {
+        droppedBlock = true;
+      }
+    } else if (obj.type === 'content_block_delta' && obj.delta) {
+      if (obj.delta.type === 'thinking_delta') {
+        const t = typeof obj.delta.thinking === 'string' ? obj.delta.thinking : '';
+        obj.delta = { type: 'text_delta', text: t };
+      } else if (obj.delta.type === 'redacted_thinking_delta') {
+        droppedBlock = true;
+      }
+    } else if (obj.type === 'content_block_stop' && droppedBlock) {
+      // Suppress the stop for a redacted_thinking block we dropped.
+      droppedBlock = false;
+      return '';
+    }
+    lines[i] = 'data: ' + JSON.stringify(obj);
+  }
+  return lines.join('\n');
 }
 
 function shortKey(req) {
@@ -344,11 +432,16 @@ router.post('/v1/messages', async (req, res) => {
     };
     const isStreaming = body.stream === true;
     if (isStreaming) {
-      // Pipe SSE through. We can't filter thinking blocks mid-stream
-      // without a real Anthropic SSE event parser — the renter SDK
-      // handles its own client-side stripping, and we already requested
-      // thinking:{type:"disabled"} so the upstream shouldn't emit them.
-      const result = await proxyStream(upstream.anthropic_url, body, extraHeaders, res);
+      // Pipe SSE with on-the-fly transformation: thinking deltas →
+      // text deltas. MiniMax-on-Anthropic ignores our thinking:disabled
+      // request and emits thinking content_blocks anyway. Without this
+      // transformation, Anthropic-SDK clients that only consume text
+      // deltas see zero usable content and their agent loop wedges
+      // (Nexus 2026-05-14 lockup root cause).
+      const result = await proxyStream(
+        upstream.anthropic_url, body, extraHeaders, res,
+        transformAnthropicStreamEvent,
+      );
       console.log(
         `[agent-gateway/anthropic] DONE-STREAM provider=${shortKey(req)} ` +
         `bytes=${result.bytes} status=${result.status}`
@@ -467,4 +560,5 @@ module.exports.__test__ = {
   stripThinkBlocks,
   stripThinkFromResponse,
   sanitizeAnthropicContent,
+  transformAnthropicStreamEvent,
 };
