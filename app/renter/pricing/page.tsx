@@ -123,16 +123,18 @@ const JOB_TEMPLATES: JobTemplate[] = [
     tags: ['Embedding', 'RAG'],
     href: '/renter/templates',
   },
-  {
-    id: 'fine-tune',
-    name: 'LoRA Fine-tuning',
-    description: 'Efficient fine-tuning with LoRA adapters on consumer GPUs.',
-    jobType: 'training',
-    recommendedGpu: 'RTX 5090',
-    estimatedHours: 2.0,
-    tags: ['Training', 'LoRA'],
-    href: '/renter/templates',
-  },
+  // Removed during inference-only positioning trim (2026-05-14).
+  // Restore when training launches.
+  // {
+  //   id: 'fine-tune',
+  //   name: 'LoRA Fine-tuning',
+  //   description: 'Efficient fine-tuning with LoRA adapters on consumer GPUs.',
+  //   jobType: 'training',
+  //   recommendedGpu: 'RTX 5090',
+  //   estimatedHours: 2.0,
+  //   tags: ['Training', 'LoRA'],
+  //   href: '/renter/templates',
+  // },
   {
     id: 'nemotron-70b',
     name: 'Nemotron-70B Inference',

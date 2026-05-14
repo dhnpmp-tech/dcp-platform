@@ -696,7 +696,12 @@ export default function TemplateCatalogPage() {
       .finally(() => setLoadingTemplates(false))
   }, [])
 
-  const activeTemplates = apiTemplates ?? TEMPLATES
+  // Inference-only positioning (2026-05-14): hide Training-category templates
+  // from the catalog until training launches. Data kept in TEMPLATES so we
+  // can flip the filter back when the service is live.
+  const activeTemplates = (apiTemplates ?? TEMPLATES).filter(
+    t => t.category !== 'Training'
+  )
   const trackTemplateEvent = useCallback((event: string, payload: Record<string, unknown> = {}) => {
     if (typeof window === 'undefined') return
     const detail = {

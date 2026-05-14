@@ -217,14 +217,16 @@ const USE_CASES: UseCaseOption[] = [
     descriptionAr: 'تشغيل نماذج اللغة عبر واجهات برمجية متوافقة مع OpenAI',
     emoji: '🤖',
   },
-  {
-    id: 'training',
-    label: 'Training & Fine-tuning',
-    labelAr: 'التدريب والضبط الدقيق',
-    description: 'Fine-tune foundation models on your own data with LoRA or QLoRA',
-    descriptionAr: 'ضبط النماذج الأساسية على بياناتك الخاصة باستخدام LoRA أو QLoRA',
-    emoji: '🎓',
-  },
+  // Removed during inference-only positioning trim (2026-05-14).
+  // Restore when training launches.
+  // {
+  //   id: 'training',
+  //   label: 'Training & Fine-tuning',
+  //   labelAr: 'التدريب والضبط الدقيق',
+  //   description: 'Fine-tune foundation models on your own data with LoRA or QLoRA',
+  //   descriptionAr: 'ضبط النماذج الأساسية على بياناتك الخاصة باستخدام LoRA أو QLoRA',
+  //   emoji: '🎓',
+  // },
   {
     id: 'scientific-compute',
     label: 'Scientific Compute',

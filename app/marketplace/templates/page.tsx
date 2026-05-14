@@ -573,8 +573,10 @@ export default function MarketplaceTemplatesPage() {
     httpStatus: null,
   })
 
+  // Inference-only positioning (2026-05-14): hide 'training' category from
+  // the marketplace until training launches.
   const categories = useMemo(
-    () => (['all', 'llm', 'embedding', 'image', 'training', 'notebook'] as CategoryKey[]).map((key) => ({
+    () => (['all', 'llm', 'embedding', 'image', 'notebook'] as CategoryKey[]).map((key) => ({
       key,
       emoji: CATEGORY_EMOJI[key],
       label: CATEGORY_LABELS[language][key],
@@ -668,6 +670,8 @@ export default function MarketplaceTemplatesPage() {
 
   const filtered = useMemo(() => {
     return templates.filter((template) => {
+      // Inference-only positioning (2026-05-14): hide training templates.
+      if (getCategoryForTemplate(template) === 'training') return false
       if (activeCategory !== 'all' && getCategoryForTemplate(template) !== activeCategory) return false
       if (filterArabic && !(template.tags ?? []).some((tag) => tag.toLowerCase().includes('arabic'))) return false
       if (filterVram !== '') {

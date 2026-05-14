@@ -147,7 +147,7 @@ export const DCP_I18N: Record<PreviewLang, PreviewStrings> = {
     models: {
       eyebrow: 'What you can run',
       title: 'Arabic frontier. Global depth.',
-      sub: 'ALLaM, Falcon, JAIS, and Llama alongside SDXL, ControlNet, and BGE-M3. LoRA and QLoRA fine-tuning via Docker templates.',
+      sub: 'ALLaM, Falcon, JAIS, and Llama alongside SDXL, ControlNet, BGE-M3 embeddings, and Qwen-VL multimodal — all served via the same OpenAI-compatible API.',
       all: 'All', ar: 'Arabic AI', chat: 'LLM', image: 'Image', embed: 'Embed',
       in: 'in', out: 'out', per: 'indicative — confirm pricing in console',
     },
