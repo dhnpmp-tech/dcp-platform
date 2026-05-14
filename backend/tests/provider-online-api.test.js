@@ -403,6 +403,34 @@ describe('GET /api/providers/model-catalog', () => {
     expect(item.openrouter).toHaveProperty('slug', 'dcp/catalog-optional-model');
   });
 
+  test('provider_count loose-matches HF ids with quant suffix to registry canonical slug', async () => {
+    // Registry has canonical slug; provider serves HF id with /, dashes,
+    // mixed case, and -GPTQ-Int4 suffix. Strict join would yield 0.
+    const model = insertCatalogModel({
+      model_id: 'qwen3-30b-a3b',
+      display_name: 'Qwen3 30B A3B',
+      use_cases: JSON.stringify(['chat', 'reasoning']),
+    });
+    const { id, apiKey } = await registerProvider();
+    await request(app)
+      .post(`/api/providers/${id}/online`)
+      .set('x-provider-key', apiKey)
+      .send({ loadedModels: ['Qwen/Qwen3-30B-A3B-GPTQ-Int4'], gpuModel: 'RTX 4090', vramGb: 24 });
+
+    // Force the cached_models payload to the verbatim HF id with quant suffix
+    db.prepare('UPDATE providers SET cached_models = ? WHERE id = ?').run(
+      JSON.stringify([{ model_id: 'Qwen/Qwen3-30B-A3B-GPTQ-Int4' }]),
+      id,
+    );
+
+    const res = await request(app).get('/api/providers/model-catalog');
+    expect(res.status).toBe(200);
+    const item = res.body.data.find((entry) => entry.id === model.model_id);
+    expect(item).toBeDefined();
+    // The whole point of this regression: must be >= 1 despite no strict match
+    expect(item.provider_count).toBeGreaterThanOrEqual(1);
+  });
+
   test('drops invalid optional fields that fail validation', async () => {
     const model = insertCatalogModel({
       model_id: 'catalog-invalid-optional-model',
