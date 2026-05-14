@@ -489,7 +489,18 @@ function Nav() {
       <div className="nav-in">
         <a href="#" className="brand">
           <span className="brand-mark">
-            <img src="/preview/dcp-logo-square.jpeg" alt="DCP" />
+            {/* perf: explicit dims prevent CLS; eager + high fetchpriority
+                because logo is in the nav above the fold. decoding=async
+                keeps the main thread free during paint. */}
+            <img
+              src="/preview/dcp-logo-square.jpeg"
+              alt="DCP"
+              width={36}
+              height={36}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+            />
           </span>
           <span className="brand-name">DCP</span>
         </a>
@@ -1404,7 +1415,16 @@ function Footer() {
           <div>
             <div className="brand">
               <span className="brand-mark">
-                <img src="/preview/dcp-logo-square.jpeg" alt="DCP" />
+                {/* perf: footer is below the fold; lazy-load + explicit
+                    dims to avoid CLS when it scrolls into view. */}
+                <img
+                  src="/preview/dcp-logo-square.jpeg"
+                  alt="DCP"
+                  width={36}
+                  height={36}
+                  loading="lazy"
+                  decoding="async"
+                />
               </span>
               <span className="brand-name">
                 DCP<i>·sa</i>
