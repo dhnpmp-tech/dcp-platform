@@ -2358,6 +2358,22 @@ const translations: Record<Language, Record<string, string>> = {
     'docs.models.hero_subtitle': "Deploy and run cutting-edge AI models on DCP's distributed GPU infrastructure. From Arabic-specialized models to popular open-source options, find the perfect model for your use case.",
     'docs.models.cta_title': 'Ready to run these models?',
     'docs.models.cta_subtitle': 'Join DCP and start deploying powerful AI models on our GPU cloud infrastructure today.',
+
+    // Hardcoded-string sweep round 2 — authenticated pages
+    'auth.magic_link_expires_note': 'The link expires in 15 minutes.',
+    'auth.use_different_email': 'Use a different email',
+    'dashboard.browse_marketplace': 'Browse Marketplace',
+    'api_keys.page_title': 'API Keys',
+    'api_keys.page_subtitle': 'Manage your API keys for accessing the DCP inference API. Use scoped keys for fine-grained permissions.',
+    'api_keys.create_account_cta': 'Create Account',
+    'api_keys.master_section_title': 'Master API Key',
+    'api_keys.master_section_desc': 'Your master key has full access. Keep it secure.',
+    'api_keys.scoped_section_title': 'Scoped API Keys',
+    'api_keys.scoped_section_desc': 'Create limited-scope keys for specific use cases.',
+    'api_keys.new_key_button': 'New Key',
+    'budget.model_rates_title': 'Model Cost Rates',
+    'connections.checking_services': 'Checking services...',
+    'connections.no_providers_registered': 'No providers registered',
   },
 
   ar: {
@@ -4685,6 +4701,22 @@ const translations: Record<Language, Record<string, string>> = {
     'docs.models.hero_subtitle': 'انشر وشغّل أحدث نماذج الذكاء الاصطناعي على بنية DCP الموزعة لوحدات GPU. من النماذج المتخصصة باللغة العربية إلى نماذج المصدر المفتوح الشهيرة — اعثر على النموذج المناسب لحالة استخدامك.',
     'docs.models.cta_title': 'جاهز لتشغيل هذه النماذج؟',
     'docs.models.cta_subtitle': 'انضم إلى DCP وابدأ بنشر نماذج ذكاء اصطناعي قوية على سحابة GPU لدينا اليوم.',
+
+    // Hardcoded-string sweep round 2 — authenticated pages
+    'auth.magic_link_expires_note': 'تنتهي صلاحية الرابط خلال 15 دقيقة.',
+    'auth.use_different_email': 'استخدم بريداً إلكترونياً آخر',
+    'dashboard.browse_marketplace': 'تصفّح السوق',
+    'api_keys.page_title': 'مفاتيح API',
+    'api_keys.page_subtitle': 'أدر مفاتيح API الخاصة بك للوصول إلى واجهة استدلال DCP. استخدم المفاتيح المحدودة النطاق للصلاحيات الدقيقة.',
+    'api_keys.create_account_cta': 'إنشاء حساب',
+    'api_keys.master_section_title': 'مفتاح API الرئيسي',
+    'api_keys.master_section_desc': 'مفتاحك الرئيسي يملك صلاحية كاملة. احتفظ به آمناً.',
+    'api_keys.scoped_section_title': 'مفاتيح API محدودة النطاق',
+    'api_keys.scoped_section_desc': 'أنشئ مفاتيح محدودة الصلاحيات لحالات استخدام محددة.',
+    'api_keys.new_key_button': 'مفتاح جديد',
+    'budget.model_rates_title': 'أسعار النماذج',
+    'connections.checking_services': 'جاري فحص الخدمات...',
+    'connections.no_providers_registered': 'لا يوجد مزودون مسجلون',
   },
 }
 

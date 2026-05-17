@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import StatusBadge from '../components/StatusBadge';
+import { useLanguage } from '../lib/i18n';
 
 interface ServiceStatus {
   name: string;
@@ -54,6 +55,7 @@ function getApiBase(): string {
 }
 
 export default function ConnectionsPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [hardware, setHardware] = useState<HardwareStatus[]>([]);
@@ -214,7 +216,7 @@ export default function ConnectionsPage() {
           ))}
           {services.length === 0 && (
             <div className="col-span-full p-4 text-center text-gray-500 bg-[#161b22] border border-[#30363d] rounded-lg">
-              Checking services...
+              {t('connections.checking_services')}
             </div>
           )}
         </div>
@@ -258,7 +260,7 @@ export default function ConnectionsPage() {
           ))}
           {hardware.length === 0 && (
             <div className="col-span-full p-4 text-center text-gray-500 bg-[#161b22] border border-[#30363d] rounded-lg">
-              No providers registered
+              {t('connections.no_providers_registered')}
             </div>
           )}
         </div>

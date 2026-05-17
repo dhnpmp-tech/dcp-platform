@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Header from '../components/layout/Header'
 import Footer from '../components/layout/Footer'
+import { useLanguage } from '../lib/i18n'
 
 const API_BASE = '/api'
 
@@ -80,6 +81,7 @@ function EyeSlashIcon() {
 }
 
 export default function ApiKeysPage() {
+  const { t } = useLanguage()
   const [masterKey, setMasterKey] = useState<string | null>(null)
   const [showMasterKey, setShowMasterKey] = useState(false)
   const [scopedKeys, setScopedKeys] = useState<ScopedKey[]>([])
@@ -243,10 +245,9 @@ export default function ApiKeysPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-dc1-text-primary mb-2">API Keys</h1>
+            <h1 className="text-3xl font-bold text-dc1-text-primary mb-2">{t('api_keys.page_title')}</h1>
             <p className="text-dc1-text-secondary">
-              Manage your API keys for accessing the DCP inference API.
-              Use scoped keys for fine-grained permissions.
+              {t('api_keys.page_subtitle')}
             </p>
           </div>
 
@@ -254,7 +255,7 @@ export default function ApiKeysPage() {
             <div className="bg-status-error/10 border border-status-error/30 rounded-xl p-6 text-center">
               <p className="text-status-error mb-4">{error}</p>
               <Link href="/renter/register" className="btn btn-primary">
-                Create Account
+                {t('api_keys.create_account_cta')}
               </Link>
             </div>
           )}
@@ -267,10 +268,10 @@ export default function ApiKeysPage() {
                   <div>
                     <h2 className="text-lg font-semibold text-dc1-text-primary flex items-center gap-2">
                       <KeyIcon />
-                      Master API Key
+                      {t('api_keys.master_section_title')}
                     </h2>
                     <p className="text-sm text-dc1-text-muted mt-1">
-                      Your master key has full access. Keep it secure.
+                      {t('api_keys.master_section_desc')}
                     </p>
                   </div>
                 </div>
@@ -312,9 +313,9 @@ export default function ApiKeysPage() {
               <section className="bg-dc1-surface-l1 border border-dc1-border rounded-xl p-6 mb-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-lg font-semibold text-dc1-text-primary">Scoped API Keys</h2>
+                    <h2 className="text-lg font-semibold text-dc1-text-primary">{t('api_keys.scoped_section_title')}</h2>
                     <p className="text-sm text-dc1-text-muted mt-1">
-                      Create limited-scope keys for specific use cases.
+                      {t('api_keys.scoped_section_desc')}
                     </p>
                   </div>
                   <button
@@ -322,7 +323,7 @@ export default function ApiKeysPage() {
                     className="btn btn-primary btn-sm"
                   >
                     <PlusIcon />
-                    New Key
+                    {t('api_keys.new_key_button')}
                   </button>
                 </div>
 

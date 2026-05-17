@@ -368,7 +368,7 @@ export default function RenterDashboardPage() {
               </p>
               {historyJobs.length === 0 && (
                 <Link href="/renter/marketplace" className="btn btn-primary inline-flex mt-4 text-sm py-2 px-4">
-                  Browse Marketplace
+                  {t('dashboard.browse_marketplace')}
                 </Link>
               )}
             </div>

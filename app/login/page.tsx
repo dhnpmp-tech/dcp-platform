@@ -266,7 +266,7 @@ function LoginPageInner() {
                     <p className="text-base text-dc1-amber font-mono mb-4 break-all">{email}</p>
                     <p className="text-xs text-dc1-text-secondary mb-4">
                       Open the email and click <span className="text-dc1-text-primary font-semibold">Sign In to DCP</span>.
-                      The link expires in 15 minutes.
+                      {' '}{t('auth.magic_link_expires_note')}
                     </p>
                     <div className="flex flex-col gap-2 items-center">
                       {countdown > 0 ? (
@@ -281,7 +281,7 @@ function LoginPageInner() {
                       )}
                       <button type="button" onClick={handleBackToEmail}
                         className="text-xs text-dc1-text-secondary hover:text-dc1-text-primary">
-                        Use a different email
+                        {t('auth.use_different_email')}
                       </button>
                     </div>
                   </div>

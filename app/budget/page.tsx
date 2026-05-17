@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
+import { useLanguage } from '../lib/i18n';
 
 interface PaperclipAgent {
   id: string;
@@ -60,6 +61,7 @@ function SkeletonRow() {
 }
 
 export default function BudgetPage() {
+  const { t } = useLanguage();
   const [agents, setAgents] = useState<PaperclipAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataSource, setDataSource] = useState<'live' | 'unavailable'>('unavailable');
@@ -241,7 +243,7 @@ export default function BudgetPage() {
         {/* Model Cost Breakdown */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-5">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Model Cost Rates
+            {t('budget.model_rates_title')}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
