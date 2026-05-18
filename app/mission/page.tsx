@@ -112,6 +112,12 @@ interface FileLink {
 
 type Section = 'overview' | 'board' | 'goals'
 
+interface SessionUser {
+  assignee_id: string
+  display_name: string
+  kind: AssigneeKind
+}
+
 const STATUS_LABEL: Record<TaskStatus, string> = {
   todo: 'To Do',
   in_progress: 'In Progress',
@@ -180,6 +186,10 @@ export default function MissionControlPage() {
   const [showNewGoal, setShowNewGoal] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  // Resolved session user (admin/renter/provider key → mission_assignee).
+  // null means we either haven't loaded /me yet or the key didn't map to a
+  // known assignee — in both cases write paths fall back to anonymous.
+  const [me, setMe] = useState<SessionUser | null>(null)
 
   const fetchAll = useCallback(async () => {
     setError('')
@@ -229,6 +239,21 @@ export default function MissionControlPage() {
     return () => clearInterval(interval)
   }, [fetchAll])
 
+  // Resolve the current credential to a mission_assignee once on mount.
+  // Result is reused on every write so comment history shows a real name
+  // instead of "unknown". Failures are non-fatal — we just stay anon.
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_BASE}/mission/me`, { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { assignee?: SessionUser | null } | null) => {
+        if (cancelled) return
+        if (j && j.assignee) setMe(j.assignee)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   const tasksByStatus = useMemo(() => {
     const m: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], blocked: [], review: [], done: [], cancelled: [] }
     for (const t of tasks) m[t.status]?.push(t)
@@ -239,14 +264,16 @@ export default function MissionControlPage() {
     if (task.status === status) return
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)))
     try {
+      const body: Record<string, unknown> = { status }
+      if (me) body.author_id = me.assignee_id
       const res = await fetch(`${API_BASE}/mission/tasks/${task.id}`, {
-        method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ status }),
+        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error('move failed')
     } catch {
       fetchAll()
     }
-  }, [fetchAll])
+  }, [fetchAll, me])
 
   // Optimistic PATCH used by inline TaskRow controls (done checkbox + closing
   // comment). Returns true on success so callers can decide whether to
@@ -256,8 +283,9 @@ export default function MissionControlPage() {
     if (typeof patch.status === 'string') optimistic.status = patch.status as TaskStatus
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...optimistic } : t)))
     try {
+      const body = me && !('author_id' in patch) ? { ...patch, author_id: me.assignee_id } : patch
       const res = await fetch(`${API_BASE}/mission/tasks/${task.id}`, {
-        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(patch),
+        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error('patch failed')
       // Refetch so we pick up server-derived fields (completed_at, updated_at)
@@ -268,15 +296,17 @@ export default function MissionControlPage() {
       fetchAll()
       return false
     }
-  }, [fetchAll])
+  }, [fetchAll, me])
 
   // Reassign w/ mandatory comment. Backend validates min length + active
   // assignee, so we mirror the same checks here purely for snappy UX.
   const reassignTask = useCallback(async (task: Task, newAssigneeId: string, comment: string): Promise<{ ok: true } | { ok: false; error: string }> => {
     try {
+      const body: Record<string, unknown> = { new_assignee_id: newAssigneeId, comment }
+      if (me) body.author_id = me.assignee_id
       const res = await fetch(`${API_BASE}/mission/tasks/${task.id}/reassign`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ new_assignee_id: newAssigneeId, comment }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({})) as { error?: string }
@@ -287,7 +317,7 @@ export default function MissionControlPage() {
     } catch (e: unknown) {
       return { ok: false, error: e instanceof Error ? e.message : 'reassign failed' }
     }
-  }, [fetchAll])
+  }, [fetchAll, me])
 
   return (
     <div className={`mc-root ${inter.variable} ${serif.variable} ${mono.variable}`}>
@@ -400,7 +430,7 @@ export default function MissionControlPage() {
           <>
             {section === 'overview' && overview && <Overview overview={overview} fleet={fleet} repos={repos} fileLinks={fileLinks} assignees={assignees} onOpenTask={setEditingTask} onPatch={patchTask} onReassign={reassignTask} />}
             {section === 'board' && (
-              <Board tasksByStatus={tasksByStatus} onMove={moveTask} onOpen={setEditingTask} />
+              <Board tasksByStatus={tasksByStatus} onMove={moveTask} onPatch={patchTask} onOpen={setEditingTask} />
             )}
             {section === 'goals' && <Goals goals={goals} tasks={tasks} assignees={assignees} onOpenTask={setEditingTask} onPatch={patchTask} onReassign={reassignTask} />}
           </>
@@ -411,7 +441,7 @@ export default function MissionControlPage() {
 
       {showNewTask && (
         <TaskModal
-          assignees={assignees} goals={goals}
+          assignees={assignees} goals={goals} me={me}
           onClose={() => setShowNewTask(false)}
           onSaved={() => { setShowNewTask(false); fetchAll() }}
         />
@@ -425,7 +455,7 @@ export default function MissionControlPage() {
       )}
       {editingTask && (
         <TaskModal
-          assignees={assignees} goals={goals} task={editingTask}
+          assignees={assignees} goals={goals} task={editingTask} me={me}
           onClose={() => setEditingTask(null)}
           onSaved={() => { setEditingTask(null); fetchAll() }}
         />
@@ -1148,13 +1178,38 @@ function GoalChip({ goal }: { goal: Goal }) {
 
 // ── Board (Kanban) ─────────────────────────────────────────────────────
 function Board({
-  tasksByStatus, onMove, onOpen,
+  tasksByStatus, onMove, onPatch, onOpen,
 }: {
   tasksByStatus: Record<TaskStatus, Task[]>
   onMove: (task: Task, status: TaskStatus) => void
+  onPatch: PatchFn
   onOpen: (t: Task) => void
 }) {
   const [dragId, setDragId] = useState<string | null>(null)
+  // Drag-to-Done intercept. Mirrors the list-view checkbox + closing
+  // comment flow so the board doesn't silently bypass it. Any other
+  // status change still goes straight through onMove.
+  const [pendingDone, setPendingDone] = useState<Task | null>(null)
+  const [pendingText, setPendingText] = useState('')
+  const [pendingBusy, setPendingBusy] = useState(false)
+  const submitPendingDone = async (withComment: boolean) => {
+    if (!pendingDone || pendingBusy) return
+    setPendingBusy(true)
+    const payload: Record<string, unknown> = { status: 'done' }
+    if (withComment) {
+      const c = pendingText.trim()
+      if (c) payload.closing_comment = c
+    }
+    await onPatch(pendingDone, payload)
+    setPendingBusy(false)
+    setPendingDone(null)
+    setPendingText('')
+  }
+  const cancelPendingDone = () => {
+    if (pendingBusy) return
+    setPendingDone(null)
+    setPendingText('')
+  }
   const total = BOARD_COLUMNS.reduce((acc, s) => acc + tasksByStatus[s].length, 0)
   return (
     <div>
@@ -1170,8 +1225,17 @@ function Board({
                 if (!dragId) return
                 const all = Object.values(tasksByStatus).flat()
                 const t = all.find((x) => x.id === dragId)
-                if (t) onMove(t, status)
                 setDragId(null)
+                if (!t) return
+                // Intercept drag-to-done so the closing-comment prompt
+                // fires for board cards too. Re-dropping an already-done
+                // task into Done is a no-op (matches list-view behavior).
+                if (status === 'done' && t.status !== 'done') {
+                  setPendingDone(t)
+                  setPendingText('')
+                  return
+                }
+                onMove(t, status)
               }}
               style={{
                 background: 'var(--paper)', border: '1px solid var(--line)',
@@ -1226,8 +1290,59 @@ function Board({
         })}
       </div>
       <p className="mc-mono" style={{ marginTop: 16, fontSize: 10.5, color: 'var(--mut)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
-        Drag cards to move · Tap to edit
+        Drag cards to move · Drop on Done to add a closing comment · Tap to edit
       </p>
+      {/* Closing-comment prompt for drag-to-Done. Modal-style overlay so a
+          drop unambiguously yields one of: Save / Skip / Cancel. Cancel
+          leaves the task in its pre-drag column. */}
+      {pendingDone && (
+        <div
+          onClick={cancelPendingDone}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            background: 'rgba(10, 11, 26, 0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--paper)', border: '1px solid var(--line)',
+              borderTop: '2px solid var(--teal)',
+              padding: '18px 20px', maxWidth: 520, width: '100%',
+              display: 'flex', flexDirection: 'column', gap: 12,
+            }}
+          >
+            <div className="mc-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--teal)' }}>
+              ✓ Marking as Done
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>{pendingDone.title}</div>
+            <div className="mc-mono" style={{ fontSize: 10.5, color: 'var(--mut)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
+              Closing comment (optional)
+            </div>
+            <textarea
+              value={pendingText}
+              onChange={(e) => setPendingText(e.target.value)}
+              rows={3}
+              placeholder="What got it across the line?"
+              autoFocus
+              style={{
+                width: '100%', background: 'var(--bg-2)', border: '1px solid var(--hair)',
+                color: 'var(--ink)', padding: '8px 10px', fontSize: 13, fontFamily: 'var(--sans)',
+                borderRadius: 2, outline: 'none', resize: 'vertical', lineHeight: 1.4,
+              }}
+            />
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+              <button onClick={cancelPendingDone} disabled={pendingBusy} className="mc-mono" style={inlineBtnGhost}>Cancel</button>
+              <button onClick={() => submitPendingDone(false)} disabled={pendingBusy} className="mc-mono" style={inlineBtnGhost}>Skip</button>
+              <button onClick={() => submitPendingDone(true)} disabled={pendingBusy || !pendingText.trim()} className="mc-mono" style={inlineBtnPrimary(pendingBusy || !pendingText.trim())}>
+                {pendingBusy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1339,11 +1454,12 @@ interface TaskComment {
 }
 
 function TaskModal({
-  task, assignees, goals, onClose, onSaved,
+  task, assignees, goals, onClose, onSaved, me,
 }: {
   task?: Task
   assignees: Assignee[]; goals: Goal[]
   onClose: () => void; onSaved: () => void
+  me: SessionUser | null
 }) {
   const [title, setTitle]             = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
@@ -1381,6 +1497,8 @@ function TaskModal({
       due_date: dueDate || null,
       blocked_reason: status === 'blocked' ? (blocked.trim() || null) : null,
     }
+    if (me) payload.author_id = me.assignee_id
+    if (me && !task) payload.created_by = me.assignee_id
     try {
       const url = task ? `${API_BASE}/mission/tasks/${task.id}` : `${API_BASE}/mission/tasks`
       const res = await fetch(url, {

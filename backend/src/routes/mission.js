@@ -93,6 +93,74 @@ router.get('/assignees', requireAuth, (req, res) => {
   res.json({ assignees: rows });
 });
 
+// ── Session user (drives author_id on comments) ────────────────────────
+// Resolves the calling credential to a mission_assignees row so the
+// frontend can attach author_id to PATCH / reassign / comment posts.
+// Returns { assignee: { assignee_id, display_name, kind } } on match,
+// or { assignee: null } when no mapping exists — frontend then falls
+// back to current behavior (null author, "unknown" in history).
+router.get('/me', requireAuth, (req, res) => {
+  // 1) Admin token → hardcoded peter mapping.
+  if (isAdminRequest(req)) {
+    const row = db.get(
+      `SELECT id AS assignee_id, display_name, kind
+       FROM mission_assignees WHERE id = 'peter' AND active = 1`
+    );
+    return res.json({ assignee: row || null });
+  }
+  // 2) Provider key → look up provider, match by lowercased name OR
+  //    external_id against mission_assignees.
+  const providerKey = req.headers['x-provider-key'];
+  if (providerKey) {
+    try {
+      const p = db.get(
+        `SELECT id, name, email FROM providers WHERE api_key = ? AND deleted_at IS NULL LIMIT 1`,
+        providerKey
+      );
+      if (p) {
+        const match = db.get(
+          `SELECT id AS assignee_id, display_name, kind
+           FROM mission_assignees
+           WHERE active = 1 AND (
+             lower(id) = lower(?) OR
+             lower(display_name) = lower(?) OR
+             external_id = ? OR external_id = ?
+           ) LIMIT 1`,
+          p.name || '', p.name || '', String(p.id), p.email || ''
+        );
+        if (match) return res.json({ assignee: match });
+      }
+    } catch (_) { /* providers table column may differ */ }
+  }
+  // 3) Renter key → look up renter, match by email/name against assignees.
+  const renterKey = req.headers['x-renter-key'] || req.query.key;
+  if (renterKey) {
+    try {
+      const r = db.get(
+        `SELECT renter_id FROM renter_api_keys WHERE key = ? AND revoked_at IS NULL LIMIT 1`,
+        renterKey
+      );
+      if (r && r.renter_id) {
+        const rr = db.get(`SELECT id, name, email FROM renters WHERE id = ?`, r.renter_id);
+        if (rr) {
+          const match = db.get(
+            `SELECT id AS assignee_id, display_name, kind
+             FROM mission_assignees
+             WHERE active = 1 AND (
+               lower(display_name) = lower(?) OR
+               external_id = ?
+             ) LIMIT 1`,
+            rr.name || '', rr.email || ''
+          );
+          if (match) return res.json({ assignee: match });
+        }
+      }
+    } catch (_) { /* renter_api_keys may not exist in some env */ }
+  }
+  // 4) No mapping — frontend falls back to anonymous author.
+  res.json({ assignee: null });
+});
+
 // ── Tasks ──────────────────────────────────────────────────────────────
 router.get('/tasks', requireAuth, (req, res) => {
   const where = [];
@@ -256,7 +324,12 @@ router.post('/tasks/:id/reassign', requireAuth, (req, res) => {
   const prev = task.assignee_id
     ? (db.get(`SELECT display_name FROM mission_assignees WHERE id = ?`, task.assignee_id)?.display_name || task.assignee_id)
     : 'unassigned';
-  const body = `Reassigned from ${prev} → ${assignee.display_name}: ${comment}`;
+  // When reopening a terminal-state task, surface that in the audit trail
+  // so the comment history makes it obvious WHY the task is alive again.
+  const reopenNote = reopen
+    ? (task.status === 'done' ? ' (reopened from done)' : ' (reopened from cancelled)')
+    : '';
+  const body = `Reassigned from ${prev} → ${assignee.display_name}${reopenNote}: ${comment}`;
   const cmtId = newId('cmt');
   db.run(
     `INSERT INTO mission_task_comments (id, task_id, author_id, body, source, kind) VALUES (?, ?, ?, ?, ?, ?)`,
