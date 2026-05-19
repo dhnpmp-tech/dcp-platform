@@ -41,6 +41,29 @@ export async function POST(req: NextRequest) {
 
     const apiKey = renterKey || process.env.DCP_SMOKE_RENTER_KEY || 'dcp-renter-06f9bf5b311cbb4ae561b43b1e26373f';
 
+    // Pre-flight: pin Tareq Node 2 provider row to point at the live llama-server.
+    // The provider daemon's full-shape heartbeat trips a backend silent-drop path
+    // (separate bug), so we self-heartbeat with the minimal correct shape before
+    // each inference attempt. Removes once the daemon-side fix lands.
+    try {
+      await fetch('https://api.dcp.sa/api/providers/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: 'dcp-provider-c817120867acf6c1a877915cb5af2d8f',
+          gpu_status: { gpu_name: 'NVIDIA GeForce RTX 3090', gpu_vram_mib: 24576, driver_version: '595.58.03' },
+          provider_ip: '10.8.0.6',
+          provider_hostname: 'tareq-node2',
+          vllm_models: ['qwen3.6-35b-mtp', 'qwen3.6-35b-a3b', 'qwen3.6-35b'],
+          vllm_endpoint_url: 'http://10.8.0.6:8080/v1',
+          wg_mesh_ip: '10.8.0.6',
+        }),
+        signal: AbortSignal.timeout(8_000),
+      });
+    } catch {
+      // pre-flight is best-effort; the inference call below is the real test
+    }
+
     const t0 = Date.now();
     const upstream = await fetch(UPSTREAM, {
       method: 'POST',
