@@ -749,6 +749,12 @@ app.use('/api/templates/arabic-rag', arabicRagRouter);
 const agentGatewayRouter = require('./routes/agent-gateway');
 app.use('/api/agent/gateway', agentGatewayRouter);
 
+// Agent self-update manifest — dcp-agent providers poll /agent/manifest.json
+// to learn which commit to roll forward to. See routes/agentManifest.js for
+// the v1 trust model (TLS-only).
+const agentManifestRouter = require('./routes/agentManifest');
+app.use('/agent', agentManifestRouter);
+
 const db = require('./db');
 const sweepIntervalMsRaw = Number.parseInt(process.env.JOB_SWEEP_INTERVAL_MS || '30000', 10);
 const sweepIntervalMs = Number.isFinite(sweepIntervalMsRaw) && sweepIntervalMsRaw > 0 ? sweepIntervalMsRaw : 30000;
