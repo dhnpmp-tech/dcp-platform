@@ -46,11 +46,55 @@ function resolveRenter(req, res) {
   return renter;
 }
 
+// Class-level rate card. Source of truth: cost_rates.model_class +
+// migration 017 seeds. Used when the UI wants a compact view ("Medium
+// models cost $0.40/M PAYG") instead of listing every individual model.
+const MODEL_CLASS_LABELS = {
+  tiny:      { label: 'Tiny',      examples: 'TinyLlama 1B, qwen2.5vl:3b, Gemma-2B' },
+  small:     { label: 'Small',     examples: 'qwen3:8b, Mistral-7B, Llama-3-8B, ALLaM-7B' },
+  medium:    { label: 'Medium',    examples: 'Qwen 3.6-27B-MTP, Qwen2.5-Coder-32B' },
+  large:     { label: 'Large',     examples: 'Future 70B class' },
+  embedding: { label: 'Embedding', examples: 'bge-m3' },
+};
+const CLASS_ORDER = ['tiny', 'small', 'medium', 'large', 'embedding'];
+
+function buildClassProjection(modelRates) {
+  // Group rates by class, take the representative (max) rate per class so
+  // the tier table reflects the worst-case PAYG cost a buyer would see.
+  const byClass = new Map();
+  for (const m of modelRates || []) {
+    const klass = m.model_class || 'small';
+    const prev = byClass.get(klass) || { rate: 0, models: [] };
+    byClass.set(klass, {
+      rate: Math.max(prev.rate, m.token_rate_halala),
+      models: [...prev.models, m.model],
+    });
+  }
+  return CLASS_ORDER
+    .filter((k) => byClass.has(k))
+    .map((k) => ({
+      model_class: k,
+      label: MODEL_CLASS_LABELS[k]?.label || k,
+      examples: MODEL_CLASS_LABELS[k]?.examples || '',
+      payg_halala_per_M: byClass.get(k).rate,
+      payg_usd_per_M: Number((byClass.get(k).rate / 100 / SAR_USD_RATE).toFixed(4)),
+      models: byClass.get(k).models,
+    }));
+}
+
 function buildTierProjection(modelRates) {
   const tiers = svc.listTiers();
+  const classes = buildClassProjection(modelRates);
   return tiers.map((t) => {
-    const effectiveRates = (modelRates || []).map((m) => ({
+    const classRates = classes.map((c) => ({
+      model_class: c.model_class,
+      label: c.label,
+      payg_halala_per_M: c.payg_halala_per_M,
+      effective_halala_per_M: svc.computeDiscountedRateHalala(c.payg_halala_per_M, t.discount_bps),
+    }));
+    const perModelRates = (modelRates || []).map((m) => ({
       model: m.model,
+      model_class: m.model_class || 'small',
       payg_halala_per_M: m.token_rate_halala,
       effective_halala_per_M: svc.computeDiscountedRateHalala(m.token_rate_halala, t.discount_bps),
     }));
@@ -62,7 +106,8 @@ function buildTierProjection(modelRates) {
       discount_bps: t.discount_bps,
       included_credit_halala: t.monthly_sar * 100,
       rollover_days: svc.ROLLOVER_DAYS,
-      models_at_discount: effectiveRates,
+      classes_at_discount: classRates,
+      models_at_discount: perModelRates,
     };
   });
 }
@@ -71,9 +116,9 @@ router.get('/tiers', publicEndpointLimiter, (req, res) => {
   let modelRates = [];
   try {
     modelRates = db.all(
-      `SELECT model, token_rate_halala FROM cost_rates
+      `SELECT model, token_rate_halala, model_class FROM cost_rates
         WHERE is_active = 1 AND model NOT LIKE '\\_\\_%' ESCAPE '\\'
-        ORDER BY token_rate_halala ASC`
+        ORDER BY model_class, token_rate_halala ASC`
     );
   } catch (_) { modelRates = []; }
 
@@ -89,6 +134,7 @@ router.get('/tiers', publicEndpointLimiter, (req, res) => {
     rollover_policy:
       'Unused monthly credit rolls over 30 days past period end, then expires. ' +
       'Top-up (PAYG) credit never expires.',
+    classes: buildClassProjection(modelRates),
     tiers: buildTierProjection(modelRates),
   });
 });

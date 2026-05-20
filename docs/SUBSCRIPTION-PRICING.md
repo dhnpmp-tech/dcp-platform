@@ -20,13 +20,39 @@ DCP sells inference two ways, on one balance:
    their **own** rate — premium models cost more than small models on every
    tier; the discount percentage is the same across the catalog.
 
-| Tier        | Monthly SAR | Discount | Effective rate at __default__ (19 halala/M) |
-|-------------|-------------|----------|---------------------------------------------|
-| PAYG        | —           | 0%       | 19 halala/M                                 |
-| Starter     | 375         | 15%      | 17 halala/M                                 |
-| Growth      | 1,500       | 22%      | 15 halala/M                                 |
-| Scale       | 5,625       | 30%      | 14 halala/M                                 |
-| Above Scale | custom      | TBD      | sales-led                                   |
+### Subscription tiers
+
+| Tier        | Monthly SAR | Discount |
+|-------------|-------------|----------|
+| PAYG        | —           | 0%       |
+| Starter     | 375         | 15%      |
+| Growth      | 1,500       | 22%      |
+| Scale       | 5,625       | 30%      |
+| Above Scale | custom      | TBD      |
+
+### PAYG rate card by model class (migration 017)
+
+| Class     | PAYG halala/M | PAYG $/M | Examples                                            |
+|-----------|---------------|----------|-----------------------------------------------------|
+| Tiny      | 15            | $0.040   | TinyLlama 1B, qwen2.5vl:3b, Gemma-2B                |
+| Small     | 30            | $0.080   | qwen3:8b, Mistral-7B, Llama-3-8B, Phi-3-mini, ALLaM-7B |
+| Medium    | 150           | $0.400   | **Qwen 3.6-27B-MTP**, Qwen2.5-Coder-32B             |
+| Large     | 400           | $1.067   | Future 70B class                                    |
+| Embedding | 5             | $0.013   | bge-m3                                              |
+
+`__default__` raised 19 → 30 halala/M (small class floor) so unmapped models can't slip through below cost.
+
+### Effective rates per tier per class
+
+| Class     | PAYG | Starter -15% | Growth -22% | Scale -30% |
+|-----------|------|--------------|-------------|------------|
+| Tiny      | 15   | 13           | 12          | 11         |
+| Small     | 30   | 26           | 24          | 21         |
+| Medium    | 150  | 128          | 117         | 105        |
+| Large     | 400  | 340          | 312         | 280        |
+| Embedding | 5    | 5            | 4           | 4          |
+
+(All halala/M. Discount math uses `Math.ceil` — rounds in favour of platform.)
 
 Unused subscription credit rolls over 30 days past period end, then
 expires. PAYG top-up credit never expires. Above Scale buyers get custom

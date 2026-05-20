@@ -135,7 +135,7 @@ const FAQ: FaqItem[] = [
   },
   {
     q: 'What is the minimum top-up?',
-    a: <>5 SAR. New renter accounts also receive a 50 SAR starter credit on signup.</>,
+    a: <>5 SAR. New renter accounts also receive a 100 SAR starter credit on signup.</>,
   },
   {
     q: 'Do you charge per million tokens like OpenAI?',
@@ -303,6 +303,47 @@ function SubscriptionTiersSection() {
         ))}
       </div>
 
+      {/* Per-class effective rate table */}
+      <div className="mt-8 overflow-x-auto rounded-xl border border-dc1-border">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <caption className="px-4 py-3 text-left text-sm font-semibold text-dc1-text-primary">
+            Effective halala/M-token rates by model class &amp; tier
+          </caption>
+          <thead className="bg-dc1-surface-l2 text-xs uppercase tracking-wider text-dc1-text-muted">
+            <tr>
+              <th scope="col" className="px-4 py-3 font-semibold">Model class</th>
+              <th scope="col" className="px-4 py-3 font-semibold">Examples</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-right">PAYG</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-right">Starter -15%</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-right">Growth -22%</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-right">Scale -30%</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-dc1-border bg-dc1-surface-l1">
+            {MODEL_CLASS_RATES.map((row) => (
+              <tr key={row.klass}>
+                <td className="px-4 py-3 font-semibold text-dc1-text-primary">{row.label}</td>
+                <td className="px-4 py-3 text-xs text-dc1-text-secondary">{row.examples}</td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-primary">
+                  {row.paygHalala} <span className="text-xs text-dc1-text-muted">
+                    (${(row.paygHalala / 100 / SAR_USD).toFixed(3)}/M)
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">
+                  {Math.ceil(row.paygHalala * 0.85)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-amber">
+                  {Math.ceil(row.paygHalala * 0.78)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">
+                  {Math.ceil(row.paygHalala * 0.70)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       <div className="mt-6 rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5 text-sm text-dc1-text-secondary">
         <p className="font-semibold text-dc1-text-primary">How the discount maths works</p>
         <p className="mt-2">
@@ -310,15 +351,36 @@ function SubscriptionTiersSection() {
           <code className="rounded bg-dc1-surface-l2 px-1 py-0.5 text-xs text-dc1-text-primary">
             model_payg_rate × (1 − tier_discount)
           </code>
-          . If a model is 19 halala per million tokens on PAYG, a Growth subscriber (22% off) pays{' '}
-          <span className="font-mono">15 halala per million</span>; a Scale subscriber (30% off) pays{' '}
-          <span className="font-mono">14 halala per million</span>. Subscription credit is consumed first (oldest-expiring
-          balance first), then PAYG balance picks up any overage. Above Scale: contact us for a custom contract.
+          . Example for Qwen 3.6-27B-MTP (Medium class, 150 halala/M PAYG): Starter (15% off) pays{' '}
+          <span className="font-mono">128 halala/M</span> · Growth (22% off) pays{' '}
+          <span className="font-mono">117 halala/M</span> · Scale (30% off) pays{' '}
+          <span className="font-mono">105 halala/M</span>. Subscription credit is consumed first
+          (oldest-expiring balance first), then PAYG balance picks up any overage. Above Scale:
+          contact us for a custom contract.
         </p>
       </div>
     </section>
   )
 }
+
+interface ModelClassRate {
+  klass: 'tiny' | 'small' | 'medium' | 'large' | 'embedding'
+  label: string
+  examples: string
+  paygHalala: number
+}
+
+// Source of truth: backend/migrations/017_cost_rates_model_class.sql.
+// Values mirrored here so the public pricing page does not require a
+// network round-trip to render. If the backend rate card moves, update
+// both this constant and the migration in the same PR.
+const MODEL_CLASS_RATES: ModelClassRate[] = [
+  { klass: 'tiny',      label: 'Tiny',      examples: 'TinyLlama 1B, qwen2.5vl:3b, Gemma-2B',         paygHalala: 15  },
+  { klass: 'small',     label: 'Small',     examples: 'qwen3:8b, Mistral-7B, Llama-3-8B, ALLaM-7B',   paygHalala: 30  },
+  { klass: 'medium',    label: 'Medium',    examples: 'Qwen 3.6-27B-MTP, Qwen2.5-Coder-32B',          paygHalala: 150 },
+  { klass: 'large',     label: 'Large',     examples: 'Future 70B class',                              paygHalala: 400 },
+  { klass: 'embedding', label: 'Embedding', examples: 'bge-m3',                                        paygHalala: 5   },
+]
 
 export default function PricingPage() {
   return (
@@ -424,9 +486,9 @@ export default function PricingPage() {
               hint="A100 at 4.50 SAR/hour, settled to the second."
             />
             <CalculatorRow
-              label="50 SAR starter credit"
-              value="~10 hours"
-              hint="≈ 10 hours of RTX 3090 standard inference."
+              label="100 SAR starter credit"
+              value="~66M tokens"
+              hint="At Qwen 3.6-27B-MTP PAYG (150 halala/M). ~333M tokens on small models, ~25M on large."
             />
           </div>
           <p className="mt-3 text-xs text-dc1-text-muted">

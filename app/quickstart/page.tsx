@@ -324,7 +324,7 @@ export default function QuickstartPage() {
               <Link href="/renter/register" className="text-dc1-amber hover:underline">
                 dcp.sa/renter/register
               </Link>
-              . New accounts get a 50 SAR starter credit.
+              . New accounts get a 100 SAR starter credit.
             </li>
             <li>
               <span className="font-semibold text-dc1-text-primary">2. </span>
@@ -421,7 +421,7 @@ export default function QuickstartPage() {
               </Link>
               .
             </li>
-            <li>New renter accounts receive a 50 SAR starter credit on signup.</li>
+            <li>New renter accounts receive a 100 SAR starter credit on signup. PAYG is the default; monthly subscription tiers (Starter / Growth / Scale) discount the per-token rate by 15–30%.</li>
             <li>
               Rate limits are per-key and per-IP. Production renters who need higher quotas can request them at{' '}
               <a href="mailto:billing@dcp.sa" className="text-dc1-amber hover:underline">
