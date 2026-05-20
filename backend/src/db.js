@@ -1113,6 +1113,36 @@ migrations.forEach(sql => {
   }
 });
 
+// ─── PROVIDER_ENGINES TABLE ─── (migration 015)
+// Multi-engine routing source of truth. One row per (provider_id, engine_type)
+// so a single provider can expose more than one inference backend (e.g.
+// llama.cpp at 8080 + Ollama at 11434). Legacy `providers.vllm_endpoint_url`
+// + `providers.cached_models` remain intact for backward compatibility — the
+// gateway selects between paths via the MULTI_ENGINE_ROUTING_ENABLED env flag.
+//
+// On production this table was created surgically during the 2026-05-19
+// phantom-daemon remediation (see migrations/015_provider_engines.sql for the
+// full audit comment). The IF NOT EXISTS guards keep prod rows intact.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_engines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_id INTEGER NOT NULL,
+    engine_type TEXT NOT NULL CHECK (engine_type IN ('ollama','vllm','llamacpp')),
+    base_url TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    served_models TEXT NOT NULL DEFAULT '[]',
+    reachable INTEGER DEFAULT 1,
+    last_probed_at TEXT,
+    last_probe_error TEXT,
+    last_seen_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(provider_id, engine_type),
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_provider ON provider_engines(provider_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_lookup  ON provider_engines(reachable, engine_type)`);
+
 // ─── RENTERS TABLE ───
 db.exec(`
   CREATE TABLE IF NOT EXISTS renters (

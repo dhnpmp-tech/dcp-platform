@@ -911,7 +911,117 @@ function parseCachedModels(raw) {
     .filter(Boolean);
 }
 
+// ─── Multi-engine routing (migration 015) ────────────────────────────────
+// When MULTI_ENGINE_ROUTING_ENABLED=true, the gateway consults the
+// `provider_engines` table to find providers serving a specific model on a
+// specific engine. Each capable provider returned via this path carries a
+// `_selectedEngine` field whose `base_url` overrides the legacy
+// `providers.vllm_endpoint_url` in `proxyToProvider`. Falls back to the
+// legacy path when no engine row matches (backward compat for providers that
+// haven't shipped per-engine heartbeat payloads yet).
+function isMultiEngineRoutingEnabled() {
+  return process.env.MULTI_ENGINE_ROUTING_ENABLED === 'true';
+}
+
+// Returns engine rows (joined with their parent provider) whose
+// `served_models` JSON includes `modelAlias`. Filters out paused / soft-
+// deleted providers and unreachable engines. Returns a list of
+// {provider, engine} pairs sorted by provider id (stable).
+function lookupProviderEnginesForModel(modelAlias) {
+  const requestedLower = modelAlias ? String(modelAlias).toLowerCase().trim() : null;
+  if (!requestedLower) return [];
+
+  // Use a single JOIN — small table (≤ a few hundred rows), no need for a
+  // dedicated cache. Filter served_models in JS because SQLite's JSON1 may
+  // not be compiled in on every install.
+  let rows;
+  try {
+    rows = db.all(
+      `SELECT pe.id              AS engine_id,
+              pe.engine_type     AS engine_type,
+              pe.base_url        AS engine_base_url,
+              pe.port            AS engine_port,
+              pe.served_models   AS engine_served_models,
+              pe.reachable       AS engine_reachable,
+              p.*
+         FROM provider_engines pe
+         JOIN providers p ON p.id = pe.provider_id
+        WHERE pe.reachable = 1
+          AND p.status = 'online'
+          AND COALESCE(p.is_paused, 0) = 0
+          AND p.deleted_at IS NULL`
+    );
+  } catch (e) {
+    // Table missing or other schema issue — degrade silently to legacy path.
+    return [];
+  }
+
+  const out = [];
+  for (const row of rows) {
+    let served = [];
+    try {
+      const parsed = JSON.parse(row.engine_served_models || '[]');
+      if (Array.isArray(parsed)) {
+        served = parsed.map((m) => String(m).toLowerCase().trim()).filter(Boolean);
+      }
+    } catch (_) {
+      // Malformed JSON — skip this row rather than crash dispatch.
+      continue;
+    }
+    if (served.length === 0) continue;
+
+    const hasModel = served.some((m) =>
+      m === requestedLower ||
+      m.includes(requestedLower) ||
+      requestedLower.includes(m)
+    );
+    if (!hasModel) continue;
+
+    const providerCols = { ...row };
+    delete providerCols.engine_id;
+    delete providerCols.engine_type;
+    delete providerCols.engine_base_url;
+    delete providerCols.engine_port;
+    delete providerCols.engine_served_models;
+    delete providerCols.engine_reachable;
+
+    out.push({
+      ...providerCols,
+      _selectedEngine: {
+        engine_id: row.engine_id,
+        engine_type: row.engine_type,
+        base_url: row.engine_base_url,
+        port: row.engine_port,
+        served_models: served,
+      },
+    });
+  }
+  return out;
+}
+
 function getCapableProviders(minVramMb, requestedModelId) {
+  // Flagged: try the multi-engine table first. When it returns matches we
+  // skip the legacy SELECT entirely. When it returns nothing we fall through
+  // so providers without engine rows still serve via their legacy endpoint.
+  if (isMultiEngineRoutingEnabled() && requestedModelId) {
+    const engineCandidates = lookupProviderEnginesForModel(requestedModelId);
+    if (engineCandidates.length > 0) {
+      const nowMs = Date.now();
+      const filtered = [];
+      for (const candidate of engineCandidates) {
+        const hbMs = candidate.last_heartbeat ? Date.parse(candidate.last_heartbeat) : NaN;
+        if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
+        if (candidate.endpoint_reachable === 0) continue;
+        if (!parseComputeTypes(candidate.supported_compute_types).has('inference')) continue;
+        if (resolveProviderVramMb(candidate) < minVramMb) continue;
+        filtered.push(candidate);
+      }
+      if (filtered.length > 0) return filtered;
+      // Engine rows matched but no provider passed the readiness gates —
+      // fall through to legacy below so we don't strand the request.
+    }
+  }
+
   const providers = db.all(
     `SELECT * FROM providers
      WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
@@ -2048,11 +2158,22 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           retryable: true,
         });
       }
-      // H5 routing preference: prefer WG mesh IP when available (lower latency, more reliable)
-      let effectiveEndpointUrl = assignedProvider.vllm_endpoint_url;
-      if (assignedProvider.wg_mesh_ip) {
-        const wgPort = (assignedProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
-        effectiveEndpointUrl = `http://${assignedProvider.wg_mesh_ip}:${wgPort}`;
+      // Multi-engine routing (migration 015): when the provider was picked
+      // via the engines table, dispatch to that engine's base_url instead of
+      // the legacy single `vllm_endpoint_url`. Note: engine base_url already
+      // contains the WG mesh IP in production (e.g. http://10.8.0.6:11434/v1),
+      // so we skip the wg_mesh_ip rewrite for this branch.
+      let effectiveEndpointUrl;
+      if (assignedProvider._selectedEngine && assignedProvider._selectedEngine.base_url) {
+        effectiveEndpointUrl = assignedProvider._selectedEngine.base_url;
+      } else {
+        // Legacy path. H5 routing preference: prefer WG mesh IP when available
+        // (lower latency, more reliable) than the registered vllm endpoint.
+        effectiveEndpointUrl = assignedProvider.vllm_endpoint_url;
+        if (assignedProvider.wg_mesh_ip) {
+          const wgPort = (assignedProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
+          effectiveEndpointUrl = `http://${assignedProvider.wg_mesh_ip}:${wgPort}`;
+        }
       }
 
       const proxyResult = await proxyToProvider({
@@ -2397,7 +2518,8 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       // If selected provider endpoint exists but failed to produce a valid payload,
       // retry once through other capable providers before returning upstream failure.
       const fallbackCapable = fallbackProviders
-        .filter((provider) => provider.id !== assignedProvider.id && provider.vllm_endpoint_url)
+        .filter((provider) => provider.id !== assignedProvider.id
+          && (provider.vllm_endpoint_url || provider._selectedEngine?.base_url))
         .slice(0, 2);
 
       for (const fallbackProvider of fallbackCapable) {
@@ -2411,11 +2533,18 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         // rather than stacking onto a busy Ollama instance.
         if (!tryAcquireSlot(fallbackProvider.id)) continue;
 
-        // H5 routing preference: prefer WG mesh IP for fallback too
-        let fallbackEffectiveUrl = fallbackProvider.vllm_endpoint_url;
-        if (fallbackProvider.wg_mesh_ip) {
-          const fbPort = (fallbackProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
-          fallbackEffectiveUrl = `http://${fallbackProvider.wg_mesh_ip}:${fbPort}`;
+        // Multi-engine routing (migration 015): honor the selected engine's
+        // base_url when present, else fall back to the legacy path.
+        let fallbackEffectiveUrl;
+        if (fallbackProvider._selectedEngine && fallbackProvider._selectedEngine.base_url) {
+          fallbackEffectiveUrl = fallbackProvider._selectedEngine.base_url;
+        } else {
+          // H5 routing preference: prefer WG mesh IP for fallback too.
+          fallbackEffectiveUrl = fallbackProvider.vllm_endpoint_url;
+          if (fallbackProvider.wg_mesh_ip) {
+            const fbPort = (fallbackProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
+            fallbackEffectiveUrl = `http://${fallbackProvider.wg_mesh_ip}:${fbPort}`;
+          }
         }
 
         const fallbackResult = await proxyToProvider({
@@ -2633,4 +2762,9 @@ module.exports.__test = {
   estimatePromptFromMessages,
   approximateTokenCount,
   VISION_IMAGE_TOKEN_ESTIMATE,
+  // Multi-engine routing (migration 015)
+  lookupProviderEnginesForModel,
+  getCapableProviders,
+  isMultiEngineRoutingEnabled,
+  buildProviderChatCompletionsUrl,
 };
