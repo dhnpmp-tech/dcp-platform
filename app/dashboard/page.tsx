@@ -10,6 +10,7 @@ import SpendingCard from '../components/ui/SpendingCard'
 import SpendingAnalyticsCard from '../components/SpendingAnalyticsCard'
 import JobCard, { type Job } from '../components/JobCard'
 import QuickRedeployModal, { type Job as ModalJob } from '../components/modals/QuickRedeployModal'
+import NotificationsBell from '../components/NotificationsBell'
 import { useLanguage } from '../lib/i18n'
 
 const API_BASE = '/api'
@@ -242,9 +243,12 @@ export default function RenterDashboardPage() {
             </h1>
             <p className="text-dc1-text-secondary text-sm mt-1">Track your GPU jobs, spending, and account balance.</p>
           </div>
-          <Link href="/renter/marketplace" className="btn btn-primary text-sm py-2 px-4 flex-shrink-0">
-            + New Deployment
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <NotificationsBell renterKey={renterKey || null} />
+            <Link href="/renter/marketplace" className="btn btn-primary text-sm py-2 px-4">
+              + New Deployment
+            </Link>
+          </div>
         </div>
 
         {/* Spending analytics card */}
