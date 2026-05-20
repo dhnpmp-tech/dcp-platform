@@ -318,6 +318,26 @@ export default function EarningsPage() {
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('30d')
   const [trendLoading, setTrendLoading] = useState(false)
   const hasTrackedTrustView = useRef(false)
+  // Renter-side rate card (informational): pulled from public /api/subscriptions/tiers.
+  // Providers see the per-class PAYG rates renters are billed; payout = rate × revenue-share.
+  const [renterClassRates, setRenterClassRates] = useState<Array<{
+    model_class: string
+    label: string
+    payg_halala_per_M: number
+    payg_usd_per_M: number
+  }>>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_BASE}/subscriptions/tiers`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.classes)) return
+        setRenterClassRates(data.classes)
+      })
+      .catch(() => { /* informational panel: silent failure is fine */ })
+    return () => { cancelled = true }
+  }, [])
 
   const fetchAll = useCallback(async () => {
     const key = localStorage.getItem('dc1_provider_key')
@@ -647,6 +667,46 @@ export default function EarningsPage() {
             <StatCard label={t('provider.total_earnings')} value={`${earnings.total_earned_sar.toFixed(2)} SAR`} accent="success" />
             <StatCard label={t('provider.withdrawn')} value={`${earnings.withdrawn_sar.toFixed(2)} SAR`} accent="default" />
             <StatCard label={t('provider.jobs_completed')} value={String(earnings.total_jobs)} accent="info" />
+          </div>
+        )}
+
+        {/* Renter-side rate card (informational) */}
+        {renterClassRates.length > 0 && (
+          <div className="card border border-dc1-border">
+            <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-dc1-amber font-semibold">
+                Renter-side rate card
+              </p>
+              <p className="text-xs text-dc1-text-muted">Informational. Does not change your payout maths.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wider text-dc1-text-muted border-b border-dc1-border">
+                    <th className="py-2 pr-4 font-medium">Class</th>
+                    <th className="py-2 pr-4 font-medium text-right">Halala / M tokens</th>
+                    <th className="py-2 pr-4 font-medium text-right">USD / M tokens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {renterClassRates.map((row) => (
+                    <tr key={row.model_class} className="border-b border-dc1-border/40">
+                      <td className="py-2 pr-4 text-dc1-text-primary">{row.label}</td>
+                      <td className="py-2 pr-4 font-mono text-dc1-text-secondary text-right">
+                        {row.payg_halala_per_M.toLocaleString()}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-dc1-amber text-right">
+                        ${row.payg_usd_per_M.toFixed(4)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-dc1-text-muted mt-3">
+              Your payout = renter rate × your revenue-share. Inference billing is per-million-tokens (PAYG)
+              or subscription-discounted (15–30% off PAYG).
+            </p>
           </div>
         )}
 
