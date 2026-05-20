@@ -1163,6 +1163,26 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_api_key_rotations_account_time ON api_key_rotations(account_type, account_id, rotated_at DESC)`);
 
+// ─── RENTER NOTIFICATIONS TABLE ─── (migration 013)
+// In-dashboard notifications. Replaces per-job completion emails to stop
+// burning Resend quota; dailyDigest service rolls these into one email/day.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS renter_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    renter_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    job_id INTEGER,
+    payload TEXT,
+    read_at TEXT,
+    digested_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (renter_id) REFERENCES renters(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_notif_unread ON renter_notifications(renter_id, read_at, created_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_notif_digest ON renter_notifications(kind, digested_at, created_at)`);
+
 // ─── SCOPED RENTER API KEYS TABLE ─── Sprint 25 Gap 2
 // Sub-keys with explicit scope grants; master renters.api_key retains full access.
 // scopes: JSON array of allowed operations, e.g. ["inference", "billing"]

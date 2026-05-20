@@ -2,6 +2,12 @@ const crypto = require('crypto');
 const { sendJobCompleteEmail } = require('./emailService');
 const { isPublicWebhookUrl, isResolvablePublicWebhookUrl } = require('../lib/webhook-security');
 const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
+const notificationsV2 = require('./notificationsV2');
+
+// Threshold (halala) below which a job-completion event ALSO escalates to a
+// real-time low-balance email. 10 SAR = 1000 halala. Keeps the on-call path
+// alive for the cases that genuinely warrant a synchronous email.
+const LOW_BALANCE_THRESHOLD_HALALA = 1000;
 
 let sweepTimer = null;
 let loggedRetryMigrationHint = false;
@@ -203,7 +209,7 @@ function buildSweepStatements(db) {
       : null,
     renterWebhookStmt: safePrepare(
       db,
-      `SELECT id, api_key, webhook_url, email, name, status FROM renters WHERE id = ?`,
+      `SELECT id, api_key, webhook_url, email, name, status, balance_halala FROM renters WHERE id = ?`,
       'prepare renter webhook lookup statement'
     ),
     queueDepthStmt: safePrepare(db, queueDepthSql, 'prepare queue depth statement'),
@@ -467,6 +473,8 @@ async function processCompletionEmailCandidates(state) {
   if (!state.completionEmailCandidatesStmt || !state.hasCompletionEmailSentAt) return;
 
   const candidates = safeAll(state.completionEmailCandidatesStmt, 'query completion email candidates');
+  const v2Enabled = notificationsV2.isEnabled();
+
   for (const job of candidates) {
     if (!job || !job.id || !job.renter_id) continue;
 
@@ -486,6 +494,69 @@ async function processCompletionEmailCandidates(state) {
     const totalHalala = Number(job.actual_cost_halala ?? job.cost_halala ?? 0);
     const providerEarningHalala = Number(job.provider_earned_halala);
     const durationMinutes = Number(job.actual_duration_minutes ?? job.duration_minutes);
+
+    if (v2Enabled) {
+      // V2: persist an in-dashboard notification instead of sending an email.
+      const notifPayload = {
+        job_id: job.job_id || String(job.id),
+        model: job.model || job.job_type || 'General compute',
+        cost_halala: totalHalala,
+        cost_sar: totalHalala / 100,
+        duration_minutes: Number.isFinite(durationMinutes) ? durationMinutes : null,
+        provider_earned_halala: Number.isFinite(providerEarningHalala) ? providerEarningHalala : null,
+        status: job.status,
+      };
+      const insertResult = notificationsV2.recordNotification(state.db, {
+        renterId: renter.id,
+        kind: 'job_completed',
+        jobId: job.id,
+        payload: notifPayload,
+      });
+
+      // If the notification table isn't there yet (mid-deploy), fall through
+      // to the legacy email path so we don't lose the event.
+      if (insertResult.ok) {
+        // Low-balance escalation: if completing this job pushed the renter
+        // under the threshold, send ONE real-time email AND record a
+        // 'balance_low' notification. Best-effort — failures don't block
+        // the completion mark.
+        const balanceHalala = Number(renter.balance_halala);
+        if (Number.isFinite(balanceHalala) && balanceHalala < LOW_BALANCE_THRESHOLD_HALALA) {
+          notificationsV2.recordNotification(state.db, {
+            renterId: renter.id,
+            kind: 'balance_low',
+            jobId: job.id,
+            payload: {
+              balance_halala: balanceHalala,
+              balance_sar: balanceHalala / 100,
+              threshold_sar: LOW_BALANCE_THRESHOLD_HALALA / 100,
+            },
+          });
+          // We reuse the existing job-complete email template here as the
+          // carrier for the urgency signal; a dedicated low-balance template
+          // is out of scope for this PR.
+          try {
+            await sendJobCompleteEmail(
+              renter.email,
+              job.job_id || String(job.id),
+              totalHalala / 100,
+              job.model || job.job_type || 'General compute',
+              {
+                durationMinutes: Number.isFinite(durationMinutes) ? durationMinutes : undefined,
+                providerEarningSar: Number.isFinite(providerEarningHalala) ? providerEarningHalala / 100 : undefined,
+              }
+            );
+          } catch (err) {
+            console.warn(`[jobSweep] low-balance escalation email failed for job ${job.id}: ${err.message}`);
+          }
+        }
+
+        markCompletionEmailSent(state, job.id);
+        continue;
+      }
+      // insert failed (e.g. table missing) — fall through to legacy email
+    }
+
     const result = await sendJobCompleteEmail(
       renter.email,
       job.job_id || String(job.id),

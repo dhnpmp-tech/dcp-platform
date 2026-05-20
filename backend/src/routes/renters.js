@@ -540,6 +540,117 @@ router.get('/me', (req, res) => {
   }
 });
 
+// ─── In-dashboard notifications (Notifications V2) ──────────────────────
+// Replaces per-job completion emails. The dailyDigest service rolls these
+// into one email/day. See backend/src/services/notificationsV2.js.
+
+const NOTIF_LIST_LIMIT_MAX = 100;
+const NOTIF_LIST_LIMIT_DEFAULT = 50;
+
+function parseNotifLimit(value) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return NOTIF_LIST_LIMIT_DEFAULT;
+  return Math.min(parsed, NOTIF_LIST_LIMIT_MAX);
+}
+
+function safeParseNotifPayload(value) {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch (_err) { return null; }
+}
+
+// GET /api/renters/me/notifications?unread=true&limit=50
+router.get('/me/notifications', (req, res) => {
+  try {
+    const key = req.headers['x-renter-key'] || req.query.key;
+    if (!key) return res.status(400).json({ error: 'API key required' });
+
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+
+    const unreadOnly = String(req.query.unread || '').toLowerCase() === 'true';
+    const limit = parseNotifLimit(req.query.limit);
+
+    const baseSql = `SELECT id, kind, job_id, payload, read_at, created_at
+                       FROM renter_notifications
+                      WHERE renter_id = ?`;
+    const tailSql = ' ORDER BY created_at DESC, id DESC LIMIT ?';
+    const rows = unreadOnly
+      ? db.all(`${baseSql} AND read_at IS NULL${tailSql}`, renterId, limit)
+      : db.all(`${baseSql}${tailSql}`, renterId, limit);
+
+    const totalRow = db.get('SELECT COUNT(*) AS c FROM renter_notifications WHERE renter_id = ?', renterId);
+    const unreadRow = db.get('SELECT COUNT(*) AS c FROM renter_notifications WHERE renter_id = ? AND read_at IS NULL', renterId);
+
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        job_id: r.job_id,
+        payload: safeParseNotifPayload(r.payload),
+        read_at: r.read_at,
+        created_at: r.created_at,
+      })),
+      total: Number(totalRow?.c || 0),
+      unread_count: Number(unreadRow?.c || 0),
+    });
+  } catch (error) {
+    console.error('Renter notifications list error:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// POST /api/renters/me/notifications/:id/read
+router.post('/me/notifications/:id/read', (req, res) => {
+  try {
+    const key = req.headers['x-renter-key'] || req.query.key;
+    if (!key) return res.status(400).json({ error: 'API key required' });
+
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+
+    const notifId = Number.parseInt(String(req.params.id), 10);
+    if (!Number.isFinite(notifId) || notifId <= 0) {
+      return res.status(400).json({ error: 'Invalid notification id' });
+    }
+
+    const result = runStatement(
+      `UPDATE renter_notifications
+          SET read_at = datetime('now')
+        WHERE id = ? AND renter_id = ? AND read_at IS NULL`,
+      notifId,
+      renterId
+    );
+
+    res.json({ ok: true, updated: Number(result?.changes || 0) });
+  } catch (error) {
+    console.error('Renter notification read error:', error);
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+// POST /api/renters/me/notifications/read-all
+router.post('/me/notifications/read-all', (req, res) => {
+  try {
+    const key = req.headers['x-renter-key'] || req.query.key;
+    if (!key) return res.status(400).json({ error: 'API key required' });
+
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+
+    const result = runStatement(
+      `UPDATE renter_notifications
+          SET read_at = datetime('now')
+        WHERE renter_id = ? AND read_at IS NULL`,
+      renterId
+    );
+
+    res.json({ ok: true, updated: Number(result?.changes || 0) });
+  } catch (error) {
+    console.error('Renter notification read-all error:', error);
+    res.status(500).json({ error: 'Failed to mark notifications as read' });
+  }
+});
+
 // GET /api/renters/me/payments?key=API_KEY
 router.get('/me/payments', (req, res) => {
   try {
