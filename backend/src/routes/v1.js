@@ -27,6 +27,7 @@ const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-c
 const { deduplicateModelAliases, DASH_TO_CANONICAL } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
+const subscriptionService = require('../services/subscriptionService');
 const {
   selectProvidersWithLatencyGate,
   recordStreamOutcome,
@@ -1923,12 +1924,32 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const promptTokens = approximateTokenCount(mergedPrompt);
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
-    const tokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
+    const baseTokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
     // Migration 011: prefer per-1M in/out rates from model_registry. Falls
     // back to legacy `tokenRateHalala` applied symmetrically when null.
     const modelRegRates = resolveModelRegistryRates(modelReq.model_id);
-    const inRateHalalaPer1m = modelRegRates.in;
-    const outRateHalalaPer1m = modelRegRates.out;
+    const baseInRate = modelRegRates.in;
+    const baseOutRate = modelRegRates.out;
+
+    // Migration 016: subscription discount. Active subscription = discount
+    // applied per-model (NOT a flat bundle). Models still bill at their own
+    // rate; discount is a uniform percentage off PAYG. Behind a flag while
+    // we verify; default-off keeps PAYG behavior identical to pre-016.
+    let activeSubscription = null;
+    let subscriptionDiscountBps = 0;
+    if (process.env.SUBSCRIPTION_BILLING_ENABLED === 'true' && req.renter?.id) {
+      try {
+        activeSubscription = subscriptionService.getActiveSubscription(db, req.renter.id);
+        if (activeSubscription) {
+          subscriptionDiscountBps = activeSubscription.discount_bps;
+        }
+      } catch (e) {
+        console.error('[v1] subscription lookup failed', { renterId: req.renter.id, msg: e?.message });
+      }
+    }
+    const tokenRateHalala = subscriptionService.computeDiscountedRateHalala(baseTokenRateHalala, subscriptionDiscountBps);
+    const inRateHalalaPer1m = baseInRate == null ? null : subscriptionService.computeDiscountedRateHalala(baseInRate, subscriptionDiscountBps);
+    const outRateHalalaPer1m = baseOutRate == null ? null : subscriptionService.computeDiscountedRateHalala(baseOutRate, subscriptionDiscountBps);
     const meteringRequestId = extractRequestId(req);
     let usagePersisted = false;
     const dbHandle = db._db || db;
@@ -2067,8 +2088,23 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
 
     const debitRenterSafe = (costHalala) => {
       try {
-        db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
-          .run(costHalala, new Date().toISOString(), req.renter.id, costHalala);
+        const nowIso = new Date().toISOString();
+        let paygShortfall = costHalala;
+        // Migration 016: drain oldest-expiring subscription credit first, then
+        // fall back to PAYG balance_halala for the remainder. Only active when
+        // SUBSCRIPTION_BILLING_ENABLED=true and renter has an active sub.
+        if (activeSubscription) {
+          const result = subscriptionService.debitSubscriptionCredits(db, {
+            renterId: req.renter.id,
+            costHalala,
+            nowIso,
+          });
+          paygShortfall = result.shortfall;
+        }
+        if (paygShortfall > 0) {
+          db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
+            .run(paygShortfall, nowIso, req.renter.id, paygShortfall);
+        }
       } catch (err) {
         // Structured drift-detection: this is the ONLY renter-balance debit
         // on the proxy success path. A silent failure here means the usage
@@ -2078,6 +2114,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         console.error('[v1] debit failed — ledger/balance drift', {
           renterId: req.renter.id,
           costHalala,
+          subscriptionActive: Boolean(activeSubscription),
           message: err && err.message,
           code: err && err.code,
         });
@@ -2108,7 +2145,21 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         });
       });
     };
-    if (Number(req.renter.balance_halala || 0) < estimatedCostHalala) {
+    // Migration 016: include subscription credit balance in the pre-flight
+    // check. A subscriber with 100k halala of credit and 0 PAYG balance must
+    // still pass this gate. Falls back to PAYG-only when no active sub.
+    let subscriptionCreditRemaining = 0;
+    if (activeSubscription) {
+      try {
+        subscriptionCreditRemaining = subscriptionService.getRemainingCreditTotal(
+          db, req.renter.id, new Date().toISOString()
+        );
+      } catch (e) {
+        console.error('[v1] sub credit lookup failed', { renterId: req.renter.id, msg: e?.message });
+      }
+    }
+    const totalAvailableHalala = Number(req.renter.balance_halala || 0) + subscriptionCreditRemaining;
+    if (totalAvailableHalala < estimatedCostHalala) {
       return sendV1Error(res, {
         status: 402,
         type: 'billing_error',
@@ -2118,6 +2169,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         details: {
           billing_url: 'https://dcp.sa/renter/billing',
           balance_halala: Number(req.renter.balance_halala || 0),
+          subscription_credit_halala: subscriptionCreditRemaining,
           required_halala: estimatedCostHalala,
         },
       });

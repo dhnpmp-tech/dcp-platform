@@ -1143,6 +1143,61 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_provider ON provider_engines(provider_id)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_lookup  ON provider_engines(reachable, engine_type)`);
 
+// ─── RENTER SUBSCRIPTIONS ─── (migration 016)
+// Dual pricing SKU: PAYG (renters.balance_halala) + monthly subscription.
+// Subscription = SAR monthly fee → SAR credit grant + per-tier discount
+// applied to PAYG per-model rates. Models bill at their OWN rate (not a
+// flat bundle rate). Credit grants roll over 30 days then expire.
+// Schema source of truth: migrations/016_renter_subscriptions.sql
+db.exec(`
+  CREATE TABLE IF NOT EXISTS renter_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    renter_id INTEGER NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('starter','growth','scale')),
+    monthly_sar INTEGER NOT NULL,
+    discount_bps INTEGER NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending','active','past_due','cancelled','expired')) DEFAULT 'pending',
+    moyasar_subscription_id TEXT UNIQUE,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (renter_id) REFERENCES renters(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_subscriptions_renter ON renter_subscriptions(renter_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_subscriptions_status ON renter_subscriptions(status)`);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_renter_subscriptions_one_open ON renter_subscriptions(renter_id) WHERE status IN ('pending','active','past_due')`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subscription_credits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id INTEGER NOT NULL,
+    renter_id INTEGER NOT NULL,
+    granted_at TEXT NOT NULL,
+    amount_halala INTEGER NOT NULL,
+    consumed_halala INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'monthly_grant' CHECK (source IN ('monthly_grant','adjustment','promo')),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (subscription_id) REFERENCES renter_subscriptions(id) ON DELETE CASCADE,
+    FOREIGN KEY (renter_id) REFERENCES renters(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subscription_credits_renter_remaining ON subscription_credits(renter_id, expires_at) WHERE consumed_halala < amount_halala`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subscription_credits_subscription ON subscription_credits(subscription_id)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS moyasar_webhook_events (
+    event_id TEXT PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    applied_at TEXT
+  )
+`);
+
 // ─── RENTERS TABLE ───
 db.exec(`
   CREATE TABLE IF NOT EXISTS renters (

@@ -26,7 +26,7 @@ const router = express.Router();
 
 // Renter starter balance, granted exactly once when the renter clicks
 // their magic-link verification email (DCP onboarding bundle 2026-05-09).
-const RENTER_STARTER_BALANCE_HALALA = 5000;
+const RENTER_STARTER_BALANCE_HALALA = 10000;
 
 /**
  * Idempotently finalize a pending renter row on first magic-link click.

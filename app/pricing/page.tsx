@@ -204,6 +204,122 @@ function CalculatorRow({
   )
 }
 
+interface SubscriptionTier {
+  tier: 'starter' | 'growth' | 'scale'
+  name: string
+  monthlySar: number
+  discountPct: number
+  monthlyCreditSar: number
+  bestFor: string
+  highlight?: boolean
+}
+
+const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
+  {
+    tier: 'starter',
+    name: 'Starter',
+    monthlySar: 375,
+    discountPct: 15,
+    monthlyCreditSar: 375,
+    bestFor: 'Indie devs, small Saudi apps with predictable monthly volume',
+  },
+  {
+    tier: 'growth',
+    name: 'Growth',
+    monthlySar: 1500,
+    discountPct: 22,
+    monthlyCreditSar: 1500,
+    bestFor: 'Saudi SMBs and startups in production',
+    highlight: true,
+  },
+  {
+    tier: 'scale',
+    name: 'Scale',
+    monthlySar: 5625,
+    discountPct: 30,
+    monthlyCreditSar: 5625,
+    bestFor: 'Production teams running heavy inference workloads',
+  },
+]
+
+function SubscriptionTiersSection() {
+  return (
+    <section aria-labelledby="subs-heading" className="mb-14">
+      <h2 id="subs-heading" className="text-xl font-semibold text-dc1-text-primary">
+        Monthly subscription tiers
+      </h2>
+      <p className="mt-1 max-w-3xl text-sm text-dc1-text-secondary">
+        Subscribe and your tokens get cheaper. Each tier is a monthly SAR commit that grants you the same amount in
+        platform credit, debited at <span className="font-semibold text-dc1-text-primary">every model&apos;s own per-million-token rate</span>{' '}
+        — multiplied by your tier discount. Premium models still cost more than small models on Scale; the discount is
+        the same percentage across the catalog. Unused credit rolls over for 30 days. Overage falls back to PAYG.
+      </p>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {SUBSCRIPTION_TIERS.map((t) => (
+          <div
+            key={t.tier}
+            className={
+              'rounded-2xl border p-6 transition ' +
+              (t.highlight
+                ? 'border-dc1-amber bg-dc1-surface-l2 shadow-[0_0_0_1px_var(--dc1-amber-soft)]'
+                : 'border-dc1-border bg-dc1-surface-l1')
+            }
+          >
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-lg font-semibold text-dc1-text-primary">{t.name}</h3>
+              {t.highlight && (
+                <span className="rounded-full bg-dc1-amber px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dc1-void">
+                  Popular
+                </span>
+              )}
+            </div>
+            <p className="mt-3 font-mono text-3xl tabular-nums text-dc1-text-primary">
+              {t.monthlySar.toLocaleString()} <span className="text-base text-dc1-text-muted">SAR / mo</span>
+            </p>
+            <p className="mt-1 text-xs text-dc1-text-secondary">
+              ≈ ${(t.monthlySar / SAR_USD).toFixed(0)} USD · {t.discountPct}% off every model&apos;s PAYG rate
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-dc1-text-secondary">
+              <li>
+                <span className="text-dc1-text-primary">{t.monthlyCreditSar.toLocaleString()} SAR</span> platform credit
+                each month
+              </li>
+              <li>
+                <span className="text-dc1-text-primary">{t.discountPct}%</span> off every model&apos;s per-M-token PAYG
+                rate
+              </li>
+              <li>Unused credit rolls over for 30 days, then expires</li>
+              <li>Overage continues at PAYG rates — no hard cap</li>
+              <li className="text-xs text-dc1-text-muted">Best for: {t.bestFor}</li>
+            </ul>
+            <Link
+              href={`/renter/register?intent=subscribe&tier=${t.tier}`}
+              className={'btn btn-md mt-6 w-full ' + (t.highlight ? 'btn-primary' : 'btn-secondary')}
+            >
+              Start with {t.name}
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5 text-sm text-dc1-text-secondary">
+        <p className="font-semibold text-dc1-text-primary">How the discount maths works</p>
+        <p className="mt-2">
+          Effective rate ={' '}
+          <code className="rounded bg-dc1-surface-l2 px-1 py-0.5 text-xs text-dc1-text-primary">
+            model_payg_rate × (1 − tier_discount)
+          </code>
+          . If a model is 19 halala per million tokens on PAYG, a Growth subscriber (22% off) pays{' '}
+          <span className="font-mono">15 halala per million</span>; a Scale subscriber (30% off) pays{' '}
+          <span className="font-mono">14 halala per million</span>. Subscription credit is consumed first (oldest-expiring
+          balance first), then PAYG balance picks up any overage. Above Scale: contact us for a custom contract.
+        </p>
+      </div>
+    </section>
+  )
+}
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-dc1-void" dir="ltr">
@@ -214,21 +330,24 @@ export default function PricingPage() {
         <section aria-labelledby="pricing-heading" className="mb-12">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dc1-amber">PRICING</p>
           <h1 id="pricing-heading" className="mt-2 text-4xl font-bold text-dc1-text-primary sm:text-5xl">
-            Pricing in SAR. Pay only for what you use.
+            Pricing in SAR. Two SKUs, one balance.
           </h1>
           <p className="mt-4 max-w-2xl text-base text-dc1-text-secondary">
-            No subscription. No seat fees. No hidden charges. DCP bills in Saudi halala for actual GPU-active seconds,
-            settled per minute. Top up from 5 SAR, get a 50 SAR starter credit on signup.
+            Pay-as-you-go per million tokens, or upgrade to a monthly subscription that gives you the same tokens at a
+            discount. Every signup gets a 100 SAR starter credit — no card required.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/renter/register" className="btn btn-primary btn-md">
-              Start free (50 SAR credit)
+              Start free (100 SAR credit)
             </Link>
             <Link href="/quickstart" className="btn btn-secondary btn-md">
               Read the quickstart
             </Link>
           </div>
         </section>
+
+        {/* Subscription tiers */}
+        <SubscriptionTiersSection />
 
         {/* Rate table */}
         <section aria-labelledby="rate-table-heading" className="mb-14">
