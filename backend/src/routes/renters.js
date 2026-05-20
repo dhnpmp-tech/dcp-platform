@@ -5,7 +5,7 @@ const router = express.Router();
 const db = require('../db');
 const { COST_RATES } = require('./jobs');
 const { sendWelcomeEmail, sendDataExportReady } = require('../services/emailService');
-const { renterAccountDeletionLimiter, renterDataExportLimiter } = require('../middleware/rateLimiter');
+const { renterAccountDeletionLimiter, renterDataExportLimiter, registerLimiter } = require('../middleware/rateLimiter');
 const {
   getDiscoveryStatus,
   resolveProviders,
@@ -381,7 +381,7 @@ function hashedDeletedEmail(rawEmail, accountId) {
 //   The finalization is idempotent — clicking the link twice (or a stale
 //   link landing after the row is already active) returns the same api_key
 //   without double-crediting the balance. See routes/auth.js.
-router.post('/register', validateBody(renterRegisterSchema), async (req, res) => {
+router.post('/register', registerLimiter, validateBody(renterRegisterSchema), async (req, res) => {
   try {
     const { name, email, organization, use_case, useCase, phone } = req.body;
     const cleanName = normalizeString(name, { maxLen: 120 });

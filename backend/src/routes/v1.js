@@ -2005,6 +2005,9 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         code: 'billing_insufficient_balance',
         message: 'Insufficient balance',
         retryable: false,
+        billing_url: 'https://dcp.sa/renter/billing',
+        balance_halala: Number(req.renter.balance_halala || 0),
+        required_halala: estimatedCostHalala,
       });
     }
 
