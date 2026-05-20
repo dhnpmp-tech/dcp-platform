@@ -3,6 +3,13 @@ import LegalPage from '../components/layout/LegalPage'
 export default function TermsPage() {
   return (
     <LegalPage title="Terms of Service" lastUpdated="March 12, 2026">
+      <p style={{ fontSize: '0.85rem', opacity: 0.75 }}>
+        Reviewers: an expanded PDPL-aligned draft is available at{' '}
+        <a href="/legal/terms-v2">/legal/terms-v2</a> (and{' '}
+        <a href="/legal/privacy-v2">/legal/privacy-v2</a>), pending Saudi legal counsel review. The text below
+        remains the effective Terms of Service.
+      </p>
+
       <h2>1. Acceptance of Terms</h2>
       <p>By accessing or using the DCP platform (&quot;Service&quot;), operated by DC Power Solutions Company (CR: 7053667775), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
 
