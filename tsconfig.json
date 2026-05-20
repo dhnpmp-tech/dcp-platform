@@ -21,6 +21,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@dcp-sa/contracts": [
+        "./packages/contracts/packages/ts/src/index.ts"
       ]
     },
     "plugins": [
