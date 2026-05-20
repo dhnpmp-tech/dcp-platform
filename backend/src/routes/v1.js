@@ -1045,8 +1045,38 @@ function approximateTokenCount(text) {
   return Math.ceil(text.length / 4);
 }
 
+// OpenAI documents ~765 tokens per high-res image in the vision API. We use
+// that as a conservative fixed estimate per image part for local prompt-token
+// estimation. Real billing still uses the upstream provider's `usage`
+// payload when present — this only affects the pre-flight estimate.
+const VISION_IMAGE_TOKEN_ESTIMATE = 765;
+
+// Render a single message's `content` to a string for local token estimation.
+// Multimodal content arrays (OpenAI vision format) are flattened: text parts
+// contribute their text, image parts contribute a fixed-length placeholder
+// sized to approximate VISION_IMAGE_TOKEN_ESTIMATE tokens. The body sent to
+// the provider is NOT touched here — this is estimator-only.
+function renderMessageContentForEstimate(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  const parts = [];
+  for (const part of content) {
+    if (!part || typeof part !== 'object') continue;
+    if (part.type === 'text' && typeof part.text === 'string') {
+      parts.push(part.text);
+    } else if (part.type === 'image_url' || part.type === 'input_image' || part.image_url) {
+      // Pad with ~4 chars per estimated token so approximateTokenCount
+      // returns ~VISION_IMAGE_TOKEN_ESTIMATE for this part.
+      parts.push('x'.repeat(VISION_IMAGE_TOKEN_ESTIMATE * 4));
+    }
+  }
+  return parts.join(' ');
+}
+
 function estimatePromptFromMessages(messages) {
-  return messages.map(m => `${m.role}: ${m.content}`).join('\n');
+  return messages
+    .map(m => `${m.role}: ${renderMessageContentForEstimate(m.content)}`)
+    .join('\n');
 }
 
 function computeTokenCostHalala(tokens, tokenRateHalala) {
@@ -1565,7 +1595,33 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         continue;
       }
 
-      // Regular messages
+      // Regular messages — support OpenAI multimodal content arrays
+      // (text + image_url parts) for vision-capable models. Arrays are
+      // passed through to the upstream provider unchanged; the gateway
+      // does NOT decode or re-encode image data. String content keeps
+      // the prior normalization (trim-preserving, 20k-char cap).
+      if (Array.isArray(entry?.content)) {
+        const parts = [];
+        for (const part of entry.content.slice(0, 32)) {
+          if (!part || typeof part !== 'object') continue;
+          if (part.type === 'text' && typeof part.text === 'string') {
+            const text = part.text.slice(0, 20000);
+            if (text) parts.push({ type: 'text', text });
+          } else if (part.type === 'image_url' && part.image_url) {
+            // image_url can be a string OR { url, detail }. Pass through
+            // unchanged (Ollama + vLLM both accept either shape).
+            parts.push({ type: 'image_url', image_url: part.image_url });
+          } else if (part.type === 'input_image') {
+            // Anthropic/OpenAI-Responses style — also pass through.
+            parts.push(part);
+          }
+        }
+        if (parts.length === 0) continue;
+        msg.content = parts;
+        messages.push(msg);
+        continue;
+      }
+
       const content = normalizeString(entry?.content, { maxLen: 20000, trim: false });
       if (!content) continue;
       msg.content = content;
@@ -2565,3 +2621,11 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
 router.getAllDemand = getAllDemand;
 router.getModelDemand = getModelDemand;
 module.exports = router;
+// Test-only export — internal helpers exposed for unit testing. NOT part of
+// the public router contract; do not depend on this from production code.
+module.exports.__test = {
+  renderMessageContentForEstimate,
+  estimatePromptFromMessages,
+  approximateTokenCount,
+  VISION_IMAGE_TOKEN_ESTIMATE,
+};
