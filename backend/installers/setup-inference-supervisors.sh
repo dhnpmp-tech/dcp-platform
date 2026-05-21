@@ -157,6 +157,27 @@ for gguf in "${ORDERED_GGUFS[@]}"; do
     is_primary=0
   fi
 
+  # OOM-prevention learning from the 2026-05-21 Node 2 crash:
+  # llama.cpp PR #13194 (still in flight upstream) is a known SWA /
+  # hybrid-memory bug that fires when the prompt cache is near its cap
+  # and a re-decode is required. It can OOM even a 31-token request on
+  # a 24 GB card. Until we pull a llama.cpp build that includes the
+  # fix, MTP-flavour ggufs MUST run with --cache-ram 0 to eliminate
+  # the trigger entirely. The throughput hit is ~10-20% on long-prompt
+  # repeat workloads — an acceptable price for not OOMing.
+  # Plain dense ggufs keep the normal 4096 MiB cache.
+  this_cache_mib=$DEFAULT_CACHE_MIB
+  # Match against BOTH filename and alias — MTP can be encoded in either
+  # ("Qwen3.6-27B-MTP.gguf" or alias "qwen3.6-27b-mtp"). Our Node 2 hit
+  # the second pattern (the gguf is named "Qwen3.6-27B-Q4_K_S.gguf" with
+  # no MTP marker, but the alias is "qwen3.6-27b-mtp"). Lowercase compare
+  # is safest.
+  combined_lc="$(printf '%s %s' "$fname" "$alias" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$combined_lc" == *mtp* ]]; then
+    this_cache_mib=0
+    log "MTP-aware: ${fname} (alias=${alias}) will use --cache-ram 0 (llama.cpp PR #13194 mitigation)"
+  fi
+
   if [[ -f "$unit_path" ]] && (( FORCE == 0 )); then
     log "SKIP $unit_name (exists; pass --force to overwrite)"
     COUNT_SKIP+=1
@@ -191,7 +212,7 @@ ExecStart=${LLAMA_SERVER} \\
   --alias ${alias} \\
   --ctx-size ${DEFAULT_CTX} \\
   --n-gpu-layers 999 \\
-  --cache-ram ${DEFAULT_CACHE_MIB} \\
+  --cache-ram ${this_cache_mib} \\
   --metrics
 StandardOutput=append:${LOG_DIR}/llama-${short_id}-stdout.log
 StandardError=append:${LOG_DIR}/llama-${short_id}-stderr.log
