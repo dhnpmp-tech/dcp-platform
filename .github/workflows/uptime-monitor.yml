@@ -262,11 +262,24 @@ jobs:
               disable_web_page_preview: true
             }')
 
-          resp=$(curl -sS -m 10 -X POST \
+          # --fail-with-body so curl exits non-zero on 4xx/5xx (bad token,
+          # invalid chat, parse error). -w captures the HTTP code so the
+          # workflow log makes a delivery failure obvious. Without this
+          # guard the alert path was silently dropping pages: API returned
+          # 4xx (e.g. markdown parse error) but the job stayed green.
+          # Flagged by chatgpt-codex-connector P1 review on PR #417.
+          resp=$(curl -sS -m 10 --fail-with-body \
+            -w '\nHTTP_CODE=%{http_code}\n' \
+            -X POST \
             -H "Content-Type: application/json" \
             "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
             --data "$payload")
+          curl_rc=$?
           echo "Telegram response: $resp"
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::Telegram alert delivery FAILED (curl exit $curl_rc). The job ran and detected an outage but the page never reached the channel."
+            exit "$curl_rc"
+          fi
 
       - name: Email escalation (3+ consecutive failures)
         if: steps.probe.outputs.overall_ok == '0' && steps.streak.outputs.fail_streak == '3'
@@ -301,12 +314,26 @@ jobs:
               text: $text
             }')
 
-          resp=$(curl -sS -m 10 -X POST \
+          # Same hardening as the Telegram path above: P0 escalation MUST
+          # fail loudly if Resend rejects the email (invalid key, sender
+          # not verified, payload error, transport blip). --fail-with-body
+          # makes curl exit non-zero on 4xx/5xx; -w surfaces the HTTP code
+          # for log clarity. Flagged by chatgpt-codex-connector P1 review
+          # on PR #417 — the previous code only used `set -u`, which does
+          # not catch a non-zero curl exit if its output is captured.
+          resp=$(curl -sS -m 10 --fail-with-body \
+            -w '\nHTTP_CODE=%{http_code}\n' \
+            -X POST \
             -H "Authorization: Bearer ${RESEND_KEY}" \
             -H "Content-Type: application/json" \
             "https://api.resend.com/emails" \
             --data "$payload")
+          curl_rc=$?
           echo "Resend response: $resp"
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::Resend P0 escalation email FAILED (curl exit $curl_rc). 3 consecutive outages detected but the escalation email did NOT send."
+            exit "$curl_rc"
+          fi
 
       - name: Recovery notice
         if: steps.probe.outputs.overall_ok == '1' && steps.streak.outputs.fail_streak == '0'
