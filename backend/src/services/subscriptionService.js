@@ -116,11 +116,29 @@ function createPendingSubscription(db, { renterId, tierKey, nowIso }) {
 function activateSubscription(db, { subscriptionId, moyasarSubscriptionId, nowIso }) {
   const sub = db.prepare('SELECT * FROM renter_subscriptions WHERE id = ?').get(subscriptionId);
   if (!sub) throw new Error(`subscription ${subscriptionId} not found`);
+  // Codex P1 on PR #420: the period clock was set at PENDING creation
+  // time, so if Moyasar payment confirmation is delayed by minutes-to-days
+  // the customer would lose paid entitlement (period_end is already
+  // counting down) AND grantMonthlyCredits would derive credit expiry from
+  // that earlier period_end. Reset period_start/period_end to nowIso on
+  // activation so the 30-day clock starts when the customer actually pays.
+  const newPeriodStart = nowIso;
+  const newPeriodEnd = addDays(nowIso, 30);
   db.prepare(
     `UPDATE renter_subscriptions
-        SET status = 'active', moyasar_subscription_id = ?, updated_at = ?
+        SET status = 'active',
+            moyasar_subscription_id = ?,
+            period_start = ?,
+            period_end = ?,
+            updated_at = ?
       WHERE id = ?`
-  ).run(moyasarSubscriptionId || sub.moyasar_subscription_id, nowIso, subscriptionId);
+  ).run(
+    moyasarSubscriptionId || sub.moyasar_subscription_id,
+    newPeriodStart,
+    newPeriodEnd,
+    nowIso,
+    subscriptionId
+  );
   return grantMonthlyCredits(db, { subscriptionId, nowIso });
 }
 
