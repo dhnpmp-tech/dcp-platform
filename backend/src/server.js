@@ -691,6 +691,12 @@ app.use('/api/models', modelsRouter);
 const pricingRouter = require('./routes/pricing');
 app.use('/api/pricing', pricingRouter);
 
+const subscriptionsRouter = require('./routes/subscriptions');
+app.use('/api/subscriptions', subscriptionsRouter);
+
+const adminPricingRouter = require('./routes/admin-pricing');
+app.use('/api/admin', adminPricingRouter);
+
 const v1Router = require('./routes/v1');
 app.use('/v1', v1Router);
 

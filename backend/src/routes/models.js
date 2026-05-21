@@ -496,7 +496,24 @@ function getModelById(modelId) {
   return models.find((model) => model.model_id === modelId) || null;
 }
 
-function toLegacyListItem(model) {
+// Pull cost_rates rows once per call (cheap — single table, ~12 rows).
+// Returned shape lets the frontend stop heuristically inferring a model's
+// tier from VRAM and instead read the authoritative class + per-M rate.
+function loadTokenRateMap() {
+  try {
+    const rows = db.all('SELECT model, token_rate_halala, model_class FROM cost_rates WHERE is_active = 1');
+    const map = new Map();
+    for (const r of rows) map.set(r.model, { rate: r.token_rate_halala, class: r.model_class || null });
+    return map;
+  } catch (_) {
+    return new Map();
+  }
+}
+
+function toLegacyListItem(model, tokenRateMap) {
+  const ratePack = tokenRateMap?.get(model.model_id)
+    || tokenRateMap?.get('__default__')
+    || { rate: null, class: null };
   return {
     model_id: model.model_id,
     display_name: model.display_name,
@@ -516,6 +533,10 @@ function toLegacyListItem(model) {
     competitor_prices: model.pricing.competitor_prices || null,
     savings_pct: model.pricing.savings_pct || null,
     pricing_per_hour: model.pricing.default_sar_per_hour,
+    // Token-grain pricing fields (migration 017). Frontend should prefer
+    // these over VRAM-heuristic tier inference.
+    token_rate_halala: ratePack.rate,
+    model_class: ratePack.class,
   };
 }
 
@@ -722,7 +743,8 @@ router.get('/', modelCatalogLimiter, (req, res) => {
   try {
     const all = getCatalogModels();
     const filtered = applyQueryFilters(all, req.query || {});
-    return res.json(filtered.map(toLegacyListItem));
+    const tokenRateMap = loadTokenRateMap();
+    return res.json(filtered.map((m) => toLegacyListItem(m, tokenRateMap)));
   } catch (error) {
     console.error('Model registry error:', error);
     return res.status(500).json({ error: 'Failed to fetch model registry' });

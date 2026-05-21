@@ -441,7 +441,7 @@ export default function StatusPage() {
           <Link href="/pricing" className="rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5 transition hover:border-dc1-amber">
             <p className="text-sm font-semibold text-dc1-text-primary">See pricing</p>
             <p className="mt-1 text-xs text-dc1-text-secondary">
-              SAR per GPU-hour. 50 SAR starter credit on signup.
+              PAYG per million tokens or monthly tier. 100 SAR starter credit on signup.
             </p>
           </Link>
         </section>
