@@ -192,6 +192,11 @@ router.post('/upgrade', express.json(), (req, res) => {
       tiers: svc.listTiers(),
     });
   }
+  const nowIso = new Date().toISOString();
+  // Codex P1 review: sweep stale `pending` rows (>1h old, abandoned
+  // checkouts) before the existence check, so a renter who walked away
+  // from Moyasar can retry upgrading without manual DB intervention.
+  svc.cancelStalePendings(db, renter.id, nowIso);
   const existing = svc.getOpenSubscription(db, renter.id);
   if (existing) {
     return res.status(409).json({
@@ -201,7 +206,6 @@ router.post('/upgrade', express.json(), (req, res) => {
       subscription_id: existing.id,
     });
   }
-  const nowIso = new Date().toISOString();
   let pending;
   try {
     pending = svc.createPendingSubscription(db, { renterId: renter.id, tierKey, nowIso });

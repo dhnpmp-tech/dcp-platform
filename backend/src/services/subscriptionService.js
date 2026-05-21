@@ -33,14 +33,22 @@ function listTiers() {
   }));
 }
 
-function getActiveSubscription(db, renterId) {
+function getActiveSubscription(db, renterId, nowIso = new Date().toISOString()) {
+  // Codex P1 review on PR #419: also gate on period_end > now. Without
+  // this clause, an active/past_due row would keep applying its discount
+  // forever once the 30-day term elapsed (because we don't yet have a
+  // renewal/expiry worker that flips status -> 'expired'). v1.js calls
+  // this on every inference request, so the persistent-underbilling path
+  // would compound silently after each term boundary.
   return db
     .prepare(
       `SELECT * FROM renter_subscriptions
-       WHERE renter_id = ? AND status IN ('active','past_due')
+       WHERE renter_id = ?
+         AND status IN ('active','past_due')
+         AND period_end > ?
        ORDER BY id DESC LIMIT 1`
     )
-    .get(renterId) || null;
+    .get(renterId, nowIso) || null;
 }
 
 function getOpenSubscription(db, renterId) {
@@ -51,6 +59,28 @@ function getOpenSubscription(db, renterId) {
        ORDER BY id DESC LIMIT 1`
     )
     .get(renterId) || null;
+}
+
+// Codex P1 review on PR #419: POST /upgrade was creating a `pending` row
+// before the Moyasar checkout existed, and the partial unique index
+// treated that row as blocking future upgrade attempts. A renter who
+// abandoned checkout could not retry without manual DB intervention.
+// Sweep stale pendings (older than PENDING_TTL_MIN minutes) before any
+// open-subscription existence check, so abandoned checkouts auto-clear.
+// One hour is generous for the Moyasar handoff and short enough that a
+// real user does not get stuck.
+const PENDING_TTL_MIN = 60;
+
+function cancelStalePendings(db, renterId, nowIso = new Date().toISOString()) {
+  const cutoff = new Date(new Date(nowIso).getTime() - PENDING_TTL_MIN * 60_000).toISOString();
+  const result = db
+    .prepare(
+      `UPDATE renter_subscriptions
+          SET status = 'cancelled', updated_at = ?
+        WHERE renter_id = ? AND status = 'pending' AND created_at < ?`
+    )
+    .run(nowIso, renterId, cutoff);
+  return result.changes;
 }
 
 function computeDiscountedRateHalala(baseRateHalala, discountBps) {
@@ -189,10 +219,12 @@ function sweepExpiredCredits(db, nowIso) {
 module.exports = {
   TIERS,
   ROLLOVER_DAYS,
+  PENDING_TTL_MIN,
   getTier,
   listTiers,
   getActiveSubscription,
   getOpenSubscription,
+  cancelStalePendings,
   computeDiscountedRateHalala,
   createPendingSubscription,
   activateSubscription,
