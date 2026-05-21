@@ -6,6 +6,7 @@ const path = require('path');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const paymentsRouter = require('./routes/payments');
 const { startJobSweep, getSweepMetrics, startProviderOfflineSweep } = require('./services/jobSweep');
+const { startDailyDigest, stopDailyDigest } = require('./services/dailyDigest');
 const { startProviderHealthWorker } = require('./workers/providerHealthWorker');
 const { runControlPlaneCycle } = require('./services/controlPlane');
 const { sendAlert } = require('./services/notifications');
@@ -690,6 +691,12 @@ app.use('/api/models', modelsRouter);
 const pricingRouter = require('./routes/pricing');
 app.use('/api/pricing', pricingRouter);
 
+const subscriptionsRouter = require('./routes/subscriptions');
+app.use('/api/subscriptions', subscriptionsRouter);
+
+const adminPricingRouter = require('./routes/admin-pricing');
+app.use('/api/admin', adminPricingRouter);
+
 const v1Router = require('./routes/v1');
 app.use('/v1', v1Router);
 
@@ -748,12 +755,24 @@ app.use('/api/templates/arabic-rag', arabicRagRouter);
 const agentGatewayRouter = require('./routes/agent-gateway');
 app.use('/api/agent/gateway', agentGatewayRouter);
 
+// Agent self-update manifest — dcp-agent providers poll /agent/manifest.json
+// to learn which commit to roll forward to. See routes/agentManifest.js for
+// the v1 trust model (TLS-only).
+const agentManifestRouter = require('./routes/agentManifest');
+app.use('/agent', agentManifestRouter);
+
 const db = require('./db');
 const sweepIntervalMsRaw = Number.parseInt(process.env.JOB_SWEEP_INTERVAL_MS || '30000', 10);
 const sweepIntervalMs = Number.isFinite(sweepIntervalMsRaw) && sweepIntervalMsRaw > 0 ? sweepIntervalMsRaw : 30000;
 startJobSweep(db, sweepIntervalMs);
 const providerOfflineSweepIntervalMs = Number.parseInt(process.env.PROVIDER_OFFLINE_SWEEP_INTERVAL_MS || '60000', 10);
 startProviderOfflineSweep(db, Number.isFinite(providerOfflineSweepIntervalMs) && providerOfflineSweepIntervalMs > 0 ? providerOfflineSweepIntervalMs : 60000);
+// Daily digest — rolls renter_notifications into ONE email/day per renter.
+// Gated by NOTIFICATIONS_V2_ENABLED env flag; no-op until the migration has
+// landed and the flag is flipped on.
+startDailyDigest(db);
+process.on('SIGTERM', () => { try { stopDailyDigest(); } catch (_e) { /* shutdown best-effort */ } });
+process.on('SIGINT', () => { try { stopDailyDigest(); } catch (_e) { /* shutdown best-effort */ } });
 const providerHealthCheckIntervalMs = Number.parseInt(process.env.PROVIDER_HEALTH_CHECK_INTERVAL_MS || String(5 * 60 * 1000), 10);
 startProviderHealthWorker(db, Number.isFinite(providerHealthCheckIntervalMs) && providerHealthCheckIntervalMs > 0 ? providerHealthCheckIntervalMs : 5 * 60 * 1000);
 

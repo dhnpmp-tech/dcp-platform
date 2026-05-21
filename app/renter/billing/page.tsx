@@ -75,6 +75,32 @@ interface BalanceData {
   email?: string
 }
 
+interface SubscriptionStatus {
+  has_subscription: boolean
+  payg_balance_halala: number
+  payg_balance_sar: number
+  subscription: {
+    id: number
+    tier: 'starter' | 'growth' | 'scale'
+    monthly_sar: number
+    discount_pct: number | null
+    status: string
+    period_start: string
+    period_end: string
+    cancel_at_period_end: boolean
+  } | null
+  credits: {
+    remaining_halala: number
+    grants: Array<{ id: number; granted_at: string; expires_at: string; remaining_halala: number }>
+  }
+}
+
+const TIER_LABEL: Record<'starter' | 'growth' | 'scale', string> = {
+  starter: 'Starter',
+  growth: 'Growth',
+  scale: 'Scale',
+}
+
 type CallbackStatus = 'verifying' | 'paid' | 'failed' | 'timeout' | null
 
 // Preset SAR amounts for top-up
@@ -101,6 +127,7 @@ function BillingPageInner() {
   const [renterName, setRenterName] = useState('')
   const [renterKey, setRenterKey] = useState<string | null>(null)
   const [balance, setBalance] = useState<BalanceData | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [paymentsPagination, setPaymentsPagination] = useState({ total: 0, limit: 20, offset: 0 })
   const [totalPaidSar, setTotalPaidSar] = useState(0)
@@ -153,6 +180,22 @@ function BillingPageInner() {
     }
   }, [API_BASE, renterKey])
 
+  const fetchSubscription = useCallback(async () => {
+    if (!renterKey) return
+    try {
+      const res = await fetch(`${API_BASE}/subscriptions/me`, {
+        headers: { 'x-renter-key': renterKey },
+      })
+      if (res.ok) {
+        const data: SubscriptionStatus = await res.json()
+        setSubscription(data)
+      }
+    } catch (err) {
+      // Endpoint may not be deployed yet — fail silently rather than break the page.
+      console.error('Failed to fetch subscription status:', err)
+    }
+  }, [API_BASE, renterKey])
+
   const fetchHistory = useCallback(async (offset = 0) => {
     if (!renterKey) return
     try {
@@ -172,8 +215,8 @@ function BillingPageInner() {
 
   useEffect(() => {
     if (!renterKey) return
-    Promise.all([fetchBalance(), fetchHistory()]).finally(() => setLoading(false))
-  }, [renterKey, fetchBalance, fetchHistory])
+    Promise.all([fetchBalance(), fetchHistory(), fetchSubscription()]).finally(() => setLoading(false))
+  }, [renterKey, fetchBalance, fetchHistory, fetchSubscription])
 
   // ── Payment callback verification ──────────────────────────────────────────
   useEffect(() => {
@@ -481,6 +524,42 @@ function BillingPageInner() {
                       <span className="text-dc1-text-secondary">Transactions</span>
                       <span className="text-dc1-text-primary font-medium">{paymentsPagination.total}</span>
                     </div>
+                    {subscription && (
+                      <div className="flex justify-between text-sm pt-2 border-t border-dc1-border">
+                        <span className="text-dc1-text-secondary">Plan</span>
+                        {subscription.has_subscription && subscription.subscription ? (
+                          <span className="text-dc1-amber font-semibold">
+                            {TIER_LABEL[subscription.subscription.tier]}
+                            {subscription.subscription.discount_pct != null && (
+                              <span className="text-xs font-normal text-dc1-text-secondary ml-1">
+                                (−{subscription.subscription.discount_pct.toFixed(0)}%)
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <Link href="/pricing#tiers" className="text-dc1-amber hover:underline font-medium">
+                            PAYG · upgrade →
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                    {subscription?.has_subscription && subscription.subscription && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-dc1-text-secondary">Renews</span>
+                        <span className="text-dc1-text-secondary">
+                          {new Date(subscription.subscription.period_end).toLocaleDateString()}
+                          {subscription.subscription.cancel_at_period_end && ' · cancelling'}
+                        </span>
+                      </div>
+                    )}
+                    {subscription?.has_subscription && subscription.credits.remaining_halala > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-dc1-text-secondary">Plan credit left</span>
+                        <span className="text-dc1-text-primary">
+                          {(subscription.credits.remaining_halala / 100).toFixed(2)} SAR
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

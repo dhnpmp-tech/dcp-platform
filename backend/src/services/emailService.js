@@ -846,6 +846,7 @@ async function sendJobCompleteEmail(to, jobId, costSar, model, details = {}) {
 }
 
 module.exports = {
+  sendEmail,
   sendWelcomeEmail,
   sendJobQueued,
   sendJobStarted,

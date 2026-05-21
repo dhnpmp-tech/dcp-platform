@@ -616,7 +616,93 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      {/* Pricing section removed — rates not yet finalized */}
+      {/* Pricing — dual SKU teaser (finalized 2026-05-20) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20" aria-labelledby="landing-pricing-heading">
+        <div className="text-center mb-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dc1-amber mb-2">PRICING</p>
+          <h2 id="landing-pricing-heading" className="text-3xl sm:text-4xl font-bold text-dc1-text-primary mb-4">
+            Two SKUs. One balance. 100 SAR free to start.
+          </h2>
+          <p className="text-dc1-text-secondary max-w-2xl mx-auto">
+            Pay-as-you-go per million tokens, or upgrade to a monthly tier and get the same tokens at a discount.
+            Every signup gets <span className="font-semibold text-dc1-text-primary">100 SAR starter credit</span> —
+            no card, no commitment.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4 mb-10">
+          {/* PAYG card */}
+          <div className="rounded-2xl border border-dc1-border bg-dc1-surface-l1 p-6">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-lg font-semibold text-dc1-text-primary">Pay-as-you-go</h3>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-dc1-text-muted">DEFAULT</span>
+            </div>
+            <p className="mt-3 font-mono text-3xl tabular-nums text-dc1-text-primary">
+              from <span className="text-dc1-amber">$0.04</span>
+              <span className="text-sm text-dc1-text-muted"> /M tokens</span>
+            </p>
+            <p className="mt-1 text-xs text-dc1-text-secondary">No commitment. Top-ups never expire.</p>
+            <ul className="mt-5 space-y-2 text-sm text-dc1-text-secondary">
+              <li>Tiny models: $0.04/M</li>
+              <li>Small models: $0.08/M</li>
+              <li>Medium (Qwen 3.6-27B): $0.40/M</li>
+              <li>Embeddings: $0.013/M</li>
+            </ul>
+            <a href="/renter/register" className="btn btn-secondary btn-md mt-6 w-full">Start with 100 SAR credit</a>
+          </div>
+
+          {/* Starter */}
+          <div className="rounded-2xl border border-dc1-border bg-dc1-surface-l1 p-6">
+            <h3 className="text-lg font-semibold text-dc1-text-primary">Starter</h3>
+            <p className="mt-3 font-mono text-3xl tabular-nums text-dc1-text-primary">375 <span className="text-base text-dc1-text-muted">SAR/mo</span></p>
+            <p className="mt-1 text-xs text-dc1-text-secondary">15% off every model · 375 SAR credit/mo</p>
+            <ul className="mt-5 space-y-2 text-sm text-dc1-text-secondary">
+              <li>Indie devs &amp; small Saudi apps</li>
+              <li>30-day rollover on unused credit</li>
+              <li>Overage continues at PAYG</li>
+            </ul>
+            <a href="/renter/register?intent=subscribe&tier=starter" className="btn btn-secondary btn-md mt-6 w-full">Pick Starter</a>
+          </div>
+
+          {/* Growth — recommended */}
+          <div className="rounded-2xl border border-dc1-amber bg-dc1-surface-l2 p-6 shadow-[0_0_0_1px_var(--dc1-amber-soft)]">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-lg font-semibold text-dc1-text-primary">Growth</h3>
+              <span className="rounded-full bg-dc1-amber px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dc1-void">
+                Popular
+              </span>
+            </div>
+            <p className="mt-3 font-mono text-3xl tabular-nums text-dc1-text-primary">1,500 <span className="text-base text-dc1-text-muted">SAR/mo</span></p>
+            <p className="mt-1 text-xs text-dc1-text-secondary">22% off every model · 1,500 SAR credit/mo</p>
+            <ul className="mt-5 space-y-2 text-sm text-dc1-text-secondary">
+              <li>Saudi SMBs in production</li>
+              <li>Medium models at $0.31/M (vs OpenRouter $0.45/M)</li>
+              <li>30-day rollover · PDPL-resident</li>
+            </ul>
+            <a href="/renter/register?intent=subscribe&tier=growth" className="btn btn-primary btn-md mt-6 w-full">Pick Growth</a>
+          </div>
+
+          {/* Scale */}
+          <div className="rounded-2xl border border-dc1-border bg-dc1-surface-l1 p-6">
+            <h3 className="text-lg font-semibold text-dc1-text-primary">Scale</h3>
+            <p className="mt-3 font-mono text-3xl tabular-nums text-dc1-text-primary">5,625 <span className="text-base text-dc1-text-muted">SAR/mo</span></p>
+            <p className="mt-1 text-xs text-dc1-text-secondary">30% off every model · 5,625 SAR credit/mo</p>
+            <ul className="mt-5 space-y-2 text-sm text-dc1-text-secondary">
+              <li>Heavy production workloads</li>
+              <li>Medium models at $0.28/M</li>
+              <li>Above Scale → custom contract</li>
+            </ul>
+            <a href="/renter/register?intent=subscribe&tier=scale" className="btn btn-secondary btn-md mt-6 w-full">Pick Scale</a>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <a href="/pricing" className="text-sm text-dc1-amber hover:underline">
+            See the full rate card and discount maths →
+          </a>
+        </div>
+      </section>
+
 
       {/* Instant API Access */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">

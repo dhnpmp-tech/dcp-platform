@@ -123,33 +123,37 @@ function getPriceHr(model: ModelListItem): number | null {
   return null
 }
 
-// Per-1M-token rate card, sourced from docs/pricing/PRICING-REDESIGN-2026-05-11.md
-// Tier inferred client-side from min_gpu_vram_gb until the backend ships
-// price_in_halala_per_1m_tok / price_out_halala_per_1m_tok in /api/models.
-// Returns SAR amounts (1 SAR = 100 halala).
-type TokenPrices = { in_sar_per_1m: number; out_sar_per_1m: number; tier_label: string } | null
+// Per-1M-token rate card. Source of truth: backend/migrations/017_cost_rates_model_class.sql
+// (single rate per model — input and output bill at the same per-M rate).
+// Tier inferred client-side from min_gpu_vram_gb until /api/models surfaces
+// token_rate_halala + model_class directly. Returns SAR amounts (1 SAR = 100 halala).
+type TokenPrices = { sar_per_1m: number; tier_label: string } | null
 
 function getTokenPrices(model: ModelListItem): TokenPrices {
   const id = (model.model_id || '').toLowerCase()
   const family = (model.family || '').toLowerCase()
   const isEmbedding = id.includes('embed') || family === 'embedding' || family === 'reranker' || id.includes('rerank')
   if (isEmbedding) {
-    return { in_sar_per_1m: 0.08, out_sar_per_1m: 0, tier_label: 'Embeddings' }
+    // embedding class: 5 halala/M = 0.05 SAR/M
+    return { sar_per_1m: 0.05, tier_label: 'Embedding' }
   }
   const vram = model.min_gpu_vram_gb ?? model.vram_gb ?? 0
-  if (vram <= 9) return { in_sar_per_1m: 0.30, out_sar_per_1m: 0.60, tier_label: 'Small' }
-  if (vram <= 30) return { in_sar_per_1m: 0.80, out_sar_per_1m: 1.50, tier_label: 'Mid' }
-  return { in_sar_per_1m: 2.60, out_sar_per_1m: 9.40, tier_label: 'Large' }
+  // tiny class: 15 halala/M = 0.15 SAR/M
+  if (vram <= 6) return { sar_per_1m: 0.15, tier_label: 'Tiny' }
+  // small class: 30 halala/M = 0.30 SAR/M
+  if (vram <= 16) return { sar_per_1m: 0.30, tier_label: 'Small' }
+  // medium class: 150 halala/M = 1.50 SAR/M
+  if (vram <= 40) return { sar_per_1m: 1.50, tier_label: 'Medium' }
+  // large class: 400 halala/M = 4.00 SAR/M
+  return { sar_per_1m: 4.00, tier_label: 'Large' }
 }
 
 // Typical-workday estimate for the helper line: 1000 calls × (2k in + 600 out tokens).
+// Single rate per model means input and output bill identically.
 function estimateTypicalDailySar(prices: NonNullable<TokenPrices>): number {
-  const PROMPT_TOKENS = 2000
-  const COMPLETION_TOKENS = 600
+  const TOKENS_PER_CALL = 2000 + 600
   const CALLS = 1000
-  const ins = (CALLS * PROMPT_TOKENS / 1_000_000) * prices.in_sar_per_1m
-  const outs = (CALLS * COMPLETION_TOKENS / 1_000_000) * prices.out_sar_per_1m
-  return ins + outs
+  return (CALLS * TOKENS_PER_CALL / 1_000_000) * prices.sar_per_1m
 }
 
 function getSavingsPct(model: ModelListItem): number | null {
@@ -264,22 +268,15 @@ function DeployModal({ deploy, onClose, onConfirm, registeredProviderCount }: {
           {(() => {
             const tp = getTokenPrices(model)
             if (!tp) return null
-            const isEmbedding = tp.out_sar_per_1m === 0
             const daily = estimateTypicalDailySar(tp)
             return (
               <div className="border-t border-dc1-border pt-3 space-y-1.5">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-dc1-text-muted uppercase tracking-wide text-[9px]">Input</span>
-                  <span className="font-bold text-dc1-amber">{tp.in_sar_per_1m.toFixed(2)} <span className="text-[9px] font-normal text-dc1-text-muted">SAR / 1M tokens</span></span>
+                  <span className="text-dc1-text-muted uppercase tracking-wide text-[9px]">PAYG rate</span>
+                  <span className="font-bold text-dc1-amber">{tp.sar_per_1m.toFixed(2)} <span className="text-[9px] font-normal text-dc1-text-muted">SAR / 1M tokens</span></span>
                 </div>
-                {!isEmbedding && (
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-dc1-text-muted uppercase tracking-wide text-[9px]">Output</span>
-                    <span className="font-bold text-dc1-amber">{tp.out_sar_per_1m.toFixed(2)} <span className="text-[9px] font-normal text-dc1-text-muted">SAR / 1M tokens</span></span>
-                  </div>
-                )}
                 <p className="text-[10px] text-dc1-text-muted pt-1.5 leading-snug">
-                  ≈ {daily.toFixed(2)} SAR for 1000 typical calls (2k in + 600 out tokens each).
+                  ≈ {daily.toFixed(2)} SAR for 1000 typical calls (2k in + 600 out tokens each). Subscribers see this rate discounted 15–30%.
                 </p>
               </div>
             )

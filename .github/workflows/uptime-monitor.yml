@@ -1,0 +1,377 @@
+name: Uptime Monitor
+
+# DCP external uptime + SLO monitor. Runs off-VPS in GitHub Actions so a full-VPS
+# outage is still detectable. Probes api.dcp.sa, dcp.sa, and a sentinel inference
+# call. On failure: Telegram alert (topic 4, mentions @Pmpvd). On 3 consecutive
+# failures: Resend email to setup@dc1st.com.
+#
+# Design doc: strategy-internal/monitoring-oncall-2026-05-20.md
+#
+# Required secrets (set at repo level):
+#   TG_BOT_TOKEN              - @dcp_dev_bot token
+#   TG_ALERT_CHAT_ID          - "-1003773787353"
+#   TG_ALERT_TOPIC_ID         - "4"  (🔴 Alerts)
+#   RESEND_API_KEY            - same key the backend uses
+#   DCP_SENTINEL_RENTER_KEY   - dedicated low-balance renter key, prefix dcp-renter-
+#   MONITOR_GIST_ID           - id of a pre-created secret gist for state
+#   MONITOR_GIST_TOKEN        - fine-grained PAT, gist scope only, on that one gist
+#
+# Optional repo variables:
+#   MONITOR_FORCE_FAIL        - set to "true" to point one probe at a 404 url for
+#                               manual fire-drills. Reset to "" when done.
+
+on:
+  schedule:
+    # Every 5 minutes. GH Actions cron is best-effort; expect ±2-5 min drift.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_fail:
+        description: "Force a probe to fail for fire-drill testing"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: uptime-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe + alert
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Probe surfaces
+        id: probe
+        env:
+          SENTINEL_KEY: ${{ secrets.DCP_SENTINEL_RENTER_KEY }}
+          FORCE_FAIL_VAR: ${{ vars.MONITOR_FORCE_FAIL }}
+          FORCE_FAIL_INPUT: ${{ inputs.force_fail }}
+        run: |
+          set -u
+          # Each probe writes "<name> <ok|fail> <http_code> <latency_ms> <detail>"
+          # to PROBE_LOG. ok=2xx with expected shape; fail otherwise.
+
+          PROBE_LOG="$(mktemp)"
+          OVERALL_OK=1
+
+          force_fail="false"
+          if [ "${FORCE_FAIL_VAR:-}" = "true" ] || [ "${FORCE_FAIL_INPUT:-}" = "true" ]; then
+            force_fail="true"
+          fi
+
+          probe() {
+            local name="$1"
+            local url="$2"
+            local method="${3:-GET}"
+            local expect_substr="${4:-}"
+            local extra_curl=("${@:5}")
+
+            # Fire-drill mode: rewrite the first probe to a known 404.
+            if [ "$force_fail" = "true" ] && [ "$name" = "api_models" ]; then
+              url="https://api.dcp.sa/__forced_404_for_drill__"
+            fi
+
+            local body_file
+            body_file="$(mktemp)"
+            local start_ms
+            start_ms=$(date +%s%3N)
+            local code
+            code=$(curl -sS -m 15 -o "$body_file" -w "%{http_code}" \
+              -X "$method" "${extra_curl[@]}" "$url" || echo "000")
+            local end_ms
+            end_ms=$(date +%s%3N)
+            local latency=$(( end_ms - start_ms ))
+
+            local status="ok"
+            local detail=""
+            case "$code" in
+              2*) ;;
+              *)  status="fail"; detail="http=$code" ;;
+            esac
+
+            if [ "$status" = "ok" ] && [ -n "$expect_substr" ]; then
+              if ! grep -q -- "$expect_substr" "$body_file" 2>/dev/null; then
+                status="fail"
+                detail="missing_substr=$expect_substr"
+              fi
+            fi
+
+            if [ "$status" = "fail" ]; then
+              OVERALL_OK=0
+            fi
+
+            echo "$name $status $code ${latency} ${detail}" >> "$PROBE_LOG"
+            rm -f "$body_file"
+          }
+
+          # ── 3.1 api.dcp.sa /v1/models (no auth required) ─────────────────────
+          probe "api_models" \
+            "https://api.dcp.sa/v1/models" \
+            "GET" \
+            '"object":"list"'
+
+          # ── 3.2 dcp.sa frontend ──────────────────────────────────────────────
+          probe "frontend_root" \
+            "https://dcp.sa/" \
+            "GET" \
+            ""
+
+          # ── 3.4 sentinel inference (provider mesh health) ────────────────────
+          # Only fire this probe if we actually have a sentinel key configured.
+          if [ -n "${SENTINEL_KEY:-}" ]; then
+            BODY='{"model":"ALLaM-AI/ALLaM-7B-Instruct-preview","messages":[{"role":"user","content":"ping"}],"max_tokens":4,"stream":false}'
+            probe "sentinel_chat" \
+              "https://api.dcp.sa/v1/chat/completions" \
+              "POST" \
+              '"choices"' \
+              -H "Authorization: Bearer ${SENTINEL_KEY}" \
+              -H "Content-Type: application/json" \
+              --data "$BODY"
+          else
+            echo "sentinel_chat skip 000 0 no_sentinel_key_configured" >> "$PROBE_LOG"
+          fi
+
+          echo "=== probe log ==="
+          cat "$PROBE_LOG"
+          echo "=== end ==="
+
+          {
+            echo "log<<EOF"
+            cat "$PROBE_LOG"
+            echo "EOF"
+            echo "overall_ok=$OVERALL_OK"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update streak state in Gist
+        id: streak
+        env:
+          GIST_ID: ${{ secrets.MONITOR_GIST_ID }}
+          GIST_TOKEN: ${{ secrets.MONITOR_GIST_TOKEN }}
+          OVERALL_OK: ${{ steps.probe.outputs.overall_ok }}
+          PROBE_LOG: ${{ steps.probe.outputs.log }}
+        run: |
+          set -u
+
+          if [ -z "${GIST_ID:-}" ] || [ -z "${GIST_TOKEN:-}" ]; then
+            echo "Gist not configured; using ephemeral state. Email escalation will not work correctly."
+            echo "fail_streak=$([ "$OVERALL_OK" = "1" ] && echo 0 || echo 1)" >> "$GITHUB_OUTPUT"
+            echo "history_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Fetch current state.
+          current=$(curl -sS -m 10 \
+            -H "Authorization: Bearer $GIST_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/gists/$GIST_ID" \
+            | jq -r '.files["dcp-monitor-state.json"].content // "{}"')
+
+          # Defaults if first run / parse failure.
+          fail_streak=$(echo "$current" | jq -r '.fail_streak // 0' 2>/dev/null || echo 0)
+          history=$(echo "$current" | jq -c '.history // []' 2>/dev/null || echo "[]")
+          [ "$fail_streak" = "null" ] && fail_streak=0
+          [ -z "$history" ] && history="[]"
+
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ "$OVERALL_OK" = "1" ]; then
+            new_streak=0
+          else
+            new_streak=$(( fail_streak + 1 ))
+          fi
+
+          # Append new entry and trim to last 100.
+          new_history=$(jq -c \
+            --arg ts "$ts" \
+            --arg ok "$OVERALL_OK" \
+            --arg log "$PROBE_LOG" \
+            '. + [{"ts":$ts,"ok":($ok=="1"),"log":$log}] | .[-100:]' \
+            <<< "$history")
+
+          new_state=$(jq -nc \
+            --argjson streak "$new_streak" \
+            --argjson history "$new_history" \
+            --arg ts "$ts" \
+            '{fail_streak:$streak, last_run:$ts, history:$history}')
+
+          payload=$(jq -nc \
+            --arg content "$new_state" \
+            '{files:{"dcp-monitor-state.json":{content:$content}}}')
+
+          curl -sS -m 10 -X PATCH \
+            -H "Authorization: Bearer $GIST_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/gists/$GIST_ID" \
+            --data "$payload" > /dev/null
+
+          history_url="https://gist.github.com/$GIST_ID"
+
+          echo "fail_streak=$new_streak" >> "$GITHUB_OUTPUT"
+          echo "history_url=$history_url" >> "$GITHUB_OUTPUT"
+          echo "Streak: $new_streak"
+
+      - name: Telegram alert (every failure)
+        if: steps.probe.outputs.overall_ok == '0'
+        env:
+          TG_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_ALERT_CHAT_ID }}
+          TG_TOPIC_ID: ${{ secrets.TG_ALERT_TOPIC_ID }}
+          PROBE_LOG: ${{ steps.probe.outputs.log }}
+          STREAK: ${{ steps.streak.outputs.fail_streak }}
+          HISTORY_URL: ${{ steps.streak.outputs.history_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
+            echo "TG secrets not set; skipping Telegram alert."
+            exit 0
+          fi
+
+          severity="P1"
+          mention=""
+          if [ "${STREAK:-0}" -ge 3 ]; then
+            severity="P0"
+            # Mention @Pmpvd (Peter, CTO) on P0.
+            mention="@Pmpvd "
+          fi
+
+          now_utc=$(date -u +%H:%M:%S)
+          text=$(printf '🔴 *DCP uptime: %s alert*\n%s\nFail streak: %s\nTime (UTC): %s\n\nProbe results:\n```\n%s\n```\n\n[Workflow run](%s)' \
+            "$severity" "$mention" "$STREAK" "$now_utc" "$PROBE_LOG" "$RUN_URL")
+          if [ -n "${HISTORY_URL:-}" ]; then
+            text=$(printf '%s\n[History gist](%s)' "$text" "$HISTORY_URL")
+          fi
+
+          payload=$(jq -nc \
+            --arg chat_id "$TG_CHAT_ID" \
+            --arg topic "$TG_TOPIC_ID" \
+            --arg text "$text" \
+            '{
+              chat_id: ($chat_id | tonumber),
+              message_thread_id: ($topic | tonumber),
+              text: $text,
+              parse_mode: "Markdown",
+              disable_web_page_preview: true
+            }')
+
+          # --fail-with-body so curl exits non-zero on 4xx/5xx (bad token,
+          # invalid chat, parse error). -w captures the HTTP code so the
+          # workflow log makes a delivery failure obvious. Without this
+          # guard the alert path was silently dropping pages: API returned
+          # 4xx (e.g. markdown parse error) but the job stayed green.
+          # Flagged by chatgpt-codex-connector P1 review on PR #417.
+          resp=$(curl -sS -m 10 --fail-with-body \
+            -w '\nHTTP_CODE=%{http_code}\n' \
+            -X POST \
+            -H "Content-Type: application/json" \
+            "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            --data "$payload")
+          curl_rc=$?
+          echo "Telegram response: $resp"
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::Telegram alert delivery FAILED (curl exit $curl_rc). The job ran and detected an outage but the page never reached the channel."
+            exit "$curl_rc"
+          fi
+
+      - name: Email escalation (3+ consecutive failures)
+        if: steps.probe.outputs.overall_ok == '0' && steps.streak.outputs.fail_streak == '3'
+        env:
+          RESEND_KEY: ${{ secrets.RESEND_API_KEY }}
+          PROBE_LOG: ${{ steps.probe.outputs.log }}
+          STREAK: ${{ steps.streak.outputs.fail_streak }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+
+          if [ -z "${RESEND_KEY:-}" ]; then
+            echo "RESEND_API_KEY not set; skipping email escalation."
+            exit 0
+          fi
+
+          html=$(printf '<h2>DCP P0 — 3 consecutive uptime failures</h2><p>External monitor at GitHub Actions has seen %s consecutive probe failures (15+ minutes).</p><pre style="background:#f4f4f4;padding:12px;border-radius:4px;">%s</pre><p><a href="%s">Workflow run</a></p><p style="color:#666;font-size:12px;">— DCP Uptime Monitor</p>' \
+            "$STREAK" "$PROBE_LOG" "$RUN_URL")
+
+          text_body=$(printf 'DCP P0 - 3 consecutive uptime failures\n\nProbe results:\n%s\n\nWorkflow run: %s\n' \
+            "$PROBE_LOG" "$RUN_URL")
+
+          payload=$(jq -nc \
+            --arg subject "[DCP P0] api.dcp.sa down — ${STREAK} consecutive failures" \
+            --arg html "$html" \
+            --arg text "$text_body" \
+            '{
+              from: "DCP Monitor <noreply@dcp.sa>",
+              to: ["setup@dc1st.com"],
+              subject: $subject,
+              html: $html,
+              text: $text
+            }')
+
+          # Same hardening as the Telegram path above: P0 escalation MUST
+          # fail loudly if Resend rejects the email (invalid key, sender
+          # not verified, payload error, transport blip). --fail-with-body
+          # makes curl exit non-zero on 4xx/5xx; -w surfaces the HTTP code
+          # for log clarity. Flagged by chatgpt-codex-connector P1 review
+          # on PR #417 — the previous code only used `set -u`, which does
+          # not catch a non-zero curl exit if its output is captured.
+          resp=$(curl -sS -m 10 --fail-with-body \
+            -w '\nHTTP_CODE=%{http_code}\n' \
+            -X POST \
+            -H "Authorization: Bearer ${RESEND_KEY}" \
+            -H "Content-Type: application/json" \
+            "https://api.resend.com/emails" \
+            --data "$payload")
+          curl_rc=$?
+          echo "Resend response: $resp"
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::Resend P0 escalation email FAILED (curl exit $curl_rc). 3 consecutive outages detected but the escalation email did NOT send."
+            exit "$curl_rc"
+          fi
+
+      - name: Recovery notice
+        if: steps.probe.outputs.overall_ok == '1' && steps.streak.outputs.fail_streak == '0'
+        env:
+          TG_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_ALERT_CHAT_ID }}
+          TG_TOPIC_ID: ${{ secrets.TG_ALERT_TOPIC_ID }}
+          GIST_ID: ${{ secrets.MONITOR_GIST_ID }}
+          GIST_TOKEN: ${{ secrets.MONITOR_GIST_TOKEN }}
+        run: |
+          set -u
+          # Only post a recovery notice if the previous run was failing.
+          # We detect this by looking at the history's second-to-last entry.
+          if [ -z "${GIST_ID:-}" ] || [ -z "${GIST_TOKEN:-}" ]; then
+            exit 0
+          fi
+
+          previous_ok=$(curl -sS -m 10 \
+            -H "Authorization: Bearer $GIST_TOKEN" \
+            "https://api.github.com/gists/$GIST_ID" \
+            | jq -r '.files["dcp-monitor-state.json"].content
+                     | fromjson
+                     | .history[-2].ok // true')
+
+          if [ "$previous_ok" = "false" ]; then
+            text=$(printf '✅ DCP uptime: recovered.\nTime (UTC): %s' "$(date -u +%H:%M:%S)")
+            payload=$(jq -nc \
+              --arg chat_id "$TG_CHAT_ID" \
+              --arg topic "$TG_TOPIC_ID" \
+              --arg text "$text" \
+              '{
+                chat_id: ($chat_id | tonumber),
+                message_thread_id: ($topic | tonumber),
+                text: $text,
+                disable_web_page_preview: true
+              }')
+            curl -sS -m 10 -X POST \
+              -H "Content-Type: application/json" \
+              "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+              --data "$payload" > /dev/null || true
+          fi

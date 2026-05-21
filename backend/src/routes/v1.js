@@ -27,6 +27,7 @@ const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-c
 const { deduplicateModelAliases, DASH_TO_CANONICAL } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
+const subscriptionService = require('../services/subscriptionService');
 const {
   selectProvidersWithLatencyGate,
   recordStreamOutcome,
@@ -911,7 +912,117 @@ function parseCachedModels(raw) {
     .filter(Boolean);
 }
 
+// ─── Multi-engine routing (migration 015) ────────────────────────────────
+// When MULTI_ENGINE_ROUTING_ENABLED=true, the gateway consults the
+// `provider_engines` table to find providers serving a specific model on a
+// specific engine. Each capable provider returned via this path carries a
+// `_selectedEngine` field whose `base_url` overrides the legacy
+// `providers.vllm_endpoint_url` in `proxyToProvider`. Falls back to the
+// legacy path when no engine row matches (backward compat for providers that
+// haven't shipped per-engine heartbeat payloads yet).
+function isMultiEngineRoutingEnabled() {
+  return process.env.MULTI_ENGINE_ROUTING_ENABLED === 'true';
+}
+
+// Returns engine rows (joined with their parent provider) whose
+// `served_models` JSON includes `modelAlias`. Filters out paused / soft-
+// deleted providers and unreachable engines. Returns a list of
+// {provider, engine} pairs sorted by provider id (stable).
+function lookupProviderEnginesForModel(modelAlias) {
+  const requestedLower = modelAlias ? String(modelAlias).toLowerCase().trim() : null;
+  if (!requestedLower) return [];
+
+  // Use a single JOIN — small table (≤ a few hundred rows), no need for a
+  // dedicated cache. Filter served_models in JS because SQLite's JSON1 may
+  // not be compiled in on every install.
+  let rows;
+  try {
+    rows = db.all(
+      `SELECT pe.id              AS engine_id,
+              pe.engine_type     AS engine_type,
+              pe.base_url        AS engine_base_url,
+              pe.port            AS engine_port,
+              pe.served_models   AS engine_served_models,
+              pe.reachable       AS engine_reachable,
+              p.*
+         FROM provider_engines pe
+         JOIN providers p ON p.id = pe.provider_id
+        WHERE pe.reachable = 1
+          AND p.status = 'online'
+          AND COALESCE(p.is_paused, 0) = 0
+          AND p.deleted_at IS NULL`
+    );
+  } catch (e) {
+    // Table missing or other schema issue — degrade silently to legacy path.
+    return [];
+  }
+
+  const out = [];
+  for (const row of rows) {
+    let served = [];
+    try {
+      const parsed = JSON.parse(row.engine_served_models || '[]');
+      if (Array.isArray(parsed)) {
+        served = parsed.map((m) => String(m).toLowerCase().trim()).filter(Boolean);
+      }
+    } catch (_) {
+      // Malformed JSON — skip this row rather than crash dispatch.
+      continue;
+    }
+    if (served.length === 0) continue;
+
+    const hasModel = served.some((m) =>
+      m === requestedLower ||
+      m.includes(requestedLower) ||
+      requestedLower.includes(m)
+    );
+    if (!hasModel) continue;
+
+    const providerCols = { ...row };
+    delete providerCols.engine_id;
+    delete providerCols.engine_type;
+    delete providerCols.engine_base_url;
+    delete providerCols.engine_port;
+    delete providerCols.engine_served_models;
+    delete providerCols.engine_reachable;
+
+    out.push({
+      ...providerCols,
+      _selectedEngine: {
+        engine_id: row.engine_id,
+        engine_type: row.engine_type,
+        base_url: row.engine_base_url,
+        port: row.engine_port,
+        served_models: served,
+      },
+    });
+  }
+  return out;
+}
+
 function getCapableProviders(minVramMb, requestedModelId) {
+  // Flagged: try the multi-engine table first. When it returns matches we
+  // skip the legacy SELECT entirely. When it returns nothing we fall through
+  // so providers without engine rows still serve via their legacy endpoint.
+  if (isMultiEngineRoutingEnabled() && requestedModelId) {
+    const engineCandidates = lookupProviderEnginesForModel(requestedModelId);
+    if (engineCandidates.length > 0) {
+      const nowMs = Date.now();
+      const filtered = [];
+      for (const candidate of engineCandidates) {
+        const hbMs = candidate.last_heartbeat ? Date.parse(candidate.last_heartbeat) : NaN;
+        if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
+        if (candidate.endpoint_reachable === 0) continue;
+        if (!parseComputeTypes(candidate.supported_compute_types).has('inference')) continue;
+        if (resolveProviderVramMb(candidate) < minVramMb) continue;
+        filtered.push(candidate);
+      }
+      if (filtered.length > 0) return filtered;
+      // Engine rows matched but no provider passed the readiness gates —
+      // fall through to legacy below so we don't strand the request.
+    }
+  }
+
   const providers = db.all(
     `SELECT * FROM providers
      WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
@@ -1855,12 +1966,32 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const promptTokens = approximateTokenCount(mergedPrompt);
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
-    const tokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
+    const baseTokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
     // Migration 011: prefer per-1M in/out rates from model_registry. Falls
     // back to legacy `tokenRateHalala` applied symmetrically when null.
     const modelRegRates = resolveModelRegistryRates(modelReq.model_id);
-    const inRateHalalaPer1m = modelRegRates.in;
-    const outRateHalalaPer1m = modelRegRates.out;
+    const baseInRate = modelRegRates.in;
+    const baseOutRate = modelRegRates.out;
+
+    // Migration 016: subscription discount. Active subscription = discount
+    // applied per-model (NOT a flat bundle). Models still bill at their own
+    // rate; discount is a uniform percentage off PAYG. Behind a flag while
+    // we verify; default-off keeps PAYG behavior identical to pre-016.
+    let activeSubscription = null;
+    let subscriptionDiscountBps = 0;
+    if (process.env.SUBSCRIPTION_BILLING_ENABLED === 'true' && req.renter?.id) {
+      try {
+        activeSubscription = subscriptionService.getActiveSubscription(db, req.renter.id);
+        if (activeSubscription) {
+          subscriptionDiscountBps = activeSubscription.discount_bps;
+        }
+      } catch (e) {
+        console.error('[v1] subscription lookup failed', { renterId: req.renter.id, msg: e?.message });
+      }
+    }
+    const tokenRateHalala = subscriptionService.computeDiscountedRateHalala(baseTokenRateHalala, subscriptionDiscountBps);
+    const inRateHalalaPer1m = baseInRate == null ? null : subscriptionService.computeDiscountedRateHalala(baseInRate, subscriptionDiscountBps);
+    const outRateHalalaPer1m = baseOutRate == null ? null : subscriptionService.computeDiscountedRateHalala(baseOutRate, subscriptionDiscountBps);
     const meteringRequestId = extractRequestId(req);
     let usagePersisted = false;
     const dbHandle = db._db || db;
@@ -1999,8 +2130,23 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
 
     const debitRenterSafe = (costHalala) => {
       try {
-        db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
-          .run(costHalala, new Date().toISOString(), req.renter.id, costHalala);
+        const nowIso = new Date().toISOString();
+        let paygShortfall = costHalala;
+        // Migration 016: drain oldest-expiring subscription credit first, then
+        // fall back to PAYG balance_halala for the remainder. Only active when
+        // SUBSCRIPTION_BILLING_ENABLED=true and renter has an active sub.
+        if (activeSubscription) {
+          const result = subscriptionService.debitSubscriptionCredits(db, {
+            renterId: req.renter.id,
+            costHalala,
+            nowIso,
+          });
+          paygShortfall = result.shortfall;
+        }
+        if (paygShortfall > 0) {
+          db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
+            .run(paygShortfall, nowIso, req.renter.id, paygShortfall);
+        }
       } catch (err) {
         // Structured drift-detection: this is the ONLY renter-balance debit
         // on the proxy success path. A silent failure here means the usage
@@ -2010,6 +2156,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         console.error('[v1] debit failed — ledger/balance drift', {
           renterId: req.renter.id,
           costHalala,
+          subscriptionActive: Boolean(activeSubscription),
           message: err && err.message,
           code: err && err.code,
         });
@@ -2040,13 +2187,33 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         });
       });
     };
-    if (Number(req.renter.balance_halala || 0) < estimatedCostHalala) {
+    // Migration 016: include subscription credit balance in the pre-flight
+    // check. A subscriber with 100k halala of credit and 0 PAYG balance must
+    // still pass this gate. Falls back to PAYG-only when no active sub.
+    let subscriptionCreditRemaining = 0;
+    if (activeSubscription) {
+      try {
+        subscriptionCreditRemaining = subscriptionService.getRemainingCreditTotal(
+          db, req.renter.id, new Date().toISOString()
+        );
+      } catch (e) {
+        console.error('[v1] sub credit lookup failed', { renterId: req.renter.id, msg: e?.message });
+      }
+    }
+    const totalAvailableHalala = Number(req.renter.balance_halala || 0) + subscriptionCreditRemaining;
+    if (totalAvailableHalala < estimatedCostHalala) {
       return sendV1Error(res, {
         status: 402,
         type: 'billing_error',
         code: 'billing_insufficient_balance',
         message: 'Insufficient balance',
         retryable: false,
+        details: {
+          billing_url: 'https://dcp.sa/renter/billing',
+          balance_halala: Number(req.renter.balance_halala || 0),
+          subscription_credit_halala: subscriptionCreditRemaining,
+          required_halala: estimatedCostHalala,
+        },
       });
     }
 
@@ -2085,11 +2252,22 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           retryable: true,
         });
       }
-      // H5 routing preference: prefer WG mesh IP when available (lower latency, more reliable)
-      let effectiveEndpointUrl = assignedProvider.vllm_endpoint_url;
-      if (assignedProvider.wg_mesh_ip) {
-        const wgPort = (assignedProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
-        effectiveEndpointUrl = `http://${assignedProvider.wg_mesh_ip}:${wgPort}`;
+      // Multi-engine routing (migration 015): when the provider was picked
+      // via the engines table, dispatch to that engine's base_url instead of
+      // the legacy single `vllm_endpoint_url`. Note: engine base_url already
+      // contains the WG mesh IP in production (e.g. http://10.8.0.6:11434/v1),
+      // so we skip the wg_mesh_ip rewrite for this branch.
+      let effectiveEndpointUrl;
+      if (assignedProvider._selectedEngine && assignedProvider._selectedEngine.base_url) {
+        effectiveEndpointUrl = assignedProvider._selectedEngine.base_url;
+      } else {
+        // Legacy path. H5 routing preference: prefer WG mesh IP when available
+        // (lower latency, more reliable) than the registered vllm endpoint.
+        effectiveEndpointUrl = assignedProvider.vllm_endpoint_url;
+        if (assignedProvider.wg_mesh_ip) {
+          const wgPort = (assignedProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
+          effectiveEndpointUrl = `http://${assignedProvider.wg_mesh_ip}:${wgPort}`;
+        }
       }
 
       const proxyResult = await proxyToProvider({
@@ -2434,7 +2612,8 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       // If selected provider endpoint exists but failed to produce a valid payload,
       // retry once through other capable providers before returning upstream failure.
       const fallbackCapable = fallbackProviders
-        .filter((provider) => provider.id !== assignedProvider.id && provider.vllm_endpoint_url)
+        .filter((provider) => provider.id !== assignedProvider.id
+          && (provider.vllm_endpoint_url || provider._selectedEngine?.base_url))
         .slice(0, 2);
 
       for (const fallbackProvider of fallbackCapable) {
@@ -2448,11 +2627,18 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         // rather than stacking onto a busy Ollama instance.
         if (!tryAcquireSlot(fallbackProvider.id)) continue;
 
-        // H5 routing preference: prefer WG mesh IP for fallback too
-        let fallbackEffectiveUrl = fallbackProvider.vllm_endpoint_url;
-        if (fallbackProvider.wg_mesh_ip) {
-          const fbPort = (fallbackProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
-          fallbackEffectiveUrl = `http://${fallbackProvider.wg_mesh_ip}:${fbPort}`;
+        // Multi-engine routing (migration 015): honor the selected engine's
+        // base_url when present, else fall back to the legacy path.
+        let fallbackEffectiveUrl;
+        if (fallbackProvider._selectedEngine && fallbackProvider._selectedEngine.base_url) {
+          fallbackEffectiveUrl = fallbackProvider._selectedEngine.base_url;
+        } else {
+          // H5 routing preference: prefer WG mesh IP for fallback too.
+          fallbackEffectiveUrl = fallbackProvider.vllm_endpoint_url;
+          if (fallbackProvider.wg_mesh_ip) {
+            const fbPort = (fallbackProvider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
+            fallbackEffectiveUrl = `http://${fallbackProvider.wg_mesh_ip}:${fbPort}`;
+          }
         }
 
         const fallbackResult = await proxyToProvider({
@@ -2671,4 +2857,9 @@ module.exports.__test = {
   approximateTokenCount,
   VISION_IMAGE_TOKEN_ESTIMATE,
   normalizeMessagesForUpstream,
+  // Multi-engine routing (migration 015)
+  lookupProviderEnginesForModel,
+  getCapableProviders,
+  isMultiEngineRoutingEnabled,
+  buildProviderChatCompletionsUrl,
 };

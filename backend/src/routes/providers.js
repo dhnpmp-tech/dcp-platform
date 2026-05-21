@@ -995,6 +995,7 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             wg_mesh_ip,          // Audit H5: WireGuard mesh IP advertised by daemon
             wg_health,           // Tier-1 WG telemetry (handshake age, rx/tx, ping)
             task_updates,        // Migration 008: agent reports back on pull_model tasks
+            engines,             // Migration 015: per-engine endpoints (Ollama + llamacpp + vLLM)
         } = req.body;
         const cleanApiKey = normalizeString(api_key, { maxLen: 128, trim: false });
         if (!cleanApiKey) return res.status(400).json({ error: 'api_key required' });
@@ -1292,6 +1293,74 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
         // Store daemon version on provider record for job assignment checks
         if (daemonVersion) {
             runStatement('UPDATE providers SET daemon_version = ? WHERE id = ?', daemonVersion, p.id);
+        }
+
+        // ── Migration 015: per-engine endpoints ───────────────────────────
+        // Multi-engine routing: when the daemon reports `engines: [...]` in
+        // its heartbeat payload, UPSERT one row per (provider_id, engine_type)
+        // into `provider_engines`. This is the new source of truth that lets
+        // the gateway dispatch a request for `qwen3.6-27b-mtp` to a provider's
+        // llama.cpp engine while routing `qwen3:8b` on the same provider to
+        // its Ollama engine. The legacy single-endpoint path
+        // (`providers.vllm_endpoint_url` + `providers.cached_models`) is
+        // unchanged and remains the dispatch source-of-truth until
+        // MULTI_ENGINE_ROUTING_ENABLED=true is set on the gateway.
+        //
+        // Payload shape (all fields required per row):
+        //   engines: [
+        //     { engine_type: 'ollama'|'vllm'|'llamacpp',
+        //       base_url: 'http://10.8.0.6:11434/v1',
+        //       port: 11434,
+        //       served_models: ['qwen3:8b', 'bge-m3:latest'] }
+        //   ]
+        //
+        // NOTE — as of this PR the production daemon does NOT send this
+        // field. Node 2's two rows were inserted manually on 2026-05-19. This
+        // ingest path is a no-op until the daemon ships the payload
+        // extension. Failure here is caught and logged but never fails the
+        // heartbeat.
+        if (Array.isArray(engines) && engines.length > 0) {
+            try {
+                const upsertEngine = db.prepare(`
+                    INSERT INTO provider_engines (
+                        provider_id, engine_type, base_url, port,
+                        served_models, reachable, last_seen_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+                    ON CONFLICT(provider_id, engine_type) DO UPDATE SET
+                        base_url = excluded.base_url,
+                        port = excluded.port,
+                        served_models = excluded.served_models,
+                        reachable = 1,
+                        last_seen_at = datetime('now')
+                `);
+                for (const eng of engines.slice(0, 8)) {
+                    if (!eng || typeof eng !== 'object') continue;
+                    const engineType = normalizeString(eng.engine_type, { maxLen: 16, trim: true });
+                    if (!engineType || !['ollama', 'vllm', 'llamacpp'].includes(engineType)) continue;
+                    const baseUrl = normalizeString(eng.base_url, { maxLen: 512, trim: true });
+                    if (!baseUrl) continue;
+                    const port = toFiniteInt(eng.port, { min: 1, max: 65535 });
+                    if (port == null) continue;
+                    const servedModelsArr = Array.isArray(eng.served_models)
+                        ? eng.served_models
+                            .map((m) => normalizeString(m, { maxLen: 200 }))
+                            .filter(Boolean)
+                            .slice(0, 64)
+                        : [];
+                    upsertEngine.run(
+                        p.id,
+                        engineType,
+                        baseUrl,
+                        port,
+                        JSON.stringify(servedModelsArr)
+                    );
+                }
+            } catch (engineErr) {
+                // Never fail the heartbeat over a per-engine ingest error —
+                // the legacy fields are still updated above.
+                console.warn(`[providers/heartbeat] engines ingest failed for provider=${p.id}: ${engineErr?.message}`);
+            }
         }
 
         // Recompute reputation score on every heartbeat (rolling 7-day window)

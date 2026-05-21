@@ -299,6 +299,44 @@ try { db.prepare(`INSERT OR IGNORE INTO cost_rates (model, token_rate_halala, is
    VALUES (?, ?, 1, ?)`).run('TinyLlama/TinyLlama-1.1B-Chat-v1.0', 10, nowIso); } catch(e) {}
 try { db.prepare(`UPDATE cost_rates SET token_rate_halala = 19 WHERE model = '__default__' AND token_rate_halala = 1`).run(); } catch (e) {}
 
+// ─── COST_RATES MODEL_CLASS ─── (migration 017)
+// Per-class PAYG rate card decided Peter 2026-05-20 after competitor
+// analysis. Pre-017 the table had no model_class and default=19 halala/M
+// which is below cost for 27B+ models. New 5-class rate card seeds:
+//   tiny   15, small 30, medium 150, large 400, embedding 5 (halala/M)
+// See migrations/017_cost_rates_model_class.sql for authoritative source.
+try { db.exec('ALTER TABLE cost_rates ADD COLUMN model_class TEXT'); } catch (_) { /* idempotent */ }
+try { db.prepare(`UPDATE cost_rates SET model_class = 'small' WHERE model_class IS NULL`).run(); } catch (_) {}
+const CLASS_RATE_SEEDS = [
+  // tiny
+  ['TinyLlama/TinyLlama-1.1B-Chat-v1.0', 15, 'tiny'],
+  ['qwen2.5vl:3b',                       15, 'tiny'],
+  ['google/gemma-2b-it',                 15, 'tiny'],
+  // small
+  ['mistralai/Mistral-7B-Instruct-v0.2', 30, 'small'],
+  ['meta-llama/Meta-Llama-3-8B-Instruct',30, 'small'],
+  ['microsoft/Phi-3-mini-4k-instruct',   30, 'small'],
+  ['qwen3:8b',                           30, 'small'],
+  ['humain-ai/ALLaM-7B-Instruct-preview',30, 'small'],
+  // medium (flagship)
+  ['qwen3.6-27b-mtp',                    150, 'medium'],
+  ['Qwen/Qwen2.5-Coder-32B-Instruct',    150, 'medium'],
+  // embedding
+  ['bge-m3',                             5,  'embedding'],
+];
+for (const [model, rate, klass] of CLASS_RATE_SEEDS) {
+  try {
+    db.prepare(`INSERT INTO cost_rates (model, token_rate_halala, model_class, is_active, created_at)
+                VALUES (?, ?, ?, 1, ?)
+                ON CONFLICT(model) DO UPDATE SET token_rate_halala = excluded.token_rate_halala,
+                                                  model_class = excluded.model_class`)
+      .run(model, rate, klass, nowIso);
+  } catch (e) { /* table may not exist yet on first boot of an older schema */ }
+}
+// Raise __default__ floor to small-class 30 halala/M
+try { db.prepare(`UPDATE cost_rates SET token_rate_halala = 30, model_class = 'small' WHERE model = '__default__'`).run(); } catch (_) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_cost_rates_class ON cost_rates(model_class)`); } catch (_) {}
+
 // ─── GPU PRICING TABLE ───
 // Admin-controlled base rental rates per GPU model in halala/hour.
 // DCP floor prices from FOUNDER-STRATEGIC-BRIEF.md (March 2026)
@@ -1113,6 +1151,91 @@ migrations.forEach(sql => {
   }
 });
 
+// ─── PROVIDER_ENGINES TABLE ─── (migration 015)
+// Multi-engine routing source of truth. One row per (provider_id, engine_type)
+// so a single provider can expose more than one inference backend (e.g.
+// llama.cpp at 8080 + Ollama at 11434). Legacy `providers.vllm_endpoint_url`
+// + `providers.cached_models` remain intact for backward compatibility — the
+// gateway selects between paths via the MULTI_ENGINE_ROUTING_ENABLED env flag.
+//
+// On production this table was created surgically during the 2026-05-19
+// phantom-daemon remediation (see migrations/015_provider_engines.sql for the
+// full audit comment). The IF NOT EXISTS guards keep prod rows intact.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_engines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_id INTEGER NOT NULL,
+    engine_type TEXT NOT NULL CHECK (engine_type IN ('ollama','vllm','llamacpp')),
+    base_url TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    served_models TEXT NOT NULL DEFAULT '[]',
+    reachable INTEGER DEFAULT 1,
+    last_probed_at TEXT,
+    last_probe_error TEXT,
+    last_seen_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(provider_id, engine_type),
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_provider ON provider_engines(provider_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_lookup  ON provider_engines(reachable, engine_type)`);
+
+// ─── RENTER SUBSCRIPTIONS ─── (migration 016)
+// Dual pricing SKU: PAYG (renters.balance_halala) + monthly subscription.
+// Subscription = SAR monthly fee → SAR credit grant + per-tier discount
+// applied to PAYG per-model rates. Models bill at their OWN rate (not a
+// flat bundle rate). Credit grants roll over 30 days then expire.
+// Schema source of truth: migrations/016_renter_subscriptions.sql
+db.exec(`
+  CREATE TABLE IF NOT EXISTS renter_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    renter_id INTEGER NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('starter','growth','scale')),
+    monthly_sar INTEGER NOT NULL,
+    discount_bps INTEGER NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending','active','past_due','cancelled','expired')) DEFAULT 'pending',
+    moyasar_subscription_id TEXT UNIQUE,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (renter_id) REFERENCES renters(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_subscriptions_renter ON renter_subscriptions(renter_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_subscriptions_status ON renter_subscriptions(status)`);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_renter_subscriptions_one_open ON renter_subscriptions(renter_id) WHERE status IN ('pending','active','past_due')`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subscription_credits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id INTEGER NOT NULL,
+    renter_id INTEGER NOT NULL,
+    granted_at TEXT NOT NULL,
+    amount_halala INTEGER NOT NULL,
+    consumed_halala INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'monthly_grant' CHECK (source IN ('monthly_grant','adjustment','promo')),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (subscription_id) REFERENCES renter_subscriptions(id) ON DELETE CASCADE,
+    FOREIGN KEY (renter_id) REFERENCES renters(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subscription_credits_renter_remaining ON subscription_credits(renter_id, expires_at) WHERE consumed_halala < amount_halala`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subscription_credits_subscription ON subscription_credits(subscription_id)`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS moyasar_webhook_events (
+    event_id TEXT PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    applied_at TEXT
+  )
+`);
+
 // ─── RENTERS TABLE ───
 db.exec(`
   CREATE TABLE IF NOT EXISTS renters (
@@ -1162,6 +1285,26 @@ db.exec(`
   )
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_api_key_rotations_account_time ON api_key_rotations(account_type, account_id, rotated_at DESC)`);
+
+// ─── RENTER NOTIFICATIONS TABLE ─── (migration 013)
+// In-dashboard notifications. Replaces per-job completion emails to stop
+// burning Resend quota; dailyDigest service rolls these into one email/day.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS renter_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    renter_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    job_id INTEGER,
+    payload TEXT,
+    read_at TEXT,
+    digested_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (renter_id) REFERENCES renters(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_notif_unread ON renter_notifications(renter_id, read_at, created_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_notif_digest ON renter_notifications(kind, digested_at, created_at)`);
 
 // ─── SCOPED RENTER API KEYS TABLE ─── Sprint 25 Gap 2
 // Sub-keys with explicit scope grants; master renters.api_key retains full access.
