@@ -326,6 +326,65 @@ export default function FleetHealthPage() {
         </div>
       )}
 
+      {/* Daemon Version Distribution — surfaces /admin/daemon-health.versions
+          (already returned by the same fetch above but never rendered).
+          Catches silent drift where, e.g., 18 providers still run an old
+          daemon version after a self-update window has elapsed. */}
+      {data?.versions && data.versions.length > 0 && (() => {
+        const versions = (data.versions as Array<{ daemon_version: string; provider_count: number; last_seen: string }>) || []
+        const totalProviders = versions.reduce((s, v) => s + (v.provider_count || 0), 0)
+        const newest = versions[0]?.daemon_version || '—'
+        const onNewest = versions[0]?.provider_count || 0
+        const driftCount = totalProviders - onNewest
+        return (
+          <div className="card mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-dc1-text-primary">Daemon versions in the fleet</h3>
+                <p className="text-xs text-dc1-text-secondary mt-0.5">
+                  Distribution of `daemon_start` events over the last {data.period_hours}h.
+                  {driftCount > 0 && (
+                    <> <span className="text-dc1-amber">{driftCount} of {totalProviders} providers</span> not yet on latest ({newest}).</>
+                  )}
+                  {driftCount === 0 && totalProviders > 0 && (
+                    <> All {totalProviders} providers on latest ({newest}).</>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-dc1-border">
+              <table className="w-full text-sm">
+                <thead className="bg-dc1-surface-l2 text-xs uppercase tracking-wider text-dc1-text-muted">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold">Version</th>
+                    <th className="px-3 py-2 text-right font-semibold">Providers</th>
+                    <th className="px-3 py-2 text-right font-semibold">% of fleet</th>
+                    <th className="px-3 py-2 text-left font-semibold">Last seen</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-dc1-border bg-dc1-surface-l1">
+                  {versions.map((v, i) => {
+                    const pct = totalProviders > 0 ? Math.round((v.provider_count / totalProviders) * 100) : 0
+                    const isNewest = i === 0
+                    return (
+                      <tr key={v.daemon_version}>
+                        <td className="px-3 py-2 font-mono">
+                          <span className={isNewest ? 'text-dc1-amber font-semibold' : 'text-dc1-text-primary'}>{v.daemon_version}</span>
+                          {isNewest && <span className="ml-2 rounded-full bg-dc1-amber/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-dc1-amber">latest</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-dc1-text-primary">{v.provider_count}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-dc1-text-secondary">{pct}%</td>
+                        <td className="px-3 py-2 text-xs text-dc1-text-secondary">{v.last_seen ? formatHeartbeat(v.last_seen, t) : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
+
       {loading ? (
         <div className="text-dc1-text-secondary">{t('admin.fleet.loading')}</div>
       ) : (
