@@ -1190,6 +1190,100 @@ function estimatePromptFromMessages(messages) {
     .join('\n');
 }
 
+// Normalize a renter-supplied `messages` array into the canonical form sent
+// to the upstream provider. Pure function — does not throw, does not mutate
+// input. Returns a fresh array.
+//
+// Contract (extracted from POST /v1/chat/completions handler so it can be
+// unit-tested in isolation; behaviour must match the inline loop exactly):
+//   - At most 100 messages processed; rest discarded.
+//   - Role normalised to lowercase (max 20 chars), defaults to 'user'.
+//   - role:'tool' messages keep tool_call_id + stringify non-string content.
+//   - role:'assistant' with tool_calls array preserves tool_calls (id auto-
+//     filled if missing) but DOES NOT recurse into argument generation —
+//     the caller (handler) supplies a crypto-backed id factory.
+//   - Multimodal arrays: text parts trimmed to 20k chars, image_url parts
+//     pass through untouched (string OR {url, detail}). input_image parts
+//     pass through verbatim. At most 32 parts. Unknown part.type ignored.
+//   - String content normalised via the supplied normalizeString helper.
+//   - Messages that would have no content (no parts AND no string) are
+//     dropped — caller treats empty result as 400 invalid_request.
+//
+// Why a factory for the assistant tool-call id? Because the production
+// handler uses `crypto.randomBytes` for unguessable ids, but tests want
+// deterministic output. Caller passes an injectable id generator.
+function normalizeMessagesForUpstream(messagesRaw, {
+  normalizeString: normalizeStringFn,
+  makeToolCallId,
+} = {}) {
+  if (!Array.isArray(messagesRaw) || messagesRaw.length === 0) return [];
+  if (typeof normalizeStringFn !== 'function') {
+    throw new Error('normalizeMessagesForUpstream: normalizeString is required');
+  }
+  const idFactory = typeof makeToolCallId === 'function'
+    ? makeToolCallId
+    : () => `call_${crypto.randomBytes(8).toString('hex')}`;
+
+  const messages = [];
+  for (const entry of messagesRaw.slice(0, 100)) {
+    const role = normalizeStringFn(entry?.role, { maxLen: 20 }) || 'user';
+    const msg = { role: role.toLowerCase() };
+
+    // role:'tool' (tool call result)
+    if (msg.role === 'tool' && entry?.tool_call_id) {
+      msg.tool_call_id = String(entry.tool_call_id);
+      msg.content = typeof entry.content === 'string'
+        ? entry.content
+        : JSON.stringify(entry.content || '');
+      messages.push(msg);
+      continue;
+    }
+
+    // role:'assistant' with tool_calls
+    if (msg.role === 'assistant' && Array.isArray(entry?.tool_calls)) {
+      msg.content = entry.content || '';
+      msg.tool_calls = entry.tool_calls.map((tc) => ({
+        id: tc?.id || idFactory(),
+        type: 'function',
+        function: {
+          name: tc?.function?.name || '',
+          arguments: tc?.function?.arguments || '{}',
+        },
+      }));
+      messages.push(msg);
+      continue;
+    }
+
+    // Multimodal content array (OpenAI vision format).
+    // Pass image parts through verbatim — the gateway is a dumb proxy.
+    if (Array.isArray(entry?.content)) {
+      const parts = [];
+      for (const part of entry.content.slice(0, 32)) {
+        if (!part || typeof part !== 'object') continue;
+        if (part.type === 'text' && typeof part.text === 'string') {
+          const text = part.text.slice(0, 20000);
+          if (text) parts.push({ type: 'text', text });
+        } else if (part.type === 'image_url' && part.image_url) {
+          parts.push({ type: 'image_url', image_url: part.image_url });
+        } else if (part.type === 'input_image') {
+          parts.push(part);
+        }
+      }
+      if (parts.length === 0) continue;
+      msg.content = parts;
+      messages.push(msg);
+      continue;
+    }
+
+    // String content (legacy path).
+    const content = normalizeStringFn(entry?.content, { maxLen: 20000, trim: false });
+    if (!content) continue;
+    msg.content = content;
+    messages.push(msg);
+  }
+  return messages;
+}
+
 function computeTokenCostHalala(tokens, tokenRateHalala) {
   const safeTokens = toFiniteInt(tokens, { min: 0, max: 1_000_000_000 }) ?? 0;
   const safeTokenRate = toFiniteInt(tokenRateHalala, { min: 0, max: 100_000_000 }) ?? 0;
@@ -1680,64 +1774,12 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
-    // Prepare messages — support tool_calls in assistant msgs and tool role msgs
-    const messages = [];
-    for (const entry of messagesRaw.slice(0, 100)) {
-      const role = normalizeString(entry?.role, { maxLen: 20 }) || 'user';
-      const msg = { role: role.toLowerCase() };
-
-      // Tool call results (role: "tool")
-      if (msg.role === 'tool' && entry.tool_call_id) {
-        msg.tool_call_id = String(entry.tool_call_id);
-        msg.content = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content || '');
-        messages.push(msg);
-        continue;
-      }
-
-      // Assistant messages with tool_calls
-      if (msg.role === 'assistant' && Array.isArray(entry.tool_calls)) {
-        msg.content = entry.content || '';
-        msg.tool_calls = entry.tool_calls.map(tc => ({
-          id: tc.id || `call_${crypto.randomBytes(8).toString('hex')}`,
-          type: 'function',
-          function: { name: tc.function?.name || '', arguments: tc.function?.arguments || '{}' },
-        }));
-        messages.push(msg);
-        continue;
-      }
-
-      // Regular messages — support OpenAI multimodal content arrays
-      // (text + image_url parts) for vision-capable models. Arrays are
-      // passed through to the upstream provider unchanged; the gateway
-      // does NOT decode or re-encode image data. String content keeps
-      // the prior normalization (trim-preserving, 20k-char cap).
-      if (Array.isArray(entry?.content)) {
-        const parts = [];
-        for (const part of entry.content.slice(0, 32)) {
-          if (!part || typeof part !== 'object') continue;
-          if (part.type === 'text' && typeof part.text === 'string') {
-            const text = part.text.slice(0, 20000);
-            if (text) parts.push({ type: 'text', text });
-          } else if (part.type === 'image_url' && part.image_url) {
-            // image_url can be a string OR { url, detail }. Pass through
-            // unchanged (Ollama + vLLM both accept either shape).
-            parts.push({ type: 'image_url', image_url: part.image_url });
-          } else if (part.type === 'input_image') {
-            // Anthropic/OpenAI-Responses style — also pass through.
-            parts.push(part);
-          }
-        }
-        if (parts.length === 0) continue;
-        msg.content = parts;
-        messages.push(msg);
-        continue;
-      }
-
-      const content = normalizeString(entry?.content, { maxLen: 20000, trim: false });
-      if (!content) continue;
-      msg.content = content;
-      messages.push(msg);
-    }
+    // Prepare messages — supports tool_calls, role:'tool', and OpenAI
+    // multimodal content arrays. Logic lives in a pure helper so it can
+    // be unit-tested without standing up the full express app.
+    const messages = normalizeMessagesForUpstream(messagesRaw, {
+      normalizeString,
+    });
 
     if (messages.length === 0) {
       return sendV1Error(res, {
@@ -2814,6 +2856,7 @@ module.exports.__test = {
   estimatePromptFromMessages,
   approximateTokenCount,
   VISION_IMAGE_TOKEN_ESTIMATE,
+  normalizeMessagesForUpstream,
   // Multi-engine routing (migration 015)
   lookupProviderEnginesForModel,
   getCapableProviders,
