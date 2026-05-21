@@ -3895,6 +3895,44 @@ router.get('/download/daemon', (req, res) => {
 });
 
 // ============================================================================
+// GET /api/providers/download/setup-inference-supervisors
+// ----------------------------------------------------------------------------
+// Serves the idempotent shell installer that drops systemd USER units for
+// every llama.cpp gguf on the provider. Direct response to the 2026-05-21
+// Node 2 outage where llama-server died from a CUDA OOM and stayed down
+// for 12 hours because nothing supervised it. dcp-setup-unix.sh now calls
+// this endpoint as part of /etc/systemd/system/dc1-provider.service's
+// ExecStartPre, so future installs are auto-bootstrapped. Static file —
+// no key injection needed; we still gate on a valid provider key.
+// ============================================================================
+router.get('/download/setup-inference-supervisors', (req, res) => {
+    try {
+        const { key } = req.query;
+        const cleanKey = normalizeSingleQueryParam(key, { maxLen: 128 });
+        if (!cleanKey) return res.status(400).json({ error: 'API key required' });
+
+        const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
+        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
+
+        const scriptPath = path.join(__dirname, '../../installers/setup-inference-supervisors.sh');
+        if (!fs.existsSync(scriptPath)) {
+            return res.status(404).json({ error: 'Supervisor installer not found on backend' });
+        }
+        const script = fs.readFileSync(scriptPath, 'utf-8');
+        recordActivationEvent(provider.id, 'supervisor_installer_downloaded', {
+            route: 'download/setup-inference-supervisors',
+            size_bytes: script.length,
+        });
+        res.setHeader('Content-Type', 'text/x-shellscript');
+        res.setHeader('Content-Disposition', 'attachment; filename="setup-inference-supervisors.sh"');
+        res.send(script);
+    } catch (error) {
+        console.error('Supervisor installer download error:', error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// ============================================================================
 // GET /api/providers/download/daemon/manifest - sha256 + size + version
 // ----------------------------------------------------------------------------
 // Audit G19 (Tier 4.17): the Tauri update_daemon path downloads bytes from
