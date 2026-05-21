@@ -162,6 +162,16 @@ curl -sL "${DC1_API_URL}/api/providers/download/daemon?key=${DC1_API_KEY}" -o "$
 chmod +x "${INSTALL_DIR}/dcp_daemon.py"
 echo "  Installed to ${INSTALL_DIR}/dcp_daemon.py"
 
+# Inference-server supervisor installer. Direct response to 2026-05-21
+# Node 2 outage (llama-server died from CUDA OOM, stayed down 12h because
+# nothing supervised it). The script is idempotent and runs before the
+# daemon starts via systemd ExecStartPre= below.
+echo "  Installing inference supervisor (setup-inference-supervisors.sh)..."
+curl -sL "${DC1_API_URL}/api/providers/download/setup-inference-supervisors?key=${DC1_API_KEY}" \
+  -o "${INSTALL_DIR}/setup-inference-supervisors.sh" \
+  || echo "  [WARN] supervisor installer download failed (continuing; daemon will still start)"
+chmod +x "${INSTALL_DIR}/setup-inference-supervisors.sh" 2>/dev/null || true
+
 # Save config
 cat > "${INSTALL_DIR}/config.json" << CONF
 {
@@ -188,6 +198,11 @@ Wants=docker.service
 [Service]
 Type=simple
 User=$ACTUAL_USER
+# Best-effort: bootstrap llama-server systemd supervisors before the daemon
+# starts. Leading "-" means we ignore exit code so a missing/failed script
+# does not block the daemon. See backend/installers/setup-inference-supervisors.sh
+# and memory/incident_node2_oom_2026-05-21.md for the rationale.
+ExecStartPre=-/bin/bash ${INSTALL_DIR}/setup-inference-supervisors.sh
 ExecStart=/usr/bin/python3 ${INSTALL_DIR}/dcp_daemon.py
 Restart=always
 RestartSec=10
