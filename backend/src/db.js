@@ -337,6 +337,33 @@ for (const [model, rate, klass] of CLASS_RATE_SEEDS) {
 try { db.prepare(`UPDATE cost_rates SET token_rate_halala = 30, model_class = 'small' WHERE model = '__default__'`).run(); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_cost_rates_class ON cost_rates(model_class)`); } catch (_) {}
 
+// ─── COST_RATES RECLASSIFY ─── (migration 018, 2026-05-21 pricing audit)
+// Pre-017 entries drifted: ~25 rows were blanket-tagged `small` even
+// though they routed to 30B+ MoE or 35B dense, and one row was at 1
+// halala/M (test seed). Reclassify per the 5-class card decided
+// 2026-05-20 so /pricing renders correctly and we don't underbill.
+// See migrations/018_cost_rates_reclassify.sql for the full audit.
+const CLASS_RECLASSIFY = [
+  // [models[], rate, class]
+  [['hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4'], 30, 'small'],
+  [['qwen3:30b-a3b', 'nemotron:30b-a3b', 'Qwen/Qwen3-30B-A3B-GPTQ-Int4',
+    'mlx-community/Qwen3-30B-A3B-4bit', 'qwen3.5:35b-a3b',
+    'qwen3.6-35b', 'qwen3.6-35b-a3b'], 400, 'large'],
+  [['qwen3:14b', 'qwen2.5:14b', 'Qwen/Qwen2.5-14B-Instruct-AWQ', 'gemma3:27b'], 150, 'medium'],
+  [['deepseek-r1-distill-qwen-7b', 'falcon-h1-7b-instruct', 'qwen3:4b',
+    'mlx-community/Qwen3-4B-4bit', 'qwen2.5:7b', 'mlx-community/Qwen3-8B-4bit',
+    'mistral:7b', 'llama3.1:8b', 'deepseek-r1:7b', 'glm4:9b',
+    'Qwen/Qwen2.5-7B-Instruct-AWQ'], 30, 'small'],
+];
+for (const [models, rate, klass] of CLASS_RECLASSIFY) {
+  for (const model of models) {
+    try {
+      db.prepare(`UPDATE cost_rates SET token_rate_halala = ?, model_class = ? WHERE model = ?`)
+        .run(rate, klass, model);
+    } catch (_) { /* row may not exist on a fresh DB; that's fine */ }
+  }
+}
+
 // ─── GPU PRICING TABLE ───
 // Admin-controlled base rental rates per GPU model in halala/hour.
 // DCP floor prices from FOUNDER-STRATEGIC-BRIEF.md (March 2026)
