@@ -120,7 +120,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.3.0"
+DAEMON_VERSION = "4.4.0"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -8070,6 +8070,68 @@ def _start_wg_diag_server():
     return t
 
 
+# ─── INFERENCE SUPERVISOR BOOTSTRAP (v4.4.0) ────────────────────────────────
+# Direct response to the 2026-05-21 Node 2 outage (llama-server CUDA OOM,
+# 12 hr down because nothing supervised it). Every daemon, on startup,
+# pulls the latest setup-inference-supervisors.sh from the backend and
+# runs it idempotently. The script writes systemd USER units for every
+# gguf in $HOME/models/ so a CUDA OOM auto-recovers in 15 s instead of
+# staying down until a human SSHs in.
+#
+# Best-effort: any failure (no models on disk, no curl, backend down,
+# script error) is logged but does NOT abort the daemon. The supervisor
+# is a safety net, not a hard dependency.
+def bootstrap_inference_supervisor() -> None:
+    if os.environ.get("DCP_SKIP_SUPERVISOR_BOOTSTRAP") == "1":
+        log.info("[supervisor] DCP_SKIP_SUPERVISOR_BOOTSTRAP=1 — skipping")
+        return
+    try:
+        url = f"{API_URL.rstrip('/')}/api/providers/download/setup-inference-supervisors?key={API_KEY}"
+        script_path = "/tmp/dcp-setup-inference-supervisors.sh"
+        log.info(f"[supervisor] Fetching installer from {API_URL}")
+        # Use urllib (stdlib, always available) — avoids the requests dep
+        # being missing on minimal provider images.
+        import urllib.request
+        req = urllib.request.Request(url, headers={"Accept": "text/x-shellscript"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if resp.status != 200:
+                log.warning(f"[supervisor] download HTTP {resp.status} — skipping")
+                return
+            body = resp.read()
+        with open(script_path, "wb") as f:
+            f.write(body)
+        os.chmod(script_path, 0o755)
+        log.info(f"[supervisor] Running {script_path} (idempotent)")
+        proc = subprocess.run(
+            ["/bin/bash", script_path],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+        if proc.returncode == 0:
+            tail = (proc.stdout or "").strip().splitlines()[-3:]
+            for line in tail:
+                log.info(f"[supervisor] {line}")
+            report_event(
+                "supervisor_bootstrap_ok",
+                f"Inference supervisor installed/updated (v{DAEMON_VERSION})",
+                severity="info",
+            )
+        else:
+            log.warning(
+                f"[supervisor] Script exited rc={proc.returncode}; "
+                f"stderr tail: {(proc.stderr or '').strip()[-300:]}"
+            )
+            report_event(
+                "supervisor_bootstrap_failed",
+                f"Supervisor script rc={proc.returncode}",
+                severity="warning",
+            )
+    except Exception as e:
+        log.warning(f"[supervisor] Bootstrap skipped due to error: {e}")
+
+
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -8100,6 +8162,13 @@ def main():
     if API_URL == "INJECT_URL_HERE" or not API_URL:
         log.error("No API URL configured. Use --url or download from DCP dashboard.")
         sys.exit(1)
+
+    # v4.4.0: Bootstrap the inference-server systemd supervisors. Idempotent.
+    # Wraps any *.gguf in $HOME/models/ in a Restart=on-failure user unit so
+    # a CUDA OOM (e.g. the 2026-05-21 Node 2 outage) auto-recovers in 15 s
+    # instead of staying down until a human intervenes. Best-effort: failure
+    # is logged but does not abort daemon startup.
+    bootstrap_inference_supervisor()
 
     # Register signal handlers for graceful shutdown with job draining.
     # v3.5.0: Feature 4 — Graceful Drain on SIGTERM/SIGINT
