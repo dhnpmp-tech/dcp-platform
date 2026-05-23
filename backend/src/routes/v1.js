@@ -1966,6 +1966,57 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const promptTokens = approximateTokenCount(mergedPrompt);
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
+
+    // ── Admission control v1: token-budget pre-flight gate ────────────────
+    // Direct response to the 2026-05-21 Node 2 OOM post-mortem + Tareq's
+    // DeepSeek-pattern reference (POST /v1 docs: dynamic concurrency cap +
+    // HTTP 429). Prior behavior: any prompt was routed to the GPU; if the
+    // (prompt + max_completion) blew past the model's context window the
+    // upstream engine would OOM mid-decode and we'd 503 the renter.
+    //
+    // New behavior: BEFORE dispatch, refuse requests whose declared budget
+    // exceeds 90 % of the model's training context. Returns 429 (Too Many
+    // Tokens — semantically a renter-side back-off signal, not an
+    // engine-side failure) with a clear remediation. The 10 % safety margin
+    // leaves headroom for SWA / hybrid-memory re-allocations like the one
+    // that crashed Node 2.
+    //
+    // Cap source order (most→least specific):
+    //   1. modelReq.context_window  (model_registry, per-model truth)
+    //   2. DCP_DEFAULT_MODEL_CTX env (operator override)
+    //   3. 32768 baseline
+    const declaredCtxCap = Number(
+      modelReq.context_window
+      || process.env.DCP_DEFAULT_MODEL_CTX
+      || 32768
+    );
+    const SAFETY_FACTOR = 0.90; // PR #13194 SWA bug + KV graph headroom
+    const requestedTokens = promptTokens + maxTokens;
+    if (Number.isFinite(declaredCtxCap) && declaredCtxCap > 0
+        && requestedTokens > Math.floor(declaredCtxCap * SAFETY_FACTOR)) {
+      res.setHeader('Retry-After', '0');
+      return sendV1Error(res, {
+        status: 429,
+        type: 'request_too_large',
+        code: 'context_budget_exceeded',
+        message:
+          `Request budget (${requestedTokens} tokens = ${promptTokens} prompt + ` +
+          `${maxTokens} max_tokens) exceeds 90% of model '${modelReq.model_id}'s ` +
+          `${declaredCtxCap}-token context window. Reduce the prompt, ` +
+          `lower max_tokens, or pick a model with a larger context.`,
+        retryable: false,
+        details: {
+          prompt_tokens: promptTokens,
+          max_tokens: maxTokens,
+          requested_total: requestedTokens,
+          model_context_window: declaredCtxCap,
+          safety_factor: SAFETY_FACTOR,
+          budget_cap: Math.floor(declaredCtxCap * SAFETY_FACTOR),
+        },
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     const baseTokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
     // Migration 011: prefer per-1M in/out rates from model_registry. Falls
     // back to legacy `tokenRateHalala` applied symmetrically when null.
