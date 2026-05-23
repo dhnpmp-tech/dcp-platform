@@ -1,0 +1,200 @@
+{"key": "admin.containers.no_images", "en": "No approved images yet.", "ar": "لا توجد صور معتمدة بعد."}
+{"key": "admin.renter_detail.credit_modal_title", "en": "Credit", "ar": "إضافة رصيد لـ"}
+{"key": "admin.job_detail_fallback.missing_job_id", "en": "Missing job id", "ar": "معرف المهمة مفقود"}
+{"key": "admin.settings.notifications_saved", "en": "Notification preferences saved.", "ar": "تم حفظ تفضيلات الإشعارات."}
+{"key": "admin.settings.team_settings", "en": "Team Settings", "ar": "إعدادات الفريق"}
+{"key": "api_keys.create_account_cta", "en": "Create Account", "ar": "إنشاء حساب"}
+{"key": "api_keys.master_section_title", "en": "Master API Key", "ar": "مفتاح API الرئيسي"}
+{"key": "api_keys.new_key_button", "en": "New Key", "ar": "مفتاح جديد"}
+{"key": "api_keys.page_subtitle", "en": "Manage your API keys for accessing the DCP inference API. Use scoped keys for fine-grained permissions.", "ar": "أدر مفاتيح API الخاصة بك للوصول إلى واجهة استدلال DCP. استخدم المفاتيح المحدودة النطاق للصلاحيات الدقيقة."}
+{"key": "api_keys.master_section_desc", "en": "Your master key has full access. Keep it secure.", "ar": "مفتاحك الرئيسي يملك صلاحية كاملة. احتفظ به آمناً."}
+{"key": "auth.error.missing_credentials", "en": "No saved credentials were found. Please sign in to continue.", "ar": "لم يتم العثور على بيانات دخول محفوظة. يرجى تسجيل الدخول للمتابعة."}
+{"key": "auth.magic_link_expires_note", "en": "The link expires in 15 minutes.", "ar": "تنتهي صلاحية الرابط خلال 15 دقيقة."}
+{"key": "auth.error.network", "en": "Could not reach the API. Check your connection and retry.", "ar": "تعذر الوصول إلى واجهة API. تحقق من الاتصال ثم أعد المحاولة."}
+{"key": "auth.welcome_back", "en": "Welcome Back", "ar": "مرحباً بعودتك"}
+{"key": "auth.sign_out", "en": "Sign Out", "ar": "تسجيل الخروج"}
+{"key": "billing.explainer.note", "en": "100 halala = 1 SAR.", "ar": "100 هللة = 1 ريال."}
+{"key": "billing.custom_amount", "en": "Custom", "ar": "مخصص"}
+{"key": "billing.explainer.title", "en": "How DCP Billing Works", "ar": "كيف تعمل فوترة DCP"}
+{"key": "billing.add_funds", "en": "Add Funds", "ar": "إضافة رصيد"}
+{"key": "billing.go_to_login", "en": "Go to Login", "ar": "الذهاب لتسجيل الدخول"}
+{"key": "budget.model_rates_title", "en": "Model Cost Rates", "ar": "أسعار النماذج"}
+{"key": "calculator.days_per_month", "en": "Days per month", "ar": "أيام شهرياً"}
+{"key": "calculator.hours_per_day", "en": "Hours per day", "ar": "ساعات يومياً"}
+{"key": "calculator.badge", "en": "Provider Calculator", "ar": "حاسبة المزود"}
+{"key": "calculator.subtitle", "en": "See how much you can earn by connecting your GPU to the DCP network.", "ar": "اعرف كم يمكنك كسبه بتوصيل GPU الخاص بك بشبكة DCP."}
+{"key": "calculator.title", "en": "Calculate Your Earnings", "ar": "احسب أرباحك"}
+{"key": "common.sort_reputation", "en": "Sort: Reputation", "ar": "ترتيب: السمعة"}
+{"key": "common.retry", "en": "Retry", "ar": "إعادة المحاولة"}
+{"key": "common.available_gpus", "en": "Available GPUs", "ar": "وحدات GPU المتاحة"}
+{"key": "common.sort_vram", "en": "Sort: VRAM ↓", "ar": "ترتيب: الذاكرة ↓"}
+{"key": "common.quick_actions", "en": "Quick Actions", "ar": "إجراءات سريعة"}
+{"key": "connections.no_providers_registered", "en": "No providers registered", "ar": "لا يوجد مزودون مسجلون"}
+{"key": "connections.checking_services", "en": "Checking services...", "ar": "جاري فحص الخدمات..."}
+{"key": "conversion.support.route.account", "en": "Renter account and access", "ar": "حساب المستأجر والوصول"}
+{"key": "conversion.first_workload.step1_title", "en": "1. Browse GPU marketplace", "ar": "1. تصفح سوق وحدات GPU"}
+{"key": "conversion.first_workload.step2_desc", "en": "Open the submit flow and run a first containerized workload.", "ar": "افتح مسار الإرسال وشغّل أول حمولة عبر الحاويات."}
+{"key": "conversion.first_job.step.topup", "en": "Add wallet balance", "ar": "أضف رصيدًا للمحفظة"}
+{"key": "conversion.support.title", "en": "Need help before your first job?", "ar": "تحتاج مساعدة قبل أول وظيفة؟"}
+{"key": "dashboard.online_gpus", "en": "Online GPUs", "ar": "وحدات GPU المتصلة"}
+{"key": "dashboard.balance", "en": "Account Balance", "ar": "رصيد الحساب"}
+{"key": "dashboard.total_spent", "en": "Total Spent", "ar": "إجمالي الإنفاق"}
+{"key": "dashboard.welcome", "en": "Welcome back", "ar": "مرحباً بعودتك"}
+{"key": "dashboard.jobs_run", "en": "Jobs Run", "ar": "الوظائف المُنفَّذة"}
+{"key": "docs.models.cta_subtitle", "en": "Join DCP and start deploying powerful AI models on our GPU cloud infrastructure today.", "ar": "انضم إلى DCP وابدأ بنشر نماذج ذكاء اصطناعي قوية على سحابة GPU لدينا اليوم."}
+{"key": "docs.models.cta_title", "en": "Ready to run these models?", "ar": "جاهز لتشغيل هذه النماذج؟"}
+{"key": "docs.models.hero_title", "en": "Supported Models", "ar": "النماذج المدعومة"}
+{"key": "earn.value_bullet_2", "en": "Use dashboard estimates for planning, then compare with live job history", "ar": "استخدم تقديرات اللوحة للتخطيط ثم قارنها بسجل الوظائف الفعلي"}
+{"key": "earn.how_step3_desc", "en": "Jobs are routed to your GPU when availability and compatibility align. Earnings are reflected in your wallet as completed jobs settle.", "ar": "تُوجَّه الوظائف إلى GPU الخاص بك عندما يتوافر التوافق والتوافر. تُضاف الأرباح إلى محفظتك بعد تسوية كل وظيفة مكتملة."}
+{"key": "earn.hero_subtitle", "en": "Saudi-hosted GPU marketplace for Windows, Mac, and Linux. Connect your consumer GPU, run matched AI workloads, and track settled earnings in SAR.", "ar": "سوق GPU مستضاف في السعودية لأنظمة Windows وMac وLinux. وصّل GPU الخاص بك، شغّل أحمال الذكاء الاصطناعي المطابقة، وتابع الأرباح بالريال."}
+{"key": "earn.calc_title", "en": "Estimate Your Monthly Earnings", "ar": "قدّر أرباحك الشهرية"}
+{"key": "earn.calc_subtitle", "en": "Adjust your GPU model, hours, and utilisation to see what you could earn.", "ar": "اضبط طراز GPU والساعات ونسبة الاستخدام لترى ما يمكنك كسبه."}
+{"key": "footer.docs", "en": "Docs", "ar": "التوثيق"}
+{"key": "footer.acceptable_use", "en": "Acceptable Use", "ar": "سياسة الاستخدام المقبول"}
+{"key": "footer.brand_description", "en": "Saudi-hosted AI inference for builders worldwide. ALLaM, JAIS, Qwen, Llama, and 50+ models. OpenAI-compatible API. PDPL-compliant.", "ar": "مصمم لنمو الذكاء الاصطناعي في السعودية: بنية تكلفة طاقة أقل، جاهزية لنماذج عربية (ALLaM 7B و Falcon H1 و JAIS 13B و BGE-M3)، وتنفيذ آمن عبر حاويات مع تسريع GPU."}
+{"key": "footer.privacy", "en": "Privacy Policy", "ar": "سياسة الخصوصية"}
+{"key": "footer.resources", "en": "Resources", "ar": "الموارد"}
+{"key": "header.primary_cta_provider", "en": "Start Earning", "ar": "ابدأ الربح"}
+{"key": "header.intent.renter", "en": "Renter", "ar": "مستأجر"}
+{"key": "header.nav.container_api", "en": "Integrate API", "ar": "تكامل API"}
+{"key": "header.intent.enterprise", "en": "Enterprise", "ar": "مؤسسة"}
+{"key": "header.nav.earn", "en": "Earn as Provider", "ar": "اكسب كمزوّد"}
+{"key": "jobs_legacy.time.just_now", "en": "just now", "ar": "الآن"}
+{"key": "jobs_legacy.monitor.notice", "en": "This legacy monitor URL now points to canonical renter and admin jobs pages.", "ar": "رابط المراقبة القديم هذا أصبح يشير إلى صفحات الوظائف الرسمية للمستأجر والإدارة."}
+{"key": "jobs_legacy.started", "en": "Started", "ar": "بدأت"}
+{"key": "jobs_legacy.monitor.title", "en": "Sign in to view job output", "ar": "سجّل الدخول لعرض مخرجات الوظيفة"}
+{"key": "jobs_legacy.time.minutes_ago", "en": "{count}m ago", "ar": "قبل {count}د"}
+{"key": "jobs_submit_redirect.title", "en": "Moving you to the renter playground", "ar": "نحوّلك الآن إلى ملعب المستأجر"}
+{"key": "jobs_submit_redirect.message", "en": "This compatibility route now forwards to the canonical submit experience.", "ar": "مسار التوافق هذا يوجّهك الآن إلى تجربة الإرسال الرسمية."}
+{"key": "landing.path_enterprise_support_desc", "en": "Dedicated providers, signed SLAs, PDPL contract, direct support — for teams running production workloads.", "ar": "مزوّدون مخصّصون، اتفاقيات SLA موقعة، عقد امتثال PDPL، ودعم مباشر — لفرق تشغّل أحمالاً إنتاجية."}
+{"key": "landing.run_llm_desc", "en": "Chat completions on ALLaM, JAIS, Llama 3, Qwen, Mistral, and 40+ other open models. Streaming, tools, function calling.", "ar": "شغّل ALLaM وFalcon وJAIS وLlama 3 وغيرها من النماذج مفتوحة المصدر بسرعة GPU الكاملة."}
+{"key": "landing.cta_alt_link_renter", "en": "Open renter onboarding", "ar": "افتح تفعيل المستأجر"}
+{"key": "landing.trust_module_intro", "en": "These are platform policy and operating-model statements, separate from live telemetry.", "ar": "هذه عبارات سياسة تشغيل ونموذج منصة، منفصلة عن القياسات الحية."}
+{"key": "landing.how_step2_title", "en": "Connect", "ar": "اتصل"}
+{"key": "legal.last_updated", "en": "Last updated", "ar": "آخر تحديث"}
+{"key": "login.new_to_dc1", "en": "New to DCP?", "ar": "جديد على DCP؟"}
+{"key": "login.error.invalid_admin_key", "en": "Invalid admin key", "ar": "مفتاح المشرف غير صالح"}
+{"key": "login.api_key", "en": "API Key", "ar": "مفتاح API"}
+{"key": "login.otp.change_email", "en": "Use a different email", "ar": "استخدم بريدًا مختلفًا"}
+{"key": "login.admin_needs_key", "en": "Admin login requires an API key", "ar": "تسجيل دخول المشرف يتطلب مفتاح API"}
+{"key": "marketplace.check_back", "en": "Providers come online throughout the day — check back soon.", "ar": "يتصل المزودون على مدار اليوم — تحقق لاحقًا."}
+{"key": "marketplace.sign_up_to_start", "en": "Sign up to start computing", "ar": "سجل للبدء في الحوسبة"}
+{"key": "marketplace.view_docs", "en": "View API Docs", "ar": "عرض وثائق API"}
+{"key": "marketplace.pricing", "en": "Pricing (SAR/hr)", "ar": "الأسعار (ريال/ساعة)"}
+{"key": "marketplace.remove_compare", "en": "Remove from compare", "ar": "إزالة من المقارنة"}
+{"key": "mode.desc.playground", "en": "Run a starter workload in browser before scaling.", "ar": "شغّل حمولة ابتدائية من المتصفح قبل التوسع."}
+{"key": "mode.desc.enterprise_support", "en": "Open procurement and rollout support for your team.", "ar": "افتح مسار دعم المشتريات وخطة الإطلاق لفريقك."}
+{"key": "mode.desc.docs_api", "en": "Review quickstart, API auth, and integration patterns.", "ar": "راجع البدء السريع ومصادقة API وأنماط التكامل."}
+{"key": "mode.strip.subtitle", "en": "Use the same entry lanes everywhere: Marketplace, Playground, Docs/API, Enterprise Support.", "ar": "استخدم نفس مسارات الدخول دائمًا: Marketplace وPlayground وDocs/API وEnterprise Support."}
+{"key": "mode.strip.title", "en": "Choose your mode", "ar": "اختر وضعك"}
+{"key": "nav.withdrawals", "en": "Withdrawals", "ar": "السحوبات"}
+{"key": "nav.earnings", "en": "Earnings", "ar": "الأرباح"}
+{"key": "nav.providers", "en": "Providers", "ar": "المزودون"}
+{"key": "nav.jobs", "en": "My Jobs", "ar": "وظائفي"}
+{"key": "nav.fleet", "en": "Fleet Health", "ar": "صحة الأسطول"}
+{"key": "path_chooser.self_serve.label", "en": "Self-serve renter", "ar": "مسار المستأجر الذاتي"}
+{"key": "path_chooser.enterprise.desc", "en": "Open procurement, security, and rollout planning support.", "ar": "افتح مسار المشتريات والأمن وخطة الإطلاق المؤسسية."}
+{"key": "path_chooser.arabic.label", "en": "Arabic model docs", "ar": "وثائق النماذج العربية"}
+{"key": "path_chooser.provider.desc", "en": "Register GPU hardware, install daemon, and start heartbeat checks.", "ar": "سجّل عتاد GPU، ثبّت تطبيق المزوّد، وابدأ فحوصات نبضة الاتصال."}
+{"key": "path_chooser.subtitle", "en": "One structure across DCP pages so each team can route directly to the right flow.", "ar": "هيكل موحّد عبر صفحات DCP حتى يصل كل فريق مباشرة إلى المسار المناسب."}
+{"key": "pg.req_gpu_desc", "en": "NVIDIA GPU with 8 GB+ VRAM (RTX 2060 or newer) OR Apple Silicon Mac (M1/M2/M3/M4).", "ar": "وحدة NVIDIA GPU بذاكرة VRAM لا تقل عن 8 جيجابايت (RTX 2060 أو أحدث) أو جهاز Mac بمعالج Apple Silicon (M1/M2/M3/M4)."}
+{"key": "pg.step3_title", "en": "3. Download the Daemon", "ar": "٣. نزّل تطبيق المزوّد"}
+{"key": "pg.faq_a3", "en": "Earnings update in your wallet when eligible completed jobs settle. Open a withdrawal request from the dashboard when your balance is ready for payout.", "ar": "تُحدَّث الأرباح في المحفظة عند تسوية الوظائف المكتملة. قدّم طلب سحب من لوحة التحكم عند توافر الرصيد المناسب."}
+{"key": "pg.step5_title", "en": "5. Verify in Dashboard", "ar": "٥. تحقق في لوحة التحكم"}
+{"key": "pg.req_os_desc", "en": "Windows 10/11, macOS 12+ (Apple Silicon), or Ubuntu 20.04+.", "ar": "Windows 10/11 أو macOS 12+ (Apple Silicon) أو Ubuntu 20.04+."}
+{"key": "playground.progress.downloading_model", "en": "Downloading model...", "ar": "جارٍ تنزيل النموذج..."}
+{"key": "playground.template_name_placeholder", "en": "e.g. Arabic Summariser", "ar": "مثال: ملخص عربي"}
+{"key": "playground.minutes_120", "en": "120 minutes", "ar": "120 دقيقة"}
+{"key": "playground.optional", "en": "optional", "ar": "اختياري"}
+{"key": "playground.logout", "en": "Logout", "ar": "تسجيل الخروج"}
+{"key": "pricing.page.cta_secondary", "en": "See live providers", "ar": "مزودون مباشرون"}
+{"key": "pricing.page.subtitle", "en": "Per-token inference, billed in halala. No idle fees. No hourly minimum. Saudi-hosted, PDPL-compliant.", "ar": "استدلال بنظام الدفع لكل رمز، باحتساب الهللات. لا رسوم خمول. لا حد أدنى ساعي. مستضاف في السعودية ومتوافق مع نظام حماية البيانات."}
+{"key": "pricing.page.cta", "en": "Get API Key", "ar": "احصل على مفتاح API"}
+{"key": "pricing.page.title", "en": "DCP Pricing", "ar": "أسعار DCP"}
+{"key": "proof.segment.item_energy", "en": "Every request, response, and billing event settles inside Saudi Arabia — zero dependency on US or EU cloud providers.", "ar": "كل طلب وكل استجابة وكل حدث فوترة تتم تسويته داخل المملكة — بدون أي اعتماد على مزودي السحاب الأمريكيين أو الأوروبيين."}
+{"key": "proof.segment.item_execution", "en": "Execution uses native inference engines: Ollama on Windows/Linux and MLX on macOS Apple Silicon, with isolated runtime boundaries.", "ar": "التنفيذ يستخدم محركات استدلال أصلية: Ollama على Windows/Linux وMLX على macOS Apple Silicon، مع عزل واضح أثناء التشغيل."}
+{"key": "proof.segment.item_models", "en": "Arabic AI support is first-class: ALLaM 7B, Falcon H1, JAIS 13B, and BGE-M3 are part of the supported model lane.", "ar": "الدعم العربي مدمج فعليًا: ALLaM 7B وFalcon H1 وJAIS 13B وBGE-M3 ضمن مسار النماذج المدعومة."}
+{"key": "proof.segment.title", "en": "Built on structural advantages, not promo claims", "ar": "مزايا هيكلية واضحة وليست وعودًا تسويقية"}
+{"key": "provider.job_detail.progress", "en": "Progress", "ar": "التقدم"}
+{"key": "provider.current_job", "en": "Current Job", "ar": "الوظيفة الحالية"}
+{"key": "provider.job_detail.container_id", "en": "Container ID", "ar": "معرف الحاوية"}
+{"key": "provider.vram_usage", "en": "VRAM Usage", "ar": "استخدام الذاكرة"}
+{"key": "provider.trust.earnings_estimate", "en": "Planning estimates are not guaranteed payouts; compare scenarios against live settled jobs.", "ar": "التقديرات للتخطيط فقط وليست دفعات مضمونة؛ قارنها بسجل الوظائف المُسوّاة."}
+{"key": "quickstart.intro_headline", "en": "Quickstart for Arabic-ready, container-based GPU compute", "ar": "دليل سريع لتشغيل GPU بالحاويات مع جاهزية للنماذج العربية"}
+{"key": "quickstart.intro_note", "en": "DCP job execution runs via Ollama (Windows/Linux) or MLX (macOS Apple Silicon) inference engines.", "ar": "تنفيذ المهام في DCP يتم عبر محركات الاستدلال Ollama (Windows/Linux) أو MLX (macOS Apple Silicon)."}
+{"key": "quickstart.intro_body", "en": "This guide walks you from account setup to workload submission, including model selection for Arabic AI use cases.", "ar": "يرشدك هذا الدليل من إعداد الحساب إلى إرسال الأحمال، مع اختيار نماذج مناسبة لحالات استخدام الذكاء الاصطناعي العربي."}
+{"key": "rate_card.draft_notice", "en": "DRAFT pricing — final rates pending founder review.", "ar": "مسودة أسعار — بانتظار الاعتماد النهائي من المؤسس."}
+{"key": "rate_card.unit_explainer", "en": "1 SAR = 100 halala. Rates are halala per 1,000 tokens. \"vs market\" compares output rate to OpenRouter/Together AI/DeepInfra published prices for the same weights.", "ar": "1 ريال = 100 هللة. الأسعار بالهللات لكل 1000 رمز. \"مقارنة بالسوق\" تقارن سعر الإخراج بأسعار OpenRouter و Together AI و DeepInfra المنشورة لنفس الأوزان."}
+{"key": "rate_card.per_image", "en": "per image", "ar": "لكل صورة"}
+{"key": "rate_card.col_prompt", "en": "Input", "ar": "الإدخال"}
+{"key": "rate_card.lead", "en": "Pay per token, billed in halala (1 SAR = 100 halala). Open-source models; you pay compute cost plus a small platform margin.", "ar": "الدفع لكل رمز، يحتسب بالهللات (1 ريال = 100 هللة). نماذج مفتوحة المصدر؛ تدفع تكلفة الحوسبة مع هامش منصة محدود."}
+{"key": "register.provider.transparent_pricing", "en": "Usage-based earnings", "ar": "أرباح حسب الاستخدام"}
+{"key": "register.provider.state.ready.desc", "en": "Your node can now receive compatible workloads based on demand and availability.", "ar": "يمكن لعقدتك الآن استقبال الأحمال المتوافقة حسب الطلب والتوفر."}
+{"key": "register.provider.earnings.validate_title", "en": "How to validate performance", "ar": "كيفية التحقق من الأداء"}
+{"key": "register.provider.phone_label", "en": "Phone Number", "ar": "رقم الهاتف"}
+{"key": "register.provider.referral.error_apply", "en": "Could not apply referral code", "ar": "تعذر تطبيق رمز الإحالة"}
+{"key": "renter.job_detail.logs_connecting_hint", "en": "Connecting to log stream...", "ar": "جارٍ الاتصال بتدفق السجلات..."}
+{"key": "renter.analytics.top_gpu_models", "en": "Top GPU Models Used", "ar": "أكثر نماذج GPU استخداماً"}
+{"key": "renter.job_detail.next_actions_desc", "en": "Keep momentum by launching a follow-up run, saving this setup, or exporting output.", "ar": "حافظ على التقدم عبر تشغيل متابعة، أو حفظ هذا الإعداد، أو تصدير المخرجات."}
+{"key": "renter.job_detail.logs_download_full", "en": "Download full log ↓", "ar": "تنزيل السجل الكامل ↓"}
+{"key": "renter.load_template", "en": "Load Template", "ar": "تحميل قالب"}
+{"key": "rg.step3_title", "en": "3. Submit a Job", "ar": "٣. أرسل وظيفة"}
+{"key": "rg.setup_title", "en": "Get Started in 3 Steps", "ar": "ابدأ في 3 خطوات"}
+{"key": "rg.price_no_commit_desc", "en": "Run one job or thousands. No reserved plans, no minimum spend, and no long-term contracts.", "ar": "شغّل وظيفة واحدة أو آلافًا. لا خطط محجوزة، ولا حد أدنى للإنفاق، ولا عقود طويلة الأمد."}
+{"key": "rg.vscode_desc", "en": "Use the DCP VS Code extension to run vLLM inference sessions from your editor. Open the panel, select a model, and validate output before larger integrations.", "ar": "امتداد DCP لـ VS Code يتيح لك تشغيل جلسات استدلال vLLM مباشرةً من المحرر. ثبّته من سوق VS Code، ثم اضغط Ctrl+Shift+V لفتح لوحة التشغيل واختيار نموذج."}
+{"key": "rg.step1_title", "en": "1. Register", "ar": "١. سجّل"}
+{"key": "settings.settlement.minimum_value", "en": "See Earnings page for current minimum", "ar": "راجع صفحة الأرباح لمعرفة الحد الحالي"}
+{"key": "settings.settlement.timing_label", "en": "Settlement timing", "ar": "توقيت التسوية"}
+{"key": "settings.rotate_key", "en": "Rotate API Key", "ar": "تدوير مفتاح API"}
+{"key": "settings.settlement.rail_label", "en": "Current payout rail", "ar": "مسار السحب الحالي"}
+{"key": "settings.rotate_confirm", "en": "This will invalidate your current key and log you out of any running sessions. Continue?", "ar": "سيؤدي هذا إلى إبطال مفتاحك الحالي وتسجيل خروج أي جلسات قيد التشغيل. هل تريد المتابعة؟"}
+{"key": "setup.provider.hero_title", "en": "Become a DCP Provider", "ar": "كن مزوّداً في DCP"}
+{"key": "setup.provider.hero_subtitle", "en": "Six steps, under 15 minutes. Your GPU starts earning as soon as you finish.", "ar": "ست خطوات في أقل من 15 دقيقة. يبدأ GPU بتحقيق الدخل فور إكمالك للخطوات."}
+{"key": "sidebar.admin_label", "en": "Admin Panel", "ar": "لوحة الإدارة"}
+{"key": "sidebar.provider_label", "en": "Provider Dashboard", "ar": "لوحة تحكم المزود"}
+{"key": "status.incident_resolved", "en": "Resolved", "ar": "تم الحل"}
+{"key": "status.job_execution", "en": "Job Execution", "ar": "تنفيذ الوظائف"}
+{"key": "status.api_desc", "en": "Core API endpoint availability", "ar": "توفر نقطة نهاية API الأساسية"}
+{"key": "status.providers_online", "en": "providers online", "ar": "مزود متصل"}
+{"key": "status.down", "en": "Down", "ar": "متوقف"}
+{"key": "support.form.message", "en": "Message", "ar": "الرسالة"}
+{"key": "support.channels.email.title", "en": "Email Support", "ar": "الدعم عبر البريد"}
+{"key": "support.form.message_placeholder", "en": "Describe your issue or question...", "ar": "اشرح مشكلتك أو سؤالك..."}
+{"key": "support.enterprise_checklist_item_usage_volume", "en": "Expected usage volume and time window", "ar": "حجم الاستخدام المتوقع والإطار الزمني"}
+{"key": "support.enterprise_checklist_intro", "en": "Include these details in your message to speed up internal routing:", "ar": "يرجى تضمين هذه التفاصيل في رسالتك لتسريع توجيهها داخلياً:"}
+{"key": "table.joined", "en": "Joined", "ar": "الانضمام"}
+{"key": "templates.title", "en": "Job Templates", "ar": "قوالب الوظائف"}
+{"key": "templates.llm_chat", "en": "LLM Chat Inference", "ar": "استدلال محادثة LLM"}
+{"key": "templates.batch_embed_desc", "en": "Embed a list of texts using a sentence-transformer model", "ar": "تضمين قائمة من النصوص باستخدام نموذج sentence-transformer"}
+{"key": "templates.estimated_cost", "en": "Estimated cost", "ar": "التكلفة التقديرية"}
+{"key": "templates.llm_chat_desc", "en": "Run a single-turn chat completion with any supported model", "ar": "تشغيل إكمال محادثة أحادية الدور مع أي نموذج مدعوم"}
+{"key": "pg.faq_q2", "en": "How are jobs assigned to my GPU?", "ar": "كيف تُوزَّع الوظائف على وحدة معالجة الرسومات؟"}
+{"key": "renter.job_detail.retry_same_params", "en": "Retry same params", "ar": "إعادة التشغيل بنفس المعلمات"}
+{"key": "provider.no_active_jobs", "en": "No active jobs", "ar": "لا توجد وظائف نشطة"}
+{"key": "conversion.first_workload.title", "en": "First workload in 3 steps", "ar": "أول حمولة في 3 خطوات"}
+{"key": "admin.total_revenue", "en": "Total Revenue", "ar": "إجمالي الإيرادات"}
+{"key": "marketplace.filters_reset", "en": "Reset all", "ar": "إعادة التعيين"}
+{"key": "provider.earnings_trust.estimated", "en": "Estimated / uncertain", "ar": "تقديرية / غير مؤكدة"}
+{"key": "marketplace.sort_gpus", "en": "Sort GPUs", "ar": "ترتيب وحدات GPU"}
+{"key": "playground.click_download_image", "en": "and download image", "ar": "وتنزيل الصورة"}
+{"key": "register.renter.next_steps_playground", "en": "Open Playground and submit a workload.", "ar": "افتح ساحة التشغيل وشغّل حملاً ابتدائياً."}
+{"key": "provider.wizard.install_command", "en": "Install command", "ar": "أمر التثبيت"}
+{"key": "marketplace.more", "en": "more", "ar": "إضافية"}
+{"key": "playground.proof.generation_time", "en": "Generation Time", "ar": "وقت التوليد"}
+{"key": "rg.step1_desc", "en": "Create your renter account at dcp.sa/renter/register. You will receive a unique API key — keep it safe.", "ar": "أنشئ حساب المستأجر في dcp.sa/renter/register. ستحصل على مفتاح API فريد — احتفظ به بأمان."}
+{"key": "admin.renters.processing", "en": "Processing...", "ar": "جارٍ المعالجة..."}
+{"key": "renter.job_detail.logs_terminal_prefix", "en": "job/", "ar": "وظيفة/"}
+{"key": "status.incident_history", "en": "Incident History", "ar": "سجل الأعطال"}
+{"key": "admin.provider_detail.no_gpu", "en": "No GPU", "ar": "لا يوجد GPU"}
+{"key": "header.nav.rent", "en": "Rent Compute", "ar": "استأجر حوسبة"}
+{"key": "provider.download.title", "en": "DCP Provider App", "ar": "تطبيق مزوّد DCP"}
+{"key": "register.provider.readiness.summary_next_step", "en": "Expected next step", "ar": "الخطوة التالية المتوقعة"}
+{"key": "templates.category_embedding", "en": "Embedding", "ar": "تضمين"}
+{"key": "provider.wizard.step2.waiting", "en": "Waiting for daemon to connect...", "ar": "بانتظار اتصال تطبيق المزوّد..."}
+{"key": "register.provider.status_in_progress", "en": "In progress...", "ar": "جارٍ..."}
+{"key": "admin.live_overview", "en": "Live platform overview", "ar": "نظرة عامة حية على المنصة"}
+{"key": "playground.height", "en": "Height", "ar": "الارتفاع"}
+{"key": "register.provider.calc_daily", "en": "Daily Earnings", "ar": "الأرباح اليومية"}
+{"key": "admin.containers.table.last_validated", "en": "Last Validated", "ar": "آخر تحقق"}
+{"key": "settings.settlement.note", "en": "Use the Earnings page for withdrawal history and requests. Processing windows and routing details are shown there to avoid stale assumptions.", "ar": "استخدم صفحة الأرباح لسجل السحب والطلبات. تظهر هناك نوافذ المعالجة وتفاصيل المسار لتجنب أي افتراضات قديمة."}
+{"key": "register.renter.organization", "en": "Organization (Optional)", "ar": "المؤسسة (اختياري)"}

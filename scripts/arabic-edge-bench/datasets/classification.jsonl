@@ -1,0 +1,500 @@
+{"id": "clf_0091", "prompt": "ترجم هذه الجملة إلى الإنجليزية: data center", "label": "translate", "lang": "ar"}
+{"id": "clf_0441", "prompt": "Add type hints to: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0099", "prompt": "translate happy birthday ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0112", "prompt": "Shorten this to one sentence: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0003", "prompt": "وش معنى 'the meeting starts at 3pm' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0482", "prompt": "صحح الكود التالي: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "ar"}
+{"id": "clf_0418", "prompt": "Write a Python function that convert this Python class to TypeScript.", "label": "code", "lang": "en"}
+{"id": "clf_0146", "prompt": "صحح الأخطاء النحوية في النص: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0477", "prompt": "Add type hints to: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0069", "prompt": "Convert to Egyptian dialect: thank you for your patience", "label": "translate", "lang": "en"}
+{"id": "clf_0453", "prompt": "Add type hints to: computes the cosine similarity of two vectors", "label": "code", "lang": "en"}
+{"id": "clf_0176", "prompt": "Rewrite this paragraph to sound more formal: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0128", "prompt": "Polish this LinkedIn post: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0037", "prompt": "وش معنى 'two-factor authentication' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0314", "prompt": "ضع استراتيجية مفصلة لـ AWS vs DigitalOcean for a small startup مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0253", "prompt": "Quick question — is Ramadan timings open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0445", "prompt": "Why does this code fail: ```validates a Saudi national ID with checksum```", "label": "code", "lang": "en"}
+{"id": "clf_0498", "prompt": "Refactor this to be async: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0208", "prompt": "What time is it in the new coffee shop?", "label": "chat", "lang": "en"}
+{"id": "clf_0193", "prompt": "Make this email more polite: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0397", "prompt": "ضع استراتيجية مفصلة لـ the on-call alert fires every 2 hours but no incident مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0426", "prompt": "Optimize this SQL: implement debouncing in vanilla JS", "label": "code", "lang": "en"}
+{"id": "clf_0495", "prompt": "Refactor this to be async: convert this Python class to TypeScript", "label": "code", "lang": "en"}
+{"id": "clf_0363", "prompt": "خطط بالتفصيل: كيف أحقق AWS vs DigitalOcean for a small startup خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0420", "prompt": "Write a Python function that computes the cosine similarity of two vectors.", "label": "code", "lang": "en"}
+{"id": "clf_0199", "prompt": "Polish this LinkedIn post: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0219", "prompt": "سؤال سريع: هل Vision 2030 مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0106", "prompt": "حسّن نبرة هذا البريد الإلكتروني: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0020", "prompt": "I need this in 5 languages: data center", "label": "translate", "lang": "en"}
+{"id": "clf_0442", "prompt": "صحح الكود التالي: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "ar"}
+{"id": "clf_0357", "prompt": "حلل the on-call alert fires every 2 hours but no incident وبيّن المخاطر والفرص في 5 نقاط.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0335", "prompt": "Diagnose why the on-call alert fires every 2 hours but no incident might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0046", "prompt": "وش معنى 'Hello, how are you?' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0412", "prompt": "Add type hints to: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0494", "prompt": "صحح الكود التالي: computes the cosine similarity of two vectors", "label": "code", "lang": "ar"}
+{"id": "clf_0373", "prompt": "Estimate the cost of Falcon-H1-Arabic-7B vs Jais-2-8B given should we acquire or build the recommender engine and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0022", "prompt": "Give me the Arabic equivalent of 'free shipping'", "label": "translate", "lang": "en"}
+{"id": "clf_0185", "prompt": "Improve clarity: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0225", "prompt": "What do you think about Ramadan timings?", "label": "chat", "lang": "en"}
+{"id": "clf_0268", "prompt": "What time is it in today's news?", "label": "chat", "lang": "en"}
+{"id": "clf_0376", "prompt": "ضع استراتيجية مفصلة لـ buying a GPU vs renting one مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0190", "prompt": "Make this email more polite: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0087", "prompt": "Translate the following sentence into Arabic: data center", "label": "translate", "lang": "en"}
+{"id": "clf_0444", "prompt": "Write a Python function that explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$.", "label": "code", "lang": "en"}
+{"id": "clf_0149", "prompt": "صحح الأخطاء النحوية في النص: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0089", "prompt": "وش معنى 'Hello, how are you?' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0484", "prompt": "Convert this fix the off-by-one in this loop: for i in range(1, len(arr)) to implement debouncing in vanilla JS.", "label": "code", "lang": "en"}
+{"id": "clf_0111", "prompt": "Rewrite this paragraph to sound more formal: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0110", "prompt": "Shorten this to one sentence: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0265", "prompt": "What time is it in the weather?", "label": "chat", "lang": "en"}
+{"id": "clf_0031", "prompt": "وش معنى 'free shipping' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0328", "prompt": "Diagnose why the on-call alert fires every 2 hours but no incident might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0109", "prompt": "اختصر هذا النص في جملة واحدة: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0310", "prompt": "ضع استراتيجية مفصلة لـ expanding to UAE before KSA market saturation مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0316", "prompt": "خطط بالتفصيل: كيف أحقق the LLM gateway has p95=2.3s and p50=0.4s خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0043", "prompt": "Convert to Egyptian dialect: two-factor authentication", "label": "translate", "lang": "en"}
+{"id": "clf_0064", "prompt": "What's 'two-factor authentication' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0454", "prompt": "Refactor this to be async: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0282", "prompt": "سؤال سريع: هل your favorite color مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0474", "prompt": "Write a Python function that TypeError: 'NoneType' object is not subscriptable on line 47.", "label": "code", "lang": "en"}
+{"id": "clf_0289", "prompt": "سؤال سريع: هل Ramadan timings مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0027", "prompt": "Convert to Egyptian dialect: two-factor authentication", "label": "translate", "lang": "en"}
+{"id": "clf_0446", "prompt": "Refactor this to be async: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0271", "prompt": "the World Cup", "label": "chat", "lang": "en"}
+{"id": "clf_0044", "prompt": "translate I love rainy days ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0309", "prompt": "حلل the on-call alert fires every 2 hours but no incident وبيّن المخاطر والفرص في 5 نقاط.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0207", "prompt": "Vision 2030", "label": "chat", "lang": "ar"}
+{"id": "clf_0178", "prompt": "Shorten this to one sentence: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0399", "prompt": "خطط بالتفصيل: كيف أحقق we lost 40% of our renters last week خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0232", "prompt": "Tell me a joke about Ramadan timings", "label": "chat", "lang": "en"}
+{"id": "clf_0331", "prompt": "Diagnose why هل نوسع للسوق المصري قبل الإماراتي might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0489", "prompt": "Optimize this SQL: TypeError: 'NoneType' object is not subscriptable on line 47", "label": "code", "lang": "en"}
+{"id": "clf_0326", "prompt": "Diagnose why rolling out the new pricing model to existing customers might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0287", "prompt": "Riyadh", "label": "chat", "lang": "en"}
+{"id": "clf_0104", "prompt": "Shorten this to one sentence: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0319", "prompt": "Build me a step-by-step plan to should we acquire or build the recommender engine, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0464", "prompt": "اشرح لي وش يسوي هالكود: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "ar"}
+{"id": "clf_0432", "prompt": "Write a Python function that Python async function that reads from Redis with retry.", "label": "code", "lang": "en"}
+{"id": "clf_0215", "prompt": "كم الساعة في GPU prices؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0341", "prompt": "قارن بين Falcon-H1-Arabic-7B vs Jais-2-8B و AWS vs DigitalOcean for a small startup من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0156", "prompt": "صحح الأخطاء النحوية في النص: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0343", "prompt": "ضع استراتيجية مفصلة لـ buying a GPU vs renting one مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0490", "prompt": "Convert this SELECT * FROM users WHERE created_at > now() - interval '7 days' to implement debouncing in vanilla JS.", "label": "code", "lang": "en"}
+{"id": "clf_0386", "prompt": "Estimate the cost of Falcon-H1-Arabic-7B vs Jais-2-8B given the on-call alert fires every 2 hours but no incident and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0212", "prompt": "What time is it in Riyadh?", "label": "chat", "lang": "en"}
+{"id": "clf_0344", "prompt": "Compare expanding to UAE before KSA market saturation and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0304", "prompt": "ضع استراتيجية مفصلة لـ هل نوسع للسوق المصري قبل الإماراتي مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0473", "prompt": "اشرح لي وش يسوي هالكود: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "ar"}
+{"id": "clf_0485", "prompt": "Convert this TypeError: 'NoneType' object is not subscriptable on line 47 to Python async function that reads from Redis with retry.", "label": "code", "lang": "en"}
+{"id": "clf_0377", "prompt": "Diagnose why buying a GPU vs renting one might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0011", "prompt": "translate I love rainy days ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0388", "prompt": "Build me a step-by-step plan to the LLM gateway has p95=2.3s and p50=0.4s, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0419", "prompt": "اكتب لي دالة بـ SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "ar"}
+{"id": "clf_0135", "prompt": "اختصر هذا النص في جملة واحدة: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0186", "prompt": "Make this email more polite: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "en"}
+{"id": "clf_0115", "prompt": "Make this email more polite: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0337", "prompt": "Estimate the cost of should we acquire or build the recommender engine given buying a GPU vs renting one and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0220", "prompt": "What time is it in the weather?", "label": "chat", "lang": "en"}
+{"id": "clf_0380", "prompt": "ضع استراتيجية مفصلة لـ should we acquire or build the recommender engine مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0062", "prompt": "Translate the following sentence into Arabic: data center", "label": "translate", "lang": "en"}
+{"id": "clf_0425", "prompt": "Optimize this SQL: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0456", "prompt": "Why does this code fail: ```validates a Saudi national ID with checksum```", "label": "code", "lang": "en"}
+{"id": "clf_0133", "prompt": "Polish this LinkedIn post: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0457", "prompt": "Add type hints to: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0259", "prompt": "Vision 2030", "label": "chat", "lang": "ar"}
+{"id": "clf_0067", "prompt": "I need this in 5 languages: subscription expired", "label": "translate", "lang": "en"}
+{"id": "clf_0381", "prompt": "قارن بين expanding to UAE before KSA market saturation و the LLM gateway has p95=2.3s and p50=0.4s من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0101", "prompt": "Make this email more polite: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0433", "prompt": "اكتب لي دالة بـ explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "ar"}
+{"id": "clf_0161", "prompt": "Shorten this to one sentence: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0475", "prompt": "Refactor this to be async: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0162", "prompt": "اختصر هذا النص في جملة واحدة: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0300", "prompt": "Quick question — is DCP open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0415", "prompt": "Refactor this to be async: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0285", "prompt": "Tell me a joke about the weather", "label": "chat", "lang": "en"}
+{"id": "clf_0076", "prompt": "Translate the following sentence into Arabic: happy birthday", "label": "translate", "lang": "en"}
+{"id": "clf_0066", "prompt": "ترجم هذه الجملة إلى الإنجليزية: the quick brown fox", "label": "translate", "lang": "ar"}
+{"id": "clf_0430", "prompt": "صحح الكود التالي: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "ar"}
+{"id": "clf_0202", "prompt": "What time is it in GPU prices?", "label": "chat", "lang": "en"}
+{"id": "clf_0058", "prompt": "Give me the Arabic equivalent of 'the quick brown fox'", "label": "translate", "lang": "en"}
+{"id": "clf_0134", "prompt": "Make this email more polite: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0183", "prompt": "حسّن نبرة هذا البريد الإلكتروني: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0233", "prompt": "كم الساعة في the weather؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0408", "prompt": "Why does this code fail: ```validates a Saudi national ID with checksum```", "label": "code", "lang": "en"}
+{"id": "clf_0130", "prompt": "اختصر هذا النص في جملة واحدة: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0263", "prompt": "What do you think about Vision 2030?", "label": "chat", "lang": "en"}
+{"id": "clf_0262", "prompt": "What do you think about your favorite color?", "label": "chat", "lang": "en"}
+{"id": "clf_0224", "prompt": "احكي لي نكتة عن Ramadan timings", "label": "chat", "lang": "ar"}
+{"id": "clf_0014", "prompt": "Give me the Arabic equivalent of 'free shipping'", "label": "translate", "lang": "en"}
+{"id": "clf_0238", "prompt": "Tell me a joke about your favorite color", "label": "chat", "lang": "en"}
+{"id": "clf_0231", "prompt": "إيش رأيك في your favorite color؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0294", "prompt": "What do you think about the weather?", "label": "chat", "lang": "en"}
+{"id": "clf_0083", "prompt": "حول هالعبارة لعربي خليجي: the meeting starts at 3pm", "label": "translate", "lang": "ar"}
+{"id": "clf_0182", "prompt": "Shorten this to one sentence: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0476", "prompt": "اشرح لي وش يسوي هالكود: computes the cosine similarity of two vectors", "label": "code", "lang": "ar"}
+{"id": "clf_0264", "prompt": "Tell me a joke about the new coffee shop", "label": "chat", "lang": "en"}
+{"id": "clf_0252", "prompt": "What do you think about Riyadh?", "label": "chat", "lang": "en"}
+{"id": "clf_0354", "prompt": "Build me a step-by-step plan to we lost 40% of our renters last week, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0348", "prompt": "خطط بالتفصيل: كيف أحقق should we acquire or build the recommender engine خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0045", "prompt": "حول هالعبارة لعربي خليجي: Hello, how are you?", "label": "translate", "lang": "ar"}
+{"id": "clf_0400", "prompt": "Diagnose why we lost 40% of our renters last week might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0414", "prompt": "Add type hints to: TypeError: 'NoneType' object is not subscriptable on line 47", "label": "code", "lang": "en"}
+{"id": "clf_0034", "prompt": "Convert to Egyptian dialect: see you tomorrow", "label": "translate", "lang": "en"}
+{"id": "clf_0302", "prompt": "Build me a step-by-step plan to AWS vs DigitalOcean for a small startup, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0189", "prompt": "Shorten this to one sentence: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0001", "prompt": "ترجم هذه الجملة إلى الإنجليزية: Hello, how are you?", "label": "translate", "lang": "ar"}
+{"id": "clf_0366", "prompt": "Build me a step-by-step plan to AWS vs DigitalOcean for a small startup, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0266", "prompt": "What do you think about GPU prices?", "label": "chat", "lang": "en"}
+{"id": "clf_0230", "prompt": "كم الساعة في the weather؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0402", "prompt": "Convert this إعطني دالة JavaScript لتشكيل النص العربي to convert this Python class to TypeScript.", "label": "code", "lang": "en"}
+{"id": "clf_0423", "prompt": "Why does this code fail: ```computes the cosine similarity of two vectors```", "label": "code", "lang": "en"}
+{"id": "clf_0054", "prompt": "وش معنى 'happy birthday' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0455", "prompt": "Add type hints to: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0424", "prompt": "اشرح لي وش يسوي هالكود: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "ar"}
+{"id": "clf_0053", "prompt": "Convert to Egyptian dialect: the meeting starts at 3pm", "label": "translate", "lang": "en"}
+{"id": "clf_0440", "prompt": "Optimize this SQL: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0033", "prompt": "ترجم هذه الجملة إلى الإنجليزية: the quick brown fox", "label": "translate", "lang": "ar"}
+{"id": "clf_0497", "prompt": "Optimize this SQL: computes the cosine similarity of two vectors", "label": "code", "lang": "en"}
+{"id": "clf_0353", "prompt": "Compare Falcon-H1-Arabic-7B vs Jais-2-8B and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0013", "prompt": "وش معنى 'see you tomorrow' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0006", "prompt": "Give me the Arabic equivalent of 'the quick brown fox'", "label": "translate", "lang": "en"}
+{"id": "clf_0448", "prompt": "Refactor this to be async: Python async function that reads from Redis with retry", "label": "code", "lang": "en"}
+{"id": "clf_0305", "prompt": "Argue both sides of rolling out the new pricing model to existing customers and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0369", "prompt": "If rolling out the new pricing model to existing customers, what would be the second- and third-order consequences?", "label": "reasoning", "lang": "en"}
+{"id": "clf_0201", "prompt": "احكي لي نكتة عن Ramadan timings", "label": "chat", "lang": "ar"}
+{"id": "clf_0244", "prompt": "the new Star Wars", "label": "chat", "lang": "en"}
+{"id": "clf_0049", "prompt": "وش معنى 'subscription expired' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0284", "prompt": "كم الساعة في GPU prices؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0291", "prompt": "What do you think about GPU prices?", "label": "chat", "lang": "en"}
+{"id": "clf_0016", "prompt": "I need this in 5 languages: GPU compute marketplace", "label": "translate", "lang": "en"}
+{"id": "clf_0092", "prompt": "ابي ترجمة احترافية للمصطلح 'data center' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0222", "prompt": "What time is it in Saudi food?", "label": "chat", "lang": "en"}
+{"id": "clf_0267", "prompt": "What do you think about GPU prices?", "label": "chat", "lang": "en"}
+{"id": "clf_0288", "prompt": "كم الساعة في DCP؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0269", "prompt": "سؤال سريع: هل the World Cup مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0434", "prompt": "Add type hints to: TypeError: 'NoneType' object is not subscriptable on line 47", "label": "code", "lang": "en"}
+{"id": "clf_0205", "prompt": "What do you think about the new coffee shop?", "label": "chat", "lang": "en"}
+{"id": "clf_0458", "prompt": "Refactor this to be async: fix the off-by-one in this loop: for i in range(1, len(arr))", "label": "code", "lang": "en"}
+{"id": "clf_0114", "prompt": "Improve clarity: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0056", "prompt": "Convert to Egyptian dialect: happy birthday", "label": "translate", "lang": "en"}
+{"id": "clf_0200", "prompt": "Rewrite this paragraph to sound more formal: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0315", "prompt": "خطط بالتفصيل: كيف أحقق we lost 40% of our renters last week خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0009", "prompt": "وش معنى 'thank you for your patience' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0072", "prompt": "translate free shipping ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0214", "prompt": "your favorite color", "label": "chat", "lang": "en"}
+{"id": "clf_0158", "prompt": "Rewrite this paragraph to sound more formal: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "en"}
+{"id": "clf_0342", "prompt": "Diagnose why buying a GPU vs renting one might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0292", "prompt": "سؤال سريع: هل the weather مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0374", "prompt": "ضع استراتيجية مفصلة لـ AWS vs DigitalOcean for a small startup مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0107", "prompt": "اجعل هذه الفقرة أوضح وأبسط: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0040", "prompt": "What's 'thank you for your patience' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0390", "prompt": "خطط بالتفصيل: كيف أحقق rolling out the new pricing model to existing customers خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0406", "prompt": "Add type hints to: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0347", "prompt": "Estimate the cost of the LLM gateway has p95=2.3s and p50=0.4s given should we acquire or build the recommender engine and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0108", "prompt": "اختصر هذا النص في جملة واحدة: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0139", "prompt": "Shorten this to one sentence: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0179", "prompt": "Improve clarity: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0191", "prompt": "Shorten this to one sentence: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0172", "prompt": "Make this email more polite: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0465", "prompt": "Add type hints to: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0409", "prompt": "Convert this TypeError: 'NoneType' object is not subscriptable on line 47 to convert this Python class to TypeScript.", "label": "code", "lang": "en"}
+{"id": "clf_0100", "prompt": "وش معنى 'happy birthday' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0035", "prompt": "حول هالعبارة لعربي خليجي: the meeting starts at 3pm", "label": "translate", "lang": "ar"}
+{"id": "clf_0245", "prompt": "سؤال سريع: هل Saudi food مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0478", "prompt": "Write a Python function that Python async function that reads from Redis with retry.", "label": "code", "lang": "en"}
+{"id": "clf_0025", "prompt": "ترجم هذه الجملة إلى الإنجليزية: the quick brown fox", "label": "translate", "lang": "ar"}
+{"id": "clf_0273", "prompt": "What do you think about Ramadan timings?", "label": "chat", "lang": "en"}
+{"id": "clf_0127", "prompt": "Shorten this to one sentence: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0216", "prompt": "كم الساعة في GPU prices؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0010", "prompt": "Give me the Arabic equivalent of 'Hello, how are you?'", "label": "translate", "lang": "en"}
+{"id": "clf_0435", "prompt": "Refactor this to be async: TypeError: 'NoneType' object is not subscriptable on line 47", "label": "code", "lang": "en"}
+{"id": "clf_0365", "prompt": "قارن بين should we acquire or build the recommender engine و should we acquire or build the recommender engine من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0030", "prompt": "ترجم هذه الجملة إلى الإنجليزية: Hello, how are you?", "label": "translate", "lang": "ar"}
+{"id": "clf_0105", "prompt": "اختصر هذا النص في جملة واحدة: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0349", "prompt": "خطط بالتفصيل: كيف أحقق AWS vs DigitalOcean for a small startup خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0403", "prompt": "Add tests for: implement debouncing in vanilla JS", "label": "code", "lang": "en"}
+{"id": "clf_0180", "prompt": "Improve clarity: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0327", "prompt": "Compare rolling out the new pricing model to existing customers and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0235", "prompt": "كم الساعة في Saudi food؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0439", "prompt": "Add tests for: fix the off-by-one in this loop: for i in range(1, len(arr))", "label": "code", "lang": "en"}
+{"id": "clf_0017", "prompt": "Convert to Egyptian dialect: the meeting starts at 3pm", "label": "translate", "lang": "en"}
+{"id": "clf_0166", "prompt": "اجعل هذه الفقرة أوضح وأبسط: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0057", "prompt": "Give me the Arabic equivalent of 'the quick brown fox'", "label": "translate", "lang": "en"}
+{"id": "clf_0157", "prompt": "Improve clarity: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0084", "prompt": "translate thank you for your patience ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0144", "prompt": "Polish this LinkedIn post: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0281", "prompt": "Quick question — is GPU prices open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0007", "prompt": "Translate the following sentence into Arabic: Hello, how are you?", "label": "translate", "lang": "en"}
+{"id": "clf_0491", "prompt": "Why does this code fail: ```fix the off-by-one in this loop: for i in range(1, len(arr))```", "label": "code", "lang": "en"}
+{"id": "clf_0060", "prompt": "What's 'thank you for your patience' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0371", "prompt": "Argue both sides of should we acquire or build the recommender engine and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0028", "prompt": "Give me the Arabic equivalent of 'GPU compute marketplace'", "label": "translate", "lang": "en"}
+{"id": "clf_0096", "prompt": "What's 'free shipping' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0164", "prompt": "اختصر هذا النص في جملة واحدة: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0449", "prompt": "Add tests for: TypeError: 'NoneType' object is not subscriptable on line 47", "label": "code", "lang": "en"}
+{"id": "clf_0286", "prompt": "كم الساعة في AI؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0472", "prompt": "صحح الكود التالي: implement debouncing in vanilla JS", "label": "code", "lang": "ar"}
+{"id": "clf_0246", "prompt": "احكي لي نكتة عن Vision 2030", "label": "chat", "lang": "ar"}
+{"id": "clf_0384", "prompt": "Build me a step-by-step plan to the on-call alert fires every 2 hours but no incident, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0345", "prompt": "Diagnose why the LLM gateway has p95=2.3s and p50=0.4s might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0173", "prompt": "أعد صياغة هذه الفقرة بأسلوب أكثر احترافية: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0095", "prompt": "ابي ترجمة احترافية للمصطلح 'thank you for your patience' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0360", "prompt": "خطط بالتفصيل: كيف أحقق the LLM gateway has p95=2.3s and p50=0.4s خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0032", "prompt": "ترجم هذه الجملة إلى الإنجليزية: I love rainy days", "label": "translate", "lang": "ar"}
+{"id": "clf_0138", "prompt": "Improve clarity: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0393", "prompt": "Build me a step-by-step plan to AWS vs DigitalOcean for a small startup, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0004", "prompt": "ترجم هذه الجملة إلى الإنجليزية: two-factor authentication", "label": "translate", "lang": "ar"}
+{"id": "clf_0308", "prompt": "Argue both sides of the on-call alert fires every 2 hours but no incident and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0296", "prompt": "Ramadan timings", "label": "chat", "lang": "en"}
+{"id": "clf_0350", "prompt": "ضع استراتيجية مفصلة لـ Falcon-H1-Arabic-7B vs Jais-2-8B مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0094", "prompt": "What's 'two-factor authentication' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0143", "prompt": "Rewrite this paragraph to sound more formal: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0206", "prompt": "the new Star Wars", "label": "chat", "lang": "en"}
+{"id": "clf_0217", "prompt": "your favorite color", "label": "chat", "lang": "ar"}
+{"id": "clf_0306", "prompt": "Estimate the cost of the on-call alert fires every 2 hours but no incident given rolling out the new pricing model to existing customers and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0379", "prompt": "قارن بين هل نوسع للسوق المصري قبل الإماراتي و the on-call alert fires every 2 hours but no incident من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0483", "prompt": "Why does this code fail: ```إعطني دالة JavaScript لتشكيل النص العربي```", "label": "code", "lang": "en"}
+{"id": "clf_0073", "prompt": "حول هالعبارة لعربي خليجي: data center", "label": "translate", "lang": "ar"}
+{"id": "clf_0385", "prompt": "قارن بين rolling out the new pricing model to existing customers و should we acquire or build the recommender engine من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0240", "prompt": "Quick question — is your favorite color open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0480", "prompt": "Optimize this SQL: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0493", "prompt": "Add tests for: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0275", "prompt": "احكي لي نكتة عن DCP", "label": "chat", "lang": "ar"}
+{"id": "clf_0247", "prompt": "احكي لي نكتة عن Saudi food", "label": "chat", "lang": "ar"}
+{"id": "clf_0132", "prompt": "صحح الأخطاء النحوية في النص: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0085", "prompt": "Translate the following sentence into Arabic: subscription expired", "label": "translate", "lang": "en"}
+{"id": "clf_0469", "prompt": "Add tests for: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0257", "prompt": "احكي لي نكتة عن today's news", "label": "chat", "lang": "ar"}
+{"id": "clf_0188", "prompt": "Improve clarity: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0277", "prompt": "كم الساعة في the new coffee shop؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0103", "prompt": "Improve clarity: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0387", "prompt": "Estimate the cost of buying a GPU vs renting one given the on-call alert fires every 2 hours but no incident and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0447", "prompt": "Why does this code fail: ```Python async function that reads from Redis with retry```", "label": "code", "lang": "en"}
+{"id": "clf_0168", "prompt": "اجعل هذه الفقرة أوضح وأبسط: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0298", "prompt": "What do you think about the weather?", "label": "chat", "lang": "en"}
+{"id": "clf_0359", "prompt": "Build me a step-by-step plan to the on-call alert fires every 2 hours but no incident, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0068", "prompt": "ابي ترجمة احترافية للمصطلح 'thank you for your patience' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0187", "prompt": "Improve clarity: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0018", "prompt": "وش معنى 'GPU compute marketplace' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0395", "prompt": "ضع استراتيجية مفصلة لـ هل نوسع للسوق المصري قبل الإماراتي مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0159", "prompt": "Shorten this to one sentence: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0021", "prompt": "حول هالعبارة لعربي خليجي: GPU compute marketplace", "label": "translate", "lang": "ar"}
+{"id": "clf_0050", "prompt": "حول هالعبارة لعربي خليجي: I love rainy days", "label": "translate", "lang": "ar"}
+{"id": "clf_0071", "prompt": "ترجم هذه الجملة إلى الإنجليزية: two-factor authentication", "label": "translate", "lang": "ar"}
+{"id": "clf_0311", "prompt": "Build me a step-by-step plan to expanding to UAE before KSA market saturation, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0459", "prompt": "Why does this code fail: ```convert this Python class to TypeScript```", "label": "code", "lang": "en"}
+{"id": "clf_0113", "prompt": "حسّن نبرة هذا البريد الإلكتروني: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0181", "prompt": "أعد صياغة هذه الفقرة بأسلوب أكثر احترافية: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0118", "prompt": "اجعل هذه الفقرة أوضح وأبسط: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0147", "prompt": "Polish this LinkedIn post: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0330", "prompt": "خطط بالتفصيل: كيف أحقق should we acquire or build the recommender engine خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0026", "prompt": "ترجم هذه الجملة إلى الإنجليزية: thank you for your patience", "label": "translate", "lang": "ar"}
+{"id": "clf_0339", "prompt": "قارن بين هل نوسع للسوق المصري قبل الإماراتي و Falcon-H1-Arabic-7B vs Jais-2-8B من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0322", "prompt": "Diagnose why the LLM gateway has p95=2.3s and p50=0.4s might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0141", "prompt": "صحح الأخطاء النحوية في النص: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0203", "prompt": "Tell me a joke about AI", "label": "chat", "lang": "en"}
+{"id": "clf_0012", "prompt": "translate the quick brown fox ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0329", "prompt": "Compare the LLM gateway has p95=2.3s and p50=0.4s and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0152", "prompt": "اجعل هذه الفقرة أوضح وأبسط: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0295", "prompt": "What time is it in GPU prices?", "label": "chat", "lang": "en"}
+{"id": "clf_0375", "prompt": "Diagnose why the LLM gateway has p95=2.3s and p50=0.4s might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0417", "prompt": "اكتب لي دالة بـ SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "ar"}
+{"id": "clf_0378", "prompt": "Argue both sides of expanding to UAE before KSA market saturation and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0122", "prompt": "Shorten this to one sentence: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0055", "prompt": "translate thank you for your patience ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0437", "prompt": "اشرح لي وش يسوي هالكود: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "ar"}
+{"id": "clf_0416", "prompt": "Refactor this to be async: implement debouncing in vanilla JS", "label": "code", "lang": "en"}
+{"id": "clf_0102", "prompt": "حسّن نبرة هذا البريد الإلكتروني: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0155", "prompt": "Rewrite this paragraph to sound more formal: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "en"}
+{"id": "clf_0392", "prompt": "Compare هل نوسع للسوق المصري قبل الإماراتي and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0129", "prompt": "حسّن نبرة هذا البريد الإلكتروني: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0218", "prompt": "Quick question — is Saudi food open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0352", "prompt": "Estimate the cost of we lost 40% of our renters last week given AWS vs DigitalOcean for a small startup and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0436", "prompt": "Add tests for: fix the off-by-one in this loop: for i in range(1, len(arr))", "label": "code", "lang": "en"}
+{"id": "clf_0467", "prompt": "Add type hints to: fix the off-by-one in this loop: for i in range(1, len(arr))", "label": "code", "lang": "en"}
+{"id": "clf_0227", "prompt": "What time is it in Ramadan timings?", "label": "chat", "lang": "en"}
+{"id": "clf_0038", "prompt": "Convert to Egyptian dialect: happy birthday", "label": "translate", "lang": "en"}
+{"id": "clf_0081", "prompt": "translate subscription expired ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0280", "prompt": "the World Cup", "label": "chat", "lang": "ar"}
+{"id": "clf_0361", "prompt": "حلل rolling out the new pricing model to existing customers وبيّن المخاطر والفرص في 5 نقاط.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0239", "prompt": "Quick question — is Saudi food open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0005", "prompt": "translate data center ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0356", "prompt": "حلل we lost 40% of our renters last week وبيّن المخاطر والفرص في 5 نقاط.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0236", "prompt": "احكي لي نكتة عن the World Cup", "label": "chat", "lang": "ar"}
+{"id": "clf_0131", "prompt": "اختصر هذا النص في جملة واحدة: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0479", "prompt": "Optimize this SQL: convert this Python class to TypeScript", "label": "code", "lang": "en"}
+{"id": "clf_0119", "prompt": "صحح الأخطاء النحوية في النص: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0389", "prompt": "خطط بالتفصيل: كيف أحقق the LLM gateway has p95=2.3s and p50=0.4s خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0299", "prompt": "What time is it in Ramadan timings?", "label": "chat", "lang": "en"}
+{"id": "clf_0255", "prompt": "كم الساعة في your favorite color؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0124", "prompt": "Polish this LinkedIn post: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0318", "prompt": "حلل buying a GPU vs renting one وبيّن المخاطر والفرص في 5 نقاط.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0407", "prompt": "Add type hints to: validates a Saudi national ID with checksum", "label": "code", "lang": "en"}
+{"id": "clf_0313", "prompt": "Build me a step-by-step plan to expanding to UAE before KSA market saturation, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0041", "prompt": "وش معنى 'the meeting starts at 3pm' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0090", "prompt": "وش معنى 'subscription expired' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0088", "prompt": "حول هالعبارة لعربي خليجي: free shipping", "label": "translate", "lang": "ar"}
+{"id": "clf_0093", "prompt": "translate the meeting starts at 3pm ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0290", "prompt": "DCP", "label": "chat", "lang": "ar"}
+{"id": "clf_0413", "prompt": "Add tests for: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0272", "prompt": "Tell me a joke about the weather", "label": "chat", "lang": "en"}
+{"id": "clf_0126", "prompt": "Rewrite this paragraph to sound more formal: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0461", "prompt": "Add type hints to: Python async function that reads from Redis with retry", "label": "code", "lang": "en"}
+{"id": "clf_0221", "prompt": "What time is it in Ramadan timings?", "label": "chat", "lang": "en"}
+{"id": "clf_0192", "prompt": "Improve clarity: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0184", "prompt": "أعد صياغة هذه الفقرة بأسلوب أكثر احترافية: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0151", "prompt": "اختصر هذا النص في جملة واحدة: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0029", "prompt": "Give me the Arabic equivalent of 'I love rainy days'", "label": "translate", "lang": "en"}
+{"id": "clf_0167", "prompt": "Polish this LinkedIn post: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0024", "prompt": "ابي ترجمة احترافية للمصطلح 'thank you for your patience' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0496", "prompt": "Convert this explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$ to إعطني دالة JavaScript لتشكيل النص العربي.", "label": "code", "lang": "en"}
+{"id": "clf_0154", "prompt": "حسّن نبرة هذا البريد الإلكتروني: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0086", "prompt": "حول هالعبارة لعربي خليجي: see you tomorrow", "label": "translate", "lang": "ar"}
+{"id": "clf_0228", "prompt": "Saudi food", "label": "chat", "lang": "ar"}
+{"id": "clf_0394", "prompt": "Build me a step-by-step plan to should we acquire or build the recommender engine, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0325", "prompt": "Build me a step-by-step plan to should we acquire or build the recommender engine, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0051", "prompt": "ابي ترجمة احترافية للمصطلح 'the quick brown fox' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0223", "prompt": "AI", "label": "chat", "lang": "en"}
+{"id": "clf_0047", "prompt": "حول هالعبارة لعربي خليجي: the quick brown fox", "label": "translate", "lang": "ar"}
+{"id": "clf_0117", "prompt": "Improve clarity: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0148", "prompt": "Improve clarity: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "en"}
+{"id": "clf_0351", "prompt": "Argue both sides of Falcon-H1-Arabic-7B vs Jais-2-8B and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0324", "prompt": "Diagnose why Falcon-H1-Arabic-7B vs Jais-2-8B might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0121", "prompt": "اختصر هذا النص في جملة واحدة: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0452", "prompt": "اشرح لي وش يسوي هالكود: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "ar"}
+{"id": "clf_0317", "prompt": "Estimate the cost of هل نوسع للسوق المصري قبل الإماراتي given AWS vs DigitalOcean for a small startup and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0401", "prompt": "Add type hints to: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "en"}
+{"id": "clf_0278", "prompt": "إيش رأيك في Ramadan timings؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0250", "prompt": "سؤال سريع: هل the weather مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0368", "prompt": "خطط بالتفصيل: كيف أحقق rolling out the new pricing model to existing customers خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0321", "prompt": "If should we acquire or build the recommender engine, what would be the second- and third-order consequences?", "label": "reasoning", "lang": "en"}
+{"id": "clf_0411", "prompt": "Refactor this to be async: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0195", "prompt": "حسّن نبرة هذا البريد الإلكتروني: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0274", "prompt": "سؤال سريع: هل today's news مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0346", "prompt": "Build me a step-by-step plan to the on-call alert fires every 2 hours but no incident, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0169", "prompt": "Improve clarity: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0042", "prompt": "ابي ترجمة احترافية للمصطلح 'the quick brown fox' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0333", "prompt": "Build me a step-by-step plan to the on-call alert fires every 2 hours but no incident, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0204", "prompt": "إيش رأيك في the new coffee shop؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0355", "prompt": "Compare rolling out the new pricing model to existing customers and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0320", "prompt": "حلل we lost 40% of our renters last week وبيّن المخاطر والفرص في 5 نقاط.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0174", "prompt": "Make this email more polite: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "en"}
+{"id": "clf_0136", "prompt": "صحح الأخطاء النحوية في النص: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0241", "prompt": "the new Star Wars", "label": "chat", "lang": "en"}
+{"id": "clf_0039", "prompt": "ترجم هذه الجملة إلى الإنجليزية: subscription expired", "label": "translate", "lang": "ar"}
+{"id": "clf_0080", "prompt": "Convert to Egyptian dialect: two-factor authentication", "label": "translate", "lang": "en"}
+{"id": "clf_0336", "prompt": "Compare should we acquire or build the recommender engine and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0210", "prompt": "سؤال سريع: هل the new coffee shop مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0074", "prompt": "Convert to Egyptian dialect: the quick brown fox", "label": "translate", "lang": "en"}
+{"id": "clf_0370", "prompt": "Compare the LLM gateway has p95=2.3s and p50=0.4s and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0487", "prompt": "Add type hints to: fix the off-by-one in this loop: for i in range(1, len(arr))", "label": "code", "lang": "en"}
+{"id": "clf_0422", "prompt": "اكتب لي دالة بـ إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "ar"}
+{"id": "clf_0270", "prompt": "What do you think about the new coffee shop?", "label": "chat", "lang": "en"}
+{"id": "clf_0450", "prompt": "اكتب لي دالة بـ computes the cosine similarity of two vectors", "label": "code", "lang": "ar"}
+{"id": "clf_0226", "prompt": "كم الساعة في the World Cup؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0052", "prompt": "ابي ترجمة احترافية للمصطلح 'the meeting starts at 3pm' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0170", "prompt": "Make this email more polite: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "en"}
+{"id": "clf_0303", "prompt": "ضع استراتيجية مفصلة لـ buying a GPU vs renting one مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0258", "prompt": "احكي لي نكتة عن GPU prices", "label": "chat", "lang": "ar"}
+{"id": "clf_0065", "prompt": "I need this in 5 languages: subscription expired", "label": "translate", "lang": "en"}
+{"id": "clf_0019", "prompt": "ترجم هذه الجملة إلى الإنجليزية: data center", "label": "translate", "lang": "ar"}
+{"id": "clf_0254", "prompt": "Quick question — is GPU prices open today?", "label": "chat", "lang": "en"}
+{"id": "clf_0078", "prompt": "What's 'thank you for your patience' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0334", "prompt": "Build me a step-by-step plan to expanding to UAE before KSA market saturation, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0340", "prompt": "Diagnose why rolling out the new pricing model to existing customers might be happening — list hypotheses ranked by likelihood.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0198", "prompt": "Rewrite this paragraph to sound more formal: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0196", "prompt": "Make this email more polite: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "en"}
+{"id": "clf_0470", "prompt": "Optimize this SQL: TypeError: 'NoneType' object is not subscriptable on line 47", "label": "code", "lang": "en"}
+{"id": "clf_0243", "prompt": "سؤال سريع: هل the World Cup مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0382", "prompt": "Build me a step-by-step plan to AWS vs DigitalOcean for a small startup, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0163", "prompt": "Shorten this to one sentence: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "en"}
+{"id": "clf_0023", "prompt": "Translate the following sentence into Arabic: happy birthday", "label": "translate", "lang": "en"}
+{"id": "clf_0211", "prompt": "What time is it in Saudi food?", "label": "chat", "lang": "en"}
+{"id": "clf_0398", "prompt": "Compare AWS vs DigitalOcean for a small startup and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0120", "prompt": "صحح الأخطاء النحوية في النص: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0460", "prompt": "Refactor this to be async: Python async function that reads from Redis with retry", "label": "code", "lang": "en"}
+{"id": "clf_0293", "prompt": "What do you think about DCP?", "label": "chat", "lang": "en"}
+{"id": "clf_0492", "prompt": "Add tests for: computes the cosine similarity of two vectors", "label": "code", "lang": "en"}
+{"id": "clf_0499", "prompt": "Add tests for: Python async function that reads from Redis with retry", "label": "code", "lang": "en"}
+{"id": "clf_0097", "prompt": "translate subscription expired ل العربية", "label": "translate", "lang": "mixed"}
+{"id": "clf_0165", "prompt": "اجعل هذه الفقرة أوضح وأبسط: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0463", "prompt": "اكتب لي دالة بـ SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "ar"}
+{"id": "clf_0194", "prompt": "اجعل هذه الفقرة أوضح وأبسط: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0279", "prompt": "What time is it in GPU prices?", "label": "chat", "lang": "en"}
+{"id": "clf_0391", "prompt": "خطط بالتفصيل: كيف أحقق هل نوسع للسوق المصري قبل الإماراتي خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0462", "prompt": "Why does this code fail: ```computes the cosine similarity of two vectors```", "label": "code", "lang": "en"}
+{"id": "clf_0171", "prompt": "حسّن نبرة هذا البريد الإلكتروني: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0177", "prompt": "اجعل هذه الفقرة أوضح وأبسط: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0466", "prompt": "Why does this code fail: ```إعطني دالة JavaScript لتشكيل النص العربي```", "label": "code", "lang": "en"}
+{"id": "clf_0276", "prompt": "إيش رأيك في DCP؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0229", "prompt": "DCP", "label": "chat", "lang": "en"}
+{"id": "clf_0077", "prompt": "Convert to Egyptian dialect: thank you for your patience", "label": "translate", "lang": "en"}
+{"id": "clf_0251", "prompt": "Tell me a joke about Riyadh", "label": "chat", "lang": "en"}
+{"id": "clf_0338", "prompt": "ضع استراتيجية مفصلة لـ buying a GPU vs renting one مع مراعاة القيود المالية.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0297", "prompt": "Ramadan timings", "label": "chat", "lang": "ar"}
+{"id": "clf_0301", "prompt": "Compare هل نوسع للسوق المصري قبل الإماراتي and explain which is better and why, considering 3 dimensions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0429", "prompt": "Why does this code fail: ```TypeError: 'NoneType' object is not subscriptable on line 47```", "label": "code", "lang": "en"}
+{"id": "clf_0153", "prompt": "Improve clarity: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0372", "prompt": "Estimate the cost of AWS vs DigitalOcean for a small startup given هل نوسع للسوق المصري قبل الإماراتي and explain assumptions.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0145", "prompt": "Polish this LinkedIn post: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0002", "prompt": "Convert to Egyptian dialect: I love rainy days", "label": "translate", "lang": "en"}
+{"id": "clf_0421", "prompt": "Add tests for: SELECT * FROM users WHERE created_at > now() - interval '7 days'", "label": "code", "lang": "en"}
+{"id": "clf_0137", "prompt": "Shorten this to one sentence: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "en"}
+{"id": "clf_0260", "prompt": "Tell me a joke about the new coffee shop", "label": "chat", "lang": "en"}
+{"id": "clf_0404", "prompt": "صحح الكود التالي: convert this Python class to TypeScript", "label": "code", "lang": "ar"}
+{"id": "clf_0175", "prompt": "حسّن نبرة هذا البريد الإلكتروني: We talked and decided to maybe do the thing next week", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0481", "prompt": "اكتب لي دالة بـ explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "ar"}
+{"id": "clf_0438", "prompt": "اشرح لي وش يسوي هالكود: validates a Saudi national ID with checksum", "label": "code", "lang": "ar"}
+{"id": "clf_0405", "prompt": "Convert this implement debouncing in vanilla JS to إعطني دالة JavaScript لتشكيل النص العربي.", "label": "code", "lang": "en"}
+{"id": "clf_0396", "prompt": "Build me a step-by-step plan to the on-call alert fires every 2 hours but no incident, including risks at each step.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0142", "prompt": "اختصر هذا النص في جملة واحدة: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0036", "prompt": "حول هالعبارة لعربي خليجي: GPU compute marketplace", "label": "translate", "lang": "ar"}
+{"id": "clf_0443", "prompt": "اشرح لي وش يسوي هالكود: explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$", "label": "code", "lang": "ar"}
+{"id": "clf_0070", "prompt": "Translate the following sentence into Arabic: two-factor authentication", "label": "translate", "lang": "en"}
+{"id": "clf_0500", "prompt": "Add type hints to: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0383", "prompt": "خطط بالتفصيل: كيف أحقق the on-call alert fires every 2 hours but no incident خلال 90 يوم؟", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0471", "prompt": "اشرح لي وش يسوي هالكود: computes the cosine similarity of two vectors", "label": "code", "lang": "ar"}
+{"id": "clf_0307", "prompt": "Argue both sides of should we acquire or build the recommender engine and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0098", "prompt": "I need this in 5 languages: I love rainy days", "label": "translate", "lang": "en"}
+{"id": "clf_0197", "prompt": "صحح الأخطاء النحوية في النص: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0075", "prompt": "What's 'see you tomorrow' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0486", "prompt": "Convert this fix the off-by-one in this loop: for i in range(1, len(arr)) to إعطني دالة JavaScript لتشكيل النص العربي.", "label": "code", "lang": "en"}
+{"id": "clf_0234", "prompt": "GPU prices", "label": "chat", "lang": "en"}
+{"id": "clf_0125", "prompt": "صحح الأخطاء النحوية في النص: Hi just checking in on the status of the deliverable", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0242", "prompt": "Tell me a joke about AI", "label": "chat", "lang": "en"}
+{"id": "clf_0248", "prompt": "سؤال سريع: هل the new coffee shop مفتوح اليوم؟", "label": "chat", "lang": "ar"}
+{"id": "clf_0428", "prompt": "Add type hints to: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "en"}
+{"id": "clf_0213", "prompt": "Tell me a joke about your favorite color", "label": "chat", "lang": "en"}
+{"id": "clf_0140", "prompt": "أعد صياغة هذه الفقرة بأسلوب أكثر احترافية: Dear sir/madam I would like to apply for the position", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0362", "prompt": "قارن بين AWS vs DigitalOcean for a small startup و buying a GPU vs renting one من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0261", "prompt": "Tell me a joke about GPU prices", "label": "chat", "lang": "en"}
+{"id": "clf_0150", "prompt": "اختصر هذا النص في جملة واحدة: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0367", "prompt": "قارن بين we lost 40% of our renters last week و AWS vs DigitalOcean for a small startup من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0256", "prompt": "What do you think about the new Star Wars?", "label": "chat", "lang": "en"}
+{"id": "clf_0079", "prompt": "ترجم هذه الجملة إلى الإنجليزية: two-factor authentication", "label": "translate", "lang": "ar"}
+{"id": "clf_0427", "prompt": "اكتب لي دالة بـ computes the cosine similarity of two vectors", "label": "code", "lang": "ar"}
+{"id": "clf_0332", "prompt": "Argue both sides of rolling out the new pricing model to existing customers and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0061", "prompt": "ابي ترجمة احترافية للمصطلح 'data center' في سياق طبي", "label": "translate", "lang": "ar"}
+{"id": "clf_0237", "prompt": "Ramadan timings", "label": "chat", "lang": "ar"}
+{"id": "clf_0059", "prompt": "حول هالعبارة لعربي خليجي: I love rainy days", "label": "translate", "lang": "ar"}
+{"id": "clf_0468", "prompt": "Add type hints to: convert this Python class to TypeScript", "label": "code", "lang": "en"}
+{"id": "clf_0431", "prompt": "Why does this code fail: ```explain what this regex matches: ^(?=.*[a-z])(?=.*[A-Z]).{8,}$```", "label": "code", "lang": "en"}
+{"id": "clf_0116", "prompt": "صحح الأخطاء النحوية في النص: I hope this email finds you well I wanted to reach out about", "label": "rewrite", "lang": "ar"}
+{"id": "clf_0048", "prompt": "Convert to Egyptian dialect: data center", "label": "translate", "lang": "en"}
+{"id": "clf_0209", "prompt": "your favorite color", "label": "chat", "lang": "en"}
+{"id": "clf_0488", "prompt": "Add tests for: computes the cosine similarity of two vectors", "label": "code", "lang": "en"}
+{"id": "clf_0008", "prompt": "ترجم هذه الجملة إلى الإنجليزية: I love rainy days", "label": "translate", "lang": "ar"}
+{"id": "clf_0283", "prompt": "Ramadan timings", "label": "chat", "lang": "ar"}
+{"id": "clf_0160", "prompt": "Shorten this to one sentence: Synergize cross-functional verticals to leverage core competencies", "label": "rewrite", "lang": "en"}
+{"id": "clf_0082", "prompt": "وش معنى 'the meeting starts at 3pm' بالعربي الفصحى؟", "label": "translate", "lang": "ar"}
+{"id": "clf_0364", "prompt": "قارن بين Falcon-H1-Arabic-7B vs Jais-2-8B و expanding to UAE before KSA market saturation من حيث التكلفة والجودة والوقت.", "label": "reasoning", "lang": "ar"}
+{"id": "clf_0123", "prompt": "Polish this LinkedIn post: The product is good but could be better in some areas like UX", "label": "rewrite", "lang": "en"}
+{"id": "clf_0410", "prompt": "اكتب لي دالة بـ validates a Saudi national ID with checksum", "label": "code", "lang": "ar"}
+{"id": "clf_0312", "prompt": "Argue both sides of the on-call alert fires every 2 hours but no incident and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0323", "prompt": "Argue both sides of the on-call alert fires every 2 hours but no incident and pick the stronger position.", "label": "reasoning", "lang": "en"}
+{"id": "clf_0015", "prompt": "Translate the following sentence into Arabic: the meeting starts at 3pm", "label": "translate", "lang": "en"}
+{"id": "clf_0063", "prompt": "What's 'two-factor authentication' in MSA?", "label": "translate", "lang": "en"}
+{"id": "clf_0249", "prompt": "Saudi food", "label": "chat", "lang": "ar"}
+{"id": "clf_0358", "prompt": "If rolling out the new pricing model to existing customers, what would be the second- and third-order consequences?", "label": "reasoning", "lang": "en"}
+{"id": "clf_0451", "prompt": "صحح الكود التالي: إعطني دالة JavaScript لتشكيل النص العربي", "label": "code", "lang": "ar"}

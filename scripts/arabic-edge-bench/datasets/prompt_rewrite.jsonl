@@ -1,0 +1,101 @@
+{"id": "pr_001", "raw": "i need code for sort", "expected_traits": ["specify language", "clarify what to sort", "add acceptance criteria"]}
+{"id": "pr_002", "raw": "fix the bug in login", "expected_traits": ["which file", "which symptom", "what's expected vs observed"]}
+{"id": "pr_002a", "raw": "بدي اعمل واحد api للسوق", "expected_traits": ["translate to English", "specify CRUD operations", "specify auth"]}
+{"id": "pr_003", "raw": "make my website faster", "expected_traits": ["which metric (LCP/TTFB/etc)", "current numbers", "stack/framework"]}
+{"id": "pr_004", "raw": "explain react", "expected_traits": ["scope (hooks/state/SSR?)", "experience level", "use case"]}
+{"id": "pr_005", "raw": "write a script that does the thing", "expected_traits": ["explicit input format", "explicit output format", "runtime constraints"]}
+{"id": "pr_006", "raw": "هل ممكن تساعدني في كود؟", "expected_traits": ["language", "task description", "expected output"]}
+{"id": "pr_007", "raw": "deploy this to prod NOW", "expected_traits": ["which service", "which env", "rollback plan"]}
+{"id": "pr_008", "raw": "make it cheaper", "expected_traits": ["which cost (compute/storage/network)", "current spend", "constraints"]}
+{"id": "pr_009", "raw": "translate", "expected_traits": ["source text", "source lang", "target lang"]}
+{"id": "pr_010", "raw": "the dataabse is slow", "expected_traits": ["which query", "current latency", "p50/p95/p99"]}
+{"id": "pr_011", "raw": "rewrite this", "expected_traits": ["what is 'this'", "rewrite goal", "tone/audience"]}
+{"id": "pr_012", "raw": "اكتب لي عقد عمل", "expected_traits": ["jurisdiction", "role/position", "salary/duration"]}
+{"id": "pr_013", "raw": "I want AI for my company", "expected_traits": ["industry", "use case", "data/budget constraints"]}
+{"id": "pr_014", "raw": "build a chatbot", "expected_traits": ["domain", "channels", "knowledge source"]}
+{"id": "pr_015", "raw": "test this code", "expected_traits": ["code snippet", "language/framework", "test type (unit/e2e)"]}
+{"id": "pr_016", "raw": "summurize this articcle https://example.com/very-long-url", "expected_traits": ["fetch the URL", "summary length", "target audience"]}
+{"id": "pr_017", "raw": "convert pdf to text", "expected_traits": ["input file", "OCR vs text-layer", "output format"]}
+{"id": "pr_018", "raw": "كيف اسوي مشروع تخرج عن AI", "expected_traits": ["specialization", "duration/scope", "advisor constraints"]}
+{"id": "pr_019", "raw": "do seo for my site", "expected_traits": ["site URL", "current rankings", "target keywords"]}
+{"id": "pr_020", "raw": "draft an email", "expected_traits": ["recipient", "purpose", "tone"]}
+{"id": "pr_021", "raw": "design a database", "expected_traits": ["domain entities", "expected scale", "consistency needs"]}
+{"id": "pr_022", "raw": "what model should I use", "expected_traits": ["task", "budget", "latency requirement"]}
+{"id": "pr_023", "raw": "help me write a contract for my client", "expected_traits": ["jurisdiction", "service type", "key terms"]}
+{"id": "pr_024", "raw": "what is the best way to do this", "expected_traits": ["what is 'this'", "what are constraints", "definition of best"]}
+{"id": "pr_025", "raw": "اعرض لي افضل سعر GPU", "expected_traits": ["GPU model", "rental duration", "region/availability"]}
+{"id": "pr_026", "raw": "give me a regex", "expected_traits": ["input examples", "match goal", "language/flavor"]}
+{"id": "pr_027", "raw": "explain transformers in 1 sentence", "expected_traits": ["audience level", "math vs intuition", "context"]}
+{"id": "pr_028", "raw": "code review my pr please", "expected_traits": ["repo/branch", "what changed", "focus areas"]}
+{"id": "pr_029", "raw": "i want to learn ai", "expected_traits": ["background", "goal (research/product/hobby)", "time budget"]}
+{"id": "pr_030", "raw": "send invoice to client", "expected_traits": ["which client", "amount", "delivery channel"]}
+{"id": "pr_031", "raw": "صور لي معمل ديتاسنتر", "expected_traits": ["style", "resolution", "use case"]}
+{"id": "pr_032", "raw": "make a presentaiton for the meeting", "expected_traits": ["audience", "duration", "key points"]}
+{"id": "pr_033", "raw": "what's a good prompt for image generation", "expected_traits": ["subject", "style", "model"]}
+{"id": "pr_034", "raw": "fix typo", "expected_traits": ["where is the typo", "what should it be", "scope"]}
+{"id": "pr_035", "raw": "scrape this site", "expected_traits": ["URL", "what data", "rate-limit considerations"]}
+{"id": "pr_036", "raw": "what's a NER and can we use it", "expected_traits": ["use case", "language", "deployment context"]}
+{"id": "pr_037", "raw": "write blog post", "expected_traits": ["topic", "audience", "length"]}
+{"id": "pr_038", "raw": "should we use postgres or mongo", "expected_traits": ["data model", "query patterns", "scale"]}
+{"id": "pr_039", "raw": "speed up python script", "expected_traits": ["the script", "current runtime", "bottleneck"]}
+{"id": "pr_040", "raw": "design system for my startup", "expected_traits": ["product type", "brand voice", "platforms"]}
+{"id": "pr_041", "raw": "ساعدني في pitch deck", "expected_traits": ["industry", "stage/raise", "audience"]}
+{"id": "pr_042", "raw": "embed text vectors", "expected_traits": ["text corpus", "model choice", "dimension/budget"]}
+{"id": "pr_043", "raw": "stop the spam emails", "expected_traits": ["mail provider", "spam pattern", "false-positive tolerance"]}
+{"id": "pr_044", "raw": "do my homework", "expected_traits": ["subject", "actual assignment", "expected length"]}
+{"id": "pr_045", "raw": "kubernetes question", "expected_traits": ["specific question", "cluster context", "what's been tried"]}
+{"id": "pr_046", "raw": "write me a sql query", "expected_traits": ["schema", "what to compute", "expected rows"]}
+{"id": "pr_047", "raw": "summarize the meeting notes", "expected_traits": ["actual notes", "summary length", "action-item focus?"]}
+{"id": "pr_048", "raw": "design API for users", "expected_traits": ["operations needed", "auth/perm model", "REST vs GraphQL"]}
+{"id": "pr_049", "raw": "كم تكلف ساعة على RTX 3090", "expected_traits": ["GPU model exact", "duration", "purpose (training/inference)"]}
+{"id": "pr_050", "raw": "I have an error", "expected_traits": ["error message", "stack trace", "what triggered it"]}
+{"id": "pr_051", "raw": "create logo", "expected_traits": ["brand name", "style preferences", "use cases"]}
+{"id": "pr_052", "raw": "what is the best AI", "expected_traits": ["for what task", "constraints", "definition of best"]}
+{"id": "pr_053", "raw": "اعطني مقترح تقني", "expected_traits": ["project scope", "constraints", "audience for proposal"]}
+{"id": "pr_054", "raw": "compare these two libraries", "expected_traits": ["which two", "comparison axes", "use case"]}
+{"id": "pr_055", "raw": "make this html responsive", "expected_traits": ["the HTML", "target breakpoints", "framework constraints"]}
+{"id": "pr_056", "raw": "I think there's a memory leak", "expected_traits": ["service/process", "growth rate", "tools tried"]}
+{"id": "pr_057", "raw": "automate this task", "expected_traits": ["task description", "trigger", "outputs/side-effects"]}
+{"id": "pr_058", "raw": "translate doc keeping format", "expected_traits": ["source doc", "target language", "format type (md/docx/pdf)"]}
+{"id": "pr_059", "raw": "do AML compliance check", "expected_traits": ["subject identity", "jurisdiction", "data sources allowed"]}
+{"id": "pr_060", "raw": "set up CI for my repo", "expected_traits": ["repo URL/stack", "CI platform", "test/lint/deploy stages"]}
+{"id": "pr_061", "raw": "i need a name for my product", "expected_traits": ["what it does", "audience", "vibe/tone"]}
+{"id": "pr_062", "raw": "help me fix this", "expected_traits": ["what is 'this'", "expected vs observed", "what's tried"]}
+{"id": "pr_063", "raw": "explain quantum to my CEO", "expected_traits": ["CEO background", "depth needed", "business angle"]}
+{"id": "pr_064", "raw": "اسوي ايش بعد ما اخلص prototype", "expected_traits": ["product type", "team size", "funding stage"]}
+{"id": "pr_065", "raw": "give me 5 ideas", "expected_traits": ["ideas about what", "constraints", "selection criteria"]}
+{"id": "pr_066", "raw": "test my regex", "expected_traits": ["the regex", "what should match/not", "language flavor"]}
+{"id": "pr_067", "raw": "implement OAuth", "expected_traits": ["which provider", "framework/lang", "flow type"]}
+{"id": "pr_068", "raw": "scrape and save to db", "expected_traits": ["target site", "schema", "frequency"]}
+{"id": "pr_069", "raw": "convert this list to a graph", "expected_traits": ["the list/data", "edges meaning", "graph type"]}
+{"id": "pr_070", "raw": "write a privacy policy", "expected_traits": ["jurisdiction", "data collected", "third parties"]}
+{"id": "pr_071", "raw": "research best practices for X", "expected_traits": ["what is X", "depth/breadth", "output format"]}
+{"id": "pr_072", "raw": "صمم لي شعار بسيط", "expected_traits": ["brand", "color preferences", "use context"]}
+{"id": "pr_073", "raw": "what's wrong with my code", "expected_traits": ["the code", "symptom", "error/output"]}
+{"id": "pr_074", "raw": "make this 10x faster", "expected_traits": ["current measurement", "what is the script", "constraints"]}
+{"id": "pr_075", "raw": "is my approach correct", "expected_traits": ["the approach description", "the problem", "constraints"]}
+{"id": "pr_076", "raw": "write a story", "expected_traits": ["genre", "length", "key elements"]}
+{"id": "pr_077", "raw": "design pricing page", "expected_traits": ["tiers", "what's included", "design system"]}
+{"id": "pr_078", "raw": "i want a saas idea", "expected_traits": ["audience interest", "budget", "skills available"]}
+{"id": "pr_079", "raw": "كيف اطبق Vision 2030 في شركتي", "expected_traits": ["company sector", "current state", "specific 2030 pillar"]}
+{"id": "pr_080", "raw": "fix the css", "expected_traits": ["which file", "current vs desired look", "browsers"]}
+{"id": "pr_081", "raw": "give arabic translation of all UI strings", "expected_traits": ["the source strings", "dialect/MSA", "tone"]}
+{"id": "pr_082", "raw": "draft tos", "expected_traits": ["jurisdiction", "service type", "user data handling"]}
+{"id": "pr_083", "raw": "explain difference between docker and vm", "expected_traits": ["audience level", "depth", "use case"]}
+{"id": "pr_084", "raw": "i need llm for ar", "expected_traits": ["use case", "deployment env", "budget"]}
+{"id": "pr_085", "raw": "audit my smart contract", "expected_traits": ["the contract", "chain", "specific concern"]}
+{"id": "pr_086", "raw": "convert mp4 to gif", "expected_traits": ["input file", "duration", "output dimensions"]}
+{"id": "pr_087", "raw": "find duplicate rows", "expected_traits": ["table/file", "duplicate criteria", "action on dups"]}
+{"id": "pr_088", "raw": "build crm for my team", "expected_traits": ["team size", "must-have features", "integrations"]}
+{"id": "pr_089", "raw": "improve dx of our cli", "expected_traits": ["current pain points", "tool stack", "user persona"]}
+{"id": "pr_090", "raw": "what's the latency p50", "expected_traits": ["which service", "time window", "endpoint"]}
+{"id": "pr_091", "raw": "اعطني نموذج عقد nda", "expected_traits": ["jurisdiction", "parties", "duration"]}
+{"id": "pr_092", "raw": "send this to the team", "expected_traits": ["which team", "delivery channel", "what is 'this'"]}
+{"id": "pr_093", "raw": "what's the best ide for x", "expected_traits": ["language/stack", "OS", "priorities"]}
+{"id": "pr_094", "raw": "tax calc for ksa freelancer", "expected_traits": ["income source", "VAT status", "year"]}
+{"id": "pr_095", "raw": "remove background", "expected_traits": ["image file", "subject type", "output transparency"]}
+{"id": "pr_096", "raw": "build a knowledge base", "expected_traits": ["domain", "users", "tooling preference"]}
+{"id": "pr_097", "raw": "set up monitoring", "expected_traits": ["which service", "metrics", "alerting channel"]}
+{"id": "pr_098", "raw": "deploy ollama to vps", "expected_traits": ["VPS specs", "model", "concurrency"]}
+{"id": "pr_099", "raw": "i need a translator that knows finance terms", "expected_traits": ["language pair", "subdomain", "volume"]}
+{"id": "pr_100", "raw": "اصلح خطأ في ال code تبعي", "expected_traits": ["code language", "error message", "expected behavior"]}

@@ -1,0 +1,76 @@
+# Arabic-edge benchmark candidate models.
+#
+# Each entry tells the runner how to fetch + serve + call the model on Node 2
+# (single RTX 3090, 24 GB VRAM). Pick 4-6 to start; we extend after results
+# come in.
+#
+# Notes per the 2026-05-22 audit:
+#   - Falcon-H1 family uses hybrid Mamba-Transformer; vLLM Mamba kernel
+#     maturity on consumer GPUs is the gating tech risk — verify before
+#     declaring this benchmark "done".
+#   - Jais-2 uses a custom architecture; confirm a vLLM build supports it
+#     (or fall back to llama.cpp / TGI).
+#   - Cohere R7B Arabic is CC-BY-NC — internal eval only, NOT for commercial
+#     serving. Useful as a quality reference because adoption-weighted it's
+#     the most-used Arabic model on HF (~54k DLs/mo).
+#   - Qwen2.5-7B-Instruct is included as a baseline because real adoption
+#     data shows generic frontier models often outperform Arabic specialists
+#     on commercial tasks — we want this in the comparison.
+
+models:
+  - name: falcon-h1-arabic-7b
+    hf_id: tiiuae/Falcon-H1-7B-Arabic-Instruct
+    quant: q4_k_m              # AWQ-INT4 if vLLM, Q4_K_M if llama.cpp
+    runner: vllm               # fallback: llamacpp
+    served_name: falcon-h1-ar-7b
+    notes: "Claimed OALL SOTA in its size class (Jan 2026). Mamba kernel risk."
+
+  - name: falcon-h1-arabic-3b
+    hf_id: tiiuae/Falcon-H1-3B-Arabic-Instruct
+    quant: q4_k_m
+    runner: vllm
+    served_name: falcon-h1-ar-3b
+    notes: "Speed/cost champion if quality is close enough."
+
+  - name: jais-2-8b
+    hf_id: inceptionai/jais-family-8b-chat   # update to jais-2-8b-chat once HF path confirmed
+    quant: q4_k_m
+    runner: llamacpp
+    served_name: jais-2-8b
+    notes: "Custom arch — verify llama.cpp build before tagging vllm."
+
+  - name: allam-7b
+    hf_id: ALLaM-AI/ALLaM-7B-Instruct-preview
+    quant: q4_k_m
+    runner: vllm
+    served_name: allam-7b
+    notes: "Saudi sovereign signal. Llama-2 arch = bulletproof tooling."
+
+  - name: fanar-1-9b
+    hf_id: QCRI/Fanar-1-9B-Instruct
+    quant: q4_k_m
+    runner: vllm
+    served_name: fanar-1-9b
+    notes: "Gemma-2 base — mature vLLM + llama.cpp. Most-tested infra path."
+
+  - name: cohere-r7b-arabic
+    hf_id: CohereLabs/c4ai-command-r7b-arabic-02-2025
+    quant: q4_k_m
+    runner: vllm
+    served_name: cohere-r7b-ar
+    license: cc-by-nc
+    notes: "INTERNAL EVAL ONLY (CC-BY-NC). Top real adoption (~54k DLs/mo)."
+
+  - name: nile-chat-12b
+    hf_id: MBZUAI-Paris/Nile-Chat-12B
+    quant: q4_k_m
+    runner: vllm
+    served_name: nile-chat-12b
+    notes: "Egyptian dialect specialist. Check Maghrebi/Levantine coverage too."
+
+  - name: qwen2.5-7b
+    hf_id: Qwen/Qwen2.5-7B-Instruct
+    quant: q4_k_m
+    runner: vllm
+    served_name: qwen25-7b
+    notes: "BASELINE — generic Chinese frontier with surprisingly good Arabic."
