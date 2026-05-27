@@ -98,8 +98,15 @@ export default function PrivacyPage() {
       <p>
         Compute jobs themselves (model inference) run on provider GPUs registered to the platform. Provider GPUs may
         physically reside in the Kingdom or in other jurisdictions; the marketplace listing surfaces the provider&rsquo;s
-        declared region where available. Prompt and response content is held in transit only and is not retained on DCP
-        servers beyond the metering window required to settle billing (see &ldquo;Data Retention&rdquo; below).
+        declared region where available.
+      </p>
+      <p>
+        For each completed inference job, DCP&rsquo;s backend persists the prompt (<code>jobs.task_spec</code>) and the
+        model response (<code>jobs.result</code>) on the out-of-Kingdom database to support debugging, dispute
+        resolution, and the renter dashboard&rsquo;s job-history view. Per the &ldquo;Data Retention&rdquo; table below,
+        these payload columns are nulled out automatically <strong>90 days after job completion</strong> by the daily
+        cleanup worker (<code>backend/src/services/cleanup.js</code>). Job metadata (id, timing, cost, status) is
+        retained for the seven-year SAMA window after the payload is cleared.
       </p>
       <p>
         By registering and using DCP, you provide explicit consent to this cross-border transfer as required by PDPL
