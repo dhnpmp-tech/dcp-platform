@@ -34,6 +34,46 @@ export default function ProviderWizard({
   const [copied, setCopied] = useState(false)
   const [heartbeatDetected, setHeartbeatDetected] = useState(false)
 
+  // Payout IBAN registration (wizard step 4, before completion)
+  const [iban, setIban] = useState('')
+  const [holderName, setHolderName] = useState('')
+  const [ibanSaving, setIbanSaving] = useState(false)
+  const [ibanSaved, setIbanSaved] = useState(false)
+  const [ibanError, setIbanError] = useState('')
+
+  const submitPayoutAccount = async (): Promise<boolean> => {
+    setIbanError('')
+    const normalizedIban = iban.trim().toUpperCase().replace(/\s+/g, '')
+    if (!/^SA\d{22}$/.test(normalizedIban)) {
+      setIbanError('IBAN must be Saudi format: SA followed by 22 digits.')
+      return false
+    }
+    if (!holderName.trim() || holderName.trim().length < 2) {
+      setIbanError('Account holder name is required.')
+      return false
+    }
+    setIbanSaving(true)
+    try {
+      const res = await fetch(`/api/providers/${providerId}/payout-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-provider-key': apiKey },
+        body: JSON.stringify({ iban: normalizedIban, holder_name: holderName.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setIbanError(body.message || 'Could not register payout account')
+        return false
+      }
+      setIbanSaved(true)
+      return true
+    } catch {
+      setIbanError('Network error — try again or skip and finish in Settings.')
+      return false
+    } finally {
+      setIbanSaving(false)
+    }
+  }
+
   const isWindows = platform === 'windows'
   const installCommand = useMemo(() => {
     if (isWindows) {
@@ -125,14 +165,14 @@ export default function ProviderWizard({
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-dc1-text-primary">{t('provider.wizard.title')}</h2>
           <span className="rounded-full bg-dc1-amber/20 px-3 py-1 text-xs font-semibold text-dc1-amber">
-            {t('provider.wizard.step_count').replace('{current}', String(step)).replace('{total}', '4')}
+            {t('provider.wizard.step_count').replace('{current}', String(step)).replace('{total}', '5')}
           </span>
         </div>
 
         <div className="mb-6 h-2 overflow-hidden rounded-full bg-dc1-surface-l3">
           <div
             className="h-full bg-gradient-to-r from-dc1-amber to-status-success transition-all duration-500"
-            style={{ width: `${(step / 4) * 100}%` }}
+            style={{ width: `${(step / 5) * 100}%` }}
           />
         </div>
 
@@ -285,6 +325,83 @@ export default function ProviderWizard({
         )}
 
         {step === 4 && (
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-lg font-semibold text-dc1-text-primary">Register payout account</h3>
+              <p className="mt-1 text-sm text-dc1-text-secondary">
+                Your earnings (75% of every job) accumulate in DCP. Register a Saudi IBAN now so we can
+                send payouts via Moyasar without admin handholding. You can also do this later in Settings.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-dc1-text-muted mb-1">
+                  Saudi IBAN
+                </label>
+                <input
+                  type="text"
+                  value={iban}
+                  onChange={(e) => setIban(e.target.value)}
+                  placeholder="SA00 0000 0000 0000 0000 0000"
+                  maxLength={32}
+                  className="w-full px-3 py-2 rounded border border-dc1-border bg-dc1-surface-l2 text-sm font-mono text-dc1-text-primary tracking-wider"
+                />
+                <p className="mt-1 text-xs text-dc1-text-muted">SA followed by 22 digits. Spaces stripped automatically.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-dc1-text-muted mb-1">
+                  Account holder name
+                </label>
+                <input
+                  type="text"
+                  value={holderName}
+                  onChange={(e) => setHolderName(e.target.value)}
+                  placeholder="Full name as on the bank account"
+                  maxLength={140}
+                  className="w-full px-3 py-2 rounded border border-dc1-border bg-dc1-surface-l2 text-sm text-dc1-text-primary"
+                />
+              </div>
+            </div>
+
+            {ibanError && <p className="text-sm text-status-error">{ibanError}</p>}
+            {ibanSaved && <p className="text-sm text-status-success">Payout account registered ✓</p>}
+
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-4 py-2 text-sm font-semibold text-dc1-text-primary hover:bg-dc1-surface-l3"
+                disabled={ibanSaving}
+              >
+                {t('provider.wizard.back')}
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(5)}
+                  className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-4 py-2 text-sm text-dc1-text-secondary hover:text-dc1-text-primary"
+                  disabled={ibanSaving}
+                >
+                  Skip for now
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await submitPayoutAccount()
+                    if (ok) setStep(5)
+                  }}
+                  className="rounded-lg bg-dc1-amber px-5 py-2 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-50"
+                  disabled={ibanSaving}
+                >
+                  {ibanSaving ? 'Saving…' : 'Save & continue'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 5 && (
           <div className="relative overflow-hidden rounded-xl border border-status-success/40 bg-status-success/10 p-5">
             <div className="absolute inset-x-0 top-0 h-20 confetti-strip" />
             <h3 className="text-lg font-semibold text-dc1-text-primary">{t('provider.wizard.step4.title')}</h3>
