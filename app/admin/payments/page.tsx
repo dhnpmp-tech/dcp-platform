@@ -112,16 +112,23 @@ export default function AdminPaymentsAuditPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
 
+  const navIcon = (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M3 10h18M7 15h1m4 0h1m4 0h1M9 19h6a2 2 0 002-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
   const navItems = useMemo(
     () => [
-      { label: 'Overview', href: '/admin' },
-      { label: 'Providers', href: '/admin/providers' },
-      { label: 'Renters', href: '/admin/renters' },
-      { label: 'Jobs', href: '/admin/jobs' },
-      { label: 'Payments', href: '/admin/payments' },
-      { label: 'Withdrawals', href: '/admin/withdrawals' },
-      { label: 'Finance', href: '/admin/finance' },
+      { label: 'Overview',    href: '/admin',             icon: navIcon },
+      { label: 'Providers',   href: '/admin/providers',   icon: navIcon },
+      { label: 'Renters',     href: '/admin/renters',     icon: navIcon },
+      { label: 'Jobs',        href: '/admin/jobs',        icon: navIcon },
+      { label: 'Payments',    href: '/admin/payments',    icon: navIcon },
+      { label: 'Withdrawals', href: '/admin/withdrawals', icon: navIcon },
+      { label: 'Finance',     href: '/admin/finance',     icon: navIcon },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
