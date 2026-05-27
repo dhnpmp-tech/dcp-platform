@@ -1168,6 +1168,14 @@ const migrations = [
   // Both nullable for back-compat — old rows stay readable.
   'ALTER TABLE mission_task_comments ADD COLUMN source TEXT',
   'ALTER TABLE mission_task_comments ADD COLUMN kind TEXT',
+  // Migration 020: Moyasar Payouts API wiring on providers (POST /v1/payout_accounts).
+  // moyasar_payout_account_id — UUID returned after IBAN registration.
+  // payout_iban / payout_holder_name — cached locally for display + revalidation.
+  // (payout_requests columns moved below — they must run AFTER CREATE TABLE payout_requests.)
+  'ALTER TABLE providers ADD COLUMN moyasar_payout_account_id TEXT',
+  'ALTER TABLE providers ADD COLUMN payout_iban TEXT',
+  'ALTER TABLE providers ADD COLUMN payout_holder_name TEXT',
+  'ALTER TABLE providers ADD COLUMN payout_account_registered_at TEXT',
 ];
 
 migrations.forEach(sql => {
@@ -1981,8 +1989,20 @@ db.exec(`
 try {
   db.prepare('ALTER TABLE payout_requests ADD COLUMN escrow_tx_hash TEXT').run();
 } catch (_) {}
+// Migration 020 (payout_requests columns — applied AFTER CREATE TABLE).
+[
+  'ALTER TABLE payout_requests ADD COLUMN moyasar_payout_id TEXT',
+  'ALTER TABLE payout_requests ADD COLUMN moyasar_status TEXT',
+  'ALTER TABLE payout_requests ADD COLUMN gateway_response TEXT',
+  'ALTER TABLE payout_requests ADD COLUMN failure_reason TEXT',
+].forEach((sql) => {
+  try { db.exec(sql); } catch (_) { /* column exists */ }
+});
+
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_provider ON payout_requests(provider_id, requested_at DESC)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_status ON payout_requests(status, requested_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_moyasar_id ON payout_requests(moyasar_payout_id) WHERE moyasar_payout_id IS NOT NULL`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_providers_moyasar_payout_account ON providers(moyasar_payout_account_id) WHERE moyasar_payout_account_id IS NOT NULL`);
 
 // ─── PROVIDER API KEYS TABLE ─── (DCP-760)
 // Scoped long-lived credentials for unattended GPU provider nodes.

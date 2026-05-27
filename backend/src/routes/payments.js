@@ -22,6 +22,7 @@ const MOYASAR_BASE = 'https://api.moyasar.com/v1';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dcp.sa';
 const getMoyasarSecret = () => process.env.MOYASAR_SECRET_KEY || '';
 const getMoyasarWebhookSecret = () => process.env.MOYASAR_WEBHOOK_SECRET || '';
+const getPayoutWebhookSecret = () => process.env.MOYASAR_PAYOUT_WEBHOOK_SECRET || getMoyasarWebhookSecret();
 const WEBHOOK_STATUSES = new Set(['initiated', 'paid', 'failed', 'refunded']);
 const isProduction = () => process.env.NODE_ENV === 'production';
 
@@ -693,6 +694,87 @@ router.get('/history', (req, res) => {
       total_paid_halala: totalPaid.total,
     },
   });
+});
+
+// ─── POST /api/payments/payout-webhook ─────────────────────────────────────────
+// Moyasar webhook handler for payout status transitions. Mirrors the /webhook
+// flow but updates payout_requests rows instead of payments.
+//
+// If Moyasar emits payout.* events to this URL, this is the fast path. Otherwise
+// the syncPayoutStatus poller (admin button or cron) catches up.
+//
+// Raw body is mounted in server.js before express.json().
+router.post('/payout-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  let rawBody = req.body;
+  const signature = req.headers['x-moyasar-signature'];
+
+  if (!Buffer.isBuffer(rawBody)) {
+    if (typeof rawBody === 'string') rawBody = Buffer.from(rawBody);
+    else if (rawBody && typeof rawBody === 'object') rawBody = Buffer.from(JSON.stringify(rawBody));
+  }
+  if (!Buffer.isBuffer(rawBody)) {
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+
+  const webhookSecret = getPayoutWebhookSecret();
+  if (!webhookSecret) {
+    console.warn('[payout-webhook] No webhook secret configured — rejecting');
+    return res.status(503).json({ error: 'Webhook secret not configured' });
+  }
+
+  let verified = verifyMoyasarWebhook(rawBody, signature, webhookSecret);
+  if (!verified) {
+    try {
+      const parsed = JSON.parse(rawBody.toString('utf8'));
+      if (parsed && parsed.type === 'Buffer' && Array.isArray(parsed.data)) {
+        const decoded = Buffer.from(parsed.data);
+        if (verifyMoyasarWebhook(decoded, signature, webhookSecret)) {
+          rawBody = decoded;
+          verified = true;
+        }
+      }
+    } catch (_) {}
+  }
+  if (!verified) {
+    console.warn('[payout-webhook] Invalid HMAC — rejected');
+    return res.status(401).json({ error: 'Invalid webhook signature' });
+  }
+
+  let event;
+  try {
+    event = JSON.parse(rawBody.toString('utf8'));
+    if (event && event.type === 'Buffer' && Array.isArray(event.data)) {
+      event = JSON.parse(Buffer.from(event.data).toString('utf8'));
+    }
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+
+  // Moyasar event shape (assumed mirror of payment_paid):
+  //   { type: 'payout_paid'|'payout_failed'|..., data: { id, status, ... } }
+  // We tolerate both top-level payout objects and wrapped event envelopes.
+  const payload = event && event.data && typeof event.data === 'object' ? event.data : event;
+  const moyasarPayoutId = typeof payload?.id === 'string' ? payload.id.trim() : '';
+  if (!moyasarPayoutId) {
+    return res.status(400).json({ error: 'Webhook payload missing payout id' });
+  }
+
+  const row = db.get('SELECT id FROM payout_requests WHERE moyasar_payout_id = ?', moyasarPayoutId);
+  if (!row) {
+    console.warn(`[payout-webhook] Unknown moyasar_payout_id=${moyasarPayoutId} — acking`);
+    return res.json({ received: true, action: 'ignored_unknown' });
+  }
+
+  // Defer to syncPayoutStatus — it pulls live state from Moyasar (authoritative),
+  // handles fund return on failure, and is idempotent.
+  const { syncPayoutStatus } = require('../services/payoutService');
+  try {
+    const result = await syncPayoutStatus(db._db || db, row.id);
+    return res.json({ received: true, ...result });
+  } catch (err) {
+    console.error('[payout-webhook] sync error:', err);
+    return res.status(500).json({ error: 'sync_failed' });
+  }
 });
 
 module.exports = router;

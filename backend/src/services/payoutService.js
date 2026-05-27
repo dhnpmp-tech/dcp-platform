@@ -17,6 +17,7 @@
  */
 
 const crypto = require('crypto');
+const moyasarPayout = require('./moyasarPayoutService');
 
 const MIN_PAYOUT_USD = 50;
 const USD_TO_SAR = 3.75;
@@ -270,12 +271,172 @@ function rejectPayout(db, payoutId, reason = null) {
   return db.prepare('SELECT * FROM payout_requests WHERE id = ?').get(payoutId);
 }
 
+/**
+ * Admin: initiate a Moyasar payout for a pending payout_request.
+ *
+ * Flow:
+ *   1. Verify request is 'pending'.
+ *   2. Verify provider has payout_iban + payout_holder_name registered.
+ *   3. Call moyasar POST /v1/payouts with destination = provider IBAN.
+ *   4. Move request to 'processing', store moyasar_payout_id + raw response.
+ *
+ * Terminal status (paid|failed) is set later by:
+ *   - the payout webhook (if enabled in Moyasar dashboard), OR
+ *   - syncPayoutStatus() polling.
+ *
+ * @returns success: { requestId, moyasarPayoutId, moyasarStatus }
+ *          failure: { error: CODE, message, details? }
+ */
+async function processPayoutViaMoyasar(db, payoutId) {
+  const row = db.prepare('SELECT * FROM payout_requests WHERE id = ?').get(payoutId);
+  if (!row) return { error: 'NOT_FOUND', message: 'Payout request not found' };
+  if (row.status !== 'pending') {
+    return { error: 'NOT_PENDING', message: `Payout has status '${row.status}'; expected 'pending'` };
+  }
+
+  const provider = db.prepare(
+    'SELECT id, name, payout_iban, payout_holder_name FROM providers WHERE id = ?'
+  ).get(row.provider_id);
+  if (!provider) return { error: 'PROVIDER_NOT_FOUND', message: 'Provider not found' };
+  if (!provider.payout_iban || !provider.payout_holder_name) {
+    return {
+      error: 'NO_PAYOUT_ACCOUNT',
+      message: 'Provider has no registered payout IBAN. POST /api/providers/payout-account first.',
+    };
+  }
+
+  let resp;
+  try {
+    resp = await moyasarPayout.createPayout({
+      amountHalala: row.amount_halala,
+      iban: provider.payout_iban,
+      beneficiaryName: provider.payout_holder_name,
+      comment: `DCP provider payout — request ${row.id}`,
+      metadata: {
+        dcp_payout_request_id: row.id,
+        dcp_provider_id: String(provider.id),
+      },
+    });
+  } catch (err) {
+    return {
+      error: 'MOYASAR_ERROR',
+      message: err.message,
+      statusCode: err.statusCode || null,
+      details: err.moyasarError || null,
+    };
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(`
+    UPDATE payout_requests
+       SET status = 'processing',
+           moyasar_payout_id = ?,
+           moyasar_status = ?,
+           gateway_response = ?,
+           processed_at = ?
+     WHERE id = ?
+  `).run(resp.id, resp.status, JSON.stringify(resp), now, payoutId);
+
+  console.log(`[payout] moyasar created id=${resp.id} status=${resp.status} for payout_request=${payoutId}`);
+
+  return {
+    requestId: payoutId,
+    moyasarPayoutId: resp.id,
+    moyasarStatus: resp.status,
+    sequenceNumber: resp.sequence_number,
+  };
+}
+
+/**
+ * Sync a single payout_request against Moyasar's GET /v1/payouts/:id.
+ * Promotes 'processing' to 'paid' or 'rejected' on terminal status.
+ *
+ * Called by:
+ *   - admin "refresh" button,
+ *   - cron poller (every ~5min),
+ *   - webhook handler (when Moyasar emits payout events).
+ *
+ * @returns { status, moyasarStatus, transitioned: boolean }
+ */
+async function syncPayoutStatus(db, payoutId) {
+  const row = db.prepare('SELECT * FROM payout_requests WHERE id = ?').get(payoutId);
+  if (!row) return { error: 'NOT_FOUND', message: 'Payout request not found' };
+  if (!row.moyasar_payout_id) {
+    return { error: 'NO_MOYASAR_ID', message: 'Payout not yet sent to Moyasar' };
+  }
+  if (row.status === 'paid' || row.status === 'rejected') {
+    return { status: row.status, moyasarStatus: row.moyasar_status, transitioned: false };
+  }
+
+  let resp;
+  try {
+    resp = await moyasarPayout.fetchPayout(row.moyasar_payout_id);
+  } catch (err) {
+    return {
+      error: 'MOYASAR_ERROR',
+      message: err.message,
+      statusCode: err.statusCode || null,
+    };
+  }
+
+  const now = new Date().toISOString();
+
+  if (moyasarPayout.isTerminalSuccess(resp.status)) {
+    db.prepare(`
+      UPDATE payout_requests
+         SET status = 'paid',
+             moyasar_status = ?,
+             gateway_response = ?,
+             processed_at = ?,
+             payment_ref = COALESCE(payment_ref, ?)
+       WHERE id = ?
+    `).run(resp.status, JSON.stringify(resp), now, resp.sequence_number || resp.id, payoutId);
+    console.log(`[payout] sync ${payoutId} -> paid (moyasar ${resp.status})`);
+    return { status: 'paid', moyasarStatus: resp.status, transitioned: true };
+  }
+
+  if (moyasarPayout.isTerminalFailure(resp.status)) {
+    // Return reserved funds + mark rejected. Mirrors rejectPayout()'s refund logic.
+    const tx = db.transaction(() => {
+      db.prepare(
+        'UPDATE providers SET claimable_earnings_halala = claimable_earnings_halala + ? WHERE id = ?'
+      ).run(row.amount_halala, row.provider_id);
+
+      db.prepare(`
+        UPDATE payout_requests
+           SET status = 'rejected',
+               moyasar_status = ?,
+               failure_reason = ?,
+               gateway_response = ?,
+               processed_at = ?
+         WHERE id = ?
+      `).run(
+        resp.status,
+        resp.failure_reason || resp.message || `moyasar status=${resp.status}`,
+        JSON.stringify(resp),
+        now,
+        payoutId
+      );
+    });
+    tx();
+    console.log(`[payout] sync ${payoutId} -> rejected (moyasar ${resp.status}) — funds returned`);
+    return { status: 'rejected', moyasarStatus: resp.status, transitioned: true };
+  }
+
+  // Still in flight — update raw status only.
+  db.prepare('UPDATE payout_requests SET moyasar_status = ?, gateway_response = ? WHERE id = ?')
+    .run(resp.status, JSON.stringify(resp), payoutId);
+  return { status: row.status, moyasarStatus: resp.status, transitioned: false };
+}
+
 module.exports = {
   requestPayout,
   getPayoutHistory,
   getEarningsSummary,
   markPayoutPaid,
   rejectPayout,
+  processPayoutViaMoyasar,
+  syncPayoutStatus,
   MIN_PAYOUT_USD,
   USD_TO_SAR,
 };

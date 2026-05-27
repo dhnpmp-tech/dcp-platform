@@ -183,6 +183,7 @@ app.use(cors({
 
 // Webhook raw parser must run before express.json()
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/payments/payout-webhook', express.raw({ type: 'application/json' }));
 // Raw body capture for provider heartbeat HMAC validation
 app.use('/api/providers/heartbeat', express.raw({ type: 'application/json' }), (req, _res, next) => {
   if (Buffer.isBuffer(req.body)) {
