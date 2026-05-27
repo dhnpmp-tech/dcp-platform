@@ -317,6 +317,71 @@ describe('payoutService Moyasar integration', () => {
     expect(after.claimable_earnings_halala).toBe(before.claimable_earnings_halala + 18750);
   });
 
+  test('reconcileProcessingPayouts picks up stuck rows + transitions on terminal status', async () => {
+    // Seed a row that's been processing for an hour with no webhook update.
+    const stuckId = 'po-stuck-1';
+    const oldIso = new Date(Date.now() - 3_600_000).toISOString();
+    raw.prepare(`
+      INSERT INTO payout_requests
+        (id, provider_id, amount_usd, amount_sar, amount_halala, status,
+         moyasar_payout_id, processed_at, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'processing', 'moy-stuck-1', ?, ?)
+    `).run(stuckId, providerId, oldIso, oldIso);
+
+    nextResponse = { id: 'moy-stuck-1', status: 'paid', sequence_number: '9999' };
+    const r = await payoutService.reconcileProcessingPayouts(raw, { minAgeMinutes: 15 });
+    expect(r.swept).toBeGreaterThanOrEqual(1);
+    expect(r.transitioned).toBeGreaterThanOrEqual(1);
+
+    const row = raw.prepare('SELECT status, moyasar_status FROM payout_requests WHERE id = ?').get(stuckId);
+    expect(row.status).toBe('paid');
+    expect(row.moyasar_status).toBe('paid');
+  });
+
+  test('reconcileProcessingPayouts counts MOYASAR_ERROR returns in errors (Codex P2)', async () => {
+    // Seed a stuck row.
+    const stuckId = 'po-err-1';
+    const oldIso = new Date(Date.now() - 3_600_000).toISOString();
+    raw.prepare(`
+      INSERT INTO payout_requests
+        (id, provider_id, amount_usd, amount_sar, amount_halala, status,
+         moyasar_payout_id, processed_at, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'processing', 'moy-err-1', ?, ?)
+    `).run(stuckId, providerId, oldIso, oldIso);
+
+    // Moyasar fails — syncPayoutStatus returns { error: 'MOYASAR_ERROR' }
+    // instead of throwing. Pre-fix this counted as "no transition needed"
+    // and errors stayed at 0; ops couldn't tell Moyasar was down.
+    nextError = { statusCode: 503, message: 'Service Unavailable' };
+
+    const r = await payoutService.reconcileProcessingPayouts(raw, { minAgeMinutes: 15 });
+    expect(r.errors).toBeGreaterThanOrEqual(1);
+    expect(r.transitioned).toBe(0);
+
+    // Row stays in 'processing' (we did not touch it).
+    const row = raw.prepare('SELECT status FROM payout_requests WHERE id = ?').get(stuckId);
+    expect(row.status).toBe('processing');
+  });
+
+  test('reconcileProcessingPayouts ignores rows newer than minAgeMinutes', async () => {
+    const freshId = 'po-fresh-1';
+    const justNow = new Date().toISOString();
+    raw.prepare(`
+      INSERT INTO payout_requests
+        (id, provider_id, amount_usd, amount_sar, amount_halala, status,
+         moyasar_payout_id, processed_at, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'processing', 'moy-fresh-1', ?, ?)
+    `).run(freshId, providerId, justNow, justNow);
+
+    const callsBefore = calls.length;
+    const r = await payoutService.reconcileProcessingPayouts(raw, { minAgeMinutes: 15 });
+    // Fresh row not swept. (Older rows from earlier tests may bump swept; we
+    // only care that THIS row was not touched.)
+    expect(calls.length - callsBefore).toBe(r.swept);
+    const stillProcessing = raw.prepare('SELECT status FROM payout_requests WHERE id = ?').get(freshId);
+    expect(stillProcessing.status).toBe('processing');
+  });
+
   test('syncPayoutStatus on terminal failure refunds claimable balance', async () => {
     raw.prepare(`
       INSERT INTO payout_requests (id, provider_id, amount_usd, amount_sar, amount_halala, status, moyasar_payout_id, requested_at)

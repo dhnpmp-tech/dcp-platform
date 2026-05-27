@@ -478,6 +478,51 @@ async function syncPayoutStatus(db, payoutId) {
   return { status: row.status, moyasarStatus: resp.status, transitioned: false };
 }
 
+/**
+ * Reconciliation sweep — find payouts that have been 'processing' (sent to
+ * Moyasar) for longer than minAgeMinutes without a webhook-driven terminal
+ * transition. Pings Moyasar's /v1/payouts/:id for each and applies the
+ * terminal status via syncPayoutStatus (which is itself idempotent).
+ *
+ * Called every ~15 minutes from server.js. Idle when no rows match.
+ *
+ * Returns { swept, transitioned, errors } for ops visibility.
+ */
+async function reconcileProcessingPayouts(db, { minAgeMinutes = 15, limit = 50, nowIso = new Date().toISOString() } = {}) {
+  const cutoff = new Date(new Date(nowIso).getTime() - minAgeMinutes * 60 * 1000).toISOString();
+  const rows = db.prepare(`
+    SELECT id
+      FROM payout_requests
+     WHERE status = 'processing'
+       AND moyasar_payout_id IS NOT NULL
+       AND (processed_at IS NULL OR processed_at < ?)
+     ORDER BY requested_at ASC
+     LIMIT ?
+  `).all(cutoff, limit);
+
+  let transitioned = 0;
+  let errors = 0;
+  for (const row of rows) {
+    try {
+      const result = await syncPayoutStatus(db, row.id);
+      if (result && result.transitioned) {
+        transitioned += 1;
+      } else if (result && result.error) {
+        // Codex P2 (PR #429): syncPayoutStatus returns { error } instead of
+        // throwing for Moyasar-side problems (missing key, 5xx, etc).
+        // Without counting these, ops can't distinguish "no transitions
+        // needed" from "Moyasar is down and the sweep can't see anything."
+        errors += 1;
+        console.warn(`[payout.reconcile] ${row.id} sync error: ${result.error} ${result.message || ''}`);
+      }
+    } catch (e) {
+      errors += 1;
+      console.warn(`[payout.reconcile] ${row.id} sync threw:`, e?.message || e);
+    }
+  }
+  return { swept: rows.length, transitioned, errors };
+}
+
 module.exports = {
   requestPayout,
   getPayoutHistory,
@@ -486,6 +531,7 @@ module.exports = {
   rejectPayout,
   processPayoutViaMoyasar,
   syncPayoutStatus,
+  reconcileProcessingPayouts,
   MIN_PAYOUT_USD,
   USD_TO_SAR,
 };

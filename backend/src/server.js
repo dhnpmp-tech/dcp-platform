@@ -1100,6 +1100,24 @@ async function runAutoTopupSweep() {
 setInterval(runAutoTopupSweep, AUTO_TOPUP_SWEEP_INTERVAL_MS);
 console.log(`[auto_topup] paused-renter sweep started (every ${AUTO_TOPUP_SWEEP_INTERVAL_MS / 60000}m)`);
 
+// Payout reconciliation sweep — pings Moyasar for status on payouts that have
+// been 'processing' for longer than 15 min without a webhook update. Catches
+// dropped/delayed webhooks. Runs every 15 minutes. Idle when no rows match.
+const payoutService = require('./services/payoutService');
+const PAYOUT_RECONCILE_INTERVAL_MS = 15 * 60 * 1000;
+async function runPayoutReconcile() {
+  try {
+    const r = await payoutService.reconcileProcessingPayouts(dbModuleForSweep._db || dbModuleForSweep);
+    if (r.swept > 0) {
+      console.log(`[payout.reconcile] swept=${r.swept} transitioned=${r.transitioned} errors=${r.errors}`);
+    }
+  } catch (err) {
+    console.error('[payout.reconcile] error:', err?.message || err);
+  }
+}
+setInterval(runPayoutReconcile, PAYOUT_RECONCILE_INTERVAL_MS);
+console.log(`[payout] reconciliation sweep started (every ${PAYOUT_RECONCILE_INTERVAL_MS / 60000}m)`);
+
 // Audit C3 — backend-side endpoint reachability probe (30s loop).
 // Detects providers whose daemon heartbeats but whose vllm_endpoint_url is
 // dead from this VPS (Cloudflare tunnel killed, WG mesh IP not routable, etc).
