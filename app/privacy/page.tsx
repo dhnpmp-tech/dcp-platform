@@ -57,15 +57,30 @@ export default function PrivacyPage() {
       <h2>5. Data Storage and Cross-Border Transfer</h2>
       <p>
         <strong>Important disclosure (PDPL Article 29)</strong>: DCP&rsquo;s backend servers are currently hosted on Hostinger
-        infrastructure located in <strong>Lithuania (EU) and the United States</strong>. This means your personal data is
-        transferred to and stored outside the Kingdom of Saudi Arabia.
+        infrastructure located in <strong>Lithuania (EU) and the United States</strong>. The DCP web frontend and serverless
+        functions are deployed to <strong>Vercel</strong>, which routes by default to <strong>US-East (iad1)</strong> with
+        regional fallbacks across the EU and Asia. This means your personal data (account profile, job history, usage
+        events, billing metadata) is transferred to and stored outside the Kingdom of Saudi Arabia for those workloads.
       </p>
       <p>
-        By registering and using DCP, you provide explicit consent to this cross-border transfer as required by PDPL Article 29.
-        We are planning migration to Saudi Arabia-hosted infrastructure (STC Cloud or AWS Bahrain ap-southeast-3) in Q3 2026.
+        Payments and payouts are processed through <strong>Moyasar</strong>, a Saudi-licensed payment service provider
+        regulated by SAMA. Payment data (card tokens, IBANs, transaction history) is held by Moyasar inside the Kingdom
+        and never stored on DCP&rsquo;s out-of-Kingdom backend &mdash; we receive only the Moyasar payment / token
+        identifier and a masked card brand + last-four reference.
       </p>
       <p>
-        The DCP frontend is served via Vercel (global CDN). Payments are processed through the configured payment provider.
+        Compute jobs themselves (model inference) run on provider GPUs registered to the platform. Provider GPUs may
+        physically reside in the Kingdom or in other jurisdictions; the marketplace listing surfaces the provider&rsquo;s
+        declared region where available. Prompt and response content is held in transit only and is not retained on DCP
+        servers beyond the metering window required to settle billing (see &ldquo;Data Retention&rdquo; below).
+      </p>
+      <p>
+        By registering and using DCP, you provide explicit consent to this cross-border transfer as required by PDPL
+        Article 29. Saudi residents and entities subject to NDMO data-classification requirements should review the
+        SDAIA Cross-Border Transfer Regulation (September 2024) before sending sensitive workloads through the platform.
+        We are planning migration of the DCP backend and Vercel functions to Saudi Arabia-hosted infrastructure
+        (STC Cloud or AWS Bahrain ap-southeast-3) in Q3 2026; this disclosure will be updated when the migration
+        completes.
       </p>
 
       <h2>6. Data Retention</h2>
