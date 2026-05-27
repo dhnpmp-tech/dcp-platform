@@ -596,14 +596,35 @@ router.get('/verify/:paymentId', (req, res) => {
     return res.status(404).json({ error: 'Payment not found' });
   }
 
-  // If already confirmed, return local record
+  // If already confirmed, return local record. Parse the cached gateway_response
+  // so callers (e.g. the renter billing UI's save-card flow) can still retrieve
+  // source.token/brand/last4 after the webhook has marked the row 'paid'.
+  // (Codex PR #427 P2 fix — without this the second verify call returns no
+  // source fields and the auto-top-up save-card flow can never persist.)
   if (localPayment.status === 'paid') {
+    let source = null;
+    try {
+      const cached = localPayment.gateway_response ? JSON.parse(localPayment.gateway_response) : null;
+      if (cached && cached.source && typeof cached.source === 'object') {
+        source = cached.source;
+      }
+    } catch (_) {
+      // gateway_response unparseable — fall through with source=null.
+    }
     return res.json({
       payment_id: localPayment.payment_id,
+      moyasar_id: localPayment.moyasar_id || null,
       status: 'paid',
       amount_sar: localPayment.amount_sar,
       amount_halala: localPayment.amount_halala,
       confirmed_at: localPayment.confirmed_at,
+      source_type: localPayment.source_type || source?.type || null,
+      source: source ? {
+        type: source.type || null,
+        token: source.token || null,
+        brand: source.company || source.brand || null,
+        last4: source.number ? String(source.number).slice(-4) : (source.last_4 || null),
+      } : null,
     });
   }
 
@@ -644,6 +665,14 @@ router.get('/verify/:paymentId', (req, res) => {
         amount_sar: payment.amount / 100,
         amount_halala: payment.amount,
         source_type: payment.source?.type,
+        // Surface source fields so the save-card flow can capture the token id
+        // on the same call (Codex PR #427 P2 fix).
+        source: payment.source ? {
+          type: payment.source.type || null,
+          token: payment.source.token || null,
+          brand: payment.source.company || payment.source.brand || null,
+          last4: payment.source.number ? String(payment.source.number).slice(-4) : (payment.source.last_4 || null),
+        } : null,
         created_at: payment.created_at,
       });
     })

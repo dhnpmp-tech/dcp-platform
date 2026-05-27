@@ -51,15 +51,19 @@ export default function PayoutAccountPanel({ apiBase, providerId, providerApiKey
         return
       }
       const data = await res.json()
+      // /api/providers/me returns { provider: {...}, recent_jobs: [...] }
+      // Read the nested provider object — flat-field read returned undefined
+      // and the saved IBAN never displayed after reload. (Codex PR #427 P2 fix.)
+      const p = data.provider || data
       setAccount({
-        payout_iban: data.payout_iban || null,
-        payout_holder_name: data.payout_holder_name || null,
-        moyasar_payout_account_id: data.moyasar_payout_account_id || null,
-        registered_at: data.payout_account_registered_at || null,
+        payout_iban: p.payout_iban || null,
+        payout_holder_name: p.payout_holder_name || null,
+        moyasar_payout_account_id: p.moyasar_payout_account_id || null,
+        registered_at: p.payout_account_registered_at || null,
       })
-      if (data.payout_iban) {
-        setIban(data.payout_iban)
-        setHolderName(data.payout_holder_name || '')
+      if (p.payout_iban) {
+        setIban(p.payout_iban)
+        setHolderName(p.payout_holder_name || '')
       }
     } catch {
       setError('Network error loading payout account')

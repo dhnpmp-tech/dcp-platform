@@ -248,33 +248,23 @@ function BillingPageInner() {
               setCallbackStatus('paid')
               fetchBalance()
               fetchHistory()
-              // Tokenization side-effect: if the renter ticked "Save card" and
-              // Moyasar returned a token, persist it server-side so auto-top-up
-              // can charge it later. Best-effort; failure does not affect the
-              // top-up that just succeeded.
-              if (wantSaveCard && data.source_type === 'creditcard') {
-                // Re-fetch the payment record to get the token id from the
-                // raw gateway response (verify endpoint exposes source fields).
+              // Tokenization side-effect: when the renter ticked "Save card",
+              // Moyasar returned a token id on the source. The verify endpoint
+              // surfaces it directly (see backend Codex P2 fix), so we POST
+              // straight to /save-card-token. Best-effort; failure does not
+              // affect the top-up that just succeeded.
+              if (wantSaveCard && data.source?.token && renterKey) {
                 try {
-                  const meta = await fetch(`${API_BASE}/payments/verify/${callbackPaymentId}`, {
-                    headers: { 'x-renter-key': renterKey },
+                  await fetch(`${API_BASE}/payments/save-card-token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-renter-key': renterKey },
+                    body: JSON.stringify({
+                      token: data.source.token,
+                      brand: data.source.brand || null,
+                      last4: data.source.last4 || null,
+                    }),
                   })
-                  if (meta.ok) {
-                    const m = await meta.json()
-                    const token = m.source_token || m.source?.token || null
-                    if (token && renterKey) {
-                      await fetch(`${API_BASE}/payments/save-card-token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-renter-key': renterKey },
-                        body: JSON.stringify({
-                          token,
-                          brand: m.source?.brand || m.source?.company || null,
-                          last4: m.source?.number ? String(m.source.number).slice(-4) : null,
-                        }),
-                      })
-                      setCardJustSaved(true)
-                    }
-                  }
+                  setCardJustSaved(true)
                 } catch {
                   // Non-fatal — renter can re-save via a future top-up.
                 }
