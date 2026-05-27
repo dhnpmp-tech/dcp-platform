@@ -7,6 +7,7 @@ import Script from 'next/script'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import { useLanguage } from '../../lib/i18n'
 import { getApiBase } from '../../../lib/api'
+import AutoTopupPanel from './components/AutoTopupPanel'
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 const HomeIcon = () => (
@@ -139,6 +140,11 @@ function BillingPageInner() {
   const [topupLoading, setTopupLoading] = useState(false)
   const [topupError, setTopupError] = useState('')
 
+  // Tokenize-on-payment: when true, Moyasar.init runs with save_card=true and
+  // after the payment is confirmed we POST the token id to /api/payments/save-card-token.
+  const [saveCardOnTopup, setSaveCardOnTopup] = useState(false)
+  const [cardJustSaved, setCardJustSaved] = useState(false)
+
   // Moyasar form
   const [moyasarReady, setMoyasarReady] = useState(false)
   const [showMoyasarForm, setShowMoyasarForm] = useState(false)
@@ -227,6 +233,8 @@ function BillingPageInner() {
     let retryCount = 0
     const MAX_RETRIES = 10
 
+    const wantSaveCard = searchParams.get('save_card') === '1'
+
     const poll = async () => {
       if (cancelled) return
       try {
@@ -240,6 +248,37 @@ function BillingPageInner() {
               setCallbackStatus('paid')
               fetchBalance()
               fetchHistory()
+              // Tokenization side-effect: if the renter ticked "Save card" and
+              // Moyasar returned a token, persist it server-side so auto-top-up
+              // can charge it later. Best-effort; failure does not affect the
+              // top-up that just succeeded.
+              if (wantSaveCard && data.source_type === 'creditcard') {
+                // Re-fetch the payment record to get the token id from the
+                // raw gateway response (verify endpoint exposes source fields).
+                try {
+                  const meta = await fetch(`${API_BASE}/payments/verify/${callbackPaymentId}`, {
+                    headers: { 'x-renter-key': renterKey },
+                  })
+                  if (meta.ok) {
+                    const m = await meta.json()
+                    const token = m.source_token || m.source?.token || null
+                    if (token && renterKey) {
+                      await fetch(`${API_BASE}/payments/save-card-token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-renter-key': renterKey },
+                        body: JSON.stringify({
+                          token,
+                          brand: m.source?.brand || m.source?.company || null,
+                          last4: m.source?.number ? String(m.source.number).slice(-4) : null,
+                        }),
+                      })
+                      setCardJustSaved(true)
+                    }
+                  }
+                } catch {
+                  // Non-fatal — renter can re-save via a future top-up.
+                }
+              }
             }
             return
           }
@@ -292,15 +331,22 @@ function BillingPageInner() {
     const amountHalala = Math.round(effectiveAmount * 100)
 
     try {
+      // When the renter ticks "Save card", append ?save_card=1 to the callback
+      // URL so the verify-callback effect knows to POST the returned token id
+      // to /api/payments/save-card-token after Moyasar reports paid.
+      const callbackBase = `${window.location.origin}/renter/billing?payment=callback`
+      const callbackUrl = saveCardOnTopup ? `${callbackBase}&save_card=1` : callbackBase
+
       window.Moyasar.init({
         element: '.mysr-form',
         amount: amountHalala,
         currency: 'SAR',
         description: `DCP balance top-up - ${effectiveAmount} SAR`,
         publishable_api_key: moyasarPublishableKey,
-        callback_url: `${window.location.origin}/renter/billing?payment=callback`,
+        callback_url: callbackUrl,
         supported_networks: ['visa', 'mastercard', 'mada'],
         methods: ['creditcard'],
+        save_card: saveCardOnTopup,
         on_initiating: function() {
           setTopupLoading(true)
           setTopupError('')
@@ -317,7 +363,7 @@ function BillingPageInner() {
       console.error('Failed to initialize Moyasar form:', err)
       setTopupError('Failed to initialize payment form')
     }
-  }, [showMoyasarForm, moyasarReady, moyasarPublishableKey, topupAmount, customAmount, isCustom, renterKey])
+  }, [showMoyasarForm, moyasarReady, moyasarPublishableKey, topupAmount, customAmount, isCustom, renterKey, saveCardOnTopup])
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handlePresetClick = (amount: number) => {
@@ -623,6 +669,22 @@ function BillingPageInner() {
                         </div>
                       </div>
 
+                      {/* Save card opt-in (enables auto-top-up). Hidden if a
+                          card token is already saved — they can manage via the
+                          AutoTopupPanel below. */}
+                      <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={saveCardOnTopup}
+                          onChange={(e) => setSaveCardOnTopup(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-dc1-border accent-dc1-accent-primary"
+                        />
+                        <span className="text-sm text-dc1-text-secondary">
+                          <span className="text-dc1-text-primary font-medium">Save card for future use</span>{' '}
+                          <span className="text-dc1-text-muted">— enables auto-top-up so your balance never runs out mid-job.</span>
+                        </span>
+                      </label>
+
                       {/* Error */}
                       {topupError && (
                         <div className="mb-4 p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
@@ -698,6 +760,15 @@ function BillingPageInner() {
                 </div>
               </div>
             </div>
+
+            {/* ── Auto-Top-Up ─────────────────────────────────────────────── */}
+            {renterKey && (
+              <AutoTopupPanel
+                apiBase={API_BASE}
+                renterKey={renterKey}
+                cardJustSaved={cardJustSaved}
+              />
+            )}
 
             {/* ── Payment History ──────────────────────────────────────────── */}
             <div className="bg-dc1-bg-secondary rounded-lg border border-dc1-border overflow-hidden">

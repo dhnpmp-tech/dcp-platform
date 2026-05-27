@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import { useLanguage } from '../../lib/i18n'
+import PayoutAccountPanel from './components/PayoutAccountPanel'
 
 const API_BASE = '/api'
 
@@ -472,6 +473,15 @@ export default function ProviderSettingsPage() {
             </span>
           </div>
         </div>
+
+        {/* Payout account — Moyasar IBAN registration (migration 020) */}
+        {provider?.id && provider?.api_key && (
+          <PayoutAccountPanel
+            apiBase={API_BASE}
+            providerId={provider.id}
+            providerApiKey={provider.api_key}
+          />
+        )}
 
         {/* Account Info */}
         <div className="card p-6 space-y-4">
