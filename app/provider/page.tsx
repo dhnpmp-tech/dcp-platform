@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -130,8 +130,9 @@ const compareVersions = (v1: string, v2: string): number => {
   return 0
 }
 
-export default function ProviderDashboard() {
+function ProviderDashboardInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t, isRTL } = useLanguage()
   const activationNarrative = getProviderActivationNarrative(isRTL)
   const [providerData, setProviderData] = useState<ProviderData | null>(null)
@@ -297,8 +298,34 @@ export default function ProviderDashboard() {
     }
 
     const initializeDashboard = async () => {
-      // Check for API key
-      const apiKey = localStorage.getItem('dc1_provider_key')
+      // Auth key resolution order:
+      //   1. ?key=… query-string param (covers welcome-email "View dashboard"
+      //      links: /provider?key=dcp-provider-xxx). Persist to localStorage
+      //      so the URL can be cleaned up + reloads stay authed.
+      //   2. localStorage (existing session).
+      //   3. Redirect to /login if neither is present.
+      // Bug fixed 2026-05-21: previously only checked localStorage, so the
+      // welcome-email link landed the user on /login despite carrying a
+      // valid key in the URL.
+      const urlKey = searchParams?.get('key') || null
+      let apiKey: string | null = null
+      if (urlKey && /^(dcp|dc1)-provider-[a-z0-9]+/i.test(urlKey)) {
+        apiKey = urlKey
+        try {
+          localStorage.setItem('dc1_provider_key', urlKey)
+          // Strip ?key= from the URL so it stops appearing in shared
+          // screenshots / referer headers. localStorage already has it.
+          const cleanUrl = window.location.pathname + window.location.hash
+          window.history.replaceState({}, '', cleanUrl)
+        } catch (_) {
+          // localStorage / history may be unavailable in restricted
+          // contexts (private browsing); we still continue with apiKey
+          // captured in-memory.
+        }
+      }
+      if (!apiKey) {
+        apiKey = localStorage.getItem('dc1_provider_key')
+      }
       if (!apiKey) {
         redirectToLogin('missing_credentials')
         return
@@ -1124,5 +1151,15 @@ export default function ProviderDashboard() {
         />
       )}
     </DashboardLayout>
+  )
+}
+
+// useSearchParams() requires a Suspense boundary at the page root in Next.js
+// app-router. Without this, `next build` fails with "missing-suspense-with-csr-bailout".
+export default function ProviderDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <ProviderDashboardInner />
+    </Suspense>
   )
 }

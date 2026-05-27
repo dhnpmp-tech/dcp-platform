@@ -22,6 +22,7 @@ const MOYASAR_BASE = 'https://api.moyasar.com/v1';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dcp.sa';
 const getMoyasarSecret = () => process.env.MOYASAR_SECRET_KEY || '';
 const getMoyasarWebhookSecret = () => process.env.MOYASAR_WEBHOOK_SECRET || '';
+const getPayoutWebhookSecret = () => process.env.MOYASAR_PAYOUT_WEBHOOK_SECRET || getMoyasarWebhookSecret();
 const WEBHOOK_STATUSES = new Set(['initiated', 'paid', 'failed', 'refunded']);
 const isProduction = () => process.env.NODE_ENV === 'production';
 
@@ -693,6 +694,190 @@ router.get('/history', (req, res) => {
       total_paid_halala: totalPaid.total,
     },
   });
+});
+
+// ─── Auto-top-up routes ────────────────────────────────────────────────────────
+const autoTopupService = require('../services/autoTopupService');
+
+// GET /api/payments/auto-topup-settings — read current config + card on file.
+router.get('/auto-topup-settings', requireRenter, (req, res) => {
+  const r = autoTopupService.readSettings(db._db || db, req.renter.id);
+  if (!r) return res.status(404).json({ error: 'Renter not found' });
+  return res.json({
+    enabled: !!r.auto_topup_enabled,
+    threshold_halala: r.auto_topup_threshold_halala || 0,
+    threshold_sar: (r.auto_topup_threshold_halala || 0) / 100,
+    amount_halala: r.auto_topup_amount_halala || 0,
+    amount_sar: (r.auto_topup_amount_halala || 0) / 100,
+    monthly_cap_halala: r.auto_topup_monthly_cap_halala || 0,
+    monthly_cap_sar: (r.auto_topup_monthly_cap_halala || 0) / 100,
+    monthly_used_halala: r.auto_topup_monthly_used_halala || 0,
+    monthly_used_sar: (r.auto_topup_monthly_used_halala || 0) / 100,
+    paused_until: r.auto_topup_paused_until,
+    consecutive_failures: r.auto_topup_consecutive_failures || 0,
+    last_attempt_at: r.auto_topup_last_attempt_at,
+    card_on_file: r.moyasar_card_token
+      ? {
+          brand: r.moyasar_card_brand,
+          last4: r.moyasar_card_last4,
+          saved_at: r.moyasar_card_saved_at,
+        }
+      : null,
+  });
+});
+
+// POST /api/payments/auto-topup-settings — update config.
+// Body: { enabled, threshold_sar?, amount_sar?, monthly_cap_sar? }
+//   OR  { enabled, threshold_halala?, amount_halala?, monthly_cap_halala? }
+router.post('/auto-topup-settings', requireRenter, (req, res) => {
+  const b = req.body || {};
+  const thresholdHalala = b.threshold_halala != null
+    ? toFiniteInt(b.threshold_halala, { min: 0, max: 100_000_000 })
+    : Math.round(toFiniteNumber(b.threshold_sar, { min: 0, max: 1_000_000 }) * 100);
+  const amountHalala = b.amount_halala != null
+    ? toFiniteInt(b.amount_halala, { min: 0, max: 100_000_000 })
+    : Math.round(toFiniteNumber(b.amount_sar, { min: 0, max: 1_000_000 }) * 100);
+  const capHalala = b.monthly_cap_halala != null
+    ? toFiniteInt(b.monthly_cap_halala, { min: 0, max: 1_000_000_000 })
+    : Math.round(toFiniteNumber(b.monthly_cap_sar, { min: 0, max: 10_000_000 }) * 100);
+
+  const result = autoTopupService.updateSettings(db._db || db, req.renter.id, {
+    enabled: !!b.enabled,
+    thresholdHalala,
+    amountHalala,
+    monthlyCapHalala: capHalala,
+  });
+  if (result.error) {
+    const statusMap = {
+      INVALID_AMOUNT: 400,
+      INVALID_THRESHOLD: 400,
+      CAP_BELOW_AMOUNT: 400,
+      NO_CARD_ON_FILE: 412,
+    };
+    return res.status(statusMap[result.error] || 400).json(result);
+  }
+  return res.json({ ok: true });
+});
+
+// POST /api/payments/save-card-token — receive a token id from the frontend.
+// The frontend uses Moyasar's publishable key to call POST /v1/tokens directly
+// (PAN never touches our backend); on success the frontend POSTs the resulting
+// token id to this endpoint along with the display fields. Verification (3DS)
+// must have completed on the frontend before this is called.
+//
+// Body: { token: string, brand?: string, last4?: string, holder_name?: string }
+router.post('/save-card-token', requireRenter, (req, res) => {
+  const { token, brand, last4, holder_name } = req.body || {};
+  if (typeof token !== 'string' || !token.startsWith('token_')) {
+    return res.status(400).json({ error: 'INVALID_TOKEN', message: 'token must be a Moyasar token id (token_...)' });
+  }
+  const updated = autoTopupService.saveCardToken(db._db || db, req.renter.id, {
+    token, brand, last4, holderName: holder_name,
+  });
+  return res.json({
+    ok: true,
+    card_on_file: {
+      brand: updated.moyasar_card_brand,
+      last4: updated.moyasar_card_last4,
+      saved_at: updated.moyasar_card_saved_at,
+    },
+  });
+});
+
+// DELETE /api/payments/saved-card — forget the token + disable auto-top-up.
+router.delete('/saved-card', requireRenter, (req, res) => {
+  const rawDb = db._db || db;
+  rawDb.prepare(`
+    UPDATE renters
+       SET moyasar_card_token = NULL,
+           moyasar_card_brand = NULL,
+           moyasar_card_last4 = NULL,
+           moyasar_card_saved_at = NULL,
+           auto_topup_enabled = 0
+     WHERE id = ?
+  `).run(req.renter.id);
+  return res.json({ ok: true });
+});
+
+// ─── POST /api/payments/payout-webhook ─────────────────────────────────────────
+// Moyasar webhook handler for payout status transitions. Mirrors the /webhook
+// flow but updates payout_requests rows instead of payments.
+//
+// If Moyasar emits payout.* events to this URL, this is the fast path. Otherwise
+// the syncPayoutStatus poller (admin button or cron) catches up.
+//
+// Raw body is mounted in server.js before express.json().
+router.post('/payout-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  let rawBody = req.body;
+  const signature = req.headers['x-moyasar-signature'];
+
+  if (!Buffer.isBuffer(rawBody)) {
+    if (typeof rawBody === 'string') rawBody = Buffer.from(rawBody);
+    else if (rawBody && typeof rawBody === 'object') rawBody = Buffer.from(JSON.stringify(rawBody));
+  }
+  if (!Buffer.isBuffer(rawBody)) {
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+
+  const webhookSecret = getPayoutWebhookSecret();
+  if (!webhookSecret) {
+    console.warn('[payout-webhook] No webhook secret configured — rejecting');
+    return res.status(503).json({ error: 'Webhook secret not configured' });
+  }
+
+  let verified = verifyMoyasarWebhook(rawBody, signature, webhookSecret);
+  if (!verified) {
+    try {
+      const parsed = JSON.parse(rawBody.toString('utf8'));
+      if (parsed && parsed.type === 'Buffer' && Array.isArray(parsed.data)) {
+        const decoded = Buffer.from(parsed.data);
+        if (verifyMoyasarWebhook(decoded, signature, webhookSecret)) {
+          rawBody = decoded;
+          verified = true;
+        }
+      }
+    } catch (_) {}
+  }
+  if (!verified) {
+    console.warn('[payout-webhook] Invalid HMAC — rejected');
+    return res.status(401).json({ error: 'Invalid webhook signature' });
+  }
+
+  let event;
+  try {
+    event = JSON.parse(rawBody.toString('utf8'));
+    if (event && event.type === 'Buffer' && Array.isArray(event.data)) {
+      event = JSON.parse(Buffer.from(event.data).toString('utf8'));
+    }
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+
+  // Moyasar event shape (assumed mirror of payment_paid):
+  //   { type: 'payout_paid'|'payout_failed'|..., data: { id, status, ... } }
+  // We tolerate both top-level payout objects and wrapped event envelopes.
+  const payload = event && event.data && typeof event.data === 'object' ? event.data : event;
+  const moyasarPayoutId = typeof payload?.id === 'string' ? payload.id.trim() : '';
+  if (!moyasarPayoutId) {
+    return res.status(400).json({ error: 'Webhook payload missing payout id' });
+  }
+
+  const row = db.get('SELECT id FROM payout_requests WHERE moyasar_payout_id = ?', moyasarPayoutId);
+  if (!row) {
+    console.warn(`[payout-webhook] Unknown moyasar_payout_id=${moyasarPayoutId} — acking`);
+    return res.json({ received: true, action: 'ignored_unknown' });
+  }
+
+  // Defer to syncPayoutStatus — it pulls live state from Moyasar (authoritative),
+  // handles fund return on failure, and is idempotent.
+  const { syncPayoutStatus } = require('../services/payoutService');
+  try {
+    const result = await syncPayoutStatus(db._db || db, row.id);
+    return res.json({ received: true, ...result });
+  } catch (err) {
+    console.error('[payout-webhook] sync error:', err);
+    return res.status(500).json({ error: 'sync_failed' });
+  }
 });
 
 module.exports = router;

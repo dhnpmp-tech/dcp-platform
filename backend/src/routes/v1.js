@@ -28,6 +28,11 @@ const { deduplicateModelAliases, DASH_TO_CANONICAL } = require('../lib/model-ali
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
 const subscriptionService = require('../services/subscriptionService');
+// Canonical 75/25 provider/DCP split — matches services/reconciliation-engine.js
+// + services/billing.ts. Replaces the legacy 85/15 numbers that lived inline.
+const { splitCost } = require('../services/reconciliation-engine');
+const billingService = require('../services/billingService');
+const autoTopupService = require('../services/autoTopupService');
 const {
   selectProvidersWithLatencyGate,
   recordStreamOutcome,
@@ -1966,6 +1971,57 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const promptTokens = approximateTokenCount(mergedPrompt);
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
+
+    // ── Admission control v1: token-budget pre-flight gate ────────────────
+    // Direct response to the 2026-05-21 Node 2 OOM post-mortem + Tareq's
+    // DeepSeek-pattern reference (POST /v1 docs: dynamic concurrency cap +
+    // HTTP 429). Prior behavior: any prompt was routed to the GPU; if the
+    // (prompt + max_completion) blew past the model's context window the
+    // upstream engine would OOM mid-decode and we'd 503 the renter.
+    //
+    // New behavior: BEFORE dispatch, refuse requests whose declared budget
+    // exceeds 90 % of the model's training context. Returns 429 (Too Many
+    // Tokens — semantically a renter-side back-off signal, not an
+    // engine-side failure) with a clear remediation. The 10 % safety margin
+    // leaves headroom for SWA / hybrid-memory re-allocations like the one
+    // that crashed Node 2.
+    //
+    // Cap source order (most→least specific):
+    //   1. modelReq.context_window  (model_registry, per-model truth)
+    //   2. DCP_DEFAULT_MODEL_CTX env (operator override)
+    //   3. 32768 baseline
+    const declaredCtxCap = Number(
+      modelReq.context_window
+      || process.env.DCP_DEFAULT_MODEL_CTX
+      || 32768
+    );
+    const SAFETY_FACTOR = 0.90; // PR #13194 SWA bug + KV graph headroom
+    const requestedTokens = promptTokens + maxTokens;
+    if (Number.isFinite(declaredCtxCap) && declaredCtxCap > 0
+        && requestedTokens > Math.floor(declaredCtxCap * SAFETY_FACTOR)) {
+      res.setHeader('Retry-After', '0');
+      return sendV1Error(res, {
+        status: 429,
+        type: 'request_too_large',
+        code: 'context_budget_exceeded',
+        message:
+          `Request budget (${requestedTokens} tokens = ${promptTokens} prompt + ` +
+          `${maxTokens} max_tokens) exceeds 90% of model '${modelReq.model_id}'s ` +
+          `${declaredCtxCap}-token context window. Reduce the prompt, ` +
+          `lower max_tokens, or pick a model with a larger context.`,
+        retryable: false,
+        details: {
+          prompt_tokens: promptTokens,
+          max_tokens: maxTokens,
+          requested_total: requestedTokens,
+          model_context_window: declaredCtxCap,
+          safety_factor: SAFETY_FACTOR,
+          budget_cap: Math.floor(declaredCtxCap * SAFETY_FACTOR),
+        },
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     const baseTokenRateHalala = resolveTokenRateHalala(modelReq.model_id);
     // Migration 011: prefer per-1M in/out rates from model_registry. Falls
     // back to legacy `tokenRateHalala` applied symmetrically when null.
@@ -1992,6 +2048,40 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const tokenRateHalala = subscriptionService.computeDiscountedRateHalala(baseTokenRateHalala, subscriptionDiscountBps);
     const inRateHalalaPer1m = baseInRate == null ? null : subscriptionService.computeDiscountedRateHalala(baseInRate, subscriptionDiscountBps);
     const outRateHalalaPer1m = baseOutRate == null ? null : subscriptionService.computeDiscountedRateHalala(baseOutRate, subscriptionDiscountBps);
+
+    // ── Pre-flight balance gate (migration 021) ──────────────────────────────
+    // Refuse to dispatch the request if the renter cannot cover the upper-bound
+    // cost. Estimate = prompt_tokens × in_rate + max_tokens × out_rate, with a
+    // 20% safety margin to absorb token-count drift between local approximation
+    // and the model's actual tokenizer. Active subscription credits count.
+    const estimateHalala = Math.ceil(
+      billingService.estimateInferenceCost({
+        promptTokens,
+        maxCompletionTokens: maxTokens,
+        tokenRateHalala,
+        inRateHalalaPer1m: inRateHalalaPer1m || 0,
+        outRateHalalaPer1m: outRateHalalaPer1m || 0,
+        fallbackRateHalalaPerMin: modelReq.fallback_rate_halala_per_min || 0,
+      }) * 1.2
+    );
+    const gate = billingService.checkBalanceGate(db._db || db, req.renter.id, estimateHalala);
+    if (!gate.ok) {
+      return sendV1Error(res, {
+        status: 402,
+        type: 'insufficient_balance',
+        code: 'insufficient_balance',
+        message: `Insufficient balance to start this request. Available: ${(gate.totalAvailableHalala / 100).toFixed(2)} SAR, estimated cost: ${(gate.estimateHalala / 100).toFixed(2)} SAR. Top up via /api/payments/topup or enable auto-top-up.`,
+        retryable: false,
+        meta: {
+          balance_sar: Number((gate.balanceHalala / 100).toFixed(2)),
+          subscription_credits_sar: Number((gate.subCreditsHalala / 100).toFixed(2)),
+          available_sar: Number((gate.totalAvailableHalala / 100).toFixed(2)),
+          estimate_sar: Number((gate.estimateHalala / 100).toFixed(2)),
+          deficit_sar: Number((gate.deficitHalala / 100).toFixed(2)),
+        },
+      });
+    }
+
     const meteringRequestId = extractRequestId(req);
     let usagePersisted = false;
     const dbHandle = db._db || db;
@@ -2147,6 +2237,12 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
             .run(paygShortfall, nowIso, req.renter.id, paygShortfall);
         }
+        // Migration 021: fire-and-forget auto-top-up check. Doesn't block the
+        // inference response. Returns early when disabled / no card / above
+        // threshold / inside soft-lock window.
+        autoTopupService
+          .maybeTrigger(db._db || db, req.renter.id, { triggerReason: 'post_debit_v1' })
+          .catch((e) => console.warn('[v1.auto_topup] trigger failed', e?.message || e));
       } catch (err) {
         // Structured drift-detection: this is the ONLY renter-balance debit
         // on the proxy success path. A silent failure here means the usage
@@ -2306,7 +2402,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           const proxyCostHalala = proxySnapshot.costHalala > 0
             ? proxySnapshot.costHalala
             : Math.max(1, Math.round((modelReq.fallback_rate_halala_per_min || 2) * ((proxyPromptTokens + proxyCompletionTokens) / 30)));
-          const proxyProviderEarned = Math.max(1, Math.round(proxyCostHalala * 0.85));
+          const proxyProviderEarned = splitCost(proxyCostHalala).provider;
           // Extract response text for job result storage. Save ONLY the final
           // assistant `content` — never the model's internal `reasoning` /
           // `reasoning_content`. With thinking models (qwen3:4b, etc.) and a
@@ -2534,7 +2630,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             const streamCostHalala = streamSnapshot.costHalala > 0
               ? streamSnapshot.costHalala
               : Math.max(1, Math.round((modelReq.fallback_rate_halala_per_min || 2) * ((streamPromptTokens + streamCompletionTokens) / 30)));
-            const streamProviderEarned = Math.max(1, Math.round(streamCostHalala * 0.85));
+            const streamProviderEarned = splitCost(streamCostHalala).provider;
             db.prepare(
               `INSERT OR IGNORE INTO jobs (job_id, provider_id, renter_id, job_type, model, status, submitted_at,
                 completed_at, duration_minutes, duration_seconds, cost_halala, provider_earned_halala,

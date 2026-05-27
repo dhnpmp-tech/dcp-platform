@@ -33,7 +33,10 @@ const {
   getEarningsSummary,
   markPayoutPaid,
   rejectPayout,
+  processPayoutViaMoyasar,
+  syncPayoutStatus,
 } = require('../services/payoutService');
+const moyasarPayout = require('../services/moyasarPayoutService');
 const { buildProviderSettlementPreview } = require('../services/payoutBatchService');
 const { sendWithdrawalApprovedEmail, sendWithdrawalRejectedEmail } = require('../services/emailService');
 const { sendAlert } = require('../services/notifications');
@@ -280,7 +283,7 @@ router.get('/admin/payouts/settlement-preview', requireAdminRbac, (req, res) => 
 router.post('/admin/payouts/:id/approve', skipAutomaticAdminAudit, requireAdminRbac, async (req, res) => {
   try {
     const raw_db = db._db || db;
-    const { payment_ref } = req.body || {};
+    const { payment_ref, force_manual } = req.body || {};
 
     const row = raw_db.prepare('SELECT * FROM payout_requests WHERE id = ?').get(req.params.id);
     if (!row) return res.status(404).json({ error: 'NOT_FOUND', message: 'Payout request not found' });
@@ -291,6 +294,62 @@ router.post('/admin/payouts/:id/approve', skipAutomaticAdminAudit, requireAdminR
       });
     }
 
+    // Route via Moyasar when both the funding source and a provider IBAN are configured.
+    // force_manual=true keeps the legacy bank-transfer flow for ops-only overrides.
+    const moyasarConfigured = !!process.env.MOYASAR_SECRET_KEY && !!process.env.MOYASAR_PAYOUT_SOURCE_ID;
+    const provider = raw_db.prepare(
+      'SELECT id, name, email, payout_iban, payout_holder_name FROM providers WHERE id = ?'
+    ).get(row.provider_id);
+    const hasProviderIban = !!(provider && provider.payout_iban && provider.payout_holder_name);
+
+    if (moyasarConfigured && hasProviderIban && !force_manual) {
+      const moyResult = await processPayoutViaMoyasar(raw_db, req.params.id);
+      if (moyResult.error) {
+        const statusMap = {
+          NOT_FOUND: 404,
+          NOT_PENDING: 409,
+          PROVIDER_NOT_FOUND: 404,
+          NO_PAYOUT_ACCOUNT: 412,
+          MOYASAR_ERROR: 502,
+        };
+        return res.status(statusMap[moyResult.error] || 400).json(moyResult);
+      }
+      const updated = raw_db.prepare('SELECT * FROM payout_requests WHERE id = ?').get(req.params.id);
+      const USD_TO_SAR = 3.75;
+      const HALALA_PER_SAR = 100;
+      const amountSar = Number((row.amount_halala / HALALA_PER_SAR).toFixed(2));
+
+      sendAlert('withdrawal_pending', [
+        '✅ Payout APPROVED (Moyasar)',
+        `Provider: ${provider?.name || row.provider_id} (${provider?.email || 'no email'})`,
+        `Amount: ${amountSar} SAR`,
+        `Payout ID: ${req.params.id}`,
+        `Moyasar ID: ${moyResult.moyasarPayoutId}`,
+        `Moyasar status: ${moyResult.moyasarStatus}`,
+      ].join('\n'))
+        .catch((e) => console.error('[payouts] approve alert failed:', e.message));
+
+      logPayoutMutationAuditOnce(
+        req,
+        raw_db,
+        'payout_approved',
+        req.params.id,
+        {
+          provider_id: row.provider_id,
+          amount_halala: row.amount_halala,
+          status_from: row.status,
+          status_to: 'processing',
+          moyasar_payout_id: moyResult.moyasarPayoutId,
+          moyasar_status: moyResult.moyasarStatus,
+          channel: 'moyasar',
+        }
+      );
+
+      console.log(`[payout] moyasar approved payout_id=${req.params.id} provider_id=${row.provider_id} amount_sar=${amountSar} moyasar=${moyResult.moyasarPayoutId}`);
+      return res.json({ ...updated, moyasar_payout_id: moyResult.moyasarPayoutId, moyasar_status: moyResult.moyasarStatus });
+    }
+
+    // Legacy / manual bank-transfer fallback.
     const now = new Date().toISOString();
     raw_db.prepare(`
       UPDATE payout_requests
@@ -300,7 +359,6 @@ router.post('/admin/payouts/:id/approve', skipAutomaticAdminAudit, requireAdminR
 
     const updated = raw_db.prepare('SELECT * FROM payout_requests WHERE id = ?').get(req.params.id);
 
-    const provider = raw_db.prepare('SELECT id, name, email FROM providers WHERE id = ?').get(row.provider_id);
     const USD_TO_SAR = 3.75;
     const HALALA_PER_SAR = 100;
     const amountSar = Number((row.amount_halala / HALALA_PER_SAR).toFixed(2));
@@ -311,7 +369,7 @@ router.post('/admin/payouts/:id/approve', skipAutomaticAdminAudit, requireAdminR
     }
 
     sendAlert('withdrawal_pending', [
-      '✅ Payout APPROVED',
+      '✅ Payout APPROVED (manual)',
       `Provider: ${provider?.name || row.provider_id} (${provider?.email || 'no email'})`,
       `Amount: ${amountSar} SAR`,
       `Payout ID: ${req.params.id}`,
@@ -451,6 +509,114 @@ router.patch('/admin/payouts/:id', skipAutomaticAdminAudit, requireAdminRbac, (r
     return res.json(result);
   } catch (err) {
     console.error('[payouts] PATCH /admin/payouts/:id error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── POST /api/providers/:id/payout-account ───────────────────────────────────
+//
+// Provider registers their bank IBAN for Moyasar payouts. Stores the IBAN
+// locally (providers.payout_iban + payout_holder_name) and registers an
+// account with Moyasar if MOYASAR_SECRET_KEY is configured.
+//
+// Body: { iban: string, holder_name: string, mobile?: string }
+// Auth: provider auth (same as /providers/:id/payouts).
+router.post('/providers/:id/payout-account', requireProviderAuth, async (req, res) => {
+  try {
+    const provider = req.provider;
+    const { iban, holder_name, mobile } = req.body || {};
+
+    const normalizedIban = typeof iban === 'string' ? iban.replace(/\s+/g, '').toUpperCase() : '';
+    if (!/^SA\d{22}$/.test(normalizedIban)) {
+      return res.status(400).json({
+        error: 'INVALID_IBAN',
+        message: 'iban must be a valid Saudi IBAN (SA followed by 22 digits)',
+      });
+    }
+    if (!holder_name || typeof holder_name !== 'string' || holder_name.trim().length < 2) {
+      return res.status(400).json({
+        error: 'INVALID_HOLDER_NAME',
+        message: 'holder_name is required',
+      });
+    }
+
+    const rawDb = db._db || db;
+    const now = new Date().toISOString();
+
+    // Try to register with Moyasar when keys are configured. Failure is non-fatal —
+    // the IBAN is still stored so the provider can retry registration later.
+    let moyasarAccountId = null;
+    let moyasarError = null;
+    if (process.env.MOYASAR_SECRET_KEY) {
+      try {
+        const resp = await moyasarPayout.createPayoutAccount({
+          accountType: 'bank',
+          properties: { iban: normalizedIban },
+          credentials: {},
+        });
+        moyasarAccountId = resp.id || null;
+      } catch (err) {
+        moyasarError = err.moyasarError || err.message;
+        console.error('[payouts] moyasar createPayoutAccount failed:', err.message);
+      }
+    }
+
+    rawDb.prepare(`
+      UPDATE providers
+         SET payout_iban = ?,
+             payout_holder_name = ?,
+             moyasar_payout_account_id = COALESCE(?, moyasar_payout_account_id),
+             payout_account_registered_at = ?
+       WHERE id = ?
+    `).run(normalizedIban, holder_name.trim(), moyasarAccountId, now, provider.id);
+
+    const updated = rawDb.prepare(
+      'SELECT id, payout_iban, payout_holder_name, moyasar_payout_account_id, payout_account_registered_at FROM providers WHERE id = ?'
+    ).get(provider.id);
+
+    return res.json({
+      provider_id: updated.id,
+      payout_iban: updated.payout_iban,
+      payout_holder_name: updated.payout_holder_name,
+      moyasar_payout_account_id: updated.moyasar_payout_account_id,
+      registered_at: updated.payout_account_registered_at,
+      moyasar_error: moyasarError,
+    });
+  } catch (err) {
+    console.error('[payouts] POST /providers/:id/payout-account error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── POST /api/admin/payouts/:id/sync ─────────────────────────────────────────
+//
+// Manually refresh a Moyasar payout's status. Promotes 'processing' rows to
+// 'paid' or 'rejected' on terminal Moyasar status. Used as a fallback when
+// webhook delivery is delayed or disabled.
+router.post('/admin/payouts/:id/sync', skipAutomaticAdminAudit, requireAdminRbac, async (req, res) => {
+  try {
+    const rawDb = db._db || db;
+    const result = await syncPayoutStatus(rawDb, req.params.id);
+    if (result.error) {
+      const statusMap = { NOT_FOUND: 404, NO_MOYASAR_ID: 409, MOYASAR_ERROR: 502 };
+      return res.status(statusMap[result.error] || 400).json(result);
+    }
+    if (result.transitioned) {
+      logPayoutMutationAuditOnce(
+        req,
+        rawDb,
+        result.status === 'paid' ? 'payout_marked_paid' : 'payout_rejected',
+        req.params.id,
+        {
+          channel: 'moyasar_sync',
+          status_to: result.status,
+          moyasar_status: result.moyasarStatus,
+        }
+      );
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error('[payouts] POST /admin/payouts/:id/sync error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
