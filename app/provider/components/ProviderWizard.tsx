@@ -165,14 +165,14 @@ export default function ProviderWizard({
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-dc1-text-primary">{t('provider.wizard.title')}</h2>
           <span className="rounded-full bg-dc1-amber/20 px-3 py-1 text-xs font-semibold text-dc1-amber">
-            {t('provider.wizard.step_count').replace('{current}', String(step)).replace('{total}', '4')}
+            {t('provider.wizard.step_count').replace('{current}', String(step)).replace('{total}', '5')}
           </span>
         </div>
 
         <div className="mb-6 h-2 overflow-hidden rounded-full bg-dc1-surface-l3">
           <div
             className="h-full bg-gradient-to-r from-dc1-amber to-status-success transition-all duration-500"
-            style={{ width: `${(step / 4) * 100}%` }}
+            style={{ width: `${(step / 5) * 100}%` }}
           />
         </div>
 
