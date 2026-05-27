@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import DashboardLayout from '../components/layout/DashboardLayout'
@@ -130,7 +130,7 @@ const compareVersions = (v1: string, v2: string): number => {
   return 0
 }
 
-export default function ProviderDashboard() {
+function ProviderDashboardInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t, isRTL } = useLanguage()
@@ -1151,5 +1151,15 @@ export default function ProviderDashboard() {
         />
       )}
     </DashboardLayout>
+  )
+}
+
+// useSearchParams() requires a Suspense boundary at the page root in Next.js
+// app-router. Without this, `next build` fails with "missing-suspense-with-csr-bailout".
+export default function ProviderDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <ProviderDashboardInner />
+    </Suspense>
   )
 }
