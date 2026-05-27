@@ -305,6 +305,27 @@ async function processPayoutViaMoyasar(db, payoutId) {
     };
   }
 
+  // Atomic CAS claim — prevents two concurrent admins (or retries) from
+  // double-firing Moyasar disbursements for the same payout_request row.
+  // We move 'pending' -> 'processing' BEFORE the Moyasar call; on Moyasar
+  // failure we revert back to 'pending' so the next attempt can retry.
+  // (Codex P1, PR #426 review)
+  const now = new Date().toISOString();
+  const claim = db.prepare(`
+    UPDATE payout_requests
+       SET status = 'processing',
+           processed_at = ?
+     WHERE id = ?
+       AND status = 'pending'
+  `).run(now, payoutId);
+  if (claim.changes === 0) {
+    const fresh = db.prepare('SELECT status FROM payout_requests WHERE id = ?').get(payoutId);
+    return {
+      error: 'NOT_PENDING',
+      message: `Payout has status '${fresh?.status}'; another approver claimed it first`,
+    };
+  }
+
   let resp;
   try {
     resp = await moyasarPayout.createPayout({
@@ -318,6 +339,16 @@ async function processPayoutViaMoyasar(db, payoutId) {
       },
     });
   } catch (err) {
+    // Moyasar didn't accept the disbursement — release the claim so an
+    // admin (or retry) can try again from 'pending'.
+    db.prepare(`
+      UPDATE payout_requests
+         SET status = 'pending',
+             processed_at = NULL
+       WHERE id = ?
+         AND status = 'processing'
+         AND moyasar_payout_id IS NULL
+    `).run(payoutId);
     return {
       error: 'MOYASAR_ERROR',
       message: err.message,
@@ -326,16 +357,14 @@ async function processPayoutViaMoyasar(db, payoutId) {
     };
   }
 
-  const now = new Date().toISOString();
+  // Moyasar accepted — persist the disbursement id + raw response.
   db.prepare(`
     UPDATE payout_requests
-       SET status = 'processing',
-           moyasar_payout_id = ?,
+       SET moyasar_payout_id = ?,
            moyasar_status = ?,
-           gateway_response = ?,
-           processed_at = ?
+           gateway_response = ?
      WHERE id = ?
-  `).run(resp.id, resp.status, JSON.stringify(resp), now, payoutId);
+  `).run(resp.id, resp.status, JSON.stringify(resp), payoutId);
 
   console.log(`[payout] moyasar created id=${resp.id} status=${resp.status} for payout_request=${payoutId}`);
 
@@ -382,7 +411,9 @@ async function syncPayoutStatus(db, payoutId) {
   const now = new Date().toISOString();
 
   if (moyasarPayout.isTerminalSuccess(resp.status)) {
-    db.prepare(`
+    // Conditional CAS — only transition from non-terminal states. Prevents the
+    // webhook + admin-sync race from overwriting an already-finalized row.
+    const r = db.prepare(`
       UPDATE payout_requests
          SET status = 'paid',
              moyasar_status = ?,
@@ -390,19 +421,24 @@ async function syncPayoutStatus(db, payoutId) {
              processed_at = ?,
              payment_ref = COALESCE(payment_ref, ?)
        WHERE id = ?
+         AND status NOT IN ('paid','rejected')
     `).run(resp.status, JSON.stringify(resp), now, resp.sequence_number || resp.id, payoutId);
+    if (r.changes === 0) {
+      const fresh = db.prepare('SELECT status, moyasar_status FROM payout_requests WHERE id = ?').get(payoutId);
+      return { status: fresh?.status, moyasarStatus: fresh?.moyasar_status, transitioned: false };
+    }
     console.log(`[payout] sync ${payoutId} -> paid (moyasar ${resp.status})`);
     return { status: 'paid', moyasarStatus: resp.status, transitioned: true };
   }
 
   if (moyasarPayout.isTerminalFailure(resp.status)) {
-    // Return reserved funds + mark rejected. Mirrors rejectPayout()'s refund logic.
+    // Codex P1 fix: order matters. Transition the payout row FIRST with a
+    // conditional UPDATE; only refund the provider's claimable balance if
+    // changes>0 (i.e. WE were the writer that flipped non-terminal->rejected).
+    // A concurrent webhook+sync would race on the unconditional refund and
+    // double-credit the provider.
     const tx = db.transaction(() => {
-      db.prepare(
-        'UPDATE providers SET claimable_earnings_halala = claimable_earnings_halala + ? WHERE id = ?'
-      ).run(row.amount_halala, row.provider_id);
-
-      db.prepare(`
+      const r = db.prepare(`
         UPDATE payout_requests
            SET status = 'rejected',
                moyasar_status = ?,
@@ -410,6 +446,7 @@ async function syncPayoutStatus(db, payoutId) {
                gateway_response = ?,
                processed_at = ?
          WHERE id = ?
+           AND status NOT IN ('paid','rejected')
       `).run(
         resp.status,
         resp.failure_reason || resp.message || `moyasar status=${resp.status}`,
@@ -417,8 +454,20 @@ async function syncPayoutStatus(db, payoutId) {
         now,
         payoutId
       );
+      if (r.changes === 0) {
+        // Already terminalized by a peer — don't double-refund.
+        return { transitioned: false };
+      }
+      db.prepare(
+        'UPDATE providers SET claimable_earnings_halala = claimable_earnings_halala + ? WHERE id = ?'
+      ).run(row.amount_halala, row.provider_id);
+      return { transitioned: true };
     });
-    tx();
+    const txResult = tx();
+    if (!txResult.transitioned) {
+      const fresh = db.prepare('SELECT status, moyasar_status FROM payout_requests WHERE id = ?').get(payoutId);
+      return { status: fresh?.status, moyasarStatus: fresh?.moyasar_status, transitioned: false };
+    }
     console.log(`[payout] sync ${payoutId} -> rejected (moyasar ${resp.status}) — funds returned`);
     return { status: 'rejected', moyasarStatus: resp.status, transitioned: true };
   }

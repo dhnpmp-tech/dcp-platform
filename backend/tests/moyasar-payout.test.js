@@ -195,11 +195,19 @@ describe('payoutService Moyasar integration', () => {
     db = require('../src/db');
     payoutService = require('../src/services/payoutService');
     raw = db._db || db;
+  });
+
+  // Reset shared fixture before each test so concurrent-claim / refund tests
+  // start from a known state. Use a unique payout id per test for any inserts
+  // beyond po-test-1.
+  beforeEach(() => {
+    raw.prepare("DELETE FROM payout_requests WHERE id LIKE 'po-%'").run();
+    raw.prepare('DELETE FROM providers WHERE id IN (9001, 9002)').run();
 
     raw.prepare(`
-      INSERT INTO providers (id, name, email, api_key, claimable_earnings_halala, payout_iban, payout_holder_name)
-      VALUES (?, 'TestProvider', 'p@example.com', 'k1', 100000, 'SA0123456789012345678901', 'Test Provider')
-    `).run(providerId);
+      INSERT INTO providers (id, name, email, api_key, claimable_earnings_halala, payout_iban, payout_holder_name, created_at)
+      VALUES (?, 'TestProvider', 'p@example.com', 'k1', 100000, 'SA0123456789012345678901', 'Test Provider', ?)
+    `).run(providerId, new Date().toISOString());
 
     raw.prepare(`
       INSERT INTO payout_requests (id, provider_id, amount_usd, amount_sar, amount_halala, status, requested_at)
@@ -231,12 +239,82 @@ describe('payoutService Moyasar integration', () => {
   });
 
   test('syncPayoutStatus moves processing -> paid on terminal success', async () => {
+    // Seed po-test-1 directly to processing with moyasar_payout_id (skips the
+    // processPayoutViaMoyasar call so the test is isolated).
+    raw.prepare(`
+      UPDATE payout_requests
+         SET status = 'processing', moyasar_payout_id = 'moy-pyt-9001'
+       WHERE id = ?
+    `).run(payoutId);
     nextResponse = { id: 'moy-pyt-9001', status: 'paid', sequence_number: '4242' };
     const r = await payoutService.syncPayoutStatus(raw, payoutId);
     expect(r.status).toBe('paid');
     expect(r.transitioned).toBe(true);
     const row = raw.prepare('SELECT * FROM payout_requests WHERE id = ?').get(payoutId);
     expect(row.status).toBe('paid');
+  });
+
+  test('processPayoutViaMoyasar refuses second concurrent claim (Codex P1)', async () => {
+    // Two admins approve the same payout near-simultaneously. The first wins;
+    // the second must NOT call Moyasar — that would be a real double-disbursement.
+    const id = 'po-race-1';
+    raw.prepare(`
+      INSERT INTO payout_requests (id, provider_id, amount_usd, amount_sar, amount_halala, status, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'pending', ?)
+    `).run(id, providerId, new Date().toISOString());
+
+    nextResponse = { id: 'moy-race-1', status: 'initiated' };
+    const first = await payoutService.processPayoutViaMoyasar(raw, id);
+    expect(first.moyasarPayoutId).toBe('moy-race-1');
+
+    // Second approval sees status='processing' now.
+    const callsBeforeSecond = calls.length;
+    const second = await payoutService.processPayoutViaMoyasar(raw, id);
+    expect(second.error).toBe('NOT_PENDING');
+    // Critical: no Moyasar call was made on the second attempt.
+    expect(calls.length).toBe(callsBeforeSecond);
+  });
+
+  test('processPayoutViaMoyasar reverts to pending if Moyasar call fails', async () => {
+    const id = 'po-revert-1';
+    raw.prepare(`
+      INSERT INTO payout_requests (id, provider_id, amount_usd, amount_sar, amount_halala, status, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'pending', ?)
+    `).run(id, providerId, new Date().toISOString());
+
+    nextError = { statusCode: 422, message: 'Invalid IBAN', moyasarError: { type: 'invalid' } };
+    const r = await payoutService.processPayoutViaMoyasar(raw, id);
+    expect(r.error).toBe('MOYASAR_ERROR');
+
+    const row = raw.prepare('SELECT status, processed_at, moyasar_payout_id FROM payout_requests WHERE id = ?').get(id);
+    expect(row.status).toBe('pending');
+    expect(row.moyasar_payout_id).toBeNull();
+    expect(row.processed_at).toBeNull();
+  });
+
+  test('syncPayoutStatus refund is idempotent across concurrent terminal failures (Codex P1)', async () => {
+    // Two transitions arrive for the same failed payout (webhook + admin sync).
+    // Only one should refund.
+    const id = 'po-double-fail-1';
+    raw.prepare(`
+      INSERT INTO payout_requests (id, provider_id, amount_usd, amount_sar, amount_halala, status, moyasar_payout_id, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'processing', 'moy-double-fail', ?)
+    `).run(id, providerId, new Date().toISOString());
+
+    const before = raw.prepare('SELECT claimable_earnings_halala FROM providers WHERE id = ?').get(providerId);
+
+    nextResponse = { id: 'moy-double-fail', status: 'failed', failure_reason: 'something' };
+    const first = await payoutService.syncPayoutStatus(raw, id);
+    expect(first.transitioned).toBe(true);
+
+    // Reset stub and trigger a "second" sync as if a webhook arrived after.
+    nextResponse = { id: 'moy-double-fail', status: 'failed', failure_reason: 'something' };
+    const second = await payoutService.syncPayoutStatus(raw, id);
+    expect(second.transitioned).toBe(false);
+
+    const after = raw.prepare('SELECT claimable_earnings_halala FROM providers WHERE id = ?').get(providerId);
+    // Refund applied exactly once.
+    expect(after.claimable_earnings_halala).toBe(before.claimable_earnings_halala + 18750);
   });
 
   test('syncPayoutStatus on terminal failure refunds claimable balance', async () => {
