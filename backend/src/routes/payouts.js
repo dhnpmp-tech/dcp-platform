@@ -227,6 +227,135 @@ router.get('/admin/payouts/pending', requireAdminRbac, (req, res) => {
   }
 });
 
+// ── GET /api/admin/payments/audit ────────────────────────────────────────────
+//
+// Combined audit feed for the new payment surfaces (PR #426-#429):
+//   - payout_requests with full Moyasar status (status, moyasar_payout_id,
+//     moyasar_status, failure_reason)
+//   - billing_attempts (idempotency log from settleInferenceOnce)
+//   - auto_topup_attempts (one row per renter recharge attempt)
+//
+// Default limit 50 per section. Query:
+//   ?limit=50 — cap per section (1..200)
+//   ?status=pending|processing|paid|rejected — filter payouts
+//
+// Single roundtrip for the /admin/payments UI.
+router.get('/admin/payments/audit', requireAdminRbac, (req, res) => {
+  try {
+    const raw = db._db || db;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const status = typeof req.query.status === 'string' ? req.query.status.toLowerCase() : null;
+    const validStatus = ['pending', 'processing', 'paid', 'rejected'].includes(status);
+
+    const payoutsSql = `
+      SELECT
+        pr.id              AS payout_id,
+        pr.provider_id,
+        pr.amount_halala,
+        pr.status,
+        pr.moyasar_payout_id,
+        pr.moyasar_status,
+        pr.failure_reason,
+        pr.requested_at,
+        pr.processed_at,
+        pr.payment_ref,
+        p.name             AS provider_name,
+        p.email            AS provider_email
+      FROM payout_requests pr
+      LEFT JOIN providers p ON p.id = pr.provider_id
+      ${validStatus ? 'WHERE pr.status = ?' : ''}
+      ORDER BY pr.requested_at DESC
+      LIMIT ?
+    `;
+    const payouts = (
+      validStatus
+        ? raw.prepare(payoutsSql).all(status, limit)
+        : raw.prepare(payoutsSql).all(limit)
+    ).map((r) => ({
+      payout_id:         r.payout_id,
+      provider_id:       r.provider_id,
+      provider_name:     r.provider_name,
+      provider_email:    r.provider_email,
+      amount_sar:        Number((r.amount_halala / 100).toFixed(2)),
+      amount_halala:     r.amount_halala,
+      status:            r.status,
+      moyasar_payout_id: r.moyasar_payout_id,
+      moyasar_status:    r.moyasar_status,
+      failure_reason:    r.failure_reason,
+      requested_at:      r.requested_at,
+      processed_at:      r.processed_at,
+      payment_ref:       r.payment_ref,
+    }));
+
+    // billing_attempts is created on the first /v1 inference per request_id.
+    const billing = raw.prepare(`
+      SELECT ba.request_id, ba.renter_id, ba.provider_id, ba.cost_halala,
+             ba.provider_earned_halala, ba.status, ba.error_code, ba.settled_at,
+             r.name AS renter_name, r.email AS renter_email
+        FROM billing_attempts ba
+        LEFT JOIN renters r ON r.id = ba.renter_id
+       ORDER BY ba.settled_at DESC
+       LIMIT ?
+    `).all(limit).map((row) => ({
+      request_id:              row.request_id,
+      renter_id:               row.renter_id,
+      renter_name:             row.renter_name,
+      renter_email:            row.renter_email,
+      provider_id:             row.provider_id,
+      cost_sar:                Number((row.cost_halala / 100).toFixed(2)),
+      provider_earned_sar:     Number((row.provider_earned_halala / 100).toFixed(2)),
+      status:                  row.status,
+      error_code:              row.error_code,
+      settled_at:              row.settled_at,
+    }));
+
+    const autoTopups = raw.prepare(`
+      SELECT ata.id, ata.renter_id, ata.amount_halala, ata.status,
+             ata.moyasar_payment_id, ata.trigger_reason, ata.balance_before_halala,
+             ata.balance_after_halala, ata.error_code, ata.error_message,
+             ata.created_at, ata.completed_at,
+             r.name AS renter_name, r.email AS renter_email
+        FROM auto_topup_attempts ata
+        LEFT JOIN renters r ON r.id = ata.renter_id
+       ORDER BY ata.created_at DESC
+       LIMIT ?
+    `).all(limit).map((row) => ({
+      attempt_id:            row.id,
+      renter_id:             row.renter_id,
+      renter_name:           row.renter_name,
+      renter_email:          row.renter_email,
+      amount_sar:            Number((row.amount_halala / 100).toFixed(2)),
+      status:                row.status,
+      moyasar_payment_id:    row.moyasar_payment_id,
+      trigger_reason:        row.trigger_reason,
+      balance_before_sar:    row.balance_before_halala != null ? Number((row.balance_before_halala / 100).toFixed(2)) : null,
+      balance_after_sar:     row.balance_after_halala != null ? Number((row.balance_after_halala / 100).toFixed(2)) : null,
+      error_code:            row.error_code,
+      error_message:         row.error_message,
+      created_at:            row.created_at,
+      completed_at:          row.completed_at,
+    }));
+
+    // Summary counts surface the health of each surface at a glance.
+    const summary = {
+      payouts: raw.prepare(`
+        SELECT status, COUNT(*) AS n FROM payout_requests GROUP BY status
+      `).all().reduce((acc, r) => { acc[r.status] = r.n; return acc; }, {}),
+      billing_attempts: raw.prepare(`
+        SELECT status, COUNT(*) AS n FROM billing_attempts GROUP BY status
+      `).all().reduce((acc, r) => { acc[r.status] = r.n; return acc; }, {}),
+      auto_topup: raw.prepare(`
+        SELECT status, COUNT(*) AS n FROM auto_topup_attempts GROUP BY status
+      `).all().reduce((acc, r) => { acc[r.status] = r.n; return acc; }, {}),
+    };
+
+    return res.json({ payouts, billing, auto_topup: autoTopups, summary });
+  } catch (err) {
+    console.error('[payments-audit] error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ── GET /api/admin/payouts/settlement-preview ───────────────────────────────
 //
 // Read-only finance preview for a settlement window.
