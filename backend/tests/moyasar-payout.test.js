@@ -338,6 +338,31 @@ describe('payoutService Moyasar integration', () => {
     expect(row.moyasar_status).toBe('paid');
   });
 
+  test('reconcileProcessingPayouts counts MOYASAR_ERROR returns in errors (Codex P2)', async () => {
+    // Seed a stuck row.
+    const stuckId = 'po-err-1';
+    const oldIso = new Date(Date.now() - 3_600_000).toISOString();
+    raw.prepare(`
+      INSERT INTO payout_requests
+        (id, provider_id, amount_usd, amount_sar, amount_halala, status,
+         moyasar_payout_id, processed_at, requested_at)
+      VALUES (?, ?, 50, 187.5, 18750, 'processing', 'moy-err-1', ?, ?)
+    `).run(stuckId, providerId, oldIso, oldIso);
+
+    // Moyasar fails — syncPayoutStatus returns { error: 'MOYASAR_ERROR' }
+    // instead of throwing. Pre-fix this counted as "no transition needed"
+    // and errors stayed at 0; ops couldn't tell Moyasar was down.
+    nextError = { statusCode: 503, message: 'Service Unavailable' };
+
+    const r = await payoutService.reconcileProcessingPayouts(raw, { minAgeMinutes: 15 });
+    expect(r.errors).toBeGreaterThanOrEqual(1);
+    expect(r.transitioned).toBe(0);
+
+    // Row stays in 'processing' (we did not touch it).
+    const row = raw.prepare('SELECT status FROM payout_requests WHERE id = ?').get(stuckId);
+    expect(row.status).toBe('processing');
+  });
+
   test('reconcileProcessingPayouts ignores rows newer than minAgeMinutes', async () => {
     const freshId = 'po-fresh-1';
     const justNow = new Date().toISOString();

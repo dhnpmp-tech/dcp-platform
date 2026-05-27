@@ -505,10 +505,19 @@ async function reconcileProcessingPayouts(db, { minAgeMinutes = 15, limit = 50, 
   for (const row of rows) {
     try {
       const result = await syncPayoutStatus(db, row.id);
-      if (result && result.transitioned) transitioned += 1;
+      if (result && result.transitioned) {
+        transitioned += 1;
+      } else if (result && result.error) {
+        // Codex P2 (PR #429): syncPayoutStatus returns { error } instead of
+        // throwing for Moyasar-side problems (missing key, 5xx, etc).
+        // Without counting these, ops can't distinguish "no transitions
+        // needed" from "Moyasar is down and the sweep can't see anything."
+        errors += 1;
+        console.warn(`[payout.reconcile] ${row.id} sync error: ${result.error} ${result.message || ''}`);
+      }
     } catch (e) {
       errors += 1;
-      console.warn(`[payout.reconcile] ${row.id} sync failed:`, e?.message || e);
+      console.warn(`[payout.reconcile] ${row.id} sync threw:`, e?.message || e);
     }
   }
   return { swept: rows.length, transitioned, errors };
