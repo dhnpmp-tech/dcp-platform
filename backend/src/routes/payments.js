@@ -536,6 +536,18 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
     );
     if (changed) {
       console.log(`[payments/webhook] Payment ${payment.payment_id} paid — credited ${payment.amount_halala} halala to renter ${payment.renter_id}`);
+      // Codex P1 (PR #428): if this payment originated from an auto-top-up
+      // 3DS step-up, finalize the auto_topup_attempts row + send the paid
+      // email + bump monthly cap. Idempotent — safe on webhook retries.
+      try {
+        const autoTopup = require('../services/autoTopupService');
+        const fin = autoTopup.finalizeFrom3dsCallback(db._db || db, payment.moyasar_id || payment.payment_id);
+        if (fin.finalized) {
+          console.log(`[payments/webhook] auto-topup attempt ${fin.attemptId} finalized via 3DS callback`);
+        }
+      } catch (e) {
+        console.warn('[payments/webhook] auto-topup finalize failed:', e?.message || e);
+      }
       return res.json({ received: true, action: 'balance_credited', amount_halala: payment.amount_halala });
     }
     return res.json({ received: true, action: 'already_processed' });
@@ -549,6 +561,26 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
       `UPDATE payments SET status = 'failed', gateway_response = ? WHERE payment_id = ?`,
       JSON.stringify(event), payment.payment_id
     );
+    // Auto-top-up parity: mark the attempt failed too so monthly_used isn't
+    // bumped and the renter gets the failed email.
+    try {
+      const autoTopup = require('../services/autoTopupService');
+      const attempt = db.get(
+        "SELECT * FROM auto_topup_attempts WHERE moyasar_payment_id = ? AND status IN ('3ds_required','initiated')",
+        payment.moyasar_id || payment.payment_id
+      );
+      if (attempt) {
+        runStatement(
+          `UPDATE auto_topup_attempts SET status = 'failed', error_message = ?, gateway_response = ?, completed_at = ? WHERE id = ?`,
+          '3DS verification failed or card declined',
+          JSON.stringify(event),
+          now,
+          attempt.id
+        );
+      }
+    } catch (e) {
+      console.warn('[payments/webhook] auto-topup failure-mirror failed:', e?.message || e);
+    }
     console.log(`[payments/webhook] Payment ${payment.payment_id} failed`);
     return res.json({ received: true, action: 'marked_failed' });
   }

@@ -279,6 +279,36 @@ async function maybeTrigger(db, renterId, { nowIso = new Date().toISOString(), t
   if (moyasarStatus === 'initiated') {
     // 3DS step-up. Mark the attempt and surface the verification URL so the
     // renter can complete it.
+    //
+    // Codex P1 (PR #428): we MUST also create a payments row up-front so the
+    // /api/payments/webhook handler can find it when Moyasar fires the paid
+    // event after the renter completes 3DS. Without this row the webhook
+    // returns "ignored_unknown" — the gateway charge succeeds but the DCP
+    // balance never gets credited.
+    const paymentRowId = `pay_at_${attemptId.slice(3)}`;
+    try {
+      db.prepare(`
+        INSERT OR IGNORE INTO payments
+          (payment_id, moyasar_id, renter_id, amount_sar, amount_halala, status,
+           source_type, payment_method, description, gateway_response, created_at)
+        VALUES (?, ?, ?, ?, ?, 'initiated', 'auto_topup', 'token',
+                ?, ?, ?)
+      `).run(
+        paymentRowId,
+        resp.id,
+        renterId,
+        amount / 100,
+        amount,
+        `Auto-recharge (3DS pending) attempt=${attemptId}`,
+        JSON.stringify(resp),
+        nowIso
+      );
+    } catch (e) {
+      // Non-fatal — webhook will still credit via moyasar_id lookup if a
+      // collision races. Log for audit.
+      console.warn('[auto_topup] payments row insert (3ds) failed:', e?.message || e);
+    }
+
     db.prepare(`
       UPDATE auto_topup_attempts
          SET status = '3ds_required',
@@ -496,12 +526,77 @@ async function sweepPausedRenters(db, nowIso = new Date().toISOString()) {
   return { swept: expired.length, retried };
 }
 
+/**
+ * Codex P1 (PR #428) — Webhook-side finalizer.
+ *
+ * Called from /api/payments/webhook AFTER markPaymentPaidOnce has credited
+ * the renter's balance. If the moyasar_payment_id maps to an open
+ * auto_topup_attempts row in '3ds_required' / 'initiated' state, finalize
+ * it: set status='paid', bump monthly_used, send paid email. Idempotent
+ * via the auto_topup_attempts.status guard.
+ *
+ * @returns { finalized: boolean, attemptId?: string, reason?: string }
+ */
+function finalizeFrom3dsCallback(db, moyasarPaymentId, nowIso = new Date().toISOString()) {
+  if (!moyasarPaymentId) return { finalized: false, reason: 'no_moyasar_id' };
+  const attempt = db.prepare(
+    "SELECT * FROM auto_topup_attempts WHERE moyasar_payment_id = ? AND status IN ('3ds_required','initiated')"
+  ).get(moyasarPaymentId);
+  if (!attempt) return { finalized: false, reason: 'no_open_attempt' };
+
+  const renter = db.prepare(
+    'SELECT id, email, balance_halala, moyasar_card_brand, moyasar_card_last4 FROM renters WHERE id = ?'
+  ).get(attempt.renter_id);
+  if (!renter) return { finalized: false, reason: 'renter_not_found' };
+
+  let transitioned = false;
+  const tx = db.transaction(() => {
+    // Conditional UPDATE — only the first webhook delivery wins. Prevents
+    // double-finalize when Moyasar retries.
+    const r = db.prepare(`
+      UPDATE auto_topup_attempts
+         SET status = 'paid',
+             balance_after_halala = ?,
+             completed_at = ?
+       WHERE id = ?
+         AND status IN ('3ds_required','initiated')
+    `).run(renter.balance_halala, nowIso, attempt.id);
+    if (r.changes === 0) return;
+    transitioned = true;
+    // Bump monthly cap counter + reset failure / pause state.
+    db.prepare(`
+      UPDATE renters
+         SET auto_topup_monthly_used_halala = COALESCE(auto_topup_monthly_used_halala,0) + ?,
+             auto_topup_consecutive_failures = 0,
+             auto_topup_paused_until = NULL
+       WHERE id = ?
+    `).run(attempt.amount_halala, renter.id);
+  });
+  tx();
+
+  if (!transitioned) {
+    return { finalized: false, reason: 'already_finalized' };
+  }
+
+  if (renter.email) {
+    emailService.sendAutoTopupPaidEmail(renter.email, {
+      amount_sar: attempt.amount_halala / 100,
+      new_balance_sar: renter.balance_halala / 100,
+      card_brand: renter.moyasar_card_brand,
+      card_last4: renter.moyasar_card_last4,
+    }).catch((e) => console.warn('[auto_topup] 3ds-paid email failed:', e?.message || e));
+  }
+
+  return { finalized: true, attemptId: attempt.id };
+}
+
 module.exports = {
   maybeTrigger,
   readSettings,
   updateSettings,
   saveCardToken,
   sweepPausedRenters,
+  finalizeFrom3dsCallback,
   // Exposed for tests.
   _moyasarPaymentRequest: moyasarPaymentRequest,
 };
