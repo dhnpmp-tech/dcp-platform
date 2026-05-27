@@ -435,11 +435,11 @@ function AutoTopupTable({ rows }: { rows: AutoTopupRow[] }) {
   )
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children = null }: { children?: React.ReactNode }) {
   return <th className="px-4 py-3 text-left text-xs font-medium text-dc1-text-secondary uppercase tracking-wider">{children}</th>
 }
 
-function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function Td({ children = null, className = '' }: { children?: React.ReactNode; className?: string }) {
   return <td className={`px-4 py-3 align-top ${className}`}>{children}</td>
 }
 
