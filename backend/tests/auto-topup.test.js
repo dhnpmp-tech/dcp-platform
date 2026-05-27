@@ -250,3 +250,67 @@ describe('maybeTrigger', () => {
     expect(r.reason).toBe('not_enabled');
   });
 });
+
+describe('sweepPausedRenters', () => {
+  test('clears expired pauses and retries — succeeds when next charge clears', async () => {
+    const renterId = 8200;
+    seedRenter(renterId, 1000);
+    autoTopup.saveCardToken(raw, renterId, { token: 'token_sweep_ok', brand: 'visa', last4: '1234' });
+    autoTopup.updateSettings(raw, renterId, {
+      enabled: true,
+      thresholdHalala: 10000,
+      amountHalala: 50000,
+      monthlyCapHalala: 100000,
+    });
+
+    // Force a pause: 3 consecutive failures, paused_until 1h ago (i.e. elapsed).
+    const longAgo = new Date(Date.now() - 3_600_000).toISOString();
+    raw.prepare(
+      "UPDATE renters SET auto_topup_consecutive_failures = 3, auto_topup_paused_until = ?, auto_topup_last_attempt_at = NULL WHERE id = ?"
+    ).run(longAgo, renterId);
+
+    // Next Moyasar charge succeeds — sweep should fire it.
+    nextMoyasarResponse = { id: 'moy-sweep-1', status: 'paid', source: {} };
+
+    const result = await autoTopup.sweepPausedRenters(raw);
+    expect(result.swept).toBeGreaterThanOrEqual(1);
+    expect(result.retried).toBeGreaterThanOrEqual(1);
+
+    const r = raw.prepare(
+      'SELECT auto_topup_paused_until, auto_topup_consecutive_failures, balance_halala FROM renters WHERE id = ?'
+    ).get(renterId);
+    expect(r.auto_topup_paused_until).toBeNull();
+    expect(r.auto_topup_consecutive_failures).toBe(0);
+    expect(r.balance_halala).toBe(1000 + 50000);
+  });
+
+  test('does not touch renters whose pause window has not elapsed', async () => {
+    const renterId = 8201;
+    seedRenter(renterId, 1000);
+    autoTopup.saveCardToken(raw, renterId, { token: 'token_sweep_skip', brand: 'visa', last4: '5678' });
+    autoTopup.updateSettings(raw, renterId, {
+      enabled: true,
+      thresholdHalala: 10000,
+      amountHalala: 50000,
+      monthlyCapHalala: 100000,
+    });
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    raw.prepare(
+      'UPDATE renters SET auto_topup_consecutive_failures = 3, auto_topup_paused_until = ? WHERE id = ?'
+    ).run(future, renterId);
+
+    const before = raw.prepare('SELECT balance_halala FROM renters WHERE id = ?').get(renterId);
+    const callsBefore = moyasarCalls.length;
+
+    await autoTopup.sweepPausedRenters(raw);
+
+    const after = raw.prepare(
+      'SELECT auto_topup_paused_until, auto_topup_consecutive_failures, balance_halala FROM renters WHERE id = ?'
+    ).get(renterId);
+    // Pause still set, failures unchanged, no Moyasar call made.
+    expect(after.auto_topup_paused_until).toBe(future);
+    expect(after.auto_topup_consecutive_failures).toBe(3);
+    expect(after.balance_halala).toBe(before.balance_halala);
+    expect(moyasarCalls.length).toBe(callsBefore);
+  });
+});

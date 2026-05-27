@@ -640,6 +640,150 @@ function buildWithdrawalRejectedTemplate({ amountSar, reason }) {
   };
 }
 
+// ─── Auto-top-up emails (PR #427 follow-up) ─────────────────────────────────
+
+function buildAutoTopupPaidTemplate({ amountSar, newBalanceSar, cardBrand, cardLast4 }) {
+  const amountLabel = formatSar(amountSar);
+  const balanceLabel = formatSar(newBalanceSar);
+  const brandLabel = (cardBrand || 'Card').replace(/^./, (c) => c.toUpperCase());
+  const cardLabel = cardLast4 ? `${brandLabel} •••• ${escapeHtml(cardLast4)}` : brandLabel;
+  const frontend = getFrontendUrl();
+  const billingUrl = `${frontend}/renter/billing`;
+
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your balance dropped below your auto-top-up threshold so we recharged your DCP balance using <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong>.</p>
+    ${brandMetaRows([
+      { label: 'Amount charged', value: `${amountLabel} SAR` },
+      { label: 'New balance', value: `${balanceLabel} SAR` },
+      { label: 'Card', value: cardLabel },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">انخفض رصيدك دون حدّ الشحن التلقائي فقمنا بإعادة شحن رصيدك في DCP باستخدام <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong>.</p>
+    ${brandMetaRows([
+      { label: 'المبلغ المخصوم', value: `${amountLabel} ريال` },
+      { label: 'الرصيد الجديد', value: `${balanceLabel} ريال` },
+      { label: 'البطاقة', value: cardLabel },
+    ], { rtl: true })}
+  `;
+  return {
+    subject: `DCP: Auto-top-up of ${amountLabel} SAR | شحن تلقائي بقيمة ${amountLabel} ريال`,
+    text: [
+      `Your DCP balance was auto-recharged by ${amountLabel} SAR.`,
+      `Card: ${cardLabel}`,
+      `New balance: ${balanceLabel} SAR`,
+      `Manage auto-top-up: ${billingUrl}`,
+      '',
+      `تمت إعادة شحن رصيدك في DCP تلقائياً بمبلغ ${amountLabel} ريال.`,
+      `البطاقة: ${cardLabel}`,
+      `الرصيد الجديد: ${balanceLabel} ريال`,
+    ].join('\n'),
+    html: buildBrandShell({
+      headlineEn: 'Balance auto-topped up',
+      headlineAr: 'تمت إعادة الشحن تلقائياً',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Manage auto-top-up',
+      ctaLabelAr: 'إدارة الشحن التلقائي',
+      ctaUrl: billingUrl,
+    }),
+  };
+}
+
+function buildAutoTopupFailedTemplate({ amountSar, reason, consecutiveFailures, pausedUntil, cardBrand, cardLast4 }) {
+  const amountLabel = formatSar(amountSar);
+  const brandLabel = (cardBrand || 'Card').replace(/^./, (c) => c.toUpperCase());
+  const cardLabel = cardLast4 ? `${brandLabel} •••• ${escapeHtml(cardLast4)}` : brandLabel;
+  const reasonLabel = (reason || '').trim() || 'Card declined';
+  const frontend = getFrontendUrl();
+  const billingUrl = `${frontend}/renter/billing`;
+  const pausedNote = pausedUntil
+    ? `<p style="color:#FF7A7A;font-size:13px;margin:0 0 18px;">Auto-top-up paused until ${escapeHtml(new Date(pausedUntil).toUTCString())} after ${consecutiveFailures} consecutive failures.</p>`
+    : '';
+  const pausedNoteAr = pausedUntil
+    ? `<p style="color:#FF7A7A;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;">تم إيقاف الشحن التلقائي حتى ${escapeHtml(new Date(pausedUntil).toUTCString())} بعد ${consecutiveFailures} محاولات فاشلة.</p>`
+    : '';
+
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">We tried to auto-top-up your DCP balance with <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong> but the charge failed.</p>
+    ${pausedNote}
+    ${brandMetaRows([
+      { label: 'Attempted amount', value: `${amountLabel} SAR` },
+      { label: 'Card', value: cardLabel },
+      { label: 'Reason', value: reasonLabel },
+    ])}
+    <p style="color:#A0A0B0;font-size:13px;margin:8px 0 0;">Update your card or top-up manually to keep jobs running.</p>
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">حاولنا إعادة شحن رصيدك في DCP باستخدام <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong> ولكن العملية فشلت.</p>
+    ${pausedNoteAr}
+    ${brandMetaRows([
+      { label: 'المبلغ', value: `${amountLabel} ريال` },
+      { label: 'البطاقة', value: cardLabel },
+      { label: 'السبب', value: reasonLabel },
+    ], { rtl: true })}
+  `;
+  return {
+    subject: `DCP: Auto-top-up failed (${amountLabel} SAR) | فشل الشحن التلقائي`,
+    text: [
+      `Auto-top-up of ${amountLabel} SAR failed.`,
+      `Card: ${cardLabel}`,
+      `Reason: ${reasonLabel}`,
+      pausedUntil ? `Paused until: ${new Date(pausedUntil).toUTCString()}` : '',
+      `Update card: ${billingUrl}`,
+    ].filter(Boolean).join('\n'),
+    html: buildBrandShell({
+      headlineEn: 'Auto-top-up failed',
+      headlineAr: 'فشل الشحن التلقائي',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Update card',
+      ctaLabelAr: 'تحديث البطاقة',
+      ctaUrl: billingUrl,
+    }),
+  };
+}
+
+function buildAutoTopup3dsRequiredTemplate({ amountSar, verificationUrl, cardBrand, cardLast4 }) {
+  const amountLabel = formatSar(amountSar);
+  const brandLabel = (cardBrand || 'Card').replace(/^./, (c) => c.toUpperCase());
+  const cardLabel = cardLast4 ? `${brandLabel} •••• ${escapeHtml(cardLast4)}` : brandLabel;
+  const frontend = getFrontendUrl();
+  const ctaUrl = verificationUrl || `${frontend}/renter/billing`;
+
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your auto-top-up of <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} SAR</strong> with ${escapeHtml(cardLabel)} needs you to verify with your bank (3D Secure). The charge will not complete until you finish verification.</p>
+    ${brandMetaRows([
+      { label: 'Amount', value: `${amountLabel} SAR` },
+      { label: 'Card', value: cardLabel },
+    ])}
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">يتطلّب الشحن التلقائي بقيمة <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} ريال</strong> باستخدام ${escapeHtml(cardLabel)} تحقّقاً من بنكك (3D Secure). لن يكتمل الخصم إلا بعد التحقّق.</p>
+    ${brandMetaRows([
+      { label: 'المبلغ', value: `${amountLabel} ريال` },
+      { label: 'البطاقة', value: cardLabel },
+    ], { rtl: true })}
+  `;
+  return {
+    subject: `DCP: Verify auto-top-up of ${amountLabel} SAR | يتطلّب التحقّق`,
+    text: [
+      `Your auto-top-up of ${amountLabel} SAR needs 3D Secure verification.`,
+      `Card: ${cardLabel}`,
+      `Verify: ${ctaUrl}`,
+    ].join('\n'),
+    html: buildBrandShell({
+      headlineEn: 'Verify your auto-top-up',
+      headlineAr: 'يرجى التحقّق من الشحن',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Verify with bank',
+      ctaLabelAr: 'تحقّق الآن',
+      ctaUrl,
+    }),
+  };
+}
+
 function buildDataExportReadyTemplate({ accountType, requestedAt, deliveryMode }) {
   const safeAccountType = accountType === 'provider' ? 'provider' : 'renter';
   const requestedLabel = requestedAt || new Date().toISOString();
@@ -845,6 +989,41 @@ async function sendJobCompleteEmail(to, jobId, costSar, model, details = {}) {
   });
 }
 
+async function sendAutoTopupPaidEmail(to, data = {}) {
+  if (!to) return { ok: false, reason: 'invalid_arguments' };
+  const template = buildAutoTopupPaidTemplate({
+    amountSar: data.amount_sar,
+    newBalanceSar: data.new_balance_sar,
+    cardBrand: data.card_brand,
+    cardLast4: data.card_last4,
+  });
+  return sendEmail({ to, subject: template.subject, html: template.html, text: template.text });
+}
+
+async function sendAutoTopupFailedEmail(to, data = {}) {
+  if (!to) return { ok: false, reason: 'invalid_arguments' };
+  const template = buildAutoTopupFailedTemplate({
+    amountSar: data.amount_sar,
+    reason: data.reason,
+    consecutiveFailures: data.consecutive_failures,
+    pausedUntil: data.paused_until,
+    cardBrand: data.card_brand,
+    cardLast4: data.card_last4,
+  });
+  return sendEmail({ to, subject: template.subject, html: template.html, text: template.text });
+}
+
+async function sendAutoTopup3dsRequiredEmail(to, data = {}) {
+  if (!to) return { ok: false, reason: 'invalid_arguments' };
+  const template = buildAutoTopup3dsRequiredTemplate({
+    amountSar: data.amount_sar,
+    verificationUrl: data.verification_url,
+    cardBrand: data.card_brand,
+    cardLast4: data.card_last4,
+  });
+  return sendEmail({ to, subject: template.subject, html: template.html, text: template.text });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
@@ -856,4 +1035,7 @@ module.exports = {
   sendWithdrawalApprovedEmail,
   sendWithdrawalRejectedEmail,
   sendDataExportReady,
+  sendAutoTopupPaidEmail,
+  sendAutoTopupFailedEmail,
+  sendAutoTopup3dsRequiredEmail,
 };

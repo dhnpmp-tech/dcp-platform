@@ -1082,6 +1082,24 @@ providerLivenessMonitor.start();
 const cleanup = require('./services/cleanup');
 cleanup.schedule();
 
+// Auto-top-up paused-renter sweep — retries charges once the 24h pause window
+// elapses. Runs every 15 minutes. Idle when no renters are paused.
+const autoTopupService = require('./services/autoTopupService');
+const dbModuleForSweep = require('./db');
+const AUTO_TOPUP_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
+async function runAutoTopupSweep() {
+  try {
+    const r = await autoTopupService.sweepPausedRenters(dbModuleForSweep._db || dbModuleForSweep);
+    if (r.swept > 0) {
+      console.log(`[auto_topup.sweep] swept=${r.swept} retried=${r.retried}`);
+    }
+  } catch (err) {
+    console.error('[auto_topup.sweep] error:', err?.message || err);
+  }
+}
+setInterval(runAutoTopupSweep, AUTO_TOPUP_SWEEP_INTERVAL_MS);
+console.log(`[auto_topup] paused-renter sweep started (every ${AUTO_TOPUP_SWEEP_INTERVAL_MS / 60000}m)`);
+
 // Audit C3 — backend-side endpoint reachability probe (30s loop).
 // Detects providers whose daemon heartbeats but whose vllm_endpoint_url is
 // dead from this VPS (Cloudflare tunnel killed, WG mesh IP not routable, etc).
