@@ -696,6 +696,109 @@ router.get('/history', (req, res) => {
   });
 });
 
+// ─── Auto-top-up routes ────────────────────────────────────────────────────────
+const autoTopupService = require('../services/autoTopupService');
+
+// GET /api/payments/auto-topup-settings — read current config + card on file.
+router.get('/auto-topup-settings', requireRenter, (req, res) => {
+  const r = autoTopupService.readSettings(db._db || db, req.renter.id);
+  if (!r) return res.status(404).json({ error: 'Renter not found' });
+  return res.json({
+    enabled: !!r.auto_topup_enabled,
+    threshold_halala: r.auto_topup_threshold_halala || 0,
+    threshold_sar: (r.auto_topup_threshold_halala || 0) / 100,
+    amount_halala: r.auto_topup_amount_halala || 0,
+    amount_sar: (r.auto_topup_amount_halala || 0) / 100,
+    monthly_cap_halala: r.auto_topup_monthly_cap_halala || 0,
+    monthly_cap_sar: (r.auto_topup_monthly_cap_halala || 0) / 100,
+    monthly_used_halala: r.auto_topup_monthly_used_halala || 0,
+    monthly_used_sar: (r.auto_topup_monthly_used_halala || 0) / 100,
+    paused_until: r.auto_topup_paused_until,
+    consecutive_failures: r.auto_topup_consecutive_failures || 0,
+    last_attempt_at: r.auto_topup_last_attempt_at,
+    card_on_file: r.moyasar_card_token
+      ? {
+          brand: r.moyasar_card_brand,
+          last4: r.moyasar_card_last4,
+          saved_at: r.moyasar_card_saved_at,
+        }
+      : null,
+  });
+});
+
+// POST /api/payments/auto-topup-settings — update config.
+// Body: { enabled, threshold_sar?, amount_sar?, monthly_cap_sar? }
+//   OR  { enabled, threshold_halala?, amount_halala?, monthly_cap_halala? }
+router.post('/auto-topup-settings', requireRenter, (req, res) => {
+  const b = req.body || {};
+  const thresholdHalala = b.threshold_halala != null
+    ? toFiniteInt(b.threshold_halala, { min: 0, max: 100_000_000 })
+    : Math.round(toFiniteNumber(b.threshold_sar, { min: 0, max: 1_000_000 }) * 100);
+  const amountHalala = b.amount_halala != null
+    ? toFiniteInt(b.amount_halala, { min: 0, max: 100_000_000 })
+    : Math.round(toFiniteNumber(b.amount_sar, { min: 0, max: 1_000_000 }) * 100);
+  const capHalala = b.monthly_cap_halala != null
+    ? toFiniteInt(b.monthly_cap_halala, { min: 0, max: 1_000_000_000 })
+    : Math.round(toFiniteNumber(b.monthly_cap_sar, { min: 0, max: 10_000_000 }) * 100);
+
+  const result = autoTopupService.updateSettings(db._db || db, req.renter.id, {
+    enabled: !!b.enabled,
+    thresholdHalala,
+    amountHalala,
+    monthlyCapHalala: capHalala,
+  });
+  if (result.error) {
+    const statusMap = {
+      INVALID_AMOUNT: 400,
+      INVALID_THRESHOLD: 400,
+      CAP_BELOW_AMOUNT: 400,
+      NO_CARD_ON_FILE: 412,
+    };
+    return res.status(statusMap[result.error] || 400).json(result);
+  }
+  return res.json({ ok: true });
+});
+
+// POST /api/payments/save-card-token — receive a token id from the frontend.
+// The frontend uses Moyasar's publishable key to call POST /v1/tokens directly
+// (PAN never touches our backend); on success the frontend POSTs the resulting
+// token id to this endpoint along with the display fields. Verification (3DS)
+// must have completed on the frontend before this is called.
+//
+// Body: { token: string, brand?: string, last4?: string, holder_name?: string }
+router.post('/save-card-token', requireRenter, (req, res) => {
+  const { token, brand, last4, holder_name } = req.body || {};
+  if (typeof token !== 'string' || !token.startsWith('token_')) {
+    return res.status(400).json({ error: 'INVALID_TOKEN', message: 'token must be a Moyasar token id (token_...)' });
+  }
+  const updated = autoTopupService.saveCardToken(db._db || db, req.renter.id, {
+    token, brand, last4, holderName: holder_name,
+  });
+  return res.json({
+    ok: true,
+    card_on_file: {
+      brand: updated.moyasar_card_brand,
+      last4: updated.moyasar_card_last4,
+      saved_at: updated.moyasar_card_saved_at,
+    },
+  });
+});
+
+// DELETE /api/payments/saved-card — forget the token + disable auto-top-up.
+router.delete('/saved-card', requireRenter, (req, res) => {
+  const rawDb = db._db || db;
+  rawDb.prepare(`
+    UPDATE renters
+       SET moyasar_card_token = NULL,
+           moyasar_card_brand = NULL,
+           moyasar_card_last4 = NULL,
+           moyasar_card_saved_at = NULL,
+           auto_topup_enabled = 0
+     WHERE id = ?
+  `).run(req.renter.id);
+  return res.json({ ok: true });
+});
+
 // ─── POST /api/payments/payout-webhook ─────────────────────────────────────────
 // Moyasar webhook handler for payout status transitions. Mirrors the /webhook
 // flow but updates payout_requests rows instead of payments.

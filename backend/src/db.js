@@ -1176,6 +1176,9 @@ const migrations = [
   'ALTER TABLE providers ADD COLUMN payout_iban TEXT',
   'ALTER TABLE providers ADD COLUMN payout_holder_name TEXT',
   'ALTER TABLE providers ADD COLUMN payout_account_registered_at TEXT',
+  // Migration 021 renter columns are applied AFTER CREATE TABLE renters
+  // (see the second migration sweep below) because the table is created
+  // later in this file.
 ];
 
 migrations.forEach(sql => {
@@ -1293,6 +1296,25 @@ db.exec(`
     updated_at TEXT
   )
 `);
+
+// Migration 021 (auto-top-up renter columns — applied AFTER CREATE TABLE renters).
+[
+  'ALTER TABLE renters ADD COLUMN auto_topup_enabled INTEGER DEFAULT 0',
+  'ALTER TABLE renters ADD COLUMN auto_topup_threshold_halala INTEGER DEFAULT 0',
+  'ALTER TABLE renters ADD COLUMN auto_topup_amount_halala INTEGER DEFAULT 0',
+  'ALTER TABLE renters ADD COLUMN auto_topup_monthly_cap_halala INTEGER DEFAULT 0',
+  'ALTER TABLE renters ADD COLUMN moyasar_card_token TEXT',
+  'ALTER TABLE renters ADD COLUMN moyasar_card_brand TEXT',
+  'ALTER TABLE renters ADD COLUMN moyasar_card_last4 TEXT',
+  'ALTER TABLE renters ADD COLUMN moyasar_card_saved_at TEXT',
+  'ALTER TABLE renters ADD COLUMN auto_topup_monthly_used_halala INTEGER DEFAULT 0',
+  'ALTER TABLE renters ADD COLUMN auto_topup_monthly_reset_at TEXT',
+  'ALTER TABLE renters ADD COLUMN auto_topup_consecutive_failures INTEGER DEFAULT 0',
+  'ALTER TABLE renters ADD COLUMN auto_topup_paused_until TEXT',
+  'ALTER TABLE renters ADD COLUMN auto_topup_last_attempt_at TEXT',
+].forEach((sql) => {
+  try { db.exec(sql); } catch (_) { /* column exists */ }
+});
 
 // ─── CREDIT GRANTS TABLE ───
 // Immutable audit trail for admin-issued renter credits.
@@ -2003,6 +2025,46 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_provider ON payout_reque
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_status ON payout_requests(status, requested_at DESC)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_moyasar_id ON payout_requests(moyasar_payout_id) WHERE moyasar_payout_id IS NOT NULL`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_providers_moyasar_payout_account ON providers(moyasar_payout_account_id) WHERE moyasar_payout_account_id IS NOT NULL`);
+
+// ─── BILLING ATOMICITY: request-id idempotency table (migration 021) ──────────
+// One row per /v1 inference request. PK on request_id makes settlement
+// transactions idempotent under retry (process crash, webhook replay, sweep).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS billing_attempts (
+    request_id              TEXT    PRIMARY KEY,
+    renter_id               INTEGER NOT NULL,
+    provider_id             INTEGER,
+    cost_halala             INTEGER NOT NULL,
+    provider_earned_halala  INTEGER NOT NULL,
+    status                  TEXT    NOT NULL CHECK(status IN ('settled','insufficient_balance','error')),
+    error_code              TEXT,
+    settled_at              TEXT    NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_billing_attempts_renter ON billing_attempts(renter_id, settled_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_billing_attempts_status ON billing_attempts(status, settled_at DESC)`);
+
+// ─── AUTO-TOP-UP: per-attempt audit log (migration 021) ──────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS auto_topup_attempts (
+    id                    TEXT    PRIMARY KEY,
+    renter_id             INTEGER NOT NULL,
+    amount_halala         INTEGER NOT NULL,
+    status                TEXT    NOT NULL CHECK(status IN ('initiated','paid','failed','3ds_required','capped','paused')),
+    moyasar_payment_id    TEXT,
+    trigger_reason        TEXT,
+    balance_before_halala INTEGER,
+    balance_after_halala  INTEGER,
+    error_code            TEXT,
+    error_message         TEXT,
+    gateway_response      TEXT,
+    created_at            TEXT    NOT NULL,
+    completed_at          TEXT,
+    FOREIGN KEY (renter_id) REFERENCES renters(id)
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_auto_topup_attempts_renter ON auto_topup_attempts(renter_id, created_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_auto_topup_attempts_status ON auto_topup_attempts(status, created_at DESC)`);
 
 // ─── PROVIDER API KEYS TABLE ─── (DCP-760)
 // Scoped long-lived credentials for unattended GPU provider nodes.
