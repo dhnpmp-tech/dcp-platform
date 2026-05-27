@@ -250,3 +250,137 @@ describe('maybeTrigger', () => {
     expect(r.reason).toBe('not_enabled');
   });
 });
+
+describe('3DS callback (Codex PR #428 P1)', () => {
+  test('3DS-required path writes a payments row so the webhook can credit', async () => {
+    const renterId = 8300;
+    seedRenter(renterId, 500);
+    autoTopup.saveCardToken(raw, renterId, { token: 'token_3ds_2', brand: 'mada', last4: '4242' });
+    autoTopup.updateSettings(raw, renterId, {
+      enabled: true, thresholdHalala: 5000, amountHalala: 30000, monthlyCapHalala: 100000,
+    });
+    nextMoyasarResponse = { id: 'moy-3ds-pay-1', status: 'initiated', source: { transaction_url: 'https://example/v' } };
+    const r = await autoTopup.maybeTrigger(raw, renterId);
+    expect(r.status).toBe('3ds_required');
+
+    // payments row created with status='initiated' so the webhook can find it.
+    const p = raw.prepare('SELECT * FROM payments WHERE moyasar_id = ?').get('moy-3ds-pay-1');
+    expect(p).toBeTruthy();
+    expect(p.status).toBe('initiated');
+    expect(p.amount_halala).toBe(30000);
+    expect(p.source_type).toBe('auto_topup');
+  });
+
+  test('finalizeFrom3dsCallback credits monthly_used + clears pause + is idempotent', async () => {
+    const renterId = 8301;
+    seedRenter(renterId, 1000);
+    autoTopup.saveCardToken(raw, renterId, { token: 'token_3ds_3', brand: 'visa', last4: '0001' });
+    autoTopup.updateSettings(raw, renterId, {
+      enabled: true, thresholdHalala: 5000, amountHalala: 40000, monthlyCapHalala: 200000,
+    });
+    nextMoyasarResponse = { id: 'moy-3ds-pay-2', status: 'initiated', source: { transaction_url: 'https://example/v' } };
+    await autoTopup.maybeTrigger(raw, renterId);
+
+    // Simulate the webhook crediting balance (markPaymentPaidOnce equivalent).
+    raw.prepare(
+      'UPDATE renters SET balance_halala = balance_halala + 40000 WHERE id = ?'
+    ).run(renterId);
+
+    const first = autoTopup.finalizeFrom3dsCallback(raw, 'moy-3ds-pay-2');
+    expect(first.finalized).toBe(true);
+
+    const row = raw.prepare(
+      'SELECT auto_topup_monthly_used_halala, auto_topup_consecutive_failures, auto_topup_paused_until FROM renters WHERE id = ?'
+    ).get(renterId);
+    expect(row.auto_topup_monthly_used_halala).toBe(40000);
+    expect(row.auto_topup_consecutive_failures).toBe(0);
+    expect(row.auto_topup_paused_until).toBeNull();
+
+    const attempt = raw.prepare(
+      'SELECT status FROM auto_topup_attempts WHERE moyasar_payment_id = ?'
+    ).get('moy-3ds-pay-2');
+    expect(attempt.status).toBe('paid');
+
+    // Idempotency on webhook retry — no double-bump of monthly_used. After
+    // the first call flips status to 'paid', the second call's status-IN
+    // filter excludes it (no_open_attempt). Either short-circuit reason is
+    // acceptable as long as finalized=false and no side-effects re-fire.
+    const second = autoTopup.finalizeFrom3dsCallback(raw, 'moy-3ds-pay-2');
+    expect(second.finalized).toBe(false);
+    expect(['already_finalized', 'no_open_attempt']).toContain(second.reason);
+    const row2 = raw.prepare(
+      'SELECT auto_topup_monthly_used_halala FROM renters WHERE id = ?'
+    ).get(renterId);
+    expect(row2.auto_topup_monthly_used_halala).toBe(40000);
+  });
+
+  test('finalizeFrom3dsCallback no-op for unknown moyasar_payment_id', () => {
+    const r = autoTopup.finalizeFrom3dsCallback(raw, 'moy-not-real');
+    expect(r.finalized).toBe(false);
+    expect(r.reason).toBe('no_open_attempt');
+  });
+});
+
+describe('sweepPausedRenters', () => {
+  test('clears expired pauses and retries — succeeds when next charge clears', async () => {
+    const renterId = 8200;
+    seedRenter(renterId, 1000);
+    autoTopup.saveCardToken(raw, renterId, { token: 'token_sweep_ok', brand: 'visa', last4: '1234' });
+    autoTopup.updateSettings(raw, renterId, {
+      enabled: true,
+      thresholdHalala: 10000,
+      amountHalala: 50000,
+      monthlyCapHalala: 100000,
+    });
+
+    // Force a pause: 3 consecutive failures, paused_until 1h ago (i.e. elapsed).
+    const longAgo = new Date(Date.now() - 3_600_000).toISOString();
+    raw.prepare(
+      "UPDATE renters SET auto_topup_consecutive_failures = 3, auto_topup_paused_until = ?, auto_topup_last_attempt_at = NULL WHERE id = ?"
+    ).run(longAgo, renterId);
+
+    // Next Moyasar charge succeeds — sweep should fire it.
+    nextMoyasarResponse = { id: 'moy-sweep-1', status: 'paid', source: {} };
+
+    const result = await autoTopup.sweepPausedRenters(raw);
+    expect(result.swept).toBeGreaterThanOrEqual(1);
+    expect(result.retried).toBeGreaterThanOrEqual(1);
+
+    const r = raw.prepare(
+      'SELECT auto_topup_paused_until, auto_topup_consecutive_failures, balance_halala FROM renters WHERE id = ?'
+    ).get(renterId);
+    expect(r.auto_topup_paused_until).toBeNull();
+    expect(r.auto_topup_consecutive_failures).toBe(0);
+    expect(r.balance_halala).toBe(1000 + 50000);
+  });
+
+  test('does not touch renters whose pause window has not elapsed', async () => {
+    const renterId = 8201;
+    seedRenter(renterId, 1000);
+    autoTopup.saveCardToken(raw, renterId, { token: 'token_sweep_skip', brand: 'visa', last4: '5678' });
+    autoTopup.updateSettings(raw, renterId, {
+      enabled: true,
+      thresholdHalala: 10000,
+      amountHalala: 50000,
+      monthlyCapHalala: 100000,
+    });
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    raw.prepare(
+      'UPDATE renters SET auto_topup_consecutive_failures = 3, auto_topup_paused_until = ? WHERE id = ?'
+    ).run(future, renterId);
+
+    const before = raw.prepare('SELECT balance_halala FROM renters WHERE id = ?').get(renterId);
+    const callsBefore = moyasarCalls.length;
+
+    await autoTopup.sweepPausedRenters(raw);
+
+    const after = raw.prepare(
+      'SELECT auto_topup_paused_until, auto_topup_consecutive_failures, balance_halala FROM renters WHERE id = ?'
+    ).get(renterId);
+    // Pause still set, failures unchanged, no Moyasar call made.
+    expect(after.auto_topup_paused_until).toBe(future);
+    expect(after.auto_topup_consecutive_failures).toBe(3);
+    expect(after.balance_halala).toBe(before.balance_halala);
+    expect(moyasarCalls.length).toBe(callsBefore);
+  });
+});
