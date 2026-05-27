@@ -50,13 +50,26 @@ describe('estimateInferenceCost', () => {
     expect(est).toBe(400);
   });
 
-  test('flat per-token rate fallback', () => {
+  test('flat per-million-token rate fallback (TOKEN_RATE_BILLING_UNIT_TOKENS = 1M)', () => {
+    // tokenRateHalala is halala-per-1M-tokens (mirrors v1.js
+    // computeTokenCostHalala). 200 tokens at rate=5 = (200*5)/1M = 1 halala.
     const est = billing.estimateInferenceCost({
       promptTokens: 100,
       maxCompletionTokens: 100,
       tokenRateHalala: 5,
     });
-    expect(est).toBe(1000);
+    expect(est).toBe(1);
+  });
+
+  test('default token rate (19) on 2k tokens stays under 1 halala — no spurious 402', () => {
+    // Regression test for Codex P1: pre-fix this returned 38,000 halala
+    // (380 SAR) and 402-rejected normal requests.
+    const est = billing.estimateInferenceCost({
+      promptTokens: 1000,
+      maxCompletionTokens: 1000,
+      tokenRateHalala: 19,
+    });
+    expect(est).toBe(1); // ceil((2000*19)/1M) = ceil(0.038) = 1
   });
 
   test('per-minute fallback when no token rate', () => {

@@ -2063,7 +2063,13 @@ router.get('/me', async (req, res) => {
                 today_earnings_halala: todayEarnings.total,
                 week_earnings_halala: weekEarnings.total,
                 month_earnings_halala: monthEarnings.total,
-                active_job: activeJob || null
+                active_job: activeJob || null,
+                // Moyasar payout-account fields (migration 020). Codex PR #427
+                // P2 fix: PayoutAccountPanel needs these to render saved IBAN.
+                payout_iban: provider.payout_iban || null,
+                payout_holder_name: provider.payout_holder_name || null,
+                moyasar_payout_account_id: provider.moyasar_payout_account_id || null,
+                payout_account_registered_at: provider.payout_account_registered_at || null,
             },
             recent_jobs: recentJobs
         };

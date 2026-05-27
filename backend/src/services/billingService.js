@@ -115,7 +115,11 @@ function estimateInferenceCost({
     return Math.max(1, inCost + outCost);
   }
   if (tokenRateHalala > 0) {
-    return Math.max(1, Math.ceil((p + c) * tokenRateHalala));
+    // Codex P1 fix (PR #427): tokenRateHalala is halala per 1,000,000 tokens
+    // — same TOKEN_RATE_BILLING_UNIT_TOKENS divisor used in v1.js
+    // computeTokenCostHalala. Multiplying without the /1M divide overestimates
+    // by 1,000,000x and 402-rejects every realistic request.
+    return Math.max(1, Math.ceil(((p + c) * tokenRateHalala) / 1_000_000));
   }
   if (fallbackRateHalalaPerMin > 0) {
     return Math.max(1, Math.ceil(fallbackRateHalalaPerMin));
