@@ -26,6 +26,9 @@
 // Dash-form → colon-form (canonical Ollama tag).
 // Keep alphabetised for easier review.
 const DASH_TO_CANONICAL = Object.freeze({
+  'allam-ai/allam-7b-instruct-preview':                 'allam-q4',
+  'allam-7b-instruct':                                  'allam-q4',
+  'baai/bge-m3':                                        'bge-m3',
   'deepseek-r1-7b':                                     'deepseek-r1:7b',
   'falcon3-7b':                                         'falcon3:7b',
   'gemma3-27b':                                         'gemma3:27b',
