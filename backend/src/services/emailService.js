@@ -667,7 +667,7 @@ function buildAutoTopupPaidTemplate({ amountSar, newBalanceSar, cardBrand, cardL
     ], { rtl: true })}
   `;
   return {
-    subject: `DCP: Auto-top-up of ${amountLabel} SAR | شحن تلقائي بقيمة ${amountLabel} ريال`,
+    subject: `Receipt: ${amountLabel} SAR DCP auto-top-up | إيصال الشحن التلقائي`,
     text: [
       `Your DCP balance was auto-recharged by ${amountLabel} SAR.`,
       `Card: ${cardLabel}`,
@@ -704,32 +704,36 @@ function buildAutoTopupFailedTemplate({ amountSar, reason, consecutiveFailures, 
     ? `<p style="color:#FF7A7A;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;">تم إيقاف الشحن التلقائي حتى ${escapeHtml(new Date(pausedUntil).toUTCString())} بعد ${consecutiveFailures} محاولات فاشلة.</p>`
     : '';
 
+  const last4Tail = cardLast4 ? ` ••${escapeHtml(cardLast4)}` : '';
   const bodyEn = `
-    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">We tried to auto-top-up your DCP balance with <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong> but the charge failed.</p>
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.5;">We tried to charge <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong> for ${amountLabel} SAR to recharge your DCP balance, but the bank declined.</p>
+    <p style="color:#7DD8C0;font-size:13px;margin:0 0 18px;font-weight:500;">Your DCP balance was not charged. Jobs will continue to run from your current balance until it&rsquo;s exhausted.</p>
     ${pausedNote}
     ${brandMetaRows([
       { label: 'Attempted amount', value: `${amountLabel} SAR` },
       { label: 'Card', value: cardLabel },
-      { label: 'Reason', value: reasonLabel },
+      { label: 'Bank reason', value: reasonLabel },
     ])}
-    <p style="color:#A0A0B0;font-size:13px;margin:8px 0 0;">Update your card or top-up manually to keep jobs running.</p>
+    <p style="color:#A0A0B0;font-size:13px;margin:14px 0 0;">Common fixes: update the card details, contact your bank to lift a hold, or top up manually for now.</p>
   `;
   const bodyAr = `
-    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">حاولنا إعادة شحن رصيدك في DCP باستخدام <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong> ولكن العملية فشلت.</p>
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.6;">حاولنا خصم ${amountLabel} ريال من <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong> لإعادة شحن رصيدك في DCP، لكن البنك رفض العملية.</p>
+    <p style="color:#7DD8C0;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;font-weight:500;">لم يُخصم من رصيد DCP. ستستمر مهامك بالعمل من رصيدك الحالي حتى نفاده.</p>
     ${pausedNoteAr}
     ${brandMetaRows([
       { label: 'المبلغ', value: `${amountLabel} ريال` },
       { label: 'البطاقة', value: cardLabel },
-      { label: 'السبب', value: reasonLabel },
+      { label: 'السبب من البنك', value: reasonLabel },
     ], { rtl: true })}
   `;
   return {
-    subject: `DCP: Auto-top-up failed (${amountLabel} SAR) | فشل الشحن التلقائي`,
+    subject: `Auto-top-up declined${last4Tail} — ${amountLabel} SAR not charged | تم رفض الشحن التلقائي`,
     text: [
-      `Auto-top-up of ${amountLabel} SAR failed.`,
+      `Auto-top-up of ${amountLabel} SAR was declined by your bank.`,
+      `Your DCP balance was NOT charged.`,
       `Card: ${cardLabel}`,
-      `Reason: ${reasonLabel}`,
-      pausedUntil ? `Paused until: ${new Date(pausedUntil).toUTCString()}` : '',
+      `Bank reason: ${reasonLabel}`,
+      pausedUntil ? `Auto-top-up paused until: ${new Date(pausedUntil).toUTCString()}` : '',
       `Update card: ${billingUrl}`,
     ].filter(Boolean).join('\n'),
     html: buildBrandShell({
@@ -752,23 +756,26 @@ function buildAutoTopup3dsRequiredTemplate({ amountSar, verificationUrl, cardBra
   const ctaUrl = verificationUrl || `${frontend}/renter/billing`;
 
   const bodyEn = `
-    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.5;">Your auto-top-up of <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} SAR</strong> with ${escapeHtml(cardLabel)} needs you to verify with your bank (3D Secure). The charge will not complete until you finish verification.</p>
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.5;">To finish recharging your DCP balance with <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong>, your bank needs you to complete 3D Secure verification.</p>
+    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;font-weight:500;">Verification links typically expire in 15&ndash;30 minutes — please complete it soon, otherwise your DCP balance won&rsquo;t be topped up and the next inference job may hit the insufficient-balance gate.</p>
     ${brandMetaRows([
       { label: 'Amount', value: `${amountLabel} SAR` },
       { label: 'Card', value: cardLabel },
     ])}
   `;
   const bodyAr = `
-    <p style="color:#A0A0B0;font-size:14px;margin:0 0 18px;line-height:1.6;">يتطلّب الشحن التلقائي بقيمة <strong style="color:#E5E5E5;">${escapeHtml(amountLabel)} ريال</strong> باستخدام ${escapeHtml(cardLabel)} تحقّقاً من بنكك (3D Secure). لن يكتمل الخصم إلا بعد التحقّق.</p>
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.6;">لإتمام شحن رصيدك في DCP باستخدام <strong style="color:#E5E5E5;">${escapeHtml(cardLabel)}</strong>، يطلب البنك التحقّق عبر 3D Secure.</p>
+    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;font-weight:500;">عادةً ما تنتهي صلاحية رابط التحقّق خلال ١٥&ndash;٣٠ دقيقة — يُرجى إتمام التحقّق قريباً وإلا لن يُشحن رصيدك وقد ترفض المهمة التالية.</p>
     ${brandMetaRows([
       { label: 'المبلغ', value: `${amountLabel} ريال` },
       { label: 'البطاقة', value: cardLabel },
     ], { rtl: true })}
   `;
   return {
-    subject: `DCP: Verify auto-top-up of ${amountLabel} SAR | يتطلّب التحقّق`,
+    subject: `Action needed: verify ${amountLabel} SAR auto-top-up | تحقّق مطلوب`,
     text: [
       `Your auto-top-up of ${amountLabel} SAR needs 3D Secure verification.`,
+      `Verification links expire in ~15-30 minutes.`,
       `Card: ${cardLabel}`,
       `Verify: ${ctaUrl}`,
     ].join('\n'),
