@@ -2063,6 +2063,9 @@ router.get('/me', async (req, res) => {
                 today_earnings_halala: todayEarnings.total,
                 week_earnings_halala: weekEarnings.total,
                 month_earnings_halala: monthEarnings.total,
+                // Surfaced so the dashboard can prompt providers with claimable
+                // balance but no IBAN to register one (banner on /provider).
+                claimable_earnings_halala: Number(provider.claimable_earnings_halala || 0),
                 active_job: activeJob || null,
                 // Moyasar payout-account fields (migration 020). Codex PR #427
                 // P2 fix: PayoutAccountPanel needs these to render saved IBAN.

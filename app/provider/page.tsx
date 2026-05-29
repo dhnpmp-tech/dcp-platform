@@ -25,6 +25,11 @@ interface ProviderData {
   todayEarnings: number
   weekEarnings: number
   totalEarnings: number
+  // Claimable balance + IBAN registration state, surfaced for the
+  // "register payout IBAN" banner that prompts providers who have earned
+  // SAR but never completed the wizard's payout step (or skipped it).
+  claimableEarningsHalala: number
+  payoutIban: string | null
   jobsCompleted: number
   gpuUptime: number
   gpuModel: string
@@ -370,6 +375,8 @@ function ProviderDashboardInner() {
           todayEarnings: (provider.today_earnings_halala || 0) / 100,
           weekEarnings: (provider.week_earnings_halala || 0) / 100,
           totalEarnings: (provider.total_earnings_halala || 0) / 100,
+          claimableEarningsHalala: provider.claimable_earnings_halala || 0,
+          payoutIban: provider.payout_iban || null,
           jobsCompleted: provider.total_jobs || 0,
           gpuUptime: provider.uptime_percent || 0,
           gpuModel: provider.gpu_model || 'Unknown GPU',
@@ -534,6 +541,34 @@ function ProviderDashboardInner() {
         {providerData.approvalStatus === 'rejected' && (
           <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-100 text-sm">
             {t('provider.rejected').replace('{reason}', providerData.rejectedReason || 'No reason provided')}
+          </div>
+        )}
+
+        {/* Payout IBAN reminder — shown when claimable balance > 0 SAR but
+            no IBAN registered. Auto-payout via Moyasar can't run without
+            this; the wizard's "skip for now" path lands providers here
+            eventually. */}
+        {providerData.claimableEarningsHalala > 0 && !providerData.payoutIban && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-dc1-amber/30 bg-dc1-amber/10 text-sm"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <svg className="w-5 h-5 text-dc1-amber shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-dc1-amber font-medium">
+                You&rsquo;ve earned {(providerData.claimableEarningsHalala / 100).toFixed(2)} SAR
+                but haven&rsquo;t registered a payout IBAN yet. Add one to receive payments automatically.
+              </span>
+            </div>
+            <Link
+              href="/provider/settings"
+              className="px-3 py-1.5 bg-dc1-amber text-dc1-void text-xs font-semibold rounded-md hover:bg-dc1-amber/90 transition-colors min-h-[44px] flex items-center whitespace-nowrap"
+            >
+              Register IBAN
+            </Link>
           </div>
         )}
 
