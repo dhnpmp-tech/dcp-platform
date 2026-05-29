@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { LanguageWrapper } from './lib/i18n'
-import CookieConsent from './components/ui/CookieConsent'
-import LanguagePreferenceModal from './components/ui/LanguagePreferenceModal'
-import ChatWidget from './components/ui/ChatWidget'
+import V1GlobalChrome from './components/ui/V1GlobalChrome'
 
 export const metadata: Metadata = {
   title: 'DCP — Saudi GPU Compute Marketplace',
@@ -29,9 +27,7 @@ export default function RootLayout({
       <body className="font-inter bg-dc1-void text-dc1-text-primary antialiased">
         <LanguageWrapper>
           {children}
-          <CookieConsent />
-          <LanguagePreferenceModal />
-          <ChatWidget />
+          <V1GlobalChrome />
         </LanguageWrapper>
       </body>
     </html>

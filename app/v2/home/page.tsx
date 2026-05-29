@@ -1,0 +1,1761 @@
+'use client'
+
+// v2 marketing Home — ported from prototypes/Home.html (Midnight design system).
+// dcp-kit.css is imported by app/v2/layout.tsx; only the co-located page CSS is
+// imported here. The data-en/data-ar swap is handled by V2Provider + <Bi>.
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import './home.css'
+
+// ───────── marquee items ─────────
+const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
+  { en: 'Inference and agents, in the Kingdom', ar: 'استدلال ووكلاء، داخل المملكة' },
+  { en: 'Pay per token · Saudi Riyal', ar: 'ادفع لكل رمز · بالريال السعودي' },
+  { en: 'DCP-Agent for Saudi business · agents.dcp.sa', ar: 'DCP-Agent للأعمال السعودية · agents.dcp.sa' },
+  { en: 'Earn Riyal from your GPU', ar: 'اكسب ريالاً من معالجك' },
+  { en: 'PDPL · Saudi data residency', ar: 'نظام البيانات · إقامة داخل المملكة' },
+]
+
+// ───────── nav links ─────────
+const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }> = [
+  { href: '/v2/home', en: 'Overview', ar: 'نظرة عامة', on: true },
+  { href: '#marketplace', en: 'Marketplace', ar: 'السوق' },
+  { href: '#agents', en: 'Agents', ar: 'الوكلاء' },
+  { href: '#', en: 'Pricing', ar: 'الأسعار' },
+  { href: '#', en: 'Docs', ar: 'التوثيق' },
+]
+
+// ───────── marketplace rows ─────────
+const MARKET_ROWS = [
+  { gpu: 'NVIDIA H100 80GB', spec: 'SXM5 · NVLink', provider: 'Tuwaiq Compute', region: 'RUH-1 · Riyadh', util: 0.84, price: 'SAR 14.20', rel: '99.9%' },
+  { gpu: 'NVIDIA A100 80GB', spec: 'HBM2e · 312 TFLOPS', provider: 'NEOM Edge Labs', region: 'NEOM-1 · Oxagon', util: 0.62, price: 'SAR 6.20', rel: '99.7%' },
+  { gpu: 'NVIDIA L40S 48GB', spec: 'Ada · 91 TFLOPS', provider: 'Aramco Innovations', region: 'DMM-1 · Dammam', util: 0.74, price: 'SAR 3.40', rel: '99.8%' },
+  { gpu: 'NVIDIA RTX 4090 24GB', spec: 'Ada · consumer · 82 TFLOPS', provider: 'Jeddah Studios', region: 'JED-1 · Red Sea', util: 0.91, price: 'SAR 2.10', rel: '99.4%' },
+  { gpu: 'NVIDIA RTX 3090 24GB', spec: 'Ampere · consumer · 35.7 TFLOPS', provider: 'Mansouri Cloud', region: 'RUH-1 · KAFD', util: 0.55, price: 'SAR 1.40', rel: '99.1%' },
+  { gpu: 'NVIDIA A6000 48GB', spec: 'Ampere pro · 38.7 TFLOPS', provider: 'KAUST Cluster', region: 'JED-1 · Thuwal', util: 0.68, price: 'SAR 4.80', rel: '99.6%' },
+]
+
+// ───────── how-it-works stations ─────────
+const HIW_STATIONS = [
+  { n: '01', g: 'أ', en: 'Arabic in', ar: 'عربية دخولاً', sen: 'User types or speaks', sar: 'المستخدم يكتب أو يتحدّث', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
+  { n: '02', g: '⇄', en: 'Arabic → English', ar: 'عربي → إنجليزي', sen: 'Sovereign translation', sar: 'ترجمة سيادية', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
+  { n: '03', g: '◇', en: 'Router', ar: 'الموجّه', sen: 'Picks the best model', sar: 'يختار أفضل نموذج', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
+  { n: '04', g: '◆', en: 'Best model runs', ar: 'أفضل نموذج يعمل', sen: 'Sovereign by default · frontier opt-in', sar: 'سيادي افتراضياً · متقدّم بإذن', flagEn: '🇸🇦 KSA / opt-in', flagAr: '🇸🇦 المملكة / بإذن', frontier: true },
+  { n: '05', g: '⇄', en: 'English → Arabic', ar: 'إنجليزي → عربي', sen: 'Native Arabic out', sar: 'عربية أصيلة', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
+  { n: '06', g: 'أ', en: 'Arabic out', ar: 'عربية خروجاً', sen: 'User reads or hears', sar: 'المستخدم يقرأ أو يسمع', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
+]
+
+type QsTab = 'curl' | 'cli' | 'py' | 'js'
+
+export default function V2HomePage() {
+  const { lang, toggle } = useV2()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [qsTab, setQsTab] = useState<QsTab>('curl')
+  const [copied, setCopied] = useState(false)
+
+  // mesh utilisation jitter (cosmetic; gated for reduced motion)
+  const [util, setUtil] = useState(76)
+  const utilRef = useRef(76)
+  const codeRef = useRef<HTMLPreElement | null>(null)
+
+  useEffect(() => {
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) return
+    const id = window.setInterval(() => {
+      let p = utilRef.current + (Math.random() - 0.5) * 4
+      p = Math.max(58, Math.min(92, p))
+      utilRef.current = p
+      setUtil(Math.round(p))
+    }, 1400)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const headroom = useMemo(() => Math.round((100 - util) * 3.46), [util])
+
+  // close mobile menu on Escape
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menuOpen])
+
+  const copyCode = () => {
+    const text = codeRef.current?.textContent ?? ''
+    if (!text) return
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1600)
+      })
+      .catch(() => {
+        /* clipboard unavailable — ignore */
+      })
+  }
+
+  return (
+    <div style={{ background: 'var(--bg)', color: 'var(--ink)', minHeight: '100vh', fontFamily: 'var(--sans)' }}>
+      {/* ───────── Top marquee ───────── */}
+      <div className="v2-marq">
+        <div className="in">
+          {[...MARQUEE, ...MARQUEE].map((m, i) => (
+            <span key={`marq-${i}`}>
+              <Bi en={m.en} ar={m.ar} />
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ───────── Nav ───────── */}
+      <header className="v2-topbar">
+        <div className="left">
+          <Link href="/v2/home" className="brand-name">
+            DCP<i>∞</i>
+          </Link>
+          <nav>
+            {NAV.map((item) => (
+              <a key={item.en} href={item.href} className={item.on ? 'on' : undefined}>
+                <Bi en={item.en} ar={item.ar} />
+              </a>
+            ))}
+          </nav>
+        </div>
+        <div className="right">
+          <div className="lang-pill" id="lang-pill" onClick={toggle} role="group" aria-label="Language">
+            <button type="button" data-l="en" className={lang === 'en' ? 'on' : undefined}>
+              EN
+            </button>
+            <button type="button" data-l="ar" className={lang === 'ar' ? 'on' : undefined}>
+              ع
+            </button>
+          </div>
+          <a className="btn small ghost" href="#">
+            <Bi en="Sign in" ar="دخول" />
+          </a>
+          <a className="btn small primary" href="#">
+            <Bi en="Start free →" ar="ابدأ مجاناً ←" />
+          </a>
+          <button
+            type="button"
+            className="menu-toggle"
+            id="menu-toggle"
+            aria-label="Menu"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {menuOpen ? '✕' : '☰'}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile menu — full-screen editorial overlay */}
+      <div className={menuOpen ? 'v2-mobile-menu on' : 'v2-mobile-menu'} id="mobile-menu">
+        {/* Background Najdi Kufic glyph echo */}
+        <div className="mm-glyph" aria-hidden="true">
+          <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+            <g className="ms" transform="translate(180 110)">
+              <path d="M 0 0 H 180 V 60 H 60 V 220 H 180 V 280 H 0 Z" />
+              <path d="M 260 0 H 460 V 60 H 320 V 160 H 460 V 220 H 380 V 280 H 260 Z M 380 100 H 460 V 160 H 380 Z" />
+              <path d="M 540 0 H 720 V 60 H 600 V 220 H 720 V 280 H 540 Z M 660 100 H 720 V 160 H 660 Z" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="mm-head">
+          <span className="brand-name">
+            DCP<i>∞</i>
+          </span>
+          <button type="button" className="mm-close" id="mm-close" aria-label="Close" onClick={() => setMenuOpen(false)}>
+            ✕
+          </button>
+        </div>
+        <div className="mm-body" onClick={(e) => {
+          if ((e.target as HTMLElement).closest('a')) setMenuOpen(false)
+        }}>
+          <div className="mm-section">
+            <Bi en="Explore" ar="تصفّح" />
+          </div>
+          <a className="mm-link" href="/v2/home">
+            <span className="n">01</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Overview" ar="نظرة عامة" />
+              </span>
+              <span className="ar">نظرة عامة</span>
+              <span className="s">
+                <Bi en="Sovereign Arabic AI runtime" ar="بيئة تشغيل عربية سيادية" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+          <a className="mm-link" href="#">
+            <span className="n">02</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Demo" ar="تجربة" />
+              </span>
+              <span className="ar">تجربة</span>
+              <span className="s">
+                <Bi en="Watch the round-trip" ar="شاهد الدورة" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+          <a className="mm-link" href="#">
+            <span className="n">03</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Pricing" ar="الأسعار" />
+              </span>
+              <span className="ar">الأسعار</span>
+              <span className="s">
+                <Bi en="Per-million-token · SAR" ar="لكل مليون رمز · بالريال" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+
+          <div className="mm-section">
+            <Bi en="Build & operate" ar="ابن وشغّل" />
+          </div>
+          <a className="mm-link" href="#marketplace">
+            <span className="n">04</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Marketplace" ar="السوق" />
+              </span>
+              <span className="ar">السوق</span>
+              <span className="s">
+                <Bi en="40+ KSA providers" ar="٤٠+ مزوّد" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+          <a className="mm-link" href="#agents">
+            <span className="n">05</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Agents" ar="الوكلاء" />
+              </span>
+              <span className="ar">الوكلاء</span>
+              <span className="s">
+                <Bi en="Live at agents.dcp.sa" ar="على agents.dcp.sa" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+          <a className="mm-link" href="#">
+            <span className="n">06</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Docs" ar="التوثيق" />
+              </span>
+              <span className="ar">التوثيق</span>
+              <span className="s">
+                <Bi en="API · CLI · SDKs" ar="واجهة · سطر أوامر · مكتبات" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+
+          <div className="mm-section">
+            <Bi en="Trust" ar="الثقة" />
+          </div>
+          <a className="mm-link" href="#">
+            <span className="n">07</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="Sovereignty" ar="السيادة" />
+              </span>
+              <span className="ar">السيادة</span>
+              <span className="s">
+                <Bi en="Where your data lives" ar="أين تعيش بياناتك" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+        </div>
+        <div className="mm-foot">
+          <span className="stamp">DC Power Solutions · CR 7053667775</span>
+          <a href="#" className="btn small primary">
+            <Bi en="Start free →" ar="ابدأ مجاناً ←" />
+          </a>
+        </div>
+      </div>
+
+      {/* ═══════════════ HERO ═══════════════ */}
+      <section className="home-hero">
+        {/* Najdi-inspired Arabic glyph watermark */}
+        <div className="hero-glyph" aria-hidden="true">
+          <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="#2dd4b6" />
+                <stop offset=".55" stopColor="#6bb39a" />
+                <stop offset="1" stopColor="#ee7a3c" />
+              </linearGradient>
+            </defs>
+            {/*
+              A hand-tuned Najdi-style square Kufic composition of the letters
+              د · ج · ب (the consonants of DCP read in Arabic).
+            */}
+            <g className="stroke-a" transform="translate(200 110) scale(1)">
+              {/* د */}
+              <path d="M 0 0 H 180 V 60 H 60 V 220 H 180 V 280 H 0 Z" />
+              {/* ج */}
+              <path d="M 260 0 H 460 V 60 H 320 V 160 H 460 V 220 H 380 V 280 H 260 Z M 380 100 H 460 V 160 H 380 Z" />
+              {/* ب */}
+              <path d="M 540 0 H 720 V 60 H 600 V 220 H 720 V 280 H 540 Z M 660 100 H 720 V 160 H 660 Z" />
+              {/* Decorative knots in the Najdi border tradition */}
+              <path d="M -40 -40 H 760 V 320 H -40 Z" strokeDasharray="4 12" opacity=".6" />
+            </g>
+            <g className="stroke-b" transform="translate(200 110) scale(1)">
+              <path d="M 0 0 H 180 V 60 H 60 V 220 H 180 V 280 H 0 Z" />
+              <path d="M 260 0 H 460 V 60 H 320 V 160 H 460 V 220 H 380 V 280 H 260 Z" />
+              <path d="M 540 0 H 720 V 60 H 600 V 220 H 720 V 280 H 540 Z" />
+            </g>
+          </svg>
+        </div>
+
+        {/* Saudi network map */}
+        <div className="saudi-map" aria-hidden="true">
+          <svg viewBox="0 0 1000 850" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="mapLink" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#2dd4b6" stopOpacity=".7" />
+                <stop offset="1" stopColor="#ee7a3c" stopOpacity=".7" />
+              </linearGradient>
+            </defs>
+
+            <g className="grid">
+              <path d="M 0 100 H 1000 M 0 300 H 1000 M 0 500 H 1000 M 0 700 H 1000" />
+              <path d="M 227 0 V 850 M 455 0 V 850 M 683 0 V 850 M 911 0 V 850" />
+            </g>
+
+            <path
+              className="border2"
+              d="M 45 125 L 182 5 L 318 45 L 455 75 L 591 100 L 614 175 L 660 230 L 705 270 L 728 285 L 760 305 L 778 325 L 768 348 L 740 360 L 815 385 L 900 420 L 970 455 L 945 490 L 910 540 L 845 590 L 745 660 L 645 720 L 555 770 L 470 765 L 380 745 L 295 710 L 240 645 L 215 565 L 218 520 L 225 470 L 200 400 L 175 320 L 145 250 L 110 195 L 75 155 Z"
+            />
+            <path
+              className="border"
+              d="M 45 125 L 182 5 L 318 45 L 455 75 L 591 100 L 614 175 L 660 230 L 705 270 L 728 285 L 760 305 L 778 325 L 768 348 L 740 360 L 815 385 L 900 420 L 970 455 L 945 490 L 910 540 L 845 590 L 745 660 L 645 720 L 555 770 L 470 765 L 380 745 L 295 710 L 240 645 L 215 565 L 218 520 L 225 470 L 200 400 L 175 320 L 145 250 L 110 195 L 75 155 Z"
+            />
+
+            <path className="link a" d="M 578 365 L 728 280" />
+            <path className="link a" d="M 578 365 L 227 525" />
+            <path className="link b" d="M 578 365 L 45 200" />
+            <path className="link b" d="M 728 280 L 45 200" />
+            <path className="link b" d="M 227 525 L 45 200" />
+            <path className="link a" d="M 227 525 L 728 280" />
+
+            <circle className="halo b" cx="578" cy="365" r="6" />
+            <circle className="halo c" cx="227" cy="525" r="6" />
+            <circle className="halo d" cx="728" cy="280" r="6" />
+            <circle className="halo e" cx="45" cy="200" r="6" />
+
+            <circle className="node" cx="578" cy="365" r="5" />
+            <circle className="node" cx="227" cy="525" r="4" />
+            <circle className="node orange" cx="728" cy="280" r="4" />
+            <circle className="node orange" cx="45" cy="200" r="4" />
+
+            <text className="label l" x="596" y="361">RUH-1</text>
+            <text className="label" x="596" y="375">Riyadh</text>
+            <text className="label l" x="245" y="521">JED-1</text>
+            <text className="label" x="245" y="535">Jeddah</text>
+            <text className="label l" x="746" y="276">DMM-1</text>
+            <text className="label" x="746" y="290">Dammam</text>
+            <text className="label l" x="63" y="196">NEOM-1</text>
+            <text className="label" x="63" y="210">NEOM</text>
+          </svg>
+        </div>
+
+        <div className="wrap">
+          <div className="home-hero-grid">
+            <div>
+              <span className="eyebrow">
+                <Bi
+                  en="§ DCP · Sovereign Arabic AI Runtime · KSA"
+                  ar="§ DCP · بيئة تشغيل الذكاء الاصطناعي العربي السيادية · المملكة"
+                />
+              </span>
+              <h1>
+                {lang === 'ar' ? (
+                  <>
+                    ذكاء اصطناعي عربي <em>يعيش داخل المملكة.</em>
+                  </>
+                ) : (
+                  <>
+                    Arabic AI that <em>lives in the Kingdom.</em>
+                  </>
+                )}
+              </h1>
+              <p className="lead">
+                <Bi
+                  en="Inference and agents, served from inside the Kingdom. Your data stays here. You pay for what you use, in Riyal."
+                  ar="استدلال ووكلاء، تُقدّم من داخل المملكة. بياناتك تبقى هنا. تدفع مقابل ما تستخدم فقط، بالريال."
+                />
+              </p>
+              <div className="ctas">
+                <a className="btn primary lg magnet" href="#">
+                  <Bi en="Try the live demo →" ar="جرّب التجربة الحية ←" />
+                </a>
+                <a className="btn ghost lg" href="#">
+                  <Bi en="Start free · no card" ar="ابدأ مجاناً · بلا بطاقة" />
+                </a>
+              </div>
+              <div className="res-row">
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> <span><Bi en="Inference · KSA" ar="الاستدلال · المملكة" /></span>
+                </span>
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> <span><Bi en="Agents · KSA" ar="الوكلاء · المملكة" /></span>
+                </span>
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> <span><Bi en="GPUs · KSA" ar="معالجات · المملكة" /></span>
+                </span>
+                <span className="residency-badge cross">
+                  <span className="flag">🌐</span> <span><Bi en="Frontier · opt-in only" ar="متقدم · بإذن فقط" /></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ HOW IT WORKS ═══════════════ */}
+      <section className="hiw">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ How it works" ar="§ كيف يعمل" />
+            </span>
+            <span>
+              <Bi en="Arabic in · Arabic out · round-trip" ar="عربية دخولاً · عربية خروجاً · دورة كاملة" />
+            </span>
+          </div>
+
+          <div className="hiw-brand">
+            <span className="hiw-wm">
+              DCP<em>∞</em>
+            </span>
+            <span className="hiw-tag">
+              {lang === 'ar' ? (
+                <>
+                  ذكاء عربي سيادي · <em>مبني في المملكة</em>
+                </>
+              ) : (
+                <>
+                  Sovereign Arabic AI · <em>built in the Kingdom</em>
+                </>
+              )}
+            </span>
+          </div>
+
+          <div className="hiw-flow">
+            <div className="hiw-row" aria-hidden="true">
+              {HIW_STATIONS.map((s) => (
+                <div key={s.n} className={s.frontier ? 'hiw-st ksa frontier' : 'hiw-st ksa'}>
+                  <span className="hiw-n">{s.n}</span>
+                  <span className="hiw-g">{s.g}</span>
+                  <h4 className="hiw-h">
+                    <Bi en={s.en} ar={s.ar} />
+                  </h4>
+                  <span className="hiw-sub">
+                    <Bi en={s.sen} ar={s.sar} />
+                  </span>
+                  <span className="hiw-flag">
+                    <Bi en={s.flagEn} ar={s.flagAr} />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="hiw-foot">
+            {lang === 'ar' ? (
+              <>
+                المراحل الست تعمل على <b>معالجات داخل المملكة</b> افتراضياً. النماذج المتقدمة (DeepSeek) مغلقة حتى تأذن بها — بياناتك، وقرارك.
+              </>
+            ) : (
+              <>
+                All six stages live on <b>KSA-resident GPUs</b> by default. Frontier (DeepSeek) stays off unless you opt in — your data, your decision.
+              </>
+            )}
+          </p>
+        </div>
+      </section>
+
+      {/* ═══════════════ MARKETPLACE ═══════════════ */}
+      <section id="marketplace">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 01 · The GPU mesh · live marketplace" ar="§ ٠١ · شبكة المعالجات · سوق مباشر" />
+            </span>
+            <span>
+              <Bi en="The substrate · transparent · KSA-resident" ar="البنية · شفّافة · داخل المملكة" />
+            </span>
+          </div>
+
+          <div className="demand-v2">
+            <div className="left">
+              <div className="demand-label">
+                <span>
+                  <Bi
+                    en="Mesh utilisation · last 5 min · across all in-Kingdom providers"
+                    ar="استخدام الشبكة · آخر ٥ دقائق · عبر كل المزوّدين"
+                  />
+                </span>
+                <b>
+                  <span id="util-pct">{util}</span>%
+                </b>
+              </div>
+              <div className="demand-bar">
+                <span id="util-bar" style={{ transform: `scaleX(${util / 100})`, transformOrigin: 'left' }} />
+              </div>
+            </div>
+            <div className="right">
+              <span>
+                <Bi en="Available headroom" ar="السعة المتاحة" />
+              </span>
+              <br />
+              <b>
+                <span id="headroom">{headroom}</span> GPUs · 4 regions
+              </b>
+            </div>
+          </div>
+
+          <div className="mk-wrap">
+            <table className="mp-table">
+              <thead>
+                <tr>
+                  <th><Bi en="GPU class" ar="فئة المعالج" /></th>
+                  <th><Bi en="Provider · Region" ar="المزوّد · المنطقة" /></th>
+                  <th><Bi en="Utilisation" ar="الاستخدام" /></th>
+                  <th><Bi en="On-demand · SAR/hr" ar="عند الطلب · ريال/ساعة" /></th>
+                  <th><Bi en="Reliability" ar="موثوقية" /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {MARKET_ROWS.map((r) => (
+                  <tr key={r.gpu}>
+                    <td>
+                      <span className="gpu">{r.gpu}</span>
+                      <small>{r.spec}</small>
+                    </td>
+                    <td>
+                      <span className="provider">{r.provider}</span>
+                      <br />
+                      <span className="region">
+                        <span className="pin" /> {r.region}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="util-cell">
+                        <div className="util-bar">
+                          <span style={{ transform: `scaleX(${r.util})` }} />
+                        </div>
+                        <span className="util-val">{Math.round(r.util * 100)}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="price">
+                        {r.price}
+                        <span className="u">/hr</span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className="tag" style={{ color: 'var(--teal)', fontFamily: 'var(--mono)', fontSize: 11 }}>
+                        {r.rel}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mp-foot">
+            <span>
+              <Bi
+                en="Live capacity across the KSA-resident provider network"
+                ar="سعة متاحة عبر شبكة المزوّدين داخل المملكة"
+              />
+            </span>
+            <a href="#">
+              <Bi en="Browse the full marketplace →" ar="تصفّح السوق كاملاً ←" />
+            </a>
+          </div>
+
+          <div className="callout" style={{ marginTop: 32 }}>
+            {lang === 'ar' ? (
+              <>
+                <b>أنت تشتري الرموز، لا المعالجات.</b> السوق أعلاه هو البنية التي يستخدمها الموجّه. إن أردت تحديداً إيجار معالجات خام للتدريب أو الدفعات — فذلك في صفحة المزوّدين؛ والعقود القائمة بساعات المعالج مُحتَرمة حتى نهايتها.
+              </>
+            ) : (
+              <>
+                <b>You buy tokens, not GPUs.</b> The marketplace above is the substrate the router draws on. If you specifically want raw GPU rental for training or batch — that&rsquo;s on the Providers page; existing GPU-hour contracts are honoured through their term.
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ THREE LAYERS ═══════════════ */}
+      <section>
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 02 · Three layers, one runtime" ar="§ ٠٢ · ثلاث طبقات، بيئة تشغيل واحدة" />
+            </span>
+            <span>
+              <Bi en="Inference · Agents · Sovereignty" ar="استدلال · وكلاء · سيادة" />
+            </span>
+          </div>
+          <div className="layers">
+            <div className="layer">
+              <span className="n">
+                <Bi en="01 · Inference" ar="٠١ · استدلال" />
+              </span>
+              <h3>
+                <Bi en="One API. Per-million-token billing." ar="واجهة برمجة واحدة. فوترة لكل مليون رمز." />
+              </h3>
+              <p>
+                <Bi
+                  en="OpenAI-compatible chat, embedding, and rerank endpoints, served from KSA-resident GPUs. Arabic-first, open-source model lineup. Frontier models stay off unless you opt in."
+                  ar="نقاط نهاية محادثة وتضمين وإعادة ترتيب متوافقة مع OpenAI، تعمل على معالجات داخل المملكة. باقة نماذج مفتوحة عربية أولاً. النماذج المتقدمة تبقى مغلقة حتّى تفتحها."
+                />
+              </p>
+              <ul>
+                <li><Bi en="OpenAI SDK · no rewrite needed" ar="SDK OpenAI · بلا إعادة كتابة" /></li>
+                <li><Bi en="Streaming · function calling · JSON mode" ar="بثّ · استدعاء دوال · JSON" /></li>
+                <li><Bi en="Halala-grained billing · SAR + USDC" ar="فوترة بالهللة · ريال + USDC" /></li>
+              </ul>
+              <div className="end">
+                <span>api.dcp.sa / v1</span>
+                <a href="#">
+                  <Bi en="See rates →" ar="عرض الأسعار ←" />
+                </a>
+              </div>
+            </div>
+            <div className="layer">
+              <span className="n">
+                <Bi en="02 · Agents" ar="٠٢ · وكلاء" />
+              </span>
+              <h3>
+                {lang === 'ar' ? (
+                  <>
+                    DCP-Agent. <em>جاهز للمنشآت.</em>
+                  </>
+                ) : (
+                  <>
+                    DCP-Agent. <em>Live for SMB.</em>
+                  </>
+                )}
+              </h3>
+              <p>
+                {lang === 'ar' ? (
+                  <>
+                    وكيل الذكاء العربي للمنشآت السعودية الصغيرة والمتوسطة. جاهز وفي الإنتاج على <b>agents.dcp.sa</b>. والنسخة الشخصية المجانية لكل مواطن سعودي قريباً.
+                  </>
+                ) : (
+                  <>
+                    The Arabic AI agent for Saudi small &amp; mid-size businesses. Already in production at <b>agents.dcp.sa</b>. Free personal version for every Saudi is coming.
+                  </>
+                )}
+              </p>
+              <div className="end">
+                <span>agents.dcp.sa</span>
+                <a href="https://agents.dcp.sa">
+                  <Bi en="Visit →" ar="زر ←" />
+                </a>
+              </div>
+            </div>
+            <div className="layer">
+              <span className="n">
+                <Bi en="03 · Providers" ar="٠٣ · مزوّدون" />
+              </span>
+              <h3>
+                {lang === 'ar' ? (
+                  <>
+                    اكسب ريالاً من <em>معالجك.</em>
+                  </>
+                ) : (
+                  <>
+                    Earn SAR with <em>your GPU.</em>
+                  </>
+                )}
+              </h3>
+              <p>
+                <Bi
+                  en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and starts earning. 100–270 tok/s on consumer GPUs from RTX 3060 Ti to RTX 5090. Auto NAT traversal via Cloudflare Tunnel — no port forwarding."
+                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال (Ollama أو MLX)، ويبدأ الربح. ١٠٠-٢٧٠ رمز/ثانية على معالجات استهلاكية من RTX 3060 Ti إلى RTX 5090. عبور NAT تلقائي عبر Cloudflare Tunnel — دون فتح منافذ."
+                />
+              </p>
+              <ul>
+                <li><Bi en="Windows · macOS Apple Silicon · Linux" ar="Windows · macOS Apple Silicon · Linux" /></li>
+                <li><Bi en="4 MB app · zero config · Cloudflare Tunnel" ar="٤ ميغابايت · بلا إعداد · Cloudflare Tunnel" /></li>
+                <li><Bi en="75% provider · 25% platform · monthly SAR payout" ar="٧٥٪ للمزوّد · ٢٥٪ للمنصّة · دفع شهري بالريال" /></li>
+              </ul>
+              <div className="end">
+                <span>dcp.sa / setup</span>
+                <a href="#">
+                  <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ QUICK START ═══════════════ */}
+      <section id="quickstart">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 03 · Quick start" ar="§ ٠٣ · البدء السريع" />
+            </span>
+            <span>
+              <Bi en="cURL · CLI · Python SDK" ar="cURL · CLI · Python SDK" />
+            </span>
+          </div>
+
+          <div className="qs-wrap">
+            <div className="qs-left">
+              <h2 className="st">
+                {lang === 'ar' ? (
+                  <>
+                    ثلاثة أسطر من <em>الصفر</em> إلى إجابة عربية.
+                  </>
+                ) : (
+                  <>
+                    Three lines from <em>nothing</em> to an Arabic answer.
+                  </>
+                )}
+              </h2>
+              <p className="ss">
+                {lang === 'ar' ? (
+                  <>
+                    استخدم SDK OpenAI كما هو — تغيّر فقط الرابط الأساسي والمفتاح. واجهة سطر الأوامر <code>dcp</code> تأتي بأمر استدلال مباشر وإعدادات لكل مستأجر. مكتبات Python وNode غلاف رقيق يمكن استبداله بـOpenAI في أي وقت.
+                  </>
+                ) : (
+                  <>
+                    Drop your existing OpenAI SDK in — only the base URL and key change. The official <code>dcp</code> CLI ships with a one-shot inference command and per-tenant config. Python and Node SDKs are thin wrappers; you can swap in for OpenAI&rsquo;s any time.
+                  </>
+                )}
+              </p>
+              <div className="stamps">
+                <span className="stamp"><Bi en="OpenAI-compat · v1" ar="متوافق مع OpenAI · v1" /></span>
+                <span className="stamp"><Bi en="Streaming · SSE" ar="بثّ · SSE" /></span>
+                <span className="stamp"><Bi en="Function calling" ar="استدعاء دوال" /></span>
+                <span className="stamp"><Bi en="JSON mode" ar="وضع JSON" /></span>
+                <span className="stamp"><Bi en="200k context · frontier" ar="سياق ٢٠٠ ألف · متقدم" /></span>
+              </div>
+              <div style={{ marginTop: 30, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <a className="btn ghost" href="#">
+                  <Bi en="Read the API docs →" ar="اقرأ توثيق الواجهة ←" />
+                </a>
+                <a className="btn ghost" href="#">
+                  <Bi en="Get your API key" ar="احصل على مفتاحك" />
+                </a>
+              </div>
+            </div>
+
+            <div className="qs-card">
+              <div className="qs-tabs">
+                <button type="button" className={qsTab === 'curl' ? 'on' : undefined} onClick={() => setQsTab('curl')}>
+                  cURL
+                </button>
+                <button type="button" className={qsTab === 'cli' ? 'on' : undefined} onClick={() => setQsTab('cli')}>
+                  CLI · dcp
+                </button>
+                <button type="button" className={qsTab === 'py' ? 'on' : undefined} onClick={() => setQsTab('py')}>
+                  Python
+                </button>
+                <button type="button" className={qsTab === 'js' ? 'on' : undefined} onClick={() => setQsTab('js')}>
+                  Node
+                </button>
+                <div className="spacer" />
+                <button
+                  type="button"
+                  className={copied ? 'copy done' : 'copy'}
+                  id="copy-btn"
+                  onClick={copyCode}
+                >
+                  {copied ? (lang === 'ar' ? 'نُسخ ✓' : 'Copied ✓') : lang === 'ar' ? 'نسخ' : 'Copy'}
+                </button>
+              </div>
+
+              <div className={qsTab === 'curl' ? 'qs-body on' : 'qs-body'} data-tab="curl">
+                <pre ref={qsTab === 'curl' ? codeRef : undefined}>
+                  <span className="com"># Arabic chat completion · OpenAI-compatible · KSA-resident</span>
+                  {'\n'}
+                  <span className="pmt">$</span> <span className="fn">curl</span> <span className="grad">https://api.dcp.sa/v1/chat/completions</span> \{'\n'}
+                  {'  '}<span className="key">-H</span> <span className="str">&quot;Authorization: Bearer $DCP_KEY&quot;</span> \{'\n'}
+                  {'  '}<span className="key">-H</span> <span className="str">&quot;X-Region: RUH-1&quot;</span> \{'\n'}
+                  {'  '}<span className="key">-H</span> <span className="str">&quot;Content-Type: application/json&quot;</span> \{'\n'}
+                  {'  '}<span className="key">-d</span> <span className="str">{`'{
+    "model": "allam-7b",
+    "stream": true,
+    "messages": [
+      { "role": "user",
+        "content": "ما حكم زكاة الراتب الشهري إذا لم يبلغ النصاب إلا بعد جمعه لسنة؟" }
+    ]
+  }'`}</span>
+                  {'\n\n'}
+                  <span className="com">{`# → streams Arabic answer with cited sources (verifier-checked)
+# → settled in halala against your wallet at end of stream`}</span>
+                </pre>
+              </div>
+
+              <div className={qsTab === 'cli' ? 'qs-body on' : 'qs-body'} data-tab="cli">
+                <pre ref={qsTab === 'cli' ? codeRef : undefined}>
+                  <span className="com"># One-line install · macOS · Linux · Windows</span>
+                  {'\n'}
+                  <span className="pmt">$</span> <span className="fn">npm</span> install <span className="key">-g</span> <span className="str">@dcp/cli</span>
+                  {'\n\n'}
+                  <span className="com"># Authenticate once · stores key in ~/.dcprc (encrypted at rest)</span>
+                  {'\n'}
+                  <span className="pmt">$</span> <span className="fn">dcp</span> login{'\n'}
+                  {'  '}<span className="grad">→ Opens console.dcp.sa to fetch a tenant-scoped key</span>
+                  {'\n\n'}
+                  <span className="com"># Run inference · streams Arabic answer to stdout</span>
+                  {'\n'}
+                  <span className="pmt">$</span> <span className="fn">dcp</span> run <span className="str">&quot;ما حكم زكاة الراتب الشهري؟&quot;</span> \{'\n'}
+                  {'        '}<span className="key">--model</span> allam-7b \{'\n'}
+                  {'        '}<span className="key">--region</span> RUH-1 \{'\n'}
+                  {'        '}<span className="key">--cite</span>
+                  {'\n\n'}
+                  <span className="com"># Pin sovereign-only · frontier blocked even if router prefers it</span>
+                  {'\n'}
+                  <span className="pmt">$</span> <span className="fn">dcp</span> config set sovereign_only=<span className="num">true</span>
+                  {'\n\n'}
+                  <span className="com"># Show last 24h spend · per-model breakdown</span>
+                  {'\n'}
+                  <span className="pmt">$</span> <span className="fn">dcp</span> usage <span className="key">--since</span> 24h
+                </pre>
+              </div>
+
+              <div className={qsTab === 'py' ? 'qs-body on' : 'qs-body'} data-tab="py">
+                <pre ref={qsTab === 'py' ? codeRef : undefined}>
+                  <span className="com"># pip install openai · standard OpenAI SDK works as-is</span>
+                  {'\n'}
+                  <span className="key">import</span> os{'\n'}
+                  <span className="key">from</span> openai <span className="key">import</span> OpenAI
+                  {'\n\n'}
+                  client = OpenAI({'\n'}
+                  {'    '}base_url=<span className="str">&quot;https://api.dcp.sa/v1&quot;</span>,{'\n'}
+                  {'    '}api_key=os.environ[<span className="str">&quot;DCP_KEY&quot;</span>],{'\n'}
+                  {'    '}default_headers={'{'}<span className="str">&quot;X-Region&quot;</span>: <span className="str">&quot;RUH-1&quot;</span>{'}'},{'\n'}
+                  )
+                  {'\n\n'}
+                  stream = client.chat.completions.create({'\n'}
+                  {'    '}model=<span className="str">&quot;allam-7b&quot;</span>,{'\n'}
+                  {'    '}messages=[{'{'}{'\n'}
+                  {'        '}<span className="str">&quot;role&quot;</span>: <span className="str">&quot;user&quot;</span>,{'\n'}
+                  {'        '}<span className="str">&quot;content&quot;</span>: <span className="str">&quot;ما حكم زكاة الراتب الشهري؟&quot;</span>,{'\n'}
+                  {'    '}{'}'}],{'\n'}
+                  {'    '}stream=<span className="key">True</span>,{'\n'}
+                  {'    '}extra_body={'{'}<span className="str">&quot;cite&quot;</span>: <span className="key">True</span>, <span className="str">&quot;sovereign_only&quot;</span>: <span className="key">True</span>{'}'},{'\n'}
+                  )
+                  {'\n\n'}
+                  <span className="key">for</span> chunk <span className="key">in</span> stream:{'\n'}
+                  {'    '}<span className="fn">print</span>(chunk.choices[<span className="num">0</span>].delta.content <span className="key">or</span> <span className="str">&quot;&quot;</span>, end=<span className="str">&quot;&quot;</span>, flush=<span className="key">True</span>)
+                </pre>
+              </div>
+
+              <div className={qsTab === 'js' ? 'qs-body on' : 'qs-body'} data-tab="js">
+                <pre ref={qsTab === 'js' ? codeRef : undefined}>
+                  <span className="com">{'// npm install openai · standard OpenAI SDK works as-is'}</span>
+                  {'\n'}
+                  <span className="key">import</span> OpenAI <span className="key">from</span> <span className="str">&quot;openai&quot;</span>;
+                  {'\n\n'}
+                  <span className="key">const</span> client = <span className="key">new</span> OpenAI({'{'}{'\n'}
+                  {'  '}baseURL: <span className="str">&quot;https://api.dcp.sa/v1&quot;</span>,{'\n'}
+                  {'  '}apiKey:  process.env.DCP_KEY,{'\n'}
+                  {'  '}defaultHeaders: {'{'} <span className="str">&quot;X-Region&quot;</span>: <span className="str">&quot;RUH-1&quot;</span> {'}'},{'\n'}
+                  {'}'});
+                  {'\n\n'}
+                  <span className="key">const</span> stream = <span className="key">await</span> client.chat.completions.create({'{'}{'\n'}
+                  {'  '}model: <span className="str">&quot;allam-7b&quot;</span>,{'\n'}
+                  {'  '}messages: [{'{'}{'\n'}
+                  {'    '}role:    <span className="str">&quot;user&quot;</span>,{'\n'}
+                  {'    '}content: <span className="str">&quot;ما حكم زكاة الراتب الشهري؟&quot;</span>,{'\n'}
+                  {'  '}{'}'}],{'\n'}
+                  {'  '}stream: <span className="key">true</span>,{'\n'}
+                  {'  // DCP extensions\n'}
+                  {'  '}cite: <span className="key">true</span>,{'\n'}
+                  {'  '}sovereign_only: <span className="key">true</span>,{'\n'}
+                  {'}'});
+                  {'\n\n'}
+                  <span className="key">for await</span> (<span className="key">const</span> chunk <span className="key">of</span> stream) {'{'}{'\n'}
+                  {'  '}process.stdout.write(chunk.choices[<span className="num">0</span>]?.delta?.content ?? <span className="str">&quot;&quot;</span>);{'\n'}
+                  {'}'}
+                </pre>
+              </div>
+
+              <div className="qs-foot">
+                <span>
+                  <Bi
+                    en="api.dcp.sa / v1 · OpenAI-compatible · Arabic-first default"
+                    ar="api.dcp.sa / v1 · متوافق مع OpenAI · افتراضي عربي"
+                  />
+                </span>
+                <a href="#">
+                  <Bi en="Full reference →" ar="المرجع الكامل ←" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ MODELS ═══════════════ */}
+      <section id="models">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 04 · Models we serve" ar="§ ٠٤ · النماذج التي نُقدّمها" />
+            </span>
+            <span>
+              <Bi en="Sovereign by default · Frontier opt-in" ar="سيادي افتراضياً · متقدم بإذن" />
+            </span>
+          </div>
+
+          <div className="mg-grid">
+            <div className="mg">
+              <span className="hot">
+                <span className="d" /> <span><Bi en="Most used" ar="الأكثر استخداماً" /></span>
+              </span>
+              <span className="org">Saudi Data &amp; AI Authority</span>
+              <h4 className="nm">ALLaM-7B-Q4</h4>
+              <span className="tag">
+                <Bi en="Arabic generation · 32k ctx" ar="توليد عربي · ٣٢ ألف سياق" />
+              </span>
+              <p>
+                <Bi
+                  en="Tuned for Modern Standard Arabic with Saudi domain context — Sharia, ZATCA, GoSi, business law, Tadawul filings."
+                  ar="مُدرَّب على العربية الفصحى مع سياق سعودي مباشر — شريعة، ZATCA، تأمينات، نظام شركات، إفصاحات تداول."
+                />
+              </p>
+              <div className="badge-row">
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> KSA
+                </span>
+              </div>
+              <div className="meta">
+                <span>
+                  <b>SAR 0.45/M</b> in · <b>1.80/M</b> out
+                </span>
+                <span><Bi en="default" ar="افتراضي" /></span>
+              </div>
+            </div>
+
+            <div className="mg">
+              <span className="org">BAAI · sovereign-hosted</span>
+              <h4 className="nm">bge-m3</h4>
+              <span className="tag">
+                <Bi en="Embedding · 1024-dim" ar="تضمين · ١٠٢٤ بُعد" />
+              </span>
+              <p>
+                <Bi
+                  en="Multilingual embedding — strong on Arabic + English mixed corpora. The retrieval backbone for every RAG agent on DCP."
+                  ar="تضمين متعدد اللغات — قوي على مراجع عربية-إنجليزية مختلطة. العمود الفقري لكل وكيل RAG على DCP."
+                />
+              </p>
+              <div className="badge-row">
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> KSA
+                </span>
+              </div>
+              <div className="meta">
+                <span>
+                  <b>SAR 0.08/M</b> tokens
+                </span>
+                <span><Bi en="vector · 1024d" ar="متجه · ١٠٢٤ بُعد" /></span>
+              </div>
+            </div>
+
+            <div className="mg">
+              <span className="org">BAAI · sovereign-hosted</span>
+              <h4 className="nm">bge-reranker-v2-m3</h4>
+              <span className="tag">
+                <Bi en="Cross-encoder · rerank" ar="مُرمّز متقاطع · ترتيب" />
+              </span>
+              <p>
+                <Bi
+                  en="Cross-encodes (query, doc) pairs for final ordering after retrieval. Cuts hallucination rate ~38% in our internal evals."
+                  ar="يُرمّز أزواج (سؤال، وثيقة) للترتيب النهائي بعد الاسترجاع. يقلّل الهلوسة بنحو ٣٨٪ في تقييماتنا الداخلية."
+                />
+              </p>
+              <div className="badge-row">
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> KSA
+                </span>
+              </div>
+              <div className="meta">
+                <span>
+                  <b>SAR 0.12/M</b> pair-tok
+                </span>
+                <span><Bi en="rerank · top-K" ar="ترتيب · أفضل K" /></span>
+              </div>
+            </div>
+
+            <div className="mg frontier">
+              <span className="org">DeepSeek · cross-border</span>
+              <h4 className="nm">DeepSeek V4 Flash</h4>
+              <span className="tag">
+                <Bi en="Frontier · fast · 128k ctx" ar="متقدم · سريع · ١٢٨ ألف سياق" />
+              </span>
+              <p>
+                <Bi
+                  en="Frontier reasoning for hard cases. Off by default — opt-in per tenant, cross-border marker on every call, separate invoice line."
+                  ar="استدلال متقدم للحالات الصعبة. مغلق افتراضياً — يُفعَّل لكل مستأجر، علامة خارج المملكة على كل استدعاء، وسطر فاتورة منفصل."
+                />
+              </p>
+              <div className="badge-row">
+                <span className="residency-badge cross">
+                  <span className="flag">🌐</span> <span><Bi en="Cross-border · opt-in" ar="خارج · بإذن" /></span>
+                </span>
+              </div>
+              <div className="meta">
+                <span>
+                  <b>SAR 1.10/M</b> in · <b>3.40/M</b> out
+                </span>
+                <span><Bi en="default off" ar="افتراضي مغلق" /></span>
+              </div>
+            </div>
+
+            <div className="mg frontier">
+              <span className="org">DeepSeek · cross-border</span>
+              <h4 className="nm">DeepSeek V4 Pro</h4>
+              <span className="tag">
+                <Bi en="Frontier · max · 200k ctx" ar="متقدم · أقصى · ٢٠٠ ألف سياق" />
+              </span>
+              <p>
+                <Bi
+                  en="Top-tier reasoning, max context. For long-doc analysis, complex agent planning, advanced code generation. Cross-border, audit-tagged."
+                  ar="أعلى مستوى استدلال وأقصى سياق. لتحليل الوثائق الطويلة، تخطيط الوكلاء المعقّد، توليد الكود المتقدم. خارج المملكة، مع وسم تدقيقي."
+                />
+              </p>
+              <div className="badge-row">
+                <span className="residency-badge cross">
+                  <span className="flag">🌐</span> <span><Bi en="Cross-border · opt-in" ar="خارج · بإذن" /></span>
+                </span>
+              </div>
+              <div className="meta">
+                <span>
+                  <b>SAR 4.20/M</b> in · <b>12.60/M</b> out
+                </span>
+                <span><Bi en="default off" ar="افتراضي مغلق" /></span>
+              </div>
+            </div>
+
+            <div className="mg" style={{ background: 'var(--bg-2)', borderStyle: 'dashed' }}>
+              <span className="org">
+                <Bi en="On the roadmap" ar="في خارطة الطريق" />
+              </span>
+              <h4 className="nm">
+                <Bi en="Falcon-3-Arabic · Q3 2026" ar="Falcon-3-Arabic · الربع الثالث ٢٠٢٦" />
+              </h4>
+              <span className="tag">
+                <Bi en="Arabic generation · 64k ctx" ar="توليد عربي · ٦٤ ألف سياق" />
+              </span>
+              <p>
+                <Bi
+                  en="A bigger Arabic-first sovereign model is in pilot with TII. We&rsquo;ll bring it up alongside ALLaM as a router option."
+                  ar="نموذج عربي سيادي أكبر قيد التجربة مع TII. سنُشغّله بجانب اللام كخيار في الموجّه."
+                />
+              </p>
+              <div className="badge-row">
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> KSA · pilot
+                </span>
+              </div>
+              <div className="meta">
+                <span><Bi en="Pricing TBD" ar="السعر لاحقاً" /></span>
+                <span><Bi en="join waitlist" ar="انضم للقائمة" /></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ DCP-AGENT — short pitch ═══════════════ */}
+      <section id="agents">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 05 · DCP-Agent" ar="§ ٠٥ · DCP-Agent" />
+            </span>
+            <span>
+              <Bi en="Live for SMB · agents.dcp.sa" ar="جاهز للمنشآت · agents.dcp.sa" />
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 56, alignItems: 'center' }} className="agents-mini">
+            <div>
+              <h2 className="st" style={{ marginTop: 0 }}>
+                {lang === 'ar' ? (
+                  <>
+                    وكيل الذكاء العربي المصنوع <em>للأعمال السعودية.</em>
+                  </>
+                ) : (
+                  <>
+                    The Arabic AI agent built for <em>Saudi business.</em>
+                  </>
+                )}
+              </h2>
+              <p className="ss">
+                {lang === 'ar' ? (
+                  <>
+                    DCP-Agent جاهز على <b>agents.dcp.sa</b> للمنشآت السعودية الصغيرة والمتوسطة. يعمل الوكيل بالعربية من البداية إلى النهاية — الردّ على العملاء، صياغة الوثائق، وإدارة مهام المكتب الخلفي. والنسخة الشخصية المجانية لكل مواطن سعودي قريباً.
+                  </>
+                ) : (
+                  <>
+                    DCP-Agent is live at <b>agents.dcp.sa</b> for Saudi small &amp; mid-size businesses. The agent works in Arabic end-to-end — reply to customers, draft documents, run back-office tasks. Free personal version for every Saudi is coming.
+                  </>
+                )}
+              </p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 30 }}>
+                <a className="btn primary lg" href="https://agents.dcp.sa">
+                  <Bi en="Open agents.dcp.sa →" ar="افتح agents.dcp.sa ←" />
+                </a>
+                <span
+                  style={{
+                    alignSelf: 'center',
+                    fontFamily: 'var(--mono)',
+                    fontSize: 11.5,
+                    letterSpacing: '.12em',
+                    textTransform: 'uppercase',
+                    color: 'var(--mut)',
+                  }}
+                >
+                  <Bi en="Personal AI · waitlist soon" ar="الذكاء الشخصي · قائمة انتظار قريباً" />
+                </span>
+              </div>
+            </div>
+
+            <a href="https://agents.dcp.sa" style={{ textDecoration: 'none' }}>
+              <div
+                style={{
+                  background: 'linear-gradient(180deg, var(--paper) 0%, var(--bg-2) 100%)',
+                  border: '1px solid var(--line)',
+                  padding: '32px 32px 36px',
+                  position: 'relative',
+                  transition: 'transform .2s, box-shadow .2s',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '8px 8px 0 var(--ink)'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = ''
+                  e.currentTarget.style.boxShadow = ''
+                }}
+              >
+                <span style={{ position: 'absolute', inset: '-1px -1px auto -1px', height: 2, background: 'var(--grad)' }} />
+                <div
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 11,
+                    letterSpacing: '.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--teal)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: 'var(--teal)',
+                      boxShadow: '0 0 0 3px color-mix(in oklab, var(--teal) 25%, transparent)',
+                    }}
+                  />
+                  <span>
+                    <Bi en="Live in production" ar="في الإنتاج" />
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--serif)',
+                    fontSize: 64,
+                    lineHeight: '.9',
+                    letterSpacing: '-.028em',
+                    margin: '18px 0 8px',
+                    color: 'var(--ink)',
+                  }}
+                >
+                  agents.dcp.sa
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: 11.5,
+                    letterSpacing: '.06em',
+                    color: 'var(--mut)',
+                    marginTop: 8,
+                  }}
+                >
+                  <Bi en="Visit →" ar="زر ←" />
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ ARABIC WEDGE ═══════════════ */}
+      <section>
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 06 · Arabic is the wedge" ar="§ ٠٦ · العربية هي الميزة" />
+            </span>
+            <span>
+              <Bi en="Try it live →" ar="جرّبه مباشرة ←" />
+            </span>
+          </div>
+          <div className="wedge">
+            <div>
+              <h2 className="st" style={{ marginTop: 0 }}>
+                {lang === 'ar' ? (
+                  <>
+                    النماذج العامة تتحدث العربية <em>كالسائح.</em>
+                  </>
+                ) : (
+                  <>
+                    Generic models speak Arabic <em>like a tourist.</em>
+                  </>
+                )}
+              </h2>
+              <p className="ss">
+                <Bi
+                  en="ALLaM-7B was tuned on Modern Standard Arabic with Saudi domain context. The verifier hook is locked against an Arabic-negation regression test that runs on every commit. The combination is what banks and regulators actually need from Arabic AI."
+                  ar="نموذج اللام دُرِّب على العربية الفصحى مع سياق سعودي مباشر. أداة التحقق محميّة باختبار منع تراجع للنفي العربي يعمل عند كل إيداع. هذا المزيج هو ما تحتاجه البنوك والجهات التنظيمية فعلاً من الذكاء العربي."
+                />
+              </p>
+              <div style={{ marginTop: 28 }}>
+                <a className="btn primary" href="#">
+                  <Bi en="Run an Arabic question →" ar="نفّذ سؤالاً عربياً ←" />
+                </a>
+              </div>
+            </div>
+            <div className="wedge-q">
+              <div className="lbl">
+                <Bi en="Prompt · MSA" ar="السؤال · فصحى" />
+              </div>
+              <div className="q">ما حكم زكاة الراتب الشهري إذا لم يبلغ النصاب إلا بعد جمعه لسنة كاملة؟</div>
+              <div className="a-lbl">
+                <Bi en="Grounded · cited" ar="مُسند · موثّق" />
+              </div>
+              <div className="a">
+                يجمع الراتب الشهري ويُحسب الحول من يوم بلوغ النصاب لا من يوم استلام أول راتب. إذا بلغ مجموع المدّخر النصاب وحال عليه الحول، وجبت فيه الزكاة بنسبة ٢٫٥٪ [١]. إن لم يبلغ النصاب فلا زكاة حتى بلوغه [٢].
+              </div>
+              <div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> <span><Bi en="Generation · KSA" ar="التوليد · المملكة" /></span>
+                </span>
+                <span className="residency-badge ksa">
+                  <span className="flag">🇸🇦</span> <span><Bi en="Verified · 2 citations" ar="مُثبت · استشهادان" /></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ TWO-PATH REGISTRATION ═══════════════ */}
+      <section id="register">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 07 · Two paths in" ar="§ ٠٧ · مساران للدخول" />
+            </span>
+            <span>
+              <Bi en="Renter · or · Provider" ar="مستخدم · أو · مزوّد" />
+            </span>
+          </div>
+
+          <div className="paths">
+            {/* RENTER */}
+            <div className="path">
+              <span className="lbl">
+                <Bi en="A · I want to use DCP" ar="A · أريد استخدام DCP" />
+              </span>
+              <h3>
+                {lang === 'ar' ? (
+                  <>
+                    ابنِ بـ<em>الذكاء العربي.</em>
+                  </>
+                ) : (
+                  <>
+                    Build with <em>Arabic AI.</em>
+                  </>
+                )}
+              </h3>
+              <p className="desc">
+                <Bi
+                  en="For founders, banks, hospitals, regulators, agencies. You ship the product; we serve the inference and the agents. SAR billing, halala-grained, no rental contracts."
+                  ar="للمؤسسين والبنوك والمستشفيات والجهات التنظيمية والوكالات. أنت تشحن المنتج؛ ونحن نقدّم الاستدلال والوكلاء. فوترة بالريال بدقة الهللة، بلا عقود إيجار."
+                />
+              </p>
+              <ul className="steps">
+                <li>
+                  <span className="n">01</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>اشترك مجاناً</b> · بلا بطاقة، بلا حد أدنى. مستأجر ينشأ خلال أقل من ٣٠ ثانية.
+                      </>
+                    ) : (
+                      <>
+                        <b>Sign up free</b> · no card, no minimum. Tenant created in &lt; 30s.
+                      </>
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span className="n">02</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>احصل على مفتاح API</b> في console.dcp.sa. ضعه في SDK OpenAI — يتغيّر فقط الرابط الأساسي.
+                      </>
+                    ) : (
+                      <>
+                        <b>Grab an API key</b> in console.dcp.sa. Drop it into your OpenAI SDK — only base URL changes.
+                      </>
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span className="n">03</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>جرّب وضع السيادة فقط</b> إن كنت في قطاع منظّم — النماذج المتقدمة تبقى مغلقة، مجاناً.
+                      </>
+                    ) : (
+                      <>
+                        <b>Try sovereign-only</b> if you&rsquo;re regulated — frontier stays off, free.
+                      </>
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span className="n">04</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>أنشئ وكلاء</b> من بيئة الاختبار أو عبر SDK الوكيل. ٥ شخصيين + ٣ مشاريع في فئة الفريق.
+                      </>
+                    ) : (
+                      <>
+                        <b>Spin up agents</b> from the Playground or via the agent SDK. 5 personal + 3 project on Team tier.
+                      </>
+                    )}
+                  </span>
+                </li>
+              </ul>
+              <div className="cta">
+                <a className="btn primary lg" href="#">
+                  <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
+                </a>
+                <a className="btn ghost" href="#">
+                  <Bi en="Sign in" ar="دخول" />
+                </a>
+              </div>
+              <div className="smallprint">
+                <Bi
+                  en="SAR + USDC accepted · mada · Apple Pay · bank transfer"
+                  ar="ريال + USDC مقبول · مدى · Apple Pay · تحويل بنكي"
+                />
+              </div>
+            </div>
+
+            {/* PROVIDER */}
+            <div className="path">
+              <span className="lbl">
+                <Bi en="B · I have idle GPUs" ar="B · لدي معالجات معطّلة" />
+              </span>
+              <h3>
+                {lang === 'ar' ? (
+                  <>
+                    اكسب ريالاً من <em>عتادك.</em>
+                  </>
+                ) : (
+                  <>
+                    Earn SAR on <em>your hardware.</em>
+                  </>
+                )}
+              </h3>
+              <p className="desc">
+                <Bi
+                  en="For studios, labs, universities, family offices, anyone with consumer or workstation GPUs sitting idle. We handle orchestration, customers, and the SLA. You earn ~82% of the SAR yield, paid monthly to a Saudi bank account."
+                  ar="للاستوديوهات والمختبرات والجامعات والمكاتب العائلية وأي شخص لديه معالجات استهلاكية أو محطات عمل معطّلة. نتولّى التنسيق والعملاء والتزام الخدمة. تكسب نحو ٨٢٪ من العائد بالريال، يُدفع شهرياً إلى حساب بنكي سعودي."
+                />
+              </p>
+              <ul className="steps">
+                <li>
+                  <span className="n">01</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>سجّل جهازك</b> — فئة المعالج، الذاكرة، المنطقة، السعة. موافقة خلال ٤٨ ساعة.
+                      </>
+                    ) : (
+                      <>
+                        <b>Submit your rig</b> — GPU class, RAM, region, uplink. Approval inside 48h.
+                      </>
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span className="n">02</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>ثبّت الوكيل</b> · أمر واحد على لينكس، ملف MSI واحد على ويندوز. عزل تلقائي عند العبث.
+                      </>
+                    ) : (
+                      <>
+                        <b>Install the agent</b> · one bash line on Linux, one MSI on Windows. Auto-quarantines on tamper.
+                      </>
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span className="n">03</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>ابدأ تقديم الاستدلال</b> — يُمزَج العبء بين العملاء؛ ولن نتجاوز ٩٠٪ افتراضياً.
+                      </>
+                    ) : (
+                      <>
+                        <b>Start serving inference</b> — workload is mixed across customers; we won&rsquo;t saturate you past 90% by default.
+                      </>
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span className="n">04</span>
+                  <span className="t">
+                    {lang === 'ar' ? (
+                      <>
+                        <b>اقبض بالريال</b> · دفع شهري إلى بنكك، مع لوحة لكل جهاز توضّح الاستخدام والأخطاء والأرباح.
+                      </>
+                    ) : (
+                      <>
+                        <b>Get paid in SAR</b> · monthly payout to your bank, with a per-rig dashboard showing utilisation, errors, and earnings.
+                      </>
+                    )}
+                  </span>
+                </li>
+              </ul>
+              <div className="cta">
+                <a className="btn primary lg" href="#">
+                  <Bi en="Apply as provider →" ar="تقدّم كمزوّد ←" />
+                </a>
+                <a className="btn ghost" href="#">
+                  <Bi en="Provider dashboard" ar="لوحة المزوّد" />
+                </a>
+              </div>
+              <div className="smallprint">
+                <Bi
+                  en="82% rev-share · monthly SAR payout · KSA bank account required"
+                  ar="حصّة ٨٢٪ · دفع شهري بالريال · يتطلّب حساباً بنكياً سعودياً"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ PRICING SNAPSHOT ═══════════════ */}
+      <section>
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 08 · Pricing at a glance" ar="§ ٠٨ · نظرة سريعة على الأسعار" />
+            </span>
+            <span>
+              <Bi en="Full table + calculator on Pricing →" ar="الجدول الكامل + الحاسبة في الأسعار ←" />
+            </span>
+          </div>
+          <div className="ps-grid">
+            <div className="ps-it">
+              <div className="nm">ALLaM-7B</div>
+              <div className="pr">
+                SAR 0.45<span className="u">/M in</span>
+              </div>
+              <div className="pr" style={{ fontSize: 24 }}>
+                SAR 1.80<span className="u">/M out</span>
+              </div>
+              <div className="sub">
+                <Bi en="Arabic generation · sovereign" ar="توليد عربي · سيادي" />
+              </div>
+            </div>
+            <div className="ps-it">
+              <div className="nm">bge-m3</div>
+              <div className="pr">
+                SAR 0.08<span className="u">/M</span>
+              </div>
+              <div className="sub">
+                <Bi en="Embedding · 1024-dim · sovereign" ar="تضمين · ١٠٢٤ بُعد · سيادي" />
+              </div>
+            </div>
+            <div className="ps-it">
+              <div className="nm">bge-reranker-v2-m3</div>
+              <div className="pr">
+                SAR 0.12<span className="u">/M</span>
+              </div>
+              <div className="sub">
+                <Bi en="Rerank · cross-encoder · sovereign" ar="ترتيب · مُرمّز متقاطع · سيادي" />
+              </div>
+            </div>
+            <div className="ps-it frontier">
+              <div className="nm">DeepSeek V4</div>
+              <div className="pr">
+                SAR 1.10<span className="u">/M in</span>
+              </div>
+              <div className="pr" style={{ fontSize: 24 }}>
+                SAR 3.40<span className="u">/M out · flash</span>
+              </div>
+              <div className="sub">
+                <Bi en="Frontier · cross-border · opt-in" ar="متقدم · خارج · بإذن" />
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ color: 'var(--ink-2)', fontSize: 15 }}>
+              {lang === 'ar' ? (
+                <>
+                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>فئات الاشتراك</b> · المبتدئ ١٨٠ ريال/شهر · الفريق ١٬٢٠٠ ريال/شهر · المتسع ٨٬٤٠٠ ريال/شهر · مؤسسات حسب الطلب.
+                </>
+              ) : (
+                <>
+                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>Subscription tiers</b> · Starter SAR 180/mo · Team SAR 1,200/mo · Scale SAR 8,400/mo · Enterprise on request.
+                </>
+              )}
+            </span>
+            <a className="btn ghost" href="#">
+              <Bi en="See full pricing →" ar="عرض الأسعار كاملةً ←" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ COMPLIANCE BAND ═══════════════ */}
+      <section>
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 09 · Proof, not promises" ar="§ ٠٩ · دليل، لا وعود" />
+            </span>
+            <span>
+              <Bi en="Updated 2026-05-25" ar="آخر تحديث ٢٠٢٦-٠٥-٢٥" />
+            </span>
+          </div>
+          <div className="compliance">
+            <div className="item">
+              <span className="k">PDPL</span>
+              <span className="v"><Bi en="Compliant" ar="متوافق" /></span>
+              <span className="sub"><Bi en="Saudi residency" ar="إقامة سعودية" /></span>
+            </div>
+            <div className="item">
+              <span className="k"><Bi en="Settlement" ar="تسوية" /></span>
+              <span className="v"><Bi en="In-Kingdom" ar="داخل المملكة" /></span>
+              <span className="sub"><Bi en="Halala · SAR" ar="هللة · ريال" /></span>
+            </div>
+            <div className="item">
+              <span className="k"><Bi en="Cloud dependency" ar="اعتماد سحابي" /></span>
+              <span className="v"><Bi en="Zero" ar="لا يوجد" /></span>
+              <span className="sub"><Bi en="No US/EU cloud dependency" ar="بلا اعتماد سحابي خارجي" /></span>
+            </div>
+            <div className="item">
+              <span className="k">ZATCA</span>
+              <span className="v"><Bi en="VAT-registered" ar="مسجّل ضريبياً" /></span>
+              <span className="sub">311102233400003</span>
+            </div>
+            <div className="item">
+              <span className="k">CR</span>
+              <span className="v">7053667775</span>
+              <span className="sub"><Bi en="DC Power Solutions Co." ar="DC Power Solutions Co." /></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ ENTERPRISE BAND ═══════════════ */}
+      <section>
+        <div className="wrap">
+          <div className="ent">
+            <span className="eyebrow">
+              <Bi en="§ Enterprise" ar="§ المؤسسات" />
+            </span>
+            <h2>
+              {lang === 'ar' ? (
+                <>
+                  شغّله <em>داخل شبكتك الخاصة.</em>
+                </>
+              ) : (
+                <>
+                  Run it <em>in your own VPC.</em>
+                </>
+              )}
+            </h2>
+            <p>
+              <Bi
+                en="For banks, hospitals, regulators, the bigger gov programmes. Bring your own keys, your own corpora, your own audit pipeline. We sign the DPA, the MSA, the data-flow appendix, and we sit on the call with your CISO."
+                ar="للبنوك والمستشفيات والجهات التنظيمية والبرامج الحكومية الكبيرة. أحضر مفاتيحك ومراجعك وخط تدقيقك. نوقّع اتفاقية حماية البيانات، والاتفاقية الرئيسية، وملحق تدفّق البيانات، ونجلس على المكالمة مع مسؤول أمنكم."
+              />
+            </p>
+            <ul>
+              <li><Bi en="In-Kingdom settlement · SAR + halala" ar="تسوية داخل المملكة · ريال + هللة" /></li>
+              <li><Bi en="Dedicated tenancy · isolated control plane" ar="استئجار مخصص · بيئة تحكم معزولة" /></li>
+              <li><Bi en="Private peering · IPsec or DirectConnect" ar="ربط خاص · IPsec أو DirectConnect" /></li>
+              <li><Bi en="Dedicated CSM · onboarding sprint" ar="مسؤول نجاح مخصص · جلسة إعداد" /></li>
+              <li><Bi en="Custom NDMO classification map" ar="خريطة تصنيف NDMO مخصصة" /></li>
+              <li><Bi en="99.95% SLA · credits + escalation path" ar="SLA ٩٩٫٩٥٪ · أرصدة + مسار تصعيد" /></li>
+            </ul>
+            <div className="ctas">
+              <a className="btn primary lg" href="#">
+                <Bi en="Talk to sales →" ar="تواصل مع المبيعات ←" />
+              </a>
+              <a className="btn ghost lg" href="#">
+                <Bi en="Compliance pack" ar="حزمة الامتثال" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ END CTA ═══════════════ */}
+      <section className="home-end">
+        <div className="wrap">
+          <span className="eyebrow" style={{ justifyContent: 'center' }}>
+            <Bi en="§ Ready when you are" ar="§ جاهزون عندما تكونون" />
+          </span>
+          <h2>
+            {lang === 'ar' ? (
+              <>
+                ذكاء اصطناعي عربي سيادي. <em>شغّله.</em>
+              </>
+            ) : (
+              <>
+                Sovereign Arabic AI. <em>Run it.</em>
+              </>
+            )}
+          </h2>
+          <p>
+            <Bi
+              en="Eight minutes from this page to a working inference call. No procurement. No data-egress conversation. No flat GPU rental."
+              ar="ثماني دقائق من هذه الصفحة إلى أول استدعاء استدلال يعمل. بلا مشتريات، بلا نقاش حول خروج البيانات، بلا إيجار معالجات ثابت."
+            />
+          </p>
+          <div className="ctas">
+            <a className="btn primary lg" href="#">
+              <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
+            </a>
+            <a className="btn ghost lg" href="#">
+              <Bi en="Try the demo" ar="جرّب التجربة" />
+            </a>
+            <a className="btn ghost lg" href="#">
+              <Bi en="Or apply as provider" ar="أو تقدّم كمزوّد" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ FOOTER SITEMAP ═══════════════ */}
+      <footer className="site foot">
+        <div className="foot-grid">
+          <div>
+            <div className="brand">
+              DCP<i>∞</i>
+            </div>
+            <p className="desc">
+              <Bi
+                en="Sovereign Arabic AI — inference, agents, and a KSA GPU mesh. Built by DC Power Solutions Co., Riyadh."
+                ar="ذكاء اصطناعي عربي سيادي — استدلال ووكلاء وشبكة معالجات داخل المملكة. من بناء DC Power Solutions Co.، الرياض."
+              />
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span className="residency-badge ksa">
+                <span className="flag">🇸🇦</span> <span><Bi en="KSA-resident" ar="داخل المملكة" /></span>
+              </span>
+              <span className="residency-badge">
+                <span className="flag">∞</span> <span><Bi en="agents.dcp.sa" ar="agents.dcp.sa" /></span>
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <h4><Bi en="Product" ar="المنتج" /></h4>
+            <ul>
+              <li><a href="/v2/home"><Bi en="Overview" ar="نظرة عامة" /></a></li>
+              <li><a href="#marketplace"><Bi en="Marketplace" ar="السوق" /></a></li>
+              <li><a href="#agents"><Bi en="Agents" ar="الوكلاء" /></a></li>
+              <li><a href="#models"><Bi en="Models" ar="النماذج" /></a></li>
+              <li><a href="#"><Bi en="Pricing" ar="الأسعار" /></a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4><Bi en="Build" ar="البناء" /></h4>
+            <ul>
+              <li><a href="#"><Bi en="API docs" ar="توثيق الواجهة" /></a></li>
+              <li><a href="#quickstart"><Bi en="Quick start" ar="بدء سريع" /></a></li>
+              <li><a href="#"><Bi en="Get an API key" ar="احصل على مفتاح" /></a></li>
+              <li><a href="#"><Bi en="Playground" ar="بيئة الاختبار" /></a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4><Bi en="Renters" ar="المستخدمون" /></h4>
+            <ul>
+              <li><a href="#"><Bi en="Sign up" ar="اشترك" /></a></li>
+              <li><a href="#"><Bi en="Sign in" ar="دخول" /></a></li>
+              <li><a href="#"><Bi en="Console" ar="لوحة التحكم" /></a></li>
+              <li><a href="#"><Bi en="Usage" ar="الاستخدام" /></a></li>
+              <li><a href="#"><Bi en="Wallet" ar="المحفظة" /></a></li>
+              <li><a href="#"><Bi en="Invoices" ar="الفواتير" /></a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4><Bi en="Providers" ar="المزوّدون" /></h4>
+            <ul>
+              <li><a href="#"><Bi en="Provider console" ar="لوحة المزوّد" /></a></li>
+              <li><a href="#"><Bi en="Rigs" ar="الأجهزة" /></a></li>
+              <li><a href="#"><Bi en="Earnings" ar="الأرباح" /></a></li>
+              <li><a href="#"><Bi en="Payouts" ar="المدفوعات" /></a></li>
+              <li><a href="#"><Bi en="Tiers" ar="الفئات" /></a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="foot-bottom">
+          <span>§ DC Power Solutions Company · CR 7053667775 · VAT 311102233400003</span>
+          <div className="badges">
+            <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>PDPL</span>
+            <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>KSA-resident</span>
+            <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>ZATCA</span>
+          </div>
+          <span>© 2026 · Riyadh · KSA</span>
+        </div>
+      </footer>
+    </div>
+  )
+}
