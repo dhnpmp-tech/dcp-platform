@@ -250,12 +250,18 @@ async function maybeTrigger(db, renterId, { nowIso = new Date().toISOString(), t
     VALUES (?, ?, ?, 'initiated', ?, ?, ?)
   `).run(attemptId, renterId, amount, triggerReason, r.balance_halala, nowIso);
 
-  // Build the Moyasar payment.
+  // Build the Moyasar payment. callback_url is where the renter lands AFTER
+  // completing 3DS step-up — points at our dedicated callback page which
+  // handles success / failure / timeout uniformly. Without this Moyasar
+  // would use the merchant default (usually their dashboard), giving the
+  // renter no DCP-side feedback.
+  const frontendUrl = process.env.FRONTEND_URL || 'https://dcp.sa';
   const body = {
     amount,
     currency: 'SAR',
     description: `DCP auto-recharge — ${r.name || 'renter'} (${r.email || renterId})`,
     source: { type: 'token', token: r.moyasar_card_token },
+    callback_url: `${frontendUrl}/payment/auto-topup-callback?attempt_id=${encodeURIComponent(attemptId)}`,
     metadata: {
       auto_topup: 'true',
       renter_id: String(renterId),

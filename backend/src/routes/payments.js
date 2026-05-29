@@ -860,6 +860,35 @@ router.delete('/saved-card', requireRenter, (req, res) => {
   return res.json({ ok: true });
 });
 
+// ─── GET /api/payments/auto-topup-attempts/:id/status ─────────────────────────
+//
+// Polled by the /payment/auto-topup-callback page after the renter completes
+// 3DS step-up. Returns just enough info for the UI to show success/failure
+// without exposing renter PII — no email, no name, no card details. Safe
+// without authentication because attempt_id is a long random token and the
+// response carries no sensitive data.
+router.get('/auto-topup-attempts/:id/status', (req, res) => {
+  const id = String(req.params.id || '');
+  if (!/^at_[a-f0-9]{24}$/.test(id)) {
+    return res.status(400).json({ error: 'invalid attempt id' });
+  }
+  const row = db.get(
+    `SELECT status, amount_halala, balance_after_halala, error_message, completed_at
+       FROM auto_topup_attempts
+      WHERE id = ?`,
+    id
+  );
+  if (!row) return res.status(404).json({ error: 'not found' });
+  return res.json({
+    attempt_id: id,
+    status: row.status,
+    amount_sar: row.amount_halala != null ? Number((row.amount_halala / 100).toFixed(2)) : null,
+    balance_after_sar: row.balance_after_halala != null ? Number((row.balance_after_halala / 100).toFixed(2)) : null,
+    error_message: row.error_message || null,
+    completed_at: row.completed_at,
+  });
+});
+
 // ─── POST /api/payments/payout-webhook ─────────────────────────────────────────
 // Moyasar webhook handler for payout status transitions. Mirrors the /webhook
 // flow but updates payout_requests rows instead of payments.
