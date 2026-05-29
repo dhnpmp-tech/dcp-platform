@@ -65,6 +65,17 @@ const nextConfig = {
       },
     ];
   },
+  // Internal link fixes — these source paths have no page and previously 404'd.
+  async redirects() {
+    return [
+      // Homepage "Start Building" banner + any stale refs → the live model catalog
+      { source: '/models', destination: '/marketplace/models', permanent: false },
+      // Provider activation funnel (4 call sites link here) → the real onboarding entry
+      { source: '/provider-onboarding', destination: '/setup', permanent: false },
+      // Draft/legal docs sometimes cross-link /legal/terms; canonical effective terms live at /terms
+      { source: '/legal/terms', destination: '/terms', permanent: false },
+    ];
+  },
 }
 
 module.exports = nextConfig
