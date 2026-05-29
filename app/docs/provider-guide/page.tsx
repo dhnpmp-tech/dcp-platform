@@ -348,6 +348,94 @@ export default function ProviderGuidePage() {
           </div>
         </section>
 
+        {/* Earnings & payouts */}
+        <section className="bg-dc1-surface-l1 border-y border-dc1-border">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <h2 className="text-2xl font-bold text-dc1-text-primary mb-3">Earnings &amp; payouts</h2>
+            <p className="text-sm text-dc1-text-secondary mb-8 max-w-2xl">
+              Every job your GPU completes earns SAR. Earnings accumulate on your provider account; you
+              withdraw them to your Saudi bank account via Moyasar once you&rsquo;re ready.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Revenue split: 75% to you</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Every billed job credits you with <strong>75% of the renter&rsquo;s payment</strong>; DCP
+                  keeps 25% to fund the platform (routing, billing, support, infrastructure). The math is
+                  computed in halala (1/100 SAR) so there&rsquo;s no rounding drift over time.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Earnings credit to <code>claimable_earnings_halala</code> the moment the inference call
+                  settles &mdash; visible on{' '}
+                  <Link href="/provider/earnings" className="text-dc1-amber hover:underline">/provider/earnings</Link>.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Register your payout IBAN</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Withdrawals route to whatever Saudi IBAN you register on{' '}
+                  <Link href="/provider/settings" className="text-dc1-amber hover:underline">/provider/settings</Link>
+                  {' '}(or in the onboarding wizard). Format: <code>SA</code> followed by 22 digits, holder name
+                  matching the bank account.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  You can update the IBAN anytime; pending payouts will route to the new account once an
+                  admin approves them.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Request a payout</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Minimum withdrawal is <strong>$50 USD (~187.50 SAR)</strong>. Submit from{' '}
+                  <Link href="/provider/withdraw" className="text-dc1-amber hover:underline">/provider/withdraw</Link>;
+                  the amount is reserved from your claimable balance immediately so you can&rsquo;t
+                  double-spend.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Status flow: <code>pending</code> → admin reviews → <code>processing</code> (Moyasar
+                  disburses) → <code>paid</code> (visible on your earnings page within seconds of the
+                  webhook). Or <code>rejected</code> &mdash; in which case the held amount returns to your
+                  claimable balance automatically.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Payout timing</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Once an admin approves, Moyasar typically settles to your Saudi bank within{' '}
+                  <strong>3&ndash;5 business days</strong> for inter-bank transfers (faster for SARIE
+                  same-bank).
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  You&rsquo;ll get an email when the payout is approved and another when Moyasar reports it
+                  as paid. The reference number is the Moyasar payout id &mdash; useful if you need to
+                  follow up with your bank.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5 md:col-span-2">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">If a payout fails</h3>
+                <p className="text-sm text-dc1-text-secondary mb-2">
+                  Common reasons: invalid IBAN, holder-name mismatch, frozen account. DCP&rsquo;s reconciliation
+                  cron polls Moyasar every 15 minutes for stuck payouts and will mark the request as{' '}
+                  <code>rejected</code> if Moyasar returns <code>failed</code> / <code>canceled</code> /{' '}
+                  <code>returned</code>. The funds are returned to your claimable balance automatically and
+                  you can re-submit after fixing the IBAN.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  If you think a payout is genuinely stuck (Moyasar says <code>paid</code> but your bank
+                  hasn&rsquo;t credited you within 5 business days), email{' '}
+                  <a href="mailto:payouts@dcp.sa" className="text-dc1-amber hover:underline">payouts@dcp.sa</a>{' '}
+                  with the payout id and the Moyasar reference. We can trace it on Moyasar&rsquo;s side.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* FAQ */}
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h2 className="text-2xl font-bold text-dc1-text-primary mb-3">
