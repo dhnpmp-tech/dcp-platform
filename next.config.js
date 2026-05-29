@@ -69,7 +69,13 @@ const nextConfig = {
     // rollback by clearing the env var. (v2 is always reachable at /v2.)
     const v2Live = process.env.DCP_V2_LIVE === '1';
     return {
-      beforeFiles: v2Live ? [{ source: '/', destination: '/v2' }] : [],
+      beforeFiles: v2Live
+        ? [
+            // Flip the public marketing face to v2. Expand this list to flip more
+            // routes (e.g. /setup -> /v2/provider-setup) for a full-site cutover.
+            { source: '/', destination: '/v2/home' },
+          ]
+        : [],
       afterFiles: proxyRewrites,
     };
   },
