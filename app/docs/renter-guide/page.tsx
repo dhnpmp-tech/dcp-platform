@@ -220,6 +220,94 @@ export default function RenterGuidePage() {
           </div>
         </section>
 
+        {/* Payments & billing */}
+        <section className="bg-dc1-surface-l1 border-y border-dc1-border">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <h2 className="text-2xl font-bold text-dc1-text-primary mb-3">Payments &amp; billing</h2>
+            <p className="text-sm text-dc1-text-secondary mb-8 max-w-2xl">
+              DCP runs on a pre-paid SAR balance. You top up your account, then every inference job draws from
+              that balance at the model&rsquo;s per-token rate. No invoices, no surprises mid-month.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Top up your balance</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Go to{' '}
+                  <Link href="/renter/billing" className="text-dc1-amber hover:underline">/renter/billing</Link>{' '}
+                  and pick an amount (1&ndash;10,000 SAR). Pay with mada, Visa, or Mastercard via Moyasar.
+                  Your balance is credited within seconds of the payment confirming.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Receipts land in your inbox automatically and are listed under Payment History on the
+                  billing page.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Auto-top-up (recommended)</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Save a card on file and set a threshold (e.g. &ldquo;recharge 500 SAR when my balance drops
+                  below 100&rdquo;). DCP charges your card automatically and you never hit the
+                  insufficient-balance gate mid-call.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Set a monthly cap as a safety net &mdash; the auto-recharge stops once the cap is reached
+                  for the calendar month.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Insufficient balance (HTTP 402)</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  Before each /v1 request DCP estimates the cost (prompt tokens × in-rate + max_tokens ×
+                  out-rate, with a 20% safety margin) and rejects with{' '}
+                  <code className="text-dc1-amber">402 insufficient_balance</code> if your balance plus active
+                  subscription credits can&rsquo;t cover it. The error payload includes your current balance,
+                  the estimate, and the deficit in SAR.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Top up or enable auto-top-up and retry the request &mdash; no quota state is lost.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Remove a saved card or pause auto-top-up</h3>
+                <p className="text-sm text-dc1-text-secondary mb-3">
+                  On{' '}
+                  <Link href="/renter/billing" className="text-dc1-amber hover:underline">/renter/billing</Link>,
+                  click <strong>Remove</strong> next to the card on file to delete the saved token and disable
+                  auto-top-up in one action. Re-enable later by completing any top-up with &ldquo;Save card for
+                  future use&rdquo; ticked.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  3D Secure verification is required by mada on every charge and may be required by your
+                  Visa/Mastercard issuer; you&rsquo;ll get an email with a verification link when it&rsquo;s
+                  needed.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-5 md:col-span-2">
+                <h3 className="text-base font-semibold text-dc1-text-primary mb-2">Refunds &amp; disputes</h3>
+                <p className="text-sm text-dc1-text-secondary mb-2">
+                  Refunds for a successful top-up (mistaken amount, change of mind) are processed by Moyasar
+                  within 5&ndash;10 business days back to the original card. Email{' '}
+                  <a href="mailto:billing@dcp.sa" className="text-dc1-amber hover:underline">billing@dcp.sa</a>{' '}
+                  with the payment id from your billing page.
+                </p>
+                <p className="text-sm text-dc1-text-secondary mb-2">
+                  Refunds for a failed inference job (provider crashed, timed-out, returned nonsense) are
+                  evaluated per-job &mdash; include the job id and a short note explaining the failure.
+                </p>
+                <p className="text-xs text-dc1-text-muted">
+                  Card-network disputes (chargebacks) follow the standard SAMA timeline. We&rsquo;ll respond
+                  to your bank with the Moyasar payment trace within 7 days.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* FAQ */}
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h2 className="text-2xl font-bold text-dc1-text-primary mb-8">
