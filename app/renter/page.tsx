@@ -324,6 +324,12 @@ export default function RenterDashboard() {
               >
                 {t('renter.top_up_now')}
               </Link>
+              <Link
+                href="/renter/billing#auto-topup"
+                className="px-3 py-1.5 border border-dc1-amber/40 text-dc1-amber text-xs font-semibold rounded-md hover:bg-dc1-amber/10 transition-colors min-h-[44px] flex items-center whitespace-nowrap"
+              >
+                Or set up auto-top-up
+              </Link>
               <button
                 onClick={dismissBanner}
                 aria-label="Dismiss"
