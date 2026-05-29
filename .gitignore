@@ -94,3 +94,15 @@ COPYWRITER-SPRINT*.md
 2026-*-deployment-status.md
 2026-*-sprint-report.md
 2026-*-next-sprint-plan.md
+
+# Half-finished R&D subsystems — commit on a dedicated feature branch,
+# never let `git add -A` drag them into a launch build. (lib/*.ts are tracked frontend files — do NOT ignore them.)
+lib/gbrain/
+lib/perception/
+lib/safety/
+lib/verification/
+
+# Local tooling state — never commit
+.codegraph/
+.herenow/
+docs/**/*.bak-v1

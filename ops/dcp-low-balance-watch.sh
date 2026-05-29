@@ -21,8 +21,8 @@ STATE_DIR="/var/lib/dcp-monitor"
 STATE_FILE="$STATE_DIR/lowbal-alerts.log"
 LOG_FILE="/var/log/dcp-low-balance-watch.log"
 
-TG_TOKEN="8291599718:AAG03lWhtZCXeQAoqR4okAMtfXubAFM9Gus"
-TG_CHAT="-1003773787353"
+TG_TOKEN="${TG_DEV_BOT_TOKEN:-}"
+TG_CHAT="${TG_ALERT_CHAT_ID:-}"
 TG_TOPIC="4"  # 🔴 Alerts topic (per memory feedback_auto_alerts_topic.md)
 
 LOW_BALANCE_HALALA="${LOW_BALANCE_HALALA:-1000}"   # 10 SAR
