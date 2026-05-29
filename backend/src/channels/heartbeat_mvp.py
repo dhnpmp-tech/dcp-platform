@@ -222,6 +222,67 @@ def run() -> None:
                 f"🟢 Channel RECOVERED: `{cid}` (latency {latency}ms)"
             )
 
+    # ── Cron heartbeat staleness check ──────────────────────────────────────
+    # Reads cron_heartbeats (migration 022) and alerts to topic 4 if any cron's
+    # last_run_at is older than 2 × interval_ms. Catches stuck PM2 processes /
+    # missed setInterval timers before users notice the symptoms.
+    try:
+        cur.execute("""
+            SELECT cron_id, last_run_at, interval_ms, last_outcome, consecutive_errors
+              FROM cron_heartbeats
+        """)
+        for row in cur.fetchall():
+            cron_id, last_run_at, interval_ms, last_outcome, cons_errors = row
+            interval_s = max(60.0, float(interval_ms) / 1000.0)
+            stale_threshold_s = 2.0 * interval_s
+            age_s = now - float(last_run_at or 0)
+
+            # Per-cron previous-state row in channel_health under a synthetic id.
+            synth_id = f"cron:{cron_id}"
+            cur.execute(
+                "SELECT alive FROM channel_health WHERE channel_id=?",
+                (synth_id,))
+            prev = cur.fetchone()
+            prev_alive = prev[0] if prev else None
+
+            alive_now = 1 if (age_s <= stale_threshold_s and last_outcome == "ok") else 0
+            err = None
+            if age_s > stale_threshold_s:
+                err = f"stale {int(age_s)}s ago (threshold {int(stale_threshold_s)}s)"
+            elif last_outcome != "ok":
+                err = f"last_outcome={last_outcome} cons_errors={cons_errors}"
+
+            cur.execute("""
+                INSERT INTO channel_health
+                  (channel_id, alive, last_success_at, last_error, reconnect_hint, probed_at, latency_ms, consecutive_fail)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(channel_id) DO UPDATE SET
+                  alive            = excluded.alive,
+                  last_success_at  = excluded.last_success_at,
+                  last_error       = excluded.last_error,
+                  reconnect_hint   = excluded.reconnect_hint,
+                  probed_at        = excluded.probed_at,
+                  consecutive_fail = excluded.consecutive_fail
+            """, (synth_id, alive_now,
+                  last_run_at if last_outcome == "ok" else None,
+                  err,
+                  "check pm2 logs for backend; restart the Node process if stuck",
+                  now, None, 0 if alive_now else 1))
+
+            if prev_alive == 1 and not alive_now:
+                alert(
+                    f"🔴 Cron DEAD: `{cron_id}`\n"
+                    f"reason: {err}\n"
+                    f"interval: {int(interval_s)}s; threshold: {int(stale_threshold_s)}s\n"
+                    f"hint: pm2 logs dcp-backend; pm2 restart dcp-backend"
+                )
+            elif prev_alive == 0 and alive_now:
+                alert(f"🟢 Cron RECOVERED: `{cron_id}`")
+    except sqlite3.OperationalError:
+        # cron_heartbeats table not present yet (migration 022 hasn't run on
+        # this DB) — skip silently rather than crash the probe.
+        pass
+
     con.commit()
     con.close()
 
