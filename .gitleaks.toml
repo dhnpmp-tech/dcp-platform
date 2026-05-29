@@ -1,0 +1,24 @@
+# DCP secret-scanning config.
+# Extends gitleaks' default ruleset (which already catches Telegram bot tokens,
+# AWS keys, private keys, etc.) with DCP-specific credential shapes so the CI
+# gate also catches our own key formats. Tune in PRs as needed; inline
+# `gitleaks:allow` or a .gitleaksignore fingerprint can whitelist false positives.
+
+title = "DCP gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "dcp-api-key"
+description = "DCP renter/provider API key"
+regex = '''dcp-(?:renter|provider)-[0-9a-f]{16,}'''
+keywords = ["dcp-renter-", "dcp-provider-"]
+tags = ["dcp", "api-key"]
+
+[[rules]]
+id = "dcp-admin-token"
+description = "DCP admin token bound to x-admin-token / DC1_ADMIN_TOKEN"
+regex = '''(?i)(?:DC1_ADMIN_TOKEN|x-admin-token)["'\s:=]{1,6}[0-9a-f]{48,64}'''
+keywords = ["dc1_admin_token", "x-admin-token"]
+tags = ["dcp", "admin"]
