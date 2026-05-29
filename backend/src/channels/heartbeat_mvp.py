@@ -28,8 +28,8 @@ import urllib.error
 import urllib.request
 
 DB_PATH = "/root/dc1-platform/backend/data/providers.db"
-TG_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN", "8291599718:AAG03lWhtZCXeQAoqR4okAMtfXubAFM9Gus")
-TG_CHAT_ID = -1003773787353
+TG_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN", "")
+TG_CHAT_ID = int(os.environ.get("TG_ALERT_CHAT_ID", "0"))
 TG_TOPIC_ALERTS = 4   # 🔴 Alerts — never topic 7
 PROBE_TIMEOUT_S = 3.0
 DEBOUNCE_FAILS = 2    # alert only after N consecutive same-state probes
