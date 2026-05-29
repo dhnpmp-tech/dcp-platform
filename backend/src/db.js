@@ -2026,6 +2026,23 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_status ON payout_request
 db.exec(`CREATE INDEX IF NOT EXISTS idx_payout_requests_moyasar_id ON payout_requests(moyasar_payout_id) WHERE moyasar_payout_id IS NOT NULL`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_providers_moyasar_payout_account ON providers(moyasar_payout_account_id) WHERE moyasar_payout_account_id IS NOT NULL`);
 
+// ─── CRON HEARTBEATS (migration 022) ─────────────────────────────────────────
+// Per-cron last-run timestamp + outcome. Node crons UPSERT a row at the end
+// of each tick; the Python heartbeat_mvp probe reads this to detect stuck
+// crons and alerts on staleness > 2 × interval_ms.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cron_heartbeats (
+    cron_id            TEXT PRIMARY KEY,
+    last_run_at        REAL NOT NULL,
+    last_outcome       TEXT NOT NULL,
+    last_summary       TEXT,
+    last_error         TEXT,
+    interval_ms        INTEGER NOT NULL,
+    consecutive_errors INTEGER NOT NULL DEFAULT 0
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_cron_heartbeats_last_run ON cron_heartbeats(last_run_at)`);
+
 // ─── BILLING ATOMICITY: request-id idempotency table (migration 021) ──────────
 // One row per /v1 inference request. PK on request_id makes settlement
 // transactions idempotent under retry (process crash, webhook replay, sweep).

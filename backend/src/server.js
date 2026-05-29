@@ -1086,6 +1086,7 @@ cleanup.schedule();
 // elapses. Runs every 15 minutes. Idle when no renters are paused.
 const autoTopupService = require('./services/autoTopupService');
 const dbModuleForSweep = require('./db');
+const { recordCronTick } = require('./services/cronHeartbeat');
 const AUTO_TOPUP_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
 async function runAutoTopupSweep() {
   try {
@@ -1093,8 +1094,20 @@ async function runAutoTopupSweep() {
     if (r.swept > 0) {
       console.log(`[auto_topup.sweep] swept=${r.swept} retried=${r.retried}`);
     }
+    recordCronTick('auto_topup_sweep', {
+      outcome: 'ok',
+      intervalMs: AUTO_TOPUP_SWEEP_INTERVAL_MS,
+      summary: r,
+    });
   } catch (err) {
     console.error('[auto_topup.sweep] error:', err?.message || err);
+    try {
+      recordCronTick('auto_topup_sweep', {
+        outcome: 'error',
+        intervalMs: AUTO_TOPUP_SWEEP_INTERVAL_MS,
+        error: err?.message || String(err),
+      });
+    } catch (_) { /* heartbeat write must never bring down the cron */ }
   }
 }
 setInterval(runAutoTopupSweep, AUTO_TOPUP_SWEEP_INTERVAL_MS);
@@ -1111,8 +1124,20 @@ async function runPayoutReconcile() {
     if (r.swept > 0) {
       console.log(`[payout.reconcile] swept=${r.swept} transitioned=${r.transitioned} errors=${r.errors}`);
     }
+    recordCronTick('payout_reconcile', {
+      outcome: 'ok',
+      intervalMs: PAYOUT_RECONCILE_INTERVAL_MS,
+      summary: r,
+    });
   } catch (err) {
     console.error('[payout.reconcile] error:', err?.message || err);
+    try {
+      recordCronTick('payout_reconcile', {
+        outcome: 'error',
+        intervalMs: PAYOUT_RECONCILE_INTERVAL_MS,
+        error: err?.message || String(err),
+      });
+    } catch (_) {}
   }
 }
 setInterval(runPayoutReconcile, PAYOUT_RECONCILE_INTERVAL_MS);
