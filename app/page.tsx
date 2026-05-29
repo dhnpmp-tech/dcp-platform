@@ -53,7 +53,7 @@ function LaunchBanner({ health }: { health: DetailedHealth | null }) {
         <span className="font-semibold text-dc1-amber">DCP Phase 1 is live</span>
         {' — '}
         {registered} providers joining. Be first to deploy Arabic AI in-Kingdom.{' '}
-        <Link href="/models" className="font-semibold text-dc1-amber underline hover:text-dc1-amber/80">
+        <Link href="/marketplace/models" className="font-semibold text-dc1-amber underline hover:text-dc1-amber/80">
           Start Building →
         </Link>
       </p>
