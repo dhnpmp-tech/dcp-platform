@@ -39,6 +39,7 @@ for (const key of REQUIRED_SECRETS) {
 }
 
 const app = express();
+app.disable('x-powered-by'); // don't advertise Express (free fingerprinting for attackers)
 const PORT = process.env.DC1_PROVIDER_PORT || 8083;
 const TRUST_PROXY_HOPS = Number.parseInt(process.env.TRUST_PROXY_HOPS || '0', 10);
 
@@ -1148,6 +1149,19 @@ console.log(`[payout] reconciliation sweep started (every ${PAYOUT_RECONCILE_INT
 // dead from this VPS (Cloudflare tunnel killed, WG mesh IP not routable, etc).
 const providerProbe = require('./lib/provider-probe');
 providerProbe.startProbeLoop();
+
+// Final error handler — never leak stack traces or the absolute /root deploy
+// path to clients, regardless of NODE_ENV. Defense-in-depth: Express's default
+// dev handler dumps err.stack on any thrown error when NODE_ENV !== 'production',
+// which has leaked server internals (and the root run path) on the live API.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  if (res.headersSent) return _next(err);
+  const isCors = err && err.message === 'Not allowed by CORS';
+  const status = isCors ? 403 : (err && err.status) || 500;
+  if (status >= 500) console.error('[server] unhandled error:', err && err.stack ? err.stack : err);
+  res.status(status).json({ error: isCors ? 'Origin not allowed' : 'Internal server error' });
+});
 
 if (require.main === module) {
   app.listen(PORT, () => {

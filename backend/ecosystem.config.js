@@ -19,19 +19,27 @@ module.exports = {
         // ── Auth ────────────────────────────────────────────────────────────
         // REQUIRED — generate with: openssl rand -hex 32
         // Never commit real admin tokens to source control
-        DC1_ADMIN_TOKEN: '',  // REQUIRED — set in VPS env; generate: openssl rand -hex 32
+        // READ-THROUGH from the OS/VPS environment. Hardcoding '' here makes
+        // `pm2 startOrReload ecosystem.config.js` CLOBBER the real secret with an
+        // empty string — crash-looping the API for the required ones, and silently
+        // breaking all top-up crediting for the webhook secret. `process.env.X || ''`
+        // inherits the live value the VPS already holds.
+        DC1_ADMIN_TOKEN: process.env.DC1_ADMIN_TOKEN || '',  // REQUIRED — set in VPS env; openssl rand -hex 32
 
         // ── HMAC Job Signing (DCP-3) ─────────────────────────────────────────
         // REQUIRED — generate with: openssl rand -hex 32
         // Without this, daemon downloads get empty HMAC secret and job signing is broken
-        DC1_HMAC_SECRET: '',  // REQUIRED — set in VPS env; generate: openssl rand -hex 32
+        DC1_HMAC_SECRET: process.env.DC1_HMAC_SECRET || '',  // REQUIRED — set in VPS env; openssl rand -hex 32
 
         // ── Moyasar Payment Gateway (DCP-31) ────────────────────────────────
         // Get keys from: https://dashboard.moyasar.com/settings/api-keys
         // Test key prefix: sk_test_  |  Live key prefix: sk_live_
-        MOYASAR_SECRET_KEY: '',  // Optional — set for live payments
-        // Webhook HMAC secret from Moyasar dashboard (defaults to MOYASAR_SECRET_KEY if unset)
-        MOYASAR_WEBHOOK_SECRET: '',  // Optional — set for Moyasar webhook verification
+        MOYASAR_SECRET_KEY: process.env.MOYASAR_SECRET_KEY || '',  // set for live payments (sk_live_…)
+        // REQUIRED for live payments — a DISTINCT value from the dashboard's Webhook
+        // settings, NOT the API key. It does NOT default to MOYASAR_SECRET_KEY. If
+        // blank, every /api/payments/webhook is rejected (503) and paid renters are
+        // never credited.
+        MOYASAR_WEBHOOK_SECRET: process.env.MOYASAR_WEBHOOK_SECRET || '',  // set from Moyasar dashboard → Webhooks
 
         // ── Frontend URL (for Moyasar payment callbacks) ─────────────────────
         FRONTEND_URL: 'https://dcp.sa',

@@ -52,6 +52,9 @@ const ALLOWED_CALLBACK_ORIGINS = new Set(
 if (isProduction() && !getMoyasarWebhookSecret()) {
   console.warn('[payments] MOYASAR_WEBHOOK_SECRET is not set; /api/payments/webhook will return 503 until configured');
 }
+if (isProduction() && getMoyasarSecret() && !getMoyasarSecret().startsWith('sk_live_')) {
+  console.warn('[payments] NODE_ENV=production but MOYASAR_SECRET_KEY is not a live key (expected sk_live_…); charges will hit the Moyasar sandbox and could mint free balance');
+}
 
 function toFiniteNumber(value, { min = null, max = null } = {}) {
   const num = typeof value === 'number' ? value : Number(value);
@@ -284,6 +287,16 @@ router.post('/topup', requireRenter, withFinancialIdempotency({
 
   // ── Phase 1: bank transfer (manual IBAN, no gateway required) ──────────────
   if (paymentMethod === 'bank_transfer') {
+    // Guard: never hand a renter the placeholder IBAN. If DCP_BANK_IBAN is unset,
+    // the 'SA0000…' default would instruct a real customer to wire SAR into the
+    // void. Fail loud instead of taking money to a dead account.
+    if (BANK_TRANSFER_IBAN === 'SA0000000000000000000000') {
+      return res.status(503).json({
+        error: 'bank_transfer_unconfigured',
+        message: 'Bank transfer is temporarily unavailable. Please use card payment.',
+        action_required: 'Set DCP_BANK_IBAN (+ DCP_BANK_ACCOUNT_NAME, DCP_BANK_NAME) in the VPS environment.',
+      });
+    }
     const topupId = `pay_bt_${crypto.randomBytes(12).toString('hex')}`;
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + BANK_TRANSFER_EXPIRY_HOURS * 3600 * 1000).toISOString();
