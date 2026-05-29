@@ -157,7 +157,7 @@ export function LegalConsentModal({
           <span>
             I agree to DCP processing my data per the{' '}
             <Link
-              href="/legal/pdpl"
+              href="/privacy"
               target="_blank"
               rel="noopener noreferrer"
               className="text-dc1-amber underline"

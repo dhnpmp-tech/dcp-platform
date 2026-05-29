@@ -57,7 +57,7 @@ export default function Footer() {
             <h4 className="text-sm font-semibold text-dc1-text-primary mb-4">{t('footer.legal')}</h4>
             <ul className="space-y-2">
               <li><Link href="/terms" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.terms')}</Link></li>
-              <li><Link href="/legal/privacy" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.privacy')}</Link></li>
+              <li><Link href="/privacy" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.privacy')}</Link></li>
               <li><Link href="/acceptable-use" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.acceptable_use')}</Link></li>
               <li><Link href="/status" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.system_status')}</Link></li>
             </ul>
