@@ -1,0 +1,2041 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>DCP · Sovereign Arabic AI Runtime · KSA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/dcp-kit.css">
+<style>
+  /* ════════════ NAV + MARQUEE ════════════ */
+  .v2-marq { background:#04050d; color:var(--ink-2); font-family:var(--mono); font-size:11.5px; letter-spacing:.18em;
+    border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; }
+  .v2-marq .in { display:inline-flex; gap:48px; padding:10px 0; animation: marq 60s linear infinite; }
+  .v2-marq .in span { display:inline-flex; align-items:center; gap:12px; }
+  .v2-marq .in span::before { content:"∞"; color:var(--teal); font-size:14px; }
+  @keyframes marq { from{transform:translateX(0);} to{transform:translateX(-50%);} }
+
+  .v2-topbar { display:flex; align-items:center; justify-content:space-between; padding:20px 32px;
+    border-bottom:1px solid var(--hair); position:sticky; top:0; z-index:40;
+    background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(12px); }
+  .v2-topbar .left { display:flex; align-items:center; gap:28px; }
+  .v2-topbar .brand-name { font-family:var(--serif); font-size:28px; letter-spacing:-.01em; line-height:1; }
+  .v2-topbar .brand-name i { font-style:italic; font-size:18px; margin-inline-start:4px;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #6bb39a 55%, #ee7a3c 100%);
+    background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .v2-topbar nav { display:flex; gap:30px; }
+  .v2-topbar nav a {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color:var(--ink-2); position:relative; padding:8px 0;
+    transition: color .15s;
+  }
+  .v2-topbar nav a:hover { color:var(--teal); }
+  .v2-topbar nav a.on { color:var(--ink); }
+  .v2-topbar nav a.on::after { content:""; position:absolute; left:0; right:0; bottom:-21px; height:2px; background:var(--grad); }
+  .v2-topbar .right { display:flex; gap:14px; align-items:center; }
+  @media (max-width: 980px)  { .v2-topbar nav { gap:22px; } }
+  @media (max-width: 760px) {
+    .v2-topbar { padding:14px 18px; }
+    .v2-topbar nav { display:none; }
+    .v2-topbar .menu-toggle { display:inline-flex; }
+  }
+  .v2-topbar .menu-toggle {
+    display:none; width:34px; height:34px; align-items:center; justify-content:center;
+    border:1px solid var(--hair); border-radius:2px; background:transparent; cursor:pointer; color:var(--ink);
+    font-family:var(--mono); font-size:18px; line-height:1;
+  }
+  .v2-topbar .menu-toggle:hover { border-color:var(--teal); color:var(--teal); }
+  /* ═════ Mobile menu — full-screen takeover, editorial typography ═════ */
+  .v2-mobile-menu {
+    position:fixed; inset:0; z-index:60;
+    background: var(--bg);
+    transform: translateY(-100%);
+    transition: transform .45s cubic-bezier(.6,.05,.3,1);
+    display:flex; flex-direction:column;
+    padding: 0; overflow:hidden;
+  }
+  .v2-mobile-menu.on { transform: translateY(0); }
+  /* The same Najdi square Kufic glyph as the hero, but bigger + bolder, as a background */
+  .v2-mobile-menu::before {
+    content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(circle at 80% 10%, rgba(45,212,182,.18), transparent 55%),
+      radial-gradient(circle at 10% 90%, rgba(238,122,60,.18), transparent 55%);
+  }
+  .v2-mobile-menu .mm-glyph {
+    position:absolute; right:-20%; bottom:-12%; width:130%; z-index:0; pointer-events:none;
+    opacity:.08;
+  }
+  .v2-mobile-menu .mm-glyph svg { width:100%; height:auto; color:var(--ink); }
+  .v2-mobile-menu .mm-glyph .ms { fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .v2-mobile-menu .mm-head {
+    position:relative; z-index:2;
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 22px 24px; border-bottom: 1px solid var(--hair);
+  }
+  .v2-mobile-menu .mm-head .brand-name { font-family:var(--serif); font-size:32px; letter-spacing:-.01em; line-height:1; color:var(--ink); }
+  .v2-mobile-menu .mm-head .brand-name i { font-style:italic; font-size:22px; margin-inline-start:4px;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #6bb39a 55%, #ee7a3c 100%);
+    background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .v2-mobile-menu .mm-close {
+    width:48px; height:48px;
+    display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid var(--hair); background:transparent; cursor:pointer;
+    color:var(--ink); font-family:var(--mono); font-size:22px; line-height:1;
+    transition: border-color .15s, color .15s, transform .15s;
+  }
+  .v2-mobile-menu .mm-close:hover, .v2-mobile-menu .mm-close:active { border-color: var(--teal); color: var(--teal); transform: rotate(90deg); }
+
+  .v2-mobile-menu .mm-body {
+    position:relative; z-index:2;
+    flex:1; overflow-y:auto; padding: 42px 28px 28px;
+    display:flex; flex-direction:column;
+  }
+  .v2-mobile-menu .mm-section {
+    font-family:var(--mono); font-size:10px; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--teal); padding: 26px 0 18px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .v2-mobile-menu .mm-section:first-child { padding-top: 0; }
+  .v2-mobile-menu .mm-section::after {
+    content:""; flex:1; height:1px; background: var(--hair);
+  }
+  .v2-mobile-menu .mm-link {
+    display:grid; grid-template-columns: 44px 1fr auto; gap:14px;
+    padding: 22px 0; border-bottom: 1px solid var(--hair);
+    text-decoration:none; align-items:baseline;
+  }
+  .v2-mobile-menu .mm-link .n {
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--mut); padding-top:14px;
+  }
+  .v2-mobile-menu .mm-link .body {
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .v2-mobile-menu .mm-link .t {
+    font-family:var(--serif); font-size:38px; line-height:1; letter-spacing:-.018em; color: var(--ink);
+  }
+  .v2-mobile-menu .mm-link .ar {
+    font-family:'Noto Naskh Arabic', serif; font-size:18px; color:var(--mut); direction:rtl; text-align:right;
+  }
+  .v2-mobile-menu .mm-link .s {
+    font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--mut); margin-top:4px;
+  }
+  .v2-mobile-menu .mm-link .arrow {
+    font-family:var(--mono); font-size:20px; color:var(--mut); padding-top:12px;
+    transition: transform .2s, color .2s;
+  }
+  .v2-mobile-menu .mm-link:hover .arrow,
+  .v2-mobile-menu .mm-link:active .arrow {
+    color: var(--teal); transform: translateX(6px);
+  }
+  .v2-mobile-menu .mm-link:hover .t,
+  .v2-mobile-menu .mm-link:active .t {
+    background-image: var(--grad);
+    background-clip:text; -webkit-background-clip:text; color: transparent;
+  }
+
+  .v2-mobile-menu .mm-foot {
+    position:relative; z-index:2;
+    padding: 22px 28px; border-top: 1px solid var(--hair);
+    display:flex; gap:14px; align-items:center; justify-content:space-between;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; color:var(--mut); text-transform:uppercase;
+  }
+  .v2-mobile-menu .mm-foot .stamp {
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .v2-mobile-menu .mm-foot .stamp::before {
+    content:""; width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px color-mix(in oklab, var(--teal) 25%, transparent);
+  }
+  /* Staggered entry of each link */
+  .v2-mobile-menu .mm-link { opacity:0; transform: translateY(14px); transition: opacity .35s, transform .35s; }
+  .v2-mobile-menu.on .mm-link { opacity:1; transform: translateY(0); }
+  .v2-mobile-menu.on .mm-link:nth-child(2) { transition-delay: .08s; }
+  .v2-mobile-menu.on .mm-link:nth-child(3) { transition-delay: .12s; }
+  .v2-mobile-menu.on .mm-link:nth-child(4) { transition-delay: .16s; }
+  .v2-mobile-menu.on .mm-link:nth-child(5) { transition-delay: .20s; }
+  .v2-mobile-menu.on .mm-link:nth-child(7) { transition-delay: .24s; }
+  .v2-mobile-menu.on .mm-link:nth-child(8) { transition-delay: .28s; }
+  .v2-mobile-menu.on .mm-link:nth-child(9) { transition-delay: .32s; }
+  .v2-mobile-menu.on .mm-link:nth-child(11){ transition-delay: .36s; }
+
+  /* ═══ Hero background — Najdi calligraphic watermark + ticker streams ═══ */
+  .home-hero { padding: 96px 0 56px; position:relative; overflow:hidden; }
+  .home-hero .wrap { position:relative; z-index:2; }
+
+  /* The huge Arabic watermark glyph */
+  .hero-glyph {
+    position:absolute; inset:0; z-index:0; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .hero-glyph svg {
+    width:140%; height:auto; max-height:160%;
+    opacity:.045;
+    transform: translateY(-4%);
+    color: var(--ink);
+  }
+  .hero-glyph .stroke-a, .hero-glyph .stroke-b {
+    fill:none; stroke:currentColor;
+    stroke-width: 1.4; stroke-linecap:round; stroke-linejoin:round;
+  }
+  .hero-glyph .stroke-b {
+    stroke:url(#heroGrad); opacity:.6;
+  }
+  @keyframes glyph-breathe {
+    0%,100% { opacity:.045; }
+    50%     { opacity:.075; }
+  }
+  .hero-glyph svg { animation: glyph-breathe 12s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .hero-glyph svg { animation:none; } }
+
+  /* ═══ Hero — hand-drawn Riyadh skyline + sunrise + film grain ═══
+     Place-specific composition rooted in Saudi visual culture, not AI blob. */
+  .home-hero { padding-top: 96px; padding-bottom: 0; }
+  .home-hero .wrap { position:relative; z-index:3; }
+
+  /* The skyline lives in its own full-width band BELOW the hero,
+     never trapped behind the right-column ticker card. */
+  .skyband {
+    position:relative; overflow:hidden;
+    height: 280px;
+    background: var(--bg);
+    border-top: 1px dashed var(--hair);
+    border-bottom: 1px dashed var(--hair);
+  }
+  @media (max-width: 760px) { .skyband { height: 200px; } }
+
+  /* 1 · Slow breathing sunrise glow (the sky behind the skyline) */
+  .skyband .hero-sun {
+    position:absolute; left:0; right:0; bottom:0; top:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(60% 100% at 22% 100%, rgba(45,212,182,.22) 0%, transparent 65%),
+      radial-gradient(50% 90% at 78% 100%, rgba(238,122,60,.28) 0%, transparent 65%),
+      radial-gradient(70% 60% at 50% 100%, rgba(238,122,60,.10) 0%, transparent 70%);
+    animation: hero-sun-rise 18s ease-in-out infinite alternate;
+  }
+  @keyframes hero-sun-rise {
+    0%   { opacity:.85; transform: translateY(8px); }
+    100% { opacity:1;   transform: translateY(-4px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .skyband .hero-sun { animation:none; } }
+
+  /* 2 · Skyline silhouette: hand-drawn SVG of Riyadh landmarks */
+  .skyband .hero-skyline {
+    position:absolute; left:0; right:0; bottom:0; height:100%; z-index:1; pointer-events:none;
+  }
+  .skyband .hero-skyline svg {
+    position:absolute; bottom:0; left:0; width:100%; height:100%;
+    display:block;
+    color:#0a0b1a;
+    filter: drop-shadow(0 -6px 16px rgba(238,122,60,.10));
+  }
+  .skyband .hero-skyline .city { fill: currentColor; }
+  .skyband .hero-skyline .rim {
+    fill:none; stroke: url(#skylineRim); stroke-width: 1.2; stroke-linecap:round; stroke-linejoin:round;
+    opacity:.85;
+  }
+  .skyband .hero-skyline .blink {
+    fill: #ee7a3c;
+    animation: rooflight 2.8s ease-in-out infinite;
+  }
+  @keyframes rooflight {
+    0%, 60%, 100% { opacity: .35; }
+    70%, 80%      { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .skyband .hero-skyline .blink { animation:none; opacity:.8; } }
+
+  /* 3 · Film grain overlay across the band */
+  .skyband .hero-grain {
+    position:absolute; inset:0; z-index:2; pointer-events:none; opacity:.55;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95   0 0 0 0 0.92   0 0 0 0 0.85   0 0 0 0.18 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* Small caption sitting above the skyline */
+  .skyband .skyband-cap {
+    position:absolute; top: 18px; left:0; right:0; z-index:3; text-align:center;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--mut);
+  }
+  .skyband .skyband-cap em { font-style:normal; color:var(--ink); }
+
+
+  /* Subtle horizon line above/below the hero, like a print register mark */
+  .home-hero::before {
+    content:""; position:absolute; left:0; right:0; top:0; height:1px; z-index:2;
+    background: linear-gradient(90deg, transparent 0%, var(--teal) 20%, var(--orange) 80%, transparent 100%);
+    opacity:.4;
+  }
+  .home-hero .wrap { position:relative; }
+  .home-hero-grid { display:block; max-width: 900px; }
+  @media (max-width: 1080px) { .home-hero-grid { max-width: none; } }
+
+  /* ═══ Saudi network map — hand-drawn outline + 4 region nodes + connections ═══ */
+  .saudi-map {
+    position:absolute; top:0; right:0; width:62%; height:100%;
+    z-index:0; pointer-events:none;
+    mask-image: linear-gradient(90deg, transparent 0%, #000 30%, #000 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 30%, #000 100%);
+  }
+  @media (max-width: 1080px) { .saudi-map { width: 100%; opacity:.45; } }
+  .saudi-map svg { width:100%; height:100%; display:block; }
+  .saudi-map .border  { fill:none; stroke: rgba(125,138,165,.35); stroke-width:1.2; stroke-linejoin:round; }
+  .saudi-map .border2 { fill: rgba(45,212,182,.04); stroke:none; }
+  .saudi-map .grid    { fill:none; stroke: rgba(45,212,182,.10); stroke-width:0.6; }
+  .saudi-map .link    { fill:none; stroke: url(#mapLink); stroke-width:1; stroke-dasharray: 4 5; }
+  .saudi-map .link.a  { animation: dash-flow 6s linear infinite; }
+  .saudi-map .link.b  { animation: dash-flow 8s linear infinite reverse; }
+  @keyframes dash-flow { to { stroke-dashoffset: -180; } }
+  .saudi-map .node { fill: #2dd4b6; }
+  .saudi-map .halo { fill: rgba(45,212,182,.22); }
+  .saudi-map .halo.b { animation: ring-pulse 2.2s ease-out infinite; }
+  .saudi-map .halo.c { animation: ring-pulse 2.6s ease-out infinite; animation-delay: .9s; }
+  .saudi-map .halo.d { animation: ring-pulse 2.4s ease-out infinite; animation-delay: 1.4s; }
+  .saudi-map .halo.e { animation: ring-pulse 2.8s ease-out infinite; animation-delay: .4s; }
+  @keyframes ring-pulse {
+    0%   { r: 6;  opacity: .55; }
+    100% { r: 36; opacity: 0;   }
+  }
+  .saudi-map .node.orange { fill: #ee7a3c; }
+  .saudi-map .label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    fill: rgba(245,243,238,.6);
+  }
+  .saudi-map .label.l { fill: rgba(245,243,238,.85); }
+  @media (prefers-reduced-motion: reduce) {
+    .saudi-map .link.a, .saudi-map .link.b,
+    .saudi-map .halo.b, .saudi-map .halo.c, .saudi-map .halo.d, .saudi-map .halo.e { animation:none; }
+  }
+
+  /* Subtle horizon glow at the bottom of the hero (the dawn carry-over) */
+  .home-hero::after {
+    content:""; position:absolute; left:0; right:0; bottom:0; height: 200px;
+    z-index:0; pointer-events:none;
+    background:
+      radial-gradient(60% 100% at 22% 100%, rgba(45,212,182,.16) 0%, transparent 60%),
+      radial-gradient(50% 100% at 78% 100%, rgba(238,122,60,.18) 0%, transparent 60%);
+  }
+  .home-hero { padding-bottom: 80px; }
+  .home-hero h1 {
+    font-family:var(--serif); font-weight:400; font-style:normal;
+    font-size: clamp(64px, 9.6vw, 152px); line-height:.9; letter-spacing:-.03em;
+    margin: 30px 0 0; text-wrap:balance;
+  }
+  html[data-lang="ar"] .home-hero h1 { font-family:var(--arabic); font-weight:700; letter-spacing:0; line-height:1.02; }
+  .home-hero h1 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .home-hero h1 em { font-style:normal; }
+  .home-hero .lead { color:var(--ink-2); font-size:20px; line-height:1.55; max-width:56ch; margin:30px 0 0; text-wrap:pretty; }
+  .home-hero .ctas { display:flex; gap:10px; margin-top:36px; flex-wrap:wrap; align-items:center; }
+  .home-hero .ctas .since { font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.1em; text-transform:uppercase; margin-inline-start:6px; }
+  .home-hero .res-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:32px; }
+  .home-hero .customers { margin-top:46px; padding-top:24px; border-top:1px dashed var(--hair);
+    display:flex; gap:36px; align-items:center; flex-wrap:wrap;
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--mut); text-transform:uppercase; }
+  .home-hero .customers .l { font-family:var(--serif); font-size:24px; color:var(--ink-2); letter-spacing:-.01em; text-transform:none; }
+
+  /* Hero right: tokens/sec live ticker + compact pipeline */
+  .ticker-v2 {
+    background: linear-gradient(180deg, var(--paper) 0%, var(--bg-2) 100%);
+    border:1px solid var(--line); position:relative; overflow:hidden;
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(45,212,182,.08) inset;
+  }
+  .ticker-v2::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  .ticker-v2 .hd { padding:14px 20px; border-bottom:1px solid var(--hair); display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); }
+  .ticker-v2 .hd .live { color:var(--orange); display:inline-flex; align-items:center; gap:8px; }
+  .ticker-v2 .hd .live .d { width:7px; height:7px; border-radius:50%; background:var(--orange); animation:pulse 1.6s ease-in-out infinite; }
+  .ticker-v2 .body { padding:26px 24px; }
+  .ticker-v2 .big {
+    font-family:var(--serif); font-size:72px; line-height:1; letter-spacing:-.025em; color:var(--ink);
+  }
+  html[data-lang="ar"] .ticker-v2 .big { font-family:var(--arabic); font-weight:700; }
+  .ticker-v2 .big .u { font-family:var(--sans); font-size:14px; color:var(--mut); margin-inline-start:8px; }
+  .ticker-v2 .sub { font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); margin-top:8px; }
+  .ticker-v2 .row { display:grid; grid-template-columns:1fr 1fr; gap:0; border-top:1px solid var(--hair); }
+  .ticker-v2 .row .cell { padding:18px 22px; border-inline-end:1px solid var(--hair); }
+  .ticker-v2 .row .cell:last-child { border-inline-end:0; }
+  .ticker-v2 .row .cell .k { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
+  .ticker-v2 .row .cell .v { font-family:var(--serif); font-size:32px; line-height:1; letter-spacing:-.02em; color:var(--ink); margin-top:4px; }
+  .ticker-v2 .row .cell .d { font-family:var(--mono); font-size:11px; color:var(--teal); margin-top:6px; }
+  .ticker-v2 .pipeline-strip { border:0; border-top:1px solid var(--hair); }
+  .ticker-v2 .pipeline-strip::before { display:none; }
+  .ticker-v2 .feed { padding:14px 20px; border-top:1px solid var(--hair);
+    font-family:var(--mono); font-size:11px; color:var(--mut); line-height:1.85; max-height:140px; overflow:hidden; position:relative; }
+  .ticker-v2 .feed::after { content:""; position:absolute; left:0; right:0; bottom:0; height:40px; background:linear-gradient(transparent, var(--bg-2)); pointer-events:none; }
+  .ticker-v2 .feed .row { display:grid; grid-template-columns: 60px 1fr auto; gap:14px; padding:4px 0; border:0; }
+  .ticker-v2 .feed .t { color:var(--teal); }
+  .ticker-v2 .feed .m { color:var(--ink); }
+  .ticker-v2 .feed .r { color:var(--mut); justify-self:end; }
+
+  /* ════════════ THREE PRODUCT LAYERS ════════════ */
+  .layers { display:grid; grid-template-columns: repeat(3,1fr); gap:0; border:1px solid var(--line); }
+  @media (max-width: 980px){ .layers { grid-template-columns:1fr; } }
+  .layers .layer { padding:42px 38px 44px; border-inline-end:1px solid var(--hair); background:var(--paper);
+    display:flex; flex-direction:column; gap:14px; min-height:380px; transition: background .2s; }
+  .layers .layer:last-child { border-inline-end:0; }
+  .layers .layer:hover { background:var(--bg-2); }
+  .layer .n { font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); }
+  .layer h3 { font-family:var(--serif); font-weight:400; font-size:42px; line-height:1.04; letter-spacing:-.018em; margin:6px 0 0; color:var(--ink); }
+  html[data-lang="ar"] .layer h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .layer p { font-size:15.5px; line-height:1.6; color:var(--ink-2); margin:0; text-wrap:pretty; }
+  .layer ul { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-direction:column; gap:6px; }
+  .layer ul li { font-family:var(--mono); font-size:12.5px; color:var(--ink-2); padding-inline-start:18px; position:relative; line-height:1.6; }
+  .layer ul li::before { content:"+"; position:absolute; inset-inline-start:0; color:var(--teal); font-weight:600; }
+  .layer .end { margin-top:auto; padding-top:18px; border-top:1px dashed var(--hair);
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--mut); display:flex; justify-content:space-between; }
+  .layer .end a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
+  .layer .end a:hover { color:var(--teal); border-bottom-color:var(--teal); }
+
+  /* ════════════ QUICK START · 3 TABS ════════════ */
+  .qs-wrap { display:grid; grid-template-columns: 1.05fr 1.4fr; gap:56px; align-items:start; }
+  @media (max-width: 1020px) { .qs-wrap { grid-template-columns:1fr; gap:36px; } }
+  .qs-left h2.st { margin-top:0; }
+  .qs-left .ss { margin: 22px 0 0; }
+  .qs-left .stamps { display:flex; gap:8px; flex-wrap:wrap; margin-top:26px; }
+  .qs-left .stamp { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2);
+    padding:6px 12px; border:1px solid var(--hair); border-radius:2px; background:var(--paper); }
+
+  .qs-card { background:#04050d; border:1px solid var(--line); position:relative; overflow:hidden; }
+  .qs-card::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  .qs-tabs { display:flex; border-bottom:1px solid var(--hair); align-items:center; padding-inline-end:14px; }
+  .qs-tabs button { padding:14px 18px; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); border-bottom:2px solid transparent; margin-bottom:-1px; background:transparent; cursor:pointer; }
+  .qs-tabs button.on { color:var(--ink); border-bottom-color:var(--teal); background: color-mix(in oklab, var(--teal) 6%, transparent); }
+  .qs-tabs .spacer { flex:1; }
+  .qs-tabs .copy {
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--mut); padding:6px 10px;
+    border:1px solid var(--hair); border-radius:2px; cursor:pointer; transition: border-color .15s, color .15s;
+  }
+  .qs-tabs .copy:hover { color:var(--ink); border-color:var(--teal); }
+  .qs-tabs .copy.done { color:var(--teal); border-color:var(--teal); }
+  .qs-body { display:none; }
+  .qs-body.on { display:block; }
+  .qs-body pre {
+    margin:0; padding: 26px 28px 30px;
+    font-family:var(--mono); font-size:13.5px; line-height:1.75; color:#c9c5bd;
+    background:transparent; overflow-x:auto;
+  }
+  .qs-body pre .pmt { color:var(--orange); }
+  .qs-body pre .fn  { color:var(--teal); }
+  .qs-body pre .str { color:#e0b9a4; }
+  .qs-body pre .com { color:#6a6a8a; }
+  .qs-body pre .key { color:#9bc8e0; }
+  .qs-body pre .num { color:#d4a3ff; }
+  .qs-body pre .grad { background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  .qs-foot { padding: 14px 24px; border-top: 1px solid var(--hair);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
+  .qs-foot a { color:var(--ink); border-bottom: 1px solid var(--ink); padding-bottom:2px; }
+  .qs-foot a:hover { color:var(--teal); border-bottom-color: var(--teal); }
+
+  /* ════════════ MODELS GRID ════════════ */
+  .mg-grid { display:grid; grid-template-columns: repeat(12, 1fr); gap:16px; }
+  .mg { grid-column: span 4; background:var(--paper); border:1px solid var(--line); padding:24px 24px 26px;
+    display:flex; flex-direction:column; gap:10px; position:relative; min-height:280px; transition: transform .15s, box-shadow .15s; }
+  .mg:hover { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
+  @media (max-width: 980px){ .mg { grid-column: span 6; } }
+  @media (max-width: 620px){ .mg { grid-column: span 12; } }
+  .mg .org { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); }
+  .mg .nm { font-family:var(--serif); font-size:28px; line-height:1.04; letter-spacing:-.015em; margin:4px 0 2px; color:var(--ink); }
+  html[data-lang="ar"] .mg .nm { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .mg .tag { color:var(--teal); font-family:var(--mono); font-size:12px; letter-spacing:.04em; }
+  .mg p { font-size:13.5px; line-height:1.55; color:var(--ink-2); margin: 8px 0 0; }
+  .mg .meta { margin-top:auto; padding-top:14px; border-top:1px dashed var(--hair); display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.06em; }
+  .mg .meta b { color:var(--ink); font-weight:500; }
+  .mg .badge-row { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+  .mg.frontier { background: color-mix(in oklab, var(--orange) 5%, var(--paper)); }
+  .mg .hot { position:absolute; top:18px; inset-inline-end:18px; font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--orange); display:flex; align-items:center; gap:6px; }
+  .mg .hot .d { width:6px; height:6px; border-radius:50%; background:var(--orange); animation:pulse 1.6s ease-in-out infinite; }
+
+  /* ════════════ AGENTS-FIRST BLOCK ════════════ */
+  .agents-wrap { display:grid; grid-template-columns: 1.1fr 1fr; gap:64px; align-items:start; }
+  @media (max-width: 1080px) { .agents-wrap { grid-template-columns:1fr; } }
+  .agents-wrap p.ss { margin-bottom: 28px; }
+  .agents-types { display:grid; grid-template-columns: 1fr 1fr; gap:0; border:1px solid var(--line); background:var(--paper); }
+  @media (max-width:560px) { .agents-types { grid-template-columns:1fr; } }
+  .agents-types .at { padding:24px; border-inline-end:1px solid var(--hair); }
+  .agents-types .at:last-child { border-inline-end:0; }
+  .agents-types .at .lbl { font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); }
+  .agents-types .at h4 { font-family:var(--serif); font-weight:400; font-size:26px; letter-spacing:-.01em; line-height:1.1; margin:6px 0 8px; color:var(--ink); }
+  html[data-lang="ar"] .agents-types .at h4 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .agents-types .at p { color:var(--ink-2); font-size:14px; line-height:1.55; margin:0; }
+
+  .tool-card-grid {
+    display:grid; grid-template-columns: repeat(3, 1fr); gap:0; border:1px solid var(--line); background:var(--paper);
+  }
+  @media (max-width:560px) { .tool-card-grid { grid-template-columns: repeat(2, 1fr); } }
+  .tool-card-grid .tc {
+    padding:18px 16px; border-inline-end:1px solid var(--hair); border-bottom:1px solid var(--hair);
+    display:flex; flex-direction:column; gap:4px; min-height:96px; position:relative;
+  }
+  .tool-card-grid .tc:nth-child(3n){ border-inline-end:0; }
+  .tool-card-grid .tc.ksa { background: color-mix(in oklab, var(--teal) 6%, var(--paper)); }
+  .tool-card-grid .tc .nm { font-family:var(--serif); font-size:18px; line-height:1.1; letter-spacing:-.01em; color:var(--ink); }
+  .tool-card-grid .tc .kind { font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--mut); margin-top:auto; }
+  .tool-card-grid .tc.ksa .kind { color:var(--teal); }
+  .tool-card-grid .tc .flag { position:absolute; top:14px; inset-inline-end:14px; font-size:14px; }
+
+  /* ════════════ HOW IT WORKS · explainer ════════════ */
+  .hiw {
+    padding: 110px 0 96px;
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(900px 500px at 18% 18%, rgba(45,212,182,.10), transparent 70%),
+      radial-gradient(900px 500px at 82% 82%, rgba(238,122,60,.10), transparent 70%);
+    border-top:1px solid var(--hair);
+    border-bottom:1px solid var(--hair);
+  }
+  .hiw::before, .hiw::after {
+    content:""; position:absolute; pointer-events:none;
+    border-radius:50%;
+    filter: blur(60px);
+    opacity:.6;
+  }
+  .hiw::before { width:380px; height:380px; left:-60px; top:80px;
+    background: radial-gradient(circle, #2dd4b6 0%, transparent 65%);
+    animation: hiw-drift-a 18s ease-in-out infinite; }
+  .hiw::after  { width:420px; height:420px; right:-80px; bottom:60px;
+    background: radial-gradient(circle, #ee7a3c 0%, transparent 65%);
+    animation: hiw-drift-b 22s ease-in-out infinite; }
+  @keyframes hiw-drift-a { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(60px,-30px) scale(1.05);} }
+  @keyframes hiw-drift-b { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-80px,40px) scale(1.08);} }
+  @media (prefers-reduced-motion: reduce) {
+    .hiw::before, .hiw::after { animation:none; }
+  }
+
+  .hiw-brand {
+    text-align:center; position:relative; z-index:1;
+    margin: 24px 0 64px;
+  }
+  .hiw-wm {
+    display:inline-block;
+    font-family: var(--serif); font-weight:400; font-style:normal;
+    font-size: clamp(110px, 18vw, 240px); line-height:.85; letter-spacing:-.045em;
+    color: var(--ink);
+  }
+  .hiw-wm em {
+    font-style:italic;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #2dd4b6 22%, #6bb39a 50%, #ee7a3c 100%);
+    background-size: 250% 100%;
+    background-clip:text; -webkit-background-clip:text; color:transparent;
+    display:inline-block;
+    animation: hiw-wm-sweep 4.4s ease-in-out infinite;
+    margin-inline-start: 6px;
+  }
+  @keyframes hiw-wm-sweep {
+    0%, 100% { background-position: 0% 50%;   transform: rotate(0deg); filter: drop-shadow(0 0 12px rgba(45,212,182,.35)); }
+    50%      { background-position: 100% 50%; transform: rotate(0deg); filter: drop-shadow(0 0 30px rgba(238,122,60,.55)); }
+  }
+  @media (prefers-reduced-motion: reduce) { .hiw-wm em { animation:none; } }
+
+  .hiw-tag {
+    display:block; margin-top:18px;
+    font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--mut);
+  }
+  .hiw-tag em {
+    font-style:normal; color:var(--ink);
+    background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent;
+    font-weight:500;
+  }
+
+  /* Flow row · 6 stations · animated dot travels left→right repeatedly */
+  .hiw-flow {
+    position:relative; z-index:1; max-width:1180px; margin: 0 auto;
+    padding: 0 16px;
+  }
+  .hiw-row {
+    display:grid; grid-template-columns: repeat(6, 1fr); gap:0;
+    position:relative;
+    border:1px solid var(--line);
+    background: color-mix(in oklab, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px);
+  }
+  .hiw-row::before {
+    /* the animated rail running through the row */
+    content:""; position:absolute; left:0; right:0; top:50%;
+    height:2px; transform: translateY(-50%);
+    background: linear-gradient(90deg, var(--teal) 0%, var(--teal) 40%, var(--orange) 100%);
+    opacity:.18;
+  }
+  .hiw-row::after {
+    /* traveling pulse */
+    content:""; position:absolute; top:50%; left:0;
+    width: 14px; height: 14px; transform:translate(-50%, -50%);
+    border-radius:50%;
+    background: radial-gradient(circle, #f5f3ee 0%, var(--teal) 45%, var(--orange) 100%);
+    box-shadow: 0 0 14px rgba(45,212,182,.7), 0 0 26px rgba(238,122,60,.45);
+    animation: hiw-dot 4.8s linear infinite;
+  }
+  @keyframes hiw-dot {
+    0%   { left: 0%;   opacity: 0; }
+    8%   { opacity: 1; }
+    92%  { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .hiw-row::after { animation:none; opacity:0; } }
+
+  .hiw-st {
+    padding: 28px 22px 26px; border-inline-end:1px solid var(--hair);
+    display:flex; flex-direction:column; gap:8px;
+    background: var(--paper);
+    position:relative; min-height: 200px;
+  }
+  .hiw-st:last-child { border-inline-end:0; }
+  .hiw-st .hiw-n {
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--mut);
+  }
+  .hiw-st .hiw-g {
+    font-family:var(--serif); font-size:36px; line-height:1; color:var(--ink); margin: 4px 0 2px;
+  }
+  .hiw-st.ksa .hiw-g {
+    background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent;
+  }
+  .hiw-st .hiw-h {
+    font-family:var(--serif); font-size:22px; line-height:1.05; letter-spacing:-.012em; color:var(--ink); margin:0;
+  }
+  html[data-lang="ar"] .hiw-st .hiw-h { font-family:var(--arabic); font-weight:700; line-height:1.2; font-size:19px; }
+  .hiw-st .hiw-sub {
+    font-family:var(--mono); font-size:11px; line-height:1.55; letter-spacing:.04em; color:var(--mut); margin-top:4px;
+  }
+  .hiw-st .hiw-flag {
+    margin-top:auto; display:inline-flex; gap:6px; align-items:center;
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal);
+  }
+  .hiw-st .hiw-flag::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 22%, transparent); }
+  .hiw-st.frontier .hiw-flag { color:var(--orange); }
+  .hiw-st.frontier .hiw-flag::before { background:var(--orange); box-shadow: 0 0 0 3px color-mix(in oklab, var(--orange) 22%, transparent); }
+
+  @media (max-width: 980px) {
+    .hiw-row { grid-template-columns: repeat(2, 1fr); }
+    .hiw-st { border-inline-end:1px solid var(--hair) !important; border-bottom:1px solid var(--hair); }
+    .hiw-st:nth-child(2n) { border-inline-end:0 !important; }
+    .hiw-row::before, .hiw-row::after { display:none; }
+  }
+
+  .hiw-foot {
+    margin: 40px auto 0; max-width:780px; text-align:center;
+    color:var(--ink-2); font-size:15px; line-height:1.65; padding: 0 24px;
+  }
+  .hiw-foot b { color:var(--ink); font-weight:500; }
+
+  /* ════════════ MARKETPLACE TABLE ════════════ */
+  .mp-meta { display:flex; justify-content:space-between; align-items:baseline; margin: 0 0 18px; font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:var(--mut); text-transform:uppercase; }
+  .mp-meta b { color:var(--ink); font-weight:500; }
+  .demand-v2 { display:flex; gap:18px; padding:18px 22px; background:var(--paper); border:1px solid var(--line); margin-bottom:20px; align-items:center; }
+  .demand-v2 .left { flex:1; min-width:0; }
+  .demand-v2 .right { width:200px; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.1em; text-transform:uppercase; text-align:end; }
+  .demand-v2 .right b { color:var(--ink); font-weight:500; font-family:var(--sans); font-size:14px; letter-spacing:0; text-transform:none; }
+  .demand-v2 .demand-label { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; color:var(--mut); text-transform:uppercase; display:flex; justify-content:space-between; align-items:baseline; }
+  .demand-v2 .demand-label b { color:var(--ink); font-family:var(--sans); font-size:14px; font-weight:500; text-transform:none; letter-spacing:0; }
+  .demand-v2 .demand-bar { margin-top:10px; height:5px; background:var(--hair); border-radius:2px; overflow:hidden; position:relative; }
+  .demand-v2 .demand-bar span { position:absolute; inset:0 24% 0 0; background:var(--grad); transition: inset .6s; }
+
+  .mp-table { width:100%; border-collapse:collapse; font-size:14px; background:var(--paper); border:1px solid var(--line); }
+  .mp-table thead th {
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    text-align:start; padding:14px 16px; border-bottom:1px solid var(--line); color:var(--mut); background:var(--bg-2);
+  }
+  .mp-table tbody td { padding:18px 16px; border-bottom:1px solid var(--hair); vertical-align:middle; }
+  .mp-table tbody tr:last-child td { border-bottom:0; }
+  .mp-table tbody tr { transition: background .15s; }
+  .mp-table tbody tr:hover { background: color-mix(in oklab, var(--teal) 8%, var(--paper)); }
+  .mp-table .gpu { font-family:var(--serif); font-size:20px; letter-spacing:-.01em; color:var(--ink); }
+  .mp-table .gpu small { display:block; color:var(--mut); font-size:11px; font-family:var(--mono); margin-top:3px; letter-spacing:.04em; }
+  .mp-table .region { display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+  .mp-table .region .pin { width:6px; height:6px; border-radius:50%; background:var(--teal); }
+  .mp-table .provider { font-family:var(--mono); font-size:12.5px; color:var(--ink-2); }
+  .mp-table .util-cell { display:flex; align-items:center; gap:10px; min-width:120px; }
+  .mp-table .util-bar { flex:1; height:4px; background:var(--hair); position:relative; border-radius:2px; overflow:hidden; }
+  .mp-table .util-bar span { position:absolute; inset:0; background:var(--grad); transform-origin:left; }
+  .mp-table .util-val { font-family:var(--mono); font-size:11.5px; color:var(--mut); min-width:34px; }
+  .mp-table .price { font-family:var(--serif); font-size:22px; letter-spacing:-.01em; color:var(--ink); }
+  .mp-table .price .u { font-family:var(--mono); font-size:11px; color:var(--mut); margin-inline-start:6px; }
+  .mp-foot { margin-top:14px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.08em; text-transform:uppercase; }
+  .mp-foot a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
+  .mp-foot a:hover { color:var(--teal); border-bottom-color:var(--teal); }
+
+  /* ════════════ ARABIC WEDGE ════════════ */
+  .wedge { display:grid; grid-template-columns: 1fr 1fr; gap:56px; align-items:start; }
+  @media (max-width: 980px){ .wedge { grid-template-columns:1fr; } }
+  .wedge-q { background:var(--paper); border:1px solid var(--line); padding:32px 34px; position:relative; }
+  .wedge-q::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  .wedge-q .lbl { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); }
+  .wedge-q .q { font-family:var(--arabic); font-size:26px; line-height:1.7; color:var(--ink); margin:14px 0 0; direction:rtl; text-align:right; }
+  .wedge-q .a-lbl { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); margin-top:24px; }
+  .wedge-q .a { font-family:var(--arabic); font-size:18px; line-height:1.85; color:var(--ink-2); margin:10px 0 0; direction:rtl; text-align:right; }
+
+  /* ════════════ TWO-PATH REGISTRATION ════════════ */
+  .paths { display:grid; grid-template-columns: 1fr 1fr; gap:0; border:1px solid var(--line); background:var(--paper); }
+  @media (max-width: 900px){ .paths { grid-template-columns:1fr; } }
+  .paths .path {
+    padding: 56px 48px 56px; border-inline-end:1px solid var(--hair); position:relative;
+    display:flex; flex-direction:column; gap:18px; min-height:520px;
+  }
+  .paths .path:last-child { border-inline-end:0; }
+  .paths .path::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); opacity:0; transition: opacity .25s; }
+  .paths .path:hover::before { opacity:1; }
+  .paths .path .lbl { font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); }
+  .paths .path h3 {
+    font-family:var(--serif); font-weight:400; font-size:54px; line-height:.98; letter-spacing:-.022em; margin: 8px 0 0; color:var(--ink);
+  }
+  html[data-lang="ar"] .paths .path h3 { font-family:var(--arabic); font-weight:700; line-height:1.1; }
+  .paths .path h3 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .paths .path h3 em { font-style:normal; }
+  .paths .path .desc { color:var(--ink-2); font-size:16px; line-height:1.6; max-width:42ch; }
+  .paths .path .steps { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-direction:column; gap:12px; }
+  .paths .path .steps li {
+    display:grid; grid-template-columns: 36px 1fr; gap:14px; padding:14px 0; border-bottom:1px dashed var(--hair);
+    font-size:14px; line-height:1.55; color:var(--ink); align-items:start;
+  }
+  .paths .path .steps li:last-child { border-bottom:0; }
+  .paths .path .steps li .n { font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:var(--mut); padding-top:2px; }
+  .paths .path .steps li .t { color:var(--ink-2); font-size:13.5px; }
+  .paths .path .steps li .t b { color:var(--ink); font-weight:500; }
+  .paths .path .cta { margin-top:auto; padding-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+  .paths .path .smallprint { font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.06em; }
+
+  /* ════════════ PRICING SNAPSHOT ════════════ */
+  .ps-grid {
+    display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:0; border:1px solid var(--line); background:var(--paper);
+  }
+  @media (max-width:980px){ .ps-grid { grid-template-columns: 1fr 1fr; } }
+  .ps-grid .ps-it { padding:24px 22px; border-inline-end:1px solid var(--hair); display:flex; flex-direction:column; gap:6px; min-height: 160px; }
+  .ps-grid .ps-it:last-child { border-inline-end:0; }
+  @media (max-width:980px){ .ps-grid .ps-it:nth-child(2){ border-inline-end:0; } .ps-grid .ps-it { border-bottom: 1px solid var(--hair); } }
+  .ps-grid .ps-it.frontier { background: color-mix(in oklab, var(--orange) 5%, var(--paper)); }
+  .ps-grid .ps-it .nm { font-family:var(--serif); font-size:24px; line-height:1.05; letter-spacing:-.01em; color:var(--ink); }
+  .ps-grid .ps-it .pr { font-family:var(--serif); font-size:32px; line-height:1; letter-spacing:-.02em; color:var(--ink); margin-top:6px; }
+  .ps-grid .ps-it .pr .u { font-family:var(--mono); font-size:11px; color:var(--mut); margin-inline-start:6px; }
+  .ps-grid .ps-it .sub { font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--mut); text-transform:uppercase; margin-top:auto; }
+
+  /* ════════════ COMPLIANCE ════════════ */
+  .compliance { display:flex; gap:0; border:1px solid var(--line); flex-wrap:wrap; }
+  .compliance .item { padding:22px 26px; border-inline-end:1px solid var(--hair); flex:1; min-width:160px; display:flex; flex-direction:column; gap:4px; }
+  .compliance .item:last-child { border-inline-end:0; }
+  .compliance .item .k { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); }
+  .compliance .item .v { font-family:var(--serif); font-size:24px; line-height:1.1; color:var(--ink); letter-spacing:-.01em; }
+  .compliance .item .sub { font-family:var(--mono); font-size:10.5px; color:var(--mut); margin-top:2px; }
+
+  /* ════════════ ENTERPRISE BAND ════════════ */
+  .ent {
+    background: radial-gradient(120% 100% at 0% 0%, #1a1d3e 0%, #0a0b1a 60%);
+    color:var(--ink); padding: 96px 56px; position:relative; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .ent::before { content:""; position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(circle at 80% 30%, rgba(45,212,182,.18) 0%, transparent 55%),
+                radial-gradient(circle at 20% 70%, rgba(238,122,60,.14) 0%, transparent 55%);
+    filter: blur(20px); }
+  .ent > * { position:relative; }
+  .ent .eyebrow { color:var(--teal); }
+  .ent .eyebrow::before { background:var(--teal); }
+  .ent h2 { font-family:var(--serif); font-weight:400; font-size: clamp(48px,7vw,96px); line-height:.96; letter-spacing:-.02em; margin: 18px 0 0; text-wrap:balance; }
+  .ent h2 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  .ent p { color:var(--ink-2); font-size:18px; line-height:1.6; margin: 22px 0 0; max-width:60ch; }
+  .ent ul { list-style:none; padding:0; margin:24px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:8px 28px; max-width:620px; }
+  @media (max-width: 700px) { .ent ul { grid-template-columns:1fr; } }
+  .ent ul li { font-family:var(--mono); font-size:13px; color:var(--ink-2); padding-inline-start:18px; position:relative; line-height:1.55; }
+  .ent ul li::before { content:"+"; position:absolute; inset-inline-start:0; color:var(--teal); font-weight:600; }
+  .ent .ctas { display:flex; gap:10px; margin-top:32px; flex-wrap:wrap; }
+  .ent .btn.primary { background:var(--grad); color:#0a0b1a; border:0; }
+  .ent .btn.ghost { border-color:rgba(245,243,238,.35); color:#f5f3ee; }
+  .ent .btn.ghost:hover { background:#f5f3ee; color:#0a0b1a; }
+
+  /* ════════════ END CTA ════════════ */
+  .home-end { padding: 160px 0 130px; text-align:center; border-top:1px solid var(--hair); }
+  .home-end h2 {
+    font-family:var(--serif); font-weight:400; font-size: clamp(64px, 11vw, 180px); line-height:.9; letter-spacing:-.035em; margin:0; text-wrap:balance;
+  }
+  html[data-lang="ar"] .home-end h2 { font-family:var(--arabic); font-weight:700; letter-spacing:0; line-height:1.02; }
+  .home-end h2 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .home-end h2 em { font-style:normal; }
+  .home-end p { color:var(--ink-2); font-size:18.5px; line-height:1.55; max-width:60ch; margin:26px auto 0; }
+  .home-end .ctas { display:flex; gap:10px; justify-content:center; margin-top:34px; flex-wrap:wrap; }
+
+  /* ════════════ FOOTER SITEMAP ════════════ */
+  footer.site { background:#04050d; color:var(--ink); border-top:1px solid var(--line); padding: 64px 0 36px; }
+  .foot-grid { display:grid; grid-template-columns: 1.6fr repeat(4, 1fr); gap:40px; max-width:1280px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width:900px){ .foot-grid { grid-template-columns: 1fr 1fr; } }
+  .foot .brand { font-family:var(--serif); font-size:36px; letter-spacing:-.01em; color:var(--ink); }
+  .foot .brand i { font-style:italic; font-size:24px; margin-inline-start:4px;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #6bb39a 55%, #ee7a3c 100%);
+    background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .foot .desc { color:var(--ink-2); font-size:14px; line-height:1.6; margin: 18px 0 22px; max-width: 40ch; }
+  .foot h4 { font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; margin:0 0 16px; color:var(--mut); font-weight:500; }
+  .foot ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:9px; }
+  .foot a { color:var(--ink-2); font-size:13.5px; }
+  .foot a:hover { color:var(--teal); }
+  .foot-bottom { max-width:1280px; margin: 56px auto 0; padding: 22px 32px 0; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.08em; flex-wrap:wrap; gap:14px; }
+  .foot-bottom .badges { display:flex; gap:8px; }
+</style>
+</head>
+<body>
+
+<!-- ───────── Top marquee ───────── -->
+<div class="v2-marq">
+  <div class="in">
+    <span data-en="Inference and agents, in the Kingdom" data-ar="استدلال ووكلاء، داخل المملكة">Inference and agents, in the Kingdom</span>
+    <span data-en="Pay per token · Saudi Riyal" data-ar="ادفع لكل رمز · بالريال السعودي">Pay per token · Saudi Riyal</span>
+    <span data-en="DCP-Agent for Saudi business · agents.dcp.sa" data-ar="‏DCP-Agent‏ للأعمال السعودية · ‏agents.dcp.sa‏">DCP-Agent for Saudi business · agents.dcp.sa</span>
+    <span data-en="Earn Riyal from your GPU" data-ar="اكسب ريالاً من معالجك">Earn Riyal from your GPU</span>
+    <span data-en="PDPL · Saudi data residency" data-ar="نظام البيانات · إقامة داخل المملكة">PDPL · Saudi data residency</span>
+    <!-- loop -->
+    <span data-en="Inference and agents, in the Kingdom" data-ar="استدلال ووكلاء، داخل المملكة">Inference and agents, in the Kingdom</span>
+    <span data-en="Pay per token · Saudi Riyal" data-ar="ادفع لكل رمز · بالريال السعودي">Pay per token · Saudi Riyal</span>
+    <span data-en="DCP-Agent for Saudi business · agents.dcp.sa" data-ar="‏DCP-Agent‏ للأعمال السعودية · ‏agents.dcp.sa‏">DCP-Agent for Saudi business · agents.dcp.sa</span>
+    <span data-en="Earn Riyal from your GPU" data-ar="اكسب ريالاً من معالجك">Earn Riyal from your GPU</span>
+    <span data-en="PDPL · Saudi data residency" data-ar="نظام البيانات · إقامة داخل المملكة">PDPL · Saudi data residency</span>
+  </div>
+</div>
+
+<!-- ───────── Nav ───────── -->
+<header class="v2-topbar">
+  <div class="left">
+    <a href="./Home.html" class="brand-name">DCP<i>∞</i></a>
+    <nav>
+      <a href="./Home.html" class="on" data-en="Overview" data-ar="نظرة عامة">Overview</a>
+      <a href="#marketplace" data-en="Marketplace" data-ar="السوق">Marketplace</a>
+      <a href="#agents" data-en="Agents" data-ar="الوكلاء">Agents</a>
+      <a href="./Pricing.html" data-en="Pricing" data-ar="الأسعار">Pricing</a>
+      <a href="./docs/Docs.html" data-en="Docs" data-ar="التوثيق">Docs</a>
+    </nav>
+  </div>
+  <div class="right">
+    <div class="lang-pill" id="lang-pill">
+      <button data-l="en" class="on">EN</button>
+      <button data-l="ar">ع</button>
+    </div>
+    <a class="btn small ghost" href="./Auth.html" data-en="Sign in" data-ar="دخول">Sign in</a>
+    <a class="btn small primary" href="./Auth.html?new" data-en="Start free →" data-ar="ابدأ مجاناً ←">Start free →</a>
+    <button class="menu-toggle" id="menu-toggle" aria-label="Menu">☰</button>
+  </div>
+</header>
+
+<!-- Mobile menu — full-screen editorial overlay -->
+<div class="v2-mobile-menu" id="mobile-menu">
+  <!-- Background Najdi Kufic glyph echo -->
+  <div class="mm-glyph" aria-hidden="true">
+    <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+      <g class="ms" transform="translate(180 110)">
+        <path d="M 0 0 H 180 V 60 H 60 V 220 H 180 V 280 H 0 Z"/>
+        <path d="M 260 0 H 460 V 60 H 320 V 160 H 460 V 220 H 380 V 280 H 260 Z M 380 100 H 460 V 160 H 380 Z"/>
+        <path d="M 540 0 H 720 V 60 H 600 V 220 H 720 V 280 H 540 Z M 660 100 H 720 V 160 H 660 Z"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="mm-head">
+    <span class="brand-name">DCP<i>∞</i></span>
+    <button class="mm-close" id="mm-close" aria-label="Close">✕</button>
+  </div>
+  <div class="mm-body">
+    <div class="mm-section" data-en="Explore" data-ar="تصفّح">Explore</div>
+    <a class="mm-link" href="./Home.html">
+      <span class="n">01</span>
+      <span class="body">
+        <span class="t" data-en="Overview" data-ar="نظرة عامة">Overview</span>
+        <span class="ar">نظرة عامة</span>
+        <span class="s" data-en="Sovereign Arabic AI runtime" data-ar="بيئة تشغيل عربية سيادية">Sovereign Arabic AI runtime</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="mm-link" href="./Demo.html">
+      <span class="n">02</span>
+      <span class="body">
+        <span class="t" data-en="Demo" data-ar="تجربة">Demo</span>
+        <span class="ar">تجربة</span>
+        <span class="s" data-en="Watch the round-trip" data-ar="شاهد الدورة">Watch the round-trip</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="mm-link" href="./Pricing.html">
+      <span class="n">03</span>
+      <span class="body">
+        <span class="t" data-en="Pricing" data-ar="الأسعار">Pricing</span>
+        <span class="ar">الأسعار</span>
+        <span class="s" data-en="Per-million-token · SAR" data-ar="لكل مليون رمز · بالريال">Per-million-token · SAR</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <div class="mm-section" data-en="Build &amp; operate" data-ar="ابن وشغّل">Build &amp; operate</div>
+    <a class="mm-link" href="#marketplace">
+      <span class="n">04</span>
+      <span class="body">
+        <span class="t" data-en="Marketplace" data-ar="السوق">Marketplace</span>
+        <span class="ar">السوق</span>
+        <span class="s" data-en="40+ KSA providers" data-ar="‎٤٠+‎ مزوّد">40+ KSA providers</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="mm-link" href="#agents">
+      <span class="n">05</span>
+      <span class="body">
+        <span class="t" data-en="Agents" data-ar="الوكلاء">Agents</span>
+        <span class="ar">الوكلاء</span>
+        <span class="s" data-en="Live at agents.dcp.sa" data-ar="على ‏agents.dcp.sa‏">Live at agents.dcp.sa</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+    <a class="mm-link" href="./docs/Docs.html">
+      <span class="n">06</span>
+      <span class="body">
+        <span class="t" data-en="Docs" data-ar="التوثيق">Docs</span>
+        <span class="ar">التوثيق">التوثيق</span>
+        <span class="s" data-en="API · CLI · SDKs" data-ar="واجهة · سطر أوامر · مكتبات">API · CLI · SDKs</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <div class="mm-section" data-en="Trust" data-ar="الثقة">Trust</div>
+    <a class="mm-link" href="./Sovereignty.html">
+      <span class="n">07</span>
+      <span class="body">
+        <span class="t" data-en="Sovereignty" data-ar="السيادة">Sovereignty</span>
+        <span class="ar">السيادة</span>
+        <span class="s" data-en="Where your data lives" data-ar="أين تعيش بياناتك">Where your data lives</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+  </div>
+  <div class="mm-foot">
+    <span class="stamp">DC Power Solutions · CR 7053667775</span>
+    <a href="./Auth.html?new" class="btn small primary" data-en="Start free →" data-ar="ابدأ مجاناً ←">Start free →</a>
+  </div>
+</div>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="home-hero">
+  <!-- Najdi-inspired Arabic glyph watermark + telex ticker streams -->
+  <div class="hero-glyph" aria-hidden="true">
+    <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#2dd4b6"/>
+          <stop offset=".55" stop-color="#6bb39a"/>
+          <stop offset="1" stop-color="#ee7a3c"/>
+        </linearGradient>
+      </defs>
+      <!--
+        A hand-tuned Najdi-style square Kufic composition of the letters
+        د · ج · ب (the consonants of ‏DCP‏ read in Arabic). Square Kufic is the
+        geometric, brick-laid Arabic script used in Najdi architecture —
+        all strokes are 90°, all proportions are unit-grid. Two passes:
+        a base stroke and a gradient overstroke on a subset for depth.
+      -->
+      <g class="stroke-a" transform="translate(200 110) scale(1)">
+        <!-- د  -->
+        <path d="M 0 0 H 180 V 60 H 60 V 220 H 180 V 280 H 0 Z"/>
+        <!-- ج -->
+        <path d="M 260 0 H 460 V 60 H 320 V 160 H 460 V 220 H 380 V 280 H 260 Z M 380 100 H 460 V 160 H 380 Z"/>
+        <!-- ب -->
+        <path d="M 540 0 H 720 V 60 H 600 V 220 H 720 V 280 H 540 Z M 660 100 H 720 V 160 H 660 Z"/>
+        <!-- Decorative knots in the Najdi border tradition -->
+        <path d="M -40 -40 H 760 V 320 H -40 Z" stroke-dasharray="4 12" opacity=".6"/>
+      </g>
+      <g class="stroke-b" transform="translate(200 110) scale(1)">
+        <path d="M 0 0 H 180 V 60 H 60 V 220 H 180 V 280 H 0 Z"/>
+        <path d="M 260 0 H 460 V 60 H 320 V 160 H 460 V 220 H 380 V 280 H 260 Z"/>
+        <path d="M 540 0 H 720 V 60 H 600 V 220 H 720 V 280 H 540 Z"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Saudi network map: country outline + 4 region nodes + pulsing connections -->
+  <div class="saudi-map" aria-hidden="true">
+    <svg viewBox="0 0 1000 850" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="mapLink" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2dd4b6" stop-opacity=".7"/>
+          <stop offset="1" stop-color="#ee7a3c" stop-opacity=".7"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Faint coordinate grid behind the map (lon/lat 5° ticks) -->
+      <g class="grid">
+        <path d="M 0 100 H 1000 M 0 300 H 1000 M 0 500 H 1000 M 0 700 H 1000"/>
+        <path d="M 227 0 V 850 M 455 0 V 850 M 683 0 V 850 M 911 0 V 850"/>
+      </g>
+
+      <!--
+        Saudi Arabia border, traced from real coordinates (lat 16°N–32°N, lon 34°E–56°E),
+        projected linearly into a 1000×850 viewBox. Going clockwise from the NW.
+      -->
+      <path class="border2" d="
+        M 45 125
+        L 182 5  L 318 45  L 455 75  L 591 100
+        L 614 175
+        L 660 230 L 705 270 L 728 285
+        L 760 305 L 778 325 L 768 348 L 740 360
+        L 815 385 L 900 420 L 970 455
+        L 945 490 L 910 540 L 845 590 L 745 660 L 645 720
+        L 555 770 L 470 765 L 380 745 L 295 710
+        L 240 645 L 215 565
+        L 218 520 L 225 470
+        L 200 400 L 175 320 L 145 250 L 110 195 L 75 155
+        Z"/>
+      <path class="border" d="
+        M 45 125
+        L 182 5  L 318 45  L 455 75  L 591 100
+        L 614 175
+        L 660 230 L 705 270 L 728 285
+        L 760 305 L 778 325 L 768 348 L 740 360
+        L 815 385 L 900 420 L 970 455
+        L 945 490 L 910 540 L 845 590 L 745 660 L 645 720
+        L 555 770 L 470 765 L 380 745 L 295 710
+        L 240 645 L 215 565
+        L 218 520 L 225 470
+        L 200 400 L 175 320 L 145 250 L 110 195 L 75 155
+        Z"/>
+
+      <!-- Network links between regions (real city positions, projected) -->
+      <path class="link a" d="M 578 365 L 728 280"/>
+      <path class="link a" d="M 578 365 L 227 525"/>
+      <path class="link b" d="M 578 365 L 45 200"/>
+      <path class="link b" d="M 728 280 L 45 200"/>
+      <path class="link b" d="M 227 525 L 45 200"/>
+      <path class="link a" d="M 227 525 L 728 280"/>
+
+      <!-- Region pulse halos (drawn under nodes so dots sit on top) -->
+      <circle class="halo b" cx="578" cy="365" r="6"/>
+      <circle class="halo c" cx="227" cy="525" r="6"/>
+      <circle class="halo d" cx="728" cy="280" r="6"/>
+      <circle class="halo e" cx="45"  cy="200" r="6"/>
+
+      <!-- Region nodes (Riyadh, Jeddah, Dammam, NEOM at their actual lat/lon) -->
+      <circle class="node"        cx="578" cy="365" r="5"/>
+      <circle class="node"        cx="227" cy="525" r="4"/>
+      <circle class="node orange" cx="728" cy="280" r="4"/>
+      <circle class="node orange" cx="45"  cy="200" r="4"/>
+
+      <!-- Region labels -->
+      <text class="label l" x="596" y="361">RUH-1</text>
+      <text class="label"   x="596" y="375">Riyadh</text>
+      <text class="label l" x="245" y="521">JED-1</text>
+      <text class="label"   x="245" y="535">Jeddah</text>
+      <text class="label l" x="746" y="276">DMM-1</text>
+      <text class="label"   x="746" y="290">Dammam</text>
+      <text class="label l" x="63"  y="196">NEOM-1</text>
+      <text class="label"   x="63"  y="210">NEOM</text>
+    </svg>
+  </div>
+
+  <div class="wrap">
+    <div class="home-hero-grid">
+      <div>
+        <span class="eyebrow" data-en="§ DCP · Sovereign Arabic AI Runtime · KSA" data-ar="§ ‏DCP‏ · بيئة تشغيل الذكاء الاصطناعي العربي السيادية · المملكة">§ DCP · Sovereign Arabic AI Runtime · KSA</span>
+        <h1 data-en="Arabic AI that <em>lives in the Kingdom.</em>" data-ar="ذكاء اصطناعي عربي <em>يعيش داخل المملكة.</em>">Arabic AI that <em>lives in the Kingdom.</em></h1>
+        <p class="lead" data-en="Inference and agents, served from inside the Kingdom. Your data stays here. You pay for what you use, in Riyal." data-ar="استدلال ووكلاء، تُقدّم من داخل المملكة. بياناتك تبقى هنا. تدفع مقابل ما تستخدم فقط، بالريال.">Inference and agents, served from inside the Kingdom. Your data stays here. You pay for what you use, in Riyal.</p>
+        <div class="ctas">
+          <a class="btn primary lg magnet" href="./Demo.html" data-en="Try the live demo →" data-ar="جرّب التجربة الحية ←">Try the live demo →</a>
+          <a class="btn ghost lg" href="./Auth.html?new" data-en="Start free · no card" data-ar="ابدأ مجاناً · بلا بطاقة">Start free · no card</a>
+        </div>
+        <div class="res-row">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="Inference · KSA" data-ar="الاستدلال · المملكة">Inference · KSA</span></span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="Agents · KSA" data-ar="الوكلاء · المملكة">Agents · KSA</span></span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="GPUs · KSA" data-ar="معالجات · المملكة">GPUs · KSA</span></span>
+          <span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Frontier · opt-in only" data-ar="متقدم · بإذن فقط">Frontier · opt-in only</span></span>
+        </div>
+        <!-- (customer strip removed — we don't publish customer names without their say-so) -->
+      </div>
+      <!-- (right-column ticker removed — the Saudi network map now occupies the hero background) -->
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ HOW IT WORKS — visual explainer ═══════════════ -->
+<section class="hiw">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ How it works" data-ar="§ كيف يعمل">§ How it works</span>
+      <span data-en="Arabic in · Arabic out · round-trip" data-ar="عربية دخولاً · عربية خروجاً · دورة كاملة">Arabic in · Arabic out · round-trip</span>
+    </div>
+
+    <div class="hiw-brand">
+      <span class="hiw-wm">DCP<em>∞</em></span>
+      <span class="hiw-tag" data-en="Sovereign Arabic AI · <em>built in the Kingdom</em>" data-ar="ذكاء عربي سيادي · <em>مبني في المملكة</em>">Sovereign Arabic AI · <em>built in the Kingdom</em></span>
+    </div>
+
+    <div class="hiw-flow">
+      <div class="hiw-row" aria-hidden="true">
+        <div class="hiw-st ksa">
+          <span class="hiw-n">01</span>
+          <span class="hiw-g">أ</span>
+          <h4 class="hiw-h" data-en="Arabic in" data-ar="عربية دخولاً">Arabic in</h4>
+          <span class="hiw-sub" data-en="User types or speaks" data-ar="المستخدم يكتب أو يتحدّث">User types or speaks</span>
+          <span class="hiw-flag" data-en="KSA" data-ar="‏🇸🇦‏ المملكة">🇸🇦 KSA</span>
+        </div>
+        <div class="hiw-st ksa">
+          <span class="hiw-n">02</span>
+          <span class="hiw-g">⇄</span>
+          <h4 class="hiw-h" data-en="Arabic → English" data-ar="عربي ‍‍→ إنجليزي">Arabic → English</h4>
+          <span class="hiw-sub" data-en="Sovereign translation" data-ar="ترجمة سيادية">Sovereign translation</span>
+          <span class="hiw-flag" data-en="KSA" data-ar="‏🇸🇦‏ المملكة">🇸🇦 KSA</span>
+        </div>
+        <div class="hiw-st ksa">
+          <span class="hiw-n">03</span>
+          <span class="hiw-g">◇</span>
+          <h4 class="hiw-h" data-en="Router" data-ar="الموجّه">Router</h4>
+          <span class="hiw-sub" data-en="Picks the best model" data-ar="يختار أفضل نموذج">Picks the best model</span>
+          <span class="hiw-flag" data-en="KSA" data-ar="‏🇸🇦‏ المملكة">🇸🇦 KSA</span>
+        </div>
+        <div class="hiw-st ksa frontier">
+          <span class="hiw-n">04</span>
+          <span class="hiw-g">◆</span>
+          <h4 class="hiw-h" data-en="Best model runs" data-ar="أفضل نموذج يعمل">Best model runs</h4>
+          <span class="hiw-sub" data-en="Sovereign by default · frontier opt-in" data-ar="سيادي افتراضياً · متقدّم بإذن">Sovereign by default · frontier opt-in</span>
+          <span class="hiw-flag" data-en="KSA / opt-in" data-ar="‏🇸🇦‏ المملكة / بإذن">🇸🇦 KSA / opt-in</span>
+        </div>
+        <div class="hiw-st ksa">
+          <span class="hiw-n">05</span>
+          <span class="hiw-g">⇄</span>
+          <h4 class="hiw-h" data-en="English → Arabic" data-ar="إنجليزي ‍‍→ عربي">English → Arabic</h4>
+          <span class="hiw-sub" data-en="Native Arabic out" data-ar="عربية أصيلة">Native Arabic out</span>
+          <span class="hiw-flag" data-en="KSA" data-ar="‏🇸🇦‏ المملكة">🇸🇦 KSA</span>
+        </div>
+        <div class="hiw-st ksa">
+          <span class="hiw-n">06</span>
+          <span class="hiw-g">أ</span>
+          <h4 class="hiw-h" data-en="Arabic out" data-ar="عربية خروجاً">Arabic out</h4>
+          <span class="hiw-sub" data-en="User reads or hears" data-ar="المستخدم يقرأ أو يسمع">User reads or hears</span>
+          <span class="hiw-flag" data-en="KSA" data-ar="‏🇸🇦‏ المملكة">🇸🇦 KSA</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="hiw-foot" data-en="All six stages live on <b>KSA-resident GPUs</b> by default. Frontier (DeepSeek) stays off unless you opt in — your data, your decision." data-ar="المراحل الست تعمل على <b>معالجات داخل المملكة</b> افتراضياً. النماذج المتقدمة (‏DeepSeek‏) مغلقة حتى تأذن بها — بياناتك، وقرارك.">All six stages live on <b>KSA-resident GPUs</b> by default. Frontier (DeepSeek) stays off unless you opt in — your data, your decision.</p>
+  </div>
+</section>
+
+<!-- (SKYBAND section removed — composition now lives inside the hero) -->
+<section class="skyband" style="display:none">
+  <div class="skyband-cap">§ Riyadh · <em>dawn over the Kingdom</em></div>
+  <div class="hero-sun"></div>
+  <div class="hero-skyline">
+    <svg viewBox="0 0 1600 180" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="skylineRim" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0"   stop-color="#2dd4b6" stop-opacity="0"/>
+          <stop offset=".18" stop-color="#2dd4b6" stop-opacity=".65"/>
+          <stop offset=".55" stop-color="#6bb39a" stop-opacity=".75"/>
+          <stop offset=".88" stop-color="#ee7a3c" stop-opacity=".88"/>
+          <stop offset="1"   stop-color="#ee7a3c" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path class="city" d="
+        M0,180 L0,140
+        L40,140 L40,120 L80,120 L80,135 L120,135 L120,108 L150,108 L150,120 L180,120 L180,128
+        L210,128 L210,100 L235,100 L235,116 L270,116 L270,90 L295,90 L295,118 L320,118
+        L320,82  L350,82  L350,110 L385,110 L385,128 L415,128
+        L415,70  L440,55  L460,70  L460,118 L495,118
+        L495,52  L515,40  L515,52  L520,52  L520,118 L555,118
+        L555,40  L580,30  L580,40  L585,40  L585,118 L610,118
+        L610,100 L640,100 L640,82
+          L650,82 L650,46  L680,46
+          L680,28  L692,16  L704,28  L704,46 L734,46
+          L734,82  L744,82 L744,100
+        L770,100 L770,118 L800,118
+        L800,60  L820,60  L820,40  L840,40 L840,18 L880,18
+          L880,40 L900,40 L900,60 L920,60
+        L920,118 L955,118
+        L955,72  L985,72  L985,118 L1020,118
+        L1020,90 L1055,90 L1055,118 L1090,118
+        L1090,40 L1110,40 L1110,20 L1130,20
+        L1130,46 L1170,46 L1170,118
+        L1200,118 L1200,98 L1235,98 L1235,118 L1265,118
+        L1265,82 L1290,82 L1290,118 L1325,118
+        L1325,60 L1355,60 L1355,118 L1385,118
+        L1385,108 L1430,108 L1430,118 L1470,118
+        L1470,84 L1500,84 L1500,118 L1540,118
+        L1540,128 L1600,128 L1600,180 Z"/>
+      <path class="city" d="
+        M650,82 L650,46 L660,46 L660,40 L724,40 L724,46 L734,46 L734,82
+        L716,82 L716,55
+          C 716,46 700,46 692,46
+          C 684,46 668,46 668,55
+          L668,82 Z"/>
+      <path class="city" d="M 850,60 L 880,16 L 910,60 L 905,80 L 880,28 L 855,80 Z"/>
+      <circle class="city" cx="880" cy="22" r="6"/>
+      <path class="rim" d="
+        M0,140 L40,140 L40,120 L80,120 L80,135 L120,135 L120,108
+        L150,108 L150,120 L180,120 L180,128 L210,128 L210,100
+        L235,100 L235,116 L270,116 L270,90 L295,90 L295,118 L320,118
+        L320,82  L350,82  L350,110 L385,110 L385,128 L415,128
+        L415,70  L440,55  L460,70  L460,118 L495,118
+        L495,52  L515,40  L515,52  L520,52  L520,118 L555,118
+        L555,40  L580,30  L580,40  L585,40  L585,118 L610,118
+        L610,100 L640,100 L640,82
+        L 850,60 L 880,16 L 910,60
+        L 920,60 L 920,118 L 955,118
+        L 955,72 L 985,72 L 985,118 L 1020,118
+        L 1020,90 L 1055,90 L 1055,118 L 1090,118
+        L 1090,40 L 1110,40 L 1110,20 L 1130,20
+        L 1130,46 L 1170,46 L 1170,118
+        L 1200,118 L 1200,98 L 1235,98 L 1235,118 L 1265,118
+        L 1265,82 L 1290,82 L 1290,118 L 1325,118
+        L 1325,60 L 1355,60 L 1355,118 L 1385,118
+        L 1385,108 L 1430,108 L 1430,118 L 1470,118
+        L 1470,84 L 1500,84 L 1500,118 L 1540,118
+        L 1540,128 L 1600,128"/>
+      <circle class="blink" cx="880" cy="22" r="2.2"/>
+      <circle class="blink" cx="1120" cy="20" r="1.8" style="animation-delay:1.4s"/>
+    </svg>
+  </div>
+  <div class="hero-grain"></div>
+</section>
+
+<!-- ═══════════════ MARKETPLACE (was §05 — promoted to §01) ═══════════════ -->
+<section id="marketplace">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 01 · The GPU mesh · live marketplace" data-ar="§ ‎٠١‎ · شبكة المعالجات · سوق مباشر">§ 01 · The GPU mesh · live marketplace</span>
+      <span data-en="The substrate · transparent · KSA-resident" data-ar="البنية · شفّافة · داخل المملكة">The substrate · transparent · KSA-resident</span>
+    </div>
+
+    <div class="demand-v2">
+      <div class="left">
+        <div class="demand-label">
+          <span data-en="Mesh utilisation · last 5 min · across all in-Kingdom providers" data-ar="استخدام الشبكة · آخر ‎٥‎ دقائق · عبر كل المزوّدين">Mesh utilisation · last 5 min · across all in-Kingdom providers</span>
+          <b><span id="util-pct">76</span>%</b>
+        </div>
+        <div class="demand-bar"><span id="util-bar"></span></div>
+      </div>
+      <div class="right">
+        <span data-en="Available headroom" data-ar="السعة المتاحة">Available headroom</span><br>
+        <b><span id="headroom">82</span> GPUs · 4 regions</b>
+      </div>
+    </div>
+
+    <div class="mk-wrap">
+    <table class="mp-table">
+      <thead>
+        <tr>
+          <th data-en="GPU class" data-ar="فئة المعالج">GPU class</th>
+          <th data-en="Provider · Region" data-ar="المزوّد · المنطقة">Provider · Region</th>
+          <th data-en="Utilisation" data-ar="الاستخدام">Utilisation</th>
+          <th data-en="On-demand · SAR/hr" data-ar="عند الطلب · ريال/ساعة">On-demand · SAR/hr</th>
+          <th data-en="Reliability" data-ar="موثوقية">Reliability</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="gpu">NVIDIA H100 80GB</span><small>SXM5 · NVLink</small></td>
+          <td>
+            <span class="provider">Tuwaiq Compute</span><br>
+            <span class="region"><span class="pin"></span> RUH-1 · Riyadh</span>
+          </td>
+          <td><div class="util-cell"><div class="util-bar"><span style="transform:scaleX(.84);"></span></div><span class="util-val">84%</span></div></td>
+          <td><span class="price">SAR 14.20<span class="u">/hr</span></span></td>
+          <td><span class="tag" style="color:var(--teal); font-family:var(--mono); font-size:11px;">99.9%</span></td>
+        </tr>
+        <tr>
+          <td><span class="gpu">NVIDIA A100 80GB</span><small>HBM2e · 312 TFLOPS</small></td>
+          <td>
+            <span class="provider">NEOM Edge Labs</span><br>
+            <span class="region"><span class="pin"></span> NEOM-1 · Oxagon</span>
+          </td>
+          <td><div class="util-cell"><div class="util-bar"><span style="transform:scaleX(.62);"></span></div><span class="util-val">62%</span></div></td>
+          <td><span class="price">SAR 6.20<span class="u">/hr</span></span></td>
+          <td><span class="tag" style="color:var(--teal); font-family:var(--mono); font-size:11px;">99.7%</span></td>
+        </tr>
+        <tr>
+          <td><span class="gpu">NVIDIA L40S 48GB</span><small>Ada · 91 TFLOPS</small></td>
+          <td>
+            <span class="provider">Aramco Innovations</span><br>
+            <span class="region"><span class="pin"></span> DMM-1 · Dammam</span>
+          </td>
+          <td><div class="util-cell"><div class="util-bar"><span style="transform:scaleX(.74);"></span></div><span class="util-val">74%</span></div></td>
+          <td><span class="price">SAR 3.40<span class="u">/hr</span></span></td>
+          <td><span class="tag" style="color:var(--teal); font-family:var(--mono); font-size:11px;">99.8%</span></td>
+        </tr>
+        <tr>
+          <td><span class="gpu">NVIDIA RTX 4090 24GB</span><small>Ada · consumer · 82 TFLOPS</small></td>
+          <td>
+            <span class="provider">Jeddah Studios</span><br>
+            <span class="region"><span class="pin"></span> JED-1 · Red Sea</span>
+          </td>
+          <td><div class="util-cell"><div class="util-bar"><span style="transform:scaleX(.91);"></span></div><span class="util-val">91%</span></div></td>
+          <td><span class="price">SAR 2.10<span class="u">/hr</span></span></td>
+          <td><span class="tag" style="color:var(--teal); font-family:var(--mono); font-size:11px;">99.4%</span></td>
+        </tr>
+        <tr>
+          <td><span class="gpu">NVIDIA RTX 3090 24GB</span><small>Ampere · consumer · 35.7 TFLOPS</small></td>
+          <td>
+            <span class="provider">Mansouri Cloud</span><br>
+            <span class="region"><span class="pin"></span> RUH-1 · KAFD</span>
+          </td>
+          <td><div class="util-cell"><div class="util-bar"><span style="transform:scaleX(.55);"></span></div><span class="util-val">55%</span></div></td>
+          <td><span class="price">SAR 1.40<span class="u">/hr</span></span></td>
+          <td><span class="tag" style="color:var(--teal); font-family:var(--mono); font-size:11px;">99.1%</span></td>
+        </tr>
+        <tr>
+          <td><span class="gpu">NVIDIA A6000 48GB</span><small>Ampere pro · 38.7 TFLOPS</small></td>
+          <td>
+            <span class="provider">KAUST Cluster</span><br>
+            <span class="region"><span class="pin"></span> JED-1 · Thuwal</span>
+          </td>
+          <td><div class="util-cell"><div class="util-bar"><span style="transform:scaleX(.68);"></span></div><span class="util-val">68%</span></div></td>
+          <td><span class="price">SAR 4.80<span class="u">/hr</span></span></td>
+          <td><span class="tag" style="color:var(--teal); font-family:var(--mono); font-size:11px;">99.6%</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="mp-foot">
+      <span data-en="Live capacity across the KSA-resident provider network" data-ar="سعة متاحة عبر شبكة المزوّدين داخل المملكة">Live capacity across the KSA-resident provider network</span>
+      <a href="./renter/Usage.html" data-en="Browse the full marketplace →" data-ar="تصفّح السوق كاملاً ←">Browse the full marketplace →</a>
+    </div>
+
+    <div class="callout" style="margin-top:32px;" data-en="<b>You buy tokens, not GPUs.</b> The marketplace above is the substrate the router draws on. If you specifically want raw GPU rental for training or batch — that&rsquo;s on the Providers page; existing GPU-hour contracts are honoured through their term." data-ar="<b>أنت تشتري الرموز، لا المعالجات.</b> السوق أعلاه هو البنية التي يستخدمها الموجّه. إن أردت تحديداً إيجار معالجات خام للتدريب أو الدفعات — فذلك في صفحة المزوّدين؛ والعقود القائمة بساعات المعالج مُحتَرمة حتى نهايتها."><b>You buy tokens, not GPUs.</b> The marketplace above is the substrate the router draws on. If you specifically want raw GPU rental for training or batch — that's on the Providers page; existing GPU-hour contracts are honoured through their term.</div>
+  </div>
+</section>
+
+<!-- ═══════════════ THREE LAYERS ═══════════════ -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 02 · Three layers, one runtime" data-ar="§ ‎٠٢‎ · ثلاث طبقات، بيئة تشغيل واحدة">§ 02 · Three layers, one runtime</span>
+      <span data-en="Inference · Agents · Sovereignty" data-ar="استدلال · وكلاء · سيادة">Inference · Agents · Sovereignty</span>
+    </div>
+    <div class="layers">
+      <div class="layer">
+        <span class="n" data-en="01 · Inference" data-ar="‎٠١‎ · استدلال">01 · Inference</span>
+        <h3 data-en="One API. Per-million-token billing." data-ar="واجهة برمجة واحدة. فوترة لكل مليون رمز.">One API. Per-million-token billing.</h3>
+        <p data-en="OpenAI-compatible chat, embedding, and rerank endpoints, served from KSA-resident GPUs. Arabic-first, open-source model lineup. Frontier models stay off unless you opt in." data-ar="نقاط نهاية محادثة وتضمين وإعادة ترتيب متوافقة مع ‎OpenAI‎، تعمل على معالجات داخل المملكة. باقة نماذج مفتوحة عربية أولاً. النماذج المتقدمة تبقى مغلقة حتّى تفتحها.">OpenAI-compatible chat, embedding, and rerank endpoints, served from KSA-resident GPUs. Arabic-first, open-source model lineup. Frontier models stay off unless you opt in.</p>
+        <ul>
+          <li data-en="OpenAI SDK · no rewrite needed" data-ar="‏SDK‎ ‎OpenAI‎ · بلا إعادة كتابة">OpenAI SDK · no rewrite needed</li>
+          <li data-en="Streaming · function calling · JSON mode" data-ar="بثّ · استدعاء دوال · ‎JSON‎">Streaming · function calling · JSON mode</li>
+          <li data-en="Halala-grained billing · SAR + USDC" data-ar="فوترة بالهللة · ريال + ‎USDC‎">Halala-grained billing · SAR + USDC</li>
+        </ul>
+        <div class="end">
+          <span>api.dcp.sa / v1</span>
+          <a href="./Pricing.html" data-en="See rates →" data-ar="عرض الأسعار ←">See rates →</a>
+        </div>
+      </div>
+      <div class="layer">
+        <span class="n" data-en="02 · Agents" data-ar="‎٠٢‎ · وكلاء">02 · Agents</span>
+        <h3 data-en="DCP-Agent. <em>Live for SMB.</em>" data-ar="‏DCP-Agent‏. <em>جاهز للمنشآت.</em>">DCP-Agent. <em>Live for SMB.</em></h3>
+        <p data-en="The Arabic AI agent for Saudi small &amp; mid-size businesses. Already in production at <b>agents.dcp.sa</b>. Free personal version for every Saudi is coming." data-ar="وكيل الذكاء العربي للمنشآت السعودية الصغيرة والمتوسطة. جاهز وفي الإنتاج على <b>‏agents.dcp.sa‏</b>. والنسخة الشخصية المجانية لكل مواطن سعودي قريباً.">The Arabic AI agent for Saudi small &amp; mid-size businesses. Already in production at <b>agents.dcp.sa</b>. Free personal version for every Saudi is coming.</p>
+        <div class="end">
+          <span>agents.dcp.sa</span>
+          <a href="https://agents.dcp.sa" data-en="Visit →" data-ar="زر ←">Visit →</a>
+        </div>
+      </div>
+      <div class="layer">
+        <span class="n" data-en="03 · Providers" data-ar="‎٠٣‎ · مزوّدون">03 · Providers</span>
+        <h3 data-en="Earn SAR with <em>your GPU.</em>" data-ar="اكسب ريالاً من <em>معالجك.</em>">Earn SAR with <em>your GPU.</em></h3>
+        <p data-en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and starts earning. 100–270 tok/s on consumer GPUs from RTX 3060 Ti to RTX 5090. Auto NAT traversal via Cloudflare Tunnel — no port forwarding." data-ar="تطبيق سطح مكتب بحجم ‎٤‎ ميغابايت لـ‎Windows‎ و‎macOS Apple Silicon‎ و‎Linux‎. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال (‎Ollama‎ أو ‎MLX‎)، ويبدأ الربح. ‎١٠٠-٢٧٠‎ رمز/ثانية على معالجات استهلاكية من ‎RTX 3060 Ti‎ إلى ‎RTX 5090‎. عبور ‎NAT‎ تلقائي عبر ‎Cloudflare Tunnel‎ — دون فتح منافذ.">A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and starts earning. 100–270 tok/s on consumer GPUs from RTX 3060 Ti to RTX 5090. Auto NAT traversal via Cloudflare Tunnel — no port forwarding.</p>
+        <ul>
+          <li data-en="Windows · macOS Apple Silicon · Linux" data-ar="‎Windows‎ · ‎macOS Apple Silicon‎ · ‎Linux‎">Windows · macOS Apple Silicon · Linux</li>
+          <li data-en="4 MB app · zero config · Cloudflare Tunnel" data-ar="‎٤‎ ميغابايت · بلا إعداد · ‎Cloudflare Tunnel‎">4 MB app · zero config · Cloudflare Tunnel</li>
+          <li data-en="75% provider · 25% platform · monthly SAR payout" data-ar="‎٧٥٪‎ للمزوّد · ‎٢٥٪‎ للمنصّة · دفع شهري بالريال">75% provider · 25% platform · monthly SAR payout</li>
+        </ul>
+        <div class="end">
+          <span>dcp.sa / setup</span>
+          <a href="./Provider-Setup.html" data-en="Register a GPU →" data-ar="سجّل معالجاً ←">Register a GPU →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ QUICK START ═══════════════ -->
+<section id="quickstart">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 03 · Quick start" data-ar="§ ‎٠٣‎ · البدء السريع">§ 03 · Quick start</span>
+      <span data-en="cURL · CLI · Python SDK" data-ar="‏cURL‏ · ‏CLI‏ · ‏Python SDK‏">cURL · CLI · Python SDK</span>
+    </div>
+
+    <div class="qs-wrap">
+      <div class="qs-left">
+        <h2 class="st" data-en="Three lines from <em>nothing</em> to an Arabic answer." data-ar="ثلاثة أسطر من <em>الصفر</em> إلى إجابة عربية.">Three lines from <em>nothing</em> to an Arabic answer.</h2>
+        <p class="ss" data-en="Drop your existing OpenAI SDK in — only the base URL and key change. The official <code>dcp</code> CLI ships with a one-shot inference command and per-tenant config. Python and Node SDKs are thin wrappers; you can swap in for OpenAI&rsquo;s any time." data-ar="استخدم ‎SDK ‎OpenAI‎ كما هو — تغيّر فقط الرابط الأساسي والمفتاح. واجهة سطر الأوامر ‎dcp‎ تأتي بأمر استدلال مباشر وإعدادات لكل مستأجر. مكتبات ‎Python‎ و‎Node‎ غلاف رقيق يمكن استبداله بـ‎OpenAI‎ في أي وقت.">Drop your existing OpenAI SDK in — only the base URL and key change. The official <code>dcp</code> CLI ships with a one-shot inference command and per-tenant config. Python and Node SDKs are thin wrappers; you can swap in for OpenAI's any time.</p>
+        <div class="stamps">
+          <span class="stamp" data-en="OpenAI-compat · v1" data-ar="متوافق مع ‎OpenAI‎ · ‎v1‎">OpenAI-compat · v1</span>
+          <span class="stamp" data-en="Streaming · SSE" data-ar="بثّ · ‎SSE‎">Streaming · SSE</span>
+          <span class="stamp" data-en="Function calling" data-ar="استدعاء دوال">Function calling</span>
+          <span class="stamp" data-en="JSON mode" data-ar="وضع ‎JSON‎">JSON mode</span>
+          <span class="stamp" data-en="200k context · frontier" data-ar="سياق ‎٢٠٠‎ ألف · متقدم">200k context · frontier</span>
+        </div>
+        <div style="margin-top:30px; display:flex; gap:10px; flex-wrap:wrap;">
+          <a class="btn ghost" href="./docs/Docs.html" data-en="Read the API docs →" data-ar="اقرأ توثيق الواجهة ←">Read the API docs →</a>
+          <a class="btn ghost" href="./Setup.html" data-en="Get your API key" data-ar="احصل على مفتاحك">Get your API key</a>
+        </div>
+      </div>
+
+      <div class="qs-card">
+        <div class="qs-tabs">
+          <button data-tab="curl" class="on">cURL</button>
+          <button data-tab="cli">CLI · dcp</button>
+          <button data-tab="py">Python</button>
+          <button data-tab="js">Node</button>
+          <div class="spacer"></div>
+          <button class="copy" id="copy-btn" data-en="Copy" data-ar="نسخ">Copy</button>
+        </div>
+
+        <div class="qs-body on" data-tab="curl"><pre><span class="com"># Arabic chat completion · OpenAI-compatible · KSA-resident</span>
+<span class="pmt">$</span> <span class="fn">curl</span> <span class="grad">https://api.dcp.sa/v1/chat/completions</span> \
+  <span class="key">-H</span> <span class="str">"Authorization: Bearer $DCP_KEY"</span> \
+  <span class="key">-H</span> <span class="str">"X-Region: RUH-1"</span> \
+  <span class="key">-H</span> <span class="str">"Content-Type: application/json"</span> \
+  <span class="key">-d</span> <span class="str">'{
+    "model": "allam-7b",
+    "stream": true,
+    "messages": [
+      { "role": "user",
+        "content": "ما حكم زكاة الراتب الشهري إذا لم يبلغ النصاب إلا بعد جمعه لسنة؟" }
+    ]
+  }'</span>
+
+<span class="com"># → streams Arabic answer with cited sources (verifier-checked)
+# → settled in halala against your wallet at end of stream</span></pre></div>
+
+        <div class="qs-body" data-tab="cli"><pre><span class="com"># One-line install · macOS · Linux · Windows</span>
+<span class="pmt">$</span> <span class="fn">npm</span> install <span class="key">-g</span> <span class="str">@dcp/cli</span>
+
+<span class="com"># Authenticate once · stores key in ~/.dcprc (encrypted at rest)</span>
+<span class="pmt">$</span> <span class="fn">dcp</span> login
+  <span class="grad">→ Opens console.dcp.sa to fetch a tenant-scoped key</span>
+
+<span class="com"># Run inference · streams Arabic answer to stdout</span>
+<span class="pmt">$</span> <span class="fn">dcp</span> run <span class="str">"ما حكم زكاة الراتب الشهري؟"</span> \
+        <span class="key">--model</span> allam-7b \
+        <span class="key">--region</span> RUH-1 \
+        <span class="key">--cite</span>
+
+<span class="com"># Pin sovereign-only · frontier blocked even if router prefers it</span>
+<span class="pmt">$</span> <span class="fn">dcp</span> config set sovereign_only=<span class="num">true</span>
+
+<span class="com"># Show last 24h spend · per-model breakdown</span>
+<span class="pmt">$</span> <span class="fn">dcp</span> usage <span class="key">--since</span> 24h</pre></div>
+
+        <div class="qs-body" data-tab="py"><pre><span class="com"># pip install openai · standard OpenAI SDK works as-is</span>
+<span class="key">import</span> os
+<span class="key">from</span> openai <span class="key">import</span> OpenAI
+
+client = OpenAI(
+    base_url=<span class="str">"https://api.dcp.sa/v1"</span>,
+    api_key=os.environ[<span class="str">"DCP_KEY"</span>],
+    default_headers={<span class="str">"X-Region"</span>: <span class="str">"RUH-1"</span>},
+)
+
+stream = client.chat.completions.create(
+    model=<span class="str">"allam-7b"</span>,
+    messages=[{
+        <span class="str">"role"</span>: <span class="str">"user"</span>,
+        <span class="str">"content"</span>: <span class="str">"ما حكم زكاة الراتب الشهري؟"</span>,
+    }],
+    stream=<span class="key">True</span>,
+    extra_body={<span class="str">"cite"</span>: <span class="key">True</span>, <span class="str">"sovereign_only"</span>: <span class="key">True</span>},
+)
+
+<span class="key">for</span> chunk <span class="key">in</span> stream:
+    <span class="fn">print</span>(chunk.choices[<span class="num">0</span>].delta.content <span class="key">or</span> <span class="str">""</span>, end=<span class="str">""</span>, flush=<span class="key">True</span>)</pre></div>
+
+        <div class="qs-body" data-tab="js"><pre><span class="com">// npm install openai · standard OpenAI SDK works as-is</span>
+<span class="key">import</span> OpenAI <span class="key">from</span> <span class="str">"openai"</span>;
+
+<span class="key">const</span> client = <span class="key">new</span> OpenAI({
+  baseURL: <span class="str">"https://api.dcp.sa/v1"</span>,
+  apiKey:  process.env.DCP_KEY,
+  defaultHeaders: { <span class="str">"X-Region"</span>: <span class="str">"RUH-1"</span> },
+});
+
+<span class="key">const</span> stream = <span class="key">await</span> client.chat.completions.create({
+  model: <span class="str">"allam-7b"</span>,
+  messages: [{
+    role:    <span class="str">"user"</span>,
+    content: <span class="str">"ما حكم زكاة الراتب الشهري؟"</span>,
+  }],
+  stream: <span class="key">true</span>,
+  // DCP extensions
+  cite: <span class="key">true</span>,
+  sovereign_only: <span class="key">true</span>,
+});
+
+<span class="key">for await</span> (<span class="key">const</span> chunk <span class="key">of</span> stream) {
+  process.stdout.write(chunk.choices[<span class="num">0</span>]?.delta?.content ?? <span class="str">""</span>);
+}</pre></div>
+
+        <div class="qs-foot">
+          <span data-en="api.dcp.sa / v1 · OpenAI-compatible · Arabic-first default" data-ar="‏api.dcp.sa / v1‎ · متوافق مع ‎OpenAI‎ · افتراضي عربي">api.dcp.sa / v1 · OpenAI-compatible · Arabic-first default</span>
+          <a href="./docs/Docs.html" data-en="Full reference →" data-ar="المرجع الكامل ←">Full reference →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ MODELS ═══════════════ -->
+<section id="models">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 04 · Models we serve" data-ar="§ ‎٠٤‎ · النماذج التي نُقدّمها">§ 04 · Models we serve</span>
+      <span data-en="Sovereign by default · Frontier opt-in" data-ar="سيادي افتراضياً · متقدم بإذن">Sovereign by default · Frontier opt-in</span>
+    </div>
+
+    <div class="mg-grid">
+      <div class="mg">
+        <span class="hot"><span class="d"></span> <span data-en="Most used" data-ar="الأكثر استخداماً">Most used</span></span>
+        <span class="org">Saudi Data &amp; AI Authority</span>
+        <h4 class="nm">ALLaM-7B-Q4</h4>
+        <span class="tag" data-en="Arabic generation · 32k ctx" data-ar="توليد عربي · ‎٣٢‎ ألف سياق">Arabic generation · 32k ctx</span>
+        <p data-en="Tuned for Modern Standard Arabic with Saudi domain context — Sharia, ZATCA, GoSi, business law, Tadawul filings." data-ar="مُدرَّب على العربية الفصحى مع سياق سعودي مباشر — شريعة، ‎ZATCA‎، تأمينات، نظام شركات، إفصاحات تداول.">Tuned for Modern Standard Arabic with Saudi domain context — Sharia, ZATCA, GoSi, business law, Tadawul filings.</p>
+        <div class="badge-row">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+        <div class="meta">
+          <span><b>SAR 0.45/M</b> in · <b>1.80/M</b> out</span>
+          <span data-en="default" data-ar="افتراضي">default</span>
+        </div>
+      </div>
+
+      <div class="mg">
+        <span class="org">BAAI · sovereign-hosted</span>
+        <h4 class="nm">bge-m3</h4>
+        <span class="tag" data-en="Embedding · 1024-dim" data-ar="تضمين · ‎١٠٢٤‎ بُعد">Embedding · 1024-dim</span>
+        <p data-en="Multilingual embedding — strong on Arabic + English mixed corpora. The retrieval backbone for every RAG agent on DCP." data-ar="تضمين متعدد اللغات — قوي على مراجع عربية-إنجليزية مختلطة. العمود الفقري لكل وكيل ‎RAG‎ على ‎DCP‎.">Multilingual embedding — strong on Arabic + English mixed corpora. The retrieval backbone for every RAG agent on DCP.</p>
+        <div class="badge-row">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+        <div class="meta">
+          <span><b>SAR 0.08/M</b> tokens</span>
+          <span data-en="vector · 1024d" data-ar="متجه · ‎١٠٢٤‎ بُعد">vector · 1024d</span>
+        </div>
+      </div>
+
+      <div class="mg">
+        <span class="org">BAAI · sovereign-hosted</span>
+        <h4 class="nm">bge-reranker-v2-m3</h4>
+        <span class="tag" data-en="Cross-encoder · rerank" data-ar="مُرمّز متقاطع · ترتيب">Cross-encoder · rerank</span>
+        <p data-en="Cross-encodes (query, doc) pairs for final ordering after retrieval. Cuts hallucination rate ~38% in our internal evals." data-ar="يُرمّز أزواج (سؤال، وثيقة) للترتيب النهائي بعد الاسترجاع. يقلّل الهلوسة بنحو ‎٣٨٪‎ في تقييماتنا الداخلية.">Cross-encodes (query, doc) pairs for final ordering after retrieval. Cuts hallucination rate ~38% in our internal evals.</p>
+        <div class="badge-row">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+        <div class="meta">
+          <span><b>SAR 0.12/M</b> pair-tok</span>
+          <span data-en="rerank · top-K" data-ar="ترتيب · أفضل ‎K‎">rerank · top-K</span>
+        </div>
+      </div>
+
+      <div class="mg frontier">
+        <span class="org">DeepSeek · cross-border</span>
+        <h4 class="nm">DeepSeek V4 Flash</h4>
+        <span class="tag" data-en="Frontier · fast · 128k ctx" data-ar="متقدم · سريع · ‎١٢٨‎ ألف سياق">Frontier · fast · 128k ctx</span>
+        <p data-en="Frontier reasoning for hard cases. Off by default — opt-in per tenant, cross-border marker on every call, separate invoice line." data-ar="استدلال متقدم للحالات الصعبة. مغلق افتراضياً — يُفعَّل لكل مستأجر، علامة خارج المملكة على كل استدعاء، وسطر فاتورة منفصل.">Frontier reasoning for hard cases. Off by default — opt-in per tenant, cross-border marker on every call, separate invoice line.</p>
+        <div class="badge-row">
+          <span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Cross-border · opt-in" data-ar="خارج · بإذن">Cross-border · opt-in</span></span>
+        </div>
+        <div class="meta">
+          <span><b>SAR 1.10/M</b> in · <b>3.40/M</b> out</span>
+          <span data-en="default off" data-ar="افتراضي مغلق">default off</span>
+        </div>
+      </div>
+
+      <div class="mg frontier">
+        <span class="org">DeepSeek · cross-border</span>
+        <h4 class="nm">DeepSeek V4 Pro</h4>
+        <span class="tag" data-en="Frontier · max · 200k ctx" data-ar="متقدم · أقصى · ‎٢٠٠‎ ألف سياق">Frontier · max · 200k ctx</span>
+        <p data-en="Top-tier reasoning, max context. For long-doc analysis, complex agent planning, advanced code generation. Cross-border, audit-tagged." data-ar="أعلى مستوى استدلال وأقصى سياق. لتحليل الوثائق الطويلة، تخطيط الوكلاء المعقّد، توليد الكود المتقدم. خارج المملكة، مع وسم تدقيقي.">Top-tier reasoning, max context. For long-doc analysis, complex agent planning, advanced code generation. Cross-border, audit-tagged.</p>
+        <div class="badge-row">
+          <span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Cross-border · opt-in" data-ar="خارج · بإذن">Cross-border · opt-in</span></span>
+        </div>
+        <div class="meta">
+          <span><b>SAR 4.20/M</b> in · <b>12.60/M</b> out</span>
+          <span data-en="default off" data-ar="افتراضي مغلق">default off</span>
+        </div>
+      </div>
+
+      <div class="mg" style="background: var(--bg-2); border-style:dashed;">
+        <span class="org" data-en="On the roadmap" data-ar="في خارطة الطريق">On the roadmap</span>
+        <h4 class="nm" data-en="Falcon-3-Arabic · Q3 2026" data-ar="‏Falcon-3-Arabic‎ · الربع الثالث ‎٢٠٢٦‎">Falcon-3-Arabic · Q3 2026</h4>
+        <span class="tag" data-en="Arabic generation · 64k ctx" data-ar="توليد عربي · ‎٦٤‎ ألف سياق">Arabic generation · 64k ctx</span>
+        <p data-en="A bigger Arabic-first sovereign model is in pilot with TII. We&rsquo;ll bring it up alongside ALLaM as a router option." data-ar="نموذج عربي سيادي أكبر قيد التجربة مع ‎TII‎. سنُشغّله بجانب اللام كخيار في الموجّه.">A bigger Arabic-first sovereign model is in pilot with TII. We'll bring it up alongside ALLaM as a router option.</p>
+        <div class="badge-row">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA · pilot</span>
+        </div>
+        <div class="meta">
+          <span data-en="Pricing TBD" data-ar="السعر لاحقاً">Pricing TBD</span>
+          <span data-en="join waitlist" data-ar="انضم للقائمة">join waitlist</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ DCP-AGENT — short pitch ═══════════════ -->
+<section id="agents">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 05 · DCP-Agent" data-ar="§ ‎٠٥‎ · ‏DCP-Agent‏">§ 05 · DCP-Agent</span>
+      <span data-en="Live for SMB · agents.dcp.sa" data-ar="جاهز للمنشآت · ‏agents.dcp.sa‏">Live for SMB · agents.dcp.sa</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1.3fr 1fr; gap:56px; align-items:center;" class="agents-mini">
+      <div>
+        <h2 class="st" style="margin-top:0;" data-en="The Arabic AI agent built for <em>Saudi business.</em>" data-ar="وكيل الذكاء العربي المصنوع <em>للأعمال السعودية.</em>">The Arabic AI agent built for <em>Saudi business.</em></h2>
+        <p class="ss" data-en="DCP-Agent is live at <b>agents.dcp.sa</b> for Saudi small &amp; mid-size businesses. The agent works in Arabic end-to-end — reply to customers, draft documents, run back-office tasks. Free personal version for every Saudi is coming." data-ar="‏DCP-Agent‏ جاهز على <b>‏agents.dcp.sa‏</b> للمنشآت السعودية الصغيرة والمتوسطة. يعمل الوكيل بالعربية من البداية إلى النهاية — الردّ على العملاء، صياغة الوثائق، وإدارة مهام المكتب الخلفي. والنسخة الشخصية المجانية لكل مواطن سعودي قريباً.">DCP-Agent is live at <b>agents.dcp.sa</b> for Saudi small &amp; mid-size businesses. The agent works in Arabic end-to-end — reply to customers, draft documents, run back-office tasks. Free personal version for every Saudi is coming.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:30px;">
+          <a class="btn primary lg" href="https://agents.dcp.sa" data-en="Open agents.dcp.sa →" data-ar="افتح ‏agents.dcp.sa‏ ←">Open agents.dcp.sa →</a>
+          <span style="align-self:center; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut);" data-en="Personal AI · waitlist soon" data-ar="الذكاء الشخصي · قائمة انتظار قريباً">Personal AI · waitlist soon</span>
+        </div>
+      </div>
+
+      <a href="https://agents.dcp.sa" style="text-decoration:none;">
+        <div style="background: linear-gradient(180deg, var(--paper) 0%, var(--bg-2) 100%); border:1px solid var(--line); padding:32px 32px 36px; position:relative; transition: transform .2s, box-shadow .2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='8px 8px 0 var(--ink)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+          <span style="position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad);"></span>
+          <div style="font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); display:inline-flex; align-items:center; gap:8px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px color-mix(in oklab, var(--teal) 25%, transparent);"></span>
+            <span data-en="Live in production" data-ar="في الإنتاج">Live in production</span>
+          </div>
+          <div style="font-family:var(--serif); font-size:64px; line-height:.9; letter-spacing:-.028em; margin:18px 0 8px; color:var(--ink);">agents.dcp.sa</div>
+          <div style="font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; color:var(--mut); margin-top:8px;" data-en="Visit →" data-ar="زر ←">Visit →</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ ARABIC WEDGE ═══════════════ -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 06 · Arabic is the wedge" data-ar="§ ‎٠٦‎ · العربية هي الميزة">§ 06 · Arabic is the wedge</span>
+      <span data-en="Try it live →" data-ar="جرّبه مباشرة ←">Try it live →</span>
+    </div>
+    <div class="wedge">
+      <div>
+        <h2 class="st" style="margin-top:0;" data-en="Generic models speak Arabic <em>like a tourist.</em>" data-ar="النماذج العامة تتحدث العربية <em>كالسائح.</em>">Generic models speak Arabic <em>like a tourist.</em></h2>
+        <p class="ss" data-en="ALLaM-7B was tuned on Modern Standard Arabic with Saudi domain context. The verifier hook is locked against an Arabic-negation regression test that runs on every commit. The combination is what banks and regulators actually need from Arabic AI." data-ar="نموذج اللام دُرِّب على العربية الفصحى مع سياق سعودي مباشر. أداة التحقق محميّة باختبار منع تراجع للنفي العربي يعمل عند كل إيداع. هذا المزيج هو ما تحتاجه البنوك والجهات التنظيمية فعلاً من الذكاء العربي.">ALLaM-7B was tuned on Modern Standard Arabic with Saudi domain context. The verifier hook is locked against an Arabic-negation regression test that runs on every commit. The combination is what banks and regulators actually need from Arabic AI.</p>
+        <div style="margin-top:28px;">
+          <a class="btn primary" href="./Demo.html" data-en="Run an Arabic question →" data-ar="نفّذ سؤالاً عربياً ←">Run an Arabic question →</a>
+        </div>
+      </div>
+      <div class="wedge-q">
+        <div class="lbl" data-en="Prompt · MSA" data-ar="السؤال · فصحى">Prompt · MSA</div>
+        <div class="q">ما حكم زكاة الراتب الشهري إذا لم يبلغ النصاب إلا بعد جمعه لسنة كاملة؟</div>
+        <div class="a-lbl" data-en="Grounded · cited" data-ar="مُسند · موثّق">Grounded · cited</div>
+        <div class="a">يجمع الراتب الشهري ويُحسب الحول من يوم بلوغ النصاب لا من يوم استلام أول راتب. إذا بلغ مجموع المدّخر النصاب وحال عليه الحول، وجبت فيه الزكاة بنسبة ‎٢٫٥٪‎ ‎[١]‎. إن لم يبلغ النصاب فلا زكاة حتى بلوغه ‎[٢]‎.</div>
+        <div style="margin-top:18px; display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="Generation · KSA" data-ar="التوليد · المملكة">Generation · KSA</span></span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="Verified · 2 citations" data-ar="مُثبت · استشهادان">Verified · 2 citations</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TWO-PATH REGISTRATION ═══════════════ -->
+<section id="register">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 07 · Two paths in" data-ar="§ ‎٠٧‎ · مساران للدخول">§ 07 · Two paths in</span>
+      <span data-en="Renter · or · Provider" data-ar="مستخدم · أو · مزوّد">Renter · or · Provider</span>
+    </div>
+
+    <div class="paths">
+      <!-- RENTER -->
+      <div class="path">
+        <span class="lbl" data-en="A · I want to use DCP" data-ar="‎A‎ · أريد استخدام ‎DCP‎">A · I want to use DCP</span>
+        <h3 data-en="Build with <em>Arabic AI.</em>" data-ar="ابنِ بـ<em>الذكاء العربي.</em>">Build with <em>Arabic AI.</em></h3>
+        <p class="desc" data-en="For founders, banks, hospitals, regulators, agencies. You ship the product; we serve the inference and the agents. SAR billing, halala-grained, no rental contracts." data-ar="للمؤسسين والبنوك والمستشفيات والجهات التنظيمية والوكالات. أنت تشحن المنتج؛ ونحن نقدّم الاستدلال والوكلاء. فوترة بالريال بدقة الهللة، بلا عقود إيجار.">For founders, banks, hospitals, regulators, agencies. You ship the product; we serve the inference and the agents. SAR billing, halala-grained, no rental contracts.</p>
+        <ul class="steps">
+          <li><span class="n">01</span><span class="t" data-en="<b>Sign up free</b> · no card, no minimum. Tenant created in &lt; 30s." data-ar="<b>اشترك مجاناً</b> · بلا بطاقة، بلا حد أدنى. مستأجر ينشأ خلال أقل من ‎٣٠‎ ثانية."><b>Sign up free</b> · no card, no minimum. Tenant created in &lt; 30s.</span></li>
+          <li><span class="n">02</span><span class="t" data-en="<b>Grab an API key</b> in console.dcp.sa. Drop it into your OpenAI SDK — only base URL changes." data-ar="<b>احصل على مفتاح ‎API‎</b> في ‎console.dcp.sa‎. ضعه في ‎SDK ‎OpenAI‎ — يتغيّر فقط الرابط الأساسي."><b>Grab an API key</b> in console.dcp.sa. Drop it into your OpenAI SDK — only base URL changes.</span></li>
+          <li><span class="n">03</span><span class="t" data-en="<b>Try sovereign-only</b> if you&rsquo;re regulated — frontier stays off, free." data-ar="<b>جرّب وضع السيادة فقط</b> إن كنت في قطاع منظّم — النماذج المتقدمة تبقى مغلقة، مجاناً."><b>Try sovereign-only</b> if you're regulated — frontier stays off, free.</span></li>
+          <li><span class="n">04</span><span class="t" data-en="<b>Spin up agents</b> from the Playground or via the agent SDK. 5 personal + 3 project on Team tier." data-ar="<b>أنشئ وكلاء</b> من بيئة الاختبار أو عبر ‎SDK‎ الوكيل. ‎٥‎ شخصيين + ‎٣‎ مشاريع في فئة الفريق."><b>Spin up agents</b> from the Playground or via the agent SDK. 5 personal + 3 project on Team tier.</span></li>
+        </ul>
+        <div class="cta">
+          <a class="btn primary lg" href="./Setup.html" data-en="Start free · no card →" data-ar="ابدأ مجاناً · بلا بطاقة ←">Start free · no card →</a>
+          <a class="btn ghost" href="./Auth.html" data-en="Sign in" data-ar="دخول">Sign in</a>
+        </div>
+        <div class="smallprint" data-en="SAR + USDC accepted · mada · Apple Pay · bank transfer" data-ar="ريال + ‎USDC‎ مقبول · مدى · ‎Apple Pay‎ · تحويل بنكي">SAR + USDC accepted · mada · Apple Pay · bank transfer</div>
+      </div>
+
+      <!-- PROVIDER -->
+      <div class="path">
+        <span class="lbl" data-en="B · I have idle GPUs" data-ar="‎B‎ · لدي معالجات معطّلة">B · I have idle GPUs</span>
+        <h3 data-en="Earn SAR on <em>your hardware.</em>" data-ar="اكسب ريالاً من <em>عتادك.</em>">Earn SAR on <em>your hardware.</em></h3>
+        <p class="desc" data-en="For studios, labs, universities, family offices, anyone with consumer or workstation GPUs sitting idle. We handle orchestration, customers, and the SLA. You earn ~82% of the SAR yield, paid monthly to a Saudi bank account." data-ar="للاستوديوهات والمختبرات والجامعات والمكاتب العائلية وأي شخص لديه معالجات استهلاكية أو محطات عمل معطّلة. نتولّى التنسيق والعملاء والتزام الخدمة. تكسب نحو ‎٨٢٪‎ من العائد بالريال، يُدفع شهرياً إلى حساب بنكي سعودي.">For studios, labs, universities, family offices, anyone with consumer or workstation GPUs sitting idle. We handle orchestration, customers, and the SLA. You earn ~82% of the SAR yield, paid monthly to a Saudi bank account.</p>
+        <ul class="steps">
+          <li><span class="n">01</span><span class="t" data-en="<b>Submit your rig</b> — GPU class, RAM, region, uplink. Approval inside 48h." data-ar="<b>سجّل جهازك</b> — فئة المعالج، الذاكرة، المنطقة، السعة. موافقة خلال ‎٤٨‎ ساعة."><b>Submit your rig</b> — GPU class, RAM, region, uplink. Approval inside 48h.</span></li>
+          <li><span class="n">02</span><span class="t" data-en="<b>Install the agent</b> · one bash line on Linux, one MSI on Windows. Auto-quarantines on tamper." data-ar="<b>ثبّت الوكيل</b> · أمر واحد على لينكس، ملف ‎MSI‎ واحد على ويندوز. عزل تلقائي عند العبث."><b>Install the agent</b> · one bash line on Linux, one MSI on Windows. Auto-quarantines on tamper.</span></li>
+          <li><span class="n">03</span><span class="t" data-en="<b>Start serving inference</b> — workload is mixed across customers; we won&rsquo;t saturate you past 90% by default." data-ar="<b>ابدأ تقديم الاستدلال</b> — يُمزَج العبء بين العملاء؛ ولن نتجاوز ‎٩٠٪‎ افتراضياً."><b>Start serving inference</b> — workload is mixed across customers; we won't saturate you past 90% by default.</span></li>
+          <li><span class="n">04</span><span class="t" data-en="<b>Get paid in SAR</b> · monthly payout to your bank, with a per-rig dashboard showing utilisation, errors, and earnings." data-ar="<b>اقبض بالريال</b> · دفع شهري إلى بنكك، مع لوحة لكل جهاز توضّح الاستخدام والأخطاء والأرباح."><b>Get paid in SAR</b> · monthly payout to your bank, with a per-rig dashboard showing utilisation, errors, and earnings.</span></li>
+        </ul>
+        <div class="cta">
+          <a class="btn primary lg" href="./Provider-Setup.html" data-en="Apply as provider →" data-ar="تقدّم كمزوّد ←">Apply as provider →</a>
+          <a class="btn ghost" href="./provider/Dashboard.html" data-en="Provider dashboard" data-ar="لوحة المزوّد">Provider dashboard</a>
+        </div>
+        <div class="smallprint" data-en="82% rev-share · monthly SAR payout · KSA bank account required" data-ar="حصّة ‎٨٢٪‎ · دفع شهري بالريال · يتطلّب حساباً بنكياً سعودياً">82% rev-share · monthly SAR payout · KSA bank account required</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ PRICING SNAPSHOT ═══════════════ -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 08 · Pricing at a glance" data-ar="§ ‎٠٨‎ · نظرة سريعة على الأسعار">§ 08 · Pricing at a glance</span>
+      <span data-en="Full table + calculator on Pricing →" data-ar="الجدول الكامل + الحاسبة في الأسعار ←">Full table + calculator on Pricing →</span>
+    </div>
+    <div class="ps-grid">
+      <div class="ps-it">
+        <div class="nm">ALLaM-7B</div>
+        <div class="pr">SAR 0.45<span class="u">/M in</span></div>
+        <div class="pr" style="font-size:24px;">SAR 1.80<span class="u">/M out</span></div>
+        <div class="sub" data-en="Arabic generation · sovereign" data-ar="توليد عربي · سيادي">Arabic generation · sovereign</div>
+      </div>
+      <div class="ps-it">
+        <div class="nm">bge-m3</div>
+        <div class="pr">SAR 0.08<span class="u">/M</span></div>
+        <div class="sub" data-en="Embedding · 1024-dim · sovereign" data-ar="تضمين · ‎١٠٢٤‎ بُعد · سيادي">Embedding · 1024-dim · sovereign</div>
+      </div>
+      <div class="ps-it">
+        <div class="nm">bge-reranker-v2-m3</div>
+        <div class="pr">SAR 0.12<span class="u">/M</span></div>
+        <div class="sub" data-en="Rerank · cross-encoder · sovereign" data-ar="ترتيب · مُرمّز متقاطع · سيادي">Rerank · cross-encoder · sovereign</div>
+      </div>
+      <div class="ps-it frontier">
+        <div class="nm">DeepSeek V4</div>
+        <div class="pr">SAR 1.10<span class="u">/M in</span></div>
+        <div class="pr" style="font-size:24px;">SAR 3.40<span class="u">/M out · flash</span></div>
+        <div class="sub" data-en="Frontier · cross-border · opt-in" data-ar="متقدم · خارج · بإذن">Frontier · cross-border · opt-in</div>
+      </div>
+    </div>
+    <div style="margin-top:24px; display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; align-items:center;">
+      <span style="color:var(--ink-2); font-size:15px;" data-en="<b style='color:var(--ink); font-weight:500;'>Subscription tiers</b> · Starter SAR 180/mo · Team SAR 1,200/mo · Scale SAR 8,400/mo · Enterprise on request." data-ar="<b style='color:var(--ink); font-weight:500;'>فئات الاشتراك</b> · المبتدئ ‎١٨٠‎ ريال/شهر · الفريق ‎١٬٢٠٠‎ ريال/شهر · المتسع ‎٨٬٤٠٠‎ ريال/شهر · مؤسسات حسب الطلب."><b style="color:var(--ink); font-weight:500;">Subscription tiers</b> · Starter SAR 180/mo · Team SAR 1,200/mo · Scale SAR 8,400/mo · Enterprise on request.</span>
+      <a class="btn ghost" href="./Pricing.html" data-en="See full pricing →" data-ar="عرض الأسعار كاملةً ←">See full pricing →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ COMPLIANCE BAND ═══════════════ -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 09 · Proof, not promises" data-ar="§ ‎٠٩‎ · دليل، لا وعود">§ 09 · Proof, not promises</span>
+      <span data-en="Updated 2026-05-25" data-ar="آخر تحديث ‎٢٠٢٦-٠٥-٢٥‎">Updated 2026-05-25</span>
+    </div>
+    <div class="compliance">
+      <div class="item"><span class="k">PDPL</span><span class="v" data-en="Compliant" data-ar="متوافق">Compliant</span><span class="sub" data-en="Saudi residency" data-ar="إقامة سعودية">Saudi residency</span></div>
+      <div class="item"><span class="k" data-en="Settlement" data-ar="تسوية">Settlement</span><span class="v" data-en="In-Kingdom" data-ar="داخل المملكة">In-Kingdom</span><span class="sub" data-en="Halala · SAR" data-ar="هللة · ريال">Halala · SAR</span></div>
+      <div class="item"><span class="k" data-en="Cloud dependency" data-ar="اعتماد سحابي">Cloud dependency</span><span class="v" data-en="Zero" data-ar="لا يوجد">Zero</span><span class="sub" data-en="No US/EU cloud dependency" data-ar="بلا اعتماد سحابي خارجي">No US/EU cloud dependency</span></div>
+      <div class="item"><span class="k">ZATCA</span><span class="v" data-en="VAT-registered" data-ar="مسجّل ضريبياً">VAT-registered</span><span class="sub">311102233400003</span></div>
+      <div class="item"><span class="k">CR</span><span class="v">7053667775</span><span class="sub" data-en="DC Power Solutions Co." data-ar="‏DC Power Solutions Co.‏">DC Power Solutions Co.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ ENTERPRISE BAND ═══════════════ -->
+<section>
+  <div class="wrap">
+    <div class="ent">
+      <span class="eyebrow" data-en="§ Enterprise" data-ar="§ المؤسسات">§ Enterprise</span>
+      <h2 data-en="Run it <em>in your own VPC.</em>" data-ar="شغّله <em>داخل شبكتك الخاصة.</em>">Run it <em>in your own VPC.</em></h2>
+      <p data-en="For banks, hospitals, regulators, the bigger gov programmes. Bring your own keys, your own corpora, your own audit pipeline. We sign the DPA, the MSA, the data-flow appendix, and we sit on the call with your CISO." data-ar="للبنوك والمستشفيات والجهات التنظيمية والبرامج الحكومية الكبيرة. أحضر مفاتيحك ومراجعك وخط تدقيقك. نوقّع اتفاقية حماية البيانات، والاتفاقية الرئيسية، وملحق تدفّق البيانات، ونجلس على المكالمة مع مسؤول أمنكم.">For banks, hospitals, regulators, the bigger gov programmes. Bring your own keys, your own corpora, your own audit pipeline. We sign the DPA, the MSA, the data-flow appendix, and we sit on the call with your CISO.</p>
+      <ul>
+        <li data-en="In-Kingdom settlement · SAR + halala" data-ar="تسوية داخل المملكة · ريال + هللة">In-Kingdom settlement · SAR + halala</li>
+        <li data-en="Dedicated tenancy · isolated control plane" data-ar="استئجار مخصص · بيئة تحكم معزولة">Dedicated tenancy · isolated control plane</li>
+        <li data-en="Private peering · IPsec or DirectConnect" data-ar="ربط خاص · ‎IPsec‎ أو ‎DirectConnect‎">Private peering · IPsec or DirectConnect</li>
+        <li data-en="Dedicated CSM · onboarding sprint" data-ar="مسؤول نجاح مخصص · جلسة إعداد">Dedicated CSM · onboarding sprint</li>
+        <li data-en="Custom NDMO classification map" data-ar="خريطة تصنيف ‎NDMO‎ مخصصة">Custom NDMO classification map</li>
+        <li data-en="99.95% SLA · credits + escalation path" data-ar="‎SLA‎ ‎٩٩٫٩٥٪‎ · أرصدة + مسار تصعيد">99.95% SLA · credits + escalation path</li>
+      </ul>
+      <div class="ctas">
+        <a class="btn primary lg" href="./Auth.html?new" data-en="Talk to sales →" data-ar="تواصل مع المبيعات ←">Talk to sales →</a>
+        <a class="btn ghost lg" href="./Sovereignty.html" data-en="Compliance pack" data-ar="حزمة الامتثال">Compliance pack</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ END CTA ═══════════════ -->
+<section class="home-end">
+  <div class="wrap">
+    <span class="eyebrow" style="justify-content:center;" data-en="§ Ready when you are" data-ar="§ جاهزون عندما تكونون">§ Ready when you are</span>
+    <h2 data-en="Sovereign Arabic AI. <em>Run it.</em>" data-ar="ذكاء اصطناعي عربي سيادي. <em>شغّله.</em>">Sovereign Arabic AI. <em>Run it.</em></h2>
+    <p data-en="Eight minutes from this page to a working inference call. No procurement. No data-egress conversation. No flat GPU rental." data-ar="ثماني دقائق من هذه الصفحة إلى أول استدعاء استدلال يعمل. بلا مشتريات، بلا نقاش حول خروج البيانات، بلا إيجار معالجات ثابت.">Eight minutes from this page to a working inference call. No procurement. No data-egress conversation. No flat GPU rental.</p>
+    <div class="ctas">
+      <a class="btn primary lg" href="./Setup.html" data-en="Start free · no card →" data-ar="ابدأ مجاناً · بلا بطاقة ←">Start free · no card →</a>
+      <a class="btn ghost lg" href="./Demo.html" data-en="Try the demo" data-ar="جرّب التجربة">Try the demo</a>
+      <a class="btn ghost lg" href="./Provider-Setup.html" data-en="Or apply as provider" data-ar="أو تقدّم كمزوّد">Or apply as provider</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER SITEMAP ═══════════════ -->
+<footer class="site foot">
+  <div class="foot-grid">
+    <div>
+      <div class="brand">DCP<i>∞</i></div>
+      <p class="desc" data-en="Sovereign Arabic AI — inference, agents, and a KSA GPU mesh. Built by DC Power Solutions Co., Riyadh." data-ar="ذكاء اصطناعي عربي سيادي — استدلال ووكلاء وشبكة معالجات داخل المملكة. من بناء ‎DC Power Solutions Co.‎، الرياض.">Sovereign Arabic AI — inference, agents, and a KSA GPU mesh. Built by DC Power Solutions Co., Riyadh.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="KSA-resident" data-ar="داخل المملكة">KSA-resident</span></span>
+        <span class="residency-badge"><span class="flag">∞</span> <span data-en="agents.dcp.sa" data-ar="‏agents.dcp.sa‏">agents.dcp.sa</span></span>
+      </div>
+    </div>
+
+    <div>
+      <h4 data-en="Product" data-ar="المنتج">Product</h4>
+      <ul>
+        <li><a href="./Home.html" data-en="Overview" data-ar="نظرة عامة">Overview</a></li>
+        <li><a href="#marketplace" data-en="Marketplace" data-ar="السوق">Marketplace</a></li>
+        <li><a href="#agents" data-en="Agents" data-ar="الوكلاء">Agents</a></li>
+        <li><a href="#models" data-en="Models" data-ar="النماذج">Models</a></li>
+        <li><a href="./Pricing.html" data-en="Pricing" data-ar="الأسعار">Pricing</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 data-en="Build" data-ar="البناء">Build</h4>
+      <ul>
+        <li><a href="./docs/Docs.html" data-en="API docs" data-ar="توثيق الواجهة">API docs</a></li>
+        <li><a href="#quickstart" data-en="Quick start" data-ar="بدء سريع">Quick start</a></li>
+        <li><a href="./Setup.html" data-en="Get an API key" data-ar="احصل على مفتاح">Get an API key</a></li>
+        <li><a href="./renter/Playground.html" data-en="Playground" data-ar="بيئة الاختبار">Playground</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 data-en="Renters" data-ar="المستخدمون">Renters</h4>
+      <ul>
+        <li><a href="./Auth.html?new" data-en="Sign up" data-ar="اشترك">Sign up</a></li>
+        <li><a href="./Auth.html" data-en="Sign in" data-ar="دخول">Sign in</a></li>
+        <li><a href="./renter/Dashboard.html" data-en="Console" data-ar="لوحة التحكم">Console</a></li>
+        <li><a href="./renter/Usage.html" data-en="Usage" data-ar="الاستخدام">Usage</a></li>
+        <li><a href="./renter/Wallet.html" data-en="Wallet" data-ar="المحفظة">Wallet</a></li>
+        <li><a href="./renter/Invoices.html" data-en="Invoices" data-ar="الفواتير">Invoices</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 data-en="Providers" data-ar="المزوّدون">Providers</h4>
+      <ul>
+        <li><a href="./provider/Dashboard.html" data-en="Provider console" data-ar="لوحة المزوّد">Provider console</a></li>
+        <li><a href="./provider/Rigs.html" data-en="Rigs" data-ar="الأجهزة">Rigs</a></li>
+        <li><a href="./provider/Earnings.html" data-en="Earnings" data-ar="الأرباح">Earnings</a></li>
+        <li><a href="./provider/Payouts.html" data-en="Payouts" data-ar="المدفوعات">Payouts</a></li>
+        <li><a href="./provider/Profile.html" data-en="Tiers" data-ar="الفئات">Tiers</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="foot-bottom">
+    <span>§ DC Power Solutions Company · CR 7053667775 · VAT 311102233400003</span>
+    <div class="badges">
+      <span class="residency-badge ksa" style="font-size:10px; padding:3px 8px;">PDPL</span>
+      <span class="residency-badge ksa" style="font-size:10px; padding:3px 8px;">KSA-resident</span>
+      <span class="residency-badge ksa" style="font-size:10px; padding:3px 8px;">ZATCA</span>
+    </div>
+    <span>© 2026 · Riyadh · KSA</span>
+  </div>
+</footer>
+
+<script>
+  /* ───────── Lang toggle ───────── */
+  (function () {
+    const pill = document.getElementById('lang-pill');
+    function applyLang(lang) {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.setAttribute('data-lang', lang);
+      pill.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+      document.querySelectorAll('[data-en]').forEach(el => {
+        const v = lang === 'ar' ? el.getAttribute('data-ar') : el.getAttribute('data-en');
+        if (v != null) el.innerHTML = v;
+      });
+    }
+    pill.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (b) applyLang(b.dataset.l);
+    });
+    applyLang('en');
+  })();
+
+  /* Hero oscilloscope removed — keeping the hero quiet. */
+  (function () {
+    const cvs = document.getElementById('heroScope');
+    if (!cvs) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = cvs.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = 0, H = 0;
+
+    // Rolling buffer of points; we scroll left at a constant speed.
+    const BUF_SECONDS = 14;       // visible time window
+    const POINTS_PER_SEC = 30;
+    const BUF_LEN = BUF_SECONDS * POINTS_PER_SEC;
+    const buf = new Float32Array(BUF_LEN);
+    // seed with a baseline + sine + noise so it always looks alive
+    for (let i = 0; i < BUF_LEN; i++) buf[i] = nextSample(i);
+
+    let writeHead = 0;
+    let lastTick = performance.now();
+    let raf;
+
+    function nextSample(i) {
+      // base 0.5, slow sine breath, fast sine flutter, occasional spike
+      const t = i / POINTS_PER_SEC;
+      const slow = Math.sin(t * 0.27) * 0.18;
+      const med  = Math.sin(t * 0.95 + 1.3) * 0.08;
+      const fast = Math.sin(t * 4.2 + 0.6) * 0.05;
+      const noise = (Math.random() - 0.5) * 0.07;
+      const spike = (Math.random() > 0.985) ? (Math.random() * 0.22) : 0;
+      return 0.50 + slow + med + fast + noise + spike;
+    }
+
+    function size() {
+      const rect = cvs.getBoundingClientRect();
+      W = rect.width; H = rect.height;
+      cvs.width = W * dpr; cvs.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function draw() {
+      const now = performance.now();
+      const dt = (now - lastTick) / 1000;
+      lastTick = now;
+      const samplesThisFrame = Math.max(1, Math.floor(dt * POINTS_PER_SEC));
+      for (let k = 0; k < samplesThisFrame; k++) {
+        buf[writeHead] = nextSample(writeHead + Math.floor(now / 33));
+        writeHead = (writeHead + 1) % BUF_LEN;
+      }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // line sits vertically centered in the strip
+      const baseY = H * 0.5;
+      const amp = H * 0.38;
+
+      ctx.beginPath();
+      for (let i = 0; i < BUF_LEN; i++) {
+        const idx = (writeHead + i) % BUF_LEN;
+        const x = (i / (BUF_LEN - 1)) * W;
+        const v = buf[idx];
+        const y = baseY - (v - 0.5) * 2 * amp;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+
+      const grad = ctx.createLinearGradient(0, 0, W, 0);
+      grad.addColorStop(0,    'rgba(45,212,182,0)');
+      grad.addColorStop(0.10, 'rgba(45,212,182,.85)');
+      grad.addColorStop(0.62, 'rgba(107,179,154,.85)');
+      grad.addColorStop(0.94, 'rgba(238,122,60,.92)');
+      grad.addColorStop(1,    'rgba(238,122,60,0)');
+
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = grad;
+      ctx.globalAlpha = .12;
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const lastIdx = (writeHead + BUF_LEN - 1) % BUF_LEN;
+      const lastV = buf[lastIdx];
+      const lastY = baseY - (lastV - 0.5) * 2 * amp;
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(238,122,60,1)';
+      ctx.arc(W - 4, lastY, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(238,122,60,.2)';
+      ctx.arc(W - 4, lastY, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      // update the readout in the top-right
+      const rt = document.getElementById('scopeRt');
+      if (rt) {
+        const n = Math.round(380000 + lastV * 120000);
+        const fmt = new Intl.NumberFormat(document.documentElement.lang === 'ar' ? 'ar-SA' : 'en-US').format(n);
+        rt.innerHTML = `· <b>${fmt}</b> <span data-en="now" data-ar="الآن">${document.documentElement.lang === 'ar' ? 'الآن' : 'now'}</span>`;
+      }
+
+      raf = requestAnimationFrame(draw);
+    }
+    function stop() { if (raf) cancelAnimationFrame(raf); raf = null; }
+    function start() { size(); if (!raf) { lastTick = performance.now(); draw(); } }
+
+    window.addEventListener('resize', () => { stop(); start(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+    start();
+  })();
+
+  /* ═════ Hero canvas FX background — GPU mesh particles ═════ (disabled; replaced by Najdi watermark + ticker streams) */
+  (function _canvasFx_disabled() { return; })();
+
+  /* ═════ Mobile menu toggle ═════ */
+  (function () {
+    const btn = document.getElementById('menu-toggle');
+    const menu = document.getElementById('mobile-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.classList.toggle('on');
+      btn.textContent = menu.classList.contains('on') ? '✕' : '☰';
+    });
+    menu.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') { menu.classList.remove('on'); btn.textContent = '☰'; }
+    });
+    document.addEventListener('click', (e) => {
+      if (menu.classList.contains('on') && !menu.contains(e.target) && e.target !== btn) {
+        menu.classList.remove('on'); btn.textContent = '☰';
+      }
+    });
+  })();
+
+  /* (token ticker + hero feed scripts removed — hero now uses the Saudi network map) */
+
+  /* ───────── Mesh utilisation jitter ───────── */
+  (function () {
+    const bar = document.getElementById('util-bar');
+    const pct = document.getElementById('util-pct');
+    const head = document.getElementById('headroom');
+    function paint(p) {
+      bar.style.transform = `scaleX(${p/100})`;
+      bar.style.transformOrigin = 'left';
+      pct.textContent = p;
+      head.textContent = Math.round((100 - p) * 3.46);
+    }
+    let p = 76;
+    setInterval(() => {
+      p += (Math.random() - 0.5) * 4;
+      p = Math.max(58, Math.min(92, p));
+      paint(Math.round(p));
+    }, 1400);
+    paint(p);
+  })();
+
+  /* ───────── Quick-start tabs + copy ───────── */
+  (function () {
+    const tabs = document.querySelectorAll('.qs-tabs button[data-tab]');
+    const bodies = document.querySelectorAll('.qs-body');
+    tabs.forEach(t => t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.toggle('on', x === t));
+      bodies.forEach(b => b.classList.toggle('on', b.dataset.tab === t.dataset.tab));
+    }));
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      const cur = document.querySelector('.qs-body.on pre');
+      if (!cur) return;
+      navigator.clipboard.writeText(cur.textContent).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.classList.add('done');
+        btn.textContent = document.documentElement.lang === 'ar' ? 'نُسخ ✓' : 'Copied ✓';
+        setTimeout(() => {
+          btn.classList.remove('done');
+          btn.textContent = document.documentElement.lang === 'ar' ? 'نسخ' : 'Copy';
+        }, 1600);
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Usage · DCP Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<link rel="stylesheet" href="./renter-shell.css">
+<style>
+  .filters { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .filters .input, .filters .select { max-width: 200px; padding: 9px 12px; font-size: 13px; }
+  .filters .search { flex: 1; min-width: 240px; max-width: none; }
+  .brk-row { display: grid; grid-template-columns: 140px 1fr 100px; gap: 16px; align-items: center; }
+  .brk-name { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .brk-bar { height: 6px; background: var(--bg-2); border-radius: 2px; overflow: hidden; }
+  .brk-bar span { display: block; height: 100%; background: var(--teal); }
+  .brk-v { font-family: var(--mono); font-size: 12.5px; color: var(--ink); text-align: end; }
+
+  .jobs-tbl .stat { font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<div class="rt-app">
+  <aside class="rt-sb" id="rt-sb" data-page="usage"></aside>
+  <div class="rt-backdrop" id="rt-backdrop"></div>
+
+  <div>
+    <header class="rt-tb" id="rt-tb" data-crumb="Usage"></header>
+
+    <main class="rt-main">
+
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;">
+        <div>
+          <h1 class="rt-h1">Every <em style="font-style:italic; color:var(--teal);">job</em>, accounted for.</h1>
+          <div class="rt-h1-sub">
+            <span>30 days · <b>14,820</b> jobs</span>
+            <span>Spend <b>SAR 2,456</b></span>
+            <span>Avg <b>SAR 0.17</b> / job</span>
+          </div>
+        </div>
+        <button class="btn-sec">↓ Export CSV</button>
+      </div>
+
+      <!-- Breakdown panels -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:36px;">
+        <div class="panel">
+          <div class="panel-hd"><div><h3>By model</h3></div></div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div class="brk-row"><span class="brk-name">allam-7b</span><div class="brk-bar"><span style="width:58%;"></span></div><span class="brk-v">SAR 1,420</span></div>
+            <div class="brk-row"><span class="brk-name">jais-13b</span><div class="brk-bar"><span style="width:25%;"></span></div><span class="brk-v">SAR 624</span></div>
+            <div class="brk-row"><span class="brk-name">falcon-h1</span><div class="brk-bar"><span style="width:7%;"></span></div><span class="brk-v">SAR 182</span></div>
+            <div class="brk-row"><span class="brk-name">sdxl</span><div class="brk-bar"><span style="width:5%;"></span></div><span class="brk-v">SAR 110</span></div>
+            <div class="brk-row"><span class="brk-name">bge-m3</span><div class="brk-bar"><span style="width:5%;"></span></div><span class="brk-v">SAR 120</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><div><h3>By API key</h3></div></div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div class="brk-row"><span class="brk-name">production-server</span><div class="brk-bar"><span style="width:89%;"></span></div><span class="brk-v">SAR 2,184</span></div>
+            <div class="brk-row"><span class="brk-name">staging</span><div class="brk-bar"><span style="width:8%;"></span></div><span class="brk-v">SAR 192</span></div>
+            <div class="brk-row"><span class="brk-name" style="color:var(--mut);">analytics-readonly</span><div class="brk-bar"><span style="width:0%; background:var(--mut);"></span></div><span class="brk-v" style="color:var(--mut);">SAR 0</span></div>
+            <div class="brk-row"><span class="brk-name" style="color:var(--mut);">batch-runner</span><div class="brk-bar"><span style="width:3%; background:var(--mut);"></span></div><span class="brk-v" style="color:var(--mut);">SAR 80</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jobs table -->
+      <div class="panel" style="margin-top:28px;">
+        <div class="panel-hd">
+          <div><h3>Recent jobs</h3></div>
+          <span style="font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut);">Last 24 hours · 1,284 jobs</span>
+        </div>
+        <div class="filters">
+          <input class="input search" placeholder="Search by job ID, prompt, or key…">
+          <select class="select">
+            <option>All models</option>
+            <option>allam-7b</option>
+            <option>jais-13b</option>
+            <option>falcon-h1</option>
+          </select>
+          <select class="select">
+            <option>All keys</option>
+            <option>production-server</option>
+            <option>staging</option>
+          </select>
+          <select class="select">
+            <option>Last 24h</option>
+            <option>Last 7 days</option>
+            <option>Last 30 days</option>
+          </select>
+        </div>
+        <table class="tbl jobs-tbl">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Job</th>
+              <th>Model</th>
+              <th>Key</th>
+              <th style="text-align:end;">Tokens</th>
+              <th style="text-align:end;">SAR</th>
+              <th>Status</th>
+              <th style="text-align:end;">Latency</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="./renter-shell.js"></script>
+<script>
+  const JOBS = [
+    { t: '12:42:08', id: 'j_ac81', model: 'allam-7b',  key: 'production-server', tok: 412,  sar: 0.34, stat: 'settled',   ms: 1240 },
+    { t: '12:41:54', id: 'j_ac7f', model: 'jais-13b',  key: 'production-server', tok: 1824, sar: 1.92, stat: 'settled',   ms: 4810 },
+    { t: '12:41:41', id: 'j_ac7e', model: 'allam-7b',  key: 'production-server', tok: 208,  sar: 0.18, stat: 'settled',   ms: 820  },
+    { t: '12:41:30', id: 'j_ac7d', model: 'bge-m3',    key: 'production-server', tok: 64,   sar: 0.02, stat: 'settled',   ms: 120  },
+    { t: '12:41:18', id: 'j_ac7c', model: 'allam-7b',  key: 'staging',           tok: 928,  sar: 0.91, stat: 'settled',   ms: 2840 },
+    { t: '12:41:02', id: 'j_ac7b', model: 'falcon-h1', key: 'production-server', tok: 2104, sar: 2.48, stat: 'settled',   ms: 5420 },
+    { t: '12:40:46', id: 'j_ac7a', model: 'allam-7b',  key: 'production-server', tok: 512,  sar: 0.41, stat: 'settled',   ms: 1610 },
+    { t: '12:40:24', id: 'j_ac79', model: 'jais-13b',  key: 'production-server', tok: 0,    sar: 0,    stat: 'failed',    ms: 4200 },
+    { t: '12:40:12', id: 'j_ac78', model: 'allam-7b',  key: 'production-server', tok: 288,  sar: 0.24, stat: 'settled',   ms: 940  },
+    { t: '12:39:48', id: 'j_ac77', model: 'allam-7b',  key: 'production-server', tok: 1124, sar: 0.92, stat: 'settled',   ms: 3210 },
+  ];
+  document.getElementById('jobs-body').innerHTML = JOBS.map(j => `
+    <tr>
+      <td><span class="mut">${j.t}</span></td>
+      <td><span class="mono">${j.id}</span></td>
+      <td><span class="mono">${j.model}</span></td>
+      <td><span class="mono">${j.key}</span></td>
+      <td><span class="mono" style="text-align:end; display:block;">${j.tok.toLocaleString()}</span></td>
+      <td><span class="sar">${j.sar.toFixed(2)}<span class="u">SAR</span></span></td>
+      <td><span class="stat ${j.stat}">${j.stat}</span></td>
+      <td><span class="mut" style="text-align:end; display:block;">${j.ms.toLocaleString()} ms</span></td>
+    </tr>
+  `).join('');
+</script>
+
+</body>
+</html>

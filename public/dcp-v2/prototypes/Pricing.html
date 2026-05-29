@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Pricing · Per-million-token · DCP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/dcp-kit.css">
+<style>
+  .v2-topbar { display:flex; align-items:center; justify-content:space-between; padding:18px 32px;
+    border-bottom:1px solid var(--hair); position:sticky; top:0; z-index:40;
+    background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(12px); }
+  .v2-topbar .left { display:flex; align-items:center; gap:24px; }
+  .v2-topbar .brand-name { font-family:var(--serif); font-size:24px; letter-spacing:-.01em; }
+  .v2-topbar .brand-name i { font-style:italic; color:var(--mut); font-size:15px; margin-inline-start:4px; }
+  .v2-topbar nav { display:flex; gap:24px; }
+  .v2-topbar nav a { font-size:13.5px; color:var(--ink-2); position:relative; }
+  .v2-topbar nav a.on { color:var(--ink); }
+  .v2-topbar nav a.on::after { content:""; position:absolute; left:0; right:0; bottom:-21px; height:2px; background:var(--grad); }
+  .v2-topbar nav a:hover { color:var(--teal); }
+  .v2-topbar .right { display:flex; gap:10px; align-items:center; }
+  @media (max-width: 920px) { .v2-topbar nav { display:none; } }
+
+  /* Hero */
+  .pr-hero { padding:96px 0 56px; }
+  .pr-hero h1 {
+    font-family:var(--serif); font-weight:400; font-style:normal;
+    font-size: clamp(54px, 8.4vw, 124px); line-height:.94; letter-spacing:-.025em;
+    margin: 22px 0 0; text-wrap:balance; max-width:22ch;
+  }
+  html[data-lang="ar"] .pr-hero h1 { font-family:var(--arabic); font-weight:700; letter-spacing:0; line-height:1.04; }
+  .pr-hero h1 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .pr-hero h1 em { font-style:normal; }
+  .pr-hero .lead { color:var(--ink-2); font-size:19px; line-height:1.55; max-width:62ch; margin:26px 0 0; text-wrap:pretty; }
+
+  /* Two-column comparison at the top: PAYG vs Subscription */
+  .ts {
+    display:grid; grid-template-columns:1fr 1fr; gap:0;
+    border:1px solid var(--line); background:var(--paper); margin-top: 48px;
+  }
+  @media (max-width: 900px) { .ts { grid-template-columns:1fr; } }
+  .ts .col { padding:36px 36px 40px; border-inline-end:1px solid var(--hair); position:relative; }
+  .ts .col:last-child { border-inline-end:0; }
+  .ts .col .lbl { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); }
+  .ts .col .lbl.teal { color:var(--teal); }
+  .ts .col h3 { font-family:var(--serif); font-weight:400; font-size:38px; line-height:1.05; margin: 14px 0 8px; color:var(--ink); letter-spacing:-.015em; }
+  html[data-lang="ar"] .ts .col h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .ts .col .price-line {
+    margin-top:14px;
+    font-family:var(--serif); font-size:60px; line-height:1; letter-spacing:-.025em; color:var(--ink);
+  }
+  html[data-lang="ar"] .ts .col .price-line { font-family:var(--arabic); font-weight:700; }
+  .ts .col .price-line .u { font-family:var(--sans); font-size:15px; color:var(--mut); margin-inline-start:8px; }
+  .ts .col p { color:var(--ink-2); font-size:15px; line-height:1.6; margin: 16px 0 0; max-width: 38ch; text-wrap:pretty; }
+  .ts .col ul { list-style:none; padding:0; margin:24px 0 0; display:flex; flex-direction:column; gap:8px; }
+  .ts .col ul li { font-family:var(--mono); font-size:13px; color:var(--ink-2); padding-inline-start:18px; position:relative; line-height:1.55; }
+  .ts .col ul li::before { content:"+"; position:absolute; inset-inline-start:0; color:var(--teal); font-weight:600; }
+  .ts .col .cta-row { margin-top:24px; display:flex; gap:10px; flex-wrap:wrap; }
+  .ts .featured::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+
+  /* Per-model rate card */
+  .rate-table { width:100%; border-collapse:collapse; background:var(--paper); border:1px solid var(--line); }
+  .rate-table thead th { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    text-align:start; padding:14px 16px; color:var(--mut); background:var(--bg-2); border-bottom:1px solid var(--line); }
+  .rate-table tbody td { padding:18px 16px; border-bottom:1px solid var(--hair); vertical-align:middle; font-size:14.5px; }
+  .rate-table tbody tr:last-child td { border-bottom:0; }
+  .rate-table .mname { font-family:var(--serif); font-size:22px; line-height:1.1; color:var(--ink); letter-spacing:-.01em; }
+  .rate-table .mtype { font-family:var(--mono); font-size:11.5px; color:var(--mut); letter-spacing:.04em; display:block; margin-top:4px; }
+  .rate-table .rate-cell { font-family:var(--serif); font-size:22px; line-height:1; letter-spacing:-.015em; color:var(--ink); }
+  .rate-table .rate-cell .u { font-family:var(--mono); font-size:11px; color:var(--mut); margin-inline-start:6px; }
+  .rate-table .ctx { font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+  .rate-table .frontier { background: color-mix(in oklab, var(--orange) 5%, var(--paper)); }
+
+  /* Subscription tiers */
+  .tiers { display:grid; grid-template-columns: repeat(3, 1fr); gap:0; border:1px solid var(--line); background:var(--paper); }
+  @media (max-width: 980px) { .tiers { grid-template-columns:1fr; } }
+  .tiers .tier {
+    padding: 36px 30px 38px; border-inline-end:1px solid var(--hair); position:relative;
+    display:flex; flex-direction:column; gap:14px; min-height:420px;
+  }
+  .tiers .tier:last-child { border-inline-end:0; }
+  .tiers .tier.featured { background: var(--bg-2); }
+  .tiers .tier.featured::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  .tier .lbl { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); }
+  .tier.featured .lbl { color:var(--teal); }
+  .tier h3 { font-family:var(--serif); font-weight:400; font-size:32px; line-height:1.05; letter-spacing:-.015em; margin:0; color:var(--ink); }
+  html[data-lang="ar"] .tier h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .tier .pr { font-family:var(--serif); font-size:48px; line-height:1; letter-spacing:-.025em; color:var(--ink); margin: 4px 0 4px; }
+  html[data-lang="ar"] .tier .pr { font-family:var(--arabic); font-weight:700; }
+  .tier .pr .u { font-family:var(--sans); font-size:14px; color:var(--mut); margin-inline-start:6px; }
+  .tier .sub { font-family:var(--mono); font-size:11.5px; color:var(--mut); letter-spacing:.08em; text-transform:uppercase; }
+  .tier ul { list-style:none; padding:0; margin: 4px 0 0; display:flex; flex-direction:column; gap:8px; }
+  .tier ul li { font-size:14px; color:var(--ink-2); line-height:1.55; padding-inline-start:18px; position:relative; }
+  .tier ul li::before { content:"·"; position:absolute; inset-inline-start:4px; color:var(--teal); font-weight:700; }
+  .tier ul li b { color:var(--ink); font-weight:500; }
+  .tier .cta { margin-top:auto; padding-top:18px; }
+
+  /* Calculator */
+  .calc {
+    background: linear-gradient(180deg, var(--paper) 0%, var(--bg-2) 100%);
+    border:1px solid var(--line); position:relative;
+    padding: 36px 36px 40px;
+    display:grid; grid-template-columns: 1.1fr 1fr; gap: 36px; align-items:start;
+  }
+  .calc::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  @media (max-width:900px) { .calc { grid-template-columns:1fr; gap: 28px; } }
+  .calc h3 { font-family:var(--serif); font-weight:400; font-size:32px; line-height:1.05; letter-spacing:-.015em; margin:0; color:var(--ink); }
+  html[data-lang="ar"] .calc h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .calc p { color:var(--ink-2); font-size:14.5px; line-height:1.6; margin: 14px 0 0; max-width: 48ch; }
+  .calc .field { margin-top:20px; }
+  .calc .field .row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--mut); text-transform:uppercase; }
+  .calc .field .row b { color:var(--ink); font-family:var(--sans); font-size:13.5px; font-weight:500; text-transform:none; letter-spacing:0; }
+  .calc input[type=range] { width:100%; appearance:none; -webkit-appearance:none; height:2px; background:var(--hair); }
+  .calc input[type=range]::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border-radius:50%; background:var(--grad); cursor:pointer; }
+  .calc input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:var(--teal); cursor:pointer; border:0; }
+  .calc .toggle { display:inline-flex; border:1px solid var(--hair); border-radius:2px; overflow:hidden; margin-top:6px; }
+  .calc .toggle button { padding:6px 12px; font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--mut); background:transparent; }
+  .calc .toggle button.on { background:var(--ink); color:var(--bg); }
+  .calc-out {
+    background:#04050d; color:var(--ink); border:1px solid var(--line); padding: 26px 28px;
+  }
+  .calc-out .k { font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--mut); text-transform:uppercase; }
+  .calc-out .big { font-family:var(--serif); font-size:64px; line-height:1; letter-spacing:-.025em; color:var(--ink); margin: 6px 0 0; }
+  html[data-lang="ar"] .calc-out .big { font-family:var(--arabic); font-weight:700; }
+  .calc-out .big .u { font-family:var(--sans); font-size:15px; color:var(--mut); margin-inline-start:6px; }
+  .calc-out .effective { font-family:var(--mono); font-size:11.5px; color:var(--teal); margin-top:8px; letter-spacing:.04em; }
+  .calc-out .break { margin-top:18px; padding-top:14px; border-top:1px dashed #1f2040; font-family:var(--mono); font-size:11.5px; color:var(--ink-2); line-height:1.85; }
+  .calc-out .break b { color:var(--ink); font-weight:500; }
+
+  /* Sovereignty add-on note */
+  .sov-note {
+    background:var(--paper); border:1px solid var(--line); padding: 26px 28px;
+    border-inline-start: 2px solid var(--teal);
+    display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;
+  }
+  .sov-note .nm { font-family:var(--serif); font-size:24px; line-height:1.1; color:var(--ink); letter-spacing:-.01em; min-width:200px; }
+  html[data-lang="ar"] .sov-note .nm { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .sov-note .body { color:var(--ink-2); font-size:15px; line-height:1.6; flex:1; min-width:280px; }
+  .sov-note .badge { font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); padding:5px 10px; border:1px solid var(--teal); border-radius:2px; align-self:center; }
+
+  /* FAQ */
+  .faq { display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--line); background:var(--paper); }
+  @media (max-width: 900px) { .faq { grid-template-columns:1fr; } }
+  .faq .qa {
+    padding: 28px 28px 30px; border-inline-end:1px solid var(--hair); border-bottom:1px solid var(--hair);
+  }
+  .faq .qa:nth-child(2n) { border-inline-end:0; }
+  .faq .qa:nth-last-child(-n+2) { border-bottom:0; }
+  @media (max-width: 900px) {
+    .faq .qa { border-inline-end:0; }
+    .faq .qa:nth-last-child(-n+2) { border-bottom:1px solid var(--hair); }
+    .faq .qa:last-child { border-bottom:0; }
+  }
+  .faq h4 { font-family:var(--serif); font-weight:400; font-size:22px; line-height:1.2; letter-spacing:-.01em; margin:0; color:var(--ink); }
+  html[data-lang="ar"] .faq h4 { font-family:var(--arabic); font-weight:700; line-height:1.3; }
+  .faq p { color:var(--ink-2); font-size:14.5px; line-height:1.6; margin: 12px 0 0; }
+
+  /* Enterprise band */
+  .ent {
+    background: radial-gradient(120% 100% at 0% 0%, #1a1d3e 0%, #0a0b1a 60%);
+    color:var(--ink); padding: 96px 56px; position:relative; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .ent::before { content:""; position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(circle at 80% 30%, rgba(45,212,182,.18) 0%, transparent 55%),
+                radial-gradient(circle at 20% 70%, rgba(238,122,60,.14) 0%, transparent 55%);
+    filter: blur(20px); }
+  .ent > * { position:relative; }
+  .ent h2.st em { background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  .ent .ctas { display:flex; gap:10px; margin-top:32px; flex-wrap:wrap; }
+  .ent .btn.primary { background:var(--grad); color:#0a0b1a; border:0; }
+  .ent .btn.ghost { border-color:rgba(245,243,238,.35); color:#f5f3ee; }
+  .ent .btn.ghost:hover { background:#f5f3ee; color:#0a0b1a; }
+  .ent ul { list-style:none; padding:0; margin:24px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:8px 28px; max-width: 620px; }
+  @media (max-width: 700px) { .ent ul { grid-template-columns:1fr; } }
+  .ent ul li { font-family:var(--mono); font-size:13px; color:var(--ink-2); padding-inline-start:18px; position:relative; line-height:1.55; }
+  .ent ul li::before { content:"+"; position:absolute; inset-inline-start:0; color:var(--teal); font-weight:600; }
+</style>
+</head>
+<body>
+
+<header class="v2-topbar">
+  <div class="left">
+    <a href="./Home.html" class="brand-name">DCP<i>∞</i></a>
+    <nav>
+      <a href="./Home.html" data-en="Overview" data-ar="نظرة عامة">Overview</a>
+      <a href="./Demo.html" data-en="Demo" data-ar="تجربة">Demo</a>
+      <a href="./Sovereignty.html" data-en="Sovereignty" data-ar="السيادة">Sovereignty</a>
+      <a href="./Pricing.html" class="on" data-en="Pricing" data-ar="الأسعار">Pricing</a>
+    </nav>
+  </div>
+  <div class="right">
+    <div class="lang-pill" id="lang-pill">
+      <button data-l="en" class="on">EN</button>
+      <button data-l="ar">ع</button>
+    </div>
+    <a class="btn small primary" href="./Demo.html" data-en="Try the demo →" data-ar="جرّب الآن ←">Try the demo →</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="pr-hero">
+  <div class="wrap">
+    <span class="eyebrow" data-en="§ Pricing · Per-million tokens · Settled in SAR" data-ar="§ الأسعار · لكل مليون رمز · بالريال السعودي">§ Pricing · Per-million tokens · Settled in SAR</span>
+    <h1 data-en="Pay per million tokens. <em>Settled in SAR.</em>" data-ar="ادفع لكل مليون رمز. <em>وتسوية بالريال.</em>">Pay per million tokens. <em>Settled in SAR.</em></h1>
+    <p class="lead" data-en="You pay for what you use, in Riyal. No flat GPU rental, no minimums. Frontier models stay off until you turn them on." data-ar="تدفع مقابل ما تستخدم فقط، بالريال. بدون إيجار معالجات ثابت، بدون حد أدنى. النماذج المتقدمة تبقى مغلقة حتى تفتحها.">You pay for what you use, in Riyal. No flat GPU rental, no minimums. Frontier models stay off until you turn them on.</p>
+
+    <div class="ts">
+      <div class="col">
+        <div class="lbl" data-en="Option A" data-ar="الخيار ‎A‎">Option A</div>
+        <h3 data-en="PAYG · Pay-as-you-go" data-ar="ادفع حسب الاستخدام">PAYG · Pay-as-you-go</h3>
+        <div class="price-line" data-en="From <em style='background-image:var(--grad);background-clip:text;-webkit-background-clip:text;color:transparent;font-style:italic;'>SAR 0.08</em><span class='u'>/ M tokens · embed</span>" data-ar="من <em style='background-image:var(--grad);background-clip:text;-webkit-background-clip:text;color:transparent;'>‎٠٫٠٨‎ ريال</em><span class='u'>/ مليون رمز · تضمين</span>">From <em style="background-image:var(--grad);background-clip:text;-webkit-background-clip:text;color:transparent;font-style:italic;">SAR 0.08</em><span class="u">/ M tokens · embed</span></div>
+        <p data-en="No commitment, billed monthly, halala-grained. Top up by mada, Apple Pay, bank transfer or USDC on Base. Estimate hold → settle on completion — unused holds return automatically." data-ar="بدون التزام، فوترة شهرية، بدقة الهللة. اشحن عبر مدى أو ‎Apple Pay‎ أو تحويل بنكي أو ‎USDC‎ على ‎Base‎. حجز تقديري ← تسوية على الإكمال — الحجوزات غير المستخدمة تعود تلقائياً.">No commitment, billed monthly, halala-grained. Top up by mada, Apple Pay, bank transfer or USDC on Base. Estimate hold → settle on completion — unused holds return automatically.</p>
+        <ul>
+          <li data-en="ALLaM-7B-Q4 · SAR 0.45/M in · 1.80/M out" data-ar="نموذج اللام · ‎٠٫٤٥‎ ريال/مليون داخل · ‎١٫٨٠‎ خارج">ALLaM-7B-Q4 · SAR 0.45/M in · 1.80/M out</li>
+          <li data-en="bge-m3 embedding · SAR 0.08/M" data-ar="تضمين ‎bge-m3‎ · ‎٠٫٠٨‎ ريال/مليون">bge-m3 embedding · SAR 0.08/M</li>
+          <li data-en="Console + API access · no seat limits" data-ar="لوحة التحكم + الواجهة · بلا حد للمقاعد">Console + API access · no seat limits</li>
+          <li data-en="Sovereign-only mode · free" data-ar="وضع السيادة فقط · مجاناً">Sovereign-only mode · free</li>
+        </ul>
+        <div class="cta-row">
+          <a class="btn primary" href="./Demo.html" data-en="Start free · no card" data-ar="ابدأ مجاناً · بلا بطاقة">Start free · no card</a>
+          <a class="btn ghost small" href="#rates" data-en="See per-model rates ↓" data-ar="أسعار كل نموذج ↓">See per-model rates ↓</a>
+        </div>
+      </div>
+      <div class="col featured">
+        <div class="lbl teal" data-en="Option B · Recommended for production" data-ar="الخيار ‎B‎ · مُوصى به للإنتاج">Option B · Recommended for production</div>
+        <h3 data-en="Subscription · Committed discount" data-ar="الاشتراك · خصم على الالتزام">Subscription · Committed discount</h3>
+        <div class="price-line">SAR 1,200 <span class="u" data-en="/ month · Team · 50M tokens incl." data-ar="/ شهرياً · فريق · ‎٥٠‎ مليون رمز">/ month · Team · 50M tokens incl.</span></div>
+        <p data-en="Monthly commit unlocks 30–55% off the PAYG rate, depending on tier. Token allowance is shared across all models; overage falls back to PAYG. Three tiers below; Enterprise on request." data-ar="الالتزام الشهري يفتح خصم ‎٣٠-٥٥٪‎ من سعر ‎PAYG‎ حسب الفئة. الرصيد مشترك بين كل النماذج؛ والاستخدام الزائد يعود إلى سعر ‎PAYG‎. ثلاث فئات أدناه، والمؤسسات حسب الطلب.">Monthly commit unlocks 30–55% off the PAYG rate, depending on tier. Token allowance is shared across all models; overage falls back to PAYG. Three tiers below; Enterprise on request.</p>
+        <ul>
+          <li data-en="<b>Starter</b> · 5M tokens · SAR 180/mo · 30% off PAYG" data-ar="<b>المبتدئ</b> · ‎٥‎ مليون رمز · ‎١٨٠‎ ريال/شهر · خصم ‎٣٠٪‎"><b>Starter</b> · 5M tokens · SAR 180/mo · 30% off PAYG</li>
+          <li data-en="<b>Team</b> · 50M tokens · SAR 1,200/mo · 40% off" data-ar="<b>الفريق</b> · ‎٥٠‎ مليون · ‎١٬٢٠٠‎ ريال/شهر · خصم ‎٤٠٪‎"><b>Team</b> · 50M tokens · SAR 1,200/mo · 40% off</li>
+          <li data-en="<b>Scale</b> · 500M tokens · SAR 8,400/mo · 55% off" data-ar="<b>المتسع</b> · ‎٥٠٠‎ مليون · ‎٨٬٤٠٠‎ ريال/شهر · خصم ‎٥٥٪‎"><b>Scale</b> · 500M tokens · SAR 8,400/mo · 55% off</li>
+          <li data-en="All sovereign models in every tier" data-ar="جميع النماذج السيادية في كل الفئات">All sovereign models in every tier</li>
+        </ul>
+        <div class="cta-row">
+          <a class="btn primary" href="#tiers" data-en="Compare tiers ↓" data-ar="قارن الفئات ↓">Compare tiers ↓</a>
+          <a class="btn ghost small" href="#calc" data-en="Calculate your spend" data-ar="احسب نفقاتك">Calculate your spend</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PER-MODEL RATE CARD -->
+<section id="rates">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 01 · Per-model rates · PAYG · SAR" data-ar="§ ‎٠١‎ · أسعار كل نموذج · ‎PAYG‎ · ريال">§ 01 · Per-model rates · PAYG · SAR</span>
+      <span data-en="100 halala = SAR 1.00" data-ar="‎١٠٠‎ هللة = ‎١‎ ريال">100 halala = SAR 1.00</span>
+    </div>
+    <div class="mk-wrap">
+    <table class="rate-table">
+      <thead>
+        <tr>
+          <th data-en="Model" data-ar="النموذج">Model</th>
+          <th data-en="Input · per M tokens" data-ar="الإدخال · لكل مليون رمز">Input · per M tokens</th>
+          <th data-en="Output · per M tokens" data-ar="الإخراج · لكل مليون رمز">Output · per M tokens</th>
+          <th data-en="Context" data-ar="السياق">Context</th>
+          <th data-en="Residency" data-ar="الإقامة">Residency</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mname">ALLaM-7B-Q4</span><small class="mtype" data-en="Arabic generation · sovereign" data-ar="توليد عربي · سيادي">Arabic generation · sovereign</small></td>
+          <td><span class="rate-cell">SAR 0.45<span class="u">/M</span></span></td>
+          <td><span class="rate-cell">SAR 1.80<span class="u">/M</span></span></td>
+          <td><span class="ctx">32k tokens</span></td>
+          <td><span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span></td>
+        </tr>
+        <tr>
+          <td><span class="mname">bge-m3</span><small class="mtype" data-en="Multilingual embedding · sovereign" data-ar="تضمين متعدد اللغات · سيادي">Multilingual embedding · sovereign</small></td>
+          <td><span class="rate-cell">SAR 0.08<span class="u">/M</span></span></td>
+          <td>—</td>
+          <td><span class="ctx">8k · 1024-dim</span></td>
+          <td><span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span></td>
+        </tr>
+        <tr>
+          <td><span class="mname">bge-reranker-v2-m3</span><small class="mtype" data-en="Cross-encoder rerank · sovereign" data-ar="مُرمّز متقاطع · سيادي">Cross-encoder rerank · sovereign</small></td>
+          <td><span class="rate-cell">SAR 0.12<span class="u">/M pair-tok</span></span></td>
+          <td>—</td>
+          <td><span class="ctx">8k pair</span></td>
+          <td><span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span></td>
+        </tr>
+        <tr>
+          <td><span class="mname" data-en="Frontier (opt-in)" data-ar="متقدم (بإذن)">Frontier (opt-in)</span><small class="mtype" data-en="Cross-border · explicit enable" data-ar="خارج المملكة · تفعيل صريح">Cross-border · explicit enable</small></td>
+          <td colspan="2" data-en="Per-tenant opt-in required. Pricing posted at activation; not part of the default rate card." data-ar="يتطلّب إذناً لكل مستأجر. تُنشر الأسعار عند التفعيل؛ ليست ضمن باقة الأسعار الافتراضية.">Per-tenant opt-in required. Pricing posted at activation; not part of the default rate card.</td>
+          <td><span class="ctx" data-en="on request" data-ar="عند الطلب">on request</span></td>
+          <td><span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Cross-border" data-ar="خارج">Cross-border</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- SOVEREIGNTY ADD-ON -->
+<section>
+  <div class="wrap">
+    <div class="sov-note">
+      <div class="nm" data-en="Sovereign-only mode is free." data-ar="وضع ‎السيادة فقط‎ مجاناً.">Sovereign-only mode is free.</div>
+      <div class="body" data-en="Flip the switch and your tenant is locked to KSA-resident models forever. The router will never escape to frontier, even if a workload would normally benefit. Use this for regulated workloads (banking, health, government). No surcharge, no gotcha." data-ar="فعّل المفتاح ليُقفل مستأجرك على نماذج المملكة دائماً. لن يخرج الموجّه إلى النماذج المتقدمة أبداً حتى لو كان الحمل يستفيد من ذلك عادة. استخدم هذا للأعباء المنظّمة (البنوك، الصحة، الحكومة). بدون رسوم إضافية ولا فخاخ.">Flip the switch and your tenant is locked to KSA-resident models forever. The router will never escape to frontier, even if a workload would normally benefit. Use this for regulated workloads (banking, health, government). No surcharge, no gotcha.</div>
+      <div class="badge" data-en="Free · default off" data-ar="مجاني · افتراضياً مغلق">Free · default off</div>
+    </div>
+  </div>
+</section>
+
+<!-- SUBSCRIPTION TIERS -->
+<section id="tiers">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 02 · Subscription tiers" data-ar="§ ‎٠٢‎ · فئات الاشتراك">§ 02 · Subscription tiers</span>
+      <span data-en="Commit monthly · save up to 55%" data-ar="التزام شهري · وفّر حتى ‎٥٥٪‎">Commit monthly · save up to 55%</span>
+    </div>
+
+    <div class="tiers">
+      <div class="tier">
+        <div class="lbl">01 · Starter</div>
+        <h3 data-en="Starter" data-ar="المبتدئ">Starter</h3>
+        <div class="pr">SAR 180<span class="u" data-en="/ month" data-ar="/ شهرياً">/ month</span></div>
+        <div class="sub" data-en="5M tokens · 30% off PAYG" data-ar="‎٥‎ مليون رمز · خصم ‎٣٠٪‎">5M tokens · 30% off PAYG</div>
+        <ul>
+          <li data-en="<b>5M</b> tokens / month (shared)" data-ar="<b>‎٥‎ مليون</b> رمز شهرياً (مشترك)"><b>5M</b> tokens / month (shared)</li>
+          <li data-en="Single seat · 1 workspace" data-ar="مقعد واحد · مساحة عمل واحدة">Single seat · 1 workspace</li>
+          <li data-en="All sovereign models" data-ar="جميع النماذج السيادية">All sovereign models</li>
+          <li data-en="Frontier · opt-in · PAYG rate" data-ar="النماذج المتقدمة · بإذن · بسعر ‎PAYG‎">Frontier · opt-in · PAYG rate</li>
+          <li data-en="Console + API + Playground" data-ar="لوحة + واجهة + بيئة اختبار">Console + API + Playground</li>
+          <li data-en="Email support · 1-business-day" data-ar="دعم بريدي · يوم عمل واحد">Email support · 1-business-day</li>
+        </ul>
+        <div class="cta"><a class="btn ghost" href="./Demo.html" data-en="Start Starter →" data-ar="ابدأ المبتدئ ←">Start Starter →</a></div>
+      </div>
+      <div class="tier featured">
+        <div class="lbl">02 · Team · Most teams pick this</div>
+        <h3 data-en="Team" data-ar="الفريق">Team</h3>
+        <div class="pr">SAR 1,200<span class="u" data-en="/ month" data-ar="/ شهرياً">/ month</span></div>
+        <div class="sub" data-en="50M tokens · 40% off PAYG" data-ar="‎٥٠‎ مليون · خصم ‎٤٠٪‎">50M tokens · 40% off PAYG</div>
+        <ul>
+          <li data-en="<b>50M</b> tokens / month (shared)" data-ar="<b>‎٥٠‎ مليون</b> رمز شهرياً (مشترك)"><b>50M</b> tokens / month (shared)</li>
+          <li data-en="Up to 10 seats · shared workspace" data-ar="حتى ‎١٠‎ مقاعد · مساحة عمل مشتركة">Up to 10 seats · shared workspace</li>
+          <li data-en="Custom RAG indices · 3 per workspace" data-ar="فهارس ‎RAG‎ مخصصة · ‎٣‎ لكل مساحة عمل">Custom RAG indices · 3 per workspace</li>
+          <li data-en="Audit log export · JSONL" data-ar="تصدير سجل التدقيق · ‎JSONL‎">Audit log export · JSONL</li>
+          <li data-en="Custom corpora · 3 indices" data-ar="مراجع مخصصة · ‎٣‎ فهارس">Custom corpora · 3 indices</li>
+          <li data-en="Slack support · 4-hour" data-ar="دعم ‎Slack‎ · ‎٤‎ ساعات">Slack support · 4-hour</li>
+        </ul>
+        <div class="cta"><a class="btn primary" href="./Demo.html" data-en="Start Team →" data-ar="ابدأ الفريق ←">Start Team →</a></div>
+      </div>
+      <div class="tier">
+        <div class="lbl">03 · Scale</div>
+        <h3 data-en="Scale" data-ar="المتسع">Scale</h3>
+        <div class="pr">SAR 8,400<span class="u" data-en="/ month" data-ar="/ شهرياً">/ month</span></div>
+        <div class="sub" data-en="500M tokens · 55% off PAYG" data-ar="‎٥٠٠‎ مليون · خصم ‎٥٥٪‎">500M tokens · 55% off PAYG</div>
+        <ul>
+          <li data-en="<b>500M</b> tokens / month (shared)" data-ar="<b>‎٥٠٠‎ مليون</b> رمز شهرياً (مشترك)"><b>500M</b> tokens / month (shared)</li>
+          <li data-en="Unlimited seats · multiple workspaces" data-ar="مقاعد بلا حد · مساحات عمل متعددة">Unlimited seats · multiple workspaces</li>
+          <li data-en="Dedicated capacity reservation" data-ar="حجز سعة مخصصة">Dedicated capacity reservation</li>
+          <li data-en="Custom corpora · unlimited indices" data-ar="مراجع مخصصة · فهارس بلا حد">Custom corpora · unlimited indices</li>
+          <li data-en="SLA 99.95% · credits on miss" data-ar="‎SLA‎ ‎٩٩٫٩٥٪‎ · أرصدة عند الإخلال">SLA 99.95% · credits on miss</li>
+          <li data-en="Named CSM + onboarding sprint" data-ar="مسؤول نجاح مخصص + جلسة إعداد">Named CSM + onboarding sprint</li>
+        </ul>
+        <div class="cta"><a class="btn ghost" href="#enterprise" data-en="Talk to sales →" data-ar="تواصل مع المبيعات ←">Talk to sales →</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CALCULATOR -->
+<section id="calc">
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 03 · Workload calculator" data-ar="§ ‎٠٣‎ · حاسبة الأحمال">§ 03 · Workload calculator</span>
+      <span data-en="Drag the slider · live SAR" data-ar="حرّك المؤشر · ريال مباشر">Drag the slider · live SAR</span>
+    </div>
+
+    <div class="calc">
+      <div>
+        <h3 data-en="What will it cost you?" data-ar="كم ستكلّفك؟">What will it cost you?</h3>
+        <p data-en="Set monthly token volume, pick the billing mode and the model mix. We&rsquo;ll show the SAR estimate, the effective per-M rate, and the cost breakdown across embed / generate / verify. Calculator uses the same router weights that production uses." data-ar="حدّد حجم الرموز الشهري، واختر نمط الفوترة ومزيج النماذج. سنعرض التقدير بالريال، والسعر الفعّال لكل مليون، وتوزيع التكلفة على التضمين/التوليد/التحقق. الحاسبة تستخدم نفس أوزان الموجّه في الإنتاج.">Set monthly token volume, pick the billing mode and the model mix. We'll show the SAR estimate, the effective per-M rate, and the cost breakdown across embed / generate / verify. Calculator uses the same router weights that production uses.</p>
+
+        <div class="field">
+          <div class="row">
+            <span data-en="Monthly tokens" data-ar="الرموز شهرياً">Monthly tokens</span>
+            <b><span id="tok-display">50M</span></b>
+          </div>
+          <input type="range" id="tok-slider" min="1" max="1000" value="50">
+        </div>
+
+        <div class="field">
+          <div class="row">
+            <span data-en="Workload mix" data-ar="مزيج الأحمال">Workload mix</span>
+            <b><span id="mix-display" data-en="RAG · embed-heavy" data-ar="‎RAG‎ · تضمين كثيف">RAG · embed-heavy</span></b>
+          </div>
+          <div class="toggle" id="mix-toggle">
+            <button data-mix="rag" class="on" data-en="RAG" data-ar="‎RAG‎">RAG</button>
+            <button data-mix="chat" data-en="Chat" data-ar="محادثة">Chat</button>
+            <button data-mix="agent" data-en="Agent" data-ar="وكيل">Agent</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="row">
+            <span data-en="Billing mode" data-ar="نمط الفوترة">Billing mode</span>
+            <b><span id="mode-display">PAYG</span></b>
+          </div>
+          <div class="toggle" id="mode-toggle">
+            <button data-mode="payg" class="on">PAYG</button>
+            <button data-mode="starter" data-en="Starter" data-ar="مبتدئ">Starter</button>
+            <button data-mode="team" data-en="Team" data-ar="فريق">Team</button>
+            <button data-mode="scale" data-en="Scale" data-ar="متسع">Scale</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="row">
+            <span data-en="Frontier mode" data-ar="وضع المتقدم">Frontier mode</span>
+            <b><span id="fr-display" data-en="Off · sovereign only" data-ar="مغلق · سيادي فقط">Off · sovereign only</span></b>
+          </div>
+          <div class="toggle" id="fr-toggle">
+            <button data-fr="off" class="on" data-en="Off" data-ar="مغلق">Off</button>
+            <button data-fr="on" data-en="On · opt-in" data-ar="مفعّل · بإذن">On · opt-in</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="calc-out">
+        <div class="k" data-en="Estimated monthly cost · SAR" data-ar="التكلفة الشهرية التقديرية · ريال">Estimated monthly cost · SAR</div>
+        <div class="big" id="big-cost">SAR 1,847<span class="u" data-en="/ month" data-ar="/ شهرياً">/ month</span></div>
+        <div class="effective" id="eff-rate">▲ SAR 36.94 per M tokens · effective</div>
+        <div class="break" id="break">
+          <div><b data-en="Embed:" data-ar="تضمين:">Embed:</b> <span id="brk-emb">SAR 1.20</span></div>
+          <div><b data-en="Generate:" data-ar="توليد:">Generate:</b> <span id="brk-gen">SAR 1,800</span></div>
+          <div><b data-en="Rerank + Verify:" data-ar="ترتيب + تحقق:">Rerank + Verify:</b> <span id="brk-ver">SAR 45.60</span></div>
+          <div style="margin-top:8px;"><b data-en="Sovereign-only:" data-ar="سيادي فقط:">Sovereign-only:</b> <span id="brk-sov" data-en="free" data-ar="مجاناً">free</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ENTERPRISE BAND -->
+<section id="enterprise">
+  <div class="wrap">
+    <div class="ent">
+      <span class="eyebrow" data-en="§ Enterprise" data-ar="§ المؤسسات">§ Enterprise</span>
+      <h2 class="st" style="margin-top:18px;" data-en="Build it <em>in your own VPC.</em>" data-ar="ابنه <em>داخل شبكتك الخاصة.</em>">Build it <em>in your own VPC.</em></h2>
+      <p style="color:var(--ink-2); font-size:18px; line-height:1.6; margin: 22px 0 0; max-width: 60ch;" data-en="For banks, hospitals, regulators, and the bigger gov programmes. Bring your own keys, your own corpora, your own audit pipeline. We sign the DPA, the MSA, the data-flow appendix, and we sit on the call with your CISO." data-ar="للبنوك والمستشفيات والجهات التنظيمية والبرامج الحكومية الكبيرة. أحضر مفاتيحك ومراجعك وخط تدقيقك. نوقّع اتفاقية حماية البيانات، والاتفاقية الرئيسية، وملحق تدفّق البيانات، ونجلس على المكالمة مع مسؤول أمنكم.">For banks, hospitals, regulators, and the bigger gov programmes. Bring your own keys, your own corpora, your own audit pipeline. We sign the DPA, the MSA, the data-flow appendix, and we sit on the call with your CISO.</p>
+      <ul>
+        <li data-en="In-Kingdom settlement · SAR + halala" data-ar="تسوية داخل المملكة · ريال + هللة">In-Kingdom settlement · SAR + halala</li>
+        <li data-en="Dedicated tenancy · isolated control plane" data-ar="استئجار مخصص · بيئة تحكم معزولة">Dedicated tenancy · isolated control plane</li>
+        <li data-en="Private peering · IPsec or DirectConnect" data-ar="ربط خاص · ‎IPsec‎ أو ‎DirectConnect‎">Private peering · IPsec or DirectConnect</li>
+        <li data-en="Dedicated CSM · onboarding sprint" data-ar="مسؤول نجاح مخصص · جلسة إعداد">Dedicated CSM · onboarding sprint</li>
+        <li data-en="Custom NDMO classification map" data-ar="خريطة تصنيف ‎NDMO‎ مخصصة">Custom NDMO classification map</li>
+        <li data-en="99.95% SLA · credits + escalation path" data-ar="‎SLA‎ ‎٩٩٫٩٥٪‎ · أرصدة + مسار تصعيد">99.95% SLA · credits + escalation path</li>
+      </ul>
+      <div class="ctas">
+        <a class="btn primary lg" href="../../public/Contact.html" data-en="Talk to sales →" data-ar="تواصل مع المبيعات ←">Talk to sales →</a>
+        <a class="btn ghost lg" href="./Sovereignty.html" data-en="Compliance pack" data-ar="حزمة الامتثال">Compliance pack</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 04 · FAQ" data-ar="§ ‎٠٤‎ · الأسئلة الشائعة">§ 04 · FAQ</span>
+      <span data-en="The ones we actually get" data-ar="الأسئلة التي ترِدنا فعلاً">The ones we actually get</span>
+    </div>
+    <div class="faq">
+      <div class="qa">
+        <h4 data-en="What&rsquo;s a token? How much is a million?" data-ar="ما الرمز؟ وكم يساوي المليون؟">What's a token? How much is a million?</h4>
+        <p data-en="A token is roughly 4 characters of Latin text or ~2 of Arabic text. A million tokens is around 750 pages of A4 reading text. Most chatbots use 5–20k tokens per conversation; a RAG agent answering one zakat question uses ~3–8k tokens end-to-end (embed + retrieve + generate + verify)." data-ar="الرمز يعادل تقريباً ‎٤‎ أحرف لاتينية أو ‎٢‎ من العربية. المليون رمز ≈ ‎٧٥٠‎ صفحة قراءة. معظم روبوتات المحادثة تستخدم ‎٥-٢٠‎ ألف رمز للمحادثة الواحدة؛ ووكيل ‎RAG‎ يجيب على سؤال زكاة يستخدم ‎٣-٨‎ آلاف رمز نهاية لنهاية.">A token is roughly 4 characters of Latin text or ~2 of Arabic text. A million tokens is around 750 pages of A4 reading text. Most chatbots use 5–20k tokens per conversation; a RAG agent answering one zakat question uses ~3–8k tokens end-to-end (embed + retrieve + generate + verify).</p>
+      </div>
+      <div class="qa">
+        <h4 data-en="Why halala-grained billing?" data-ar="لماذا الفوترة بدقّة الهللة؟">Why halala-grained billing?</h4>
+        <p data-en="The smallest currency unit lets us settle accurately at the request level — no rounding up, no minimum charge per call. A 240-token answer should cost what a 240-token answer costs, even if it&rsquo;s less than a riyal." data-ar="أصغر وحدة عملة تتيح تسوية دقيقة على مستوى الطلب — بلا تقريب، بلا حد أدنى لكل استدعاء. إجابة من ‎٢٤٠‎ رمزاً يجب أن تُكلِّف ما تستحقه، حتى لو كان أقل من ريال.">The smallest currency unit lets us settle accurately at the request level — no rounding up, no minimum charge per call. A 240-token answer should cost what a 240-token answer costs, even if it's less than a riyal.</p>
+      </div>
+      <div class="qa">
+        <h4 data-en="Can I pay in USDC?" data-ar="هل يمكنني الدفع بـ‎USDC‎؟">Can I pay in USDC?</h4>
+        <p data-en="Yes — USDC on Base L2 only, deposited to your tenant&rsquo;s wallet address. Conversion is at the moving peg (currently 1 USDC = SAR 3.751, ±0.1% spread). SAR is drawn first; USDC only when the SAR balance reaches zero." data-ar="نعم — ‎USDC‎ على شبكة ‎Base L2‎ فقط، يُودَع إلى عنوان محفظة مستأجرك. التحويل وفق السعر المتحرّك (حالياً ‎١‎ ‎USDC‎ = ‎٣٫٧٥١‎ ريال، فرق ‎±٠٫١٪‎). يُخصم من الريال أولاً، ومن ‎USDC‎ عندما يبلغ رصيد الريال صفراً.">Yes — USDC on Base L2 only, deposited to your tenant's wallet address. Conversion is at the moving peg (currently 1 USDC = SAR 3.751, ±0.1% spread). SAR is drawn first; USDC only when the SAR balance reaches zero.</p>
+      </div>
+      <div class="qa">
+        <h4 data-en="What happens to unused subscription tokens?" data-ar="ماذا يحدث للرموز غير المستخدمة من الاشتراك؟">What happens to unused subscription tokens?</h4>
+        <p data-en="They expire at the end of each billing month. Overage rolls to PAYG rates automatically — no surprises, no service interruption. If you consistently under-use a tier, downgrade in console at any time; if you consistently over-use, the calculator above will suggest the next step." data-ar="تنتهي صلاحيتها في نهاية كل شهر فوترة. الاستخدام الزائد يُحوَّل تلقائياً إلى أسعار ‎PAYG‎ — بلا مفاجآت ولا انقطاع. إذا كنت لا تستهلك الفئة بانتظام، يمكنك التخفيض من اللوحة في أي وقت؛ وإذا كنت تتجاوزها، فستقترح الحاسبة أعلاه الخطوة التالية.">They expire at the end of each billing month. Overage rolls to PAYG rates automatically — no surprises, no service interruption. If you consistently under-use a tier, downgrade in console at any time; if you consistently over-use, the calculator above will suggest the next step.</p>
+      </div>
+      <div class="qa">
+        <h4 data-en="Are there per-request minimums or hidden fees?" data-ar="هل ثمة حد أدنى للطلب أو رسوم خفية؟">Are there per-request minimums or hidden fees?</h4>
+        <p data-en="No. No per-request minimum, no egress charge, no PrivateLink markup, no monthly platform fee on top of PAYG. The PAYG bill is exactly tokens × rate. Subscription bills are exactly tier × month + overage." data-ar="لا. لا حد أدنى لكل طلب، ولا رسوم خروج، ولا علاوة ‎PrivateLink‎، ولا رسم منصة شهرية فوق ‎PAYG‎. فاتورة ‎PAYG‎ هي بالضبط ‎رموز × سعر‎. وفاتورة الاشتراك هي بالضبط ‎فئة × شهر + استخدام زائد‎.">No. No per-request minimum, no egress charge, no PrivateLink markup, no monthly platform fee on top of PAYG. The PAYG bill is exactly tokens × rate. Subscription bills are exactly tier × month + overage.</p>
+      </div>
+      <div class="qa">
+        <h4 data-en="What about the GPU rental I saw in v1?" data-ar="ماذا عن إيجار المعالجات في الإصدار السابق؟">What about the GPU rental I saw in v1?</h4>
+        <p data-en="DCP v2 is inference-first — the GPU mesh is the substrate, not the product. Renting raw GPUs is now a supply-side offering on the Providers page. If you have an existing GPU-hour contract, it&rsquo;s honoured through its term; new customers buy tokens." data-ar="‏DCP‏ بالإصدار الثاني يبيع الاستدلال أولاً — شبكة المعالجات هي البنية لا المنتج. إيجار المعالجات الخام أصبح عرضاً للمزوّدين على صفحة المزوّدين. إن كان لديك عقد ساعات معالجات قائم، فهو مُحتَرم حتى نهايته؛ والعملاء الجدد يشترون رموزاً.">DCP v2 is inference-first — the GPU mesh is the substrate, not the product. Renting raw GPUs is now a supply-side offering on the Providers page. If you have an existing GPU-hour contract, it's honoured through its term; new customers buy tokens.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  /* Language toggle */
+  (function () {
+    const pill = document.getElementById('lang-pill');
+    function applyLang(lang) {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.setAttribute('data-lang', lang);
+      pill.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+      document.querySelectorAll('[data-en]').forEach(el => {
+        const v = lang === 'ar' ? el.getAttribute('data-ar') : el.getAttribute('data-en');
+        if (v != null) el.innerHTML = v;
+      });
+      window.recalc && window.recalc();
+    }
+    pill.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (b) applyLang(b.dataset.l);
+    });
+    applyLang('en');
+  })();
+
+  /* ───────── Calculator ───────── */
+  (function () {
+    const slider = document.getElementById('tok-slider');
+    const tokDisp = document.getElementById('tok-display');
+    const modeDisp = document.getElementById('mode-display');
+    const mixDisp = document.getElementById('mix-display');
+    const frDisp = document.getElementById('fr-display');
+    const big = document.getElementById('big-cost');
+    const eff = document.getElementById('eff-rate');
+    const brkEmb = document.getElementById('brk-emb');
+    const brkGen = document.getElementById('brk-gen');
+    const brkVer = document.getElementById('brk-ver');
+
+    const RATES = { embedM: 0.08, genIn: 0.45, genOut: 1.80, rerankM: 0.12, frIn: 1.10, frOut: 3.40 };
+    let state = { tokM: 50, mode: 'payg', mix: 'rag', fr: 'off' };
+
+    // mix → cost-share of tokens per stage
+    const MIX = {
+      rag:   { embed: 0.10, genIn: 0.55, genOut: 0.30, rerank: 0.05 },
+      chat:  { embed: 0.02, genIn: 0.50, genOut: 0.45, rerank: 0.03 },
+      agent: { embed: 0.08, genIn: 0.50, genOut: 0.32, rerank: 0.10 },
+    };
+
+    const MODE_DISCOUNT = { payg: 0, starter: 0.30, team: 0.40, scale: 0.55 };
+
+    function fmtSAR(n) {
+      const lang = document.documentElement.lang;
+      const f = new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
+      return 'SAR ' + f;
+    }
+    function fmtTok(M) {
+      const lang = document.documentElement.lang;
+      if (M >= 1000) return new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', { maximumFractionDigits: 1 }).format(M/1000) + 'B';
+      return new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US').format(M) + 'M';
+    }
+
+    function recalc() {
+      const M = state.tokM;
+      const mix = MIX[state.mix];
+      const discount = MODE_DISCOUNT[state.mode];
+      // sovereign first
+      const emb = M * mix.embed * RATES.embedM;
+      const gen = M * (mix.genIn * RATES.genIn + mix.genOut * RATES.genOut);
+      const rer = M * mix.rerank * RATES.rerankM;
+      let sov = emb + gen + rer;
+      let fr = 0;
+      if (state.fr === 'on') {
+        // assume ~12% of generation reaches frontier
+        const frShare = M * (mix.genIn + mix.genOut) * 0.12;
+        fr = frShare * 0.6 * RATES.frIn + frShare * 0.4 * RATES.frOut;
+      }
+      const subtotal = sov + fr;
+      const discounted = subtotal * (1 - discount);
+      const subscription = state.mode === 'starter' ? 180 : state.mode === 'team' ? 1200 : state.mode === 'scale' ? 8400 : 0;
+      const total = discounted + subscription;
+      const effective = M > 0 ? (total / M) : 0;
+
+      tokDisp.textContent = fmtTok(M);
+      const big_unit = document.documentElement.lang === 'ar' ? '/ شهرياً' : '/ month';
+      big.innerHTML = fmtSAR(total) + '<span class="u">' + big_unit + '</span>';
+      const eff_label = document.documentElement.lang === 'ar' ? 'لكل مليون رمز · فعّال' : 'per M tokens · effective';
+      eff.textContent = '▲ ' + fmtSAR(effective) + ' ' + eff_label;
+      brkEmb.textContent = fmtSAR(emb * (1 - discount));
+      brkGen.textContent = fmtSAR(gen * (1 - discount) + fr * (1 - discount));
+      brkVer.textContent = fmtSAR(rer * (1 - discount));
+    }
+    window.recalc = recalc;
+
+    slider.addEventListener('input', e => { state.tokM = +e.target.value; recalc(); });
+    document.getElementById('mode-toggle').addEventListener('click', e => {
+      const b = e.target.closest('button[data-mode]'); if (!b) return;
+      state.mode = b.dataset.mode;
+      document.querySelectorAll('#mode-toggle button').forEach(x => x.classList.toggle('on', x.dataset.mode === state.mode));
+      modeDisp.textContent = b.textContent;
+      recalc();
+    });
+    document.getElementById('mix-toggle').addEventListener('click', e => {
+      const b = e.target.closest('button[data-mix]'); if (!b) return;
+      state.mix = b.dataset.mix;
+      document.querySelectorAll('#mix-toggle button').forEach(x => x.classList.toggle('on', x.dataset.mix === state.mix));
+      mixDisp.textContent = b.textContent;
+      recalc();
+    });
+    document.getElementById('fr-toggle').addEventListener('click', e => {
+      const b = e.target.closest('button[data-fr]'); if (!b) return;
+      state.fr = b.dataset.fr;
+      document.querySelectorAll('#fr-toggle button').forEach(x => x.classList.toggle('on', x.dataset.fr === state.fr));
+      frDisp.textContent = b.textContent;
+      recalc();
+    });
+
+    recalc();
+  })();
+</script>
+
+</body>
+</html>
