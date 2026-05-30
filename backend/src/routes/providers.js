@@ -1987,6 +1987,33 @@ router.get('/me', async (req, res) => {
             provider.id
         );
 
+        // Reputation components — surfaced (read-only) so the dashboard can show
+        // the composite reputation_score (already computed + stored on every
+        // heartbeat by computeReputationScore) alongside its three sub-metrics.
+        // These mirror that function's definitions exactly; nothing here changes
+        // the stored score or the heartbeat computation — it only derives the
+        // human-readable breakdown (success rate, longevity/tenure) for display.
+        const repJobRow = db.get(
+            `SELECT
+               SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
+               SUM(CASE WHEN status IN ('completed','failed') THEN 1 ELSE 0 END) AS terminal
+             FROM jobs WHERE provider_id = ?`,
+            provider.id
+        );
+        const repTerminalJobs = Number(repJobRow?.terminal || 0);
+        const repSuccessRate = repTerminalJobs > 0
+            ? (Number(repJobRow.completed || 0) / repTerminalJobs) * 100
+            : 100; // default 100 while no terminal jobs exist (matches scorer)
+        const repLongevityDays = provider.created_at
+            ? Math.max(0, (Date.now() - new Date(provider.created_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+        const repUptimePct = Number(provider.uptime_percent || 0);
+        const reputationTier = computeReputationTier({
+            uptimePct: repUptimePct,
+            successRate: repSuccessRate,
+            totalJobs: repTerminalJobs,
+        });
+
         // Recent completed/failed jobs for activity table
         const recentJobs = db.all(
             `SELECT id, job_id, job_type, model, status, submitted_at, completed_at, actual_cost_halala, provider_earned_halala, dc1_fee_halala
@@ -2056,6 +2083,16 @@ router.get('/me', async (req, res) => {
                 total_earnings_halala: provider.total_earnings ? Math.round(provider.total_earnings * 100) : 0,
                 total_jobs: provider.total_jobs || 0,
                 uptime_percent: provider.uptime_percent || 0,
+                // Reputation — the composite score (0–100) computed + stored on
+                // every heartbeat (computeReputationScore) plus its three
+                // human-readable sub-metrics. Exposed read-only for the
+                // dashboard's reputation badge; never written here.
+                reputation_score: provider.reputation_score != null ? Number(provider.reputation_score) : 100,
+                reputation_tier: reputationTier,
+                reputation_uptime_pct: Math.round(repUptimePct * 10) / 10,
+                reputation_success_rate_pct: Math.round(repSuccessRate * 10) / 10,
+                reputation_longevity_days: Math.round(repLongevityDays * 10) / 10,
+                reputation_terminal_jobs: repTerminalJobs,
                 gpu_metrics: gpuMetrics,
                 today_earnings_halala: todayEarnings.total,
                 week_earnings_halala: weekEarnings.total,
