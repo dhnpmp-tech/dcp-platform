@@ -1024,7 +1024,10 @@ function runDemandDrivenPrewarm({
 
       const selected = candidates.slice(0, needed);
       for (const provider of selected) {
-        updateStmt.run(model, nowIso, nowIso, nowIso, nowIso, provider.id);
+        // 5 binds = 5 placeholders: model_preload_model, model_preload_requested_at,
+        // model_preload_updated_at, updated_at, WHERE id. (Previously passed a 4th
+        // nowIso → "Too many parameter values" crashed every prewarm cycle.)
+        updateStmt.run(model, nowIso, nowIso, nowIso, provider.id);
         provider.model_preload_status = 'downloading';
         provider.model_preload_model = model;
         reservedProviderIds.add(Number(provider.id));
