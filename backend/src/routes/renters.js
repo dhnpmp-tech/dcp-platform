@@ -16,6 +16,7 @@ const { reconcileRenterByEmailFromSupabase } = require('../services/renter-ident
 const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const { sendOtp: sendOtpAtRegister } = require('../services/auth-otp');
 const { isPublicWebhookUrl } = require('../lib/webhook-security');
+const { toRfc3339 } = require('../lib/iso-datetime');
 const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/validateWebhookUrl');
 const { validateBody } = require('../middleware/validate');
 const { renterRegisterSchema, renterTopupSchema } = require('../schemas/topup.schema');
@@ -529,7 +530,10 @@ router.get('/me', (req, res) => {
         balance_halala: renter.balance_halala,
         total_spent_halala: renter.total_spent_halala,
         total_jobs: renter.total_jobs,
-        created_at: renter.created_at
+        // Contract conformance (#12): the spec types created_at as
+        // format:date-time (RFC 3339). Legacy rows may hold SQLite text
+        // ("2026-05-30 23:15:00"); normalize so the response always conforms.
+        created_at: toRfc3339(renter.created_at)
       },
       recent_jobs: recentJobs
       ,v1_usage_summary: db.get(        `SELECT COUNT(*) as total_requests,                COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,                COALESCE(SUM(completion_tokens), 0) as completion_tokens,                COALESCE(SUM(total_tokens), 0) as total_tokens,                COALESCE(SUM(cost_halala), 0) as total_cost_halala         FROM openrouter_usage_ledger WHERE renter_id = ?`,        renter.id      )

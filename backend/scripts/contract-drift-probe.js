@@ -46,7 +46,7 @@ function seed() {
   db.run(
     `INSERT INTO providers (name, email, api_key, gpu_model, vram_gb, gpu_vram_mib, vram_mb,
        approval_status, status, supported_compute_types, vllm_endpoint_url, last_heartbeat, created_at, updated_at)
-     VALUES (?, ?, ?, 'RTX 4090', 24, 24576, 24576, 'approved', 'active', 'llm_inference', 'http://127.0.0.1:1/v1', datetime('now'), datetime('now'), datetime('now'))`,
+     VALUES (?, ?, ?, 'RTX 4090', 24, 24576, 24576, 'approved', 'online', 'llm_inference', 'http://127.0.0.1:1/v1', datetime('now'), datetime('now'), datetime('now'))`,
     'Probe Provider', 'probe-provider@dcp.test', providerKey
   );
   const p = db.get(`SELECT id FROM providers WHERE api_key = ?`, providerKey);
