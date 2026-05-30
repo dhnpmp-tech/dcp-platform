@@ -5,6 +5,12 @@
 ### Infrastructure
 - ✅ Instant-tier Docker workflow now publishes `dc1/base-worker`, `dc1/llm-worker`, and `dc1/sd-worker` with mutable `latest` plus immutable `sha-*` tags, emits a machine-readable digest manifest artifact, and smoke-validates pull/startup in CI.
 
+### Provider installer — self-heal + boot persistence (foolproofing #5)
+- **WireGuard self-heal actually works now.** The daemon's `_self_heal_wg` already shells `sudo -n wg-quick down/up <iface>`, but as a non-root run-user it silently failed for lack of a sudoers grant. `dcp-setup-unix.sh` now installs `/etc/sudoers.d/dcp-wg` (0440 root:root) granting the run-user passwordless sudo for **exactly** `wg-quick up/down` on `wg0`/`wg1` (absolute binary path, no wildcards) — validated with `visudo -cf` **before** install; on validation failure it warns and skips rather than touching system sudo.
+- **Survives reboot.** `loginctl enable-linger` for the run-user, `systemctl enable wg-quick@<iface>` for whichever `wg{0,1}.conf` exists, and enables the detected engine unit — not just `start`.
+- **Engine-aware supervision.** Detects the actually-running engine (Ollama `:11434` / vLLM `:8000` / llama.cpp `:8080` / MLX) instead of assuming `~/models/*.gguf`; `setup-inference-supervisors.sh` cleanly skips (`exit 0`) instead of hard-failing when a non-llama.cpp engine is active.
+- **Fail-loud post-install assert.** After setup, asserts `dc1-provider`, the engine unit, and `wg-quick@<iface>` are all `systemctl is-enabled`, exiting `1` with a banner otherwise (assertions auto-skip when the relevant config/unit isn't present yet). `dcp_daemon.py` is unchanged.
+
 ## [1.0.0] — 2026-03-23 — Public Launch
 
 **DCP is live.** The GPU marketplace built for Arabic AI goes public today.

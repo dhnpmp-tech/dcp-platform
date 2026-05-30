@@ -57,6 +57,45 @@ log()  { printf '[setup] %s\n' "$*"; }
 warn() { printf '[setup] WARN: %s\n' "$*" >&2; }
 fail() { printf '[setup] FAIL: %s\n' "$*" >&2; exit 1; }
 
+# ── FIX #5d: engine-aware guard ──────────────────────────────────────────
+# This installer supervises the llama.cpp (llama-server) engine. A provider
+# may instead be running Ollama (:11434), vLLM (:8000) or MLX (:8081). In
+# that case there is nothing for THIS script to supervise — Ollama runs
+# under its own systemd unit and vLLM is container-supervised by the daemon.
+# We must NOT hard-fail in that case (the daemon's ExecStartPre tolerates a
+# non-zero exit, but a clean skip keeps the install logs honest). Only when
+# llama.cpp is the engine in play do we proceed to write llama-server units.
+_port_listening() {
+  # $1 = port. 0 = something is listening locally.
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -q ":$1 "
+  elif command -v curl >/dev/null 2>&1; then
+    curl -fsS -m 2 "http://127.0.0.1:$1/" >/dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
+# Detect the engine actually running (or about to run). If a NON-llama.cpp
+# engine is clearly active and llama.cpp prerequisites are absent, skip.
+DETECTED_ENGINE=""
+if _port_listening 11434; then DETECTED_ENGINE="ollama"
+elif _port_listening 8000; then DETECTED_ENGINE="vllm"
+elif _port_listening 8081 || pgrep -f 'mlx_lm' >/dev/null 2>&1; then DETECTED_ENGINE="mlx"
+elif _port_listening 8080; then DETECTED_ENGINE="llamacpp"
+fi
+
+if [[ -n "$DETECTED_ENGINE" && "$DETECTED_ENGINE" != "llamacpp" ]]; then
+  if [[ ! -x "$LLAMA_SERVER" || ! -d "$MODEL_DIR" ]]; then
+    log "Detected engine '$DETECTED_ENGINE' (not llama.cpp) and no local"
+    log "llama-server/model dir — nothing for this supervisor to do. Skipping."
+    log "(That engine is supervised by its own unit / the daemon.)"
+    exit 0
+  fi
+fi
+
+# llama.cpp path (default). These remain hard requirements ONLY when we are
+# actually setting up llama-server supervisors.
 [[ -x "$LLAMA_SERVER" ]] || fail "llama-server not found at $LLAMA_SERVER"
 [[ -d "$MODEL_DIR"     ]] || fail "model dir not found at $MODEL_DIR"
 
