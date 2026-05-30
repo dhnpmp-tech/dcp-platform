@@ -1,0 +1,2865 @@
+# ──────────────────────────────────────────────────────────────────────────
+# VENDORED from DCP-SA/dcp-contracts (openapi/dcp.yaml) — DO NOT HAND-EDIT.
+# Re-sync this file on every dcp-contracts release. A proper package
+# dependency (e.g. an npm/pip artifact published by dcp-contracts) is a
+# planned follow-up; until then this vendored copy is the single source the
+# backend validates responses against.
+#
+# Consumed by: backend/src/middleware/contractDriftGate.js (test-env only,
+# response-validation drift gate in LOG mode — see backlog #11a).
+# ──────────────────────────────────────────────────────────────────────────
+openapi: 3.1.0
+info:
+  title: DCP API contracts
+  version: 0.2.0
+  description: |
+    Shared API contracts between dcp-platform (backend) and the two clients
+    that talk to it: dcp-agent (provider brain) and dcp-desktop (Tauri installer).
+
+    This spec is the single source of truth. TS + Python types are generated
+    from this file; do not hand-edit the generated outputs.
+
+    Coverage matrix:
+      • Inference  — OpenAI-compatible /v1/* (renter-facing)
+      • Renter     — registration, balance, jobs, keys, webhooks
+      • Provider   — registration, heartbeat, /me, metrics, pause/resume
+      • Job        — submit/list/get/status, billing line items
+      • Agent      — manifest (self-update)
+
+    The spec is reverse-engineered from the live backend routes. Endpoints
+    used only by the admin console or by internal cron workers are
+    intentionally omitted from the public contract.
+
+servers:
+  - url: https://api.dcp.sa
+    description: Production
+  - url: http://localhost:3000
+    description: Local backend
+
+# Default for every operation; individual ops override (e.g. registration is public).
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Inference
+    description: OpenAI-compatible inference path consumed by renters.
+  - name: Renter
+    description: Renter account lifecycle, balance, jobs, API keys, webhooks.
+  - name: Provider
+    description: Provider lifecycle, heartbeat, metrics, pause/resume.
+  - name: Job
+    description: Job submission, status, billing line items.
+  - name: Agent
+    description: dcp-agent self-update manifest.
+
+paths:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Inference (/v1/*) — OpenAI-compatible, consumed by renters.
+  # Auth: Authorization: Bearer <renter_api_key>, or ?key=, or X-Renter-Key.
+  # Accepts both dc1-renter- and dcp-renter- prefixes, plus dcp_-prefixed
+  # scoped sub-keys.
+  # ──────────────────────────────────────────────────────────────────────────
+  /v1/models:
+    get:
+      tags: [Inference]
+      operationId: listModels
+      summary: List available models (OpenAI-compatible)
+      description: |
+        Returns the merged model catalog plus per-model online provider counts
+        and USD pricing. Aliased duplicates are collapsed to their canonical
+        Ollama tag form.
+      security:
+        - bearerAuth: []
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      responses:
+        "200":
+          description: Model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelList"
+        "503":
+          description: Catalog temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V1Error"
+
+  /v1/chat/completions:
+    post:
+      tags: [Inference]
+      operationId: chatCompletions
+      summary: OpenAI-compatible chat completion
+      description: |
+        Routes the request to a capable, non-busy provider. Supports streaming
+        (SSE) when `stream: true`. Supports function calling (`tools` /
+        `tool_choice`). Honours `Idempotency-Key` for non-streaming retries.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          description: Replay protection for non-streaming requests; cached for ~5 min.
+          schema:
+            type: string
+            maxLength: 200
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: |
+            Completion response. Streaming requests return `text/event-stream`
+            with OpenAI-format chunks; non-streaming returns the JSON body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events; each event is a ChatCompletionChunk JSON line.
+        "400":
+          $ref: "#/components/responses/V1BadRequest"
+        "401":
+          $ref: "#/components/responses/V1Unauthorized"
+        "402":
+          description: Insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V1Error"
+        "404":
+          description: Model not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V1Error"
+        "503":
+          description: |
+            No capable provider available, or all capable providers busy.
+            Includes Retry-After header and (when available) a list of
+            suggested alternative models.
+          headers:
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/V1ModelUnavailableError"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Renter (/api/renters/*)
+  # ──────────────────────────────────────────────────────────────────────────
+  /api/renters/register:
+    post:
+      tags: [Renter]
+      operationId: renterRegister
+      summary: Stage a new renter account (magic-link verification follows)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenterRegisterRequest"
+      responses:
+        "202":
+          description: Renter staged; magic link sent for verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterRegisterAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Renter with this email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/renters/me:
+    get:
+      tags: [Renter]
+      operationId: renterMe
+      summary: Get the current renter account, recent jobs, and v1 usage summary.
+      security:
+        - renterKeyQuery: []
+        - renterKeyHeader: []
+      responses:
+        "200":
+          description: Renter snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterMeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/balance:
+    get:
+      tags: [Renter]
+      operationId: renterBalance
+      summary: Quick balance check.
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      responses:
+        "200":
+          description: Balance snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterBalanceResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/topup:
+    post:
+      tags: [Renter]
+      operationId: renterTopup
+      summary: Direct sandbox top-up (disabled in production).
+      description: |
+        Production traffic must go through the payment flow at
+        `/api/payments/topup` (not part of this contract). This endpoint
+        exists for local/sandbox testing only.
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenterTopupRequest"
+      responses:
+        "200":
+          description: Top-up applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterTopupResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Direct top-up disabled in production.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/jobs:
+    get:
+      tags: [Renter]
+      operationId: renterJobsList
+      summary: Renter job history (paginated, status-filtered).
+      security:
+        - bearerAuth: []
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [completed, failed, running, pending, cancelled]
+      responses:
+        "200":
+          description: Job page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterJobsPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/renters/me/jobs/{job_id}:
+    get:
+      tags: [Renter]
+      operationId: renterJobDetail
+      summary: Single renter job + billing record.
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job with attached billing line item.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    $ref: "#/components/schemas/JobWithBilling"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/me/spending:
+    get:
+      tags: [Renter]
+      operationId: renterSpending
+      summary: All-time, monthly, and 30-day spending breakdown.
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      responses:
+        "200":
+          description: Spending rollups.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterSpendingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/renters/me/keys:
+    get:
+      tags: [Renter]
+      operationId: renterListScopedKeys
+      summary: List scoped sub-keys (`dc1-sk-…`) for the calling renter.
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      responses:
+        "200":
+          description: Scoped key list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScopedApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Renter]
+      operationId: renterCreateScopedKey
+      summary: Mint a scoped sub-key (`dc1-sk-…`).
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScopedKeyCreateRequest"
+      responses:
+        "201":
+          description: New scoped key (`key` returned once, never again).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopedApiKeyMinted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Too many active sub-keys.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/renters/me/keys/{keyId}:
+    delete:
+      tags: [Renter]
+      operationId: renterRevokeScopedKey
+      summary: Revoke a scoped sub-key.
+      security:
+        - renterKeyHeader: []
+        - renterKeyQuery: []
+      parameters:
+        - in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, revoked_at]
+                properties:
+                  success:
+                    type: boolean
+                  revoked_at:
+                    type: string
+                    format: date-time
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/{id}/keys:
+    get:
+      tags: [Renter]
+      operationId: renterListDcpKeys
+      summary: List `dcp_`-prefixed API keys (secret never returned; `key_hint` instead).
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+      responses:
+        "200":
+          description: Key list with hints.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RenterDcpKeyListItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Renter]
+      operationId: renterCreateDcpKey
+      summary: Mint a `dcp_`-prefixed API key (renter admin only).
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DcpKeyCreateRequest"
+      responses:
+        "201":
+          description: Key minted; `key` returned once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DcpKeyMinted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Too many active keys for this renter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/renters/{id}/keys/{keyId}:
+    delete:
+      tags: [Renter]
+      operationId: renterRevokeDcpKey
+      summary: Revoke a `dcp_` API key (renter admin only).
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+        - in: path
+          name: keyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/{id}/balance:
+    get:
+      tags: [Renter]
+      operationId: renterBalanceWithLedger
+      summary: Renter balance with the 5 most recent ledger entries (RBAC-protected).
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+      responses:
+        "200":
+          description: Balance + recent ledger.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterBalanceWithLedger"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/renters/{id}/transactions:
+    get:
+      tags: [Renter]
+      operationId: renterTransactions
+      summary: Paginated credit/debit ledger.
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: direction
+          schema:
+            type: string
+            enum: [credit, debit]
+      responses:
+        "200":
+          description: Ledger page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPage"
+
+  /api/renters/{id}/webhooks:
+    get:
+      tags: [Renter]
+      operationId: renterListWebhooks
+      summary: List renter webhooks (secrets masked).
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+      responses:
+        "200":
+          description: Webhook list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [webhooks]
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RenterWebhook"
+    post:
+      tags: [Renter]
+      operationId: renterRegisterWebhook
+      summary: Register a webhook for job/balance events.
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenterWebhookCreate"
+      responses:
+        "201":
+          description: Webhook registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenterWebhook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: Webhook quota exceeded (max 5 per renter).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/renters/{id}/webhooks/{webhookId}:
+    delete:
+      tags: [Renter]
+      operationId: renterDeactivateWebhook
+      summary: Deactivate a webhook (soft delete).
+      parameters:
+        - $ref: "#/components/parameters/RenterIdParam"
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deactivated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, id, active]
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: string
+                  active:
+                    type: boolean
+                    enum: [false]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Provider (/api/providers/*)
+  # ──────────────────────────────────────────────────────────────────────────
+  /api/providers/register:
+    post:
+      tags: [Provider]
+      operationId: providerRegister
+      summary: Register a new provider (called by dcp-desktop setup wizard).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderRegisterRequest"
+      responses:
+        "200":
+          description: Provider created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderRegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Provider with this email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/providers/{provider_id}/heartbeat:
+    post:
+      tags: [Provider]
+      operationId: providerHeartbeatById
+      summary: Provider daemon heartbeat (per-id form, REST canonical).
+      description: |
+        Provider daemon (dcp-agent) sends every ~30s with current state.
+        Backend may return queued tasks (e.g. model_preload) for the daemon
+        to execute. Accepts both legacy and DCP-892 canonical metric names.
+      parameters:
+        - name: provider_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HeartbeatRequest"
+      responses:
+        "200":
+          description: Heartbeat acknowledged; optional task queue returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeartbeatResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Provider not approved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/providers/heartbeat:
+    post:
+      tags: [Provider]
+      operationId: providerHeartbeatLegacy
+      summary: |
+        Legacy heartbeat endpoint (api_key in body, HMAC-signed).
+      description: |
+        Older daemons post here with `api_key` in the body and an HMAC
+        signature in `X-DC1-Signature`. Newer daemons should use
+        `/api/providers/{provider_id}/heartbeat` instead.
+      parameters:
+        - in: header
+          name: X-DC1-Signature
+          required: false
+          schema:
+            type: string
+            description: "Format: `sha256=<hex>` over the raw request body."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HeartbeatLegacyRequest"
+      responses:
+        "200":
+          description: Heartbeat accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeartbeatResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/providers/{provider_id}/liveness:
+    get:
+      tags: [Provider]
+      operationId: providerLiveness
+      summary: Last heartbeat + online/stale/offline status.
+      security: []
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Liveness snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderLivenessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/providers/{provider_id}/metrics:
+    get:
+      tags: [Provider]
+      operationId: providerMetricsTimeseries
+      summary: Per-provider utilization timeseries.
+      security: []
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: ["1h", "6h", "24h", "7d"]
+            default: "1h"
+      responses:
+        "200":
+          description: Timeseries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderMetricsTimeseries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/providers/{provider_id}/benchmark:
+    post:
+      tags: [Provider]
+      operationId: providerSubmitBenchmark
+      summary: Submit a GPU benchmark result (assigns tier A/B/C).
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderBenchmarkRequest"
+      responses:
+        "200":
+          description: Benchmark recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderBenchmarkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/providers/me:
+    get:
+      tags: [Provider]
+      operationId: providerMe
+      summary: Provider dashboard payload — account, GPU profile, today/week/month earnings, recent jobs.
+      security:
+        - providerKeyQuery: []
+        - providerKeyHeader: []
+      responses:
+        "200":
+          description: Provider snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderMeResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/providers/me/metrics:
+    get:
+      tags: [Provider]
+      operationId: providerMeMetrics
+      summary: Provider aggregate stats + recent completed jobs.
+      security:
+        - providerKeyQuery: []
+        - providerKeyHeader: []
+      responses:
+        "200":
+          description: Stats snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderMeMetricsResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/providers/pause:
+    post:
+      tags: [Provider]
+      operationId: providerPause
+      summary: Pause this provider (stop accepting new jobs).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key:
+                  type: string
+                  description: Provider API key.
+      responses:
+        "200":
+          description: Paused.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, status]
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [paused]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/providers/resume:
+    post:
+      tags: [Provider]
+      operationId: providerResume
+      summary: Resume this provider.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key:
+                  type: string
+      responses:
+        "200":
+          description: Resumed; status is `online` if heartbeat is recent, else `connected`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, status]
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [online, connected]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Jobs (/api/jobs/*) — non-OpenAI job lifecycle (training, custom workloads)
+  # ──────────────────────────────────────────────────────────────────────────
+  /api/jobs:
+    get:
+      tags: [Job]
+      operationId: jobsList
+      summary: Renter-scoped job history.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Job page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Job]
+      operationId: jobCreate
+      summary: Submit a new job (credit-hold dispatch pipeline).
+      description: |
+        Credits are reserved (not immediately debited); actual debit happens
+        on `PATCH /api/jobs/{job_id}/complete`. Hold is released on
+        `PATCH /api/jobs/{job_id}/fail`.
+      parameters:
+        - in: header
+          name: X-Idempotency-Key
+          required: false
+          description: Replay protection; cached for 5 minutes.
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobCreateRequest"
+      responses:
+        "201":
+          description: Job created and dispatched (or queued).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          description: Insufficient balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsufficientBalanceError"
+        "503":
+          description: No providers online.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/jobs/{job_id}:
+    get:
+      tags: [Job]
+      operationId: jobGet
+      summary: Single job with parsed gpu_requirements, queue position, and elapsed time.
+      parameters:
+        - $ref: "#/components/parameters/JobIdParam"
+      responses:
+        "200":
+          description: Job.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    $ref: "#/components/schemas/Job"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/jobs/{job_id}/status:
+    get:
+      tags: [Job]
+      operationId: jobStatus
+      summary: Lightweight job status (polling-friendly).
+      parameters:
+        - $ref: "#/components/parameters/JobIdParam"
+      responses:
+        "200":
+          description: Status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/jobs/{job_id}/stream:
+    get:
+      tags: [Job]
+      operationId: jobStream
+      summary: SSE stream of job progress / log lines.
+      parameters:
+        - $ref: "#/components/parameters/JobIdParam"
+      responses:
+        "200":
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE feed; each event is a data line followed by a blank line.
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/jobs/{job_id}/cancel:
+    post:
+      tags: [Job]
+      operationId: jobCancel
+      summary: Cancel a job.
+      parameters:
+        - $ref: "#/components/parameters/JobIdParam"
+      responses:
+        "200":
+          description: Cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Agent (/agent/*) — dcp-agent self-update
+  # ──────────────────────────────────────────────────────────────────────────
+  /agent/manifest.json:
+    get:
+      tags: [Agent]
+      operationId: getAgentManifest
+      summary: Signed manifest for dcp-agent self-update.
+      description: |
+        Returns the safe_commit SHA + rollout percentage. Provider's
+        self-update cron only checks out the safe_commit if
+        (sha256(provider_id) mod 100) < rollout_pct.
+      security: []
+      responses:
+        "200":
+          description: Current manifest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentManifest"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Renter API key as a bearer token. Accepts `dc1-renter-…`,
+        `dcp-renter-…`, `dcp_…` (scoped), and `dc1-sk-…` (scoped) prefixes.
+    renterKeyHeader:
+      type: apiKey
+      in: header
+      name: x-renter-key
+      description: Alternative to bearer auth for the renter API key.
+    renterKeyQuery:
+      type: apiKey
+      in: query
+      name: key
+      description: Alternative to bearer auth for the renter API key.
+    providerKeyHeader:
+      type: apiKey
+      in: header
+      name: x-provider-key
+      description: Provider API key (`dcp-provider-…`).
+    providerKeyQuery:
+      type: apiKey
+      in: query
+      name: key
+      description: Alternative to header for the provider API key.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    RenterIdParam:
+      name: id
+      in: path
+      required: true
+      description: Numeric renter id.
+      schema:
+        type: integer
+        minimum: 1
+    JobIdParam:
+      name: job_id
+      in: path
+      required: true
+      description: |
+        Either the numeric primary key or the `job-<ts>-<rand>` external id.
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request body or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: The caller is authenticated but not allowed to access this resource.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    V1Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/V1Error"
+    V1BadRequest:
+      description: Invalid request body.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/V1Error"
+
+  schemas:
+    # ── Common ────────────────────────────────────────────────────────────
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
+
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+    Pagination:
+      type: object
+      required: [page, limit, total, pages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    # ── Inference / v1 ────────────────────────────────────────────────────
+    V1Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message, type]
+          properties:
+            message:
+              type: string
+            type:
+              type: string
+              description: OpenAI-style error type (e.g. invalid_request_error, server_error).
+            code:
+              type: string
+            status:
+              type: integer
+            retryable:
+              type: boolean
+            details:
+              type: object
+              additionalProperties: true
+
+    V1ModelUnavailableError:
+      allOf:
+        - $ref: "#/components/schemas/V1Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                alternatives:
+                  type: array
+                  items:
+                    type: object
+                    required: [model]
+                    properties:
+                      model:
+                        type: string
+                      reason:
+                        type: string
+                      provider_count:
+                        type: integer
+
+    ModelList:
+      type: object
+      required: [object, data]
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Model"
+
+    Model:
+      type: object
+      required: [id, object]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [model]
+        owned_by:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        context_length:
+          type: integer
+        pricing:
+          $ref: "#/components/schemas/ModelPricing"
+        architecture:
+          type: object
+          properties:
+            tokenizer:
+              type: string
+            instruct_type:
+              type: string
+            modality:
+              type: string
+        endpoints:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              type:
+                type: string
+        provider_priority:
+          type: array
+          items:
+            type: string
+        # Legacy aliases for older clients.
+        display_name:
+          type: string
+        context_window:
+          type: integer
+        parameter_count:
+          type:
+            - integer
+            - "null"
+
+    ModelPricing:
+      type: object
+      properties:
+        prompt_tokens:
+          type: string
+          description: USD per token, stringified for precision.
+        completion_tokens:
+          type: string
+        usd_per_minute:
+          type: string
+        usd_per_1m_input_tokens:
+          type: string
+        usd_per_1m_output_tokens:
+          type: string
+
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        max_tokens:
+          type: integer
+          minimum: 1
+          maximum: 8192
+          default: 512
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 0.7
+        stream:
+          type: boolean
+          default: false
+        tools:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        tool_choice:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+      additionalProperties: true
+
+    ChatMessage:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type:
+            - string
+            - "null"
+        name:
+          type: string
+        tool_call_id:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    ToolCall:
+      type: object
+      required: [id, type, function]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [function]
+        function:
+          type: object
+          required: [name, arguments]
+          properties:
+            name:
+              type: string
+            arguments:
+              type: string
+
+    ChatCompletionResponse:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [chat.completion]
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                $ref: "#/components/schemas/ChatMessage"
+              finish_reason:
+                type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+        # DCP-specific metadata
+        x_dcp_provider_id:
+          type: integer
+        x_dcp_routing:
+          type: object
+          additionalProperties: true
+
+    # ── Renter ────────────────────────────────────────────────────────────
+    RenterRegisterRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        organization:
+          type: string
+          maxLength: 160
+        use_case:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+          maxLength: 40
+
+    RenterRegisterAccepted:
+      type: object
+      required: [success, next, email, renter_id]
+      properties:
+        success:
+          type: boolean
+        next:
+          type: string
+          enum: [check_email]
+        email:
+          type: string
+        renter_id:
+          type: integer
+        message:
+          type: string
+
+    RenterMeResponse:
+      type: object
+      required: [renter, recent_jobs]
+      properties:
+        renter:
+          $ref: "#/components/schemas/Renter"
+        recent_jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RenterJobSummary"
+        v1_usage_summary:
+          $ref: "#/components/schemas/RenterV1UsageSummary"
+
+    Renter:
+      type: object
+      required: [id, name, email, balance_halala]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        organization:
+          type:
+            - string
+            - "null"
+        use_case:
+          type:
+            - string
+            - "null"
+        phone:
+          type:
+            - string
+            - "null"
+        webhook_url:
+          type:
+            - string
+            - "null"
+        balance_halala:
+          type: integer
+          description: Balance in Saudi halala (1 SAR = 100 halala).
+        total_spent_halala:
+          type: integer
+        total_jobs:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    RenterV1UsageSummary:
+      type: object
+      properties:
+        total_requests:
+          type: integer
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        total_cost_halala:
+          type: integer
+
+    RenterBalanceResponse:
+      type: object
+      required:
+        [
+          balance_halala,
+          balance_sar,
+          held_halala,
+          held_sar,
+          available_halala,
+          total_spent_halala,
+          total_spent_sar,
+          total_jobs,
+        ]
+      properties:
+        balance_halala:
+          type: integer
+        balance_sar:
+          type: number
+        held_halala:
+          type: integer
+        held_sar:
+          type: number
+        available_halala:
+          type: integer
+        total_spent_halala:
+          type: integer
+        total_spent_sar:
+          type: number
+        total_jobs:
+          type: integer
+
+    RenterTopupRequest:
+      type: object
+      description: Provide either `amount_halala` (int) or `amount_sar` (float).
+      properties:
+        amount_halala:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        amount_sar:
+          type: number
+          minimum: 0.01
+          maximum: 1000
+
+    RenterTopupResponse:
+      type: object
+      required:
+        [
+          success,
+          topped_up_halala,
+          topped_up_sar,
+          new_balance_halala,
+          new_balance_sar,
+        ]
+      properties:
+        success:
+          type: boolean
+        topped_up_halala:
+          type: integer
+        topped_up_sar:
+          type: number
+        new_balance_halala:
+          type: integer
+        new_balance_sar:
+          type: number
+
+    RenterJobSummary:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: string
+        job_type:
+          type: string
+        status:
+          type: string
+          enum: [pending, queued, running, completed, failed, cancelled]
+        submitted_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        completed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actual_cost_halala:
+          type:
+            - integer
+            - "null"
+
+    RenterJobsPage:
+      type: object
+      required: [jobs, total, page, limit, pages]
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RenterJobRow"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+    RenterJobRow:
+      type: object
+      properties:
+        job_id:
+          type: string
+        template_id:
+          type:
+            - string
+            - "null"
+        provider_id:
+          type:
+            - integer
+            - "null"
+        status:
+          type: string
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        completed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        cost_halala:
+          type: integer
+        output_tokens:
+          type: integer
+        input_tokens:
+          type:
+            - integer
+            - "null"
+
+    RenterSpendingResponse:
+      type: object
+      required: [all_time, monthly, last_30_days]
+      properties:
+        all_time:
+          type: object
+          required: [total_jobs, total_halala, total_sar]
+          properties:
+            total_jobs:
+              type: integer
+            total_halala:
+              type: integer
+            total_sar:
+              type: number
+        monthly:
+          type: array
+          items:
+            type: object
+            required: [month, jobs, total_halala]
+            properties:
+              month:
+                type: string
+                description: YYYY-MM.
+              jobs:
+                type: integer
+              total_halala:
+                type: integer
+        last_30_days:
+          type: array
+          items:
+            type: object
+            required: [date, jobs, total_halala]
+            properties:
+              date:
+                type: string
+                format: date
+              jobs:
+                type: integer
+              total_halala:
+                type: integer
+
+    ScopedKeyCreateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 80
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [inference, jobs.read, balance.read, admin]
+          default: [inference]
+        expires_at:
+          type: string
+          format: date-time
+        org_role:
+          type: string
+
+    ScopedApiKey:
+      type: object
+      required: [id, scopes, created_at, revoked]
+      properties:
+        id:
+          type: string
+        label:
+          type:
+            - string
+            - "null"
+        scopes:
+          type: array
+          items:
+            type: string
+        org_id:
+          type:
+            - string
+            - "null"
+        org_role:
+          type: string
+        expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        last_used_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        revoked:
+          type: boolean
+
+    ScopedApiKeyMinted:
+      allOf:
+        - $ref: "#/components/schemas/ScopedApiKey"
+        - type: object
+          required: [key]
+          properties:
+            key:
+              type: string
+              description: |
+                The full secret. Returned exactly once; persisted only as a hash.
+
+    DcpKeyCreateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 80
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [inference, jobs.read, balance.read]
+          default: [inference]
+        org_role:
+          type: string
+
+    DcpKeyMinted:
+      type: object
+      required: [keyId, key, permissions, created_at]
+      properties:
+        keyId:
+          type: string
+        key:
+          type: string
+          description: Returned exactly once.
+        label:
+          type:
+            - string
+            - "null"
+        permissions:
+          type: array
+          items:
+            type: string
+        org_id:
+          type:
+            - string
+            - "null"
+        org_role:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    RenterDcpKeyListItem:
+      type: object
+      required: [keyId, key_hint, permissions, created_at, revoked]
+      properties:
+        keyId:
+          type: string
+        label:
+          type:
+            - string
+            - "null"
+        permissions:
+          type: array
+          items:
+            type: string
+        key_hint:
+          type: string
+          description: "Format: `dcp_...XXXX` (last 4 chars only)."
+        org_id:
+          type:
+            - string
+            - "null"
+        org_role:
+          type: string
+        expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        last_used_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        revoked:
+          type: boolean
+
+    RenterBalanceWithLedger:
+      type: object
+      required: [balance_halala, balance_sar, recent_transactions]
+      properties:
+        balance_sar:
+          type: number
+        balance_halala:
+          type: integer
+        balance_usd:
+          type: number
+        last_topup_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        total_spent_sar:
+          type: number
+        recent_transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+
+    LedgerEntry:
+      type: object
+      required: [id, direction, amount_halala, created_at]
+      properties:
+        id:
+          type: string
+        direction:
+          type: string
+          enum: [credit, debit]
+        amount_halala:
+          type: integer
+        amount_sar:
+          type: number
+        description:
+          type: string
+        job_id:
+          type:
+            - string
+            - "null"
+        created_at:
+          type: string
+          format: date-time
+
+    LedgerPage:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    RenterWebhook:
+      type: object
+      required: [id, url, events, active, created_at]
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum: [job.completed, job.failed, balance.low]
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    RenterWebhookCreate:
+      type: object
+      required: [url, secret]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HTTPS-only, port 443, public host (SSRF-checked).
+        secret:
+          type: string
+          minLength: 16
+          description: HMAC signing secret (>= 16 chars).
+        events:
+          type: array
+          items:
+            type: string
+            enum: [job.completed, job.failed, balance.low]
+
+    # ── Provider ──────────────────────────────────────────────────────────
+    ProviderRegisterRequest:
+      type: object
+      required: [name, email, gpu_model, os]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        gpu_model:
+          type: string
+          maxLength: 120
+        os:
+          type: string
+          description: Normalized OS (linux/windows/macos).
+        phone:
+          type: string
+          maxLength: 40
+        location:
+          type: string
+          maxLength: 200
+        resource_spec:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: string
+
+    ProviderRegisterResponse:
+      type: object
+      required: [success, provider_id, api_key, installer_url]
+      properties:
+        success:
+          type: boolean
+        provider_id:
+          type: integer
+        api_key:
+          type: string
+          description: "`dcp-provider-…` — keep secret."
+        installer_url:
+          type: string
+          description: Canonical setup download path (relative).
+        message:
+          type: string
+
+    HeartbeatRequest:
+      type: object
+      description: |
+        Per-id heartbeat. Auth is `X-Provider-Key` (or bearer). Body accepts
+        both legacy field names and the DCP-892 canonical names.
+      properties:
+        gpu_utilization_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+        gpu_utilization:
+          type: number
+          description: Legacy alias for gpu_utilization_pct.
+        vram_used_mb:
+          type: integer
+          minimum: 0
+        vram_used:
+          type: integer
+          description: Legacy alias for vram_used_mb.
+        vram_total_mb:
+          type: integer
+        vram_total:
+          type: integer
+          description: Legacy alias for vram_total_mb.
+        active_jobs:
+          type: integer
+        jobs_active:
+          type: integer
+          description: Legacy alias.
+        jobs_running:
+          type: integer
+          description: Legacy alias.
+        uptime_seconds:
+          type: integer
+        model_loaded:
+          type: string
+          description: Currently loaded model identifier.
+      additionalProperties: true
+
+    HeartbeatLegacyRequest:
+      type: object
+      required: [api_key]
+      properties:
+        api_key:
+          type: string
+        gpu_status:
+          type: object
+          additionalProperties: true
+        gpu_info:
+          $ref: "#/components/schemas/GpuInfo"
+        uptime:
+          type: integer
+        provider_ip:
+          type: string
+        provider_hostname:
+          type: string
+        peer_id:
+          type: string
+        cached_models:
+          type: array
+          items:
+            type: string
+        resource_spec:
+          type: object
+          additionalProperties: true
+        vllm_endpoint_url:
+          type: string
+          format: uri
+        vllm_models:
+          type: array
+          items:
+            type: string
+        wg_mesh_ip:
+          type: string
+        wg_health:
+          type: object
+          additionalProperties: true
+        task_updates:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        version:
+          type: string
+        status:
+          type: string
+          enum: [online, busy, paused, error]
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelStatus"
+      additionalProperties: true
+
+    HeartbeatResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        success:
+          type: boolean
+        provider_id:
+          oneOf:
+            - type: integer
+            - type: string
+        status:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        uptime_seconds:
+          type: integer
+        model_loaded:
+          type: string
+        pending_tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingTask"
+
+    PendingTask:
+      type: object
+      required: [task_id, task_type]
+      properties:
+        task_id:
+          type: string
+        task_type:
+          type: string
+          enum: [model_preload, model_unload, restart, config_reload, pull_model]
+        params:
+          type: object
+          additionalProperties: true
+
+    GpuInfo:
+      type: object
+      required: [vendor, count, total_vram_gb]
+      properties:
+        vendor:
+          type: string
+          enum: [nvidia, amd, apple, intel]
+        count:
+          type: integer
+          minimum: 1
+        total_vram_gb:
+          type: number
+        cards:
+          type: array
+          items:
+            type: object
+            properties:
+              model:
+                type: string
+              vram_gb:
+                type: number
+              compute_capability:
+                type: string
+
+    ModelStatus:
+      type: object
+      required: [alias, ready]
+      properties:
+        alias:
+          type: string
+          example: "qwen3.6-27b-mtp"
+        engine:
+          type: string
+          enum: [ollama, vllm, llamacpp]
+        ready:
+          type: boolean
+        port:
+          type: integer
+        context_window:
+          type: integer
+
+    ProviderLivenessResponse:
+      type: object
+      required: [provider_id, liveness_status]
+      properties:
+        provider_id:
+          type: string
+        liveness_status:
+          type: string
+          enum: [online, stale, offline]
+        last_heartbeat:
+          type:
+            - string
+            - "null"
+          format: date-time
+        heartbeat_age_seconds:
+          type:
+            - integer
+            - "null"
+
+    ProviderMetricsTimeseries:
+      type: object
+      required: [provider_id, period, since, count, metrics]
+      properties:
+        provider_id:
+          type: string
+        period:
+          type: string
+          enum: ["1h", "6h", "24h", "7d"]
+        since:
+          type: string
+          format: date-time
+        count:
+          type: integer
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderMetricsRow"
+
+    ProviderMetricsRow:
+      type: object
+      required: [recorded_at]
+      properties:
+        recorded_at:
+          type: string
+          format: date-time
+        gpu_utilization_pct:
+          type:
+            - number
+            - "null"
+        vram_used_mb:
+          type:
+            - integer
+            - "null"
+        active_jobs:
+          type:
+            - integer
+            - "null"
+
+    ProviderBenchmarkRequest:
+      type: object
+      required: [gpu_model, vram_gb, tflops, bandwidth_gbps, tokens_per_sec]
+      properties:
+        gpu_model:
+          type: string
+        vram_gb:
+          type: number
+          minimum: 1
+          maximum: 1000
+        tflops:
+          type: number
+          minimum: 1
+          maximum: 10000
+        bandwidth_gbps:
+          type: number
+          minimum: 1
+          maximum: 100000
+        tokens_per_sec:
+          type: number
+          minimum: 1
+          maximum: 100000
+        tier:
+          type: string
+          enum: [A, B, C]
+          description: Optional; auto-assigned by tflops + vram if absent.
+
+    ProviderBenchmarkResponse:
+      type: object
+      required: [success, provider_id, gpu_model, tier, timestamp]
+      properties:
+        success:
+          type: boolean
+        provider_id:
+          oneOf:
+            - type: integer
+            - type: string
+        gpu_model:
+          type: string
+        tier:
+          type: string
+          enum: [A, B, C]
+        timestamp:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    ProviderMeResponse:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          $ref: "#/components/schemas/ProviderProfile"
+        recent_jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderRecentJob"
+
+    ProviderProfile:
+      type: object
+      required: [id, name, status, gpu_model]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [registered, online, offline, paused, connected, error]
+        gpu_model:
+          type: string
+        gpu_vram_mib:
+          type: integer
+        gpu_count_reported:
+          type: integer
+        gpu_compute_capability:
+          type:
+            - string
+            - "null"
+        gpu_cuda_version:
+          type:
+            - string
+            - "null"
+        vram_mb:
+          type: integer
+        gpu_count:
+          type: integer
+        supported_compute_types:
+          type: array
+          items:
+            type: string
+            enum: [inference, training, rendering]
+        gpu_profile_source:
+          type: string
+          enum: [daemon, manual]
+        gpu_profile_updated_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        auto_detected:
+          type: boolean
+        resource_spec:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+        last_heartbeat:
+          type:
+            - string
+            - "null"
+          format: date-time
+        daemon_version:
+          type:
+            - string
+            - "null"
+        run_mode:
+          type: string
+        scheduled_start:
+          type: string
+        scheduled_end:
+          type: string
+        wallet_address:
+          type:
+            - string
+            - "null"
+        wallet_address_updated_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        gpu_usage_cap_pct:
+          type: integer
+        vram_reserve_gb:
+          type: number
+        temp_limit_c:
+          type: integer
+        is_paused:
+          type: boolean
+        approval_status:
+          type: string
+          enum: [pending, approved, rejected]
+        approved_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        rejected_reason:
+          type:
+            - string
+            - "null"
+        total_earnings_halala:
+          type: integer
+        total_jobs:
+          type: integer
+        uptime_percent:
+          type: number
+        gpu_metrics:
+          type: object
+          properties:
+            utilization_pct:
+              type: number
+            vram_used_mib:
+              type: integer
+            temperature_c:
+              type: number
+        today_earnings_halala:
+          type: integer
+        week_earnings_halala:
+          type: integer
+        month_earnings_halala:
+          type: integer
+        active_job:
+          oneOf:
+            - $ref: "#/components/schemas/ProviderActiveJob"
+            - type: "null"
+
+    ProviderActiveJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: string
+        job_type:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        cost_halala:
+          type: integer
+
+    ProviderRecentJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: string
+        job_type:
+          type: string
+        model:
+          type:
+            - string
+            - "null"
+        status:
+          type: string
+        submitted_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        completed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actual_cost_halala:
+          type:
+            - integer
+            - "null"
+        provider_earned_halala:
+          type:
+            - integer
+            - "null"
+        dc1_fee_halala:
+          type:
+            - integer
+            - "null"
+
+    ProviderMeMetricsResponse:
+      type: object
+      required: [provider_id, stats]
+      properties:
+        provider_id:
+          type: integer
+        gpu_model:
+          type:
+            - string
+            - "null"
+        stats:
+          $ref: "#/components/schemas/ProviderStats"
+        recent_jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderRecentJob"
+
+    ProviderStats:
+      type: object
+      required:
+        [
+          jobs_completed,
+          jobs_failed,
+          total_compute_minutes,
+          earnings_halala,
+          earnings_sar,
+          uptime_hours_last_7d,
+          avg_job_duration_minutes,
+        ]
+      properties:
+        jobs_completed:
+          type: integer
+        jobs_failed:
+          type: integer
+        total_compute_minutes:
+          type: number
+        earnings_halala:
+          type: integer
+        earnings_sar:
+          type: number
+        uptime_hours_last_7d:
+          type: number
+        avg_job_duration_minutes:
+          type: number
+
+    # ── Job ───────────────────────────────────────────────────────────────
+    JobCreateRequest:
+      type: object
+      required: [duration_minutes]
+      properties:
+        job_type:
+          type: string
+          description: |
+            Required unless `template_id` resolves a job_type. Allowed values
+            are enforced server-side (training/inference/render variants).
+        template_id:
+          type: string
+          description: Docker template id; supplies job_type defaults.
+        duration_minutes:
+          type: number
+          minimum: 0.01
+          maximum: 1440
+        gpu_requirements:
+          type: object
+          properties:
+            min_vram_gb:
+              type: number
+              minimum: 0
+              maximum: 1024
+            gpu_type:
+              type: string
+        params:
+          type: object
+          additionalProperties: true
+        pricing_class:
+          type: string
+          enum: [standard, priority, economy]
+          default: standard
+        model:
+          type: string
+        provider_id:
+          type: integer
+          description: Optional sticky-routing hint.
+
+    JobCreateResponse:
+      type: object
+      required: [success, job, dispatch]
+      properties:
+        success:
+          type: boolean
+        job:
+          $ref: "#/components/schemas/Job"
+        dispatch:
+          $ref: "#/components/schemas/JobDispatchInfo"
+        idempotent:
+          type: boolean
+
+    JobDispatchInfo:
+      type: object
+      required: [assigned, queued]
+      properties:
+        assigned:
+          type: boolean
+        queued:
+          type: boolean
+        hold_id:
+          type:
+            - string
+            - "null"
+        provider:
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+
+    Job:
+      type: object
+      required: [job_id, status]
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: string
+        job_type:
+          type: string
+        model:
+          type:
+            - string
+            - "null"
+        status:
+          type: string
+          enum: [pending, queued, running, completed, failed, cancelled]
+        submitted_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        completed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        duration_minutes:
+          type:
+            - number
+            - "null"
+        actual_duration_minutes:
+          type:
+            - number
+            - "null"
+        cost_halala:
+          type: integer
+        actual_cost_halala:
+          type:
+            - integer
+            - "null"
+        prompt_tokens:
+          type:
+            - integer
+            - "null"
+        completion_tokens:
+          type:
+            - integer
+            - "null"
+        provider_id:
+          type:
+            - integer
+            - "null"
+        renter_id:
+          type: integer
+        pricing_class:
+          type: string
+        gpu_requirements:
+          oneOf:
+            - type: "null"
+            - type: object
+              additionalProperties: true
+        queue_position:
+          type: integer
+          description: Present only when status = queued.
+        elapsed_sec:
+          type:
+            - integer
+            - "null"
+        tokens_used:
+          type:
+            - integer
+            - "null"
+        cost_usd:
+          type:
+            - number
+            - "null"
+        refunded_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+
+    JobWithBilling:
+      allOf:
+        - $ref: "#/components/schemas/Job"
+        - type: object
+          properties:
+            provider_name:
+              type:
+                - string
+                - "null"
+            billing_id:
+              type:
+                - string
+                - "null"
+            gross_cost_halala:
+              type:
+                - integer
+                - "null"
+            platform_fee_halala:
+              type:
+                - integer
+                - "null"
+            provider_earning_halala:
+              type:
+                - integer
+                - "null"
+            currency:
+              type: string
+            billing_status:
+              type:
+                - string
+                - "null"
+            token_count:
+              type:
+                - integer
+                - "null"
+            duration_ms:
+              type:
+                - integer
+                - "null"
+
+    JobsListResponse:
+      type: object
+      required: [total, limit, offset, jobs]
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListRow"
+
+    JobListRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: string
+        job_type:
+          type: string
+        template_name:
+          type:
+            - string
+            - "null"
+        gpu_model:
+          type:
+            - string
+            - "null"
+        status:
+          type: string
+        submitted_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        ended_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        duration_seconds:
+          type:
+            - number
+            - "null"
+        tokens_used:
+          type:
+            - integer
+            - "null"
+        cost_sar:
+          type: string
+          description: SAR formatted to 2 decimals.
+        refunded:
+          type: boolean
+
+    JobStatusResponse:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+        tokens_generated:
+          type: integer
+        elapsed_seconds:
+          type:
+            - integer
+            - "null"
+        estimated_cost_usd:
+          type:
+            - number
+            - "null"
+        provider_online:
+          type: boolean
+
+    InsufficientBalanceError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        balance_halala:
+          type: integer
+        required_halala:
+          type: integer
+        shortfall_halala:
+          type: integer
+        available_halala:
+          type: integer
+        docs:
+          type: string
+
+    # ── Agent ─────────────────────────────────────────────────────────────
+    AgentManifest:
+      type: object
+      required: [safe_commit, rollout_pct, published_at]
+      properties:
+        safe_commit:
+          type: string
+          pattern: "^[0-9a-f]{40}$"
+        rollout_pct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        published_at:
+          type: string
+          format: date-time
+        min_tag:
+          type: string
+          description: Optional minimum semver tag.
+          example: "v0.6.0"

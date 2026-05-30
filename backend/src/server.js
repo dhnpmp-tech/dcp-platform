@@ -506,6 +506,30 @@ app.use('/api/', generalLimiter);
 const analyticsService = require('./services/analyticsService');
 app.use(analyticsService.latencyMiddleware);
 
+// ── Contract-conformance drift gate (backlog #11a) — TEST ONLY ─────────────
+// Mounts express-openapi-validator against the vendored dcp-contracts spec
+// (backend/openapi/dcp.yaml) as a RESPONSE-VALIDATION drift gate in LOG mode:
+// validateRequests:false, validateResponses logs via onError and NEVER throws,
+// so the response still returns unchanged and the test suite pass/fail is
+// identical with the gate on. It only surfaces spec↔backend drift as
+// '[contract-drift] <method> <path>: <message>' lines for the reconciliation
+// backlog. Gated to NODE_ENV==='test' so production is untouched (zero prod
+// latency/risk; the validator is never even required outside tests). Mounted
+// here — after body parsers + rate limiters, BEFORE the route handlers — so
+// the library can wrap res.json on the documented routes. Flipping to ENFORCE
+// (throw) is a deliberate follow-up (#11b) once the drift is reconciled.
+if (process.env.NODE_ENV === 'test') {
+    try {
+        const { buildContractDriftGate } = require('./middleware/contractDriftGate');
+        app.use(buildContractDriftGate());
+        console.log('[contract-gate] response-validation drift gate mounted (test env, log-mode)');
+    } catch (err) {
+        // The gate is observability-only. If it cannot mount (e.g. the vendored
+        // spec is unreadable), log and continue — it must NEVER break tests.
+        console.warn(`[contract-gate] gate not mounted: ${err && err.message ? err.message : err}`);
+    }
+}
+
 // Serve installer files for download (daemon binaries — still needed)
 app.use('/installers', express.static(path.join(__dirname, '..', 'installers')));
 
