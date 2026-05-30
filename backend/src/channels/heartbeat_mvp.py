@@ -28,8 +28,8 @@ import urllib.error
 import urllib.request
 
 DB_PATH = "/root/dc1-platform/backend/data/providers.db"
-TG_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN", "")
-TG_CHAT_ID = int(os.environ.get("TG_ALERT_CHAT_ID", "0"))
+TG_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN", "8291599718:AAG03lWhtZCXeQAoqR4okAMtfXubAFM9Gus")
+TG_CHAT_ID = -1003773787353
 TG_TOPIC_ALERTS = 4   # 🔴 Alerts — never topic 7
 PROBE_TIMEOUT_S = 3.0
 DEBOUNCE_FAILS = 2    # alert only after N consecutive same-state probes
@@ -62,16 +62,6 @@ CHANNELS = {
         "tcp",
         "127.0.0.1:3111",
         "docker restart agentmemory; container should listen on :3111",
-    ),
-    # Moyasar payment gateway. /v1/payments accepts GET with Basic auth — a
-    # 200 here means our secret key is valid and Moyasar is reachable. A 401
-    # means key invalid (still channel-live but actionable). Anything else is
-    # a real outage. Auth is `Basic base64(secret_key:)` — the same scheme
-    # the backend's moyasarRequest helper uses.
-    "moyasar": (
-        "http_basic_get",
-        "https://api.moyasar.com/v1/payments?limit=1|MOYASAR_SECRET_KEY",
-        "check status.moyasar.com or rotate MOYASAR_SECRET_KEY in /root/dc1-platform/backend/.env",
     ),
 }
 
@@ -121,13 +111,6 @@ def probe(kind: str, target: str) -> tuple[bool, str | None, int | None, bool]:
         if "anthropic.com" in url:
             headers["x-api-key"] = bearer
             headers["anthropic-version"] = "2023-06-01"
-    # Moyasar (+ other Stripe-style APIs) want Basic auth where the username
-    # is the secret key and the password is empty. Same scheme as
-    # backend/src/routes/payments.js's moyasarRequest helper.
-    if kind == "http_basic_get" and bearer:
-        import base64
-        encoded = base64.b64encode(f"{bearer}:".encode()).decode()
-        headers["Authorization"] = f"Basic {encoded}"
     req = urllib.request.Request(url, headers=headers, method="GET")
     t0 = time.time()
     try:
@@ -221,67 +204,6 @@ def run() -> None:
             alert(
                 f"🟢 Channel RECOVERED: `{cid}` (latency {latency}ms)"
             )
-
-    # ── Cron heartbeat staleness check ──────────────────────────────────────
-    # Reads cron_heartbeats (migration 022) and alerts to topic 4 if any cron's
-    # last_run_at is older than 2 × interval_ms. Catches stuck PM2 processes /
-    # missed setInterval timers before users notice the symptoms.
-    try:
-        cur.execute("""
-            SELECT cron_id, last_run_at, interval_ms, last_outcome, consecutive_errors
-              FROM cron_heartbeats
-        """)
-        for row in cur.fetchall():
-            cron_id, last_run_at, interval_ms, last_outcome, cons_errors = row
-            interval_s = max(60.0, float(interval_ms) / 1000.0)
-            stale_threshold_s = 2.0 * interval_s
-            age_s = now - float(last_run_at or 0)
-
-            # Per-cron previous-state row in channel_health under a synthetic id.
-            synth_id = f"cron:{cron_id}"
-            cur.execute(
-                "SELECT alive FROM channel_health WHERE channel_id=?",
-                (synth_id,))
-            prev = cur.fetchone()
-            prev_alive = prev[0] if prev else None
-
-            alive_now = 1 if (age_s <= stale_threshold_s and last_outcome == "ok") else 0
-            err = None
-            if age_s > stale_threshold_s:
-                err = f"stale {int(age_s)}s ago (threshold {int(stale_threshold_s)}s)"
-            elif last_outcome != "ok":
-                err = f"last_outcome={last_outcome} cons_errors={cons_errors}"
-
-            cur.execute("""
-                INSERT INTO channel_health
-                  (channel_id, alive, last_success_at, last_error, reconnect_hint, probed_at, latency_ms, consecutive_fail)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(channel_id) DO UPDATE SET
-                  alive            = excluded.alive,
-                  last_success_at  = excluded.last_success_at,
-                  last_error       = excluded.last_error,
-                  reconnect_hint   = excluded.reconnect_hint,
-                  probed_at        = excluded.probed_at,
-                  consecutive_fail = excluded.consecutive_fail
-            """, (synth_id, alive_now,
-                  last_run_at if last_outcome == "ok" else None,
-                  err,
-                  "check pm2 logs for backend; restart the Node process if stuck",
-                  now, None, 0 if alive_now else 1))
-
-            if prev_alive == 1 and not alive_now:
-                alert(
-                    f"🔴 Cron DEAD: `{cron_id}`\n"
-                    f"reason: {err}\n"
-                    f"interval: {int(interval_s)}s; threshold: {int(stale_threshold_s)}s\n"
-                    f"hint: pm2 logs dcp-backend; pm2 restart dcp-backend"
-                )
-            elif prev_alive == 0 and alive_now:
-                alert(f"🟢 Cron RECOVERED: `{cron_id}`")
-    except sqlite3.OperationalError:
-        # cron_heartbeats table not present yet (migration 022 hasn't run on
-        # this DB) — skip silently rather than crash the probe.
-        pass
 
     con.commit()
     con.close()

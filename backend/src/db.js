@@ -1219,6 +1219,57 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_provider ON provider_engines(provider_id)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_lookup  ON provider_engines(reachable, engine_type)`);
 
+// ─── CHANNEL_HEALTH TABLE ─── (migration 018, reconciled into git 2026-05-30)
+// One row per probed channel; written by channels/heartbeat_mvp.py every 60s,
+// read by GET /api/channels/health. Applied surgically on prod earlier; added
+// here (idempotent) so fresh installs get the schema too.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS channel_health (
+    channel_id        TEXT PRIMARY KEY,
+    alive             INTEGER NOT NULL DEFAULT 0,
+    last_success_at   REAL,
+    last_error        TEXT,
+    reconnect_hint    TEXT,
+    probed_at         REAL NOT NULL,
+    latency_ms        INTEGER,
+    consecutive_fail  INTEGER NOT NULL DEFAULT 0
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_channel_health_alive ON channel_health (alive, probed_at)`);
+
+// ─── DANGEROUS_ACTION TABLES ─── (migration 019, reconciled into git 2026-05-30)
+// dangerous_action_log: append-only audit of gated invocations.
+// consumed_tokens: single-use enforcement for action-authorizing tokens.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dangerous_action_log (
+    req_id            TEXT PRIMARY KEY,
+    class             TEXT NOT NULL,
+    fn                TEXT NOT NULL,
+    payload_hash      TEXT NOT NULL,
+    requester         TEXT NOT NULL,
+    approver          TEXT,
+    approval_source   TEXT,
+    outcome           TEXT NOT NULL,
+    error_reason      TEXT,
+    ts                REAL NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_dal_class_ts   ON dangerous_action_log (class, ts)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_dal_outcome_ts ON dangerous_action_log (outcome, ts)`);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS consumed_tokens (
+    token_hash        TEXT PRIMARY KEY,
+    class             TEXT NOT NULL,
+    payload_hash      TEXT NOT NULL,
+    approver          TEXT NOT NULL,
+    approval_source   TEXT NOT NULL,
+    issued_at         REAL NOT NULL,
+    expires_at        REAL NOT NULL,
+    consumed_at       REAL NOT NULL
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_consumed_expires ON consumed_tokens (expires_at)`);
+
 // ─── RENTER SUBSCRIPTIONS ─── (migration 016)
 // Dual pricing SKU: PAYG (renters.balance_halala) + monthly subscription.
 // Subscription = SAR monthly fee → SAR credit grant + per-tier discount

@@ -28,6 +28,13 @@
 - **Wizard-origin registrations auto-approve** (`register-node` sets `approval_status='approved'` when it presents a valid single-use install token; env-gated by `DCP_WIZARD_AUTO_APPROVE`, default on) so a real daemon actually becomes bookable instead of heartbeating forever at `pending`.
 - **Idempotent install** — a retry with the same node fingerprint re-resolves to the **existing** API key with `200` instead of a `409` that stranded the daemon (new additive `providers.node_fingerprint` column); a different fingerprint on a consumed token still `409`s (anti-leak). Heartbeat timestamps are normalized to UTC so a fresh heartbeat isn't misread as stale.
 
+### Reconciliation — capture prod-only hotfixes into git (pre-deploy safety)
+The prod backend had drifted from git with undocumented hotfixes; deploying `main` as-is would have **regressed production**. This makes `origin/main` a superset of what's running so the keystone/guards deploy can't regress prod.
+- **`dotenv` auto-load restored** — `server.js` now calls `require('dotenv').config()` (+ `dotenv` dependency). Prod relied on this (uncommitted) because `pm2 -lc` strips the inherited environment; without it the backend boots with **no secrets / NODE_ENV**. It was live on the VPS but absent from git — the single most dangerous gap.
+- **`/api/channels` + channel-health prober** committed (`backend/src/routes/channels.js`, `backend/src/channels/heartbeat_mvp.py`) — Mission Control channel status, live on prod, previously uncommitted.
+- **Heartbeat stops overwriting `cached_models` / `vllm_models` / `vllm_endpoint_url`** (`providers.js`) — these are owned by `provider_engines` (engines-sync), matching live prod behavior (bind-arg alignment verified: 23 placeholders = 23 args).
+- **Schema** — `channel_health`, `dangerous_action_log`, `consumed_tokens` added to `db.js` inline migrations (idempotent `IF NOT EXISTS`; a no-op on prod where they already exist) so fresh installs match. Reference SQL added as `migrations/013_provider_engines.sql` / `018_channel_health.sql` / `019_dangerous_action.sql` (filenames mirror prod; the numeric prefixes collide cosmetically with existing reference files — `db.js` inline remains authoritative).
+
 ## [1.0.0] — 2026-03-23 — Public Launch
 
 **DCP is live.** The GPU marketplace built for Arabic AI goes public today.
