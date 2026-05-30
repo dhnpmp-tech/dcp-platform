@@ -36,6 +36,13 @@ export default function RenterRegisterPage() {
   const [result, setResult] = useState<RegistrationResult | null>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  // Resend-with-cooldown for the magic-link success state. Mirrors the pattern
+  // in app/login/page.tsx: a 60s countdown gates re-requests, and the backend
+  // handles /renters/register resends idempotently.
+  const [resendCountdown, setResendCountdown] = useState(0)
+  const [resending, setResending] = useState(false)
+  const [resendError, setResendError] = useState('')
+  const [resent, setResent] = useState(false)
 
   const trackRegisterEvent = useCallback((event: string, payload: Record<string, unknown> = {}) => {
     if (typeof window === 'undefined') return
@@ -175,6 +182,7 @@ export default function RenterRegisterPage() {
         message: data.message || `We sent a sign-in link to ${formData.email.trim()}. Click it to finish creating your account.`,
       })
       setSuccess(true)
+      setResendCountdown(60)
       // Persist the role intent so /auth/verify lands the user on
       // /renter/marketplace when they click the magic link.
       try {
@@ -231,6 +239,51 @@ export default function RenterRegisterPage() {
     return () => observer.disconnect()
   }, [success, trackRegisterEvent])
 
+  // Tick down the resend cooldown once per second while it is active.
+  useEffect(() => {
+    if (resendCountdown <= 0) return
+    const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCountdown])
+
+  // Re-request the sign-in link. The backend treats /renters/register as an
+  // idempotent resend for an already-staged email, so we re-POST the same
+  // payload and restart the cooldown.
+  const handleResendLink = async () => {
+    if (resendCountdown > 0 || resending || !result) return
+    setResending(true)
+    setResendError('')
+    setResent(false)
+    try {
+      const res = await fetch(`${API_BASE}/renters/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: result.email,
+          organization: formData.organization.trim() || undefined,
+          use_case: formData.useCase.trim() || undefined,
+          phone: formData.phone.trim() || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Could not resend the link. Try again shortly.')
+      }
+      setResent(true)
+      setResendCountdown(60)
+      trackRegisterEvent('renter_register_link_resent', {
+        surface: 'registration_success',
+        destination: '/api/renters/register',
+        step: 'magic_link_resent',
+      })
+    } catch (err) {
+      setResendError(err instanceof Error ? err.message : 'Could not resend the link.')
+    } finally {
+      setResending(false)
+    }
+  }
+
   if (success && result) {
     const firstDeployFastLaneHref = '/renter/marketplace/templates?source=renter_register_success_fast_lane'
     const supportRoutes = [
@@ -269,13 +322,40 @@ export default function RenterRegisterPage() {
                   We sent a sign-in link to
                 </p>
                 <p className="text-base text-dc1-amber font-mono mb-4 break-all">{result.email}</p>
-                <p className="text-xs text-dc1-text-secondary mb-2">
+                <p className="text-xs text-dc1-text-secondary mb-4">
                   Open the email and click <span className="text-dc1-text-primary font-semibold">Sign In to DCP</span>.
                   The link expires in 15 minutes and can only be used once.
                 </p>
-                <p className="text-xs text-dc1-text-muted">
-                  Didn&apos;t get it? Check your spam folder, or <a href="/renter/register" className="text-dc1-amber hover:underline">try again</a>.
-                </p>
+
+                {resent && (
+                  <p className="text-xs text-emerald-400 mb-2">
+                    New link sent — check your inbox again.
+                  </p>
+                )}
+                {resendError && (
+                  <p className="text-xs text-status-error mb-2">{resendError}</p>
+                )}
+
+                <div className="flex flex-col items-center gap-2">
+                  {resendCountdown > 0 ? (
+                    <span className="text-xs text-dc1-text-secondary">
+                      You can request a new link in {resendCountdown}s
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResendLink}
+                      disabled={resending}
+                      className="text-sm font-medium text-dc1-amber hover:text-dc1-amber/80 disabled:opacity-60"
+                    >
+                      {resending ? 'Resending…' : 'Resend link'}
+                    </button>
+                  )}
+                  <span className="text-xs text-dc1-text-muted">
+                    Didn&apos;t get it? Check your spam folder, or{' '}
+                    <a href="/renter/register" className="text-dc1-amber hover:underline">use a different email</a>.
+                  </span>
+                </div>
               </div>
 
               <div className={`rounded-lg border border-dc1-amber/30 bg-dc1-amber/10 p-5 mb-6 ${isRTL ? 'text-right' : 'text-left'}`}>
