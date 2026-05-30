@@ -1152,15 +1152,15 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           gpu_count = COALESCE(?, gpu_count),
           gpu_model = COALESCE(?, gpu_model),
           gpu_info_json = COALESCE(?, gpu_info_json),
-          cached_models = COALESCE(?, cached_models),
-          vllm_models = ?,
+          -- cached_models / vllm_models are owned by provider_engines (engines-sync);
+          -- no longer overwritten from the heartbeat payload (reconciled 2026-05-30).
           container_restart_count = ?,
           model_cache_disk_mb = ?,
           model_cache_disk_total_mb = ?,
           model_cache_disk_used_pct = ?,
           gpu_profile_source = 'daemon',
           gpu_profile_updated_at = ?,
-          vllm_endpoint_url = COALESCE(?, vllm_endpoint_url),
+          -- vllm_endpoint_url is owned by provider_engines (engines-sync).
           wg_mesh_ip = COALESCE(?, wg_mesh_ip),
           wg_tunnel_healthy = COALESCE(?, wg_tunnel_healthy),
           wg_handshake_age_s = COALESCE(?, wg_handshake_age_s)
@@ -1173,14 +1173,11 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           toFiniteInt(gs.gpu_count, { min: 1, max: 64 }) || null,
           resolvedGpuName,
           gpuInfoJson,
-          Array.isArray(cached_models) ? JSON.stringify(cached_models) : null,
-          Array.isArray(vllm_models) ? JSON.stringify(vllm_models) : null,
           reportedContainerRestarts,
           modelCacheUsedMb,
           modelCacheTotalMb,
           modelCacheUsedPct,
           now,
-          cleanVllmEndpointUrl,
           cleanWgMeshIp,
           wgTunnelHealthy == null ? null : (wgTunnelHealthy ? 1 : 0),
           wgHandshakeAgeS == null ? null : Math.round(wgHandshakeAgeS),

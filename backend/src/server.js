@@ -1,4 +1,9 @@
 // DC1 Provider Onboarding Backend Server
+// Auto-load .env BEFORE anything reads process.env. Under `pm2 -lc` the inherited
+// environment is stripped, so without this the backend boots with no secrets /
+// NODE_ENV (prod regression fix 2026-05-13; reconciled into git 2026-05-30).
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -667,6 +672,8 @@ const standupRouter = require('./routes/standup');
 app.use('/api/standup', standupRouter);
 const missionRouter = require('./routes/mission');
 app.use('/api/mission', missionRouter);
+const channelsRouter = require('./routes/channels');
+app.use('/api/channels', channelsRouter);
 const reconciliationRouter = require('./routes/reconciliation');
 app.use('/api/reconciliation', reconciliationRouter);
 const securityRouter = require('./routes/security');
