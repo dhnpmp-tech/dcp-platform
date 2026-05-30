@@ -50,10 +50,11 @@ export function Step5Install({
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
 
-  // Desktop app is the recommended default on Windows/Mac (and the unknown
-  // fallback). Linux has no desktop app yet, so the headless curl one-liner is
-  // the primary path there.
-  const desktopRecommended = os === 'windows' || os === 'macos' || os === 'unknown'
+  // The desktop-binary download is only a real path on Windows: the backend
+  // serves /download/windows but has NO macOS .dmg yet (/download/mac 404s), so
+  // macOS uses the same terminal/token install command as Linux. Linux likewise
+  // has no desktop app, so the headless curl one-liner is its primary path.
+  const desktopRecommended = os === 'windows'
 
   async function mint(body: Record<string, unknown>): Promise<boolean> {
     try {
@@ -132,12 +133,13 @@ export function Step5Install({
 
       {token && (
         <>
-          {/* On Windows/Mac the desktop app is the recommended path; the curl
-              one-liner is the explicit "headless / Linux" option. On Linux the
-              terminal command is primary (no desktop app yet). */}
+          {/* On Windows the desktop binary is the recommended path; the curl
+              one-liner is the explicit "headless / Linux" fallback beneath it.
+              macOS, Linux, and unknown have no desktop binary, so the
+              terminal/token install command is primary there. */}
           {desktopRecommended ? (
             <>
-              <DesktopRecommended os={os} apiKey={apiKey} />
+              <DesktopRecommended apiKey={apiKey} />
               <HeadlessOption os={os} token={token} />
             </>
           ) : (
@@ -193,19 +195,17 @@ export function Step5Install({
   )
 }
 
-// Recommended desktop-app card for Windows/Mac. The desktop app bundles the
-// same installer behind a GUI wizard; the provider pastes the install token
-// (not the long-lived API key) when prompted.
-function DesktopRecommended({ os, apiKey }: { os: DetectedOS; apiKey: string }) {
-  const downloadUrl = os === 'windows'
-    ? 'https://dcp.sa/download/windows'
-    : 'https://dcp.sa/download/mac'
-  const osLabel = os === 'windows' ? 'Windows' : os === 'macos' ? 'macOS' : 'Desktop'
-  const icon = os === 'windows' ? '🪟' : '🍎'
+// Recommended desktop-app card — Windows only. The backend serves the Windows
+// installer at /download/windows; there is no macOS .dmg yet, so macOS uses the
+// terminal/token install command (the InstallCommand path) instead. The desktop
+// app bundles the same installer behind a GUI wizard; the provider pastes the
+// install token (not the long-lived API key) when prompted.
+function DesktopRecommended({ apiKey }: { apiKey: string }) {
+  const downloadUrl = 'https://dcp.sa/download/windows'
   return (
     <div className="rounded-lg border border-dc1-amber/40 bg-dc1-amber/5 p-4 text-sm">
       <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-dc1-amber">
-        <span>{icon}</span> Recommended for {osLabel}
+        <span>🪟</span> Recommended for Windows
       </p>
       <p className="mb-3 text-xs text-dc1-text-secondary">
         Download the DCP desktop app — a guided GUI installer. Paste your install token when it asks; no terminal required.
@@ -215,7 +215,7 @@ function DesktopRecommended({ os, apiKey }: { os: DetectedOS; apiKey: string }) 
         download
         className="inline-flex items-center gap-2 rounded-lg border border-dc1-amber bg-dc1-amber/10 px-4 py-2 text-sm font-semibold text-dc1-amber hover:bg-dc1-amber/20 transition-colors"
       >
-        Download for {osLabel}
+        Download for Windows
       </a>
       {/* API key for any desktop-app prompt that asks for it post-install */}
       <div className="mt-4 rounded-lg border border-dc1-border bg-dc1-surface-l2 p-3">

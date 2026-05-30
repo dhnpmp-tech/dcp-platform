@@ -58,8 +58,9 @@ export default function ProviderDownloadPage() {
     return 'linux'
   }, [])
 
-  // Desktop app is the recommended default on Windows/Mac; Linux uses the
-  // canonical headless curl one-liner.
+  // Windows ships a desktop binary (downloadUrl → backend /download/windows).
+  // macOS has no .dmg yet and Linux has no desktop app, so both use the
+  // canonical headless curl one-liner (no downloadUrl → copy-command card).
   const osCards: {
     id: OS
     label: string
@@ -81,9 +82,11 @@ export default function ProviderDownloadPage() {
         id: 'macos',
         label: 'macOS',
         icon: '🍎',
-        primaryLabel: 'Download DCP Provider (.dmg)',
-        description: 'Recommended. Apple Silicon (M1-M4) with MLX engine. Guided GUI installer — no terminal required.',
-        downloadUrl: 'https://dcp.sa/download/mac',
+        // No macOS .dmg exists yet (the backend's /download/mac 404s), so macOS
+        // uses the same terminal/token install command as Linux. Desktop app
+        // coming soon. (No downloadUrl → renders the copy-install-command card.)
+        primaryLabel: t('register.provider.copy_install_command'),
+        description: 'Apple Silicon (M1-M4) with MLX engine. Installs via the terminal for now — desktop app coming soon.',
       },
       {
         id: 'linux',
