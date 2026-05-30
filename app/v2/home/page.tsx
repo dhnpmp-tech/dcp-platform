@@ -23,8 +23,8 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }>
   { href: '/v2/home', en: 'Overview', ar: 'نظرة عامة', on: true },
   { href: '#marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '#agents', en: 'Agents', ar: 'الوكلاء' },
-  { href: '#', en: 'Pricing', ar: 'الأسعار' },
-  { href: '#', en: 'Docs', ar: 'التوثيق' },
+  { href: '#pricing', en: 'Pricing', ar: 'الأسعار' },
+  { href: '/v2/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
 // ───────── marketplace rows ─────────
@@ -120,11 +120,17 @@ export default function V2HomePage() {
             DCP<i>∞</i>
           </Link>
           <nav>
-            {NAV.map((item) => (
-              <a key={item.en} href={item.href} className={item.on ? 'on' : undefined}>
-                <Bi en={item.en} ar={item.ar} />
-              </a>
-            ))}
+            {NAV.map((item) =>
+              item.href.startsWith('/') ? (
+                <Link key={item.en} href={item.href} className={item.on ? 'on' : undefined}>
+                  <Bi en={item.en} ar={item.ar} />
+                </Link>
+              ) : (
+                <a key={item.en} href={item.href} className={item.on ? 'on' : undefined}>
+                  <Bi en={item.en} ar={item.ar} />
+                </a>
+              ),
+            )}
           </nav>
         </div>
         <div className="right">
@@ -136,12 +142,12 @@ export default function V2HomePage() {
               ع
             </button>
           </div>
-          <a className="btn small ghost" href="#">
+          <Link className="btn small ghost" href="/v2/auth">
             <Bi en="Sign in" ar="دخول" />
-          </a>
-          <a className="btn small primary" href="#">
+          </Link>
+          <Link className="btn small primary" href="/v2/setup">
             <Bi en="Start free →" ar="ابدأ مجاناً ←" />
-          </a>
+          </Link>
           <button
             type="button"
             className="menu-toggle"
@@ -181,7 +187,7 @@ export default function V2HomePage() {
           <div className="mm-section">
             <Bi en="Explore" ar="تصفّح" />
           </div>
-          <a className="mm-link" href="/v2/home">
+          <Link className="mm-link" href="/v2/home">
             <span className="n">01</span>
             <span className="body">
               <span className="t">
@@ -193,7 +199,7 @@ export default function V2HomePage() {
               </span>
             </span>
             <span className="arrow">→</span>
-          </a>
+          </Link>
           <a className="mm-link" href="#">
             <span className="n">02</span>
             <span className="body">
@@ -207,7 +213,7 @@ export default function V2HomePage() {
             </span>
             <span className="arrow">→</span>
           </a>
-          <a className="mm-link" href="#">
+          <a className="mm-link" href="#pricing">
             <span className="n">03</span>
             <span className="body">
               <span className="t">
@@ -250,7 +256,7 @@ export default function V2HomePage() {
             </span>
             <span className="arrow">→</span>
           </a>
-          <a className="mm-link" href="#">
+          <Link className="mm-link" href="/v2/docs">
             <span className="n">06</span>
             <span className="body">
               <span className="t">
@@ -262,7 +268,7 @@ export default function V2HomePage() {
               </span>
             </span>
             <span className="arrow">→</span>
-          </a>
+          </Link>
 
           <div className="mm-section">
             <Bi en="Trust" ar="الثقة" />
@@ -283,9 +289,9 @@ export default function V2HomePage() {
         </div>
         <div className="mm-foot">
           <span className="stamp">DC Power Solutions · CR 7053667775</span>
-          <a href="#" className="btn small primary">
+          <Link href="/v2/setup" className="btn small primary">
             <Bi en="Start free →" ar="ابدأ مجاناً ←" />
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -405,9 +411,9 @@ export default function V2HomePage() {
                 <a className="btn primary lg magnet" href="#">
                   <Bi en="Try the live demo →" ar="جرّب التجربة الحية ←" />
                 </a>
-                <a className="btn ghost lg" href="#">
+                <Link className="btn ghost lg" href="/v2/setup">
                   <Bi en="Start free · no card" ar="ابدأ مجاناً · بلا بطاقة" />
-                </a>
+                </Link>
               </div>
               <div className="res-row">
                 <span className="residency-badge ksa">
@@ -587,7 +593,7 @@ export default function V2HomePage() {
                 ar="سعة متاحة عبر شبكة المزوّدين داخل المملكة"
               />
             </span>
-            <a href="#">
+            <a href="#marketplace">
               <Bi en="Browse the full marketplace →" ar="تصفّح السوق كاملاً ←" />
             </a>
           </div>
@@ -638,7 +644,7 @@ export default function V2HomePage() {
               </ul>
               <div className="end">
                 <span>api.dcp.sa / v1</span>
-                <a href="#">
+                <a href="#pricing">
                   <Bi en="See rates →" ar="عرض الأسعار ←" />
                 </a>
               </div>
@@ -704,9 +710,9 @@ export default function V2HomePage() {
               </ul>
               <div className="end">
                 <span>dcp.sa / setup</span>
-                <a href="#">
+                <Link href="/v2/provider-setup">
                   <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -757,12 +763,12 @@ export default function V2HomePage() {
                 <span className="stamp"><Bi en="200k context · frontier" ar="سياق ٢٠٠ ألف · متقدم" /></span>
               </div>
               <div style={{ marginTop: 30, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <a className="btn ghost" href="#">
+                <Link className="btn ghost" href="/v2/docs">
                   <Bi en="Read the API docs →" ar="اقرأ توثيق الواجهة ←" />
-                </a>
-                <a className="btn ghost" href="#">
+                </Link>
+                <Link className="btn ghost" href="/v2/setup">
                   <Bi en="Get your API key" ar="احصل على مفتاحك" />
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -906,9 +912,9 @@ export default function V2HomePage() {
                     ar="api.dcp.sa / v1 · متوافق مع OpenAI · افتراضي عربي"
                   />
                 </span>
-                <a href="#">
+                <Link href="/v2/docs">
                   <Bi en="Full reference →" ar="المرجع الكامل ←" />
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -1368,12 +1374,12 @@ export default function V2HomePage() {
                 </li>
               </ul>
               <div className="cta">
-                <a className="btn primary lg" href="#">
+                <Link className="btn primary lg" href="/v2/setup">
                   <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
-                </a>
-                <a className="btn ghost" href="#">
+                </Link>
+                <Link className="btn ghost" href="/v2/auth">
                   <Bi en="Sign in" ar="دخول" />
-                </a>
+                </Link>
               </div>
               <div className="smallprint">
                 <Bi
@@ -1464,12 +1470,12 @@ export default function V2HomePage() {
                 </li>
               </ul>
               <div className="cta">
-                <a className="btn primary lg" href="#">
+                <Link className="btn primary lg" href="/v2/provider-setup">
                   <Bi en="Apply as provider →" ar="تقدّم كمزوّد ←" />
-                </a>
-                <a className="btn ghost" href="#">
+                </Link>
+                <Link className="btn ghost" href="/v2/provider/dashboard">
                   <Bi en="Provider dashboard" ar="لوحة المزوّد" />
-                </a>
+                </Link>
               </div>
               <div className="smallprint">
                 <Bi
@@ -1483,7 +1489,7 @@ export default function V2HomePage() {
       </section>
 
       {/* ═══════════════ PRICING SNAPSHOT ═══════════════ */}
-      <section>
+      <section id="pricing">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
@@ -1549,7 +1555,7 @@ export default function V2HomePage() {
                 </>
               )}
             </span>
-            <a className="btn ghost" href="#">
+            <a className="btn ghost" href="#pricing">
               <Bi en="See full pricing →" ar="عرض الأسعار كاملةً ←" />
             </a>
           </div>
@@ -1665,15 +1671,15 @@ export default function V2HomePage() {
             />
           </p>
           <div className="ctas">
-            <a className="btn primary lg" href="#">
+            <Link className="btn primary lg" href="/v2/setup">
               <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
-            </a>
+            </Link>
             <a className="btn ghost lg" href="#">
               <Bi en="Try the demo" ar="جرّب التجربة" />
             </a>
-            <a className="btn ghost lg" href="#">
+            <Link className="btn ghost lg" href="/v2/provider-setup">
               <Bi en="Or apply as provider" ar="أو تقدّم كمزوّد" />
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -1704,43 +1710,43 @@ export default function V2HomePage() {
           <div>
             <h4><Bi en="Product" ar="المنتج" /></h4>
             <ul>
-              <li><a href="/v2/home"><Bi en="Overview" ar="نظرة عامة" /></a></li>
+              <li><Link href="/v2/home"><Bi en="Overview" ar="نظرة عامة" /></Link></li>
               <li><a href="#marketplace"><Bi en="Marketplace" ar="السوق" /></a></li>
               <li><a href="#agents"><Bi en="Agents" ar="الوكلاء" /></a></li>
               <li><a href="#models"><Bi en="Models" ar="النماذج" /></a></li>
-              <li><a href="#"><Bi en="Pricing" ar="الأسعار" /></a></li>
+              <li><a href="#pricing"><Bi en="Pricing" ar="الأسعار" /></a></li>
             </ul>
           </div>
 
           <div>
             <h4><Bi en="Build" ar="البناء" /></h4>
             <ul>
-              <li><a href="#"><Bi en="API docs" ar="توثيق الواجهة" /></a></li>
+              <li><Link href="/v2/docs"><Bi en="API docs" ar="توثيق الواجهة" /></Link></li>
               <li><a href="#quickstart"><Bi en="Quick start" ar="بدء سريع" /></a></li>
-              <li><a href="#"><Bi en="Get an API key" ar="احصل على مفتاح" /></a></li>
-              <li><a href="#"><Bi en="Playground" ar="بيئة الاختبار" /></a></li>
+              <li><Link href="/v2/setup"><Bi en="Get an API key" ar="احصل على مفتاح" /></Link></li>
+              <li><Link href="/v2/renter/playground"><Bi en="Playground" ar="بيئة الاختبار" /></Link></li>
             </ul>
           </div>
 
           <div>
             <h4><Bi en="Renters" ar="المستخدمون" /></h4>
             <ul>
-              <li><a href="#"><Bi en="Sign up" ar="اشترك" /></a></li>
-              <li><a href="#"><Bi en="Sign in" ar="دخول" /></a></li>
-              <li><a href="#"><Bi en="Console" ar="لوحة التحكم" /></a></li>
-              <li><a href="#"><Bi en="Usage" ar="الاستخدام" /></a></li>
-              <li><a href="#"><Bi en="Wallet" ar="المحفظة" /></a></li>
-              <li><a href="#"><Bi en="Invoices" ar="الفواتير" /></a></li>
+              <li><Link href="/v2/setup"><Bi en="Sign up" ar="اشترك" /></Link></li>
+              <li><Link href="/v2/auth"><Bi en="Sign in" ar="دخول" /></Link></li>
+              <li><Link href="/v2/renter/dashboard"><Bi en="Console" ar="لوحة التحكم" /></Link></li>
+              <li><Link href="/v2/renter/usage"><Bi en="Usage" ar="الاستخدام" /></Link></li>
+              <li><Link href="/v2/renter/wallet"><Bi en="Wallet" ar="المحفظة" /></Link></li>
+              <li><Link href="/v2/renter/invoices"><Bi en="Invoices" ar="الفواتير" /></Link></li>
             </ul>
           </div>
 
           <div>
             <h4><Bi en="Providers" ar="المزوّدون" /></h4>
             <ul>
-              <li><a href="#"><Bi en="Provider console" ar="لوحة المزوّد" /></a></li>
-              <li><a href="#"><Bi en="Rigs" ar="الأجهزة" /></a></li>
-              <li><a href="#"><Bi en="Earnings" ar="الأرباح" /></a></li>
-              <li><a href="#"><Bi en="Payouts" ar="المدفوعات" /></a></li>
+              <li><Link href="/v2/provider/dashboard"><Bi en="Provider console" ar="لوحة المزوّد" /></Link></li>
+              <li><Link href="/v2/provider/rigs"><Bi en="Rigs" ar="الأجهزة" /></Link></li>
+              <li><Link href="/v2/provider/earnings"><Bi en="Earnings" ar="الأرباح" /></Link></li>
+              <li><Link href="/v2/provider/payouts"><Bi en="Payouts" ar="المدفوعات" /></Link></li>
               <li><a href="#"><Bi en="Tiers" ar="الفئات" /></a></li>
             </ul>
           </div>

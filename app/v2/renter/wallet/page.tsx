@@ -3,9 +3,10 @@
 // Ported from public/dcp-v2/prototypes/renter/Wallet.html (renter console · Wallet).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./wallet.css.
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './wallet.css'
 
 // ── Nav model (from renter-shell.js NAV) ───────────────────────────────
@@ -16,8 +17,8 @@ const NAV = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
       { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
-      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '#', bd: '3' },
-      { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '#' },
+      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
+      { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
   {
@@ -25,15 +26,15 @@ const NAV = [
     secAr: 'الإنفاق',
     items: [
       { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/v2/renter/wallet', bd: 'SAR' },
-      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '#' },
+      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/v2/renter/invoices' },
     ],
   },
   {
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
-      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '#', bd: '↗' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/renter/settings' },
+      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
@@ -114,12 +115,121 @@ const TX: Tx[] = [
   { t: '2w ago', tAr: 'قبل ٢ أ', d: 'USDC deposit · 0x7Fe3…', dAr: 'إيداع USDC · 0x7Fe3…', m: 'Base L2', mAr: 'Base L2', amt: 1000 },
 ]
 
+// ── Live shapes (match v1 /payments endpoints — see app/renter/billing/page.tsx) ─
+interface BalanceData {
+  balance_sar: number
+  balance_halala?: number
+  name?: string
+  email?: string
+}
+
+interface PaymentRecord {
+  payment_id: string
+  amount_sar: number
+  amount_halala?: number
+  status: string
+  source_type?: string
+  payment_method?: string
+  description?: string
+  created_at: string
+}
+
+interface HistoryResponse {
+  payments?: PaymentRecord[]
+  pagination?: { total: number; limit: number; offset: number }
+  summary?: { total_paid_sar?: number }
+}
+
+// Payment-method code → display label (mirrors v1 methodLabels).
+const METHOD_LABELS: Record<string, string> = {
+  creditcard: 'Card',
+  applepay: 'Apple Pay',
+  bank_transfer: 'Bank Transfer',
+  sandbox: 'Sandbox',
+}
+
+// Relative "Xy ago" string from an ISO timestamp (EN + AR variants).
+function relTime(iso: string): { en: string; ar: string } {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return { en: '—', ar: '—' }
+  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  const mins = Math.floor(secs / 60)
+  const hrs = Math.floor(mins / 60)
+  const days = Math.floor(hrs / 24)
+  const wks = Math.floor(days / 7)
+  if (wks >= 1) return { en: `${wks}w ago`, ar: `قبل ${wks} أ` }
+  if (days >= 1) return { en: `${days}d ago`, ar: `قبل ${days} ي` }
+  if (hrs >= 1) return { en: `${hrs}h ago`, ar: `قبل ${hrs} س` }
+  if (mins >= 1) return { en: `${mins}m ago`, ar: `قبل ${mins} د` }
+  return { en: 'just now', ar: 'الآن' }
+}
+
+// Map a v1 payment record → the Tx row shape this table renders.
+function paymentToTx(p: PaymentRecord): Tx {
+  const when = relTime(p.created_at)
+  const method =
+    METHOD_LABELS[p.payment_method || p.source_type || ''] || p.payment_method || p.source_type || 'Wallet'
+  const desc = p.description || `${p.payment_id} · ${p.status}`
+  // Top-up payments credit the wallet → positive; everything else shown as-is.
+  const amt = p.status === 'refunded' ? -Math.abs(p.amount_sar) : Math.abs(p.amount_sar)
+  return { t: when.en, tAr: when.ar, d: desc, dAr: desc, m: method, mAr: method, amt }
+}
+
 export default function RenterWalletPage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
   const [methodIdx, setMethodIdx] = useState(0)
   const [amountIdx, setAmountIdx] = useState(1) // SAR 500 selected by default
+
+  // ── Live data (balance + transactions). The inline mock above stays as the
+  // default render; a successful fetch overrides it. Null on no key / failure. ─
+  const [balanceSar, setBalanceSar] = useState<number | null>(null)
+  const [txRows, setTxRows] = useState<Tx[] | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    const headers = { 'x-renter-key': key }
+    const base = getApiBase()
+    let cancelled = false
+
+    // Available balance — /payments/balance returns { balance_sar, ... }
+    fetch(`${base}/payments/balance`, { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<BalanceData>) : null))
+      .then((d) => {
+        if (cancelled || !d) return
+        if (typeof d.balance_sar === 'number') setBalanceSar(d.balance_sar)
+      })
+      .catch(() => {})
+
+    // Transactions — /payments/history returns { payments: PaymentRecord[], ... }
+    fetch(`${base}/payments/history?limit=20&offset=0`, { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<HistoryResponse>) : null))
+      .then((d) => {
+        if (cancelled || !d?.payments?.length) return
+        setTxRows(d.payments.map(paymentToTx))
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Split a SAR amount into integer + ".dd" fraction for the styled balance display.
+  const balParts =
+    balanceSar !== null
+      ? (() => {
+          const [whole, frac = '00'] = balanceSar.toFixed(2).split('.')
+          return { whole: Number(whole).toLocaleString('en-US'), frac }
+        })()
+      : null
+
+  // Mock stays the default; real data overrides when available.
+  const rows = txRows ?? TX
 
   return (
     <div className="rt-app">
@@ -150,7 +260,16 @@ export default function RenterWalletPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            {balParts ? (
+              <>
+                SAR {balParts.whole}
+                <span className="u">.{balParts.frac}</span>
+              </>
+            ) : (
+              <>
+                SAR 2,184<span className="u">.52</span>
+              </>
+            )}
           </div>
           <div className="row">
             <span>
@@ -244,7 +363,7 @@ export default function RenterWalletPage() {
               ع
             </span>
           </button>
-          <Link className="keys" href="#">
+          <Link className="keys" href="/v2/renter/keys">
             ⚷ <Bi en="API keys" ar="مفاتيح API" />
           </Link>
         </header>
@@ -276,7 +395,16 @@ export default function RenterWalletPage() {
                   <Bi en="Available balance" ar="الرصيد المتاح" />
                 </div>
                 <div className="v">
-                  SAR 2,184<span className="u">.52</span>
+                  {balParts ? (
+                    <>
+                      SAR {balParts.whole}
+                      <span className="u">.{balParts.frac}</span>
+                    </>
+                  ) : (
+                    <>
+                      SAR 2,184<span className="u">.52</span>
+                    </>
+                  )}
                 </div>
                 <div className="d">
                   <Bi en="Of which " ar="منها " />
@@ -473,7 +601,7 @@ export default function RenterWalletPage() {
                 </h3>
               </div>
               <Link
-                href="#"
+                href="/v2/renter/invoices"
                 style={{
                   fontFamily: 'var(--mono)',
                   fontSize: '11px',
@@ -506,7 +634,7 @@ export default function RenterWalletPage() {
                 </tr>
               </thead>
               <tbody id="tx">
-                {TX.map((x, i) => (
+                {rows.map((x, i) => (
                   <tr key={`${x.t}-${i}`}>
                     <td>
                       <span className="mut">

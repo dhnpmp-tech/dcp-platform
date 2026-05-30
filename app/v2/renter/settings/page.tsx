@@ -3,10 +3,25 @@
 // Ported from public/dcp-v2/prototypes/renter/Settings.html (renter console · Settings).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./settings.css.
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './settings.css'
+
+// ── Fetched API shape (subset of v1 /renters/me) ───────────────────────
+interface RenterMe {
+  renter?: {
+    name?: string
+    email?: string
+    organization?: string
+    balance_halala?: number
+  }
+}
+
+// halala (integer cents) → SAR number
+const halToSar = (h: number) => h / 100
+const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 // ── Nav model (from renter-shell.js NAV) ───────────────────────────────
 const NAV = [
@@ -25,7 +40,7 @@ const NAV = [
     secAr: 'الإنفاق',
     items: [
       { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/v2/renter/wallet', bd: 'SAR' },
-      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '#' },
+      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/v2/renter/invoices' },
     ],
   },
   {
@@ -87,6 +102,50 @@ export default function RenterSettingsPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
 
+  // ── Live profile data (/renters/me). Mock stays as the default render;
+  // a successful fetch overrides it. Null on no key / failure. ───────────
+  const [balanceSar, setBalanceSar] = useState<number | null>(null)
+  const [ownerName, setOwnerName] = useState<string | null>(null)
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null)
+  const [orgName, setOrgName] = useState<string | null>(null)
+
+  // Editable form fields — seeded with the prototype mock so the page renders
+  // fully with no key, then overwritten by /renters/me on a successful fetch.
+  const [workspaceName, setWorkspaceName] = useState('NextWave Commerce')
+  const [legalName, setLegalName] = useState('NextWave Commerce LLC')
+  const [billingContact, setBillingContact] = useState('finance@nextwave.sa')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    const headers = { 'x-renter-key': key }
+    const base = getApiBase()
+    let cancelled = false
+
+    fetch(`${base}/renters/me`, { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<RenterMe>) : null))
+      .then((d) => {
+        if (cancelled || !d?.renter) return
+        const me = d.renter
+        if (typeof me.balance_halala === 'number') setBalanceSar(halToSar(me.balance_halala))
+        if (me.name) setOwnerName(me.name)
+        if (me.email) setOwnerEmail(me.email)
+        if (me.organization) {
+          setOrgName(me.organization)
+          setWorkspaceName(me.organization)
+          setLegalName(me.organization)
+        }
+        if (me.email) setBillingContact(me.email)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="rt-app">
       {/* ── Sidebar (inlined from renter-shell.js) ─────────────────── */}
@@ -104,7 +163,7 @@ export default function RenterSettingsPage() {
           <button className="rt-ws-btn" title="Switch workspace" type="button">
             <span className="av">N</span>
             <span className="body">
-              <span className="nm">NextWave Commerce</span>
+              <span className="nm">{orgName ?? 'NextWave Commerce'}</span>
               <span className="sub">acme-prod · 3 members</span>
             </span>
             <span className="chev">⌄</span>
@@ -116,7 +175,16 @@ export default function RenterSettingsPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            {balanceSar != null ? (
+              <>
+                SAR {numFmt.format(Math.floor(balanceSar))}
+                <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
+              </>
+            ) : (
+              <>
+                SAR 2,184<span className="u">.52</span>
+              </>
+            )}
           </div>
           <div className="row">
             <span>
@@ -163,10 +231,10 @@ export default function RenterSettingsPage() {
         </nav>
 
         <div className="rt-sb-foot">
-          <div className="av">F</div>
+          <div className="av">{(ownerName ?? 'Fatima Al-Harbi').charAt(0)}</div>
           <div className="who">
-            Fatima Al-Harbi
-            <span className="e">fatima@nextwave.sa · Owner</span>
+            {ownerName ?? 'Fatima Al-Harbi'}
+            <span className="e">{ownerEmail ?? 'fatima@nextwave.sa'} · Owner</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -193,7 +261,7 @@ export default function RenterSettingsPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>NextWave Commerce</span>
+            <span>{orgName ?? 'NextWave Commerce'}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Settings" ar="الإعدادات" />
@@ -238,7 +306,7 @@ export default function RenterSettingsPage() {
             </span>
             <span>
               <Bi en="Owner " ar="المالك " />
-              <b>Fatima Al-Harbi</b>
+              <b>{ownerName ?? 'Fatima Al-Harbi'}</b>
             </span>
           </div>
 
@@ -259,7 +327,12 @@ export default function RenterSettingsPage() {
                 <Bi en="Visible to everyone in the workspace" ar="مرئي لكل أعضاء مساحة العمل" />
               </div>
               <div className="ctl">
-                <input className="input" type="text" defaultValue="NextWave Commerce" />
+                <input
+                  className="input"
+                  type="text"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                />
               </div>
               <div className="lbl">
                 <b>
@@ -315,7 +388,12 @@ export default function RenterSettingsPage() {
                 <Bi en="As shown on invoices" ar="كما يظهر على الفواتير" />
               </div>
               <div className="ctl">
-                <input className="input" type="text" defaultValue="NextWave Commerce LLC" />
+                <input
+                  className="input"
+                  type="text"
+                  value={legalName}
+                  onChange={(e) => setLegalName(e.target.value)}
+                />
               </div>
               <div className="lbl">
                 <b>
@@ -360,7 +438,12 @@ export default function RenterSettingsPage() {
                 <Bi en="Where to send invoices" ar="إلى أين تُرسل الفواتير" />
               </div>
               <div className="ctl">
-                <input className="input" type="email" defaultValue="finance@nextwave.sa" />
+                <input
+                  className="input"
+                  type="email"
+                  value={billingContact}
+                  onChange={(e) => setBillingContact(e.target.value)}
+                />
               </div>
             </div>
           </div>

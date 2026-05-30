@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './payouts.css'
 
 /* ════════════════════════════════════════
@@ -16,7 +17,7 @@ const NAV = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Dashboard', labelAr: 'لوحة التحكم', href: '/v2/provider/dashboard' },
       { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs', bd: '4' },
-      { k: 'earnings', ic: '△', label: 'Earnings', labelAr: 'الأرباح', href: '#' },
+      { k: 'earnings', ic: '△', label: 'Earnings', labelAr: 'الأرباح', href: '/v2/provider/earnings' },
       { k: 'payouts', ic: '₪', label: 'Payouts', labelAr: 'المدفوعات', href: '/v2/provider/payouts', bd: 'SAR' },
     ],
   },
@@ -24,39 +25,98 @@ const NAV = [
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف', href: '#', bd: 'Silver' },
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
-      { k: 'docs', ic: '?', label: 'Provider docs', labelAr: 'دليل المزوّد', href: '#', bd: '↗' },
+      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف', href: '/v2/provider/profile', bd: 'Silver' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/provider/settings' },
+      { k: 'docs', ic: '?', label: 'Provider docs', labelAr: 'دليل المزوّد', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
 
 const CURRENT = 'payouts'
 
-/* Payouts history — illustrative mock data from the prototype */
+/* Payouts history — illustrative mock data from the prototype.
+   `statClass` selects the CSS swatch (.stat.paid / .stat.accruing); `status`
+   is the human label shown in the cell — real withdrawal states (pending /
+   processing / failed) keep their own label but reuse the .accruing swatch. */
 type Payout = {
   period: string
   mode: string
   sar: number
-  status: 'accruing' | 'paid'
+  status: string
+  statClass: 'accruing' | 'paid'
   date: string
   inv: string | null
 }
 
 const PAYOUTS: Payout[] = [
-  { period: 'Dec 02 – Dec 08', mode: 'Bank · SAR', sar: 428, status: 'accruing', date: '—', inv: null },
-  { period: 'Nov 25 – Dec 01', mode: 'Bank · SAR', sar: 1482, status: 'paid', date: '2 Dec 2025', inv: 'INV-2025-49' },
-  { period: 'Nov 18 – Nov 24', mode: 'Bank · SAR', sar: 1284, status: 'paid', date: '25 Nov 2025', inv: 'INV-2025-48' },
-  { period: 'Nov 11 – Nov 17', mode: 'Bank · SAR', sar: 1164, status: 'paid', date: '18 Nov 2025', inv: 'INV-2025-47' },
-  { period: 'Nov 04 – Nov 10', mode: 'Bank · SAR', sar: 982, status: 'paid', date: '11 Nov 2025', inv: 'INV-2025-46' },
-  { period: 'Oct 28 – Nov 03', mode: 'Bank · SAR', sar: 914, status: 'paid', date: '4 Nov 2025', inv: 'INV-2025-45' },
-  { period: 'Oct 21 – Oct 27', mode: 'Bank · SAR', sar: 1058, status: 'paid', date: '28 Oct 2025', inv: 'INV-2025-44' },
-  { period: 'Oct 14 – Oct 20', mode: 'Bank · SAR', sar: 1124, status: 'paid', date: '21 Oct 2025', inv: 'INV-2025-43' },
-  { period: 'Oct 07 – Oct 13', mode: 'Bank · SAR', sar: 892, status: 'paid', date: '14 Oct 2025', inv: 'INV-2025-42' },
-  { period: 'Sep 30 – Oct 06', mode: 'Bank · SAR', sar: 786, status: 'paid', date: '7 Oct 2025', inv: 'INV-2025-41' },
-  { period: 'Sep 23 – Sep 29', mode: 'Bank · SAR', sar: 824, status: 'paid', date: '30 Sep 2025', inv: 'INV-2025-40' },
-  { period: 'Sep 16 – Sep 22', mode: 'Bank · SAR', sar: 942, status: 'paid', date: '23 Sep 2025', inv: 'INV-2025-39' },
+  { period: 'Dec 02 – Dec 08', mode: 'Bank · SAR', sar: 428, status: 'accruing', statClass: 'accruing', date: '—', inv: null },
+  { period: 'Nov 25 – Dec 01', mode: 'Bank · SAR', sar: 1482, status: 'paid', statClass: 'paid', date: '2 Dec 2025', inv: 'INV-2025-49' },
+  { period: 'Nov 18 – Nov 24', mode: 'Bank · SAR', sar: 1284, status: 'paid', statClass: 'paid', date: '25 Nov 2025', inv: 'INV-2025-48' },
+  { period: 'Nov 11 – Nov 17', mode: 'Bank · SAR', sar: 1164, status: 'paid', statClass: 'paid', date: '18 Nov 2025', inv: 'INV-2025-47' },
+  { period: 'Nov 04 – Nov 10', mode: 'Bank · SAR', sar: 982, status: 'paid', statClass: 'paid', date: '11 Nov 2025', inv: 'INV-2025-46' },
+  { period: 'Oct 28 – Nov 03', mode: 'Bank · SAR', sar: 914, status: 'paid', statClass: 'paid', date: '4 Nov 2025', inv: 'INV-2025-45' },
+  { period: 'Oct 21 – Oct 27', mode: 'Bank · SAR', sar: 1058, status: 'paid', statClass: 'paid', date: '28 Oct 2025', inv: 'INV-2025-44' },
+  { period: 'Oct 14 – Oct 20', mode: 'Bank · SAR', sar: 1124, status: 'paid', statClass: 'paid', date: '21 Oct 2025', inv: 'INV-2025-43' },
+  { period: 'Oct 07 – Oct 13', mode: 'Bank · SAR', sar: 892, status: 'paid', statClass: 'paid', date: '14 Oct 2025', inv: 'INV-2025-42' },
+  { period: 'Sep 30 – Oct 06', mode: 'Bank · SAR', sar: 786, status: 'paid', statClass: 'paid', date: '7 Oct 2025', inv: 'INV-2025-41' },
+  { period: 'Sep 23 – Sep 29', mode: 'Bank · SAR', sar: 824, status: 'paid', statClass: 'paid', date: '30 Sep 2025', inv: 'INV-2025-40' },
+  { period: 'Sep 16 – Sep 22', mode: 'Bank · SAR', sar: 942, status: 'paid', statClass: 'paid', date: '23 Sep 2025', inv: 'INV-2025-39' },
 ]
+
+// ── Real shapes fetched from the provider API (v1 endpoints reused) ─────
+// GET /api/providers/earnings → balance totals (halala-precise, in SAR)
+interface ProviderEarnings {
+  total_earned_sar: number
+  available_sar: number
+  pending_withdrawal_sar: number
+  withdrawn_sar: number
+}
+
+// GET /api/providers/me/withdrawals → { withdrawals: Withdrawal[] }
+interface Withdrawal {
+  id: string | number
+  amount_halala: number
+  status: string
+  iban: string
+  created_at: string
+  processed_at: string | null
+}
+
+const SAR_DATE = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+
+function formatPayoutDate(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : SAR_DATE.format(d)
+}
+
+// Withdrawal.status → display label + CSS swatch class. `paid` → teal swatch;
+// everything else (pending / approved / processing / failed / rejected) reuses
+// the orange .accruing swatch but keeps its own label.
+function mapWithdrawalStatus(status: string): { label: string; statClass: 'accruing' | 'paid' } {
+  return status === 'paid'
+    ? { label: 'paid', statClass: 'paid' }
+    : { label: status || 'accruing', statClass: 'accruing' }
+}
+
+// Map a real withdrawal into the table's Payout row shape. Withdrawals are a
+// single dated amount (not a billing period), so the period column shows the
+// request date and the amount is the withdrawn SAR.
+function withdrawalToPayout(w: Withdrawal): Payout {
+  const sar = (w.amount_halala || 0) / 100
+  const { label, statClass } = mapWithdrawalStatus(w.status)
+  return {
+    period: formatPayoutDate(w.created_at),
+    mode: 'Bank · SAR',
+    sar,
+    status: label,
+    statClass,
+    date: formatPayoutDate(w.processed_at),
+    inv: null,
+  }
+}
+
+const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const FREQ_OPTS = [
   { en: 'Daily', ar: 'يومي' },
@@ -86,6 +146,51 @@ export default function PayoutsPage() {
   // Withdraw + change-bank demo feedback (replaces prototype alert() calls)
   const [withdrawQueued, setWithdrawQueued] = useState(false)
   const [changingBank, setChangingBank] = useState(false)
+
+  // ── Real data (balance + payout history). The inline mock above renders by
+  // default so the page is fully populated with no key / on fetch failure;
+  // a successful fetch replaces it. Effect is cleaned up via `cancelled`.
+  const [availableSar, setAvailableSar] = useState<number | null>(null)
+  const [payouts, setPayouts] = useState<Payout[]>(PAYOUTS)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    let cancelled = false
+    const base = getApiBase()
+    const headers = { 'x-provider-key': key }
+
+    async function load() {
+      try {
+        const [earningsRes, withdrawalsRes] = await Promise.all([
+          fetch(`${base}/providers/earnings`, { headers }),
+          fetch(`${base}/providers/me/withdrawals`, { headers }),
+        ])
+
+        if (!cancelled && earningsRes.ok) {
+          const data: ProviderEarnings = await earningsRes.json()
+          if (typeof data.available_sar === 'number') setAvailableSar(data.available_sar)
+        }
+
+        if (!cancelled && withdrawalsRes.ok) {
+          const data: { withdrawals?: Withdrawal[] } = await withdrawalsRes.json()
+          const rows = (data.withdrawals || []).map(withdrawalToPayout)
+          if (rows.length > 0) setPayouts(rows)
+        }
+      } catch {
+        // Keep the mock fallback already in state.
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const balanceLabel = availableSar !== null ? `SAR ${sarFmt.format(availableSar)}` : 'SAR 428.40'
 
   return (
     <div className="pv-app">
@@ -204,7 +309,7 @@ export default function PayoutsPage() {
                 <div className="k">
                   <Bi en="Available balance · ready to pay out" ar="الرصيد المتاح · جاهز للصرف" />
                 </div>
-                <div className="v">SAR 428.40</div>
+                <div className="v">{balanceLabel}</div>
                 <div className="d">
                   <Bi en="Accrued from " ar="متراكم من " />
                   <b>
@@ -509,7 +614,7 @@ export default function PayoutsPage() {
                   <Bi en="Last 12 cycles · download any invoice" ar="آخر 12 دورة · حمّل أي فاتورة" />
                 </div>
               </div>
-              <Link href="#" style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink)', borderBottom: '1px solid var(--ink)', paddingBottom: '2px' }}>
+              <Link href="/v2/provider/earnings" style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink)', borderBottom: '1px solid var(--ink)', paddingBottom: '2px' }}>
                 <Bi en="View earnings →" ar="عرض الأرباح ←" />
               </Link>
             </div>
@@ -537,8 +642,8 @@ export default function PayoutsPage() {
                 </tr>
               </thead>
               <tbody>
-                {PAYOUTS.map((p) => (
-                  <tr key={p.period}>
+                {payouts.map((p, i) => (
+                  <tr key={`${p.period}-${i}`}>
                     <td>
                       <span className="period">{p.period}</span>
                     </td>
@@ -552,8 +657,14 @@ export default function PayoutsPage() {
                       </span>
                     </td>
                     <td>
-                      <span className={`stat ${p.status}`}>
-                        {p.status === 'paid' ? <Bi en="paid" ar="مدفوعة" /> : <Bi en="accruing" ar="متراكمة" />}
+                      <span className={`stat ${p.statClass}`}>
+                        {p.status === 'paid' ? (
+                          <Bi en="paid" ar="مدفوعة" />
+                        ) : p.status === 'accruing' ? (
+                          <Bi en="accruing" ar="متراكمة" />
+                        ) : (
+                          p.status
+                        )}
                       </span>
                     </td>
                     <td>

@@ -4,8 +4,9 @@
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./usage.css.
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './usage.css'
 
 // ── Nav model (from renter-shell.js NAV) ───────────────────────────────
@@ -16,7 +17,7 @@ const NAV = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
       { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
-      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '#', bd: '3' },
+      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
       { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
@@ -24,16 +25,16 @@ const NAV = [
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '#', bd: 'SAR' },
-      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '#' },
+      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/v2/renter/wallet', bd: 'SAR' },
+      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/v2/renter/invoices' },
     ],
   },
   {
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
-      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '#', bd: '↗' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/renter/settings' },
+      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
@@ -83,10 +84,130 @@ const JOBS: Job[] = [
 
 const numFmt = new Intl.NumberFormat('en-US')
 
+// ── Live data shapes (from GET /api/renters/me — see app/renter/jobs) ───
+interface ApiJob {
+  id: number
+  job_id: string
+  job_type: string
+  status: string
+  submitted_at: string
+  completed_at: string | null
+  actual_cost_halala: number | null
+}
+
+interface RenterMe {
+  renter?: {
+    name?: string
+    balance_halala?: number
+    total_spent_halala?: number
+    total_jobs?: number
+  }
+  recent_jobs?: ApiJob[]
+}
+
+// Header summary mirrors the inline mock so values render before/without a key.
+interface UsageSummary {
+  jobs: string
+  spend: string
+  avg: string
+}
+
+const DEFAULT_SUMMARY: UsageSummary = { jobs: '14,820', spend: 'SAR 2,456', avg: 'SAR 0.17' }
+const DEFAULT_BALANCE = { whole: 'SAR 2,184', cents: '.52' }
+
+// Map a backend `status` onto the prototype's job-status vocabulary so the
+// existing `.stat .settled / .failed` styling keeps working.
+function mapStatus(status: string): string {
+  const s = (status || '').toLowerCase()
+  if (s === 'failed' || s === 'error' || s === 'cancelled' || s === 'canceled') return 'failed'
+  return 'settled'
+}
+
+function clockTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+function latencyMs(submitted: string, completed: string | null): number {
+  if (!completed) return 0
+  const start = new Date(submitted).getTime()
+  const end = new Date(completed).getTime()
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0
+  return end - start
+}
+
+function mapJob(j: ApiJob): Job {
+  return {
+    t: clockTime(j.submitted_at),
+    id: j.job_id || `j_${j.id}`,
+    model: j.job_type || '—',
+    key: '—',
+    tok: 0,
+    sar: (j.actual_cost_halala || 0) / 100,
+    stat: mapStatus(j.status),
+    ms: latencyMs(j.submitted_at, j.completed_at),
+  }
+}
+
+const sarFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
 export default function RenterUsagePage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
+
+  // Primary data: header totals, wallet balance, and the jobs table. The inline
+  // mock stays as the default so the page renders fully with no key / failed fetch.
+  const [summary, setSummary] = useState<UsageSummary>(DEFAULT_SUMMARY)
+  const [balance, setBalance] = useState(DEFAULT_BALANCE)
+  const [jobs, setJobs] = useState<Job[]>(JOBS)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/renters/me`, { headers: { 'x-renter-key': key } })
+        if (!res.ok) return
+        const data: RenterMe = await res.json()
+        if (cancelled) return
+
+        const r = data.renter
+        if (r) {
+          const totalJobs = r.total_jobs ?? 0
+          const spentSar = (r.total_spent_halala ?? 0) / 100
+          setSummary({
+            jobs: numFmt.format(totalJobs),
+            spend: `SAR ${sarFmt.format(spentSar)}`,
+            avg: totalJobs > 0 ? `SAR ${(spentSar / totalJobs).toFixed(2)}` : 'SAR 0.00',
+          })
+
+          const balSar = (r.balance_halala ?? 0) / 100
+          const whole = Math.trunc(balSar)
+          const cents = Math.round((balSar - whole) * 100)
+          setBalance({
+            whole: `SAR ${numFmt.format(whole)}`,
+            cents: `.${String(cents).padStart(2, '0')}`,
+          })
+        }
+
+        const live = data.recent_jobs
+        if (Array.isArray(live) && live.length > 0) {
+          setJobs(live.map(mapJob))
+        }
+      } catch {
+        // Keep the inline mock as the rendered fallback.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Filter controls are cosmetic in the prototype (no filtering script); keep them
   // as controlled inputs so the page is interactive without changing the mock data.
@@ -124,7 +245,8 @@ export default function RenterUsagePage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            {balance.whole}
+            <span className="u">{balance.cents}</span>
           </div>
           <div className="row">
             <span>
@@ -228,7 +350,7 @@ export default function RenterUsagePage() {
               ع
             </span>
           </button>
-          <Link className="keys" href="#">
+          <Link className="keys" href="/v2/renter/keys">
             ⚷ <Bi en="API keys" ar="مفاتيح API" />
           </Link>
         </header>
@@ -254,13 +376,13 @@ export default function RenterUsagePage() {
               <div className="rt-h1-sub">
                 <span>
                   <Bi en="30 days · " ar="٣٠ يوم · " />
-                  <b>14,820</b> <Bi en="jobs" ar="مهمة" />
+                  <b>{summary.jobs}</b> <Bi en="jobs" ar="مهمة" />
                 </span>
                 <span>
-                  <Bi en="Spend" ar="الإنفاق" /> <b>SAR 2,456</b>
+                  <Bi en="Spend" ar="الإنفاق" /> <b>{summary.spend}</b>
                 </span>
                 <span>
-                  <Bi en="Avg" ar="المتوسط" /> <b>SAR 0.17</b> <Bi en="/ job" ar="/ مهمة" />
+                  <Bi en="Avg" ar="المتوسط" /> <b>{summary.avg}</b> <Bi en="/ job" ar="/ مهمة" />
                 </span>
               </div>
             </div>
@@ -412,7 +534,7 @@ export default function RenterUsagePage() {
                 </tr>
               </thead>
               <tbody id="jobs-body">
-                {JOBS.map((j) => (
+                {jobs.map((j) => (
                   <tr key={j.id}>
                     <td>
                       <span className="mut">{j.t}</span>

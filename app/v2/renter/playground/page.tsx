@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './playground.css'
 
 // ── Mock data (illustrative, from the prototype) ──────────────
@@ -39,20 +40,40 @@ const NAV: NavSection[] = [
     sec: 'Account',
     items: [
       { k: 'settings', ic: '⚙', label: 'Settings', href: '/v2/renter/settings' },
-      { k: 'docs', ic: '?', label: 'Docs', href: '#', bd: '↗' },
+      { k: 'docs', ic: '?', label: 'Docs', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
 
 const CURRENT_PAGE = 'pg'
 
-const MODELS = [
+interface ModelOption {
+  id: string
+  name: string
+  price?: string
+}
+
+// Fallback model list (illustrative, from the prototype). Replaced at runtime
+// by the live catalog when /v1/models is reachable.
+const MODELS: ModelOption[] = [
   { id: 'allam-7b', name: 'allam-7b', price: '↻' },
   { id: 'jais-13b', name: 'jais-13b' },
   { id: 'falcon-h1-7b', name: 'falcon-h1-7b' },
   { id: 'bge-m3', name: 'bge-m3' },
   { id: 'qwen-2.5-72b', name: 'qwen-2.5-72b' },
 ]
+
+// Shape returned by the OpenAI-compatible /v1/models endpoint (subset).
+interface CatalogModelRaw {
+  id?: string
+  model_id?: string
+  name?: string
+  display_name?: string
+  provider_count?: number
+}
+
+// Default wallet balance shown before/without a live fetch (SAR).
+const FALLBACK_BALANCE_SAR = 2184.52
 
 const SAMPLE_RTL_STYLE: CSSProperties = {
   padding: '10px 12px',
@@ -122,11 +143,15 @@ export default function PlaygroundPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── playground controls ──
+  const [models, setModels] = useState<ModelOption[]>(MODELS)
   const [model, setModel] = useState('allam-7b')
   const [tempRaw, setTempRaw] = useState(7) // 0..20 -> /10
   const [maxTokens, setMaxTokens] = useState(1024)
   const [topPRaw, setTopPRaw] = useState(100) // 0..100 -> /100
   const [stream, setStream] = useState(true)
+
+  // ── wallet balance (real when a renter key is present, else mock) ──
+  const [balanceSar, setBalanceSar] = useState<number>(FALLBACK_BALANCE_SAR)
 
   const [draft, setDraft] = useState('ما الفرق بين زكاة المال وزكاة الفطر؟')
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES)
@@ -136,9 +161,16 @@ export default function PlaygroundPage() {
   const maxTokensLabel = maxTokens.toLocaleString('en-US')
 
   const selectedModelName = useMemo(
-    () => MODELS.find((m) => m.id === model)?.name ?? model,
-    [model],
+    () => models.find((m) => m.id === model)?.name ?? model,
+    [models, model],
   )
+
+  // Wallet balance split into whole + .fraction parts (matches the markup).
+  const balanceWhole = Math.floor(balanceSar)
+  const balanceFraction = Math.round((balanceSar - balanceWhole) * 100)
+    .toString()
+    .padStart(2, '0')
+  const balanceWholeLabel = balanceWhole.toLocaleString('en-US')
 
   function send() {
     const text = draft.trim()
@@ -186,6 +218,79 @@ export default function PlaygroundPage() {
     return () => window.clearInterval(id)
   }, [])
 
+  // ── live model catalog (OpenAI-compatible /v1/models, same source as v1) ──
+  // Falls back to the prototype MODELS list when the endpoint is unreachable.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('https://api.dcp.sa/v1/models')
+        if (!res.ok) return
+        const data: unknown = await res.json()
+        const raw = ((): CatalogModelRaw[] => {
+          if (Array.isArray(data)) return data as CatalogModelRaw[]
+          const obj = data as { data?: unknown; models?: unknown }
+          if (Array.isArray(obj.data)) return obj.data as CatalogModelRaw[]
+          if (Array.isArray(obj.models)) return obj.models as CatalogModelRaw[]
+          return []
+        })()
+        const mapped: ModelOption[] = raw
+          .map((m) => ({
+            id: m.id || m.model_id || '',
+            name: m.name || m.display_name || m.id || m.model_id || '',
+            // Reuse the existing "available" affordance (↻) for online models.
+            price: (m.provider_count ?? 0) > 0 ? '↻' : undefined,
+          }))
+          .filter((m) => m.id !== '')
+          // Online models first, then alphabetical (mirrors v1 sort).
+          .sort((a, b) => {
+            const ao = a.price ? 1 : 0
+            const bo = b.price ? 1 : 0
+            if (ao !== bo) return bo - ao
+            return a.name.localeCompare(b.name)
+          })
+        if (cancelled || mapped.length === 0) return
+        setModels(mapped)
+        // Keep current selection if still present, else pick first online/model.
+        setModel((prev) => {
+          if (mapped.some((m) => m.id === prev)) return prev
+          const firstOnline = mapped.find((m) => m.price)
+          return (firstOnline ?? mapped[0]).id
+        })
+      } catch {
+        // Silently keep the fallback MODELS list.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ── real wallet balance (renter key required, else keep mock) ──
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/renters/me?key=${encodeURIComponent(key)}`, {
+          headers: { 'x-renter-key': key },
+        })
+        if (!res.ok) return
+        const data: { renter?: { balance_halala?: number } } = await res.json()
+        const halala = data.renter?.balance_halala
+        if (cancelled || halala == null) return
+        setBalanceSar(halala / 100)
+      } catch {
+        // Silently keep the fallback balance.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="rt-app">
       {/* ── Sidebar (from renter-shell.js template) ── */}
@@ -211,7 +316,7 @@ export default function PlaygroundPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            SAR {balanceWholeLabel}<span className="u">.{balanceFraction}</span>
           </div>
           <div className="row">
             <span>
@@ -319,7 +424,7 @@ export default function PlaygroundPage() {
                   <Bi en="Model" ar="النموذج" />
                 </h4>
                 <div className="model-pick">
-                  {MODELS.map((m) => (
+                  {models.map((m) => (
                     <label key={m.id}>
                       <input
                         type="radio"

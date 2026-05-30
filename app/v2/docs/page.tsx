@@ -20,15 +20,15 @@ export default function DocsPage() {
   return (
     <>
       <header className="dx-top">
-        <Link href="/v2" className="wm">
+        <Link href="/v2/home" className="wm">
           DCP<i>∞</i><span className="tag">Docs</span>
         </Link>
         <div className="search">
           <input type="search" placeholder={lang === 'ar' ? 'ابحث في التوثيق…  /' : 'Search the docs…  /'} />
         </div>
         <div className="links">
-          <Link href="/v2"><Bi en="Home" ar="الرئيسية" /></Link>
-          <a href="#"><Bi en="Console" ar="لوحة التحكم" /></a>
+          <Link href="/v2/home"><Bi en="Home" ar="الرئيسية" /></Link>
+          <Link href="/v2/auth"><Bi en="Console" ar="لوحة التحكم" /></Link>
           <a href="#"><Bi en="API status" ar="حالة الواجهة" /></a>
           <button
             type="button"
@@ -153,7 +153,7 @@ resp = client.chat.completions.create(
               en=" header. Create and manage keys in the console under "
               ar=". أنشئ المفاتيح وأدِرها في وحدة التحكم ضمن "
             />
-            <a className="ln" href="#"><Bi en="API keys" ar="مفاتيح الواجهة" /></a>
+            <Link className="ln" href="/v2/renter/keys"><Bi en="API keys" ar="مفاتيح الواجهة" /></Link>
             <Bi
               en=". Keys are scoped per workspace; use a separate key per service so you can revoke one without affecting the rest."
               ar=". المفاتيح مقيّدة لكل مساحة عمل؛ استخدم مفتاحاً منفصلاً لكل خدمة حتى تتمكن من إبطال أحدها دون التأثير على البقية."
@@ -171,15 +171,15 @@ resp = client.chat.completions.create(
           <ul>
             <li>
               <Bi en="Balance and burn rate live in " ar="الرصيد ومعدل الاستهلاك في " />
-              <a className="ln" href="#"><Bi en="Wallet" ar="المحفظة" /></a>.
+              <Link className="ln" href="/v2/renter/wallet"><Bi en="Wallet" ar="المحفظة" /></Link>.
             </li>
             <li>
               <Bi en="Per-job cost and history live in " ar="تكلفة كل مهمة وسجلها في " />
-              <a className="ln" href="#"><Bi en="Usage" ar="الاستخدام" /></a>.
+              <Link className="ln" href="/v2/renter/usage"><Bi en="Usage" ar="الاستخدام" /></Link>.
             </li>
             <li>
               <Bi en="Monthly ZATCA invoices are issued automatically under " ar="تُصدَر فواتير زاتكا الشهرية تلقائياً ضمن " />
-              <a className="ln" href="#"><Bi en="Invoices" ar="الفواتير" /></a>.
+              <Link className="ln" href="/v2/renter/invoices"><Bi en="Invoices" ar="الفواتير" /></Link>.
             </li>
           </ul>
 

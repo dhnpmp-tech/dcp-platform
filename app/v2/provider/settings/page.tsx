@@ -1,9 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './settings2.css'
+
+/* ── Live provider profile (GET /providers/me) — fields mirror v1 ── */
+interface ProviderProfile {
+  name?: string
+  email?: string
+  status?: string
+}
+interface ProviderMeResponse {
+  provider?: ProviderProfile
+}
+
+/* Mock identity defaults from the prototype — kept as fallbacks so the page
+   renders fully with no key / on fetch failure. */
+const MOCK_NAME = 'Yazeed Al-Qahtani'
+const MOCK_SCOPE = 'riyadh-studio-01'
+const MOCK_EMAIL = 'yazeed@example.sa'
 
 /* ── Nav model (derived from provider-shell.js, mapped to /v2 routes) ── */
 interface NavItem {
@@ -48,6 +65,11 @@ export default function ProviderSettingsPage() {
   const { lang, toggle } = useV2()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // ── Live provider identity (falls back to prototype mock values) ──
+  const [providerName, setProviderName] = useState(MOCK_NAME)
+  const [providerEmail, setProviderEmail] = useState(MOCK_EMAIL)
+  const [providerScope, setProviderScope] = useState(MOCK_SCOPE)
+
   // ── Controlled form state (illustrative MOCK defaults from the prototype) ──
   const [acceptJobs, setAcceptJobs] = useState(true)
   const [quietFrom, setQuietFrom] = useState('00:00')
@@ -66,6 +88,48 @@ export default function ProviderSettingsPage() {
   const [notifPayout, setNotifPayout] = useState(true)
   const [notifNewModel, setNotifNewModel] = useState(false)
   const [notifMarketing, setNotifMarketing] = useState(false)
+
+  // ── Load the real provider profile (same endpoint + shape as v1 settings) ──
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    let active = true
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `${getApiBase()}/providers/me?key=${encodeURIComponent(key)}`,
+          { signal: controller.signal },
+        )
+        if (!res.ok) return
+        const data: ProviderMeResponse = await res.json()
+        const p = data.provider
+        if (!active || !p) return
+        if (p.name) {
+          setProviderName(p.name)
+          setProviderScope(p.name)
+        }
+        if (p.email) setProviderEmail(p.email)
+        if (p.status) {
+          const online = p.status.toLowerCase()
+          setAcceptJobs(online === 'online' || online === 'active' || online === 'live')
+        }
+      } catch {
+        /* keep mock fallbacks on error/abort */
+      }
+    }
+
+    load()
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [])
+
+  const providerInitial = (providerName.trim()[0] || 'Y').toUpperCase()
 
   return (
     <div className="pv-app">
@@ -123,10 +187,10 @@ export default function ProviderSettingsPage() {
         </nav>
 
         <div className="pv-sb-foot">
-          <div className="av">Y</div>
+          <div className="av">{providerInitial}</div>
           <div className="who">
-            Yazeed Al-Qahtani
-            <span className="e">riyadh-studio-01 · Silver</span>
+            {providerName}
+            <span className="e">{providerScope} · Silver</span>
           </div>
           <span className="out" title="Sign out">↱</span>
         </div>
@@ -151,7 +215,7 @@ export default function ProviderSettingsPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>riyadh-studio-01</span>
+            <span>{providerScope}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Settings" ar="الإعدادات" />
@@ -370,7 +434,8 @@ export default function ProviderSettingsPage() {
             <div className="form-grid">
               <div className="lbl">
                 <b>
-                  <Bi en="Email · yazeed@example.sa" ar="البريد · yazeed@example.sa" />
+                  <Bi en="Email · " ar="البريد · " />
+                  {providerEmail}
                 </b>
               </div>
               <div className="ctl">

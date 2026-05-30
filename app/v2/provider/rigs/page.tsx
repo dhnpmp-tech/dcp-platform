@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './rigs.css'
 
 // ── Provider shell nav (from provider-shell.js NAV template) ──
@@ -86,14 +87,102 @@ const STATUS_AR: Record<RigStatus, string> = {
   paused: 'متوقفة',
 }
 
+// ── Shape of the live provider returned by GET /providers/me. In v1 a provider
+// IS a single rig/node, so we fold the authenticated provider into the first
+// fleet row while keeping the remaining mock rows as illustrative fallback. ──
+interface ProviderGpuMetrics {
+  utilization_pct?: number
+  vram_used_mib?: number
+  temperature_c?: number
+}
+interface ProviderMe {
+  name?: string
+  status?: string
+  is_paused?: boolean
+  gpu_model?: string
+  gpu_vram_mib?: number
+  vram_mb?: number
+  total_jobs?: number
+  uptime_percent?: number
+  today_earnings_halala?: number
+  week_earnings_halala?: number
+  gpu_metrics?: ProviderGpuMetrics
+}
+interface ProviderMeResponse {
+  provider?: ProviderMe
+}
+
+// Map the backend provider status (+ pause flag) to the table's rig status.
+function toRigStatus(status: string | undefined, isPaused: boolean | undefined): RigStatus {
+  if (isPaused) return 'paused'
+  if (status === 'online' || status === 'earning') return 'earning'
+  if (status === 'idle') return 'idle'
+  return 'paused'
+}
+
+// Build a real rig from the live provider, preserving the mock row's shape so
+// columns the API does not expose (uptime string, per-day avg) stay rendered.
+function mergeProviderIntoRig(base: Rig, p: ProviderMe): Rig {
+  const vramMib = Number(p.gpu_vram_mib || 0)
+  const vramFromMb = Number(p.vram_mb || 0)
+  const vramGb = vramMib > 0 ? Math.round(vramMib / 1024) : vramFromMb > 0 ? Math.round(vramFromMb / 1024) : base.vram
+  const todaySar = Number(p.today_earnings_halala || 0) / 100
+  const weekSar = Math.round(Number(p.week_earnings_halala || 0) / 100)
+  return {
+    ...base,
+    name: p.name || base.name,
+    gpu: p.gpu_model || base.gpu,
+    vram: vramGb,
+    status: toRigStatus(p.status, p.is_paused),
+    util: Math.round(Number(p.gpu_metrics?.utilization_pct ?? base.util)),
+    temp: Math.round(Number(p.gpu_metrics?.temperature_c ?? base.temp)),
+    jobs: Number(p.total_jobs ?? base.jobs),
+    today: todaySar,
+    week: weekSar,
+  }
+}
+
 export default function ProviderRigsPage() {
   const { lang, toggle } = useV2()
   const [filter, setFilter] = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState('rig-01')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  // Seeded with the mock fleet so the page renders fully when there is no
+  // provider key or the fetch fails; replaced with live data on success.
+  const [rigs, setRigs] = useState<Rig[]>(RIGS)
 
-  const rows = RIGS.filter((r) => filter === 'all' || r.status === filter)
-  const selected = RIGS.find((r) => r.id === selectedId) ?? RIGS[0]
+  // Fold the authenticated provider (GET /providers/me) into the first fleet
+  // row. A provider is a single rig in v1, so the remaining rows stay mock.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    let cancelled = false
+    const controller = new AbortController()
+
+    fetch(`${getApiBase()}/providers/me`, {
+      headers: { 'x-provider-key': key },
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ProviderMeResponse | null) => {
+        const p = data?.provider
+        if (cancelled || !p) return
+        setRigs((prev) => prev.map((r, i) => (i === 0 ? mergeProviderIntoRig(r, p) : r)))
+      })
+      .catch(() => {
+        /* keep mock fallback on error / abort */
+      })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [])
+
+  const rows = rigs.filter((r) => filter === 'all' || r.status === filter)
+  const selected = rigs.find((r) => r.id === selectedId) ?? rigs[0]
 
   return (
     <div className="pv-app">

@@ -980,7 +980,7 @@ export default function V2ProviderSetup() {
                     </span>
                   </div>
                 </div>
-                <Link className="btn pri block" href="#" style={{ marginTop: 24 }}>
+                <Link className="btn pri block" href="/v2/provider/dashboard" style={{ marginTop: 24 }}>
                   <Bi en="Open my dashboard →" ar="افتح لوحتي →" />
                 </Link>
               </div>

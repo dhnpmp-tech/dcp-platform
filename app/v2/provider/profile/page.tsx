@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './profile.css'
 
 /* ════════ Provider nav (illustrative MOCK chrome) ════════ */
@@ -58,11 +59,38 @@ const INITIAL_PROFILE = {
 
 type ProfileState = typeof INITIAL_PROFILE
 
+/* ════════ GET /api/providers/me → { provider: {...} } (real fields) ════════ */
+interface ProviderMe {
+  name?: string | null
+  email?: string | null
+  region?: string | null
+  total_jobs?: number | null
+  uptime_percent?: number | null
+  created_at?: string | null
+  payout_iban?: string | null
+  payout_holder_name?: string | null
+  vat_number?: string | null
+}
+
+interface ProviderMeResponse {
+  provider?: ProviderMe
+}
+
+/* Initial tier/trust/jobs stats (illustrative MOCK; overlaid on real fetch) */
+const INITIAL_STATS = {
+  jobsThisMonth: 1862,
+  toNextTier: 638,
+  trust: 92,
+}
+
+type StatsState = typeof INITIAL_STATS
+
 export default function ProviderProfilePage() {
   const { lang, toggle } = useV2()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [form, setForm] = useState<ProfileState>(INITIAL_PROFILE)
+  const [stats, setStats] = useState<StatsState>(INITIAL_STATS)
   const [currency, setCurrency] = useState('sar')
 
   const update = (key: keyof ProfileState, value: string) =>
@@ -70,8 +98,56 @@ export default function ProviderProfilePage() {
 
   const discard = () => {
     setForm(INITIAL_PROFILE)
+    setStats(INITIAL_STATS)
     setCurrency('sar')
   }
+
+  /* Wire real identity + payout values from /providers/me. Mock stays as the
+     fallback so the page renders fully when there is no key / the fetch fails. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/providers/me?key=${encodeURIComponent(key)}`, {
+          headers: { 'x-provider-key': key },
+          signal: controller.signal,
+        })
+        if (!res.ok) return
+        const data: ProviderMeResponse = await res.json()
+        const p = data.provider
+        if (!p) return
+
+        setForm((prev) => ({
+          ...prev,
+          displayName: p.name ?? prev.displayName,
+          email: p.email ?? prev.email,
+          region: p.region ?? prev.region,
+          iban: p.payout_iban ?? prev.iban,
+          holder: p.payout_holder_name ?? p.name ?? prev.holder,
+          vat: p.vat_number ?? prev.vat,
+        }))
+
+        setStats((prev) => ({
+          ...prev,
+          jobsThisMonth: typeof p.total_jobs === 'number' ? p.total_jobs : prev.jobsThisMonth,
+          trust:
+            typeof p.uptime_percent === 'number' && p.uptime_percent > 0
+              ? Math.round(p.uptime_percent)
+              : prev.trust,
+        }))
+      } catch {
+        /* keep mock fallback on network / abort error */
+      }
+    }
+
+    void load()
+    return () => controller.abort()
+  }, [])
 
   return (
     <div className="pv-app">
@@ -204,7 +280,7 @@ export default function ProviderProfilePage() {
             </span>
             <span>
               <Bi en="Trust " ar="الثقة " />
-              <b>92</b>
+              <b>{stats.trust}</b>
             </span>
             <span>
               <Bi en="Joined Aug 2024" ar="انضم أغسطس 2024" />
@@ -228,9 +304,11 @@ export default function ProviderProfilePage() {
                   color: 'var(--mut)',
                 }}
               >
-                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>1,862</b>{' '}
+                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>
+                  {stats.jobsThisMonth.toLocaleString('en-US')}
+                </b>{' '}
                 <Bi en="jobs / month · " ar="مهمة / شهر · " />
-                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>638</b>{' '}
+                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>{stats.toNextTier}</b>{' '}
                 <Bi en="to next tier" ar="للفئة التالية" />
               </div>
             </div>

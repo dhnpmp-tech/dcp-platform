@@ -71,9 +71,14 @@ const nextConfig = {
     return {
       beforeFiles: v2Live
         ? [
-            // Flip the public marketing face to v2. Expand this list to flip more
-            // routes (e.g. /setup -> /v2/provider-setup) for a full-site cutover.
+            // Full public-site cutover: every public marketing/entry route serves
+            // its v2 equivalent. The authenticated consoles stay on v1 until the v2
+            // consoles are auth-gated (they remain reachable at /v2/* for preview).
             { source: '/', destination: '/v2/home' },
+            { source: '/setup', destination: '/v2/provider-setup' },
+            { source: '/login', destination: '/v2/auth' },
+            { source: '/renter/register', destination: '/v2/setup' },
+            { source: '/docs', destination: '/v2/docs' },
           ]
         : [],
       afterFiles: proxyRewrites,

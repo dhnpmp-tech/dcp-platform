@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './keys.css'
 
 // ── Nav model (from renter-shell.js NAV) ───────────────────────────────
@@ -15,25 +16,25 @@ const NAV = [
     secAr: 'البناء',
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
-      { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '#' },
+      { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
       { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
-      { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '#' },
+      { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
   {
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '#', bd: 'SAR' },
-      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '#' },
+      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/v2/renter/wallet', bd: 'SAR' },
+      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/v2/renter/invoices' },
     ],
   },
   {
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
-      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '#', bd: '↗' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/renter/settings' },
+      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
@@ -42,6 +43,7 @@ const CURRENT_PAGE = 'keys'
 
 // ── Existing keys mock data (illustrative; from prototype table) ────────
 interface KeyRow {
+  id?: string
   name: string
   prefix: string
   scope: 'full' | 'read' | 'none'
@@ -122,10 +124,79 @@ const KEYS: KeyRow[] = [
   },
 ]
 
+// ── Live API shape (GET /api/renters/me/keys → { keys: [...] }) ─────────
+interface ApiKey {
+  id: string
+  label: string | null
+  scopes: string[]
+  org_id?: string | null
+  org_role?: string | null
+  expires_at?: string | null
+  last_used_at?: string | null
+  created_at?: string | null
+  revoked?: boolean
+}
+
+interface KeysResponse {
+  keys?: ApiKey[]
+}
+
+// Format an ISO timestamp into a short, locale-aware date string. The list
+// endpoint doesn't return per-key 30d spend, so that column keeps its em-dash.
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return '—'
+  return new Date(t).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+// Derive the existing scope-pill style from the backend scopes array.
+// admin/billing → write-capable (full); inference-only → read.
+function deriveScope(scopes: string[], revoked: boolean): Pick<KeyRow, 'scope' | 'scopeLabel' | 'scopeLabelAr'> {
+  if (revoked) return { scope: 'none', scopeLabel: '—', scopeLabelAr: '—' }
+  const label = scopes.join(' · ') || 'inference'
+  if (scopes.includes('admin') || scopes.includes('billing')) {
+    return { scope: 'full', scopeLabel: `Full · ${label}`, scopeLabelAr: `كامل · ${label}` }
+  }
+  return { scope: 'read', scopeLabel: `Read · ${label}`, scopeLabelAr: `قراءة · ${label}` }
+}
+
+// Map a live API key into the row shape the table already renders. Fetched
+// (runtime) strings fill both en/ar so the existing <Bi> markup is unchanged.
+function toRow(k: ApiKey): KeyRow {
+  const revoked = Boolean(k.revoked)
+  const name = (k.label && k.label.trim()) || `key-${k.id.slice(0, 8)}`
+  const created = fmtDate(k.created_at)
+  const lastUsed = k.last_used_at ? fmtDate(k.last_used_at) : 'Never'
+  const lastUsedAr = k.last_used_at ? fmtDate(k.last_used_at) : 'لم يُستخدم'
+  return {
+    id: k.id,
+    name,
+    prefix: `dc1-sk-${k.id.slice(0, 4)}…${k.id.slice(-4)}`,
+    ...deriveScope(Array.isArray(k.scopes) ? k.scopes : [], revoked),
+    created,
+    createdAr: created,
+    lastUsed,
+    lastUsedAr,
+    spend: '—',
+    status: revoked ? 'revoked' : 'active',
+    statusLabel: revoked ? 'Revoked' : 'Active',
+    statusLabelAr: revoked ? 'ملغى' : 'نشط',
+    revoked,
+  }
+}
+
 export default function RenterKeysPage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
+  // Real keys replace the illustrative mock on a successful fetch; the mock is
+  // kept as the initial value so the page renders fully with no key / on error.
+  const [rows, setRows] = useState<KeyRow[]>(KEYS)
   const [showNewCard, setShowNewCard] = useState(false)
   const [copied, setCopied] = useState(false)
   const newCardRef = useRef<HTMLDivElement | null>(null)
@@ -140,6 +211,37 @@ export default function RenterKeysPage() {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     newCardRef.current.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' })
   }, [showNewCard])
+
+  // Fetch the renter's real scoped sub-keys. Guarded on window + a stored key;
+  // falls back to the inline mock on missing key / non-OK / network error.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/renters/me/keys`, {
+          headers: { 'x-renter-key': key },
+          signal: controller.signal,
+        })
+        if (!res.ok) return
+        const data: KeysResponse = await res.json()
+        if (controller.signal.aborted) return
+        if (Array.isArray(data.keys) && data.keys.length > 0) {
+          setRows(data.keys.map(toRow))
+        }
+      } catch {
+        /* keep mock fallback on network/parse error */
+      }
+    })()
+
+    return () => controller.abort()
+  }, [])
+
+  const activeCount = rows.filter((r) => r.status === 'active').length
+  const revokedCount = rows.filter((r) => r.status === 'revoked').length
 
   const handleCopy = () => {
     try {
@@ -307,10 +409,10 @@ export default function RenterKeysPage() {
               </h1>
               <div className="rt-h1-sub">
                 <span>
-                  <b>3</b> <Bi en="active keys" ar="مفاتيح نشطة" />
+                  <b>{activeCount}</b> <Bi en="active keys" ar="مفاتيح نشطة" />
                 </span>
                 <span>
-                  <b>1</b> <Bi en="revoked" ar="ملغى" />
+                  <b>{revokedCount}</b> <Bi en="revoked" ar="ملغى" />
                 </span>
                 <span>
                   <Bi en="Last used" ar="آخر استخدام" /> <b>
@@ -411,8 +513,8 @@ export default function RenterKeysPage() {
                 </tr>
               </thead>
               <tbody>
-                {KEYS.map((row) => (
-                  <tr key={row.name} style={row.revoked ? { opacity: 0.5 } : undefined}>
+                {rows.map((row) => (
+                  <tr key={row.id ?? row.name} style={row.revoked ? { opacity: 0.5 } : undefined}>
                     <td>
                       <span className="nm">{row.name}</span>
                       <span className="prefix">{row.prefix}</span>

@@ -73,7 +73,7 @@ export default function SetupPage() {
           <button className="lang-toggle" onClick={toggle}>
             {lang === 'ar' ? 'EN' : 'ع'}
           </button>
-          <Link href="#" className="skip">
+          <Link href="/v2/renter/dashboard" className="skip">
             <Bi en="Skip to console →" ar="تخطّي إلى الكونسول →" />
           </Link>
         </div>
@@ -243,7 +243,7 @@ export default function SetupPage() {
           <button className="btn-sec" onClick={() => go(3)}>
             <Bi en="← Back" ar="→ رجوع" />
           </button>
-          <Link className="btn-pri" href="#">
+          <Link className="btn-pri" href="/v2/renter/dashboard">
             <Bi en="Open the console →" ar="افتح الكونسول →" />
           </Link>
         </div>

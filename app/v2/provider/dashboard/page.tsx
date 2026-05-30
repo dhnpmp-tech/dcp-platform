@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './dashboard.css'
 
 /* ════════ Inline operator data (illustrative MOCK) ════════ */
@@ -20,6 +21,36 @@ interface Job {
   sar: number
   status: 'settled' | 'failed'
   when: string
+}
+
+/* ════════ API response shapes (v1 provider endpoints) ════════ */
+interface ApiProvider {
+  today_earnings_halala?: number
+  month_earnings_halala?: number
+  total_earnings_halala?: number
+}
+interface ApiMeResponse {
+  provider?: ApiProvider
+}
+interface ApiRecentJob {
+  job_id?: string
+  id?: string
+  job_type?: string
+  status?: string
+  earnings_halala?: number
+  completed_at?: string
+}
+interface ApiMetricsResponse {
+  recent_jobs?: ApiRecentJob[]
+}
+interface ApiDailyPoint {
+  day?: string
+  date?: string
+  earned_halala?: number
+  earnings_halala?: number
+}
+interface ApiDailyResponse {
+  daily?: ApiDailyPoint[]
 }
 
 const JOBS: Job[] = [
@@ -49,6 +80,50 @@ function buildEarn(): EarnPoint[] {
 
 function fmtSAR(n: number): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
+}
+
+// Human "Xm ago" / "Xh ago" from an ISO timestamp (for live job rows).
+function relTime(iso: string): string {
+  if (!iso) return ''
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return ''
+  const secs = Math.max(0, Math.round((Date.now() - t) / 1000))
+  if (secs < 60) return `${secs}s ago`
+  const mins = Math.round(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.round(hrs / 24)}d ago`
+}
+
+// Map a v1 earnings-daily payload onto the chart's EarnPoint[] (oldest first).
+function mapDaily(daily: ApiDailyPoint[]): EarnPoint[] {
+  return daily
+    .map((d) => {
+      const iso = d.day || d.date || ''
+      const date = iso ? new Date(iso) : new Date(NaN)
+      const halala = Number(d.earned_halala ?? d.earnings_halala ?? 0)
+      return { date, sar: Math.round(halala / 100) }
+    })
+    .filter((p) => !Number.isNaN(p.date.getTime()))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+}
+
+// Map a v1 recent_jobs payload onto the table's Job[] shape.
+function mapJobs(jobs: ApiRecentJob[]): Job[] {
+  return jobs.map((j) => {
+    const status = j.status === 'failed' || j.status === 'error' ? 'failed' : 'settled'
+    return {
+      id: String(j.job_id || j.id || ''),
+      rig: '—',
+      model: String(j.job_type || 'inference'),
+      renter: '—',
+      tok: 0,
+      sar: Number(j.earnings_halala ?? 0) / 100,
+      status,
+      when: relTime(String(j.completed_at || '')),
+    }
+  })
 }
 
 // ── Nav model (derived from provider-shell.js, mapped to /v2 routes) ──
@@ -101,14 +176,75 @@ const PAD_B = 22
 export default function ProviderDashboardPage() {
   const { lang, toggle } = useV2()
 
-  const earn = useMemo(() => buildEarn(), [])
+  // Earnings series + jobs default to the inline MOCK; real data replaces them on fetch.
+  const mockEarn = useMemo(() => buildEarn(), [])
+  const [earn, setEarn] = useState<EarnPoint[]>(mockEarn)
+  const [jobs, setJobs] = useState<Job[]>(JOBS)
   const [rangeDays, setRangeDays] = useState(30)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // live KPI jitter (cosmetic; gated by reduced-motion)
+  // KPI state — inline mock values are the fallback until a fetch lands.
   const [todaySar, setTodaySar] = useState(218)
+  const [monthSar, setMonthSar] = useState(5826)
+  const [lifetimeSar, setLifetimeSar] = useState(42180)
 
+  // Once real data loads, stop the cosmetic jitter so it doesn't fight live numbers.
+  const [liveLoaded, setLiveLoaded] = useState(false)
+
+  // ── Wire primary data: KPIs, 30D earnings series, recent jobs ──
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    let cancelled = false
+    const base = getApiBase()
+    const q = `key=${encodeURIComponent(key)}`
+
+    ;(async () => {
+      try {
+        const [meRes, metricsRes, dailyRes] = await Promise.all([
+          fetch(`${base}/providers/me?${q}`),
+          fetch(`${base}/providers/me/metrics?${q}`),
+          fetch(`${base}/providers/earnings-daily?${q}&days=30`),
+        ])
+        if (cancelled) return
+
+        if (meRes.ok) {
+          const me = (await meRes.json()) as ApiMeResponse
+          const p = me.provider || {}
+          if (!cancelled) {
+            if (typeof p.today_earnings_halala === 'number') setTodaySar(p.today_earnings_halala / 100)
+            if (typeof p.month_earnings_halala === 'number') setMonthSar(p.month_earnings_halala / 100)
+            if (typeof p.total_earnings_halala === 'number') setLifetimeSar(p.total_earnings_halala / 100)
+            setLiveLoaded(true)
+          }
+        }
+
+        if (metricsRes.ok && !cancelled) {
+          const m = (await metricsRes.json()) as ApiMetricsResponse
+          const mapped = mapJobs(m.recent_jobs || [])
+          if (!cancelled && mapped.length > 0) setJobs(mapped)
+        }
+
+        if (dailyRes.ok && !cancelled) {
+          const d = (await dailyRes.json()) as ApiDailyResponse
+          const mapped = mapDaily(d.daily || [])
+          if (!cancelled && mapped.length > 1) setEarn(mapped)
+        }
+      } catch {
+        /* keep mock fallback on any network/parse failure */
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // live KPI jitter (cosmetic; gated by reduced-motion + suspended once live data lands)
+  useEffect(() => {
+    if (liveLoaded) return
     const prefersReduced =
       typeof window !== 'undefined' &&
       window.matchMedia &&
@@ -123,7 +259,7 @@ export default function ProviderDashboardPage() {
       }
     }, 2600)
     return () => window.clearInterval(id)
-  }, [])
+  }, [liveLoaded])
 
   // ── chart math ──
   const days = useMemo(() => earn.slice(-rangeDays), [earn, rangeDays])
@@ -224,7 +360,7 @@ export default function ProviderDashboardPage() {
             <span>
               <Bi en="This month" ar="هذا الشهر" />
             </span>
-            <b>SAR 5,826</b>
+            <b>SAR {fmtSAR(monthSar)}</b>
           </div>
         </div>
 
@@ -362,7 +498,7 @@ export default function ProviderDashboardPage() {
                 <Bi en="This month" ar="هذا الشهر" />
               </span>
               <span className="v">
-                SAR 5,826
+                SAR {fmtSAR(monthSar)}
                 <span className="u">
                   <Bi en="/ Riyal" ar="/ ريال" />
                 </span>
@@ -376,7 +512,7 @@ export default function ProviderDashboardPage() {
                 <Bi en="Lifetime" ar="الإجمالي" />
               </span>
               <span className="v">
-                SAR 42,180
+                SAR {fmtSAR(lifetimeSar)}
                 <span className="u">
                   <Bi en="/ Riyal" ar="/ ريال" />
                 </span>
@@ -642,7 +778,7 @@ export default function ProviderDashboardPage() {
                 </tr>
               </thead>
               <tbody id="jobs-body">
-                {JOBS.map((j) => (
+                {jobs.map((j) => (
                   <tr key={j.id}>
                     <td>
                       <span className="jid">{j.id}</span>

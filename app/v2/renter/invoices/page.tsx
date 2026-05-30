@@ -3,9 +3,10 @@
 // Ported from public/dcp-v2/prototypes/renter/Invoices.html (renter console · Invoices).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./invoices.css.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './invoices.css'
 
 // ── Nav model (from renter-shell.js NAV) ───────────────────────────────
@@ -24,7 +25,7 @@ const NAV = [
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '#', bd: 'SAR' },
+      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/v2/renter/wallet', bd: 'SAR' },
       { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/v2/renter/invoices' },
     ],
   },
@@ -32,13 +33,50 @@ const NAV = [
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/renter/settings' },
       { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
 
 const CURRENT_PAGE = 'invoices'
+
+// ── Live invoice shapes (GET /api/renters/me/invoices) ──────────────────
+// The backend returns one invoice row per job; we fold them into the same
+// `Invoice` shape the table already renders so markup + classes stay intact.
+interface ApiInvoice {
+  id: number
+  job_id: string | null
+  amount_sar: number | null
+  total_sar: number | null
+  status: string | null
+  created_at: string | null
+  invoice_at: string | null
+}
+
+interface InvoicesResponse {
+  invoices?: ApiInvoice[]
+}
+
+const PERIOD_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
+
+function formatPeriod(when: string | null): string {
+  if (!when) return ''
+  const d = new Date(when)
+  return Number.isNaN(d.getTime()) ? '' : PERIOD_FMT.format(d)
+}
+
+function mapInvoice(row: ApiInvoice): Invoice {
+  const sub = Number(row.total_sar ?? row.amount_sar ?? 0)
+  const id = row.job_id || `INV-${row.id}`
+  return {
+    id,
+    period: formatPeriod(row.invoice_at ?? row.created_at),
+    sub,
+    status: row.status === 'paid' || row.status === 'completed' || row.status === 'settled' ? 'paid' : 'open',
+    files: ['PDF', 'XML'],
+  }
+}
 
 // ── Invoice mock data (illustrative; from prototype script) ─────────────
 interface Invoice {
@@ -62,6 +100,37 @@ const INV: Invoice[] = [
 export default function RenterInvoicesPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
+
+  // Primary data: the invoice history table. The inline mock stays as the
+  // default so the page renders fully with no key / failed fetch.
+  const [invoices, setInvoices] = useState<Invoice[]>(INV)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/renters/me/invoices?key=${encodeURIComponent(key)}`, {
+          headers: { 'x-renter-key': key },
+        })
+        if (!res.ok) return
+        const data: InvoicesResponse = await res.json()
+        if (cancelled) return
+        if (Array.isArray(data.invoices) && data.invoices.length > 0) {
+          setInvoices(data.invoices.map(mapInvoice))
+        }
+      } catch {
+        // Keep the inline mock as the rendered fallback.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="rt-app">
@@ -354,7 +423,7 @@ export default function RenterInvoicesPage() {
                 </tr>
               </thead>
               <tbody id="inv-body">
-                {INV.map((i) => {
+                {invoices.map((i) => {
                   const vat = i.sub * 0.15
                   const tot = i.sub + vat
                   return (

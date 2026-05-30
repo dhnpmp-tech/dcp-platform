@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './earnings.css'
 
 // ── Nav model (from provider-shell.js NAV) ─────────────────────────────
@@ -16,17 +17,17 @@ const NAV = [
     secAr: 'التشغيل',
     items: [
       { k: 'dash', ic: '⌂', label: 'Dashboard', labelAr: 'لوحة التحكم', href: '/v2/provider/dashboard' },
-      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '#', bd: '4' },
+      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs', bd: '4' },
       { k: 'earnings', ic: '△', label: 'Earnings', labelAr: 'الأرباح', href: '/v2/provider/earnings' },
-      { k: 'payouts', ic: '₪', label: 'Payouts', labelAr: 'المدفوعات', href: '#', bd: 'SAR' },
+      { k: 'payouts', ic: '₪', label: 'Payouts', labelAr: 'المدفوعات', href: '/v2/provider/payouts', bd: 'SAR' },
     ],
   },
   {
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف الشخصي', href: '#', bd: 'Silver' },
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
+      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف الشخصي', href: '/v2/provider/profile', bd: 'Silver' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/provider/settings' },
       { k: 'docs', ic: '?', label: 'Provider docs', labelAr: 'وثائق المزوّد', href: '/v2/docs', bd: '↗' },
     ],
   },
@@ -106,24 +107,100 @@ const BY_MODEL = [
 ]
 
 // ── Payouts mock (from prototype PAYOUTS) ───────────────────────────────
+// `statClass` selects the CSS swatch (.stat.paid / .stat.accruing); `status` is
+// the human label shown in the cell — real withdrawal states (pending /
+// processing / failed) keep their own label but reuse the .accruing swatch.
 interface Payout {
   period: string
   mode: string
   sar: number
-  status: 'accruing' | 'paid'
+  status: string
+  statClass: 'accruing' | 'paid'
   date: string
   inv: string | null
 }
 
+// ── Real shapes fetched from the provider API (v1 endpoints reused) ─────
+// GET /api/providers/earnings
+interface ProviderEarnings {
+  total_earned_sar: number
+  available_sar: number
+  pending_withdrawal_sar: number
+  withdrawn_sar: number
+  total_jobs: number
+}
+
+// GET /api/providers/me/earnings/history?period=7d|30d|90d  → array
+interface EarningsHistoryRow {
+  date: string
+  earnings_halala: number
+  jobs_completed: number
+}
+
+// GET /api/providers/me/withdrawals → { withdrawals: Withdrawal[] }
+interface Withdrawal {
+  id: string | number
+  amount_halala: number
+  status: string
+  iban: string
+  created_at: string
+  processed_at: string | null
+}
+
 const PAYOUTS: Payout[] = [
-  { period: 'Dec 02 – Dec 08', mode: 'SAR · IBAN', sar: 428, status: 'accruing', date: '—', inv: null },
-  { period: 'Nov 25 – Dec 01', mode: 'SAR · IBAN', sar: 1482, status: 'paid', date: '2 Dec 2025', inv: 'INV-2025-49' },
-  { period: 'Nov 18 – Nov 24', mode: 'SAR · IBAN', sar: 1284, status: 'paid', date: '25 Nov 2025', inv: 'INV-2025-48' },
-  { period: 'Nov 11 – Nov 17', mode: 'SAR · IBAN', sar: 1164, status: 'paid', date: '18 Nov 2025', inv: 'INV-2025-47' },
-  { period: 'Nov 04 – Nov 10', mode: 'SAR · IBAN', sar: 982, status: 'paid', date: '11 Nov 2025', inv: 'INV-2025-46' },
-  { period: 'Oct 28 – Nov 03', mode: 'SAR · IBAN', sar: 914, status: 'paid', date: '4 Nov 2025', inv: 'INV-2025-45' },
-  { period: 'Oct 21 – Oct 27', mode: 'SAR · IBAN', sar: 1058, status: 'paid', date: '28 Oct 2025', inv: 'INV-2025-44' },
+  { period: 'Dec 02 – Dec 08', mode: 'SAR · IBAN', sar: 428, status: 'accruing', statClass: 'accruing', date: '—', inv: null },
+  { period: 'Nov 25 – Dec 01', mode: 'SAR · IBAN', sar: 1482, status: 'paid', statClass: 'paid', date: '2 Dec 2025', inv: 'INV-2025-49' },
+  { period: 'Nov 18 – Nov 24', mode: 'SAR · IBAN', sar: 1284, status: 'paid', statClass: 'paid', date: '25 Nov 2025', inv: 'INV-2025-48' },
+  { period: 'Nov 11 – Nov 17', mode: 'SAR · IBAN', sar: 1164, status: 'paid', statClass: 'paid', date: '18 Nov 2025', inv: 'INV-2025-47' },
+  { period: 'Nov 04 – Nov 10', mode: 'SAR · IBAN', sar: 982, status: 'paid', statClass: 'paid', date: '11 Nov 2025', inv: 'INV-2025-46' },
+  { period: 'Oct 28 – Nov 03', mode: 'SAR · IBAN', sar: 914, status: 'paid', statClass: 'paid', date: '4 Nov 2025', inv: 'INV-2025-45' },
+  { period: 'Oct 21 – Oct 27', mode: 'SAR · IBAN', sar: 1058, status: 'paid', statClass: 'paid', date: '28 Oct 2025', inv: 'INV-2025-44' },
 ]
+
+// Halala (1/100 SAR) → SAR. Backend money is stored in halala integers.
+const HALALA_PER_SAR = 100
+
+function halalaToSar(halala: number): number {
+  return Math.round(halala / HALALA_PER_SAR)
+}
+
+// Map a real withdrawal status onto the two available .stat swatches.
+function statusToClass(status: string): 'accruing' | 'paid' {
+  return status === 'paid' ? 'paid' : 'accruing'
+}
+
+function fmtPayoutDate(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function maskIban(iban: string): string {
+  const tail = (iban || '').replace(/\s+/g, '').slice(-4)
+  return tail ? `SAR · IBAN ••${tail}` : 'SAR · IBAN'
+}
+
+// Withdrawal[] → the render shape the payouts table already consumes.
+function toPayoutRows(withdrawals: Withdrawal[]): Payout[] {
+  return withdrawals.map((w) => ({
+    period: fmtPayoutDate(w.created_at),
+    mode: maskIban(w.iban),
+    sar: halalaToSar(w.amount_halala),
+    status: w.status,
+    statClass: statusToClass(w.status),
+    date: w.status === 'paid' ? fmtPayoutDate(w.processed_at) : '—',
+    inv: null,
+  }))
+}
+
+// EarningsHistoryRow[] → the EarnPoint[] the chart already renders. Empty days
+// in the API response are fine — buildChart() scales to whatever it gets.
+function historyToEarn(rows: EarningsHistoryRow[]): EarnPoint[] {
+  return rows
+    .map((r) => ({ date: new Date(r.date), sar: halalaToSar(r.earnings_halala) }))
+    .filter((p) => !Number.isNaN(p.date.getTime()))
+}
 
 type RangeOpt = 7 | 30 | 90
 
@@ -135,10 +212,82 @@ export default function ProviderEarningsPage() {
 
   // EARN data is date-relative (uses new Date()); build it client-side after
   // mount so SSR/CSR markup stays identical and hydration never mismatches.
+  // This mock stays the fallback — it is the default series until (and unless)
+  // the real /earnings/history fetch lands a non-empty result.
   const [earn, setEarn] = useState<EarnPoint[] | null>(null)
   useEffect(() => {
     setEarn(buildEarn())
   }, [])
+
+  // ── Real data (replaces mock on success; mock kept as fallback) ─────────
+  const [earnings, setEarnings] = useState<ProviderEarnings | null>(null)
+  const [payouts, setPayouts] = useState<Payout[]>(PAYOUTS)
+
+  // Totals (balance + lifetime + job count) and payouts: fetched once on mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    let cancelled = false
+    const headers = { 'x-provider-key': key }
+    const base = getApiBase()
+
+    void (async () => {
+      try {
+        const [eRes, wRes] = await Promise.all([
+          fetch(`${base}/providers/earnings`, { headers }),
+          fetch(`${base}/providers/me/withdrawals`, { headers }),
+        ])
+        if (cancelled) return
+        if (eRes.ok) {
+          const e = (await eRes.json()) as ProviderEarnings
+          if (!cancelled) setEarnings(e)
+        }
+        if (wRes.ok) {
+          const w = (await wRes.json()) as { withdrawals?: Withdrawal[] }
+          const rows = toPayoutRows(w.withdrawals || [])
+          if (!cancelled && rows.length > 0) setPayouts(rows)
+        }
+      } catch {
+        /* keep mock fallback on network/parse failure */
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Daily earnings series: re-fetched whenever the range toggle changes, since
+  // the history endpoint is period-scoped (7d / 30d / 90d).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    let cancelled = false
+    const period = `${range}d`
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${getApiBase()}/providers/me/earnings/history?period=${period}`,
+          { headers: { 'x-provider-key': key } }
+        )
+        if (cancelled || !res.ok) return
+        const rows = (await res.json()) as EarningsHistoryRow[]
+        const points = historyToEarn(Array.isArray(rows) ? rows : [])
+        if (!cancelled && points.length > 0) setEarn(points)
+      } catch {
+        /* keep mock fallback on network/parse failure */
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [range])
 
   const chart = useMemo(() => (earn ? buildChart(earn, range) : null), [earn, range])
 
@@ -285,12 +434,21 @@ export default function ProviderEarningsPage() {
             <span>
               <Bi en="Next payout " ar="الدفعة القادمة " />
               <b>
-                <Bi en="Mon · SAR 428" ar="الإثنين · ٤٢٨ ريال" />
+                {earnings ? (
+                  `Mon · SAR ${numFmt.format(Math.round(earnings.available_sar || 0))}`
+                ) : (
+                  <Bi en="Mon · SAR 428" ar="الإثنين · ٤٢٨ ريال" />
+                )}
               </b>
             </span>
             <span>
               <Bi en="Lifetime " ar="الإجمالي " />
-              <b>SAR 42,180</b>
+              <b>
+                SAR{' '}
+                {earnings
+                  ? numFmt.format(Math.round(earnings.total_earned_sar || 0))
+                  : '42,180'}
+              </b>
             </span>
           </div>
 
@@ -424,7 +582,7 @@ export default function ProviderEarningsPage() {
                 </div>
               </div>
               <Link
-                href="#"
+                href="/v2/provider/payouts"
                 style={{
                   fontFamily: 'var(--mono)',
                   fontSize: '11px',
@@ -463,8 +621,8 @@ export default function ProviderEarningsPage() {
                 </tr>
               </thead>
               <tbody id="payouts">
-                {PAYOUTS.map((p) => (
-                  <tr key={p.period}>
+                {payouts.map((p, i) => (
+                  <tr key={`${p.period}-${i}`}>
                     <td>
                       <span className="period">{p.period}</span>
                     </td>
@@ -478,7 +636,7 @@ export default function ProviderEarningsPage() {
                       </span>
                     </td>
                     <td>
-                      <span className={`stat ${p.status}`}>{p.status}</span>
+                      <span className={`stat ${p.statClass}`}>{p.status}</span>
                     </td>
                     <td>
                       <span className="when">{p.date}</span>

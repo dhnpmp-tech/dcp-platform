@@ -23,7 +23,7 @@ function AuthInner() {
     <div className="auth">
       {/* Brand panel */}
       <div className="auth-brand">
-        <Link href="/v2" className="wm" style={{ textDecoration: 'none', color: 'var(--ink)' }}>
+        <Link href="/v2/home" className="wm" style={{ textDecoration: 'none', color: 'var(--ink)' }}>
           DCP<i>∞</i>
         </Link>
         <div className="glyph" aria-hidden="true">

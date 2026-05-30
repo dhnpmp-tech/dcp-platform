@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './dashboard.css'
 
 // ── Nav model (from renter-shell.js NAV) ───────────────────────────────
@@ -15,25 +16,25 @@ const NAV = [
     secAr: 'البناء',
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
-      { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '#' },
-      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '#', bd: '3' },
-      { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '#' },
+      { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
+      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
+      { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
   {
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '#', bd: 'SAR' },
-      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '#' },
+      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/v2/renter/wallet', bd: 'SAR' },
+      { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/v2/renter/invoices' },
     ],
   },
   {
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '#' },
-      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '#', bd: '↗' },
+      { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/renter/settings' },
+      { k: 'docs', ic: '?', label: 'Docs', labelAr: 'التوثيق', href: '/v2/docs', bd: '↗' },
     ],
   },
 ]
@@ -106,6 +107,43 @@ const LIVE = [
 type RangeOpt = 7 | 30 | 90
 type QsTab = 'curl' | 'py' | 'node'
 
+// ── Fetched API shapes (subset of v1 /renters/* responses) ──────────────
+interface RenterMe {
+  renter?: {
+    name?: string
+    balance_halala?: number
+    total_spent_halala?: number
+    total_jobs?: number
+  }
+}
+
+interface DailySpendRow {
+  day: string
+  total_halala: number
+  job_count: number
+}
+
+interface AnalyticsResp {
+  daily_spend?: DailySpendRow[]
+}
+
+interface LiveJob {
+  requestId: string
+  model: string
+  status: string
+  providerGpu: string
+  tokensGenerated: number
+  costHalala: number
+}
+
+interface LiveResp {
+  active?: LiveJob[]
+  recent?: LiveJob[]
+}
+
+// halala (integer cents) → SAR number
+const halToSar = (h: number) => h / 100
+
 export default function RenterDashboardPage() {
   const { lang, toggle } = useV2()
 
@@ -121,6 +159,66 @@ export default function RenterDashboardPage() {
   }, [])
 
   const chart = useMemo(() => (spend ? buildChart(spend, range) : null), [spend, range])
+
+  // ── Live data (balance / 30D spend series / live jobs). Mock stays as the
+  // default render; a successful fetch overrides it. Null on no key / failure. ─
+  const [balanceSar, setBalanceSar] = useState<number | null>(null)
+  const [spentTodaySar, setSpentTodaySar] = useState<number | null>(null)
+  const [liveJobs, setLiveJobs] = useState<LiveJob[] | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    const headers = { 'x-renter-key': key }
+    const base = getApiBase()
+    let cancelled = false
+
+    // Balance from /renters/me
+    fetch(`${base}/renters/me`, { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<RenterMe>) : null))
+      .then((d) => {
+        if (cancelled || !d?.renter) return
+        if (typeof d.renter.balance_halala === 'number') {
+          setBalanceSar(halToSar(d.renter.balance_halala))
+        }
+      })
+      .catch(() => {})
+
+    // 30D spend series → feed the chart (most recent last)
+    fetch(`${base}/renters/me/analytics?period=30d`, { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<AnalyticsResp>) : null))
+      .then((d) => {
+        if (cancelled || !d?.daily_spend?.length) return
+        const series: SpendPoint[] = d.daily_spend.map((row) => ({
+          date: new Date(row.day + 'T00:00:00'),
+          sar: halToSar(row.total_halala),
+        }))
+        setSpend(series)
+        // Spend today = the last day in the series, if it is today
+        const last = d.daily_spend[d.daily_spend.length - 1]
+        const today = new Date().toISOString().slice(0, 10)
+        if (last && last.day === today) {
+          setSpentTodaySar(halToSar(last.total_halala))
+        }
+      })
+      .catch(() => {})
+
+    // Live jobs (active + recent) from /renters/me/live
+    fetch(`${base}/renters/me/live`, { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<LiveResp>) : null))
+      .then((d) => {
+        if (cancelled || !d) return
+        const jobs = [...(d.active ?? []), ...(d.recent ?? [])]
+        if (jobs.length) setLiveJobs(jobs)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const ranges: RangeOpt[] = [7, 30, 90]
 
@@ -153,7 +251,16 @@ export default function RenterDashboardPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            {balanceSar != null ? (
+              <>
+                SAR {numFmt.format(Math.floor(balanceSar))}
+                <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
+              </>
+            ) : (
+              <>
+                SAR 2,184<span className="u">.52</span>
+              </>
+            )}
           </div>
           <div className="row">
             <span>
@@ -247,7 +354,7 @@ export default function RenterDashboardPage() {
               ع
             </span>
           </button>
-          <Link className="keys" href="#">
+          <Link className="keys" href="/v2/renter/keys">
             ⚷ <Bi en="API keys" ar="مفاتيح API" />
           </Link>
         </header>
@@ -264,7 +371,8 @@ export default function RenterDashboardPage() {
               <Bi en="4 jobs running now" ar="٤ مهام قيد التشغيل الآن" />
             </span>
             <span>
-              <Bi en="Spend today" ar="إنفاق اليوم" /> <b>SAR 41.20</b>
+              <Bi en="Spend today" ar="إنفاق اليوم" />{' '}
+              <b>SAR {spentTodaySar != null ? spentTodaySar.toFixed(2) : '41.20'}</b>
             </span>
             <span>
               <Bi en="3 API keys active" ar="٣ مفاتيح API نشطة" />
@@ -278,7 +386,16 @@ export default function RenterDashboardPage() {
                 <Bi en="Today · so far" ar="اليوم · حتى الآن" />
               </span>
               <span className="v">
-                SAR 41<span className="u">.20</span>
+                {spentTodaySar != null ? (
+                  <>
+                    SAR {numFmt.format(Math.floor(spentTodaySar))}
+                    <span className="u">.{(spentTodaySar % 1).toFixed(2).slice(2)}</span>
+                  </>
+                ) : (
+                  <>
+                    SAR 41<span className="u">.20</span>
+                  </>
+                )}
               </span>
               <span className="d up">
                 ▲ <Bi en="18% vs yesterday at this hour" ar="١٨٪ مقارنة بالأمس في هذه الساعة" />
@@ -395,24 +512,47 @@ export default function RenterDashboardPage() {
                       animation: 'pulse 1.4s infinite',
                     }}
                   />{' '}
-                  <Bi en="4 streaming" ar="٤ قيد البث" />
+                  {liveJobs != null ? (
+                    <Bi
+                      en={`${liveJobs.filter((j) => j.status === 'streaming').length} streaming`}
+                      ar={`${liveJobs.filter((j) => j.status === 'streaming').length} قيد البث`}
+                    />
+                  ) : (
+                    <Bi en="4 streaming" ar="٤ قيد البث" />
+                  )}
                 </span>
               </div>
               <div className="live-jobs" id="live">
-                {LIVE.map((j) => (
-                  <div className="lj-row" key={j.model + j.rig}>
-                    <div className="body">
-                      <div className="nm">{j.model}</div>
-                      <div className="sub">
-                        {j.rig} · <span className={`stat ${j.status}`}>{j.status}</span> ·{' '}
-                        {j.tok.toLocaleString()} tok
+                {liveJobs != null
+                  ? liveJobs.map((j) => (
+                      <div className="lj-row" key={j.requestId}>
+                        <div className="body">
+                          <div className="nm">{j.model}</div>
+                          <div className="sub">
+                            {j.providerGpu} ·{' '}
+                            <span className={`stat ${j.status}`}>{j.status}</span> ·{' '}
+                            {(j.tokensGenerated ?? 0).toLocaleString()} tok
+                          </div>
+                        </div>
+                        <div className="right">
+                          <div className="sar">SAR {halToSar(j.costHalala ?? 0).toFixed(2)}</div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="right">
-                      <div className="sar">SAR {j.sar.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))}
+                    ))
+                  : LIVE.map((j) => (
+                      <div className="lj-row" key={j.model + j.rig}>
+                        <div className="body">
+                          <div className="nm">{j.model}</div>
+                          <div className="sub">
+                            {j.rig} · <span className={`stat ${j.status}`}>{j.status}</span> ·{' '}
+                            {j.tok.toLocaleString()} tok
+                          </div>
+                        </div>
+                        <div className="right">
+                          <div className="sar">SAR {j.sar.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    ))}
               </div>
               <div
                 style={{
@@ -430,7 +570,7 @@ export default function RenterDashboardPage() {
                   <Bi en="Updates every 2s" ar="يتحدّث كل ثانيتين" />
                 </span>
                 <Link
-                  href="#"
+                  href="/v2/renter/usage"
                   style={{
                     color: 'var(--ink)',
                     borderBottom: '1px solid var(--ink)',
@@ -520,13 +660,13 @@ export default function RenterDashboardPage() {
             </div>
 
             <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Link className="btn-pri" href="#">
+              <Link className="btn-pri" href="/v2/renter/playground">
                 <Bi en="Open Playground →" ar="افتح البيئة التجريبية ←" />
               </Link>
-              <Link className="btn-sec" href="#">
+              <Link className="btn-sec" href="/v2/renter/keys">
                 <Bi en="Get an API key" ar="احصل على مفتاح API" />
               </Link>
-              <Link className="btn-sec" href="#">
+              <Link className="btn-sec" href="/v2/docs">
                 <Bi en="Read the docs" ar="اقرأ التوثيق" />
               </Link>
             </div>
