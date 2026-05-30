@@ -5,6 +5,11 @@
 # planned follow-up; until then this vendored copy is the single source the
 # backend validates responses against.
 #
+# Pinned: dcp-contracts v0.2.0 @ 194fbb1e
+# Verify in-sync:  bash backend/scripts/check-contract-sync.sh
+# On each dcp-contracts release: bump the pin above + re-vendor (copy the new
+# spec body below this header). The check guards against silent drift.
+#
 # Consumed by: backend/src/middleware/contractDriftGate.js (test-env only,
 # response-validation drift gate in LOG mode — see backlog #11a).
 # ──────────────────────────────────────────────────────────────────────────
