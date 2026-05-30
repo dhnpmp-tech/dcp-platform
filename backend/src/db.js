@@ -1176,6 +1176,11 @@ const migrations = [
   'ALTER TABLE providers ADD COLUMN payout_iban TEXT',
   'ALTER TABLE providers ADD COLUMN payout_holder_name TEXT',
   'ALTER TABLE providers ADD COLUMN payout_account_registered_at TEXT',
+  // Backlog gap #1: dedup state for provider online→offline alerts. Set when we
+  // notify a provider that their node went offline; cleared (NULL) when they
+  // come back online. Persisted so a worker restart never re-spams providers,
+  // and so we can conservatively re-alert if a node stays offline > 24h.
+  'ALTER TABLE providers ADD COLUMN last_offline_alert_at TEXT',
   // Migration 021 renter columns are applied AFTER CREATE TABLE renters
   // (see the second migration sweep below) because the table is created
   // later in this file.

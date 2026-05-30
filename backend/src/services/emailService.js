@@ -640,6 +640,69 @@ function buildWithdrawalRejectedTemplate({ amountSar, reason }) {
   };
 }
 
+// ─── Provider node offline (backlog gap #1) ─────────────────────────────────
+// Sent on the online→offline transition so a provider whose node went dark
+// hears about it immediately instead of silently not earning ("Node-2 stayed
+// dark for days"). Includes the node name, last-seen time, and a link to the
+// provider dashboard + troubleshooting docs.
+function buildProviderOfflineTemplate({ providerName, lastSeen }) {
+  const frontend = getFrontendUrl();
+  const dashboardUrl = `${frontend}/provider`;
+  const troubleshootUrl = `${frontend}/docs/provider-guide`;
+  const safeName = (providerName || '').trim() || 'your node';
+  const lastSeenLabel = lastSeen
+    ? new Date(lastSeen).toUTCString()
+    : 'no heartbeat on record';
+  const lastSeenLabelAr = lastSeen
+    ? new Date(lastSeen).toUTCString()
+    : 'لا يوجد نبض مسجّل';
+
+  const bodyEn = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.5;">We stopped receiving heartbeats from <strong style="color:#E5E5E5;">${escapeHtml(safeName)}</strong>, so we've marked it offline. While it's offline it isn't accepting jobs — <strong style="color:#E5E5E5;">you've stopped earning</strong>.</p>
+    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;font-weight:500;">Any job that was running on this node has been safely requeued to another provider, so renters are not affected.</p>
+    ${brandMetaRows([
+      { label: 'Node', value: safeName },
+      { label: 'Last seen', value: lastSeenLabel },
+      { label: 'Status', value: 'Offline — not earning' },
+    ])}
+    <p style="color:#A0A0B0;font-size:13px;margin:14px 0 0;line-height:1.5;">Common fixes: make sure the machine is powered on and online, confirm the DCP provider app / daemon is running, and check the dashboard for the live status. It will come back automatically once heartbeats resume.</p>
+  `;
+  const bodyAr = `
+    <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.6;">توقّفنا عن استقبال نبضات من <strong style="color:#E5E5E5;">${escapeHtml(safeName)}</strong>، لذلك تم تعيينه دون اتصال. أثناء عدم الاتصال لا يقبل الجهاز أي مهام — <strong style="color:#E5E5E5;">لقد توقّفت عن الكسب</strong>.</p>
+    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;font-weight:500;">أي مهمة كانت قيد التنفيذ على هذا الجهاز تمت إعادة جدولتها بأمان إلى مزود آخر، لذا لم يتأثر المستأجرون.</p>
+    ${brandMetaRows([
+      { label: 'الجهاز', value: safeName },
+      { label: 'آخر اتصال', value: lastSeenLabelAr },
+      { label: 'الحالة', value: 'غير متصل — لا كسب' },
+    ], { rtl: true })}
+    <p style="color:#A0A0B0;font-size:13px;margin:14px 0 0;line-height:1.6;direction:rtl;text-align:right;">حلول شائعة: تأكّد أن الجهاز يعمل ومتصل بالإنترنت، وأن تطبيق/خدمة مزوّد DCP قيد التشغيل، وراجع لوحة التحكم. سيعود تلقائياً بمجرد استئناف النبضات.</p>
+  `;
+  return {
+    subject: `Your DCP node is offline — you've stopped earning | جهازك في DCP غير متصل`,
+    text: [
+      `${safeName} is offline — DCP stopped receiving heartbeats, so you've stopped earning.`,
+      `Last seen: ${lastSeenLabel}`,
+      `Any running job was safely requeued to another provider.`,
+      `Bring it back: ${dashboardUrl}`,
+      `Troubleshooting: ${troubleshootUrl}`,
+      '',
+      `${safeName} غير متصل — توقّف DCP عن استقبال النبضات، لذلك توقّفت عن الكسب.`,
+      `آخر اتصال: ${lastSeenLabelAr}`,
+      `تمت إعادة جدولة أي مهمة قيد التنفيذ بأمان إلى مزود آخر.`,
+      `أعده للعمل: ${dashboardUrl}`,
+    ].join('\n'),
+    html: buildBrandShell({
+      headlineEn: 'Your node is offline',
+      headlineAr: 'جهازك غير متصل',
+      bodyEn,
+      bodyAr,
+      ctaLabel: 'Open provider dashboard',
+      ctaLabelAr: 'فتح لوحة المزوّد',
+      ctaUrl: dashboardUrl,
+    }),
+  };
+}
+
 // ─── Auto-top-up emails (PR #427 follow-up) ─────────────────────────────────
 
 function buildAutoTopupPaidTemplate({ amountSar, newBalanceSar, cardBrand, cardLast4 }) {
@@ -893,6 +956,22 @@ async function sendWithdrawalRejectedEmail(to, amountSar, reason) {
   });
 }
 
+async function sendProviderOfflineEmail(to, data = {}) {
+  if (!to) {
+    return { ok: false, reason: 'invalid_arguments' };
+  }
+  const template = buildProviderOfflineTemplate({
+    providerName: data.provider_name,
+    lastSeen: data.last_seen,
+  });
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+}
+
 async function sendJobQueued(to, data = {}) {
   if (!to || !data.job_id) {
     return { ok: false, reason: 'invalid_arguments' };
@@ -1041,6 +1120,7 @@ module.exports = {
   sendJobCompleteEmail,
   sendWithdrawalApprovedEmail,
   sendWithdrawalRejectedEmail,
+  sendProviderOfflineEmail,
   sendDataExportReady,
   sendAutoTopupPaidEmail,
   sendAutoTopupFailedEmail,

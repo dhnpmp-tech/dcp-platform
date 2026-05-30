@@ -16,6 +16,7 @@
  */
 
 const db = require('../db');
+const { notifyProviderOffline } = require('./providerOfflineNotifier');
 
 const STALE_THRESHOLD_SEC = 90;   // provider offline if no heartbeat for 90s
 const POLL_INTERVAL_MS    = 60_000; // check every 60s
@@ -31,9 +32,12 @@ function runLivenessSweep() {
   const cutoff = new Date(now.getTime() - STALE_THRESHOLD_SEC * 1000).toISOString();
   const nowIso = now.toISOString();
 
-  // Find providers that were online but haven't heartbeated recently
+  // Find providers that were online but haven't heartbeated recently.
+  // status IN ('online','degraded') is itself the edge guard: a provider
+  // already 'offline' is never re-selected here, so each row processed below
+  // IS an online→offline transition this cycle.
   const staleProviders = db.all(
-    `SELECT id, name, last_heartbeat
+    `SELECT id, name, email, last_heartbeat, last_offline_alert_at
      FROM providers
      WHERE status IN ('online', 'degraded')
        AND (last_heartbeat IS NULL OR last_heartbeat < ?)`,
@@ -60,6 +64,19 @@ function runLivenessSweep() {
       `[liveness] Provider #${provider.id} (${provider.name}) offline` +
       (ageSeconds != null ? ` — last heartbeat ${ageSeconds}s ago` : ' — never heartbeated')
     );
+
+    // ADDITIVE: edge-triggered, deduped notification (backlog gap #1). Wrapped
+    // so a notification failure can never break the offline-marking / requeue
+    // below. We pass the dedup column we just SELECTed so the gate is decided
+    // against persisted state (survives restarts).
+    try {
+      notifyProviderOffline(
+        { id: provider.id, name: provider.name, email: provider.email, last_heartbeat: provider.last_heartbeat },
+        { source: 'liveness_monitor', lastOfflineAlertAt: provider.last_offline_alert_at }
+      );
+    } catch (err) {
+      console.error(`[liveness] offline notification error for provider #${provider.id}: ${err.message}`);
+    }
 
     // Find active jobs for this provider
     const activeJobs = db.all(
