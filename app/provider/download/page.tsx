@@ -31,6 +31,10 @@ export default function ProviderDownloadPage() {
   const [providerKey, setProviderKey] = useState('')
   const [copyError, setCopyError] = useState('')
   const [nextActionState, setNextActionState] = useState<ProviderNextActionState>('waiting')
+  // The next-action state selector below is a developer-only affordance for
+  // previewing each onboarding state. It must never ship to real users — in
+  // production the state is driven by the backend heartbeat, not a dropdown.
+  const isDevStateSelectorEnabled = process.env.NODE_ENV === 'development'
   const installApiBase = useMemo(() => getProviderInstallApiBase(), [])
   // Auto-detect user's OS
   const detectedOs: OS = useMemo(() => {
@@ -235,28 +239,30 @@ export default function ProviderDownloadPage() {
           </div>
         </section>
 
-        <section className="mb-8">
-          <div className="rounded-xl p-5" style={{ background: '#0D0D1A', border: '1px solid rgba(245,165,36,0.22)' }}>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#F0F0F0' }}>
-              {t('provider.download.state_selector_label')}
-            </label>
-            <select
-              value={nextActionState}
-              onChange={(event) => setNextActionState(event.target.value as ProviderNextActionState)}
-              className="w-full rounded-lg px-3 py-2 text-sm"
-              style={{ background: '#07070E', color: '#F0F0F0', border: '1px solid rgba(255,255,255,0.12)' }}
-            >
-              {stateOptions.map((state) => (
-                <option key={state} value={state}>
-                  {nextActionMap[state].label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs mt-2" style={{ color: '#94A3B8' }}>
-              {t('provider.download.state_selector_hint')}
-            </p>
-          </div>
-        </section>
+        {isDevStateSelectorEnabled && (
+          <section className="mb-8">
+            <div className="rounded-xl p-5" style={{ background: '#0D0D1A', border: '1px solid rgba(245,165,36,0.22)' }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: '#F0F0F0' }}>
+                {t('provider.download.state_selector_label')}
+              </label>
+              <select
+                value={nextActionState}
+                onChange={(event) => setNextActionState(event.target.value as ProviderNextActionState)}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: '#07070E', color: '#F0F0F0', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
+                {stateOptions.map((state) => (
+                  <option key={state} value={state}>
+                    {nextActionMap[state].label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs mt-2" style={{ color: '#94A3B8' }}>
+                {t('provider.download.state_selector_hint')}
+              </p>
+            </div>
+          </section>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-14">
           {osCards.map((card) => {

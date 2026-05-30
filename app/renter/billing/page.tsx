@@ -606,10 +606,15 @@ function BillingPageInner() {
                   <h2 className="text-lg font-semibold text-dc1-text-primary mb-4">Top Up Balance</h2>
 
                   {!moyasarPublishableKey ? (
-                    <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-4">
-                      <p className="text-yellow-400 font-medium text-sm">Payment gateway not configured</p>
+                    <div className="bg-dc1-amber/5 border border-dc1-amber/20 rounded-lg p-4">
+                      <p className="text-dc1-amber font-medium text-sm">Card payments are launching soon</p>
                       <p className="text-dc1-text-secondary text-xs mt-1">
-                        NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY is not set. Contact support to enable payments.
+                        Your 100 SAR welcome credit is active now — start deploying right away. Need to top up
+                        before cards go live?{' '}
+                        <Link href="/support?category=billing&source=renter_billing#contact-form" className="text-dc1-amber hover:underline">
+                          Contact us
+                        </Link>{' '}
+                        and we&apos;ll sort it out.
                       </p>
                     </div>
                   ) : !showMoyasarForm ? (

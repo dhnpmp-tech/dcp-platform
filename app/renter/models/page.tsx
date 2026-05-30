@@ -316,7 +316,7 @@ function DeployModal({ deploy, onClose, onConfirm, registeredProviderCount }: {
               <Link href={`/renter/waitlist?model=${encodeURIComponent(model.model_id)}`} className="inline-block btn btn-outline btn-sm text-dc1-amber border-dc1-amber/40">
                 Join Waitlist →
               </Link>
-              <Link href="/provider-onboarding" className="inline-block btn btn-outline btn-sm text-dc1-text-secondary border-dc1-border hover:text-dc1-amber hover:border-dc1-amber/40">
+              <Link href="/setup" className="inline-block btn btn-outline btn-sm text-dc1-text-secondary border-dc1-border hover:text-dc1-amber hover:border-dc1-amber/40">
                 Register as Provider
               </Link>
             </div>
