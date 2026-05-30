@@ -13,6 +13,7 @@ import {
 import { estimateEarnings, formatUsd } from '../gpu-catalog'
 import type { DetectedOS } from '../os-detect'
 import type { WizardConfig } from '../types'
+import { RUN_MODES } from '../../../../lib/provider-onboarding'
 
 interface Step4Props {
   apiKey: string
@@ -123,15 +124,17 @@ export function Step4Earnings({
         </p>
 
         <label className="block">
-          <span className="text-sm text-dc1-text-primary">Schedule</span>
+          <span className="text-sm text-dc1-text-primary">Run mode</span>
           <select
             value={config.schedule}
             onChange={(e) => setConfig({ ...config, schedule: e.target.value as WizardConfig['schedule'] })}
             className="mt-1 block w-full rounded-md border border-dc1-border bg-dc1-surface-l2 px-3 py-2 text-sm text-dc1-text-primary focus:border-dc1-amber focus:outline-none"
           >
-            <option value="always_on">Always On — daemon runs whenever machine is on</option>
-            <option value="smart_hours">Smart Hours — only during peak demand (~6pm-2am)</option>
-            <option value="custom">Custom — set your own hours (post-install)</option>
+            {RUN_MODES.map((mode) => (
+              <option key={mode.value} value={mode.value}>
+                {mode.label} — {mode.description}
+              </option>
+            ))}
           </select>
         </label>
 
@@ -187,7 +190,7 @@ export function Step4Earnings({
         )}
 
         <p className="text-xs text-dc1-text-muted">
-          💡 Smart Hours aligns the daemon with peak demand and typically earns more.
+          💡 Always On maximises availability and typically earns the most; you can switch to Scheduled hours any time after install.
         </p>
       </div>
 

@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PrimaryButton, SecondaryButton } from '../primitives'
 import { OS_PROFILES, type DetectedOS } from '../os-detect'
+import { GPU_MIN_NVIDIA } from '../../../../lib/provider-onboarding'
 import { OSGlyph } from '../os-icons'
 import {
   runAllProbes,
@@ -45,7 +46,7 @@ function buildAckItems(os: DetectedOS): AckItem[] {
   ]
   if (os === 'windows') {
     return [
-      { key: 'gpu', label: 'I have an NVIDIA GPU (GTX 1060 6 GB or newer).' },
+      { key: 'gpu', label: `I have an ${GPU_MIN_NVIDIA}.` },
       { key: 'driver', label: 'NVIDIA driver 525 or newer is installed.' },
       { key: 'ram', label: 'I have 16 GB RAM or more.' },
       { key: 'os_version', label: 'My Windows is 10 or 11 (64-bit).' },

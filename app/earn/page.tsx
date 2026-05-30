@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Header from '../components/layout/Header'
 import Footer from '../components/layout/Footer'
 import { useLanguage, LanguageToggle } from '../lib/i18n'
-import { buildProviderInstallCommand, getProviderInstallApiBase } from '../lib/provider-install'
+import { buildInstallCommand } from '../lib/provider-onboarding'
 import { trackProviderInstallEvent } from '../lib/provider-install-telemetry'
 
 // GPU pricing in halala/hr (matches backend gpu_pricing seed data)
@@ -66,10 +66,11 @@ export default function EarnPage() {
   const [selectedGpu, setSelectedGpu] = useState(GPU_RATES[2]) // RTX 4090 default
   const [hours, setHours]             = useState(8)
   const [utilPct, setUtilPct]         = useState(50)
-  const installApiBase = useMemo(() => getProviderInstallApiBase(), [])
+  // Public teaser — no minted token yet, so render the canonical command with
+  // its placeholder token (real token is minted in the /setup wizard).
   const quickInstallCommand = useMemo(
-    () => buildProviderInstallCommand('linux', installApiBase, ''),
-    [installApiBase]
+    () => buildInstallCommand({ os: 'linux', token: null }),
+    []
   )
 
   // Formula: gpu_rate_halala * hours_per_day * (util/100) * 30 days * 0.75 provider_share / 100 halala→SAR

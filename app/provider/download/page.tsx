@@ -6,28 +6,42 @@ import Header from '../../components/layout/Header'
 import Footer from '../../components/layout/Footer'
 import { useLanguage } from '../../lib/i18n'
 import {
-  buildProviderInstallCommand,
   buildProviderTroubleshootingHref,
   getProviderOnboardingStep,
-  getProviderInstallApiBase,
   ProviderNextActionState,
 } from '../../lib/provider-install'
+import {
+  buildInstallCommand,
+  HARDWARE_REQUIREMENT_ROWS,
+} from '../../lib/provider-onboarding'
 import { trackProviderInstallEvent } from '../../lib/provider-install-telemetry'
 
 const DAEMON_VERSION = 'v4.0'
 
 type OS = 'windows' | 'linux' | 'macos'
 
-const REQUIREMENTS = [
-  { icon: '🎮', label: 'GPU', detail: 'NVIDIA RTX 2060+ (8 GB+ VRAM) or Apple Silicon (M1/M2/M3/M4)' },
-  { icon: '🐍', label: 'Python 3.10+', detail: 'Required for the DCP daemon process' },
-  { icon: '💻', label: 'Operating System', detail: 'Windows 10/11, macOS 12+ (Apple Silicon), or Ubuntu 20.04+' },
-  { icon: '🌐', label: 'Internet', detail: 'Stable connection for receiving inference jobs from the DCP network' },
-]
+// Icons keyed off the shared requirement rows (backlog #8 — single hardware
+// matrix; no more RTX-2060-vs-GTX-1060 contradiction).
+const REQUIREMENT_ICONS: Record<string, string> = {
+  gpu: '🎮',
+  python: '🐍',
+  os: '💻',
+  ram: '🧠',
+  internet: '🌐',
+}
+const REQUIREMENTS = HARDWARE_REQUIREMENT_ROWS.map((row) => ({
+  icon: REQUIREMENT_ICONS[row.key] ?? '✅',
+  label: row.label,
+  detail: row.detail,
+}))
 
 export default function ProviderDownloadPage() {
   const { t, language } = useLanguage()
   const [copied, setCopied] = useState<OS | null>(null)
+  // Single-use install token (replaces the deprecated long-lived provider key
+  // in the install command — backlog #8). Optional here; minted in the /setup
+  // wizard. We keep the state name `providerKey` to avoid churning the
+  // telemetry payloads below.
   const [providerKey, setProviderKey] = useState('')
   const [copyError, setCopyError] = useState('')
   const [nextActionState, setNextActionState] = useState<ProviderNextActionState>('waiting')
@@ -35,7 +49,6 @@ export default function ProviderDownloadPage() {
   // previewing each onboarding state. It must never ship to real users — in
   // production the state is driven by the backend heartbeat, not a dropdown.
   const isDevStateSelectorEnabled = process.env.NODE_ENV === 'development'
-  const installApiBase = useMemo(() => getProviderInstallApiBase(), [])
   // Auto-detect user's OS
   const detectedOs: OS = useMemo(() => {
     if (typeof navigator === 'undefined') return 'windows'
@@ -45,6 +58,9 @@ export default function ProviderDownloadPage() {
     return 'linux'
   }, [])
 
+  // Windows ships a desktop binary (downloadUrl → backend /download/windows).
+  // macOS has no .dmg yet and Linux has no desktop app, so both use the
+  // canonical headless curl one-liner (no downloadUrl → copy-command card).
   const osCards: {
     id: OS
     label: string
@@ -59,33 +75,36 @@ export default function ProviderDownloadPage() {
         label: 'Windows',
         icon: '⊞',
         primaryLabel: 'Download DCP Provider (.exe)',
-        description: 'One-click installer for Windows 10/11. Includes Ollama engine, auto GPU detection, and system tray.',
-        downloadUrl: 'https://api.dcp.sa/download/windows',
+        description: 'Recommended. One-click installer for Windows 10/11. Includes inference engine, auto GPU detection, and system tray.',
+        downloadUrl: 'https://dcp.sa/download/windows',
       },
       {
         id: 'macos',
         label: 'macOS',
         icon: '🍎',
+        // No macOS .dmg exists yet (the backend's /download/mac 404s), so macOS
+        // uses the same terminal/token install command as Linux. Desktop app
+        // coming soon. (No downloadUrl → renders the copy-install-command card.)
         primaryLabel: t('register.provider.copy_install_command'),
-        description: 'Apple Silicon (M1-M4) with MLX engine. Intel Macs use Ollama. Desktop app coming soon.',
+        description: 'Apple Silicon (M1-M4) with MLX engine. Installs via the terminal for now — desktop app coming soon.',
       },
       {
         id: 'linux',
         label: 'Linux',
         icon: '🐧',
         primaryLabel: t('register.provider.copy_install_command'),
-        description: 'Ubuntu 20.04+ with NVIDIA GPU. Auto-installs Ollama or vLLM based on VRAM.',
+        description: 'Headless. Ubuntu 20.04+ with NVIDIA GPU. Auto-installs the inference engine based on VRAM.',
       },
     ],
     [t]
   )
   const installCommands: Record<OS, string> = useMemo(
     () => ({
-      windows: buildProviderInstallCommand('windows', installApiBase, providerKey),
-      linux: buildProviderInstallCommand('linux', installApiBase, providerKey),
-      macos: buildProviderInstallCommand('macos', installApiBase, providerKey),
+      windows: buildInstallCommand({ os: 'windows', token: providerKey }),
+      linux: buildInstallCommand({ os: 'linux', token: providerKey }),
+      macos: buildInstallCommand({ os: 'macos', token: providerKey }),
     }),
-    [installApiBase, providerKey]
+    [providerKey]
   )
   const nextActionMap: Record<
     ProviderNextActionState,
@@ -128,6 +147,9 @@ export default function ProviderDownloadPage() {
   const stateOptions: ProviderNextActionState[] = ['waiting', 'heartbeat', 'ready', 'paused', 'stale']
 
   async function handleCopy(os: OS, text: string) {
+    // The install command needs a single-use token. Without one we'd only copy
+    // a placeholder, so nudge the provider to paste their token (minted in the
+    // /setup wizard) first.
     if (!providerKey.trim()) {
       const nextError = t('provider.download.error_missing_key')
       setCopyError(nextError)
@@ -140,7 +162,7 @@ export default function ProviderDownloadPage() {
         next_action_state: nextActionState,
         os_target: os,
         has_provider_key: false,
-        error_state: 'missing_provider_key',
+        error_state: 'missing_install_token',
         step: getProviderOnboardingStep(nextActionState),
       })
       return
@@ -217,11 +239,12 @@ export default function ProviderDownloadPage() {
           </div>
         </div>
 
-        {/* OS Cards */}
+        {/* Install token — single-use, minted in the /setup wizard. Replaces
+            the deprecated long-lived provider key in the install command. */}
         <section className="mb-8">
           <div className="rounded-xl p-5" style={{ background: '#0D0D1A', border: '1px solid rgba(245,165,36,0.22)' }}>
             <label className="block text-sm font-semibold mb-2" style={{ color: '#F0F0F0' }}>
-              {t('register.provider.api_key_title')}
+              Install token
             </label>
             <input
               value={providerKey}
@@ -229,12 +252,16 @@ export default function ProviderDownloadPage() {
                 setProviderKey(event.target.value)
                 if (copyError) setCopyError('')
               }}
-              placeholder="dcp-provider-..."
+              placeholder="paste your single-use install token"
               className="w-full rounded-lg px-3 py-2 text-sm"
               style={{ background: '#07070E', color: '#F0F0F0', border: '1px solid rgba(255,255,255,0.12)' }}
             />
             <p className="text-xs mt-2" style={{ color: '#94A3B8' }}>
-              {t('provider.download.key_hint')}
+              Generate a single-use install token in the{' '}
+              <Link href="/setup" className="font-semibold" style={{ color: '#F5A524' }}>
+                setup wizard
+              </Link>
+              , then paste it here to fill the install command below.
             </p>
           </div>
         </section>

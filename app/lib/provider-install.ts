@@ -1,3 +1,11 @@
+// NOTE: install-command + hardware-spec + run_mode logic now lives in the
+// single source of truth at app/lib/provider-onboarding.ts (backlog #8). This
+// module retains only the still-used onboarding-state helpers and daemon
+// download/API-base utilities. The legacy key-in-URL command builder below is
+// deprecated and re-exports the canonical token-based builder.
+
+import { buildInstallCommand, type OnboardingOS } from './provider-onboarding'
+
 const API_BASE = '/api/dcp'
 const PUBLIC_API_FALLBACK = `https://api.dcp.sa/api`
 
@@ -27,12 +35,22 @@ export function getProviderInstallApiBase(): string {
   return PUBLIC_API_FALLBACK
 }
 
-export function buildProviderInstallCommand(target: InstallTarget, apiBase: string, key: string): string {
-  if (target === 'windows') {
-    return `Download the DCP Provider app from https://api.dcp.sa/download/windows`
-  }
-
-  return `curl -sSL https://api.dcp.sa/install | bash -s -- ${key || 'YOUR_PROVIDER_KEY'}`
+/**
+ * @deprecated The key-in-URL install form leaked the long-lived provider key
+ * into shell history. Use `buildInstallCommand` from
+ * `app/lib/provider-onboarding.ts` (single-use token flow) instead.
+ *
+ * This wrapper now delegates to the canonical token-based builder so any
+ * remaining callers emit the unified command. The `apiBase`/`key` arguments
+ * are ignored (kept for signature compatibility); pass the install token via
+ * the canonical builder where one is available.
+ */
+export function buildProviderInstallCommand(
+  target: InstallTarget,
+  _apiBase: string,
+  _key: string,
+): string {
+  return buildInstallCommand({ os: target as OnboardingOS, token: null })
 }
 
 export function buildProviderDaemonDownloadUrl(apiBase: string, key: string): string {

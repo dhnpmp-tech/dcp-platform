@@ -24,6 +24,14 @@ const nextConfig = {
         source: '/install.ps1',
         destination: `${backendUrl}/install.ps1`,
       },
+      // Desktop app binaries: the download page + wizard link to
+      //   https://dcp.sa/download/windows (served by the backend; the .dmg for
+      //   /download/mac doesn't exist yet, so macOS falls back to install.sh).
+      // Without this rewrite /download/* has no frontend page and 404s.
+      {
+        source: '/download/:path*',
+        destination: `${backendUrl}/download/:path*`,
+      },
       // Model catalog API — used by ModelBrowsing and marketplace components
       {
         source: '/api/models',
