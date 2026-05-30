@@ -3916,13 +3916,18 @@ router.get('/download/daemon', (req, res) => {
         if (!built) return res.status(404).json({ error: 'Daemon file not found' });
         const { daemonPath, injected, currentVersion } = built;
 
-        // check_only mode: return version info without downloading the file
+        // check_only mode: return version info without downloading the file.
+        // Publish the sha256 of the EXACT injected bytes the download serves so
+        // the daemon can verify integrity before applying a self-update (#13).
+        // Same digest the /download/daemon/manifest route returns.
         if (check_only === 'true') {
             recordActivationEvent(provider.id, 'daemon_download_check', { route: 'download/daemon' });
+            const sha256 = crypto.createHash('sha256').update(Buffer.from(injected, 'utf-8')).digest('hex');
             return res.json({
                 version: currentVersion,
                 min_version: MIN_DAEMON_VERSION,
                 download_url: `/api/providers/download/daemon?key=${cleanKey}`,
+                sha256,
             });
         }
 

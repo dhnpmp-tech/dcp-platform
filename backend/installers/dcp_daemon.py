@@ -2093,13 +2093,15 @@ def check_for_update():
             if _is_remote_newer(remote_version, DAEMON_VERSION):
                 log.info(f"Update available via {endpoint}: {DAEMON_VERSION} → {remote_version}")
                 resolved = _resolve_download_url(resp.get("download_url"))
-                return perform_update(remote_version, preferred_download_url=resolved)
+                expected_sha256 = resp.get("sha256")  # integrity digest (#13)
+                return perform_update(remote_version, preferred_download_url=resolved,
+                                      expected_sha256=expected_sha256)
             return False
         except Exception as e:
             log.debug(f"Update check failed via {endpoint}: {e}")
     return False
 
-def perform_update(new_version, preferred_download_url=None):
+def perform_update(new_version, preferred_download_url=None, expected_sha256=None):
     """Download new daemon, replace current file, and signal restart."""
     report_event("update_start", f"Updating {DAEMON_VERSION} → {new_version}")
     log.info(f"Downloading daemon v{new_version}...")
@@ -2143,6 +2145,27 @@ def perform_update(new_version, preferred_download_url=None):
             raise Exception(f"All update downloads failed: {last_error}")
 
         log.info(f"Downloaded update from: {used_url}")
+
+        # Integrity gate (#13): verify the downloaded bytes match the sha256 the
+        # backend published for this version (check_only response). A corrupted,
+        # MITM'd, or truncated download that still "looks like a daemon" must NOT
+        # be written and executed. Fail CLOSED on mismatch. If the backend
+        # published no hash (older deploy), fall back to the content-check above
+        # and record that integrity was not cryptographically verified.
+        if expected_sha256:
+            actual_sha256 = hashlib.sha256(new_code.encode("utf-8")).hexdigest()
+            if actual_sha256 != str(expected_sha256).strip().lower():
+                msg = (f"Integrity check FAILED — sha256 mismatch from {used_url} "
+                       f"(expected {str(expected_sha256)[:12]}…, got {actual_sha256[:12]}…); "
+                       f"refusing to apply unverified daemon")
+                log.error(msg)
+                report_event("update_integrity_failed", msg, severity="critical")
+                return False
+            log.info(f"Integrity verified — sha256 {actual_sha256[:12]}… matches published digest")
+        else:
+            log.warning("Integrity: backend published no sha256; applying after content-check only")
+            report_event("update_integrity_skipped",
+                         "backend published no sha256 (older deploy?)", severity="warning")
 
         # Save current as backup
         current_path = Path(__file__).resolve()
