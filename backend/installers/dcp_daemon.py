@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DCP Provider Daemon v4.3.0 — GPU Compute Marketplace
+DCP Provider Daemon v4.5.0 — GPU Compute Marketplace
 Runs as a background service on provider machines.
 
 Features:
@@ -59,6 +59,19 @@ Features:
       12. Remove duplicate passive update check (DCP-PassiveUpdate thread removed)
       13. Fix Windows ping flag (-n/-w ms instead of -c/-W s)
       14. Daemon local health endpoint (127.0.0.1:19876/healthz JSON status)
+  - v4.5.0 (Backlog #9): Enforce provider run preferences in the job-accept
+    decision. The daemon previously READ ~/dcp-provider/config.json but IGNORED
+    run_mode / scheduled_start / scheduled_end / gpu_usage_cap_pct / temp_limit_c.
+    job_admission_gate() now honours them before claiming a job:
+      - run_mode="idle"      → accept only when GPU util has been low for a
+                               sustained window (no util signal → eligible, so
+                               headless rigs are never stranded)
+      - run_mode="scheduled" → accept only inside the local-time window (wrap
+                               past midnight supported; missing bounds → always-on)
+      - gpu_usage_cap_pct    → cap concurrency via the existing GPU-slot count
+      - temp_limit_c         → stop + drain over the limit, resume at limit-5°C
+    SAFE ROLLOUT: unset/unknown run_mode → "always-on" (accept), and the gate
+    fails OPEN on error, so no existing provider silently stops earning.
 
 Usage:
   python3 dcp_daemon.py                    # Uses injected key
@@ -120,7 +133,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.4.0"
+DAEMON_VERSION = "4.5.0"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -262,6 +275,38 @@ _GPU_CACHE_TTL = 10  # seconds
 _GPU_THERMAL_THRESHOLD = 80  # degrees C
 _GPU_THERMAL_COOLDOWN = 300  # 5 minutes between warnings
 _gpu_thermal_last_warn = 0.0
+
+# ─── v4.5.0 (Backlog #9): RUN-MODE / GPU-CAP / TEMP-LIMIT ENFORCEMENT ─
+# The desktop/installer writes run_mode + gpu_usage_cap_pct + temp_limit_c +
+# scheduled_start/scheduled_end into ~/dcp-provider/config.json. Pre-4.5.0 the
+# daemon READ that file (force_bare_metal) but IGNORED these fields, so "idle
+# only", "scheduled", and the caps were broken promises. v4.5.0 makes the
+# job-accept decision honour them. SAFE ROLLOUT: an unset / unknown run_mode
+# (every existing provider) is treated as "always-on" → accept normally, so no
+# provider that was earning silently stops earning after the self-update.
+#
+# Recognised run_mode gating values (case-insensitive). Everything else —
+# including "always-on", "always", "manual", "", None, garbage — falls through
+# to the default "accept normally" branch.
+_RUN_MODE_IDLE_VALUES = {"idle", "idle-only", "idle_only", "when-idle", "when_idle"}
+_RUN_MODE_SCHEDULED_VALUES = {"scheduled", "schedule"}
+
+# Idle detection: a job is admitted under run_mode=idle only when GPU
+# utilisation has stayed at/below this threshold for the sustained window. The
+# window guards against a single low sample between bursts.
+_IDLE_UTIL_THRESHOLD_PCT = 15      # GPU util% at/below which the rig counts as idle
+_IDLE_SUSTAINED_WINDOW_S = 60      # util must stay low this long before we accept
+_idle_util_busy_since = None       # monotonic ts of the last sample ABOVE threshold
+_idle_state_lock = threading.Lock()
+
+# Temp-limit hysteresis: stop accepting once temp_c exceeds the configured
+# limit, only resume once it has cooled to (limit - hysteresis). Prevents
+# flapping right at the threshold. State is per-process and self-healing.
+_TEMP_LIMIT_HYSTERESIS_C = 5       # resume at (limit - 5)°C
+_temp_limit_tripped = False        # True while we are draining on overheat
+_temp_limit_lock = threading.Lock()
+_temp_limit_last_event = 0.0       # throttles the trip/resume report_event calls
+_TEMP_LIMIT_EVENT_COOLDOWN = 120   # seconds between temp trip/resume events
 
 # ─── v4.3.0 (Item 8): EARNINGS QUERY STATE ──────────────────────────
 _EARNINGS_QUERY_INTERVAL = 300  # 5 minutes
@@ -3783,6 +3828,337 @@ def get_turboquant_config():
     }
 
 
+# ─── v4.5.0 (Backlog #9): RUN-MODE / GPU-CAP / TEMP-LIMIT ENFORCEMENT ────────
+#
+# The provider's run preferences (run_mode, scheduled window, GPU usage cap,
+# temperature limit) are written to ~/dcp-provider/config.json by the desktop /
+# installer (same file check_docker() already reads for force_bare_metal). This
+# section reads those fields and turns the job-accept decision into the single
+# source of enforcement. poll_and_execute() calls job_admission_gate() before
+# claiming a slot; if it returns (False, reason) the job is refused and the
+# reason is logged so operators can see WHY (run_mode/idle/scheduled/cap/temp).
+#
+# SAFE-ROLLOUT INVARIANT: load_run_preferences() defaults run_mode to
+# "always-on" whenever the file is missing/unreadable or the field is
+# unset/unknown. always-on / always / manual / unknown all resolve to "accept
+# normally", so existing providers (who have never set a run_mode, or whose
+# installer wrote "always-on") keep accepting jobs with ZERO behaviour change.
+
+
+def load_run_preferences():
+    """Load run-mode enforcement prefs from ~/dcp-provider/config.json.
+
+    Reads the SAME file check_docker() reads for force_bare_metal. All fields
+    are optional; a missing file or unreadable JSON returns the safe defaults
+    (run_mode="always-on" → accept normally). Never raises.
+
+    Returns:
+        dict with keys:
+          run_mode (str, lowercased), scheduled_start (str|None),
+          scheduled_end (str|None), gpu_usage_cap_pct (int|None),
+          temp_limit_c (int|None)
+    """
+    prefs = {
+        "run_mode": "always-on",
+        "scheduled_start": None,
+        "scheduled_end": None,
+        "gpu_usage_cap_pct": None,
+        "temp_limit_c": None,
+    }
+    try:
+        config_path = CONFIG_DIR / "config.json"
+        if not config_path.exists():
+            return prefs
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(cfg, dict):
+            return prefs
+    except (OSError, ValueError) as e:
+        log.debug(f"[run-mode] could not read config.json, using safe defaults: {e}")
+        return prefs
+
+    rm = cfg.get("run_mode")
+    if isinstance(rm, str) and rm.strip():
+        prefs["run_mode"] = rm.strip().lower()
+
+    for key in ("scheduled_start", "scheduled_end"):
+        val = cfg.get(key)
+        if isinstance(val, str) and val.strip():
+            prefs[key] = val.strip()
+
+    cap = cfg.get("gpu_usage_cap_pct")
+    try:
+        if cap is not None:
+            cap_i = int(cap)
+            if 0 < cap_i < 100:        # 0 or >=100 means "no cap" → leave None
+                prefs["gpu_usage_cap_pct"] = cap_i
+    except (TypeError, ValueError):
+        pass
+
+    temp = cfg.get("temp_limit_c")
+    try:
+        if temp is not None:
+            temp_i = int(temp)
+            if temp_i > 0:
+                prefs["temp_limit_c"] = temp_i
+    except (TypeError, ValueError):
+        pass
+
+    return prefs
+
+
+def _parse_hhmm(value):
+    """Parse "HH:MM" → minutes-since-midnight, or None if malformed."""
+    if not isinstance(value, str):
+        return None
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", value)
+    if not m:
+        return None
+    hh, mm = int(m.group(1)), int(m.group(2))
+    if hh > 23 or mm > 59:
+        return None
+    return hh * 60 + mm
+
+
+def is_within_schedule(start_str, end_str, now=None):
+    """True if `now` (local time) falls inside the [start, end) window.
+
+    Handles windows that wrap past midnight (e.g. 23:00→07:00). If either bound
+    is missing/malformed the window is undefined → return True (behave as
+    always-on rather than stranding the provider). Hour-of-day is read from
+    local time, matching how the desktop presents the schedule to the operator.
+    """
+    start_m = _parse_hhmm(start_str)
+    end_m = _parse_hhmm(end_str)
+    if start_m is None or end_m is None:
+        return True  # undefined window → don't gate
+    if start_m == end_m:
+        return True  # zero/full-day window → treat as always-on
+    if now is None:
+        now = datetime.now()
+    now_m = now.hour * 60 + now.minute
+    if start_m < end_m:
+        return start_m <= now_m < end_m
+    # Wrap-around window (e.g. 23:00 → 07:00): inside if after start OR before end
+    return now_m >= start_m or now_m < end_m
+
+
+def _gpu_util_signal(gpu):
+    """Return current GPU util% as an int, or None when there is no real signal.
+
+    detect_gpu() reports gpu_util_pct=0 as a PLACEHOLDER for backends without a
+    util reading (Apple Silicon, the Windows registry fallback, CPU-only). We
+    must NOT treat those placeholder zeros as "idle" and gate on them, because a
+    headless rig with no util telemetry would then be stranded. So: only NVIDIA
+    nvidia-smi GPUs carry a trustworthy util signal; everything else → None.
+    """
+    if not gpu:
+        return None  # CPU-only / undetectable → no signal
+    if gpu.get("is_apple_silicon"):
+        return None  # unified memory, util not sampled
+    driver = str(gpu.get("driver_version") or "")
+    if driver in ("Metal", "unknown", ""):
+        return None  # Apple Metal or Windows registry fallback → placeholder
+    util = gpu.get("gpu_util_pct")
+    try:
+        return int(util)
+    except (TypeError, ValueError):
+        return None
+
+
+def is_gpu_idle(gpu, now_monotonic=None):
+    """Idle decision for run_mode=idle, with a sustained low-util window.
+
+    Returns True when GPU utilisation has stayed at/below
+    _IDLE_UTIL_THRESHOLD_PCT for at least _IDLE_SUSTAINED_WINDOW_S. If there is
+    no trustworthy util signal (headless rig, Apple Silicon, CPU-only) we return
+    True — "can't tell → eligible" — so we never strand a provider that simply
+    has no util telemetry. Maintains a small monotonic timestamp of when the GPU
+    was last seen busy; the window resets on each busy sample.
+    """
+    global _idle_util_busy_since
+    util = _gpu_util_signal(gpu)
+    if util is None:
+        return True  # no signal → treat as eligible (do NOT strand headless rigs)
+    if now_monotonic is None:
+        now_monotonic = time.monotonic()
+    with _idle_state_lock:
+        if util > _IDLE_UTIL_THRESHOLD_PCT:
+            _idle_util_busy_since = now_monotonic
+            return False
+        # Below threshold. Idle only once it has been low for the full window.
+        if _idle_util_busy_since is None:
+            # First low sample we've seen — start the clock, not idle yet.
+            _idle_util_busy_since = now_monotonic - 0  # mark "busy ended now"
+            return False
+        return (now_monotonic - _idle_util_busy_since) >= _IDLE_SUSTAINED_WINDOW_S
+
+
+def evaluate_temp_limit(gpu, temp_limit_c):
+    """Temp-limit gate with hysteresis. Returns (ok: bool, reason: str|None).
+
+    When temp_c exceeds temp_limit_c we trip and start draining; we only resume
+    once temp_c has fallen to (temp_limit_c - _TEMP_LIMIT_HYSTERESIS_C) to avoid
+    flapping right at the threshold. Placeholder temp readings (temp_c == 0 or
+    None on Apple Silicon / Windows fallback) carry no signal → never trip.
+    """
+    global _temp_limit_tripped, _temp_limit_last_event
+    if not temp_limit_c or not gpu:
+        return True, None
+    temp_c = gpu.get("temp_c")
+    try:
+        temp_c = int(temp_c)
+    except (TypeError, ValueError):
+        return True, None
+    if temp_c <= 0:
+        return True, None  # placeholder reading (no thermal sensor) → no signal
+
+    resume_at = temp_limit_c - _TEMP_LIMIT_HYSTERESIS_C
+    now = time.time()
+    with _temp_limit_lock:
+        if _temp_limit_tripped:
+            if temp_c <= resume_at:
+                _temp_limit_tripped = False
+                fire = (now - _temp_limit_last_event) >= _TEMP_LIMIT_EVENT_COOLDOWN
+                if fire:
+                    _temp_limit_last_event = now
+                _resume = True
+            else:
+                return False, (f"temp {temp_c}°C still above resume "
+                               f"{resume_at}°C (limit {temp_limit_c}°C)")
+        else:
+            if temp_c > temp_limit_c:
+                _temp_limit_tripped = True
+                fire = (now - _temp_limit_last_event) >= _TEMP_LIMIT_EVENT_COOLDOWN
+                if fire:
+                    _temp_limit_last_event = now
+                _resume = False
+                # Drain in-flight work too; resume happens on the next poll once cool.
+                try:
+                    start_draining()
+                except Exception:
+                    pass
+                if fire:
+                    try:
+                        report_event(
+                            "job_rejected",
+                            f"Temp limit reached: GPU {temp_c}°C > {temp_limit_c}°C "
+                            f"limit — draining, resume at {resume_at}°C",
+                            severity="warning",
+                        )
+                    except Exception:
+                        pass
+                return False, (f"temp {temp_c}°C exceeds limit "
+                               f"{temp_limit_c}°C — draining")
+            return True, None
+    # Tripped → cooled below resume threshold this call.
+    if fire:
+        log.info(f"[run-mode] temp recovered to {temp_c}°C "
+                 f"(≤ resume {resume_at}°C) — resuming job acceptance")
+        try:
+            report_event(
+                "provider_resumed",
+                f"GPU cooled to {temp_c}°C — resuming job acceptance",
+                severity="info",
+            )
+        except Exception:
+            pass
+    return True, None
+
+
+def evaluate_gpu_cap(gpu_usage_cap_pct, max_slots=None, active_jobs=None):
+    """Concurrency cap derived from gpu_usage_cap_pct. (ok, reason).
+
+    We can't precisely cap a single GPU's utilisation from the daemon, so we
+    approximate the operator's intent via the existing GPU-slot count: a cap of
+    C% allows up to ceil(MAX_CONCURRENT_JOBS * C/100) concurrent jobs (always at
+    least 1, so a low cap never zeroes out a single-GPU rig). A new job is
+    refused only if accepting it would exceed that allowance.
+    """
+    if not gpu_usage_cap_pct or gpu_usage_cap_pct >= 100:
+        return True, None
+    if max_slots is None:
+        max_slots = MAX_CONCURRENT_JOBS
+    if active_jobs is None:
+        active_jobs = get_active_job_count()
+    import math
+    allowed = max(1, math.ceil(max_slots * (gpu_usage_cap_pct / 100.0)))
+    if active_jobs + 1 > allowed:
+        return False, (f"GPU usage cap {gpu_usage_cap_pct}% → max {allowed} "
+                       f"concurrent job(s); {active_jobs} already running")
+    return True, None
+
+
+def evaluate_job_admission(prefs=None, gpu=None, now=None):
+    """Single gating decision. Returns (accept: bool, reason: str).
+
+    Pure-ish and unit-testable: pass prefs/gpu explicitly, or let it read them.
+    Order of checks: temp-limit (safety) → run_mode (idle/scheduled) → GPU cap.
+    The DEFAULT for an unset/unknown run_mode is "accept" (safe rollout).
+    `reason` is "" on accept, otherwise a short human string for logging.
+    """
+    if prefs is None:
+        prefs = load_run_preferences()
+    if gpu is None:
+        gpu = detect_gpu()
+
+    # 1. Temperature limit (safety first — applies regardless of run_mode).
+    temp_ok, temp_reason = evaluate_temp_limit(gpu, prefs.get("temp_limit_c"))
+    if not temp_ok:
+        return False, f"temp_limit: {temp_reason}"
+
+    # 2. Run-mode window.
+    run_mode = (prefs.get("run_mode") or "always-on").strip().lower()
+    if run_mode in _RUN_MODE_IDLE_VALUES:
+        if not is_gpu_idle(gpu):
+            return False, "idle: GPU not idle (run_mode=idle)"
+    elif run_mode in _RUN_MODE_SCHEDULED_VALUES:
+        if not is_within_schedule(prefs.get("scheduled_start"),
+                                  prefs.get("scheduled_end"), now=now):
+            return False, (f"scheduled: outside window "
+                           f"{prefs.get('scheduled_start')}-{prefs.get('scheduled_end')}")
+    # else: always-on / always / manual / unknown / unset → accept (SAFE DEFAULT).
+
+    # 3. GPU usage cap (concurrency approximation).
+    cap_ok, cap_reason = evaluate_gpu_cap(prefs.get("gpu_usage_cap_pct"))
+    if not cap_ok:
+        return False, f"gpu_cap: {cap_reason}"
+
+    return True, ""
+
+
+# Throttle the "job refused" log/event so a steady refuse stream (e.g. a rig
+# parked outside its schedule all night) doesn't spam the log or the backend.
+_admission_refuse_last_log = 0.0
+_admission_refuse_last_reason = None
+_ADMISSION_REFUSE_LOG_COOLDOWN = 120  # seconds
+
+
+def job_admission_gate():
+    """Convenience wrapper for poll_and_execute(): returns True if a new job may
+    be accepted right now per the operator's run preferences, else False.
+
+    Logs WHY on refusal (throttled), so operators can see run_mode/idle/
+    scheduled/cap/temp decisions without log spam. Never raises — on any
+    unexpected error it FAILS OPEN (accepts), because a bug in enforcement must
+    not silently stop a provider from earning.
+    """
+    global _admission_refuse_last_log, _admission_refuse_last_reason
+    try:
+        accept, reason = evaluate_job_admission()
+    except Exception as e:
+        log.debug(f"[run-mode] admission check errored, failing open (accept): {e}")
+        return True
+    if accept:
+        return True
+    now = time.time()
+    if (reason != _admission_refuse_last_reason
+            or (now - _admission_refuse_last_log) >= _ADMISSION_REFUSE_LOG_COOLDOWN):
+        _admission_refuse_last_log = now
+        _admission_refuse_last_reason = reason
+        log.info(f"[run-mode] job refused — {reason}")
+    return False
+
+
 # ─── v4.0.0-alpha: MODEL ARCHITECTURE DETECTION ─────────────────────────────
 #
 # Small lookup table seeded with every model we've benchmarked in Rounds 1-4.
@@ -7196,6 +7572,15 @@ def poll_and_execute():
     # Skip if all GPU slots are occupied
     if get_free_gpu_slot_count() <= 0:
         log.debug(f"All {MAX_CONCURRENT_JOBS} GPU slot(s) occupied — skipping job poll")
+        return
+
+    # v4.5.0 (Backlog #9): honour the operator's run preferences (run_mode /
+    # scheduled window / GPU usage cap / temp limit) from config.json. Refuse
+    # to even poll for a job when we shouldn't accept one. Fails open: an
+    # unset/unknown run_mode (every existing provider) accepts normally, and any
+    # error inside the gate accepts, so enforcement can never silently stop a
+    # provider from earning. WHY-it-refused is logged inside the gate.
+    if not job_admission_gate():
         return
 
     # Dual endpoint support: try new endpoint first, fall back to legacy.
