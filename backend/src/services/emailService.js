@@ -648,7 +648,7 @@ function buildWithdrawalRejectedTemplate({ amountSar, reason }) {
 function buildProviderOfflineTemplate({ providerName, lastSeen }) {
   const frontend = getFrontendUrl();
   const dashboardUrl = `${frontend}/provider`;
-  const troubleshootUrl = `${frontend}/docs/provider/troubleshooting`;
+  const troubleshootUrl = `${frontend}/docs/provider-guide`;
   const safeName = (providerName || '').trim() || 'your node';
   const lastSeenLabel = lastSeen
     ? new Date(lastSeen).toUTCString()
