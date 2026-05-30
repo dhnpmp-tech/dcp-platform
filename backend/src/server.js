@@ -883,12 +883,24 @@ app.get('/api/health', (req, res) => {
       `SELECT COUNT(*) AS count FROM jobs WHERE status = 'running'`
     ).get()?.count || 0;
 
+    // FIX #4: money-config readiness — surfaces whether card top-up can work
+    // without leaking secrets. Source of truth lives in routes/payments.js.
+    const payments = typeof paymentsRouter.getMoneyConfigReadiness === 'function'
+      ? paymentsRouter.getMoneyConfigReadiness()
+      : {
+          payments_webhook_ready: false,
+          payments_secret_ready: false,
+          payout_source_ready: false,
+          sandbox_topup_enabled: false,
+        };
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       db: 'ok',
       providers: { total: providersTotal, online: providersOnline },
       jobs: { queued: jobsQueued, running: jobsRunning },
+      payments,
       sweepErrors: sweep.sweepErrors,
       sweep,
     });
@@ -1173,11 +1185,43 @@ app.use((err, req, res, _next) => {
   res.status(status).json({ error: isCors ? 'Origin not allowed' : 'Internal server error' });
 });
 
+// FIX #4: boot guard for money-config. In production we DO NOT hard-fail when
+// Moyasar keys are absent (they legitimately are not provisioned yet) — we emit
+// one loud, explicit multi-line warning listing exactly what is unset and that
+// card top-up is therefore disabled. Never throw here.
+function warnIfMoneyConfigMissing() {
+  if (process.env.NODE_ENV !== 'production') return;
+  const readiness = typeof paymentsRouter.getMoneyConfigReadiness === 'function'
+    ? paymentsRouter.getMoneyConfigReadiness()
+    : {};
+
+  const missing = [];
+  if (!readiness.payments_secret_ready) missing.push('MOYASAR_SECRET_KEY');
+  if (!readiness.payments_webhook_ready) missing.push('MOYASAR_WEBHOOK_SECRET');
+  if (!readiness.payout_source_ready) missing.push('MOYASAR_PAYOUT_SOURCE_ID');
+
+  if (missing.length === 0) return;
+
+  console.warn('');
+  console.warn('================================================================');
+  console.warn('  [startup] PAYMENTS NOT FULLY CONFIGURED (production)');
+  console.warn('  Card top-up via Moyasar is DISABLED until these are set:');
+  for (const key of missing) {
+    console.warn(`    - ${key} is UNSET`);
+  }
+  console.warn('  Renters can still top up via bank transfer (manual IBAN flow)');
+  console.warn('  if DCP_BANK_IBAN is configured. Card payments will return 503.');
+  console.warn('  This is a warning, not a fatal error — boot continues.');
+  console.warn('================================================================');
+  console.warn('');
+}
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`DC1 Platform API (headless) running on port ${PORT}`);
     console.log(`API:  http://localhost:${PORT}/api`);
     console.log(`Health: http://localhost:${PORT}/api/health`);
+    warnIfMoneyConfigMissing();
   });
 }
 

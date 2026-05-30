@@ -18,6 +18,16 @@
 - **Zero-token completions are no longer billed as free.** When a provider (e.g. Ollama non-stream) omits a `usage` block, cost falls back to a per-minute estimate instead of debiting 0.
 - **Deliver-once-but-flag on shortfall** — if the renter can't cover already-shipped tokens, the event is recorded `unbilled` (never a silent zero-debit) so the next request is gated, and auto-top-up is triggered. The legacy `openrouter_usage_ledger` receipt is still written for the renter dashboard via a `request_id`-UNIQUE-collision no-op (no double-credit).
 
+### Security — sandbox/payments boot guard (foolproofing #4)
+- **`/api/payments/topup-sandbox` can no longer mint free balance in production.** The route is registered **only** when `ALLOW_SANDBOX_TOPUP === '1'` AND `NODE_ENV !== 'production'`; in production it is never mounted (404), and the handler re-checks the gate at request time as defense-in-depth. A loud boot warning fires whenever the route would be live.
+- **`/api/health` now reports money-config readiness** — `payments` block with `payments_secret_ready`, `payments_webhook_ready`, `payout_source_ready`, `sandbox_topup_enabled`.
+- **Non-fatal production boot warning** (`warnIfMoneyConfigMissing`) lists exactly which of `MOYASAR_SECRET_KEY` / `MOYASAR_WEBHOOK_SECRET` / `MOYASAR_PAYOUT_SOURCE_ID` are unset and that card top-up is therefore disabled. It never throws — boot continues when Moyasar keys are legitimately absent.
+
+### Onboarding — wizard earned-`live` + idempotent install (foolproofing #7)
+- **"You're Live" now requires earned state, not a bare `status='active'`.** `node-status` reports `live` only when `approval_status='approved'` AND a heartbeat within 90s AND not paused; otherwise it returns an explicit machine `state` (`pending_approval` / `no_recent_heartbeat` / `paused`) with plain-language copy + next step. This closes the "registered but never serving" dead-signup trap.
+- **Wizard-origin registrations auto-approve** (`register-node` sets `approval_status='approved'` when it presents a valid single-use install token; env-gated by `DCP_WIZARD_AUTO_APPROVE`, default on) so a real daemon actually becomes bookable instead of heartbeating forever at `pending`.
+- **Idempotent install** — a retry with the same node fingerprint re-resolves to the **existing** API key with `200` instead of a `409` that stranded the daemon (new additive `providers.node_fingerprint` column); a different fingerprint on a consumed token still `409`s (anti-leak). Heartbeat timestamps are normalized to UTC so a fresh heartbeat isn't misread as stale.
+
 ## [1.0.0] — 2026-03-23 — Public Launch
 
 **DCP is live.** The GPU marketplace built for Arabic AI goes public today.

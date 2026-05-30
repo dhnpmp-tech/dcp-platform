@@ -71,6 +71,40 @@ db._db.exec(`
   );
 `);
 
+// Additive column: stable per-machine identity captured on first-run handshake
+// so a retried register-node (same hardware) re-resolves to the SAME api_key
+// instead of stranding the daemon on a single-use-token 409. better-sqlite3
+// throws on a duplicate ADD COLUMN, so this is wrapped and idempotent.
+try {
+  db._db.exec(`ALTER TABLE providers ADD COLUMN node_fingerprint TEXT`);
+} catch (_) {
+  // Column already exists (re-run or already migrated) — safe to ignore.
+}
+
+// ── Wizard activation constants ─────────────────────────────────────
+// Live-gate heartbeat freshness window. The wizard's "You're Live" claim is
+// stricter than the marketplace bookability window (computeProviderStatus in
+// routes/providers.js uses 120s); the wizard promises the user the node is
+// serving RIGHT NOW, so it requires a heartbeat inside 90s.
+const WIZARD_LIVE_HEARTBEAT_WINDOW_MS = 90 * 1000;
+
+// Auto-approve daemons that complete the wizard-origin first-run handshake.
+// Defaults ON. Set DCP_WIZARD_AUTO_APPROVE=0 to fall back to manual approval
+// (node-status then reports state='pending_approval' with next steps).
+function wizardAutoApproveEnabled() {
+  return process.env.DCP_WIZARD_AUTO_APPROVE !== '0';
+}
+
+// Derive a stable machine identity from the daemon's first-run payload.
+// Prefers an explicit fingerprint/machine-id; falls back to hostname so the
+// current installer (which sends hostname, not a fingerprint) is still
+// idempotent. Returns null when nothing identifying was sent.
+function deriveNodeFingerprint(body) {
+  const raw = body.fingerprint || body.machine_id || body.hardware_id || body.hostname;
+  const s = typeof raw === 'string' ? raw.trim() : '';
+  return s ? s.slice(0, 200) : null;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────
 
 function normalizeEmail(value) {
@@ -575,16 +609,67 @@ router.post('/provider/register-node', (req, res) => {
   if (!tokenRow) {
     return wizardError(res, 404, 'invalid_token', 'install_token not recognised');
   }
-  if (tokenRow.consumed_at) {
-    return wizardError(res, 409, 'token_consumed', 'install_token already used');
-  }
-  if (new Date(tokenRow.expires_at).getTime() < Date.now()) {
-    return wizardError(res, 410, 'token_expired', 'install_token expired');
-  }
 
   const provider = db.get('SELECT * FROM providers WHERE id = ?', tokenRow.provider_id);
   if (!provider) {
     return wizardError(res, 500, 'provider_missing', 'token references unknown provider');
+  }
+
+  const fingerprint = deriveNodeFingerprint(body);
+
+  // ── Idempotent replay of an already-consumed token ───────────────
+  // The install_token is single-use, but the daemon may retry register-node
+  // (network blip, installer re-run, crash before it persisted the key). A
+  // flat 409 would strand a real daemon with no credential. So when the SAME
+  // machine (same fingerprint) replays the SAME token for a provider that
+  // already minted a key, re-resolve to the EXISTING key + 200 instead of 409.
+  if (tokenRow.consumed_at) {
+    const sameMachine = fingerprint && provider.node_fingerprint
+      ? provider.node_fingerprint === fingerprint
+      : true; // no fingerprint on either side → trust the token-bound provider
+    if (provider.api_key && sameMachine) {
+      return res.status(200).json({
+        node_id: `node_${provider.id}`,
+        api_key: provider.api_key,
+        status: provider.status || 'active',
+        websocket_url: `wss://api.dcp.sa/v1/ws/node_${provider.id}`,
+        idempotent: true,
+      });
+    }
+    // Token consumed by a DIFFERENT machine (or provider never got a key):
+    // genuine reuse — keep rejecting so a stolen/leaked token can't onboard.
+    return wizardError(res, 409, 'token_consumed', 'install_token already used');
+  }
+
+  if (new Date(tokenRow.expires_at).getTime() < Date.now()) {
+    return wizardError(res, 410, 'token_expired', 'install_token expired');
+  }
+
+  // ── Fresh registration ───────────────────────────────────────────
+  const hostname = typeof body.hostname === 'string' ? body.hostname.slice(0, 200) : null;
+  const os = typeof body.os === 'string' ? body.os.toLowerCase().slice(0, 32) : provider.os;
+  const detected = Array.isArray(body.gpu_detected) && body.gpu_detected.length ? body.gpu_detected[0] : null;
+  const vramMb = Number(detected?.vram_mb) || null;
+  const gpuModelDetected = detected
+    ? `${detected.vendor || ''} ${detected.model || ''}`.trim()
+    : null;
+
+  // Idempotency on a FRESH token too: if this provider already registered the
+  // same machine and holds a key, hand back the existing key rather than
+  // rotating it out from under a running daemon. (Still consume the token so
+  // it can't be replayed by another machine.)
+  if (provider.api_key && fingerprint && provider.node_fingerprint === fingerprint) {
+    db.run(
+      `UPDATE wizard_install_tokens SET consumed_at = datetime('now') WHERE token = ?`,
+      token,
+    );
+    return res.status(200).json({
+      node_id: `node_${provider.id}`,
+      api_key: provider.api_key,
+      status: provider.status || 'active',
+      websocket_url: `wss://api.dcp.sa/v1/ws/node_${provider.id}`,
+      idempotent: true,
+    });
   }
 
   // Mark token consumed.
@@ -598,25 +683,33 @@ router.post('/provider/register-node', (req, res) => {
   // so the daemon holds a distinct, persistent credential.
   const apiKey = `dcpk_${crypto.randomBytes(24).toString('hex')}`;
 
-  const hostname = typeof body.hostname === 'string' ? body.hostname.slice(0, 200) : null;
-  const os = typeof body.os === 'string' ? body.os.toLowerCase().slice(0, 32) : provider.os;
-  const detected = Array.isArray(body.gpu_detected) && body.gpu_detected.length ? body.gpu_detected[0] : null;
-  const vramMb = Number(detected?.vram_mb) || null;
-  const gpuModelDetected = detected
-    ? `${detected.vendor || ''} ${detected.model || ''}`.trim()
-    : null;
+  // Auto-approve wizard-origin registrations (FIX #7, option a). The daemon
+  // reached this handshake by presenting a single-use install_token that was
+  // itself minted only after a Bearer-authenticated provider passed PDPL
+  // consent — an identity-verified, trusted path. Manual approval here would
+  // strand a real daemon at status='active' but approval_status='pending',
+  // so it heartbeats but is never bookable. Gated by DCP_WIZARD_AUTO_APPROVE
+  // (default ON) so ops can revert to manual approval.
+  const autoApprove = wizardAutoApproveEnabled();
 
   db.run(
     `UPDATE providers
      SET status = CASE WHEN status IN ('pending','registered') THEN 'active' ELSE status END,
+         approval_status = CASE WHEN ? = 1 AND COALESCE(approval_status, 'pending') != 'approved'
+                                THEN 'approved' ELSE approval_status END,
+         approved_at = CASE WHEN ? = 1 AND approved_at IS NULL
+                            THEN datetime('now') ELSE approved_at END,
          api_key = ?,
+         node_fingerprint = COALESCE(?, node_fingerprint),
          os = COALESCE(?, os),
          gpu_model = COALESCE(?, gpu_model),
          vram_mb = COALESCE(?, vram_mb),
          notes = COALESCE(notes, '') || ?,
          updated_at = datetime('now')
      WHERE id = ?`,
-    apiKey, os, gpuModelDetected, vramMb,
+    autoApprove ? 1 : 0,
+    autoApprove ? 1 : 0,
+    apiKey, fingerprint, os, gpuModelDetected, vramMb,
     hostname ? `\n[wizard] registered hostname=${hostname} daemon=${body.daemon_version || '?'}` : '',
     provider.id,
   );
@@ -625,24 +718,113 @@ router.post('/provider/register-node', (req, res) => {
     node_id: `node_${provider.id}`,
     api_key: apiKey,
     status: 'active',
+    approval_status: autoApprove ? 'approved' : (provider.approval_status || 'pending'),
     websocket_url: `wss://api.dcp.sa/v1/ws/node_${provider.id}`,
   });
 });
 
 // ── GET /v1/provider/node-status ──────────────────────────────────
-// Polled by wizard Step 6. Reports whether the daemon has phoned home.
+// Polled by wizard Step 6. Reports whether the node is actually LIVE —
+// i.e. earning-eligible — not merely registered.
+//
+// "You're Live" requires ALL of (EARNED state, not claimed state):
+//   1. approval_status === 'approved'  (admin/auto-approved)
+//   2. last_heartbeat within 90s       (daemon is actually phoning home)
+//   3. NOT is_paused                   (provider hasn't paused the node)
+//
+// When any check fails we return an explicit machine `state` plus
+// plain-language copy + next step, so the wizard never shows a false
+// "You're Live". Machine states: live | pending_approval |
+// no_recent_heartbeat | paused.
+
+// Parse a last_heartbeat value as UTC epoch ms. Production writes ISO-8601
+// with a 'Z' (new Date().toISOString()), which Date parses as UTC. Some paths
+// (and tests) write SQLite's datetime('now') format "YYYY-MM-DD HH:MM:SS"
+// without a zone — Date would treat that as LOCAL time, making a fresh
+// heartbeat look minutes/hours stale and falsely report no_recent_heartbeat.
+// Normalise the space-separated zoneless form to UTC before parsing.
+function parseHeartbeatMs(value) {
+  if (!value) return null;
+  let v = String(value);
+  if (!/[zZ]|[+\-]\d{2}:?\d{2}$/.test(v) && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(v)) {
+    v = v.replace(' ', 'T') + 'Z';
+  }
+  const ms = new Date(v).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function computeWizardLiveState(p, now) {
+  const approved = (String(p.approval_status || 'pending').toLowerCase()) === 'approved';
+  const paused = Number(p.is_paused) === 1;
+  const lastHbMs = parseHeartbeatMs(p.last_heartbeat);
+  const heartbeatAgeMs = lastHbMs != null ? now - lastHbMs : null;
+  const heartbeatFresh = heartbeatAgeMs != null && heartbeatAgeMs <= WIZARD_LIVE_HEARTBEAT_WINDOW_MS;
+
+  // Precedence: approval first (nothing serves unapproved), then heartbeat
+  // (can't be live if it isn't phoning home), then pause (provider choice).
+  if (!approved) {
+    return {
+      live: false,
+      state: 'pending_approval',
+      message: 'Your node is registered and waiting for approval before it can take jobs.',
+      next_step: 'Approval is usually automatic. If this persists, contact support.',
+    };
+  }
+  if (!heartbeatFresh) {
+    return {
+      live: false,
+      state: 'no_recent_heartbeat',
+      message: lastHbMs
+        ? 'Your node was approved but we have not heard from the daemon recently.'
+        : 'Your node is approved but the daemon has not connected yet.',
+      next_step: 'Make sure the DCP daemon is running on your machine, then keep this page open.',
+    };
+  }
+  if (paused) {
+    return {
+      live: false,
+      state: 'paused',
+      message: 'Your node is paused, so it is not accepting jobs right now.',
+      next_step: 'Resume the node from your dashboard to start earning again.',
+    };
+  }
+  return {
+    live: true,
+    state: 'live',
+    message: 'You’re live! Your node is approved, connected, and accepting jobs.',
+    next_step: null,
+  };
+}
 
 router.get('/provider/node-status', requireProvider, (req, res) => {
   const p = req.provider;
-  const connected = p.status === 'active';
+  const now = Date.now();
+  const live = computeWizardLiveState(p, now);
+
+  const lastHbMs = parseHeartbeatMs(p.last_heartbeat);
+  const heartbeatAgeSeconds = lastHbMs != null ? Math.max(0, Math.floor((now - lastHbMs) / 1000)) : null;
+
+  // `connected` retained for backward compatibility: it means "the daemon has
+  // registered and we've seen a recent heartbeat" — NOT "live/earning". Use
+  // `live` for the "You're Live" claim.
+  const connected = heartbeatAgeSeconds != null && heartbeatAgeSeconds * 1000 <= WIZARD_LIVE_HEARTBEAT_WINDOW_MS;
+
   return res.json({
+    live: live.live,
+    state: live.state,
+    state_message: live.message,
+    next_step: live.next_step,
     connected,
-    node_id: connected ? `node_${p.id}` : null,
+    node_id: p.status === 'active' ? `node_${p.id}` : null,
     status: p.status || 'pending',
+    approval_status: p.approval_status || 'pending',
+    is_paused: Number(p.is_paused) === 1,
+    heartbeat_age_seconds: heartbeatAgeSeconds,
     gpu_model: p.gpu_model,
     vram_gb: p.vram_gb,
     os: p.os,
-    last_seen: p.updated_at,
+    last_heartbeat: p.last_heartbeat || null,
+    last_seen: p.last_heartbeat || p.updated_at,
   });
 });
 
