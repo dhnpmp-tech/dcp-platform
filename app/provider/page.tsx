@@ -32,6 +32,14 @@ interface ProviderData {
   payoutIban: string | null
   jobsCompleted: number
   gpuUptime: number
+  // Reputation — composite score (0–100) computed + stored server-side on every
+  // heartbeat, surfaced here read-only alongside its three sub-metrics.
+  reputationScore: number
+  reputationTier: 'top' | 'reliable' | 'new'
+  reputationUptimePct: number
+  reputationSuccessRatePct: number
+  reputationLongevityDays: number
+  reputationTerminalJobs: number
   gpuModel: string
   vramMb: number
   gpuCount: number
@@ -379,6 +387,12 @@ function ProviderDashboardInner() {
           payoutIban: provider.payout_iban || null,
           jobsCompleted: provider.total_jobs || 0,
           gpuUptime: provider.uptime_percent || 0,
+          reputationScore: Math.round(Number(provider.reputation_score ?? 100)),
+          reputationTier: provider.reputation_tier === 'top' || provider.reputation_tier === 'reliable' ? provider.reputation_tier : 'new',
+          reputationUptimePct: Number(provider.reputation_uptime_pct ?? provider.uptime_percent ?? 0),
+          reputationSuccessRatePct: Number(provider.reputation_success_rate_pct ?? 100),
+          reputationLongevityDays: Number(provider.reputation_longevity_days ?? 0),
+          reputationTerminalJobs: Number(provider.reputation_terminal_jobs ?? 0),
           gpuModel: provider.gpu_model || 'Unknown GPU',
           vramMb: Number.isFinite(vramMb) && vramMb > 0 ? vramMb : 4096,
           gpuCount: Number.isFinite(gpuCount) && gpuCount > 0 ? gpuCount : 1,
@@ -524,6 +538,35 @@ function ProviderDashboardInner() {
   // checks in (then it auto-hides). Independent from the approval-status
   // pending banner above, which is moderation-related.
   const daemonPending = !providerData.lastHeartbeat
+
+  // Earnings forecast — an HONEST projection derived purely from the last-7-days
+  // data the dashboard already fetches (dailyEarnings). We do NOT invent new
+  // tracking: we take the trailing window's total earned SAR, average it per
+  // observed day, and project to a 30-day month. Labelled an estimate in the UI.
+  const recentDays = dailyEarnings.slice(0, 7)
+  const last7dEarnedHalala = recentDays.reduce((sum, d) => sum + (d.earned_halala || 0), 0)
+  const observedDays = recentDays.length
+  // Use the longer of (days observed, 7) as the divisor so a single big day in
+  // a sparse window doesn't over-project — keeps the estimate conservative.
+  const avgPerDaySar = observedDays > 0 ? (last7dEarnedHalala / 100) / Math.max(observedDays, 7) : 0
+  const forecastMonthlySar = avgPerDaySar * 30
+  const last7dEarnedSar = last7dEarnedHalala / 100
+  const showForecast = last7dEarnedHalala > 0
+
+  const reputationTierLabel: Record<ProviderData['reputationTier'], string> = {
+    top: t('provider.reputation_tier_top'),
+    reliable: t('provider.reputation_tier_reliable'),
+    new: t('provider.reputation_tier_new'),
+  }
+  const reputationTierAccent: Record<ProviderData['reputationTier'], string> = {
+    top: 'border-status-success/40 bg-status-success/15 text-status-success',
+    reliable: 'border-status-info/40 bg-status-info/15 text-status-info',
+    new: 'border-dc1-border bg-dc1-surface-l2 text-dc1-text-secondary',
+  }
+  const reputationScoreColor =
+    providerData.reputationScore >= 90 ? 'text-status-success'
+      : providerData.reputationScore >= 75 ? 'text-dc1-amber'
+        : 'text-dc1-text-primary'
 
   return (
     <DashboardLayout navItems={getNavItems()} role="provider" userName={providerData.name}>
@@ -859,6 +902,98 @@ function ProviderDashboardInner() {
               </svg>
             }
           />
+        </div>
+
+        {/* Reputation + Earnings Forecast — the reputation score is computed and
+            stored server-side on every heartbeat (success rate / uptime /
+            longevity composite); this is the first place it is surfaced to the
+            provider. The forecast is an honest estimate derived from the
+            last-7-days earnings already fetched for the chart. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Reputation card */}
+          <div className="card">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <h2 className="section-heading">{t('provider.reputation_title')}</h2>
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${reputationTierAccent[providerData.reputationTier]}`}>
+                {reputationTierLabel[providerData.reputationTier]}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-5 mb-5">
+              <div className="flex flex-col items-center justify-center shrink-0 rounded-xl border border-dc1-border bg-dc1-surface-l2 px-5 py-3">
+                <span className={`text-4xl font-bold leading-none ${reputationScoreColor}`}>
+                  {providerData.reputationScore}
+                </span>
+                <span className="mt-1 text-[10px] uppercase tracking-wide text-dc1-text-muted">
+                  {t('provider.reputation_out_of_100')}
+                </span>
+              </div>
+              <p className="text-sm text-dc1-text-secondary">
+                {t('provider.reputation_desc')}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-3 py-3">
+                <p className="text-xs text-dc1-text-muted mb-1">{t('provider.reputation_uptime')}</p>
+                <p className="text-lg font-semibold text-dc1-text-primary">{providerData.reputationUptimePct.toFixed(1)}%</p>
+              </div>
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-3 py-3">
+                <p className="text-xs text-dc1-text-muted mb-1">{t('provider.reputation_success')}</p>
+                <p className="text-lg font-semibold text-dc1-text-primary">{providerData.reputationSuccessRatePct.toFixed(1)}%</p>
+                <p className="text-[10px] text-dc1-text-muted mt-0.5">
+                  {providerData.reputationTerminalJobs} {t('provider.reputation_jobs')}
+                </p>
+              </div>
+              <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-3 py-3">
+                <p className="text-xs text-dc1-text-muted mb-1">{t('provider.reputation_tenure')}</p>
+                <p className="text-lg font-semibold text-dc1-text-primary">
+                  {Math.round(providerData.reputationLongevityDays)} {t('provider.reputation_days')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Earnings forecast card */}
+          <div className="card">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <h2 className="section-heading">{t('provider.forecast_title')}</h2>
+              <span className="inline-flex items-center rounded-full border border-dc1-border bg-dc1-surface-l2 px-3 py-1 text-xs font-semibold text-dc1-text-muted">
+                {t('provider.forecast_estimate')}
+              </span>
+            </div>
+
+            {showForecast ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-dc1-text-secondary mb-1">{t('provider.forecast_on_track')}</p>
+                  <p className="text-3xl font-bold text-dc1-amber leading-tight">
+                    ~{forecastMonthlySar.toFixed(0)} {t('common.sar')}
+                    <span className="text-base font-medium text-dc1-text-muted">{t('provider.forecast_per_month')}</span>
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-3 py-3">
+                    <p className="text-xs text-dc1-text-muted mb-1">{t('provider.forecast_last_7d')}</p>
+                    <p className="text-sm font-semibold text-dc1-text-primary">{last7dEarnedSar.toFixed(2)} {t('common.sar')}</p>
+                  </div>
+                  <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 px-3 py-3">
+                    <p className="text-xs text-dc1-text-muted mb-1">{t('provider.forecast_daily_avg')}</p>
+                    <p className="text-sm font-semibold text-dc1-text-primary">{avgPerDaySar.toFixed(2)} {t('common.sar')}</p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-dc1-text-muted leading-relaxed">
+                  {t('provider.forecast_disclaimer')}
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-10">
+                <p className="text-sm text-dc1-text-secondary text-center max-w-xs">
+                  {t('provider.forecast_no_data')}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="card">
