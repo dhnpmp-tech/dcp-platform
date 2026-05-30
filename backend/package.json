@@ -41,13 +41,14 @@
     "dockerode": "^4.0.2",
     "dotenv": "^17.4.2",
     "express": "^4.18.2",
-    "pdfkit": "^0.15.0",
     "express-rate-limit": "^8.3.0",
+    "pdfkit": "^0.15.0",
     "uuid": "^9.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.29",
+    "express-openapi-validator": "^5.6.2",
     "jest": "^30.3.0",
     "supertest": "^7.2.2"
   },
