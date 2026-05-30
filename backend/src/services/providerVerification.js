@@ -76,7 +76,15 @@ function ensureSchema(db) {
       `CREATE INDEX IF NOT EXISTS idx_provider_verification_online
          ON provider_verification(verified_online, verified_at)`
     ).run();
-  } catch (_) { /* index is best-effort */ }
+    // Freshness-led index: the hot-path queries (getEarnedRoutingState,
+    // countUsableProviders) filter `WHERE verified_at >= ?`, which the
+    // verified_online-led index above cannot serve. Lead on verified_at and
+    // include verified_online so the range scan is covered.
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_provider_verification_freshness
+         ON provider_verification(verified_at, verified_online)`
+    ).run();
+  } catch (_) { /* indexes are best-effort */ }
   _schemaReady = true;
 }
 
@@ -388,12 +396,51 @@ function getVerificationMap(db) {
   return map;
 }
 
+// Earned routing state for the renter-facing path (catalog, alternatives,
+// routing candidates). Keys purely off the *freshness of the probe verdict*:
+//   servingIds — providers we probed within USABLE_FRESH_MS and confirmed
+//                serving (verified_online=1). The strong "earned-online" set.
+//   deadIds    — providers we probed within USABLE_FRESH_MS and confirmed
+//                NOT serving (verified_online=0). The "freshly-confirmed-dead"
+//                set — safe to exclude with zero false-negative risk, because
+//                a probe that just failed means a renter would fail too.
+//   active     — whether the verification subsystem produced ANY fresh verdict.
+//                When false (loop down / never ran), callers MUST fall back to
+//                claimed-state routing so a dead verification loop can never
+//                self-inflict a fleet-wide outage.
+// Status/heartbeat/paused gating is left to the caller's existing candidate
+// query; this only answers "what did the earned probe most recently say?".
+function getEarnedRoutingState(db) {
+  ensureSchema(db);
+  const cutoff = new Date(Date.now() - USABLE_FRESH_MS).toISOString();
+  let rows = [];
+  try {
+    rows = db.all(
+      `SELECT provider_id, verified_online
+         FROM provider_verification
+        WHERE verified_at >= ?`,
+      [cutoff]
+    );
+  } catch (_) {
+    return { active: false, servingIds: new Set(), deadIds: new Set() };
+  }
+  const servingIds = new Set();
+  const deadIds = new Set();
+  for (const r of (rows || [])) {
+    const id = Number(r.provider_id);
+    if (r.verified_online === 1) servingIds.add(id);
+    else deadIds.add(id);
+  }
+  return { active: (rows || []).length > 0, servingIds, deadIds };
+}
+
 module.exports = {
   startProviderVerification,
   stopProviderVerification,
   runVerificationOnce,
   countUsableProviders,
   getVerificationMap,
+  getEarnedRoutingState,
   ensureSchema,
   // exported for tests
   _normalizeBaseUrl,
