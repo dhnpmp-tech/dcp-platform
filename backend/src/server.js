@@ -530,6 +530,27 @@ app.get('/install.sh', (req, res) => {
     return res.sendFile(INSTALL_SCRIPT_PATH);
 });
 
+// Windows provider auto-installer: the /setup wizard emits a one-liner that
+// does `Invoke-WebRequest -Uri 'https://dcp.sa/install.ps1' -OutFile
+// dcp_setup.ps1; .\dcp_setup.ps1 -Token '<install_token>'`. dcp.sa rewrites
+// /install.ps1 here (see next.config.js). Serve the PowerShell installer that
+// exchanges the wizard install_token for an api_key via /v1/provider/
+// register-node, mirroring the .sh path. Prefer a maintained public copy; fall
+// back to the bundled installers/ source so this never 404s.
+const INSTALL_PS1_PUBLIC_PATH = path.join(__dirname, '..', 'public', 'install.ps1');
+const INSTALL_PS1_FALLBACK_PATH = path.join(__dirname, '..', 'installers', 'dcp-setup-windows.ps1');
+app.get('/install.ps1', (req, res) => {
+    const ps1Path = fs.existsSync(INSTALL_PS1_PUBLIC_PATH)
+        ? INSTALL_PS1_PUBLIC_PATH
+        : (fs.existsSync(INSTALL_PS1_FALLBACK_PATH) ? INSTALL_PS1_FALLBACK_PATH : null);
+    if (!ps1Path) {
+        return res.status(404).json({ error: 'Windows install script not found' });
+    }
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="install.ps1"');
+    return res.sendFile(ps1Path);
+});
+
 // Agent-driven install (curl https://api.dcp.sa/install/agent | bash -s -- --token TOKEN)
 // This is the new path: bootstrap the DCP Agent (Hermes fork), and the
 // agent itself orchestrates the rest of the install via its skills.

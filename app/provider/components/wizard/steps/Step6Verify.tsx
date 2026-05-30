@@ -15,13 +15,34 @@ interface Step6Props {
   onDone: () => void
 }
 
+// Earned-state machine from GET /v1/provider/node-status. `live` is the single
+// source of truth for the "You're Live" claim — it is true ONLY when the node
+// is approved AND heartbeating within 90s AND not paused. We must NOT re-derive
+// liveness from `connected`/`status` on the client (that defeats the
+// earned-state design and can show a false "You're Live").
+type WizardLiveState =
+  | 'live'
+  | 'pending_approval'
+  | 'no_recent_heartbeat'
+  | 'paused'
+
 interface NodeStatusResponse {
+  live: boolean
+  state: WizardLiveState
+  state_message: string
+  next_step: string | null
   connected: boolean
   status: 'pending' | 'registered' | 'active' | 'online' | 'inactive'
-  node_id?: string
+  node_id?: string | null
+  approval_status?: string
+  is_paused?: boolean
+  heartbeat_age_seconds?: number | null
   last_seen_at?: string | null
+  last_seen?: string | null
   daemon_version?: string | null
   gpu_model?: string | null
+  vram_gb?: number | null
+  os?: string | null
   driver_version?: string | null
 }
 
@@ -58,15 +79,19 @@ export function Step6Verify({ apiKey, onBack, onDone }: Step6Props) {
     }
   }, [apiKey])
 
-  const connected = status?.connected && (status.status === 'active' || status.status === 'online')
+  // Liveness is EARNED, not derived. Trust the backend `live` flag — it already
+  // gates on approval + fresh heartbeat + not-paused. Re-deriving from
+  // `connected`/`status` here previously let the UI claim "You're Live" for a
+  // node that was merely registered but not approved/heartbeating.
+  const isLive = status?.live === true
 
-  if (connected) {
+  if (isLive) {
     return (
       <div className="space-y-5 rounded-2xl border border-status-success/40 bg-status-success/5 p-6 md:p-8 text-center">
         <div className="text-5xl">✅</div>
         <h2 className="text-2xl font-bold text-dc1-text-primary">You&apos;re Live</h2>
         <p className="text-sm text-dc1-text-secondary">
-          Your node is online and ready to earn.
+          {status?.state_message ?? 'Your node is online and ready to earn.'}
         </p>
         <dl className="mx-auto grid max-w-md grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-dc1-border bg-dc1-surface-l1 p-4 text-left text-sm">
           <dt className="text-dc1-text-muted">Node ID</dt>
@@ -106,14 +131,23 @@ export function Step6Verify({ apiKey, onBack, onDone }: Step6Props) {
       <div className="flex items-center gap-4 rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4">
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-dc1-amber border-t-transparent" />
         <div className="flex-1 text-sm">
+          {/* Prefer the backend's plain-language earned-state copy. It explains
+              exactly which gate is still open (approval / heartbeat / paused),
+              so the user isn't left guessing. Fall back to status-derived copy
+              only when the new fields are absent (older backend). */}
           <p className="font-semibold text-dc1-text-primary">
-            {status?.status === 'registered'
+            {status?.state_message
+              ? status.state_message
+              : status?.status === 'registered'
               ? 'Registered — waiting for first heartbeat from daemon'
               : status?.status === 'pending'
               ? 'Waiting for daemon to register…'
               : 'Connecting…'}
           </p>
-          <p className="text-xs text-dc1-text-muted">
+          {status?.next_step && (
+            <p className="mt-1 text-xs text-dc1-text-secondary">{status.next_step}</p>
+          )}
+          <p className="mt-1 text-xs text-dc1-text-muted">
             Checking every 5 seconds ({elapsed}s elapsed) — typically takes 30–60 seconds
           </p>
         </div>

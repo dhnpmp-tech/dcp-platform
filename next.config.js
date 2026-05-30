@@ -17,6 +17,13 @@ const nextConfig = {
         source: '/install.sh',
         destination: `${backendUrl}/install`,
       },
+      // Windows provider auto-installer: the wizard emits
+      //   Invoke-WebRequest -Uri 'https://dcp.sa/install.ps1' -OutFile dcp_setup.ps1
+      // so this must resolve to the backend PowerShell installer (not a 404).
+      {
+        source: '/install.ps1',
+        destination: `${backendUrl}/install.ps1`,
+      },
       // Model catalog API — used by ModelBrowsing and marketplace components
       {
         source: '/api/models',
