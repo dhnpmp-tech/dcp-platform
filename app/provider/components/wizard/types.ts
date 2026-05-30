@@ -1,6 +1,7 @@
 // Shared wizard types + session-state shape.
 
 import type { ProbeReport } from './hardware-probe'
+import type { RunMode } from '../../../lib/provider-onboarding'
 
 export type StepId = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -19,7 +20,9 @@ export interface GpuSelection {
 }
 
 export interface WizardConfig {
-  schedule: 'always_on' | 'smart_hours' | 'custom'
+  // Canonical run-mode enum shared with the desktop app + daemon (backlog #8):
+  // always | idle | scheduled. Was previously always_on | smart_hours | custom.
+  schedule: RunMode
   gpuLoadMaxPct: number
   vramMaxPct: number
   powerLimit: 'default' | '250w' | '200w' | 'eco'
@@ -43,7 +46,7 @@ export interface WizardSession {
 }
 
 export const DEFAULT_CONFIG: WizardConfig = {
-  schedule: 'always_on',
+  schedule: 'always',
   gpuLoadMaxPct: 100,
   vramMaxPct: 100,
   powerLimit: 'default',

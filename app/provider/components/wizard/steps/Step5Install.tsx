@@ -16,6 +16,7 @@ import {
   CopyButton, ErrorBox, PrimaryButton, SecondaryButton, v1Fetch, V1Error,
 } from '../primitives'
 import type { DetectedOS } from '../os-detect'
+import { buildInstallCommand } from '../../../../lib/provider-onboarding'
 import { LegalConsentModal, type LegalPayload } from './LegalConsentModal'
 
 interface Step5Props {
@@ -48,6 +49,11 @@ export function Step5Install({
   const [modalOpen, setModalOpen] = useState(false)
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
+
+  // Desktop app is the recommended default on Windows/Mac (and the unknown
+  // fallback). Linux has no desktop app yet, so the headless curl one-liner is
+  // the primary path there.
+  const desktopRecommended = os === 'windows' || os === 'macos' || os === 'unknown'
 
   async function mint(body: Record<string, unknown>): Promise<boolean> {
     try {
@@ -126,7 +132,17 @@ export function Step5Install({
 
       {token && (
         <>
-          <InstallCommand os={os} token={token} />
+          {/* On Windows/Mac the desktop app is the recommended path; the curl
+              one-liner is the explicit "headless / Linux" option. On Linux the
+              terminal command is primary (no desktop app yet). */}
+          {desktopRecommended ? (
+            <>
+              <DesktopRecommended os={os} apiKey={apiKey} />
+              <HeadlessOption os={os} token={token} />
+            </>
+          ) : (
+            <InstallCommand os={os} token={token} />
+          )}
 
           <div className="flex items-center justify-between text-xs text-dc1-text-muted">
             {expiresAt && (
@@ -141,55 +157,6 @@ export function Step5Install({
             >
               Regenerate token
             </button>
-          </div>
-
-          {/* API Key — needed when using the desktop app download */}
-          <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4 text-sm">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dc1-text-muted">
-              Your Provider API Key
-            </p>
-            <p className="mb-2 text-xs text-dc1-text-secondary">
-              You'll need this when the desktop app asks for your key during setup.
-            </p>
-            <div className="relative rounded-lg border border-dc1-border bg-dc1-void p-3">
-              <code className="text-xs text-dc1-amber break-all">{apiKey}</code>
-              <div className="absolute right-2 top-2">
-                <CopyButton text={apiKey} label="Copy" />
-              </div>
-            </div>
-          </div>
-
-          {/* Direct download fallback */}
-          <div className="rounded-lg border border-dc1-amber/30 bg-dc1-amber/5 p-4 text-sm">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dc1-amber">
-              Prefer a direct download?
-            </p>
-            <p className="mb-3 text-xs text-dc1-text-secondary">
-              Skip the command above and download the desktop app instead. It includes the same installer with a GUI wizard.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {(os === 'macos' || os === 'unknown') && (
-                <a
-                  href="https://api.dcp.sa/download/mac"
-                  className="inline-flex items-center gap-2 rounded-lg border border-dc1-border bg-dc1-surface-l2 px-4 py-2 text-sm font-medium text-dc1-text-primary hover:border-dc1-amber transition-colors"
-                >
-                  <span>🍎</span> Download for Mac
-                </a>
-              )}
-              {(os === 'windows' || os === 'unknown') && (
-                <a
-                  href="https://api.dcp.sa/download/windows"
-                  className="inline-flex items-center gap-2 rounded-lg border border-dc1-border bg-dc1-surface-l2 px-4 py-2 text-sm font-medium text-dc1-text-primary hover:border-dc1-amber transition-colors"
-                >
-                  <span>🪟</span> Download for Windows
-                </a>
-              )}
-              {os === 'linux' && (
-                <p className="text-xs text-dc1-text-muted">
-                  Linux: use the terminal command above. Desktop app coming soon.
-                </p>
-              )}
-            </div>
           </div>
 
           <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4 text-sm">
@@ -226,8 +193,61 @@ export function Step5Install({
   )
 }
 
+// Recommended desktop-app card for Windows/Mac. The desktop app bundles the
+// same installer behind a GUI wizard; the provider pastes the install token
+// (not the long-lived API key) when prompted.
+function DesktopRecommended({ os, apiKey }: { os: DetectedOS; apiKey: string }) {
+  const downloadUrl = os === 'windows'
+    ? 'https://dcp.sa/download/windows'
+    : 'https://dcp.sa/download/mac'
+  const osLabel = os === 'windows' ? 'Windows' : os === 'macos' ? 'macOS' : 'Desktop'
+  const icon = os === 'windows' ? '🪟' : '🍎'
+  return (
+    <div className="rounded-lg border border-dc1-amber/40 bg-dc1-amber/5 p-4 text-sm">
+      <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-dc1-amber">
+        <span>{icon}</span> Recommended for {osLabel}
+      </p>
+      <p className="mb-3 text-xs text-dc1-text-secondary">
+        Download the DCP desktop app — a guided GUI installer. Paste your install token when it asks; no terminal required.
+      </p>
+      <a
+        href={downloadUrl}
+        download
+        className="inline-flex items-center gap-2 rounded-lg border border-dc1-amber bg-dc1-amber/10 px-4 py-2 text-sm font-semibold text-dc1-amber hover:bg-dc1-amber/20 transition-colors"
+      >
+        Download for {osLabel}
+      </a>
+      {/* API key for any desktop-app prompt that asks for it post-install */}
+      <div className="mt-4 rounded-lg border border-dc1-border bg-dc1-surface-l2 p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-dc1-text-muted">
+          Your Provider API Key
+        </p>
+        <div className="relative rounded-lg border border-dc1-border bg-dc1-void p-3">
+          <code className="text-xs text-dc1-amber break-all">{apiKey}</code>
+          <div className="absolute right-2 top-2">
+            <CopyButton text={apiKey} label="Copy" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Explicit headless / Linux fallback shown beneath the desktop card on
+// Windows/Mac — the same canonical curl one-liner.
+function HeadlessOption({ os, token }: { os: DetectedOS; token: string }) {
+  return (
+    <div className="rounded-lg border border-dc1-border bg-dc1-surface-l2/60 p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-dc1-text-muted">
+        Or, headless / Linux — run in a terminal
+      </p>
+      <InstallCommand os={os === 'linux' ? 'linux' : 'unknown'} token={token} />
+    </div>
+  )
+}
+
 function InstallCommand({ os, token }: { os: DetectedOS; token: string }) {
-  const cmd = buildCommand(os, token)
+  const cmd = buildInstallCommand({ os, token })
   const osLabel = os === 'windows' ? 'Windows (PowerShell as Admin)'
     : os === 'macos' ? 'macOS (Terminal)' : os === 'linux' ? 'Linux (Terminal)' : 'Terminal'
   return (
@@ -255,23 +275,6 @@ function InstallCommand({ os, token }: { os: DetectedOS; token: string }) {
       </p>
     </div>
   )
-}
-
-function buildCommand(os: DetectedOS, token: string): string {
-  switch (os) {
-    case 'windows':
-      return [
-        'powershell -ExecutionPolicy Bypass -Command "',
-        "  Invoke-WebRequest -Uri 'https://dcp.sa/install.ps1' -OutFile dcp_setup.ps1;",
-        `  .\\dcp_setup.ps1 -Token '${token}'"`,
-      ].join('\n')
-    case 'macos':
-      return `curl -fsSL https://dcp.sa/install.sh | sudo bash -s -- --token ${token}`
-    case 'linux':
-      return `curl -fsSL https://dcp.sa/install.sh | sudo bash -s -- --token ${token}`
-    default:
-      return `# Unknown OS — check dcp.sa/setup. Token: ${token}`
-  }
 }
 
 const INSTALLER_BEHAVIOUR: Record<DetectedOS, string[]> = {
