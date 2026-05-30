@@ -678,10 +678,29 @@ router.post('/provider/register-node', (req, res) => {
     token,
   );
 
-  // Mint a fresh long-lived daemon api_key. The bootstrap key used to
-  // authenticate install-token minting is rotated out on first-run handshake
-  // so the daemon holds a distinct, persistent credential.
-  const apiKey = `dcpk_${crypto.randomBytes(24).toString('hex')}`;
+  // ── Key-rotation deadlock fix (wizard go-live) ───────────────────────
+  // The wizard authenticates the provider with a BOOTSTRAP api_key minted at
+  // magic-link verify, and polls /node-status with it. On a first install the
+  // provider's node_fingerprint is null, so neither idempotent branch above
+  // fires. Previously this branch ALWAYS minted a fresh dcpk_ key and OVERWROTE
+  // providers.api_key — which invalidated the bootstrap key the wizard is still
+  // holding, so its /node-status polls 401'd forever and "You're Live" never
+  // showed even though the daemon was heartbeating fine.
+  //
+  // Fix: do NOT rotate the provider's existing api_key on a valid single-use
+  // install-token handshake. If the provider already holds a key (always true
+  // for the wizard path — the bootstrap key), bind the node_fingerprint to this
+  // machine and RETURN THAT EXISTING KEY to the daemon, so daemon and wizard
+  // share one credential and the bootstrap key stays valid. Only mint a fresh
+  // key when the provider somehow has none (defensive; non-wizard callers).
+  //
+  // Single-use + anti-leak semantics are preserved: the token is already marked
+  // consumed above, and a DIFFERENT fingerprint replaying a consumed token still
+  // hits the 409 branch (line ~641) — that path is untouched.
+  const reuseExistingKey = Boolean(provider.api_key);
+  const apiKey = reuseExistingKey
+    ? provider.api_key
+    : `dcpk_${crypto.randomBytes(24).toString('hex')}`;
 
   // Auto-approve wizard-origin registrations (FIX #7, option a). The daemon
   // reached this handshake by presenting a single-use install_token that was
@@ -720,6 +739,9 @@ router.post('/provider/register-node', (req, res) => {
     status: 'active',
     approval_status: autoApprove ? 'approved' : (provider.approval_status || 'pending'),
     websocket_url: `wss://api.dcp.sa/v1/ws/node_${provider.id}`,
+    // True when we returned the provider's pre-existing (bootstrap) key instead
+    // of minting a new one — see key-rotation deadlock fix above.
+    reused_key: reuseExistingKey,
   });
 });
 
