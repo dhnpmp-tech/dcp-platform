@@ -1150,6 +1150,16 @@ console.log(`[payout] reconciliation sweep started (every ${PAYOUT_RECONCILE_INT
 const providerProbe = require('./lib/provider-probe');
 providerProbe.startProbeLoop();
 
+// EARNED-ONLINE verification (60s loop). ADDITIVE layer alongside the probe
+// above: it does not touch routing (endpoint_reachable). Instead it makes a
+// backend-initiated GET /v1/models + 1-token POST /v1/chat/completions against
+// each fresh-heartbeat provider and records "earned online" state in its own
+// provider_verification table, surfaced via /api/admin/fleet/health.
+const providerVerification = require('./services/providerVerification');
+// `db` is the module-scoped handle required earlier in this file (above the
+// job sweep). Reuse it rather than redeclaring to avoid a const collision.
+providerVerification.startProviderVerification(db);
+
 // Final error handler — never leak stack traces or the absolute /root deploy
 // path to clients, regardless of NODE_ENV. Defense-in-depth: Express's default
 // dev handler dumps err.stack on any thrown error when NODE_ENV !== 'production',

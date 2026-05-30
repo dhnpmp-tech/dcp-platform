@@ -28,9 +28,9 @@ const { deduplicateModelAliases, DASH_TO_CANONICAL } = require('../lib/model-ali
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
 const subscriptionService = require('../services/subscriptionService');
-// Canonical 75/25 provider/DCP split — matches services/reconciliation-engine.js
-// + services/billing.ts. Replaces the legacy 85/15 numbers that lived inline.
-const { splitCost } = require('../services/reconciliation-engine');
+// Canonical 75/25 provider/DCP split lives in services/reconciliation-engine.js
+// and is applied inside billingService.settleInferenceOnce (single money path).
+// v1.js no longer computes the split inline — see migration 021 settlement.
 const billingService = require('../services/billingService');
 const autoTopupService = require('../services/autoTopupService');
 const {
@@ -1758,6 +1758,10 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     }
     return false;
   };
+  // Request id must be in scope for BOTH the try body and the catch handler
+  // below — the error path calls inferenceTracker.trackError(meteringRequestId).
+  // Declared here (not inside the try) to avoid a ReferenceError in catch.
+  const meteringRequestId = extractRequestId(req);
   try {
     const model = normalizeString(req.body?.model, { maxLen: 200 });
     if (!model) return sendV1Error(res, {
@@ -2082,7 +2086,6 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
-    const meteringRequestId = extractRequestId(req);
     let usagePersisted = false;
     const dbHandle = db._db || db;
     const transactionFactory = typeof dbHandle?.transaction === 'function'
@@ -2218,53 +2221,146 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       usagePersisted = true;
     };
 
-    const debitRenterSafe = (costHalala) => {
-      try {
-        const nowIso = new Date().toISOString();
-        let paygShortfall = costHalala;
-        // Migration 016: drain oldest-expiring subscription credit first, then
-        // fall back to PAYG balance_halala for the remainder. Only active when
-        // SUBSCRIPTION_BILLING_ENABLED=true and renter has an active sub.
-        if (activeSubscription) {
-          const result = subscriptionService.debitSubscriptionCredits(db, {
-            renterId: req.renter.id,
-            costHalala,
-            nowIso,
+    // NOTE (migration 021): the legacy debitRenterSafe() helper — a non-atomic
+    // sub-credit-then-PAYG debit with log-only drift detection — has been
+    // removed. Its responsibilities are now folded into the single atomic
+    // settlement path below (billingService.settleInferenceOnce), which debits
+    // renter + credits provider + writes usage_events/jobs in ONE transaction.
+
+    // ── ATOMIC SETTLEMENT (migration 021) ────────────────────────────────────
+    // Single transactional money path. One billingService.settleInferenceOnce()
+    // call per completed inference, keyed by meteringRequestId:
+    //   renter-debit (sub credits → PAYG) + provider-credit + usage_events
+    //   + jobs row + renter/provider totals, all in ONE db.transaction()
+    //   that is idempotent on request_id (billing_attempts PK).
+    //
+    // Replaces the old debitRenterSafe() + persistUsageOnce() + ad-hoc jobs/
+    // totals inserts that wrote across multiple un-coordinated statements.
+    //
+    // INSUFFICIENT BALANCE: the tokens were already produced and shipped to
+    // the renter, so we never reject here. We record the settlement as
+    // UNBILLED (see recordUnbilledSettlement) rather than silently debiting 0,
+    // so the pre-flight balance gate blocks the renter's NEXT request.
+    //
+    // ZERO-COMPLETION GUARD: when the provider omits a usage block, the cost
+    // is derived from toUsageSnapshot() which already estimates completion
+    // tokens from the completion text length (approximateTokenCount) — we
+    // never bill 0 halala for real output.
+    const recordUnbilledSettlement = ({ providerForUsage, providerResponseId, usage, completionText, costHalala }) => {
+      // The atomic tx rolled back (renter could not cover the cost). Persist a
+      // durable, idempotent receipt so on-call/reconciliation can see the
+      // delivered-but-unbilled tokens. usage_events.settlement_status uses
+      // 'failed' here (the closest enum value migration 010 allows — see
+      // REVIEWER NOTE: 'unbilled' is not in the CHECK constraint). The
+      // authoritative unbilled marker is the billing_attempts row below.
+      runUsageTransaction(() => {
+        try {
+          db.prepare(
+            `INSERT OR IGNORE INTO billing_attempts
+               (request_id, renter_id, provider_id, cost_halala, provider_earned_halala, status, error_code, settled_at)
+             VALUES (?, ?, ?, ?, 0, 'insufficient_balance', 'unbilled', ?)`
+          ).run(
+            meteringRequestId,
+            req.renter.id,
+            providerForUsage?.id || null,
+            Math.max(0, Math.ceil(Number(costHalala) || 0)),
+            new Date().toISOString()
+          );
+        } catch (e) {
+          console.error('[v1] unbilled billing_attempts insert failed', {
+            request_id: meteringRequestId, renter_id: req.renter.id, msg: e?.message,
           });
-          paygShortfall = result.shortfall;
         }
-        if (paygShortfall > 0) {
-          db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
-            .run(paygShortfall, nowIso, req.renter.id, paygShortfall);
-        }
-        // Migration 021: fire-and-forget auto-top-up check. Doesn't block the
-        // inference response. Returns early when disabled / no card / above
-        // threshold / inside soft-lock window.
-        autoTopupService
-          .maybeTrigger(db._db || db, req.renter.id, { triggerReason: 'post_debit_v1' })
-          .catch((e) => console.warn('[v1.auto_topup] trigger failed', e?.message || e));
-      } catch (err) {
-        // Structured drift-detection: this is the ONLY renter-balance debit
-        // on the proxy success path. A silent failure here means the usage
-        // ledger says billed but the renter's balance was never deducted.
-        // Behavior preserved (no throw) per ops decision — log only for now,
-        // full transactional rewrite is a follow-up.
-        console.error('[v1] debit failed — ledger/balance drift', {
-          renterId: req.renter.id,
-          costHalala,
-          subscriptionActive: Boolean(activeSubscription),
-          message: err && err.message,
-          code: err && err.code,
-        });
-      }
+        // Best-effort ledger receipt (status 'failed' === delivered-not-billed).
+        persistUsageOnce({ providerForUsage, providerResponseId, usage, completionText, settlementStatus: 'failed' });
+      });
     };
 
-    const debitAndPersistUsage = ({ providerForUsage, providerResponseId = null, usage, completionText = '' }) => {
+    const debitAndPersistUsage = ({ providerForUsage, providerResponseId = null, usage, completionText = '', jobMeta = null }) => {
       const snapshot = toUsageSnapshot(usage, completionText);
-      runUsageTransaction(() => {
-        debitRenterSafe(snapshot.costHalala);
-        persistUsageOnce({ providerForUsage, providerResponseId, usage, completionText, settlementStatus: 'pending' });
-      });
+      // Per-minute fallback only when the token-priced cost is exactly 0 AND we
+      // truly have no tokens to price (mirrors the legacy proxy/stream job math).
+      const settledCostHalala = snapshot.costHalala > 0
+        ? snapshot.costHalala
+        : Math.max(1, Math.round(
+            (modelReq.fallback_rate_halala_per_min || 2)
+            * (((snapshot.promptTokens || 0) + (snapshot.completionTokens || 0)) / 30)
+          ));
+      try {
+        const result = billingService.settleInferenceOnce(db._db || db, {
+          requestId: meteringRequestId,
+          renterId: req.renter.id,
+          providerId: providerForUsage?.id || null,
+          costHalala: settledCostHalala,
+          modelId: modelReq.model_id,
+          usageEventRow: {
+            promptTokens: snapshot.promptTokens || 0,
+            completionTokens: snapshot.completionTokens || 0,
+            promptCostHalala: snapshot.promptCostHalala || 0,
+            completionCostHalala: snapshot.completionCostHalala || 0,
+            inRateHalalaPer1m: inRateHalalaPer1m || 0,
+            outRateHalalaPer1m: outRateHalalaPer1m || 0,
+            source: 'v1/chat',
+          },
+          jobRow: jobMeta
+            ? {
+                jobId: jobMeta.jobId,
+                submittedAt: jobMeta.submittedAt,
+                startedAt: jobMeta.startedAt,
+                completedAt: jobMeta.completedAt,
+                durationSeconds: jobMeta.durationSeconds,
+                result: jobMeta.result,
+                notes: jobMeta.notes,
+              }
+            : null,
+        });
+        // Legacy ledger receipt. settleInferenceOnce already wrote the canonical
+        // usage_events row (75/25 split, status 'settled'); persistUsageOnce here
+        // keeps the openrouter_usage_ledger populated for the renter dashboard
+        // (renters.js v1_usage / v1_usage_summary). Its duplicate usage_events
+        // INSERT collides on the request_id UNIQUE index and is swallowed, so it
+        // does NOT double-write the canonical ledger or re-credit anyone.
+        runUsageTransaction(() => {
+          persistUsageOnce({ providerForUsage, providerResponseId, usage, completionText, settlementStatus: 'settled' });
+        });
+        // Fire-and-forget auto-top-up (preserves debitRenterSafe behavior).
+        // Skip on the idempotent replay so retries don't re-trigger a charge.
+        if (result?.status === 'settled') {
+          autoTopupService
+            .maybeTrigger(db._db || db, req.renter.id, { triggerReason: 'post_debit_v1' })
+            .catch((e) => console.warn('[v1.auto_topup] trigger failed', e?.message || e));
+        }
+        usagePersisted = true;
+      } catch (err) {
+        if (err instanceof billingService.InsufficientBalanceError) {
+          // Deliver-once-but-flag: tokens already shipped, record unbilled so
+          // the NEXT request is gated. NEVER a silent zero-debit.
+          recordUnbilledSettlement({
+            providerForUsage,
+            providerResponseId,
+            usage,
+            completionText,
+            costHalala: settledCostHalala,
+          });
+          // Give auto-top-up a chance to refill before the next request.
+          autoTopupService
+            .maybeTrigger(db._db || db, req.renter.id, { triggerReason: 'unbilled_v1' })
+            .catch((e) => console.warn('[v1.auto_topup] trigger failed', e?.message || e));
+          return;
+        }
+        // Any other settlement error: drift signal, never block the response
+        // the renter already received. Record a best-effort failed receipt.
+        console.error('[v1] settleInferenceOnce failed — ledger/balance drift', {
+          request_id: meteringRequestId,
+          renter_id: req.renter.id,
+          cost_halala: settledCostHalala,
+          message: err?.message,
+          code: err?.code,
+        });
+        runUsageTransaction(() => {
+          persistUsageOnce({ providerForUsage, providerResponseId, usage, completionText, settlementStatus: 'failed' });
+        });
+      }
     };
 
     persistFailureUsageBestEffort = ({
@@ -2386,23 +2482,18 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           routedModelId: resultBody?.model || routedModelId,
         });
         const usageForResponse = withUsdUsagePricing(resultBody?.usage || {}, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m });
-        debitAndPersistUsage({
-          providerForUsage,
-          providerResponseId: normalizeString(resultBody?.id, { maxLen: 200 }),
-          usage: usageForResponse,
-        });
-        // Record as a job so it shows in provider dashboard + recent jobs
+        // Record as a job so it shows in provider dashboard + recent jobs.
+        // Migration 021: the jobs row + provider/renter totals are now written
+        // ATOMICALLY by settleInferenceOnce (via debitAndPersistUsage jobMeta),
+        // in the same transaction as the renter-debit + provider-credit +
+        // usage_events. The standalone job INSERT + totals UPDATEs that used to
+        // live here are removed to avoid double-crediting.
         const proxySnapshot = toUsageSnapshot(usageForResponse);
+        let proxyJobMeta = null;
         try {
           const proxyJobId = normalizeString(resultBody?.id, { maxLen: 200 }) || `proxy-${meteringRequestId}`;
           const proxyNow = new Date().toISOString();
-          const proxyPromptTokens = proxySnapshot.promptTokens || 0;
           const proxyCompletionTokens = proxySnapshot.completionTokens || 0;
-          // Use per-minute rate as fallback when token rate is 0
-          const proxyCostHalala = proxySnapshot.costHalala > 0
-            ? proxySnapshot.costHalala
-            : Math.max(1, Math.round((modelReq.fallback_rate_halala_per_min || 2) * ((proxyPromptTokens + proxyCompletionTokens) / 30)));
-          const proxyProviderEarned = splitCost(proxyCostHalala).provider;
           // Extract response text for job result storage. Save ONLY the final
           // assistant `content` — never the model's internal `reasoning` /
           // `reasoning_content`. With thinking models (qwen3:4b, etc.) and a
@@ -2442,41 +2533,24 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           });
           // P3 cosmetic: persist duration_seconds (rounded wall-clock) so the
           // Mission Control job listings show a real duration instead of null.
-          // `wallSeconds` is already computed above from proxyStartedAt/proxyNow.
-          const proxyDurationSeconds = Math.max(0, Math.round(wallSeconds));
-          db.prepare(
-            `INSERT OR IGNORE INTO jobs (job_id, provider_id, renter_id, job_type, model, status, submitted_at,
-              started_at, completed_at, duration_minutes, duration_seconds, cost_halala, actual_cost_halala, provider_earned_halala,
-              prompt_tokens, completion_tokens, result,
-              notes, created_at, updated_at, priority)
-             VALUES (?, ?, ?, 'inference', ?, 'completed', ?, ?, ?, 0, ?, ?, ?, ?,
-              ?, ?, ?,
-              'v1:proxy:chat/completions', ?, ?, 8)`
-          ).run(
-            proxyJobId, providerForUsage?.id, req.renter.id, modelReq.model_id, proxyStartedAt,
-            proxyStartedAt, proxyNow, proxyDurationSeconds, proxyCostHalala, proxyCostHalala, proxyProviderEarned,
-            proxyPromptTokens, proxyCompletionTokens, proxyResultJson,
-            proxyNow, proxyNow
-          );
-          // Update provider totals
-          if (providerForUsage?.id) {
-            db.prepare(
-              `UPDATE providers SET total_jobs = total_jobs + 1,
-                total_earnings = total_earnings + ?,
-                total_earnings_halala = COALESCE(total_earnings_halala, 0) + ?,
-                claimable_earnings_halala = claimable_earnings_halala + ?
-               WHERE id = ?`
-            ).run(proxyProviderEarned / 100, proxyProviderEarned, proxyProviderEarned, providerForUsage.id);
-          }
-          // Update renter totals
-          if (req.renter?.id) {
-            db.prepare(
-              `UPDATE renters SET total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1 WHERE id = ?`
-            ).run(proxyCostHalala, req.renter.id);
-          }
-        } catch (jobInsertErr) {
-          console.warn('[v1/chat/completions] proxy job record insert failed:', jobInsertErr?.message);
+          proxyJobMeta = {
+            jobId: proxyJobId,
+            submittedAt: proxyStartedAt,
+            startedAt: proxyStartedAt,
+            completedAt: proxyNow,
+            durationSeconds: Math.max(0, Math.round(wallSeconds)),
+            result: proxyResultJson,
+            notes: 'v1:proxy:chat/completions',
+          };
+        } catch (jobMetaErr) {
+          console.warn('[v1/chat/completions] proxy job meta build failed:', jobMetaErr?.message);
         }
+        debitAndPersistUsage({
+          providerForUsage,
+          providerResponseId: normalizeString(resultBody?.id, { maxLen: 200 }),
+          usage: usageForResponse,
+          jobMeta: proxyJobMeta,
+        });
         inferenceTracker.trackComplete(meteringRequestId, {
           promptTokens: usageForResponse.prompt_tokens || 0,
           completionTokens: usageForResponse.completion_tokens || 0,
@@ -2610,58 +2684,38 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           const trailing = processSseBuffer(true);
           if (trailing) res.write(trailing);
 
+          // Record streaming job for provider dashboard.
+          // Migration 021: the jobs row + provider/renter totals are now written
+          // ATOMICALLY by settleInferenceOnce (via debitAndPersistUsage jobMeta),
+          // in the same transaction as the renter-debit + provider-credit +
+          // usage_events. The standalone job INSERT + totals UPDATEs that used to
+          // live here are removed to avoid double-crediting.
+          const streamSnapshot = toUsageSnapshot(finalUsage || {}, completionText);
+          let streamJobMeta = null;
+          try {
+            const streamNow = new Date().toISOString();
+            // P3 cosmetic: persist duration_seconds so streaming jobs are no
+            // longer null in Mission Control. `startedAt` (epoch ms) was
+            // captured at the top of writeStreamingResponse for SSE timing.
+            streamJobMeta = {
+              jobId: providerResponseId || `stream-${meteringRequestId}`,
+              submittedAt: streamNow,
+              startedAt: streamNow,
+              completedAt: streamNow,
+              durationSeconds: Math.max(0, Math.round((Date.now() - startedAt) / 1000)),
+              result: null,
+              notes: 'v1:proxy:stream',
+            };
+          } catch (streamJobErr) {
+            console.warn('[v1/stream] proxy job meta build failed:', streamJobErr?.message);
+          }
           debitAndPersistUsage({
             providerForUsage,
             providerResponseId,
             usage: finalUsage || {},
             completionText,
+            jobMeta: streamJobMeta,
           });
-          // Record streaming job for provider dashboard
-          const streamSnapshot = toUsageSnapshot(finalUsage || {}, completionText);
-          try {
-            const streamJobId = providerResponseId || `stream-${meteringRequestId}`;
-            const streamNow = new Date().toISOString();
-            // P3 cosmetic: persist duration_seconds so streaming jobs are no
-            // longer null in Mission Control. `startedAt` (epoch ms) was
-            // captured at the top of writeStreamingResponse for SSE timing.
-            const streamDurationSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-            const streamPromptTokens = streamSnapshot.promptTokens || 0;
-            const streamCompletionTokens = streamSnapshot.completionTokens || 0;
-            const streamCostHalala = streamSnapshot.costHalala > 0
-              ? streamSnapshot.costHalala
-              : Math.max(1, Math.round((modelReq.fallback_rate_halala_per_min || 2) * ((streamPromptTokens + streamCompletionTokens) / 30)));
-            const streamProviderEarned = splitCost(streamCostHalala).provider;
-            db.prepare(
-              `INSERT OR IGNORE INTO jobs (job_id, provider_id, renter_id, job_type, model, status, submitted_at,
-                completed_at, duration_minutes, duration_seconds, cost_halala, provider_earned_halala,
-                prompt_tokens, completion_tokens,
-                notes, created_at, updated_at, priority)
-               VALUES (?, ?, ?, 'inference', ?, 'completed', ?, ?, 0, ?, ?, ?,
-                ?, ?,
-                'v1:proxy:stream', ?, ?, 8)`
-            ).run(
-              streamJobId, providerForUsage?.id, req.renter.id, modelReq.model_id, streamNow,
-              streamNow, streamDurationSeconds, streamCostHalala, streamProviderEarned,
-              streamPromptTokens, streamCompletionTokens,
-              streamNow, streamNow
-            );
-            if (providerForUsage?.id) {
-              db.prepare(
-                `UPDATE providers SET total_jobs = total_jobs + 1,
-                  total_earnings = total_earnings + ?,
-                  claimable_earnings_halala = claimable_earnings_halala + ?
-                 WHERE id = ?`
-              ).run(streamProviderEarned / 100, streamProviderEarned, providerForUsage.id);
-            }
-            // Update renter totals
-            if (req.renter?.id) {
-              db.prepare(
-                `UPDATE renters SET total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1 WHERE id = ?`
-              ).run(streamCostHalala, req.renter.id);
-            }
-          } catch (streamJobErr) {
-            console.warn('[v1/stream] proxy job record insert failed:', streamJobErr?.message);
-          }
           inferenceTracker.trackComplete(meteringRequestId, {
             promptTokens: finalUsage?.prompt_tokens || promptTokens,
             completionTokens: finalUsage?.completion_tokens || approximateTokenCount(completionText),
