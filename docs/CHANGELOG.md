@@ -35,6 +35,11 @@ The prod backend had drifted from git with undocumented hotfixes; deploying `mai
 - **Heartbeat stops overwriting `cached_models` / `vllm_models` / `vllm_endpoint_url`** (`providers.js`) — these are owned by `provider_engines` (engines-sync), matching live prod behavior (bind-arg alignment verified: 23 placeholders = 23 args).
 - **Schema** — `channel_health`, `dangerous_action_log`, `consumed_tokens` added to `db.js` inline migrations (idempotent `IF NOT EXISTS`; a no-op on prod where they already exist) so fresh installs match. Reference SQL added as `migrations/013_provider_engines.sql` / `018_channel_health.sql` / `019_dangerous_action.sql` (filenames mirror prod; the numeric prefixes collide cosmetically with existing reference files — `db.js` inline remains authoritative).
 
+### Serving honesty + correctness fixes
+- **Catalog no longer advertises unreachable capacity.** `/v1/models` now counts only providers that passed the backend reachability probe (`endpoint_reachable = 1`), not merely `status='online'` (heartbeat-claimed, spoofable by the keepalive). A heartbeat-only provider no longer inflates `provider_count`, so renters aren't offered models that 503 on order. Mirrors the `getCapableProviders` routing gate.
+- **Streaming errors no longer crash the request.** `sendV1Error` is now headers-aware: once SSE headers are flushed it emits a terminal error frame + `data: [DONE]` on the open stream instead of calling `res.status()` (which threw "Cannot set headers after they are sent"). Defends all 5 post-flush call sites.
+- **Control-plane prewarm cycle fixed.** The serverless-readiness prewarm `UPDATE providers SET model_preload_*` passed 6 bind args to a 5-placeholder statement → "Too many parameter values" crashed the cycle every 60s in prod. Removed the duplicate `nowIso` (now 5 = 5).
+
 ## [1.0.0] — 2026-03-23 — Public Launch
 
 **DCP is live.** The GPU marketplace built for Arabic AI goes public today.

@@ -363,6 +363,19 @@ function sendV1Error(res, {
   retryable = null,
 }) {
   const safeRetryAfter = toFiniteInt(retryAfterSeconds, { min: 1, max: 86400 });
+  // If the response is already streaming (SSE headers flushed), we cannot set a
+  // status code or headers — res.status()/setHeader() throws "Cannot set headers
+  // after they are sent" and crashes the request mid-stream. Emit a terminal
+  // error frame on the open SSE stream and end it instead of throwing.
+  if (res.headersSent) {
+    try {
+      const payload = buildV1ErrorPayload({ status, type, code, message, details, retryAfterSeconds: safeRetryAfter, retryable });
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      res.write('data: [DONE]\n\n');
+    } catch (_) { /* stream already torn down by the client */ }
+    try { res.end(); } catch (_) { /* already ended */ }
+    return;
+  }
   if (safeRetryAfter != null) {
     res.setHeader('Retry-After', String(safeRetryAfter));
   }
@@ -736,11 +749,17 @@ router.get('/models', (req, res) => {
     const nowSecs = Math.floor(Date.now() / 1000);
     const endpointUrl = buildEndpointUrl(req);
 
-    // Count online providers per model by checking cached_models
+    // Count REACHABLE providers per model. Catalog honesty: a provider that is
+    // merely status='online' (heartbeat-claimed) but whose endpoint failed the
+    // backend reachability probe cannot actually serve, so it must NOT inflate
+    // provider_count — otherwise the catalog advertises models that 503 on order.
+    // Require endpoint_reachable = 1 (treat NULL/0 as not-serviceable), mirroring
+    // the getCapableProviders routing gate so the catalog matches what can route.
     const onlineProviders = db.all(
       `SELECT cached_models, vram_mb FROM providers
        WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
-         AND deleted_at IS NULL AND vllm_endpoint_url IS NOT NULL`
+         AND deleted_at IS NULL AND vllm_endpoint_url IS NOT NULL
+         AND COALESCE(endpoint_reachable, 0) = 1`
     );
     const providerCountByModel = new Map();
     for (const p of onlineProviders) {
