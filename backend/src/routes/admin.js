@@ -17,6 +17,10 @@ const { sendWithdrawalApprovedEmail } = require('../services/emailService');
 const { resolveAttemptLogPath } = require('../services/job-execution-logs');
 const { buildFunnelReport } = require('../services/conversionFunnelService');
 const { buildDaemonHealthSummary } = require('../services/daemonHealthSummary');
+const {
+  countUsableProviders,
+  getVerificationMap,
+} = require('../services/providerVerification');
 const { safeErrorPayload } = require('../lib/error-response');
 const {
   listPolicies: listControlPlanePolicies,
@@ -318,6 +322,21 @@ function toIsoOrNull(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString();
+}
+
+// Parse a provider's `cached_models` column (JSON array or comma-separated
+// string) into a trimmed string array. Mirrors v1.js parseCachedModels but
+// preserves original casing for display in the fleet view.
+function parseCachedModelsSafe(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
+  } catch (_) { /* fall through to comma-separated */ }
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function heartbeatAgeSeconds(lastHeartbeat, nowMs = Date.now()) {
@@ -3931,12 +3950,18 @@ router.get('/fleet/health', (req, res) => {
     const since24h = new Date(nowMs - (24 * 60 * 60 * 1000)).toISOString();
 
     const rows = db.all(
-      `SELECT p.id, p.email, p.gpu_model, p.vram_mb, p.gpu_vram_mb, p.gpu_vram_mib,
+      `SELECT p.id, p.name, p.email, p.gpu_model, p.vram_mb, p.gpu_vram_mb, p.gpu_vram_mib,
               p.gpu_count, p.gpu_count_reported, p.last_heartbeat, p.status,
+              p.wg_handshake_age_s, p.wg_tunnel_healthy, p.cached_models,
+              p.endpoint_reachable, p.endpoint_probed_at,
               p.model_cache_disk_mb, p.model_cache_disk_total_mb, p.model_cache_disk_used_pct,
               COALESCE(jr.jobs_running, 0) AS jobs_running,
               COALESCE(jf.jobs_failed_24h, 0) AS jobs_failed_24h,
-              COALESCE(hr.container_restart_count_24h, 0) AS container_restart_count_24h
+              COALESCE(hr.container_restart_count_24h, 0) AS container_restart_count_24h,
+              hb.gpu_util_pct AS gpu_util_pct,
+              hb.gpu_temp_c AS gpu_temp_c,
+              hb.gpu_vram_free_mib AS gpu_vram_free_mib,
+              hb.gpu_vram_total_mib AS gpu_vram_total_mib
        FROM providers p
        LEFT JOIN (
          SELECT provider_id, COUNT(*) AS jobs_running
@@ -3956,15 +3981,50 @@ router.get('/fleet/health', (req, res) => {
          WHERE received_at >= ?
          GROUP BY provider_id
        ) hr ON hr.provider_id = p.id
+       LEFT JOIN (
+         SELECT h.provider_id, h.gpu_util_pct, h.gpu_temp_c,
+                h.gpu_vram_free_mib, h.gpu_vram_total_mib
+         FROM heartbeat_log h
+         INNER JOIN (
+           SELECT provider_id, MAX(received_at) AS max_at
+           FROM heartbeat_log
+           GROUP BY provider_id
+         ) latest ON latest.provider_id = h.provider_id AND latest.max_at = h.received_at
+       ) hb ON hb.provider_id = p.id
        ORDER BY p.last_heartbeat DESC, p.id DESC`,
       since24h,
       since24h
     );
 
+    // EARNED-ONLINE layer. Merge in backend-verified state from the
+    // providerVerification service. Best-effort: if the table/service isn't
+    // ready yet, fall back to an empty map so the existing fields still serve.
+    let verifyMap = new Map();
+    try { verifyMap = getVerificationMap(db); } catch (_) { verifyMap = new Map(); }
+
+    // Engine / cached-model counts per provider (multi-engine table is
+    // optional; tolerate its absence on older installs).
+    const engineCounts = new Map();
+    try {
+      const erows = db.all(
+        `SELECT provider_id, COUNT(*) AS engines
+           FROM provider_engines
+          GROUP BY provider_id`
+      );
+      for (const er of (erows || [])) engineCounts.set(Number(er.provider_id), Number(er.engines || 0));
+    } catch (_) { /* provider_engines may not exist */ }
+
     const providers = rows.map((row) => {
       const fleet = resolveFleetStatus(row.last_heartbeat, row.container_restart_count_24h, nowMs);
+      const v = verifyMap.get(Number(row.id)) || null;
+      const cachedModels = parseCachedModelsSafe(row.cached_models);
+      const vramTotalMib = Number(row.gpu_vram_total_mib || 0);
+      const vramFreeMib = Number(row.gpu_vram_free_mib || 0);
+      const vramUsedMib = vramTotalMib > 0 ? Math.max(0, vramTotalMib - vramFreeMib) : null;
+
       return {
         id: row.id,
+        name: row.name || null,
         email: row.email || null,
         gpu_model: row.gpu_model || null,
         vram_mb: Number(row.vram_mb || row.gpu_vram_mb || row.gpu_vram_mib || 0),
@@ -3976,6 +4036,36 @@ router.get('/fleet/health', (req, res) => {
         jobs_failed_24h: Number(row.jobs_failed_24h || 0),
         container_restart_count_24h: Number(row.container_restart_count_24h || 0),
         model_cache_disk_mb: Number(row.model_cache_disk_mb || 0),
+
+        // ── EARNED-ONLINE additive fields ──────────────────────────────
+        // `status` above is the CLAIMED status (heartbeat-derived). These
+        // describe whether a backend-initiated probe actually got a real
+        // OpenAI-shaped response.
+        status_claimed: fleet.status,
+        verified_online: v ? v.verified_online : false,
+        verified_at: v ? v.verified_at : null,
+        verified_models: v ? v.verified_models : [],
+        verify_chat_ok: v ? v.chat_ok : null,
+        verify_latency_ms: v ? v.probe_latency_ms : null,
+        verify_error: v ? v.probe_error : null,
+        verify_endpoint: v ? v.probed_endpoint : null,
+
+        // ── WG tunnel + reachability ───────────────────────────────────
+        wg_handshake_age_s: row.wg_handshake_age_s != null ? Number(row.wg_handshake_age_s) : null,
+        wg_tunnel_healthy: row.wg_tunnel_healthy == null ? null : Number(row.wg_tunnel_healthy) === 1,
+        endpoint_reachable: row.endpoint_reachable == null ? null : Number(row.endpoint_reachable) === 1,
+        endpoint_probed_at: toIsoOrNull(row.endpoint_probed_at),
+
+        // ── Engines / cached models ────────────────────────────────────
+        engines: engineCounts.get(Number(row.id)) || 0,
+        cached_models: cachedModels,
+        cached_models_count: cachedModels.length,
+
+        // ── GPU telemetry (latest heartbeat) ───────────────────────────
+        gpu_temp_c: row.gpu_temp_c != null ? Number(row.gpu_temp_c) : null,
+        gpu_util_pct: row.gpu_util_pct != null ? Number(row.gpu_util_pct) : null,
+        gpu_vram_used_mib: vramUsedMib,
+        gpu_vram_total_mib: vramTotalMib || null,
       };
     });
 
@@ -3983,13 +4073,34 @@ router.get('/fleet/health', (req, res) => {
     const degraded = providers.filter((p) => p.status === 'degraded').length;
     const offline = providers.filter((p) => p.status === 'offline').length;
 
+    // ── Top-level EARNED-ONLINE rollups ──────────────────────────────────
+    // usable_online: metering-grade count (verified_online AND fresh hb).
+    let usableOnline = 0;
+    try { usableOnline = countUsableProviders(db); } catch (_) { usableOnline = 0; }
+    const verifiedOnlineCount = providers.filter((p) => p.verified_online).length;
+
+    // metering_last_token_at: most recent billable inference event. This is
+    // the strongest "we are actually serving paid traffic" signal we have.
+    let meteringLastTokenAt = null;
+    try {
+      const m = db.get(`SELECT MAX(occurred_at) AS last_at FROM usage_events`);
+      meteringLastTokenAt = toIsoOrNull(m && m.last_at);
+    } catch (_) { meteringLastTokenAt = null; }
+
     res.json({
+      // Existing fields — unchanged.
       total_providers: providers.length,
       online,
       offline,
       degraded,
       providers,
       generated_at: new Date(nowMs).toISOString(),
+
+      // Additive earned-online rollups.
+      usable_online: usableOnline,
+      verified_online: verifiedOnlineCount,
+      serving_now: usableOnline > 0,
+      metering_last_token_at: meteringLastTokenAt,
     });
   } catch (error) {
     console.error('Fleet health error:', error);
