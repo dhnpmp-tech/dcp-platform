@@ -38,6 +38,7 @@ const {
   recordStreamOutcome,
   resolveProviderTier,
 } = require('../services/inferenceLatencyBudgetGate');
+const { getEarnedRoutingState } = require('../services/providerVerification');
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { classifyRequest } = require('../lib/request-classifier');
 
@@ -180,14 +181,18 @@ async function getAvailableModels(dbInstance) {
   // Get all models currently cached by online, non-paused providers
   const rows = (() => {
     try {
-      return dbInstance.all(`
-        SELECT cached_models, gpu_model, vram_mb
+      // Earned-state gate (backlog #2): never suggest an "alternative" whose
+      // only provider just failed its inference probe — that's how the 503
+      // currently lures renters toward dead-node models. Same policy as the
+      // catalog + routing candidates.
+      return applyEarnedRoutingPolicy(dbInstance.all(`
+        SELECT id, cached_models, gpu_model, vram_mb
         FROM providers
         WHERE status = 'online'
           AND COALESCE(is_paused, 0) = 0
           AND deleted_at IS NULL
           AND last_heartbeat > datetime('now', '-120 seconds')
-      `);
+      `), dbInstance);
     } catch (_) { return []; }
   })();
 
@@ -755,12 +760,18 @@ router.get('/models', (req, res) => {
     // provider_count — otherwise the catalog advertises models that 503 on order.
     // Require endpoint_reachable = 1 (treat NULL/0 as not-serviceable), mirroring
     // the getCapableProviders routing gate so the catalog matches what can route.
-    const onlineProviders = db.all(
-      `SELECT cached_models, vram_mb FROM providers
+    // Earned-state gate (backlog #2): a provider that heartbeats + has a port
+    // listening (endpoint_reachable=1) but FAILED its last inference probe must
+    // not inflate provider_count, or the catalog advertises models that 503 on
+    // order. applyEarnedRoutingPolicy drops freshly-confirmed-dead providers
+    // (default) / keeps only verified-serving ones (strict), degrading to the
+    // claimed-state list when verification is inactive.
+    const onlineProviders = applyEarnedRoutingPolicy(db.all(
+      `SELECT id, cached_models, vram_mb FROM providers
        WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
          AND deleted_at IS NULL AND vllm_endpoint_url IS NOT NULL
          AND COALESCE(endpoint_reachable, 0) = 1`
-    );
+    ), db);
     const providerCountByModel = new Map();
     for (const p of onlineProviders) {
       const cached = parseCachedModels(p.cached_models);
@@ -1024,6 +1035,62 @@ function lookupProviderEnginesForModel(modelAlias) {
   return out;
 }
 
+// ── Earned-state routing policy (backlog #2 / keystone enforcement) ─────────
+// The verification loop (providerVerification.js) probes each claimed-online
+// provider ~every 60s with a real /v1/models + inference call and records an
+// EARNED verdict. Routing/catalog/alternatives historically trusted only the
+// CLAIMED signals (status='online' + endpoint_reachable — which only means "a
+// port is listening"), so a node that heartbeats but 503s on inference was
+// still advertised and routed to: a ~10s dead-end for the renter.
+//
+// Modes (env DCP_ROUTING_EARNED_MODE):
+//   off          — legacy: ignore earned state entirely (escape hatch).
+//   exclude-dead — DEFAULT (now-slice): drop providers we JUST probed and
+//                  confirmed dead. Zero false-negative risk (a probe that just
+//                  failed means a renter would fail too); the renter fails
+//                  fast + honest instead of waiting out a connect timeout.
+//   earned-first — STAGED: exclude-dead, and PREFER verified-serving providers
+//                  over merely-claimed ones (the preference is applied at the
+//                  latency-gate call site so it survives re-ordering). Falls
+//                  back to claimed providers only when no verified provider can
+//                  serve the model. Validate with a live verified provider
+//                  before enabling.
+//   strict       — STAGED/graduation: only verified-serving providers are
+//                  routable/advertised. Enable once the probe is proven and
+//                  enough providers exist that no single one is a SPOF.
+// Every mode degrades to legacy when the verification subsystem is inactive
+// (no fresh verdicts at all), so a dead verification loop can never blank the
+// fleet.
+function resolveEarnedRoutingMode() {
+  const m = String(process.env.DCP_ROUTING_EARNED_MODE || 'exclude-dead')
+    .toLowerCase()
+    .trim();
+  return ['off', 'exclude-dead', 'earned-first', 'strict'].includes(m) ? m : 'exclude-dead';
+}
+
+// Apply the earned-state policy to a list of provider candidate rows (each row
+// must carry an `id`). Pure + side-effect free; returns a (possibly new) array.
+// `exclude-dead` and `earned-first` both only DROP freshly-confirmed-dead nodes
+// here; `earned-first`'s preference ordering is applied separately at the gate
+// call site. `strict` keeps only verified-serving nodes.
+function applyEarnedRoutingPolicy(providers, dbInstance = db) {
+  const mode = resolveEarnedRoutingMode();
+  if (mode === 'off' || !Array.isArray(providers) || providers.length === 0) {
+    return providers;
+  }
+  let state;
+  try {
+    state = getEarnedRoutingState(dbInstance);
+  } catch (_) {
+    return providers; // verification unavailable → never self-inflict an outage
+  }
+  if (!state.active) return providers; // loop down / never ran → legacy fallback
+  if (mode === 'strict') {
+    return providers.filter((p) => state.servingIds.has(Number(p.id)));
+  }
+  return providers.filter((p) => !state.deadIds.has(Number(p.id)));
+}
+
 function getCapableProviders(minVramMb, requestedModelId) {
   // Flagged: try the multi-engine table first. When it returns matches we
   // skip the legacy SELECT entirely. When it returns nothing we fall through
@@ -1041,9 +1108,15 @@ function getCapableProviders(minVramMb, requestedModelId) {
         if (resolveProviderVramMb(candidate) < minVramMb) continue;
         filtered.push(candidate);
       }
-      if (filtered.length > 0) return filtered;
-      // Engine rows matched but no provider passed the readiness gates —
-      // fall through to legacy below so we don't strand the request.
+      const earnedFiltered = applyEarnedRoutingPolicy(filtered);
+      if (earnedFiltered.length > 0) return earnedFiltered;
+      // Either no engine candidate passed the readiness loop, OR they passed
+      // but were all dropped by the earned-state policy (e.g. freshly-dead).
+      // Fall through to the legacy SELECT so a provider that matches only via
+      // cached_models can still serve. NOTE: the legacy path applies
+      // applyEarnedRoutingPolicy AGAIN at its return (below) — that second call
+      // is REQUIRED, not redundant. This engine-path filter only covers engine
+      // candidates; legacy candidates are a different set. Do not remove it.
     }
   }
 
@@ -1099,7 +1172,7 @@ function getCapableProviders(minVramMb, requestedModelId) {
     }
     capable.push(p);
   }
-  return capable;
+  return applyEarnedRoutingPolicy(capable);
 }
 
 function resolveModelRequirements(model) {
@@ -1931,9 +2004,26 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
+    // Earned-first (STAGED, default off): when enabled and at least one
+    // verified-serving provider can serve this model, run the latency gate over
+    // ONLY the verified subset so a merely-claimed provider (and any within-
+    // request failover) stays on earned nodes. Claimed providers are used only
+    // when no verified provider serves the model (serving subset empty). No-op
+    // in the default exclude-dead mode.
+    let gateCandidates = freeProviders;
+    if (resolveEarnedRoutingMode() === 'earned-first') {
+      try {
+        const earned = getEarnedRoutingState(db);
+        if (earned.active) {
+          const serving = freeProviders.filter((p) => earned.servingIds.has(Number(p.id)));
+          if (serving.length > 0) gateCandidates = serving;
+        }
+      } catch (_) { /* verification unavailable → fall back to the full set */ }
+    }
+
     const gateSelection = selectProvidersWithLatencyGate({
       db,
-      providers: freeProviders,
+      providers: gateCandidates,
     });
     if (!gateSelection.pass || !gateSelection.selectedProviderId) {
       return sendV1Error(res, {
@@ -3031,4 +3121,7 @@ module.exports.__test = {
   getCapableProviders,
   isMultiEngineRoutingEnabled,
   buildProviderChatCompletionsUrl,
+  // Earned-state routing policy (backlog #2)
+  resolveEarnedRoutingMode,
+  applyEarnedRoutingPolicy,
 };
