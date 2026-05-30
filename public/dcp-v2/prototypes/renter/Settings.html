@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Settings · DCP Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<link rel="stylesheet" href="./renter-shell.css">
+<style>
+  .members-tbl .av { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--teal), var(--orange)); display: inline-grid; place-items: center; font-family: var(--serif); font-size: 14px; color: #0a0b1a; margin-inline-end: 12px; vertical-align: middle; }
+  .members-tbl .nm { font-size: 14px; color: var(--ink); vertical-align: middle; }
+  .members-tbl .em { font-family: var(--mono); font-size: 11px; color: var(--mut); display: block; margin-top: 2px; }
+  .role-pill { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; padding: 3px 8px; border: 1px solid var(--hair); border-radius: 2px; text-transform: uppercase; color: var(--ink-2); }
+  .role-pill.owner { color: var(--teal); border-color: var(--teal); }
+</style>
+</head>
+<body>
+
+<div class="rt-app">
+  <aside class="rt-sb" id="rt-sb" data-page="settings"></aside>
+  <div class="rt-backdrop" id="rt-backdrop"></div>
+
+  <div>
+    <header class="rt-tb" id="rt-tb" data-crumb="Settings"></header>
+
+    <main class="rt-main">
+
+      <h1 class="rt-h1">Workspace <em style="font-style:italic; color:var(--teal);">settings.</em></h1>
+      <div class="rt-h1-sub">
+        <span>NextWave Commerce · 3 members</span>
+        <span>Owner <b>Fatima Al-Harbi</b></span>
+      </div>
+
+      <!-- Workspace -->
+      <div class="panel" style="margin-top:36px;">
+        <div class="panel-hd"><div><h3>Workspace</h3></div></div>
+        <div class="form-grid">
+          <div class="lbl"><b>Workspace name</b>Visible to everyone in the workspace</div>
+          <div class="ctl">
+            <input class="input" type="text" value="NextWave Commerce">
+          </div>
+          <div class="lbl"><b>Workspace slug</b>Appears in URLs and API logs</div>
+          <div class="ctl">
+            <input class="input" type="text" value="nextwave-prod">
+            <span class="hint">console.dcp.sa/<b style="color:var(--ink); font-weight:500;">nextwave-prod</b></span>
+          </div>
+          <div class="lbl"><b>Region preference</b>For ambiguous routing decisions</div>
+          <div class="ctl">
+            <select class="select">
+              <option>Riyadh (default)</option>
+              <option>Jeddah</option>
+              <option>Dammam</option>
+              <option>NEOM</option>
+              <option>No preference</option>
+            </select>
+            <span class="hint">All workspaces serve from inside the Kingdom regardless of this setting. This just nudges the router.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Billing entity -->
+      <div class="panel" style="margin-top:28px;">
+        <div class="panel-hd"><div><h3>Billing entity</h3></div></div>
+        <div class="form-grid">
+          <div class="lbl"><b>Legal name</b>As shown on invoices</div>
+          <div class="ctl"><input class="input" type="text" value="NextWave Commerce LLC"></div>
+          <div class="lbl"><b>Commercial registration</b>CR number</div>
+          <div class="ctl"><input class="input" type="text" value="1010382947"></div>
+          <div class="lbl"><b>VAT registration</b>For tax invoices</div>
+          <div class="ctl"><input class="input" type="text" value="VAT-310234567890003"><span class="hint">Leave blank if not VAT-registered. We still issue a simplified invoice.</span></div>
+          <div class="lbl"><b>Billing address</b>Appears on every invoice</div>
+          <div class="ctl"><textarea class="textarea">King Abdullah Road
+Riyadh 11564
+Saudi Arabia</textarea></div>
+          <div class="lbl"><b>Billing contact</b>Where to send invoices</div>
+          <div class="ctl"><input class="input" type="email" value="finance@nextwave.sa"></div>
+        </div>
+      </div>
+
+      <!-- Members -->
+      <div class="panel" style="margin-top:28px;">
+        <div class="panel-hd">
+          <div><h3>Members</h3></div>
+          <button class="btn-pri">+ Invite member</button>
+        </div>
+        <table class="tbl members-tbl">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Role</th>
+              <th>Last active</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="av">F</span><span class="nm">Fatima Al-Harbi <span class="em">fatima@nextwave.sa · you</span></span></td>
+              <td><span class="role-pill owner">Owner</span></td>
+              <td><span class="mut">Now</span></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><span class="av" style="background: linear-gradient(135deg, #6bb39a, var(--teal));">H</span><span class="nm">Hassan Al-Otaibi <span class="em">hassan@nextwave.sa</span></span></td>
+              <td><span class="role-pill">Developer</span></td>
+              <td><span class="mut">2 hours ago</span></td>
+              <td style="text-align:end;"><button class="btn-sec">Edit</button></td>
+            </tr>
+            <tr>
+              <td><span class="av" style="background: linear-gradient(135deg, var(--orange), #b84510);">R</span><span class="nm">Reem Al-Suhaimi <span class="em">reem@nextwave.sa</span></span></td>
+              <td><span class="role-pill">Billing</span></td>
+              <td><span class="mut">3 days ago</span></td>
+              <td style="text-align:end;"><button class="btn-sec">Edit</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Notifications -->
+      <div class="panel" style="margin-top:28px;">
+        <div class="panel-hd"><div><h3>Notifications</h3></div></div>
+        <div class="form-grid">
+          <div class="lbl"><b>Spend alerts</b>Email when daily spend crosses a threshold</div>
+          <div class="ctl">
+            <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="lbl-text">Alert at SAR 100 / day</span></label>
+            <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="lbl-text">Alert at SAR 500 / day</span></label>
+            <label class="switch"><input type="checkbox"><span class="track"></span><span class="lbl-text">Alert at SAR 2,000 / day</span></label>
+          </div>
+          <div class="lbl"><b>Wallet</b>Top-ups and low balance</div>
+          <div class="ctl">
+            <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="lbl-text">Auto top-up triggered</span></label>
+            <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="lbl-text">Balance below trigger threshold</span></label>
+          </div>
+          <div class="lbl"><b>Other</b></div>
+          <div class="ctl">
+            <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="lbl-text">New model available</span></label>
+            <label class="switch"><input type="checkbox"><span class="track"></span><span class="lbl-text">Marketing &amp; product updates</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Danger -->
+      <div class="panel" style="margin-top:28px; border-color: color-mix(in oklab, var(--err) 40%, var(--hair));">
+        <div class="panel-hd" style="border-bottom-color: color-mix(in oklab, var(--err) 30%, var(--hair));">
+          <div><h3 style="color: var(--err);">Danger zone</h3></div>
+        </div>
+        <div class="form-grid">
+          <div class="lbl"><b style="color:var(--err);">Transfer ownership</b>Hand the workspace to another member</div>
+          <div class="ctl">
+            <button class="btn-sec danger" style="border-color: var(--err); color: var(--err); align-self:flex-start;">Transfer…</button>
+          </div>
+          <div class="lbl"><b style="color:var(--err);">Delete workspace</b>Permanent · this can&rsquo;t be undone</div>
+          <div class="ctl">
+            <button class="btn-sec danger" style="border-color: var(--err); color: var(--err); align-self:flex-start;">Delete workspace…</button>
+            <span class="hint">All keys are revoked, all jobs stop, all data is purged after 90 days per PDPL.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:28px; display:flex; gap:12px; justify-content:flex-end;">
+        <button class="btn-sec">Discard changes</button>
+        <button class="btn-pri">Save settings</button>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="./renter-shell.js"></script>
+
+</body>
+</html>

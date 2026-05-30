@@ -6,7 +6,7 @@ const backendUrl = process.env.BACKEND_URL || 'http://localhost:8083';
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
-    return [
+    const proxyRewrites = [
       // Provider auto-installer: curl dcp.sa/install | bash
       // Rewrites /install and /install.sh to backend /install endpoint
       {
@@ -64,6 +64,25 @@ const nextConfig = {
         destination: `${backendUrl}/api/jobs/from-template`,
       },
     ];
+    // Flip switch: set DCP_V2_LIVE=1 in the Vercel env to serve the v2 redesign
+    // at the site root. Off by default → the current site is untouched. Instant
+    // rollback by clearing the env var. (v2 is always reachable at /v2.)
+    const v2Live = process.env.DCP_V2_LIVE === '1';
+    return {
+      beforeFiles: v2Live
+        ? [
+            // Full public-site cutover: every public marketing/entry route serves
+            // its v2 equivalent. The authenticated consoles stay on v1 until the v2
+            // consoles are auth-gated (they remain reachable at /v2/* for preview).
+            { source: '/', destination: '/v2/home' },
+            { source: '/setup', destination: '/v2/provider-setup' },
+            { source: '/login', destination: '/v2/auth' },
+            { source: '/renter/register', destination: '/v2/setup' },
+            { source: '/docs', destination: '/v2/docs' },
+          ]
+        : [],
+      afterFiles: proxyRewrites,
+    };
   },
   // Internal link fixes — these source paths have no page and previously 404'd.
   async redirects() {

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Get started · DCP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/dcp-kit.css">
+<style>
+  html, body { height: 100%; background: var(--bg); margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .setup { max-width: 760px; margin: 0 auto; padding: 40px 32px 80px; }
+  .setup-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 48px; }
+  .setup-top .wm { font-family: var(--serif); font-size: 26px; letter-spacing: -.01em; text-decoration: none; color: var(--ink); }
+  .setup-top .wm i { font-style: italic; font-size: 17px; margin-inline-start: 4px;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #6bb39a 55%, #ee7a3c 100%);
+    background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .setup-top .skip { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); text-decoration: none; }
+  .setup-top .skip:hover { color: var(--ink); }
+
+  /* Stepper */
+  .stepper { display: flex; gap: 0; margin-bottom: 44px; }
+  .step { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .step .bar { height: 3px; background: var(--hair); border-radius: 2px; overflow: hidden; }
+  .step .bar span { display: block; height: 100%; background: var(--grad); width: 0; transition: width .4s; }
+  .step.done .bar span, .step.on .bar span { width: 100%; }
+  .step .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
+  .step.on .lbl { color: var(--ink); }
+  .step.done .lbl { color: var(--teal); }
+
+  .card { background: var(--paper); border: 1px solid var(--hair); padding: 40px 44px; }
+  @media (max-width: 560px) { .card { padding: 32px 24px; } }
+  .card h1 { font-family: var(--serif); font-weight: 400; font-size: 36px; letter-spacing: -.02em; margin: 0 0 8px; }
+  .card .sub { color: var(--ink-2); font-size: 15px; line-height: 1.55; margin: 0 0 32px; }
+
+  .opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .opt-grid { grid-template-columns: 1fr; } }
+  .opt { border: 1px solid var(--hair); padding: 22px; cursor: pointer; transition: border-color .15s, background .15s; position: relative; }
+  .opt:hover { border-color: var(--teal); }
+  .opt.on { border-color: var(--teal); background: color-mix(in oklab, var(--teal) 6%, var(--paper)); }
+  .opt.on::before { content: "●"; position: absolute; top: 16px; inset-inline-end: 16px; color: var(--teal); }
+  .opt .ic { font-family: var(--mono); font-size: 22px; color: var(--teal); }
+  .opt .nm { font-family: var(--serif); font-size: 22px; margin: 10px 0 4px; color: var(--ink); }
+  .opt .desc { font-family: var(--mono); font-size: 11px; color: var(--mut); line-height: 1.55; }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); margin-bottom: 8px; }
+  .field input { width: 100%; padding: 13px 14px; background: var(--bg-2); border: 1px solid var(--hair); color: var(--ink); font-family: var(--sans); font-size: 15px; border-radius: 2px; }
+  .field input:focus { outline: none; border-color: var(--teal); }
+  .field .hint { font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 8px; letter-spacing: .02em; }
+
+  .key-reveal { background: #04050d; border: 1px solid var(--hair); padding: 16px 18px; display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+  .key-reveal code { flex: 1; font-family: var(--mono); font-size: 13px; color: var(--teal); word-break: break-all; }
+  .key-reveal .copy { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 8px 14px; border: 1px solid var(--teal); background: transparent; color: var(--teal); cursor: pointer; border-radius: 2px; }
+
+  pre.code { margin: 18px 0 0; padding: 18px 20px; background: #04050d; color: #c9c5bd; border: 1px solid var(--hair); border-radius: 2px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; overflow-x: auto; }
+  pre.code .k { color: var(--orange); } pre.code .s { color: var(--teal); } pre.code .c { color: var(--mut); }
+
+  .nav-row { display: flex; justify-content: space-between; margin-top: 32px; }
+  .btn-pri { padding: 13px 24px; background: var(--teal); color: #0a0b1a; border: 0; border-radius: 2px; font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn-pri:hover { filter: brightness(1.1); }
+  .btn-sec { padding: 13px 24px; background: transparent; border: 1px solid var(--hair); color: var(--ink); border-radius: 2px; font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn-sec:hover { border-color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="setup">
+  <div class="setup-top">
+    <a href="./Home.html" class="wm">DCP<i>∞</i></a>
+    <a href="./renter/Dashboard.html" class="skip">Skip to console →</a>
+  </div>
+
+  <div class="stepper" id="stepper">
+    <div class="step on" data-s="1"><div class="bar"><span></span></div><div class="lbl">01 · Use case</div></div>
+    <div class="step" data-s="2"><div class="bar"><span></span></div><div class="lbl">02 · Workspace</div></div>
+    <div class="step" data-s="3"><div class="bar"><span></span></div><div class="lbl">03 · API key</div></div>
+    <div class="step" data-s="4"><div class="bar"><span></span></div><div class="lbl">04 · First call</div></div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="card" data-pane="1">
+    <h1>What are you building?</h1>
+    <p class="sub">We&rsquo;ll tune your defaults — it takes one click and you can change it any time.</p>
+    <div class="opt-grid">
+      <div class="opt on"><div class="ic">⌨</div><div class="nm">Chat / assistant</div><div class="desc">Customer support, internal tools, Arabic Q&amp;A</div></div>
+      <div class="opt"><div class="ic">⌕</div><div class="nm">Search / RAG</div><div class="desc">Embeddings + retrieval over your own docs</div></div>
+      <div class="opt"><div class="ic">◷</div><div class="nm">Agents / automation</div><div class="desc">Multi-step workflows and tool use</div></div>
+      <div class="opt"><div class="ic">⊞</div><div class="nm">Batch / pipeline</div><div class="desc">High-volume offline processing</div></div>
+    </div>
+    <div class="nav-row">
+      <span></span>
+      <button class="btn-pri" onclick="go(2)">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card" data-pane="2" style="display:none;">
+    <h1>Name your workspace.</h1>
+    <p class="sub">This is where your keys, usage, and billing live. Most teams use their company name.</p>
+    <div class="field">
+      <label>Workspace name</label>
+      <input type="text" placeholder="e.g. NextWave Commerce" value="">
+    </div>
+    <div class="field">
+      <label>Region preference</label>
+      <input type="text" value="Riyadh (default)" readonly style="color:var(--mut);">
+      <div class="hint">All workspaces serve from inside the Kingdom. You can fine-tune routing later.</div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-sec" onclick="go(1)">← Back</button>
+      <button class="btn-pri" onclick="go(3)">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="card" data-pane="3" style="display:none;">
+    <h1>Here&rsquo;s your first key.</h1>
+    <p class="sub">Copy it now — for security we won&rsquo;t show the full key again. You can create more any time.</p>
+    <div class="key-reveal">
+      <code>dcp-renter-XXXXXXXXXXXXXXXXXXXX</code>
+      <button class="copy">Copy</button>
+    </div>
+    <p class="sub" style="margin-top:8px; font-family:var(--mono); font-size:11px;">Stored as <b style="color:var(--ink);">production-server</b> · full scope · SAR 20 free credit applied</p>
+    <div class="nav-row">
+      <button class="btn-sec" onclick="go(2)">← Back</button>
+      <button class="btn-pri" onclick="go(4)">I&rsquo;ve copied it →</button>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="card" data-pane="4" style="display:none;">
+    <h1>Make your first call.</h1>
+    <p class="sub">Paste this into your terminal. It&rsquo;ll stream an Arabic answer from inside the Kingdom — and it&rsquo;s on your free credit.</p>
+    <pre class="code"><span class="c"># Your key is already filled in</span>
+$ <span class="k">curl</span> <span class="s">https://api.dcp.sa/v1/chat/completions</span> \
+   <span class="k">-H</span> <span class="s">"Authorization: Bearer sk_live_7f3a…"</span> \
+   <span class="k">-d</span> <span class="s">'{"model":"allam-7b","messages":[{"role":"user","content":"مرحبا"}]}'</span></pre>
+    <div class="nav-row">
+      <button class="btn-sec" onclick="go(3)">← Back</button>
+      <a class="btn-pri" href="./renter/Dashboard.html">Open the console →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  function go(n) {
+    document.querySelectorAll('[data-pane]').forEach(p => p.style.display = p.dataset.pane == n ? 'block' : 'none');
+    document.querySelectorAll('.step').forEach(s => {
+      const sn = parseInt(s.dataset.s, 10);
+      s.classList.toggle('on', sn === n);
+      s.classList.toggle('done', sn < n);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.querySelectorAll('.opt-grid').forEach(grid => {
+    grid.addEventListener('click', e => {
+      const o = e.target.closest('.opt'); if (!o) return;
+      grid.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x === o));
+    });
+  });
+</script>
+
+</body>
+</html>

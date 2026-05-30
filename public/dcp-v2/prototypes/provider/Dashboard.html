@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Dashboard · DCP Provider</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<style>
+  /* ════════════════════════════════════════
+     Provider operator shell — dense, ops-grade
+     Orange accent distinguishes provider context
+     ════════════════════════════════════════ */
+  :root {
+    --pv-accent: var(--orange);
+    --pv-accent-soft: color-mix(in oklab, var(--orange) 12%, transparent);
+  }
+  html, body { background: var(--bg); height: 100%; }
+  body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+  /* ── App grid ─────────────────────────── */
+  .pv-app { display: grid; grid-template-columns: 268px 1fr; min-height: 100vh; }
+  @media (max-width: 980px) { .pv-app { grid-template-columns: 1fr; } }
+
+  /* ── Sidebar ──────────────────────────── */
+  .pv-sb {
+    border-inline-end: 1px solid var(--hair);
+    background: linear-gradient(180deg, var(--bg) 0%, color-mix(in oklab, var(--orange) 2%, var(--bg)) 100%);
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+  }
+  @media (max-width: 980px) { .pv-sb { position: static; height: auto; } }
+
+  .pv-sb-brand {
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid var(--hair);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .pv-sb-brand .wm {
+    font-family: var(--serif); font-size: 26px; line-height: 1; letter-spacing: -.01em; color: var(--ink);
+  }
+  .pv-sb-brand .wm i { font-style: italic; font-size: 18px; margin-inline-start: 3px;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #6bb39a 55%, #ee7a3c 100%);
+    background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .pv-sb-brand .ctx {
+    margin-inline-start: auto;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--pv-accent); padding: 4px 8px; border: 1px solid var(--pv-accent); border-radius: 2px;
+  }
+
+  .pv-status {
+    padding: 20px 24px 22px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .pv-status .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--mut); }
+  .pv-status .v {
+    margin-top: 6px;
+    font-family: var(--serif); font-size: 32px; line-height: 1; letter-spacing: -.02em; color: var(--ink);
+  }
+  .pv-status .v .u { font-family: var(--sans); font-size: 12px; color: var(--mut); margin-inline-start: 6px; font-weight: 400; }
+  .pv-status .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--hair);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--mut);
+  }
+  .pv-status .row b { color: var(--ink); font-weight: 500; }
+  .pv-status .live {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--pv-accent);
+    margin-top: 12px;
+  }
+  .pv-status .live .d { width: 6px; height: 6px; border-radius: 50%; background: var(--pv-accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--orange) 22%, transparent); animation: pulse 1.6s ease-in-out infinite; }
+
+  .pv-nav { flex: 1; padding: 18px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .pv-nav .sec {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--mut);
+    padding: 16px 10px 8px;
+  }
+  .pv-nav .sec:first-child { padding-top: 4px; }
+  .pv-nav a {
+    display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center;
+    padding: 10px 10px; border-radius: 2px;
+    font-size: 13.5px; color: var(--ink-2); text-decoration: none;
+    transition: background .12s, color .12s;
+  }
+  .pv-nav a:hover { background: color-mix(in oklab, var(--orange) 6%, transparent); color: var(--ink); }
+  .pv-nav a.on { background: var(--pv-accent-soft); color: var(--ink); }
+  .pv-nav a.on::before { content: ""; position: absolute; }
+  .pv-nav a .ic { font-family: var(--mono); font-size: 14px; color: var(--mut); text-align: center; }
+  .pv-nav a.on .ic { color: var(--pv-accent); }
+  .pv-nav a .bd {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--mut);
+    padding: 2px 7px; border: 1px solid var(--hair); border-radius: 2px; min-width: 18px; text-align: center;
+  }
+  .pv-nav a.on .bd { color: var(--pv-accent); border-color: var(--pv-accent); }
+
+  .pv-sb-foot {
+    padding: 16px 18px; border-top: 1px solid var(--hair);
+    display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center;
+  }
+  .pv-sb-foot .av {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal), var(--orange));
+    display: grid; place-items: center;
+    font-family: var(--serif); font-size: 16px; color: #0a0b1a;
+  }
+  .pv-sb-foot .who { font-size: 13px; color: var(--ink); line-height: 1.2; }
+  .pv-sb-foot .who .e { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 2px; letter-spacing: .04em; }
+  .pv-sb-foot .out { color: var(--mut); font-family: var(--mono); font-size: 16px; cursor: pointer; }
+  .pv-sb-foot .out:hover { color: var(--pv-accent); }
+
+  /* ── Topbar ───────────────────────────── */
+  .pv-tb {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 32px; border-bottom: 1px solid var(--hair);
+    background: color-mix(in oklab, var(--bg) 92%, transparent);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 30;
+  }
+  @media (max-width: 980px) { .pv-tb { padding: 14px 18px; } }
+  .pv-tb .crumb { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; color: var(--mut); flex: 1; }
+  .pv-tb .crumb .sep { margin: 0 8px; color: var(--dim); }
+  .pv-tb .crumb .cur { color: var(--ink); }
+  .pv-tb .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--pv-accent);
+    padding: 6px 12px; border: 1px solid var(--pv-accent); border-radius: 999px;
+  }
+  .pv-tb .pill .d { width: 6px; height: 6px; border-radius: 50%; background: var(--pv-accent); animation: pulse 1.6s ease-in-out infinite; }
+  .pv-tb .kill {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink);
+    padding: 8px 14px; border: 1px solid var(--hair); background: transparent; cursor: pointer; border-radius: 2px;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .pv-tb .kill:hover { border-color: var(--err); color: var(--err); background: color-mix(in oklab, var(--err) 8%, transparent); }
+
+  /* ── Main content ─────────────────────── */
+  .pv-main { padding: 36px 40px 80px; max-width: 1320px; width: 100%; }
+  @media (max-width: 980px) { .pv-main { padding: 28px 18px 60px; } }
+
+  .pv-h1 {
+    font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 5vw, 60px); line-height: 1; letter-spacing: -.02em;
+    margin: 0;
+  }
+  .pv-h1-sub {
+    margin-top: 12px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut);
+    display: flex; flex-wrap: wrap; gap: 22px;
+  }
+  .pv-h1-sub b { color: var(--ink); font-weight: 500; }
+
+  /* ── KPI row ──────────────────────────── */
+  .kpi-row {
+    margin-top: 36px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border: 1px solid var(--hair); background: var(--paper);
+  }
+  @media (max-width: 900px) { .kpi-row { grid-template-columns: 1fr 1fr; } .kpi-row .kpi:nth-child(2) { border-inline-end: 0; } }
+  @media (max-width: 540px) { .kpi-row { grid-template-columns: 1fr; } .kpi-row .kpi { border-inline-end: 0; border-bottom: 1px solid var(--hair); } .kpi-row .kpi:last-child { border-bottom: 0; } }
+  .kpi {
+    padding: 22px 24px 26px;
+    border-inline-end: 1px solid var(--hair);
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .kpi:last-child { border-inline-end: 0; }
+  .kpi .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--mut); }
+  .kpi .v {
+    font-family: var(--serif); font-size: 42px; line-height: 1; letter-spacing: -.02em; color: var(--ink);
+    margin-top: 4px;
+  }
+  .kpi .v .u { font-family: var(--sans); font-size: 13px; color: var(--mut); margin-inline-start: 6px; }
+  .kpi .d { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; margin-top: 8px; }
+  .kpi .d.up { color: var(--teal); }
+  .kpi .d.down { color: var(--err); }
+  .kpi.featured { background: linear-gradient(180deg, color-mix(in oklab, var(--orange) 8%, var(--paper)) 0%, var(--paper) 100%); }
+  .kpi.featured::before { content: ""; position: absolute; inset: -1px -1px auto -1px; height: 2px; background: var(--grad); }
+
+  /* ── Two-column block: chart + rigs ──── */
+  .two-col {
+    margin-top: 28px;
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; align-items: start;
+  }
+  @media (max-width: 1080px) { .two-col { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--paper); border: 1px solid var(--hair); padding: 22px 24px;
+  }
+  .panel-hd {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--hair); margin-bottom: 20px;
+  }
+  .panel-hd h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -.01em; margin: 0; color: var(--ink); }
+  .panel-hd .meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); }
+  .panel-hd .meta b { color: var(--ink); font-weight: 500; }
+  .panel-hd .seg {
+    display: inline-flex; border: 1px solid var(--hair); border-radius: 2px;
+  }
+  .panel-hd .seg button {
+    padding: 6px 12px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--mut);
+    background: transparent; border: 0; cursor: pointer; text-transform: uppercase;
+  }
+  .panel-hd .seg button.on { background: var(--ink); color: var(--bg); }
+
+  /* ── Earnings chart ───────────────────── */
+  .chart {
+    height: 240px; position: relative;
+  }
+  .chart svg { width: 100%; height: 100%; display: block; }
+  .chart .axis-l {
+    position: absolute; left: 0; top: 0; bottom: 24px; width: 50px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--mut); letter-spacing: .04em;
+    pointer-events: none;
+  }
+  .chart .axis-b {
+    position: absolute; left: 50px; right: 8px; bottom: 0; height: 22px;
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--mut); letter-spacing: .04em;
+    pointer-events: none;
+  }
+  .chart .area { fill: url(#chartArea); opacity: .8; }
+  .chart .line { fill: none; stroke: var(--pv-accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .chart .grid line { stroke: var(--hair); stroke-width: 0.5; stroke-dasharray: 2 4; }
+  .chart .hover-line { stroke: var(--ink); stroke-width: 0.5; opacity: 0; }
+  .chart .hover-dot { fill: var(--pv-accent); opacity: 0; }
+  .chart-tip {
+    position: absolute; padding: 8px 12px; background: #04050d; border: 1px solid var(--hair); border-radius: 2px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink); pointer-events: none; opacity: 0;
+    transform: translate(-50%, -100%); margin-top: -8px; white-space: nowrap; z-index: 5;
+  }
+  .chart-tip .v { color: var(--pv-accent); }
+
+  /* ── Rigs status list ─────────────────── */
+  .rigs { display: flex; flex-direction: column; gap: 12px; }
+  .rig {
+    display: grid; grid-template-columns: 38px 1fr auto; gap: 14px; align-items: center;
+    padding: 14px 0; border-bottom: 1px dashed var(--hair);
+  }
+  .rig:last-child { border-bottom: 0; }
+  .rig .pip {
+    width: 10px; height: 10px; border-radius: 50%; margin-left: 14px;
+    background: var(--mut);
+  }
+  .rig.earning .pip { background: var(--teal); box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 22%, transparent); animation: pulse 1.8s ease-in-out infinite; }
+  .rig.idle .pip { background: var(--mut); }
+  .rig.paused .pip { background: var(--orange); }
+  .rig .name { font-family: var(--serif); font-size: 17px; line-height: 1.1; letter-spacing: -.005em; color: var(--ink); }
+  .rig .meta {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--mut); margin-top: 3px;
+    display: flex; gap: 12px;
+  }
+  .rig .meta b { color: var(--ink-2); font-weight: 500; }
+  .rig .util {
+    width: 56px; text-align: end;
+    font-family: var(--mono); font-size: 13px; color: var(--ink); letter-spacing: -.005em;
+  }
+  .rig .util .u { font-family: var(--sans); font-size: 11px; color: var(--mut); margin-inline-start: 2px; }
+  .rig.idle .util, .rig.paused .util { color: var(--mut); }
+  .rig-foot {
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px; color: var(--mut); letter-spacing: .04em;
+  }
+  .rig-foot a { color: var(--ink); border-bottom: 1px solid var(--ink); padding-bottom: 2px; text-decoration: none; }
+  .rig-foot a:hover { color: var(--pv-accent); border-bottom-color: var(--pv-accent); }
+
+  /* ── Jobs table ───────────────────────── */
+  .jobs-panel { margin-top: 28px; }
+  .jobs-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .jobs-tbl th {
+    text-align: start; padding: 12px 14px; border-bottom: 1px solid var(--hair);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mut);
+    font-weight: 500;
+  }
+  .jobs-tbl td {
+    padding: 14px 14px; border-bottom: 1px solid var(--hair);
+    vertical-align: middle;
+  }
+  .jobs-tbl tr:last-child td { border-bottom: 0; }
+  .jobs-tbl tr:hover td { background: color-mix(in oklab, var(--orange) 4%, transparent); }
+  .jobs-tbl .jid { font-family: var(--mono); font-size: 12px; color: var(--mut); letter-spacing: -.005em; }
+  .jobs-tbl .rig { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .jobs-tbl .model { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+  .jobs-tbl .renter { color: var(--ink-2); }
+  .jobs-tbl .tok { font-family: var(--mono); font-size: 12px; color: var(--ink-2); text-align: end; }
+  .jobs-tbl .sar {
+    font-family: var(--serif); font-size: 17px; letter-spacing: -.01em; color: var(--ink); text-align: end;
+  }
+  .jobs-tbl .sar .u { font-family: var(--mono); font-size: 10px; color: var(--mut); margin-inline-start: 3px; }
+  .jobs-tbl .stat {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .jobs-tbl .stat::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+  .jobs-tbl .stat.settled { color: var(--teal); }
+  .jobs-tbl .stat.settled::before { background: var(--teal); }
+  .jobs-tbl .stat.failed { color: var(--err); }
+  .jobs-tbl .stat.failed::before { background: var(--err); }
+  .jobs-tbl .when { font-family: var(--mono); font-size: 11px; color: var(--mut); text-align: end; }
+
+  /* ── Mobile: hide some less-essential columns ── */
+  @media (max-width: 760px) {
+    .jobs-tbl th:nth-child(3), .jobs-tbl td:nth-child(3),
+    .jobs-tbl th:nth-child(5), .jobs-tbl td:nth-child(5),
+    .jobs-tbl th:nth-child(7), .jobs-tbl td:nth-child(7) { display: none; }
+  }
+
+  /* ── Hamburger for mobile (sidebar drawer) ── */
+  .pv-tb .mb-toggle {
+    display: none; width: 38px; height: 38px; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--hair); cursor: pointer; color: var(--ink);
+    font-size: 18px; font-family: var(--mono); border-radius: 2px;
+  }
+  .pv-backdrop { display: none; }
+  @media (max-width: 980px) {
+    .pv-tb .mb-toggle { display: inline-flex; }
+    .pv-sb { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; z-index: 50;
+             transform: translateX(-100%); transition: transform .25s cubic-bezier(.4,0,.2,1); }
+    .pv-sb.on { transform: translateX(0); box-shadow: 12px 0 32px rgba(0,0,0,.4); }
+    .pv-app { display: block; }
+    .pv-backdrop { display: block; position: fixed; inset: 0; background: rgba(4,5,13,.6); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .pv-backdrop.on { opacity: 1; pointer-events: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pv-app">
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <aside class="pv-sb" id="pv-sb">
+    <div class="pv-sb-brand">
+      <span class="wm">DCP<i>∞</i></span>
+      <span class="ctx">Provider</span>
+    </div>
+
+    <div class="pv-status">
+      <div class="k">Earning today</div>
+      <div class="v" id="sb-today">SAR 218<span class="u">so far</span></div>
+      <div class="live"><span class="d"></span> 2 of 4 rigs earning</div>
+      <div class="row">
+        <span>Yesterday</span>
+        <b>SAR 194</b>
+      </div>
+      <div class="row" style="margin-top: 8px; padding-top: 0; border: 0;">
+        <span>This month</span>
+        <b>SAR 5,826</b>
+      </div>
+    </div>
+
+    <nav class="pv-nav">
+      <div class="sec">Operate</div>
+      <a href="./Dashboard.html" class="on"><span class="ic">⌂</span> <span>Dashboard</span><span class="bd"></span></a>
+      <a href="./Rigs.html"><span class="ic">☷</span> <span>Rigs</span><span class="bd">4</span></a>
+      <a href="./Earnings.html"><span class="ic">△</span> <span>Earnings</span><span class="bd"></span></a>
+
+      <div class="sec">Account</div>
+      <a href="./Profile.html"><span class="ic">✦</span> <span>Profile</span><span class="bd">Silver</span></a>
+      <a href="./Settings.html"><span class="ic">⚙</span> <span>Settings</span><span class="bd"></span></a>
+      <a href="../../../docs/docs-three-pane.html"><span class="ic">?</span> <span>Provider docs</span><span class="bd">↗</span></a>
+    </nav>
+
+    <div class="pv-sb-foot">
+      <div class="av">Y</div>
+      <div class="who">
+        Yazeed Al-Qahtani
+        <span class="e">riyadh-studio-01 · Silver</span>
+      </div>
+      <span class="out" title="Sign out">↱</span>
+    </div>
+  </aside>
+
+  <!-- Backdrop for mobile drawer -->
+  <div class="pv-backdrop" id="pv-backdrop"></div>
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <div>
+    <header class="pv-tb">
+      <button class="mb-toggle" id="mb-toggle" aria-label="Menu">☰</button>
+      <div class="crumb">
+        <span>riyadh-studio-01</span>
+        <span class="sep">/</span>
+        <span class="cur">Dashboard</span>
+      </div>
+      <span class="pill"><span class="d"></span> Live · earning</span>
+      <button class="kill" title="Pause all rigs">◉ Kill switch</button>
+    </header>
+
+    <main class="pv-main">
+
+      <h1 class="pv-h1">Good morning, <em style="font-style: italic; color: var(--orange);">Yazeed.</em></h1>
+      <div class="pv-h1-sub">
+        <span>2 of 4 rigs earning</span>
+        <span>Uptime <b>99.4%</b> · 7d</span>
+        <span>Next payout <b>Mon · SAR 428</b></span>
+        <span>Trust <b>92</b></span>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi featured">
+          <span class="k">Today · so far</span>
+          <span class="v">SAR 218<span class="u">/ Riyal</span></span>
+          <span class="d up">▲ 12% vs yesterday at this hour</span>
+        </div>
+        <div class="kpi">
+          <span class="k">This week</span>
+          <span class="v">SAR 1,424<span class="u">/ Riyal</span></span>
+          <span class="d up">▲ 8% vs last week</span>
+        </div>
+        <div class="kpi">
+          <span class="k">This month</span>
+          <span class="v">SAR 5,826<span class="u">/ Riyal</span></span>
+          <span class="d up">▲ 14% vs last month</span>
+        </div>
+        <div class="kpi">
+          <span class="k">Lifetime</span>
+          <span class="v">SAR 42,180<span class="u">/ Riyal</span></span>
+          <span class="d" style="color: var(--mut);">Since Aug 2024 · 16 months</span>
+        </div>
+      </div>
+
+      <!-- Earnings chart + Rigs -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-hd">
+            <div>
+              <h3>Earnings</h3>
+              <div class="panel-hd .meta" style="margin-top: 4px;"></div>
+            </div>
+            <div class="seg" id="chart-range">
+              <button data-r="7">7D</button>
+              <button data-r="30" class="on">30D</button>
+              <button data-r="90">90D</button>
+            </div>
+          </div>
+          <div class="chart" id="chart">
+            <div class="axis-l" id="ax-l"></div>
+            <div class="axis-b" id="ax-b"></div>
+            <svg id="chart-svg" viewBox="0 0 600 220" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#ee7a3c" stop-opacity=".45"/>
+                  <stop offset="1" stop-color="#ee7a3c" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <g class="grid" id="chart-grid"></g>
+              <path class="area" id="chart-area"></path>
+              <path class="line" id="chart-line"></path>
+              <line class="hover-line" id="chart-hover-line" y1="0" y2="220"></line>
+              <circle class="hover-dot" id="chart-hover-dot" r="4"></circle>
+            </svg>
+            <div class="chart-tip" id="chart-tip"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hd">
+            <div>
+              <h3>Your rigs</h3>
+            </div>
+            <div class="panel-hd .meta" style="font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut);">
+              2 earning · 1 idle · 1 paused
+            </div>
+          </div>
+          <div class="rigs">
+            <div class="rig earning">
+              <span class="pip"></span>
+              <div>
+                <div class="name">studio-main</div>
+                <div class="meta"><span>RTX 4090 · <b>24 GB</b></span> <span>78% util</span> <span>62°C</span></div>
+              </div>
+              <div class="util">78<span class="u">%</span></div>
+            </div>
+            <div class="rig earning">
+              <span class="pip"></span>
+              <div>
+                <div class="name">studio-bench</div>
+                <div class="meta"><span>RTX 4080 · <b>16 GB</b></span> <span>54% util</span> <span>58°C</span></div>
+              </div>
+              <div class="util">54<span class="u">%</span></div>
+            </div>
+            <div class="rig idle">
+              <span class="pip"></span>
+              <div>
+                <div class="name">office-mac</div>
+                <div class="meta"><span>M3 Max · <b>64 GB</b></span> <span>idle · no jobs queued</span></div>
+              </div>
+              <div class="util">—</div>
+            </div>
+            <div class="rig paused">
+              <span class="pip"></span>
+              <div>
+                <div class="name">garage-3090</div>
+                <div class="meta"><span>RTX 3090 · <b>24 GB</b></span> <span>paused · maintenance</span></div>
+              </div>
+              <div class="util">—</div>
+            </div>
+          </div>
+          <div class="rig-foot">
+            <span>Last updated 8s ago</span>
+            <a href="./Rigs.html">Manage fleet →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jobs panel -->
+      <div class="panel jobs-panel">
+        <div class="panel-hd">
+          <div>
+            <h3>Recent jobs</h3>
+            <div class="panel-hd .meta" style="font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); margin-top: 4px;">
+              Settlement is per-second · paid out weekly
+            </div>
+          </div>
+          <a href="./Jobs.html" style="font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink); border-bottom: 1px solid var(--ink); padding-bottom: 2px;">View all 63 today →</a>
+        </div>
+        <table class="jobs-tbl">
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Rig</th>
+              <th>Model</th>
+              <th>Renter</th>
+              <th style="text-align:end;">Tokens</th>
+              <th style="text-align:end;">SAR</th>
+              <th>Status</th>
+              <th style="text-align:end;">When</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body">
+            <!-- populated by JS -->
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  /* ════════ Inline operator data ════════ */
+  const DATA = {
+    // 30 days of earnings (chronological, oldest first)
+    earn: (function () {
+      const out = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const base = 180 + Math.sin((29 - i) / 3) * 40 + (i < 9 ? 60 : 0);
+        const jitter = ((29 - i) * 7 % 13) - 6;
+        out.push({ date: d, sar: Math.round(base + jitter) });
+      }
+      return out;
+    })(),
+    jobs: [
+      { id: 'j_ac81', rig: 'studio-main',  model: 'allam-7b',  renter: 'NextWave Commerce', tok: 412,  sar: 0.34, status: 'settled', when: '2m ago' },
+      { id: 'j_ac7f', rig: 'studio-bench', model: 'jais-13b',  renter: 'Musbah Legal',      tok: 1824, sar: 1.92, status: 'settled', when: '6m ago' },
+      { id: 'j_ac7e', rig: 'studio-main',  model: 'allam-7b',  renter: "Qira'a Learning",   tok: 208,  sar: 0.18, status: 'settled', when: '8m ago' },
+      { id: 'j_ac7c', rig: 'studio-main',  model: 'bge-m3',    renter: 'NextWave Commerce', tok: 64,   sar: 0.02, status: 'settled', when: '11m ago' },
+      { id: 'j_ac7a', rig: 'studio-bench', model: 'allam-7b',  renter: 'Haya Therapy',      tok: 928,  sar: 0.91, status: 'settled', when: '14m ago' },
+      { id: 'j_ac78', rig: 'office-mac',   model: 'falcon-h1', renter: 'Najdi Heritage',    tok: 2104, sar: 2.48, status: 'settled', when: '18m ago' },
+      { id: 'j_ac76', rig: 'studio-main',  model: 'allam-7b',  renter: 'NextWave Commerce', tok: 512,  sar: 0.41, status: 'settled', when: '22m ago' },
+      { id: 'j_ac74', rig: 'studio-bench', model: 'jais-13b',  renter: 'Musbah Legal',      tok: 624,  sar: 0.00, status: 'failed',  when: '26m ago' },
+      { id: 'j_ac72', rig: 'studio-main',  model: 'allam-7b',  renter: "Qira'a Learning",   tok: 288,  sar: 0.24, status: 'settled', when: '29m ago' },
+    ],
+  };
+
+  /* ════════ Chart rendering ════════ */
+  function fmtSAR(n) {
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+  }
+  function renderChart(rangeDays) {
+    const W = 600, H = 220;
+    const padL = 50, padR = 8, padT = 12, padB = 22;
+    const days = DATA.earn.slice(-rangeDays);
+    const max = Math.max(...days.map(d => d.sar)) * 1.1;
+    const min = Math.min(...days.map(d => d.sar)) * 0.85;
+    const range = max - min;
+
+    const x = (i) => padL + (i / (days.length - 1)) * (W - padL - padR);
+    const y = (v) => padT + (1 - (v - min) / range) * (H - padT - padB);
+
+    let path = '';
+    days.forEach((d, i) => { path += (i === 0 ? 'M ' : ' L ') + x(i).toFixed(1) + ' ' + y(d.sar).toFixed(1); });
+    let area = path + ` L ${x(days.length - 1).toFixed(1)} ${H - padB} L ${x(0).toFixed(1)} ${H - padB} Z`;
+    document.getElementById('chart-line').setAttribute('d', path);
+    document.getElementById('chart-area').setAttribute('d', area);
+
+    // grid lines (4 horizontal)
+    const grid = document.getElementById('chart-grid');
+    grid.innerHTML = '';
+    for (let i = 0; i <= 4; i++) {
+      const gy = padT + (i / 4) * (H - padT - padB);
+      grid.innerHTML += `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}"></line>`;
+    }
+
+    // axis labels
+    const axL = document.getElementById('ax-l');
+    axL.innerHTML = '';
+    for (let i = 0; i <= 4; i++) {
+      const v = max - (i / 4) * range;
+      axL.innerHTML += `<span>SAR ${fmtSAR(v)}</span>`;
+    }
+    const axB = document.getElementById('ax-b');
+    const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 5 : 15;
+    axB.innerHTML = days.filter((d, i) => i % labelEvery === 0 || i === days.length - 1)
+      .map(d => `<span>${d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>`).join('');
+
+    // hover interaction
+    const svg = document.getElementById('chart-svg');
+    const tip = document.getElementById('chart-tip');
+    const hoverLine = document.getElementById('chart-hover-line');
+    const hoverDot = document.getElementById('chart-hover-dot');
+    const chartEl = document.getElementById('chart');
+
+    svg.onmousemove = (e) => {
+      const rect = svg.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const sx = (px / rect.width) * W;
+      let nearest = 0, best = Infinity;
+      for (let i = 0; i < days.length; i++) {
+        const d = Math.abs(x(i) - sx);
+        if (d < best) { best = d; nearest = i; }
+      }
+      const dx = x(nearest), dy = y(days[nearest].sar);
+      hoverLine.setAttribute('x1', dx); hoverLine.setAttribute('x2', dx);
+      hoverLine.setAttribute('y1', padT); hoverLine.setAttribute('y2', H - padB);
+      hoverLine.style.opacity = 1;
+      hoverDot.setAttribute('cx', dx); hoverDot.setAttribute('cy', dy);
+      hoverDot.style.opacity = 1;
+      const tipLeft = (dx / W) * rect.width;
+      const tipTop = (dy / H) * rect.height;
+      tip.style.left = tipLeft + 'px';
+      tip.style.top = tipTop + 'px';
+      tip.style.opacity = 1;
+      tip.innerHTML = `${days[nearest].date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · <span class="v">SAR ${fmtSAR(days[nearest].sar)}</span>`;
+    };
+    svg.onmouseleave = () => {
+      hoverLine.style.opacity = 0; hoverDot.style.opacity = 0; tip.style.opacity = 0;
+    };
+  }
+  renderChart(30);
+
+  document.getElementById('chart-range').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-r]'); if (!b) return;
+    document.querySelectorAll('#chart-range button').forEach(x => x.classList.toggle('on', x === b));
+    renderChart(parseInt(b.dataset.r, 10));
+  });
+
+  /* ════════ Jobs table ════════ */
+  const jobsBody = document.getElementById('jobs-body');
+  jobsBody.innerHTML = DATA.jobs.map(j => `
+    <tr>
+      <td><span class="jid">${j.id}</span></td>
+      <td><span class="rig">${j.rig}</span></td>
+      <td><span class="model">${j.model}</span></td>
+      <td><span class="renter">${j.renter}</span></td>
+      <td><span class="tok">${j.tok.toLocaleString()}</span></td>
+      <td><span class="sar">${j.sar.toFixed(2)}<span class="u">SAR</span></span></td>
+      <td><span class="stat ${j.status}">${j.status}</span></td>
+      <td><span class="when">${j.when}</span></td>
+    </tr>
+  `).join('');
+
+  /* ════════ Mobile sidebar drawer ════════ */
+  const sb = document.getElementById('pv-sb');
+  const bd = document.getElementById('pv-backdrop');
+  const tg = document.getElementById('mb-toggle');
+  tg && tg.addEventListener('click', () => {
+    sb.classList.toggle('on');
+    bd.classList.toggle('on');
+  });
+  bd && bd.addEventListener('click', () => {
+    sb.classList.remove('on'); bd.classList.remove('on');
+  });
+
+  /* ════════ Live KPI jitter (subtle, real-feeling) ════════ */
+  (function () {
+    const todayEl = document.querySelector('.kpi.featured .v');
+    const sbTodayEl = document.getElementById('sb-today');
+    let v = 218;
+    setInterval(() => {
+      // occasional small bump (~ a job completing)
+      if (Math.random() > 0.6) {
+        v += Math.random() * 1.2;
+        const fmt = `SAR ${fmtSAR(v)}<span class="u">/ Riyal</span>`;
+        const fmtSb = `SAR ${fmtSAR(v)}<span class="u">so far</span>`;
+        if (todayEl) todayEl.innerHTML = fmt;
+        if (sbTodayEl) sbTodayEl.innerHTML = fmtSb;
+      }
+    }, 2600);
+  })();
+</script>
+
+</body>
+</html>
