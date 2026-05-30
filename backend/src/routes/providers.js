@@ -8,6 +8,7 @@ const router = express.Router();
 
 // Database (use existing connection)
 const db = require('../db');
+const { toRfc3339 } = require('../lib/iso-datetime');
 const {
     publicProvidersLimiter,
     providerAccountDeletionLimiter,
@@ -1592,7 +1593,8 @@ router.get('/:id/liveness', (req, res) => {
         return res.json({
             provider_id: provider.id,
             liveness_status,
-            last_heartbeat: provider.last_heartbeat || null,
+            // Contract conformance (#12): spec types last_heartbeat as date-time.
+            last_heartbeat: toRfc3339(provider.last_heartbeat) || null,
             heartbeat_age_seconds,
         });
     } catch (error) {
@@ -2063,10 +2065,12 @@ router.get('/me', async (req, res) => {
                 gpu_count: toFiniteInt(provider.gpu_count, { min: 1, max: 64 }) || 1,
                 supported_compute_types: supportedComputeTypes,
                 gpu_profile_source: profileSource,
-                gpu_profile_updated_at: provider.gpu_profile_updated_at || provider.last_heartbeat || null,
+                // Contract conformance (#12): spec types these as date-time;
+                // legacy rows hold SQLite text — normalize to RFC 3339.
+                gpu_profile_updated_at: toRfc3339(provider.gpu_profile_updated_at || provider.last_heartbeat) || null,
                 auto_detected: profileSource === 'daemon',
                 resource_spec: resourceSpec,
-                last_heartbeat: provider.last_heartbeat || null,
+                last_heartbeat: toRfc3339(provider.last_heartbeat) || null,
                 daemon_version: provider.daemon_version || null,
                 run_mode: provider.run_mode || 'always-on',
                 scheduled_start: provider.scheduled_start || '23:00',

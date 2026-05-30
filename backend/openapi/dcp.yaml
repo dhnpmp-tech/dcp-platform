@@ -2212,7 +2212,11 @@ components:
       required: [provider_id, liveness_status]
       properties:
         provider_id:
-          type: string
+          # Backend returns the numeric providers.id; accept both forms, matching
+          # HeartbeatResponse.provider_id (non-breaking widening for consumers).
+          oneOf:
+            - type: integer
+            - type: string
         liveness_status:
           type: string
           enum: [online, stale, offline]
