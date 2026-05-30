@@ -10,6 +10,8 @@
 
 'use strict';
 
+const { notifyProviderOffline, clearOfflineAlertState } = require('../services/providerOfflineNotifier');
+
 const HEALTH_CHECK_INTERVAL_MS = Number.parseInt(
   process.env.PROVIDER_HEALTH_CHECK_INTERVAL_MS || String(5 * 60 * 1000),
   10
@@ -59,6 +61,14 @@ function ensureSchema(db) {
   try {
     db.prepare('ALTER TABLE providers ADD COLUMN last_health_check TEXT').run();
   } catch (_) { /* already exists */ }
+
+  // Backlog gap #1: dedup state for online→offline alerts. Idempotent; also
+  // added centrally in db.js migrations — duplicated here so the standalone
+  // PM2 cron entry point (which only calls ensureSchema) never SELECTs a
+  // missing column.
+  try {
+    db.prepare('ALTER TABLE providers ADD COLUMN last_offline_alert_at TEXT').run();
+  } catch (_) { /* already exists */ }
 }
 
 // ─── Core health check cycle ───────────────────────────────────────────────────
@@ -67,7 +77,7 @@ function runHealthCheck(db) {
   const nowIso = now.toISOString();
 
   const providers = db.all(
-    `SELECT id, name, email, status, last_heartbeat, consecutive_health_failures
+    `SELECT id, name, email, status, last_heartbeat, consecutive_health_failures, last_offline_alert_at
      FROM providers
      WHERE status NOT IN ('pending', 'deleted', 'cancelled')
        AND deleted_at IS NULL`
@@ -129,6 +139,13 @@ function runHealthCheck(db) {
           providerId, nowIso, 'ok', heartbeatAgeSecs, 0, 'online',
           'Provider resumed heartbeats — marked online'
         );
+        // ADDITIVE: clear offline-alert dedup so the NEXT genuine offline
+        // transition re-alerts. Best-effort; never breaks the online-marking.
+        try {
+          clearOfflineAlertState(providerId);
+        } catch (err) {
+          console.error(`[providerHealth] clear offline-alert state failed for provider ${providerId}: ${err.message}`);
+        }
         console.log(`[providerHealth] provider ${providerId} (${provider.email}) is BACK ONLINE`);
       } else {
         updateCounterStmt.run(0, nowIso, nowIso, providerId);
@@ -151,6 +168,18 @@ function runHealthCheck(db) {
           providerId, nowIso, 'fail', heartbeatAgeSecs, currentFailures, 'offline',
           `${note} — marked offline after ${currentFailures} consecutive failures`
         );
+        // ADDITIVE: this branch is exactly the online→offline transition
+        // (status was not yet 'offline'). Notify the provider + platform,
+        // deduped against persisted state. Wrapped so a send failure can never
+        // break the offline-marking above.
+        try {
+          notifyProviderOffline(
+            { id: providerId, name: provider.name, email: provider.email, last_heartbeat: provider.last_heartbeat },
+            { source: 'provider_health_worker', lastOfflineAlertAt: provider.last_offline_alert_at }
+          );
+        } catch (err) {
+          console.error(`[providerHealth] offline notification error for provider ${providerId}: ${err.message}`);
+        }
         console.warn(
           `[providerHealth] provider ${providerId} (${provider.email}) OFFLINE after ${currentFailures} failed checks`
         );
