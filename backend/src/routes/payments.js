@@ -26,6 +26,20 @@ const getPayoutWebhookSecret = () => process.env.MOYASAR_PAYOUT_WEBHOOK_SECRET |
 const WEBHOOK_STATUSES = new Set(['initiated', 'paid', 'failed', 'refunded']);
 const isProduction = () => process.env.NODE_ENV === 'production';
 
+// ─── Sandbox top-up gate (FIX #4: close the free-money hole) ───────────────────
+// The sandbox top-up endpoint mints renter balance with NO real payment. It must
+// be impossible to reach in production, and must require an explicit opt-in env
+// flag even in non-production so it can never be live by accident.
+//
+//   ALLOW_SANDBOX_TOPUP === '1'  AND  NODE_ENV !== 'production'
+//
+// When the gate is closed the route is NOT mounted on the router at all, so the
+// only possible response is Express's default 404 — there is no code path that
+// credits balance. The env flip stays the operator's; this just closes the hole
+// in code.
+const isSandboxTopupEnabled = () =>
+  process.env.ALLOW_SANDBOX_TOPUP === '1' && !isProduction();
+
 // Phase 1 bank transfer constants (manual Saudi IBAN flow)
 const BANK_TRANSFER_IBAN = process.env.DCP_BANK_IBAN || 'SA0000000000000000000000';
 const BANK_TRANSFER_ACCOUNT_NAME = process.env.DCP_BANK_ACCOUNT_NAME || 'DC1 Compute Platform';
@@ -395,12 +409,15 @@ router.post('/topup', requireRenter, withFinancialIdempotency({
 
 // ─── POST /api/payments/topup-sandbox ─────────────────────────────────────────
 // Dev-only sandbox top-up: directly credits balance without Moyasar (when key not set).
-// Disabled in production (requires MOYASAR_SECRET_KEY to be absent).
-router.post('/topup-sandbox', (req, res) => {
-  if (isProduction()) {
-    return res.status(403).json({
-      error: 'Sandbox top-up is disabled in production.',
-    });
+// FIX #4: this route is ONLY mounted when isSandboxTopupEnabled() is true
+// (ALLOW_SANDBOX_TOPUP==='1' AND NODE_ENV!=='production'). In production — and in
+// any non-production process that has not opted in — the route is never registered,
+// so it 404s and there is no code path that can mint free balance.
+function sandboxTopupHandler(req, res) {
+  // Defence-in-depth: even though the route is only mounted when the gate is
+  // open at boot, re-check at request time in case env changed after mount.
+  if (!isSandboxTopupEnabled()) {
+    return res.status(404).json({ error: 'Not found' });
   }
 
   if (getMoyasarSecret()) {
@@ -449,7 +466,24 @@ router.post('/topup-sandbox', (req, res) => {
     new_balance_sar: updated.balance_halala / 100,
     new_balance_halala: updated.balance_halala,
   });
-});
+}
+
+// Mount the sandbox top-up route ONLY when the gate is open. When it is closed
+// (production, or no ALLOW_SANDBOX_TOPUP opt-in) the route is never registered.
+if (isSandboxTopupEnabled()) {
+  console.warn(
+    '[payments] SANDBOX TOP-UP IS LIVE — POST /api/payments/topup-sandbox can mint renter balance with NO real payment. '
+    + 'This is only safe in dev/test. Unset ALLOW_SANDBOX_TOPUP to disable. (NODE_ENV='
+    + (process.env.NODE_ENV || '<unset>') + ')'
+  );
+  router.post('/topup-sandbox', sandboxTopupHandler);
+} else if (process.env.ALLOW_SANDBOX_TOPUP === '1' && isProduction()) {
+  // Opt-in flag is set but production blocks it — make the refusal explicit.
+  console.warn(
+    '[payments] ALLOW_SANDBOX_TOPUP=1 was IGNORED because NODE_ENV=production. '
+    + 'Sandbox top-up cannot mint free balance in production and is not mounted.'
+  );
+}
 
 // ─── POST /api/payments/webhook ────────────────────────────────────────────────
 // Moyasar webhook handler. Verifies HMAC-SHA256 signature, credits balance on `paid`.
@@ -982,5 +1016,19 @@ router.post('/payout-webhook', express.raw({ type: 'application/json' }), async 
     return res.status(500).json({ error: 'sync_failed' });
   }
 });
+
+// Expose money-config readiness flags so /api/health can report them without
+// duplicating env-name knowledge. Attaching to the router (a function) is
+// non-breaking: `app.use('/api/payments', paymentsRouter)` is unaffected.
+function getMoneyConfigReadiness() {
+  return {
+    payments_secret_ready: !!getMoyasarSecret(),
+    payments_webhook_ready: !!getMoyasarWebhookSecret(),
+    payout_source_ready: !!process.env.MOYASAR_PAYOUT_SOURCE_ID,
+    sandbox_topup_enabled: isSandboxTopupEnabled(),
+  };
+}
+
+router.getMoneyConfigReadiness = getMoneyConfigReadiness;
 
 module.exports = router;
