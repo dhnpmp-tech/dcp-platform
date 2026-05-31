@@ -1359,6 +1359,8 @@ db.exec(`
   'ALTER TABLE renters ADD COLUMN auto_topup_threshold_halala INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN auto_topup_amount_halala INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN auto_topup_monthly_cap_halala INTEGER DEFAULT 0',
+  // Optional renter-set monthly inference spend cap (#20). 0 = unlimited.
+  'ALTER TABLE renters ADD COLUMN monthly_spend_cap_halala INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN moyasar_card_token TEXT',
   'ALTER TABLE renters ADD COLUMN moyasar_card_brand TEXT',
   'ALTER TABLE renters ADD COLUMN moyasar_card_last4 TEXT',
