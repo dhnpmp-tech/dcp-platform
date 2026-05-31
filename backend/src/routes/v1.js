@@ -2195,6 +2195,27 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
+    // Optional monthly spend cap (#20) — the renter's own budget guardrail,
+    // checked after the balance gate using the same pre-flight estimate. Reject
+    // before dispatch if this request would push current-month spend over the
+    // cap (no-op when no cap is set). Fail-open inside checkBudgetCap.
+    const budgetGate = billingService.checkBudgetCap(db._db || db, req.renter.id, estimateHalala);
+    if (budgetGate.capped && !budgetGate.ok) {
+      return sendV1Error(res, {
+        status: 402,
+        type: 'budget_cap_exceeded',
+        code: 'budget_cap_exceeded',
+        message: `Monthly budget cap reached. Cap: ${(budgetGate.capHalala / 100).toFixed(2)} SAR, spent this month: ${(budgetGate.spentThisMonthHalala / 100).toFixed(2)} SAR, estimated cost: ${(budgetGate.estimateHalala / 100).toFixed(2)} SAR. Raise or remove the cap in your account settings.`,
+        retryable: false,
+        meta: {
+          monthly_cap_sar: Number((budgetGate.capHalala / 100).toFixed(2)),
+          spent_this_month_sar: Number((budgetGate.spentThisMonthHalala / 100).toFixed(2)),
+          remaining_sar: Number((budgetGate.remainingHalala / 100).toFixed(2)),
+          estimate_sar: Number((budgetGate.estimateHalala / 100).toFixed(2)),
+        },
+      });
+    }
+
     let usagePersisted = false;
     const dbHandle = db._db || db;
     const transactionFactory = typeof dbHandle?.transaction === 'function'

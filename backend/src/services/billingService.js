@@ -90,6 +90,63 @@ function checkBalanceGate(db, renterId, estimateHalala) {
 }
 
 /**
+ * Optional monthly spend-cap gate (backlog #20).
+ *
+ * A renter may set `renters.monthly_spend_cap_halala` (0 / null = unlimited) to
+ * bound their own inference spend independent of balance. This sums the
+ * renter's CURRENT-calendar-month (UTC) spend from the usage ledger and reports
+ * whether this request (estimateHalala) would push total spend over the cap.
+ *
+ * `strftime('%Y-%m', …)` is used for the month filter so it is robust to BOTH
+ * stored timestamp shapes (ISO-8601 and SQLite "YYYY-MM-DD HH:MM:SS").
+ *
+ * Fail-OPEN: this is the renter's own safety limit, not a platform-protective
+ * one, so a query error must never wrongly block a paying renter's request.
+ *
+ * NOTE: dormant until metering resumes (the ledger doesn't grow while billing
+ * is frozen) — additive + safe to ship; validate over-cap rejection live once
+ * inference flows again.
+ *
+ * @returns {{capped:boolean, ok:boolean, capHalala:number,
+ *   spentThisMonthHalala:number, remainingHalala:(number|null), estimateHalala:number}}
+ */
+function checkBudgetCap(db, renterId, estimateHalala) {
+  const est = Math.max(0, Math.ceil(Number(estimateHalala) || 0));
+  let cap = 0;
+  try {
+    const row = db.prepare('SELECT monthly_spend_cap_halala AS cap FROM renters WHERE id = ?').get(renterId);
+    cap = Math.max(0, Math.trunc(Number(row && row.cap) || 0));
+  } catch (_) { cap = 0; }
+
+  if (cap <= 0) {
+    return { capped: false, ok: true, capHalala: 0, spentThisMonthHalala: 0, remainingHalala: null, estimateHalala: est };
+  }
+
+  let spent = 0;
+  try {
+    const r = db.prepare(
+      `SELECT COALESCE(SUM(cost_halala), 0) AS spent
+         FROM openrouter_usage_ledger
+        WHERE renter_id = ?
+          AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`
+    ).get(renterId);
+    spent = Math.max(0, Math.trunc(Number(r && r.spent) || 0));
+  } catch (_) {
+    // Fail-open: never block the renter on our own query error.
+    return { capped: true, ok: true, capHalala: cap, spentThisMonthHalala: 0, remainingHalala: cap, estimateHalala: est };
+  }
+
+  return {
+    capped: true,
+    ok: (spent + est) <= cap,
+    capHalala: cap,
+    spentThisMonthHalala: spent,
+    remainingHalala: Math.max(0, cap - spent),
+    estimateHalala: est,
+  };
+}
+
+/**
  * Estimate the cost of an inference request in halala.
  *
  * Strategy:
@@ -313,6 +370,7 @@ function settleInferenceOnce(db, args) {
 module.exports = {
   InsufficientBalanceError,
   checkBalanceGate,
+  checkBudgetCap,
   estimateInferenceCost,
   getEffectiveBalance,
   settleInferenceOnce,

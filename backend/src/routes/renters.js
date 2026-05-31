@@ -533,7 +533,9 @@ router.get('/me', (req, res) => {
         // Contract conformance (#12): the spec types created_at as
         // format:date-time (RFC 3339). Legacy rows may hold SQLite text
         // ("2026-05-30 23:15:00"); normalize so the response always conforms.
-        created_at: toRfc3339(renter.created_at)
+        created_at: toRfc3339(renter.created_at),
+        // Renter's optional monthly inference spend cap (#20). 0 = unlimited.
+        monthly_spend_cap_halala: renter.monthly_spend_cap_halala || 0
       },
       recent_jobs: recentJobs
       ,v1_usage_summary: db.get(        `SELECT COUNT(*) as total_requests,                COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,                COALESCE(SUM(completion_tokens), 0) as completion_tokens,                COALESCE(SUM(total_tokens), 0) as total_tokens,                COALESCE(SUM(cost_halala), 0) as total_cost_halala         FROM openrouter_usage_ledger WHERE renter_id = ?`,        renter.id      )
@@ -541,6 +543,51 @@ router.get('/me', (req, res) => {
   } catch (error) {
     console.error('Renter me error:', error);
     res.status(500).json({ error: 'Failed to fetch renter data' });
+  }
+});
+
+// ─── Monthly spend cap (#20) ────────────────────────────────────────────
+// A renter's optional self-imposed inference budget ceiling (0 = unlimited),
+// enforced at the /v1 pre-dispatch gate (billingService.checkBudgetCap). The
+// current cap is also returned by GET /api/renters/me.
+router.put('/me/budget', (req, res) => {
+  try {
+    const key = req.query.key || req.headers['x-renter-key'];
+    if (!key) return res.status(400).json({ error: 'API key required' });
+    const renterId = resolveRenterIdByKey(key);
+    const renter = renterId
+      ? db.get('SELECT id FROM renters WHERE id = ? AND status = ?', renterId, 'active')
+      : null;
+    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+
+    // Accept halala (integer) or sar (number); halala wins if both present.
+    const body = req.body || {};
+    let capHalala;
+    if (body.monthly_spend_cap_halala != null) {
+      capHalala = Number(body.monthly_spend_cap_halala);
+    } else if (body.monthly_spend_cap_sar != null) {
+      capHalala = Math.round(Number(body.monthly_spend_cap_sar) * 100);
+    } else {
+      return res.status(400).json({ error: 'Provide monthly_spend_cap_halala (integer) or monthly_spend_cap_sar (number). 0 = unlimited.' });
+    }
+    if (!Number.isFinite(capHalala) || capHalala < 0 || !Number.isInteger(capHalala)) {
+      return res.status(400).json({ error: 'monthly_spend_cap_halala must be a non-negative integer (0 = unlimited).' });
+    }
+    const MAX_CAP_HALALA = 100_000_000; // 1,000,000 SAR sanity ceiling
+    if (capHalala > MAX_CAP_HALALA) {
+      return res.status(400).json({ error: 'Cap exceeds the maximum allowed (1,000,000 SAR).' });
+    }
+
+    db.run('UPDATE renters SET monthly_spend_cap_halala = ? WHERE id = ?', capHalala, renter.id);
+    return res.json({
+      ok: true,
+      monthly_spend_cap_halala: capHalala,
+      monthly_spend_cap_sar: Number((capHalala / 100).toFixed(2)),
+      unlimited: capHalala === 0,
+    });
+  } catch (error) {
+    console.error('Renter budget set error:', error);
+    return res.status(500).json({ error: 'Failed to update budget cap' });
   }
 });
 
