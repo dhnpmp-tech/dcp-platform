@@ -53,11 +53,17 @@ function openAiRateLimitBody({ retryAfter }) {
 }
 
 function createRateLimiter({ windowMs, max, keyGenerator, buildBody = defaultRateLimitBody }) {
-  const isRateLimitDisabled = process.env.DISABLE_RATE_LIMIT === '1';
   return rateLimit({
     windowMs,
-    max: isRateLimitDisabled ? Number.MAX_SAFE_INTEGER : max,
+    max,
     keyGenerator,
+    // Evaluate the disable flag PER-REQUEST (via skip) rather than baking it
+    // into `max` at construction. This way a runtime toggle is honored: tests
+    // set DISABLE_RATE_LIMIT=1 globally (jest-setup) to avoid limiter
+    // saturation, while rateLimiter.test.js flips it back to '0' per-test to
+    // verify active limiting on the very same module-level limiter consts. In
+    // production the flag is unset, so limiting is always on.
+    skip: () => process.env.DISABLE_RATE_LIMIT === '1',
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res) => {
