@@ -275,6 +275,18 @@ export default function QuickstartPage() {
     }
   }, [])
 
+  // Pre-fill the env-export with the logged-in renter's key (auth stores it in
+  // localStorage). The key stays in the env var — the samples still read
+  // $DCP_RENTER_KEY — so the copy-paste setup is ready-to-run without teaching
+  // anyone to hardcode a secret into committed application code.
+  const [renterKey, setRenterKey] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const k = localStorage.getItem('dc1_renter_key') || localStorage.getItem('dc1_api_key')
+      if (k) setRenterKey(k)
+    } catch { /* localStorage unavailable (SSR / private mode) — keep placeholder */ }
+  }, [])
+
   const activeSnippet =
     activeTab === 'curl' ? CURL_BASIC : activeTab === 'python' ? PYTHON_BASIC : NODE_BASIC
 
@@ -337,7 +349,16 @@ export default function QuickstartPage() {
             <li>
               <span className="font-semibold text-dc1-text-primary">3. </span>
               Export it in your shell so the samples below pick it up:
-              <CodeBlock code={`export DCP_RENTER_KEY="dcp-renter-..."`} />
+              <CodeBlock code={`export DCP_RENTER_KEY="${renterKey || 'dcp-renter-...'}"`} />
+              {renterKey ? (
+                <span className="mt-1 block text-xs text-status-success">
+                  ✓ Pre-filled with your key from this session — copy and run.
+                </span>
+              ) : (
+                <span className="mt-1 block text-xs text-dc1-text-muted">
+                  Sign in and this fills in with your key automatically.
+                </span>
+              )}
             </li>
           </ol>
         </section>
