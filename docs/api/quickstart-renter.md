@@ -320,8 +320,8 @@ Returns a pro-rated refund if the job hasn't started.
 ## Next Steps
 
 - **Build an app:** [SDK Examples](./sdk-examples.md)
-- **Full API reference:** [Renter endpoints](./openapi.yaml#/renters)
-- **Advanced guides:** [Batch job submission](../guides/batch-jobs.md), [Cost optimization](../guides/cost-optimization.md)
+- **Full API reference:** [Renter endpoints](../openapi.yaml#/renters)
+- **Advanced guides:** [Renter quick start](../guides/renter-quick-start.md), [Troubleshooting](../guides/troubleshooting.md)
 - **Get help:** support@dcp.sa
 
 ---

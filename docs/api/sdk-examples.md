@@ -341,4 +341,4 @@ curl https://api.dcp.sa/api/providers/me \
 
 ---
 
-**Next:** [API Reference](./openapi.yaml) | [Quickstarts](./quickstart-renter.md)
+**Next:** [API Reference](../openapi.yaml) | [Quickstarts](./quickstart-renter.md)
