@@ -23,13 +23,18 @@ on this box, probe is marked `skipped` not `dead` so we don't alert.
 import json
 import os
 import sqlite3
+import sys
 import time
 import urllib.error
 import urllib.request
 
 DB_PATH = "/root/dc1-platform/backend/data/providers.db"
-TG_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN", "8291599718:AAG03lWhtZCXeQAoqR4okAMtfXubAFM9Gus")
-TG_CHAT_ID = -1003773787353
+# Telegram dev-bot creds come from the environment ONLY — never a hardcoded
+# fallback. (A live token previously shipped here as a default; the
+# no-hardcoded-prod-infra security test now guards against its return.)
+TG_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN")
+_tg_chat_raw = os.environ.get("TG_DEV_BOT_CHAT_ID", "")
+TG_CHAT_ID = int(_tg_chat_raw) if _tg_chat_raw.lstrip("-").isdigit() else None
 TG_TOPIC_ALERTS = 4   # 🔴 Alerts — never topic 7
 PROBE_TIMEOUT_S = 3.0
 DEBOUNCE_FAILS = 2    # alert only after N consecutive same-state probes
@@ -66,8 +71,8 @@ CHANNELS = {
 }
 
 # Env vars used in target interpolation. If a required env var is missing
-# at probe time, the channel is skipped (not marked dead).
-ENV_TG_DEV_BOT_TOKEN = os.environ.get("TG_DEV_BOT_TOKEN", TG_TOKEN)
+# at probe time, the channel is skipped (not marked dead). TG_TOKEN above is
+# the single source for the Telegram token.
 
 
 def _interpolate(target: str) -> tuple[str, str | None]:
@@ -83,9 +88,11 @@ def _interpolate(target: str) -> tuple[str, str | None]:
             return ("", None)  # signal: skip
     else:
         url = target
-    # inline {ENV} interpolation
+    # inline {ENV} interpolation — skip the channel if the token is unset
     if "{TG_DEV_BOT_TOKEN}" in url:
-        url = url.replace("{TG_DEV_BOT_TOKEN}", ENV_TG_DEV_BOT_TOKEN)
+        if not TG_TOKEN:
+            return ("", None)  # signal: skip (no TG token configured)
+        url = url.replace("{TG_DEV_BOT_TOKEN}", TG_TOKEN)
     return (url, bearer)
 
 
@@ -131,6 +138,8 @@ def probe(kind: str, target: str) -> tuple[bool, str | None, int | None, bool]:
 
 
 def alert(text: str) -> None:
+    if not TG_TOKEN or TG_CHAT_ID is None:
+        return  # Telegram channel not configured — nothing to alert to
     try:
         body = json.dumps({
             "chat_id": TG_CHAT_ID,
@@ -156,6 +165,9 @@ def fmt_age(ts: float | None) -> str:
 
 
 def run() -> None:
+    if not TG_TOKEN:
+        print("[heartbeat] WARN: TG_DEV_BOT_TOKEN unset — Telegram channel probe and "
+              "alerts disabled; channel-health is still recorded to the DB.", file=sys.stderr)
     con = sqlite3.connect(DB_PATH, timeout=10)
     cur = con.cursor()
     now = time.time()
