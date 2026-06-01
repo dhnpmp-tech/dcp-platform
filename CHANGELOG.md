@@ -17,6 +17,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 
 ### Documentation
 
+- Removed obsolete duplicate OpenAPI YAML files and retargeted API guide links to the maintained `docs/openapi.yaml` spec.
 - Rewrote the root `README.md` as a clean platform overview for GitHub visitors.
 - Rewrote `DEPLOYMENT.md`, `SECURITY.md`, and `docs/README.md` for public use.
 - Moved the runtime verification guide to `docs/runtime-verification.mdx`.

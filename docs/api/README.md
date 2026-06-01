@@ -9,7 +9,7 @@ Welcome to the DCP (Decentralized Compute Platform) API documentation. This guid
 - **[Renter Quickstart](./quickstart-renter.md)** — Submit your first compute job in 5 minutes
 - **[Provider Activation State API](./provider-activation-state.md)** — Canonical onboarding status + blocker codes
 - **[Template Catalog Contract API](./template-catalog-contract.md)** — Canonical renter template metadata contract from `docker-templates/`
-- **[OpenAPI Specification](./openapi.yaml)** — Complete API schema (Swagger/OpenAPI format)
+- **[OpenAPI Specification](../openapi.yaml)** — Complete API schema (Swagger/OpenAPI format)
 - **[SDK Examples](./sdk-examples.md)** — Code examples in JavaScript, Python, and cURL
 
 ## What is DCP?
@@ -125,7 +125,7 @@ All errors follow this format:
    - Or read [Renter Quickstart](./quickstart-renter.md) to submit a job
 
 2. **Building an integration?**
-   - Reference the [OpenAPI Specification](./openapi.yaml)
+   - Reference the [OpenAPI Specification](../openapi.yaml)
    - Check [SDK Examples](./sdk-examples.md) for your language
 
 3. **Need help?**

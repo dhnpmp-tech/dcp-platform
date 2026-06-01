@@ -207,9 +207,9 @@ curl https://api.dcp.sa/api/providers/42/queue \
 
 ## Next Steps
 
-- **Optimize earnings:** [Model caching guide](../guides/model-caching.md)
-- **Advanced configuration:** [Provider settings reference](../references/provider-config.md)
-- **Full API reference:** [Provider endpoints](./openapi.yaml#/providers)
+- **Optimize setup:** [Provider setup guide](../guides/provider-setup-guide.md)
+- **Advanced configuration:** [Provider guide](../provider-guide.md)
+- **Full API reference:** [Provider endpoints](../openapi.yaml#/providers)
 - **Get help:** support@dcp.sa
 
 ---
