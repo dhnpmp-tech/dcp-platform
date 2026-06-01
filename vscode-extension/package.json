@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dhnpmp-tech/dc1-platform"
+    "url": "https://github.com/dhnpmp-tech/dcp-platform"
   },
   "engines": {
     "vscode": "^1.85.0"

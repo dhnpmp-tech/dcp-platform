@@ -105,4 +105,15 @@ lib/verification/
 # Local tooling state — never commit
 .codegraph/
 .herenow/
+.claude/
+.cursor/
+$AGENT_HOME/
+life/
+backups/
+test-run.log
+dist/
+backend/backend/
+backend/data/
+backend/node_modules/
+backend/artifacts/
 docs/**/*.bak-v1

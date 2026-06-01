@@ -1,7 +1,7 @@
 {
-  "name": "dc1-provider-onboarding",
+  "name": "dcp-backend",
   "version": "1.0.0",
-  "description": "DC1 Provider Onboarding Backend",
+  "description": "DCP platform backend API",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

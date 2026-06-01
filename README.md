@@ -103,7 +103,7 @@ Six layers, loosely coupled, each replaceable:
 ## Project structure
 
 ```
-dc1-platform/
+dcp-platform/
 ├── app/                # Next.js 14 App Router — 38+ routes
 │   ├── provider/       #   Provider dashboard
 │   ├── renter/         #   Renter dashboard
@@ -119,7 +119,7 @@ dc1-platform/
 ├── sdk/
 │   ├── python/         # dc1 pip package
 │   └── node/           # @dcp/sdk npm package
-├── vscode-extension/   # VSCode/Cursor extension
+├── vscode-extension/   # VS Code/Cursor extension
 ├── orchestration/      # Checkpoint · failover · healthcheck · alerting
 ├── security/           # Guardian isolation module
 ├── infra/              # Docker templates · vLLM configs · nginx
