@@ -82,7 +82,6 @@
 
 ### Docs
 - Updated extension README for current DCP branding, commands, default API base, and supported API surface.
-- Added a demo runbook (`DEMO-SCRIPT.md`) with expected outputs for partner walkthroughs.
 
 ## [0.3.0] — 2026-03-20
 

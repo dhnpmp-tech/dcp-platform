@@ -273,7 +273,7 @@ async function runPaymentFlowTest() {
   console.log(`    Cost (halala): ${EXPECTED_COST_HALALA}`);
   console.log(`    Cost (SAR):    ${EXPECTED_COST_SAR}`);
   console.log(`    Provider gets: ${EXPECTED_PROVIDER_EARNED} halala`);
-  console.log(`    DC1 fee:       ${EXPECTED_DC1_FEE} halala`);
+  console.log(`    DCP fee:       ${EXPECTED_DC1_FEE} halala`);
 
   // Submit job
   const { jobId, costHalala } = submitJob(db, {

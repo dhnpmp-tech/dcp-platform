@@ -36,15 +36,6 @@ This repository is the DCP platform monorepo: web app, public API, backend servi
 | `tests/` | Active | Cross-cutting tests outside backend-owned Jest suites. |
 | `vscode-extension/` | Active | Current DCP VS Code/Cursor extension source. |
 
-## Removed From Public Surface
+## Public Repository Policy
 
-The cleanup branch removes tracked local/operator artifacts that do not belong in a public product repo:
-
-- local agent state: `$AGENT_HOME/`, `.claude/`, `.cursor/`, `life/`
-- database backups: `backups/`
-- stale duplicate extension source: `extensions/dc1-vscode/`
-- local logs: `test-run.log`
-
-Those files should live in private operations storage, release artifacts, or their dedicated DCP-SA repositories.
-
-The docs cleanup also removes internal planning material from the public surface: status reports, session handoffs, sprint/phase checklists, cost and finance reports, unpublished marketing drafts, agent personas, generated artifacts, and operator-only runbooks. Those belong in a private operations or knowledge-base repository, not `dcp-platform`.
+Keep this repository focused on product source, public docs, tests, and deployable configuration. Private operations notes, local agent state, generated reports, database backups, status handoffs, launch checklists, and unpublished drafts belong in private operations storage or dedicated DCP-SA repositories.

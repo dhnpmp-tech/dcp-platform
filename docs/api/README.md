@@ -130,7 +130,7 @@ All errors follow this format:
 
 3. **Need help?**
    - Email support@dcp.sa
-   - Check the [DCP Documentation](https://docs.dcp.sa)
+   - Check the [DCP Documentation](https://dcp.sa/docs)
 
 ---
 

@@ -305,7 +305,7 @@ DCP_API_URL=http://unreachable-api-999.local node scripts/provider-onboard.mjs
 
 ## Support
 
-- **Documentation:** https://docs.dcp.sa/providers
+- **Documentation:** https://dcp.sa/docs/provider-guide
 - **Email:** support@dcp.sa
 - **Telegram:** https://t.me/dcp-providers
 - **Discord:** https://discord.gg/dcp

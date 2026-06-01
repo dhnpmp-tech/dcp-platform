@@ -5,7 +5,7 @@
  * No real testnet or wallet funding required.
  *
  * Usage:
- *   cd /home/node/dc1-platform/contracts
+ *   cd contracts
  *   node scripts/escrow-gas-estimate.mjs
  *
  * Or via npx:

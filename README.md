@@ -1,310 +1,205 @@
 <div align="center">
 
-<img src="public/dcp-logo-horizontal.webp" alt="DCP — Decentralized Compute Platform" width="520" />
+<img src="public/dcp-logo-horizontal.webp" alt="DCP - Decentralized Compute Platform" width="520" />
 
-### GPU compute, in-kingdom. Per-token billing, on-chain settlement, Arabic-native.
+### GPU compute marketplace and control plane for Saudi Arabia and the GCC.
 
 [![Website](https://img.shields.io/badge/dcp.sa-00f0ff?style=flat-square&labelColor=050a14&logoColor=white)](https://dcp.sa)
-[![API](https://img.shields.io/badge/api.dcp.sa-050a14?style=flat-square&labelColor=00f0ff&logoColor=050a14)](https://api.dcp.sa/docs/ui)
-[![PDPL](https://img.shields.io/badge/PDPL-compliant-00f0ff?style=flat-square&labelColor=050a14)](docs/compliance/pdpl-summary.md)
-[![Base](https://img.shields.io/badge/Base-Sepolia-050a14?style=flat-square&labelColor=00f0ff&logoColor=050a14)](contracts/)
+[![Docs](https://img.shields.io/badge/docs-dcp.sa-050a14?style=flat-square&labelColor=00f0ff&logoColor=050a14)](https://dcp.sa/docs)
+[![PDPL](https://img.shields.io/badge/PDPL-ready-00f0ff?style=flat-square&labelColor=050a14)](docs/compliance/pdpl-summary.md)
 [![License](https://img.shields.io/badge/license-proprietary-1e293b?style=flat-square&labelColor=050a14)](#license)
 
-**[dcp.sa](https://dcp.sa)** · **[API docs](https://api.dcp.sa/docs/ui)** · **[Providers](https://dcp.sa/setup)** · **[Renters](https://dcp.sa/renter)**
+**[Platform](https://dcp.sa)** · **[Docs](https://dcp.sa/docs)** · **[Provider setup](https://dcp.sa/setup)** · **[Renter app](https://dcp.sa/renter)**
 
 </div>
 
 ---
 
-## What this is
+## Overview
 
-**DCP** is a full-stack GPU compute marketplace built for Saudi Arabia. Providers plug in NVIDIA GPUs and earn per-job revenue. Renters rent capacity by the minute — inference, training, Arabic LLMs — and pay in SAR or USDC. Every job settles through an on-chain escrow. Every byte stays in-kingdom.
+DCP is a full-stack GPU compute marketplace. Providers connect NVIDIA GPU machines, report capacity through a lightweight daemon, and earn for completed workloads. Renters use the web app, API, SDKs, or IDE extension to run inference and container jobs with SAR payments, API-key controls, and auditable settlement records.
 
-Not a research toy. Not a hyperscaler wrapper. A working platform with live providers, a live marketplace, a live daemon, and a live API.
+The platform is built around three product surfaces:
 
----
+- **Provider operations**: registration, daemon install, heartbeat, capability reporting, earnings, and payout settings.
+- **Renter workflows**: marketplace discovery, job submission, OpenAI-compatible inference, billing, and spend controls.
+- **Platform control plane**: admin dashboards, pricing, payment reconciliation, deployment templates, health checks, and security gates.
 
-## Why it's different
+## Repository Scope
 
-| | DCP | AWS Bedrock | RunPod | Vast.ai |
-|---|---|---|---|---|
-| **Data residency** | KSA-only, by design | Region-selectable | US / EU | Global distributed |
-| **Arabic-native models** | ALLaM · JAIS · Qwen-AR · Falcon H1 | None dedicated | None | None |
-| **PDPL-by-design** | Yes | Bolted-on | No | No |
-| **Pricing floor** | Provider cost + margin | Hyperscaler + markup | Opaque spread | Auction |
-| **Settlement** | On-chain escrow (Base) | Invoice | Invoice | Invoice |
-| **Saudi payment rails** | Moyasar (SAR) | USD only | USD only | USD only |
+This repository contains the DCP platform application and API:
 
----
+- Next.js web application and public docs
+- Express backend with SQLite persistence
+- Provider onboarding/installers
+- Docker workload templates
+- Payment, billing, and settlement services
+- Local escrow-contract workspace
+- SDK and IDE-extension sources
+- Tests, CI, deployment, and security policy files
+
+Related long-term source-of-truth repositories:
+
+| Repository | Purpose |
+| --- | --- |
+| `DCP-SA/dcp-agent` | Provider machine agent |
+| `DCP-SA/dcp-desktop` | Desktop provider app |
+| `DCP-SA/dcp-contracts` | Shared API contracts and generated client types |
 
 ## Architecture
 
+```text
+Renter / SDK / IDE
+        |
+        v
+dcp.sa Next.js app
+        |
+        v
+api.dcp.sa Express backend
+        |
+        +-- SQLite data store
+        +-- Moyasar payment services
+        +-- Escrow settlement services
+        +-- Provider routing and health
+        |
+        v
+Provider daemon + GPU runtime
 ```
-                    ┌──────────────────────────┐
-                    │   dcp.sa · Next.js 14    │
-                    │   Renter + Provider UX   │
-                    └──────────────┬───────────┘
-                                   │
-                    ┌──────────────▼───────────┐
-                    │   api.dcp.sa · Express   │
-                    │   SQLite · Moyasar · MC  │
-                    └──┬────────┬────────┬─────┘
-                       │        │        │
-             ┌─────────▼──┐ ┌───▼───┐ ┌──▼─────────┐
-             │  Escrow    │ │  P2P  │ │  Provider  │
-             │  Base L2   │ │ libp2p│ │  daemon    │
-             │  EIP-712   │ │  DHT  │ │  (Go/Node) │
-             └────────────┘ └───────┘ └────────────┘
-```
 
-Six layers, loosely coupled, each replaceable:
-
-- **Frontend** — Next.js 14 App Router, role-based dashboards, EN/AR i18n, Tailwind with a custom `dc1-*` token palette.
-- **Backend** — Express.js + SQLite on bare metal, OpenAPI 3.0, Zod validation, scoped API keys.
-- **Escrow** — Solidity on Base. 75/25 provider/platform split, EIP-712 signed claim proofs, timeout refunds.
-- **P2P** — libp2p Kademlia DHT for provider discovery. Central bootstrap today; full peer-to-peer rollout phased.
-- **SDKs** — Official Python + Node.js clients. Idiomatic, typed, thin.
-- **IDE extension** — VSCode / Cursor. Submit jobs, stream logs, browse GPUs without leaving the editor.
-
----
-
-## Features
-
-**For providers** — register a machine, set your rate, earn. Bronze → Silver → Gold tiers unlock visibility. A lightweight daemon handles heartbeat, container lifecycle, and 429-aware backoff.
-
-**For renters** — browse a live marketplace filtered by VRAM, model, and price. Submit via dashboard, CLI, SDK, or IDE. Stream logs over SSE. Pay per-job.
-
-**For admins** — platform KPIs, machine health, price bands, provider leaderboard, payout controls.
-
-**Payments** — Moyasar (SAR, halala-precise) for fiat. USDC escrow on Base for crypto. Both settle atomically.
-
-**P2P discovery** — providers announce GPU specs to a DHT overlay. No central registry required.
-
-**Bilingual** — every dashboard, doc, and error message. Full RTL. Arabic-optimized LLM serving.
-
----
-
-## Tech stack
+Core layers:
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14 · React 18 · TypeScript · Tailwind CSS |
-| Backend | Express.js · SQLite (better-sqlite3) · Zod |
-| Blockchain | Solidity · Hardhat · ethers.js · Base Sepolia → mainnet |
-| P2P | libp2p · Kademlia DHT · Noise · yamux |
-| Payments | Moyasar · USDC escrow |
-| Containers | Docker · Dockerode · NVIDIA Container Toolkit |
-| Testing | Playwright · Jest |
-| Deployment | Docker Compose · Vercel · bare-metal VPS |
-| Email | Resend |
+| --- | --- |
+| Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS |
+| Backend | Express.js, SQLite via `better-sqlite3`, Zod |
+| Payments | Moyasar, SAR/halala accounting |
+| Blockchain | Solidity, Hardhat, ethers.js, Base testnet |
+| Jobs | Docker, Dockerode, NVIDIA Container Toolkit |
+| P2P | libp2p discovery prototype |
+| Testing | Jest, Playwright, template validation |
+| Deployment | Vercel frontend, VPS backend, GitHub Actions |
 
----
+## Project Structure
 
-## Project structure
-
-```
+```text
 dcp-platform/
-├── app/                # Next.js 14 App Router — 38+ routes
-│   ├── provider/       #   Provider dashboard
-│   ├── renter/         #   Renter dashboard
-│   ├── admin/          #   Admin dashboard
-│   ├── marketplace/    #   GPU marketplace
-│   ├── jobs/           #   Job submission + monitoring
-│   └── docs/           #   In-app documentation (EN/AR)
-├── backend/            # Express.js API server
-│   ├── src/            #   Routes, services, middleware
-│   └── installers/     #   Provider daemon packages (26 OS/arch combos)
-├── contracts/          # Solidity escrow + MockUSDC
-├── p2p/                # libp2p overlay network
-├── sdk/
-│   ├── python/         # dc1 pip package
-│   └── node/           # @dcp/sdk npm package
-├── vscode-extension/   # VS Code/Cursor extension
-├── orchestration/      # Checkpoint · failover · healthcheck · alerting
-├── security/           # Guardian isolation module
-├── infra/              # Docker templates · vLLM configs · nginx
-├── docs/               # Public documentation
-├── e2e/                # Playwright end-to-end tests
-└── tests/              # Unit · integration · load · smoke
+├── app/                Next.js app, dashboards, docs, API proxies
+├── backend/            Express API, services, migrations, installers, tests
+├── components/         Shared React UI components
+├── contracts/          Local escrow contract workspace
+├── docker-templates/   GPU workload template definitions
+├── docs/               Public product, API, compliance, and architecture docs
+├── e2e/                Playwright end-to-end tests
+├── infra/              Deployment and runtime configuration
+├── lib/                Frontend utilities
+├── ops/                Operator scripts
+├── orchestration/      Health, monitoring, failover, and checkpoint modules
+├── p2p/                libp2p discovery prototype
+├── packages/           Shared package work
+├── public/             Static web assets
+├── scripts/            Repo-level smoke, release, and maintenance scripts
+├── sdk/                Node and Python SDK sources
+├── security/           Security test harnesses and policy entry points
+├── tests/              Cross-cutting test suites
+└── vscode-extension/   VS Code / Cursor extension source
 ```
 
----
+See [REPO_MAP.md](REPO_MAP.md) for the maintained directory map.
 
-## Quick start
+## Local Development
 
-**Frontend**
+Install root dependencies:
+
 ```bash
 npm install
-npm run dev          # → http://localhost:3000
 ```
 
-**Backend**
+Run the web app:
+
+```bash
+npm run dev
+```
+
+Run the backend:
+
 ```bash
 cd backend
 npm install
-node src/server.js   # → http://localhost:8083
+node src/server.js
 ```
 
-**Production (Docker)**
-```bash
-docker compose -f docker-compose.prod.yml up -d
-```
-
-**Environment** — copy `.env.example` to `.env.local` and fill in:
-
-```env
-# Required
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-BACKEND_URL=https://api.dcp.sa
-NEXT_PUBLIC_DC1_API=https://api.dcp.sa
-
-# Payments (sandbox mode without)
-MOYASAR_SECRET_KEY=sk_test_...
-RESEND_API_KEY=re_...
-
-# On-chain escrow (optional)
-ESCROW_CONTRACT_ADDRESS=0x...
-BASE_RPC_URL=https://sepolia.base.org
-```
-
-See `backend/.env.example` for backend-side variables.
-
----
-
-## SDKs
-
-**Python**
+Validate deploy templates:
 
 ```bash
-pip install dc1
+npm --prefix backend run templates:validate
 ```
 
-```python
-import dc1
-
-client = dc1.DC1Client(api_key="dc1-renter-xxx")
-job = client.jobs.submit("llm_inference", {
-    "model": "allam-7b",
-    "prompt": "اشرح الحوسبة الكمومية بإيجاز"
-}, provider_id=1, duration_minutes=5)
-result = client.jobs.wait(job.id)
-```
-
-**Node.js / TypeScript**
+Build the web app:
 
 ```bash
-npm install @dcp/sdk
+npm run build
 ```
 
-```typescript
-import { DC1Client } from "@dcp/sdk";
-const client = new DC1Client({ apiKey: "dc1-renter-xxx" });
-const job = await client.jobs.submit("llm_inference", { model: "allam-7b" });
-```
+## Configuration
 
----
-
-## IDE extension
-
-The **DCP GPU Compute** extension for VSCode and Cursor ships a provider sidebar, marketplace tree, job submission commands, live log streaming, and a 20+ template catalog — all without leaving your editor.
+Start with the example environment files and only enable integrations you need locally.
 
 ```bash
-cd vscode-extension
-npm install && npm run compile
+cp .env.example .env.local
+cp backend/.env.example backend/.env
 ```
 
----
+Common variables:
 
-## Smart contracts
+| Variable | Purpose |
+| --- | --- |
+| `BACKEND_URL` | Backend API origin used by the frontend |
+| `NEXT_PUBLIC_DC1_API` | Public API URL consumed by existing client code |
+| `MOYASAR_SECRET_KEY` | Payment API key for top-ups and payouts |
+| `MOYASAR_WEBHOOK_SECRET` | Webhook HMAC validation secret |
+| `ESCROW_CONTRACT_ADDRESS` | Escrow contract address for chain-backed settlement |
+| `BASE_RPC_URL` | Base RPC URL for escrow operations |
 
-Escrow holds renter USDC until job completion, then releases 75% to the provider and 25% to the platform against an EIP-712 signed claim proof. Timeout triggers a full refund.
-
-```bash
-cd contracts
-npm install
-npx hardhat test
-npx hardhat run scripts/deploy.js --network baseSepolia
-```
-
-Base Sepolia today. Mainnet after third-party audit.
-
----
-
-## API
-
-The backend exposes a REST API with OpenAPI 3.0 docs at `/api/docs/ui`:
-
-- **Providers** — registration, heartbeat, capability reporting, earnings
-- **Renters** — registration, marketplace, wallet
-- **Jobs** — submit, monitor, cancel, stream (SSE)
-- **Models** — vLLM catalog with pricing + Arabic model support
-- **Templates** — 20+ Docker environments (LLM, training, embeddings, image gen)
-- **Payments** — Moyasar top-up, invoices, refunds
-- **Admin** — KPIs, health, price bands, payouts
-
----
+Secrets must stay in local env files or the deployment secret store. Do not commit real keys, databases, logs, or operator notes.
 
 ## Documentation
 
-Public docs live in [`docs/`](docs/) and are served at [docs.dcp.sa](https://docs.dcp.sa):
+Public docs live in [docs/](docs/) and are served in the app at [dcp.sa/docs](https://dcp.sa/docs).
 
-- [Quickstart](docs/quickstart.md) · [العربية](docs/quickstart-ar.md)
-- [API Reference](docs/api-reference.md) · [العربية](docs/api-reference-ar.md)
-- [Provider Setup Guide](docs/provider-guide.md)
-- [SDK Guides](docs/sdk-guides.md)
-- [Pricing Guide](docs/pricing-guide.md)
-- [GPU Compatibility Matrix](docs/gpu-matrix.md)
-- [Container Security](docs/container-security.md)
-- [Escrow Integration](docs/ESCROW-INTEGRATION-GUIDE.md)
-- [Provider Integration](docs/PROVIDER-INTEGRATION-GUIDE.md)
-- [Migrate from RunPod](docs/guides/migrate-runpod-to-dcp.md) · [Migrate from Vast.ai](docs/guides/migrate-vast-to-dcp.md)
+Useful entry points:
 
-Operational runbooks (P2P, deployment, incident response) live in an access-controlled repo. Contact `support@dcp.sa` if you need access.
+- [Quickstart](docs/quickstart.md)
+- [API reference](docs/api-reference.md)
+- [Provider guide](docs/provider-guide.md)
+- [Renter guide](docs/renter-guide.mdx)
+- [SDK guides](docs/sdk-guides.md)
+- [Pricing guide](docs/pricing-guide.md)
+- [GPU compatibility matrix](docs/gpu-matrix.md)
+- [Container security](docs/container-security.md)
+- [Escrow architecture](docs/escrow-architecture.md)
 
----
+Operational notes, private research, launch checklists, agent memories, and informal drafts do not belong in this public repository.
 
-## Security & compliance
+## Security
 
-Defense-in-depth, every layer:
+DCP uses scoped API keys, rate limits, CORS allowlists, payment webhook verification, container sandboxing, and secret scanning in CI.
 
-- TLS 1.3 everywhere (Let's Encrypt, valid through 2026-06)
-- Cryptographic API keys (32-byte random, scoped, revocable)
-- Parameterised SQL, strict CORS allowlists, per-endpoint rate limits
-- Container sandboxing via the Guardian isolation module
-- Kernel capability dropping for untrusted workloads
-- **PDPL-compliant by design** — all data stays in KSA
-- SAMA financial reporting alignment
-- Data-residency planning for STC Cloud + AWS Bahrain
+Read:
 
-See [`docs/SECURITY.md`](docs/SECURITY.md) and [`docs/compliance/pdpl-summary.md`](docs/compliance/pdpl-summary.md). Responsible disclosure to `security@dcp.sa`.
+- [SECURITY.md](SECURITY.md)
+- [docs/SECURITY.md](docs/SECURITY.md)
+- [docs/compliance/pdpl-summary.md](docs/compliance/pdpl-summary.md)
 
----
-
-## Provider requirements
-
-| Requirement | Minimum |
-|-------------|---------|
-| GPU | NVIDIA, 8 GB+ VRAM |
-| Docker | 20.10+ |
-| NVIDIA Container Toolkit | latest |
-| Python | 3.8+ |
-| OS | Ubuntu 20.04+ |
-
-Pre-built installer packages for 26 OS/arch combinations live in [`backend/installers/`](backend/installers/).
-
----
+Responsible disclosure: `security@dcp.sa`.
 
 ## License
 
-Proprietary — DCP. All rights reserved.
+Proprietary. All rights reserved.
 
 ---
 
 <div align="center">
 
-**[dcp.sa](https://dcp.sa)** · **[api.dcp.sa](https://api.dcp.sa)** · **[support@dcp.sa](mailto:support@dcp.sa)**
-
-<sub>Built in Riyadh.</sub>
+**[dcp.sa](https://dcp.sa)** · **[docs](https://dcp.sa/docs)** · **[support@dcp.sa](mailto:support@dcp.sa)**
 
 </div>

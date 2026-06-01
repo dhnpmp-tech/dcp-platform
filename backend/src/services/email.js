@@ -13,7 +13,7 @@
  */
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const FROM_ADDRESS = 'DC1 Platform <noreply@dcp.sa>';
+const FROM_ADDRESS = 'DCP Platform <noreply@dcp.sa>';
 
 // ── Template builders ──────────────────────────────────────────────────────
 

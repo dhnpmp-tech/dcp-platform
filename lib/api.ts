@@ -1,5 +1,5 @@
 /**
- * DC1 Platform API utilities
+ * DCP Platform API utilities
  *
  * Centralizes API base URL logic and auth helpers.
  * On production (https), uses the Vercel proxy at /api.

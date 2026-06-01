@@ -260,7 +260,7 @@ None. This is v1.0.0 — the first production release.
 Found a bug? Have feedback? We're listening.
 
 - **Report security issues:** security@dcp.sa (we will acknowledge within 24 hours)
-- **Report bugs:** [GitHub Issues](https://github.com/dhnpmp-tech/dc1-platform/issues)
+- **Report bugs:** [GitHub Issues](https://github.com/dhnpmp-tech/dcp-platform/issues)
 - **Feature requests:** [Feature board](https://dcp.sa/feedback)
 - **General support:** support@dcp.sa or [Slack community](https://slack.dcp.sa)
 

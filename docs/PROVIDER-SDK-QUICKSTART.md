@@ -315,7 +315,7 @@ console.log(`\nResults:\n${results.join('\n')}`);
 
 ## References
 
-- [SDK API Reference](docs/api-reference.md#sdk-methods)
-- [Provider Earnings Guide](docs/PROVIDER-EARNINGS-GUIDE.md)
+- [SDK API Reference](./api-reference.md#sdk-methods)
+- [Provider Earnings Guide](./PROVIDER-EARNINGS-GUIDE.md)
 - [Pricing Guide — Pricing & Economics](/docs/pricing-guide)
-- [Container Build Guide](docs/CONTAINER-BUILD-DEPLOYMENT.md) (for providers)
+- [Container Build Guide](./CONTAINER-BUILD-DEPLOYMENT.md) (for providers)

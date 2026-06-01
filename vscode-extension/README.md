@@ -108,7 +108,3 @@ Submit and monitor GPU jobs on **DCP** directly from VS Code or Cursor.
 - `GET /api/templates` - List available docker templates (20+ templates)
 - `GET /api/models` - List available models with competitive pricing
   - Returns `competitor_prices` (Vast.ai, RunPod, AWS) and `savings_pct` for pricing display
-
-## Demo Script
-
-Use [`DEMO-SCRIPT.md`](./DEMO-SCRIPT.md) for a partner-ready live demo flow.

@@ -1,7 +1,14 @@
 {
   "name": "dcp-platform",
   "version": "1.0.0",
-  "description": "DCP decentralized compute platform - provider, renter, and admin dashboards",
+  "description": "DCP platform monorepo: Next.js app, Express API, provider onboarding, docs, SDKs, and GPU workload templates",
+  "private": true,
+  "homepage": "https://dcp.sa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhnpmp-tech/dcp-platform"
+  },
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

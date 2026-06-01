@@ -27,7 +27,7 @@ Renter ──depositAndLock(jobId, provider, amount, expiry)──► Escrow.sol
                                                                 ▼
 Provider ──claimLock(jobId, oracleProof)─────────────────► Escrow.sol
                                                            75% → provider
-                                                           25% → DC1 fee
+                                                           25% -> DCP fee
 ```
 
 **Key properties:**
@@ -60,7 +60,7 @@ Provider ──attestJob(AttestationData, providerSig)────────�
          │                                                           │
          └──no──► window expires ──► releasePayment() (anyone)      │
                                         75% → provider              │
-                                        25% → DC1 fee               │
+                                        25% -> DCP fee              │
 ```
 
 ### AttestationData EIP-712 Struct

@@ -3,9 +3,7 @@ name: Uptime Monitor
 # DCP external uptime + SLO monitor. Runs off-VPS in GitHub Actions so a full-VPS
 # outage is still detectable. Probes api.dcp.sa, dcp.sa, and a sentinel inference
 # call. On failure: Telegram alert (topic 4, mentions @Pmpvd). On 3 consecutive
-# failures: Resend email to setup@dc1st.com.
-#
-# Design doc: strategy-internal/monitoring-oncall-2026-05-20.md
+# failures: Resend email to setup@dcp.sa.
 #
 # Required secrets (set at repo level):
 #   TG_BOT_TOKEN              - @dcp_dev_bot token
@@ -308,7 +306,7 @@ jobs:
             --arg text "$text_body" \
             '{
               from: "DCP Monitor <noreply@dcp.sa>",
-              to: ["setup@dc1st.com"],
+              to: ["setup@dcp.sa"],
               subject: $subject,
               html: $html,
               text: $text

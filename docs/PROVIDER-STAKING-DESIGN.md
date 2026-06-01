@@ -214,7 +214,7 @@ Disputes require manual DCP review in Phase 1. Phase 2 will automate this with r
 `ProviderStake.sol` deployment (when ready):
 
 ```bash
-cd /home/node/dc1-platform/contracts
+cd contracts
 # Deploy separately — no deploy script exists yet for ProviderStake
 # Use hardhat console or add a deploy-stake.js script
 

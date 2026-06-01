@@ -58,6 +58,12 @@ sdk/python/dcp_provider.egg-info/
 
 # Desktop app installers (served from production, not git)
 backend/public/dcp-provider-setup.*
+backend/installers/*.deb
+backend/installers/dc1-provider_*/
+backend/installers/.pytest_cache/
+app/**/*.disabled
+app/**/*.disabled.*
+infra/state/*.json
 
 # TypeScript incremental build cache (root tsconfig)
 dist/tsconfig.tsbuildinfo
@@ -112,6 +118,8 @@ life/
 backups/
 test-run.log
 dist/
+vscode-extension/dist/
+.pytest_cache/
 backend/backend/
 backend/data/
 backend/node_modules/

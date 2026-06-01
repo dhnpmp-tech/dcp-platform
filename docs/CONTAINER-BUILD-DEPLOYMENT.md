@@ -278,5 +278,5 @@ docker-compose -f docker-compose.yml up -d
 
 - [vLLM Documentation](https://docs.vllm.ai)
 - [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker)
-- [Provider Onboarding Guide](docs/provider-guide.md)
+- [Provider Onboarding Guide](./provider-guide.md)
 - [Pricing Guide — Provider Economics](/docs/pricing-guide)

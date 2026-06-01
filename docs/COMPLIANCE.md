@@ -432,13 +432,13 @@ Published quarterly at: https://dcp.sa/transparency
 
 ## References & Certifications
 
-- [Privacy Policy](docs/PRIVACY.md)
-- [Security Documentation](docs/SECURITY.md)
-- [Terms of Service](docs/TERMS.md)
+- [Privacy Policy](./PRIVACY.md)
+- [Security Documentation](./SECURITY.md)
+- [Terms of Service](./TERMS.md)
 - [Escrow Smart Contract](https://github.com/dhnpmp-tech/dcp-escrow)
 - [PDPL Compliance](https://sdaia.gov.sa/pdpl)
 - [Status Page](https://status.dcp.sa)
-- [GitHub](https://github.com/dhnpmp-tech/dcp)
+- [GitHub](https://github.com/dhnpmp-tech/dcp-platform)
 
 ---
 

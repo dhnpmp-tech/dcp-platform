@@ -159,7 +159,7 @@ Projected @ 70% = (720 × 0.70) × 0.45 = 226.8 SepoliaETH/month
 |-------|----------|
 | "Balance not updating" | Refresh page; wait up to 2 minutes for blockchain settlement |
 | "Withdrawal pending" | Check blockchain confirmation status; settlements take 5–15 min |
-| "Job payout mismatch" | Review job parameters; verify model pricing in [API Reference](docs/api-reference.md) |
+| "Job payout mismatch" | Review job parameters; verify model pricing in [API Reference](./api-reference.md) |
 | "Escrow locked longer than expected" | Open dispute via dashboard or contact support |
 
 ---

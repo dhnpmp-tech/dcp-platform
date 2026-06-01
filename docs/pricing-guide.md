@@ -1,8 +1,7 @@
 # DCP Pricing Guide — Provider & Renter SAR Rate Recommendations
 
-**Date:** 2026-03-19 | **Prepared by:** Budget Analyst (DCP-195)
-**Supersedes:** Previous pricing-guide.md (basic bands only)
-**Sources:** Competitive Analysis (DCP-179), Financial Model (DCP-166), Break-even analysis (DCP-166)
+**Date:** 2026-03-19
+**Sources:** Public cloud pricing references and DCP platform pricing policy.
 **Exchange rate:** 1 USD = 3.75 SAR (Saudi Central Bank fixed peg)
 
 ---
@@ -211,7 +210,7 @@ Once the payment gateway (Stripe/Tap) is live, introduce committed-use discounts
 | 20 | Mix (avg 17 SAR) | 60% | 122,400 | **30,600** |
 | 50 | Mix (avg 30 SAR) | 65% | 702,000 | **175,500** |
 
-> See [Financial Model](financial-model.md) for full break-even analysis. At 12 SAR/hr and 12 hrs/day, DCP needs **~13 providers** to cover true operating costs (9,538 SAR/mo) at current agent-API spend.
+> Platform break-even analysis is maintained privately. Public pricing guidance should be validated against current market rates before procurement decisions.
 
 ---
 
@@ -250,6 +249,5 @@ Dynamic: <50% util → lower; >80% util → raise
 
 ---
 
-_Prepared by: Budget Analyst (DCP-195)_
-_Sources: Competitive Analysis [DCP-179](competitive-pricing.md) · Financial Model [DCP-166](financial-model.md) · Vast.ai / RunPod / Lambda Labs public pricing (Q1 2026)_
+_Sources: Vast.ai, RunPod, Lambda Labs, and hyperscaler public pricing references (Q1 2026)._
 _All figures in SAR unless noted. Competitor USD prices converted at 3.75 fixed peg. Verify competitor rates before procurement decisions._

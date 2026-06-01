@@ -189,7 +189,7 @@ export default function PrivacyPage() {
       <p>
         We implement technical and organizational security measures including: TLS encryption in transit,
         cryptographically random API keys, parameterized database queries, rate limiting, CORS lockdown,
-        and security headers. See our <a href="https://github.com/dhnpmp-tech/dc1-platform/blob/main/SECURITY.md">Security Policy</a> for
+        and security headers. See our <a href="https://github.com/dhnpmp-tech/dcp-platform/blob/main/SECURITY.md">Security Policy</a> for
         full details including our vulnerability disclosure process.
       </p>
       <p>

@@ -1,7 +1,0 @@
-Package: dc1-provider
-Version: 1.0
-Architecture: amd64
-Maintainer: DCP <support@dcp.sa>
-Description: DCP Provider Daemon
- Automatic GPU provider setup for DCP marketplace
-Depends: docker.io, nvidia-docker2, curl

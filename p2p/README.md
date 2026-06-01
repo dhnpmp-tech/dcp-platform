@@ -135,7 +135,7 @@ npm run smoke:cid
 ```
 
 `p2p` dependencies are provisioned by the board operator during controlled deploys.
-Do not run package installation commands directly in the Paperclip container.
+Run package installation commands from a clean local checkout or CI job, not from a production shell.
 
 ## Python Job Routing Prototype (Phase C)
 

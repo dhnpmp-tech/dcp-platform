@@ -186,7 +186,7 @@ export class WalletPanel {
   </div>
   <div class="note">
     Max 1000 SAR per transaction. Payment gateway integration coming soon.<br>
-    Contact support@dc1st.com to manually top up your account.
+    Contact support@dcp.sa to manually top up your account.
   </div>
   <div id="alertBox"></div>
   <button class="btn-secondary" id="refreshBtn">↻ Refresh Balance</button>

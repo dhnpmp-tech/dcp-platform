@@ -157,7 +157,7 @@ const CORS_ALLOWED_HEADERS = [
 // *.vercel.app to project-specific subdomains so a third-party Vercel app
 // can't speak as us. Configurable via VERCEL_PROJECT_NAMES (comma-separated)
 // to cover renames; defaults to the two we own today.
-const _vercelProjects = (process.env.VERCEL_PROJECT_NAMES || 'dc1-platform,dcp,dcp-platform')
+const _vercelProjects = (process.env.VERCEL_PROJECT_NAMES || 'dcp,dcp-platform')
   .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 const _vercelProjectAlt = _vercelProjects.map((p) => p.replace(/[^a-z0-9-]/g, '')).join('|');
 const VERCEL_ORIGIN_RE = new RegExp(
@@ -1270,7 +1270,7 @@ function warnIfMoneyConfigMissing() {
 
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`DC1 Platform API (headless) running on port ${PORT}`);
+    console.log(`DCP Platform API (headless) running on port ${PORT}`);
     console.log(`API:  http://localhost:${PORT}/api`);
     console.log(`Health: http://localhost:${PORT}/api/health`);
     warnIfMoneyConfigMissing();
