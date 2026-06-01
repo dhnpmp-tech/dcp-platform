@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// GPU pricing data from FOUNDER-STRATEGIC-BRIEF.md
+// GPU pricing data from platform pricing model
 // Monthly revenue at baseline utilization (typically 70% for mid-range scenarios)
 const GPU_PRICING = {
   'rtx-4090': {

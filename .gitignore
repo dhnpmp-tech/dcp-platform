@@ -58,6 +58,12 @@ sdk/python/dcp_provider.egg-info/
 
 # Desktop app installers (served from production, not git)
 backend/public/dcp-provider-setup.*
+backend/installers/*.deb
+backend/installers/dc1-provider_*/
+backend/installers/.pytest_cache/
+app/**/*.disabled
+app/**/*.disabled.*
+infra/state/*.json
 
 # TypeScript incremental build cache (root tsconfig)
 dist/tsconfig.tsbuildinfo
@@ -105,4 +111,56 @@ lib/verification/
 # Local tooling state — never commit
 .codegraph/
 .herenow/
+.claude/
+.cursor/
+$AGENT_HOME/
+life/
+backups/
+test-run.log
+dist/
+vscode-extension/dist/
+.pytest_cache/
+backend/backend/
+backend/data/
+backend/node_modules/
+backend/artifacts/
 docs/**/*.bak-v1
+docs/design/
+docs/legal/
+docs/research/
+docs/codex-onboarding/
+docs/agents/
+docs/analytics/
+docs/code-reviews/
+docs/content-launch/
+docs/copy/
+docs/copywriter/
+docs/cost-reports/
+docs/finance/
+docs/follow-ups/
+docs/marketing/
+docs/ml/
+docs/ml-infra/
+docs/ops/
+docs/social/
+docs/roadmap/
+docs/phase1-launch/
+docs/*STATUS*.md
+docs/*Status*.md
+docs/*CHECKLIST*.md
+docs/*Checklist*.md
+docs/*HANDOFF*.md
+docs/*Handoff*.md
+docs/*SESSION*.md
+docs/*Session*.md
+docs/*SPRINT*.md
+docs/*Sprint*.md
+docs/*PHASE*.md
+docs/*Phase*.md
+docs/*AUDIT*.md
+docs/*Audit*.md
+docs/*REPORT*.md
+docs/*Report*.md
+docs/*COPY*.md
+docs/*Copy*.md
+docs/launch-*.md

@@ -104,7 +104,7 @@ npm run test:gas
 
 ## Deploying to Base Sepolia
 
-For an operator-friendly runbook, use `contracts/BASE_SEPOLIA_LAUNCH_CHECKLIST.md`.
+Use the steps below for local testnet deployment. Private launch coordination checklists should stay outside this public repository.
 
 1. **Copy and fill env vars**
 

@@ -7,10 +7,10 @@ name = "dc1"
 version = "0.1.0"
 description = "Official Python SDK for the DCP GPU compute marketplace"
 readme = "README.md"
-authors = [{ name = "DC1", email = "dev@dcp.sa" }]
+authors = [{ name = "DCP", email = "dev@dcp.sa" }]
 license = { text = "MIT" }
 requires-python = ">=3.9"
-keywords = ["gpu", "compute", "ai", "inference", "dc1"]
+keywords = ["gpu", "compute", "ai", "inference", "dcp"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -21,7 +21,7 @@ dependencies = []  # stdlib-only; no third-party deps
 [project.urls]
 Homepage = "https://dcp.sa"
 Documentation = "https://dcp.sa/docs"
-Repository = "https://github.com/dhnpmp-tech/dc1-platform"
+Repository = "https://github.com/dhnpmp-tech/dcp-platform"
 
 [tool.setuptools.packages.find]
 where = ["."]

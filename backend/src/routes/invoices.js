@@ -8,7 +8,7 @@
  * GET /api/renters/:renterId/invoices — paginated list + CSV export
  *
  * Currency: halala internal (1 SAR = 100 halala), 1 USD = 3.75 SAR fixed peg.
- * Platform fee: 15% blended take rate (FOUNDER-STRATEGIC-BRIEF.md).
+ * Platform fee: 15% blended take rate (platform pricing model).
  * settlement_hash: SHA-256 of canonical fields — tamper-evidence seal.
  */
 

@@ -437,7 +437,7 @@ curl https://api.dcp.sa/api/templates?category=image
 
 ## Support
 
-- **API Docs:** https://docs.dcp.sa/api
+- **API Docs:** https://dcp.sa/docs/api-reference
 - **Status Page:** https://status.dcp.sa
 - **Email:** support@dcp.sa
 - **Slack:** #help in our community workspace

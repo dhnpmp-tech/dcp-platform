@@ -185,7 +185,7 @@ Better liquidity → more renters → more buy pressure
 
 **Renters** benefit: holding DCP cuts platform fees 2–8%, paying back token cost at high compute volumes.
 
-**Investors** benefit: 15% take rate × growing GMV feeds the burn, creating deflationary pressure as the platform scales. The 29× MOIC base case (Strategic Brief) is amplified if token value appreciates independently of revenue.
+Token holders benefit when platform volume grows and protocol demand increases. The public pricing guide defines the rates used by the billing model.
 
 ---
 
@@ -215,7 +215,7 @@ Better liquidity → more renters → more buy pressure
 
 ## 12. References
 
-- docs/FOUNDER-STRATEGIC-BRIEF.md — Financial projections, valuation memo, provider economics
+- `backend/src/config/pricing.js` — pricing constants used by platform billing
 - docs/blockchain/provider-staking-design.md — Staking contract specification
 - contracts/ — Base Sepolia escrow implementation
 - infra/config/arabic-portfolio.json — Model portfolio underpinning provider reward tiers

@@ -552,7 +552,7 @@ export default function FeedbackWidget() {
             {submitting ? t('Sending…', 'جارٍ الإرسال…') : t('Submit Bug Report', 'إرسال تقرير الخطأ')}
           </button>
           <a
-            href="https://github.com/dc1-platform/issues/new"
+            href="https://github.com/dhnpmp-tech/dcp-platform/issues/new"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center text-xs text-dc1-amber hover:underline"

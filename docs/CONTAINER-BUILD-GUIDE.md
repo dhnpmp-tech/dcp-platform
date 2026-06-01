@@ -47,7 +47,7 @@ dc1/base-worker:latest (CUDA 12.2 + Python 3.10 + PyTorch)
 **Steps:**
 
 ```bash
-cd /home/node/dc1-platform/backend/docker
+cd backend/docker
 
 # Build locally (no push)
 ./build-images.sh

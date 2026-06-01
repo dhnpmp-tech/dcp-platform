@@ -2,7 +2,7 @@
 
 ## [0.5.0] — 2026-03-23
 
-### Added - Sprint 27 Template Catalog & Arabic RAG Deployment
+### Added - Template Catalog & Arabic RAG Deployment
 
 #### 🎛️ Template Catalog Browser
 - New **Template Catalog** tree view in DCP Explorer sidebar showing 20 docker templates
@@ -82,7 +82,6 @@
 
 ### Docs
 - Updated extension README for current DCP branding, commands, default API base, and supported API surface.
-- Added a demo runbook (`DEMO-SCRIPT.md`) with expected outputs for partner walkthroughs.
 
 ## [0.3.0] — 2026-03-20
 

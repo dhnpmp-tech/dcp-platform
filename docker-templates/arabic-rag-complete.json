@@ -289,8 +289,8 @@
     "Fine-tuning on customer domain (legal precedents, company policies)"
   ],
   "support_and_resources": {
-    "documentation": "docs/ARABIC-RAG-ENTERPRISE-POSITIONING.md",
-    "deployment_guide": "docs/arabic-portfolio-serving-ops.md",
+    "documentation": "docs/PROVIDER-MODEL-CATALOG.md",
+    "deployment_guide": "docs/INSTANT-TIER-ARCHITECTURE.md",
     "technical_specs": "https://huggingface.co/ailang/ALLaM-7B-Instruct",
     "benchmarks": "scripts/benchmark-arabic-rag.sh",
     "example_queries": "examples/arabic-rag-queries.json"

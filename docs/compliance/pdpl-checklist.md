@@ -183,7 +183,7 @@ Under PDPL Article 21(3), DCP must notify SDAIA within **72 hours** of becoming 
 6. Full incident report filed within 30 days
 
 **Incident response owner:** Security Engineer
-**Escalation:** CEO → Founder (support@dcp.sa)
+**Escalation:** DCP support team (support@dcp.sa)
 **Runbook:** `docs/security/incident-response-runbook.md`
 
 ---

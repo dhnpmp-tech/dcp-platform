@@ -1,7 +1,7 @@
 {
-  "name": "dc1-contracts",
+  "name": "dcp-platform-contracts",
   "version": "1.0.0",
-  "description": "DC1 EVM smart contracts — Escrow.sol on Base L2",
+  "description": "DCP platform EVM smart contracts for escrow on Base L2",
   "private": true,
   "scripts": {
     "compile": "npx hardhat compile",

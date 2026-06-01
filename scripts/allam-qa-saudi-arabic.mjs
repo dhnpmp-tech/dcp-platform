@@ -24,7 +24,7 @@ import fs from 'fs';
 import { parseArgs } from 'util';
 import { setTimeout as sleep } from 'timers/promises';
 
-const I18N_PATH = '/Users/pp/DC1-Platform/dc1-platform/app/lib/i18n.tsx';
+const I18N_PATH = 'app/lib/i18n.tsx';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434/api/generate';
 const MODEL = 'allam-7b';
 

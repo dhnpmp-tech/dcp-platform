@@ -76,7 +76,7 @@ provider_payout_halala = gross_cost_halala − platform_fee_halala
 
 Rounding rule: platform fee rounds **down**, provider gets the remainder. This ensures the sum never exceeds what was charged to the renter.
 
-**Take rate: 15% blended** (source: FOUNDER-STRATEGIC-BRIEF.md). DCP is below Vast.ai (~20%) and in line with RunPod.
+**Take rate: 15% blended** (source: platform pricing model). DCP is below Vast.ai (~20%) and in line with RunPod.
 
 ---
 

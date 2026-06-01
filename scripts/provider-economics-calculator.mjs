@@ -3,7 +3,7 @@
  * provider-economics-calculator.mjs
  *
  * Calculates monthly GPU provider revenue and profit projections for DCP.
- * Based on DCP floor prices from docs/FOUNDER-STRATEGIC-BRIEF.md.
+ * Based on DCP floor prices from backend/src/config/pricing.js.
  *
  * Usage:
  *   node scripts/provider-economics-calculator.mjs
@@ -113,7 +113,7 @@ if (cliGpu) {
 } else {
   // Full report: internet cafe scenarios per strategic brief
   console.log('\n=== DCP PROVIDER ECONOMICS CALCULATOR ===');
-  console.log('Based on DCP floor prices from Strategic Brief (March 2026)\n');
+  console.log('Based on DCP floor prices from Pricing Guide (March 2026)\n');
 
   // Scenario table: 20-GPU internet cafe
   console.log('--- INTERNET CAFE SCENARIO: 20-GPU Setup ---\n');

@@ -122,4 +122,4 @@ Legacy mode flags:
 
 ## Deployment Note
 
-This script is prepared for Claude-Cowork VPS deployment flow. It does not require git operations inside the Paperclip container.
+Run job-execution validation from a clean checkout with Docker and the NVIDIA runtime available. Production deployment procedures should stay in the deployment environment or private operations runbooks.

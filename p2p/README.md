@@ -86,7 +86,7 @@ DCP provider data stays within the DCP network.
 | `NAT-TRAVERSAL.md` | Circuit Relay v2, NAT hole-punching, and heartbeat integration guide |
 | `package.json` | Isolated package (`"type": "module"`) |
 
-## Heartbeat Protocol (New in Sprint 25)
+## Heartbeat Protocol
 
 Providers emit periodic heartbeats (every 30 seconds) to track node liveness and health:
 
@@ -135,7 +135,7 @@ npm run smoke:cid
 ```
 
 `p2p` dependencies are provisioned by the board operator during controlled deploys.
-Do not run package installation commands directly in the Paperclip container.
+Run package installation commands from a clean local checkout or CI job, not from a production shell.
 
 ## Python Job Routing Prototype (Phase C)
 

@@ -141,8 +141,8 @@ export default function DocsPage({ params }: DocsPageProps) {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-3">
-                <Link href="/docs/roadmap/dcp-retail-readiness-2026-Q2" className="btn btn-secondary btn-sm">
-                  View roadmap status
+                <Link href="/docs/architecture-overview" className="btn btn-secondary btn-sm">
+                  View architecture
                 </Link>
                 <Link href="/support?category=enterprise&source=docs-enterprise-support-readiness" className="btn btn-secondary btn-sm">
                   Contact enterprise support

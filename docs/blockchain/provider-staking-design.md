@@ -246,5 +246,5 @@ Modest TVL; primary value is economic deterrence, not DeFi yield.
 
 ---
 
-*Related: `Escrow.sol`, `docs/blockchain/base-sepolia-launch-checklist.md`, `docs/FOUNDER-STRATEGIC-BRIEF.md`*
+*Related: `Escrow.sol`, `docs/escrow-architecture.md`, `docs/pricing-guide.md`*
 *Last updated: 2026-03-24 — DCP-853*

@@ -1,23 +1,16 @@
-# Build Windows Installer (.exe)
+# Provider Installer Build Notes
 
-## Output
-- `backend/installers/dc1-provider-setup-Windows.exe`
+The provider setup entry points live in [backend/installers/](../backend/installers/).
 
-## Prerequisites
-- NSIS installed (`makensis` in PATH)
-- Source script: `backend/installers/dc1-provider-Windows.nsi`
+Current maintained scripts:
 
-## Build command
-```bash
-cd backend/installers
-makensis dc1-provider-Windows.nsi
-```
+| Platform | Script |
+| --- | --- |
+| Windows | `backend/installers/dcp-setup-windows.ps1` |
+| Linux/macOS | `backend/installers/dcp-setup-unix.sh` |
+| Debian package | `backend/installers/build-deb.sh` |
+| macOS package | `backend/installers/build-mac-pkg.sh` |
 
-## Verify
-```bash
-ls -lh backend/installers/dc1-provider-setup-Windows.exe
-```
+Generated binaries and package staging folders are release artifacts. Do not commit `.deb`, `.exe`, `.msi`, `.pkg`, or generated installer staging directories to this repository.
 
-## Notes
-- In this Paperclip runtime (`2026-03-19`), `makensis` is not installed.
-- The backend route `GET /api/providers/daemon/windows` serves the existing installer if present and returns a JSON error with this doc path when missing.
+For local validation, run the installer script in a disposable VM or provider test machine before publishing a release artifact.

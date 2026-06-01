@@ -263,7 +263,7 @@ For DCP to call `depositAndLock()`, the **relayer wallet** must hold sufficient 
 - Requires exchange API integration (Binance, OKX, or local Saudi exchange)
 - More complex, higher latency
 
-**Decision:** Phase 2 launches with Option A (manual float pool). Option B is Sprint 29+ work.
+**Decision:** Launch with Option A (manual float pool). Option B is future work once payout automation is ready.
 
 ---
 
@@ -309,7 +309,7 @@ Providers must register an EVM wallet address in their profile. If not registere
 | Moyasar SAR gateway (`payments.js`) | ✅ Complete | Backend Architect |
 | Off-chain ledger (DCP-825) | ✅ Complete | Backend Architect |
 | `escrow-chain.js` backend service | ✅ Complete | Blockchain Engineer |
-| Funded deployer wallet | ❌ Blocked — founder | Founder |
+| Funded deployer wallet | Pending | Platform operator |
 | USDC float pool | ❌ Not started | Founding Engineer |
 | Provider EVM wallet registration UI | ❌ Not started | Frontend Developer |
 | Dispute resolution endpoint | ❌ Not started | Backend Architect |

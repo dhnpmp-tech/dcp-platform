@@ -113,7 +113,7 @@ DCP complies with the Personal Data Protection Law by:
 - Closed components: Limited proprietary code (provider daemon)
 
 **Security Audits:**
-- ✅ Internal security review (Sprint 24)
+- ✅ Security review completed
 - 🔄 Third-party penetration test (Q2 2026)
 - 🔄 Smart contract audit (Q2 2026 before mainnet)
 - 📋 Annual security audits planned
@@ -432,13 +432,13 @@ Published quarterly at: https://dcp.sa/transparency
 
 ## References & Certifications
 
-- [Privacy Policy](docs/PRIVACY.md)
-- [Security Documentation](docs/SECURITY.md)
-- [Terms of Service](docs/TERMS.md)
+- [Privacy Policy](./PRIVACY.md)
+- [Security Documentation](./SECURITY.md)
+- [Terms of Service](./TERMS.md)
 - [Escrow Smart Contract](https://github.com/dhnpmp-tech/dcp-escrow)
 - [PDPL Compliance](https://sdaia.gov.sa/pdpl)
 - [Status Page](https://status.dcp.sa)
-- [GitHub](https://github.com/dhnpmp-tech/dcp)
+- [GitHub](https://github.com/dhnpmp-tech/dcp-platform)
 
 ---
 

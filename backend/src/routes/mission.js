@@ -682,7 +682,7 @@ router.get('/pulse', requireAuth, (req, res) => {
 // (60 req/hr per IP — plenty for 3-5 repos cached 60s). If GITHUB_TOKEN
 // env is set, uses it for the 5k/hr authenticated quota.
 const TRACKED_REPOS = [
-  { slug: 'dhnpmp-tech/dc1-platform', label: 'dc1-platform', tagline: 'Backend + Next.js' },
+  { slug: 'dhnpmp-tech/dcp-platform', label: 'dcp-platform', tagline: 'Backend + Next.js' },
   { slug: 'dhnpmp-tech/dcp-agent',    label: 'dcp-agent',    tagline: 'Agent runtime' },
   { slug: 'dhnpmp-tech/dcp-desktop',  label: 'dcp-desktop',  tagline: 'Provider Tauri app' },
 ];

@@ -219,7 +219,7 @@ Output:
 }
 ```
 
-## DevOps Coordination: Automation and Hardening Handoff
+## Automation and Hardening
 
 ### One-command DevOps deploy
 

@@ -64,7 +64,7 @@ Token will be stored in `~/.docker/config.json` (use with caution).
 ### Option A: GitHub Web UI (Recommended)
 
 1. **Navigate to Secrets**
-   - Repository: https://github.com/oida-ai/dc1-platform
+   - Repository: https://github.com/dhnpmp-tech/dcp-platform
    - Settings → Secrets and Variables → Actions
    - Click "New repository secret"
 

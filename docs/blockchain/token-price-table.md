@@ -1,7 +1,7 @@
 # DCP Token Price Table
 
 > Per-token and per-1K-token halala costs for each GPU tier and model class.
-> All values derived from FOUNDER-STRATEGIC-BRIEF.md floor prices + SAR/USD = 3.75.
+> All values derived from platform pricing model floor prices + SAR/USD = 3.75.
 
 ---
 
@@ -130,5 +130,5 @@ H200 DCP floor:
 
 ---
 
-*Source: `backend/src/config/pricing.js`, `backend/src/db.js` (cost_rates), `docs/FOUNDER-STRATEGIC-BRIEF.md`*
+*Source: `backend/src/config/pricing.js`, `backend/src/db.js` (cost_rates), `backend/src/config/pricing.js`*
 *Last updated: 2026-03-24 — DCP-811*

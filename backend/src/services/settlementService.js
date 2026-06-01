@@ -12,7 +12,7 @@
  * This is intentionally a pure-logic layer — the actual SQLite mutations are
  * handled here so that routes stay thin and the logic is unit-testable.
  *
- * Rates (halala / second) derived from FOUNDER-STRATEGIC-BRIEF.md floor prices:
+ * Rates (halala / second) derived from platform pricing model floor prices:
  *   RTX 4090  $0.267/hr  → COST_RATES['llm-inference'] = 9 halala/min
  *   RTX 4080  $0.178/hr  → COST_RATES['default']       = 6 halala/min
  *   H100      $1.89/hr   → COST_RATES['training']       = 7 halala/min
@@ -23,7 +23,7 @@
 
 const crypto = require('crypto');
 
-// Platform take rate: 15% blended (FOUNDER-STRATEGIC-BRIEF.md)
+// Platform take rate: 15% blended (platform pricing model)
 const PLATFORM_FEE_PERCENT = 15;
 
 /**

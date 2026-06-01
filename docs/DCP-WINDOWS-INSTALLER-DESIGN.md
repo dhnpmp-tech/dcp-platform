@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Date:** 2026-04-12
 **Author:** UI Designer Agent
-**Status:** DESIGN PROPOSAL -- Awaiting Founder Review
+**Status:** Design proposal
 
 ---
 

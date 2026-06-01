@@ -21,7 +21,7 @@ interface PricingDisplayProps {
   onPriceEstimate?: (totalPrice: number) => void
 }
 
-// Buyer economics from FOUNDER-STRATEGIC-BRIEF.md
+// Buyer economics from platform pricing model
 const BUYER_ECONOMICS = [
   {
     scenario: 'AI Startup (4x A100)',
@@ -53,7 +53,7 @@ const BUYER_ECONOMICS = [
   },
 ]
 
-// Corrected competitive pricing from FOUNDER-STRATEGIC-BRIEF.md
+// Corrected competitive pricing from platform pricing model
 // USD → SAR at 1 USD = 3.75 SAR
 // RTX 4090: DCP $0.267/hr (23.7% below Vast.ai)
 // H100: DCP $1.85/hr vs AWS $4.70/hr (61% cheaper)

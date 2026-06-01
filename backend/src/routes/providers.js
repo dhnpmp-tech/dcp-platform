@@ -7421,7 +7421,7 @@ router.post('/activate', (req, res) => {
 
 // Helper function to estimate monthly earnings based on GPU model
 function calculateEstimatedMonthlyEarnings(gpuModel, utilizationRate = 0.7) {
-    // Pricing data from FOUNDER-STRATEGIC-BRIEF
+    // Pricing data from platform pricing model
     // RTX 4090 = $0.267/hr = 26.7 halalas/hour
     const pricePerHourHalala = {
         'RTX 4090': 26.7,

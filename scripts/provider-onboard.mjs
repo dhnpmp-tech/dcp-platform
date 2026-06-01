@@ -442,7 +442,7 @@ async function main() {
     console.log('  2. Configure your API key and provider ID');
     console.log('  3. Start serving jobs and earn passively\n');
 
-    console.log('📖 Documentation: https://docs.dcp.sa/providers');
+    console.log('Documentation: https://dcp.sa/docs/provider-guide');
     console.log('💬 Support: support@dcp.sa\n');
 
     // Save results to local file for backup

@@ -170,7 +170,7 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
             </div>
             <div className="bg-dc1-surface-l2 border border-dc1-border rounded-lg p-4 space-y-2">
               <p className="text-sm font-semibold text-dc1-text-primary mb-1">Bank Transfer Details</p>
-              {[['Bank', 'Al Rajhi Bank', ''], ['Account name', 'DC1 Platform', ''], ['IBAN', 'SA00 8000 0000 0000 0000 0000', 'font-mono text-xs'], ['Reference', transferRef, 'text-dc1-amber font-bold tracking-wide']].map(([label, value, cls]) => (
+              {[['Bank', 'Al Rajhi Bank', ''], ['Account name', 'DCP Platform', ''], ['IBAN', 'SA00 8000 0000 0000 0000 0000', 'font-mono text-xs'], ['Reference', transferRef, 'text-dc1-amber font-bold tracking-wide']].map(([label, value, cls]) => (
                 <div key={label} className="flex justify-between gap-4 text-sm">
                   <span className="text-dc1-text-muted flex-shrink-0">{label}</span>
                   <span className={`text-dc1-text-primary break-all ${cls}`}>{value}</span>

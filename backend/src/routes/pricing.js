@@ -52,7 +52,7 @@ router.get('/tiers', publicEndpointLimiter, (req, res) => {
 
 // GET /api/pricing/arabic-rag
 // Returns DCP price for the Arabic RAG bundle vs competitors (AWS Bedrock, Azure OpenAI).
-// Competitor prices sourced from docs/FOUNDER-STRATEGIC-BRIEF.md (March 2026 data).
+// Competitor prices sourced from backend/src/config/pricing.js (March 2026 data).
 // Usage scenario: 8h/day, 22 working days/month = 176h/month.
 router.get('/arabic-rag', publicEndpointLimiter, (req, res) => {
   // DCP price: rag-pipeline job type at standard tier — 1.20 USD/hr

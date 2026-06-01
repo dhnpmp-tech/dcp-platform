@@ -1,6 +1,6 @@
 # Provider Economics & Earnings Guide
 
-**Status:** Updated for Sprint 26
+**Status:** Maintained
 **Audience:** GPU providers, node operators
 **Last Updated:** 2026-03-23
 
@@ -15,7 +15,7 @@ DCP pricing is **23.7% below hyperscalers** (Vast.ai, RunPod) due to Saudi energ
 - RTX 4080: $115–$240
 - H100: $1,800–$3,500
 
-See the [Strategic Brief](docs/FOUNDER-STRATEGIC-BRIEF.md) for detailed provider economics and competitive benchmarks.
+See the [Pricing Guide](/docs/pricing-guide) for current provider economics and competitive benchmarks.
 
 ---
 
@@ -27,7 +27,7 @@ Saudi Arabia's industrial electricity costs **$0.048–$0.053/kWh**, which is **
 - DCP providers only need 10-15% margins due to cheap electricity in Saudi Arabia
 - Result: Providers earn **23.7% more** than equivalent jobs on Vast.ai
 
-See the [Strategic Brief](docs/FOUNDER-STRATEGIC-BRIEF.md) for complete energy cost analysis.
+See the [Pricing Guide](/docs/pricing-guide) for complete energy cost analysis.
 
 ---
 
