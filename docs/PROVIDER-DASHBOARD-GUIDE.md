@@ -1,6 +1,6 @@
 # Provider Dashboard — Earnings & Settlement Guide
 
-**Status:** Ready for Sprint 26 deployment
+**Status:** Maintained
 **Audience:** GPU providers, node operators
 **Last Updated:** 2026-03-23
 
@@ -115,7 +115,7 @@ Projected Monthly (70% target): 420 SepoliaETH
 1. View **Earnings by GPU Model**
 2. Identify highest-value GPU type
 3. Consider upgrading underperforming models
-4. Reference [Strategic Brief GPU Economics Table](docs/FOUNDER-STRATEGIC-BRIEF.md) for margin analysis
+4. Reference the [Pricing Guide](/docs/pricing-guide) for margin analysis
 
 ---
 
@@ -176,4 +176,4 @@ Projected @ 70% = (720 × 0.70) × 0.45 = 226.8 SepoliaETH/month
 
 - [Provider Onboarding Guide](docs/provider-guide.md)
 - [Escrow Integration Guide](docs/ESCROW-INTEGRATION-GUIDE.md)
-- [Strategic Brief — Provider Economics](docs/FOUNDER-STRATEGIC-BRIEF.md)
+- [Pricing Guide — Provider Economics](/docs/pricing-guide)

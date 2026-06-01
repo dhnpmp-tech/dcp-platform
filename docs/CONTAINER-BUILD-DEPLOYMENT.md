@@ -1,6 +1,6 @@
 # LLM Container Build & Deployment Guide
 
-**Status:** Ready for Sprint 26 deployment
+**Status:** Maintained
 **Audience:** Providers deploying models, infrastructure teams
 **Last Updated:** 2026-03-23
 
@@ -278,6 +278,5 @@ docker-compose -f docker-compose.yml up -d
 
 - [vLLM Documentation](https://docs.vllm.ai)
 - [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker)
-- [DCP Metering Verification (DCP-619)](docs/DCP-619-METERING-VERIFICATION-COMPLETE.md)
 - [Provider Onboarding Guide](docs/provider-guide.md)
-- [Strategic Brief — Provider Economics](docs/FOUNDER-STRATEGIC-BRIEF.md)
+- [Pricing Guide — Provider Economics](/docs/pricing-guide)

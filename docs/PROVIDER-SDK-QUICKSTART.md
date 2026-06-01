@@ -1,6 +1,6 @@
 # Provider SDK Quickstart — Job Submission with Real Pricing
 
-**Status:** Sprint 26 delivery
+**Status:** Maintained
 **Audience:** Developers building on DCP, providers integrating SDKs
 **Last Updated:** 2026-03-23
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This guide shows how to submit jobs to DCP using the official Node.js SDK with real pricing data from the [Strategic Brief](docs/FOUNDER-STRATEGIC-BRIEF.md).
+This guide shows how to submit jobs to DCP using the official Node.js SDK with real pricing data from the [Pricing Guide](/docs/pricing-guide).
 
 **Key Stats:**
 - DCP pricing is **23.7% below hyperscalers** (Vast.ai, RunPod)
@@ -248,7 +248,7 @@ try {
 
 ## Earning Potential (Provider Perspective)
 
-From the [Strategic Brief](docs/FOUNDER-STRATEGIC-BRIEF.md):
+From the [Pricing Guide](/docs/pricing-guide):
 
 **Monthly Revenue @ 70% Utilization:**
 - RTX 4090: $180–$350 → Provider: $153–$297
@@ -317,5 +317,5 @@ console.log(`\nResults:\n${results.join('\n')}`);
 
 - [SDK API Reference](docs/api-reference.md#sdk-methods)
 - [Provider Earnings Guide](docs/PROVIDER-EARNINGS-GUIDE.md)
-- [Strategic Brief — Pricing & Economics](docs/FOUNDER-STRATEGIC-BRIEF.md)
+- [Pricing Guide — Pricing & Economics](/docs/pricing-guide)
 - [Container Build Guide](docs/CONTAINER-BUILD-DEPLOYMENT.md) (for providers)

@@ -86,7 +86,7 @@ DCP provider data stays within the DCP network.
 | `NAT-TRAVERSAL.md` | Circuit Relay v2, NAT hole-punching, and heartbeat integration guide |
 | `package.json` | Isolated package (`"type": "module"`) |
 
-## Heartbeat Protocol (New in Sprint 25)
+## Heartbeat Protocol
 
 Providers emit periodic heartbeats (every 30 seconds) to track node liveness and health:
 

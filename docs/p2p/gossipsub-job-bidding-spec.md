@@ -4,7 +4,7 @@
 
 This document specifies a **decentralized job bidding mechanism** using libp2p's GossipSub protocol. Instead of a central backend dispatching jobs to providers, renters publish jobs to a pubsub topic, and eligible providers compete by bidding within a 3-second window. The renter (or backend on their behalf) accepts the lowest-price bid.
 
-**Status:** Specification only. Implementation scheduled for Sprint 29+.
+**Status:** Specification only. Implementation is planned for a later release.
 **Fall-back:** If no bids received within 3 seconds, the system reverts to HTTP provider discovery (DCP-783).
 
 ## Architecture Overview

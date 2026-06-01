@@ -3,7 +3,7 @@
 /**
  * DCP Pricing Configuration
  *
- * Floor prices sourced from docs/FOUNDER-STRATEGIC-BRIEF.md (March 2026).
+ * Floor prices configured here from the current public pricing model.
  * These are renter-facing prices, 23-51% below competitors at Saudi energy rates.
  *
  * Currency: all USD prices converted to halala at 1 USD = SAR_USD_RATE SAR,

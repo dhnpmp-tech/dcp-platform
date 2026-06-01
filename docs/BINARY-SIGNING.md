@@ -12,7 +12,7 @@ The DCP provider daemon runs with elevated privileges on end-user machines (it m
 
 1. **SmartScreen / Gatekeeper block installs.** Unsigned NSIS installers trigger "Windows protected your PC" — most users abandon. Unsigned macOS .pkg files are refused by Gatekeeper ("cannot be opened because the developer cannot be verified").
 2. **Supply-chain risk.** Without signatures, a user has no way to distinguish a real DCP binary from one swapped in by a CDN compromise, phishing site, or tampered mirror.
-3. **Enterprise procurement.** Universities, internet cafés, and server-farm operators (the Sprint 26 provider recruitment tiers) require signed binaries before IT will greenlight install on managed fleets.
+3. **Enterprise procurement.** Universities, internet cafes, and server-farm operators often require signed binaries before IT will greenlight install on managed fleets.
 
 Cost of inaction grows with each release: every unsigned version needs a manual "right-click → Open → trust" walkthrough in onboarding docs, and every SmartScreen warning is a provider we lose.
 

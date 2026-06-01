@@ -1,8 +1,8 @@
 # DCP Provider Staking Design
 
-**Status:** Design document — Phase 1 (Sepolia testnet), pre-mainnet
+**Status:** Design document
 **Contract:** `contracts/contracts/ProviderStake.sol` (ETH-native, admin-slash)
-**Related:** `docs/ESCROW-DEPLOYMENT-RUNBOOK.md`, `docs/FOUNDER-STRATEGIC-BRIEF.md`
+**Related:** `docs/escrow-architecture.md`, `docs/pricing-guide.md`
 
 ---
 
@@ -19,7 +19,7 @@ The contract (`ProviderStake.sol`) is already written and ready for testnet depl
 
 ## Part 1 — Provider Staking Economics
 
-### Provider Revenue Context (from Strategic Brief)
+### Provider Revenue Context (from Pricing Guide)
 
 | Provider Type | GPU | Monthly Revenue (70% util) | Monthly Profit (est.) |
 |---|---|---|---|

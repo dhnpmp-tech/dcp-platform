@@ -113,7 +113,7 @@ DCP complies with the Personal Data Protection Law by:
 - Closed components: Limited proprietary code (provider daemon)
 
 **Security Audits:**
-- ✅ Internal security review (Sprint 24)
+- ✅ Security review completed
 - 🔄 Third-party penetration test (Q2 2026)
 - 🔄 Smart contract audit (Q2 2026 before mainnet)
 - 📋 Annual security audits planned

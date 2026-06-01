@@ -183,7 +183,7 @@ Disputes are reviewed by DCP governance (admin override for Phase 1).
 
 ## References
 
-- [Smart Contract Deployment Checklist](docs/BASE_SEPOLIA_LAUNCH_CHECKLIST.md)
-- [Provider Earnings Dashboard](docs/provider-dashboard.md)
+- [Escrow Architecture](docs/escrow-architecture.md)
+- [Provider Earnings Guide](docs/PROVIDER-EARNINGS-GUIDE.md)
 - [API Reference — Escrow Endpoints](docs/api-reference.md#escrow)
-- [DCP Strategic Brief — Provider Economics](docs/FOUNDER-STRATEGIC-BRIEF.md)
+- [Provider Staking Design](docs/PROVIDER-STAKING-DESIGN.md)

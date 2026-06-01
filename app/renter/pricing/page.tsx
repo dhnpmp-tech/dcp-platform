@@ -60,7 +60,7 @@ const GpuCompareIcon = () => (
   </svg>
 )
 
-// ── Pricing Data (from docs/FOUNDER-STRATEGIC-BRIEF.md, March 2026) ──────────
+// ── Pricing Data (from backend/src/config/pricing.js, March 2026) ──────────
 interface GpuTier {
   gpu: string
   vram: string

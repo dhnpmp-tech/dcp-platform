@@ -366,7 +366,7 @@ for (const [models, rate, klass] of CLASS_RECLASSIFY) {
 
 // ─── GPU PRICING TABLE ───
 // Admin-controlled base rental rates per GPU model in halala/hour.
-// DCP floor prices from FOUNDER-STRATEGIC-BRIEF.md (March 2026)
+// DCP floor prices from platform pricing model (March 2026)
 // Conversion: $USD/hr → SAR/hr (assuming 1 USD ≈ 3.75 SAR) → halala (1 SAR = 100 halala)
 db.exec(`
   CREATE TABLE IF NOT EXISTS gpu_pricing (

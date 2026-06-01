@@ -4,7 +4,7 @@ Submit and monitor GPU jobs on **DCP** directly from VS Code or Cursor.
 
 ## Features
 
-### 🎛️ Template Catalog (NEW - Sprint 27)
+### 🎛️ Template Catalog
 - **Template Catalog** tree view showing 20 docker templates grouped by category (LLM, Embedding, Image, Notebook, Training)
 - Each template shows minimum VRAM, estimated price/hour, difficulty level, and deployment tier
 - Rich tooltips with complete specifications and example usage
@@ -12,14 +12,14 @@ Submit and monitor GPU jobs on **DCP** directly from VS Code or Cursor.
 - **Filter by VRAM tier** (4 GB to 80 GB+ options)
 - **Deploy template** with one click → select duration → submit to available GPU provider
 
-### 🧠 Model Catalog (NEW - Sprint 27)
+### 🧠 Model Catalog
 - **Model Catalog** tree view showing available models with Arabic capability detection
 - Arabic models marked with 🌍 emoji for easy identification
 - Each model shows availability status, VRAM requirement, pricing, and provider count
 - **Competitive pricing display** showing DCP price vs Vast.ai/RunPod/AWS with savings percentage
 - **Auto-refresh** every 5 minutes to show latest availability and pricing
 
-### 🚀 One-Click Deployment (NEW - Sprint 27)
+### 🚀 One-Click Deployment
 - **Arabic RAG Quick-Start** command (`dc1.startArabicRagSession`) deploys complete Arabic RAG bundle with single command
 - Shows progress notification with job ID, estimated cost, and endpoint availability notice
 - Integrates with job monitoring for real-time status tracking
@@ -39,7 +39,7 @@ Submit and monitor GPU jobs on **DCP** directly from VS Code or Cursor.
 
 ## Key Commands
 
-### Template & Model Discovery (Sprint 27)
+### Template & Model Discovery
 - `DCP: Search Templates` - Search 20+ templates by name or description
 - `DCP: Filter Templates by VRAM` - Filter templates by minimum VRAM requirement
 - `DCP: Clear Template Filters` - Reset all template search and VRAM filters
@@ -104,7 +104,7 @@ Submit and monitor GPU jobs on **DCP** directly from VS Code or Cursor.
 - `POST /api/vllm/complete` - Run LLM inference
 - `GET /api/providers/me?key=` - Get provider info
 
-### Template & Model APIs (Sprint 27)
+### Template & Model APIs
 - `GET /api/templates` - List available docker templates (20+ templates)
 - `GET /api/models` - List available models with competitive pricing
   - Returns `competitor_prices` (Vast.ai, RunPod, AWS) and `savings_pct` for pricing display

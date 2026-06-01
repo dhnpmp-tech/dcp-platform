@@ -11,7 +11,7 @@ const providerRouter = express.Router();
 
 // 1 USD = 3.75 SAR = 375 halala
 const HALALA_PER_USD = 375;
-// 15% platform take rate (FOUNDER-STRATEGIC-BRIEF.md)
+// 15% platform take rate (platform pricing model)
 const PLATFORM_FEE_RATE = 0.15;
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────

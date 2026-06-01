@@ -5,7 +5,7 @@
 -- This migration extends the lifecycle with:
 --   lifecycle_status: tracks billing phase (pending → billed → disputed)
 --
--- Platform take rate: 15% (per FOUNDER-STRATEGIC-BRIEF.md)
+-- Platform take rate: 15% (per platform pricing model)
 --   gross_cost = renter charge
 --   platform_fee = 15% of gross
 --   provider_earning = 85% of gross

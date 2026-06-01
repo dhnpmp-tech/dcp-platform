@@ -2,7 +2,7 @@
 
 Maintained: 2026-06-01
 
-This repository is the DCP platform monorepo: web app, public API, backend services, provider installers, deployment templates, and launch documentation.
+This repository is the DCP platform monorepo: web app, public API, backend services, provider installers, deployment templates, and public product documentation.
 
 ## Source Of Truth
 
@@ -21,7 +21,7 @@ This repository is the DCP platform monorepo: web app, public API, backend servi
 | `components/` | Active | Shared React UI components used by the app. |
 | `contracts/` | Active, planned split | Local escrow contract workspace. Long-term contract source should live in `DCP-SA/dcp-contracts`. |
 | `docker-templates/` | Active | Job/template definitions used for deployable GPU workloads. |
-| `docs/` | Active | Public and operational documentation that belongs with platform code. |
+| `docs/` | Active | Public product, API, compliance, and architecture documentation that belongs with platform code. |
 | `e2e/` | Active but quiet | Playwright end-to-end test suites. |
 | `infra/` | Active | Deployment, vLLM, Docker, and VPS infrastructure assets. |
 | `lib/` | Active | Small shared frontend utilities. |
@@ -46,3 +46,5 @@ The cleanup branch removes tracked local/operator artifacts that do not belong i
 - local logs: `test-run.log`
 
 Those files should live in private operations storage, release artifacts, or their dedicated DCP-SA repositories.
+
+The docs cleanup also removes internal planning material from the public surface: status reports, session handoffs, sprint/phase checklists, cost and finance reports, unpublished marketing drafts, agent personas, generated artifacts, and operator-only runbooks. Those belong in a private operations or knowledge-base repository, not `dcp-platform`.

@@ -2648,7 +2648,7 @@ class ProviderEarningsPanel {
         const lastHeartbeat = provider.last_heartbeat
             ? new Date(provider.last_heartbeat).toLocaleString()
             : 'Never';
-        // Competitive pricing estimates (from FOUNDER-STRATEGIC-BRIEF.md)
+        // Competitive pricing estimates (from platform pricing model)
         // RTX 4090: DCP = $0.267/hr, Vast.ai = $0.35/hr
         // This is a sample; real data would come from API
         const dcpEarningEstimate = Number(totalEarningsSar) * 1.15; // Assume 15% better than Vast.ai equivalent

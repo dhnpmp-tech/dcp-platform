@@ -211,7 +211,7 @@ Applying comparable discounts to Akash and Render's launch FDVs, adjusted for DC
 |---|---|---|
 | Discount to AKT launch FDV (40%) | $12M–$60M | Fair comp; DCP is earlier-stage but MENA moat adds premium |
 | Discount to IO launch FDV (5%) | $40M–$50M | IO launched into strong market; DCP pre-TGE floor |
-| Founder valuation range | $8M–$20M pre-money | Conservative; leaves upside for seed investors |
+| Indicative valuation range | $8M-$20M pre-money | Conservative; leaves upside for seed investors |
 
 Seed investors at $13.3M pre-money (midpoint) with a 5-year hold targeting $100M–$400M FDV (comparable to RNDR/AKT at peak) represent **7x–30x return potential** at reasonable market conditions.
 

@@ -317,7 +317,7 @@ function calculatePricingComparison(dcPriceSarPerMin: number): {
   vastaiComparison: { marketRange: string; savings: string; savingsPercent: number }
   runpodComparison: { marketRange: string; savings: string; savingsPercent: number }
 } {
-  // Market data from FOUNDER-STRATEGIC-BRIEF.md
+  // Market data from platform pricing model
   // Vast.ai: $0.10-$2.50/hr = 0.0017-0.0417 SAR/min (at 1 USD = 3.75 SAR)
   // RunPod: $0.20-$3.50/hr = 0.0033-0.0583 SAR/min
 

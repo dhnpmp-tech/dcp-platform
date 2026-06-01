@@ -167,7 +167,7 @@ Example: RTX 4090 at DCP floor price $0.267/hr:
 2. Initiate bank transfer to provider IBAN
 3. Call `PATCH /api/admin/withdrawals/:id` to mark as `paid`
 
-**Recommendation for Sprint 29+**: Wire to Lean (Saudi open banking) or ARB
+**Recommendation:** Wire to Lean (Saudi open banking) or ARB when automated payout rails are ready.
 (Arab National Bank) API for automated IBAN transfers when volume justifies it.
 
 ---

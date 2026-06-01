@@ -89,7 +89,7 @@ type TaskFilter = 'all' | 'chat' | 'embedding' | 'reranking' | 'image'
 
 // ── Pricing comparison (DCP vs Vast.ai, SAR/hr) ───────────────────────────────
 // RTX 4090: DCP 1.00 vs Vast.ai 1.31 (24% savings)
-// Reference: FOUNDER-STRATEGIC-BRIEF.md — buyer economics table
+// Reference: platform pricing model — buyer economics table
 const VAST_AI_SAR_PER_HR_FALLBACK = 1.31  // RTX 4090 baseline; shown when API has no competitor data
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

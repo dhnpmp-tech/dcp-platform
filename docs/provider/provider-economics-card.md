@@ -1,6 +1,6 @@
 # Provider Economics Card
 
-**Share this with potential providers** | One-page reference for profitability | Data verified from FOUNDER-STRATEGIC-BRIEF.md
+**Share this with potential providers** | One-page reference for profitability | Data verified from platform pricing model
 
 ---
 
@@ -158,7 +158,7 @@ Net Monthly Profit:                       ────────
 
 ## Questions?
 
-**Economic Data Source:** FOUNDER-STRATEGIC-BRIEF.md (verified March 2026)
+**Economic Data Source:** platform pricing model (verified March 2026)
 **Support:** providers@dcp.sa | Discord: https://discord.gg/dcp
 
 **Disclaimer:** Profitability estimates based on:

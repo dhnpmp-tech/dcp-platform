@@ -214,7 +214,7 @@ DCP_API_URL=http://localhost:8083 node scripts/provider-onboard.mjs
 | **B** | RTX 4090, 4080, A6000 | 20-48GB | 200-330 | $0.30 | ~15,900 SAR |
 | **C** | RTX 3090, 4070, A5000 | 8-20GB | 50-200 | $0.15 | ~7,950 SAR |
 
-Rates based on **FOUNDER-STRATEGIC-BRIEF.md** (DCP pricing vs Vast.ai benchmarks).
+Rates based on **platform pricing model** (DCP pricing vs Vast.ai benchmarks).
 
 ### Auto-Tier Assignment
 

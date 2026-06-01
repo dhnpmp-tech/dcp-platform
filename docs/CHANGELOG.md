@@ -11,7 +11,7 @@
 - **`/admin/fleet` real-time screen** — `app/admin/fleet/page.tsx` rebuilt to poll `fleet/health` every 8s with a top "INFERENCE SERVING: YES/NO" banner driven by `serving_now`, a per-provider table showing *verified* (not claimed) online state, WG age, GPU telemetry, served models, and heartbeat age, plus a stale-metering warning. Uses the standard admin-token auth pattern.
 - **`dcp-fleet` agent/CLI fleet truth** (`ops/dcp-fleet.py`) — machine-readable (JSON, default) and `--human` view of *earned* state: fires a real `/v1` completion + reads WG handshake ages via SSH; exit 0 = serving, 1 = down, so loops/CI/agents can gate on real serving capacity rather than the spoofable heartbeat.
 - **Off-box fleet watchdog** (`ops/dcp-fleet-watchdog.sh`) — VPS cron (every 2 min) that checks Node-2 WG handshake age + fires inference at a discovered served model and edge-triggers alerts to the Telegram alerts topic. First piece of the off-box dead-man's-switch (foolproofing roadmap #6).
-- **Foolproofing roadmap** documented at `docs/ops/dcp-foolproofing-roadmap.md` — the signup→inference architecture probe, root cause (claimed vs earned state), 7 prioritized fixes, and 10 system invariants.
+- **Foolproofing roadmap implemented** — the signup-to-inference architecture probe, root cause (claimed vs earned state), prioritized fixes, and system invariants are captured in code, tests, and public architecture docs.
 
 ### Billing — atomic settlement (foolproofing keystone #2)
 - **Inference settlement is now atomic and idempotent.** `v1.js` no longer uses the legacy `debitRenterSafe` (removed); every completed inference settles through `billingService.settleInferenceOnce(db._db, …)` in a single `db.transaction()` keyed by `request_id`: idempotency claim → subscription-credit drain → row-count-guarded PAYG debit that **throws + rolls back on shortfall** → provider credit (single 75/25 `splitCost` source) → `usage_events` row. Closes the silent-revenue-leak P0 — a shortfall can no longer 0-row no-op into free inference.
@@ -114,7 +114,7 @@ The prod backend had drifted from git with undocumented hotfixes; deploying `mai
 
 ---
 
-## What's NOT Shipping Yet (Coming in Sprint 25)
+## What's Not Shipping Yet
 
 ### Phase 2 (Week 2–3)
 - ⏳ **CI/CD Image Pipeline** — GitHub Actions auto-build `dc1/llm-worker:latest`, `dc1/sd-worker:latest`
@@ -164,7 +164,7 @@ None. This is v1.0.0 — the first production release.
 
 ---
 
-## Bug Fixes Since Sprint 24
+## Earlier Bug Fixes
 
 - ✅ **P0: Auth gates on /active and /queue endpoints** — Restored role-based access control (commit `4b394c0`)
 - ✅ **P1: Per-token metering not persisted** — Fixed `serve_sessions` update after inference (commit `a7f2c1`)
@@ -210,7 +210,7 @@ None. This is v1.0.0 — the first production release.
 ## Credits & Acknowledgments
 
 ### Core Team
-- **CEO:** Founder directive + roadmap architecture
+- **Leadership:** Roadmap architecture and launch direction
 - **Founding Engineer:** Launch-gate engineering, escrow contracts, infrastructure
 - **Backend Architect:** API design, rate limiting, job orchestration
 - **Frontend:** Renter/provider/admin dashboards, real-time Supabase integration
