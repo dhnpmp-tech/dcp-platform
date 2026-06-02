@@ -65,7 +65,8 @@ function AuthInner() {
   }, [role, tab])
 
   const nextPath = getSafeRedirect(search?.get('redirect') || null, defaultRedirect)
-  const adminLoginHref = `/login?role=admin&method=apikey&redirect=${encodeURIComponent('/admin')}`
+  const adminNextPath = getSafeRedirect(search?.get('redirect') || null, '/admin')
+  const adminAuthHref = '/v2/auth?role=admin&method=apikey&redirect=/admin'
 
   const resetFeedback = () => {
     setError('')
@@ -144,6 +145,31 @@ function AuthInner() {
     }
   }, [apiKey, lang, nextPath, role, router])
 
+  const loginWithAdminKey = useCallback(async () => {
+    resetFeedback()
+    if (!apiKey.trim()) {
+      setError(lang === 'ar' ? 'أدخل مفتاح الإدارة.' : 'Enter your admin key.')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const key = apiKey.trim()
+      const res = await fetch(`${API_BASE}/admin/dashboard`, {
+        headers: { 'x-admin-token': key },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Invalid admin API key.')
+      localStorage.setItem('dc1_admin_token', key)
+      await setSession({ role: 'admin', userName: 'Admin' })
+      router.push(adminNextPath)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Admin sign-in failed.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [adminNextPath, apiKey, lang, router])
+
   const submit = async () => {
     if (method === 'apikey') return loginWithApiKey()
     return sendMagicLink()
@@ -196,13 +222,27 @@ function AuthInner() {
             </h1>
             <p className="sub">
               <Bi
-                en="Admin access stays on the hardened API-key login until v2 auth is fully approved for operators."
-                ar="يبقى دخول الإدارة عبر مسار مفتاح API الموثوق حتى اعتماد مصادقة v2 للمشغلين."
+                en="Use the operator API key. The admin console remains on the hardened operations surface while v2 renter and provider flows go live."
+                ar="استخدم مفتاح API للمشغلين. تبقى لوحة الإدارة على سطح العمليات الموثوق بينما تُفعّل تدفقات v2 للمستأجرين والمزوّدين."
               />
             </p>
-            <Link href={adminLoginHref} className="btn-pri auth-link-button">
-              <Bi en="Continue to admin login →" ar="تابع إلى دخول الإدارة ←" />
-            </Link>
+            <div className="field">
+              <label>
+                <Bi en="Admin API key" ar="مفتاح API للإدارة" />
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder="admin key"
+                autoComplete="off"
+              />
+            </div>
+            <button type="button" className="btn-pri" onClick={loginWithAdminKey} disabled={isLoading}>
+              {isLoading ? <Bi en="Signing in…" ar="جارٍ الدخول…" /> : <Bi en="Open admin console →" ar="افتح لوحة الإدارة ←" />}
+            </button>
+            {error && <div className="callout err" role="alert">{error}</div>}
+            {success && <div className="callout ok" role="status">{success}</div>}
           </div>
         ) : (
           <>
@@ -374,7 +414,7 @@ function AuthInner() {
               {tab === 'signin' ? (
                 <>
                   <Bi en="Need admin access? " ar="تحتاج دخول الإدارة؟ " />
-                  <Link href={adminLoginHref}>
+                  <Link href={adminAuthHref}>
                     <Bi en="Use the admin API-key login" ar="استخدم دخول الإدارة بمفتاح API" />
                   </Link>
                   .
