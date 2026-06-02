@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Switched the `DCP_V2_LIVE` public cutover from internal rewrites to temporary redirects for `/`, `/setup`, `/renter/register`, and `/docs`, avoiding production hydration errors while keeping `/login` on the proven v1 auth route.
 - ✅ Fixed v2 renter usage table keys so usage-ledger rows without backend IDs no longer trigger React duplicate-key warnings during smoke tests.
 - ✅ Wired v2 renter playground to live renter account, balance, `/v1/models`, and `/v1/chat/completions` flows, removing prototype chat messages, seeded workspace identity, fake wallet totals, hardcoded API domain usage, fallback model lists, and fixed demo rate labels from `/v2/renter/playground`.
 - ✅ Wired v2 renter invoices to real renter account, wallet, invoice-history, and CSV export endpoints, removing prototype invoice rows, fake company/person identity, seeded wallet totals, invented CR/VAT/address values, and unsupported PDF/XML download controls from `/v2/renter/invoices`.
