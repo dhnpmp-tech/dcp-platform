@@ -272,6 +272,8 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .chat-input .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .chat-input .row .left { display: flex; gap: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--mut); letter-spacing: .04em; }
 .chat-input .row .send { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 10px 18px; background: var(--rt-accent); color: #0a0b1a; border: 0; border-radius: 2px; cursor: pointer; }
+.chat-input .row .send:disabled { cursor: not-allowed; opacity: .65; filter: grayscale(.35); }
+.pg-error { margin-top: 10px; border: 1px solid color-mix(in oklab, var(--err) 60%, var(--hair)); color: #ffd5dd; background: var(--bg-2); padding: 10px 12px; border-radius: 2px; font-size: 12px; line-height: 1.45; }
 
 .meter-card { padding: 20px 22px; }
 .meter-card .v { font-family: var(--serif); font-size: 38px; line-height: 1; letter-spacing: -.02em; color: var(--ink); margin-top: 6px; }

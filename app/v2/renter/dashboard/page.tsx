@@ -41,22 +41,10 @@ const NAV = [
 
 const CURRENT_PAGE = 'dash'
 
-// ── Spend mock data (illustrative; from prototype script) ───────────────
 interface SpendPoint {
   date: Date
   sar: number
-}
-
-function buildSpend(): SpendPoint[] {
-  const out: SpendPoint[] = []
-  for (let i = 89; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const base = 60 + Math.sin((89 - i) / 4) * 22 + (i < 30 ? 18 : 0)
-    const j = (((89 - i) * 7) % 11) - 4
-    out.push({ date: d, sar: Math.round(base + j) })
-  }
-  return out
+  jobs?: number
 }
 
 const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
@@ -70,10 +58,10 @@ function buildChart(spend: SpendPoint[], rd: number) {
   const padT = 16
   const padB = 22
   const days = spend.slice(-rd)
-  const max = Math.max(...days.map((d) => d.sar)) * 1.1
-  const min = Math.min(...days.map((d) => d.sar)) * 0.85
-  const range = max - min
-  const x = (i: number) => padL + (i / (days.length - 1)) * (W - padL - padR)
+  const max = Math.max(...days.map((d) => d.sar), 1) * 1.1
+  const min = Math.min(...days.map((d) => d.sar), 0) * 0.85
+  const range = Math.max(max - min, 1)
+  const x = (i: number) => padL + (days.length <= 1 ? 0 : (i / (days.length - 1)) * (W - padL - padR))
   const y = (v: number) => padT + (1 - (v - min) / range) * (H - padT - padB)
 
   let line = ''
@@ -96,14 +84,6 @@ function buildChart(spend: SpendPoint[], rd: number) {
   return { W, H, padL, padR, line, area, grid, axisL, axisB }
 }
 
-// ── Live jobs mock (from prototype LIVE) ────────────────────────────────
-const LIVE = [
-  { model: 'allam-7b', rig: 'riyadh-studio-01', status: 'streaming', tok: 1482, sar: 0.38 },
-  { model: 'jais-13b', rig: 'jeddah-gold-02', status: 'queued', tok: 0, sar: 1.4 },
-  { model: 'bge-m3', rig: 'riyadh-bench-04', status: 'streaming', tok: 64, sar: 0.02 },
-  { model: 'falcon-h1', rig: 'dammam-rig-11', status: 'streaming', tok: 824, sar: 0.92 },
-]
-
 type RangeOpt = 7 | 30 | 90
 type QsTab = 'curl' | 'py' | 'node'
 
@@ -111,6 +91,8 @@ type QsTab = 'curl' | 'py' | 'node'
 interface RenterMe {
   renter?: {
     name?: string
+    email?: string
+    organization?: string
     balance_halala?: number
     total_spent_halala?: number
     total_jobs?: number
@@ -151,69 +133,83 @@ export default function RenterDashboardPage() {
   const [range, setRange] = useState<RangeOpt>(30)
   const [qsTab, setQsTab] = useState<QsTab>('curl')
 
-  // SPEND data is date-relative; build it client-side after mount to keep
-  // SSR/CSR markup identical and avoid hydration mismatch.
-  const [spend, setSpend] = useState<SpendPoint[] | null>(null)
-  useEffect(() => {
-    setSpend(buildSpend())
-  }, [])
+  const [spend, setSpend] = useState<SpendPoint[]>([])
 
-  const chart = useMemo(() => (spend ? buildChart(spend, range) : null), [spend, range])
+  const chart = useMemo(() => (spend.length > 0 ? buildChart(spend, range) : null), [spend, range])
 
-  // ── Live data (balance / 30D spend series / live jobs). Mock stays as the
-  // default render; a successful fetch overrides it. Null on no key / failure. ─
+  // ── Live data (balance / 30D spend series / live jobs). No mock fallback:
+  // failed or missing auth renders explicit empty/error states.
+  const [dataState, setDataState] = useState<'loading' | 'ready' | 'missing-key' | 'error'>('loading')
+  const [dataError, setDataError] = useState('')
+  const [renterName, setRenterName] = useState('')
+  const [workspaceName, setWorkspaceName] = useState('')
   const [balanceSar, setBalanceSar] = useState<number | null>(null)
   const [spentTodaySar, setSpentTodaySar] = useState<number | null>(null)
-  const [liveJobs, setLiveJobs] = useState<LiveJob[] | null>(null)
+  const [totalSpentSar, setTotalSpentSar] = useState<number | null>(null)
+  const [totalJobs, setTotalJobs] = useState<number | null>(null)
+  const [liveJobs, setLiveJobs] = useState<LiveJob[]>([])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getRenterKey()
-    if (!key) return
+    if (!key) {
+      setDataState('missing-key')
+      return
+    }
 
     const headers = { 'x-renter-key': key }
     const base = getApiBase()
     let cancelled = false
+    setDataState('loading')
+    setDataError('')
 
-    // Balance from /renters/me
-    fetch(`${base}/renters/me`, { headers })
-      .then((r) => (r.ok ? (r.json() as Promise<RenterMe>) : null))
-      .then((d) => {
-        if (cancelled || !d?.renter) return
-        if (typeof d.renter.balance_halala === 'number') {
-          setBalanceSar(halToSar(d.renter.balance_halala))
+    ;(async () => {
+      try {
+        const [meRes, analyticsRes, liveRes] = await Promise.all([
+          fetch(`${base}/renters/me?key=${encodeURIComponent(key)}`, { headers }),
+          fetch(`${base}/renters/me/analytics?key=${encodeURIComponent(key)}&period=30d`, { headers }),
+          fetch(`${base}/renters/me/live?key=${encodeURIComponent(key)}`, { headers }),
+        ])
+
+        if (!meRes.ok) {
+          const data = await meRes.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to load renter dashboard.')
         }
-      })
-      .catch(() => {})
+        const me = (await meRes.json()) as RenterMe
+        if (cancelled) return
+        const renter = me.renter
+        if (renter?.name) setRenterName(renter.name)
+        if (renter?.organization) setWorkspaceName(renter.organization)
+        if (typeof renter?.balance_halala === 'number') setBalanceSar(halToSar(renter.balance_halala))
+        if (typeof renter?.total_spent_halala === 'number') setTotalSpentSar(halToSar(renter.total_spent_halala))
+        if (typeof renter?.total_jobs === 'number') setTotalJobs(renter.total_jobs)
 
-    // 30D spend series → feed the chart (most recent last)
-    fetch(`${base}/renters/me/analytics?period=30d`, { headers })
-      .then((r) => (r.ok ? (r.json() as Promise<AnalyticsResp>) : null))
-      .then((d) => {
-        if (cancelled || !d?.daily_spend?.length) return
-        const series: SpendPoint[] = d.daily_spend.map((row) => ({
-          date: new Date(row.day + 'T00:00:00'),
-          sar: halToSar(row.total_halala),
-        }))
-        setSpend(series)
-        // Spend today = the last day in the series, if it is today
-        const last = d.daily_spend[d.daily_spend.length - 1]
-        const today = new Date().toISOString().slice(0, 10)
-        if (last && last.day === today) {
-          setSpentTodaySar(halToSar(last.total_halala))
+        if (analyticsRes.ok) {
+          const analytics = (await analyticsRes.json()) as AnalyticsResp
+          const series: SpendPoint[] = (analytics.daily_spend ?? []).map((row) => ({
+            date: new Date(row.day + 'T00:00:00'),
+            sar: halToSar(row.total_halala),
+            jobs: row.job_count,
+          }))
+          if (!cancelled) {
+            setSpend(series)
+            const last = analytics.daily_spend?.[analytics.daily_spend.length - 1]
+            const today = new Date().toISOString().slice(0, 10)
+            setSpentTodaySar(last && last.day === today ? halToSar(last.total_halala) : 0)
+          }
         }
-      })
-      .catch(() => {})
 
-    // Live jobs (active + recent) from /renters/me/live
-    fetch(`${base}/renters/me/live`, { headers })
-      .then((r) => (r.ok ? (r.json() as Promise<LiveResp>) : null))
-      .then((d) => {
-        if (cancelled || !d) return
-        const jobs = [...(d.active ?? []), ...(d.recent ?? [])]
-        if (jobs.length) setLiveJobs(jobs)
-      })
-      .catch(() => {})
+        if (liveRes.ok) {
+          const live = (await liveRes.json()) as LiveResp
+          if (!cancelled) setLiveJobs([...(live.active ?? []), ...(live.recent ?? [])])
+        }
+        if (!cancelled) setDataState('ready')
+      } catch (err) {
+        if (cancelled) return
+        setDataState('error')
+        setDataError(err instanceof Error ? err.message : 'Failed to load renter dashboard.')
+      }
+    })()
 
     return () => {
       cancelled = true
@@ -221,6 +217,9 @@ export default function RenterDashboardPage() {
   }, [])
 
   const ranges: RangeOpt[] = [7, 30, 90]
+  const displayName = renterName || (lang === 'ar' ? 'المستأجر' : 'Renter')
+  const displayWorkspace = workspaceName || (lang === 'ar' ? 'مساحة العمل' : 'Workspace')
+  const streamingCount = liveJobs.filter((j) => j.status === 'streaming').length
 
   return (
     <div className="rt-app">
@@ -239,8 +238,10 @@ export default function RenterDashboardPage() {
           <button className="rt-ws-btn" title="Switch workspace" type="button">
             <span className="av">N</span>
             <span className="body">
-              <span className="nm">NextWave Commerce</span>
-              <span className="sub">acme-prod · 3 members</span>
+              <span className="nm">{displayWorkspace}</span>
+              <span className="sub">
+                <Bi en="Live renter account" ar="حساب مستأجر حي" />
+              </span>
             </span>
             <span className="chev">⌄</span>
           </button>
@@ -257,22 +258,20 @@ export default function RenterDashboardPage() {
                 <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
               </>
             ) : (
-              <>
-                SAR 2,184<span className="u">.52</span>
-              </>
+              <span className="u">—</span>
             )}
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR 2.72</b>
+            <b>—</b>
           </div>
           <div className="row">
             <span>
               <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
             </span>
-            <b>SAR 412</b>
+            <b>{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</b>
           </div>
           <button className="topup" type="button">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
@@ -304,8 +303,10 @@ export default function RenterDashboardPage() {
         <div className="rt-sb-foot">
           <div className="av">F</div>
           <div className="who">
-            Fatima Al-Harbi
-            <span className="e">fatima@nextwave.sa · Owner</span>
+            {displayName}
+            <span className="e">
+              <Bi en="Renter account" ar="حساب مستأجر" />
+            </span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -332,7 +333,7 @@ export default function RenterDashboardPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>NextWave Commerce</span>
+            <span>{displayWorkspace}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Overview" ar="نظرة عامة" />
@@ -363,21 +364,38 @@ export default function RenterDashboardPage() {
           <h1 className="rt-h1">
             <Bi en="Welcome back, " ar="مرحباً بعودتك، " />
             <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="Fatima." ar="فاطمة." />
+              {displayName}.
             </em>
           </h1>
           <div className="rt-h1-sub">
             <span>
-              <Bi en="4 jobs running now" ar="٤ مهام قيد التشغيل الآن" />
+              <Bi en={`${liveJobs.length} jobs visible now`} ar={`${liveJobs.length} مهام ظاهرة الآن`} />
             </span>
             <span>
               <Bi en="Spend today" ar="إنفاق اليوم" />{' '}
-              <b>SAR {spentTodaySar != null ? spentTodaySar.toFixed(2) : '41.20'}</b>
+              <b>{spentTodaySar != null ? `SAR ${spentTodaySar.toFixed(2)}` : '—'}</b>
             </span>
             <span>
-              <Bi en="3 API keys active" ar="٣ مفاتيح API نشطة" />
+              <Bi en="Scoped keys live on the keys page" ar="المفاتيح محددة النطاق في صفحة المفاتيح" />
             </span>
           </div>
+
+          {dataState === 'missing-key' && (
+            <div className="dash-state err" style={{ marginTop: 24 }}>
+              <Bi
+                en="Sign in with a renter key to load balance, spend, and live jobs."
+                ar="سجّل الدخول بمفتاح مستأجر لتحميل الرصيد والإنفاق والمهام الحية."
+              />{' '}
+              <Link href="/v2/auth?role=renter&method=apikey&redirect=/v2/renter/dashboard">
+                <Bi en="Sign in" ar="تسجيل الدخول" />
+              </Link>
+            </div>
+          )}
+          {dataState === 'error' && (
+            <div className="dash-state err" style={{ marginTop: 24 }} role="alert">
+              {dataError}
+            </div>
+          )}
 
           {/* KPI row */}
           <div className="kpi-row" style={{ marginTop: 36 }}>
@@ -392,44 +410,41 @@ export default function RenterDashboardPage() {
                     <span className="u">.{(spentTodaySar % 1).toFixed(2).slice(2)}</span>
                   </>
                 ) : (
-                  <>
-                    SAR 41<span className="u">.20</span>
-                  </>
+                  <span className="u">—</span>
                 )}
               </span>
               <span className="d up">
-                ▲ <Bi en="18% vs yesterday at this hour" ar="١٨٪ مقارنة بالأمس في هذه الساعة" />
+                <Bi en="From live analytics" ar="من التحليلات الحية" />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
                 <Bi en="This week" ar="هذا الأسبوع" />
               </span>
-              <span className="v">SAR 412</span>
+              <span className="v">{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</span>
               <span className="d flat">
-                — <Bi en="consistent with last week" ar="متسق مع الأسبوع الماضي" />
+                — <Bi en="Total settled spend" ar="إجمالي الإنفاق المسجل" />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
                 <Bi en="This month" ar="هذا الشهر" />
               </span>
-              <span className="v">SAR 2,456</span>
+              <span className="v">{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</span>
               <span className="d up">
-                ▲ <Bi en="9% vs last month" ar="٩٪ مقارنة بالشهر الماضي" />
+                <Bi en="Total settled spend" ar="إجمالي الإنفاق المسجل" />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
-                <Bi en="Tokens · 30d" ar="الرموز · ٣٠ يوم" />
+                <Bi en="Jobs · account" ar="المهام · الحساب" />
               </span>
               <span className="v">
-                12.4<span className="u">M</span>
+                {totalJobs != null ? totalJobs.toLocaleString('en-US') : '—'}
+                <span className="u">jobs</span>
               </span>
               <span className="d flat">
-                <Bi en="avg" ar="متوسط" />{' '}
-                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>414k</b>{' '}
-                <Bi en="/ day" ar="/ يوم" />
+                <Bi en="Counted from renter account" ar="محسوبة من حساب المستأجر" />
               </span>
             </div>
           </div>
@@ -457,31 +472,39 @@ export default function RenterDashboardPage() {
                 </div>
               </div>
               <div className="chart" id="chart">
-                <div className="axis-l" id="ax-l">
-                  {chart?.axisL.map((label, i) => (
-                    <span key={i}>{label}</span>
-                  ))}
-                </div>
-                <div className="axis-b" id="ax-b">
-                  {chart?.axisB.map((label, i) => (
-                    <span key={i}>{label}</span>
-                  ))}
-                </div>
-                <svg id="chart-svg" viewBox="0 0 600 220" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0" stopColor="#2dd4b6" stopOpacity=".45" />
-                      <stop offset="1" stopColor="#2dd4b6" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <g className="grid" id="grid">
-                    {chart?.grid.map((gy, i) => (
-                      <line key={i} x1={chart.padL} y1={gy} x2={chart.W - chart.padR} y2={gy} />
-                    ))}
-                  </g>
-                  <path className="area" id="area" d={chart?.area} />
-                  <path className="line" id="line" d={chart?.line} />
-                </svg>
+                {chart ? (
+                  <>
+                    <div className="axis-l" id="ax-l">
+                      {chart.axisL.map((label, i) => (
+                        <span key={i}>{label}</span>
+                      ))}
+                    </div>
+                    <div className="axis-b" id="ax-b">
+                      {chart.axisB.map((label, i) => (
+                        <span key={i}>{label}</span>
+                      ))}
+                    </div>
+                    <svg id="chart-svg" viewBox="0 0 600 220" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0" stopColor="#2dd4b6" stopOpacity=".45" />
+                          <stop offset="1" stopColor="#2dd4b6" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      <g className="grid" id="grid">
+                        {chart.grid.map((gy, i) => (
+                          <line key={i} x1={chart.padL} y1={gy} x2={chart.W - chart.padR} y2={gy} />
+                        ))}
+                      </g>
+                      <path className="area" id="area" d={chart.area} />
+                      <path className="line" id="line" d={chart.line} />
+                    </svg>
+                  </>
+                ) : (
+                  <div className="empty-row">
+                    <Bi en="No spend data for this period." ar="لا توجد بيانات إنفاق لهذه الفترة." />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -512,47 +535,31 @@ export default function RenterDashboardPage() {
                       animation: 'pulse 1.4s infinite',
                     }}
                   />{' '}
-                  {liveJobs != null ? (
-                    <Bi
-                      en={`${liveJobs.filter((j) => j.status === 'streaming').length} streaming`}
-                      ar={`${liveJobs.filter((j) => j.status === 'streaming').length} قيد البث`}
-                    />
-                  ) : (
-                    <Bi en="4 streaming" ar="٤ قيد البث" />
-                  )}
+                  <Bi en={`${streamingCount} streaming`} ar={`${streamingCount} قيد البث`} />
                 </span>
               </div>
               <div className="live-jobs" id="live">
-                {liveJobs != null
-                  ? liveJobs.map((j) => (
-                      <div className="lj-row" key={j.requestId}>
-                        <div className="body">
-                          <div className="nm">{j.model}</div>
-                          <div className="sub">
-                            {j.providerGpu} ·{' '}
-                            <span className={`stat ${j.status}`}>{j.status}</span> ·{' '}
-                            {(j.tokensGenerated ?? 0).toLocaleString()} tok
-                          </div>
-                        </div>
-                        <div className="right">
-                          <div className="sar">SAR {halToSar(j.costHalala ?? 0).toFixed(2)}</div>
+                {liveJobs.length > 0 ? (
+                  liveJobs.map((j) => (
+                    <div className="lj-row" key={j.requestId}>
+                      <div className="body">
+                        <div className="nm">{j.model}</div>
+                        <div className="sub">
+                          {j.providerGpu} ·{' '}
+                          <span className={`stat ${j.status}`}>{j.status}</span> ·{' '}
+                          {(j.tokensGenerated ?? 0).toLocaleString()} tok
                         </div>
                       </div>
-                    ))
-                  : LIVE.map((j) => (
-                      <div className="lj-row" key={j.model + j.rig}>
-                        <div className="body">
-                          <div className="nm">{j.model}</div>
-                          <div className="sub">
-                            {j.rig} · <span className={`stat ${j.status}`}>{j.status}</span> ·{' '}
-                            {j.tok.toLocaleString()} tok
-                          </div>
-                        </div>
-                        <div className="right">
-                          <div className="sar">SAR {j.sar.toFixed(2)}</div>
-                        </div>
+                      <div className="right">
+                        <div className="sar">SAR {halToSar(j.costHalala ?? 0).toFixed(2)}</div>
                       </div>
-                    ))}
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-row">
+                    <Bi en="No active or recent inference jobs for this renter key." ar="لا توجد مهام استدلال نشطة أو حديثة لهذا المفتاح." />
+                  </div>
+                )}
               </div>
               <div
                 style={{

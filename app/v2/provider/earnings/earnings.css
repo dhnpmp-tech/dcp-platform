@@ -146,6 +146,7 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 
 /* ── Earnings page ────────────────────── */
 .earn-chart { height: 320px; position: relative; }
+.earn-chart .empty-row { min-height: 260px; }
 .earn-chart svg { width: 100%; height: 100%; display: block; }
 .earn-chart .area { fill: url(#earnArea); opacity: .8; }
 .earn-chart .line { fill: none; stroke: var(--orange); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -173,3 +174,36 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .brk-bar { height: 6px; background: var(--bg-2); border-radius: 2px; overflow: hidden; }
 .brk-bar span { display: block; height: 100%; background: var(--orange); }
 .brk-v { font-family: var(--mono); font-size: 12.5px; color: var(--ink); text-align: end; letter-spacing: -.005em; }
+
+.dash-state {
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--paper) 88%, var(--orange) 4%);
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--mut);
+}
+.dash-state.err {
+  border-color: color-mix(in oklab, var(--orange) 38%, var(--hair));
+}
+.dash-state a {
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+  text-decoration: none;
+}
+.empty-row {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 88px;
+  border: 1px dashed var(--hair);
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 18px;
+  box-sizing: border-box;
+}

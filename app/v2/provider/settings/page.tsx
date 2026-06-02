@@ -2,27 +2,30 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getProviderKey } from '@/lib/api'
 import './settings2.css'
 
-/* ── Live provider profile (GET /providers/me) — fields mirror v1 ── */
 interface ProviderProfile {
-  name?: string
-  email?: string
-  status?: string
+  name?: string | null
+  email?: string | null
+  status?: string | null
+  is_paused?: boolean | null
+  run_mode?: RunMode | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  gpu_usage_cap_pct?: number | null
+  vram_reserve_gb?: number | null
+  temp_limit_c?: number | null
+  today_earnings_halala?: number | null
+  week_earnings_halala?: number | null
+  month_earnings_halala?: number | null
 }
+
 interface ProviderMeResponse {
   provider?: ProviderProfile
 }
 
-/* Mock identity defaults from the prototype — kept as fallbacks so the page
-   renders fully with no key / on fetch failure. */
-const MOCK_NAME = 'Yazeed Al-Qahtani'
-const MOCK_SCOPE = 'riyadh-studio-01'
-const MOCK_EMAIL = 'yazeed@example.sa'
-
-/* ── Nav model (derived from provider-shell.js, mapped to /v2 routes) ── */
 interface NavItem {
   k: string
   ic: string
@@ -31,6 +34,7 @@ interface NavItem {
   href: string
   bd?: string
 }
+
 interface NavSection {
   sec: string
   arSec: string
@@ -43,7 +47,7 @@ const NAV: NavSection[] = [
     arSec: 'التشغيل',
     items: [
       { k: 'dash', ic: '⌂', enLabel: 'Dashboard', arLabel: 'لوحة التحكم', href: '/v2/provider/dashboard' },
-      { k: 'rigs', ic: '☷', enLabel: 'Rigs', arLabel: 'الأجهزة', href: '/v2/provider/rigs', bd: '4' },
+      { k: 'rigs', ic: '☷', enLabel: 'Rigs', arLabel: 'الأجهزة', href: '/v2/provider/rigs' },
       { k: 'earnings', ic: '△', enLabel: 'Earnings', arLabel: 'الأرباح', href: '/v2/provider/earnings' },
       { k: 'payouts', ic: '₪', enLabel: 'Payouts', arLabel: 'المدفوعات', href: '/v2/provider/payouts', bd: 'SAR' },
     ],
@@ -52,7 +56,7 @@ const NAV: NavSection[] = [
     sec: 'Account',
     arSec: 'الحساب',
     items: [
-      { k: 'profile', ic: '✦', enLabel: 'Profile', arLabel: 'الملف الشخصي', href: '/v2/provider/profile', bd: 'Silver' },
+      { k: 'profile', ic: '✦', enLabel: 'Profile', arLabel: 'الملف الشخصي', href: '/v2/provider/profile' },
       { k: 'settings', ic: '⚙', enLabel: 'Settings', arLabel: 'الإعدادات', href: '/v2/provider/settings' },
       { k: 'docs', ic: '?', enLabel: 'Provider docs', arLabel: 'دليل المزود', href: '/v2/docs', bd: '↗' },
     ],
@@ -60,80 +64,178 @@ const NAV: NavSection[] = [
 ]
 
 const CURRENT_NAV = 'settings'
+const HALALA_PER_SAR = 100
+
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+type SaveState = 'idle' | 'saving' | 'success' | 'error'
+type RunMode = 'always-on' | 'scheduled' | 'manual'
+
+const wholeFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
+function halalaToSar(halala: number | null | undefined): number | null {
+  return typeof halala === 'number' ? halala / HALALA_PER_SAR : null
+}
+
+function fmtSar(sar: number | null): string {
+  if (sar == null || Number.isNaN(sar)) return '—'
+  return wholeFmt.format(sar)
+}
+
+function normalizeRunMode(mode: string | null | undefined): RunMode {
+  return mode === 'scheduled' || mode === 'manual' || mode === 'always-on' ? mode : 'always-on'
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
 
 export default function ProviderSettingsPage() {
   const { lang, toggle } = useV2()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [loadError, setLoadError] = useState('')
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [providerName, setProviderName] = useState('')
+  const [providerEmail, setProviderEmail] = useState('')
+  const [providerStatus, setProviderStatus] = useState('')
+  const [isPaused, setIsPaused] = useState(false)
+  const [todaySar, setTodaySar] = useState<number | null>(null)
+  const [weekSar, setWeekSar] = useState<number | null>(null)
+  const [monthSar, setMonthSar] = useState<number | null>(null)
 
-  // ── Live provider identity (falls back to prototype mock values) ──
-  const [providerName, setProviderName] = useState(MOCK_NAME)
-  const [providerEmail, setProviderEmail] = useState(MOCK_EMAIL)
-  const [providerScope, setProviderScope] = useState(MOCK_SCOPE)
+  const [runMode, setRunMode] = useState<RunMode>('always-on')
+  const [scheduledStart, setScheduledStart] = useState('23:00')
+  const [scheduledEnd, setScheduledEnd] = useState('07:00')
+  const [gpuUsageCap, setGpuUsageCap] = useState(80)
+  const [vramReserve, setVramReserve] = useState(1)
+  const [tempLimit, setTempLimit] = useState(85)
 
-  // ── Controlled form state (illustrative MOCK defaults from the prototype) ──
-  const [acceptJobs, setAcceptJobs] = useState(true)
-  const [quietFrom, setQuietFrom] = useState('00:00')
-  const [quietTo, setQuietTo] = useState('06:00')
-  const [maxConcurrent, setMaxConcurrent] = useState('2 (balanced)')
+  function applyProvider(p: ProviderProfile) {
+    setProviderName(p.name || '')
+    setProviderEmail(p.email || '')
+    setProviderStatus(p.status || '')
+    setIsPaused(Boolean(p.is_paused || p.status === 'paused'))
+    setTodaySar(halalaToSar(p.today_earnings_halala))
+    setWeekSar(halalaToSar(p.week_earnings_halala))
+    setMonthSar(halalaToSar(p.month_earnings_halala))
+    setRunMode(normalizeRunMode(p.run_mode))
+    setScheduledStart(p.scheduled_start || '23:00')
+    setScheduledEnd(p.scheduled_end || '07:00')
+    setGpuUsageCap(typeof p.gpu_usage_cap_pct === 'number' ? p.gpu_usage_cap_pct : 80)
+    setVramReserve(typeof p.vram_reserve_gb === 'number' ? p.vram_reserve_gb : 1)
+    setTempLimit(typeof p.temp_limit_c === 'number' ? p.temp_limit_c : 85)
+  }
 
-  const [jobChat, setJobChat] = useState(true)
-  const [jobEmbed, setJobEmbed] = useState(true)
-  const [jobRerank, setJobRerank] = useState(true)
-  const [jobLong, setJobLong] = useState(false)
-  const [jobBatch, setJobBatch] = useState(false)
-  const [minJobSize, setMinJobSize] = useState('50 tokens (skip ping jobs)')
-
-  const [notifWeekly, setNotifWeekly] = useState(true)
-  const [notifOffline, setNotifOffline] = useState(true)
-  const [notifPayout, setNotifPayout] = useState(true)
-  const [notifNewModel, setNotifNewModel] = useState(false)
-  const [notifMarketing, setNotifMarketing] = useState(false)
-
-  // ── Load the real provider profile (same endpoint + shape as v1 settings) ──
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+
+    let cancelled = false
+    setLoadState('loading')
+    setLoadError('')
+
+    fetch(`${getApiBase()}/providers/me?key=${encodeURIComponent(key)}`, {
+      headers: { 'x-provider-key': key },
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as ProviderMeResponse & { error?: string }
+        if (!res.ok) throw new Error(data.error || 'Failed to load provider settings.')
+        return data
+      })
+      .then((data) => {
+        if (cancelled) return
+        if (data.provider) applyProvider(data.provider)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadState('error')
+        setLoadError(err instanceof Error ? err.message : 'Failed to load provider settings.')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function savePreferences() {
     if (typeof window === 'undefined') return
     const key = getProviderKey()
     if (!key) return
 
-    let active = true
-    const controller = new AbortController()
-
-    const load = async () => {
-      try {
-        const res = await fetch(
-          `${getApiBase()}/providers/me?key=${encodeURIComponent(key)}`,
-          { signal: controller.signal },
-        )
-        if (!res.ok) return
-        const data: ProviderMeResponse = await res.json()
-        const p = data.provider
-        if (!active || !p) return
-        if (p.name) {
-          setProviderName(p.name)
-          setProviderScope(p.name)
-        }
-        if (p.email) setProviderEmail(p.email)
-        if (p.status) {
-          const online = p.status.toLowerCase()
-          setAcceptJobs(online === 'online' || online === 'active' || online === 'live')
-        }
-      } catch {
-        /* keep mock fallbacks on error/abort */
+    setSaveState('saving')
+    setSaveMessage('')
+    try {
+      const res = await fetch(`${getApiBase()}/providers/preferences`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-provider-key': key },
+        body: JSON.stringify({
+          key,
+          run_mode: runMode,
+          scheduled_start: scheduledStart,
+          scheduled_end: scheduledEnd,
+          gpu_usage_cap_pct: clampNumber(gpuUsageCap, 0, 100),
+          vram_reserve_gb: clampNumber(vramReserve, 0, 16),
+          temp_limit_c: clampNumber(tempLimit, 50, 100),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Preferences update failed.')
+      if (data.preferences) {
+        setRunMode(normalizeRunMode(data.preferences.run_mode))
+        setScheduledStart(data.preferences.scheduled_start || scheduledStart)
+        setScheduledEnd(data.preferences.scheduled_end || scheduledEnd)
+        setGpuUsageCap(Number(data.preferences.gpu_usage_cap_pct ?? gpuUsageCap))
+        setVramReserve(Number(data.preferences.vram_reserve_gb ?? vramReserve))
+        setTempLimit(Number(data.preferences.temp_limit_c ?? tempLimit))
       }
+      setSaveState('success')
+      setSaveMessage('Provider preferences saved.')
+    } catch (err) {
+      setSaveState('error')
+      setSaveMessage(err instanceof Error ? err.message : 'Preferences update failed.')
     }
+  }
 
-    load()
-    return () => {
-      active = false
-      controller.abort()
+  async function setPaused(nextPaused: boolean) {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key) return
+
+    setSaveState('saving')
+    setSaveMessage('')
+    try {
+      const route = nextPaused ? 'pause' : 'resume'
+      const res = await fetch(`${getApiBase()}/providers/${route}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-provider-key': key },
+        body: JSON.stringify({ key }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Provider ${route} failed.`)
+      setIsPaused(nextPaused)
+      setProviderStatus(data.status || (nextPaused ? 'paused' : 'connected'))
+      setSaveState('success')
+      setSaveMessage(nextPaused ? 'Provider paused. New jobs will stop routing here.' : 'Provider resumed.')
+    } catch (err) {
+      setSaveState('error')
+      setSaveMessage(err instanceof Error ? err.message : 'Provider status update failed.')
     }
-  }, [])
+  }
 
-  const providerInitial = (providerName.trim()[0] || 'Y').toUpperCase()
+  const displayName = providerName || (lang === 'ar' ? 'المزوّد' : 'Provider')
+  const displayScope = providerEmail || providerStatus || (lang === 'ar' ? 'حساب المزوّد' : 'Provider account')
+  const statusLabel = isPaused ? 'paused' : providerStatus || (loadState === 'missing-key' ? 'missing key' : loadState)
+  const providerInitial = (displayName.trim()[0] || 'P').toUpperCase()
+  const saveDisabled = loadState !== 'ready' || saveState === 'saving'
 
   return (
     <div className="pv-app">
-      {/* ═══════════ SIDEBAR ═══════════ */}
       <aside className={`pv-sb${drawerOpen ? ' on' : ''}`} id="pv-sb" data-page="settings">
         <div className="pv-sb-brand">
           <span className="wm">DCP<i>∞</i></span>
@@ -147,18 +249,27 @@ export default function ProviderSettingsPage() {
             <Bi en="Earning today" ar="أرباح اليوم" />
           </div>
           <div className="v">
-            SAR 218<span className="u"><Bi en="so far" ar="حتى الآن" /></span>
+            {todaySar != null ? (
+              <>
+                SAR {fmtSar(todaySar)}
+                <span className="u">
+                  <Bi en="so far" ar="حتى الآن" />
+                </span>
+              </>
+            ) : (
+              <span className="u">—</span>
+            )}
           </div>
           <div className="live">
-            <span className="d" /> <Bi en="2 of 4 rigs earning" ar="جهازان من 4 يكسبان" />
+            <span className="d" /> {statusLabel}
           </div>
           <div className="row">
-            <span><Bi en="Yesterday" ar="أمس" /></span>
-            <b>SAR 194</b>
+            <span><Bi en="This week" ar="هذا الأسبوع" /></span>
+            <b>{weekSar != null ? `SAR ${fmtSar(weekSar)}` : '—'}</b>
           </div>
           <div className="row">
             <span><Bi en="This month" ar="هذا الشهر" /></span>
-            <b>SAR 5,826</b>
+            <b>{monthSar != null ? `SAR ${fmtSar(monthSar)}` : '—'}</b>
           </div>
         </div>
 
@@ -189,21 +300,19 @@ export default function ProviderSettingsPage() {
         <div className="pv-sb-foot">
           <div className="av">{providerInitial}</div>
           <div className="who">
-            {providerName}
-            <span className="e">{providerScope} · Silver</span>
+            {displayName}
+            <span className="e">{displayScope}</span>
           </div>
           <span className="out" title="Sign out">↱</span>
         </div>
       </aside>
 
-      {/* Backdrop for mobile drawer */}
       <div
         className={`pv-backdrop${drawerOpen ? ' on' : ''}`}
         id="pv-backdrop"
         onClick={() => setDrawerOpen(false)}
       />
 
-      {/* ═══════════ MAIN ═══════════ */}
       <div>
         <header className="pv-tb" id="pv-tb" data-crumb="Settings">
           <button
@@ -215,14 +324,14 @@ export default function ProviderSettingsPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>{providerScope}</span>
+            <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Settings" ar="الإعدادات" />
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="Live · earning" ar="مباشر · يكسب" />
+            <span className="d" /> {statusLabel}
           </span>
           <button
             className="lang"
@@ -245,17 +354,35 @@ export default function ProviderSettingsPage() {
           </h1>
           <div className="pv-h1-sub">
             <span>
-              <Bi en="Defaults applied to all rigs" ar="الإعدادات الافتراضية المطبقة على كل الأجهزة" />
+              <Bi en="Live provider preferences only" ar="تفضيلات المزوّد الحية فقط" />
             </span>
             <span>
-              <Bi en="Per-rig overrides live in " ar="التجاوزات لكل جهاز في " />
-              <Link href="/v2/provider/rigs" style={{ color: 'var(--ink)', borderBottom: '1px solid var(--mut)' }}>
-                <Bi en="Rigs" ar="الأجهزة" />
-              </Link>
+              <Bi en="Writable backend: " ar="Backend قابل للحفظ: " />
+              <b>
+                <Bi en="run mode · limits · pause" ar="وضع التشغيل · الحدود · الإيقاف" />
+              </b>
             </span>
           </div>
 
-          {/* Availability */}
+          {loadState === 'missing-key' && (
+            <div className="dash-state err" style={{ marginTop: 24 }}>
+              <Bi en="Sign in with a provider API key to load settings." ar="سجّل الدخول بمفتاح مزوّد لتحميل الإعدادات." />{' '}
+              <Link href="/v2/auth?role=provider&method=apikey&redirect=/v2/provider/settings">
+                <Bi en="Sign in" ar="تسجيل الدخول" />
+              </Link>
+            </div>
+          )}
+          {loadState === 'error' && (
+            <div className="dash-state err" style={{ marginTop: 24 }} role="alert">
+              {loadError}
+            </div>
+          )}
+          {saveMessage && (
+            <div className={`dash-state${saveState === 'error' ? ' err' : ''}`} style={{ marginTop: 24 }}>
+              {saveMessage}
+            </div>
+          )}
+
           <div className="panel" style={{ marginTop: '36px' }}>
             <div className="panel-hd">
               <div>
@@ -263,304 +390,153 @@ export default function ProviderSettingsPage() {
                   <Bi en="Availability" ar="التوفر" />
                 </h3>
               </div>
+              <button className="seg-btn" disabled={loadState !== 'ready' || saveState === 'saving'} onClick={() => setPaused(!isPaused)}>
+                {isPaused ? <Bi en="Resume provider" ar="استئناف المزوّد" /> : <Bi en="Pause provider" ar="إيقاف المزوّد مؤقتًا" />}
+              </button>
             </div>
             <div className="form-grid">
               <div className="lbl">
-                <b><Bi en="Accept jobs" ar="قبول المهام" /></b>
-                <Bi en="Fleet-wide kill switch" ar="مفتاح إيقاف على مستوى الأسطول" />
+                <b><Bi en="Run mode" ar="وضع التشغيل" /></b>
+                <Bi en="Used by the daemon installer" ar="يستخدمه مثبّت الخادم المحلي" />
               </div>
               <div className="ctl">
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={acceptJobs}
-                    onChange={() => setAcceptJobs((v) => !v)}
-                  />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi
-                      en="Accepting jobs — rigs visible on the marketplace"
-                      ar="قبول المهام — الأجهزة ظاهرة في السوق"
-                    />
-                  </span>
-                </label>
+                <select
+                  className="select"
+                  value={runMode}
+                  onChange={(e) => setRunMode(normalizeRunMode(e.target.value))}
+                  style={{ maxWidth: '220px' }}
+                >
+                  <option value="always-on">{lang === 'ar' ? 'دائم التشغيل' : 'Always on'}</option>
+                  <option value="scheduled">{lang === 'ar' ? 'مجدول' : 'Scheduled'}</option>
+                  <option value="manual">{lang === 'ar' ? 'يدوي' : 'Manual'}</option>
+                </select>
                 <span className="hint">
                   <Bi
-                    en="Pausing here keeps your rigs online but stops new jobs from being assigned."
-                    ar="الإيقاف المؤقت هنا يُبقي أجهزتك متصلة لكن يوقف إسناد مهام جديدة."
+                    en="This updates the persisted provider preference read by setup scripts and daemon templates."
+                    ar="يحدّث هذا تفضيل المزوّد المحفوظ الذي تقرأه سكربتات الإعداد وقوالب الخادم المحلي."
                   />
                 </span>
               </div>
 
               <div className="lbl">
-                <b><Bi en="Quiet hours" ar="ساعات الهدوء" /></b>
-                <Bi en="Reduce throughput overnight" ar="تقليل الإنتاجية ليلًا" />
+                <b><Bi en="Scheduled window" ar="نافذة الجدولة" /></b>
+                <Bi en="Only active in scheduled mode" ar="تعمل فقط في الوضع المجدول" />
               </div>
               <div className="ctl">
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input
                     className="input"
                     type="time"
-                    value={quietFrom}
-                    onChange={(e) => setQuietFrom(e.target.value)}
+                    value={scheduledStart}
+                    onChange={(e) => setScheduledStart(e.target.value)}
                     style={{ maxWidth: '140px' }}
                   />
                   <span style={{ alignSelf: 'center', color: 'var(--mut)' }}>→</span>
                   <input
                     className="input"
                     type="time"
-                    value={quietTo}
-                    onChange={(e) => setQuietTo(e.target.value)}
+                    value={scheduledEnd}
+                    onChange={(e) => setScheduledEnd(e.target.value)}
                     style={{ maxWidth: '140px' }}
                   />
                 </div>
-                <span className="hint">
-                  <Bi
-                    en="During quiet hours we cap utilization at 40% so your power bill stays sane."
-                    ar="خلال ساعات الهدوء نحد الاستخدام عند 40% حتى تبقى فاتورة الكهرباء معقولة."
-                  />
-                </span>
-              </div>
-
-              <div className="lbl">
-                <b><Bi en="Maximum concurrent jobs" ar="أقصى عدد مهام متزامنة" /></b>
-                <Bi en="Per-rig cap" ar="حد لكل جهاز" />
-              </div>
-              <div className="ctl">
-                <select
-                  className="select"
-                  value={maxConcurrent}
-                  onChange={(e) => setMaxConcurrent(e.target.value)}
-                  style={{ maxWidth: '200px' }}
-                >
-                  <option>1 (one at a time)</option>
-                  <option>2 (balanced)</option>
-                  <option>3 (throughput)</option>
-                  <option>Engine default</option>
-                </select>
               </div>
             </div>
           </div>
 
-          {/* Routing */}
           <div className="panel" style={{ marginTop: '28px' }}>
             <div className="panel-hd">
               <div>
                 <h3>
-                  <Bi en="Routing" ar="التوجيه" />
+                  <Bi en="Resource limits" ar="حدود الموارد" />
                 </h3>
               </div>
             </div>
             <div className="form-grid">
               <div className="lbl">
-                <b><Bi en="Job types" ar="أنواع المهام" /></b>
-                <Bi en="What your rigs will serve" ar="ما الذي ستخدمه أجهزتك" />
+                <b><Bi en="GPU usage cap" ar="حد استخدام GPU" /></b>
+                <Bi en="0-100 percent" ar="0-100 بالمئة" />
               </div>
               <div className="ctl">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <label className="switch">
-                    <input type="checkbox" checked={jobChat} onChange={() => setJobChat((v) => !v)} />
-                    <span className="track" />
-                    <span className="lbl-text">
-                      <Bi en="Chat completion · all your enabled models" ar="إكمال المحادثة · كل النماذج المفعّلة لديك" />
-                    </span>
-                  </label>
-                  <label className="switch">
-                    <input type="checkbox" checked={jobEmbed} onChange={() => setJobEmbed((v) => !v)} />
-                    <span className="track" />
-                    <span className="lbl-text">
-                      <Bi en="Embeddings" ar="التضمينات" />
-                    </span>
-                  </label>
-                  <label className="switch">
-                    <input type="checkbox" checked={jobRerank} onChange={() => setJobRerank((v) => !v)} />
-                    <span className="track" />
-                    <span className="lbl-text">
-                      <Bi en="Reranking" ar="إعادة الترتيب" />
-                    </span>
-                  </label>
-                  <label className="switch">
-                    <input type="checkbox" checked={jobLong} onChange={() => setJobLong((v) => !v)} />
-                    <span className="track" />
-                    <span className="lbl-text">
-                      <Bi en="Long-context (32k+) · higher latency tolerance" ar="سياق طويل (32k+) · تحمل أعلى لزمن الاستجابة" />
-                    </span>
-                  </label>
-                  <label className="switch">
-                    <input type="checkbox" checked={jobBatch} onChange={() => setJobBatch((v) => !v)} />
-                    <span className="track" />
-                    <span className="lbl-text">
-                      <Bi en="Batch jobs · off-peak only" ar="المهام الدفعية · خارج أوقات الذروة فقط" />
-                    </span>
-                  </label>
-                </div>
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={gpuUsageCap}
+                  onChange={(e) => setGpuUsageCap(clampNumber(Number(e.target.value), 0, 100))}
+                  style={{ maxWidth: '160px' }}
+                />
+                <span className="hint">
+                  <Bi en="Backend validates this as gpu_usage_cap_pct." ar="يتحقق backend من هذه القيمة كـ gpu_usage_cap_pct." />
+                </span>
               </div>
 
               <div className="lbl">
-                <b><Bi en="Minimum job size" ar="الحد الأدنى لحجم المهمة" /></b>
-                <Bi en="Skip tiny jobs" ar="تخطي المهام الصغيرة" />
+                <b><Bi en="VRAM reserve" ar="احتياطي VRAM" /></b>
+                <Bi en="0-16 GB" ar="0-16 جيجابايت" />
               </div>
               <div className="ctl">
-                <select
-                  className="select"
-                  value={minJobSize}
-                  onChange={(e) => setMinJobSize(e.target.value)}
-                  style={{ maxWidth: '240px' }}
-                >
-                  <option>No minimum</option>
-                  <option>50 tokens (skip ping jobs)</option>
-                  <option>200 tokens</option>
-                  <option>1,000 tokens</option>
-                </select>
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  max={16}
+                  step={0.5}
+                  value={vramReserve}
+                  onChange={(e) => setVramReserve(clampNumber(Number(e.target.value), 0, 16))}
+                  style={{ maxWidth: '160px' }}
+                />
                 <span className="hint">
-                  <Bi
-                    en="Lower-end rigs sometimes prefer to skip the smallest jobs to keep utilization meaningful."
-                    ar="الأجهزة الأقل أداءً تفضل أحيانًا تخطي أصغر المهام لإبقاء الاستخدام ذا معنى."
-                  />
+                  <Bi en="Backend validates this as vram_reserve_gb." ar="يتحقق backend من هذه القيمة كـ vram_reserve_gb." />
+                </span>
+              </div>
+
+              <div className="lbl">
+                <b><Bi en="Temperature limit" ar="حد الحرارة" /></b>
+                <Bi en="50-100 C" ar="50-100 مئوية" />
+              </div>
+              <div className="ctl">
+                <input
+                  className="input"
+                  type="number"
+                  min={50}
+                  max={100}
+                  value={tempLimit}
+                  onChange={(e) => setTempLimit(clampNumber(Number(e.target.value), 50, 100))}
+                  style={{ maxWidth: '160px' }}
+                />
+                <span className="hint">
+                  <Bi en="Backend validates this as temp_limit_c." ar="يتحقق backend من هذه القيمة كـ temp_limit_c." />
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Notifications */}
           <div className="panel" style={{ marginTop: '28px' }}>
             <div className="panel-hd">
               <div>
                 <h3>
-                  <Bi en="Notifications" ar="الإشعارات" />
+                  <Bi en="Unavailable settings" ar="إعدادات غير متاحة" />
                 </h3>
               </div>
             </div>
-            <div className="form-grid">
-              <div className="lbl">
-                <b>
-                  <Bi en="Email · " ar="البريد · " />
-                  {providerEmail}
-                </b>
-              </div>
-              <div className="ctl">
-                <label className="switch">
-                  <input type="checkbox" checked={notifWeekly} onChange={() => setNotifWeekly((v) => !v)} />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Weekly earnings summary · every Sunday" ar="ملخص الأرباح الأسبوعي · كل أحد" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" checked={notifOffline} onChange={() => setNotifOffline((v) => !v)} />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Rig goes offline for more than 5 minutes" ar="انقطاع جهاز عن الاتصال لأكثر من 5 دقائق" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" checked={notifPayout} onChange={() => setNotifPayout((v) => !v)} />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Payout sent" ar="تم إرسال الدفعة" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" checked={notifNewModel} onChange={() => setNotifNewModel((v) => !v)} />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="New model available to serve" ar="نموذج جديد متاح للخدمة" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" checked={notifMarketing} onChange={() => setNotifMarketing((v) => !v)} />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Marketing & product updates" ar="التسويق وتحديثات المنتج" />
-                  </span>
-                </label>
-              </div>
-
-              <div className="lbl">
-                <b><Bi en="Telegram" ar="تيليجرام" /></b>
-                <Bi en="Real-time alerts" ar="تنبيهات فورية" />
-              </div>
-              <div className="ctl">
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <button className="seg-btn">
-                    <Bi en="+ Connect Telegram" ar="+ ربط تيليجرام" />
-                  </button>
-                  <span className="hint" style={{ color: 'var(--mut)' }}>
-                    <Bi en="Not connected" ar="غير متصل" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Danger */}
-          <div
-            className="panel"
-            style={{ marginTop: '28px', borderColor: 'color-mix(in oklab, var(--err) 40%, var(--hair))' }}
-          >
-            <div
-              className="panel-hd"
-              style={{ borderBottomColor: 'color-mix(in oklab, var(--err) 30%, var(--hair))' }}
-            >
-              <div>
-                <h3 style={{ color: 'var(--err)' }}>
-                  <Bi en="Danger zone" ar="منطقة الخطر" />
-                </h3>
-              </div>
-            </div>
-            <div className="form-grid">
-              <div className="lbl">
-                <b style={{ color: 'var(--err)' }}>
-                  <Bi en="Pause provider account" ar="إيقاف حساب المزود مؤقتًا" />
-                </b>
-                <Bi en="All rigs go offline" ar="كل الأجهزة تصبح غير متصلة" />
-              </div>
-              <div className="ctl">
-                <button
-                  className="seg-btn danger"
-                  style={{ borderColor: 'var(--err)', color: 'var(--err)', alignSelf: 'flex-start' }}
-                >
-                  <Bi en="Pause account" ar="إيقاف الحساب" />
-                </button>
-                <span className="hint">
-                  <Bi
-                    en="You can reactivate any time. Open jobs finish; new jobs stop being assigned."
-                    ar="يمكنك إعادة التفعيل في أي وقت. تكتمل المهام المفتوحة؛ وتتوقف إسناد المهام الجديدة."
-                  />
-                </span>
-              </div>
-              <div className="lbl">
-                <b style={{ color: 'var(--err)' }}>
-                  <Bi en="Close account" ar="إغلاق الحساب" />
-                </b>
-                <Bi en="Permanent · this can't be undone" ar="دائم · لا يمكن التراجع عنه" />
-              </div>
-              <div className="ctl">
-                <button
-                  className="seg-btn danger"
-                  style={{ borderColor: 'var(--err)', color: 'var(--err)', alignSelf: 'flex-start' }}
-                >
-                  <Bi en="Close account…" ar="إغلاق الحساب…" />
-                </button>
-                <span className="hint">
-                  <Bi
-                    en="Final payout sent, then your data is purged after 90 days per PDPL."
-                    ar="تُرسل الدفعة النهائية، ثم تُحذف بياناتك بعد 90 يومًا وفق نظام حماية البيانات الشخصية (PDPL)."
-                  />
-                </span>
-              </div>
-            </div>
+            <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: '14px', lineHeight: 1.65 }}>
+              <Bi
+                en="Routing job-type filters, notification preferences, Telegram alerts, account closure, and marketing preferences do not have provider settings endpoints yet. They are intentionally not editable in v2 until backend routes exist."
+                ar="لا توجد بعد مسارات إعدادات للمزوّد لفلاتر أنواع المهام أو تفضيلات الإشعارات أو تنبيهات تيليجرام أو إغلاق الحساب أو تفضيلات التسويق. لذلك لا تكون قابلة للتعديل في v2 حتى توجد مسارات backend."
+              />
+            </p>
           </div>
 
           <div style={{ marginTop: '28px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-            <button className="seg-btn">
-              <Bi en="Discard changes" ar="تجاهل التغييرات" />
-            </button>
             <button
               className="btn primary lg"
               style={{ background: 'var(--orange)', borderColor: 'var(--orange)', color: '#0a0b1a' }}
+              disabled={saveDisabled}
+              onClick={savePreferences}
             >
-              <Bi en="Save settings" ar="حفظ الإعدادات" />
+              {saveState === 'saving' ? <Bi en="Saving..." ar="جارٍ الحفظ..." /> : <Bi en="Save settings" ar="حفظ الإعدادات" />}
             </button>
           </div>
         </main>
