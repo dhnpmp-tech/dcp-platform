@@ -640,8 +640,9 @@
   .mp-table .util-bar { flex:1; height:4px; background:var(--hair); position:relative; border-radius:2px; overflow:hidden; }
   .mp-table .util-bar span { position:absolute; inset:0; background:var(--grad); transform-origin:left; }
   .mp-table .util-val { font-family:var(--mono); font-size:11.5px; color:var(--mut); min-width:34px; }
-  .mp-table .price { font-family:var(--serif); font-size:22px; letter-spacing:-.01em; color:var(--ink); }
+  .mp-table .price { font-family:var(--mono); font-size:12px; letter-spacing:.02em; color:var(--ink); text-transform:uppercase; }
   .mp-table .price .u { font-family:var(--mono); font-size:11px; color:var(--mut); margin-inline-start:6px; }
+  .mp-table .tag.neutral { color:var(--ink-2); font-family:var(--mono); font-size:11px; }
   .mp-foot { margin-top:14px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.08em; text-transform:uppercase; }
   .mp-foot a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
   .mp-foot a:hover { color:var(--teal); border-bottom-color:var(--teal); }

@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 21:37 UTC — [PR #518](https://github.com/dhnpmp-tech/dcp-platform/pull/518) — `fix(v2): keep public CTAs on honest v2 surfaces`
+
+Included:
+- Kept `/v2/home` public CTAs inside v2 routes for renter setup, provider setup, and the model playground instead of sending visitors through legacy marketplace/setup pages.
+- Replaced the fabricated homepage provider marketplace table and randomized live metrics with honest verified-capacity policy copy.
+- Removed the animated fake provider counter from `/v2/provider-setup`.
+- Aligned visible provider-share copy and the provider setup estimator to the 85/15 provider/platform split.
+- Added static regressions for v2 public link hygiene, fake provider names, simulated live telemetry, fake counters, and stale rev-share copy.
+
 ### 21:30 UTC — [PR #517](https://github.com/dhnpmp-tech/dcp-platform/pull/517) — `fix(v2): stop prefetching legacy admin links`
 
 Included:

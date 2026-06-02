@@ -13,11 +13,10 @@ import './provider-setup.css'
 // ── Earnings formula constants (illustrative MOCK data, per prototype) ──
 const PER_HOUR = [1.15, 1.6, 2.2] as const
 const WEEKS_PER_MONTH = 4.33
-const PROVIDER_SHARE = 0.75
-const PLATFORM_SHARE = 0.25
+const PROVIDER_SHARE = 0.85
+const PLATFORM_SHARE = 0.15
 const INSTALL_STEP_DELAY_MS = 750
 const INSTALL_BASE_DELAY_MS = 300
-const COUNTER_INTERVAL_MS = 4000
 
 type SetupOs = 'windows' | 'mac' | 'linux'
 type VerifyState = 'idle' | 'checking' | 'connected' | 'waiting' | 'error'
@@ -90,18 +89,6 @@ export default function V2ProviderSetup() {
   const [verifyState, setVerifyState] = useState<VerifyState>('idle')
   const [providerStatus, setProviderStatus] = useState('')
   const [verifyError, setVerifyError] = useState('')
-
-  // live counter jitter (cosmetic)
-  const [provCount, setProvCount] = useState(41)
-
-  // ── live-counter jitter (cosmetic; static under reduced motion) ──
-  useEffect(() => {
-    if (reducedMotion) return
-    const id = setInterval(() => {
-      if (Math.random() > 0.6) setProvCount((n) => n + 1)
-    }, COUNTER_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [reducedMotion])
 
   useEffect(() => {
     const key = providerKeyFromStorage()
@@ -428,18 +415,20 @@ export default function V2ProviderSetup() {
           <div className="rail">
             <div className="rail-card tint">
               <h4>
-                <Bi en="§ Live network" ar="§ الشبكة الآن" />
+                <Bi en="§ Verified network" ar="§ الشبكة المتحققة" />
               </h4>
               <div className="counter">
-                <span id="prov-count">{provCount}</span>{' '}
+                <span id="provider-verification-state">
+                  <Bi en="Verified only" ar="متحقق فقط" />
+                </span>{' '}
                 <span className="u">
-                  <Bi en="providers registered" ar="مزوّد مسجّل" />
+                  <Bi en="before listing" ar="قبل العرض" />
                 </span>
               </div>
               <p style={{ marginTop: 8 }}>
                 <Bi
-                  en="Across Riyadh, Jeddah, Dammam and NEOM — growing every week."
-                  ar="في الرياض وجدة والدمام ونيوم — وينمو كل أسبوع."
+                  en="Provider capacity is shown publicly only after real status and endpoint checks pass."
+                  ar="تُعرض سعة المزوّدين علناً فقط بعد اجتياز فحص الحالة ونقطة الخدمة."
                 />
               </p>
             </div>
@@ -662,33 +651,33 @@ export default function V2ProviderSetup() {
             <div className="tiers">
               <div className="t on">
                 <div className="nm">
-                  <Bi en="Bronze" ar="برونزي" />{' '}
+                  <Bi en="Provider" ar="المزوّد" />{' '}
                   <span className="you">
                     <Bi en="you" ar="أنت" />
                   </span>
                 </div>
                 <div className="rq">
-                  <Bi en="0+ jobs / mo" ar="٠+ مهمة شهرياً" />
+                  <Bi en="published split" ar="التقسيم المنشور" />
                 </div>
-                <div className="share">70%</div>
+                <div className="share">85%</div>
               </div>
               <div className="t">
                 <div className="nm">
-                  <Bi en="Silver" ar="فضي" />
+                  <Bi en="DCP" ar="DCP" />
                 </div>
                 <div className="rq">
-                  <Bi en="500+ jobs / mo" ar="٥٠٠+ مهمة شهرياً" />
+                  <Bi en="platform operations" ar="تشغيل المنصة" />
                 </div>
-                <div className="share">75%</div>
+                <div className="share">15%</div>
               </div>
               <div className="t">
                 <div className="nm">
-                  <Bi en="Gold" ar="ذهبي" />
+                  <Bi en="Review" ar="مراجعة" />
                 </div>
                 <div className="rq">
-                  <Bi en="2,500+ jobs / mo" ar="٢٬٥٠٠+ مهمة شهرياً" />
+                  <Bi en="shown before payout" ar="تظهر قبل الدفع" />
                 </div>
-                <div className="share">82%</div>
+                <div className="share">audit</div>
               </div>
             </div>
 
@@ -804,7 +793,7 @@ export default function V2ProviderSetup() {
               <div className="est-split">
                 <div className="s you">
                   <div className="lab">
-                    <Bi en="You keep · 75%" ar="تحتفظ · ٧٥٪" />
+                    <Bi en="You keep · 85%" ar="تحتفظ · ٨٥٪" />
                   </div>
                   <div className="val">
                     <span id="split-you">{fmt(est.youLo)}</span>–<span id="split-you-hi">{fmt(est.youHi)}</span> SAR
@@ -812,7 +801,7 @@ export default function V2ProviderSetup() {
                 </div>
                 <div className="s">
                   <div className="lab">
-                    <Bi en="DCP · 25%" ar="DCP · ٢٥٪" />
+                    <Bi en="DCP · 15%" ar="DCP · ١٥٪" />
                   </div>
                   <div className="val">
                     <span id="split-dcp">{fmt(est.dcpLo)}</span>–<span id="split-dcp-hi">{fmt(est.dcpHi)}</span> SAR
@@ -873,8 +862,8 @@ export default function V2ProviderSetup() {
               </h4>
               <p>
                 <Bi
-                  en="Nobody can promise a fixed income — demand moves. We show a range tied to real measured speeds, and you keep 75% of every Riyal a job earns."
-                  ar="لا أحد يستطيع وعدك بدخل ثابت — الطلب يتغير. نعرض نطاقاً مرتبطاً بسرعات حقيقية مقاسة، وتحتفظ بـ ٧٥٪ من كل ريال تكسبه المهمة."
+                  en="Nobody can promise a fixed income — demand moves. We show a range tied to real measured speeds, and you keep 85% of every Riyal a job earns."
+                  ar="لا أحد يستطيع وعدك بدخل ثابت — الطلب يتغير. نعرض نطاقاً مرتبطاً بسرعات حقيقية مقاسة، وتحتفظ بـ ٨٥٪ من كل ريال تكسبه المهمة."
                 />
               </p>
             </div>
