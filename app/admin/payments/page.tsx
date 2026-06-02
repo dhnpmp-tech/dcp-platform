@@ -52,23 +52,47 @@ interface AutoTopupRow {
   completed_at: string | null
 }
 
+interface RefundRequestRow {
+  request_id: string
+  payment_id: string
+  moyasar_id: string | null
+  renter_id: number
+  renter_name: string | null
+  renter_email: string | null
+  amount_sar: number
+  amount_halala: number
+  reason: string
+  status: 'pending' | 'processing' | 'approved' | 'rejected'
+  requested_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  admin_note: string | null
+  moyasar_refund_id: string | null
+  payment_amount_sar: number
+  payment_status: string
+  payment_created_at: string
+}
+
 interface AuditData {
   payouts: PayoutRow[]
   billing: BillingRow[]
   auto_topup: AutoTopupRow[]
+  refund_requests: RefundRequestRow[]
   summary: {
     payouts: Record<string, number>
     billing_attempts: Record<string, number>
     auto_topup: Record<string, number>
+    refund_requests: Record<string, number>
   }
 }
 
-type Tab = 'payouts' | 'billing' | 'auto_topup'
+type Tab = 'payouts' | 'billing' | 'auto_topup' | 'refund_requests'
 
 const STATUS_BADGES: Record<string, string> = {
   pending: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
   processing: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
   paid: 'bg-green-500/15 text-green-400 border border-green-500/30',
+  approved: 'bg-green-500/15 text-green-400 border border-green-500/30',
   settled: 'bg-green-500/15 text-green-400 border border-green-500/30',
   rejected: 'bg-red-500/15 text-red-400 border border-red-500/30',
   failed: 'bg-red-500/15 text-red-400 border border-red-500/30',
@@ -187,6 +211,35 @@ export default function AdminPaymentsAuditPage() {
     }
   }
 
+  const handleRefundAction = async (requestId: string, action: 'approve' | 'reject') => {
+    if (!token) return
+    const note = action === 'approve'
+      ? window.prompt('Admin note for approval (optional)', '') || ''
+      : window.prompt('Reason for rejection', '') || ''
+    if (action === 'reject' && note.trim().length < 3) {
+      setActionMessage('Reject requires a short reason.')
+      return
+    }
+    if (action === 'approve' && !window.confirm('Approve this refund request and process the refund?')) return
+    setActionMessage('')
+    try {
+      const res = await fetch(`${API_BASE}/admin/payments/refund-requests/${requestId}/${action}`, {
+        method: 'POST',
+        headers: { 'x-admin-token': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'approve' ? { admin_note: note } : { reason: note }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setActionMessage(`${action} failed: ${body.error || body.message || res.status}`)
+      } else {
+        setActionMessage(`Refund request ${action}d: ${body.request_id}`)
+        await fetchAudit()
+      }
+    } catch {
+      setActionMessage(`${action} request errored — network/auth?`)
+    }
+  }
+
   if (loading) {
     return (
       <DashboardLayout navItems={navItems} role="admin" userName="Admin">
@@ -227,11 +280,12 @@ export default function AdminPaymentsAuditPage() {
             <SummaryCard title="Payouts" counts={data.summary.payouts} />
             <SummaryCard title="Billing attempts (/v1)" counts={data.summary.billing_attempts} />
             <SummaryCard title="Auto-top-up attempts" counts={data.summary.auto_topup} />
+            <SummaryCard title="Refund requests" counts={data.summary.refund_requests} />
           </div>
         )}
 
         <div className="flex gap-1 border-b border-dc1-border">
-          {(['payouts', 'billing', 'auto_topup'] as Tab[]).map((id) => (
+          {(['refund_requests', 'payouts', 'billing', 'auto_topup'] as Tab[]).map((id) => (
             <button
               key={id}
               type="button"
@@ -242,7 +296,7 @@ export default function AdminPaymentsAuditPage() {
                   : 'border-transparent text-dc1-text-secondary hover:text-dc1-text-primary'
               }`}
             >
-              {id === 'payouts' ? 'Payouts' : id === 'billing' ? 'Billing attempts' : 'Auto-top-up'}
+              {id === 'refund_requests' ? 'Refund requests' : id === 'payouts' ? 'Payouts' : id === 'billing' ? 'Billing attempts' : 'Auto-top-up'}
             </button>
           ))}
         </div>
@@ -253,11 +307,93 @@ export default function AdminPaymentsAuditPage() {
           </div>
         )}
 
+        {tab === 'refund_requests' && <RefundRequestsTable rows={data?.refund_requests || []} onAction={handleRefundAction} />}
         {tab === 'payouts' && <PayoutsTable rows={data?.payouts || []} onSync={handlePayoutSync} />}
         {tab === 'billing' && <BillingTable rows={data?.billing || []} />}
         {tab === 'auto_topup' && <AutoTopupTable rows={data?.auto_topup || []} />}
       </div>
     </DashboardLayout>
+  )
+}
+
+function RefundRequestsTable({
+  rows,
+  onAction,
+}: {
+  rows: RefundRequestRow[]
+  onAction: (id: string, action: 'approve' | 'reject') => void
+}) {
+  if (rows.length === 0) return <Empty label="No refund requests yet." />
+  return (
+    <div className="overflow-x-auto bg-dc1-bg-secondary rounded-lg border border-dc1-border">
+      <table className="w-full text-sm">
+        <thead className="bg-dc1-bg-primary border-b border-dc1-border">
+          <tr>
+            <Th>Request</Th>
+            <Th>Renter</Th>
+            <Th>Payment</Th>
+            <Th>Amount</Th>
+            <Th>Reason</Th>
+            <Th>Status</Th>
+            <Th>Requested</Th>
+            <Th></Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-dc1-border">
+          {rows.map((r) => (
+            <tr key={r.request_id} className="hover:bg-dc1-bg-primary/50">
+              <Td className="font-mono text-xs">{shortId(r.request_id, 12)}</Td>
+              <Td>
+                <div className="text-dc1-text-primary">{r.renter_name || `Renter ${r.renter_id}`}</div>
+                {r.renter_email && (
+                  <div className="text-xs text-dc1-text-muted">{r.renter_email}</div>
+                )}
+              </Td>
+              <Td>
+                <div className="font-mono text-xs">{shortId(r.payment_id, 12)}</div>
+                <div className="text-xs text-dc1-text-muted">{r.payment_status}</div>
+              </Td>
+              <Td className="font-mono">{r.amount_sar.toFixed(2)} SAR</Td>
+              <Td className="max-w-xs">
+                <div className="text-dc1-text-secondary whitespace-pre-wrap">{r.reason}</div>
+                {r.admin_note && (
+                  <div className="text-xs text-dc1-text-muted mt-1">Admin: {r.admin_note}</div>
+                )}
+              </Td>
+              <Td>
+                <StatusBadge status={r.status} />
+                {r.moyasar_refund_id && (
+                  <div className="text-xs text-dc1-text-muted mt-1">{shortId(r.moyasar_refund_id)}</div>
+                )}
+              </Td>
+              <Td className="text-xs">{formatDateTime(r.requested_at)}</Td>
+              <Td>
+                {r.status === 'pending' ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onAction(r.request_id, 'approve')}
+                      className="text-xs text-green-400 hover:underline"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAction(r.request_id, 'reject')}
+                      className="text-xs text-red-400 hover:underline"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-dc1-text-muted">{formatDateTime(r.reviewed_at)}</span>
+                )}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
