@@ -154,6 +154,10 @@ function agentLabel(mode: AgentMode): { en: string; ar: string } {
   return { en: 'human approval', ar: 'موافقة بشرية' }
 }
 
+function isLegacyAdminHref(href: string): boolean {
+  return href === '/admin' || href.startsWith('/admin/')
+}
+
 function buildTasks(
   dashboard: DashboardPayload | null,
   audit: PaymentsAuditPayload | null,
@@ -460,7 +464,7 @@ export default function V2AdminPage() {
           </a>
         </div>
         <div className="rail-section muted">
-          <Link href="/admin" className="rail-link">
+          <Link href="/admin" className="rail-link" prefetch={false}>
             <span>V1</span><Bi en="Current console" ar="اللوحة الحالية" />
           </Link>
           <Link href="/v2/auth?role=admin&method=apikey&redirect=/v2/admin" className="rail-link">
@@ -581,7 +585,7 @@ export default function V2AdminPage() {
                             <span><Bi en={label.en} ar={label.ar} /></span>
                           </div>
                         </div>
-                        <Link href={task.href} className="task-action">
+                        <Link href={task.href} className="task-action" prefetch={isLegacyAdminHref(task.href) ? false : undefined}>
                           <Bi en="Open" ar="فتح" />
                         </Link>
                       </article>
