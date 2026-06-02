@@ -657,11 +657,12 @@ export default function RenterUsagePage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredJobs.map((job) => {
+                  filteredJobs.map((job, index) => {
                     const ms = durationMs(job)
                     const status = mapStatus(job.status)
+                    const rowKey = job.job_id || job.id || `${modelName(job)}-${job.submitted_at || index}`
                     return (
-                      <tr key={job.job_id || job.id}>
+                      <tr key={rowKey}>
                         <td>
                           <span className="mut">{formatWhen(job.submitted_at)}</span>
                         </td>
@@ -736,8 +737,8 @@ export default function RenterUsagePage() {
                     </td>
                   </tr>
                 ) : (
-                  usage.map((row) => (
-                    <tr key={row.request_id || row.id}>
+                  usage.map((row, index) => (
+                    <tr key={row.request_id || row.id || `${row.model || row.source || 'usage'}-${row.created_at || index}`}>
                       <td>
                         <span className="mut">{formatWhen(row.created_at)}</span>
                       </td>
