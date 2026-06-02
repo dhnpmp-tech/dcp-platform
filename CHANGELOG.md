@@ -39,6 +39,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 ### Admin
 
 - Polished the payments audit refund-request table with Moyasar IDs, original payment amount context for partial refunds, clearer success copy, and refund requests as the default tab.
+- Prevented duplicate admin audit rows for payout and payment-refund mutations when production mount order runs the generic `/api/admin` audit middleware before the route-specific explicit audit writer.
 
 ### CI
 
