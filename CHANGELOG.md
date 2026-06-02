@@ -1,58 +1,179 @@
 # Changelog
 
-All notable public-facing changes to the DCP platform repository are tracked here.
+This is the canonical public changelog for the `dhnpmp-tech/dcp-platform`
+repository.
 
-This changelog is for repository, product, and release-level changes. Detailed engineering notes may still live near the subsystem they describe, but internal handoffs, private operations notes, generated reports, and launch checklists do not belong in the public repository.
+Format:
+- newest entries first
+- timestamps are UTC merge times
+- every entry links to the GitHub PR
+- each entry lists what was included, not just a feature headline
+
+Internal handoffs, private operations notes, generated reports, and launch
+checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### Repository
+- No unreleased public changelog entries yet.
 
-- Cleaned the public repository surface for the `dcp-platform` GitHub repo.
+## 2026-06-02
+
+### 12:37 UTC — [PR #493](https://github.com/dhnpmp-tech/dcp-platform/pull/493) — `fix: dedupe explicit admin audit mutations`
+
+Included:
+- Skipped generic admin audit rows for payout and payment-refund mutation routes that already write explicit audit rows.
+- Added production mount-order regression tests for refund approve/reject so the `/api/admin` middleware cannot duplicate those audit records again.
+- Verified with focused backend syntax checks, refund-request tests, payout audit-dedupe tests, and `git diff --check`.
+
+### 12:34 UTC — [PR #492](https://github.com/dhnpmp-tech/dcp-platform/pull/492) — `fix: polish admin refund audit table`
+
+Included:
+- Showed Moyasar payment IDs and original payment amount beside refund-request amounts on `/admin/payments`.
+- Fixed refund action success copy so reject actions render `rejected`, not `rejectd`.
+- Made refund requests the default payments audit tab and updated the page intro.
+- Verified with `npm run build`, standalone TypeScript check after Next type generation, and `git diff --check`.
+
+### 12:31 UTC — [PR #491](https://github.com/dhnpmp-tech/dcp-platform/pull/491) — `docs: sync public openapi spec`
+
+Included:
+- Synced `public/docs/openapi.yaml` from the maintained `docs/openapi.yaml`.
+- Ensured the deployed `/docs/openapi.yaml` link includes refund-request API documentation.
+- Left `backend/openapi/dcp.yaml` unchanged because it is the narrower vendored `dcp-contracts` response-validation spec.
+- Verified YAML parsing for all OpenAPI specs, byte identity between maintained and public specs, refund-route presence, and `git diff --check`.
+
+### 12:28 UTC — [PR #490](https://github.com/dhnpmp-tech/dcp-platform/pull/490) — `fix: share model alias routing matcher`
+
+Included:
+- Moved alias-aware model matching into `backend/src/lib/model-aliases.js` as a shared helper.
+- Used the shared matcher for multi-engine `provider_engines.served_models`, legacy `cached_models` routing, and `/api/providers/model-catalog` provider counts.
+- Added regressions for Qwen2.5-VL, BGE, ALLaM, and Llama aliases.
+- Verified syntax checks, 69 focused backend tests, and `git diff --check`.
+
+### 12:20 UTC — [PR #489](https://github.com/dhnpmp-tech/dcp-platform/pull/489) — `chore: remove stale horizontal logo asset`
+
+Included:
+- Removed unused `public/dcp-logo-horizontal.webp`.
+- Confirmed the removed file was actually a 128x128 PNG with a `.webp` extension.
+- Kept `README.md` on the crisp SVG logo.
+- Closed [issue #480](https://github.com/dhnpmp-tech/dcp-platform/issues/480).
+- Verified no remaining source references and `git diff --check`.
+
+### 12:17 UTC — [PR #488](https://github.com/dhnpmp-tech/dcp-platform/pull/488) — `docs: document refund request payment APIs`
+
+Included:
+- Added OpenAPI coverage for renter-created payment refund requests.
+- Documented `/api/admin/payments/audit` refund queue output and admin refund approve/reject actions.
+- Added the `PaymentRefundRequest` schema.
+- Folded duplicate `/api/renters/me` and `/api/providers/me` path entries so `docs/openapi.yaml` strict-parses cleanly.
+- Verified strict YAML parsing, duplicate path scan, refund-request backend tests, and `git diff --check`.
+
+### 11:52 UTC — [PR #487](https://github.com/dhnpmp-tech/dcp-platform/pull/487) — `fix: make WireGuard registration rollback on persistence failure`
+
+Included:
+- Hardened `/api/providers/wg/register` and `/api/providers/wg/install-config`.
+- Removed live `wg` peer additions when provider DB persistence fails.
+- Kept old peers in place until new WireGuard key/IP state is persisted, then removed stale peers best-effort.
+- Replaced WireGuard shell command strings with `execFileSync` argument arrays.
+- Added regression coverage for [issue #358](https://github.com/dhnpmp-tech/dcp-platform/issues/358).
+- Verified provider WG tests, WG diagnostics tests, hardcoded infra/security tests, syntax checks, and `git diff --check`.
+
+### 11:13 UTC — [PR #486](https://github.com/dhnpmp-tech/dcp-platform/pull/486) — `docs: refresh changelog follow-up note`
+
+Included:
+- Updated the changelog follow-up note so it no longer listed refund requests or pricing refresh as future work after those PRs merged.
+- Verified with `git diff --check`.
+
+### 10:58 UTC — [PR #485](https://github.com/dhnpmp-tech/dcp-platform/pull/485) — `feat: refresh public pricing page`
+
+Included:
+- Replaced the stacked pricing page with a denser editorial pricing surface using existing DCP dark tokens and Instrument Serif display heading.
+- Exposed auto-top-up behavior, the `402 insufficient_balance` pre-flight gate, starter credit order, and refund/admin review path.
+- Added per-model-class token-rate table, subscription discount math, and GPU-hour floor table.
+- Verified with `npm run build`, Playwright desktop/mobile visual checks, and `git diff --check`.
+
+### 10:51 UTC — [PR #484](https://github.com/dhnpmp-tech/dcp-platform/pull/484) — `feat: add payment refund request workflow`
+
+Included:
+- Added `POST /api/payments/:id/refund-request` for renter-created refund requests on paid top-ups.
+- Added migration 023 and inline schema for `payment_refund_requests`.
+- Added the one-open-request-per-payment guard.
+- Added refund requests to the admin payments audit screen with approve/reject actions.
+- Added a Moyasar payment refund helper for live Moyasar refunds, with internal/manual semantics for sandbox, no-key, and bank-transfer records.
+- Verified refund-request tests, payout audit-dedupe tests, backend syntax checks, `npm run build`, and `git diff --check`.
+
+### 10:44 UTC — [PR #483](https://github.com/dhnpmp-tech/dcp-platform/pull/483) — `fix: require backend liveness verdict for routing`
+
+Included:
+- Required catalog, legacy routing, and multi-engine routing to have a positive backend endpoint probe verdict before treating a provider as serviceable.
+- Persisted consecutive provider probe failures in `providers.endpoint_probe_failures`.
+- Added tests for probe persistence and heartbeat-only routing exclusion.
+- Verified provider-probe tests, multi-engine routing tests, backend syntax checks, and `git diff --check`.
+
+### 10:37 UTC — [PR #482](https://github.com/dhnpmp-tech/dcp-platform/pull/482) — `ci: reclaim disk before sd worker build`
+
+Included:
+- Added an extra Docker/Buildx prune between instant LLM and SD worker image builds.
+- Reduced the chance that the SD worker build starts with insufficient GitHub runner disk after the large vLLM image build.
+
+### 10:35 UTC — [PR #481](https://github.com/dhnpmp-tech/dcp-platform/pull/481) — `ci: warn on skipped sentinel inference`
+
+Included:
+- Changed sentinel inference monitoring so skipped inference is a warning/alert condition, not a silent pass.
+- Added auto-selection of an online model for the sentinel smoke request.
+- Added a guard for long-running missing sentinel renter key configuration.
+
+### 09:51 UTC — [PR #479](https://github.com/dhnpmp-tech/dcp-platform/pull/479) — `ci: add worker image disk cleanup`
+
+Included:
+- Added disk cleanup before scheduled worker-image Docker builds.
+- Gave heavyweight vLLM/SDXL layers more GitHub runner headroom.
+
+### 09:47 UTC — [PR #478](https://github.com/dhnpmp-tech/dcp-platform/pull/478) — `docs: sanitize dotenv changelog wording`
+
+Included:
+- Sanitized public changelog wording around dotenv and missing secrets.
+- Kept the operational lesson without exposing sensitive implementation detail.
+
+### 00:17 UTC — [PR #477](https://github.com/dhnpmp-tech/dcp-platform/pull/477) — `fix: settle queued v1 inference once`
+
+Included:
+- Removed the legacy queued-job pre-debit in `/v1/chat/completions`.
+- Routed queued inference completion through the same `settleInferenceOnce` settlement path as direct provider proxying.
+- Reduced double-charge and unreconciled-debit risk for queued inference.
+
+### 00:12 UTC — [PR #476](https://github.com/dhnpmp-tech/dcp-platform/pull/476) — `fix(catalog): add bge and qwen alias discovery`
+
+Included:
+- Added BGE and Qwen alias discovery coverage.
+- Improved catalog provider-count matching for cached `bge-m3` and Qwen2.5-VL variants.
+
+### 00:07 UTC — [PR #473](https://github.com/dhnpmp-tech/dcp-platform/pull/473) — `security: scrub hardcoded secrets/infra from source + tighten secret scan`
+
+Included:
+- Removed hardcoded production Telegram fallback token/chat values from heartbeat channel code.
+- Moved WireGuard server endpoint use to required environment configuration.
+- Sanitized sensitive public changelog wording.
+- Added a Telegram bot token gitleaks rule.
+- Expanded hardcoded production infra/security regression tests.
+
+## 2026-06-01
+
+### 22:37 UTC — [PR #472](https://github.com/dhnpmp-tech/dcp-platform/pull/472) — `docs: remove obsolete OpenAPI duplicates`
+
+Included:
+- Removed obsolete duplicate OpenAPI YAML files.
+- Retargeted API guide links to the maintained `docs/openapi.yaml` spec.
+
+### 22:32 UTC — [PR #471](https://github.com/dhnpmp-tech/dcp-platform/pull/471) — `chore: clean public repo surface`
+
+Included:
+- Cleaned the public repository surface for the renamed `dcp-platform` repo.
 - Removed internal coordination notes, agent handoffs, private planning docs, generated reports, stale workflow files, disabled source copies, and build artifacts from the tracked tree.
 - Added public repository orientation through `README.md`, `REPO_MAP.md`, folder `OVERVIEW.md` files, and a pull request template.
-- Updated GitHub repository metadata with a public description, homepage, and topics.
-- Disabled stale GitHub Actions workflows that referenced removed or missing files.
+- Updated GitHub repository metadata with public description, homepage, and topics.
 - Added ignore rules for local/private docs, generated installer outputs, local agent state, build artifacts, and runtime data.
 
-### Documentation
+## Backfill Notes
 
-- Synced the deployed `/docs/openapi.yaml` public spec copy with the maintained `docs/openapi.yaml` refund-request API documentation.
-- Removed obsolete duplicate OpenAPI YAML files and retargeted API guide links to the maintained `docs/openapi.yaml` spec.
-- Added OpenAPI coverage for renter refund requests, the admin payments audit queue, and refund approve/reject actions.
-- Rewrote the root `README.md` as a clean platform overview for GitHub visitors.
-- Refreshed the public pricing page with auto-top-up behavior, the 402 pre-flight balance gate, subscription discount math, and per-model-class token rates.
-- Rewrote `DEPLOYMENT.md`, `SECURITY.md`, and `docs/README.md` for public use.
-- Moved the runtime verification guide to `docs/runtime-verification.mdx`.
-- Removed or rewrote stale links to removed internal docs, old `dc1-platform` repository URLs, and legacy `docs.dcp.sa` references.
-- Sanitized public brand docs and package metadata to use current DCP naming and links.
-
-### Backend
-
-- Added Qwen2.5-VL alias coverage and canonical provider-count matching so cached `bge-m3` / `qwen2.5vl` variants surface correctly in the model catalog.
-- Reused the canonical model alias matcher in multi-engine routing, legacy routing, and `/api/providers/model-catalog` so requests such as `BAAI/bge-m3`, `qwen/qwen2.5-vl-3b-instruct`, or `ALLaM-AI/ALLaM-7B-Instruct-preview` can discover providers serving canonical cached tags.
-- Removed the legacy queued-job pre-debit in `/v1/chat/completions`; queued inference now uses the same `settleInferenceOnce` completion settlement path as direct provider proxying.
-- Tightened backend provider liveness so catalog and routing require a real endpoint probe verdict, persist consecutive probe failures, and no longer treat heartbeat-only freshness as routable capacity.
-- Hardened WireGuard provider registration so live `wg0` peer changes roll back when the provider DB write fails, preventing DB/server tunnel drift during registration or reinstall.
-- Added a renter refund-request queue for paid top-ups with admin approve/reject actions on the payments audit screen.
-
-### Admin
-
-- Polished the payments audit refund-request table with Moyasar IDs, original payment amount context for partial refunds, clearer success copy, and refund requests as the default tab.
-- Prevented duplicate admin audit rows for payout and payment-refund mutations when production mount order runs the generic `/api/admin` audit middleware before the route-specific explicit audit writer.
-
-### CI
-
-- Added disk cleanup before scheduled worker-image Docker builds so heavyweight vLLM/SDXL layers have enough GitHub runner headroom.
-- Uptime monitor sentinel inference now warns and alerts when skipped, auto-selects an online model for its smoke request, and fails after a missing sentinel renter key remains unresolved for 24 hours.
-- Added a second Docker/Buildx prune between instant LLM and SD worker builds so the SD image starts with fresh runner headroom after the large vLLM image publish.
-
-### Repository
-
-- Swapped the README logo to the vector SVG asset so GitHub renders it sharply at large widths.
-- Removed the stale `public/dcp-logo-horizontal.webp` asset after confirming it was an unused 128px PNG with a `.webp` extension.
-
-### Notes
-
-- The private Codex/Claude onboarding briefing lives outside this repository at `~/.claude/ops-private/dcp/codex-onboarding/`.
-- The next feature PRs should target real remaining gaps only, such as earned-first/strict routing validation, provider catalog follow-ups, and launch readiness checks.
+- PRs before #471 are not yet fully backfilled into this root changelog.
+- Older deep engineering notes remain in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) until they are converted into this PR-based format.
