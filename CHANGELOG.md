@@ -36,6 +36,10 @@ This changelog is for repository, product, and release-level changes. Detailed e
 - Hardened WireGuard provider registration so live `wg0` peer changes roll back when the provider DB write fails, preventing DB/server tunnel drift during registration or reinstall.
 - Added a renter refund-request queue for paid top-ups with admin approve/reject actions on the payments audit screen.
 
+### Admin
+
+- Polished the payments audit refund-request table with Moyasar IDs, original payment amount context for partial refunds, clearer success copy, and refund requests as the default tab.
+
 ### CI
 
 - Added disk cleanup before scheduled worker-image Docker builds so heavyweight vLLM/SDXL layers have enough GitHub runner headroom.
