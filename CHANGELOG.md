@@ -45,4 +45,4 @@ This changelog is for repository, product, and release-level changes. Detailed e
 ### Notes
 
 - The private Codex/Claude onboarding briefing lives outside this repository at `~/.claude/ops-private/dcp/codex-onboarding/`.
-- The next feature PRs should target real remaining gaps only, such as catalog alias matching, refund request workflow, pricing page refresh, and liveness/sentinel follow-ups.
+- The next feature PRs should target real remaining gaps only, such as earned-first/strict routing validation, provider catalog follow-ups, and launch readiness checks.
