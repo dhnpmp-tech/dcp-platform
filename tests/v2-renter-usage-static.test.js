@@ -44,5 +44,6 @@ assert(source.includes('/renters/me/jobs/export?key='), 'v2 renter usage should 
 assert(source.includes("loadState === 'missing-key'"), 'v2 renter usage should render an explicit missing-key state');
 assert(source.includes('No jobs match the current account and filters'), 'v2 renter usage should render an honest empty jobs state');
 assert(source.includes('No v1 inference usage has been recorded'), 'v2 renter usage should render an honest empty v1 usage state');
+assert(source.includes("row.request_id || row.id || `${row.model || row.source || 'usage'}-${row.created_at || index}`"), 'v2 renter usage should use stable fallback keys for v1 usage rows');
 
 console.log('v2 renter usage static checks passed');
