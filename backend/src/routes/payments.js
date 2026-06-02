@@ -804,6 +804,82 @@ router.get('/history', (req, res) => {
   });
 });
 
+// ─── POST /api/payments/:id/refund-request ───────────────────────────────────
+// Renter-created queue entry for admin review. This route never calls Moyasar
+// and never changes balances; approval happens from /admin/payments.
+router.post('/:id/refund-request', requireRenter, (req, res) => {
+  const renter = req.renter;
+  const paymentParam = String(req.params.id || '').trim();
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+  if (!paymentParam) {
+    return res.status(400).json({ error: 'payment id is required' });
+  }
+  if (reason.length < 3) {
+    return res.status(400).json({ error: 'reason must be at least 3 characters' });
+  }
+
+  const payment = db.get(
+    `SELECT * FROM payments
+      WHERE renter_id = ?
+        AND (payment_id = ? OR moyasar_id = ?)`,
+    renter.id, paymentParam, paymentParam
+  );
+  if (!payment) {
+    return res.status(404).json({ error: 'Payment not found' });
+  }
+  if (payment.status !== 'paid') {
+    return res.status(409).json({ error: `Cannot request refund for payment with status: ${payment.status}` });
+  }
+  if (payment.refunded_at) {
+    return res.status(409).json({ error: 'Payment already refunded' });
+  }
+
+  const requestedAmount = req.body?.amount_halala == null
+    ? payment.amount_halala
+    : toFiniteInt(req.body.amount_halala, { min: 1, max: payment.amount_halala });
+  if (requestedAmount == null) {
+    return res.status(400).json({ error: 'amount_halala must be a positive integer no larger than the payment amount' });
+  }
+
+  const existing = db.get(
+    `SELECT id, status, requested_at FROM payment_refund_requests
+      WHERE payment_id = ? AND status IN ('pending','processing')`,
+    payment.payment_id
+  );
+  if (existing) {
+    return res.status(409).json({
+      error: 'Refund request already open',
+      request_id: existing.id,
+      status: existing.status,
+      requested_at: existing.requested_at,
+    });
+  }
+
+  const now = new Date().toISOString();
+  const requestId = `rfr_${crypto.randomBytes(12).toString('hex')}`;
+  db.prepare(
+    `INSERT INTO payment_refund_requests
+       (id, payment_id, renter_id, amount_halala, reason, status, requested_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`
+  ).run(
+    requestId,
+    payment.payment_id,
+    renter.id,
+    requestedAmount,
+    reason.slice(0, 1000),
+    now
+  );
+
+  return res.status(201).json({
+    request_id: requestId,
+    payment_id: payment.payment_id,
+    amount_halala: requestedAmount,
+    amount_sar: requestedAmount / 100,
+    status: 'pending',
+    requested_at: now,
+  });
+});
+
 // ─── Auto-top-up routes ────────────────────────────────────────────────────────
 const autoTopupService = require('../services/autoTopupService');
 

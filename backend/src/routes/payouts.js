@@ -40,6 +40,7 @@ const moyasarPayout = require('../services/moyasarPayoutService');
 const { buildProviderSettlementPreview } = require('../services/payoutBatchService');
 const { sendWithdrawalApprovedEmail, sendWithdrawalRejectedEmail } = require('../services/emailService');
 const { sendAlert } = require('../services/notifications');
+const { refundPayment } = require('../services/moyasarPaymentRefundService');
 
 function skipAutomaticAdminAudit(req, _res, next) {
   // Approve/reject/patch payout routes emit one explicit payout_* audit row via
@@ -60,6 +61,19 @@ function logPayoutMutationAuditOnce(req, rawDb, action, payoutId, details) {
     action,
     'payout',
     String(payoutId),
+    details
+  );
+}
+
+function logPaymentRefundAuditOnce(req, rawDb, action, requestId, details) {
+  if (req._paymentRefundAuditLogged === true) return;
+  req._paymentRefundAuditLogged = true;
+  logAdminAction(
+    rawDb,
+    req.adminUser?.id || 'unknown',
+    action,
+    'payment_refund_request',
+    String(requestId),
     details
   );
 }
@@ -234,6 +248,7 @@ router.get('/admin/payouts/pending', requireAdminRbac, (req, res) => {
 //     moyasar_status, failure_reason)
 //   - billing_attempts (idempotency log from settleInferenceOnce)
 //   - auto_topup_attempts (one row per renter recharge attempt)
+//   - payment_refund_requests (renter refund requests awaiting admin review)
 //
 // Default limit 50 per section. Query:
 //   ?limit=50 — cap per section (1..200)
@@ -336,6 +351,41 @@ router.get('/admin/payments/audit', requireAdminRbac, (req, res) => {
       completed_at:          row.completed_at,
     }));
 
+    const refundRequests = raw.prepare(`
+      SELECT prr.id, prr.payment_id, prr.renter_id, prr.amount_halala,
+             prr.reason, prr.status, prr.requested_at, prr.reviewed_at,
+             prr.reviewed_by, prr.admin_note, prr.moyasar_refund_id,
+             p.moyasar_id, p.amount_halala AS payment_amount_halala,
+             p.status AS payment_status, p.created_at AS payment_created_at,
+             r.name AS renter_name, r.email AS renter_email
+        FROM payment_refund_requests prr
+        JOIN payments p ON p.payment_id = prr.payment_id
+        LEFT JOIN renters r ON r.id = prr.renter_id
+       ORDER BY
+         CASE prr.status WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 ELSE 2 END,
+         prr.requested_at DESC
+       LIMIT ?
+    `).all(limit).map((row) => ({
+      request_id:             row.id,
+      payment_id:             row.payment_id,
+      moyasar_id:             row.moyasar_id,
+      renter_id:              row.renter_id,
+      renter_name:            row.renter_name,
+      renter_email:           row.renter_email,
+      amount_sar:             Number((row.amount_halala / 100).toFixed(2)),
+      amount_halala:          row.amount_halala,
+      reason:                 row.reason,
+      status:                 row.status,
+      requested_at:           row.requested_at,
+      reviewed_at:            row.reviewed_at,
+      reviewed_by:            row.reviewed_by,
+      admin_note:             row.admin_note,
+      moyasar_refund_id:      row.moyasar_refund_id,
+      payment_amount_sar:     Number((row.payment_amount_halala / 100).toFixed(2)),
+      payment_status:         row.payment_status,
+      payment_created_at:     row.payment_created_at,
+    }));
+
     // Summary counts surface the health of each surface at a glance.
     const summary = {
       payouts: raw.prepare(`
@@ -347,11 +397,178 @@ router.get('/admin/payments/audit', requireAdminRbac, (req, res) => {
       auto_topup: raw.prepare(`
         SELECT status, COUNT(*) AS n FROM auto_topup_attempts GROUP BY status
       `).all().reduce((acc, r) => { acc[r.status] = r.n; return acc; }, {}),
+      refund_requests: raw.prepare(`
+        SELECT status, COUNT(*) AS n FROM payment_refund_requests GROUP BY status
+      `).all().reduce((acc, r) => { acc[r.status] = r.n; return acc; }, {}),
     };
 
-    return res.json({ payouts, billing, auto_topup: autoTopups, summary });
+    return res.json({ payouts, billing, auto_topup: autoTopups, refund_requests: refundRequests, summary });
   } catch (err) {
     console.error('[payments-audit] error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── POST /api/admin/payments/refund-requests/:id/approve ────────────────────
+//
+// Approve a renter-created refund request. Live Moyasar payments use the
+// Moyasar refund endpoint; sandbox/no-key records use the same internal refund
+// semantics as the legacy admin refund route.
+router.post('/admin/payments/refund-requests/:id/approve', skipAutomaticAdminAudit, requireAdminRbac, async (req, res) => {
+  const raw = db._db || db;
+  const requestId = req.params.id;
+  const adminNote = typeof req.body?.admin_note === 'string' ? req.body.admin_note.trim().slice(0, 1000) : null;
+  const adminId = req.adminUser?.id || 'unknown';
+
+  try {
+    const row = raw.prepare(`
+      SELECT prr.*, p.moyasar_id, p.amount_halala AS payment_amount_halala,
+             p.status AS payment_status, p.refunded_at, p.renter_id AS payment_renter_id
+        FROM payment_refund_requests prr
+        JOIN payments p ON p.payment_id = prr.payment_id
+       WHERE prr.id = ?
+    `).get(requestId);
+    if (!row) return res.status(404).json({ error: 'NOT_FOUND', message: 'Refund request not found' });
+    if (row.status !== 'pending') {
+      return res.status(409).json({ error: 'NOT_APPROVABLE', message: `Cannot approve refund request with status '${row.status}'` });
+    }
+    if (row.payment_status !== 'paid' || row.refunded_at) {
+      return res.status(409).json({ error: 'PAYMENT_NOT_REFUNDABLE', message: 'Payment is not currently refundable' });
+    }
+
+    const now = new Date().toISOString();
+    const claimed = raw.prepare(`
+      UPDATE payment_refund_requests
+         SET status = 'processing', reviewed_at = ?, reviewed_by = ?, admin_note = ?
+       WHERE id = ? AND status = 'pending'
+    `).run(now, adminId, adminNote, requestId);
+    if (!claimed.changes) {
+      return res.status(409).json({ error: 'ALREADY_CLAIMED', message: 'Refund request is already being processed' });
+    }
+
+    const externalPaymentId = row.moyasar_id;
+    const shouldCallMoyasar = !!process.env.MOYASAR_SECRET_KEY && !!externalPaymentId && !String(row.payment_id).startsWith('sandbox-');
+    let channel = 'manual';
+    let gatewayResponse = { type: 'manual', reason: shouldCallMoyasar ? 'missing_moyasar_id' : 'moyasar_unconfigured_or_sandbox' };
+    if (shouldCallMoyasar) {
+      try {
+        gatewayResponse = await refundPayment({
+          paymentId: externalPaymentId,
+          amountHalala: row.amount_halala,
+        });
+        channel = 'moyasar';
+      } catch (err) {
+        raw.prepare(`
+          UPDATE payment_refund_requests
+             SET status = 'pending',
+                 admin_note = ?,
+                 gateway_response = ?
+           WHERE id = ?
+        `).run(
+          [adminNote, `Moyasar refund failed: ${err.message}`].filter(Boolean).join('\n'),
+          JSON.stringify(err.moyasarError || { error: err.message, statusCode: err.statusCode || null }),
+          requestId
+        );
+        return res.status(502).json({ error: 'MOYASAR_REFUND_FAILED', message: err.message, details: err.moyasarError || null });
+      }
+    }
+
+    const finish = raw.transaction(() => {
+      const paymentUpdate = raw.prepare(`
+        UPDATE payments
+           SET status = 'refunded',
+               refunded_at = ?,
+               refund_amount_halala = ?,
+               gateway_response = ?
+         WHERE payment_id = ?
+           AND status = 'paid'
+           AND refunded_at IS NULL
+      `).run(now, row.amount_halala, JSON.stringify(gatewayResponse), row.payment_id);
+      if (!paymentUpdate.changes) {
+        throw new Error('Payment was already refunded or is no longer paid');
+      }
+      raw.prepare(`
+        UPDATE renters
+           SET balance_halala = MAX(0, balance_halala - ?),
+               updated_at = ?
+         WHERE id = ?
+      `).run(row.amount_halala, now, row.renter_id);
+      raw.prepare(`
+        UPDATE payment_refund_requests
+           SET status = 'approved',
+               reviewed_at = ?,
+               reviewed_by = ?,
+               admin_note = ?,
+               moyasar_refund_id = ?,
+               gateway_response = ?
+         WHERE id = ?
+      `).run(
+        now,
+        adminId,
+        adminNote,
+        gatewayResponse.id || gatewayResponse.refund_id || null,
+        JSON.stringify(gatewayResponse),
+        requestId
+      );
+    });
+    finish();
+
+    logPaymentRefundAuditOnce(req, raw, 'payment_refund_approved', requestId, {
+      payment_id: row.payment_id,
+      renter_id: row.renter_id,
+      amount_halala: row.amount_halala,
+      channel,
+    });
+
+    return res.json({
+      success: true,
+      request_id: requestId,
+      payment_id: row.payment_id,
+      refunded_halala: row.amount_halala,
+      refunded_sar: row.amount_halala / 100,
+      channel,
+    });
+  } catch (err) {
+    console.error('[payment-refund] approve error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── POST /api/admin/payments/refund-requests/:id/reject ─────────────────────
+router.post('/admin/payments/refund-requests/:id/reject', skipAutomaticAdminAudit, requireAdminRbac, (req, res) => {
+  const raw = db._db || db;
+  const requestId = req.params.id;
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 1000) : '';
+  if (reason.length < 3) {
+    return res.status(400).json({ error: 'reason must be at least 3 characters' });
+  }
+
+  try {
+    const row = raw.prepare('SELECT * FROM payment_refund_requests WHERE id = ?').get(requestId);
+    if (!row) return res.status(404).json({ error: 'NOT_FOUND', message: 'Refund request not found' });
+    if (row.status !== 'pending') {
+      return res.status(409).json({ error: 'NOT_REJECTABLE', message: `Cannot reject refund request with status '${row.status}'` });
+    }
+    const now = new Date().toISOString();
+    raw.prepare(`
+      UPDATE payment_refund_requests
+         SET status = 'rejected',
+             reviewed_at = ?,
+             reviewed_by = ?,
+             admin_note = ?
+       WHERE id = ? AND status = 'pending'
+    `).run(now, req.adminUser?.id || 'unknown', reason, requestId);
+
+    logPaymentRefundAuditOnce(req, raw, 'payment_refund_rejected', requestId, {
+      payment_id: row.payment_id,
+      renter_id: row.renter_id,
+      amount_halala: row.amount_halala,
+      reason,
+    });
+
+    return res.json({ success: true, request_id: requestId, status: 'rejected' });
+  } catch (err) {
+    console.error('[payment-refund] reject error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -426,9 +643,15 @@ router.post('/admin/payouts/:id/approve', skipAutomaticAdminAudit, requireAdminR
     // Route via Moyasar when both the funding source and a provider IBAN are configured.
     // force_manual=true keeps the legacy bank-transfer flow for ops-only overrides.
     const moyasarConfigured = !!process.env.MOYASAR_SECRET_KEY && !!process.env.MOYASAR_PAYOUT_SOURCE_ID;
-    const provider = raw_db.prepare(
-      'SELECT id, name, email, payout_iban, payout_holder_name FROM providers WHERE id = ?'
-    ).get(row.provider_id);
+    let provider;
+    try {
+      provider = raw_db.prepare(
+        'SELECT id, name, email, payout_iban, payout_holder_name FROM providers WHERE id = ?'
+      ).get(row.provider_id);
+    } catch (_) {
+      // Older DB/test fixtures may not have Moyasar payout columns yet.
+      provider = raw_db.prepare('SELECT id, name, email FROM providers WHERE id = ?').get(row.provider_id);
+    }
     const hasProviderIban = !!(provider && provider.payout_iban && provider.payout_holder_name);
 
     if (moyasarConfigured && hasProviderIban && !force_manual) {
