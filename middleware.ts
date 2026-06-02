@@ -13,7 +13,7 @@ const SESSION_COOKIE = '__dc1_session'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Legacy wizard/onboard/register routes → /setup (preserve query string).
+  // Legacy wizard/onboard/register routes → /earn (preserve query string).
   // Must run before the auth gate, otherwise unauthenticated visitors are
   // bounced to /login with a stale redirect target. /provider-onboarding is
   // the even-older path that used to client-side-redirect to /provider/register.
@@ -26,7 +26,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/provider-onboarding/')
   ) {
     const url = request.nextUrl.clone()
-    url.pathname = '/setup'
+    url.pathname = '/earn'
     // search is preserved automatically via clone()
     return NextResponse.redirect(url, 308)
   }

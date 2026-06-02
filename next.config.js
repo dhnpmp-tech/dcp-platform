@@ -95,8 +95,9 @@ const nextConfig = {
           // Keep /login on the proven v1 auth surface until /v2/auth can mint
           // renter, provider, and admin sessions with the same production tokens.
           { source: '/', destination: '/v2/home', permanent: false },
-          { source: '/setup', destination: '/v2/provider-setup', permanent: false },
-          { source: '/renter/register', destination: '/v2/setup', permanent: false },
+          { source: '/setup', destination: '/v2/setup', permanent: false },
+          { source: '/earn', destination: '/v2/provider-setup', permanent: false },
+          { source: '/renter/register', destination: '/setup', permanent: false },
           { source: '/docs', destination: '/v2/docs', permanent: false },
         ]
       : [];
@@ -106,7 +107,7 @@ const nextConfig = {
       // Homepage "Start Building" banner + any stale refs → the live model catalog
       { source: '/models', destination: '/marketplace/models', permanent: false },
       // Provider activation funnel (4 call sites link here) → the real onboarding entry
-      { source: '/provider-onboarding', destination: '/setup', permanent: false },
+      { source: '/provider-onboarding', destination: '/earn', permanent: false },
       // Draft/legal docs sometimes cross-link /legal/terms; canonical effective terms live at /terms
       { source: '/legal/terms', destination: '/terms', permanent: false },
     ];

@@ -29,7 +29,7 @@ export default function DocsPage() {
         <div className="links">
           <Link href="/v2/home"><Bi en="Home" ar="الرئيسية" /></Link>
           <Link href="/v2/auth"><Bi en="Console" ar="لوحة التحكم" /></Link>
-          <a href="#"><Bi en="API status" ar="حالة الواجهة" /></a>
+          <Link href="/status"><Bi en="API status" ar="حالة الواجهة" /></Link>
           <button
             type="button"
             className="dx-langpill"
@@ -47,7 +47,7 @@ export default function DocsPage() {
         {/* Left nav */}
         <nav className="dx-nav">
           <div className="sec"><Bi en="Get started" ar="ابدأ هنا" /></div>
-          <a href="#" className="on"><Bi en="Introduction" ar="مقدمة" /></a>
+          <a href="#intro" className="on"><Bi en="Introduction" ar="مقدمة" /></a>
           <a href="#quickstart"><Bi en="Quickstart" ar="بداية سريعة" /></a>
           <a href="#auth"><Bi en="Authentication" ar="المصادقة" /></a>
           <a href="#billing"><Bi en="Billing & tokens" ar="الفوترة والرموز" /></a>
@@ -62,19 +62,19 @@ export default function DocsPage() {
           <a href="#rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></a>
           <a href="#residency"><Bi en="Data residency" ar="إقامة البيانات" /></a>
           <div className="sec"><Bi en="SDKs" ar="حِزم التطوير" /></div>
-          <a href="#"><Bi en="Python" ar="بايثون" /></a>
-          <a href="#"><Bi en="Node.js" ar="Node.js" /></a>
-          <a href="#"><Bi en="cURL / REST" ar="cURL / REST" /></a>
+          <a href="#python-sdk"><Bi en="Python" ar="بايثون" /></a>
+          <a href="#node-sdk"><Bi en="Node.js" ar="Node.js" /></a>
+          <a href="#curl-rest"><Bi en="cURL / REST" ar="cURL / REST" /></a>
         </nav>
 
         {/* Content */}
         <main className="dx-main">
           <span className="dx-eyebrow">§ <Bi en="Get started" ar="ابدأ هنا" /></span>
-          <h1><Bi en="The DCP API." ar="واجهة DCP." /></h1>
+          <h1 id="intro"><Bi en="The DCP API." ar="واجهة DCP." /></h1>
           <p className="lead">
             <Bi
-              en="One OpenAI-compatible endpoint, served from inside the Kingdom. If you’ve used the OpenAI SDK, you already know how to use DCP — change the base URL and the key, and you’re running Arabic-first inference on KSA-resident hardware, billed per token in Riyal."
-              ar="نقطة نهاية واحدة متوافقة مع OpenAI، تُقدَّم من داخل المملكة. إن كنت قد استخدمت حزمة OpenAI، فأنت تعرف كيف تستخدم DCP — غيّر عنوان القاعدة والمفتاح، وستشغّل استدلالاً عربياً أولاً على عتاد مقيم بالسعودية، يُحسب لكل رمز بالريال."
+              en="OpenAI-compatible chat completions and model discovery, served from inside the Kingdom. If you’ve used the OpenAI SDK, you already know the core flow — change the base URL and the key, and you’re running Arabic-first inference on KSA-resident hardware, billed per token in Riyal."
+              ar="إكمالات محادثة واكتشاف نماذج بتوافق OpenAI، تُقدَّم من داخل المملكة. إن كنت قد استخدمت حزمة OpenAI، فأنت تعرف المسار الأساسي — غيّر عنوان القاعدة والمفتاح، وستشغّل استدلالاً عربياً أولاً على عتاد مقيم بالسعودية، يُحسب لكل رمز بالريال."
             />
           </p>
 
@@ -83,8 +83,8 @@ export default function DocsPage() {
             <p>
               <code>https://api.dcp.sa/v1</code>{' '}
               <Bi
-                en="— drop-in compatible with the OpenAI chat, embeddings, and rerank routes."
-                ar="— متوافق مباشرة مع مسارات المحادثة والتضمينات وإعادة الترتيب في OpenAI."
+                en="— drop-in compatible with the OpenAI chat-completions route. Model catalog and RAG endpoints are documented separately below."
+                ar="— متوافق مباشرة مع مسار إكمالات المحادثة في OpenAI. كتالوج النماذج ومسارات RAG موثقة أدناه."
               />
             </p>
           </div>
@@ -92,8 +92,8 @@ export default function DocsPage() {
           <h2 id="quickstart"><Bi en="Quickstart" ar="بداية سريعة" /></h2>
           <p>
             <Bi
-              en="Install the OpenAI SDK you already use, point it at DCP, and make your first call. Every request is billed per token against your wallet balance; new accounts start with SAR 20 of free credit."
-              ar="ثبّت حزمة OpenAI التي تستخدمها، وجّهها إلى DCP، وأجرِ أول طلب لك. يُحسب كل طلب لكل رمز من رصيد محفظتك؛ تبدأ الحسابات الجديدة برصيد مجاني قدره ٢٠ ريالاً."
+              en="Install the OpenAI SDK you already use, point it at DCP, and make your first call. Every request is billed per token against your wallet balance; new renter accounts start with SAR 100 of platform credit."
+              ar="ثبّت حزمة OpenAI التي تستخدمها، وجّهها إلى DCP، وأجرِ أول طلب لك. يُحسب كل طلب لكل رمز من رصيد محفظتك؛ تبدأ حسابات المستأجر الجديدة برصيد منصة قدره ١٠٠ ريال."
             />
           </p>
 
@@ -114,11 +114,12 @@ export default function DocsPage() {
           </div>
 
           <div className={qsTab === 'py' ? 'code-pane on' : 'code-pane'} data-t="py">
-            <pre className="code"><span className="k">from</span> openai <span className="k">import</span> OpenAI
+            <pre className="code"><span className="k">import</span> os
+<span className="k">from</span> openai <span className="k">import</span> OpenAI
 
 client = <span className="n">OpenAI</span>(
     base_url=<span className="s">{'"https://api.dcp.sa/v1"'}</span>,
-    api_key=<span className="s">{'"sk_live_..."'}</span>,
+    api_key=os.environ[<span className="s">{'"DCP_KEY"'}</span>],
 )
 
 resp = client.chat.completions.create(
@@ -159,7 +160,7 @@ resp = client.chat.completions.create(
               ar=". المفاتيح مقيّدة لكل مساحة عمل؛ استخدم مفتاحاً منفصلاً لكل خدمة حتى تتمكن من إبطال أحدها دون التأثير على البقية."
             />
           </p>
-          <pre className="code"><span className="k">Authorization:</span> Bearer sk_live_8f3a…c721</pre>
+          <pre className="code"><span className="k">Authorization:</span> Bearer $DCP_KEY</pre>
 
           <h2 id="billing"><Bi en="Billing & tokens" ar="الفوترة والرموز" /></h2>
           <p>
@@ -252,15 +253,62 @@ resp = client.chat.completions.create(
 
           <h2 id="embeddings"><Bi en="Embeddings" ar="التضمينات" /></h2>
           <p>
-            <code>POST /v1/embeddings</code>
+            <code>GET /api/models/catalog?task=embedding</code>
             <Bi
-              en=" — turn text into vectors for search and retrieval. Strong on mixed Arabic/English corpora."
-              ar=" — حوّل النص إلى متجهات للبحث والاسترجاع. قوي على المتون المختلطة عربي/إنجليزي."
+              en=" — standalone OpenAI-compatible embeddings are not exposed yet. Discover available embedding models through the catalog and use the managed RAG bundle for retrieval workflows."
+              ar=" — مسار تضمينات مستقل بتوافق OpenAI غير متاح بعد. اكتشف نماذج التضمين المتاحة عبر الكتالوج واستخدم حزمة RAG المُدارة لتدفقات الاسترجاع."
             />
           </p>
-          <pre className="code">$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/v1/embeddings</span> \
-   <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> \
-   <span className="k">-d</span> <span className="s">{`'{"model": "bge-m3", "input": "نص للفهرسة"}'`}</span></pre>
+          <pre className="code">$ <span className="k">curl</span> <span className="s">https://dcp.sa/api/models/catalog?task=embedding</span> \
+   <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span></pre>
+
+          <h2 id="rerank"><Bi en="Reranking" ar="إعادة الترتيب" /></h2>
+          <p>
+            <Bi
+              en="Reranking is available as part of the Arabic RAG bundle and model catalog. A standalone public /v1/rerank route is not exposed in this frontend yet, so applications should call the managed RAG flow or compose retrieval server-side."
+              ar="إعادة الترتيب متاحة ضمن حزمة RAG العربية وكتالوج النماذج. لا يوجد حالياً مسار عام مستقل /v1/rerank في هذه الواجهة، لذلك يجب استخدام تدفق RAG المُدار أو تركيب الاسترجاع من الخادم."
+            />
+          </p>
+
+          <h2 id="streaming"><Bi en="Streaming" ar="البث" /></h2>
+          <p>
+            <Bi
+              en="Set stream=true on /v1/chat/completions to receive server-sent events. The stream ends with data: [DONE]. If a provider fails after headers are sent, DCP emits a terminal error frame instead of crashing the response."
+              ar="اضبط stream=true على /v1/chat/completions لاستقبال أحداث من الخادم. ينتهي البث بـ data: [DONE]. إذا فشل مزوّد بعد إرسال الترويسات، ترسل DCP إطار خطأ نهائي بدلاً من كسر الاستجابة."
+            />
+          </p>
+
+          <h2 id="errors"><Bi en="Errors & limits" ar="الأخطاء والحدود" /></h2>
+          <p>
+            <Bi
+              en="DCP returns JSON error bodies. The important renter cases are 401 for missing/invalid keys, 402 insufficient_balance when the pre-flight estimate exceeds available balance, 404 for unavailable models, 429 for rate limits, and 503 when no verified provider can serve the model."
+              ar="تعيد DCP أجسام أخطاء بصيغة JSON. أهم حالات المستأجرين: 401 للمفاتيح المفقودة أو غير الصالحة، و402 insufficient_balance عندما يتجاوز تقدير ما قبل التنفيذ الرصيد المتاح، و404 للنماذج غير المتاحة، و429 لحدود المعدل، و503 عندما لا يوجد مزوّد موثّق قادر على خدمة النموذج."
+            />
+          </p>
+
+          <h2 id="rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></h2>
+          <p>
+            <Bi
+              en="Use the Arabic RAG model bundle for embeddings, reranking, and generation. The bundle endpoint reports whether BGE-M3, the reranker, and Arabic generation models are currently available."
+              ar="استخدم حزمة نماذج RAG العربية للتضمين وإعادة الترتيب والتوليد. يعرض مسار الحزمة ما إذا كانت BGE-M3 والمُعيد والنماذج العربية متاحة حالياً."
+            />
+          </p>
+          <pre className="code">$ <span className="k">curl</span> <span className="s">https://dcp.sa/api/models/bundles/arabic-rag</span></pre>
+
+          <h2 id="python-sdk"><Bi en="Python SDK" ar="حزمة Python" /></h2>
+          <p>
+            <Bi en="Use the official OpenAI Python SDK with DCP's base URL." ar="استخدم حزمة OpenAI الرسمية لـPython مع عنوان DCP." />
+          </p>
+
+          <h2 id="node-sdk"><Bi en="Node.js SDK" ar="حزمة Node.js" /></h2>
+          <p>
+            <Bi en="Use the official OpenAI JavaScript SDK and set baseURL to https://api.dcp.sa/v1." ar="استخدم حزمة OpenAI الرسمية لـJavaScript واضبط baseURL إلى https://api.dcp.sa/v1." />
+          </p>
+
+          <h2 id="curl-rest"><Bi en="cURL / REST" ar="cURL / REST" /></h2>
+          <p>
+            <Bi en="Every SDK call maps to HTTPS requests with Authorization: Bearer $DCP_KEY." ar="كل استدعاء SDK يقابله طلب HTTPS مع Authorization: Bearer $DCP_KEY." />
+          </p>
 
           <h2 id="arabic"><Bi en="Working in Arabic" ar="العمل بالعربية" /></h2>
           <p>
@@ -289,8 +337,8 @@ resp = client.chat.completions.create(
           <h2 id="residency"><Bi en="Data residency" ar="إقامة البيانات" /></h2>
           <p>
             <Bi
-              en="By default, your prompts, completions, and embeddings never leave the Kingdom. Frontier (cross-border) models stay disabled until you turn them on per workspace — and when you do, every such request is marked so you always know where your data went."
-              ar="افتراضياً، لا تغادر مطالباتك وإكمالاتك وتضميناتك المملكة أبداً. تبقى النماذج الحدودية (العابرة للحدود) معطّلة حتى تشغّلها لكل مساحة عمل — وعند ذلك، يُعلَّم كل طلب من هذا النوع لتعرف دائماً أين ذهبت بياناتك."
+              en="By default, your prompts, completions, and managed RAG artifacts stay in the Kingdom. Frontier (cross-border) models stay disabled until you turn them on per workspace — and when you do, every such request is marked so you always know where your data went."
+              ar="افتراضياً، تبقى مطالباتك وإكمالاتك ومواد RAG المُدارة داخل المملكة. تبقى النماذج الحدودية (العابرة للحدود) معطّلة حتى تشغّلها لكل مساحة عمل — وعند ذلك، يُعلَّم كل طلب من هذا النوع لتعرف دائماً أين ذهبت بياناتك."
             />
           </p>
         </main>
@@ -303,7 +351,11 @@ resp = client.chat.completions.create(
           <a href="#billing"><Bi en="Billing & tokens" ar="الفوترة والرموز" /></a>
           <a href="#chat"><Bi en="Chat completions" ar="إكمالات المحادثة" /></a>
           <a href="#embeddings"><Bi en="Embeddings" ar="التضمينات" /></a>
+          <a href="#rerank"><Bi en="Reranking" ar="إعادة الترتيب" /></a>
+          <a href="#streaming"><Bi en="Streaming" ar="البث" /></a>
+          <a href="#errors"><Bi en="Errors & limits" ar="الأخطاء والحدود" /></a>
           <a href="#arabic"><Bi en="Working in Arabic" ar="العمل بالعربية" /></a>
+          <a href="#rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></a>
           <a href="#residency"><Bi en="Data residency" ar="إقامة البيانات" /></a>
         </aside>
 

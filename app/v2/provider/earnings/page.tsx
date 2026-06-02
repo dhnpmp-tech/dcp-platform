@@ -770,9 +770,7 @@ export default function ProviderEarningsPage() {
                       </td>
                       <td style={{ textAlign: 'end' }}>
                         {p.inv ? (
-                          <Link className="inv" href="#">
-                            {p.inv} ↓
-                          </Link>
+                          <span className="inv">{p.inv}</span>
                         ) : (
                           <span className="when">—</span>
                         )}

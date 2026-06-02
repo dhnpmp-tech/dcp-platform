@@ -281,9 +281,9 @@ export default function V2ProviderSetup() {
           </span>
         </Link>
         <div className="right">
-          <a className="help" href="#">
+          <Link className="help" href="/support">
             <Bi en="Need help?" ar="تحتاج مساعدة؟" />
-          </a>
+          </Link>
           <div className="lang" id="lang">
             <button className={lang === 'en' ? 'on' : ''} onClick={() => lang !== 'en' && toggle()}>
               EN
@@ -404,15 +404,15 @@ export default function V2ProviderSetup() {
                   <span>
                     <Bi en="Didn't get it?" ar="لم يصلك؟" />
                   </span>{' '}
-                  <a
-                    href="#"
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault()
                       resetMagic()
                     }}
                   >
                     <Bi en="Resend or edit email" ar="إعادة الإرسال أو تعديل البريد" />
-                  </a>
+                  </button>
                 </div>
                 <Link
                   className="btn sec"
@@ -840,9 +840,9 @@ export default function V2ProviderSetup() {
                   ar="بالمتابعة فإنك توافق على التسوية الأسبوعية بالريال وطريقة تعاملنا مع البيانات، الموضحة في"
                 />
               </span>{' '}
-              <a href="#">
+              <Link href="/privacy">
                 <Bi en="Privacy Policy" ar="سياسة الخصوصية" />
-              </a>
+              </Link>
               . <span><Bi en="Your data stays in the Kingdom." ar="بياناتك تبقى داخل المملكة." /></span>
             </div>
 
@@ -906,9 +906,9 @@ export default function V2ProviderSetup() {
             </p>
 
             <div className="os-dl">
-              <a
+              <button
+                type="button"
                 className="os detected"
-                href="#"
                 onClick={(e) => {
                   e.preventDefault()
                   runSeq('windows')
@@ -919,10 +919,10 @@ export default function V2ProviderSetup() {
                 <span className="tag">
                   <Bi en="✓ your device" ar="✓ جهازك" />
                 </span>
-              </a>
-              <a
+              </button>
+              <button
+                type="button"
                 className="os"
-                href="#"
                 onClick={(e) => {
                   e.preventDefault()
                   runSeq('mac')
@@ -930,10 +930,10 @@ export default function V2ProviderSetup() {
               >
                 <div className="nm">macOS</div>
                 <div className="meta">.dmg · Apple Silicon</div>
-              </a>
-              <a
+              </button>
+              <button
+                type="button"
                 className="os"
-                href="#"
                 onClick={(e) => {
                   e.preventDefault()
                   runSeq('linux')
@@ -941,7 +941,7 @@ export default function V2ProviderSetup() {
               >
                 <div className="nm">Linux</div>
                 <div className="meta">.deb / script</div>
-              </a>
+              </button>
             </div>
 
             <p className="hint" style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--mut)', marginTop: 18 }}>

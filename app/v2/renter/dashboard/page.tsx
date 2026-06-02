@@ -626,10 +626,11 @@ export default function RenterDashboardPage() {
 
             <div className={`qs-body${qsTab === 'py' ? ' on' : ''}`} data-t="py">
               <pre className="code">
-                <span className="k">from</span> openai <span className="k">import</span> OpenAI
+                <span className="k">import</span> os
+                {'\n'}<span className="k">from</span> openai <span className="k">import</span> OpenAI
                 {'\n\n'}client = <span className="n">OpenAI</span>(
                 {'\n    '}base_url=<span className="s">&quot;https://api.dcp.sa/v1&quot;</span>,
-                {'\n    '}api_key=<span className="s">&quot;sk_live_...&quot;</span>,
+                {'\n    '}api_key=<span className="s">os.environ[&quot;DCP_KEY&quot;]</span>,
                 {'\n'})
                 {'\n\n'}resp = client.chat.completions.create(
                 {'\n    '}model=<span className="s">&quot;allam-7b&quot;</span>,

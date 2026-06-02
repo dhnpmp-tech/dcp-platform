@@ -796,7 +796,7 @@ export default function ProviderDashboardPage() {
                 </div>
               </div>
               <Link
-                href="/v2/provider/jobs"
+                href="/v2/provider/earnings"
                 style={{
                   fontFamily: 'var(--mono)',
                   fontSize: '11px',
@@ -807,7 +807,7 @@ export default function ProviderDashboardPage() {
                   paddingBottom: '2px',
                 }}
               >
-                <Bi en="View all jobs →" ar="عرض كل المهام →" />
+                <Bi en="View earnings →" ar="عرض الأرباح →" />
               </Link>
             </div>
             <table className="jobs-tbl">

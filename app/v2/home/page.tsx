@@ -23,6 +23,7 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }>
   { href: '/v2/home', en: 'Overview', ar: 'نظرة عامة', on: true },
   { href: '#marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '#agents', en: 'Agents', ar: 'الوكلاء' },
+  { href: '/earn', en: 'Earn', ar: 'اكسب' },
   { href: '#pricing', en: 'Pricing', ar: 'الأسعار' },
   { href: '/v2/docs', en: 'Docs', ar: 'التوثيق' },
 ]
@@ -145,7 +146,7 @@ export default function V2HomePage() {
           <Link className="btn small ghost" href="/v2/auth">
             <Bi en="Sign in" ar="دخول" />
           </Link>
-          <Link className="btn small primary" href="/v2/setup">
+          <Link className="btn small primary" href="/setup">
             <Bi en="Start free →" ar="ابدأ مجاناً ←" />
           </Link>
           <button
@@ -200,7 +201,7 @@ export default function V2HomePage() {
             </span>
             <span className="arrow">→</span>
           </Link>
-          <a className="mm-link" href="#">
+          <a className="mm-link" href="#quickstart">
             <span className="n">02</span>
             <span className="body">
               <span className="t">
@@ -238,7 +239,7 @@ export default function V2HomePage() {
               </span>
               <span className="ar">السوق</span>
               <span className="s">
-                <Bi en="40+ KSA providers" ar="٤٠+ مزوّد" />
+                <Bi en="KSA provider mesh" ar="شبكة مزوّدين داخل المملكة" />
               </span>
             </span>
             <span className="arrow">→</span>
@@ -273,7 +274,7 @@ export default function V2HomePage() {
           <div className="mm-section">
             <Bi en="Trust" ar="الثقة" />
           </div>
-          <a className="mm-link" href="#">
+          <a className="mm-link" href="#residency">
             <span className="n">07</span>
             <span className="body">
               <span className="t">
@@ -289,7 +290,7 @@ export default function V2HomePage() {
         </div>
         <div className="mm-foot">
           <span className="stamp">DC Power Solutions · CR 7053667775</span>
-          <Link href="/v2/setup" className="btn small primary">
+          <Link href="/setup" className="btn small primary">
             <Bi en="Start free →" ar="ابدأ مجاناً ←" />
           </Link>
         </div>
@@ -408,10 +409,10 @@ export default function V2HomePage() {
                 />
               </p>
               <div className="ctas">
-                <a className="btn primary lg magnet" href="#">
+                <Link className="btn primary lg magnet" href="/v2/renter/playground">
                   <Bi en="Try the live demo →" ar="جرّب التجربة الحية ←" />
-                </a>
-                <Link className="btn ghost lg" href="/v2/setup">
+                </Link>
+                <Link className="btn ghost lg" href="/setup">
                   <Bi en="Start free · no card" ar="ابدأ مجاناً · بلا بطاقة" />
                 </Link>
               </div>
@@ -589,13 +590,13 @@ export default function V2HomePage() {
           <div className="mp-foot">
             <span>
               <Bi
-                en="Live capacity across the KSA-resident provider network"
-                ar="سعة متاحة عبر شبكة المزوّدين داخل المملكة"
+                en="Illustrative capacity classes for the KSA-resident provider network"
+                ar="فئات سعة توضيحية لشبكة المزوّدين داخل المملكة"
               />
             </span>
-            <a href="#marketplace">
-              <Bi en="Browse the full marketplace →" ar="تصفّح السوق كاملاً ←" />
-            </a>
+            <Link href="/marketplace/models">
+              <Bi en="Browse live models →" ar="تصفّح النماذج الحية ←" />
+            </Link>
           </div>
 
           <div className="callout" style={{ marginTop: 32 }}>
@@ -613,7 +614,7 @@ export default function V2HomePage() {
       </section>
 
       {/* ═══════════════ THREE LAYERS ═══════════════ */}
-      <section>
+      <section id="residency">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
@@ -710,7 +711,7 @@ export default function V2HomePage() {
               </ul>
               <div className="end">
                 <span>dcp.sa / setup</span>
-                <Link href="/v2/provider-setup">
+                <Link href="/earn">
                   <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
                 </Link>
               </div>
@@ -766,7 +767,7 @@ export default function V2HomePage() {
                 <Link className="btn ghost" href="/v2/docs">
                   <Bi en="Read the API docs →" ar="اقرأ توثيق الواجهة ←" />
                 </Link>
-                <Link className="btn ghost" href="/v2/setup">
+                <Link className="btn ghost" href="/setup">
                   <Bi en="Get your API key" ar="احصل على مفتاحك" />
                 </Link>
               </div>
@@ -1221,7 +1222,7 @@ export default function V2HomePage() {
       </section>
 
       {/* ═══════════════ ARABIC WEDGE ═══════════════ */}
-      <section>
+      <section id="enterprise">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
@@ -1251,9 +1252,9 @@ export default function V2HomePage() {
                 />
               </p>
               <div style={{ marginTop: 28 }}>
-                <a className="btn primary" href="#">
+                <Link className="btn primary" href="/v2/renter/playground">
                   <Bi en="Run an Arabic question →" ar="نفّذ سؤالاً عربياً ←" />
-                </a>
+                </Link>
               </div>
             </div>
             <div className="wedge-q">
@@ -1374,7 +1375,7 @@ export default function V2HomePage() {
                 </li>
               </ul>
               <div className="cta">
-                <Link className="btn primary lg" href="/v2/setup">
+                <Link className="btn primary lg" href="/setup">
                   <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
                 </Link>
                 <Link className="btn ghost" href="/v2/auth">
@@ -1470,7 +1471,7 @@ export default function V2HomePage() {
                 </li>
               </ul>
               <div className="cta">
-                <Link className="btn primary lg" href="/v2/provider-setup">
+                <Link className="btn primary lg" href="/earn">
                   <Bi en="Apply as provider →" ar="تقدّم كمزوّد ←" />
                 </Link>
                 <Link className="btn ghost" href="/v2/provider/dashboard">
@@ -1636,12 +1637,12 @@ export default function V2HomePage() {
               <li><Bi en="99.95% SLA · credits + escalation path" ar="SLA ٩٩٫٩٥٪ · أرصدة + مسار تصعيد" /></li>
             </ul>
             <div className="ctas">
-              <a className="btn primary lg" href="#">
+              <Link className="btn primary lg" href="/support">
                 <Bi en="Talk to sales →" ar="تواصل مع المبيعات ←" />
-              </a>
-              <a className="btn ghost lg" href="#">
+              </Link>
+              <Link className="btn ghost lg" href="/trust-center">
                 <Bi en="Compliance pack" ar="حزمة الامتثال" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -1671,13 +1672,13 @@ export default function V2HomePage() {
             />
           </p>
           <div className="ctas">
-            <Link className="btn primary lg" href="/v2/setup">
+            <Link className="btn primary lg" href="/setup">
               <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
             </Link>
-            <a className="btn ghost lg" href="#">
+            <Link className="btn ghost lg" href="/v2/renter/playground">
               <Bi en="Try the demo" ar="جرّب التجربة" />
-            </a>
-            <Link className="btn ghost lg" href="/v2/provider-setup">
+            </Link>
+            <Link className="btn ghost lg" href="/earn">
               <Bi en="Or apply as provider" ar="أو تقدّم كمزوّد" />
             </Link>
           </div>
@@ -1723,7 +1724,7 @@ export default function V2HomePage() {
             <ul>
               <li><Link href="/v2/docs"><Bi en="API docs" ar="توثيق الواجهة" /></Link></li>
               <li><a href="#quickstart"><Bi en="Quick start" ar="بدء سريع" /></a></li>
-              <li><Link href="/v2/setup"><Bi en="Get an API key" ar="احصل على مفتاح" /></Link></li>
+              <li><Link href="/setup"><Bi en="Get an API key" ar="احصل على مفتاح" /></Link></li>
               <li><Link href="/v2/renter/playground"><Bi en="Playground" ar="بيئة الاختبار" /></Link></li>
             </ul>
           </div>
@@ -1731,7 +1732,7 @@ export default function V2HomePage() {
           <div>
             <h4><Bi en="Renters" ar="المستخدمون" /></h4>
             <ul>
-              <li><Link href="/v2/setup"><Bi en="Sign up" ar="اشترك" /></Link></li>
+              <li><Link href="/setup"><Bi en="Sign up" ar="اشترك" /></Link></li>
               <li><Link href="/v2/auth"><Bi en="Sign in" ar="دخول" /></Link></li>
               <li><Link href="/v2/renter/dashboard"><Bi en="Console" ar="لوحة التحكم" /></Link></li>
               <li><Link href="/v2/renter/usage"><Bi en="Usage" ar="الاستخدام" /></Link></li>
@@ -1747,7 +1748,7 @@ export default function V2HomePage() {
               <li><Link href="/v2/provider/rigs"><Bi en="Rigs" ar="الأجهزة" /></Link></li>
               <li><Link href="/v2/provider/earnings"><Bi en="Earnings" ar="الأرباح" /></Link></li>
               <li><Link href="/v2/provider/payouts"><Bi en="Payouts" ar="المدفوعات" /></Link></li>
-              <li><a href="#"><Bi en="Tiers" ar="الفئات" /></a></li>
+              <li><a href="#pricing"><Bi en="Tiers" ar="الفئات" /></a></li>
             </ul>
           </div>
         </div>
