@@ -79,29 +79,30 @@ const nextConfig = {
         destination: `${backendUrl}/api/jobs/from-template`,
       },
     ];
-    // Flip switch: set DCP_V2_LIVE=1 in the Vercel env to serve the v2 redesign
-    // at the site root. Off by default → the current site is untouched. Instant
-    // rollback by clearing the env var. (v2 is always reachable at /v2.)
-    const v2Live = process.env.DCP_V2_LIVE === '1';
     return {
-      beforeFiles: v2Live
-        ? [
-            // Public-site cutover: marketing/docs/onboarding entry routes serve
-            // their v2 equivalents. Keep /login on the proven v1 auth surface
-            // until /v2/auth is wired for renter, provider, and admin login; admin,
-            // monitor, and intelligence pages all depend on that token flow.
-            { source: '/', destination: '/v2/home' },
-            { source: '/setup', destination: '/v2/provider-setup' },
-            { source: '/renter/register', destination: '/v2/setup' },
-            { source: '/docs', destination: '/v2/docs' },
-          ]
-        : [],
       afterFiles: proxyRewrites,
     };
   },
   // Internal link fixes — these source paths have no page and previously 404'd.
   async redirects() {
+    // Flip switch: set DCP_V2_LIVE=1 in the Vercel env to serve the v2 redesign
+    // from the public entry routes. Use redirects instead of internal rewrites:
+    // the v2 shell is intentionally mounted under /v2, and rendering it through
+    // a different browser pathname causes hydration mismatches in production.
+    const v2Live = process.env.DCP_V2_LIVE === '1';
+    const v2CutoverRedirects = v2Live
+      ? [
+          // Keep /login on the proven v1 auth surface until /v2/auth can mint
+          // renter, provider, and admin sessions with the same production tokens.
+          { source: '/', destination: '/v2/home', permanent: false },
+          { source: '/setup', destination: '/v2/provider-setup', permanent: false },
+          { source: '/renter/register', destination: '/v2/setup', permanent: false },
+          { source: '/docs', destination: '/v2/docs', permanent: false },
+        ]
+      : [];
+
     return [
+      ...v2CutoverRedirects,
       // Homepage "Start Building" banner + any stale refs → the live model catalog
       { source: '/models', destination: '/marketplace/models', permanent: false },
       // Provider activation funnel (4 call sites link here) → the real onboarding entry
