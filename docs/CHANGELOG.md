@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Removed placeholder renter API keys and demo-only playground responses from v2 setup/playground; v2 setup now reveals only a verified renter key and v2 playground sends real `/v1/chat/completions` requests with the stored renter key.
 - ✅ Wired `/v2/auth` to the live renter/provider magic-link and API-key login contracts, disabled unimplemented Nafath/Google buttons as coming soon, and pointed legal links at the live terms/privacy pages.
 - ✅ Kept `/login` on the proven v1 auth flow during `DCP_V2_LIVE` cutover so admin, monitor, and intelligence operators are not sent to the unwired `/v2/auth` form before v2 auth is production-ready.
 

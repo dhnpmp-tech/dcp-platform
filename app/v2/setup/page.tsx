@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { getApiBase, getRenterKey } from '@/lib/api'
 import './setup.css'
 
 const STEPS = [
@@ -43,13 +44,47 @@ const USE_CASES = [
   },
 ]
 
-const API_KEY = 'dcp-renter-XXXXXXXXXXXXXXXXXXXX'
-
 export default function SetupPage() {
   const { lang, toggle } = useV2()
   const [step, setStep] = useState(1)
   const [useCase, setUseCase] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [workspaceName, setWorkspaceName] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [keyStatus, setKeyStatus] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading')
+  const [keyError, setKeyError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const key = getRenterKey()
+    if (!key) {
+      setKeyStatus('missing')
+      return
+    }
+
+    ;(async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/renters/me?key=${encodeURIComponent(key)}`, {
+          headers: { 'x-renter-key': key },
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Stored renter key could not be verified.')
+        }
+        if (cancelled) return
+        setApiKey(key)
+        setKeyStatus('ready')
+      } catch (err) {
+        if (cancelled) return
+        setKeyError(err instanceof Error ? err.message : 'Could not verify renter key.')
+        setKeyStatus('error')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const go = (n: number) => {
     setStep(n)
@@ -57,8 +92,9 @@ export default function SetupPage() {
   }
 
   const copyKey = () => {
+    if (!apiKey) return
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(API_KEY).catch(() => {})
+      navigator.clipboard.writeText(apiKey).catch(() => {})
     }
     setCopied(true)
   }
@@ -154,7 +190,8 @@ export default function SetupPage() {
           <input
             type="text"
             placeholder={lang === 'ar' ? 'مثال: نكست ويف للتجارة' : 'e.g. NextWave Commerce'}
-            defaultValue=""
+            value={workspaceName}
+            onChange={(event) => setWorkspaceName(event.target.value)}
           />
         </div>
         <div className="field">
@@ -195,22 +232,53 @@ export default function SetupPage() {
             ar="انسخه الآن — لأسباب أمنية لن نعرض المفتاح كاملاً مجدداً. يمكنك إنشاء المزيد في أي وقت."
           />
         </p>
-        <div className="key-reveal">
-          <code>{API_KEY}</code>
-          <button className="copy" onClick={copyKey}>
-            {copied ? <Bi en="Copied" ar="تم النسخ" /> : <Bi en="Copy" ar="نسخ" />}
-          </button>
-        </div>
-        <p className="sub" style={{ marginTop: '8px', fontFamily: 'var(--mono)', fontSize: '11px' }}>
-          <Bi en="Stored as " ar="مُخزَّن باسم " />
-          <b style={{ color: 'var(--ink)' }}>production-server</b>
-          <Bi en=" · full scope · SAR 20 free credit applied" ar=" · نطاق كامل · رصيد مجاني 20 ريال مُطبَّق" />
-        </p>
+        {keyStatus === 'loading' && (
+          <div className="key-reveal">
+            <code>
+              <Bi en="Checking your session…" ar="جارٍ التحقق من جلستك…" />
+            </code>
+          </div>
+        )}
+        {keyStatus === 'ready' && (
+          <>
+            <div className="key-reveal">
+              <code>{apiKey}</code>
+              <button className="copy" onClick={copyKey}>
+                {copied ? <Bi en="Copied" ar="تم النسخ" /> : <Bi en="Copy" ar="نسخ" />}
+              </button>
+            </div>
+            <p className="sub" style={{ marginTop: '8px', fontFamily: 'var(--mono)', fontSize: '11px' }}>
+              <Bi
+                en="Stored locally as your renter API key. Create scoped production keys from the console after this first call."
+                ar="مُخزَّن محلياً كمفتاح API للمستأجر. أنشئ مفاتيح إنتاج محددة النطاق من الكونسول بعد أول طلب."
+              />
+            </p>
+          </>
+        )}
+        {keyStatus === 'missing' && (
+          <div className="callout err">
+            <Bi
+              en="Sign in or create a renter account first. DCP only reveals real keys after email verification."
+              ar="سجّل الدخول أو أنشئ حساب مستأجر أولاً. لا يعرض DCP المفاتيح الحقيقية إلا بعد التحقق من البريد."
+            />{' '}
+            <Link href="/v2/auth?role=renter&new&redirect=/v2/setup">
+              <Bi en="Continue to auth" ar="تابع إلى المصادقة" />
+            </Link>
+          </div>
+        )}
+        {keyStatus === 'error' && (
+          <div className="callout err">
+            {keyError}{' '}
+            <Link href="/v2/auth?role=renter&method=apikey&redirect=/v2/setup">
+              <Bi en="Sign in again" ar="سجّل الدخول مجدداً" />
+            </Link>
+          </div>
+        )}
         <div className="nav-row">
           <button className="btn-sec" onClick={() => go(2)}>
             <Bi en="← Back" ar="→ رجوع" />
           </button>
-          <button className="btn-pri" onClick={() => go(4)}>
+          <button className="btn-pri" onClick={() => go(4)} disabled={keyStatus !== 'ready'}>
             <Bi en="I’ve copied it →" ar="نسختُه →" />
           </button>
         </div>
@@ -234,7 +302,7 @@ export default function SetupPage() {
           <span className="s">https://api.dcp.sa/v1/chat/completions</span>
           {' \\\n   '}
           <span className="k">-H</span>{' '}
-          <span className="s">&quot;Authorization: Bearer sk_live_7f3a…&quot;</span>
+          <span className="s">&quot;Authorization: Bearer {apiKey || 'YOUR_DCP_RENTER_KEY'}&quot;</span>
           {' \\\n   '}
           <span className="k">-d</span>{' '}
           <span className="s">{`'{"model":"allam-7b","messages":[{"role":"user","content":"مرحبا"}]}'`}</span>

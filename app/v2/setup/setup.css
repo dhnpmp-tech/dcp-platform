@@ -42,6 +42,10 @@
   .key-reveal { background: #04050d; border: 1px solid var(--hair); padding: 16px 18px; display: flex; align-items: center; gap: 12px; margin: 18px 0; }
   .key-reveal code { flex: 1; font-family: var(--mono); font-size: 13px; color: var(--teal); word-break: break-all; }
   .key-reveal .copy { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 8px 14px; border: 1px solid var(--teal); background: transparent; color: var(--teal); cursor: pointer; border-radius: 2px; }
+  .btn-pri:disabled { cursor: not-allowed; opacity: .65; filter: grayscale(.35); }
+  .callout { border: 1px solid var(--hair); border-radius: 2px; padding: 12px 14px; margin: 18px 0; font-size: 13px; line-height: 1.55; color: var(--ink-2); background: var(--bg-2); }
+  .callout.err { border-color: color-mix(in oklab, var(--err) 60%, var(--hair)); color: #ffd5dd; }
+  .callout a { color: var(--teal); border-bottom: 1px solid var(--teal); }
 
   pre.code { margin: 18px 0 0; padding: 18px 20px; background: #04050d; color: #c9c5bd; border: 1px solid var(--hair); border-radius: 2px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; overflow-x: auto; }
   pre.code .k { color: var(--orange); } pre.code .s { color: var(--teal); } pre.code .c { color: var(--mut); }
