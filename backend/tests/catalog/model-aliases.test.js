@@ -20,9 +20,10 @@ describe('model-aliases: canonical mapping', () => {
     expect(Object.isFrozen(DASH_TO_CANONICAL)).toBe(true);
   });
 
-  test('every alias maps to a colon-form canonical', () => {
+  test('every alias maps to a distinct canonical', () => {
     for (const [alias, canonical] of Object.entries(DASH_TO_CANONICAL)) {
-      expect(canonical).toContain(':');
+      expect(typeof canonical).toBe('string');
+      expect(canonical.length).toBeGreaterThan(0);
       expect(alias).not.toBe(canonical);
     }
   });
@@ -34,12 +35,20 @@ describe('model-aliases: canonical mapping', () => {
     expect(CANONICAL_TO_ALIASES.get('qwen3.5:35b-a3b')).toEqual(
       expect.arrayContaining(['qwen3.5-35b-a3b', 'qwen/qwen3.5-35b-a3b-gptq-int4']),
     );
+    expect(CANONICAL_TO_ALIASES.get('qwen2.5vl:3b')).toEqual(
+      expect.arrayContaining(['qwen2.5vl-3b', 'qwen2.5-vl-3b', 'qwen/qwen2.5-vl-3b-instruct']),
+    );
+    expect(CANONICAL_TO_ALIASES.get('bge-m3')).toEqual(
+      expect.arrayContaining(['baai/bge-m3']),
+    );
   });
 
   test('getCanonicalModelId returns canonical for known alias', () => {
     expect(getCanonicalModelId('qwen3-30b-a3b')).toBe('qwen3:30b-a3b');
     expect(getCanonicalModelId('QWEN3-30B-A3B')).toBe('qwen3:30b-a3b');
     expect(getCanonicalModelId('  qwen3-30b-a3b  ')).toBe('qwen3:30b-a3b');
+    expect(getCanonicalModelId('Qwen/Qwen2.5-VL-3B-Instruct')).toBe('qwen2.5vl:3b');
+    expect(getCanonicalModelId('BAAI/bge-m3')).toBe('bge-m3');
   });
 
   test('getCanonicalModelId returns input unchanged for unknown IDs', () => {
@@ -98,6 +107,29 @@ describe('model-aliases: deduplicateModelAliases', () => {
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('qwen3:30b-a3b');
     expect(out[0].provider_count).toBe(6);
+  });
+
+  test('collapses Qwen2.5-VL aliases into the catalog canonical', () => {
+    const input = [
+      { id: 'qwen2.5vl:3b', provider_count: 1 },
+      { id: 'Qwen/Qwen2.5-VL-3B-Instruct', provider_count: 2 },
+      { id: 'qwen2.5-vl-3b', provider_count: 1 },
+    ];
+    const out = deduplicateModelAliases(input);
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('qwen2.5vl:3b');
+    expect(out[0].provider_count).toBe(4);
+  });
+
+  test('collapses BGE HF ID into bge-m3 when both are present', () => {
+    const input = [
+      { id: 'bge-m3', provider_count: 1 },
+      { id: 'BAAI/bge-m3', provider_count: 2 },
+    ];
+    const out = deduplicateModelAliases(input);
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe('bge-m3');
+    expect(out[0].provider_count).toBe(3);
   });
 
   test('treats non-numeric provider_count as zero', () => {
