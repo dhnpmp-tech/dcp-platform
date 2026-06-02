@@ -17,6 +17,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 
 ### Documentation
 
+- Synced the deployed `/docs/openapi.yaml` public spec copy with the maintained `docs/openapi.yaml` refund-request API documentation.
 - Removed obsolete duplicate OpenAPI YAML files and retargeted API guide links to the maintained `docs/openapi.yaml` spec.
 - Added OpenAPI coverage for renter refund requests, the admin payments audit queue, and refund approve/reject actions.
 - Rewrote the root `README.md` as a clean platform overview for GitHub visitors.
