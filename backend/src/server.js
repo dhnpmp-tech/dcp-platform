@@ -1,7 +1,7 @@
 // DC1 Provider Onboarding Backend Server
-// Auto-load .env BEFORE anything reads process.env. Under `pm2 -lc` the inherited
-// environment is stripped, so without this the backend boots with no secrets /
-// NODE_ENV (prod regression fix 2026-05-13; reconciled into git 2026-05-30).
+// Auto-load .env BEFORE anything reads process.env. Under `pm2 -lc`, inherited
+// environment can be stripped, so this keeps runtime config loading consistent
+// across deploy paths (prod regression fix 2026-05-13; reconciled into git 2026-05-30).
 require('dotenv').config();
 
 const express = require('express');
