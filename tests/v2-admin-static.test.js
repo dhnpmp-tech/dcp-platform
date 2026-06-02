@@ -18,6 +18,8 @@ assert(page.includes('agentMode'), 'v2 admin should model agent permission class
 assert(page.includes('Guarded write'), 'v2 admin should expose guarded-write policy language');
 assert(page.includes('Task envelope'), 'v2 admin should describe the future agent action envelope');
 assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
+assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
+assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
 assert(!page.includes("router.push('/login"), 'v2 admin should not route missing operators to the old login page');
 
 assert(auth.includes("redirect=/v2/admin"), 'v2 auth admin link should land on the v2 admin command center');

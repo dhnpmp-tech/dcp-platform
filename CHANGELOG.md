@@ -14,6 +14,13 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 21:30 UTC — [PR #517](https://github.com/dhnpmp-tech/dcp-platform/pull/517) — `fix(v2): stop prefetching legacy admin links`
+
+Included:
+- Disabled Next.js prefetching on legacy `/admin` fallback links from `/v2/admin` so the live command center does not emit harmless RSC fallback console errors.
+- Kept the legacy admin console reachable for guarded operations while leaving v2-native links on normal navigation behavior.
+- Added a static regression to keep legacy admin links classified and non-prefetching.
+
 ### 21:08 UTC — [PR #516](https://github.com/dhnpmp-tech/dcp-platform/pull/516) — `feat(v2): add admin command center`
 
 Included:
