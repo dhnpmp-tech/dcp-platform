@@ -15,6 +15,7 @@
 
 ### Billing — atomic settlement (foolproofing keystone #2)
 - **Inference settlement is now atomic and idempotent.** `v1.js` no longer uses the legacy `debitRenterSafe` (removed); every completed inference settles through `billingService.settleInferenceOnce(db._db, …)` in a single `db.transaction()` keyed by `request_id`: idempotency claim → subscription-credit drain → row-count-guarded PAYG debit that **throws + rolls back on shortfall** → provider credit (single 75/25 `splitCost` source) → `usage_events` row. Closes the silent-revenue-leak P0 — a shortfall can no longer 0-row no-op into free inference.
+- **Queued `/v1/chat/completions` fallback no longer pre-debits.** Job creation now only queues the pending job after the pre-flight balance gate; successful queued completions settle once through `settleInferenceOnce`, matching direct proxy and stream paths. This avoids double-charging successful queued jobs and avoids unreconciled debits on queued failure/timeout.
 - **Zero-token completions are no longer billed as free.** When a provider (e.g. Ollama non-stream) omits a `usage` block, cost falls back to a per-minute estimate instead of debiting 0.
 - **Deliver-once-but-flag on shortfall** — if the renter can't cover already-shipped tokens, the event is recorded `unbilled` (never a silent zero-debit) so the next request is gated, and auto-top-up is triggered. The legacy `openrouter_usage_ledger` receipt is still written for the renter dashboard via a `request_id`-UNIQUE-collision no-op (no double-credit).
 
