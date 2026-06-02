@@ -6,7 +6,8 @@ import { useV2, Bi } from '@/app/v2/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
 import './playground.css'
 
-// ── Mock data (illustrative, from the prototype) ──────────────
+const HALALA_PER_SAR = 100
+
 interface NavItem {
   k: string
   ic: string
@@ -25,7 +26,7 @@ const NAV: NavSection[] = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', href: '/v2/renter/dashboard' },
       { k: 'pg', ic: '▷', label: 'Playground', href: '/v2/renter/playground' },
-      { k: 'keys', ic: '⚷', label: 'API keys', href: '/v2/renter/keys', bd: '3' },
+      { k: 'keys', ic: '⚷', label: 'API keys', href: '/v2/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', href: '/v2/renter/usage' },
     ],
   },
@@ -53,16 +54,6 @@ interface ModelOption {
   price?: string
 }
 
-// Fallback model list (illustrative, from the prototype). Replaced at runtime
-// by the live catalog when /v1/models is reachable.
-const MODELS: ModelOption[] = [
-  { id: 'allam-7b', name: 'allam-7b', price: '↻' },
-  { id: 'jais-13b', name: 'jais-13b' },
-  { id: 'falcon-h1-7b', name: 'falcon-h1-7b' },
-  { id: 'bge-m3', name: 'bge-m3' },
-  { id: 'qwen-2.5-72b', name: 'qwen-2.5-72b' },
-]
-
 // Shape returned by the OpenAI-compatible /v1/models endpoint (subset).
 interface CatalogModelRaw {
   id?: string
@@ -72,8 +63,27 @@ interface CatalogModelRaw {
   provider_count?: number
 }
 
-// Default wallet balance shown before/without a live fetch (SAR).
-const FALLBACK_BALANCE_SAR = 2184.52
+type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
+
+interface RenterAccount {
+  name?: string
+  email?: string
+  organization?: string
+  balance_halala?: number
+}
+
+interface RenterMeResponse {
+  renter?: RenterAccount
+}
+
+interface RenterBalanceResponse {
+  balance_halala?: number
+  balance_sar?: number
+  held_halala?: number
+  held_sar?: number
+  total_spent_halala?: number
+  total_spent_sar?: number
+}
 
 const SAMPLE_RTL_STYLE: CSSProperties = {
   padding: '10px 12px',
@@ -110,37 +120,32 @@ interface SessionStats {
   costSar: number
 }
 
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: 'seed-user',
-    role: 'user',
-    ar: true,
-    roleLabel: 'You · Arabic',
-    content: 'اشرح لي زكاة المال بطريقة بسيطة وأعطني مثال.',
-  },
-  {
-    id: 'seed-assistant',
-    role: 'assistant',
-    ar: true,
-    roleLabel: 'allam-7b · 1,482 tok · 1.2s',
-    content: (
-      <>
-        زكاة المال فريضة شرعية تجب على من بلغ ماله النصاب وحال عليه الحول الكامل. النصاب في النقود
-        يعادل قيمة 85 جراماً من الذهب أو 595 جراماً من الفضة. مقدار الزكاة 2.5% من المال المدّخر.
-        <br />
-        <br />
-        مثال: إذا كان لديك 100,000 ريال ومرّ عليها سنة هجرية كاملة دون أن تقلّ عن النصاب، فالواجب
-        2,500 ريال زكاة.
-      </>
-    ),
-  },
-]
-
 const TEMP_STEP = 0.1
 const MAX_TOKEN_STEP = 128
+const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function isArabicText(value: string): boolean {
   return /[؀-ۿ]/.test(value)
+}
+
+function halalaToSar(halala: number | null | undefined): number | undefined {
+  return typeof halala === 'number' && Number.isFinite(halala) ? halala / HALALA_PER_SAR : undefined
+}
+
+function fmtSar(sar: number | null | undefined): string {
+  return typeof sar === 'number' && Number.isFinite(sar) ? sarFmt.format(sar) : '—'
+}
+
+function initials(name?: string, email?: string): string {
+  const source = (name || email || 'DCP').trim()
+  return source.charAt(0).toUpperCase()
+}
+
+async function readJson<T>(url: string, headers: HeadersInit, optional = false): Promise<T | null> {
+  const res = await fetch(url, { headers, cache: 'no-store' })
+  if (optional && res.status === 404) return null
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+  return (await res.json()) as T
 }
 
 export default function PlaygroundPage() {
@@ -150,18 +155,21 @@ export default function PlaygroundPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── playground controls ──
-  const [models, setModels] = useState<ModelOption[]>(MODELS)
-  const [model, setModel] = useState('allam-7b')
+  const [models, setModels] = useState<ModelOption[]>([])
+  const [model, setModel] = useState('')
+  const [catalogState, setCatalogState] = useState<CatalogState>('loading')
   const [tempRaw, setTempRaw] = useState(7) // 0..20 -> /10
   const [maxTokens, setMaxTokens] = useState(1024)
   const [topPRaw, setTopPRaw] = useState(100) // 0..100 -> /100
   const [stream, setStream] = useState(true)
 
-  // ── wallet balance (real when a renter key is present, else mock) ──
-  const [balanceSar, setBalanceSar] = useState<number>(FALLBACK_BALANCE_SAR)
+  // ── live renter shell ──
+  const [renter, setRenter] = useState<RenterAccount | null>(null)
+  const [balance, setBalance] = useState<RenterBalanceResponse | null>(null)
+  const [accountState, setAccountState] = useState<'missing-key' | 'loading' | 'ready' | 'error'>('loading')
 
   const [draft, setDraft] = useState('ما الفرق بين زكاة المال وزكاة الفطر؟')
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isSending, setIsSending] = useState(false)
   const [requestError, setRequestError] = useState('')
   const [stats, setStats] = useState<SessionStats>({
@@ -180,12 +188,16 @@ export default function PlaygroundPage() {
     [models, model],
   )
 
-  // Wallet balance split into whole + .fraction parts (matches the markup).
-  const balanceWhole = Math.floor(balanceSar)
-  const balanceFraction = Math.round((balanceSar - balanceWhole) * 100)
-    .toString()
-    .padStart(2, '0')
-  const balanceWholeLabel = balanceWhole.toLocaleString('en-US')
+  const accountName = renter?.organization || renter?.name || renter?.email || 'Renter account'
+  const accountSub = renter?.email ||
+    (accountState === 'missing-key'
+      ? 'Sign in with a renter API key'
+      : accountState === 'error'
+        ? 'Account unavailable'
+        : 'Loading account')
+  const balanceSar = balance?.balance_sar ?? halalaToSar(balance?.balance_halala ?? renter?.balance_halala)
+  const heldSar = balance?.held_sar ?? halalaToSar(balance?.held_halala)
+  const totalSpentSar = balance?.total_spent_sar ?? halalaToSar(balance?.total_spent_halala)
 
   function updateAssistantMessage(id: string, patch: Partial<ChatMessage>) {
     setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)))
@@ -195,6 +207,13 @@ export default function PlaygroundPage() {
     const text = draft.trim()
     if (!text || isSending) return
     const key = getRenterKey()
+    if (!model) {
+      const message = lang === 'ar'
+        ? 'لا يوجد نموذج متاح حالياً من كتالوج DCP المباشر.'
+        : 'No serving model is currently available from the live DCP catalog.'
+      setRequestError(message)
+      return
+    }
     const ar = isArabicText(text)
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -228,6 +247,7 @@ export default function PlaygroundPage() {
     const startedAt = performance.now()
     let fullContent = ''
     let outputTokens = 0
+    let requestCostSar = 0
 
     try {
       const res = await fetch('/v1/chat/completions', {
@@ -279,6 +299,8 @@ export default function PlaygroundPage() {
                 updateAssistantMessage(assistantId, { content: fullContent })
               }
               if (chunk.usage?.completion_tokens) outputTokens = chunk.usage.completion_tokens
+              const sarTotal = Number(chunk.usage?.pricing?.sar_total ?? chunk.usage?.pricing?.sar)
+              if (Number.isFinite(sarTotal)) requestCostSar = sarTotal
             } catch {
               // Ignore malformed SSE keepalive lines and continue streaming.
             }
@@ -288,6 +310,8 @@ export default function PlaygroundPage() {
         const data = await res.json()
         fullContent = data.choices?.[0]?.message?.content || ''
         outputTokens = data.usage?.completion_tokens || Math.max(1, Math.ceil(fullContent.length / 4))
+        const sarTotal = Number(data.usage?.pricing?.sar_total ?? data.usage?.pricing?.sar)
+        if (Number.isFinite(sarTotal)) requestCostSar = sarTotal
         updateAssistantMessage(assistantId, { content: fullContent || (lang === 'ar' ? 'لا توجد استجابة.' : 'No response returned.') })
       }
 
@@ -297,7 +321,7 @@ export default function PlaygroundPage() {
         inputTokens: prev.inputTokens + inputTokens,
         outputTokens: prev.outputTokens + outputTokens,
         elapsedSeconds,
-        costSar: prev.costSar,
+        costSar: prev.costSar + requestCostSar,
       }))
       updateAssistantMessage(assistantId, {
         roleLabel: `${selectedModelName} · ${outputTokens.toLocaleString('en-US')} tok · ${elapsedSeconds.toFixed(1)}s`,
@@ -326,25 +350,14 @@ export default function PlaygroundPage() {
     }
   }
 
-  // ── live-counter jitter (cosmetic), gated for reduced motion ──
-  const [inputTokens, setInputTokens] = useState(248)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    if (mq.matches) return
-    const id = window.setInterval(() => {
-      setInputTokens((prev) => prev + Math.round((Math.random() - 0.4) * 3))
-    }, 2600)
-    return () => window.clearInterval(id)
-  }, [])
-
   // ── live model catalog (OpenAI-compatible /v1/models, same source as v1) ──
-  // Falls back to the prototype MODELS list when the endpoint is unreachable.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('https://api.dcp.sa/v1/models')
-        if (!res.ok) return
+        setCatalogState('loading')
+        const res = await fetch('/v1/models', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`Catalog request failed: ${res.status}`)
         const data: unknown = await res.json()
         const raw = ((): CatalogModelRaw[] => {
           if (Array.isArray(data)) return data as CatalogModelRaw[]
@@ -354,30 +367,23 @@ export default function PlaygroundPage() {
           return []
         })()
         const mapped: ModelOption[] = raw
+          .filter((m) => (m.provider_count ?? 0) > 0)
           .map((m) => ({
             id: m.id || m.model_id || '',
             name: m.name || m.display_name || m.id || m.model_id || '',
-            // Reuse the existing "available" affordance (↻) for online models.
-            price: (m.provider_count ?? 0) > 0 ? '↻' : undefined,
+            price: `${m.provider_count} live`,
           }))
           .filter((m) => m.id !== '')
-          // Online models first, then alphabetical (mirrors v1 sort).
-          .sort((a, b) => {
-            const ao = a.price ? 1 : 0
-            const bo = b.price ? 1 : 0
-            if (ao !== bo) return bo - ao
-            return a.name.localeCompare(b.name)
-          })
-        if (cancelled || mapped.length === 0) return
+          .sort((a, b) => a.name.localeCompare(b.name))
+        if (cancelled) return
         setModels(mapped)
-        // Keep current selection if still present, else pick first online/model.
-        setModel((prev) => {
-          if (mapped.some((m) => m.id === prev)) return prev
-          const firstOnline = mapped.find((m) => m.price)
-          return (firstOnline ?? mapped[0]).id
-        })
+        setCatalogState(mapped.length ? 'ready' : 'empty')
+        setModel((prev) => (mapped.some((m) => m.id === prev) ? prev : mapped[0]?.id || ''))
       } catch {
-        // Silently keep the fallback MODELS list.
+        if (cancelled) return
+        setModels([])
+        setModel('')
+        setCatalogState('error')
       }
     })()
     return () => {
@@ -385,24 +391,31 @@ export default function PlaygroundPage() {
     }
   }, [])
 
-  // ── real wallet balance (renter key required, else keep mock) ──
+  // ── real renter account + wallet balance ──
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getRenterKey()
-    if (!key) return
+    if (!key) {
+      setAccountState('missing-key')
+      return
+    }
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`${getApiBase()}/renters/me?key=${encodeURIComponent(key)}`, {
-          headers: { 'x-renter-key': key },
-        })
-        if (!res.ok) return
-        const data: { renter?: { balance_halala?: number } } = await res.json()
-        const halala = data.renter?.balance_halala
-        if (cancelled || halala == null) return
-        setBalanceSar(halala / 100)
+        setAccountState('loading')
+        const encodedKey = encodeURIComponent(key)
+        const headers = { 'x-renter-key': key }
+        const [meData, balanceData] = await Promise.all([
+          readJson<RenterMeResponse>(`${getApiBase()}/renters/me?key=${encodedKey}`, headers),
+          readJson<RenterBalanceResponse>(`${getApiBase()}/renters/balance?key=${encodedKey}`, headers, true),
+        ])
+        if (cancelled) return
+        setRenter(meData?.renter || null)
+        setBalance(balanceData)
+        setAccountState('ready')
       } catch {
-        // Silently keep the fallback balance.
+        if (cancelled) return
+        setAccountState('error')
       }
     })()
     return () => {
@@ -422,10 +435,10 @@ export default function PlaygroundPage() {
         </div>
         <div className="rt-ws">
           <button className="rt-ws-btn" title="Switch workspace">
-            <span className="av">N</span>
+            <span className="av">{initials(accountName, renter?.email)}</span>
             <span className="body">
-              <span className="nm">NextWave Commerce</span>
-              <span className="sub">acme-prod · 3 members</span>
+              <span className="nm">{accountName}</span>
+              <span className="sub">{accountSub}</span>
             </span>
             <span className="chev">⌄</span>
           </button>
@@ -435,23 +448,23 @@ export default function PlaygroundPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR {balanceWholeLabel}<span className="u">.{balanceFraction}</span>
+            SAR {fmtSar(balanceSar)}
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR 2.72</b>
+            <b>SAR {fmtSar(heldSar)}</b>
           </div>
           <div className="row">
             <span>
-              <Bi en="Burn · last 7 days" ar="الاستهلاك · آخر 7 أيام" />
+              <Bi en="Total spent" ar="إجمالي الإنفاق" />
             </span>
-            <b>SAR 412</b>
+            <b>SAR {fmtSar(totalSpentSar)}</b>
           </div>
-          <button className="topup">
+          <Link className="topup" href="/v2/renter/wallet">
             <Bi en="+ Top up" ar="+ شحن" />
-          </button>
+          </Link>
         </div>
         <nav className="rt-nav">
           {NAV.map((s) => (
@@ -473,10 +486,10 @@ export default function PlaygroundPage() {
           ))}
         </nav>
         <div className="rt-sb-foot">
-          <div className="av">F</div>
+          <div className="av">{initials(renter?.name || accountName, renter?.email)}</div>
           <div className="who">
-            Fatima Al-Harbi
-            <span className="e">fatima@nextwave.sa · Owner</span>
+            {renter?.name || accountName}
+            <span className="e">{renter?.email || 'Renter session required'}</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -502,7 +515,7 @@ export default function PlaygroundPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>NextWave Commerce</span>
+            <span>{accountName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Playground" ar="ساحة التجربة" />
@@ -542,6 +555,21 @@ export default function PlaygroundPage() {
                 <h4>
                   <Bi en="Model" ar="النموذج" />
                 </h4>
+                {catalogState === 'loading' && (
+                  <div className="pg-empty">
+                    <Bi en="Loading live model catalog..." ar="تحميل كتالوج النماذج المباشر..." />
+                  </div>
+                )}
+                {catalogState === 'empty' && (
+                  <div className="pg-empty">
+                    <Bi en="No serving models are available right now." ar="لا توجد نماذج عاملة متاحة حالياً." />
+                  </div>
+                )}
+                {catalogState === 'error' && (
+                  <div className="pg-error" role="alert">
+                    <Bi en="Could not load the live model catalog." ar="تعذر تحميل كتالوج النماذج المباشر." />
+                  </div>
+                )}
                 <div className="model-pick">
                   {models.map((m) => (
                     <label key={m.id}>
@@ -626,18 +654,27 @@ export default function PlaygroundPage() {
             {/* Middle: chat */}
             <div className="chat">
               <div className="chat-hd">
-                <div className="nm">{selectedModelName}</div>
+                <div className="nm">{selectedModelName || 'No live model'}</div>
                 <div className="meta">
                   <Bi en="Sample prompts available below" ar="نماذج جاهزة متوفرة أدناه" />
                 </div>
               </div>
               <div className="chat-body" id="chat-body">
-                {messages.map((m) => (
-                  <div key={m.id} className={`msg ${m.role}${m.ar ? ' ar' : ''}`}>
-                    <div className="role">{m.roleLabel}</div>
-                    <div className="content">{m.content}</div>
+                {messages.length === 0 ? (
+                  <div className="pg-empty">
+                    <Bi
+                      en="Send a prompt with a live renter key. Responses will appear here."
+                      ar="أرسل طلباً بمفتاح مستأجر مباشر. ستظهر الاستجابات هنا."
+                    />
                   </div>
-                ))}
+                ) : (
+                  messages.map((m) => (
+                    <div key={m.id} className={`msg ${m.role}${m.ar ? ' ar' : ''}`}>
+                      <div className="role">{m.roleLabel}</div>
+                      <div className="content">{m.content}</div>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="chat-input">
                 <textarea
@@ -656,7 +693,7 @@ export default function PlaygroundPage() {
                       <b style={{ color: 'var(--ink)' }}>⌘+↵</b> <Bi en="to send" ar="للإرسال" />
                     </span>
                   </div>
-                  <button className="send" onClick={send} disabled={isSending}>
+                  <button className="send" onClick={send} disabled={isSending || !model}>
                     {isSending ? <Bi en="Sending…" ar="جارٍ الإرسال…" /> : <Bi en="Send" ar="إرسال" />}
                   </button>
                 </div>
@@ -698,7 +735,7 @@ export default function PlaygroundPage() {
                       <Bi en="Rate" ar="السعر" />
                     </span>
                     <b>
-                      <Bi en="SAR 0.26 / 1M tok" ar="SAR 0.26 / مليون رمز" />
+                      <Bi en="From response usage" ar="من بيانات استخدام الاستجابة" />
                     </b>
                   </div>
                 </div>
