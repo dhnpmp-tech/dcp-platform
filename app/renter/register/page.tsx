@@ -117,7 +117,7 @@ export default function RenterRegisterPage() {
         key: 'provider_onboarding',
         label: t('path_chooser.provider.label'),
         description: t('path_chooser.provider.desc'),
-        href: '/setup?source=renter_register_path_chooser&lane=provider_onboarding',
+        href: '/earn?source=renter_register_path_chooser&lane=provider_onboarding',
       },
       {
         key: 'enterprise_intake',

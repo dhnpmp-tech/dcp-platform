@@ -150,7 +150,7 @@
 
   /* Install */
   .os-dl { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
-  .os-dl .os { flex: 1; min-width: 150px; border: 1px solid var(--line); padding: 20px; text-align: center; text-decoration: none; color: var(--ink); transition: border-color .15s, background .15s; }
+  .os-dl .os { flex: 1; min-width: 150px; border: 1px solid var(--line); padding: 20px; text-align: center; text-decoration: none; color: var(--ink); transition: border-color .15s, background .15s; background: transparent; appearance: none; }
   .os-dl .os:hover { border-color: var(--pv); background: var(--pv-soft); }
   .os-dl .os.detected { border-color: var(--pv); background: var(--pv-soft); }
   .os-dl .os .nm { font-family: var(--serif); font-size: 19px; }
@@ -199,4 +199,4 @@
   .ml-wait p { font-size: 14px; color: var(--ink-2); margin: 10px auto 0; max-width: 38ch; line-height: 1.6; }
   .ml-wait .em { font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--bg-2); padding: 2px 8px; }
   .ml-wait .resend { font-family: var(--mono); font-size: 12px; color: var(--mut); margin-top: 18px; letter-spacing: .02em; }
-  .ml-wait .resend a { color: var(--pv); text-decoration: none; }
+  .ml-wait .resend a, .ml-wait .resend button { color: var(--pv); text-decoration: none; border: 0; background: transparent; padding: 0; font: inherit; letter-spacing: inherit; }

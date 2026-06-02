@@ -25,10 +25,13 @@ async function run() {
   const live = await loadConfig(true);
   const redirectSources = live.redirects.map((redirect) => redirect.source);
   const rewriteSources = (live.rewrites.beforeFiles || []).map((rewrite) => rewrite.source);
+  const redirectMap = new Map(live.redirects.map((redirect) => [redirect.source, redirect.destination]));
 
   assert(redirectSources.includes('/'), 'DCP_V2_LIVE should cut over the public home page');
-  assert(redirectSources.includes('/setup'), 'DCP_V2_LIVE should cut over setup to the v2 provider wizard');
-  assert(redirectSources.includes('/renter/register'), 'DCP_V2_LIVE should cut over renter registration to v2 setup');
+  assert.strictEqual(redirectMap.get('/setup'), '/v2/setup', 'public /setup should be the renter onboarding flow');
+  assert.strictEqual(redirectMap.get('/earn'), '/v2/provider-setup', 'public /earn should be the provider onboarding flow');
+  assert.strictEqual(redirectMap.get('/renter/register'), '/setup', 'legacy renter registration should land on public /setup');
+  assert.strictEqual(redirectMap.get('/provider-onboarding'), '/earn', 'legacy provider onboarding should land on public /earn');
   assert(redirectSources.includes('/docs'), 'DCP_V2_LIVE should cut over public docs');
   assert(!redirectSources.includes('/login'), 'DCP_V2_LIVE must not redirect /login before v2 auth can mint admin tokens');
   assert(!rewriteSources.includes('/'), 'DCP_V2_LIVE must not internally rewrite the home page because v2 is mounted under /v2');

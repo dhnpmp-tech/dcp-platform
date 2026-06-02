@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Cleaned the v2 public flow map: `/setup` is now renter onboarding, `/earn` is provider onboarding, legacy provider paths land on `/earn`, landing CTAs use those public URLs, `/v2` redirects to the real v2 home, and dashboard/docs link smoke no longer finds placeholder links or local 404s.
+- ✅ Tightened v2 docs navigation and API honesty: left-menu anchors now target real sections, API status links to `/status`, missing RAG/rerank/streaming/errors/SDK sections are present, starter credit copy matches pricing, and standalone embeddings/rerank are no longer documented as live OpenAI-compatible `/v1` endpoints.
 - ✅ Switched the `DCP_V2_LIVE` public cutover from internal rewrites to temporary redirects for `/`, `/setup`, `/renter/register`, and `/docs`, avoiding production hydration errors while keeping `/login` on the proven v1 auth route.
 - ✅ Fixed v2 renter usage table keys so usage-ledger rows without backend IDs no longer trigger React duplicate-key warnings during smoke tests.
 - ✅ Wired v2 renter playground to live renter account, balance, `/v1/models`, and `/v1/chat/completions` flows, removing prototype chat messages, seeded workspace identity, fake wallet totals, hardcoded API domain usage, fallback model lists, and fixed demo rate labels from `/v2/renter/playground`.
