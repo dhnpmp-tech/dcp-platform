@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/dcp-logo-horizontal.webp" alt="DCP - Decentralized Compute Platform" width="520" />
+<img src="public/dcp-logo.svg" alt="DCP - Decentralized Compute Platform" width="520" />
 
 ### GPU compute marketplace and control plane for Saudi Arabia and the GCC.
 

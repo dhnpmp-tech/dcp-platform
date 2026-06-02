@@ -32,6 +32,11 @@ This changelog is for repository, product, and release-level changes. Detailed e
 ### CI
 
 - Added disk cleanup before scheduled worker-image Docker builds so heavyweight vLLM/SDXL layers have enough GitHub runner headroom.
+- Uptime monitor sentinel inference now warns and alerts when skipped, auto-selects an online model for its smoke request, and fails after a missing sentinel renter key remains unresolved for 24 hours.
+
+### Repository
+
+- Swapped the README logo to the vector SVG asset so GitHub renders it sharply at large widths.
 
 ### Notes
 
