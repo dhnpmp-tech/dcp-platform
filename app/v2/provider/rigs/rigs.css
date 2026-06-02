@@ -135,6 +135,10 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .pv-h1-sub b { color: var(--ink); font-weight: 500; }
 
 .panel { background: var(--paper); border: 1px solid var(--hair); padding: 22px 24px; }
+.dash-state { border: 1px solid var(--hair); background: var(--paper); padding: 13px 15px; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+.dash-state.err { border-color: color-mix(in oklab, var(--err) 42%, var(--hair)); background: color-mix(in oklab, var(--err) 7%, var(--paper)); }
+.dash-state a { color: var(--ink); border-bottom: 1px solid var(--ink); text-decoration: none; }
+.empty-row { min-height: 90px; display: grid; place-items: center; color: var(--mut); font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-align: center; }
 .panel-hd { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--hair); margin-bottom: 20px; flex-wrap: wrap; }
 .panel-hd h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .panel-hd .seg { display: inline-flex; border: 1px solid var(--hair); border-radius: 2px; }
@@ -155,6 +159,7 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .rig-pip.earning { background: var(--teal); box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 22%, transparent); }
 .rig-pip.idle { background: var(--mut); }
 .rig-pip.paused { background: var(--orange); }
+.rig-pip.offline { background: var(--err); }
 .rig-name { font-family: var(--serif); font-size: 17px; letter-spacing: -.005em; color: var(--ink); vertical-align: middle; }
 .rig-gpu, .rig-os { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
 .rigs-tbl small { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 2px; letter-spacing: .04em; }
@@ -162,6 +167,7 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .rigs-tbl .stat.earning { color: var(--teal); }
 .rigs-tbl .stat.idle { color: var(--mut); }
 .rigs-tbl .stat.paused { color: var(--orange); }
+.rigs-tbl .stat.offline { color: var(--err); }
 .rigs-tbl .util, .rigs-tbl .temp, .rigs-tbl .uptime, .rigs-tbl .jobs { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
 .rigs-tbl .arrow { color: var(--mut); font-family: var(--mono); }
 .rigs-tbl .rig-row:hover .arrow, .rigs-tbl .rig-row.selected .arrow { color: var(--pv-accent); }

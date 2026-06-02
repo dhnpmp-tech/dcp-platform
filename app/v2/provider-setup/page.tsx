@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '../lib/i18n'
+import { getApiBase, getProviderKey } from '@/lib/api'
 import './provider-setup.css'
 
 // ── Earnings formula constants (illustrative MOCK data, per prototype) ──
@@ -14,11 +15,21 @@ const PER_HOUR = [1.15, 1.6, 2.2] as const
 const WEEKS_PER_MONTH = 4.33
 const PROVIDER_SHARE = 0.75
 const PLATFORM_SHARE = 0.25
-const VERIFY_DELAY_MS = 3200
 const INSTALL_STEP_DELAY_MS = 750
 const INSTALL_BASE_DELAY_MS = 300
 const COUNTER_INTERVAL_MS = 4000
-const INSTALL_KEY = 'curl -sSL https://dcp.sa/install | sh -s -- --key prov_8f3a…c721'
+
+type SetupOs = 'windows' | 'mac' | 'linux'
+type VerifyState = 'idle' | 'checking' | 'connected' | 'waiting' | 'error'
+
+function isVerifiedProviderStatus(status: string): boolean {
+  return ['online', 'connected', 'idle'].includes(status.toLowerCase())
+}
+
+function providerKeyFromStorage(): string {
+  if (typeof window === 'undefined') return ''
+  return getProviderKey() || ''
+}
 
 function roundTo10(n: number): number {
   return Math.round(n / 10) * 10
@@ -56,6 +67,10 @@ export default function V2ProviderSetup() {
   const [magicSent, setMagicSent] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [providerKey, setProviderKey] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
   const sentTo = email || 'you@example.sa'
 
   // step 3 — rate slider
@@ -68,10 +83,13 @@ export default function V2ProviderSetup() {
 
   // step 5 — install sequence
   const [seqShown, setSeqShown] = useState(0)
+  const [selectedOs, setSelectedOs] = useState<SetupOs>('linux')
   const seqTimers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   // step 6 — verify
-  const [verified, setVerified] = useState(false)
+  const [verifyState, setVerifyState] = useState<VerifyState>('idle')
+  const [providerStatus, setProviderStatus] = useState('')
+  const [verifyError, setVerifyError] = useState('')
 
   // live counter jitter (cosmetic)
   const [provCount, setProvCount] = useState(41)
@@ -85,17 +103,13 @@ export default function V2ProviderSetup() {
     return () => clearInterval(id)
   }, [reducedMotion])
 
-  // ── verify auto-resolve when on step 6 ──
   useEffect(() => {
-    if (step !== 6) return
-    setVerified(false)
-    if (reducedMotion) {
-      setVerified(true)
-      return
+    const key = providerKeyFromStorage()
+    if (key) {
+      setProviderKey(key)
+      setApiKeyInput(key)
     }
-    const id = setTimeout(() => setVerified(true), VERIFY_DELAY_MS)
-    return () => clearTimeout(id)
-  }, [step, reducedMotion])
+  }, [])
 
   // ── clean up install-sequence timers on unmount ──
   useEffect(() => {
@@ -112,10 +126,106 @@ export default function V2ProviderSetup() {
     }
   }, [])
 
-  const sendMagic = useCallback(() => setMagicSent(true), [])
+  const persistProviderKey = useCallback(async (key: string) => {
+    const clean = key.trim()
+    if (!clean) {
+      setAuthError(lang === 'ar' ? 'أدخل مفتاح المزوّد.' : 'Enter your provider API key.')
+      return false
+    }
+
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      const res = await fetch(`${getApiBase()}/providers/me?key=${encodeURIComponent(clean)}`, {
+        headers: { 'x-provider-key': clean },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.provider) throw new Error(data.error || 'Invalid provider API key.')
+      localStorage.setItem('dc1_provider_key', clean)
+      setProviderKey(clean)
+      setApiKeyInput(clean)
+      if (data.provider.name) setName(data.provider.name)
+      if (data.provider.email) setEmail(data.provider.email)
+      go(2)
+      return true
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Provider sign-in failed.')
+      return false
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [go, lang])
+
+  const sendMagic = useCallback(async () => {
+    setAuthError('')
+    if (!email.trim()) {
+      setAuthError(lang === 'ar' ? 'أدخل بريدك الإلكتروني.' : 'Enter your email.')
+      return
+    }
+    setAuthBusy(true)
+    try {
+      const res = await fetch(`${getApiBase()}/providers/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to send sign-in link.')
+      setMagicSent(true)
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Failed to send sign-in link.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [email, lang])
   const resetMagic = useCallback(() => setMagicSent(false), [])
 
-  const runSeq = useCallback(() => {
+  const checkProviderStatus = useCallback(async () => {
+    if (!providerKey) {
+      setVerifyState('error')
+      setVerifyError(lang === 'ar' ? 'سجّل الدخول بمفتاح المزوّد أولاً.' : 'Sign in with a provider key first.')
+      return
+    }
+    setVerifyState('checking')
+    setVerifyError('')
+    try {
+      const res = await fetch(`${getApiBase()}/providers/status?key=${encodeURIComponent(providerKey)}`, {
+        headers: { 'x-provider-key': providerKey },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not check provider status.')
+      const status = String(data.status || data.provider?.status || 'offline')
+      setProviderStatus(status)
+      setVerifyState(isVerifiedProviderStatus(status) ? 'connected' : 'waiting')
+    } catch (err) {
+      setVerifyState('error')
+      setVerifyError(err instanceof Error ? err.message : 'Could not check provider status.')
+    }
+  }, [lang, providerKey])
+
+  // ── verify against live provider status; never auto-resolve from a timer ──
+  useEffect(() => {
+    if (step !== 6 || !providerKey) return
+    void checkProviderStatus()
+    const id = window.setInterval(() => void checkProviderStatus(), 10000)
+    return () => window.clearInterval(id)
+  }, [checkProviderStatus, providerKey, step])
+
+  const siteBase = typeof window !== 'undefined' ? window.location.origin : 'https://dcp.sa'
+  const osParam = selectedOs === 'windows' ? 'windows' : selectedOs === 'mac' ? 'mac' : 'linux'
+  const setupPath = providerKey
+    ? `/api/providers/download/setup?key=${encodeURIComponent(providerKey)}&os=${encodeURIComponent(osParam)}`
+    : ''
+  const installCommand = providerKey
+    ? selectedOs === 'windows'
+      ? `iwr "${siteBase}${setupPath}" -OutFile dcp-setup.ps1; powershell -ExecutionPolicy Bypass -File .\\dcp-setup.ps1`
+      : `curl -fsSL "${siteBase}${setupPath}" -o dcp-setup.sh && bash dcp-setup.sh`
+    : 'Sign in with a provider API key to generate your installer command.'
+  const verified = verifyState === 'connected'
+
+  const runSeq = useCallback((os: SetupOs) => {
+    setSelectedOs(os)
+    if (!providerKey) return
     seqTimers.current.forEach((t) => clearTimeout(t))
     seqTimers.current = []
     setSeqShown(0)
@@ -127,13 +237,13 @@ export default function V2ProviderSetup() {
       const id = setTimeout(() => setSeqShown((s) => Math.max(s, i + 1)), INSTALL_BASE_DELAY_MS + i * INSTALL_STEP_DELAY_MS)
       seqTimers.current.push(id)
     }
-  }, [reducedMotion])
+  }, [providerKey, reducedMotion])
 
   const copyInstall = useCallback(() => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      void navigator.clipboard.writeText(INSTALL_KEY)
+      void navigator.clipboard.writeText(installCommand)
     }
-  }, [])
+  }, [installCommand])
 
   // ── earnings estimate (always a range, never a guarantee) ──
   const est = useMemo(() => {
@@ -242,8 +352,27 @@ export default function V2ProviderSetup() {
                   <input type="email" id="email" placeholder={emailPh} value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <button className="btn pri block" style={{ marginTop: 22 }} onClick={sendMagic}>
-                  <Bi en="Send magic link →" ar="أرسل الرابط السحري →" />
+                  {authBusy ? <Bi en="Sending…" ar="جارٍ الإرسال…" /> : <Bi en="Send magic link →" ar="أرسل الرابط السحري →" />}
                 </button>
+                <div className="field">
+                  <label>
+                    <Bi en="Already have a provider API key?" ar="لديك مفتاح مزوّد بالفعل؟" />
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="dcp-provider-..."
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                  />
+                </div>
+                <button className="btn sec block" style={{ marginTop: 12 }} onClick={() => void persistProviderKey(apiKeyInput)}>
+                  {authBusy ? <Bi en="Checking…" ar="جارٍ التحقق…" /> : <Bi en="Continue with API key →" ar="تابع بالمفتاح →" />}
+                </button>
+                {authError && (
+                  <div className="form-error" role="alert">
+                    {authError}
+                  </div>
+                )}
                 <div className="safe-line">
                   <span className="ic">🔒</span>
                   <span>
@@ -285,9 +414,13 @@ export default function V2ProviderSetup() {
                     <Bi en="Resend or edit email" ar="إعادة الإرسال أو تعديل البريد" />
                   </a>
                 </div>
-                <button className="btn sec" style={{ marginTop: 22 }} onClick={() => go(2)}>
-                  <Bi en="Simulate link tapped →" ar="محاكاة فتح الرابط →" />
-                </button>
+                <Link
+                  className="btn sec"
+                  style={{ marginTop: 22 }}
+                  href="/v2/auth?role=provider&method=apikey&redirect=/v2/provider-setup"
+                >
+                  <Bi en="Finish sign-in with API key →" ar="أكمل الدخول بالمفتاح →" />
+                </Link>
               </div>
             )}
           </div>
@@ -370,20 +503,20 @@ export default function V2ProviderSetup() {
                 <span className="t">
                   <Bi en="Operating system" ar="نظام التشغيل" />
                   <small>
-                    <Bi en="Windows 11 · supported" ar="ويندوز ١١ · مدعوم" />
+                    <Bi en="Windows, macOS, and Linux installers are available" ar="مثبّتات Windows وmacOS وLinux متاحة" />
                   </small>
                 </span>
-                <span className="v">Win 11</span>
+                <span className="v">DCP</span>
               </div>
               <div className="row ok">
                 <span className="ic">✓</span>
                 <span className="t">
                   <Bi en="Graphics card" ar="كرت الشاشة" />
                   <small>
-                    <Bi en="NVIDIA RTX series detected" ar="تم اكتشاف NVIDIA RTX" />
+                    <Bi en="The daemon reports your exact GPU after install" ar="يرسل الخادم المحلي نوع المعالج الدقيق بعد التثبيت" />
                   </small>
                 </span>
-                <span className="v">RTX 4090</span>
+                <span className="v">NVIDIA</span>
               </div>
               <div className="row ok">
                 <span className="ic">✓</span>
@@ -489,7 +622,7 @@ export default function V2ProviderSetup() {
             <div className="gpu-card">
               <div className="top">
                 <div className="nm">
-                  NVIDIA RTX 4090 <small>24 GB · Ada Lovelace · driver 552.22</small>
+                  <Bi en="Daemon-reported GPU" ar="المعالج كما يرسله الخادم المحلي" /> <small><Bi en="Exact model and VRAM appear after install" ar="يظهر النوع والذاكرة بعد التثبيت" /></small>
                 </div>
                 <span className="badge">
                   <Bi en="auto-detected" ar="اكتشاف تلقائي" />
@@ -578,8 +711,8 @@ export default function V2ProviderSetup() {
               </div>
               <p style={{ marginTop: 8 }}>
                 <Bi
-                  en="Real measured speed for an RTX 4090 on our most-requested Arabic models."
-                  ar="سرعة حقيقية مقاسة لـ RTX 4090 على أكثر النماذج العربية طلباً."
+                  en="Throughput depends on the GPU the daemon reports and the model class routed to it."
+                  ar="تعتمد الإنتاجية على المعالج الذي يرسله الخادم المحلي وفئة النموذج الموجّه إليه."
                 />
               </p>
             </div>
@@ -778,7 +911,7 @@ export default function V2ProviderSetup() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
-                  runSeq()
+                  runSeq('windows')
                 }}
               >
                 <div className="nm">Windows</div>
@@ -792,7 +925,7 @@ export default function V2ProviderSetup() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
-                  runSeq()
+                  runSeq('mac')
                 }}
               >
                 <div className="nm">macOS</div>
@@ -803,7 +936,7 @@ export default function V2ProviderSetup() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
-                  runSeq()
+                  runSeq('linux')
                 }}
               >
                 <div className="nm">Linux</div>
@@ -812,14 +945,19 @@ export default function V2ProviderSetup() {
             </div>
 
             <p className="hint" style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--mut)', marginTop: 18 }}>
-              <Bi en="Or paste this in your terminal — your key is already filled in:" ar="أو الصق هذا في الطرفية — مفتاحك مُدرج مسبقاً:" />
+              <Bi en="Or paste this in your terminal — generated from your provider key:" ar="أو الصق هذا في الطرفية — مُولّد من مفتاح المزوّد:" />
             </p>
             <div className="code-card">
-              <code>{INSTALL_KEY}</code>
-              <button className="copy" onClick={copyInstall}>
+              <code>{installCommand}</code>
+              <button className="copy" onClick={copyInstall} disabled={!providerKey}>
                 <Bi en="Copy" ar="نسخ" />
               </button>
             </div>
+            {!providerKey && (
+              <div className="form-error" role="alert">
+                <Bi en="Sign in with a provider API key before downloading an installer." ar="سجّل الدخول بمفتاح مزوّد قبل تنزيل المثبّت." />
+              </div>
+            )}
 
             <div className="seq" id="seq">
               <div className={`ln${seqShown >= 1 ? ' show' : ''}`} data-d="0">
@@ -833,11 +971,11 @@ export default function V2ProviderSetup() {
                 <span>
                   {lang === 'ar' ? (
                     <>
-                      تم اكتشاف <b>RTX 4090</b> · ٢٤ جيجابايت
+                      ينتظر DCP <b>تقرير المعالج</b> من الخادم المحلي
                     </>
                   ) : (
                     <>
-                      Detected <b>RTX 4090</b> · 24 GB
+                      Waiting for the daemon's <b>GPU report</b>
                     </>
                   )}
                 </span>
@@ -876,7 +1014,7 @@ export default function V2ProviderSetup() {
               <button className="btn sec" onClick={() => go(4)}>
                 <Bi en="← Back" ar="→ رجوع" />
               </button>
-              <button className="btn pri" onClick={() => go(6)}>
+              <button className="btn pri" onClick={() => { go(6); void checkProviderStatus() }} disabled={!providerKey}>
                 <Bi en="I've installed it →" ar="ثبّتُه →" />
               </button>
             </div>
@@ -934,6 +1072,20 @@ export default function V2ProviderSetup() {
                     ar="نستمع لنبض من التطبيق. عادةً يستغرق ثوانٍ بعد التثبيت."
                   />
                 </p>
+                <p className="status-note">
+                  {verifyState === 'checking' ? (
+                    <Bi en="Checking backend status…" ar="جارٍ التحقق من الحالة…" />
+                  ) : verifyError ? (
+                    verifyError
+                  ) : providerStatus ? (
+                    <Bi en={`Latest status: ${providerStatus}`} ar={`آخر حالة: ${providerStatus}`} />
+                  ) : (
+                    <Bi en="No daemon heartbeat has been observed yet." ar="لم تُرصد نبضة من الخادم المحلي بعد." />
+                  )}
+                </p>
+                <button className="btn sec" style={{ marginTop: 18 }} onClick={() => void checkProviderStatus()}>
+                  <Bi en="Check again" ar="تحقق مرة أخرى" />
+                </button>
               </div>
             )}
             {verified && (
@@ -942,19 +1094,19 @@ export default function V2ProviderSetup() {
                   <div className="core">✓</div>
                 </div>
                 <h2>
-                  <Bi en="You're live and earning." ar="أنت متصل وتكسب." />
+                  <Bi en="Your rig is connected." ar="جهازك متصل." />
                 </h2>
                 <p>
                   <Bi
-                    en="Connected · GPU detected · your first job is already routing to you."
-                    ar="متصل · تم اكتشاف المعالج · أول مهمة في طريقها إليك."
+                    en="Backend status is online or connected. You can now open the provider console and watch routing, earnings, and health."
+                    ar="حالة الخلفية متصلة أو نشطة. يمكنك الآن فتح لوحة المزوّد ومتابعة التوجيه والأرباح والصحة."
                   />
                 </p>
                 <div className="what-now">
                   <div className="row">
                     <span className="ic">✓</span>
                     <span>
-                      <Bi en="Your rig is in the console — watch it earn in real time." ar="جهازك في لوحة التحكم — شاهده يكسب فوراً." />
+                      <Bi en="Your rig is in the console — watch health, routing, and earnings there." ar="جهازك في لوحة التحكم — تابع الصحة والتوجيه والأرباح هناك." />
                     </span>
                   </div>
                   <div className="row">
@@ -997,10 +1149,13 @@ export default function V2ProviderSetup() {
                     <b style={{ color: 'var(--teal)' }}>
                       <Bi en="Connected" ar="متصل" />
                     </b>{' '}
-                    · <Bi en="earning now" ar="يكسب الآن" />
+                    · <Bi en="ready for routing" ar="جاهز للتوجيه" />
                   </>
                 ) : (
-                  <Bi en="Connecting…" ar="جارٍ الاتصال…" />
+                  <>
+                    <Bi en="Waiting" ar="بانتظار الاتصال" />
+                    {providerStatus ? ` · ${providerStatus}` : ''}
+                  </>
                 )}
               </p>
             </div>
