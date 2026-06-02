@@ -18,6 +18,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 ### Documentation
 
 - Removed obsolete duplicate OpenAPI YAML files and retargeted API guide links to the maintained `docs/openapi.yaml` spec.
+- Added OpenAPI coverage for renter refund requests, the admin payments audit queue, and refund approve/reject actions.
 - Rewrote the root `README.md` as a clean platform overview for GitHub visitors.
 - Refreshed the public pricing page with auto-top-up behavior, the 402 pre-flight balance gate, subscription discount math, and per-model-class token rates.
 - Rewrote `DEPLOYMENT.md`, `SECURITY.md`, and `docs/README.md` for public use.
