@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Wired v2 provider settings to real provider preferences, pause/resume, and resource-limit routes, removing prototype notification/routing/danger controls, fixed earnings, fake identity, and non-persistent settings from `/v2/provider/settings`.
 - ✅ Wired v2 provider profile to real-or-empty provider account, payout identity, earnings, GPU, wallet, and operational facts, removing fake identity fields, fake tier ladder, seeded IBAN/VAT values, and the non-persistent save form from `/v2/provider/profile`.
 - ✅ Wired v2 provider payouts to real-or-empty provider account, payout balance, withdrawal history, and withdrawal-request data, removing fake payout cycles, seeded bank account details, demo tax fields, fixed schedule controls, and hardcoded operator identity from `/v2/provider/payouts`.
 - ✅ Wired v2 provider earnings to real-or-empty provider identity, totals, daily history, withdrawals, and recent-job model data, removing prototype charts, fixed rig/model breakdowns, seeded payout rows, fake IBAN tails, and hardcoded operator identity from `/v2/provider/earnings`.
