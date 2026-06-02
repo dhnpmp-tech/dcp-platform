@@ -431,6 +431,30 @@ describe('GET /api/providers/model-catalog', () => {
     expect(item.provider_count).toBeGreaterThanOrEqual(1);
   });
 
+  test('provider_count matches semantic aliases from the shared model map', async () => {
+    const model = insertCatalogModel({
+      model_id: 'ALLaM-AI/ALLaM-7B-Instruct-preview',
+      display_name: 'ALLaM 7B Instruct Preview',
+      use_cases: JSON.stringify(['chat', 'arabic']),
+    });
+    const { id, apiKey } = await registerProvider();
+    await request(app)
+      .post(`/api/providers/${id}/online`)
+      .set('x-provider-key', apiKey)
+      .send({ loadedModels: ['allam-q4'], gpuModel: 'RTX 4090', vramGb: 24 });
+
+    db.prepare('UPDATE providers SET cached_models = ? WHERE id = ?').run(
+      JSON.stringify([{ model_id: 'allam-q4' }]),
+      id,
+    );
+
+    const res = await request(app).get('/api/providers/model-catalog');
+    expect(res.status).toBe(200);
+    const item = res.body.data.find((entry) => entry.id === model.model_id);
+    expect(item).toBeDefined();
+    expect(item.provider_count).toBeGreaterThanOrEqual(1);
+  });
+
   test('drops invalid optional fields that fail validation', async () => {
     const model = insertCatalogModel({
       model_id: 'catalog-invalid-optional-model',

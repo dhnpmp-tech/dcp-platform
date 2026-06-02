@@ -24,7 +24,7 @@ const {
   vllmStreamLimiter,
 } = rateLimiterMiddleware;
 const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
-const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId } = require('../lib/model-aliases');
+const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId, modelIdsMatch } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
 const subscriptionService = require('../services/subscriptionService');
@@ -1021,11 +1021,7 @@ function lookupProviderEnginesForModel(modelAlias) {
     }
     if (served.length === 0) continue;
 
-    const hasModel = served.some((m) =>
-      m === requestedLower ||
-      m.includes(requestedLower) ||
-      requestedLower.includes(m)
-    );
+    const hasModel = served.some((m) => modelIdsMatch(m, requestedLower));
     if (!hasModel) continue;
 
     const providerCols = { ...row };
@@ -1162,27 +1158,8 @@ function getCapableProviders(minVramMb, requestedModelId) {
       // Backward-compat: if the provider reports no cached_models at all,
       // fall through (we don't know what they have, so don't exclude).
       if (cached.length > 0) {
-        const hasModel = cached.some((m) =>
-          m === requestedLower ||
-          m.includes(requestedLower) ||
-          requestedLower.includes(m)
-        );
-        // Loose-match fallback: handle the case where the requested id
-        // differs from the cached id only in punctuation / quant suffix.
-        // Example: requested "qwen3:30b-a3b" vs cached
-        // "qwen/qwen3-30b-a3b-gptq-int4" — colon-vs-slash breaks substring
-        // match, but they refer to the same model.
-        const looseKey = (s) =>
-          String(s)
-            .toLowerCase()
-            .replace(/[\/:_\-\s.]/g, '')
-            .replace(/(gptq|awq|gguf|int4|int8|fp16|fp8|bf16|q4km|q4ks|q5km|q5ks|q6k|q8|km|ks)/g, '');
-        const wantLoose = looseKey(requestedLower);
-        const hasLoose = wantLoose.length >= 4 && cached.some((m) => {
-          const c = looseKey(m);
-          return c && (c === wantLoose || c.includes(wantLoose) || wantLoose.includes(c));
-        });
-        if (!hasModel && !hasLoose) continue;
+        const hasModel = cached.some((m) => modelIdsMatch(m, requestedLower));
+        if (!hasModel) continue;
       }
     }
     capable.push(p);

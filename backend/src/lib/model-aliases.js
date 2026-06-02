@@ -77,6 +77,65 @@ function getCanonicalModelId(modelId) {
   return DASH_TO_CANONICAL[lowered] || modelId;
 }
 
+function looseModelKey(modelId) {
+  const stripped = String(modelId || '')
+    .toLowerCase()
+    .replace(/[\/:_\-\s.]/g, '')
+    .replace(/(gptq|awq|gguf|int4|int8|fp16|fp8|bf16|q4km|q4ks|q5km|q5ks|q6k|q8|km|ks)/g, '');
+  return stripped.length >= 4 ? stripped : '';
+}
+
+function normalizeModelKey(modelId) {
+  if (typeof modelId !== 'string') return null;
+  const cleaned = modelId.toLowerCase().trim();
+  return cleaned || null;
+}
+
+function modelMatchKeys(modelId) {
+  const raw = normalizeModelKey(modelId);
+  if (!raw) return [];
+  const canonical = normalizeModelKey(getCanonicalModelId(raw));
+  return [...new Set([raw, canonical].filter(Boolean))];
+}
+
+function modelIdsMatch(candidateModelId, requestedModelId) {
+  const candidateKeys = modelMatchKeys(candidateModelId);
+  const requestedKeys = modelMatchKeys(requestedModelId);
+  if (candidateKeys.length === 0 || requestedKeys.length === 0) return false;
+
+  for (const candidate of candidateKeys) {
+    for (const requested of requestedKeys) {
+      if (
+        candidate === requested ||
+        candidate.includes(requested) ||
+        requested.includes(candidate)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  for (const candidate of candidateKeys) {
+    const candidateLoose = looseModelKey(candidate);
+    if (!candidateLoose) continue;
+    for (const requested of requestedKeys) {
+      const requestedLoose = looseModelKey(requested);
+      if (
+        requestedLoose &&
+        (
+          candidateLoose === requestedLoose ||
+          candidateLoose.includes(requestedLoose) ||
+          requestedLoose.includes(candidateLoose)
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 /**
  * Given an array of OpenAI-compat model objects (with `id` and
  * `provider_count`), collapse dash-form aliases into their canonical
@@ -153,5 +212,7 @@ module.exports = {
   DASH_TO_CANONICAL,
   CANONICAL_TO_ALIASES,
   getCanonicalModelId,
+  modelIdsMatch,
+  looseModelKey,
   deduplicateModelAliases,
 };
