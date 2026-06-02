@@ -294,6 +294,64 @@ components:
           format: date-time
           nullable: true
 
+    PaymentRefundRequest:
+      type: object
+      properties:
+        request_id:
+          type: string
+          example: rfr_6f2a2f3a8b4c9d0e1f2a3b4c
+        payment_id:
+          type: string
+          example: pay_bt_6f2a2f3a8b4c9d0e1f2a3b4c
+        moyasar_id:
+          type: string
+          nullable: true
+        renter_id:
+          type: integer
+        renter_name:
+          type: string
+          nullable: true
+        renter_email:
+          type: string
+          format: email
+          nullable: true
+        amount_halala:
+          type: integer
+        amount_sar:
+          type: number
+        reason:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, processing, approved, rejected]
+        requested_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_by:
+          type: string
+          nullable: true
+        admin_note:
+          type: string
+          nullable: true
+        moyasar_refund_id:
+          type: string
+          nullable: true
+        payment_amount_sar:
+          type: number
+          nullable: true
+        payment_status:
+          type: string
+          nullable: true
+        payment_created_at:
+          type: string
+          format: date-time
+          nullable: true
+
 paths:
 
   # ─── Providers ──────────────────────────────────────────────────────────────
@@ -520,6 +578,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Providers]
+      summary: Delete provider account (PDPL right to erasure)
+      description: |
+        Permanently deletes the authenticated provider's account and personal
+        data. Required under Saudi Arabia's Personal Data Protection Law (PDPL).
+
+        **Preconditions:**
+        - No jobs may be in `running` status (daemon must be stopped)
+        - No pending withdrawal requests
+
+        Earnings history is anonymised (provider ID replaced with `[deleted]`)
+        rather than erased to preserve billing audit trail required by law.
+        This action is **irreversible**.
+      security:
+        - ProviderApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: string
+                  enum: ["DELETE_MY_ACCOUNT"]
+                  description: Must be the literal string `DELETE_MY_ACCOUNT`
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: Provider account permanently deleted. Earnings history anonymised.
+                  deleted_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Confirmation string missing or incorrect
+        '409':
+          description: Active jobs running or pending withdrawals exist
 
   /api/providers/heartbeat:
     post:
@@ -1290,6 +1398,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Renters]
+      summary: Delete renter account (PDPL right to erasure)
+      description: |
+        Permanently deletes the authenticated renter's account and associated
+        personal data. Required under Saudi Arabia's Personal Data Protection
+        Law (PDPL).
+
+        **Preconditions:**
+        - Account balance must be zero (withdraw or transfer first)
+        - No jobs may be in `running` or `queued` status
+
+        This action is **irreversible**. The API key is immediately invalidated.
+      security:
+        - RenterApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: string
+                  enum: ["DELETE_MY_ACCOUNT"]
+                  description: Must be the literal string `DELETE_MY_ACCOUNT`
+                reason:
+                  type: string
+                  description: Optional deletion reason (retained anonymously for regulatory reporting)
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: Account permanently deleted. All personal data erased.
+                  deleted_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Confirmation string missing or incorrect
+        '409':
+          description: Account has active jobs or non-zero balance. Resolve before deletion.
 
   /api/renters/available-providers:
     get:
@@ -2315,6 +2473,92 @@ paths:
                       total_paid_halala:
                         type: integer
 
+  /api/payments/{paymentId}/refund-request:
+    post:
+      tags: [Payments]
+      summary: Request admin review for a payment refund
+      description: |
+        Creates a renter-owned refund request for a paid payment. This route
+        never calls Moyasar and never changes balances; an admin must approve
+        or reject the request from the payments audit queue.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          description: Internal payment ID or Moyasar payment ID owned by the renter
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+                  example: Mistaken amount, please refund unused balance.
+                amount_halala:
+                  type: integer
+                  minimum: 1
+                  description: Optional partial refund amount; defaults to the full payment amount.
+      responses:
+        '201':
+          description: Refund request queued for admin review
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  payment_id:
+                    type: string
+                  amount_halala:
+                    type: integer
+                  amount_sar:
+                    type: number
+                  status:
+                    type: string
+                    enum: [pending]
+                  requested_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid reason or amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Payment not found or not owned by this renter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Payment is not refundable or an open request already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                  request_id:
+                    type: string
+                  status:
+                    type: string
+                  requested_at:
+                    type: string
+                    format: date-time
+
   # ─── Admin ──────────────────────────────────────────────────────────────────
 
   /api/admin/dashboard:
@@ -2803,6 +3047,81 @@ paths:
         '200':
           description: Revenue from Moyasar payments
 
+  /api/admin/payments/audit:
+    get:
+      tags: [Admin]
+      summary: Combined payments audit feed
+      description: |
+        Returns the admin payments work queue in one request: payout requests,
+        billing settlement attempts, auto-top-up attempts, and renter-created
+        refund requests.
+      security:
+        - AdminToken: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Maximum rows returned per section.
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, processing, paid, rejected]
+          description: Optional payout status filter.
+      responses:
+        '200':
+          description: Combined audit queues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payouts:
+                    type: array
+                    items:
+                      type: object
+                  billing:
+                    type: array
+                    items:
+                      type: object
+                  auto_topup:
+                    type: array
+                    items:
+                      type: object
+                  refund_requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentRefundRequest'
+                  summary:
+                    type: object
+                    properties:
+                      payouts:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      billing_attempts:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      auto_topup:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      refund_requests:
+                        type: object
+                        additionalProperties:
+                          type: integer
+        '401':
+          description: Admin token missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/admin/payments/{paymentId}/refund:
     post:
       tags: [Admin]
@@ -2830,6 +3149,130 @@ paths:
       responses:
         '200':
           description: Refund initiated
+
+  /api/admin/payments/refund-requests/{id}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve a renter refund request
+      description: |
+        Marks a pending refund request as processing, refunds the paid payment
+        internally or through Moyasar when configured, debits the renter balance,
+        and records an admin audit event.
+      security:
+        - AdminToken: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                admin_note:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Refund request approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  request_id:
+                    type: string
+                  payment_id:
+                    type: string
+                  refunded_halala:
+                    type: integer
+                  refunded_sar:
+                    type: number
+                  channel:
+                    type: string
+                    enum: [manual, moyasar]
+        '404':
+          description: Refund request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Refund request or payment is no longer approvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Moyasar refund failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/payments/refund-requests/{id}/reject:
+    post:
+      tags: [Admin]
+      summary: Reject a renter refund request
+      security:
+        - AdminToken: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Refund request rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  request_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [rejected]
+        '400':
+          description: Rejection reason is missing or too short
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Refund request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Refund request is no longer rejectable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/admin/escrow:
     get:
@@ -4751,107 +5194,3 @@ paths:
                   data_retention_policy:
                     type: string
                     example: Data is retained for 7 years per Saudi financial regulations.
-
-  /api/renters/me:
-    delete:
-      tags: [Renters]
-      summary: Delete renter account (PDPL right to erasure)
-      description: |
-        Permanently deletes the authenticated renter's account and associated
-        personal data. Required under Saudi Arabia's Personal Data Protection
-        Law (PDPL).
-
-        **Preconditions:**
-        - Account balance must be zero (withdraw or transfer first)
-        - No jobs may be in `running` or `queued` status
-
-        This action is **irreversible**. The API key is immediately invalidated.
-      security:
-        - RenterApiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [confirm]
-              properties:
-                confirm:
-                  type: string
-                  enum: ["DELETE_MY_ACCOUNT"]
-                  description: Must be the literal string `DELETE_MY_ACCOUNT`
-                reason:
-                  type: string
-                  description: Optional deletion reason (retained anonymously for regulatory reporting)
-      responses:
-        '200':
-          description: Account deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-                    example: Account permanently deleted. All personal data erased.
-                  deleted_at:
-                    type: string
-                    format: date-time
-        '400':
-          description: Confirmation string missing or incorrect
-        '409':
-          description: Account has active jobs or non-zero balance. Resolve before deletion.
-
-  /api/providers/me:
-    delete:
-      tags: [Providers]
-      summary: Delete provider account (PDPL right to erasure)
-      description: |
-        Permanently deletes the authenticated provider's account and personal
-        data. Required under Saudi Arabia's Personal Data Protection Law (PDPL).
-
-        **Preconditions:**
-        - No jobs may be in `running` status (daemon must be stopped)
-        - No pending withdrawal requests
-
-        Earnings history is anonymised (provider ID replaced with `[deleted]`)
-        rather than erased to preserve billing audit trail required by law.
-        This action is **irreversible**.
-      security:
-        - ProviderApiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [confirm]
-              properties:
-                confirm:
-                  type: string
-                  enum: ["DELETE_MY_ACCOUNT"]
-                  description: Must be the literal string `DELETE_MY_ACCOUNT`
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Account deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-                    example: Provider account permanently deleted. Earnings history anonymised.
-                  deleted_at:
-                    type: string
-                    format: date-time
-        '400':
-          description: Confirmation string missing or incorrect
-        '409':
-          description: Active jobs running or pending withdrawals exist
