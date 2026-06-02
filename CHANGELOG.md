@@ -24,6 +24,10 @@ This changelog is for repository, product, and release-level changes. Detailed e
 - Removed or rewrote stale links to removed internal docs, old `dc1-platform` repository URLs, and legacy `docs.dcp.sa` references.
 - Sanitized public brand docs and package metadata to use current DCP naming and links.
 
+### Backend
+
+- Added Qwen2.5-VL alias coverage and canonical provider-count matching so cached `bge-m3` / `qwen2.5vl` variants surface correctly in the model catalog.
+
 ### Notes
 
 - The private Codex/Claude onboarding briefing lives outside this repository at `~/.claude/ops-private/dcp/codex-onboarding/`.

@@ -17,6 +17,7 @@ VALUES
   ('inceptionai/jais-13b-chat', 'JAIS 13B Chat', 'jais', 24, 'bf16', 4096, '["arabic","chat","enterprise"]', 24, 27, 1, 'warm', datetime('now')),
   ('BAAI/bge-m3', 'BGE M3 Embeddings', 'embedding', 8, 'fp16', 8192, '["embedding","rag","retrieval"]', 8, 12, 1, 'warm', datetime('now')),
   ('BAAI/bge-reranker-v2-m3', 'BGE Reranker v2 M3', 'reranker', 8, 'fp16', 4096, '["reranking","rag","search"]', 8, 14, 1, 'warm', datetime('now')),
+  ('qwen2.5vl:3b', 'Qwen2.5-VL 3B Instruct', 'qwen', 8, 'int4', 32768, '["vision","chat","multimodal"]', 8, 15, 1, 'warm', datetime('now')),
   ('stabilityai/stable-diffusion-xl-base-1.0', 'Stable Diffusion XL Base 1.0', 'diffusion', 16, 'fp16', 2048, '["image-generation","creative","marketing"]', 16, 30, 1, 'warm', datetime('now'));
 
 -- Seed cost_rates for per-token billing (if cost_rates table exists)

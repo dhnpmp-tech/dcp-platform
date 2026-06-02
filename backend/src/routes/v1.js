@@ -24,7 +24,7 @@ const {
   vllmStreamLimiter,
 } = rateLimiterMiddleware;
 const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
-const { deduplicateModelAliases, DASH_TO_CANONICAL } = require('../lib/model-aliases');
+const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
 const subscriptionService = require('../services/subscriptionService');
@@ -773,10 +773,21 @@ router.get('/models', (req, res) => {
          AND COALESCE(endpoint_reachable, 0) = 1`
     ), db);
     const providerCountByModel = new Map();
+    const addProviderModelKeys = (modelId, out) => {
+      const rawKey = normalizeModelToken(modelId);
+      if (!rawKey) return;
+      const canonicalKey = normalizeModelToken(getCanonicalModelId(rawKey));
+      out.add(rawKey);
+      if (canonicalKey) out.add(canonicalKey);
+    };
     for (const p of onlineProviders) {
       const cached = parseCachedModels(p.cached_models);
+      const providerModelKeys = new Set();
       for (const m of cached) {
-        providerCountByModel.set(m, (providerCountByModel.get(m) || 0) + 1);
+        addProviderModelKeys(m, providerModelKeys);
+      }
+      for (const key of providerModelKeys) {
+        providerCountByModel.set(key, (providerCountByModel.get(key) || 0) + 1);
       }
       // Also count by VRAM eligibility — if no cached_models, count for models fitting VRAM
       if (cached.length === 0 && p.vram_mb > 0) {
@@ -787,7 +798,8 @@ router.get('/models', (req, res) => {
     const data = (rows || []).map((row) => {
       // Match provider count: check if any online provider has this model cached
       const modelLower = (row.model_id || '').toLowerCase().trim();
-      let pCount = providerCountByModel.get(modelLower) || 0;
+      const canonicalModelLower = normalizeModelToken(getCanonicalModelId(modelLower));
+      let pCount = providerCountByModel.get(modelLower) || (canonicalModelLower ? providerCountByModel.get(canonicalModelLower) : 0) || 0;
       // Also check partial matches (e.g., "qwen3-8b" matches cached "qwen3:8b")
       if (pCount === 0) {
         for (const [cached, count] of providerCountByModel) {

@@ -476,6 +476,24 @@ try {
      (model_id, display_name, family, vram_gb, quantization, context_window, use_cases, min_gpu_vram_gb, default_price_halala_per_min, is_active, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
   ).run(
+    'qwen2.5vl:3b',
+    'Qwen2.5-VL 3B Instruct',
+    'qwen',
+    8,
+    'int4',
+    32768,
+    JSON.stringify(['vision', 'chat', 'multimodal']),
+    8,
+    15,
+    modelSeedNow
+  );
+} catch (e) {}
+try {
+  db.prepare(
+    `INSERT OR IGNORE INTO model_registry
+     (model_id, display_name, family, vram_gb, quantization, context_window, use_cases, min_gpu_vram_gb, default_price_halala_per_min, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
+  ).run(
     'microsoft/Phi-3-mini-4k-instruct',
     'Phi-3 Mini',
     'phi',
