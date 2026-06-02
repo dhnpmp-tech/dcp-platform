@@ -168,6 +168,9 @@ def run() -> None:
     if not TG_TOKEN:
         print("[heartbeat] WARN: TG_DEV_BOT_TOKEN unset — Telegram channel probe and "
               "alerts disabled; channel-health is still recorded to the DB.", file=sys.stderr)
+    elif TG_CHAT_ID is None:
+        print("[heartbeat] WARN: TG_DEV_BOT_CHAT_ID unset/invalid — Telegram alerts disabled; "
+              "channel-health is still recorded to the DB.", file=sys.stderr)
     con = sqlite3.connect(DB_PATH, timeout=10)
     cur = con.cursor()
     now = time.time()
