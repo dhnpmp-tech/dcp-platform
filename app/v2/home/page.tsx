@@ -4,7 +4,7 @@
 // dcp-kit.css is imported by app/v2/layout.tsx; only the co-located page CSS is
 // imported here. The data-en/data-ar swap is handled by V2Provider + <Bi>.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import './home.css'
@@ -23,19 +23,46 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }>
   { href: '/v2/home', en: 'Overview', ar: 'نظرة عامة', on: true },
   { href: '#marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '#agents', en: 'Agents', ar: 'الوكلاء' },
-  { href: '/earn', en: 'Earn', ar: 'اكسب' },
+  { href: '/v2/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '#pricing', en: 'Pricing', ar: 'الأسعار' },
   { href: '/v2/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
 // ───────── marketplace rows ─────────
-const MARKET_ROWS = [
-  { gpu: 'NVIDIA H100 80GB', spec: 'SXM5 · NVLink', provider: 'Tuwaiq Compute', region: 'RUH-1 · Riyadh', util: 0.84, price: 'SAR 14.20', rel: '99.9%' },
-  { gpu: 'NVIDIA A100 80GB', spec: 'HBM2e · 312 TFLOPS', provider: 'NEOM Edge Labs', region: 'NEOM-1 · Oxagon', util: 0.62, price: 'SAR 6.20', rel: '99.7%' },
-  { gpu: 'NVIDIA L40S 48GB', spec: 'Ada · 91 TFLOPS', provider: 'Aramco Innovations', region: 'DMM-1 · Dammam', util: 0.74, price: 'SAR 3.40', rel: '99.8%' },
-  { gpu: 'NVIDIA RTX 4090 24GB', spec: 'Ada · consumer · 82 TFLOPS', provider: 'Jeddah Studios', region: 'JED-1 · Red Sea', util: 0.91, price: 'SAR 2.10', rel: '99.4%' },
-  { gpu: 'NVIDIA RTX 3090 24GB', spec: 'Ampere · consumer · 35.7 TFLOPS', provider: 'Mansouri Cloud', region: 'RUH-1 · KAFD', util: 0.55, price: 'SAR 1.40', rel: '99.1%' },
-  { gpu: 'NVIDIA A6000 48GB', spec: 'Ampere pro · 38.7 TFLOPS', provider: 'KAUST Cluster', region: 'JED-1 · Thuwal', util: 0.68, price: 'SAR 4.80', rel: '99.6%' },
+const CAPACITY_CLASSES = [
+  {
+    gpu: 'NVIDIA H100 / A100 80GB',
+    spec: 'Data-center class',
+    fit: 'Large context, batch inference, private deployments',
+    fitAr: 'سياق كبير، استدلال دفعي، نشر خاص',
+    availability: 'Listed only after verified endpoint checks',
+    availabilityAr: 'تظهر فقط بعد فحص نقطة الخدمة والتحقق',
+    billing: 'Token-metered or quoted',
+    billingAr: 'حسب الرموز أو بعرض سعر',
+    routing: 'verified_online + endpoint_reachable',
+  },
+  {
+    gpu: 'NVIDIA L40S / A6000 48GB',
+    spec: 'Workstation class',
+    fit: 'Vision, embeddings, medium LLM serving',
+    fitAr: 'رؤية، تضمينات، وخدمة نماذج متوسطة',
+    availability: 'Requires live model coverage',
+    availabilityAr: 'تتطلب تغطية نموذج حي',
+    billing: 'Token-metered',
+    billingAr: 'حسب الرموز',
+    routing: 'model match + health probe',
+  },
+  {
+    gpu: 'RTX 4090 / RTX 3090 24GB',
+    spec: 'Independent provider class',
+    fit: 'Arabic inference, small models, burst capacity',
+    fitAr: 'استدلال عربي، نماذج صغيرة، وسعة مؤقتة',
+    availability: 'Hidden when no model is serving',
+    availabilityAr: 'تُخفى عندما لا يخدم الجهاز نموذجاً',
+    billing: 'Token-metered',
+    billingAr: 'حسب الرموز',
+    routing: 'earned-online gate',
+  },
 ]
 
 // ───────── how-it-works stations ─────────
@@ -56,26 +83,7 @@ export default function V2HomePage() {
   const [qsTab, setQsTab] = useState<QsTab>('curl')
   const [copied, setCopied] = useState(false)
 
-  // mesh utilisation jitter (cosmetic; gated for reduced motion)
-  const [util, setUtil] = useState(76)
-  const utilRef = useRef(76)
   const codeRef = useRef<HTMLPreElement | null>(null)
-
-  useEffect(() => {
-    const reduce =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduce) return
-    const id = window.setInterval(() => {
-      let p = utilRef.current + (Math.random() - 0.5) * 4
-      p = Math.max(58, Math.min(92, p))
-      utilRef.current = p
-      setUtil(Math.round(p))
-    }, 1400)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const headroom = useMemo(() => Math.round((100 - util) * 3.46), [util])
 
   // close mobile menu on Escape
   useEffect(() => {
@@ -146,7 +154,7 @@ export default function V2HomePage() {
           <Link className="btn small ghost" href="/v2/auth">
             <Bi en="Sign in" ar="دخول" />
           </Link>
-          <Link className="btn small primary" href="/setup">
+          <Link className="btn small primary" href="/v2/setup">
             <Bi en="Start free →" ar="ابدأ مجاناً ←" />
           </Link>
           <button
@@ -290,7 +298,7 @@ export default function V2HomePage() {
         </div>
         <div className="mm-foot">
           <span className="stamp">DC Power Solutions · CR 7053667775</span>
-          <Link href="/setup" className="btn small primary">
+          <Link href="/v2/setup" className="btn small primary">
             <Bi en="Start free →" ar="ابدأ مجاناً ←" />
           </Link>
         </div>
@@ -377,8 +385,8 @@ export default function V2HomePage() {
             <text className="label" x="245" y="535">Jeddah</text>
             <text className="label l" x="746" y="276">DMM-1</text>
             <text className="label" x="746" y="290">Dammam</text>
-            <text className="label l" x="63" y="196">NEOM-1</text>
-            <text className="label" x="63" y="210">NEOM</text>
+            <text className="label l" x="63" y="196">NW-1</text>
+            <text className="label" x="63" y="210">Northwest</text>
           </svg>
         </div>
 
@@ -412,7 +420,7 @@ export default function V2HomePage() {
                 <Link className="btn primary lg magnet" href="/v2/renter/playground">
                   <Bi en="Try the live demo →" ar="جرّب التجربة الحية ←" />
                 </Link>
-                <Link className="btn ghost lg" href="/setup">
+                <Link className="btn ghost lg" href="/v2/setup">
                   <Bi en="Start free · no card" ar="ابدأ مجاناً · بلا بطاقة" />
                 </Link>
               </div>
@@ -503,7 +511,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 01 · The GPU mesh · live marketplace" ar="§ ٠١ · شبكة المعالجات · سوق مباشر" />
+              <Bi en="§ 01 · The GPU mesh · verified capacity" ar="§ ٠١ · شبكة المعالجات · سعة متحققة" />
             </span>
             <span>
               <Bi en="The substrate · transparent · KSA-resident" ar="البنية · شفّافة · داخل المملكة" />
@@ -515,25 +523,25 @@ export default function V2HomePage() {
               <div className="demand-label">
                 <span>
                   <Bi
-                    en="Mesh utilisation · last 5 min · across all in-Kingdom providers"
-                    ar="استخدام الشبكة · آخر ٥ دقائق · عبر كل المزوّدين"
+                    en="Capacity is published only after live provider verification"
+                    ar="تُنشر السعة فقط بعد تحقق حي من المزوّد"
                   />
                 </span>
                 <b>
-                  <span id="util-pct">{util}</span>%
+                  <Bi en="No simulated telemetry" ar="لا توجد قياسات مصطنعة" />
                 </b>
               </div>
               <div className="demand-bar">
-                <span id="util-bar" style={{ transform: `scaleX(${util / 100})`, transformOrigin: 'left' }} />
+                <span id="verified-capacity-bar" style={{ transform: 'scaleX(.34)', transformOrigin: 'left' }} />
               </div>
             </div>
             <div className="right">
               <span>
-                <Bi en="Available headroom" ar="السعة المتاحة" />
+                <Bi en="Live availability" ar="التوفر الحي" />
               </span>
               <br />
               <b>
-                <span id="headroom">{headroom}</span> GPUs · 4 regions
+                <Bi en="See /status before routing" ar="راجع /status قبل التوجيه" />
               </b>
             </div>
           </div>
@@ -543,43 +551,33 @@ export default function V2HomePage() {
               <thead>
                 <tr>
                   <th><Bi en="GPU class" ar="فئة المعالج" /></th>
-                  <th><Bi en="Provider · Region" ar="المزوّد · المنطقة" /></th>
-                  <th><Bi en="Utilisation" ar="الاستخدام" /></th>
-                  <th><Bi en="On-demand · SAR/hr" ar="عند الطلب · ريال/ساعة" /></th>
-                  <th><Bi en="Reliability" ar="موثوقية" /></th>
+                  <th><Bi en="Workload fit" ar="الاستخدام المناسب" /></th>
+                  <th><Bi en="Public availability" ar="التوفر العام" /></th>
+                  <th><Bi en="Billing" ar="الفوترة" /></th>
+                  <th><Bi en="Routing gate" ar="بوابة التوجيه" /></th>
                 </tr>
               </thead>
               <tbody>
-                {MARKET_ROWS.map((r) => (
+                {CAPACITY_CLASSES.map((r) => (
                   <tr key={r.gpu}>
                     <td>
                       <span className="gpu">{r.gpu}</span>
                       <small>{r.spec}</small>
                     </td>
                     <td>
-                      <span className="provider">{r.provider}</span>
-                      <br />
-                      <span className="region">
-                        <span className="pin" /> {r.region}
-                      </span>
+                      <span className="provider"><Bi en={r.fit} ar={r.fitAr} /></span>
                     </td>
                     <td>
-                      <div className="util-cell">
-                        <div className="util-bar">
-                          <span style={{ transform: `scaleX(${r.util})` }} />
-                        </div>
-                        <span className="util-val">{Math.round(r.util * 100)}%</span>
-                      </div>
+                      <span className="tag neutral"><Bi en={r.availability} ar={r.availabilityAr} /></span>
                     </td>
                     <td>
                       <span className="price">
-                        {r.price}
-                        <span className="u">/hr</span>
+                        <Bi en={r.billing} ar={r.billingAr} />
                       </span>
                     </td>
                     <td>
                       <span className="tag" style={{ color: 'var(--teal)', fontFamily: 'var(--mono)', fontSize: 11 }}>
-                        {r.rel}
+                        {r.routing}
                       </span>
                     </td>
                   </tr>
@@ -590,23 +588,23 @@ export default function V2HomePage() {
           <div className="mp-foot">
             <span>
               <Bi
-                en="Illustrative capacity classes for the KSA-resident provider network"
-                ar="فئات سعة توضيحية لشبكة المزوّدين داخل المملكة"
+                en="Illustrative capacity classes; live model availability is checked before routing."
+                ar="فئات سعة توضيحية؛ يتم فحص توفر النماذج الحي قبل التوجيه."
               />
             </span>
-            <Link href="/marketplace/models">
-              <Bi en="Browse live models →" ar="تصفّح النماذج الحية ←" />
+            <Link href="/v2/renter/playground">
+              <Bi en="Open model playground →" ar="افتح بيئة النماذج ←" />
             </Link>
           </div>
 
           <div className="callout" style={{ marginTop: 32 }}>
             {lang === 'ar' ? (
               <>
-                <b>أنت تشتري الرموز، لا المعالجات.</b> السوق أعلاه هو البنية التي يستخدمها الموجّه. إن أردت تحديداً إيجار معالجات خام للتدريب أو الدفعات — فذلك في صفحة المزوّدين؛ والعقود القائمة بساعات المعالج مُحتَرمة حتى نهايتها.
+                <b>أنت تشتري الرموز، لا المعالجات.</b> خريطة السعة أعلاه توضّح أنواع الأجهزة التي يمكن أن يخدمها الموجّه بعد التحقق. إن أردت تحديداً تشغيل جهاز كمزوّد، فابدأ من مسار المزوّد.
               </>
             ) : (
               <>
-                <b>You buy tokens, not GPUs.</b> The marketplace above is the substrate the router draws on. If you specifically want raw GPU rental for training or batch — that&rsquo;s on the Providers page; existing GPU-hour contracts are honoured through their term.
+                <b>You buy tokens, not GPUs.</b> The capacity map above explains the hardware classes the router can draw from after verification. If you want to bring hardware as a provider, start with the provider path.
               </>
             )}
           </div>
@@ -707,11 +705,11 @@ export default function V2HomePage() {
               <ul>
                 <li><Bi en="Windows · macOS Apple Silicon · Linux" ar="Windows · macOS Apple Silicon · Linux" /></li>
                 <li><Bi en="4 MB app · zero config · Cloudflare Tunnel" ar="٤ ميغابايت · بلا إعداد · Cloudflare Tunnel" /></li>
-                <li><Bi en="75% provider · 25% platform · monthly SAR payout" ar="٧٥٪ للمزوّد · ٢٥٪ للمنصّة · دفع شهري بالريال" /></li>
+                <li><Bi en="85% provider · 15% platform · monthly SAR payout" ar="٨٥٪ للمزوّد · ١٥٪ للمنصّة · دفع شهري بالريال" /></li>
               </ul>
               <div className="end">
-                <span>dcp.sa / setup</span>
-                <Link href="/earn">
+                <span>dcp.sa / v2 / provider-setup</span>
+                <Link href="/v2/provider-setup">
                   <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
                 </Link>
               </div>
@@ -767,7 +765,7 @@ export default function V2HomePage() {
                 <Link className="btn ghost" href="/v2/docs">
                   <Bi en="Read the API docs →" ar="اقرأ توثيق الواجهة ←" />
                 </Link>
-                <Link className="btn ghost" href="/setup">
+                <Link className="btn ghost" href="/v2/setup">
                   <Bi en="Get your API key" ar="احصل على مفتاحك" />
                 </Link>
               </div>
@@ -1375,7 +1373,7 @@ export default function V2HomePage() {
                 </li>
               </ul>
               <div className="cta">
-                <Link className="btn primary lg" href="/setup">
+                <Link className="btn primary lg" href="/v2/setup">
                   <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
                 </Link>
                 <Link className="btn ghost" href="/v2/auth">
@@ -1408,8 +1406,8 @@ export default function V2HomePage() {
               </h3>
               <p className="desc">
                 <Bi
-                  en="For studios, labs, universities, family offices, anyone with consumer or workstation GPUs sitting idle. We handle orchestration, customers, and the SLA. You earn ~82% of the SAR yield, paid monthly to a Saudi bank account."
-                  ar="للاستوديوهات والمختبرات والجامعات والمكاتب العائلية وأي شخص لديه معالجات استهلاكية أو محطات عمل معطّلة. نتولّى التنسيق والعملاء والتزام الخدمة. تكسب نحو ٨٢٪ من العائد بالريال، يُدفع شهرياً إلى حساب بنكي سعودي."
+                  en="For studios, labs, universities, family offices, anyone with consumer or workstation GPUs sitting idle. We handle orchestration, customers, and the SLA. Provider earnings use the published 85/15 platform split, paid monthly to a Saudi bank account."
+                  ar="للاستوديوهات والمختبرات والجامعات والمكاتب العائلية وأي شخص لديه معالجات استهلاكية أو محطات عمل معطّلة. نتولّى التنسيق والعملاء والتزام الخدمة. تُحسب أرباح المزوّد وفق تقسيم ٨٥/١٥ المنشور، وتُدفع شهرياً إلى حساب بنكي سعودي."
                 />
               </p>
               <ul className="steps">
@@ -1471,7 +1469,7 @@ export default function V2HomePage() {
                 </li>
               </ul>
               <div className="cta">
-                <Link className="btn primary lg" href="/earn">
+                <Link className="btn primary lg" href="/v2/provider-setup">
                   <Bi en="Apply as provider →" ar="تقدّم كمزوّد ←" />
                 </Link>
                 <Link className="btn ghost" href="/v2/provider/dashboard">
@@ -1480,8 +1478,8 @@ export default function V2HomePage() {
               </div>
               <div className="smallprint">
                 <Bi
-                  en="82% rev-share · monthly SAR payout · KSA bank account required"
-                  ar="حصّة ٨٢٪ · دفع شهري بالريال · يتطلّب حساباً بنكياً سعودياً"
+                  en="85% provider share · monthly SAR payout · KSA bank account required"
+                  ar="حصة المزوّد ٨٥٪ · دفع شهري بالريال · يتطلّب حساباً بنكياً سعودياً"
                 />
               </div>
             </div>
@@ -1672,13 +1670,13 @@ export default function V2HomePage() {
             />
           </p>
           <div className="ctas">
-            <Link className="btn primary lg" href="/setup">
+            <Link className="btn primary lg" href="/v2/setup">
               <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
             </Link>
             <Link className="btn ghost lg" href="/v2/renter/playground">
               <Bi en="Try the demo" ar="جرّب التجربة" />
             </Link>
-            <Link className="btn ghost lg" href="/earn">
+            <Link className="btn ghost lg" href="/v2/provider-setup">
               <Bi en="Or apply as provider" ar="أو تقدّم كمزوّد" />
             </Link>
           </div>
@@ -1724,7 +1722,7 @@ export default function V2HomePage() {
             <ul>
               <li><Link href="/v2/docs"><Bi en="API docs" ar="توثيق الواجهة" /></Link></li>
               <li><a href="#quickstart"><Bi en="Quick start" ar="بدء سريع" /></a></li>
-              <li><Link href="/setup"><Bi en="Get an API key" ar="احصل على مفتاح" /></Link></li>
+              <li><Link href="/v2/setup"><Bi en="Get an API key" ar="احصل على مفتاح" /></Link></li>
               <li><Link href="/v2/renter/playground"><Bi en="Playground" ar="بيئة الاختبار" /></Link></li>
             </ul>
           </div>
@@ -1732,7 +1730,7 @@ export default function V2HomePage() {
           <div>
             <h4><Bi en="Renters" ar="المستخدمون" /></h4>
             <ul>
-              <li><Link href="/setup"><Bi en="Sign up" ar="اشترك" /></Link></li>
+              <li><Link href="/v2/setup"><Bi en="Sign up" ar="اشترك" /></Link></li>
               <li><Link href="/v2/auth"><Bi en="Sign in" ar="دخول" /></Link></li>
               <li><Link href="/v2/renter/dashboard"><Bi en="Console" ar="لوحة التحكم" /></Link></li>
               <li><Link href="/v2/renter/usage"><Bi en="Usage" ar="الاستخدام" /></Link></li>
