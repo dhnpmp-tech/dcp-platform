@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Wired v2 provider rigs to the authenticated provider account as a real single-rig view, removing prototype fleet rows, fixed rig counts, fake earnings, seeded operator identity, and placeholder pairing tokens from `/v2/provider/rigs`.
 - ✅ Wired v2 provider dashboard to real-or-empty provider data from `/providers/me`, `/providers/me/metrics`, and `/providers/earnings-daily`, removing prototype operator names, rig cards, jobs, earnings curves, and fixed KPI fallbacks from the post-setup provider console.
 - ✅ Replaced v2 provider setup shortcuts with live provider auth/install/verify states: magic links post to `/providers/send-otp`, pasted provider keys are validated through `/providers/me`, installer commands are generated from `/providers/download/setup`, and the final step now polls `/providers/status` instead of auto-passing on a timer.
 - ✅ Wired v2 renter dashboard and API key console to live renter endpoints (`/renters/me`, `/renters/me/analytics`, `/renters/me/live`, `/renters/me/keys`) and removed remaining prototype workspace, wallet, trend, spend, and live-job fallback data from those routes.
