@@ -3,7 +3,7 @@
 // Ported from public/dcp-v2/prototypes/renter/Keys.html (renter console · API keys).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./keys.css.
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
@@ -41,7 +41,6 @@ const NAV = [
 
 const CURRENT_PAGE = 'keys'
 
-// ── Existing keys mock data (illustrative; from prototype table) ────────
 interface KeyRow {
   id?: string
   name: string
@@ -60,70 +59,6 @@ interface KeyRow {
   revoked?: boolean
 }
 
-const KEYS: KeyRow[] = [
-  {
-    name: 'production-server',
-    prefix: 'sk_live_8f3a…c721',
-    scope: 'full',
-    scopeLabel: 'Full · read + write',
-    scopeLabelAr: 'كامل · قراءة + كتابة',
-    created: '14 Aug 2024',
-    createdAr: '١٤ أغسطس ٢٠٢٤',
-    lastUsed: '2 minutes ago',
-    lastUsedAr: 'قبل دقيقتين',
-    spend: '2,184',
-    status: 'active',
-    statusLabel: 'Active',
-    statusLabelAr: 'نشط',
-  },
-  {
-    name: 'staging',
-    prefix: 'sk_live_a14d…91ef',
-    scope: 'full',
-    scopeLabel: 'Full · read + write',
-    scopeLabelAr: 'كامل · قراءة + كتابة',
-    created: '22 Sep 2024',
-    createdAr: '٢٢ سبتمبر ٢٠٢٤',
-    lastUsed: '18 hours ago',
-    lastUsedAr: 'قبل ١٨ ساعة',
-    spend: '192',
-    status: 'active',
-    statusLabel: 'Active',
-    statusLabelAr: 'نشط',
-  },
-  {
-    name: 'analytics-readonly',
-    prefix: 'sk_live_2b8c…4f72',
-    scope: 'read',
-    scopeLabel: 'Read · usage only',
-    scopeLabelAr: 'قراءة · الاستخدام فقط',
-    created: '3 Nov 2025',
-    createdAr: '٣ نوفمبر ٢٠٢٥',
-    lastUsed: '4 days ago',
-    lastUsedAr: 'قبل ٤ أيام',
-    spend: '0',
-    status: 'active',
-    statusLabel: 'Active',
-    statusLabelAr: 'نشط',
-  },
-  {
-    name: 'old-laptop',
-    prefix: 'sk_live_c91a…__revoked',
-    scope: 'none',
-    scopeLabel: '—',
-    scopeLabelAr: '—',
-    created: '5 Jun 2024',
-    createdAr: '٥ يونيو ٢٠٢٤',
-    lastUsed: '11 Sep 2025',
-    lastUsedAr: '١١ سبتمبر ٢٠٢٥',
-    spend: '428',
-    status: 'revoked',
-    statusLabel: 'Revoked',
-    statusLabelAr: 'ملغى',
-    revoked: true,
-  },
-]
-
 // ── Live API shape (GET /api/renters/me/keys → { keys: [...] }) ─────────
 interface ApiKey {
   id: string
@@ -139,6 +74,21 @@ interface ApiKey {
 
 interface KeysResponse {
   keys?: ApiKey[]
+}
+
+interface RenterMe {
+  renter?: {
+    name?: string
+    organization?: string
+    balance_halala?: number
+    total_spent_halala?: number
+  }
+}
+
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+
+interface CreateKeyResponse extends ApiKey {
+  key?: string
 }
 
 // Format an ISO timestamp into a short, locale-aware date string. The list
@@ -190,16 +140,30 @@ function toRow(k: ApiKey): KeyRow {
   }
 }
 
+const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+const halToSar = (h: number) => h / 100
+
 export default function RenterKeysPage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
-  // Real keys replace the illustrative mock on a successful fetch; the mock is
-  // kept as the initial value so the page renders fully with no key / on error.
-  const [rows, setRows] = useState<KeyRow[]>(KEYS)
+  const [rows, setRows] = useState<KeyRow[]>([])
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [error, setError] = useState('')
+  const [renterName, setRenterName] = useState('')
+  const [workspaceName, setWorkspaceName] = useState('')
+  const [balanceSar, setBalanceSar] = useState<number | null>(null)
+  const [totalSpentSar, setTotalSpentSar] = useState<number | null>(null)
   const [showNewCard, setShowNewCard] = useState(false)
+  const [newLabel, setNewLabel] = useState('production-server')
+  const [newScopes, setNewScopes] = useState<string[]>(['inference'])
+  const [newKeySecret, setNewKeySecret] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const newCardRef = useRef<HTMLDivElement | null>(null)
+
+  const getStoredKey = () => (typeof window === 'undefined' ? null : getRenterKey())
 
   // Reveal the new-key card, then scroll it into view (matches prototype's
   // #new-key click handler). Honour reduced-motion: skip the smooth scroll.
@@ -212,44 +176,125 @@ export default function RenterKeysPage() {
     newCardRef.current.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' })
   }, [showNewCard])
 
-  // Fetch the renter's real scoped sub-keys. Guarded on window + a stored key;
-  // falls back to the inline mock on missing key / non-OK / network error.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const key = getRenterKey()
-    if (!key) return
+  const loadKeys = useCallback(async () => {
+    const key = getStoredKey()
+    if (!key) {
+      setLoadState('missing-key')
+      setRows([])
+      return
+    }
 
-    const controller = new AbortController()
-    ;(async () => {
-      try {
-        const res = await fetch(`${getApiBase()}/renters/me/keys`, {
-          headers: { 'x-renter-key': key },
-          signal: controller.signal,
-        })
-        if (!res.ok) return
-        const data: KeysResponse = await res.json()
-        if (controller.signal.aborted) return
-        if (Array.isArray(data.keys) && data.keys.length > 0) {
-          setRows(data.keys.map(toRow))
-        }
-      } catch {
-        /* keep mock fallback on network/parse error */
+    setLoadState('loading')
+    setError('')
+    try {
+      const base = getApiBase()
+      const headers = { 'x-renter-key': key }
+      const [meRes, res] = await Promise.all([
+        fetch(`${base}/renters/me?key=${encodeURIComponent(key)}`, { headers }),
+        fetch(`${base}/renters/me/keys`, { headers }),
+      ])
+      if (meRes.ok) {
+        const me = (await meRes.json().catch(() => ({}))) as RenterMe
+        const renter = me.renter
+        setRenterName(renter?.name || '')
+        setWorkspaceName(renter?.organization || '')
+        setBalanceSar(typeof renter?.balance_halala === 'number' ? halToSar(renter.balance_halala) : null)
+        setTotalSpentSar(typeof renter?.total_spent_halala === 'number' ? halToSar(renter.total_spent_halala) : null)
       }
-    })()
-
-    return () => controller.abort()
+      const data: KeysResponse & { error?: string } = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to load API keys.')
+      setRows(Array.isArray(data.keys) ? data.keys.map(toRow) : [])
+      setLoadState('ready')
+    } catch (err) {
+      setRows([])
+      setError(err instanceof Error ? err.message : 'Failed to load API keys.')
+      setLoadState('error')
+    }
   }, [])
+
+  useEffect(() => {
+    void loadKeys()
+  }, [loadKeys])
 
   const activeCount = rows.filter((r) => r.status === 'active').length
   const revokedCount = rows.filter((r) => r.status === 'revoked').length
+  const displayName = renterName || (lang === 'ar' ? 'المستأجر' : 'Renter')
+  const displayWorkspace = workspaceName || (lang === 'ar' ? 'مساحة العمل' : 'Workspace')
 
   const handleCopy = () => {
     try {
-      void navigator.clipboard?.writeText('dcp-renter-XXXXXXXXXXXXXXXXXXXX')
+      if (newKeySecret) void navigator.clipboard?.writeText(newKeySecret)
     } catch {
       /* clipboard unavailable in this context */
     }
     setCopied(true)
+  }
+
+  const toggleScope = (scope: string) => {
+    setNewScopes((prev) => {
+      if (prev.includes(scope)) {
+        const next = prev.filter((s) => s !== scope)
+        return next.length ? next : ['inference']
+      }
+      return [...prev, scope]
+    })
+  }
+
+  const createKey = async () => {
+    const key = getStoredKey()
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+    setIsCreating(true)
+    setError('')
+    setNewKeySecret('')
+    setCopied(false)
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me/keys`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-renter-key': key,
+        },
+        body: JSON.stringify({
+          label: newLabel.trim() || undefined,
+          scopes: newScopes,
+        }),
+      })
+      const data: CreateKeyResponse & { error?: string } = await res.json().catch(() => ({}))
+      if (!res.ok || !data.key) throw new Error(data.error || 'Failed to create API key.')
+      setNewKeySecret(data.key)
+      await loadKeys()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create API key.')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const revokeKey = async (id: string | undefined) => {
+    if (!id) return
+    const key = getStoredKey()
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+    setRevokingId(id)
+    setError('')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me/keys/${encodeURIComponent(id)}?key=${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+        headers: { 'x-renter-key': key },
+      })
+      const data: { error?: string } = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to revoke API key.')
+      await loadKeys()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revoke API key.')
+    } finally {
+      setRevokingId(null)
+    }
   }
 
   return (
@@ -269,8 +314,10 @@ export default function RenterKeysPage() {
           <button className="rt-ws-btn" title="Switch workspace" type="button">
             <span className="av">N</span>
             <span className="body">
-              <span className="nm">NextWave Commerce</span>
-              <span className="sub">acme-prod · 3 members</span>
+              <span className="nm">{displayWorkspace}</span>
+              <span className="sub">
+                <Bi en="Live renter account" ar="حساب مستأجر حي" />
+              </span>
             </span>
             <span className="chev">⌄</span>
           </button>
@@ -281,19 +328,26 @@ export default function RenterKeysPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            {balanceSar != null ? (
+              <>
+                SAR {numFmt.format(Math.floor(balanceSar))}
+                <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
+              </>
+            ) : (
+              <span className="u">—</span>
+            )}
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR 2.72</b>
+            <b>—</b>
           </div>
           <div className="row">
             <span>
               <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
             </span>
-            <b>SAR 412</b>
+            <b>{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</b>
           </div>
           <button className="topup" type="button">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
@@ -330,8 +384,10 @@ export default function RenterKeysPage() {
         <div className="rt-sb-foot">
           <div className="av">F</div>
           <div className="who">
-            Fatima Al-Harbi
-            <span className="e">fatima@nextwave.sa · Owner</span>
+            {displayName}
+            <span className="e">
+              <Bi en="Renter workspace" ar="مساحة عمل المستأجر" />
+            </span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -358,7 +414,7 @@ export default function RenterKeysPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>NextWave Commerce</span>
+            <span>{displayWorkspace}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="API keys" ar="مفاتيح API" />
@@ -415,18 +471,33 @@ export default function RenterKeysPage() {
                   <b>{revokedCount}</b> <Bi en="revoked" ar="ملغى" />
                 </span>
                 <span>
-                  <Bi en="Last used" ar="آخر استخدام" /> <b>
-                    <Bi en="2m ago" ar="قبل دقيقتين" />
-                  </b>
+                  <Bi en="Real scoped keys only" ar="مفاتيح حقيقية محددة النطاق فقط" />
                 </span>
               </div>
             </div>
-            <button className="btn-pri" id="new-key" type="button" onClick={() => setShowNewCard(true)}>
+            <button className="btn-pri" id="new-key" type="button" onClick={() => { setShowNewCard(true); setNewKeySecret(''); setCopied(false) }}>
               <Bi en="+ Create a new key" ar="+ إنشاء مفتاح جديد" />
             </button>
           </div>
 
-          {/* New key (after creation) - placeholder for demo */}
+          {loadState === 'missing-key' && (
+            <div className="state-card err" style={{ marginTop: 30 }}>
+              <Bi
+                en="Sign in with a renter API key before managing scoped keys."
+                ar="سجّل الدخول بمفتاح مستأجر قبل إدارة المفاتيح محددة النطاق."
+              />{' '}
+              <Link href="/v2/auth?role=renter&method=apikey&redirect=/v2/renter/keys">
+                <Bi en="Sign in" ar="تسجيل الدخول" />
+              </Link>
+            </div>
+          )}
+          {error && (
+            <div className="state-card err" style={{ marginTop: 30 }} role="alert">
+              {error}
+            </div>
+          )}
+
+          {/* New key */}
           <div
             className="new-key-card"
             style={{ marginTop: 30, display: showNewCard ? 'block' : 'none' }}
@@ -455,16 +526,35 @@ export default function RenterKeysPage() {
               }}
             >
               <Bi
-                en="Copy it now — for security we don’t show the full key again. You’ll only see a prefix in the table below."
-                ar="انسخه الآن — لأسباب أمنية لن نعرض المفتاح الكامل مرة أخرى. سترى البادئة فقط في الجدول أدناه."
+                en="Choose the scopes, create the key, then copy it immediately. DCP only returns the full secret once."
+                ar="اختر النطاقات، أنشئ المفتاح، ثم انسخه فوراً. يعيد DCP السر الكامل مرة واحدة فقط."
               />
             </p>
-            <div className="reveal-row">
-              <code>dcp-renter-XXXXXXXXXXXXXXXXXXXX</code>
-              <button className="copy" type="button" onClick={handleCopy}>
-                {copied ? <Bi en="Copied" ar="تم النسخ" /> : <Bi en="Copy" ar="نسخ" />}
+            <div className="create-grid">
+              <label>
+                <Bi en="Label" ar="التسمية" />
+                <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="production-server" />
+              </label>
+              <div className="scope-checks">
+                {['inference', 'billing', 'admin'].map((scope) => (
+                  <label key={scope}>
+                    <input type="checkbox" checked={newScopes.includes(scope)} onChange={() => toggleScope(scope)} />
+                    {scope}
+                  </label>
+                ))}
+              </div>
+              <button className="btn-pri" type="button" onClick={createKey} disabled={isCreating || loadState === 'missing-key'}>
+                {isCreating ? <Bi en="Creating…" ar="جارٍ الإنشاء…" /> : <Bi en="Create key" ar="إنشاء المفتاح" />}
               </button>
             </div>
+            {newKeySecret && (
+              <div className="reveal-row">
+                <code>{newKeySecret}</code>
+                <button className="copy" type="button" onClick={handleCopy}>
+                  {copied ? <Bi en="Copied" ar="تم النسخ" /> : <Bi en="Copy" ar="نسخ" />}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Existing keys */}
@@ -485,7 +575,7 @@ export default function RenterKeysPage() {
                 }}
               >
                 <Bi en="Workspace:" ar="مساحة العمل:" />{' '}
-                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>NextWave Commerce</b>
+                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>{displayWorkspace}</b>
               </span>
             </div>
             <table className="tbl keys-tbl">
@@ -513,6 +603,24 @@ export default function RenterKeysPage() {
                 </tr>
               </thead>
               <tbody>
+                {loadState === 'loading' && (
+                  <tr>
+                    <td colSpan={7}>
+                      <span className="mut">
+                        <Bi en="Loading keys…" ar="جارٍ تحميل المفاتيح…" />
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {loadState === 'ready' && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={7}>
+                      <span className="mut">
+                        <Bi en="No scoped keys yet. Create one to use outside the master renter key." ar="لا توجد مفاتيح محددة النطاق بعد. أنشئ مفتاحاً لاستخدامه بدلاً من مفتاح المستأجر الرئيسي." />
+                      </span>
+                    </td>
+                  </tr>
+                )}
                 {rows.map((row) => (
                   <tr key={row.id ?? row.name} style={row.revoked ? { opacity: 0.5 } : undefined}>
                     <td>
@@ -547,16 +655,11 @@ export default function RenterKeysPage() {
                     </td>
                     <td className="actions">
                       {row.revoked ? (
-                        <button type="button">
-                          <Bi en="Restore" ar="استعادة" />
-                        </button>
+                        <span className="mut">—</span>
                       ) : (
                         <>
-                          <button type="button">
-                            <Bi en="Edit" ar="تعديل" />
-                          </button>
-                          <button className="danger" type="button">
-                            <Bi en="Revoke" ar="إلغاء" />
+                          <button className="danger" type="button" disabled={revokingId === row.id} onClick={() => void revokeKey(row.id)}>
+                            {revokingId === row.id ? <Bi en="Revoking…" ar="جارٍ الإلغاء…" /> : <Bi en="Revoke" ar="إلغاء" />}
                           </button>
                         </>
                       )}

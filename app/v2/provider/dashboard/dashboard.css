@@ -186,6 +186,10 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .panel {
   background: var(--paper); border: 1px solid var(--hair); padding: 22px 24px;
 }
+.dash-state { border: 1px solid var(--hair); background: var(--paper); padding: 13px 15px; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+.dash-state.err { border-color: color-mix(in oklab, var(--err) 42%, var(--hair)); background: color-mix(in oklab, var(--err) 7%, var(--paper)); }
+.dash-state a { color: var(--ink); border-bottom: 1px solid var(--ink); text-decoration: none; }
+.empty-row { min-height: 90px; display: grid; place-items: center; color: var(--mut); font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-align: center; }
 .panel-hd {
   display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
   padding-bottom: 16px; border-bottom: 1px solid var(--hair); margin-bottom: 20px;
