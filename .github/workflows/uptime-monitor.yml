@@ -2,8 +2,9 @@ name: Uptime Monitor
 
 # DCP external uptime + SLO monitor. Runs off-VPS in GitHub Actions so a full-VPS
 # outage is still detectable. Probes api.dcp.sa, dcp.sa, and a sentinel inference
-# call. On failure: Telegram alert (topic 4, mentions @Pmpvd). On 3 consecutive
-# failures: Resend email to setup@dcp.sa.
+# call. WARN means the sentinel cannot run because its key or model capacity is
+# missing; FAIL means an actual surface probe failed. WARN and FAIL both alert.
+# On 3 consecutive FAIL runs: Resend email to setup@dcp.sa.
 #
 # Required secrets (set at repo level):
 #   TG_BOT_TOKEN              - @dcp_dev_bot token
@@ -46,6 +47,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Probe surfaces
         id: probe
         env:
@@ -53,100 +57,7 @@ jobs:
           FORCE_FAIL_VAR: ${{ vars.MONITOR_FORCE_FAIL }}
           FORCE_FAIL_INPUT: ${{ inputs.force_fail }}
         run: |
-          set -u
-          # Each probe writes "<name> <ok|fail> <http_code> <latency_ms> <detail>"
-          # to PROBE_LOG. ok=2xx with expected shape; fail otherwise.
-
-          PROBE_LOG="$(mktemp)"
-          OVERALL_OK=1
-
-          force_fail="false"
-          if [ "${FORCE_FAIL_VAR:-}" = "true" ] || [ "${FORCE_FAIL_INPUT:-}" = "true" ]; then
-            force_fail="true"
-          fi
-
-          probe() {
-            local name="$1"
-            local url="$2"
-            local method="${3:-GET}"
-            local expect_substr="${4:-}"
-            local extra_curl=("${@:5}")
-
-            # Fire-drill mode: rewrite the first probe to a known 404.
-            if [ "$force_fail" = "true" ] && [ "$name" = "api_models" ]; then
-              url="https://api.dcp.sa/__forced_404_for_drill__"
-            fi
-
-            local body_file
-            body_file="$(mktemp)"
-            local start_ms
-            start_ms=$(date +%s%3N)
-            local code
-            code=$(curl -sS -m 15 -o "$body_file" -w "%{http_code}" \
-              -X "$method" "${extra_curl[@]}" "$url" || echo "000")
-            local end_ms
-            end_ms=$(date +%s%3N)
-            local latency=$(( end_ms - start_ms ))
-
-            local status="ok"
-            local detail=""
-            case "$code" in
-              2*) ;;
-              *)  status="fail"; detail="http=$code" ;;
-            esac
-
-            if [ "$status" = "ok" ] && [ -n "$expect_substr" ]; then
-              if ! grep -q -- "$expect_substr" "$body_file" 2>/dev/null; then
-                status="fail"
-                detail="missing_substr=$expect_substr"
-              fi
-            fi
-
-            if [ "$status" = "fail" ]; then
-              OVERALL_OK=0
-            fi
-
-            echo "$name $status $code ${latency} ${detail}" >> "$PROBE_LOG"
-            rm -f "$body_file"
-          }
-
-          # ── 3.1 api.dcp.sa /v1/models (no auth required) ─────────────────────
-          probe "api_models" \
-            "https://api.dcp.sa/v1/models" \
-            "GET" \
-            '"object":"list"'
-
-          # ── 3.2 dcp.sa frontend ──────────────────────────────────────────────
-          probe "frontend_root" \
-            "https://dcp.sa/" \
-            "GET" \
-            ""
-
-          # ── 3.4 sentinel inference (provider mesh health) ────────────────────
-          # Only fire this probe if we actually have a sentinel key configured.
-          if [ -n "${SENTINEL_KEY:-}" ]; then
-            BODY='{"model":"ALLaM-AI/ALLaM-7B-Instruct-preview","messages":[{"role":"user","content":"ping"}],"max_tokens":4,"stream":false}'
-            probe "sentinel_chat" \
-              "https://api.dcp.sa/v1/chat/completions" \
-              "POST" \
-              '"choices"' \
-              -H "Authorization: Bearer ${SENTINEL_KEY}" \
-              -H "Content-Type: application/json" \
-              --data "$BODY"
-          else
-            echo "sentinel_chat skip 000 0 no_sentinel_key_configured" >> "$PROBE_LOG"
-          fi
-
-          echo "=== probe log ==="
-          cat "$PROBE_LOG"
-          echo "=== end ==="
-
-          {
-            echo "log<<EOF"
-            cat "$PROBE_LOG"
-            echo "EOF"
-            echo "overall_ok=$OVERALL_OK"
-          } >> "$GITHUB_OUTPUT"
+          bash scripts/uptime-monitor-probe.sh
 
       - name: Update streak state in Gist
         id: streak
@@ -154,6 +65,7 @@ jobs:
           GIST_ID: ${{ secrets.MONITOR_GIST_ID }}
           GIST_TOKEN: ${{ secrets.MONITOR_GIST_TOKEN }}
           OVERALL_OK: ${{ steps.probe.outputs.overall_ok }}
+          OVERALL_STATUS: ${{ steps.probe.outputs.overall_status }}
           PROBE_LOG: ${{ steps.probe.outputs.log }}
         run: |
           set -u
@@ -161,6 +73,7 @@ jobs:
           if [ -z "${GIST_ID:-}" ] || [ -z "${GIST_TOKEN:-}" ]; then
             echo "Gist not configured; using ephemeral state. Email escalation will not work correctly."
             echo "fail_streak=$([ "$OVERALL_OK" = "1" ] && echo 0 || echo 1)" >> "$GITHUB_OUTPUT"
+            echo "sentinel_key_missing_hours=0" >> "$GITHUB_OUTPUT"
             echo "history_url=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -174,8 +87,10 @@ jobs:
 
           # Defaults if first run / parse failure.
           fail_streak=$(echo "$current" | jq -r '.fail_streak // 0' 2>/dev/null || echo 0)
+          sentinel_key_missing_since=$(echo "$current" | jq -r '.sentinel_key_missing_since // ""' 2>/dev/null || echo "")
           history=$(echo "$current" | jq -c '.history // []' 2>/dev/null || echo "[]")
           [ "$fail_streak" = "null" ] && fail_streak=0
+          [ "$sentinel_key_missing_since" = "null" ] && sentinel_key_missing_since=""
           [ -z "$history" ] && history="[]"
 
           ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -185,19 +100,41 @@ jobs:
             new_streak=$(( fail_streak + 1 ))
           fi
 
+          sentinel_key_missing="false"
+          if grep -q 'sentinel_chat warn .* no_sentinel_key_configured' <<< "$PROBE_LOG"; then
+            sentinel_key_missing="true"
+          fi
+
+          if [ "$sentinel_key_missing" = "true" ]; then
+            if [ -z "$sentinel_key_missing_since" ]; then
+              sentinel_key_missing_since="$ts"
+            fi
+          else
+            sentinel_key_missing_since=""
+          fi
+
+          sentinel_key_missing_hours=0
+          if [ -n "$sentinel_key_missing_since" ]; then
+            now_epoch=$(date -u -d "$ts" +%s)
+            missing_epoch=$(date -u -d "$sentinel_key_missing_since" +%s)
+            sentinel_key_missing_hours=$(( (now_epoch - missing_epoch) / 3600 ))
+          fi
+
           # Append new entry and trim to last 100.
           new_history=$(jq -c \
             --arg ts "$ts" \
             --arg ok "$OVERALL_OK" \
+            --arg status "$OVERALL_STATUS" \
             --arg log "$PROBE_LOG" \
-            '. + [{"ts":$ts,"ok":($ok=="1"),"log":$log}] | .[-100:]' \
+            '. + [{"ts":$ts,"ok":($ok=="1"),"status":$status,"log":$log}] | .[-100:]' \
             <<< "$history")
 
           new_state=$(jq -nc \
             --argjson streak "$new_streak" \
             --argjson history "$new_history" \
             --arg ts "$ts" \
-            '{fail_streak:$streak, last_run:$ts, history:$history}')
+            --arg sentinel_key_missing_since "$sentinel_key_missing_since" \
+            '{fail_streak:$streak, last_run:$ts, sentinel_key_missing_since:(if $sentinel_key_missing_since == "" then null else $sentinel_key_missing_since end), history:$history}')
 
           payload=$(jq -nc \
             --arg content "$new_state" \
@@ -212,15 +149,17 @@ jobs:
           history_url="https://gist.github.com/$GIST_ID"
 
           echo "fail_streak=$new_streak" >> "$GITHUB_OUTPUT"
+          echo "sentinel_key_missing_hours=$sentinel_key_missing_hours" >> "$GITHUB_OUTPUT"
           echo "history_url=$history_url" >> "$GITHUB_OUTPUT"
           echo "Streak: $new_streak"
 
-      - name: Telegram alert (every failure)
-        if: steps.probe.outputs.overall_ok == '0'
+      - name: Telegram alert (every WARN/FAIL)
+        if: steps.probe.outputs.overall_status != 'ok'
         env:
           TG_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_ALERT_CHAT_ID }}
           TG_TOPIC_ID: ${{ secrets.TG_ALERT_TOPIC_ID }}
+          OVERALL_STATUS: ${{ steps.probe.outputs.overall_status }}
           PROBE_LOG: ${{ steps.probe.outputs.log }}
           STREAK: ${{ steps.streak.outputs.fail_streak }}
           HISTORY_URL: ${{ steps.streak.outputs.history_url }}
@@ -233,17 +172,20 @@ jobs:
             exit 0
           fi
 
-          severity="P1"
+          severity="P2-WARN"
           mention=""
-          if [ "${STREAK:-0}" -ge 3 ]; then
+          if [ "$OVERALL_STATUS" = "fail" ]; then
+            severity="P1"
+          fi
+          if [ "$OVERALL_STATUS" = "fail" ] && [ "${STREAK:-0}" -ge 3 ]; then
             severity="P0"
             # Mention @Pmpvd (Peter, CTO) on P0.
             mention="@Pmpvd "
           fi
 
           now_utc=$(date -u +%H:%M:%S)
-          text=$(printf '🔴 *DCP uptime: %s alert*\n%s\nFail streak: %s\nTime (UTC): %s\n\nProbe results:\n```\n%s\n```\n\n[Workflow run](%s)' \
-            "$severity" "$mention" "$STREAK" "$now_utc" "$PROBE_LOG" "$RUN_URL")
+          text=$(printf '🔴 *DCP uptime: %s alert*\n%s\nState: %s\nFail streak: %s\nTime (UTC): %s\n\nProbe results:\n```\n%s\n```\n\n[Workflow run](%s)' \
+            "$severity" "$mention" "$OVERALL_STATUS" "$STREAK" "$now_utc" "$PROBE_LOG" "$RUN_URL")
           if [ -n "${HISTORY_URL:-}" ]; then
             text=$(printf '%s\n[History gist](%s)' "$text" "$HISTORY_URL")
           fi
@@ -333,8 +275,18 @@ jobs:
             exit "$curl_rc"
           fi
 
+      - name: Sentinel renter key age guard
+        env:
+          MISSING_HOURS: ${{ steps.streak.outputs.sentinel_key_missing_hours }}
+        run: |
+          set -u
+          if [ "${MISSING_HOURS:-0}" -ge 24 ]; then
+            echo "::error::DCP_SENTINEL_RENTER_KEY has been unset for ${MISSING_HOURS}h. Sentinel inference cannot protect provider-mesh health until this repo secret is configured."
+            exit 1
+          fi
+
       - name: Recovery notice
-        if: steps.probe.outputs.overall_ok == '1' && steps.streak.outputs.fail_streak == '0'
+        if: steps.probe.outputs.overall_status == 'ok' && steps.streak.outputs.fail_streak == '0'
         env:
           TG_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_ALERT_CHAT_ID }}
