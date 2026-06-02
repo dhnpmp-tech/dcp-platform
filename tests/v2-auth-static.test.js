@@ -15,6 +15,7 @@ assert(source.includes("dc1_provider_key"), 'v2 auth should store provider API k
 assert(source.includes("dc1_admin_token"), 'v2 auth should store admin API keys');
 assert(!source.includes('defaultValue="fatima@nextwave.sa"'), 'v2 auth must not ship prototype email defaults');
 assert(!source.includes('/login?role=admin'), 'v2 admin auth should not route operators through the old login page');
+assert(source.includes('redirect=/v2/admin'), 'v2 admin auth should land operators on the v2 admin command center');
 assert(!source.includes('href="/v2/terms"'), 'v2 auth legal links should not point to missing v2 terms');
 assert(!source.includes('href="/v2/privacy"'), 'v2 auth legal links should not point to missing v2 privacy');
 assert(source.includes("Nafath · coming soon"), 'Nafath should be explicit coming soon until integrated');

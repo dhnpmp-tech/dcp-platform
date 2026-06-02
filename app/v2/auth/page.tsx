@@ -65,8 +65,8 @@ function AuthInner() {
   }, [role, tab])
 
   const nextPath = getSafeRedirect(search?.get('redirect') || null, defaultRedirect)
-  const adminNextPath = getSafeRedirect(search?.get('redirect') || null, '/admin')
-  const adminAuthHref = '/v2/auth?role=admin&method=apikey&redirect=/admin'
+  const adminNextPath = getSafeRedirect(search?.get('redirect') || null, '/v2/admin')
+  const adminAuthHref = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 
   const resetFeedback = () => {
     setError('')
