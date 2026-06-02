@@ -2992,9 +2992,11 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     };
 
     try {
-      db.prepare('UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ? WHERE id = ? AND balance_halala >= ?')
-        .run(estimatedCostHalala, now, req.renter.id, estimatedCostHalala);
-
+      // Do not debit or reserve balance here. The pre-flight gate above only
+      // decides whether to dispatch; the single money write happens after the
+      // queued job completes via debitAndPersistUsage -> settleInferenceOnce.
+      // Pre-debiting here double-charges successful queued jobs and leaves
+      // failed/timeout jobs without a route-local refund.
       db.prepare(
         `INSERT INTO jobs (job_id, provider_id, renter_id, job_type, model, status, submitted_at,
           duration_minutes, cost_halala, gpu_requirements, container_spec, max_duration_seconds,
