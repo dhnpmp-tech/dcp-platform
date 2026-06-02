@@ -11,6 +11,7 @@ const db = require('../db');
 const { refundPayment } = require('../services/moyasarPaymentRefundService');
 const paymentsRouter = require('../routes/payments');
 const payoutsRouter = require('../routes/payouts');
+const { requireAdminRbac } = require('../middleware/adminAuth');
 
 const ADMIN_TOKEN = 'test-admin-token-refunds';
 const RENTER_KEY = 'dcp_renter_refund_key';
@@ -21,6 +22,19 @@ function buildApp() {
   app.use('/api/payments', paymentsRouter);
   app.use('/api', payoutsRouter);
   return app;
+}
+
+function buildProductionMountedApp() {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/admin', requireAdminRbac);
+  app.use('/api/payments', paymentsRouter);
+  app.use('/api', payoutsRouter);
+  return app;
+}
+
+function waitForAutomaticAudit() {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 function resetTables() {
@@ -195,5 +209,57 @@ describe('payment refund request queue', () => {
     expect(renter.balance_halala).toBe(10000);
     expect(requestRow.status).toBe('rejected');
     expect(requestRow.admin_note).toBe('Consumed compute is not refundable');
+  });
+
+  test('production mount order writes exactly one explicit audit row on approve', async () => {
+    app = buildProductionMountedApp();
+    seedRefundRequest({ amountHalala: 2500 });
+
+    const res = await request(app)
+      .post('/api/admin/payments/refund-requests/rfr_test_1/approve')
+      .set('x-admin-token', ADMIN_TOKEN)
+      .send({ admin_note: 'Approved after renter review' });
+
+    expect(res.status).toBe(200);
+    await waitForAutomaticAudit();
+
+    const rows = db.all(
+      `SELECT action, target_type, target_id
+         FROM admin_audit_log
+        WHERE target_id = ?
+        ORDER BY id`,
+      'rfr_test_1'
+    );
+    expect(rows).toEqual([{
+      action: 'payment_refund_approved',
+      target_type: 'payment_refund_request',
+      target_id: 'rfr_test_1',
+    }]);
+  });
+
+  test('production mount order writes exactly one explicit audit row on reject', async () => {
+    app = buildProductionMountedApp();
+    seedRefundRequest({ amountHalala: 2500 });
+
+    const res = await request(app)
+      .post('/api/admin/payments/refund-requests/rfr_test_1/reject')
+      .set('x-admin-token', ADMIN_TOKEN)
+      .send({ reason: 'Payment already consumed by usage' });
+
+    expect(res.status).toBe(200);
+    await waitForAutomaticAudit();
+
+    const rows = db.all(
+      `SELECT action, target_type, target_id
+         FROM admin_audit_log
+        WHERE target_id = ?
+        ORDER BY id`,
+      'rfr_test_1'
+    );
+    expect(rows).toEqual([{
+      action: 'payment_refund_rejected',
+      target_type: 'payment_refund_request',
+      target_id: 'rfr_test_1',
+    }]);
   });
 });

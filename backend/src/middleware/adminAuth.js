@@ -126,7 +126,7 @@ function requireAdminRbac(req, res, next) {
 }
 
 function _auditAndProceed(req, _res, next) {
-  if (req.skipAdminAuditLog === true) {
+  if (req.skipAdminAuditLog === true || shouldSkipAutomaticAdminAudit(req)) {
     next();
     return;
   }
@@ -157,4 +157,32 @@ function _auditAndProceed(req, _res, next) {
   next();
 }
 
-module.exports = { requireAdminRbac, logAdminAction };
+function shouldSkipAutomaticAdminAudit(req) {
+  const method = String(req.method || '').toUpperCase();
+  const path = String(req.originalUrl || req.url || req.path || '').split('?')[0];
+
+  if (
+    method === 'POST' &&
+    /^\/api\/admin\/payments\/refund-requests\/[^/]+\/(?:approve|reject)$/.test(path)
+  ) {
+    return true;
+  }
+
+  if (
+    method === 'POST' &&
+    /^\/api\/admin\/payouts\/[^/]+\/(?:approve|reject|sync)$/.test(path)
+  ) {
+    return true;
+  }
+
+  if (
+    method === 'PATCH' &&
+    /^\/api\/admin\/payouts\/[^/]+$/.test(path)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+module.exports = { requireAdminRbac, logAdminAction, shouldSkipAutomaticAdminAudit };
