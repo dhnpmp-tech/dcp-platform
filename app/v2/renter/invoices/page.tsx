@@ -41,24 +41,69 @@ const NAV = [
 
 const CURRENT_PAGE = 'invoices'
 
-// ── Live invoice shapes (GET /api/renters/me/invoices) ──────────────────
-// The backend returns one invoice row per job; we fold them into the same
-// `Invoice` shape the table already renders so markup + classes stay intact.
+const HALALA_PER_SAR = 100
+
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+
+interface RenterAccount {
+  name?: string
+  email?: string
+  organization?: string
+  phone?: string | null
+  use_case?: string | null
+  balance_halala?: number
+  total_spent_halala?: number
+}
+
+interface RenterMeResponse {
+  renter?: RenterAccount
+}
+
+interface RenterBalanceResponse {
+  balance_halala?: number
+  balance_sar?: number
+  held_halala?: number
+  held_sar?: number
+  total_spent_halala?: number
+  total_spent_sar?: number
+}
+
 interface ApiInvoice {
   id: number
   job_id: string | null
+  job_type?: string | null
   amount_sar: number | null
+  amount_halala?: number | null
   total_sar: number | null
   status: string | null
   created_at: string | null
   invoice_at: string | null
+  provider_name?: string | null
+  gpu_model?: string | null
 }
 
 interface InvoicesResponse {
   invoices?: ApiInvoice[]
+  total_spent_sar?: number
+  total_spent_halala?: number
+  pagination?: {
+    total?: number
+  }
+}
+
+interface Invoice {
+  id: string
+  numericId: number
+  period: string
+  sub: number
+  status: 'open' | 'paid'
+  jobType: string
+  provider: string
 }
 
 const PERIOD_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
+const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const wholeFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 function formatPeriod(when: string | null): string {
   if (!when) return ''
@@ -67,63 +112,94 @@ function formatPeriod(when: string | null): string {
 }
 
 function mapInvoice(row: ApiInvoice): Invoice {
-  const sub = Number(row.total_sar ?? row.amount_sar ?? 0)
+  const sub = Number(row.total_sar ?? row.amount_sar ?? (row.amount_halala ?? 0) / HALALA_PER_SAR)
   const id = row.job_id || `INV-${row.id}`
   return {
     id,
+    numericId: row.id,
     period: formatPeriod(row.invoice_at ?? row.created_at),
     sub,
     status: row.status === 'paid' || row.status === 'completed' || row.status === 'settled' ? 'paid' : 'open',
-    files: ['PDF', 'XML'],
+    jobType: row.job_type || 'inference',
+    provider: row.provider_name || row.gpu_model || 'DCP provider',
   }
 }
 
-// ── Invoice mock data (illustrative; from prototype script) ─────────────
-interface Invoice {
-  id: string
-  period: string
-  sub: number
-  status: 'open' | 'paid'
-  files: string[]
+function halalaToSar(halala: number | null | undefined): number {
+  return typeof halala === 'number' && Number.isFinite(halala) ? halala / HALALA_PER_SAR : 0
 }
 
-const INV: Invoice[] = [
-  { id: 'INV-2025-12', period: 'Dec 2025', sub: 2456, status: 'open', files: ['PDF', 'XML'] },
-  { id: 'INV-2025-11', period: 'Nov 2025', sub: 2284, status: 'paid', files: ['PDF', 'XML'] },
-  { id: 'INV-2025-10', period: 'Oct 2025', sub: 1984, status: 'paid', files: ['PDF', 'XML'] },
-  { id: 'INV-2025-09', period: 'Sep 2025', sub: 1612, status: 'paid', files: ['PDF', 'XML'] },
-  { id: 'INV-2025-08', period: 'Aug 2025', sub: 1428, status: 'paid', files: ['PDF', 'XML'] },
-  { id: 'INV-2025-07', period: 'Jul 2025', sub: 1284, status: 'paid', files: ['PDF', 'XML'] },
-  { id: 'INV-2025-06', period: 'Jun 2025', sub: 1124, status: 'paid', files: ['PDF', 'XML'] },
-]
+function optionalHalalaToSar(halala: number | null | undefined): number | undefined {
+  return typeof halala === 'number' && Number.isFinite(halala) ? halala / HALALA_PER_SAR : undefined
+}
+
+function fmtSar(sar: number | null | undefined, precise = true): string {
+  if (typeof sar !== 'number' || Number.isNaN(sar)) return '—'
+  return precise ? sarFmt.format(sar) : wholeFmt.format(sar)
+}
+
+function initials(name?: string, email?: string): string {
+  const source = (name || email || 'DCP').trim()
+  return source.charAt(0).toUpperCase()
+}
+
+async function readJson<T>(url: string, headers: HeadersInit, optional = false): Promise<T | null> {
+  const res = await fetch(url, { headers, cache: 'no-store' })
+  if (optional && res.status === 404) return null
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+  return (await res.json()) as T
+}
 
 export default function RenterInvoicesPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
-
-  // Primary data: the invoice history table. The inline mock stays as the
-  // default so the page renders fully with no key / failed fetch.
-  const [invoices, setInvoices] = useState<Invoice[]>(INV)
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [error, setError] = useState('')
+  const [renterKey, setRenterKey] = useState('')
+  const [renter, setRenter] = useState<RenterAccount | null>(null)
+  const [balance, setBalance] = useState<RenterBalanceResponse | null>(null)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [totalSpentSar, setTotalSpentSar] = useState(0)
+  const [invoiceTotal, setInvoiceTotal] = useState(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getRenterKey()
-    if (!key) return
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+    setRenterKey(key)
 
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`${getApiBase()}/renters/me/invoices?key=${encodeURIComponent(key)}`, {
-          headers: { 'x-renter-key': key },
-        })
-        if (!res.ok) return
-        const data: InvoicesResponse = await res.json()
+        setLoadState('loading')
+        const base = getApiBase()
+        const encodedKey = encodeURIComponent(key)
+        const headers = { 'x-renter-key': key }
+        const [meData, balanceData, invoiceData] = await Promise.all([
+          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
+          readJson<InvoicesResponse>(`${base}/renters/me/invoices?key=${encodedKey}&limit=50`, headers),
+        ])
         if (cancelled) return
-        if (Array.isArray(data.invoices) && data.invoices.length > 0) {
-          setInvoices(data.invoices.map(mapInvoice))
-        }
+        setRenter(meData?.renter || null)
+        setBalance(balanceData)
+        setInvoices(Array.isArray(invoiceData?.invoices) ? invoiceData.invoices.map(mapInvoice) : [])
+        setTotalSpentSar(
+          invoiceData?.total_spent_sar ??
+            optionalHalalaToSar(invoiceData?.total_spent_halala) ??
+            balanceData?.total_spent_sar ??
+            optionalHalalaToSar(balanceData?.total_spent_halala) ??
+            0,
+        )
+        setInvoiceTotal(Number(invoiceData?.pagination?.total || invoiceData?.invoices?.length || 0))
+        setLoadState('ready')
       } catch {
-        // Keep the inline mock as the rendered fallback.
+        if (cancelled) return
+        setError('Could not load live invoice data.')
+        setLoadState('error')
       }
     })()
 
@@ -131,6 +207,12 @@ export default function RenterInvoicesPage() {
       cancelled = true
     }
   }, [])
+
+  const accountName = renter?.organization || renter?.name || renter?.email || 'Renter account'
+  const accountSub = renter?.email || 'Sign in with a renter API key'
+  const balanceSar = balance?.balance_sar ?? halalaToSar(balance?.balance_halala ?? renter?.balance_halala)
+  const heldSar = balance?.held_sar ?? halalaToSar(balance?.held_halala)
+  const invoiceSummary = invoiceTotal || invoices.length
 
   return (
     <div className="rt-app">
@@ -147,10 +229,10 @@ export default function RenterInvoicesPage() {
 
         <div className="rt-ws">
           <button className="rt-ws-btn" title="Switch workspace" type="button">
-            <span className="av">N</span>
+            <span className="av">{initials(accountName, renter?.email)}</span>
             <span className="body">
-              <span className="nm">NextWave Commerce</span>
-              <span className="sub">acme-prod · 3 members</span>
+              <span className="nm">{accountName}</span>
+              <span className="sub">{accountSub}</span>
             </span>
             <span className="chev">⌄</span>
           </button>
@@ -161,23 +243,23 @@ export default function RenterInvoicesPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR 2,184<span className="u">.52</span>
+            SAR {fmtSar(balanceSar)}
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR 2.72</b>
+            <b>SAR {fmtSar(heldSar)}</b>
           </div>
           <div className="row">
             <span>
-              <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
+              <Bi en="Total invoiced" ar="إجمالي الفواتير" />
             </span>
-            <b>SAR 412</b>
+            <b>SAR {fmtSar(totalSpentSar)}</b>
           </div>
-          <button className="topup" type="button">
+          <Link className="topup" href="/v2/renter/wallet">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
-          </button>
+          </Link>
         </div>
 
         <nav className="rt-nav">
@@ -208,10 +290,10 @@ export default function RenterInvoicesPage() {
         </nav>
 
         <div className="rt-sb-foot">
-          <div className="av">F</div>
+          <div className="av">{initials(renter?.name || accountName, renter?.email)}</div>
           <div className="who">
-            Fatima Al-Harbi
-            <span className="e">fatima@nextwave.sa · Owner</span>
+            {renter?.name || accountName}
+            <span className="e">{renter?.email || 'Renter session required'}</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -238,7 +320,7 @@ export default function RenterInvoicesPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>NextWave Commerce</span>
+            <span>{accountName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Invoices" ar="الفواتير" />
@@ -279,11 +361,11 @@ export default function RenterInvoicesPage() {
           </h1>
           <div className="rt-h1-sub">
             <span>
-              <Bi en="ZATCA-compliant · auto-issued monthly" ar="متوافقة مع هيئة الزكاة · تصدر شهرياً تلقائياً" />
+              <Bi en="Live billing records from completed DCP jobs" ar="سجلات فوترة مباشرة من مهام DCP المكتملة" />
             </span>
             <span>
-              <Bi en="VAT registration " ar="التسجيل الضريبي " />
-              <b>VAT-310234567890003</b>
+              <Bi en="Rows loaded " ar="الصفوف المحملة " />
+              <b>{loadState === 'ready' ? invoiceSummary : '—'}</b>
             </span>
           </div>
 
@@ -295,9 +377,9 @@ export default function RenterInvoicesPage() {
                   <Bi en="Billing entity" ar="الجهة المُفوترة" />
                 </h3>
               </div>
-              <Link href="#" className="btn-sec">
-                <Bi en="Edit entity" ar="تعديل الجهة" />
-              </Link>
+              <span className="btn-sec" aria-disabled="true">
+                <Bi en="Profile-backed" ar="من ملف الحساب" />
+              </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
               <div>
@@ -322,7 +404,7 @@ export default function RenterInvoicesPage() {
                     marginBottom: 6,
                   }}
                 >
-                  NextWave Commerce LLC
+                  {accountName}
                 </div>
                 <div
                   style={{
@@ -332,10 +414,13 @@ export default function RenterInvoicesPage() {
                     color: 'var(--ink-2)',
                   }}
                 >
-                  CR 1010382947<br />
-                  VAT 310234567890003<br />
-                  King Abdullah Road<br />
-                  Riyadh 11564, Saudi Arabia
+                  {renter?.email || 'No renter session loaded'}
+                  <br />
+                  {renter?.phone || 'Phone not set'}
+                  <br />
+                  {renter?.use_case || 'Use case not set'}
+                  <br />
+                  Legal billing profile fields are not configured yet.
                 </div>
               </div>
               <div>
@@ -395,9 +480,29 @@ export default function RenterInvoicesPage() {
                   color: 'var(--mut)',
                 }}
               >
-                <Bi en="Issued on the 1st of each month" ar="تصدر في الأول من كل شهر" />
+                <Bi en="CSV export is available per invoice" ar="تصدير CSV متاح لكل فاتورة" />
               </span>
             </div>
+            {loadState === 'loading' && (
+              <div className="rt-empty">
+                <Bi en="Loading live invoice history..." ar="تحميل سجل الفواتير المباشر..." />
+              </div>
+            )}
+            {loadState === 'missing-key' && (
+              <div className="rt-empty">
+                <Bi en="Sign in with a renter API key to view invoices." ar="سجّل الدخول بمفتاح مستأجر لعرض الفواتير." />
+              </div>
+            )}
+            {loadState === 'error' && (
+              <div className="rt-empty" role="alert">
+                {error}
+              </div>
+            )}
+            {loadState === 'ready' && invoices.length === 0 && (
+              <div className="rt-empty">
+                <Bi en="No invoice rows yet. Completed jobs will appear here." ar="لا توجد فواتير بعد. ستظهر المهام المكتملة هنا." />
+              </div>
+            )}
             <table className="tbl inv-tbl">
               <thead>
                 <tr>
@@ -406,6 +511,9 @@ export default function RenterInvoicesPage() {
                   </th>
                   <th>
                     <Bi en="Period" ar="الفترة" />
+                  </th>
+                  <th>
+                    <Bi en="Source" ar="المصدر" />
                   </th>
                   <th style={{ textAlign: 'end' }}>
                     <Bi en="Subtotal" ar="المجموع الفرعي" />
@@ -438,8 +546,12 @@ export default function RenterInvoicesPage() {
                         <span className="mono">{i.period}</span>
                       </td>
                       <td>
+                        <span className="mono">{i.jobType}</span>
+                        <span className="ms">{i.provider}</span>
+                      </td>
+                      <td>
                         <span className="sar">
-                          {i.sub.toLocaleString()}
+                          {fmtSar(i.sub)}
                           <span className="u">SAR</span>
                         </span>
                       </td>
@@ -462,11 +574,9 @@ export default function RenterInvoicesPage() {
                       </td>
                       <td>
                         <div className="actions">
-                          {i.files.map((f) => (
-                            <Link key={f} href="#">
-                              {f} ↓
-                            </Link>
-                          ))}
+                          <Link href={`${getApiBase()}/renters/me/invoices/${i.numericId}/csv?key=${encodeURIComponent(renterKey)}`}>
+                            CSV ↓
+                          </Link>
                         </div>
                       </td>
                     </tr>

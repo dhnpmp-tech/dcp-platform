@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Wired v2 renter playground to live renter account, balance, `/v1/models`, and `/v1/chat/completions` flows, removing prototype chat messages, seeded workspace identity, fake wallet totals, hardcoded API domain usage, fallback model lists, and fixed demo rate labels from `/v2/renter/playground`.
+- ✅ Wired v2 renter invoices to real renter account, wallet, invoice-history, and CSV export endpoints, removing prototype invoice rows, fake company/person identity, seeded wallet totals, invented CR/VAT/address values, and unsupported PDF/XML download controls from `/v2/renter/invoices`.
 - ✅ Wired v2 renter settings to real renter account, wallet, notification, webhook, read-all, and data-export endpoints, removing fake team members, seeded company/CR/VAT/address fields, prototype notification toggles, fake danger actions, and hardcoded workspace identity from `/v2/renter/settings`.
 - ✅ Wired v2 renter usage to real renter account, balance, analytics, job-history, CSV export, and v1 usage-ledger endpoints, removing prototype model/key spend rows, seeded jobs, fake workspace identity, fixed 24-hour counts, and hardcoded wallet totals from `/v2/renter/usage`.
 - ✅ Wired v2 renter wallet to real renter identity, balance, payment-history, top-up, and auto-top-up settings endpoints, removing prototype workspace identity, seeded wallet totals, fake transaction rows, unsupported USDC/mada options, and non-persistent auto-top-up controls from `/v2/renter/wallet`.
