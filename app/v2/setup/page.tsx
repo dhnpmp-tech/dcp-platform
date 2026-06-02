@@ -99,6 +99,17 @@ export default function SetupPage() {
     setCopied(true)
   }
 
+  const topAction =
+    keyStatus === 'ready' ? (
+      <Link href="/v2/renter/dashboard" className="skip">
+        <Bi en="Open console →" ar="افتح الكونسول →" />
+      </Link>
+    ) : keyStatus === 'loading' ? null : (
+      <Link href="/v2/auth?role=renter&new&redirect=/v2/setup" className="skip">
+        <Bi en="Sign in to continue →" ar="سجّل الدخول للمتابعة →" />
+      </Link>
+    )
+
   return (
     <div className="setup">
       <div className="setup-top">
@@ -109,9 +120,7 @@ export default function SetupPage() {
           <button className="lang-toggle" onClick={toggle}>
             {lang === 'ar' ? 'EN' : 'ع'}
           </button>
-          <Link href="/v2/renter/dashboard" className="skip">
-            <Bi en="Skip to console →" ar="تخطّي إلى الكونسول →" />
-          </Link>
+          {topAction}
         </div>
       </div>
 

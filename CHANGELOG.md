@@ -14,7 +14,12 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-- No unreleased public changelog entries yet.
+### 20:14 UTC — [PR #514](https://github.com/dhnpmp-tech/dcp-platform/pull/514) — `fix(v2): gate setup console shortcut on auth`
+
+Included:
+- Changed the `/setup` top-right action so clean browsers are sent to renter auth instead of seeing a misleading console shortcut.
+- Kept the console shortcut available only after the stored renter key is verified against `/api/renters/me`.
+- Added a static regression test for the authenticated setup action.
 
 ## 2026-06-02
 
