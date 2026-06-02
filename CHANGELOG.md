@@ -33,6 +33,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 
 - Added disk cleanup before scheduled worker-image Docker builds so heavyweight vLLM/SDXL layers have enough GitHub runner headroom.
 - Uptime monitor sentinel inference now warns and alerts when skipped, auto-selects an online model for its smoke request, and fails after a missing sentinel renter key remains unresolved for 24 hours.
+- Added a second Docker/Buildx prune between instant LLM and SD worker builds so the SD image starts with fresh runner headroom after the large vLLM image publish.
 
 ### Repository
 
