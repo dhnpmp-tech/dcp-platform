@@ -105,6 +105,13 @@ jobs:
           cache-from: type=gha,scope=instant-tier-llm
           cache-to: type=gha,mode=max,scope=instant-tier-llm
 
+      - name: Reclaim disk before SD worker
+        run: |
+          df -h
+          docker buildx prune -af || true
+          docker system prune -af || true
+          df -h
+
       - name: Build and push SD worker
         id: build_sd
         uses: docker/build-push-action@v5
