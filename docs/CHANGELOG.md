@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Frontend
+- ✅ Wired v2 provider payouts to real-or-empty provider account, payout balance, withdrawal history, and withdrawal-request data, removing fake payout cycles, seeded bank account details, demo tax fields, fixed schedule controls, and hardcoded operator identity from `/v2/provider/payouts`.
 - ✅ Wired v2 provider earnings to real-or-empty provider identity, totals, daily history, withdrawals, and recent-job model data, removing prototype charts, fixed rig/model breakdowns, seeded payout rows, fake IBAN tails, and hardcoded operator identity from `/v2/provider/earnings`.
 - ✅ Wired v2 provider rigs to the authenticated provider account as a real single-rig view, removing prototype fleet rows, fixed rig counts, fake earnings, seeded operator identity, and placeholder pairing tokens from `/v2/provider/rigs`.
 - ✅ Wired v2 provider dashboard to real-or-empty provider data from `/providers/me`, `/providers/me/metrics`, and `/providers/earnings-daily`, removing prototype operator names, rig cards, jobs, earnings curves, and fixed KPI fallbacks from the post-setup provider console.
