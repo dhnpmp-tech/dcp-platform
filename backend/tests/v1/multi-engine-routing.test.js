@@ -143,6 +143,22 @@ describe('lookupProviderEnginesForModel', () => {
     expect(result[0]._selectedEngine.served_models).toContain('qwen3:8b');
   });
 
+  test('matches request aliases against canonical engine served_models', () => {
+    seedProvider({ id: 1 });
+    seedEngine({
+      providerId: 1,
+      engineType: 'ollama',
+      baseUrl: 'http://10.8.0.1:11434/v1',
+      port: 11434,
+      servedModels: ['qwen2.5vl:3b'],
+    });
+
+    const result = lookupProviderEnginesForModel('qwen/qwen2.5-vl-3b-instruct');
+    expect(result).toHaveLength(1);
+    expect(result[0]._selectedEngine.engine_type).toBe('ollama');
+    expect(result[0]._selectedEngine.served_models).toContain('qwen2.5vl:3b');
+  });
+
   test('returns the right engine when a provider has both Ollama and llamacpp', () => {
     seedProvider({ id: 1 });
     seedEngine({
@@ -277,6 +293,27 @@ describe('getCapableProviders with multi-engine routing', () => {
     expect(result[0]._selectedEngine.engine_type).toBe('llamacpp');
   });
 
+  test('flag ON + engine rows match request aliases through canonical model ids', () => {
+    process.env.MULTI_ENGINE_ROUTING_ENABLED = 'true';
+    seedProvider({
+      id: 1,
+      cachedModels: [],
+      vllmEndpointUrl: 'http://10.8.0.6:11434',
+    });
+    seedEngine({
+      providerId: 1,
+      engineType: 'ollama',
+      baseUrl: 'http://10.8.0.6:11434/v1',
+      port: 11434,
+      servedModels: ['qwen2.5vl:3b'],
+    });
+
+    const result = getCapableProviders(0, 'qwen/qwen2.5-vl-3b-instruct');
+    expect(result).toHaveLength(1);
+    expect(result[0]._selectedEngine).toBeDefined();
+    expect(result[0]._selectedEngine.base_url).toBe('http://10.8.0.6:11434/v1');
+  });
+
   test('flag ON + no engine rows match → falls back to legacy', () => {
     process.env.MULTI_ENGINE_ROUTING_ENABLED = 'true';
     seedProvider({
@@ -287,6 +324,34 @@ describe('getCapableProviders with multi-engine routing', () => {
     // No provider_engines rows for this provider.
 
     const result = getCapableProviders(0, 'legacy-model');
+    expect(result).toHaveLength(1);
+    expect(result[0]._selectedEngine).toBeUndefined();
+    expect(result[0].vllm_endpoint_url).toBe('http://legacy.example.com:11434');
+  });
+
+  test('legacy path matches cached models through canonical aliases', () => {
+    delete process.env.MULTI_ENGINE_ROUTING_ENABLED;
+    seedProvider({
+      id: 1,
+      cachedModels: ['bge-m3'],
+      vllmEndpointUrl: 'http://legacy.example.com:11434',
+    });
+
+    const result = getCapableProviders(0, 'BAAI/bge-m3');
+    expect(result).toHaveLength(1);
+    expect(result[0]._selectedEngine).toBeUndefined();
+    expect(result[0].vllm_endpoint_url).toBe('http://legacy.example.com:11434');
+  });
+
+  test('legacy path matches semantic aliases that are not loose substrings', () => {
+    delete process.env.MULTI_ENGINE_ROUTING_ENABLED;
+    seedProvider({
+      id: 1,
+      cachedModels: ['allam-q4'],
+      vllmEndpointUrl: 'http://legacy.example.com:11434',
+    });
+
+    const result = getCapableProviders(0, 'ALLaM-AI/ALLaM-7B-Instruct-preview');
     expect(result).toHaveLength(1);
     expect(result[0]._selectedEngine).toBeUndefined();
     expect(result[0].vllm_endpoint_url).toBe('http://legacy.example.com:11434');

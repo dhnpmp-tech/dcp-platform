@@ -45,6 +45,7 @@ const {
 const { isPublicWebhookUrl, isResolvablePublicWebhookUrl } = require('../lib/webhook-security');
 const { normalizeProviderOs } = require('../lib/provider-os');
 const { toCatalogContractCore } = require('../lib/model-catalog-contract');
+const { getCanonicalModelId, modelIdsMatch } = require('../lib/model-aliases');
 const { validateBody } = require('../middleware/validate');
 const { providerRegisterSchema, providerBenchmarkSchema } = require('../schemas/providers.schema');
 const analytics = require('../services/analyticsService');
@@ -4774,13 +4775,6 @@ const MODEL_DISPLAY_OVERRIDES = {
     'microsoft/phi-3-mini-4k-instruct': 'Phi-3 Mini Instruct',
 };
 
-const MODEL_ALIASES = {
-    'meta-llama/meta-llama-3-8b-instruct': 'llama-3-8b',
-    'meta-llama/llama-3-8b-instruct': 'llama-3-8b',
-    'mistralai/mistral-7b-instruct-v0.2': 'mistral-7b',
-    'microsoft/phi-3-mini-4k-instruct': 'phi-3-mini',
-};
-
 function safeJsonParse(value) {
     if (!value) return null;
     if (typeof value === 'object') return value;
@@ -4804,8 +4798,7 @@ function toDisplayName(modelId) {
 function normalizeModelId(modelId) {
     const cleaned = String(modelId || '').trim();
     if (!cleaned) return null;
-    const lower = cleaned.toLowerCase();
-    return MODEL_ALIASES[lower] || lower;
+    return getCanonicalModelId(cleaned).toLowerCase();
 }
 
 function inferVramGb(provider) {
@@ -4918,20 +4911,6 @@ function computeProviderStatus(lastHeartbeat, now) {
 
 function toCatalogModelKey(modelId) {
     return String(modelId || '').trim().toLowerCase();
-}
-
-// Loose-match key for model ids that differ only in punctuation, casing, or
-// quantization suffix. Mirrors the helper introduced in PR #382 (v1.js) so
-// the public model catalog reports a non-zero provider_count when a renter's
-// canonical slug (e.g. "qwen3-30b-a3b") maps to a provider's verbatim HF id
-// (e.g. "Qwen/Qwen3-30B-A3B-GPTQ-Int4"). Returns '' for inputs that would
-// produce a useless (too-short) key.
-function looseModelKey(modelId) {
-    const stripped = String(modelId || '')
-        .toLowerCase()
-        .replace(/[\/:_\-\s.]/g, '')
-        .replace(/(gptq|awq|gguf|int4|int8|fp16|fp8|bf16|q4km|q4ks|q5km|q5ks|q6k|q8|km|ks)/g, '');
-    return stripped.length >= 4 ? stripped : '';
 }
 
 function parseUseCases(value) {
@@ -5060,11 +5039,6 @@ router.get('/model-catalog', (req, res) => {
 
         const now = Date.now();
         const providerCoverage = new Map();
-        // Parallel index keyed by looseModelKey() so a registry id like
-        // "qwen3-30b-a3b" can still join providers that cached the HF id
-        // "Qwen/Qwen3-30B-A3B-GPTQ-Int4". Entries here may aggregate multiple
-        // provider-side ids that loose-match the same canonical slug.
-        const providerCoverageLoose = new Map();
 
         providers.forEach((provider) => {
             const { status: providerStatus } = computeProviderStatus(provider.last_heartbeat, now);
@@ -5089,52 +5063,29 @@ router.get('/model-catalog', (req, res) => {
                         existing.sourceMetadata = item;
                     }
                 }
-
-                const looseKey = looseModelKey(item.model_id);
-                if (!looseKey) return;
-                const existingLoose = providerCoverageLoose.get(looseKey);
-                if (!existingLoose) {
-                    providerCoverageLoose.set(looseKey, {
-                        providerIds: new Set([provider.id]),
-                        maxVramGb: providerVramGb || 0,
-                        sourceMetadata: (item && typeof item === 'object') ? item : null,
-                    });
-                } else {
-                    existingLoose.providerIds.add(provider.id);
-                    existingLoose.maxVramGb = Math.max(existingLoose.maxVramGb || 0, providerVramGb || 0);
-                    if (!existingLoose.sourceMetadata && item && typeof item === 'object') {
-                        existingLoose.sourceMetadata = item;
-                    }
-                }
             });
         });
 
         const models = activeModels.map((model) => {
             const strict = providerCoverage.get(toCatalogModelKey(model.model_id));
-            // Loose-match fallback (PR #382 semantics): if strict join found
-            // zero providers, scan loose-key entries by bidirectional
-            // substring match. This catches the common case where the
-            // registry uses a canonical short slug (e.g. "qwen3-30b-a3b") but
-            // the provider serves the verbatim HF id with quant suffix
-            // (e.g. "Qwen/Qwen3-30B-A3B-GPTQ-Int4").
+            // Alias-aware fallback: semantic aliases (for example ALLaM ->
+            // allam-q4) and loose quantization/punctuation variants must match
+            // the same way as /v1 routing and catalog de-dupe.
             let coverage = strict;
             if (!strict || strict.providerIds.size === 0) {
-                const wantLoose = looseModelKey(model.model_id);
-                if (wantLoose) {
-                    const merged = { providerIds: new Set(), maxVramGb: 0, sourceMetadata: null };
-                    let matched = false;
-                    for (const [key, entry] of providerCoverageLoose) {
-                        if (key === wantLoose || key.includes(wantLoose) || wantLoose.includes(key)) {
-                            matched = true;
-                            entry.providerIds.forEach((pid) => merged.providerIds.add(pid));
-                            merged.maxVramGb = Math.max(merged.maxVramGb || 0, entry.maxVramGb || 0);
-                            if (!merged.sourceMetadata && entry.sourceMetadata) {
-                                merged.sourceMetadata = entry.sourceMetadata;
-                            }
+                const merged = { providerIds: new Set(), maxVramGb: 0, sourceMetadata: null };
+                let matched = false;
+                for (const [key, entry] of providerCoverage) {
+                    if (modelIdsMatch(key, model.model_id)) {
+                        matched = true;
+                        entry.providerIds.forEach((pid) => merged.providerIds.add(pid));
+                        merged.maxVramGb = Math.max(merged.maxVramGb || 0, entry.maxVramGb || 0);
+                        if (!merged.sourceMetadata && entry.sourceMetadata) {
+                            merged.sourceMetadata = entry.sourceMetadata;
                         }
                     }
-                    if (matched) coverage = merged;
                 }
+                if (matched) coverage = merged;
             }
             return toModelCatalogContractItem({
                 model,

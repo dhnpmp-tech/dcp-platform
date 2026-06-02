@@ -12,6 +12,7 @@ const {
   DASH_TO_CANONICAL,
   CANONICAL_TO_ALIASES,
   getCanonicalModelId,
+  modelIdsMatch,
   deduplicateModelAliases,
 } = require('../../src/lib/model-aliases');
 
@@ -60,6 +61,18 @@ describe('model-aliases: canonical mapping', () => {
     expect(getCanonicalModelId(null)).toBe(null);
     expect(getCanonicalModelId(undefined)).toBe(undefined);
     expect(getCanonicalModelId(42)).toBe(42);
+  });
+
+  test('modelIdsMatch resolves semantic aliases that loose matching cannot', () => {
+    expect(modelIdsMatch('allam-q4', 'ALLaM-AI/ALLaM-7B-Instruct-preview')).toBe(true);
+    expect(modelIdsMatch('allam-q4', 'allam-7b-instruct')).toBe(true);
+    expect(modelIdsMatch('llama3.1:8b', 'meta-llama/meta-llama-3-8b-instruct')).toBe(true);
+  });
+
+  test('modelIdsMatch still resolves punctuation and quantization variants', () => {
+    expect(modelIdsMatch('Qwen/Qwen3-30B-A3B-GPTQ-Int4', 'qwen3:30b-a3b')).toBe(true);
+    expect(modelIdsMatch('qwen2.5vl:3b', 'qwen/qwen2.5-vl-3b-instruct')).toBe(true);
+    expect(modelIdsMatch('bge-m3', 'BAAI/bge-m3')).toBe(true);
   });
 });
 
