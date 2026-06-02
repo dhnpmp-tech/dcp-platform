@@ -68,9 +68,9 @@ interface RefundRequestRow {
   reviewed_by: string | null
   admin_note: string | null
   moyasar_refund_id: string | null
-  payment_amount_sar: number
-  payment_status: string
-  payment_created_at: string
+  payment_amount_sar: number | null
+  payment_status: string | null
+  payment_created_at: string | null
 }
 
 interface AuditData {
@@ -123,6 +123,12 @@ function shortId(id: string | null, n = 8): string {
   return id.length > n ? `${id.slice(0, n)}…` : id
 }
 
+function formatSar(amount: number | null | undefined): string {
+  return typeof amount === 'number' && Number.isFinite(amount)
+    ? `${amount.toFixed(2)} SAR`
+    : '—'
+}
+
 export default function AdminPaymentsAuditPage() {
   const router = useRouter()
   const { t } = useLanguage()
@@ -132,7 +138,7 @@ export default function AdminPaymentsAuditPage() {
   const [data, setData] = useState<AuditData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState<Tab>('payouts')
+  const [tab, setTab] = useState<Tab>('refund_requests')
   const [refreshing, setRefreshing] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
 
@@ -232,7 +238,7 @@ export default function AdminPaymentsAuditPage() {
       if (!res.ok) {
         setActionMessage(`${action} failed: ${body.error || body.message || res.status}`)
       } else {
-        setActionMessage(`Refund request ${action}d: ${body.request_id}`)
+        setActionMessage(`Refund request ${action === 'approve' ? 'approved' : 'rejected'}: ${body.request_id}`)
         await fetchAudit()
       }
     } catch {
@@ -258,7 +264,7 @@ export default function AdminPaymentsAuditPage() {
           <div>
             <h1 className="text-2xl font-semibold text-dc1-text-primary">Payments audit</h1>
             <p className="text-sm text-dc1-text-secondary mt-1">
-              Live view of Moyasar payouts, /v1 inference settlement attempts, and auto-top-up charges.
+              Live view of refund requests, Moyasar payouts, /v1 inference settlement attempts, and auto-top-up charges.
             </p>
           </div>
           <button
@@ -351,9 +357,15 @@ function RefundRequestsTable({
               </Td>
               <Td>
                 <div className="font-mono text-xs">{shortId(r.payment_id, 12)}</div>
-                <div className="text-xs text-dc1-text-muted">{r.payment_status}</div>
+                {r.moyasar_id && (
+                  <div className="font-mono text-xs text-dc1-text-muted">Moyasar {shortId(r.moyasar_id, 12)}</div>
+                )}
+                <div className="text-xs text-dc1-text-muted">{r.payment_status || 'unknown'}</div>
               </Td>
-              <Td className="font-mono">{r.amount_sar.toFixed(2)} SAR</Td>
+              <Td className="font-mono">
+                <div>{formatSar(r.amount_sar)}</div>
+                <div className="text-xs text-dc1-text-muted">of {formatSar(r.payment_amount_sar)}</div>
+              </Td>
               <Td className="max-w-xs">
                 <div className="text-dc1-text-secondary whitespace-pre-wrap">{r.reason}</div>
                 {r.admin_note && (
