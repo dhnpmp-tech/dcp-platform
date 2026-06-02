@@ -59,6 +59,58 @@ function runStatement(sql, ...params) {
     return db.prepare(sql).run(...flattenRunParams(params));
 }
 
+function isValidWireGuardKey(key) {
+    return /^[A-Za-z0-9+/]{42,44}={0,2}$/.test(String(key || ''));
+}
+
+function wgExecOutput(execFileSync, command, args, options = {}) {
+    return execFileSync(command, args, { timeout: 5000, ...options }).toString().trim();
+}
+
+function wgSetPeer(execFileSync, iface, publicKey, pskPath, meshIp) {
+    if (!isValidWireGuardKey(publicKey)) {
+        throw new Error(`invalid WireGuard public key for ${iface}`);
+    }
+    execFileSync('wg', [
+        'set', iface,
+        'peer', publicKey,
+        'preshared-key', pskPath,
+        'allowed-ips', `${meshIp}/32`,
+        'persistent-keepalive', '25',
+    ], { timeout: 5000 });
+}
+
+function wgRemovePeer(execFileSync, iface, publicKey) {
+    if (!isValidWireGuardKey(publicKey)) {
+        throw new Error(`invalid WireGuard public key for ${iface}`);
+    }
+    execFileSync('wg', ['set', iface, 'peer', publicKey, 'remove'], { timeout: 5000 });
+}
+
+function wgQuickSave(execFileSync, iface) {
+    execFileSync('wg-quick', ['save', iface], { timeout: 5000 });
+}
+
+function cleanupWgPeer(execFileSync, iface, publicKey) {
+    try {
+        wgRemovePeer(execFileSync, iface, publicKey);
+        wgQuickSave(execFileSync, iface);
+    } catch (e) {
+        console.warn(`[wg] rollback cleanup failed on ${iface}: ${e.message}`);
+    }
+}
+
+function updateProviderWgOrRollback(sql, params, rollbackPeers) {
+    try {
+        return runStatement(sql, ...params);
+    } catch (e) {
+        for (const peer of rollbackPeers) {
+            cleanupWgPeer(peer.execFileSync, peer.iface, peer.publicKey);
+        }
+        throw e;
+    }
+}
+
 // ── Migration 008 helpers: pull-task channel ────────────────────────────────
 
 // Apply task_updates[] from heartbeat body. Each update may set progress, mark
@@ -8079,7 +8131,7 @@ router.post('/wg/register', async (req, res) => {
         const WG_FALLBACK_ENDPOINT = (process.env.DCP_WG_FALLBACK_ENDPOINT || '').trim() || null;
         const WG_FALLBACK_PUBKEY = (process.env.DCP_WG_FALLBACK_PUBKEY || '').trim() || WG_SERVER_PUBKEY;
         const WG_FALLBACK_TUNNEL_TARGET = (process.env.DCP_WG_FALLBACK_TUNNEL_TARGET || '10.9.0.1').trim();
-        const { execSync, execFileSync } = require('child_process');
+        const { execFileSync } = require('child_process');
 
         // ── Key rotation path ───────────────────────────────────────────
         if (rotate === true && provider.wg_mesh_ip && provider.wg_public_key) {
@@ -8098,80 +8150,75 @@ router.post('/wg/register', async (req, res) => {
             const oldPubKey = provider.wg_public_key;
             const keepIp = provider.wg_mesh_ip;
 
-            // Remove old peer from wg0
-            try {
-                // Audit H1 (command injection): use execFileSync array
-                // form + re-validate oldPubKey from DB before passing to
-                // shell. Even though all DB writers go through the
-                // 42-44-char base64 regex today, a future direct UPDATE
-                // (admin tool, migration script) could put `"$(rm -rf /)`
-                // payload into wg_public_key and we'd run it as root.
-                if (!/^[A-Za-z0-9+/]{42,44}={0,2}$/.test(String(oldPubKey || ''))) {
-                    throw new Error('invalid oldPubKey shape — refusing to shell out');
-                }
-                execFileSync('wg', ['set', 'wg0', 'peer', oldPubKey, 'remove'], { timeout: 5000 });
-                console.log(`[wg/register] Removed old peer ${oldPubKey} for provider ${provider.id} (rotation)`);
-            } catch (e) {
-                console.warn(`[wg/register] Failed to remove old peer (may already be gone): ${e.message}`);
-            }
-
             // Generate new PSK
             let psk;
             try {
-                psk = execSync('wg genpsk', { timeout: 5000 }).toString().trim();
+                psk = wgExecOutput(execFileSync, 'wg', ['genpsk']);
             } catch (e) {
                 console.error('[wg/register] Failed to generate PSK during rotation:', e.message);
                 return res.status(500).json({ error: 'Failed to generate PSK during rotation' });
             }
 
             // Add new peer with same IP
+            const addedPeers = [];
             try {
                 const pskPath = `/tmp/wg_psk_${provider.id}_${Date.now()}`;
                 fs.writeFileSync(pskPath, psk + '\n', { mode: 0o600 });
-                execSync(
-                    `wg set wg0 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${keepIp}/32 persistent-keepalive 25`,
-                    { timeout: 5000 }
-                );
-                execSync('wg-quick save wg0', { timeout: 5000 });
+                wgSetPeer(execFileSync, 'wg0', cleanPubKey, pskPath, keepIp);
+                addedPeers.push({ execFileSync, iface: 'wg0', publicKey: cleanPubKey });
+                wgQuickSave(execFileSync, 'wg0');
 
                 // Mirror the rotated peer onto wg1 (UDP/443 fallback) too.
                 // Without this, a key rotation would leave wg1 advertising the
                 // OLD pubkey while the daemon now uses the new one — a daemon
                 // that's already on wg1 would silently lose its tunnel.
                 if (WG_FALLBACK_ENDPOINT) {
+                    let mirroredPeer = null;
                     try {
-                        // Remove old peer from wg1 (best-effort) before adding new one.
-                        // Same H1 defence as wg0 — array form + key shape re-check.
-                        try {
-                            if (!/^[A-Za-z0-9+/]{42,44}={0,2}$/.test(String(oldPubKey || ''))) {
-                                throw new Error('invalid oldPubKey shape — refusing to shell out');
-                            }
-                            execFileSync('wg', ['set', 'wg1', 'peer', oldPubKey, 'remove'], { timeout: 5000 });
-                        }
-                        catch (_) { /* old peer may not exist on wg1; ignore */ }
                         const mirroredIp = keepIp.replace(/^10\.8\./, '10.9.');
-                        execSync(
-                            `wg set wg1 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${mirroredIp}/32 persistent-keepalive 25`,
-                            { timeout: 5000 }
-                        );
-                        execSync('wg-quick save wg1', { timeout: 5000 });
+                        wgSetPeer(execFileSync, 'wg1', cleanPubKey, pskPath, mirroredIp);
+                        mirroredPeer = { execFileSync, iface: 'wg1', publicKey: cleanPubKey };
+                        addedPeers.push(mirroredPeer);
+                        wgQuickSave(execFileSync, 'wg1');
                         console.log(`[wg/register] Rotated peer mirrored onto wg1 as ${mirroredIp}`);
                     } catch (mirrorErr) {
+                        if (mirroredPeer) cleanupWgPeer(execFileSync, 'wg1', cleanPubKey);
                         console.error(`[wg/register] wg1 rotation mirror failed (non-fatal): ${mirrorErr.message}`);
                     }
                 }
 
                 try { fs.unlinkSync(pskPath); } catch (_) {}
             } catch (e) {
+                for (const peer of addedPeers) {
+                    cleanupWgPeer(peer.execFileSync, peer.iface, peer.publicKey);
+                }
                 console.error('[wg/register] Failed to add rotated peer:', e.message);
                 return res.status(500).json({ error: 'Failed to add rotated WG peer: ' + e.message });
             }
 
             // Update DB with new key + rotation timestamp
-            runStatement(
-                'UPDATE providers SET wg_public_key = ?, wg_last_rotation_at = ? WHERE id = ?',
-                cleanPubKey, new Date().toISOString(), provider.id
-            );
+            try {
+                updateProviderWgOrRollback(
+                    'UPDATE providers SET wg_public_key = ?, wg_last_rotation_at = ? WHERE id = ?',
+                    [cleanPubKey, new Date().toISOString(), provider.id],
+                    addedPeers
+                );
+            } catch (e) {
+                console.error('[wg/register] DB update failed after rotated peer add:', e.message);
+                return res.status(500).json({ error: 'Failed to persist rotated WG peer' });
+            }
+
+            // Remove old peers only after the new live peer has been persisted.
+            // If the DB write fails, the old peer remains the server truth.
+            for (const iface of ['wg0', ...(WG_FALLBACK_ENDPOINT ? ['wg1'] : [])]) {
+                try {
+                    wgRemovePeer(execFileSync, iface, oldPubKey);
+                    wgQuickSave(execFileSync, iface);
+                    console.log(`[wg/register] Removed old peer ${oldPubKey} from ${iface} for provider ${provider.id} (rotation)`);
+                } catch (e) {
+                    console.warn(`[wg/register] Failed to remove old peer from ${iface} (may already be gone): ${e.message}`);
+                }
+            }
 
             console.log(`[wg/register] Provider ${provider.id} rotated WG key, kept IP ${keepIp}`);
 
@@ -8228,22 +8275,21 @@ router.post('/wg/register', async (req, res) => {
         // Generate PSK on the server
         let psk;
         try {
-            psk = execSync('wg genpsk', { timeout: 5000 }).toString().trim();
+            psk = wgExecOutput(execFileSync, 'wg', ['genpsk']);
         } catch (e) {
             console.error('[wg/register] Failed to generate PSK:', e.message);
             return res.status(500).json({ error: 'Failed to generate PSK — is wireguard-tools installed on the server?' });
         }
 
         // Add peer to WG interface
+        const addedPeers = [];
         try {
             const pskPath = `/tmp/wg_psk_${provider.id}_${Date.now()}`;
             fs.writeFileSync(pskPath, psk + '\n', { mode: 0o600 });
-            execSync(
-                `wg set wg0 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${assignedIp}/32 persistent-keepalive 25`,
-                { timeout: 5000 }
-            );
+            wgSetPeer(execFileSync, 'wg0', cleanPubKey, pskPath, assignedIp);
+            addedPeers.push({ execFileSync, iface: 'wg0', publicKey: cleanPubKey });
             // Persist the config so it survives wg0 restarts
-            execSync('wg-quick save wg0', { timeout: 5000 });
+            wgQuickSave(execFileSync, 'wg0');
 
             // ── Mirror peer onto wg1 (UDP/443 fallback) when configured ──
             // wg1 is only present on the VPS when the operator provisioned
@@ -8252,15 +8298,16 @@ router.post('/wg/register', async (req, res) => {
             // mesh IP (10.8.0.N → 10.9.0.N) so daemons on broken-NAT
             // links can fall over without re-authenticating.
             if (WG_FALLBACK_ENDPOINT) {
+                let mirroredPeer = null;
                 try {
                     const mirroredIp = assignedIp.replace(/^10\.8\./, '10.9.');
-                    execSync(
-                        `wg set wg1 peer "${cleanPubKey}" preshared-key ${pskPath} allowed-ips ${mirroredIp}/32 persistent-keepalive 25`,
-                        { timeout: 5000 }
-                    );
-                    execSync('wg-quick save wg1', { timeout: 5000 });
+                    wgSetPeer(execFileSync, 'wg1', cleanPubKey, pskPath, mirroredIp);
+                    mirroredPeer = { execFileSync, iface: 'wg1', publicKey: cleanPubKey };
+                    addedPeers.push(mirroredPeer);
+                    wgQuickSave(execFileSync, 'wg1');
                     console.log(`[wg/register] Mirrored ${cleanPubKey.slice(0,12)}… onto wg1 as ${mirroredIp}`);
                 } catch (mirrorErr) {
+                    if (mirroredPeer) cleanupWgPeer(execFileSync, 'wg1', cleanPubKey);
                     // Don't fail the request if the fallback mirror fails —
                     // primary wg0 already succeeded. Just log loudly.
                     console.error(`[wg/register] wg1 mirror failed (non-fatal): ${mirrorErr.message}`);
@@ -8270,15 +8317,24 @@ router.post('/wg/register', async (req, res) => {
             // Clean up temp PSK file
             try { fs.unlinkSync(pskPath); } catch (_) {}
         } catch (e) {
+            for (const peer of addedPeers) {
+                cleanupWgPeer(peer.execFileSync, peer.iface, peer.publicKey);
+            }
             console.error('[wg/register] Failed to add WG peer:', e.message);
             return res.status(500).json({ error: 'Failed to add WG peer: ' + e.message });
         }
 
         // Store in DB
-        runStatement(
-            'UPDATE providers SET wg_mesh_ip = ?, wg_public_key = ? WHERE id = ?',
-            assignedIp, cleanPubKey, provider.id
-        );
+        try {
+            updateProviderWgOrRollback(
+                'UPDATE providers SET wg_mesh_ip = ?, wg_public_key = ? WHERE id = ?',
+                [assignedIp, cleanPubKey, provider.id],
+                addedPeers
+            );
+        } catch (e) {
+            console.error('[wg/register] DB update failed after peer add:', e.message);
+            return res.status(500).json({ error: 'Failed to persist WG peer' });
+        }
 
         console.log(`[wg/register] Provider ${provider.id} assigned WG IP ${assignedIp}`);
 
@@ -8320,7 +8376,7 @@ router.post('/wg/register', async (req, res) => {
 // ============================================================================
 router.post('/wg/install-config', async (req, res) => {
     try {
-        const { execSync, execFileSync } = require('child_process');
+        const { execFileSync } = require('child_process');
         const WG_SERVER_PUBKEY = 'zVxlVgKwnxq4Z9l6jGgD0yMJH5meHrlodJYyRHrL+wM=';
         // Server endpoint comes from env only (no hardcoded prod IP in source).
         // Refuse to render a peer config when unset rather than emit a broken one.
@@ -8345,9 +8401,9 @@ router.post('/wg/install-config', async (req, res) => {
         // with mode 0600 and we don't keep a copy.
         let privKey, pubKey, psk;
         try {
-            privKey = execSync('wg genkey', { timeout: 5000 }).toString().trim();
-            pubKey = execSync(`echo "${privKey}" | wg pubkey`, { timeout: 5000 }).toString().trim();
-            psk = execSync('wg genpsk', { timeout: 5000 }).toString().trim();
+            privKey = wgExecOutput(execFileSync, 'wg', ['genkey']);
+            pubKey = wgExecOutput(execFileSync, 'wg', ['pubkey'], { input: `${privKey}\n` });
+            psk = wgExecOutput(execFileSync, 'wg', ['genpsk']);
         } catch (e) {
             console.error('[wg/install-config] keygen failed:', e.message);
             return res.status(500).json({ error: 'WireGuard tools missing on server: ' + e.message });
@@ -8367,42 +8423,58 @@ router.post('/wg/install-config', async (req, res) => {
             }
         }
 
-        // If provider already had a peer registered with a different pubkey,
-        // remove that stale peer first (atomicity fix for issue #358).
-        if (provider.wg_public_key && provider.wg_public_key !== pubKey) {
-            try {
-                if (/^[A-Za-z0-9+/]{42,44}={0,2}$/.test(provider.wg_public_key)) {
-                    execFileSync('wg', ['set', 'wg0', 'peer', provider.wg_public_key, 'remove'], { timeout: 5000 });
-                }
-            } catch (_) { /* old peer may not exist; ignore */ }
-        }
+        const stalePubKey = provider.wg_public_key && provider.wg_public_key !== pubKey
+            ? provider.wg_public_key
+            : null;
 
         // Register new peer on the live wg0 + persist.
+        const addedPeers = [];
         try {
             const pskPath = `/tmp/wg_psk_install_${provider.id}_${Date.now()}`;
             fs.writeFileSync(pskPath, psk + '\n', { mode: 0o600 });
-            execSync(
-                `wg set wg0 peer "${pubKey}" preshared-key ${pskPath} allowed-ips ${assignedIp}/32 persistent-keepalive 25`,
-                { timeout: 5000 }
-            );
-            execSync('wg-quick save wg0', { timeout: 5000 });
+            wgSetPeer(execFileSync, 'wg0', pubKey, pskPath, assignedIp);
+            addedPeers.push({ execFileSync, iface: 'wg0', publicKey: pubKey });
+            wgQuickSave(execFileSync, 'wg0');
             try { fs.unlinkSync(pskPath); } catch (_) {}
         } catch (e) {
+            for (const peer of addedPeers) {
+                cleanupWgPeer(peer.execFileSync, peer.iface, peer.publicKey);
+            }
             console.error('[wg/install-config] peer add failed:', e.message);
             return res.status(500).json({ error: 'wg set failed: ' + e.message });
         }
 
-        // Update DB. Same transactional shape as /wg/register.
-        runStatement(
-            `UPDATE providers
+        // Update DB after the live peer exists. If persistence fails, remove
+        // the just-added peer so wg0 cannot drift ahead of the providers row.
+        try {
+            updateProviderWgOrRollback(
+                `UPDATE providers
                 SET wg_mesh_ip = ?, wg_public_key = ?, wg_last_rotation_at = ?,
                     vllm_endpoint_url = COALESCE(vllm_endpoint_url, ?),
                     updated_at = datetime('now')
               WHERE id = ?`,
-            assignedIp, pubKey, new Date().toISOString(),
-            `http://${assignedIp}:8000`,  // default vLLM port
-            provider.id
-        );
+                [
+                    assignedIp, pubKey, new Date().toISOString(),
+                    `http://${assignedIp}:8000`,  // default vLLM port
+                    provider.id,
+                ],
+                addedPeers
+            );
+        } catch (e) {
+            console.error('[wg/install-config] DB update failed after peer add:', e.message);
+            return res.status(500).json({ error: 'Failed to persist WG install config' });
+        }
+
+        // Remove any stale peer only after the new server peer and DB row agree.
+        // If the DB write fails, the old peer remains the server truth.
+        if (stalePubKey && isValidWireGuardKey(stalePubKey)) {
+            try {
+                wgRemovePeer(execFileSync, 'wg0', stalePubKey);
+                wgQuickSave(execFileSync, 'wg0');
+            } catch (e) {
+                console.warn(`[wg/install-config] stale peer cleanup failed (may already be gone): ${e.message}`);
+            }
+        }
 
         // Build the paste-ready wg0.conf body. Caller writes this verbatim
         // to /etc/wireguard/wg0.conf (mode 0600).
