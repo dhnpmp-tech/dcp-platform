@@ -43,6 +43,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 ### Repository
 
 - Swapped the README logo to the vector SVG asset so GitHub renders it sharply at large widths.
+- Removed the stale `public/dcp-logo-horizontal.webp` asset after confirming it was an unused 128px PNG with a `.webp` extension.
 
 ### Notes
 
