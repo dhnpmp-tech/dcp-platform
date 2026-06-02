@@ -9,9 +9,12 @@ assert(source.includes("renters/send-otp"), 'v2 auth should send renter magic li
 assert(source.includes("providers/send-otp"), 'v2 auth should send provider magic links');
 assert(source.includes("renters/me?key="), 'v2 auth should validate renter API keys');
 assert(source.includes("providers/me?key="), 'v2 auth should validate provider API keys');
+assert(source.includes("/admin/dashboard"), 'v2 auth should validate admin API keys');
 assert(source.includes("dc1_renter_key"), 'v2 auth should store renter API keys');
 assert(source.includes("dc1_provider_key"), 'v2 auth should store provider API keys');
+assert(source.includes("dc1_admin_token"), 'v2 auth should store admin API keys');
 assert(!source.includes('defaultValue="fatima@nextwave.sa"'), 'v2 auth must not ship prototype email defaults');
+assert(!source.includes('/login?role=admin'), 'v2 admin auth should not route operators through the old login page');
 assert(!source.includes('href="/v2/terms"'), 'v2 auth legal links should not point to missing v2 terms');
 assert(!source.includes('href="/v2/privacy"'), 'v2 auth legal links should not point to missing v2 privacy');
 assert(source.includes("Nafath · coming soon"), 'Nafath should be explicit coming soon until integrated');
