@@ -99,10 +99,12 @@ try {
 // its inference endpoint URL (Cloudflare tunnel, WG mesh IP, etc.) is dead.
 // `lib/provider-probe.js` runs a 30s background loop that pings each
 // online provider's vllm_endpoint_url and writes the result here. v1.js
-// routing filters `capableProviders` on `endpoint_reachable = 1`.
-try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_reachable INTEGER DEFAULT 1').run(); } catch (_) {}
+// routing filters `capableProviders` on a real probe verdict, not heartbeat
+// freshness alone.
+try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_reachable INTEGER DEFAULT 0').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probed_at TEXT').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probe_error TEXT').run(); } catch (_) {}
+try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probe_failures INTEGER DEFAULT 0').run(); } catch (_) {}
 
 // ─── Audit C2 — financial idempotency table ─────────────────────────────────
 // DB-backed (not in-memory like H6's inference cache) so a server restart

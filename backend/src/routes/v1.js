@@ -758,8 +758,8 @@ router.get('/models', (req, res) => {
     // merely status='online' (heartbeat-claimed) but whose endpoint failed the
     // backend reachability probe cannot actually serve, so it must NOT inflate
     // provider_count — otherwise the catalog advertises models that 503 on order.
-    // Require endpoint_reachable = 1 (treat NULL/0 as not-serviceable), mirroring
-    // the getCapableProviders routing gate so the catalog matches what can route.
+    // Require a positive backend liveness verdict, mirroring the
+    // getCapableProviders routing gate so the catalog matches what can route.
     // Earned-state gate (backlog #2): a provider that heartbeats + has a port
     // listening (endpoint_reachable=1) but FAILED its last inference probe must
     // not inflate provider_count, or the catalog advertises models that 503 on
@@ -770,7 +770,8 @@ router.get('/models', (req, res) => {
       `SELECT id, cached_models, vram_mb FROM providers
        WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
          AND deleted_at IS NULL AND vllm_endpoint_url IS NOT NULL
-         AND COALESCE(endpoint_reachable, 0) = 1`
+         AND COALESCE(endpoint_reachable, 0) = 1
+         AND endpoint_probed_at IS NOT NULL`
     ), db);
     const providerCountByModel = new Map();
     const addProviderModelKeys = (modelId, out) => {
@@ -993,11 +994,13 @@ function lookupProviderEnginesForModel(modelAlias) {
               pe.reachable       AS engine_reachable,
               p.*
          FROM provider_engines pe
-         JOIN providers p ON p.id = pe.provider_id
+        JOIN providers p ON p.id = pe.provider_id
         WHERE pe.reachable = 1
           AND p.status = 'online'
           AND COALESCE(p.is_paused, 0) = 0
-          AND p.deleted_at IS NULL`
+          AND p.deleted_at IS NULL
+          AND COALESCE(p.endpoint_reachable, 0) = 1
+          AND p.endpoint_probed_at IS NOT NULL`
     );
   } catch (e) {
     // Table missing or other schema issue — degrade silently to legacy path.
@@ -1115,7 +1118,7 @@ function getCapableProviders(minVramMb, requestedModelId) {
       for (const candidate of engineCandidates) {
         const hbMs = candidate.last_heartbeat ? Date.parse(candidate.last_heartbeat) : NaN;
         if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
-        if (candidate.endpoint_reachable === 0) continue;
+        if (Number(candidate.endpoint_reachable) !== 1 || !candidate.endpoint_probed_at) continue;
         if (!parseComputeTypes(candidate.supported_compute_types).has('inference')) continue;
         if (resolveProviderVramMb(candidate) < minVramMb) continue;
         filtered.push(candidate);
@@ -1136,7 +1139,9 @@ function getCapableProviders(minVramMb, requestedModelId) {
     `SELECT * FROM providers
      WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
        AND deleted_at IS NULL
-       AND vllm_endpoint_url IS NOT NULL AND vllm_endpoint_url != ''`
+       AND vllm_endpoint_url IS NOT NULL AND vllm_endpoint_url != ''
+       AND COALESCE(endpoint_reachable, 0) = 1
+       AND endpoint_probed_at IS NOT NULL`
   );
   const nowMs = Date.now();
   const capable = [];
@@ -1146,12 +1151,10 @@ function getCapableProviders(minVramMb, requestedModelId) {
   for (const p of providers) {
     const hbMs = p.last_heartbeat ? Date.parse(p.last_heartbeat) : NaN;
     if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
-    // Audit C3 — backend-side reachability probe. The probe writes 0 when the
-    // provider's vllm_endpoint_url is unreachable from this VPS even though
-    // its daemon heartbeats fine (e.g. dead Cloudflare tunnel). Treat NULL
-    // (never probed yet) as reachable so newly registered providers can serve
-    // immediately while the next probe pass classifies them.
-    if (p.endpoint_reachable === 0) continue;
+    // Audit C3 — backend-side reachability probe. The probe writes a positive
+    // verdict only after this backend can touch the provider endpoint. A
+    // heartbeat-only provider must never be routable.
+    if (Number(p.endpoint_reachable) !== 1 || !p.endpoint_probed_at) continue;
     if (!parseComputeTypes(p.supported_compute_types).has('inference')) continue;
     if (resolveProviderVramMb(p) < minVramMb) continue;
     if (requestedLower) {

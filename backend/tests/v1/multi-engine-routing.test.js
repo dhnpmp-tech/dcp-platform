@@ -36,6 +36,8 @@ function seedProvider({
   vramMb = 24576,
   computeTypes = 'inference',
   lastHeartbeat = null,
+  endpointReachable = 1,
+  endpointProbedAt = new Date().toISOString(),
 } = {}) {
   const heartbeat = lastHeartbeat || new Date().toISOString();
   db.run(
@@ -43,15 +45,18 @@ function seedProvider({
         id, email, name, status, api_key, created_at,
         approval_status, vllm_endpoint_url, cached_models,
         gpu_vram_mb, supported_compute_types, last_heartbeat,
+        endpoint_reachable, endpoint_probed_at,
         is_paused
      )
      VALUES (?, ?, ?, ?, ?, datetime('now'),
              'approved', ?, ?,
              ?, ?, ?,
+             ?, ?,
              0)`,
     id, email, `Provider ${id}`, status, apiKey,
     vllmEndpointUrl, JSON.stringify(cachedModels),
     vramMb, computeTypes, heartbeat,
+    endpointReachable, endpointProbedAt,
   );
 }
 
@@ -335,6 +340,39 @@ describe('getCapableProviders with multi-engine routing', () => {
       port: 8080,
       servedModels: ['qwen3.6-27b-mtp'],
     });
+    const result = getCapableProviders(0, 'qwen3.6-27b-mtp');
+    expect(result).toHaveLength(0);
+  });
+
+  test('legacy path rejects heartbeat-only providers without a backend liveness verdict', () => {
+    delete process.env.MULTI_ENGINE_ROUTING_ENABLED;
+    seedProvider({
+      id: 1,
+      cachedModels: ['legacy-model'],
+      endpointReachable: 1,
+      endpointProbedAt: null,
+    });
+
+    const result = getCapableProviders(0, 'legacy-model');
+    expect(result).toHaveLength(0);
+  });
+
+  test('engine path rejects heartbeat-only providers without a backend liveness verdict', () => {
+    process.env.MULTI_ENGINE_ROUTING_ENABLED = 'true';
+    seedProvider({
+      id: 1,
+      cachedModels: [],
+      endpointReachable: 1,
+      endpointProbedAt: null,
+    });
+    seedEngine({
+      providerId: 1,
+      engineType: 'llamacpp',
+      baseUrl: 'http://10.8.0.6:8080',
+      port: 8080,
+      servedModels: ['qwen3.6-27b-mtp'],
+    });
+
     const result = getCapableProviders(0, 'qwen3.6-27b-mtp');
     expect(result).toHaveLength(0);
   });

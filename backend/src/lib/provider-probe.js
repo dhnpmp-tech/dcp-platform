@@ -21,10 +21,11 @@
  *   providers.endpoint_reachable     0 = unreachable, 1 = reachable
  *   providers.endpoint_probed_at     ISO timestamp of last probe
  *   providers.endpoint_probe_error   short reason on failure (truncated)
+ *   providers.endpoint_probe_failures consecutive failed backend probes
  *
- * v1.js `getCapableProviders` filters `endpoint_reachable !== 0`. NULL
- * means never probed yet — treat as reachable so newly registered
- * providers can serve immediately.
+ * v1.js `getCapableProviders` requires a positive backend verdict
+ * (`endpoint_reachable = 1` plus a probe timestamp). Heartbeat-only freshness
+ * must never be enough to enter catalog or routing.
  */
 
 const db = require('../db');
@@ -90,7 +91,9 @@ async function _probeOne(provider) {
 function _onlineProviders() {
   const cutoff = new Date(Date.now() - PROBE_HEARTBEAT_STALE_MS).toISOString();
   return db.all(
-    `SELECT id, vllm_endpoint_url, wg_mesh_ip FROM providers
+    `SELECT id, vllm_endpoint_url, wg_mesh_ip,
+            endpoint_reachable, endpoint_probed_at, endpoint_probe_failures
+       FROM providers
      WHERE status = 'online'
        AND COALESCE(is_paused, 0) = 0
        AND deleted_at IS NULL
@@ -99,9 +102,9 @@ function _onlineProviders() {
   );
 }
 
-// Track consecutive probe failures per provider. Only mark unreachable
-// after 3 consecutive failures — prevents flapping on transient network
-// hiccups, WG tunnel reconnects, or engine restarts.
+// Track consecutive probe failures per provider. Persisted DB state is the
+// source of truth across process restarts; the map covers older schemas or
+// short-lived write gaps during a rollout.
 const _consecutiveFailures = new Map(); // provider_id -> count
 const UNREACHABLE_THRESHOLD = 3;
 
@@ -111,7 +114,10 @@ async function runProbeOnce() {
 
   const updateStmt = db.prepare(
     `UPDATE providers
-     SET endpoint_reachable = ?, endpoint_probed_at = ?, endpoint_probe_error = ?
+     SET endpoint_reachable = ?,
+         endpoint_probed_at = ?,
+         endpoint_probe_error = ?,
+         endpoint_probe_failures = ?
      WHERE id = ?`
   );
 
@@ -126,25 +132,28 @@ async function runProbeOnce() {
       if (ok) {
         // Reset failure counter on success
         _consecutiveFailures.delete(pid);
-        try { updateStmt.run(1, nowIso, null, p.id); } catch (e) {
+        try { updateStmt.run(1, nowIso, null, 0, p.id); } catch (e) {
           console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
         }
         reachable += 1;
       } else {
         // Increment consecutive failures
-        const fails = (_consecutiveFailures.get(pid) || 0) + 1;
+        const persistedFails = Number(p.endpoint_probe_failures);
+        const fails = (Number.isFinite(persistedFails) ? persistedFails : (_consecutiveFailures.get(pid) || 0)) + 1;
         _consecutiveFailures.set(pid, fails);
 
         if (fails >= UNREACHABLE_THRESHOLD) {
           // Mark unreachable only after 3+ consecutive failures
-          try { updateStmt.run(0, nowIso, error || 'unknown', p.id); } catch (e) {
+          try { updateStmt.run(0, nowIso, error || 'unknown', fails, p.id); } catch (e) {
             console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
           }
           unreachable += 1;
           console.warn(`[provider-probe] provider ${p.id} unreachable (${fails} consecutive failures): ${error}`);
         } else {
-          // Keep current reachable state — don't flip on single failure
-          try { updateStmt.run(p.endpoint_reachable ?? 1, nowIso, `probe_fail_${fails}/${UNREACHABLE_THRESHOLD}`, p.id); } catch (e) {
+          // Keep a previous positive verdict during transient failures, but do
+          // not promote never-probed heartbeat-only providers into routing.
+          const currentReachable = Number(p.endpoint_reachable) === 1 && p.endpoint_probed_at ? 1 : 0;
+          try { updateStmt.run(currentReachable, nowIso, `probe_fail_${fails}/${UNREACHABLE_THRESHOLD}`, fails, p.id); } catch (e) {
             console.warn(`[provider-probe] write failed for provider ${p.id}: ${e.message}`);
           }
           console.log(`[provider-probe] provider ${p.id} probe failed (${fails}/${UNREACHABLE_THRESHOLD}), keeping current state`);
@@ -182,5 +191,6 @@ module.exports = {
   runProbeOnce,
   // exported for tests
   _normalizeBaseUrl,
+  UNREACHABLE_THRESHOLD,
   PROBE_INTERVAL_MS,
 };

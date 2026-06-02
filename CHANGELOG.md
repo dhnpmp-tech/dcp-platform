@@ -28,6 +28,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 
 - Added Qwen2.5-VL alias coverage and canonical provider-count matching so cached `bge-m3` / `qwen2.5vl` variants surface correctly in the model catalog.
 - Removed the legacy queued-job pre-debit in `/v1/chat/completions`; queued inference now uses the same `settleInferenceOnce` completion settlement path as direct provider proxying.
+- Tightened backend provider liveness so catalog and routing require a real endpoint probe verdict, persist consecutive probe failures, and no longer treat heartbeat-only freshness as routable capacity.
 
 ### CI
 
