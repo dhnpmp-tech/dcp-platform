@@ -1,15 +1,13 @@
 'use client'
 
-// Ported from public/dcp-v2/prototypes/renter/Usage.html (renter console · Usage).
-// Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
-// route is self-contained; renter-shell.css is folded into ./usage.css.
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
 import './usage.css'
 
-// ── Nav model (from renter-shell.js NAV) ───────────────────────────────
+const HALALA_PER_SAR = 100
+
 const NAV = [
   {
     sec: 'Build',
@@ -17,7 +15,7 @@ const NAV = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
       { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
-      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
+      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
@@ -40,185 +38,322 @@ const NAV = [
 ]
 
 const CURRENT_PAGE = 'usage'
+const PERIODS = ['7d', '30d', '90d'] as const
 
-// ── Breakdown mock data (illustrative; from prototype markup) ───────────
-const BY_MODEL = [
-  { name: 'allam-7b', pct: 58, sar: 'SAR 1,420', muted: false },
-  { name: 'jais-13b', pct: 25, sar: 'SAR 624', muted: false },
-  { name: 'falcon-h1', pct: 7, sar: 'SAR 182', muted: false },
-  { name: 'sdxl', pct: 5, sar: 'SAR 110', muted: false },
-  { name: 'bge-m3', pct: 5, sar: 'SAR 120', muted: false },
-]
+type Period = (typeof PERIODS)[number]
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
 
-const BY_KEY = [
-  { name: 'production-server', pct: 89, sar: 'SAR 2,184', muted: false },
-  { name: 'staging', pct: 8, sar: 'SAR 192', muted: false },
-  { name: 'analytics-readonly', pct: 0, sar: 'SAR 0', muted: true },
-  { name: 'batch-runner', pct: 3, sar: 'SAR 80', muted: true },
-]
-
-// ── Jobs mock data (illustrative; from prototype script) ────────────────
-interface Job {
-  t: string
-  id: string
-  model: string
-  key: string
-  tok: number
-  sar: number
-  stat: string
-  ms: number
+interface RenterAccount {
+  name?: string
+  email?: string
+  organization?: string
+  balance_halala?: number
+  total_spent_halala?: number
+  total_jobs?: number
 }
 
-const JOBS: Job[] = [
-  { t: '12:42:08', id: 'j_ac81', model: 'allam-7b', key: 'production-server', tok: 412, sar: 0.34, stat: 'settled', ms: 1240 },
-  { t: '12:41:54', id: 'j_ac7f', model: 'jais-13b', key: 'production-server', tok: 1824, sar: 1.92, stat: 'settled', ms: 4810 },
-  { t: '12:41:41', id: 'j_ac7e', model: 'allam-7b', key: 'production-server', tok: 208, sar: 0.18, stat: 'settled', ms: 820 },
-  { t: '12:41:30', id: 'j_ac7d', model: 'bge-m3', key: 'production-server', tok: 64, sar: 0.02, stat: 'settled', ms: 120 },
-  { t: '12:41:18', id: 'j_ac7c', model: 'allam-7b', key: 'staging', tok: 928, sar: 0.91, stat: 'settled', ms: 2840 },
-  { t: '12:41:02', id: 'j_ac7b', model: 'falcon-h1', key: 'production-server', tok: 2104, sar: 2.48, stat: 'settled', ms: 5420 },
-  { t: '12:40:46', id: 'j_ac7a', model: 'allam-7b', key: 'production-server', tok: 512, sar: 0.41, stat: 'settled', ms: 1610 },
-  { t: '12:40:24', id: 'j_ac79', model: 'jais-13b', key: 'production-server', tok: 0, sar: 0, stat: 'failed', ms: 4200 },
-  { t: '12:40:12', id: 'j_ac78', model: 'allam-7b', key: 'production-server', tok: 288, sar: 0.24, stat: 'settled', ms: 940 },
-  { t: '12:39:48', id: 'j_ac77', model: 'allam-7b', key: 'production-server', tok: 1124, sar: 0.92, stat: 'settled', ms: 3210 },
-]
+interface RenterMeResponse {
+  renter?: RenterAccount
+  v1_usage_summary?: {
+    total_requests?: number
+    total_tokens?: number
+    total_cost_halala?: number
+  }
+}
+
+interface RenterBalanceResponse {
+  balance_halala?: number
+  balance_sar?: number
+  held_halala?: number
+  held_sar?: number
+  total_spent_halala?: number
+  total_spent_sar?: number
+  total_jobs?: number
+}
+
+interface AnalyticsDay {
+  day?: string
+  date?: string
+  total_halala?: number
+  job_count?: number
+  jobs?: number
+}
+
+interface StatusCount {
+  status: string
+  count: number
+}
+
+interface TopGpu {
+  gpu_model?: string
+  job_count?: number
+  total_halala?: number
+}
+
+interface AnalyticsResponse {
+  period?: string
+  daily_spend?: AnalyticsDay[]
+  status_counts?: StatusCount[]
+  avg_duration_minutes?: number | null
+  completed_job_count?: number
+  top_gpus?: TopGpu[]
+  v1_usage?: {
+    daily?: Array<{ day?: string; total_halala?: number; request_count?: number; total_tokens?: number }>
+    totals?: { total_requests?: number; total_tokens?: number; total_cost_halala?: number }
+  }
+}
+
+interface JobRecord {
+  id?: number
+  job_id?: string
+  job_type?: string
+  model?: string | null
+  status?: string
+  cost_halala?: number
+  cost_sar?: string | number
+  submitted_at?: string
+  started_at?: string | null
+  completed_at?: string | null
+  duration_minutes?: number | null
+  provider_gpu?: string | null
+}
+
+interface JobsResponse {
+  jobs?: JobRecord[]
+  pagination?: { page?: number; limit?: number; total?: number; pages?: number }
+}
+
+interface UsageRecord {
+  id?: number
+  request_id?: string
+  model?: string
+  source?: string
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+  cost_halala?: number
+  created_at?: string
+  settlement_status?: string
+}
+
+interface UsageResponse {
+  usage?: UsageRecord[]
+  totals?: {
+    total_requests?: number
+    total_tokens?: number
+    total_cost_halala?: number
+    total_cost_sar?: string | number
+  }
+}
+
+interface BreakdownRow {
+  name: string
+  pct: number
+  sar: number
+}
 
 const numFmt = new Intl.NumberFormat('en-US')
+const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const wholeFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
-// ── Live data shapes (from GET /api/renters/me — see app/renter/jobs) ───
-interface ApiJob {
-  id: number
-  job_id: string
-  job_type: string
-  status: string
-  submitted_at: string
-  completed_at: string | null
-  actual_cost_halala: number | null
+function halalaToSar(halala: number | null | undefined): number {
+  return typeof halala === 'number' && Number.isFinite(halala) ? halala / HALALA_PER_SAR : 0
 }
 
-interface RenterMe {
-  renter?: {
-    name?: string
-    balance_halala?: number
-    total_spent_halala?: number
-    total_jobs?: number
+function fmtSar(sar: number | null | undefined, precise = true): string {
+  if (typeof sar !== 'number' || Number.isNaN(sar)) return '—'
+  return precise ? sarFmt.format(sar) : wholeFmt.format(sar)
+}
+
+function costSar(row: { cost_halala?: number; cost_sar?: string | number; total_halala?: number }): number {
+  if (typeof row.cost_halala === 'number') return halalaToSar(row.cost_halala)
+  if (typeof row.total_halala === 'number') return halalaToSar(row.total_halala)
+  if (typeof row.cost_sar === 'number') return row.cost_sar
+  if (typeof row.cost_sar === 'string') {
+    const parsed = Number(row.cost_sar)
+    return Number.isFinite(parsed) ? parsed : 0
   }
-  recent_jobs?: ApiJob[]
+  return 0
 }
 
-// Header summary mirrors the inline mock so values render before/without a key.
-interface UsageSummary {
-  jobs: string
-  spend: string
-  avg: string
+function initials(name?: string, email?: string): string {
+  const source = (name || email || 'DCP').trim()
+  return source.charAt(0).toUpperCase()
 }
 
-const DEFAULT_SUMMARY: UsageSummary = { jobs: '14,820', spend: 'SAR 2,456', avg: 'SAR 0.17' }
-const DEFAULT_BALANCE = { whole: 'SAR 2,184', cents: '.52' }
-
-// Map a backend `status` onto the prototype's job-status vocabulary so the
-// existing `.stat .settled / .failed` styling keeps working.
-function mapStatus(status: string): string {
-  const s = (status || '').toLowerCase()
-  if (s === 'failed' || s === 'error' || s === 'cancelled' || s === 'canceled') return 'failed'
-  return 'settled'
+function modelName(job: JobRecord): string {
+  return job.model || job.job_type || 'unlabeled'
 }
 
-function clockTime(iso: string): string {
+function formatWhen(iso?: string): string {
+  if (!iso) return '—'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('en-GB', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-function latencyMs(submitted: string, completed: string | null): number {
-  if (!completed) return 0
-  const start = new Date(submitted).getTime()
-  const end = new Date(completed).getTime()
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0
+function durationMs(job: JobRecord): number | null {
+  if (typeof job.duration_minutes === 'number') return Math.round(job.duration_minutes * 60_000)
+  if (!job.submitted_at || !job.completed_at) return null
+  const start = new Date(job.submitted_at).getTime()
+  const end = new Date(job.completed_at).getTime()
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null
   return end - start
 }
 
-function mapJob(j: ApiJob): Job {
-  return {
-    t: clockTime(j.submitted_at),
-    id: j.job_id || `j_${j.id}`,
-    model: j.job_type || '—',
-    key: '—',
-    tok: 0,
-    sar: (j.actual_cost_halala || 0) / 100,
-    stat: mapStatus(j.status),
-    ms: latencyMs(j.submitted_at, j.completed_at),
-  }
+function mapStatus(status?: string): string {
+  const s = String(status || '').toLowerCase()
+  if (s === 'failed' || s === 'error' || s === 'cancelled' || s === 'canceled') return 'failed'
+  if (s === 'running' || s === 'active') return 'active'
+  if (s === 'pending' || s === 'queued') return 'queued'
+  return 'settled'
 }
 
-const sarFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+function rowsFromSpend(source: Array<{ name: string; sar: number }>): BreakdownRow[] {
+  const total = source.reduce((sum, row) => sum + row.sar, 0)
+  return source
+    .filter((row) => row.name && row.sar > 0)
+    .map((row) => ({ name: row.name, sar: row.sar, pct: total > 0 ? Math.max(4, Math.round((row.sar / total) * 100)) : 0 }))
+    .sort((a, b) => b.sar - a.sar)
+    .slice(0, 5)
+}
+
+async function readJson<T>(url: string, headers: HeadersInit, optional = false): Promise<T | null> {
+  const res = await fetch(url, { headers, cache: 'no-store' })
+  if (optional && res.status === 404) return null
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+  return (await res.json()) as T
+}
 
 export default function RenterUsagePage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
-
-  // Primary data: header totals, wallet balance, and the jobs table. The inline
-  // mock stays as the default so the page renders fully with no key / failed fetch.
-  const [summary, setSummary] = useState<UsageSummary>(DEFAULT_SUMMARY)
-  const [balance, setBalance] = useState(DEFAULT_BALANCE)
-  const [jobs, setJobs] = useState<Job[]>(JOBS)
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [error, setError] = useState('')
+  const [period, setPeriod] = useState<Period>('30d')
+  const [search, setSearch] = useState('')
+  const [modelFilter, setModelFilter] = useState('All models')
+  const [statusFilter, setStatusFilter] = useState('All statuses')
+  const [renter, setRenter] = useState<RenterAccount | null>(null)
+  const [balance, setBalance] = useState<RenterBalanceResponse | null>(null)
+  const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null)
+  const [jobs, setJobs] = useState<JobRecord[]>([])
+  const [usage, setUsage] = useState<UsageRecord[]>([])
+  const [usageTotals, setUsageTotals] = useState<UsageResponse['totals'] | null>(null)
+  const [exportHref, setExportHref] = useState('/v2/renter/usage')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getRenterKey()
-    if (!key) return
-
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+    const renterKey = key
+    const encodedKey = encodeURIComponent(renterKey)
+    const base = getApiBase()
+    const headers = { 'x-renter-key': renterKey }
     let cancelled = false
-    ;(async () => {
+
+    async function loadUsage() {
       try {
-        const res = await fetch(`${getApiBase()}/renters/me`, { headers: { 'x-renter-key': key } })
-        if (!res.ok) return
-        const data: RenterMe = await res.json()
+        setLoadState('loading')
+        setError('')
+        setExportHref(`${base}/renters/me/jobs/export?key=${encodedKey}&format=csv`)
+        const [me, balanceData, analyticsData, jobsData, usageData] = await Promise.all([
+          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
+          readJson<AnalyticsResponse>(`${base}/renters/me/analytics?key=${encodedKey}&period=${period}`, headers, true),
+          readJson<JobsResponse>(`${base}/renters/me/jobs?key=${encodedKey}&page=0&limit=50`, headers, true),
+          readJson<UsageResponse>(`${base}/renters/me/usage?key=${encodedKey}&limit=50&offset=0`, headers, true),
+        ])
         if (cancelled) return
-
-        const r = data.renter
-        if (r) {
-          const totalJobs = r.total_jobs ?? 0
-          const spentSar = (r.total_spent_halala ?? 0) / 100
-          setSummary({
-            jobs: numFmt.format(totalJobs),
-            spend: `SAR ${sarFmt.format(spentSar)}`,
-            avg: totalJobs > 0 ? `SAR ${(spentSar / totalJobs).toFixed(2)}` : 'SAR 0.00',
-          })
-
-          const balSar = (r.balance_halala ?? 0) / 100
-          const whole = Math.trunc(balSar)
-          const cents = Math.round((balSar - whole) * 100)
-          setBalance({
-            whole: `SAR ${numFmt.format(whole)}`,
-            cents: `.${String(cents).padStart(2, '0')}`,
-          })
-        }
-
-        const live = data.recent_jobs
-        if (Array.isArray(live) && live.length > 0) {
-          setJobs(live.map(mapJob))
-        }
-      } catch {
-        // Keep the inline mock as the rendered fallback.
+        setRenter(me?.renter || null)
+        setBalance(balanceData || null)
+        setAnalytics(analyticsData || null)
+        setJobs(jobsData?.jobs || [])
+        setUsage(usageData?.usage || [])
+        setUsageTotals(usageData?.totals || me?.v1_usage_summary || null)
+        setLoadState('ready')
+      } catch (err) {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Usage data could not be loaded')
+        setLoadState('error')
       }
-    })()
+    }
 
+    loadUsage()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [period])
 
-  // Filter controls are cosmetic in the prototype (no filtering script); keep them
-  // as controlled inputs so the page is interactive without changing the mock data.
-  const [search, setSearch] = useState('')
-  const [modelFilter, setModelFilter] = useState('All models')
-  const [keyFilter, setKeyFilter] = useState('All keys')
-  const [rangeFilter, setRangeFilter] = useState('Last 24h')
+  const displayName = renter?.organization || renter?.name || renter?.email || 'DCP renter'
+  const displayEmail = renter?.email || 'API key not loaded'
+  const displaySub = renter?.organization && renter?.name ? `${renter.name} · renter account` : 'Renter account'
+  const balanceSar =
+    typeof balance?.balance_sar === 'number'
+      ? balance.balance_sar
+      : typeof renter?.balance_halala === 'number'
+        ? halalaToSar(renter.balance_halala)
+        : halalaToSar(balance?.balance_halala)
+  const heldSar = typeof balance?.held_sar === 'number' ? balance.held_sar : halalaToSar(balance?.held_halala)
+  const totalSpentSar =
+    typeof balance?.total_spent_sar === 'number'
+      ? balance.total_spent_sar
+      : typeof balance?.total_spent_halala === 'number'
+        ? halalaToSar(balance.total_spent_halala)
+        : halalaToSar(renter?.total_spent_halala)
+  const dailySpend = analytics?.daily_spend || []
+  const periodJobs = dailySpend.reduce((sum, day) => sum + (day.job_count || day.jobs || 0), 0)
+  const periodSpendSar = dailySpend.reduce((sum, day) => sum + halalaToSar(day.total_halala), 0)
+  const v1Requests = usageTotals?.total_requests || analytics?.v1_usage?.totals?.total_requests || 0
+  const v1Tokens = usageTotals?.total_tokens || analytics?.v1_usage?.totals?.total_tokens || 0
+  const v1SpendSar =
+    typeof usageTotals?.total_cost_sar === 'number'
+      ? usageTotals.total_cost_sar
+      : typeof usageTotals?.total_cost_sar === 'string'
+        ? Number(usageTotals.total_cost_sar)
+        : halalaToSar(usageTotals?.total_cost_halala ?? analytics?.v1_usage?.totals?.total_cost_halala)
+  const completedJobs = analytics?.completed_job_count || analytics?.status_counts?.find((s) => s.status === 'completed')?.count || 0
+  const allStatusJobs = analytics?.status_counts?.reduce((sum, row) => sum + (row.count || 0), 0) || 0
+  const successRate = allStatusJobs > 0 ? Math.round((completedJobs / allStatusJobs) * 100) : null
+  const avgDuration = typeof analytics?.avg_duration_minutes === 'number' ? `${analytics.avg_duration_minutes} min` : '—'
+  const balanceParts = fmtSar(balanceSar).split('.')
+
+  const modelRows = useMemo(() => {
+    const byModel = new Map<string, number>()
+    for (const job of jobs) byModel.set(modelName(job), (byModel.get(modelName(job)) || 0) + costSar(job))
+    for (const row of usage) byModel.set(row.model || 'v1 inference', (byModel.get(row.model || 'v1 inference') || 0) + halalaToSar(row.cost_halala))
+    return rowsFromSpend([...byModel.entries()].map(([name, sar]) => ({ name, sar })))
+  }, [jobs, usage])
+
+  const sourceRows = useMemo(() => {
+    const bySource = new Map<string, number>()
+    for (const row of usage) bySource.set(row.source || 'v1 inference', (bySource.get(row.source || 'v1 inference') || 0) + halalaToSar(row.cost_halala))
+    if (bySource.size === 0) {
+      const jobSpend = jobs.reduce((sum, job) => sum + costSar(job), 0)
+      if (jobSpend > 0) bySource.set('job queue', jobSpend)
+    }
+    return rowsFromSpend([...bySource.entries()].map(([name, sar]) => ({ name, sar })))
+  }, [jobs, usage])
+
+  const modelOptions = ['All models', ...Array.from(new Set(jobs.map(modelName))).filter(Boolean).sort()]
+  const filteredJobs = jobs.filter((job) => {
+    const q = search.trim().toLowerCase()
+    const model = modelName(job)
+    const status = mapStatus(job.status)
+    const haystack = `${job.job_id || job.id || ''} ${model} ${job.provider_gpu || ''} ${job.status || ''}`.toLowerCase()
+    return (
+      (!q || haystack.includes(q)) &&
+      (modelFilter === 'All models' || model === modelFilter) &&
+      (statusFilter === 'All statuses' || status === statusFilter)
+    )
+  })
 
   return (
     <div className="rt-app">
-      {/* ── Sidebar (inlined from renter-shell.js) ─────────────────── */}
       <aside className={`rt-sb${navOpen ? ' on' : ''}`} id="rt-sb" data-page="usage">
         <div className="rt-sb-brand">
           <span className="wm">
@@ -230,11 +365,11 @@ export default function RenterUsagePage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Switch workspace" type="button">
-            <span className="av">N</span>
+          <button className="rt-ws-btn" title="Current renter account" type="button">
+            <span className="av">{initials(displayName, displayEmail)}</span>
             <span className="body">
-              <span className="nm">NextWave Commerce</span>
-              <span className="sub">acme-prod · 3 members</span>
+              <span className="nm">{displayName}</span>
+              <span className="sub">{displaySub}</span>
             </span>
             <span className="chev">⌄</span>
           </button>
@@ -245,24 +380,24 @@ export default function RenterUsagePage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            {balance.whole}
-            <span className="u">{balance.cents}</span>
+            SAR {balanceParts[0]}
+            <span className="u">.{balanceParts[1] || '00'}</span>
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR 2.72</b>
+            <b>SAR {fmtSar(heldSar)}</b>
           </div>
           <div className="row">
             <span>
-              <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
+              <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
             </span>
-            <b>SAR 412</b>
+            <b>SAR {fmtSar(totalSpentSar, false)}</b>
           </div>
-          <button className="topup" type="button">
+          <Link className="topup" href="/v2/renter/wallet#top-up">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
-          </button>
+          </Link>
         </div>
 
         <nav className="rt-nav">
@@ -293,10 +428,10 @@ export default function RenterUsagePage() {
         </nav>
 
         <div className="rt-sb-foot">
-          <div className="av">F</div>
+          <div className="av">{initials(renter?.name, renter?.email)}</div>
           <div className="who">
-            Fatima Al-Harbi
-            <span className="e">fatima@nextwave.sa · Owner</span>
+            {renter?.name || 'Renter'}
+            <span className="e">{displayEmail}</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -304,14 +439,9 @@ export default function RenterUsagePage() {
         </div>
       </aside>
 
-      <div
-        className={`rt-backdrop${navOpen ? ' on' : ''}`}
-        id="rt-backdrop"
-        onClick={() => setNavOpen(false)}
-      />
+      <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
 
       <div>
-        {/* ── Topbar (inlined from renter-shell.js) ────────────────── */}
         <header className="rt-tb" id="rt-tb" data-crumb="Usage">
           <button
             className="mb-toggle"
@@ -323,30 +453,20 @@ export default function RenterUsagePage() {
             ☰
           </button>
           <div className="crumb">
-            <span>NextWave Commerce</span>
+            <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Usage" ar="الاستخدام" />
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
+            <span className="d" /> <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
           </span>
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
-            <span
-              style={{
-                background: lang === 'en' ? 'var(--ink)' : 'transparent',
-                color: lang === 'en' ? 'var(--bg)' : 'var(--ink)',
-              }}
-            >
+            <span style={{ background: lang === 'en' ? 'var(--ink)' : 'transparent', color: lang === 'en' ? 'var(--bg)' : 'var(--ink)' }}>
               EN
             </span>
-            <span
-              style={{
-                background: lang === 'ar' ? 'var(--ink)' : 'transparent',
-                color: lang === 'ar' ? 'var(--bg)' : 'var(--ink)',
-              }}
-            >
+            <span style={{ background: lang === 'ar' ? 'var(--ink)' : 'transparent', color: lang === 'ar' ? 'var(--bg)' : 'var(--ink)' }}>
               ع
             </span>
           </button>
@@ -356,15 +476,7 @@ export default function RenterUsagePage() {
         </header>
 
         <main className="rt-main">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-end',
-              gap: 20,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="page-heading">
             <div>
               <h1 className="rt-h1">
                 <Bi en="Every " ar="كل " />
@@ -375,31 +487,87 @@ export default function RenterUsagePage() {
               </h1>
               <div className="rt-h1-sub">
                 <span>
-                  <Bi en="30 days · " ar="٣٠ يوم · " />
-                  <b>{summary.jobs}</b> <Bi en="jobs" ar="مهمة" />
+                  <Bi en={`${period} · `} ar={`${period} · `} />
+                  <b>{numFmt.format(periodJobs)}</b> <Bi en="jobs" ar="مهمة" />
                 </span>
                 <span>
-                  <Bi en="Spend" ar="الإنفاق" /> <b>{summary.spend}</b>
+                  <Bi en="Spend" ar="الإنفاق" /> <b>SAR {fmtSar(periodSpendSar)}</b>
                 </span>
                 <span>
-                  <Bi en="Avg" ar="المتوسط" /> <b>{summary.avg}</b> <Bi en="/ job" ar="/ مهمة" />
+                  <Bi en="v1 API" ar="واجهة v1" /> <b>{numFmt.format(v1Requests)}</b> <Bi en="requests" ar="طلبات" />
                 </span>
               </div>
             </div>
-            <button className="btn-sec" type="button">
+            <a className="btn-sec" href={exportHref}>
               ↓ <Bi en="Export CSV" ar="تصدير CSV" />
-            </button>
+            </a>
           </div>
 
-          {/* Breakdown panels */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 22,
-              marginTop: 36,
-            }}
-          >
+          {loadState === 'missing-key' && (
+            <div className="dash-state" style={{ marginTop: '28px' }}>
+              <b>
+                <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
+              </b>
+              <span>
+                <Bi
+                  en="Sign in or paste a renter API key before v2 can show usage, spend, or job history."
+                  ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تعرض v2 الاستخدام والإنفاق وسجل المهام."
+                />
+              </span>
+            </div>
+          )}
+
+          {loadState === 'error' && (
+            <div className="dash-state error" style={{ marginTop: '28px' }}>
+              <b>
+                <Bi en="Usage unavailable" ar="الاستخدام غير متاح" />
+              </b>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="kpi-row" style={{ marginTop: 36 }}>
+            <div className="kpi featured">
+              <div className="k">
+                <Bi en="Period spend" ar="إنفاق الفترة" />
+              </div>
+              <div className="v">
+                SAR {fmtSar(periodSpendSar)}
+              </div>
+              <div className="d flat">
+                <Bi en={`${numFmt.format(periodJobs)} jobs in selected period`} ar={`${numFmt.format(periodJobs)} مهام في الفترة المحددة`} />
+              </div>
+            </div>
+            <div className="kpi">
+              <div className="k">
+                <Bi en="Success rate" ar="نسبة النجاح" />
+              </div>
+              <div className="v">{successRate == null ? '—' : `${successRate}%`}</div>
+              <div className="d flat">
+                <Bi en={`${numFmt.format(allStatusJobs)} jobs by status`} ar={`${numFmt.format(allStatusJobs)} مهام حسب الحالة`} />
+              </div>
+            </div>
+            <div className="kpi">
+              <div className="k">
+                <Bi en="Avg duration" ar="متوسط المدة" />
+              </div>
+              <div className="v">{avgDuration}</div>
+              <div className="d flat">
+                <Bi en={`${numFmt.format(completedJobs)} completed jobs`} ar={`${numFmt.format(completedJobs)} مهام مكتملة`} />
+              </div>
+            </div>
+            <div className="kpi">
+              <div className="k">
+                <Bi en="v1 tokens" ar="رموز v1" />
+              </div>
+              <div className="v">{numFmt.format(v1Tokens)}</div>
+              <div className="d flat">
+                <Bi en={`SAR ${fmtSar(v1SpendSar)} ledger spend`} ar={`${fmtSar(v1SpendSar)} ريال من سجل الاستخدام`} />
+              </div>
+            </div>
+          </div>
+
+          <div className="breakdown-grid">
             <div className="panel">
               <div className="panel-hd">
                 <div>
@@ -408,59 +576,20 @@ export default function RenterUsagePage() {
                   </h3>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {BY_MODEL.map((row) => (
-                  <div className="brk-row" key={row.name}>
-                    <span className="brk-name" style={row.muted ? { color: 'var(--mut)' } : undefined}>
-                      {row.name}
-                    </span>
-                    <div className="brk-bar">
-                      <span
-                        style={{
-                          width: `${row.pct}%`,
-                          ...(row.muted ? { background: 'var(--mut)' } : {}),
-                        }}
-                      />
-                    </div>
-                    <span className="brk-v" style={row.muted ? { color: 'var(--mut)' } : undefined}>
-                      {row.sar}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <BreakdownRows rows={modelRows} empty="No model spend recorded yet." />
             </div>
             <div className="panel">
               <div className="panel-hd">
                 <div>
                   <h3>
-                    <Bi en="By API key" ar="حسب مفتاح API" />
+                    <Bi en="By source" ar="حسب المصدر" />
                   </h3>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {BY_KEY.map((row) => (
-                  <div className="brk-row" key={row.name}>
-                    <span className="brk-name" style={row.muted ? { color: 'var(--mut)' } : undefined}>
-                      {row.name}
-                    </span>
-                    <div className="brk-bar">
-                      <span
-                        style={{
-                          width: `${row.pct}%`,
-                          ...(row.muted ? { background: 'var(--mut)' } : {}),
-                        }}
-                      />
-                    </div>
-                    <span className="brk-v" style={row.muted ? { color: 'var(--mut)' } : undefined}>
-                      {row.sar}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <BreakdownRows rows={sourceRows} empty="No source spend recorded yet." />
             </div>
           </div>
 
-          {/* Jobs table */}
           <div className="panel" style={{ marginTop: 28 }}>
             <div className="panel-hd">
               <div>
@@ -468,42 +597,32 @@ export default function RenterUsagePage() {
                   <Bi en="Recent jobs" ar="المهام الأخيرة" />
                 </h3>
               </div>
-              <span
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: '10.5px',
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
-                  color: 'var(--mut)',
-                }}
-              >
-                <Bi en="Last 24 hours · 1,284 jobs" ar="آخر ٢٤ ساعة · ١٢٨٤ مهمة" />
-              </span>
+              <div className="seg">
+                {PERIODS.map((p) => (
+                  <button key={p} className={period === p ? 'on' : ''} type="button" onClick={() => setPeriod(p)}>
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="filters">
               <input
                 className="input search"
-                placeholder={
-                  lang === 'ar' ? 'ابحث برقم المهمة أو الموجه أو المفتاح…' : 'Search by job ID, prompt, or key…'
-                }
+                placeholder={lang === 'ar' ? 'ابحث برقم المهمة أو النموذج أو الحالة...' : 'Search by job ID, model, GPU, or status...'}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
               <select className="select" value={modelFilter} onChange={(e) => setModelFilter(e.target.value)}>
-                <option>All models</option>
-                <option>allam-7b</option>
-                <option>jais-13b</option>
-                <option>falcon-h1</option>
+                {modelOptions.map((model) => (
+                  <option key={model}>{model}</option>
+                ))}
               </select>
-              <select className="select" value={keyFilter} onChange={(e) => setKeyFilter(e.target.value)}>
-                <option>All keys</option>
-                <option>production-server</option>
-                <option>staging</option>
-              </select>
-              <select className="select" value={rangeFilter} onChange={(e) => setRangeFilter(e.target.value)}>
-                <option>Last 24h</option>
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
+              <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option>All statuses</option>
+                <option>settled</option>
+                <option>queued</option>
+                <option>active</option>
+                <option>failed</option>
               </select>
             </div>
             <table className="tbl jobs-tbl">
@@ -519,10 +638,7 @@ export default function RenterUsagePage() {
                     <Bi en="Model" ar="النموذج" />
                   </th>
                   <th>
-                    <Bi en="Key" ar="المفتاح" />
-                  </th>
-                  <th style={{ textAlign: 'end' }}>
-                    <Bi en="Tokens" ar="الرموز" />
+                    <Bi en="GPU" ar="المعالج" />
                   </th>
                   <th style={{ textAlign: 'end' }}>SAR</th>
                   <th>
@@ -534,46 +650,147 @@ export default function RenterUsagePage() {
                 </tr>
               </thead>
               <tbody id="jobs-body">
-                {jobs.map((j) => (
-                  <tr key={j.id}>
-                    <td>
-                      <span className="mut">{j.t}</span>
-                    </td>
-                    <td>
-                      <span className="mono">{j.id}</span>
-                    </td>
-                    <td>
-                      <span className="mono">{j.model}</span>
-                    </td>
-                    <td>
-                      <span className="mono">{j.key}</span>
-                    </td>
-                    <td>
-                      <span className="mono" style={{ textAlign: 'end', display: 'block' }}>
-                        {numFmt.format(j.tok)}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="sar">
-                        {j.sar.toFixed(2)}
-                        <span className="u">SAR</span>
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`stat ${j.stat}`}>{j.stat}</span>
-                    </td>
-                    <td>
-                      <span className="mut" style={{ textAlign: 'end', display: 'block' }}>
-                        {numFmt.format(j.ms)} ms
-                      </span>
+                {filteredJobs.length === 0 ? (
+                  <tr className="empty-row">
+                    <td colSpan={7}>
+                      <Bi en="No jobs match the current account and filters." ar="لا توجد مهام تطابق الحساب والفلاتر الحالية." />
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredJobs.map((job) => {
+                    const ms = durationMs(job)
+                    const status = mapStatus(job.status)
+                    return (
+                      <tr key={job.job_id || job.id}>
+                        <td>
+                          <span className="mut">{formatWhen(job.submitted_at)}</span>
+                        </td>
+                        <td>
+                          <span className="mono">{job.job_id || job.id}</span>
+                        </td>
+                        <td>
+                          <span className="mono">{modelName(job)}</span>
+                        </td>
+                        <td>
+                          <span className="mono">{job.provider_gpu || '—'}</span>
+                        </td>
+                        <td>
+                          <span className="sar">
+                            {fmtSar(costSar(job))}
+                            <span className="u">SAR</span>
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`stat ${status}`}>{status}</span>
+                        </td>
+                        <td>
+                          <span className="mut" style={{ textAlign: 'end', display: 'block' }}>
+                            {ms == null ? '—' : `${numFmt.format(ms)} ms`}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="panel" style={{ marginTop: 28 }}>
+            <div className="panel-hd">
+              <div>
+                <h3>
+                  <Bi en="v1 API usage" ar="استخدام واجهة v1" />
+                </h3>
+              </div>
+            </div>
+            <table className="tbl jobs-tbl">
+              <thead>
+                <tr>
+                  <th>
+                    <Bi en="Time" ar="الوقت" />
+                  </th>
+                  <th>
+                    <Bi en="Request" ar="الطلب" />
+                  </th>
+                  <th>
+                    <Bi en="Model" ar="النموذج" />
+                  </th>
+                  <th>
+                    <Bi en="Source" ar="المصدر" />
+                  </th>
+                  <th style={{ textAlign: 'end' }}>
+                    <Bi en="Tokens" ar="الرموز" />
+                  </th>
+                  <th style={{ textAlign: 'end' }}>SAR</th>
+                  <th>
+                    <Bi en="Settlement" ar="التسوية" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.length === 0 ? (
+                  <tr className="empty-row">
+                    <td colSpan={7}>
+                      <Bi en="No v1 inference usage has been recorded for this renter yet." ar="لم يتم تسجيل استخدام v1 لهذا المستأجر بعد." />
+                    </td>
+                  </tr>
+                ) : (
+                  usage.map((row) => (
+                    <tr key={row.request_id || row.id}>
+                      <td>
+                        <span className="mut">{formatWhen(row.created_at)}</span>
+                      </td>
+                      <td>
+                        <span className="mono">{row.request_id || row.id}</span>
+                      </td>
+                      <td>
+                        <span className="mono">{row.model || '—'}</span>
+                      </td>
+                      <td>
+                        <span className="mono">{row.source || '—'}</span>
+                      </td>
+                      <td>
+                        <span className="mono" style={{ textAlign: 'end', display: 'block' }}>
+                          {numFmt.format(row.total_tokens || 0)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="sar">
+                          {fmtSar(halalaToSar(row.cost_halala))}
+                          <span className="u">SAR</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`stat ${mapStatus(row.settlement_status)}`}>{row.settlement_status || 'recorded'}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </main>
       </div>
+    </div>
+  )
+}
+
+function BreakdownRows({ rows, empty }: { rows: BreakdownRow[]; empty: string }) {
+  if (rows.length === 0) {
+    return <div className="empty-breakdown">{empty}</div>
+  }
+  return (
+    <div className="breakdown-list">
+      {rows.map((row) => (
+        <div className="brk-row" key={row.name}>
+          <span className="brk-name">{row.name}</span>
+          <div className="brk-bar">
+            <span style={{ width: `${row.pct}%` }} />
+          </div>
+          <span className="brk-v">SAR {fmtSar(row.sar)}</span>
+        </div>
+      ))}
     </div>
   )
 }
