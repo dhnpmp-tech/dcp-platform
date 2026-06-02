@@ -1,7 +1,8 @@
 /**
  * Regression guard: production infrastructure identifiers (IPs, libp2p peer
- * IDs, bootstrap multiaddrs) must never be hardcoded in the backend source
- * tree. If this test fails, a real secret-ish infra detail was just committed.
+ * IDs, bootstrap multiaddrs) and credentials (Telegram bot tokens) must never
+ * be hardcoded in the backend source tree — including .py/.sh sources. If this
+ * test fails, a real secret-ish infra detail was just committed.
  *
  * Exceptions intentionally covered:
  *   - Inline doc/comment example using <IP> / <PEER_ID> placeholders (ok)
@@ -16,7 +17,9 @@ const path = require('node:path');
 
 const BACKEND_DIR = path.resolve(__dirname, '..', '..');
 const SEARCH_ROOTS = ['src', 'tests', 'ecosystem.config.js'];
-const EXTS = new Set(['.js', '.ts', '.tsx', '.json', '.mjs', '.cjs']);
+// .py/.sh added 2026-06-02: a hardcoded Telegram token in src/channels/
+// heartbeat_mvp.py (a .py file) was missed because Python sources weren't scanned.
+const EXTS = new Set(['.js', '.ts', '.tsx', '.json', '.mjs', '.cjs', '.py', '.sh']);
 
 // Patterns that, if present verbatim, represent a real infra leak.
 const FORBIDDEN_PATTERNS = [
@@ -29,6 +32,14 @@ const FORBIDDEN_PATTERNS = [
     // Specifically the production peer ID prefix — test flags *any* 12D3Koo
     // since every libp2p ed25519 pubkey starts with this.
     re: /\b12D3Koo[A-Za-z0-9]{42,}\b/,
+  },
+  {
+    // Mirrors the telegram-bot-token rule in .gitleaks.toml. A hardcoded
+    // default token previously shipped in src/channels/heartbeat_mvp.py and was
+    // missed because .py wasn't scanned (now in EXTS) and no token pattern
+    // existed here. Matches the numeric_id:secret shape in any context.
+    name: 'Telegram bot token (id:secret shape)',
+    re: /\b\d{8,10}:[A-Za-z0-9_-]{30,}\b/,
   },
 ];
 
@@ -78,4 +89,22 @@ describe('security: no hardcoded production infra in backend source', () => {
       }
     });
   }
+});
+
+// Regression: the Telegram-token detector above (and its .gitleaks.toml twin)
+// must fire on the pre-rotation @dcp_dev_bot token's shape. Built from the real
+// (public) bot id + a synthetic secret so the literal token never reappears in
+// source — committing it would re-leak it and trip the very rule under test.
+describe('security: telegram-token pattern fires on the pre-rotation token shape', () => {
+  const tgRe = /\b\d{8,10}:[A-Za-z0-9_-]{30,}\b/;
+
+  test('matches an id:secret token shape', () => {
+    const tokenShape = '8291599718' + ':' + 'A'.repeat(35);
+    expect(tgRe.test(tokenShape)).toBe(true);
+  });
+
+  test('does not match ordinary code or env references', () => {
+    expect(tgRe.test('process.env.TG_DEV_BOT_TOKEN')).toBe(false);
+    expect(tgRe.test('const built = "2026-06-02"; // 12:00 build')).toBe(false);
+  });
 });

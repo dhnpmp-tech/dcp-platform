@@ -1,13 +1,23 @@
 # DCP secret-scanning config.
-# Extends gitleaks' default ruleset (which already catches Telegram bot tokens,
-# AWS keys, private keys, etc.) with DCP-specific credential shapes so the CI
-# gate also catches our own key formats. Tune in PRs as needed; inline
-# `gitleaks:allow` or a .gitleaksignore fingerprint can whitelist false positives.
+# Extends gitleaks' default ruleset (AWS keys, private keys, etc.) with
+# DCP-specific credential shapes so the CI gate also catches our own formats.
+# NOTE: gitleaks' default Telegram rule keyword-anchors on "telegram"/"bot"
+# nearby, so a token stored as a bare default (e.g. `TG_TOKEN = os.environ.get(
+# ..., "<id>:<secret>")`) slipped past it — see the explicit telegram-bot-token
+# rule below, which matches the shape regardless of surrounding context.
+# Tune in PRs as needed; inline `gitleaks:allow` or a .gitleaksignore
+# fingerprint can whitelist false positives.
 
 title = "DCP gitleaks config"
 
 [extend]
 useDefault = true
+
+[[rules]]
+id = "telegram-bot-token"
+description = "Telegram bot token (numeric_id:secret shape), matched regardless of nearby keywords — closes the gap that let a hardcoded default token slip past the default rule."
+regex = '''\b\d{8,10}:[A-Za-z0-9_-]{30,}\b'''
+tags = ["telegram", "secret"]
 
 [[rules]]
 id = "dcp-api-key"

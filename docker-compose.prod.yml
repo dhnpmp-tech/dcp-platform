@@ -80,6 +80,8 @@ services:
       # Required secrets — set these in .env on the VPS
       DC1_ADMIN_TOKEN: ${DC1_ADMIN_TOKEN}
       DC1_HMAC_SECRET: ${DC1_HMAC_SECRET}
+      # Required non-secret endpoint for provider WireGuard bootstrap configs
+      WG_SERVER_ENDPOINT: ${WG_SERVER_ENDPOINT:?WG_SERVER_ENDPOINT must be set, e.g. vpn.dcp.sa:51820}
       # Optional — set for payment processing
       MOYASAR_SECRET_KEY: ${MOYASAR_SECRET_KEY:-}
       MOYASAR_WEBHOOK_SECRET: ${MOYASAR_WEBHOOK_SECRET:-}

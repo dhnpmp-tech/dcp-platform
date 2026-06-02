@@ -8067,7 +8067,12 @@ router.post('/wg/register', async (req, res) => {
         }
 
         const WG_SERVER_PUBKEY = 'zVxlVgKwnxq4Z9l6jGgD0yMJH5meHrlodJYyRHrL+wM=';
-        const WG_SERVER_ENDPOINT = '76.13.179.86:51820';
+        // Server endpoint comes from env only (no hardcoded prod IP in source).
+        // Refuse to render a peer config when unset rather than emit a broken one.
+        const WG_SERVER_ENDPOINT = (process.env.WG_SERVER_ENDPOINT || '').trim();
+        if (!WG_SERVER_ENDPOINT) {
+            return res.status(503).json({ error: 'WireGuard server endpoint not configured (set WG_SERVER_ENDPOINT on the server)' });
+        }
         // Tier 2 fallback (UDP/443). Activated by setting these env vars on
         // the VPS after `wg-quick up wg1`. When absent, the response shape is
         // identical to Tier 1 — daemons just don't see the fallback fields.
@@ -8317,7 +8322,12 @@ router.post('/wg/install-config', async (req, res) => {
     try {
         const { execSync, execFileSync } = require('child_process');
         const WG_SERVER_PUBKEY = 'zVxlVgKwnxq4Z9l6jGgD0yMJH5meHrlodJYyRHrL+wM=';
-        const WG_SERVER_ENDPOINT = '76.13.179.86:51820';
+        // Server endpoint comes from env only (no hardcoded prod IP in source).
+        // Refuse to render a peer config when unset rather than emit a broken one.
+        const WG_SERVER_ENDPOINT = (process.env.WG_SERVER_ENDPOINT || '').trim();
+        if (!WG_SERVER_ENDPOINT) {
+            return res.status(503).json({ error: 'WireGuard server endpoint not configured (set WG_SERVER_ENDPOINT on the server)' });
+        }
         const api_key = req.headers['x-provider-key'] || req.query.key;
         if (!api_key) {
             return res.status(401).json({ error: 'x-provider-key header required' });
