@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Frontend
+- ✅ Fixed v2 renter usage table keys so usage-ledger rows without backend IDs no longer trigger React duplicate-key warnings during smoke tests.
+- ✅ Wired v2 renter playground to live renter account, balance, `/v1/models`, and `/v1/chat/completions` flows, removing prototype chat messages, seeded workspace identity, fake wallet totals, hardcoded API domain usage, fallback model lists, and fixed demo rate labels from `/v2/renter/playground`.
+- ✅ Wired v2 renter invoices to real renter account, wallet, invoice-history, and CSV export endpoints, removing prototype invoice rows, fake company/person identity, seeded wallet totals, invented CR/VAT/address values, and unsupported PDF/XML download controls from `/v2/renter/invoices`.
+- ✅ Wired v2 renter settings to real renter account, wallet, notification, webhook, read-all, and data-export endpoints, removing fake team members, seeded company/CR/VAT/address fields, prototype notification toggles, fake danger actions, and hardcoded workspace identity from `/v2/renter/settings`.
+- ✅ Wired v2 renter usage to real renter account, balance, analytics, job-history, CSV export, and v1 usage-ledger endpoints, removing prototype model/key spend rows, seeded jobs, fake workspace identity, fixed 24-hour counts, and hardcoded wallet totals from `/v2/renter/usage`.
+- ✅ Wired v2 renter wallet to real renter identity, balance, payment-history, top-up, and auto-top-up settings endpoints, removing prototype workspace identity, seeded wallet totals, fake transaction rows, unsupported USDC/mada options, and non-persistent auto-top-up controls from `/v2/renter/wallet`.
+- ✅ Wired v2 provider settings to real provider preferences, pause/resume, and resource-limit routes, removing prototype notification/routing/danger controls, fixed earnings, fake identity, and non-persistent settings from `/v2/provider/settings`.
+- ✅ Wired v2 provider profile to real-or-empty provider account, payout identity, earnings, GPU, wallet, and operational facts, removing fake identity fields, fake tier ladder, seeded IBAN/VAT values, and the non-persistent save form from `/v2/provider/profile`.
+- ✅ Wired v2 provider payouts to real-or-empty provider account, payout balance, withdrawal history, and withdrawal-request data, removing fake payout cycles, seeded bank account details, demo tax fields, fixed schedule controls, and hardcoded operator identity from `/v2/provider/payouts`.
+- ✅ Wired v2 provider earnings to real-or-empty provider identity, totals, daily history, withdrawals, and recent-job model data, removing prototype charts, fixed rig/model breakdowns, seeded payout rows, fake IBAN tails, and hardcoded operator identity from `/v2/provider/earnings`.
+- ✅ Wired v2 provider rigs to the authenticated provider account as a real single-rig view, removing prototype fleet rows, fixed rig counts, fake earnings, seeded operator identity, and placeholder pairing tokens from `/v2/provider/rigs`.
+- ✅ Wired v2 provider dashboard to real-or-empty provider data from `/providers/me`, `/providers/me/metrics`, and `/providers/earnings-daily`, removing prototype operator names, rig cards, jobs, earnings curves, and fixed KPI fallbacks from the post-setup provider console.
+- ✅ Replaced v2 provider setup shortcuts with live provider auth/install/verify states: magic links post to `/providers/send-otp`, pasted provider keys are validated through `/providers/me`, installer commands are generated from `/providers/download/setup`, and the final step now polls `/providers/status` instead of auto-passing on a timer.
+- ✅ Wired v2 renter dashboard and API key console to live renter endpoints (`/renters/me`, `/renters/me/analytics`, `/renters/me/live`, `/renters/me/keys`) and removed remaining prototype workspace, wallet, trend, spend, and live-job fallback data from those routes.
+- ✅ Removed placeholder renter API keys and demo-only playground responses from v2 setup/playground; v2 setup now reveals only a verified renter key and v2 playground sends real `/v1/chat/completions` requests with the stored renter key.
+- ✅ Wired `/v2/auth` to the live renter/provider magic-link and API-key login contracts, disabled unimplemented Nafath/Google buttons as coming soon, and pointed legal links at the live terms/privacy pages.
+- ✅ Kept `/login` on the proven v1 auth flow during `DCP_V2_LIVE` cutover so admin, monitor, and intelligence operators are not sent to the unwired `/v2/auth` form before v2 auth is production-ready.
+
 ### Infrastructure
 - ✅ Instant-tier Docker workflow now publishes `dc1/base-worker`, `dc1/llm-worker`, and `dc1/sd-worker` with mutable `latest` plus immutable `sha-*` tags, emits a machine-readable digest manifest artifact, and smoke-validates pull/startup in CI.
 

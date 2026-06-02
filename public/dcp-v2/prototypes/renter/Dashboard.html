@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Overview · DCP Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<link rel="stylesheet" href="./renter-shell.css">
+<style>
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 1080px) { .two-col { grid-template-columns: 1fr; } }
+  .chart { height: 240px; position: relative; }
+  .chart svg { width: 100%; height: 100%; display: block; }
+  .chart .area { fill: url(#chartArea); opacity: .8; }
+  .chart .line { fill: none; stroke: var(--teal); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .chart .grid line { stroke: var(--hair); stroke-width: 0.5; stroke-dasharray: 2 4; }
+  .chart .axis-l { position: absolute; left: 0; top: 0; bottom: 24px; width: 56px; display: flex; flex-direction: column; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--mut); }
+  .chart .axis-b { position: absolute; left: 56px; right: 8px; bottom: 0; height: 22px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--mut); }
+
+  .live-jobs { display: flex; flex-direction: column; gap: 0; }
+  .lj-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 0; border-bottom: 1px dashed var(--hair); align-items: center; }
+  .lj-row:last-child { border-bottom: 0; }
+  .lj-row .body { line-height: 1.3; min-width: 0; }
+  .lj-row .body .nm { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .lj-row .body .sub { font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 4px; letter-spacing: .04em; }
+  .lj-row .right { text-align: end; }
+  .lj-row .right .sar { font-family: var(--serif); font-size: 15px; color: var(--ink); }
+
+  .quickstart {
+    margin-top: 28px; background: linear-gradient(135deg, color-mix(in oklab, var(--teal) 8%, var(--paper)) 0%, var(--paper) 100%);
+    border: 1px solid var(--hair); position: relative; padding: 28px 30px;
+  }
+  .quickstart::before { content: ""; position: absolute; inset: -1px -1px auto -1px; height: 2px; background: var(--grad); }
+  .quickstart h3 { font-family: var(--serif); font-weight: 400; font-size: 26px; letter-spacing: -.01em; margin: 0 0 14px; color: var(--ink); }
+  .qs-tabs { display: inline-flex; border-bottom: 1px solid var(--hair); margin-bottom: 14px; gap: 4px; }
+  .qs-tabs button { padding: 8px 14px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--mut); border: 0; background: transparent; cursor: pointer; text-transform: uppercase; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .qs-tabs button.on { color: var(--ink); border-bottom-color: var(--teal); }
+  .qs-body { display: none; }
+  .qs-body.on { display: block; }
+</style>
+</head>
+<body>
+
+<div class="rt-app">
+  <aside class="rt-sb" id="rt-sb" data-page="dash"></aside>
+  <div class="rt-backdrop" id="rt-backdrop"></div>
+
+  <div>
+    <header class="rt-tb" id="rt-tb" data-crumb="Overview"></header>
+
+    <main class="rt-main">
+
+      <h1 class="rt-h1">Welcome back, <em style="font-style:italic; color: var(--teal);">Fatima.</em></h1>
+      <div class="rt-h1-sub">
+        <span>4 jobs running now</span>
+        <span>Spend today <b>SAR 41.20</b></span>
+        <span>3 API keys active</span>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-row" style="margin-top:36px;">
+        <div class="kpi featured">
+          <span class="k">Today · so far</span>
+          <span class="v">SAR 41<span class="u">.20</span></span>
+          <span class="d up">▲ 18% vs yesterday at this hour</span>
+        </div>
+        <div class="kpi">
+          <span class="k">This week</span>
+          <span class="v">SAR 412</span>
+          <span class="d flat">— consistent with last week</span>
+        </div>
+        <div class="kpi">
+          <span class="k">This month</span>
+          <span class="v">SAR 2,456</span>
+          <span class="d up">▲ 9% vs last month</span>
+        </div>
+        <div class="kpi">
+          <span class="k">Tokens · 30d</span>
+          <span class="v">12.4<span class="u">M</span></span>
+          <span class="d flat">avg <b style="color:var(--ink); font-weight:500;">414k</b> / day</span>
+        </div>
+      </div>
+
+      <!-- Spend chart + Live jobs -->
+      <div class="two-col" style="margin-top:28px;">
+        <div class="panel">
+          <div class="panel-hd">
+            <div><h3>Spend</h3></div>
+            <div class="seg" id="range">
+              <button data-r="7">7D</button>
+              <button data-r="30" class="on">30D</button>
+              <button data-r="90">90D</button>
+            </div>
+          </div>
+          <div class="chart" id="chart">
+            <div class="axis-l" id="ax-l"></div>
+            <div class="axis-b" id="ax-b"></div>
+            <svg id="chart-svg" viewBox="0 0 600 220" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#2dd4b6" stop-opacity=".45"/>
+                  <stop offset="1" stop-color="#2dd4b6" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <g class="grid" id="grid"></g>
+              <path class="area" id="area"></path>
+              <path class="line" id="line"></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hd">
+            <div><h3>Live jobs</h3></div>
+            <span style="font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--teal);">
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--teal); margin-inline-end:6px; animation: pulse 1.4s infinite;"></span> 4 streaming
+            </span>
+          </div>
+          <div class="live-jobs" id="live"></div>
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--hair); display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--mut);">
+            <span>Updates every 2s</span>
+            <a href="./Usage.html" style="color:var(--ink); border-bottom: 1px solid var(--ink); padding-bottom: 2px; text-decoration:none;">Full usage →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick start -->
+      <div class="quickstart">
+        <h3>Quick start · ship in 3 lines</h3>
+        <div class="qs-tabs">
+          <button data-t="curl" class="on">cURL</button>
+          <button data-t="py">Python</button>
+          <button data-t="node">Node</button>
+        </div>
+        <div class="qs-body on" data-t="curl"><pre class="code"><span class="c"># Chat completion · in-Kingdom · pay per token</span>
+$ <span class="k">curl</span> <span class="s">https://api.dcp.sa/v1/chat/completions</span> \
+   <span class="k">-H</span> <span class="s">"Authorization: Bearer $DCP_KEY"</span> \
+   <span class="k">-d</span> <span class="s">'{"model":"allam-7b","messages":[{"role":"user","content":"اشرح لي زكاة المال"}]}'</span></pre></div>
+        <div class="qs-body" data-t="py"><pre class="code"><span class="k">from</span> openai <span class="k">import</span> OpenAI
+
+client = <span class="n">OpenAI</span>(
+    base_url=<span class="s">"https://api.dcp.sa/v1"</span>,
+    api_key=<span class="s">"sk_live_..."</span>,
+)
+
+resp = client.chat.completions.create(
+    model=<span class="s">"allam-7b"</span>,
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"اشرح لي زكاة المال"</span>}],
+)
+<span class="n">print</span>(resp.choices[<span class="k">0</span>].message.content)</pre></div>
+        <div class="qs-body" data-t="node"><pre class="code"><span class="k">import</span> OpenAI <span class="k">from</span> <span class="s">"openai"</span>;
+
+<span class="k">const</span> client = <span class="k">new</span> <span class="n">OpenAI</span>({
+  baseURL: <span class="s">"https://api.dcp.sa/v1"</span>,
+  apiKey: process.env.DCP_KEY,
+});
+
+<span class="k">const</span> resp = <span class="k">await</span> client.chat.completions.create({
+  model: <span class="s">"allam-7b"</span>,
+  messages: [{ role: <span class="s">"user"</span>, content: <span class="s">"اشرح لي زكاة المال"</span> }],
+});</pre></div>
+        <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+          <a class="btn-pri" href="./Playground.html">Open Playground →</a>
+          <a class="btn-sec" href="./Keys.html">Get an API key</a>
+          <a class="btn-sec" href="../../../docs/docs-three-pane.html">Read the docs</a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="./renter-shell.js"></script>
+<script>
+  /* Spend chart */
+  const SPEND = (() => {
+    const out = [];
+    for (let i = 89; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const base = 60 + Math.sin((89 - i) / 4) * 22 + (i < 30 ? 18 : 0);
+      const j = ((89 - i) * 7 % 11) - 4;
+      out.push({ date: d, sar: Math.round(base + j) });
+    }
+    return out;
+  })();
+  const fmt = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+  function render(rd) {
+    const W = 600, H = 220, padL = 56, padR = 8, padT = 16, padB = 22;
+    const days = SPEND.slice(-rd);
+    const max = Math.max(...days.map(d => d.sar)) * 1.1;
+    const min = Math.min(...days.map(d => d.sar)) * 0.85;
+    const range = max - min;
+    const x = i => padL + (i / (days.length - 1)) * (W - padL - padR);
+    const y = v => padT + (1 - (v - min) / range) * (H - padT - padB);
+    let p = '';
+    days.forEach((d, i) => { p += (i === 0 ? 'M ' : ' L ') + x(i).toFixed(1) + ' ' + y(d.sar).toFixed(1); });
+    document.getElementById('line').setAttribute('d', p);
+    document.getElementById('area').setAttribute('d', p + ` L ${x(days.length - 1)} ${H - padB} L ${x(0)} ${H - padB} Z`);
+    const grid = document.getElementById('grid'); grid.innerHTML = '';
+    for (let i = 0; i <= 4; i++) {
+      const gy = padT + (i / 4) * (H - padT - padB);
+      grid.innerHTML += `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}"></line>`;
+    }
+    const axL = document.getElementById('ax-l'); axL.innerHTML = '';
+    for (let i = 0; i <= 4; i++) { axL.innerHTML += `<span>SAR ${fmt(max - (i / 4) * range)}</span>`; }
+    const e = rd <= 7 ? 1 : rd <= 30 ? 5 : 15;
+    document.getElementById('ax-b').innerHTML = days.filter((d, i) => i % e === 0 || i === days.length - 1)
+      .map(d => `<span>${d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>`).join('');
+  }
+  render(30);
+  document.getElementById('range').addEventListener('click', e => {
+    const b = e.target.closest('button[data-r]'); if (!b) return;
+    document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x === b));
+    render(parseInt(b.dataset.r, 10));
+  });
+
+  /* Live jobs */
+  const LIVE = [
+    { model: 'allam-7b',  rig: 'riyadh-studio-01', status: 'streaming', tok: 1482, sar: 0.38 },
+    { model: 'jais-13b',  rig: 'jeddah-gold-02',   status: 'queued',    tok: 0,    sar: 1.40 },
+    { model: 'bge-m3',    rig: 'riyadh-bench-04',  status: 'streaming', tok: 64,   sar: 0.02 },
+    { model: 'falcon-h1', rig: 'dammam-rig-11',    status: 'streaming', tok: 824,  sar: 0.92 },
+  ];
+  document.getElementById('live').innerHTML = LIVE.map(j => `
+    <div class="lj-row">
+      <div class="body">
+        <div class="nm">${j.model}</div>
+        <div class="sub">${j.rig} · <span class="stat ${j.status}">${j.status}</span> · ${j.tok.toLocaleString()} tok</div>
+      </div>
+      <div class="right">
+        <div class="sar">SAR ${j.sar.toFixed(2)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  /* Quick-start tabs */
+  document.querySelectorAll('.qs-tabs button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.qs-tabs button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.qs-body').forEach(x => x.classList.toggle('on', x.dataset.t === b.dataset.t));
+  }));
+</script>
+
+</body>
+</html>

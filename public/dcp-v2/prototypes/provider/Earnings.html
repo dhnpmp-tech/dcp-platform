@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Earnings · DCP Provider</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<link rel="stylesheet" href="./provider-shell.css">
+</head>
+<body>
+
+<div class="pv-app">
+  <aside class="pv-sb" id="pv-sb" data-page="earnings"></aside>
+  <div class="pv-backdrop" id="pv-backdrop"></div>
+
+  <div>
+    <header class="pv-tb" id="pv-tb" data-crumb="Earnings"></header>
+
+    <main class="pv-main">
+
+      <h1 class="pv-h1">Your <em style="font-style:italic; color: var(--orange);">earnings.</em></h1>
+      <div class="pv-h1-sub">
+        <span>Paid out weekly · Saudi Riyal</span>
+        <span>Next payout <b>Mon · SAR 428</b></span>
+        <span>Lifetime <b>SAR 42,180</b></span>
+      </div>
+
+      <!-- Big chart -->
+      <div class="panel" style="margin-top:36px;">
+        <div class="panel-hd">
+          <div><h3>Daily earnings</h3></div>
+          <div class="seg" id="range">
+            <button data-r="7">7D</button>
+            <button data-r="30" class="on">30D</button>
+            <button data-r="90">90D</button>
+          </div>
+        </div>
+        <div class="earn-chart" id="chart">
+          <div class="axis-l" id="ax-l"></div>
+          <div class="axis-b" id="ax-b"></div>
+          <svg id="chart-svg" viewBox="0 0 600 300" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="earnArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ee7a3c" stop-opacity=".45"/>
+                <stop offset="1" stop-color="#ee7a3c" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g class="grid" id="grid"></g>
+            <path class="area" id="area"></path>
+            <path class="line" id="line"></path>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Breakdown by rig -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:28px;">
+        <div class="panel">
+          <div class="panel-hd"><div><h3>By rig · last 30 days</h3></div></div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div class="brk-row"><span class="brk-name">studio-main</span><div class="brk-bar"><span style="width:48%;"></span></div><span class="brk-v">SAR 2,798</span></div>
+            <div class="brk-row"><span class="brk-name">studio-bench</span><div class="brk-bar"><span style="width:32%;"></span></div><span class="brk-v">SAR 1,864</span></div>
+            <div class="brk-row"><span class="brk-name">office-mac</span><div class="brk-bar"><span style="width:14%;"></span></div><span class="brk-v">SAR 816</span></div>
+            <div class="brk-row"><span class="brk-name">garage-3090</span><div class="brk-bar"><span style="width:6%; background:var(--mut);"></span></div><span class="brk-v" style="color:var(--mut);">SAR 348</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hd"><div><h3>By model · last 30 days</h3></div></div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div class="brk-row"><span class="brk-name">allam-7b</span><div class="brk-bar"><span style="width:54%;"></span></div><span class="brk-v">SAR 3,120</span></div>
+            <div class="brk-row"><span class="brk-name">jais-13b</span><div class="brk-bar"><span style="width:20%;"></span></div><span class="brk-v">SAR 1,180</span></div>
+            <div class="brk-row"><span class="brk-name">falcon-h1</span><div class="brk-bar"><span style="width:14%;"></span></div><span class="brk-v">SAR 820</span></div>
+            <div class="brk-row"><span class="brk-name">bge-m3</span><div class="brk-bar"><span style="width:7%;"></span></div><span class="brk-v">SAR 412</span></div>
+            <div class="brk-row"><span class="brk-name" style="color:var(--mut);">others</span><div class="brk-bar"><span style="width:5%; background:var(--mut);"></span></div><span class="brk-v" style="color:var(--mut);">SAR 294</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payouts -->
+      <div class="panel" style="margin-top:28px;">
+        <div class="panel-hd">
+          <div>
+            <h3>Payouts</h3>
+            <div style="font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); margin-top:6px;">
+              Weekly · Mon · SAR to IBAN <b style="color:var(--ink); font-weight:500;">•••• 2847</b>
+            </div>
+          </div>
+          <a href="./Payouts.html" style="font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px;">Manage payouts →</a>
+        </div>
+        <table class="payouts-tbl">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Method</th>
+              <th style="text-align:end;">Amount</th>
+              <th>Status</th>
+              <th style="text-align:end;">Paid</th>
+              <th style="text-align:end;">Invoice</th>
+            </tr>
+          </thead>
+          <tbody id="payouts"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<style>
+  .brk-row { display: grid; grid-template-columns: 120px 1fr 90px; gap: 16px; align-items: center; }
+  .brk-name { font-family: var(--mono); font-size: 12.5px; color: var(--ink); letter-spacing: .02em; }
+  .brk-bar { height: 6px; background: var(--bg-2); border-radius: 2px; overflow: hidden; }
+  .brk-bar span { display: block; height: 100%; background: var(--orange); }
+  .brk-v { font-family: var(--mono); font-size: 12.5px; color: var(--ink); text-align: end; letter-spacing: -.005em; }
+</style>
+
+<script src="./provider-shell.js"></script>
+<script>
+  /* Earnings chart */
+  const EARN = (() => {
+    const out = [];
+    for (let i = 89; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const base = 180 + Math.sin((89 - i) / 5) * 50 + (i < 30 ? 60 : 0) + (i < 9 ? 40 : 0);
+      const jitter = ((89 - i) * 11 % 19) - 9;
+      out.push({ date: d, sar: Math.round(base + jitter) });
+    }
+    return out;
+  })();
+  const fmtSAR = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+
+  function renderChart(rangeDays) {
+    const W = 600, H = 300;
+    const padL = 56, padR = 8, padT = 16, padB = 22;
+    const days = EARN.slice(-rangeDays);
+    const max = Math.max(...days.map(d => d.sar)) * 1.1;
+    const min = Math.min(...days.map(d => d.sar)) * 0.85;
+    const range = max - min;
+    const x = i => padL + (i / (days.length - 1)) * (W - padL - padR);
+    const y = v => padT + (1 - (v - min) / range) * (H - padT - padB);
+    let path = '';
+    days.forEach((d, i) => { path += (i === 0 ? 'M ' : ' L ') + x(i).toFixed(1) + ' ' + y(d.sar).toFixed(1); });
+    document.getElementById('line').setAttribute('d', path);
+    document.getElementById('area').setAttribute('d', path + ` L ${x(days.length - 1)} ${H - padB} L ${x(0)} ${H - padB} Z`);
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    for (let i = 0; i <= 4; i++) {
+      const gy = padT + (i / 4) * (H - padT - padB);
+      grid.innerHTML += `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}"></line>`;
+    }
+    const axL = document.getElementById('ax-l');
+    axL.innerHTML = '';
+    for (let i = 0; i <= 4; i++) {
+      const v = max - (i / 4) * range;
+      axL.innerHTML += `<span>SAR ${fmtSAR(v)}</span>`;
+    }
+    const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 5 : 15;
+    document.getElementById('ax-b').innerHTML = days.filter((d, i) => i % labelEvery === 0 || i === days.length - 1)
+      .map(d => `<span>${d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>`).join('');
+  }
+  renderChart(30);
+  document.getElementById('range').addEventListener('click', e => {
+    const b = e.target.closest('button[data-r]'); if (!b) return;
+    document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x === b));
+    renderChart(parseInt(b.dataset.r, 10));
+  });
+
+  /* Payouts table */
+  const PAYOUTS = [
+    { period: 'Dec 02 – Dec 08', mode: 'SAR · IBAN', sar: 428,  status: 'accruing', date: '—',           inv: null },
+    { period: 'Nov 25 – Dec 01', mode: 'SAR · IBAN', sar: 1482, status: 'paid',     date: '2 Dec 2025',  inv: 'INV-2025-49' },
+    { period: 'Nov 18 – Nov 24', mode: 'SAR · IBAN', sar: 1284, status: 'paid',     date: '25 Nov 2025', inv: 'INV-2025-48' },
+    { period: 'Nov 11 – Nov 17', mode: 'SAR · IBAN', sar: 1164, status: 'paid',     date: '18 Nov 2025', inv: 'INV-2025-47' },
+    { period: 'Nov 04 – Nov 10', mode: 'SAR · IBAN', sar: 982,  status: 'paid',     date: '11 Nov 2025', inv: 'INV-2025-46' },
+    { period: 'Oct 28 – Nov 03', mode: 'SAR · IBAN', sar: 914,  status: 'paid',     date: '4 Nov 2025',  inv: 'INV-2025-45' },
+    { period: 'Oct 21 – Oct 27', mode: 'SAR · IBAN', sar: 1058, status: 'paid',     date: '28 Oct 2025', inv: 'INV-2025-44' },
+  ];
+  document.getElementById('payouts').innerHTML = PAYOUTS.map(p => `
+    <tr>
+      <td><span class="period">${p.period}</span></td>
+      <td><span class="mode">${p.mode}</span></td>
+      <td><span class="amount">${p.sar.toLocaleString()}<span class="u">SAR</span></span></td>
+      <td><span class="stat ${p.status}">${p.status}</span></td>
+      <td><span class="when">${p.date}</span></td>
+      <td style="text-align:end;">${p.inv ? `<a class="inv" href="#">${p.inv} ↓</a>` : `<span class="when">—</span>`}</td>
+    </tr>
+  `).join('');
+</script>
+
+</body>
+</html>

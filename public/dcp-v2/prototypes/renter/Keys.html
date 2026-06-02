@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>API keys · DCP Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<link rel="stylesheet" href="./renter-shell.css">
+<style>
+  .keys-tbl .nm { font-family: var(--serif); font-size: 18px; color: var(--ink); line-height: 1.1; }
+  .keys-tbl .prefix { font-family: var(--mono); font-size: 12px; color: var(--mut); margin-top: 4px; display: block; letter-spacing: .02em; }
+  .keys-tbl .scope-pill { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; padding: 3px 8px; border: 1px solid var(--hair); border-radius: 2px; text-transform: uppercase; color: var(--ink-2); }
+  .keys-tbl .scope-pill.full { color: var(--teal); border-color: var(--teal); }
+  .keys-tbl .scope-pill.read { color: var(--ink-2); }
+  .keys-tbl .actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .keys-tbl .actions button { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 10px; border: 1px solid var(--hair); background: transparent; color: var(--ink-2); cursor: pointer; border-radius: 2px; }
+  .keys-tbl .actions button:hover { border-color: var(--ink); color: var(--ink); }
+  .keys-tbl .actions button.danger:hover { border-color: var(--err); color: var(--err); }
+
+  .new-key-card { background: linear-gradient(135deg, color-mix(in oklab, var(--teal) 8%, var(--paper)) 0%, var(--paper) 100%); border: 1px solid var(--hair); padding: 26px 30px; position: relative; }
+  .new-key-card::before { content: ""; position: absolute; inset: -1px -1px auto -1px; height: 2px; background: var(--grad); }
+
+  .reveal-row {
+    display: flex; align-items: center; gap: 12px;
+    background: #04050d; border: 1px solid var(--hair); padding: 14px 18px; margin-top: 14px;
+  }
+  .reveal-row code { flex: 1; font-family: var(--mono); font-size: 13px; color: var(--teal); letter-spacing: -.005em; word-break: break-all; }
+  .reveal-row .copy { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 8px 14px; border: 1px solid var(--teal); background: transparent; color: var(--teal); cursor: pointer; border-radius: 2px; }
+  .reveal-row .copy:hover { background: var(--teal); color: #0a0b1a; }
+</style>
+</head>
+<body>
+
+<div class="rt-app">
+  <aside class="rt-sb" id="rt-sb" data-page="keys"></aside>
+  <div class="rt-backdrop" id="rt-backdrop"></div>
+
+  <div>
+    <header class="rt-tb" id="rt-tb" data-crumb="API keys"></header>
+
+    <main class="rt-main">
+
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;">
+        <div>
+          <h1 class="rt-h1"><em style="font-style:italic; color:var(--teal);">Keys</em> &amp; access.</h1>
+          <div class="rt-h1-sub">
+            <span><b>3</b> active keys</span>
+            <span><b>1</b> revoked</span>
+            <span>Last used <b>2m ago</b></span>
+          </div>
+        </div>
+        <button class="btn-pri" id="new-key">+ Create a new key</button>
+      </div>
+
+      <!-- New key (after creation) - placeholder for demo -->
+      <div class="new-key-card" style="margin-top:30px; display:none;" id="new-card">
+        <h3 style="font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -.01em; margin: 0; color: var(--ink);">Your new key</h3>
+        <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.55; max-width: 60ch;">
+          Copy it now — for security we don&rsquo;t show the full key again. You&rsquo;ll only see a prefix in the table below.
+        </p>
+        <div class="reveal-row">
+          <code>dcp-renter-XXXXXXXXXXXXXXXXXXXX</code>
+          <button class="copy">Copy</button>
+        </div>
+      </div>
+
+      <!-- Existing keys -->
+      <div class="panel" style="margin-top:30px;">
+        <div class="panel-hd">
+          <div><h3>Existing keys</h3></div>
+          <span style="font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut);">Workspace: <b style="color:var(--ink); font-weight:500;">NextWave Commerce</b></span>
+        </div>
+        <table class="tbl keys-tbl">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Scope</th>
+              <th>Created</th>
+              <th>Last used</th>
+              <th style="text-align:end;">Spend · 30d</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="nm">production-server</span><span class="prefix">sk_live_8f3a…c721</span></td>
+              <td><span class="scope-pill full">Full · read + write</span></td>
+              <td><span class="mut">14 Aug 2024</span></td>
+              <td><span class="mut">2 minutes ago</span></td>
+              <td><span class="sar">2,184<span class="u">SAR</span></span></td>
+              <td><span class="stat active">Active</span></td>
+              <td class="actions">
+                <button>Edit</button>
+                <button class="danger">Revoke</button>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="nm">staging</span><span class="prefix">sk_live_a14d…91ef</span></td>
+              <td><span class="scope-pill full">Full · read + write</span></td>
+              <td><span class="mut">22 Sep 2024</span></td>
+              <td><span class="mut">18 hours ago</span></td>
+              <td><span class="sar">192<span class="u">SAR</span></span></td>
+              <td><span class="stat active">Active</span></td>
+              <td class="actions">
+                <button>Edit</button>
+                <button class="danger">Revoke</button>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="nm">analytics-readonly</span><span class="prefix">sk_live_2b8c…4f72</span></td>
+              <td><span class="scope-pill read">Read · usage only</span></td>
+              <td><span class="mut">3 Nov 2025</span></td>
+              <td><span class="mut">4 days ago</span></td>
+              <td><span class="sar">0<span class="u">SAR</span></span></td>
+              <td><span class="stat active">Active</span></td>
+              <td class="actions">
+                <button>Edit</button>
+                <button class="danger">Revoke</button>
+              </td>
+            </tr>
+            <tr style="opacity:.5;">
+              <td><span class="nm">old-laptop</span><span class="prefix">sk_live_c91a…__revoked</span></td>
+              <td><span class="scope-pill">—</span></td>
+              <td><span class="mut">5 Jun 2024</span></td>
+              <td><span class="mut">11 Sep 2025</span></td>
+              <td><span class="sar">428<span class="u">SAR</span></span></td>
+              <td><span class="stat revoked">Revoked</span></td>
+              <td class="actions">
+                <button>Restore</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Security tips -->
+      <div style="margin-top:28px; display:grid; grid-template-columns:1fr 1fr; gap:22px;">
+        <div class="panel">
+          <h3 style="font-family:var(--serif); font-weight:400; font-size:22px; letter-spacing:-.01em; margin:0 0 10px;">Use the right key for the job</h3>
+          <p style="margin:0; color:var(--ink-2); font-size:14px; line-height:1.65;">
+            One key per service — production server, staging, CI runner. If a key leaks, you can revoke just that one without breaking the rest of your fleet. Read-only keys are great for dashboards and analytics jobs that shouldn&rsquo;t be able to spend money.
+          </p>
+        </div>
+        <div class="panel">
+          <h3 style="font-family:var(--serif); font-weight:400; font-size:22px; letter-spacing:-.01em; margin:0 0 10px;">Set spend limits per key</h3>
+          <p style="margin:0; color:var(--ink-2); font-size:14px; line-height:1.65;">
+            Edit a key to cap its daily or monthly spend. Useful for production keys that shouldn&rsquo;t accidentally run away. If a key hits its cap we return a 429 — your code can handle it gracefully.
+          </p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="./renter-shell.js"></script>
+<script>
+  document.getElementById('new-key').addEventListener('click', () => {
+    document.getElementById('new-card').style.display = 'block';
+    document.getElementById('new-card').scrollIntoView({ behavior: 'smooth' });
+  });
+</script>
+
+</body>
+</html>

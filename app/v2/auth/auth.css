@@ -1,0 +1,97 @@
+  html, body { height: 100%; background: var(--bg); margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .auth { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+  @media (max-width: 880px) { .auth { grid-template-columns: 1fr; } }
+
+  /* Left: brand panel */
+  .auth-brand {
+    position: relative; overflow: hidden;
+    border-inline-end: 1px solid var(--hair);
+    padding: 48px 56px; display: flex; flex-direction: column; justify-content: space-between;
+    background: linear-gradient(160deg, color-mix(in oklab, var(--teal) 6%, var(--bg)) 0%, var(--bg) 50%, color-mix(in oklab, var(--orange) 6%, var(--bg)) 100%);
+  }
+  @media (max-width: 880px) { .auth-brand { display: none; } }
+  .auth-brand .wm { font-family: var(--serif); font-size: 34px; letter-spacing: -.01em; }
+  .auth-brand .wm i { font-style: italic; font-size: 22px; margin-inline-start: 4px;
+    background-image: linear-gradient(90deg, #2dd4b6 0%, #6bb39a 55%, #ee7a3c 100%);
+    background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .auth-brand .big {
+    font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 4.4vw, 64px); line-height: 1.02; letter-spacing: -.025em;
+    max-width: 16ch; text-wrap: balance;
+  }
+  .auth-brand .big em { font-style: italic; background-image: var(--grad); background-clip: text; -webkit-background-clip: text; color: transparent; }
+  .auth-brand .foot { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; color: var(--mut); display: flex; gap: 18px; flex-wrap: wrap; }
+  .auth-brand .glyph { position: absolute; right: -8%; top: 30%; width: 55%; opacity: .05; pointer-events: none; }
+  .auth-brand .glyph svg { width: 100%; color: var(--ink); }
+  .auth-brand .glyph .ms { fill: none; stroke: currentColor; stroke-width: 2; }
+
+  /* Right: form */
+  .auth-form { display: flex; flex-direction: column; justify-content: center; padding: 48px 56px; max-width: 520px; margin: 0 auto; width: 100%; }
+  @media (max-width: 560px) { .auth-form { padding: 40px 24px; } }
+  .auth-form h1 { font-family: var(--serif); font-weight: 400; font-size: 40px; letter-spacing: -.02em; margin: 0 0 8px; }
+  .auth-form .sub { color: var(--ink-2); font-size: 15px; line-height: 1.55; margin: 0 0 32px; }
+  .auth-form .sub a { color: var(--teal); }
+
+  .lang-switch {
+    align-self: flex-end; display: inline-flex; border: 1px solid var(--hair); border-radius: 2px;
+    background: transparent; padding: 0; cursor: pointer; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .1em; color: var(--ink); margin-bottom: 16px;
+  }
+  .lang-switch span { padding: 5px 9px; }
+  .lang-switch span.on { background: var(--ink); color: var(--bg); }
+
+  .seg-tabs { display: inline-flex; border: 1px solid var(--hair); border-radius: 2px; margin-bottom: 28px; }
+  .seg-tabs button { padding: 9px 18px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); background: transparent; border: 0; cursor: pointer; }
+  .seg-tabs button.on { background: var(--ink); color: var(--bg); }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); margin-bottom: 8px; }
+  .field input {
+    width: 100%; padding: 13px 14px; background: var(--bg-2); border: 1px solid var(--hair); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; border-radius: 2px;
+  }
+  .field input:focus { outline: none; border-color: var(--teal); }
+
+  .btn-pri {
+    width: 100%; padding: 14px 0; background: var(--teal); color: #0a0b1a; border: 0; border-radius: 2px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; margin-top: 6px;
+  }
+  .btn-pri:hover { filter: brightness(1.1); }
+
+  .oauth { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .oauth button {
+    width: 100%; padding: 12px 0; background: transparent; border: 1px solid var(--hair); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; cursor: pointer; border-radius: 2px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .oauth button:hover { border-color: var(--ink); }
+  .oauth button:disabled { cursor: not-allowed; color: var(--mut); opacity: .7; }
+  .oauth button:disabled:hover { border-color: var(--hair); }
+  .oauth button .ic { font-family: var(--mono); color: var(--mut); }
+
+  .divider { display: flex; align-items: center; gap: 14px; margin: 8px 0 24px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+
+  .legal { margin-top: 24px; font-family: var(--mono); font-size: 10.5px; color: var(--mut); line-height: 1.7; letter-spacing: .02em; }
+  .legal a { color: var(--ink-2); border-bottom: 1px solid var(--hair); }
+
+  .role-grid, .method-tabs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px;
+  }
+  .role-grid button, .method-tabs button, .btn-sec {
+    border: 1px solid var(--hair); border-radius: 2px; background: transparent; color: var(--ink-2);
+    padding: 11px 12px; cursor: pointer; font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .role-grid button.on, .method-tabs button.on {
+    border-color: var(--teal); color: var(--ink); background: color-mix(in oklab, var(--teal) 10%, transparent);
+  }
+  .auth-actions { display: grid; gap: 10px; }
+  .btn-pri:disabled { cursor: not-allowed; filter: grayscale(.35); opacity: .72; }
+  .btn-sec:hover { border-color: var(--ink); color: var(--ink); }
+  .auth-link-button { display: block; text-align: center; text-decoration: none; line-height: 1.2; }
+  .callout {
+    border: 1px solid var(--hair); border-radius: 2px; padding: 12px 14px; margin-top: 16px;
+    font-size: 13px; line-height: 1.45; color: var(--ink-2); background: var(--bg-2);
+  }
+  .callout.err { border-color: color-mix(in oklab, var(--err) 60%, var(--hair)); color: #ffd5dd; }
+  .callout.ok { border-color: color-mix(in oklab, var(--teal) 60%, var(--hair)); color: #c7fff4; }

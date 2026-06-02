@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Docs · DCP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../assets/dcp-kit.css">
+<link rel="stylesheet" href="./docs-shell.css">
+</head>
+<body>
+
+<header class="dx-top">
+  <a href="../Home.html" class="wm">DCP<i>∞</i><span class="tag">Docs</span></a>
+  <div class="search"><input type="search" placeholder="Search the docs…  /"></div>
+  <div class="links">
+    <a href="../Home.html">Home</a>
+    <a href="../renter/Dashboard.html">Console</a>
+    <a href="#">API status</a>
+  </div>
+</header>
+
+<div class="dx-grid">
+
+  <!-- Left nav -->
+  <nav class="dx-nav">
+    <div class="sec">Get started</div>
+    <a href="#" class="on">Introduction</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#auth">Authentication</a>
+    <a href="#billing">Billing &amp; tokens</a>
+    <div class="sec">API reference</div>
+    <a href="#chat">Chat completions</a>
+    <a href="#embeddings">Embeddings</a>
+    <a href="#rerank">Reranking</a>
+    <a href="#streaming">Streaming</a>
+    <a href="#errors">Errors &amp; limits</a>
+    <div class="sec">Guides</div>
+    <a href="#arabic">Working in Arabic</a>
+    <a href="#rag">Build a RAG app</a>
+    <a href="#residency">Data residency</a>
+    <div class="sec">SDKs</div>
+    <a href="#">Python</a>
+    <a href="#">Node.js</a>
+    <a href="#">cURL / REST</a>
+  </nav>
+
+  <!-- Content -->
+  <main class="dx-main">
+    <span class="dx-eyebrow">§ Get started</span>
+    <h1>The DCP API.</h1>
+    <p class="lead">
+      One OpenAI-compatible endpoint, served from inside the Kingdom. If you&rsquo;ve used the OpenAI SDK,
+      you already know how to use DCP — change the base URL and the key, and you&rsquo;re running Arabic-first
+      inference on KSA-resident hardware, billed per token in Riyal.
+    </p>
+
+    <div class="callout">
+      <div class="t">Base URL</div>
+      <p><code>https://api.dcp.sa/v1</code> — drop-in compatible with the OpenAI chat, embeddings, and rerank routes.</p>
+    </div>
+
+    <h2 id="quickstart">Quickstart</h2>
+    <p>Install the OpenAI SDK you already use, point it at DCP, and make your first call. Every request is billed per token against your wallet balance; new accounts start with SAR 20 of free credit.</p>
+
+    <div class="code-tabs" id="qs-tabs">
+      <button data-t="curl" class="on">cURL</button>
+      <button data-t="py">Python</button>
+      <button data-t="node">Node.js</button>
+    </div>
+    <div class="code-pane on" data-t="curl"><pre class="code">$ <span class="k">curl</span> <span class="s">https://api.dcp.sa/v1/chat/completions</span> \
+   <span class="k">-H</span> <span class="s">"Authorization: Bearer $DCP_KEY"</span> \
+   <span class="k">-H</span> <span class="s">"Content-Type: application/json"</span> \
+   <span class="k">-d</span> <span class="s">'{
+     "model": "allam-7b",
+     "messages": [{"role": "user", "content": "اشرح لي زكاة المال"}]
+   }'</span></pre></div>
+    <div class="code-pane" data-t="py"><pre class="code"><span class="k">from</span> openai <span class="k">import</span> OpenAI
+
+client = <span class="n">OpenAI</span>(
+    base_url=<span class="s">"https://api.dcp.sa/v1"</span>,
+    api_key=<span class="s">"sk_live_..."</span>,
+)
+
+resp = client.chat.completions.create(
+    model=<span class="s">"allam-7b"</span>,
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"اشرح لي زكاة المال"</span>}],
+)
+<span class="n">print</span>(resp.choices[<span class="k">0</span>].message.content)</pre></div>
+    <div class="code-pane" data-t="node"><pre class="code"><span class="k">import</span> OpenAI <span class="k">from</span> <span class="s">"openai"</span>;
+
+<span class="k">const</span> client = <span class="k">new</span> <span class="n">OpenAI</span>({
+  baseURL: <span class="s">"https://api.dcp.sa/v1"</span>,
+  apiKey: process.env.DCP_KEY,
+});
+
+<span class="k">const</span> resp = <span class="k">await</span> client.chat.completions.create({
+  model: <span class="s">"allam-7b"</span>,
+  messages: [{ role: <span class="s">"user"</span>, content: <span class="s">"اشرح لي زكاة المال"</span> }],
+});</pre></div>
+
+    <h2 id="auth">Authentication</h2>
+    <p>All requests need a bearer token in the <code>Authorization</code> header. Create and manage keys in the console under <a class="ln" href="../renter/Keys.html">API keys</a>. Keys are scoped per workspace; use a separate key per service so you can revoke one without affecting the rest.</p>
+    <pre class="code"><span class="k">Authorization:</span> Bearer sk_live_8f3a…c721</pre>
+
+    <h2 id="billing">Billing &amp; tokens</h2>
+    <p>You pay per token — input and output are metered separately, and settled in halala-precision against your wallet. There&rsquo;s no per-request minimum and no flat platform fee. Failed requests aren&rsquo;t billed.</p>
+    <ul>
+      <li>Balance and burn rate live in <a class="ln" href="../renter/Wallet.html">Wallet</a>.</li>
+      <li>Per-job cost and history live in <a class="ln" href="../renter/Usage.html">Usage</a>.</li>
+      <li>Monthly ZATCA invoices are issued automatically under <a class="ln" href="../renter/Invoices.html">Invoices</a>.</li>
+    </ul>
+
+    <h2 id="chat">Chat completions</h2>
+    <p><code>POST /v1/chat/completions</code> — the primary endpoint for conversational and instruction-following models.</p>
+    <table class="param-tbl">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="name">model</td><td class="type">string</td><td class="desc">The model to use, e.g. <code>allam-7b</code>. See the model list in your console.</td></tr>
+        <tr><td class="name">messages</td><td class="type">array</td><td class="desc">The conversation so far, as <code>{role, content}</code> objects.</td></tr>
+        <tr><td class="name">stream</td><td class="type">boolean</td><td class="desc">If true, partial tokens are sent as server-sent events. Default <code>false</code>.</td></tr>
+        <tr><td class="name">temperature</td><td class="type">number</td><td class="desc">Sampling temperature, 0–2. Lower is more deterministic. Default <code>0.7</code>.</td></tr>
+        <tr><td class="name">max_tokens</td><td class="type">integer</td><td class="desc">Maximum tokens to generate in the completion.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="embeddings">Embeddings</h2>
+    <p><code>POST /v1/embeddings</code> — turn text into vectors for search and retrieval. Strong on mixed Arabic/English corpora.</p>
+    <pre class="code">$ <span class="k">curl</span> <span class="s">https://api.dcp.sa/v1/embeddings</span> \
+   <span class="k">-H</span> <span class="s">"Authorization: Bearer $DCP_KEY"</span> \
+   <span class="k">-d</span> <span class="s">'{"model": "bge-m3", "input": "نص للفهرسة"}'</span></pre>
+
+    <h2 id="arabic">Working in Arabic</h2>
+    <p>DCP&rsquo;s models are tuned Arabic-first. You can send Arabic directly in <code>messages</code> — no transliteration, no special encoding. Responses come back in clean Modern Standard Arabic. For mixed workloads, the models handle code-switching between Arabic and English naturally.</p>
+
+    <div class="callout">
+      <div class="t">Data residency</div>
+      <p>Every request in this section is served from KSA-resident hardware by default. Cross-border frontier models are off unless you explicitly opt in. See <a class="ln" href="#residency">Data residency</a>.</p>
+    </div>
+
+    <h2 id="residency">Data residency</h2>
+    <p>By default, your prompts, completions, and embeddings never leave the Kingdom. Frontier (cross-border) models stay disabled until you turn them on per workspace — and when you do, every such request is marked so you always know where your data went.</p>
+  </main>
+
+  <!-- Right TOC -->
+  <aside class="dx-toc">
+    <div class="t">On this page</div>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#auth">Authentication</a>
+    <a href="#billing">Billing &amp; tokens</a>
+    <a href="#chat">Chat completions</a>
+    <a href="#embeddings">Embeddings</a>
+    <a href="#arabic">Working in Arabic</a>
+    <a href="#residency">Data residency</a>
+  </aside>
+
+</div>
+
+<script>
+  document.getElementById('qs-tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-t]'); if (!b) return;
+    document.querySelectorAll('#qs-tabs button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.code-pane').forEach(p => p.classList.toggle('on', p.dataset.t === b.dataset.t));
+  });
+</script>
+
+</body>
+</html>

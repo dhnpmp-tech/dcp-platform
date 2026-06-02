@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en" data-palette="midnight">
+<head>
+<meta charset="utf-8">
+<title>Sovereignty · Where your data lives · DCP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/dcp-kit.css">
+<style>
+  .v2-topbar { display:flex; align-items:center; justify-content:space-between; padding:18px 32px;
+    border-bottom:1px solid var(--hair); position:sticky; top:0; z-index:40;
+    background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(12px); }
+  .v2-topbar .left { display:flex; align-items:center; gap:24px; }
+  .v2-topbar .brand-name { font-family:var(--serif); font-size:24px; letter-spacing:-.01em; }
+  .v2-topbar .brand-name i { font-style:italic; color:var(--mut); font-size:15px; margin-inline-start:4px; }
+  .v2-topbar nav { display:flex; gap:24px; }
+  .v2-topbar nav a { font-size:13.5px; color:var(--ink-2); position:relative; }
+  .v2-topbar nav a.on { color:var(--ink); }
+  .v2-topbar nav a.on::after { content:""; position:absolute; left:0; right:0; bottom:-21px; height:2px; background:var(--grad); }
+  .v2-topbar nav a:hover { color:var(--teal); }
+  .v2-topbar .right { display:flex; gap:10px; align-items:center; }
+  @media (max-width: 920px) { .v2-topbar nav { display:none; } }
+
+  /* Hero */
+  .sov-hero { padding: 96px 0 64px; position:relative; }
+  .sov-hero h1 {
+    font-family:var(--serif); font-weight:400; font-style:normal;
+    font-size: clamp(56px, 9vw, 132px); line-height:.92; letter-spacing:-.03em;
+    margin: 22px 0 0; text-wrap:balance;
+  }
+  html[data-lang="ar"] .sov-hero h1 { font-family:var(--arabic); font-weight:700; letter-spacing:0; line-height:1.04; }
+  .sov-hero h1 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .sov-hero h1 em { font-style:normal; }
+  .sov-hero .lead { color:var(--ink-2); font-size:19px; line-height:1.55; max-width:60ch; margin:28px 0 0; text-wrap:pretty; }
+  .sov-hero .badges { display:flex; gap:8px; flex-wrap:wrap; margin-top:30px; }
+
+  /* Flow — vertical pipeline laid out as numbered cards with residency */
+  .flow { display:grid; gap:0; border:1px solid var(--line); background:var(--paper); }
+  .flow-row {
+    display:grid; grid-template-columns: 80px 1fr 280px 200px; gap:0;
+    border-bottom:1px solid var(--hair); align-items:stretch;
+  }
+  .flow-row:last-child { border-bottom:0; }
+  .flow-row > div { padding: 24px 22px; border-inline-end:1px solid var(--hair); }
+  .flow-row > div:last-child { border-inline-end:0; }
+  .flow-row .num {
+    font-family:var(--mono); font-size:13px; color:var(--teal); letter-spacing:.14em; align-self:start;
+  }
+  .flow-row .desc h4 {
+    font-family:var(--serif); font-weight:400; font-size:26px; line-height:1.1; letter-spacing:-.01em;
+    margin:0 0 6px; color:var(--ink);
+  }
+  html[data-lang="ar"] .flow-row .desc h4 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .flow-row .desc p { color:var(--ink-2); font-size:14.5px; line-height:1.6; margin:0; max-width: 56ch; }
+  .flow-row .tech { font-family:var(--mono); font-size:12px; color:var(--mut); line-height:1.7; }
+  .flow-row .tech b { color:var(--ink); font-weight:500; }
+  .flow-row .res { display:flex; flex-direction:column; gap:8px; align-items:flex-start; justify-content:center; }
+  @media (max-width: 980px){
+    .flow-row { grid-template-columns: 60px 1fr; }
+    .flow-row .tech, .flow-row .res { grid-column: 2; border-inline-end:0; border-top:1px dashed var(--hair); padding-top:16px; }
+  }
+
+  /* Per-model residency table */
+  .mr-table { width:100%; border-collapse:collapse; background:var(--paper); border:1px solid var(--line); }
+  .mr-table thead th { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    text-align:start; padding:14px 16px; color:var(--mut); background:var(--bg-2); border-bottom:1px solid var(--line); }
+  .mr-table tbody td { padding:18px 16px; border-bottom:1px solid var(--hair); vertical-align:middle; font-size:14.5px; }
+  .mr-table tbody tr:last-child td { border-bottom:0; }
+  .mr-table .mname { font-family:var(--serif); font-size:22px; line-height:1.1; color:var(--ink); letter-spacing:-.01em; }
+  .mr-table .mtype { font-family:var(--mono); font-size:11.5px; color:var(--mut); letter-spacing:.04em; display:block; margin-top:4px; }
+  .mr-table .juris { font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+
+  /* Data-at-rest cards */
+  .dr-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:0; border:1px solid var(--line); }
+  @media (max-width: 980px){ .dr-grid { grid-template-columns:1fr; } }
+  .dr-grid .dr {
+    padding:26px 26px 28px; border-inline-end:1px solid var(--hair); background:var(--paper);
+    display:flex; flex-direction:column; gap:10px; min-height:230px;
+  }
+  .dr-grid .dr:nth-child(3n) { border-inline-end:0; }
+  .dr-grid .dr:nth-last-child(-n+3) { border-bottom: 0; }
+  .dr .n { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); }
+  .dr h4 { font-family:var(--serif); font-weight:400; font-size:24px; line-height:1.1; letter-spacing:-.01em; margin:0; color:var(--ink); }
+  html[data-lang="ar"] .dr h4 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .dr p { color:var(--ink-2); font-size:14px; line-height:1.55; margin:0; }
+  .dr .meta { margin-top:auto; padding-top:14px; border-top:1px dashed var(--hair); display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--mut); }
+
+  /* Compliance wall — bigger cards */
+  .cw-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:0; border:1px solid var(--line); }
+  @media (max-width: 980px){ .cw-grid { grid-template-columns: repeat(2,1fr); } }
+  .cw {
+    padding: 30px 26px; border-inline-end:1px solid var(--hair); border-bottom:1px solid var(--hair); background:var(--paper);
+    display:flex; flex-direction:column; gap:8px; min-height:180px;
+  }
+  .cw:nth-child(4n) { border-inline-end:0; }
+  .cw:nth-last-child(-n+4) { border-bottom: 0; }
+  @media (max-width: 980px){ .cw:nth-child(2n){ border-inline-end:0; } }
+  .cw .badge-num { font-family:var(--mono); font-size:11px; color:var(--teal); letter-spacing:.14em; }
+  .cw .name { font-family:var(--serif); font-size:28px; line-height:1.05; color:var(--ink); letter-spacing:-.01em; margin:0; }
+  .cw .what { color:var(--ink-2); font-size:13.5px; line-height:1.55; margin:6px 0 0; }
+  .cw .end { margin-top:auto; padding-top:14px; border-top:1px dashed var(--hair);
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--mut); }
+
+  /* Opt-in surface */
+  .optin {
+    background: linear-gradient(180deg, var(--paper) 0%, var(--bg-2) 100%);
+    border:1px solid var(--line); padding:36px 36px 40px; position:relative;
+  }
+  .optin::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  .optin h3 { font-family:var(--serif); font-weight:400; font-size:36px; line-height:1.05; letter-spacing:-.015em; margin:0; color:var(--ink); }
+  html[data-lang="ar"] .optin h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .optin p { color:var(--ink-2); font-size:16px; line-height:1.6; margin:14px 0 0; max-width:62ch; }
+  .optin pre { background:#04050d; color:#c9c5bd; padding:18px 20px; border:1px solid var(--line); margin:20px 0 0;
+    font-family:var(--mono); font-size:12.5px; line-height:1.7; overflow-x:auto; border-radius:2px; }
+  .optin pre .k { color:var(--orange); }
+  .optin pre .s { color:var(--teal); }
+  .optin pre .c { color:var(--mut); }
+
+  /* End */
+  .sov-end { padding:140px 0 120px; text-align:center; border-top:1px solid var(--hair); }
+  .sov-end h2 { font-family:var(--serif); font-weight:400; font-size: clamp(48px, 9vw, 132px); line-height:.95; letter-spacing:-.03em; margin:0; }
+  html[data-lang="ar"] .sov-end h2 { font-family:var(--arabic); font-weight:700; letter-spacing:0; line-height:1.04; }
+  .sov-end h2 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .sov-end h2 em { font-style:normal; }
+  .sov-end p { color:var(--ink-2); font-size:18px; line-height:1.55; max-width:58ch; margin:24px auto 0; }
+  .sov-end .ctas { display:flex; gap:10px; justify-content:center; margin-top:30px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<header class="v2-topbar">
+  <div class="left">
+    <a href="./Home.html" class="brand-name">DCP<i>∞</i></a>
+    <nav>
+      <a href="./Home.html" data-en="Overview" data-ar="نظرة عامة">Overview</a>
+      <a href="./Demo.html" data-en="Demo" data-ar="تجربة">Demo</a>
+      <a href="./Sovereignty.html" class="on" data-en="Sovereignty" data-ar="السيادة">Sovereignty</a>
+      <a href="./Pricing.html" data-en="Pricing" data-ar="الأسعار">Pricing</a>
+    </nav>
+  </div>
+  <div class="right">
+    <div class="lang-pill" id="lang-pill">
+      <button data-l="en" class="on">EN</button>
+      <button data-l="ar">ع</button>
+    </div>
+    <a class="btn small primary" href="./Demo.html" data-en="Try the demo →" data-ar="جرّب الآن ←">Try the demo →</a>
+  </div>
+</header>
+
+<!-- ───── HERO ───── -->
+<section class="sov-hero">
+  <div class="wrap">
+    <span class="eyebrow" data-en="§ Sovereignty · Data residency · Audit-grade" data-ar="§ السيادة · إقامة البيانات · بدرجة تدقيقية">§ Sovereignty · Data residency · Audit-grade</span>
+    <h1 data-en="Where your data <em>lives.</em>" data-ar="أين <em>تعيش</em> بياناتك.">Where your data <em>lives.</em></h1>
+    <p class="lead" data-en="Where every request goes, and where its answer comes from. Inside the Kingdom by default; anything that leaves is your decision, marked and logged." data-ar="إلى أين يذهب كل طلب، ومن أين تأتي إجابته. داخل المملكة افتراضياً؛ وأي شيء يغادر يكون بقرارك، مُعلَّماً ومُسجَّلاً.">Where every request goes, and where its answer comes from. Inside the Kingdom by default; anything that leaves is your decision, marked and logged.</p>
+    <div class="badges">
+      <span class="residency-badge ksa lg"><span class="flag">🇸🇦</span> <span data-en="In-Kingdom default" data-ar="افتراضي · داخل المملكة">In-Kingdom default</span></span>
+      <span class="residency-badge cross lg"><span class="flag">🌐</span> <span data-en="Cross-border · opt-in only" data-ar="خارج المملكة · بإذن صريح فقط">Cross-border · opt-in only</span></span>
+      <span class="residency-badge ksa lg"><span class="flag">🛡️</span> <span data-en="PDPL · Saudi data residency" data-ar="نظام البيانات · إقامة داخل المملكة">PDPL · Saudi data residency</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ───── FLOW ───── -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 01 · The pipeline, drawn out" data-ar="§ ‎٠١‎ · المسار، مرسوم">§ 01 · The pipeline, drawn out</span>
+      <span data-en="5 stages · 4 regions" data-ar="‎٥‎ مراحل · ‎٤‎ مناطق">5 stages · 4 regions</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="num">01</div>
+        <div class="desc">
+          <h4 data-en="Embed" data-ar="تضمين">Embed</h4>
+          <p data-en="Your prompt is encoded to a 1024-dim vector on bge-m3 running on KSA-resident GPUs. No raw text leaves the embedding worker." data-ar="السؤال يُرمَّز إلى متجه بطول ‎١٠٢٤‎ بُعداً على ‏bge-m3‏ يعمل على معالجات داخل المملكة. لا يخرج النص الخام من عامل التضمين.">Your prompt is encoded to a 1024-dim vector on bge-m3 running on KSA-resident GPUs. No raw text leaves the embedding worker.</p>
+        </div>
+        <div class="tech">
+          <b>bge-m3</b><br>1024-dim<br>RUH-1 · JED-1 · DMM-1 · NEOM-1
+        </div>
+        <div class="res">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="KSA-resident" data-ar="داخل المملكة">KSA-resident</span></span>
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="num">02</div>
+        <div class="desc">
+          <h4 data-en="Retrieve" data-ar="استرجاع">Retrieve</h4>
+          <p data-en="Vector retrieval against your corpus, stored encrypted-at-rest on KSA-resident block storage. Top-K candidates are returned by cosine similarity. Storage keys are HSM-backed, in the Kingdom." data-ar="استرجاع متّجهي من مرجعك، المخزّن مشفّراً على وحدات تخزين داخل المملكة. تُعاد أفضل النتائج وفق جيب التمام. مفاتيح التشفير محمية بأجهزة ‎HSM‎ داخل المملكة.">Vector retrieval against your corpus, stored encrypted-at-rest on KSA-resident block storage. Top-K candidates are returned by cosine similarity. Storage keys are HSM-backed, in the Kingdom.</p>
+        </div>
+        <div class="tech">
+          <b data-en="Customer corpus" data-ar="مرجع العميل">Customer corpus</b><br>AES-256 · HSM<br>RUH-1 primary
+        </div>
+        <div class="res">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="KSA-resident" data-ar="داخل المملكة">KSA-resident</span></span>
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="num">03</div>
+        <div class="desc">
+          <h4 data-en="Rerank" data-ar="إعادة ترتيب">Rerank</h4>
+          <p data-en="bge-reranker-v2-m3 cross-encodes (query, doc) pairs to produce a final ordering. Pure compute — nothing written back to storage at this stage." data-ar="‏bge-reranker-v2-m3‏ يُرمّز أزواج (سؤال، وثيقة) لإعادة الترتيب النهائي. مرحلة حسابية بحتة — لا يُكتب شيء إلى التخزين في هذه المرحلة.">bge-reranker-v2-m3 cross-encodes (query, doc) pairs to produce a final ordering. Pure compute — nothing written back to storage at this stage.</p>
+        </div>
+        <div class="tech">
+          <b>bge-reranker-v2-m3</b><br>cross-encoder<br>RUH-1 · JED-1
+        </div>
+        <div class="res">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="KSA-resident" data-ar="داخل المملكة">KSA-resident</span></span>
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="num">04</div>
+        <div class="desc">
+          <h4 data-en="Generate" data-ar="توليد">Generate</h4>
+          <p data-en="ALLaM-7B-Q4 streams the Arabic answer from a KSA-resident GPU. If your account has opted into the frontier tier and the router decides the question warrants it, DeepSeek V4 may be called instead — and the response carries a cross-border marker. Sovereign-only mode hard-disables this." data-ar="نموذج اللام يبثّ الإجابة العربية من معالج داخل المملكة. إذا فُعِّل لديك خيار النماذج المتقدمة ورأى الموجّه أن السؤال يستحقها، فقد يُستدعى ‎DeepSeek V4‎ بدلاً منه — ويحمل الردّ علامة ‎خارج المملكة‎. وضع ‎السيادة فقط‎ يقفل هذا تماماً.">ALLaM-7B-Q4 streams the Arabic answer from a KSA-resident GPU. If your account has opted into the frontier tier and the router decides the question warrants it, DeepSeek V4 may be called instead — and the response carries a cross-border marker. Sovereign-only mode hard-disables this.</p>
+        </div>
+        <div class="tech">
+          <b>ALLaM-7B-Q4</b><br><span style="color:var(--mut)">DeepSeek V4 (opt-in)</span><br>RUH-1 · JED-1 · DMM-1
+        </div>
+        <div class="res">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="KSA · default" data-ar="المملكة · افتراضي">KSA · default</span></span>
+          <span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Cross-border · opt-in" data-ar="خارج · بإذن">Cross-border · opt-in</span></span>
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="num">05</div>
+        <div class="desc">
+          <h4 data-en="Verify + Log" data-ar="تحقّق + سجل">Verify + Log</h4>
+          <p data-en="The verifier hook checks every claim against retrieved sources, strips any unbacked citation, and writes a JSONL audit row. Logs are retained 13 months on KSA-resident object storage; payment metadata 7 years per ZATCA." data-ar="أداة التحقق تفحص كل ادعاء مقابل المصادر المُسترجعة، وتشطب أي استشهاد غير مُسند، وتسجّل سطراً في ‎JSONL‎ للتدقيق. السجلات تُحفظ ‎١٣‎ شهراً على تخزين كائني داخل المملكة؛ بيانات الدفع تُحفظ ‎٧‎ سنوات وفق ‎ZATCA‎.">The verifier hook checks every claim against retrieved sources, strips any unbacked citation, and writes a JSONL audit row. Logs are retained 13 months on KSA-resident object storage; payment metadata 7 years per ZATCA.</p>
+        </div>
+        <div class="tech">
+          <b data-en="Verifier hook" data-ar="محقّق الإسناد">Verifier hook</b><br>JSONL · 13 mo<br>RUH-1
+        </div>
+        <div class="res">
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> <span data-en="KSA-resident" data-ar="داخل المملكة">KSA-resident</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── PER-MODEL RESIDENCY ───── -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 02 · Per-model residency" data-ar="§ ‎٠٢‎ · إقامة كل نموذج">§ 02 · Per-model residency</span>
+      <span data-en="Sovereign by default" data-ar="سيادي افتراضياً">Sovereign by default</span>
+    </div>
+    <div class="mk-wrap">
+    <table class="mr-table">
+      <thead>
+        <tr>
+          <th data-en="Model" data-ar="النموذج">Model</th>
+          <th data-en="Purpose" data-ar="الغرض">Purpose</th>
+          <th data-en="Residency" data-ar="الإقامة">Residency</th>
+          <th data-en="Jurisdiction" data-ar="الاختصاص">Jurisdiction</th>
+          <th data-en="Default" data-ar="افتراضي">Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mname">ALLaM-7B-Q4</span><small class="mtype" data-en="Arabic generation" data-ar="توليد عربي">Arabic generation</small></td>
+          <td data-en="Chat, instruction-following, Arabic reasoning" data-ar="محادثة، اتباع تعليمات، استدلال عربي">Chat, instruction-following, Arabic reasoning</td>
+          <td><span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span></td>
+          <td class="juris" data-en="PDPL · NDMO" data-ar="نظام البيانات · المكتب الوطني">PDPL · NDMO</td>
+          <td><span class="residency-badge ksa" data-en="On" data-ar="مفعّل">On</span></td>
+        </tr>
+        <tr>
+          <td><span class="mname">bge-m3</span><small class="mtype" data-en="Multilingual embedding" data-ar="تضمين متعدد اللغات">Multilingual embedding</small></td>
+          <td data-en="Vectorisation for retrieval" data-ar="تمثيل متّجهي للاسترجاع">Vectorisation for retrieval</td>
+          <td><span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span></td>
+          <td class="juris" data-en="PDPL · NDMO" data-ar="نظام البيانات · المكتب الوطني">PDPL · NDMO</td>
+          <td><span class="residency-badge ksa" data-en="On" data-ar="مفعّل">On</span></td>
+        </tr>
+        <tr>
+          <td><span class="mname">bge-reranker-v2-m3</span><small class="mtype" data-en="Cross-encoder reranker" data-ar="مُرمّز متقاطع للترتيب">Cross-encoder reranker</small></td>
+          <td data-en="Final ordering of retrieved docs" data-ar="الترتيب النهائي للوثائق">Final ordering of retrieved docs</td>
+          <td><span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span></td>
+          <td class="juris" data-en="PDPL · NDMO" data-ar="نظام البيانات · المكتب الوطني">PDPL · NDMO</td>
+          <td><span class="residency-badge ksa" data-en="On" data-ar="مفعّل">On</span></td>
+        </tr>
+        <tr>
+          <td><span class="mname">Frontier (opt-in)</span><small class="mtype" data-en="Cross-border models · explicit opt-in" data-ar="نماذج خارج المملكة · بإذن صريح">Cross-border models · explicit opt-in</small></td>
+          <td data-en="Heavy reasoning fallback when explicitly enabled" data-ar="احتياطي للاستدلال الثقيل عند التفعيل الصريح">Heavy reasoning fallback when explicitly enabled</td>
+          <td><span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Cross-border" data-ar="خارج">Cross-border</span></span></td>
+          <td class="juris" data-en="Cross-border · opt-in only" data-ar="خارج المملكة · بإذن فقط">Cross-border · opt-in only</td>
+          <td><span class="residency-badge cross" data-en="Off" data-ar="مغلق">Off</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ───── DATA AT REST ───── -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 03 · What we hold" data-ar="§ ‎٠٣‎ · ما الذي نحتفظ به">§ 03 · What we hold</span>
+      <span data-en="Storage class · retention · jurisdiction" data-ar="فئة التخزين · مدة الحفظ · الاختصاص">Storage class · retention · jurisdiction</span>
+    </div>
+    <div class="dr-grid">
+      <div class="dr">
+        <span class="n" data-en="Class A · Prompt" data-ar="فئة ‎A‎ · السؤال">Class A · Prompt</span>
+        <h4 data-en="Raw prompt text" data-ar="نص السؤال الخام">Raw prompt text</h4>
+        <p data-en="Encrypted in-flight (TLS 1.3) and at-rest (AES-256). Held only as long as the request is processing; flushed at session close." data-ar="مشفّر أثناء النقل ‏(TLS 1.3)‏ وفي التخزين ‏(AES-256)‏. يُحفظ فقط أثناء معالجة الطلب ويُمحى عند انتهاء الجلسة.">Encrypted in-flight (TLS 1.3) and at-rest (AES-256). Held only as long as the request is processing; flushed at session close.</p>
+        <div class="meta">
+          <span data-en="Retention · session" data-ar="الحفظ · جلسة">Retention · session</span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+      </div>
+      <div class="dr">
+        <span class="n" data-en="Class B · Embeddings" data-ar="فئة ‎B‎ · التضمينات">Class B · Embeddings</span>
+        <h4 data-en="Vector representations" data-ar="تمثيلات متّجهية">Vector representations</h4>
+        <p data-en="Customer-owned vectors written to your project's KSA index. Persisted on encrypted block storage. You can purge at any time from the console." data-ar="متجهات يملكها العميل تُكتب إلى فهرس مشروعك داخل المملكة. تُحفظ على وحدات تخزين مشفّرة. يمكنك حذفها في أي وقت من لوحة التحكم.">Customer-owned vectors written to your project's KSA index. Persisted on encrypted block storage. You can purge at any time from the console.</p>
+        <div class="meta">
+          <span data-en="Retention · until purged" data-ar="الحفظ · حتى الحذف">Retention · until purged</span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+      </div>
+      <div class="dr">
+        <span class="n" data-en="Class C · Generation" data-ar="فئة ‎C‎ · الإجابة">Class C · Generation</span>
+        <h4 data-en="Model output text" data-ar="نص خرج النموذج">Model output text</h4>
+        <p data-en="Streamed to your client. Not retained server-side. Optionally cached in your project's KSA cache if you turn caching on." data-ar="يُبثّ إلى عميلك. لا يُحفظ على الخادم. اختيارياً قد يُخزَّن في ذاكرة المشروع داخل المملكة إن فعّلت التخزين.">Streamed to your client. Not retained server-side. Optionally cached in your project's KSA cache if you turn caching on.</p>
+        <div class="meta">
+          <span data-en="Retention · none (default)" data-ar="الحفظ · بلا (افتراضي)">Retention · none (default)</span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+      </div>
+      <div class="dr">
+        <span class="n" data-en="Class D · Audit log" data-ar="فئة ‎D‎ · سجل التدقيق">Class D · Audit log</span>
+        <h4 data-en="Request envelope + verifier outcome" data-ar="مظروف الطلب + ناتج المحقّق">Request envelope + verifier outcome</h4>
+        <p data-en="JSONL row per request — model, region, token counts, residency tag, verifier pass/fail, stripped-citation count. Used for billing reconciliation and PDPL audits." data-ar="سطر ‎JSONL‎ لكل طلب — النموذج، المنطقة، عدد الرموز، علامة الإقامة، نجاح/فشل المحقق، عدد الاستشهادات المشطوبة. تُستخدم لتسوية الفوترة وللتدقيق وفق نظام البيانات.">JSONL row per request — model, region, token counts, residency tag, verifier pass/fail, stripped-citation count. Used for billing reconciliation and PDPL audits.</p>
+        <div class="meta">
+          <span data-en="Retention · 13 months" data-ar="الحفظ · ‎١٣‎ شهراً">Retention · 13 months</span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+      </div>
+      <div class="dr">
+        <span class="n" data-en="Class E · Payment" data-ar="فئة ‎E‎ · الدفع">Class E · Payment</span>
+        <h4 data-en="Billing & invoicing" data-ar="الفوترة والفواتير">Billing & invoicing</h4>
+        <p data-en="mada, Apple Pay, bank transfer; USDC on Base. Card PANs never touch our servers (tokenised at gateway). VAT-grade invoices retained 7 years per ZATCA." data-ar="مدى، ‎Apple Pay‎، تحويل بنكي، و‎USDC‎ على ‎Base‎. أرقام البطاقات لا تمسّ خوادمنا (تُرمَّز عند البوّابة). الفواتير الضريبية تُحفظ ‎٧‎ سنوات وفق ‎ZATCA‎.">mada, Apple Pay, bank transfer; USDC on Base. Card PANs never touch our servers (tokenised at gateway). VAT-grade invoices retained 7 years per ZATCA.</p>
+        <div class="meta">
+          <span data-en="Retention · 7 years" data-ar="الحفظ · ‎٧‎ سنوات">Retention · 7 years</span>
+          <span class="residency-badge ksa"><span class="flag">🇸🇦</span> KSA</span>
+        </div>
+      </div>
+      <div class="dr">
+        <span class="n" data-en="Class F · Frontier (opt-in)" data-ar="فئة ‎F‎ · متقدم (بإذن)">Class F · Frontier (opt-in)</span>
+        <h4 data-en="DeepSeek V4 prompt + response" data-ar="مدخل ومخرج ‎DeepSeek V4‎">DeepSeek V4 prompt + response</h4>
+        <p data-en="Only when sovereign-only mode is off and the router decides. The request payload is mirrored to the PRC endpoint over TLS 1.3 and never written back to KSA storage. Every call gets a flag in the audit log." data-ar="فقط عندما يكون وضع ‎السيادة فقط‎ مغلقاً ويقرر الموجّه ذلك. حمولة الطلب تُرسل إلى نقطة النهاية في الصين عبر ‎TLS 1.3‎ ولا تُكتب مجدّداً إلى التخزين داخل المملكة. كل استدعاء يُعلَّم في السجل.">Only when sovereign-only mode is off and the router decides. The request payload is mirrored to the PRC endpoint over TLS 1.3 and never written back to KSA storage. Every call gets a flag in the audit log.</p>
+        <div class="meta">
+          <span data-en="Retention · n/a · cross-border" data-ar="الحفظ · غير منطبق · خارج">Retention · n/a · cross-border</span>
+          <span class="residency-badge cross"><span class="flag">🌐</span> <span data-en="Cross-border" data-ar="خارج">Cross-border</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── COMPLIANCE WALL ───── -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 04 · Compliance wall" data-ar="§ ‎٠٤‎ · جدار الامتثال">§ 04 · Compliance wall</span>
+      <span data-en="2024–2026 review cycle" data-ar="دورة مراجعة ‎٢٠٢٤-٢٠٢٦‎">2024–2026 review cycle</span>
+    </div>
+    <div class="cw-grid">
+      <div class="cw">
+        <span class="badge-num">01</span>
+        <h3 class="name">PDPL</h3>
+        <p class="what" data-en="Personal Data Protection Law — full data-flow mapping per art. 12 (cross-border), art. 18 (data-subject rights), art. 23 (residency)." data-ar="نظام حماية البيانات الشخصية — تخطيط كامل لتدفّق البيانات وفق المواد ‎١٢‎ (الإحالة الدولية)، و‎١٨‎ (حقوق صاحب البيانات)، و‎٢٣‎ (الإقامة).">Personal Data Protection Law — full data-flow mapping per art. 12 (cross-border), art. 18 (data-subject rights), art. 23 (residency).</p>
+        <div class="end" data-en="SDAIA · 2026 review" data-ar="هيئة البيانات · مراجعة ‎٢٠٢٦‎">SDAIA · 2026 review</div>
+      </div>
+      <div class="cw">
+        <span class="badge-num">02</span>
+        <h3 class="name">NDMO</h3>
+        <p class="what" data-en="National Data Management Office — every project gets a classification (public / internal / confidential / secret) wired into routing." data-ar="المكتب الوطني لإدارة البيانات — كل مشروع له تصنيف (عام/داخلي/سري/سري للغاية) مربوط بمنطق التوجيه.">National Data Management Office — every project gets a classification (public / internal / confidential / secret) wired into routing.</p>
+        <div class="end" data-en="Per-tenant policy" data-ar="سياسة لكل مستأجر">Per-tenant policy</div>
+      </div>
+      <div class="cw">
+        <span class="badge-num">03</span>
+        <h3 class="name" data-en="Settlement" data-ar="التسوية">Settlement</h3>
+        <p class="what" data-en="Renter requests, provider GPUs, and billing all settle inside Saudi Arabia. SAR · halala-grained · estimate hold then completion-based settlement." data-ar="طلبات المستخدم، ومعالجات المزوّد، والفوترة — كلها تسوّي داخل المملكة. بالريال وبدقة الهللة، حجز تقديري ثم تسوية على الإكمال.">Renter requests, provider GPUs, and billing all settle inside Saudi Arabia. SAR · halala-grained · estimate hold then completion-based settlement.</p>
+        <div class="end" data-en="In-Kingdom · SAR" data-ar="داخل المملكة · بالريال">In-Kingdom · SAR</div>
+      </div>
+      <div class="cw">
+        <span class="badge-num">04</span>
+        <h3 class="name" data-en="Cloud dependency" data-ar="الاعتماد السحابي">Cloud dependency</h3>
+        <p class="what" data-en="Zero. No US or EU cloud providers in the request path, no foreign auth, no cross-border data unless you opt into frontier." data-ar="لا يوجد. بلا مزوّدي سحابة أمريكيين أو أوروبيين في مسار الطلب، بلا مصادقة خارجية، بلا بيانات خارج الحدود إلا بإذنك.">Zero. No US or EU cloud providers in the request path, no foreign auth, no cross-border data unless you opt into frontier.</p>
+        <div class="end" data-en="Structural advantage" data-ar="ميزة بنيوية">Structural advantage</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── OPT-IN SURFACE ───── -->
+<section>
+  <div class="wrap">
+    <div class="section-meta">
+      <span class="idx" data-en="§ 05 · Cross-border, by your hand" data-ar="§ ‎٠٥‎ · خارج المملكة، بقرارك">§ 05 · Cross-border, by your hand</span>
+      <span data-en="Opt-in · revocable · per-project" data-ar="بإذن · قابل للإلغاء · لكل مشروع">Opt-in · revocable · per-project</span>
+    </div>
+
+    <div class="optin">
+      <h3 data-en="Frontier mode is off by default. You turn it on." data-ar="وضع النماذج المتقدمة مغلق افتراضياً. أنت من يفعّله.">Frontier mode is off by default. You turn it on.</h3>
+      <p data-en="When a tenant flips on the frontier tier, every API request that the router decides to send to DeepSeek V4 gets a cross-border marker in the audit log, a separate SAR cost line on the invoice, and an inline warning in console.dcp.sa. Sovereign-only mode pins routing to KSA models forever — no escape hatch, no &ldquo;just this once.&rdquo;" data-ar="عندما يفعّل المستأجر فئة النماذج المتقدمة، فإن كل طلب يقرر الموجّه إرساله إلى ‎DeepSeek V4‎ يحمل علامة خارج المملكة في سجل التدقيق، وسطر تكلفة مستقل بالريال في الفاتورة، وتحذيراً مباشراً في ‎console.dcp.sa‎. وضع ‎السيادة فقط‎ يثبّت التوجيه على نماذج المملكة دائماً — بلا استثناءات.">When a tenant flips on the frontier tier, every API request that the router decides to send to DeepSeek V4 gets a cross-border marker in the audit log, a separate SAR cost line on the invoice, and an inline warning in console.dcp.sa. Sovereign-only mode pins routing to KSA models forever — no escape hatch, no "just this once."</p>
+<pre><span class="c"># Sample audit row · /v1/chat/completions · 2026-05-25T11:32:08Z</span>
+{ <span class="k">"request_id"</span>: <span class="s">"req_8f3a…c721"</span>,
+  <span class="k">"tenant"</span>:     <span class="s">"acme-bank"</span>,
+  <span class="k">"model"</span>:      <span class="s">"deepseek-v4-pro"</span>,
+  <span class="k">"region"</span>:     <span class="s">"prc-1"</span>,
+  <span class="k">"residency"</span>:  <span class="s">"cross-border"</span>,
+  <span class="k">"opt_in_at"</span>:  <span class="s">"2026-04-12T09:14:00Z"</span>,
+  <span class="k">"approver"</span>:   <span class="s">"khalid@acme-bank.sa"</span>,
+  <span class="k">"sov_only"</span>:   <span class="k">false</span>,
+  <span class="k">"verifier"</span>:   { <span class="k">"pass"</span>: <span class="k">true</span>, <span class="k">"stripped"</span>: <span class="k">0</span> },
+  <span class="k">"cost_halala"</span>: <span class="k">412</span> }</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ───── END ───── -->
+<section class="sov-end">
+  <div class="wrap">
+    <span class="eyebrow" style="justify-content:center;" data-en="§ For your DPO" data-ar="§ لمسؤول حماية البيانات">§ For your DPO</span>
+    <h2 data-en="Send <em>this page.</em>" data-ar="أرسل <em>هذه الصفحة.</em>">Send <em>this page.</em></h2>
+    <p data-en="It answers the questions auditors actually ask. If yours has more, we have a 28-page compliance pack and a person on the other end of a call." data-ar="تُجيب على ما يسأله المدقّقون فعلاً. وإن كان لديكم المزيد، لدينا حزمة امتثال من ‎٢٨‎ صفحة وموظف على الطرف الآخر من المكالمة.">It answers the questions auditors actually ask. If yours has more, we have a 28-page compliance pack and a person on the other end of a call.</p>
+    <div class="ctas">
+      <a class="btn primary lg" href="./Demo.html" data-en="Try the demo" data-ar="جرّب التجربة">Try the demo</a>
+      <a class="btn ghost lg" href="./Pricing.html" data-en="See pricing →" data-ar="عرض الأسعار ←">See pricing →</a>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    const pill = document.getElementById('lang-pill');
+    function applyLang(lang) {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.setAttribute('data-lang', lang);
+      pill.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+      document.querySelectorAll('[data-en]').forEach(el => {
+        const v = lang === 'ar' ? el.getAttribute('data-ar') : el.getAttribute('data-en');
+        if (v != null) el.innerHTML = v;
+      });
+    }
+    pill.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (b) applyLang(b.dataset.l);
+    });
+    applyLang('en');
+  })();
+</script>
+
+</body>
+</html>
