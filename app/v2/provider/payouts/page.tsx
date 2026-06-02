@@ -2,21 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useV2, Bi } from '@/app/v2/lib/i18n'
+import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getProviderKey } from '@/lib/api'
 import './payouts.css'
 
-/* ════════════════════════════════════════
-   Provider shell nav — derived from provider-shell.js NAV template.
-   Rendered inline so the page is self-contained. Current page = payouts.
-   ════════════════════════════════════════ */
-const NAV = [
+interface NavItem {
+  k: string
+  ic: string
+  label: string
+  labelAr: string
+  href: string
+  bd?: string
+}
+
+interface NavSection {
+  sec: string
+  secAr: string
+  items: NavItem[]
+}
+
+const NAV: NavSection[] = [
   {
     sec: 'Operate',
     secAr: 'التشغيل',
     items: [
       { k: 'dash', ic: '⌂', label: 'Dashboard', labelAr: 'لوحة التحكم', href: '/v2/provider/dashboard' },
-      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs', bd: '4' },
+      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs' },
       { k: 'earnings', ic: '△', label: 'Earnings', labelAr: 'الأرباح', href: '/v2/provider/earnings' },
       { k: 'payouts', ic: '₪', label: 'Payouts', labelAr: 'المدفوعات', href: '/v2/provider/payouts', bd: 'SAR' },
     ],
@@ -25,7 +36,7 @@ const NAV = [
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف', href: '/v2/provider/profile', bd: 'Silver' },
+      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف', href: '/v2/provider/profile' },
       { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/provider/settings' },
       { k: 'docs', ic: '?', label: 'Provider docs', labelAr: 'دليل المزوّد', href: '/v2/docs', bd: '↗' },
     ],
@@ -33,168 +44,237 @@ const NAV = [
 ]
 
 const CURRENT = 'payouts'
+const HALALA_PER_SAR = 100
+const MIN_WITHDRAWAL_HALALA = 1000
 
-/* Payouts history — illustrative mock data from the prototype.
-   `statClass` selects the CSS swatch (.stat.paid / .stat.accruing); `status`
-   is the human label shown in the cell — real withdrawal states (pending /
-   processing / failed) keep their own label but reuse the .accruing swatch. */
-type Payout = {
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+
+interface Payout {
+  id: string
   period: string
   mode: string
   sar: number
   status: string
   statClass: 'accruing' | 'paid'
   date: string
-  inv: string | null
 }
 
-const PAYOUTS: Payout[] = [
-  { period: 'Dec 02 – Dec 08', mode: 'Bank · SAR', sar: 428, status: 'accruing', statClass: 'accruing', date: '—', inv: null },
-  { period: 'Nov 25 – Dec 01', mode: 'Bank · SAR', sar: 1482, status: 'paid', statClass: 'paid', date: '2 Dec 2025', inv: 'INV-2025-49' },
-  { period: 'Nov 18 – Nov 24', mode: 'Bank · SAR', sar: 1284, status: 'paid', statClass: 'paid', date: '25 Nov 2025', inv: 'INV-2025-48' },
-  { period: 'Nov 11 – Nov 17', mode: 'Bank · SAR', sar: 1164, status: 'paid', statClass: 'paid', date: '18 Nov 2025', inv: 'INV-2025-47' },
-  { period: 'Nov 04 – Nov 10', mode: 'Bank · SAR', sar: 982, status: 'paid', statClass: 'paid', date: '11 Nov 2025', inv: 'INV-2025-46' },
-  { period: 'Oct 28 – Nov 03', mode: 'Bank · SAR', sar: 914, status: 'paid', statClass: 'paid', date: '4 Nov 2025', inv: 'INV-2025-45' },
-  { period: 'Oct 21 – Oct 27', mode: 'Bank · SAR', sar: 1058, status: 'paid', statClass: 'paid', date: '28 Oct 2025', inv: 'INV-2025-44' },
-  { period: 'Oct 14 – Oct 20', mode: 'Bank · SAR', sar: 1124, status: 'paid', statClass: 'paid', date: '21 Oct 2025', inv: 'INV-2025-43' },
-  { period: 'Oct 07 – Oct 13', mode: 'Bank · SAR', sar: 892, status: 'paid', statClass: 'paid', date: '14 Oct 2025', inv: 'INV-2025-42' },
-  { period: 'Sep 30 – Oct 06', mode: 'Bank · SAR', sar: 786, status: 'paid', statClass: 'paid', date: '7 Oct 2025', inv: 'INV-2025-41' },
-  { period: 'Sep 23 – Sep 29', mode: 'Bank · SAR', sar: 824, status: 'paid', statClass: 'paid', date: '30 Sep 2025', inv: 'INV-2025-40' },
-  { period: 'Sep 16 – Sep 22', mode: 'Bank · SAR', sar: 942, status: 'paid', statClass: 'paid', date: '23 Sep 2025', inv: 'INV-2025-39' },
-]
-
-// ── Real shapes fetched from the provider API (v1 endpoints reused) ─────
-// GET /api/providers/earnings → balance totals (halala-precise, in SAR)
 interface ProviderEarnings {
-  total_earned_sar: number
-  available_sar: number
-  pending_withdrawal_sar: number
-  withdrawn_sar: number
+  total_earned_sar?: number
+  available_sar?: number
+  pending_withdrawal_sar?: number
+  withdrawn_sar?: number
+  claimable_earnings_halala?: number
 }
 
-// GET /api/providers/me/withdrawals → { withdrawals: Withdrawal[] }
+interface ProviderMe {
+  name?: string
+  email?: string
+  status?: string
+  payout_iban?: string | null
+  payout_holder_name?: string | null
+  payout_account_registered_at?: string | null
+  today_earnings_halala?: number
+  week_earnings_halala?: number
+  month_earnings_halala?: number
+  total_earnings_halala?: number
+  claimable_earnings_halala?: number
+  total_jobs?: number
+}
+
+interface ProviderMeResponse {
+  provider?: ProviderMe
+}
+
 interface Withdrawal {
   id: string | number
   amount_halala: number
   status: string
-  iban: string
+  iban?: string | null
   created_at: string
-  processed_at: string | null
-}
-
-const SAR_DATE = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-
-function formatPayoutDate(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : SAR_DATE.format(d)
-}
-
-// Withdrawal.status → display label + CSS swatch class. `paid` → teal swatch;
-// everything else (pending / approved / processing / failed / rejected) reuses
-// the orange .accruing swatch but keeps its own label.
-function mapWithdrawalStatus(status: string): { label: string; statClass: 'accruing' | 'paid' } {
-  return status === 'paid'
-    ? { label: 'paid', statClass: 'paid' }
-    : { label: status || 'accruing', statClass: 'accruing' }
-}
-
-// Map a real withdrawal into the table's Payout row shape. Withdrawals are a
-// single dated amount (not a billing period), so the period column shows the
-// request date and the amount is the withdrawn SAR.
-function withdrawalToPayout(w: Withdrawal): Payout {
-  const sar = (w.amount_halala || 0) / 100
-  const { label, statClass } = mapWithdrawalStatus(w.status)
-  return {
-    period: formatPayoutDate(w.created_at),
-    mode: 'Bank · SAR',
-    sar,
-    status: label,
-    statClass,
-    date: formatPayoutDate(w.processed_at),
-    inv: null,
-  }
+  processed_at?: string | null
 }
 
 const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const wholeFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+const dateFmt = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const FREQ_OPTS = [
-  { en: 'Daily', ar: 'يومي' },
-  { en: 'Weekly · Mon', ar: 'أسبوعي · الإثنين' },
-  { en: 'Monthly · 1st', ar: 'شهري · 1' },
-  { en: 'Manual only', ar: 'يدوي فقط' },
-]
+function halalaToSar(halala: number | undefined): number | null {
+  return typeof halala === 'number' ? halala / HALALA_PER_SAR : null
+}
 
-const THRESHOLD_OPTS = [
-  { en: 'SAR 50', ar: '50 ر.س' },
-  { en: 'SAR 100', ar: '100 ر.س' },
-  { en: 'SAR 200', ar: '200 ر.س' },
-  { en: 'SAR 500', ar: '500 ر.س' },
-  { en: 'SAR 1,000', ar: '1,000 ر.س' },
-]
+function fmtSar(sar: number | null | undefined, precise = true): string {
+  if (typeof sar !== 'number' || Number.isNaN(sar)) return '—'
+  return precise ? sarFmt.format(sar) : wholeFmt.format(sar)
+}
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : dateFmt.format(d)
+}
+
+function compactStatus(status: string | undefined): string {
+  return status || 'pending'
+}
+
+function statusClass(status: string): 'accruing' | 'paid' {
+  return status === 'paid' || status === 'completed' ? 'paid' : 'accruing'
+}
+
+function maskIban(iban: string | null | undefined): string {
+  const clean = (iban || '').replace(/\s+/g, '')
+  const tail = clean.slice(-4)
+  return tail ? `IBAN ••${tail}` : 'No payout IBAN on file'
+}
+
+function fullIbanForApi(iban: string | null): string {
+  return (iban || '').replace(/\s+/g, '').toUpperCase()
+}
+
+function withdrawalToPayout(w: Withdrawal): Payout {
+  const status = compactStatus(w.status)
+  return {
+    id: String(w.id),
+    period: fmtDate(w.created_at),
+    mode: maskIban(w.iban),
+    sar: Number(w.amount_halala || 0) / HALALA_PER_SAR,
+    status,
+    statClass: statusClass(status),
+    date: statusClass(status) === 'paid' ? fmtDate(w.processed_at) : '—',
+  }
+}
 
 export default function PayoutsPage() {
   const { lang, toggle } = useV2()
-
-  // Mobile drawer
   const [drawerOpen, setDrawerOpen] = useState(false)
-
-  // Frequency / threshold toggles (index of the active option)
-  const [freq, setFreq] = useState(1) // Weekly · Mon
-  const [threshold, setThreshold] = useState(2) // SAR 200
-
-  // Withdraw + change-bank demo feedback (replaces prototype alert() calls)
-  const [withdrawQueued, setWithdrawQueued] = useState(false)
-  const [changingBank, setChangingBank] = useState(false)
-
-  // ── Real data (balance + payout history). The inline mock above renders by
-  // default so the page is fully populated with no key / on fetch failure;
-  // a successful fetch replaces it. Effect is cleaned up via `cancelled`.
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [loadError, setLoadError] = useState('')
+  const [providerName, setProviderName] = useState('')
+  const [providerEmail, setProviderEmail] = useState('')
+  const [providerStatus, setProviderStatus] = useState('')
+  const [payoutIban, setPayoutIban] = useState<string | null>(null)
+  const [payoutHolder, setPayoutHolder] = useState('')
+  const [payoutRegisteredAt, setPayoutRegisteredAt] = useState<string | null>(null)
+  const [todaySar, setTodaySar] = useState<number | null>(null)
+  const [weekSar, setWeekSar] = useState<number | null>(null)
+  const [monthSar, setMonthSar] = useState<number | null>(null)
+  const [lifetimeSar, setLifetimeSar] = useState<number | null>(null)
   const [availableSar, setAvailableSar] = useState<number | null>(null)
-  const [payouts, setPayouts] = useState<Payout[]>(PAYOUTS)
+  const [pendingSar, setPendingSar] = useState<number | null>(null)
+  const [withdrawnSar, setWithdrawnSar] = useState<number | null>(null)
+  const [payouts, setPayouts] = useState<Payout[]>([])
+  const [requestState, setRequestState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+  const [requestMessage, setRequestMessage] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getProviderKey()
-    if (!key) return
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
 
     let cancelled = false
     const base = getApiBase()
     const headers = { 'x-provider-key': key }
+    setLoadState('loading')
+    setLoadError('')
 
-    async function load() {
+    ;(async () => {
       try {
-        const [earningsRes, withdrawalsRes] = await Promise.all([
-          fetch(`${base}/providers/earnings`, { headers }),
-          fetch(`${base}/providers/me/withdrawals`, { headers }),
+        const [meRes, earningsRes, withdrawalsRes] = await Promise.all([
+          fetch(`${base}/providers/me?key=${encodeURIComponent(key)}`, { headers }),
+          fetch(`${base}/providers/earnings?key=${encodeURIComponent(key)}`, { headers }),
+          fetch(`${base}/providers/me/withdrawals?key=${encodeURIComponent(key)}`, { headers }),
         ])
+        if (cancelled) return
 
-        if (!cancelled && earningsRes.ok) {
-          const data: ProviderEarnings = await earningsRes.json()
-          if (typeof data.available_sar === 'number') setAvailableSar(data.available_sar)
+        const meData = (await meRes.json().catch(() => ({}))) as ProviderMeResponse & { error?: string }
+        if (!meRes.ok) throw new Error(meData.error || 'Failed to load provider payout account.')
+
+        const provider = meData.provider || {}
+        setProviderName(provider.name || '')
+        setProviderEmail(provider.email || '')
+        setProviderStatus(provider.status || '')
+        setPayoutIban(provider.payout_iban || null)
+        setPayoutHolder(provider.payout_holder_name || '')
+        setPayoutRegisteredAt(provider.payout_account_registered_at || null)
+        setTodaySar(halalaToSar(provider.today_earnings_halala))
+        setWeekSar(halalaToSar(provider.week_earnings_halala))
+        setMonthSar(halalaToSar(provider.month_earnings_halala))
+        setLifetimeSar(halalaToSar(provider.total_earnings_halala))
+        setAvailableSar(halalaToSar(provider.claimable_earnings_halala))
+
+        if (earningsRes.ok) {
+          const data = (await earningsRes.json()) as ProviderEarnings
+          if (!cancelled) {
+            setAvailableSar(typeof data.available_sar === 'number' ? data.available_sar : halalaToSar(data.claimable_earnings_halala))
+            setPendingSar(typeof data.pending_withdrawal_sar === 'number' ? data.pending_withdrawal_sar : null)
+            setWithdrawnSar(typeof data.withdrawn_sar === 'number' ? data.withdrawn_sar : null)
+            setLifetimeSar(typeof data.total_earned_sar === 'number' ? data.total_earned_sar : halalaToSar(provider.total_earnings_halala))
+          }
         }
 
-        if (!cancelled && withdrawalsRes.ok) {
-          const data: { withdrawals?: Withdrawal[] } = await withdrawalsRes.json()
-          const rows = (data.withdrawals || []).map(withdrawalToPayout)
-          if (rows.length > 0) setPayouts(rows)
+        if (withdrawalsRes.ok) {
+          const data = (await withdrawalsRes.json()) as { withdrawals?: Withdrawal[] }
+          if (!cancelled) setPayouts((data.withdrawals || []).map(withdrawalToPayout))
+        } else {
+          setPayouts([])
         }
-      } catch {
-        // Keep the mock fallback already in state.
+
+        if (!cancelled) setLoadState('ready')
+      } catch (err) {
+        if (!cancelled) {
+          setLoadState('error')
+          setLoadError(err instanceof Error ? err.message : 'Failed to load provider payout account.')
+          setPayouts([])
+        }
       }
-    }
+    })()
 
-    load()
     return () => {
       cancelled = true
     }
   }, [])
 
-  const balanceLabel = availableSar !== null ? `SAR ${sarFmt.format(availableSar)}` : 'SAR 428.40'
+  async function requestWithdrawal() {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    const iban = fullIbanForApi(payoutIban)
+    const amount = Math.round((availableSar || 0) * HALALA_PER_SAR)
+    if (!key || amount < MIN_WITHDRAWAL_HALALA || !iban) return
+
+    setRequestState('submitting')
+    setRequestMessage('')
+    try {
+      const res = await fetch(`${getApiBase()}/providers/me/withdraw?key=${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-provider-key': key },
+        body: JSON.stringify({ amount_halala: amount, iban }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to request withdrawal.')
+      const withdrawal = data.withdrawal_request as Withdrawal | undefined
+      if (withdrawal) setPayouts((rows) => [withdrawalToPayout(withdrawal), ...rows])
+      setPendingSar((pendingSar || 0) + amount / HALALA_PER_SAR)
+      setAvailableSar(Math.max(0, (availableSar || 0) - amount / HALALA_PER_SAR))
+      setRequestState('success')
+      setRequestMessage(data.message || 'Withdrawal request queued for review.')
+    } catch (err) {
+      setRequestState('error')
+      setRequestMessage(err instanceof Error ? err.message : 'Failed to request withdrawal.')
+    }
+  }
+
+  const displayName = providerName || (lang === 'ar' ? 'المزوّد' : 'Provider')
+  const displayScope = providerEmail || providerStatus || (lang === 'ar' ? 'حساب المزوّد' : 'Provider account')
+  const statusLabel = providerStatus || (loadState === 'missing-key' ? 'missing key' : loadState)
+  const canWithdraw = Boolean(payoutIban && availableSar != null && availableSar * HALALA_PER_SAR >= MIN_WITHDRAWAL_HALALA)
+  const maskedIban = maskIban(payoutIban)
 
   return (
     <div className="pv-app">
-      {/* ── Sidebar ── */}
       <aside className={`pv-sb${drawerOpen ? ' on' : ''}`} data-page="payouts">
         <div className="pv-sb-brand">
           <span className="wm">
@@ -210,25 +290,31 @@ export default function PayoutsPage() {
             <Bi en="Earning today" ar="أرباح اليوم" />
           </div>
           <div className="v">
-            SAR 218
-            <span className="u">
-              <Bi en="so far" ar="حتى الآن" />
-            </span>
+            {todaySar != null ? (
+              <>
+                SAR {fmtSar(todaySar, false)}
+                <span className="u">
+                  <Bi en="so far" ar="حتى الآن" />
+                </span>
+              </>
+            ) : (
+              <span className="u">—</span>
+            )}
           </div>
           <div className="live">
-            <span className="d" /> <Bi en="2 of 4 rigs earning" ar="جهازان من 4 يكسبان" />
+            <span className="d" /> {statusLabel}
           </div>
           <div className="row">
             <span>
-              <Bi en="Yesterday" ar="أمس" />
+              <Bi en="This week" ar="هذا الأسبوع" />
             </span>
-            <b>SAR 194</b>
+            <b>{weekSar != null ? `SAR ${fmtSar(weekSar, false)}` : '—'}</b>
           </div>
           <div className="row">
             <span>
               <Bi en="This month" ar="هذا الشهر" />
             </span>
-            <b>SAR 5,826</b>
+            <b>{monthSar != null ? `SAR ${fmtSar(monthSar, false)}` : '—'}</b>
           </div>
         </div>
 
@@ -252,10 +338,10 @@ export default function PayoutsPage() {
         </nav>
 
         <div className="pv-sb-foot">
-          <div className="av">Y</div>
+          <div className="av">{displayName.charAt(0).toUpperCase() || 'P'}</div>
           <div className="who">
-            Yazeed Al-Qahtani
-            <span className="e">riyadh-studio-01 · Silver</span>
+            {displayName}
+            <span className="e">{displayScope}</span>
           </div>
           <span className="out" title="Sign out" role="button">
             ↱
@@ -266,20 +352,19 @@ export default function PayoutsPage() {
       <div className={`pv-backdrop${drawerOpen ? ' on' : ''}`} onClick={() => setDrawerOpen(false)} />
 
       <div>
-        {/* ── Topbar ── */}
         <header className="pv-tb" data-crumb="Payouts">
           <button className="mb-toggle" aria-label="Menu" onClick={() => setDrawerOpen((v) => !v)}>
             ☰
           </button>
           <div className="crumb">
-            <span>riyadh-studio-01</span>
+            <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Payouts" ar="المدفوعات" />
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="Live · earning" ar="مباشر · يكسب" />
+            <span className="d" /> {statusLabel}
           </span>
           <button className="lang" onClick={toggle} aria-label="Toggle language">
             {lang === 'ar' ? 'EN' : 'ع'}
@@ -298,312 +383,171 @@ export default function PayoutsPage() {
           </h1>
           <div className="pv-h1-sub">
             <span>
-              <Bi en="Where your earnings land · how often · in what" ar="أين تصل أرباحك · كم مرة · بأي طريقة" />
+              <Bi en="Claimable balance · withdrawal requests · payout account" ar="الرصيد القابل للسحب · طلبات السحب · حساب الصرف" />
             </span>
           </div>
 
-          {/* Balance card */}
+          {loadState === 'missing-key' && (
+            <div className="dash-state err" style={{ marginTop: 24 }}>
+              <Bi en="Sign in with a provider API key to load payout data." ar="سجّل الدخول بمفتاح مزوّد لتحميل بيانات المدفوعات." />{' '}
+              <Link href="/v2/auth?role=provider&method=apikey&redirect=/v2/provider/payouts">
+                <Bi en="Sign in" ar="تسجيل الدخول" />
+              </Link>
+            </div>
+          )}
+          {loadState === 'error' && (
+            <div className="dash-state err" style={{ marginTop: 24 }} role="alert">
+              {loadError}
+            </div>
+          )}
+
           <div className="balance-card" style={{ marginTop: '36px' }}>
             <div className="balance-grid">
               <div>
                 <div className="k">
-                  <Bi en="Available balance · ready to pay out" ar="الرصيد المتاح · جاهز للصرف" />
+                  <Bi en="Available balance · ready to request" ar="الرصيد المتاح · جاهز للطلب" />
                 </div>
-                <div className="v">{balanceLabel}</div>
+                <div className="v">{availableSar != null ? `SAR ${fmtSar(availableSar)}` : '—'}</div>
                 <div className="d">
-                  <Bi en="Accrued from " ar="متراكم من " />
-                  <b>
-                    <Bi en="Nov 25 → today" ar="25 نوفمبر ← اليوم" />
-                  </b>{' '}
-                  <Bi en="· 187 jobs · 14 rigs" ar="· 187 مهمة · 14 جهازًا" />
+                  <Bi en="Lifetime earnings " ar="إجمالي الأرباح " />
+                  <b>{lifetimeSar != null ? `SAR ${fmtSar(lifetimeSar, false)}` : '—'}</b>
                 </div>
               </div>
               <div>
                 <div className="k">
-                  <Bi en="Next payout" ar="الدفعة القادمة" />
+                  <Bi en="Pending withdrawal" ar="سحب قيد المراجعة" />
                 </div>
-                <div className="v small">
-                  <Bi en="Mon · 8 Dec" ar="الإثنين · 8 ديسمبر" />
-                </div>
+                <div className="v small">{pendingSar != null ? `SAR ${fmtSar(pendingSar)}` : '—'}</div>
                 <div className="d">
-                  <Bi en="In 4 days · automatic" ar="بعد 4 أيام · تلقائي" />
+                  <Bi en="Queued requests stay visible below" ar="طلبات الانتظار تظهر أدناه" />
                 </div>
               </div>
               <div>
                 <div className="k">
-                  <Bi en="Last payout" ar="آخر دفعة" />
+                  <Bi en="Withdrawn" ar="تم سحبه" />
                 </div>
-                <div className="v small">SAR 1,482</div>
+                <div className="v small">{withdrawnSar != null ? `SAR ${fmtSar(withdrawnSar)}` : '—'}</div>
                 <div className="d">
-                  <Bi en="2 Dec · settled · INV-2025-49" ar="2 ديسمبر · تمت التسوية · INV-2025-49" />
+                  <Bi en="Settled payout requests" ar="طلبات صرف تمت تسويتها" />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Withdraw alert · for the cases where balance > threshold */}
           <div className="alert">
             <div className="t">
               <b>
-                <Bi en="Withdraw now" ar="اسحب الآن" />
+                <Bi en="Request withdrawal" ar="اطلب السحب" />
               </b>{' '}
-              <Bi en="— your balance is above your set threshold of SAR 200." ar="— رصيدك أعلى من الحد الذي ضبطته وهو 200 ر.س." />
+              {canWithdraw ? (
+                <Bi en="— create a pending withdrawal request for the full available balance." ar="— أنشئ طلب سحب معلقًا لكامل الرصيد المتاح." />
+              ) : (
+                <Bi en="— connect a payout IBAN and keep at least SAR 10 claimable before requesting a withdrawal." ar="— اربط آيبان الصرف واحتفظ بما لا يقل عن 10 ر.س قابلة للسحب قبل طلب السحب." />
+              )}
               <span className="sub">
-                <Bi en="Manual withdrawals settle in 1 business day · no fee" ar="السحوبات اليدوية تُسوّى خلال يوم عمل واحد · بدون رسوم" />
+                <Bi en="Admin review keeps payouts auditable before money moves." ar="مراجعة الإدارة تجعل المدفوعات قابلة للتدقيق قبل انتقال الأموال." />
               </span>
             </div>
-            <button onClick={() => setWithdrawQueued(true)}>
-              {withdrawQueued ? <Bi en="Withdrawal queued ✓" ar="تم إدراج السحب ✓" /> : <Bi en="Withdraw SAR 428.40" ar="اسحب 428.40 ر.س" />}
+            <button onClick={requestWithdrawal} disabled={!canWithdraw || requestState === 'submitting'}>
+              {requestState === 'submitting' ? (
+                <Bi en="Submitting..." ar="جارٍ الإرسال..." />
+              ) : availableSar != null ? (
+                <Bi en={`Request SAR ${fmtSar(availableSar)}`} ar={`اطلب ${fmtSar(availableSar)} ر.س`} />
+              ) : (
+                <Bi en="Request withdrawal" ar="طلب السحب" />
+              )}
             </button>
           </div>
-          {withdrawQueued && (
-            <div style={{ marginTop: '12px', fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--mut)', letterSpacing: '.04em', lineHeight: 1.6 }}>
-              <Bi
-                en="Manual withdrawal queued. SAR 428.40 will land in your Bank Aljazira account by tomorrow afternoon. You’ll get an email confirmation."
-                ar="تم إدراج السحب اليدوي. ستصل 428.40 ر.س إلى حساب بنك الجزيرة بحلول ظهر الغد. ستصلك رسالة تأكيد بالبريد."
-              />
+          {requestMessage && (
+            <div className={`dash-state${requestState === 'error' ? ' err' : ''}`} style={{ marginTop: '12px' }}>
+              {requestMessage}
             </div>
           )}
 
-          {/* Payout method */}
           <div className="panel" style={{ marginTop: '36px' }}>
             <div className="panel-hd">
               <div>
                 <h3>
-                  <Bi en="Payout method" ar="طريقة الصرف" />
+                  <Bi en="Payout account" ar="حساب الصرف" />
                 </h3>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', marginTop: '6px' }}>
-                  <Bi en="Currently set to " ar="مضبوطة حاليًا على " />
-                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>
-                    <Bi en="SAR · Bank transfer" ar="ر.س · تحويل بنكي" />
-                  </b>
+                  <Bi en="Bank transfer · Saudi Riyal" ar="تحويل بنكي · ريال سعودي" />
                 </div>
               </div>
             </div>
 
-            <div className="method-grid">
-              <div className="method on">
-                <div className="nm">
-                  <Bi en="Bank transfer · SAR" ar="تحويل بنكي · ر.س" />
+            {payoutIban ? (
+              <div className="bank-row">
+                <div className="logo">SAR</div>
+                <div>
+                  <div className="nm">
+                    <Bi en="Verified payout account" ar="حساب صرف موثّق" />{' '}
+                    <span className="verified">
+                      ✓ <Bi en="Verified" ar="موثّق" />
+                    </span>
+                  </div>
+                  <div className="acc">{maskedIban}</div>
+                  <div className="holder">{payoutHolder || <Bi en="Account holder pending provider profile" ar="اسم صاحب الحساب ينتظر ملف المزوّد" />}</div>
                 </div>
-                <div className="desc">
-                  <Bi
-                    en="Direct deposit to your Saudi IBAN. 1 business day after each payout cycle. Zero fee."
-                    ar="إيداع مباشر إلى الآيبان السعودي الخاص بك. يوم عمل واحد بعد كل دورة صرف. بدون رسوم."
-                  />
-                </div>
-                <div className="meta">
-                  <span>
-                    <Bi en="Available" ar="متاح" />
-                  </span>
-                  <b>
-                    <Bi en="Default" ar="افتراضي" />
-                  </b>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', letterSpacing: '.06em', color: 'var(--mut)', textAlign: 'end' }}>
+                  <Bi en="Registered" ar="مسجل" />
+                  <br />
+                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>{fmtDate(payoutRegisteredAt)}</b>
                 </div>
               </div>
-              <div className="method">
-                <div className="nm">STC Pay</div>
+            ) : (
+              <span className="empty-row">
+                <Bi en="No payout account on file. Add one in the provider profile before requesting withdrawals." ar="لا يوجد حساب صرف محفوظ. أضف حسابًا في ملف المزوّد قبل طلب السحب." />
+              </span>
+            )}
+          </div>
+
+          <div className="panel" style={{ marginTop: '28px' }}>
+            <div className="panel-hd">
+              <div>
+                <h3>
+                  <Bi en="Payout controls" ar="إعدادات الصرف" />
+                </h3>
+              </div>
+            </div>
+            <div className="method-grid">
+              <div className={`method${payoutIban ? ' on' : ''}`}>
+                <div className="nm">
+                  <Bi en="Manual withdrawal requests" ar="طلبات السحب اليدوية" />
+                </div>
                 <div className="desc">
                   <Bi
-                    en="Instant transfer to your STC Pay wallet. Useful for smaller, more frequent payouts. Zero fee."
-                    ar="تحويل فوري إلى محفظة STC Pay. مفيد للدفعات الأصغر والأكثر تكرارًا. بدون رسوم."
+                    en="Providers request a withdrawal when claimable earnings are available. The request is reviewed in the admin queue before payout processing."
+                    ar="يطلب المزوّد السحب عندما تكون الأرباح القابلة للسحب متاحة. تتم مراجعة الطلب في قائمة الإدارة قبل معالجة الدفع."
                   />
                 </div>
                 <div className="meta">
-                  <span>
-                    <Bi en="Not connected" ar="غير مرتبط" />
-                  </span>
-                  <b>
-                    <Bi en="Available" ar="متاح" />
-                  </b>
+                  <span>{payoutIban ? maskedIban : <Bi en="IBAN required" ar="الآيبان مطلوب" />}</span>
+                  <b>{canWithdraw ? <Bi en="Ready" ar="جاهز" /> : <Bi en="Waiting" ar="بانتظار" />}</b>
                 </div>
               </div>
               <div className="method locked">
-                <span className="gate">
-                  <Bi en="Gold tier" ar="فئة ذهبية" />
-                </span>
-                <div className="nm">USDC · Base L2</div>
+                <div className="nm">
+                  <Bi en="Automatic schedule" ar="الجدولة التلقائية" />
+                </div>
                 <div className="desc">
                   <Bi
-                    en="On-chain payout in USDC stablecoin. Unlocked once your account reaches Gold provider tier (500+ jobs/month)."
-                    ar="صرف على السلسلة بعملة USDC المستقرة. يُفتح عند وصول حسابك إلى الفئة الذهبية (500+ مهمة شهريًا)."
+                    en="Automatic payout preferences need a backend preference endpoint before launch. Until then, this surface stays manual and auditable."
+                    ar="تحتاج تفضيلات الصرف التلقائي إلى نقطة backend قبل الإطلاق. حتى ذلك الحين تبقى هذه الواجهة يدوية وقابلة للتدقيق."
                   />
                 </div>
                 <div className="meta">
                   <span>
-                    <Bi en="638 jobs to unlock" ar="638 مهمة للفتح" />
+                    <Bi en="Not enabled" ar="غير مفعّل" />
                   </span>
                   <b>
-                    <Bi en="Locked" ar="مقفل" />
+                    <Bi en="Manual" ar="يدوي" />
                   </b>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Connected bank account */}
-          <div className="panel" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Connected bank account" ar="الحساب البنكي المرتبط" />
-                </h3>
-              </div>
-              <button className="seg-btn" onClick={() => setChangingBank(true)}>
-                <Bi en="Change bank account" ar="تغيير الحساب البنكي" />
-              </button>
-            </div>
-
-            <div className="bank-row">
-              <div className="logo">BAJ</div>
-              <div>
-                <div className="nm">
-                  <Bi en="Bank Aljazira" ar="بنك الجزيرة" />{' '}
-                  <span className="verified">
-                    ✓ <Bi en="Verified" ar="موثّق" />
-                  </span>
-                </div>
-                <div className="acc">
-                  IBAN · SA03 8000 0001 6080 1011 <b style={{ color: 'var(--ink)', fontWeight: 500 }}>2847</b>
-                </div>
-                <div className="holder">
-                  <Bi en="Yazeed Mohammed Al-Qahtani · matched to ID record" ar="يزيد محمد القحطاني · مطابق لسجل الهوية" />
-                </div>
-              </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', letterSpacing: '.06em', color: 'var(--mut)', textAlign: 'end' }}>
-                <Bi en="Connected" ar="مرتبط منذ" />
-                <br />
-                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>
-                  <Bi en="14 Aug 2024" ar="14 أغسطس 2024" />
-                </b>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '18px', padding: '14px 18px', border: '1px dashed var(--hair)', fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--mut)', lineHeight: 1.7 }}>
-              <Bi en="Verified via SAMA Open Banking. Your IBAN must be Saudi (" ar="موثّق عبر الخدمات المصرفية المفتوحة لمؤسسة النقد. يجب أن يكون الآيبان سعوديًا (" />
-              <b style={{ color: 'var(--ink)', fontWeight: 500 }}>SA</b>
-              <Bi
-                en=" prefix) and the account holder must match your government ID. Each verification takes around 2 minutes."
-                ar=" بادئة) وأن يطابق اسم صاحب الحساب هويتك الحكومية. يستغرق كل توثيق حوالي دقيقتين."
-              />
-              {changingBank && (
-                <span style={{ display: 'block', marginTop: '8px', color: 'var(--pv-accent)' }}>
-                  <Bi en="Re-verify a new IBAN via SAMA Open Banking. Takes about 2 minutes." ar="أعد توثيق آيبان جديد عبر الخدمات المصرفية المفتوحة. يستغرق حوالي دقيقتين." />
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Schedule + threshold */}
-          <div className="panel" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Schedule & threshold" ar="الجدولة والحد" />
-                </h3>
-              </div>
-            </div>
-
-            <div className="sched-grid">
-              <div className="sched-card">
-                <div className="k">
-                  <Bi en="Payout frequency" ar="تكرار الصرف" />
-                </div>
-                <div className="opts">
-                  {FREQ_OPTS.map((opt, i) => (
-                    <button key={opt.en} className={`opt${i === freq ? ' on' : ''}`} onClick={() => setFreq(i)}>
-                      <Bi en={opt.en} ar={opt.ar} />
-                    </button>
-                  ))}
-                </div>
-                <div className="hint">
-                  <Bi
-                    en="Weekly is most common. Daily pays out every business morning if your balance is over the minimum threshold of "
-                    ar="الأسبوعي هو الأكثر شيوعًا. اليومي يصرف كل صباح عمل إذا تجاوز رصيدك الحد الأدنى وهو "
-                  />
-                  <b>
-                    <Bi en="SAR 50" ar="50 ر.س" />
-                  </b>
-                  <Bi
-                    en=". Manual stops automatic payouts entirely — you withdraw when you want."
-                    ar=". اليدوي يوقف الصرف التلقائي تمامًا — تسحب متى أردت."
-                  />
-                </div>
-              </div>
-              <div className="sched-card">
-                <div className="k">
-                  <Bi en="Auto-withdraw threshold" ar="حد السحب التلقائي" />
-                </div>
-                <div className="opts">
-                  {THRESHOLD_OPTS.map((opt, i) => (
-                    <button key={opt.en} className={`opt${i === threshold ? ' on' : ''}`} onClick={() => setThreshold(i)}>
-                      <Bi en={opt.en} ar={opt.ar} />
-                    </button>
-                  ))}
-                </div>
-                <div className="hint">
-                  <Bi
-                    en="When your accrued balance crosses this number, we’ll trigger a payout even if it’s outside your normal schedule. Set higher to batch payouts and reduce bank-statement noise."
-                    ar="عندما يتجاوز رصيدك المتراكم هذا الرقم، سنطلق دفعة حتى لو كانت خارج جدولك المعتاد. ارفع الحد لتجميع الدفعات وتقليل ضوضاء كشف الحساب."
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tax + invoicing */}
-          <div className="panel" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Tax & invoicing" ar="الضريبة والفوترة" />
-                </h3>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', marginTop: '6px' }}>
-                  <Bi en="Each payout ships with a ZATCA-compliant invoice" ar="كل دفعة تصدر بفاتورة متوافقة مع هيئة الزكاة والضريبة (ZATCA)" />
-                </div>
-              </div>
-            </div>
-            <div className="form-grid">
-              <div className="lbl">
-                <b>
-                  <Bi en="VAT registration" ar="التسجيل الضريبي" />
-                </b>
-                <Bi en="For tax invoices" ar="للفواتير الضريبية" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="text" defaultValue="VAT-300123456789003" />
-                <span className="hint">
-                  <Bi
-                    en="Leave blank if you’re not VAT-registered. We’ll still issue a standard invoice for each payout."
-                    ar="اتركه فارغًا إن لم تكن مسجلاً ضريبيًا. سنظل نصدر فاتورة قياسية لكل دفعة."
-                  />
-                </span>
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Invoice address" ar="عنوان الفاتورة" />
-                </b>
-                <Bi en="Appears on each invoice" ar="يظهر في كل فاتورة" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="text" defaultValue="Riyadh Studio · King Abdullah Rd, Riyadh 11564" />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Auto-email invoices" ar="إرسال الفواتير تلقائيًا" />
-                </b>
-                <Bi en="To your finance team" ar="إلى فريقك المالي" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="email" placeholder={lang === 'ar' ? 'finance@yourcompany.sa' : 'finance@yourcompany.sa'} />
-                <span className="hint">
-                  <Bi en="Optional · we already email them to your primary contact." ar="اختياري · نرسلها أصلاً إلى جهة الاتصال الأساسية." />
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent payouts */}
           <div className="panel" style={{ marginTop: '28px' }}>
             <div className="panel-hd">
               <div>
@@ -611,7 +555,7 @@ export default function PayoutsPage() {
                   <Bi en="Payout history" ar="سجل المدفوعات" />
                 </h3>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', marginTop: '6px' }}>
-                  <Bi en="Last 12 cycles · download any invoice" ar="آخر 12 دورة · حمّل أي فاتورة" />
+                  <Bi en="Provider withdrawal requests" ar="طلبات سحب المزوّد" />
                 </div>
               </div>
               <Link href="/v2/provider/earnings" style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink)', borderBottom: '1px solid var(--ink)', paddingBottom: '2px' }}>
@@ -622,7 +566,7 @@ export default function PayoutsPage() {
               <thead>
                 <tr>
                   <th>
-                    <Bi en="Period" ar="الفترة" />
+                    <Bi en="Requested" ar="تاريخ الطلب" />
                   </th>
                   <th>
                     <Bi en="Method" ar="الطريقة" />
@@ -636,56 +580,45 @@ export default function PayoutsPage() {
                   <th style={{ textAlign: 'end' }}>
                     <Bi en="Paid" ar="دُفعت" />
                   </th>
-                  <th style={{ textAlign: 'end' }}>
-                    <Bi en="Invoice" ar="الفاتورة" />
-                  </th>
                 </tr>
               </thead>
               <tbody>
-                {payouts.map((p, i) => (
-                  <tr key={`${p.period}-${i}`}>
-                    <td>
-                      <span className="period">{p.period}</span>
-                    </td>
-                    <td>
-                      <span className="mode">{p.mode}</span>
-                    </td>
-                    <td>
-                      <span className="amount">
-                        {p.sar.toLocaleString()}
-                        <span className="u">SAR</span>
+                {payouts.length > 0 ? (
+                  payouts.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <span className="period">{p.period}</span>
+                      </td>
+                      <td>
+                        <span className="mode">{p.mode}</span>
+                      </td>
+                      <td>
+                        <span className="amount">
+                          {fmtSar(p.sar)}
+                          <span className="u">SAR</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`stat ${p.statClass}`}>{p.status}</span>
+                      </td>
+                      <td>
+                        <span className="when">{p.date}</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5}>
+                      <span className="empty-row">
+                        <Bi en="No withdrawal requests yet." ar="لا توجد طلبات سحب بعد." />
                       </span>
-                    </td>
-                    <td>
-                      <span className={`stat ${p.statClass}`}>
-                        {p.status === 'paid' ? (
-                          <Bi en="paid" ar="مدفوعة" />
-                        ) : p.status === 'accruing' ? (
-                          <Bi en="accruing" ar="متراكمة" />
-                        ) : (
-                          p.status
-                        )}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="when">{p.date}</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      {p.inv ? (
-                        <Link className="inv" href="#">
-                          {p.inv} ↓
-                        </Link>
-                      ) : (
-                        <span className="when">—</span>
-                      )}
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
 
-          {/* Footnotes */}
           <div style={{ marginTop: '28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '22px' }}>
             <div className="panel">
               <div style={{ fontFamily: 'var(--mono)', fontSize: '10.5px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--mut)', marginBottom: '8px' }}>
@@ -693,8 +626,8 @@ export default function PayoutsPage() {
               </div>
               <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: '14px', lineHeight: 1.65 }}>
                 <Bi
-                  en="Each completed job credits your balance in halala-precision. Failed jobs and rejected requests don’t bill the renter, so they don’t credit you either. Balance updates within a few seconds of job completion. Anything you see on this page is real and ready to be paid out."
-                  ar="كل مهمة مكتملة تضيف إلى رصيدك بدقة الهللة. المهام الفاشلة والطلبات المرفوضة لا تُحاسب المستأجر، لذا لا تُضاف إليك. يتحدّث الرصيد خلال ثوانٍ من اكتمال المهمة. كل ما تراه على هذه الصفحة حقيقي وجاهز للصرف."
+                  en="Completed jobs credit claimable earnings in halala precision. Withdrawal requests stay pending until admin review, so payout state remains auditable."
+                  ar="المهام المكتملة تضيف أرباحًا قابلة للسحب بدقة الهللة. تبقى طلبات السحب معلقة حتى مراجعة الإدارة، لذلك تبقى حالة الصرف قابلة للتدقيق."
                 />
               </p>
             </div>
@@ -703,11 +636,9 @@ export default function PayoutsPage() {
                 <Bi en="Revenue share" ar="حصة الإيرادات" />
               </div>
               <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: '14px', lineHeight: 1.65 }}>
-                <Bi en="At your current Silver tier, you keep " ar="في فئتك الفضية الحالية، تحتفظ بـ " />
-                <b style={{ color: 'var(--ink)', fontWeight: 500 }}>75%</b>
                 <Bi
-                  en=" of every job. The rest covers platform routing, monitoring, billing, and renter support. The cut shown on each job already nets these out — what you see is what you’ll be paid."
-                  ar=" من كل مهمة. الباقي يغطي توجيه المنصة والمراقبة والفوترة ودعم المستأجر. الحصة الظاهرة على كل مهمة تخصم ذلك مسبقًا — ما تراه هو ما ستُدفع."
+                  en="The backend settlement path stores the provider-earned amount per job. This page shows the already-netted balance rather than calculating a tier split in the browser."
+                  ar="يحفظ مسار التسوية في backend مبلغ المزوّد لكل مهمة. تعرض هذه الصفحة الرصيد الصافي بالفعل بدل حساب تقسيم الفئات في المتصفح."
                 />
               </p>
             </div>
