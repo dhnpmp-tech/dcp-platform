@@ -103,6 +103,13 @@ interface ChatMessage {
   content: ReactNode
 }
 
+interface SessionStats {
+  inputTokens: number
+  outputTokens: number
+  elapsedSeconds: number
+  costSar: number
+}
+
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'seed-user',
@@ -155,6 +162,14 @@ export default function PlaygroundPage() {
 
   const [draft, setDraft] = useState('ما الفرق بين زكاة المال وزكاة الفطر؟')
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES)
+  const [isSending, setIsSending] = useState(false)
+  const [requestError, setRequestError] = useState('')
+  const [stats, setStats] = useState<SessionStats>({
+    inputTokens: 0,
+    outputTokens: 0,
+    elapsedSeconds: 0,
+    costSar: 0,
+  })
 
   const temperature = (tempRaw * TEMP_STEP).toFixed(1)
   const topP = (topPRaw / 100).toFixed(1)
@@ -172,9 +187,14 @@ export default function PlaygroundPage() {
     .padStart(2, '0')
   const balanceWholeLabel = balanceWhole.toLocaleString('en-US')
 
-  function send() {
+  function updateAssistantMessage(id: string, patch: Partial<ChatMessage>) {
+    setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)))
+  }
+
+  async function send() {
     const text = draft.trim()
-    if (!text) return
+    if (!text || isSending) return
+    const key = getRenterKey()
     const ar = isArabicText(text)
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -183,17 +203,116 @@ export default function PlaygroundPage() {
       roleLabel: ar ? 'You · Arabic' : 'You · English',
       content: text,
     }
+    const assistantId = `a-${Date.now()}`
     const assistantMsg: ChatMessage = {
-      id: `a-${Date.now()}`,
+      id: assistantId,
       role: 'assistant',
       ar,
       roleLabel: `${selectedModelName} · streaming…`,
-      content: ar
-        ? 'يجري توليد الرد… (عرض توضيحي — لا يتم إرسال طلب فعلي إلى النموذج.)'
-        : 'Generating response… (demo — no live model request is sent.)',
+      content: ar ? 'يجري إرسال الطلب إلى DCP…' : 'Sending request to DCP…',
     }
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setDraft('')
+    setRequestError('')
+
+    if (!key) {
+      const message = lang === 'ar'
+        ? 'سجّل الدخول بمفتاح مستأجر حقيقي قبل إرسال طلب إلى النموذج.'
+        : 'Sign in with a real renter key before sending a model request.'
+      updateAssistantMessage(assistantId, { roleLabel: 'DCP · auth required', content: message })
+      setRequestError(message)
+      return
+    }
+
+    setIsSending(true)
+    const startedAt = performance.now()
+    let fullContent = ''
+    let outputTokens = 0
+
+    try {
+      const res = await fetch('/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: text }],
+          max_tokens: maxTokens,
+          temperature: Number(temperature),
+          top_p: Number(topP),
+          stream,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const detail = typeof data.error === 'string' ? data.error : data.error?.message
+        throw new Error(detail || `DCP returned HTTP ${res.status}`)
+      }
+
+      if (stream && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data: ')) continue
+            const data = trimmed.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const chunk = JSON.parse(data)
+              const delta = chunk.choices?.[0]?.delta
+              const content = delta?.content || delta?.reasoning_content || ''
+              if (content) {
+                fullContent += content
+                outputTokens += 1
+                updateAssistantMessage(assistantId, { content: fullContent })
+              }
+              if (chunk.usage?.completion_tokens) outputTokens = chunk.usage.completion_tokens
+            } catch {
+              // Ignore malformed SSE keepalive lines and continue streaming.
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        fullContent = data.choices?.[0]?.message?.content || ''
+        outputTokens = data.usage?.completion_tokens || Math.max(1, Math.ceil(fullContent.length / 4))
+        updateAssistantMessage(assistantId, { content: fullContent || (lang === 'ar' ? 'لا توجد استجابة.' : 'No response returned.') })
+      }
+
+      const elapsedSeconds = (performance.now() - startedAt) / 1000
+      const inputTokens = Math.max(1, Math.ceil(text.length / 4))
+      setStats((prev) => ({
+        inputTokens: prev.inputTokens + inputTokens,
+        outputTokens: prev.outputTokens + outputTokens,
+        elapsedSeconds,
+        costSar: prev.costSar,
+      }))
+      updateAssistantMessage(assistantId, {
+        roleLabel: `${selectedModelName} · ${outputTokens.toLocaleString('en-US')} tok · ${elapsedSeconds.toFixed(1)}s`,
+        content: fullContent || (lang === 'ar' ? 'اكتملت الاستجابة بدون محتوى.' : 'The response completed without content.'),
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Request failed.'
+      setRequestError(message)
+      updateAssistantMessage(assistantId, {
+        roleLabel: 'DCP · request failed',
+        content: message,
+      })
+    } finally {
+      setIsSending(false)
+    }
   }
 
   function onSampleClick(text: string) {
@@ -537,10 +656,11 @@ export default function PlaygroundPage() {
                       <b style={{ color: 'var(--ink)' }}>⌘+↵</b> <Bi en="to send" ar="للإرسال" />
                     </span>
                   </div>
-                  <button className="send" onClick={send}>
-                    <Bi en="Send" ar="إرسال" />
+                  <button className="send" onClick={send} disabled={isSending}>
+                    {isSending ? <Bi en="Sending…" ar="جارٍ الإرسال…" /> : <Bi en="Send" ar="إرسال" />}
                   </button>
                 </div>
+                {requestError && <div className="pg-error" role="alert">{requestError}</div>}
               </div>
             </div>
 
@@ -551,26 +671,27 @@ export default function PlaygroundPage() {
                   <Bi en="This session" ar="هذه الجلسة" />
                 </span>
                 <div className="v">
-                  SAR 0<span className="u">.38</span>
+                  SAR {Math.floor(stats.costSar)}
+                  <span className="u">.{Math.round((stats.costSar % 1) * 100).toString().padStart(2, '0')}</span>
                 </div>
                 <div style={{ marginTop: '14px' }}>
                   <div className="meter-row">
                     <span>
                       <Bi en="Input tokens" ar="رموز الإدخال" />
                     </span>
-                    <b>{inputTokens.toLocaleString('en-US')}</b>
+                    <b>{stats.inputTokens.toLocaleString('en-US')}</b>
                   </div>
                   <div className="meter-row">
                     <span>
                       <Bi en="Output tokens" ar="رموز الإخراج" />
                     </span>
-                    <b>1,234</b>
+                    <b>{stats.outputTokens.toLocaleString('en-US')}</b>
                   </div>
                   <div className="meter-row">
                     <span>
                       <Bi en="Time elapsed" ar="الوقت المنقضي" />
                     </span>
-                    <b>12.4s</b>
+                    <b>{stats.elapsedSeconds.toFixed(1)}s</b>
                   </div>
                   <div className="meter-row">
                     <span>

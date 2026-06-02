@@ -1,29 +1,13 @@
 'use client'
 
-// Ported from public/dcp-v2/prototypes/renter/Settings.html (renter console · Settings).
-// Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
-// route is self-contained; renter-shell.css is folded into ./settings.css.
-import { useEffect, useState, type CSSProperties } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
 import './settings.css'
 
-// ── Fetched API shape (subset of v1 /renters/me) ───────────────────────
-interface RenterMe {
-  renter?: {
-    name?: string
-    email?: string
-    organization?: string
-    balance_halala?: number
-  }
-}
+const HALALA_PER_SAR = 100
 
-// halala (integer cents) → SAR number
-const halToSar = (h: number) => h / 100
-const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
-
-// ── Nav model (from renter-shell.js NAV) ───────────────────────────────
 const NAV = [
   {
     sec: 'Build',
@@ -31,7 +15,7 @@ const NAV = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
       { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
-      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
+      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
@@ -55,100 +39,219 @@ const NAV = [
 
 const CURRENT_PAGE = 'settings'
 
-// ── Members mock (illustrative; from prototype) ────────────────────────
-const MEMBERS = [
-  {
-    initial: 'F',
-    avStyle: undefined as CSSProperties | undefined,
-    name: 'Fatima Al-Harbi',
-    email: 'fatima@nextwave.sa · you',
-    emailAr: 'fatima@nextwave.sa · أنت',
-    role: 'Owner',
-    roleAr: 'المالك',
-    rolePill: 'owner',
-    lastActive: 'Now',
-    lastActiveAr: 'الآن',
-    editable: false,
-  },
-  {
-    initial: 'H',
-    avStyle: { background: 'linear-gradient(135deg, #6bb39a, var(--teal))' } as CSSProperties,
-    name: 'Hassan Al-Otaibi',
-    email: 'hassan@nextwave.sa',
-    emailAr: 'hassan@nextwave.sa',
-    role: 'Developer',
-    roleAr: 'مطوّر',
-    rolePill: '',
-    lastActive: '2 hours ago',
-    lastActiveAr: 'قبل ساعتين',
-    editable: true,
-  },
-  {
-    initial: 'R',
-    avStyle: { background: 'linear-gradient(135deg, var(--orange), #b84510)' } as CSSProperties,
-    name: 'Reem Al-Suhaimi',
-    email: 'reem@nextwave.sa',
-    emailAr: 'reem@nextwave.sa',
-    role: 'Billing',
-    roleAr: 'الفوترة',
-    rolePill: '',
-    lastActive: '3 days ago',
-    lastActiveAr: 'قبل ٣ أيام',
-    editable: true,
-  },
-]
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+type SaveState = 'idle' | 'submitting' | 'success' | 'error'
+
+interface RenterAccount {
+  id?: number
+  name?: string
+  email?: string
+  organization?: string
+  use_case?: string | null
+  phone?: string | null
+  webhook_url?: string | null
+  balance_halala?: number
+  total_spent_halala?: number
+  total_jobs?: number
+  created_at?: string
+}
+
+interface RenterMeResponse {
+  renter?: RenterAccount
+}
+
+interface RenterBalanceResponse {
+  balance_halala?: number
+  balance_sar?: number
+  held_halala?: number
+  held_sar?: number
+  total_spent_halala?: number
+  total_spent_sar?: number
+  total_jobs?: number
+}
+
+interface NotificationItem {
+  id: number
+  kind?: string
+  job_id?: string | null
+  read_at?: string | null
+  created_at?: string
+  payload?: Record<string, unknown> | null
+}
+
+interface NotificationsResponse {
+  items?: NotificationItem[]
+  total?: number
+  unread_count?: number
+}
+
+const numFmt = new Intl.NumberFormat('en-US')
+const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const wholeFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
+function halalaToSar(halala: number | null | undefined): number {
+  return typeof halala === 'number' && Number.isFinite(halala) ? halala / HALALA_PER_SAR : 0
+}
+
+function fmtSar(sar: number | null | undefined, precise = true): string {
+  if (typeof sar !== 'number' || Number.isNaN(sar)) return '—'
+  return precise ? sarFmt.format(sar) : wholeFmt.format(sar)
+}
+
+function initials(name?: string, email?: string): string {
+  const source = (name || email || 'DCP').trim()
+  return source.charAt(0).toUpperCase()
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' })
+}
+
+function notificationLabel(item: NotificationItem): string {
+  const payload = item.payload || {}
+  const message = payload.message || payload.title || payload.status || item.kind
+  return String(message || 'Notification')
+}
+
+async function readJson<T>(url: string, headers: HeadersInit, optional = false): Promise<T | null> {
+  const res = await fetch(url, { headers, cache: 'no-store' })
+  if (optional && res.status === 404) return null
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+  return (await res.json()) as T
+}
 
 export default function RenterSettingsPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
-
-  // ── Live profile data (/renters/me). Mock stays as the default render;
-  // a successful fetch overrides it. Null on no key / failure. ───────────
-  const [balanceSar, setBalanceSar] = useState<number | null>(null)
-  const [ownerName, setOwnerName] = useState<string | null>(null)
-  const [ownerEmail, setOwnerEmail] = useState<string | null>(null)
-  const [orgName, setOrgName] = useState<string | null>(null)
-
-  // Editable form fields — seeded with the prototype mock so the page renders
-  // fully with no key, then overwritten by /renters/me on a successful fetch.
-  const [workspaceName, setWorkspaceName] = useState('NextWave Commerce')
-  const [legalName, setLegalName] = useState('NextWave Commerce LLC')
-  const [billingContact, setBillingContact] = useState('finance@nextwave.sa')
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [readAllState, setReadAllState] = useState<SaveState>('idle')
+  const [error, setError] = useState('')
+  const [renter, setRenter] = useState<RenterAccount | null>(null)
+  const [balance, setBalance] = useState<RenterBalanceResponse | null>(null)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [notificationTotal, setNotificationTotal] = useState(0)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [exportHref, setExportHref] = useState('/v2/renter/settings')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getRenterKey()
-    if (!key) return
-
-    const headers = { 'x-renter-key': key }
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+    const renterKey = key
+    const encodedKey = encodeURIComponent(renterKey)
     const base = getApiBase()
+    const headers = { 'x-renter-key': renterKey }
     let cancelled = false
 
-    fetch(`${base}/renters/me`, { headers })
-      .then((r) => (r.ok ? (r.json() as Promise<RenterMe>) : null))
-      .then((d) => {
-        if (cancelled || !d?.renter) return
-        const me = d.renter
-        if (typeof me.balance_halala === 'number') setBalanceSar(halToSar(me.balance_halala))
-        if (me.name) setOwnerName(me.name)
-        if (me.email) setOwnerEmail(me.email)
-        if (me.organization) {
-          setOrgName(me.organization)
-          setWorkspaceName(me.organization)
-          setLegalName(me.organization)
-        }
-        if (me.email) setBillingContact(me.email)
-      })
-      .catch(() => {})
+    async function loadSettings() {
+      try {
+        setLoadState('loading')
+        setError('')
+        setExportHref(`${base}/renters/me/data-export?key=${encodedKey}`)
+        const [me, balanceData, notificationsData] = await Promise.all([
+          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
+          readJson<NotificationsResponse>(`${base}/renters/me/notifications?key=${encodedKey}&limit=10`, headers, true),
+        ])
+        if (cancelled) return
+        const account = me?.renter || null
+        setRenter(account)
+        setBalance(balanceData || null)
+        setWebhookUrl(account?.webhook_url || '')
+        setNotifications(notificationsData?.items || [])
+        setNotificationTotal(notificationsData?.total || 0)
+        setUnreadCount(notificationsData?.unread_count || 0)
+        setLoadState('ready')
+      } catch (err) {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Settings data could not be loaded')
+        setLoadState('error')
+      }
+    }
 
+    loadSettings()
     return () => {
       cancelled = true
     }
   }, [])
 
+  const displayName = renter?.organization || renter?.name || renter?.email || 'DCP renter'
+  const displayEmail = renter?.email || 'API key not loaded'
+  const displaySub = renter?.organization && renter?.name ? `${renter.name} · renter account` : 'Renter account'
+  const balanceSar =
+    typeof balance?.balance_sar === 'number'
+      ? balance.balance_sar
+      : typeof renter?.balance_halala === 'number'
+        ? halalaToSar(renter.balance_halala)
+        : halalaToSar(balance?.balance_halala)
+  const heldSar = typeof balance?.held_sar === 'number' ? balance.held_sar : halalaToSar(balance?.held_halala)
+  const totalSpentSar =
+    typeof balance?.total_spent_sar === 'number'
+      ? balance.total_spent_sar
+      : typeof balance?.total_spent_halala === 'number'
+        ? halalaToSar(balance.total_spent_halala)
+        : halalaToSar(renter?.total_spent_halala)
+  const totalJobs = balance?.total_jobs ?? renter?.total_jobs ?? 0
+  const balanceParts = useMemo(() => fmtSar(balanceSar).split('.'), [balanceSar])
+  const canUseSettings = loadState === 'ready'
+
+  async function saveWebhook(event: FormEvent) {
+    event.preventDefault()
+    const key = getRenterKey()
+    if (!key) return
+    setSaveState('submitting')
+    setError('')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-renter-key': key,
+        },
+        body: JSON.stringify({ webhook_url: webhookUrl.trim() }),
+      })
+      const data = (await res.json()) as { error?: string; settings?: { webhook_url?: string | null } }
+      if (!res.ok) throw new Error(data.error || `Webhook save failed: ${res.status}`)
+      const savedUrl = data.settings?.webhook_url || ''
+      setWebhookUrl(savedUrl)
+      setRenter((prev) => (prev ? { ...prev, webhook_url: savedUrl } : prev))
+      setSaveState('success')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Webhook could not be saved')
+      setSaveState('error')
+    }
+  }
+
+  async function markAllNotificationsRead() {
+    const key = getRenterKey()
+    if (!key) return
+    setReadAllState('submitting')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me/notifications/read-all`, {
+        method: 'POST',
+        headers: { 'x-renter-key': key },
+      })
+      const data = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(data.error || `Notification update failed: ${res.status}`)
+      setUnreadCount(0)
+      setNotifications((items) => items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })))
+      setReadAllState('success')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Notifications could not be updated')
+      setReadAllState('error')
+    }
+  }
+
   return (
     <div className="rt-app">
-      {/* ── Sidebar (inlined from renter-shell.js) ─────────────────── */}
       <aside className={`rt-sb${navOpen ? ' on' : ''}`} id="rt-sb" data-page="settings">
         <div className="rt-sb-brand">
           <span className="wm">
@@ -160,11 +263,11 @@ export default function RenterSettingsPage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Switch workspace" type="button">
-            <span className="av">N</span>
+          <button className="rt-ws-btn" title="Current renter account" type="button">
+            <span className="av">{initials(displayName, displayEmail)}</span>
             <span className="body">
-              <span className="nm">{orgName ?? 'NextWave Commerce'}</span>
-              <span className="sub">acme-prod · 3 members</span>
+              <span className="nm">{displayName}</span>
+              <span className="sub">{displaySub}</span>
             </span>
             <span className="chev">⌄</span>
           </button>
@@ -175,32 +278,24 @@ export default function RenterSettingsPage() {
             <Bi en="Balance" ar="الرصيد" />
           </div>
           <div className="v">
-            {balanceSar != null ? (
-              <>
-                SAR {numFmt.format(Math.floor(balanceSar))}
-                <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
-              </>
-            ) : (
-              <>
-                SAR 2,184<span className="u">.52</span>
-              </>
-            )}
+            SAR {balanceParts[0]}
+            <span className="u">.{balanceParts[1] || '00'}</span>
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR 2.72</b>
+            <b>SAR {fmtSar(heldSar)}</b>
           </div>
           <div className="row">
             <span>
-              <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
+              <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
             </span>
-            <b>SAR 412</b>
+            <b>SAR {fmtSar(totalSpentSar, false)}</b>
           </div>
-          <button className="topup" type="button">
+          <Link className="topup" href="/v2/renter/wallet#top-up">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
-          </button>
+          </Link>
         </div>
 
         <nav className="rt-nav">
@@ -212,12 +307,7 @@ export default function RenterSettingsPage() {
               {s.items.map((it) => {
                 const active = it.k === CURRENT_PAGE
                 return (
-                  <Link
-                    key={it.k}
-                    href={it.href}
-                    className={active ? 'on' : ''}
-                    aria-current={active ? 'page' : undefined}
-                  >
+                  <Link key={it.k} href={it.href} className={active ? 'on' : ''} aria-current={active ? 'page' : undefined}>
                     <span className="ic">{it.ic}</span>
                     <span>
                       <Bi en={it.label} ar={it.labelAr} />
@@ -231,10 +321,10 @@ export default function RenterSettingsPage() {
         </nav>
 
         <div className="rt-sb-foot">
-          <div className="av">{(ownerName ?? 'Fatima Al-Harbi').charAt(0)}</div>
+          <div className="av">{initials(renter?.name, renter?.email)}</div>
           <div className="who">
-            {ownerName ?? 'Fatima Al-Harbi'}
-            <span className="e">{ownerEmail ?? 'fatima@nextwave.sa'} · Owner</span>
+            {renter?.name || 'Renter'}
+            <span className="e">{displayEmail}</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -242,49 +332,28 @@ export default function RenterSettingsPage() {
         </div>
       </aside>
 
-      <div
-        className={`rt-backdrop${navOpen ? ' on' : ''}`}
-        id="rt-backdrop"
-        onClick={() => setNavOpen(false)}
-      />
+      <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
 
       <div>
-        {/* ── Topbar (inlined from renter-shell.js) ────────────────── */}
         <header className="rt-tb" id="rt-tb" data-crumb="Settings">
-          <button
-            className="mb-toggle"
-            id="mb-toggle"
-            aria-label="Menu"
-            type="button"
-            onClick={() => setNavOpen((v) => !v)}
-          >
+          <button className="mb-toggle" id="mb-toggle" aria-label="Menu" type="button" onClick={() => setNavOpen((v) => !v)}>
             ☰
           </button>
           <div className="crumb">
-            <span>{orgName ?? 'NextWave Commerce'}</span>
+            <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Settings" ar="الإعدادات" />
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
+            <span className="d" /> <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
           </span>
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
-            <span
-              style={{
-                background: lang === 'en' ? 'var(--ink)' : 'transparent',
-                color: lang === 'en' ? 'var(--bg)' : 'var(--ink)',
-              }}
-            >
+            <span style={{ background: lang === 'en' ? 'var(--ink)' : 'transparent', color: lang === 'en' ? 'var(--bg)' : 'var(--ink)' }}>
               EN
             </span>
-            <span
-              style={{
-                background: lang === 'ar' ? 'var(--ink)' : 'transparent',
-                color: lang === 'ar' ? 'var(--bg)' : 'var(--ink)',
-              }}
-            >
+            <span style={{ background: lang === 'ar' ? 'var(--ink)' : 'transparent', color: lang === 'ar' ? 'var(--bg)' : 'var(--ink)' }}>
               ع
             </span>
           </button>
@@ -294,222 +363,147 @@ export default function RenterSettingsPage() {
         </header>
 
         <main className="rt-main">
-          <h1 className="rt-h1">
-            <Bi en="Workspace " ar="إعدادات " />
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="settings." ar="مساحة العمل." />
-            </em>
-          </h1>
-          <div className="rt-h1-sub">
-            <span>
-              <Bi en="NextWave Commerce · 3 members" ar="نكست‑ويف كوميرس · ٣ أعضاء" />
-            </span>
-            <span>
-              <Bi en="Owner " ar="المالك " />
-              <b>{ownerName ?? 'Fatima Al-Harbi'}</b>
-            </span>
+          <div className="page-heading">
+            <div>
+              <h1 className="rt-h1">
+                <Bi en="Workspace " ar="إعدادات " />
+                <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+                  <Bi en="settings." ar="مساحة العمل." />
+                </em>
+              </h1>
+              <div className="rt-h1-sub">
+                <span>
+                  <Bi en={displayName} ar={displayName} />
+                </span>
+                <span>
+                  <Bi en="Owner " ar="المالك " />
+                  <b>{renter?.name || 'Renter'}</b>
+                </span>
+                <span>
+                  <b>{numFmt.format(totalJobs)}</b> <Bi en="jobs recorded" ar="مهام مسجلة" />
+                </span>
+              </div>
+            </div>
+            <a className="btn-sec" href={exportHref}>
+              ↓ <Bi en="Export account data" ar="تصدير بيانات الحساب" />
+            </a>
           </div>
 
-          {/* Workspace */}
-          <div className="panel" style={{ marginTop: 36 }}>
+          {loadState === 'missing-key' && (
+            <div className="dash-state" style={{ marginTop: '28px' }}>
+              <b>
+                <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
+              </b>
+              <span>
+                <Bi
+                  en="Sign in or paste a renter API key before v2 can show account settings."
+                  ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تعرض v2 إعدادات الحساب."
+                />
+              </span>
+            </div>
+          )}
+
+          {loadState === 'error' && (
+            <div className="dash-state error" style={{ marginTop: '28px' }}>
+              <b>
+                <Bi en="Settings unavailable" ar="الإعدادات غير متاحة" />
+              </b>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="settings-grid" style={{ marginTop: 36 }}>
+            <div className="panel">
+              <div className="panel-hd">
+                <div>
+                  <h3>
+                    <Bi en="Account" ar="الحساب" />
+                  </h3>
+                </div>
+              </div>
+              <div className="facts">
+                <Fact label="Name" value={renter?.name || '—'} />
+                <Fact label="Email" value={renter?.email || '—'} />
+                <Fact label="Organization" value={renter?.organization || '—'} />
+                <Fact label="Phone" value={renter?.phone || '—'} />
+                <Fact label="Use case" value={renter?.use_case || '—'} />
+                <Fact label="Created" value={fmtDate(renter?.created_at)} />
+              </div>
+              <div className="dash-state compact">
+                <b>
+                  <Bi en="Profile edits are read-only for launch" ar="تعديل الملف للقراءة فقط عند الإطلاق" />
+                </b>
+                <span>
+                  <Bi
+                    en="Company, CR, VAT, and billing-address edits will stay locked until the billing profile workflow is ready."
+                    ar="ستبقى تعديلات الشركة والسجل التجاري والضريبة وعنوان الفوترة مقفلة حتى تصبح آلية ملف الفوترة جاهزة."
+                  />
+                </span>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-hd">
+                <div>
+                  <h3>
+                    <Bi en="Wallet summary" ar="ملخص المحفظة" />
+                  </h3>
+                </div>
+              </div>
+              <div className="facts">
+                <Fact label="Balance" value={`SAR ${fmtSar(balanceSar)}`} />
+                <Fact label="Held" value={`SAR ${fmtSar(heldSar)}`} />
+                <Fact label="Lifetime spend" value={`SAR ${fmtSar(totalSpentSar)}`} />
+                <Fact label="Total jobs" value={numFmt.format(totalJobs)} />
+              </div>
+              <Link className="btn-pri inline-action" href="/v2/renter/wallet">
+                <Bi en="Open wallet" ar="فتح المحفظة" />
+              </Link>
+            </div>
+          </div>
+
+          <form className="panel" style={{ marginTop: 28 }} onSubmit={saveWebhook}>
             <div className="panel-hd">
               <div>
                 <h3>
-                  <Bi en="Workspace" ar="مساحة العمل" />
+                  <Bi en="Webhook" ar="الويب هوك" />
                 </h3>
               </div>
             </div>
             <div className="form-grid">
               <div className="lbl">
                 <b>
-                  <Bi en="Workspace name" ar="اسم مساحة العمل" />
+                  <Bi en="Delivery URL" ar="رابط الاستلام" />
                 </b>
-                <Bi en="Visible to everyone in the workspace" ar="مرئي لكل أعضاء مساحة العمل" />
+                <Bi en="HTTPS public URL for job lifecycle events" ar="رابط HTTPS عام لأحداث دورة حياة المهام" />
               </div>
               <div className="ctl">
                 <input
                   className="input"
-                  type="text"
-                  value={workspaceName}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  type="url"
+                  value={webhookUrl}
+                  disabled={!canUseSettings}
+                  placeholder="https://example.com/dcp-webhook"
+                  onChange={(e) => setWebhookUrl(e.target.value)}
                 />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Workspace slug" ar="معرّف مساحة العمل" />
-                </b>
-                <Bi en="Appears in URLs and API logs" ar="يظهر في الروابط وسجلات API" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="text" defaultValue="nextwave-prod" />
                 <span className="hint">
-                  console.dcp.sa/
-                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>nextwave-prod</b>
-                </span>
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Region preference" ar="تفضيل المنطقة" />
-                </b>
-                <Bi en="For ambiguous routing decisions" ar="لقرارات التوجيه غير الواضحة" />
-              </div>
-              <div className="ctl">
-                <select className="select" defaultValue="Riyadh (default)">
-                  <option>{lang === 'ar' ? 'الرياض (افتراضي)' : 'Riyadh (default)'}</option>
-                  <option>{lang === 'ar' ? 'جدة' : 'Jeddah'}</option>
-                  <option>{lang === 'ar' ? 'الدمام' : 'Dammam'}</option>
-                  <option>{lang === 'ar' ? 'نيوم' : 'NEOM'}</option>
-                  <option>{lang === 'ar' ? 'لا تفضيل' : 'No preference'}</option>
-                </select>
-                <span className="hint">
-                  <Bi
-                    en="All workspaces serve from inside the Kingdom regardless of this setting. This just nudges the router."
-                    ar="جميع مساحات العمل تُخدَم من داخل المملكة بغض النظر عن هذا الإعداد. هذا مجرد توجيه للموجّه."
-                  />
+                  <Bi en="Clear the field and save to remove the webhook." ar="امسح الحقل واحفظ لإزالة الويب هوك." />
                 </span>
               </div>
             </div>
-          </div>
-
-          {/* Billing entity */}
-          <div className="panel" style={{ marginTop: 28 }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Billing entity" ar="الكيان المالي" />
-                </h3>
-              </div>
-            </div>
-            <div className="form-grid">
-              <div className="lbl">
-                <b>
-                  <Bi en="Legal name" ar="الاسم القانوني" />
-                </b>
-                <Bi en="As shown on invoices" ar="كما يظهر على الفواتير" />
-              </div>
-              <div className="ctl">
-                <input
-                  className="input"
-                  type="text"
-                  value={legalName}
-                  onChange={(e) => setLegalName(e.target.value)}
-                />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Commercial registration" ar="السجل التجاري" />
-                </b>
-                <Bi en="CR number" ar="رقم السجل التجاري" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="text" defaultValue="1010382947" />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="VAT registration" ar="تسجيل ضريبة القيمة المضافة" />
-                </b>
-                <Bi en="For tax invoices" ar="للفواتير الضريبية" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="text" defaultValue="VAT-310234567890003" />
-                <span className="hint">
-                  <Bi
-                    en="Leave blank if not VAT-registered. We still issue a simplified invoice."
-                    ar="اتركه فارغًا إن لم تكن مسجّلًا في ضريبة القيمة المضافة. سنُصدر فاتورة مبسّطة على أي حال."
-                  />
-                </span>
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Billing address" ar="عنوان الفوترة" />
-                </b>
-                <Bi en="Appears on every invoice" ar="يظهر على كل فاتورة" />
-              </div>
-              <div className="ctl">
-                <textarea
-                  className="textarea"
-                  defaultValue={'King Abdullah Road\nRiyadh 11564\nSaudi Arabia'}
-                />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Billing contact" ar="جهة اتصال الفوترة" />
-                </b>
-                <Bi en="Where to send invoices" ar="إلى أين تُرسل الفواتير" />
-              </div>
-              <div className="ctl">
-                <input
-                  className="input"
-                  type="email"
-                  value={billingContact}
-                  onChange={(e) => setBillingContact(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Members */}
-          <div className="panel" style={{ marginTop: 28 }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Members" ar="الأعضاء" />
-                </h3>
-              </div>
-              <button className="btn-pri" type="button">
-                <Bi en="+ Invite member" ar="+ دعوة عضو" />
+            <div className="action-row">
+              <button className="btn-pri" type="submit" disabled={!canUseSettings || saveState === 'submitting'}>
+                {saveState === 'submitting' ? <Bi en="Saving..." ar="جاري الحفظ..." /> : <Bi en="Save webhook" ar="حفظ الويب هوك" />}
               </button>
+              {saveState === 'success' && (
+                <span className="hint success-text">
+                  <Bi en="Saved" ar="تم الحفظ" />
+                </span>
+              )}
+              {saveState === 'error' && <span className="hint error-text">{error}</span>}
             </div>
-            <table className="tbl members-tbl">
-              <thead>
-                <tr>
-                  <th>
-                    <Bi en="Member" ar="العضو" />
-                  </th>
-                  <th>
-                    <Bi en="Role" ar="الدور" />
-                  </th>
-                  <th>
-                    <Bi en="Last active" ar="آخر نشاط" />
-                  </th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {MEMBERS.map((m) => (
-                  <tr key={m.email}>
-                    <td>
-                      <span className="av" style={m.avStyle}>
-                        {m.initial}
-                      </span>
-                      <span className="nm">
-                        {m.name} <span className="em">{lang === 'ar' ? m.emailAr : m.email}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`role-pill${m.rolePill ? ` ${m.rolePill}` : ''}`}>
-                        <Bi en={m.role} ar={m.roleAr} />
-                      </span>
-                    </td>
-                    <td>
-                      <span className="mut">
-                        <Bi en={m.lastActive} ar={m.lastActiveAr} />
-                      </span>
-                    </td>
-                    <td style={m.editable ? { textAlign: 'end' } : undefined}>
-                      {m.editable ? (
-                        <button className="btn-sec" type="button">
-                          <Bi en="Edit" ar="تعديل" />
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          </form>
 
-          {/* Notifications */}
           <div className="panel" style={{ marginTop: 28 }}>
             <div className="panel-hd">
               <div>
@@ -517,153 +511,119 @@ export default function RenterSettingsPage() {
                   <Bi en="Notifications" ar="الإشعارات" />
                 </h3>
               </div>
+              <button className="btn-sec" type="button" onClick={markAllNotificationsRead} disabled={!canUseSettings || unreadCount === 0 || readAllState === 'submitting'}>
+                <Bi en="Mark all read" ar="تعليم الكل كمقروء" />
+              </button>
             </div>
-            <div className="form-grid">
-              <div className="lbl">
-                <b>
-                  <Bi en="Spend alerts" ar="تنبيهات الإنفاق" />
-                </b>
-                <Bi en="Email when daily spend crosses a threshold" ar="بريد عند تجاوز الإنفاق اليومي حدًّا معيّنًا" />
-              </div>
-              <div className="ctl">
-                <label className="switch">
-                  <input type="checkbox" defaultChecked />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Alert at SAR 100 / day" ar="تنبيه عند ١٠٠ ريال / يوم" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" defaultChecked />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Alert at SAR 500 / day" ar="تنبيه عند ٥٠٠ ريال / يوم" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Alert at SAR 2,000 / day" ar="تنبيه عند ٢٬٠٠٠ ريال / يوم" />
-                  </span>
-                </label>
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Wallet" ar="المحفظة" />
-                </b>
-                <Bi en="Top-ups and low balance" ar="عمليات الشحن والرصيد المنخفض" />
-              </div>
-              <div className="ctl">
-                <label className="switch">
-                  <input type="checkbox" defaultChecked />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Auto top-up triggered" ar="تشغيل الشحن التلقائي" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" defaultChecked />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Balance below trigger threshold" ar="الرصيد دون حدّ التشغيل" />
-                  </span>
-                </label>
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Other" ar="أخرى" />
-                </b>
-              </div>
-              <div className="ctl">
-                <label className="switch">
-                  <input type="checkbox" defaultChecked />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="New model available" ar="نموذج جديد متاح" />
-                  </span>
-                </label>
-                <label className="switch">
-                  <input type="checkbox" />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en="Marketing & product updates" ar="تحديثات تسويقية ومنتجات" />
-                  </span>
-                </label>
-              </div>
+            <div className="notification-summary">
+              <span>
+                <b>{numFmt.format(notificationTotal)}</b> <Bi en="total" ar="الإجمالي" />
+              </span>
+              <span>
+                <b>{numFmt.format(unreadCount)}</b> <Bi en="unread" ar="غير مقروءة" />
+              </span>
             </div>
+            <table className="tbl members-tbl">
+              <thead>
+                <tr>
+                  <th>
+                    <Bi en="Notification" ar="الإشعار" />
+                  </th>
+                  <th>
+                    <Bi en="Job" ar="المهمة" />
+                  </th>
+                  <th>
+                    <Bi en="Created" ar="الإنشاء" />
+                  </th>
+                  <th>
+                    <Bi en="State" ar="الحالة" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {notifications.length === 0 ? (
+                  <tr className="empty-row">
+                    <td colSpan={4}>
+                      <Bi en="No renter notifications have been recorded yet." ar="لم يتم تسجيل إشعارات لهذا المستأجر بعد." />
+                    </td>
+                  </tr>
+                ) : (
+                  notifications.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <span className="mono">{notificationLabel(item)}</span>
+                      </td>
+                      <td>
+                        <span className="mono">{item.job_id || '—'}</span>
+                      </td>
+                      <td>
+                        <span className="mut">{fmtDate(item.created_at)}</span>
+                      </td>
+                      <td>
+                        <span className={`stat ${item.read_at ? 'settled' : 'queued'}`}>{item.read_at ? 'read' : 'unread'}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
 
-          {/* Danger */}
-          <div
-            className="panel"
-            style={{
-              marginTop: 28,
-              borderColor: 'color-mix(in oklab, var(--err) 40%, var(--hair))',
-            }}
-          >
-            <div
-              className="panel-hd"
-              style={{ borderBottomColor: 'color-mix(in oklab, var(--err) 30%, var(--hair))' }}
-            >
+          <div className="panel" style={{ marginTop: 28 }}>
+            <div className="panel-hd">
               <div>
-                <h3 style={{ color: 'var(--err)' }}>
-                  <Bi en="Danger zone" ar="منطقة الخطر" />
+                <h3>
+                  <Bi en="Team and controls" ar="الفريق والتحكم" />
                 </h3>
               </div>
             </div>
-            <div className="form-grid">
-              <div className="lbl">
-                <b style={{ color: 'var(--err)' }}>
-                  <Bi en="Transfer ownership" ar="نقل الملكية" />
+            <div className="unavailable-grid">
+              <div className="dash-state compact">
+                <b>
+                  <Bi en="Team members" ar="أعضاء الفريق" />
                 </b>
-                <Bi en="Hand the workspace to another member" ar="تسليم مساحة العمل لعضو آخر" />
-              </div>
-              <div className="ctl">
-                <button
-                  className="btn-sec danger"
-                  type="button"
-                  style={{ borderColor: 'var(--err)', color: 'var(--err)', alignSelf: 'flex-start' }}
-                >
-                  <Bi en="Transfer…" ar="نقل…" />
-                </button>
-              </div>
-              <div className="lbl">
-                <b style={{ color: 'var(--err)' }}>
-                  <Bi en="Delete workspace" ar="حذف مساحة العمل" />
-                </b>
-                <Bi en="Permanent · this can’t be undone" ar="دائم · لا يمكن التراجع عنه" />
-              </div>
-              <div className="ctl">
-                <button
-                  className="btn-sec danger"
-                  type="button"
-                  style={{ borderColor: 'var(--err)', color: 'var(--err)', alignSelf: 'flex-start' }}
-                >
-                  <Bi en="Delete workspace…" ar="حذف مساحة العمل…" />
-                </button>
-                <span className="hint">
+                <span>
                   <Bi
-                    en="All keys are revoked, all jobs stop, all data is purged after 90 days per PDPL."
-                    ar="تُلغى جميع المفاتيح وتتوقف جميع المهام وتُمحى جميع البيانات بعد ٩٠ يومًا وفق نظام حماية البيانات الشخصية."
+                    en="Team management stays read-only until invitations and roles are ready. API keys remain the launch access-control surface."
+                    ar="تبقى إدارة الفريق للقراءة فقط حتى تصبح الدعوات والأدوار جاهزة. مفاتيح API تبقى سطح التحكم عند الإطلاق."
+                  />
+                </span>
+              </div>
+              <div className="dash-state compact">
+                <b>
+                  <Bi en="Notification preferences" ar="تفضيلات الإشعارات" />
+                </b>
+                <span>
+                  <Bi
+                    en="You can review and clear notifications here. Spend-threshold preferences stay locked until the preference workflow is ready."
+                    ar="يمكنك مراجعة الإشعارات وتصفيرها هنا. تفضيلات حدود الإنفاق تبقى مقفلة حتى تصبح آلية التفضيلات جاهزة."
+                  />
+                </span>
+              </div>
+              <div className="dash-state compact">
+                <b>
+                  <Bi en="Account deletion" ar="حذف الحساب" />
+                </b>
+                <span>
+                  <Bi
+                    en="Deletion is intentionally not exposed here until v2 has a two-step confirmation flow and admin audit review."
+                    ar="لا يتم عرض الحذف هنا حتى تملك v2 تأكيدًا بخطوتين ومراجعة تدقيق إدارية."
                   />
                 </span>
               </div>
             </div>
           </div>
-
-          <div
-            style={{ marginTop: 28, display: 'flex', gap: 12, justifyContent: 'flex-end' }}
-          >
-            <button className="btn-sec" type="button">
-              <Bi en="Discard changes" ar="تجاهل التغييرات" />
-            </button>
-            <button className="btn-pri" type="button">
-              <Bi en="Save settings" ar="حفظ الإعدادات" />
-            </button>
-          </div>
         </main>
       </div>
+    </div>
+  )
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="fact-row">
+      <span>{label}</span>
+      <b>{value}</b>
     </div>
   )
 }

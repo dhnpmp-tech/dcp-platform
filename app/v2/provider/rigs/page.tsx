@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/v2/lib/i18n'
 import { getApiBase, getProviderKey } from '@/lib/api'
 import './rigs.css'
 
-// ── Provider shell nav (from provider-shell.js NAV template) ──
 interface NavItem {
   k: string
   ic: string
@@ -27,7 +26,7 @@ const NAV: NavSection[] = [
     secAr: 'التشغيل',
     items: [
       { k: 'dash', ic: '⌂', label: 'Dashboard', labelAr: 'لوحة التحكم', href: '/v2/provider/dashboard' },
-      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs', bd: '4' },
+      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs' },
       { k: 'earnings', ic: '△', label: 'Earnings', labelAr: 'الأرباح', href: '/v2/provider/earnings' },
       { k: 'payouts', ic: '₪', label: 'Payouts', labelAr: 'المدفوعات', href: '/v2/provider/payouts', bd: 'SAR' },
     ],
@@ -36,7 +35,7 @@ const NAV: NavSection[] = [
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف', href: '/v2/provider/profile', bd: 'Silver' },
+      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف', href: '/v2/provider/profile' },
       { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/provider/settings' },
       { k: 'docs', ic: '?', label: 'Provider docs', labelAr: 'وثائق المزود', href: '/v2/docs', bd: '↗' },
     ],
@@ -44,59 +43,38 @@ const NAV: NavSection[] = [
 ]
 
 const CURRENT_PAGE = 'rigs'
+type RigStatus = 'earning' | 'idle' | 'paused' | 'offline'
+type Filter = 'all' | RigStatus
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
 
-// ── Mock rig data (illustrative, verbatim from the prototype) ──
-type RigStatus = 'earning' | 'idle' | 'paused'
 interface Rig {
   id: string
   name: string
   gpu: string
-  vram: number
+  vram: string
   os: string
   engine: string
   status: RigStatus
-  util: number
-  temp: number
+  util: number | null
+  temp: number | null
   uptime: string
-  jobs: number
-  today: number
-  todayJobs: number
-  week: number
-  avg: number
-  fail: number
+  jobs: number | null
+  today: number | null
+  todayJobs: number | null
+  week: number | null
+  avg: number | null
+  fail: number | null
 }
 
-const RIGS: Rig[] = [
-  { id: 'rig-01', name: 'studio-main', gpu: 'RTX 4090', vram: 24, os: 'Ubuntu 22.04', engine: 'Ollama', status: 'earning', util: 78, temp: 62, uptime: '23d 14h', jobs: 1284, today: 94.2, todayJobs: 28, week: 624, avg: 89, fail: 0 },
-  { id: 'rig-02', name: 'studio-bench', gpu: 'RTX 4080', vram: 16, os: 'Ubuntu 22.04', engine: 'Ollama', status: 'earning', util: 54, temp: 58, uptime: '18d 02h', jobs: 842, today: 62.4, todayJobs: 18, week: 412, avg: 58, fail: 0 },
-  { id: 'rig-03', name: 'office-mac', gpu: 'M3 Max', vram: 64, os: 'macOS 14.5', engine: 'MLX', status: 'idle', util: 0, temp: 42, uptime: '9d 22h', jobs: 318, today: 0.0, todayJobs: 0, week: 188, avg: 27, fail: 1 },
-  { id: 'rig-04', name: 'garage-3090', gpu: 'RTX 3090', vram: 24, os: 'Ubuntu 20.04', engine: 'Ollama', status: 'paused', util: 0, temp: 38, uptime: '0h', jobs: 2104, today: 0.0, todayJobs: 0, week: 0, avg: 0, fail: 0 },
-]
-
-type Filter = 'all' | RigStatus
-const FILTERS: { f: Filter; en: string; ar: string }[] = [
-  { f: 'all', en: 'All · 4', ar: 'الكل · 4' },
-  { f: 'earning', en: 'Earning · 2', ar: 'تكسب · 2' },
-  { f: 'idle', en: 'Idle · 1', ar: 'خاملة · 1' },
-  { f: 'paused', en: 'Paused · 1', ar: 'متوقفة · 1' },
-]
-
-const STATUS_AR: Record<RigStatus, string> = {
-  earning: 'تكسب',
-  idle: 'خاملة',
-  paused: 'متوقفة',
-}
-
-// ── Shape of the live provider returned by GET /providers/me. In v1 a provider
-// IS a single rig/node, so we fold the authenticated provider into the first
-// fleet row while keeping the remaining mock rows as illustrative fallback. ──
 interface ProviderGpuMetrics {
   utilization_pct?: number
   vram_used_mib?: number
   temperature_c?: number
 }
 interface ProviderMe {
+  id?: number | string
   name?: string
+  email?: string
   status?: string
   is_paused?: boolean
   gpu_model?: string
@@ -106,87 +84,136 @@ interface ProviderMe {
   uptime_percent?: number
   today_earnings_halala?: number
   week_earnings_halala?: number
+  active_job?: unknown
+  daemon_version?: string | null
   gpu_metrics?: ProviderGpuMetrics
 }
 interface ProviderMeResponse {
   provider?: ProviderMe
 }
 
-// Map the backend provider status (+ pause flag) to the table's rig status.
-function toRigStatus(status: string | undefined, isPaused: boolean | undefined): RigStatus {
-  if (isPaused) return 'paused'
-  if (status === 'online' || status === 'earning') return 'earning'
-  if (status === 'idle') return 'idle'
-  return 'paused'
+const STATUS_AR: Record<RigStatus, string> = {
+  earning: 'تكسب',
+  idle: 'خاملة',
+  paused: 'متوقفة',
+  offline: 'غير متصلة',
 }
 
-// Build a real rig from the live provider, preserving the mock row's shape so
-// columns the API does not expose (uptime string, per-day avg) stay rendered.
-function mergeProviderIntoRig(base: Rig, p: ProviderMe): Rig {
-  const vramMib = Number(p.gpu_vram_mib || 0)
-  const vramFromMb = Number(p.vram_mb || 0)
-  const vramGb = vramMib > 0 ? Math.round(vramMib / 1024) : vramFromMb > 0 ? Math.round(vramFromMb / 1024) : base.vram
-  const todaySar = Number(p.today_earnings_halala || 0) / 100
-  const weekSar = Math.round(Number(p.week_earnings_halala || 0) / 100)
+function toRigStatus(status: string | undefined, isPaused: boolean | undefined): RigStatus {
+  if (isPaused || status === 'paused') return 'paused'
+  if (status === 'online' || status === 'earning') return 'earning'
+  if (status === 'connected' || status === 'idle' || status === 'registered') return 'idle'
+  return 'offline'
+}
+
+function halToSar(halala: number | undefined): number | null {
+  return typeof halala === 'number' ? halala / 100 : null
+}
+
+function mapProviderToRig(p: ProviderMe): Rig {
+  const vramMib = Number(p.gpu_vram_mib || p.vram_mb || 0)
+  const util = p.gpu_metrics?.utilization_pct
+  const temp = p.gpu_metrics?.temperature_c
+  const status = toRigStatus(p.status, p.is_paused)
   return {
-    ...base,
-    name: p.name || base.name,
-    gpu: p.gpu_model || base.gpu,
-    vram: vramGb,
-    status: toRigStatus(p.status, p.is_paused),
-    util: Math.round(Number(p.gpu_metrics?.utilization_pct ?? base.util)),
-    temp: Math.round(Number(p.gpu_metrics?.temperature_c ?? base.temp)),
-    jobs: Number(p.total_jobs ?? base.jobs),
-    today: todaySar,
-    week: weekSar,
+    id: String(p.id || 'provider-rig'),
+    name: p.name || 'Provider rig',
+    gpu: p.gpu_model || 'GPU pending daemon report',
+    vram: vramMib > 0 ? `${Math.round(vramMib / 1024)} GB` : 'VRAM pending',
+    os: p.daemon_version ? `Daemon ${p.daemon_version}` : 'Daemon pending',
+    engine: p.gpu_model ? 'DCP daemon' : 'Pending install',
+    status,
+    util: typeof util === 'number' ? Math.round(util) : null,
+    temp: typeof temp === 'number' ? Math.round(temp) : null,
+    uptime: typeof p.uptime_percent === 'number' ? `${p.uptime_percent.toFixed(1)}%` : '—',
+    jobs: typeof p.total_jobs === 'number' ? p.total_jobs : null,
+    today: halToSar(p.today_earnings_halala),
+    todayJobs: p.active_job ? 1 : 0,
+    week: halToSar(p.week_earnings_halala),
+    avg: null,
+    fail: null,
   }
 }
 
 export default function ProviderRigsPage() {
   const { lang, toggle } = useV2()
   const [filter, setFilter] = useState<Filter>('all')
-  const [selectedId, setSelectedId] = useState('rig-01')
+  const [selectedId, setSelectedId] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // Seeded with the mock fleet so the page renders fully when there is no
-  // provider key or the fetch fails; replaced with live data on success.
-  const [rigs, setRigs] = useState<Rig[]>(RIGS)
+  const [rigs, setRigs] = useState<Rig[]>([])
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [error, setError] = useState('')
+  const [providerName, setProviderName] = useState('')
+  const [providerEmail, setProviderEmail] = useState('')
+  const [providerKey, setProviderKey] = useState('')
 
-  // Fold the authenticated provider (GET /providers/me) into the first fleet
-  // row. A provider is a single rig in v1, so the remaining rows stay mock.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getProviderKey()
-    if (!key) return
-
+    if (!key) {
+      setLoadState('missing-key')
+      return
+    }
+    setProviderKey(key)
     let cancelled = false
-    const controller = new AbortController()
+    setLoadState('loading')
+    setError('')
 
-    fetch(`${getApiBase()}/providers/me`, {
+    fetch(`${getApiBase()}/providers/me?key=${encodeURIComponent(key)}`, {
       headers: { 'x-provider-key': key },
-      signal: controller.signal,
     })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: ProviderMeResponse | null) => {
-        const p = data?.provider
-        if (cancelled || !p) return
-        setRigs((prev) => prev.map((r, i) => (i === 0 ? mergeProviderIntoRig(r, p) : r)))
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as ProviderMeResponse & { error?: string }
+        if (!res.ok) throw new Error(data.error || 'Failed to load provider rig.')
+        return data
       })
-      .catch(() => {
-        /* keep mock fallback on error / abort */
+      .then((data) => {
+        if (cancelled) return
+        const provider = data.provider
+        if (!provider) throw new Error('Provider not found.')
+        const rig = mapProviderToRig(provider)
+        setProviderName(provider.name || '')
+        setProviderEmail(provider.email || '')
+        setRigs([rig])
+        setSelectedId(rig.id)
+        setLoadState('ready')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setRigs([])
+        setError(err instanceof Error ? err.message : 'Failed to load provider rig.')
+        setLoadState('error')
       })
 
     return () => {
       cancelled = true
-      controller.abort()
     }
   }, [])
 
   const rows = rigs.filter((r) => filter === 'all' || r.status === filter)
-  const selected = rigs.find((r) => r.id === selectedId) ?? rigs[0]
+  const selected = rigs.find((r) => r.id === selectedId) ?? rigs[0] ?? null
+  const earningCount = rigs.filter((r) => r.status === 'earning').length
+  const idleCount = rigs.filter((r) => r.status === 'idle').length
+  const pausedCount = rigs.filter((r) => r.status === 'paused').length
+  const displayName = providerName || (lang === 'ar' ? 'المزوّد' : 'Provider')
+  const displayScope = providerEmail || (lang === 'ar' ? 'حساب المزوّد' : 'Provider account')
+  const todaySar = rigs.reduce((sum, r) => sum + (r.today || 0), 0)
+  const weekSar = rigs.reduce((sum, r) => sum + (r.week || 0), 0)
+  const filters = useMemo(
+    () => [
+      { f: 'all' as const, en: `All · ${rigs.length}`, ar: `الكل · ${rigs.length}` },
+      { f: 'earning' as const, en: `Earning · ${earningCount}`, ar: `تكسب · ${earningCount}` },
+      { f: 'idle' as const, en: `Idle · ${idleCount}`, ar: `خاملة · ${idleCount}` },
+      { f: 'paused' as const, en: `Paused · ${pausedCount}`, ar: `متوقفة · ${pausedCount}` },
+    ],
+    [earningCount, idleCount, pausedCount, rigs.length]
+  )
+  const setupPath = providerKey
+    ? `/api/providers/download/setup?key=${encodeURIComponent(providerKey)}&os=linux`
+    : '/v2/auth?role=provider&method=apikey&redirect=/v2/provider/rigs'
 
   return (
     <div className="pv-app">
-      {/* Sidebar — from provider-shell.js, kept inline so the page is self-contained */}
       <aside className={`pv-sb${sidebarOpen ? ' on' : ''}`} id="pv-sb" data-page={CURRENT_PAGE}>
         <div className="pv-sb-brand">
           <span className="wm">
@@ -201,25 +228,22 @@ export default function ProviderRigsPage() {
             <Bi en="Earning today" ar="أرباح اليوم" />
           </div>
           <div className="v">
-            SAR 218
-            <span className="u">
-              <Bi en="so far" ar="حتى الآن" />
-            </span>
+            {todaySar > 0 ? `SAR ${todaySar.toFixed(2)}` : <span className="u">—</span>}
           </div>
           <div className="live">
-            <span className="d"></span> <Bi en="2 of 4 rigs earning" ar="2 من 4 أجهزة تكسب" />
+            <span className="d"></span> {earningCount} / {rigs.length} <Bi en="earning" ar="تكسب" />
           </div>
           <div className="row">
             <span>
               <Bi en="Yesterday" ar="أمس" />
             </span>
-            <b>SAR 194</b>
+            <b>—</b>
           </div>
           <div className="row">
             <span>
-              <Bi en="This month" ar="هذا الشهر" />
+              <Bi en="This week" ar="هذا الأسبوع" />
             </span>
-            <b>SAR 5,826</b>
+            <b>{weekSar > 0 ? `SAR ${weekSar.toFixed(2)}` : '—'}</b>
           </div>
         </div>
         <nav className="pv-nav">
@@ -242,10 +266,10 @@ export default function ProviderRigsPage() {
           ))}
         </nav>
         <div className="pv-sb-foot">
-          <div className="av">Y</div>
+          <div className="av">P</div>
           <div className="who">
-            Yazeed Al-Qahtani
-            <span className="e">riyadh-studio-01 · Silver</span>
+            {displayName}
+            <span className="e">{displayScope}</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -260,7 +284,6 @@ export default function ProviderRigsPage() {
       />
 
       <div>
-        {/* Topbar — from provider-shell.js */}
         <header className="pv-tb" id="pv-tb" data-crumb="Rigs">
           <button
             className="mb-toggle"
@@ -271,14 +294,14 @@ export default function ProviderRigsPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>riyadh-studio-01</span>
+            <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Rigs" ar="الأجهزة" />
             </span>
           </div>
           <span className="pill">
-            <span className="d"></span> <Bi en="Live · earning" ar="مباشر · تكسب" />
+            <span className="d"></span> {loadState === 'ready' ? `${rigs.length} rig` : loadState}
           </span>
           <button className="lang" onClick={toggle} aria-label="Toggle language">
             {lang === 'ar' ? 'EN' : 'ع'}
@@ -299,24 +322,37 @@ export default function ProviderRigsPage() {
               </h1>
               <div className="pv-h1-sub">
                 <span>
-                  <Bi en="4 connected" ar="4 متصلة" />
+                  {rigs.length} <Bi en="loaded" ar="محمّل" />
                 </span>
                 <span>
-                  <b>2</b> <Bi en="earning · " ar="تكسب · " />
-                  <b>1</b> <Bi en="idle · " ar="خاملة · " />
-                  <b>1</b> <Bi en="paused" ar="متوقفة" />
+                  <b>{earningCount}</b> <Bi en="earning · " ar="تكسب · " />
+                  <b>{idleCount}</b> <Bi en="idle · " ar="خاملة · " />
+                  <b>{pausedCount}</b> <Bi en="paused" ar="متوقفة" />
                 </span>
                 <span>
-                  <Bi en="Add a new rig with a 4 MB installer" ar="أضف جهازًا جديدًا بمُثبّت 4 ميغابايت" />
+                  <Bi en="Add a new rig with a live setup installer" ar="أضف جهازًا جديدًا بمثبّت حي" />
                 </span>
               </div>
             </div>
-            <a href="#" className="btn primary lg" style={{ background: 'var(--orange)', borderColor: 'var(--orange)', color: '#0a0b1a' }}>
+            <Link href={setupPath} className="btn primary lg" style={{ background: 'var(--orange)', borderColor: 'var(--orange)', color: '#0a0b1a' }}>
               <Bi en="+ Connect a new rig" ar="+ ربط جهاز جديد" />
-            </a>
+            </Link>
           </div>
 
-          {/* Rigs table */}
+          {loadState === 'missing-key' && (
+            <div className="dash-state err" style={{ marginTop: 24 }}>
+              <Bi en="Sign in with a provider API key to load rig data." ar="سجّل الدخول بمفتاح مزوّد لتحميل بيانات الجهاز." />{' '}
+              <Link href="/v2/auth?role=provider&method=apikey&redirect=/v2/provider/rigs">
+                <Bi en="Sign in" ar="تسجيل الدخول" />
+              </Link>
+            </div>
+          )}
+          {loadState === 'error' && (
+            <div className="dash-state err" style={{ marginTop: 24 }} role="alert">
+              {error}
+            </div>
+          )}
+
           <div className="panel" style={{ marginTop: '36px' }}>
             <div className="panel-hd">
               <div>
@@ -325,7 +361,7 @@ export default function ProviderRigsPage() {
                 </h3>
               </div>
               <div className="seg" id="filter">
-                {FILTERS.map((f) => (
+                {filters.map((f) => (
                   <button
                     key={f.f}
                     data-f={f.f}
@@ -345,7 +381,7 @@ export default function ProviderRigsPage() {
                   </th>
                   <th>GPU</th>
                   <th>
-                    <Bi en="OS · engine" ar="النظام · المحرك" />
+                    <Bi en="Daemon" ar="الخادم المحلي" />
                   </th>
                   <th>
                     <Bi en="Status" ar="الحالة" />
@@ -357,7 +393,7 @@ export default function ProviderRigsPage() {
                     <Bi en="Temp" ar="الحرارة" />
                   </th>
                   <th style={{ textAlign: 'end' }}>
-                    <Bi en="Uptime" ar="مدة التشغيل" />
+                    <Bi en="Uptime" ar="الجاهزية" />
                   </th>
                   <th style={{ textAlign: 'end' }}>
                     <Bi en="Jobs · lifetime" ar="المهام · الإجمالي" />
@@ -366,131 +402,142 @@ export default function ProviderRigsPage() {
                 </tr>
               </thead>
               <tbody id="rigs-body">
-                {rows.map((r) => (
-                  <tr
-                    key={r.id}
-                    data-id={r.id}
-                    className={`rig-row${r.id === selectedId ? ' selected' : ''}`}
-                    onClick={() => setSelectedId(r.id)}
-                  >
-                    <td>
-                      <span className={`rig-pip ${r.status}`}></span>
-                      <span className="rig-name">{r.name}</span>
-                    </td>
-                    <td>
-                      <span className="rig-gpu">{r.gpu}</span>
-                      <small>{r.vram} GB</small>
-                    </td>
-                    <td>
-                      <span className="rig-os">{r.os}</span>
-                      <small>{r.engine}</small>
-                    </td>
-                    <td>
-                      <span className={`stat ${r.status}`}>{lang === 'ar' ? STATUS_AR[r.status] : r.status}</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      <span className="util">{r.util}%</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      <span className="temp">{r.temp}°C</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      <span className="uptime">{r.uptime}</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      <span className="jobs">{r.jobs.toLocaleString()}</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      <span className="arrow">→</span>
+                {rows.length > 0 ? (
+                  rows.map((r) => (
+                    <tr
+                      key={r.id}
+                      data-id={r.id}
+                      className={`rig-row${r.id === selectedId ? ' selected' : ''}`}
+                      onClick={() => setSelectedId(r.id)}
+                    >
+                      <td>
+                        <span className={`rig-pip ${r.status}`}></span>
+                        <span className="rig-name">{r.name}</span>
+                      </td>
+                      <td>
+                        <span className="rig-gpu">{r.gpu}</span>
+                        <small>{r.vram}</small>
+                      </td>
+                      <td>
+                        <span className="rig-os">{r.os}</span>
+                        <small>{r.engine}</small>
+                      </td>
+                      <td>
+                        <span className={`stat ${r.status}`}>{lang === 'ar' ? STATUS_AR[r.status] : r.status}</span>
+                      </td>
+                      <td style={{ textAlign: 'end' }}>
+                        <span className="util">{r.util != null ? `${r.util}%` : '—'}</span>
+                      </td>
+                      <td style={{ textAlign: 'end' }}>
+                        <span className="temp">{r.temp != null ? `${r.temp}°C` : '—'}</span>
+                      </td>
+                      <td style={{ textAlign: 'end' }}>
+                        <span className="uptime">{r.uptime}</span>
+                      </td>
+                      <td style={{ textAlign: 'end' }}>
+                        <span className="jobs">{r.jobs != null ? r.jobs.toLocaleString() : '—'}</span>
+                      </td>
+                      <td style={{ textAlign: 'end' }}>
+                        <span className="arrow">→</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={9}>
+                      <span className="empty-row">
+                        <Bi en="No rig data yet. Sign in or install the daemon to populate this table." ar="لا توجد بيانات جهاز بعد. سجّل الدخول أو ثبّت الخادم المحلي لملء الجدول." />
+                      </span>
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
 
-          {/* Selected rig drawer */}
           <div className="panel" style={{ marginTop: '28px' }} id="rig-detail">
-            <div className="panel-hd">
-              <div>
-                <h3 id="rd-name">{selected.name}</h3>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.08em', color: 'var(--mut)', marginTop: '6px' }}>
-                  <span id="rd-gpu">
-                    {selected.gpu} · {selected.vram} GB
-                  </span>{' '}
-                  · <span id="rd-os">{selected.os}</span> · <span id="rd-engine">{selected.engine}</span>
+            {selected ? (
+              <>
+                <div className="panel-hd">
+                  <div>
+                    <h3 id="rd-name">{selected.name}</h3>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.08em', color: 'var(--mut)', marginTop: '6px' }}>
+                      <span id="rd-gpu">
+                        {selected.gpu} · {selected.vram}
+                      </span>{' '}
+                      · <span id="rd-os">{selected.os}</span> · <span id="rd-engine">{selected.engine}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button className="seg-btn" id="btn-pause">
+                      ⏸ <Bi en="Pause this rig" ar="إيقاف هذا الجهاز" />
+                    </button>
+                    <button className="seg-btn" id="btn-restart">
+                      ↻ <Bi en="Restart daemon" ar="إعادة تشغيل الخدمة" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="seg-btn" id="btn-pause">
-                  ⏸ <Bi en="Pause this rig" ar="إيقاف هذا الجهاز" />
-                </button>
-                <button className="seg-btn" id="btn-restart">
-                  ↻ <Bi en="Restart daemon" ar="إعادة تشغيل الخدمة" />
-                </button>
-                <button className="seg-btn danger" id="btn-remove">
-                  ⊘ <Bi en="Remove" ar="إزالة" />
-                </button>
-              </div>
-            </div>
 
-            <div className="rd-grid">
-              <div>
-                <div className="rd-k">
-                  <Bi en="Current utilization" ar="الاستخدام الحالي" />
+                <div className="rd-grid">
+                  <div>
+                    <div className="rd-k">
+                      <Bi en="Current utilization" ar="الاستخدام الحالي" />
+                    </div>
+                    <div className="rd-v" id="rd-util">
+                      {selected.util != null ? `${selected.util}%` : '—'}
+                    </div>
+                    <div className="rd-bar">
+                      <span id="rd-util-bar" style={{ width: `${selected.util || 0}%` }}></span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="rd-k">
+                      <Bi en="Today · earned" ar="اليوم · المكتسب" />
+                    </div>
+                    <div className="rd-v">
+                      {selected.today != null ? `SAR ${selected.today.toFixed(2)}` : '—'}
+                    </div>
+                    <div className="rd-foot">
+                      {selected.todayJobs != null ? `${selected.todayJobs} jobs` : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="rd-k">
+                      <Bi en="Last 7 days" ar="آخر 7 أيام" />
+                    </div>
+                    <div className="rd-v">
+                      {selected.week != null ? `SAR ${selected.week.toFixed(2)}` : '—'}
+                    </div>
+                    <div className="rd-foot">
+                      <Bi en="from provider account" ar="من حساب المزوّد" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="rd-k">
+                      <Bi en="Cold-start failures · 7d" ar="فشل البدء البارد · 7 أيام" />
+                    </div>
+                    <div className="rd-v" id="rd-fail">
+                      {selected.fail ?? '—'}
+                    </div>
+                    <div className="rd-foot">
+                      <Bi en="not exposed by current endpoint" ar="غير متاح في المسار الحالي" />
+                    </div>
+                  </div>
                 </div>
-                <div className="rd-v" id="rd-util">
-                  {selected.util}%
-                </div>
-                <div className="rd-bar">
-                  <span id="rd-util-bar" style={{ width: `${selected.util}%` }}></span>
-                </div>
-              </div>
-              <div>
-                <div className="rd-k">
-                  <Bi en="Today · earned" ar="اليوم · المكتسب" />
-                </div>
-                <div className="rd-v">
-                  SAR <span id="rd-today">{selected.today.toFixed(2)}</span>
-                </div>
-                <div className="rd-foot">
-                  <Bi en="from " ar="من " />
-                  <span id="rd-today-jobs">{selected.todayJobs}</span> <Bi en="jobs" ar="مهمة" />
-                </div>
-              </div>
-              <div>
-                <div className="rd-k">
-                  <Bi en="Last 7 days" ar="آخر 7 أيام" />
-                </div>
-                <div className="rd-v">
-                  SAR <span id="rd-week">{selected.week}</span>
-                </div>
-                <div className="rd-foot">
-                  <Bi en="avg " ar="متوسط " />
-                  <span id="rd-avg">{selected.avg}</span> <Bi en="/ day" ar="/ يوم" />
-                </div>
-              </div>
-              <div>
-                <div className="rd-k">
-                  <Bi en="Cold-start failures · 7d" ar="فشل البدء البارد · 7 أيام" />
-                </div>
-                <div className="rd-v" id="rd-fail">
-                  {selected.fail}
-                </div>
-                <div className="rd-foot">
-                  <Bi en="all clear" ar="كل شيء سليم" />
-                </div>
-              </div>
-            </div>
 
-            {/* Per-rig setup snippet */}
-            <div style={{ marginTop: '28px', paddingTop: '22px', borderTop: '1px solid var(--hair)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', marginBottom: '10px' }}>
-                <Bi en="Re-pair this rig" ar="إعادة إقران هذا الجهاز" />
+                <div style={{ marginTop: '28px', paddingTop: '22px', borderTop: '1px solid var(--hair)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', marginBottom: '10px' }}>
+                    <Bi en="Re-pair this rig" ar="إعادة إقران هذا الجهاز" />
+                  </div>
+                  <pre className="code">$ curl -fsSL "{setupPath}" -o dcp-setup.sh
+$ bash dcp-setup.sh</pre>
+                </div>
+              </>
+            ) : (
+              <div className="empty-row">
+                <Bi en="Select a loaded rig to see details." ar="اختر جهازًا محمّلًا لرؤية التفاصيل." />
               </div>
-              <pre className="code">$ curl -sSL https://dcp.sa/install | sh
-$ dcp-provider pair --token rig_8f3a…c721</pre>
-            </div>
+            )}
           </div>
         </main>
       </div>

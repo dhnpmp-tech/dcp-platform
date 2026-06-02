@@ -1,23 +1,33 @@
 'use client'
 
-// Ported from public/dcp-v2/prototypes/provider/Earnings.html (provider console · Earnings).
-// Sidebar + topbar chrome (formerly injected by provider-shell.js) is inlined here so the
-// route is self-contained; provider-shell.css + the page's inline <style> are folded into
-// ./earnings.css. Orange accent marks the provider context.
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getProviderKey } from '@/lib/api'
 import './earnings.css'
 
-// ── Nav model (from provider-shell.js NAV) ─────────────────────────────
-const NAV = [
+interface NavItem {
+  k: string
+  ic: string
+  label: string
+  labelAr: string
+  href: string
+  bd?: string
+}
+
+interface NavSection {
+  sec: string
+  secAr: string
+  items: NavItem[]
+}
+
+const NAV: NavSection[] = [
   {
     sec: 'Operate',
     secAr: 'التشغيل',
     items: [
       { k: 'dash', ic: '⌂', label: 'Dashboard', labelAr: 'لوحة التحكم', href: '/v2/provider/dashboard' },
-      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs', bd: '4' },
+      { k: 'rigs', ic: '☷', label: 'Rigs', labelAr: 'الأجهزة', href: '/v2/provider/rigs' },
       { k: 'earnings', ic: '△', label: 'Earnings', labelAr: 'الأرباح', href: '/v2/provider/earnings' },
       { k: 'payouts', ic: '₪', label: 'Payouts', labelAr: 'المدفوعات', href: '/v2/provider/payouts', bd: 'SAR' },
     ],
@@ -26,7 +36,7 @@ const NAV = [
     sec: 'Account',
     secAr: 'الحساب',
     items: [
-      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف الشخصي', href: '/v2/provider/profile', bd: 'Silver' },
+      { k: 'profile', ic: '✦', label: 'Profile', labelAr: 'الملف الشخصي', href: '/v2/provider/profile' },
       { k: 'settings', ic: '⚙', label: 'Settings', labelAr: 'الإعدادات', href: '/v2/provider/settings' },
       { k: 'docs', ic: '?', label: 'Provider docs', labelAr: 'وثائق المزوّد', href: '/v2/docs', bd: '↗' },
     ],
@@ -34,28 +44,173 @@ const NAV = [
 ]
 
 const CURRENT_PAGE = 'earnings'
+const HALALA_PER_SAR = 100
 
-// ── Earnings mock data (illustrative; from prototype EARN) ──────────────
+type RangeOpt = 7 | 30 | 90
+type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+
 interface EarnPoint {
   date: Date
   sar: number
 }
 
-function buildEarn(): EarnPoint[] {
-  const out: EarnPoint[] = []
-  for (let i = 89; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const base = 180 + Math.sin((89 - i) / 5) * 50 + (i < 30 ? 60 : 0) + (i < 9 ? 40 : 0)
-    const jitter = (((89 - i) * 11) % 19) - 9
-    out.push({ date: d, sar: Math.round(base + jitter) })
-  }
-  return out
+interface Breakdown {
+  name: string
+  width: string
+  sar: number
+}
+
+interface Payout {
+  period: string
+  mode: string
+  sar: number
+  status: string
+  statClass: 'accruing' | 'paid'
+  date: string
+  inv: string | null
+}
+
+interface ProviderEarnings {
+  total_earned_sar?: number
+  available_sar?: number
+  pending_withdrawal_sar?: number
+  withdrawn_sar?: number
+  total_jobs?: number
+}
+
+interface ProviderMe {
+  id?: string | number
+  name?: string
+  email?: string
+  status?: string
+  payout_iban?: string | null
+  today_earnings_halala?: number
+  week_earnings_halala?: number
+  month_earnings_halala?: number
+  total_earnings_halala?: number
+  claimable_earnings_halala?: number
+  total_jobs?: number
+}
+
+interface ApiRecentJob {
+  job_id?: string
+  id?: string
+  job_type?: string
+  model?: string
+  status?: string
+  provider_earned_halala?: number
+  earnings_halala?: number
+  completed_at?: string
+  submitted_at?: string
+}
+
+interface ProviderMeResponse {
+  provider?: ProviderMe
+  recent_jobs?: ApiRecentJob[]
+}
+
+interface MetricsResponse {
+  recent_jobs?: ApiRecentJob[]
+}
+
+interface EarningsHistoryRow {
+  date?: string
+  day?: string
+  earnings_halala?: number
+  earned_halala?: number
+  jobs_completed?: number
+}
+
+interface Withdrawal {
+  id: string | number
+  amount_halala: number
+  status: string
+  iban?: string | null
+  created_at: string
+  processed_at?: string | null
 }
 
 const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
-// ── Chart geometry (from prototype renderChart()) ───────────────────────
+function halalaToSar(halala: number | undefined): number | null {
+  return typeof halala === 'number' ? halala / HALALA_PER_SAR : null
+}
+
+function fmtSar(n: number | null | undefined, opts: { precise?: boolean } = {}): string {
+  if (typeof n !== 'number' || Number.isNaN(n)) return '—'
+  if (opts.precise) {
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  }
+  return numFmt.format(n)
+}
+
+function fmtPayoutDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function statusToClass(status: string): 'accruing' | 'paid' {
+  return status === 'paid' ? 'paid' : 'accruing'
+}
+
+function maskIban(iban: string | null | undefined): string {
+  const tail = (iban || '').replace(/\s+/g, '').slice(-4)
+  return tail ? `SAR · IBAN ••${tail}` : 'SAR · IBAN'
+}
+
+function payoutIbanLabel(iban: string | null): string {
+  const tail = (iban || '').replace(/\s+/g, '').slice(-4)
+  return tail ? `••${tail}` : 'No payout IBAN on file'
+}
+
+function toPayoutRows(withdrawals: Withdrawal[]): Payout[] {
+  return withdrawals.map((w) => ({
+    period: fmtPayoutDate(w.created_at),
+    mode: maskIban(w.iban),
+    sar: Number(w.amount_halala || 0) / HALALA_PER_SAR,
+    status: w.status || 'pending',
+    statClass: statusToClass(w.status),
+    date: w.status === 'paid' ? fmtPayoutDate(w.processed_at) : '—',
+    inv: null,
+  }))
+}
+
+function historyToEarn(rows: EarningsHistoryRow[]): EarnPoint[] {
+  return rows
+    .map((r) => {
+      const date = new Date(r.date || r.day || '')
+      const halala = Number(r.earnings_halala ?? r.earned_halala ?? 0)
+      return { date, sar: halala / HALALA_PER_SAR }
+    })
+    .filter((p) => !Number.isNaN(p.date.getTime()))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+}
+
+function modelBreakdown(jobs: ApiRecentJob[]): Breakdown[] {
+  const totals = new Map<string, number>()
+  for (const job of jobs) {
+    const halala = Number(job.provider_earned_halala ?? job.earnings_halala ?? 0)
+    if (halala <= 0) continue
+    const name = String(job.model || job.job_type || 'inference')
+    totals.set(name, (totals.get(name) || 0) + halala / HALALA_PER_SAR)
+  }
+  const rows = Array.from(totals.entries())
+    .map(([name, sar]) => ({ name, sar }))
+    .sort((a, b) => b.sar - a.sar)
+  const max = Math.max(...rows.map((r) => r.sar), 0)
+  return rows.map((r) => ({
+    ...r,
+    width: max > 0 ? `${Math.max(8, Math.round((r.sar / max) * 100))}%` : '0%',
+  }))
+}
+
+function buildRigBreakdown(providerName: string, monthSar: number | null): Breakdown[] {
+  if (monthSar == null || monthSar <= 0) return []
+  return [{ name: providerName || 'Provider rig', sar: monthSar, width: '100%' }]
+}
+
 function buildChart(earn: EarnPoint[], rangeDays: number) {
   const W = 600
   const H = 300
@@ -64,17 +219,21 @@ function buildChart(earn: EarnPoint[], rangeDays: number) {
   const padT = 16
   const padB = 22
   const days = earn.slice(-rangeDays)
-  const max = Math.max(...days.map((d) => d.sar)) * 1.1
-  const min = Math.min(...days.map((d) => d.sar)) * 0.85
-  const range = max - min
-  const x = (i: number) => padL + (i / (days.length - 1)) * (W - padL - padR)
+  if (days.length === 0) {
+    return { W, H, padL, padR, line: '', area: '', grid: [], axisL: [], axisB: [], hasData: false }
+  }
+
+  const max = Math.max(...days.map((d) => d.sar), 1) * 1.1
+  const min = Math.min(...days.map((d) => d.sar), 0) * 0.85
+  const range = Math.max(max - min, 1)
+  const x = (i: number) => padL + (days.length <= 1 ? 0 : (i / (days.length - 1)) * (W - padL - padR))
   const y = (v: number) => padT + (1 - (v - min) / range) * (H - padT - padB)
 
   let line = ''
   days.forEach((d, i) => {
     line += (i === 0 ? 'M ' : ' L ') + x(i).toFixed(1) + ' ' + y(d.sar).toFixed(1)
   })
-  const area = `${line} L ${x(days.length - 1)} ${H - padB} L ${x(0)} ${H - padB} Z`
+  const area = `${line} L ${x(days.length - 1).toFixed(1)} ${H - padB} L ${x(0).toFixed(1)} ${H - padB} Z`
 
   const grid: number[] = []
   for (let i = 0; i <= 4; i++) grid.push(padT + (i / 4) * (H - padT - padB))
@@ -87,170 +246,106 @@ function buildChart(earn: EarnPoint[], rangeDays: number) {
     .filter((_, i) => i % labelEvery === 0 || i === days.length - 1)
     .map((d) => d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))
 
-  return { W, H, padL, padR, line, area, grid, axisL, axisB }
+  return { W, H, padL, padR, line, area, grid, axisL, axisB, hasData: true }
 }
-
-// ── Breakdown mock (from prototype markup) ──────────────────────────────
-const BY_RIG = [
-  { name: 'studio-main', width: '48%', value: 'SAR 2,798', muted: false },
-  { name: 'studio-bench', width: '32%', value: 'SAR 1,864', muted: false },
-  { name: 'office-mac', width: '14%', value: 'SAR 816', muted: false },
-  { name: 'garage-3090', width: '6%', value: 'SAR 348', muted: true },
-]
-
-const BY_MODEL = [
-  { name: 'allam-7b', width: '54%', value: 'SAR 3,120', muted: false },
-  { name: 'jais-13b', width: '20%', value: 'SAR 1,180', muted: false },
-  { name: 'falcon-h1', width: '14%', value: 'SAR 820', muted: false },
-  { name: 'bge-m3', width: '7%', value: 'SAR 412', muted: false },
-  { name: 'others', width: '5%', value: 'SAR 294', muted: true },
-]
-
-// ── Payouts mock (from prototype PAYOUTS) ───────────────────────────────
-// `statClass` selects the CSS swatch (.stat.paid / .stat.accruing); `status` is
-// the human label shown in the cell — real withdrawal states (pending /
-// processing / failed) keep their own label but reuse the .accruing swatch.
-interface Payout {
-  period: string
-  mode: string
-  sar: number
-  status: string
-  statClass: 'accruing' | 'paid'
-  date: string
-  inv: string | null
-}
-
-// ── Real shapes fetched from the provider API (v1 endpoints reused) ─────
-// GET /api/providers/earnings
-interface ProviderEarnings {
-  total_earned_sar: number
-  available_sar: number
-  pending_withdrawal_sar: number
-  withdrawn_sar: number
-  total_jobs: number
-}
-
-// GET /api/providers/me/earnings/history?period=7d|30d|90d  → array
-interface EarningsHistoryRow {
-  date: string
-  earnings_halala: number
-  jobs_completed: number
-}
-
-// GET /api/providers/me/withdrawals → { withdrawals: Withdrawal[] }
-interface Withdrawal {
-  id: string | number
-  amount_halala: number
-  status: string
-  iban: string
-  created_at: string
-  processed_at: string | null
-}
-
-const PAYOUTS: Payout[] = [
-  { period: 'Dec 02 – Dec 08', mode: 'SAR · IBAN', sar: 428, status: 'accruing', statClass: 'accruing', date: '—', inv: null },
-  { period: 'Nov 25 – Dec 01', mode: 'SAR · IBAN', sar: 1482, status: 'paid', statClass: 'paid', date: '2 Dec 2025', inv: 'INV-2025-49' },
-  { period: 'Nov 18 – Nov 24', mode: 'SAR · IBAN', sar: 1284, status: 'paid', statClass: 'paid', date: '25 Nov 2025', inv: 'INV-2025-48' },
-  { period: 'Nov 11 – Nov 17', mode: 'SAR · IBAN', sar: 1164, status: 'paid', statClass: 'paid', date: '18 Nov 2025', inv: 'INV-2025-47' },
-  { period: 'Nov 04 – Nov 10', mode: 'SAR · IBAN', sar: 982, status: 'paid', statClass: 'paid', date: '11 Nov 2025', inv: 'INV-2025-46' },
-  { period: 'Oct 28 – Nov 03', mode: 'SAR · IBAN', sar: 914, status: 'paid', statClass: 'paid', date: '4 Nov 2025', inv: 'INV-2025-45' },
-  { period: 'Oct 21 – Oct 27', mode: 'SAR · IBAN', sar: 1058, status: 'paid', statClass: 'paid', date: '28 Oct 2025', inv: 'INV-2025-44' },
-]
-
-// Halala (1/100 SAR) → SAR. Backend money is stored in halala integers.
-const HALALA_PER_SAR = 100
-
-function halalaToSar(halala: number): number {
-  return Math.round(halala / HALALA_PER_SAR)
-}
-
-// Map a real withdrawal status onto the two available .stat swatches.
-function statusToClass(status: string): 'accruing' | 'paid' {
-  return status === 'paid' ? 'paid' : 'accruing'
-}
-
-function fmtPayoutDate(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function maskIban(iban: string): string {
-  const tail = (iban || '').replace(/\s+/g, '').slice(-4)
-  return tail ? `SAR · IBAN ••${tail}` : 'SAR · IBAN'
-}
-
-// Withdrawal[] → the render shape the payouts table already consumes.
-function toPayoutRows(withdrawals: Withdrawal[]): Payout[] {
-  return withdrawals.map((w) => ({
-    period: fmtPayoutDate(w.created_at),
-    mode: maskIban(w.iban),
-    sar: halalaToSar(w.amount_halala),
-    status: w.status,
-    statClass: statusToClass(w.status),
-    date: w.status === 'paid' ? fmtPayoutDate(w.processed_at) : '—',
-    inv: null,
-  }))
-}
-
-// EarningsHistoryRow[] → the EarnPoint[] the chart already renders. Empty days
-// in the API response are fine — buildChart() scales to whatever it gets.
-function historyToEarn(rows: EarningsHistoryRow[]): EarnPoint[] {
-  return rows
-    .map((r) => ({ date: new Date(r.date), sar: halalaToSar(r.earnings_halala) }))
-    .filter((p) => !Number.isNaN(p.date.getTime()))
-}
-
-type RangeOpt = 7 | 30 | 90
 
 export default function ProviderEarningsPage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
   const [range, setRange] = useState<RangeOpt>(30)
-
-  // EARN data is date-relative (uses new Date()); build it client-side after
-  // mount so SSR/CSR markup stays identical and hydration never mismatches.
-  // This mock stays the fallback — it is the default series until (and unless)
-  // the real /earnings/history fetch lands a non-empty result.
-  const [earn, setEarn] = useState<EarnPoint[] | null>(null)
-  useEffect(() => {
-    setEarn(buildEarn())
-  }, [])
-
-  // ── Real data (replaces mock on success; mock kept as fallback) ─────────
+  const [earn, setEarn] = useState<EarnPoint[]>([])
   const [earnings, setEarnings] = useState<ProviderEarnings | null>(null)
-  const [payouts, setPayouts] = useState<Payout[]>(PAYOUTS)
+  const [payouts, setPayouts] = useState<Payout[]>([])
+  const [dataState, setDataState] = useState<LoadState>('loading')
+  const [dataError, setDataError] = useState('')
+  const [providerName, setProviderName] = useState('')
+  const [providerEmail, setProviderEmail] = useState('')
+  const [providerStatus, setProviderStatus] = useState('')
+  const [payoutIban, setPayoutIban] = useState<string | null>(null)
+  const [todaySar, setTodaySar] = useState<number | null>(null)
+  const [weekSar, setWeekSar] = useState<number | null>(null)
+  const [monthSar, setMonthSar] = useState<number | null>(null)
+  const [lifetimeSar, setLifetimeSar] = useState<number | null>(null)
+  const [claimableSar, setClaimableSar] = useState<number | null>(null)
+  const [totalJobs, setTotalJobs] = useState<number | null>(null)
+  const [byRig, setByRig] = useState<Breakdown[]>([])
+  const [byModel, setByModel] = useState<Breakdown[]>([])
 
-  // Totals (balance + lifetime + job count) and payouts: fetched once on mount.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getProviderKey()
-    if (!key) return
+    if (!key) {
+      setDataState('missing-key')
+      return
+    }
 
     let cancelled = false
-    const headers = { 'x-provider-key': key }
     const base = getApiBase()
+    const headers = { 'x-provider-key': key }
+    setDataState('loading')
+    setDataError('')
 
-    void (async () => {
+    ;(async () => {
       try {
-        const [eRes, wRes] = await Promise.all([
-          fetch(`${base}/providers/earnings`, { headers }),
-          fetch(`${base}/providers/me/withdrawals`, { headers }),
+        const [meRes, eRes, wRes, mRes] = await Promise.all([
+          fetch(`${base}/providers/me?key=${encodeURIComponent(key)}`, { headers }),
+          fetch(`${base}/providers/earnings?key=${encodeURIComponent(key)}`, { headers }),
+          fetch(`${base}/providers/me/withdrawals?key=${encodeURIComponent(key)}`, { headers }),
+          fetch(`${base}/providers/me/metrics?key=${encodeURIComponent(key)}`, { headers }),
         ])
         if (cancelled) return
+
+        const meData = (await meRes.json().catch(() => ({}))) as ProviderMeResponse & { error?: string }
+        if (!meRes.ok) throw new Error(meData.error || 'Failed to load provider earnings.')
+
+        const provider = meData.provider || {}
+        const providerMonth = halalaToSar(provider.month_earnings_halala)
+        const providerTotal = halalaToSar(provider.total_earnings_halala)
+        const providerClaimable = halalaToSar(provider.claimable_earnings_halala)
+
+        setProviderName(provider.name || '')
+        setProviderEmail(provider.email || '')
+        setProviderStatus(provider.status || '')
+        setPayoutIban(provider.payout_iban || null)
+        setTodaySar(halalaToSar(provider.today_earnings_halala))
+        setWeekSar(halalaToSar(provider.week_earnings_halala))
+        setMonthSar(providerMonth)
+        setLifetimeSar(providerTotal)
+        setClaimableSar(providerClaimable)
+        setTotalJobs(typeof provider.total_jobs === 'number' ? provider.total_jobs : null)
+        setByRig(buildRigBreakdown(provider.name || '', providerMonth))
+
         if (eRes.ok) {
           const e = (await eRes.json()) as ProviderEarnings
-          if (!cancelled) setEarnings(e)
+          if (!cancelled) {
+            setEarnings(e)
+            setClaimableSar(typeof e.available_sar === 'number' ? e.available_sar : providerClaimable)
+            setLifetimeSar(typeof e.total_earned_sar === 'number' ? e.total_earned_sar : providerTotal)
+            setTotalJobs(typeof e.total_jobs === 'number' ? e.total_jobs : typeof provider.total_jobs === 'number' ? provider.total_jobs : null)
+          }
         }
+
         if (wRes.ok) {
           const w = (await wRes.json()) as { withdrawals?: Withdrawal[] }
-          const rows = toPayoutRows(w.withdrawals || [])
-          if (!cancelled && rows.length > 0) setPayouts(rows)
+          if (!cancelled) setPayouts(toPayoutRows(w.withdrawals || []))
+        } else {
+          setPayouts([])
         }
-      } catch {
-        /* keep mock fallback on network/parse failure */
+
+        const metricJobs = mRes.ok ? ((await mRes.json()) as MetricsResponse).recent_jobs || [] : meData.recent_jobs || []
+        if (!cancelled) {
+          setByModel(modelBreakdown(metricJobs))
+          setDataState('ready')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setDataState('error')
+          setDataError(err instanceof Error ? err.message : 'Failed to load provider earnings.')
+          setPayouts([])
+          setByRig([])
+          setByModel([])
+        }
       }
     })()
 
@@ -259,8 +354,6 @@ export default function ProviderEarningsPage() {
     }
   }, [])
 
-  // Daily earnings series: re-fetched whenever the range toggle changes, since
-  // the history endpoint is period-scoped (7d / 30d / 90d).
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getProviderKey()
@@ -268,19 +361,22 @@ export default function ProviderEarningsPage() {
 
     let cancelled = false
     const period = `${range}d`
+    const base = getApiBase()
 
-    void (async () => {
+    ;(async () => {
       try {
-        const res = await fetch(
-          `${getApiBase()}/providers/me/earnings/history?period=${period}`,
-          { headers: { 'x-provider-key': key } }
-        )
-        if (cancelled || !res.ok) return
+        const res = await fetch(`${base}/providers/me/earnings/history?key=${encodeURIComponent(key)}&period=${period}`, {
+          headers: { 'x-provider-key': key },
+        })
+        if (cancelled) return
+        if (!res.ok) {
+          setEarn([])
+          return
+        }
         const rows = (await res.json()) as EarningsHistoryRow[]
-        const points = historyToEarn(Array.isArray(rows) ? rows : [])
-        if (!cancelled && points.length > 0) setEarn(points)
+        if (!cancelled) setEarn(historyToEarn(Array.isArray(rows) ? rows : []))
       } catch {
-        /* keep mock fallback on network/parse failure */
+        if (!cancelled) setEarn([])
       }
     })()
 
@@ -289,13 +385,17 @@ export default function ProviderEarningsPage() {
     }
   }, [range])
 
-  const chart = useMemo(() => (earn ? buildChart(earn, range) : null), [earn, range])
-
+  const chart = useMemo(() => buildChart(earn, range), [earn, range])
   const ranges: RangeOpt[] = [7, 30, 90]
+  const displayName = providerName || (lang === 'ar' ? 'المزوّد' : 'Provider')
+  const displayScope = providerEmail || providerStatus || (lang === 'ar' ? 'حساب المزوّد' : 'Provider account')
+  const statusLabel = providerStatus || (dataState === 'missing-key' ? 'missing key' : dataState)
+  const availableSar = claimableSar ?? earnings?.available_sar ?? null
+  const resolvedLifetimeSar = lifetimeSar ?? earnings?.total_earned_sar ?? null
+  const payoutLabel = payoutIbanLabel(payoutIban)
 
   return (
     <div className="pv-app">
-      {/* ── Sidebar (inlined from provider-shell.js) ───────────────── */}
       <aside className={`pv-sb${navOpen ? ' on' : ''}`} id="pv-sb" data-page="earnings">
         <div className="pv-sb-brand">
           <span className="wm">
@@ -311,22 +411,31 @@ export default function ProviderEarningsPage() {
             <Bi en="Earning today" ar="أرباح اليوم" />
           </div>
           <div className="v">
-            SAR 218<span className="u"><Bi en="so far" ar="حتى الآن" /></span>
+            {todaySar != null ? (
+              <>
+                SAR {fmtSar(todaySar)}
+                <span className="u">
+                  <Bi en="so far" ar="حتى الآن" />
+                </span>
+              </>
+            ) : (
+              <span className="u">—</span>
+            )}
           </div>
           <div className="live">
-            <span className="d" /> <Bi en="2 of 4 rigs earning" ar="٢ من ٤ أجهزة تكسب" />
+            <span className="d" /> {statusLabel}
           </div>
           <div className="row">
             <span>
-              <Bi en="Yesterday" ar="أمس" />
+              <Bi en="This week" ar="هذا الأسبوع" />
             </span>
-            <b>SAR 194</b>
+            <b>{weekSar != null ? `SAR ${fmtSar(weekSar)}` : '—'}</b>
           </div>
           <div className="row">
             <span>
               <Bi en="This month" ar="هذا الشهر" />
             </span>
-            <b>SAR 5,826</b>
+            <b>{monthSar != null ? `SAR ${fmtSar(monthSar)}` : '—'}</b>
           </div>
         </div>
 
@@ -358,10 +467,10 @@ export default function ProviderEarningsPage() {
         </nav>
 
         <div className="pv-sb-foot">
-          <div className="av">Y</div>
+          <div className="av">{displayName.charAt(0).toUpperCase() || 'P'}</div>
           <div className="who">
-            Yazeed Al-Qahtani
-            <span className="e">riyadh-studio-01 · Silver</span>
+            {displayName}
+            <span className="e">{displayScope}</span>
           </div>
           <span className="out" title="Sign out">
             ↱
@@ -376,7 +485,6 @@ export default function ProviderEarningsPage() {
       />
 
       <div>
-        {/* ── Topbar (inlined from provider-shell.js) ──────────────── */}
         <header className="pv-tb" id="pv-tb" data-crumb="Earnings">
           <button
             className="mb-toggle"
@@ -388,14 +496,14 @@ export default function ProviderEarningsPage() {
             ☰
           </button>
           <div className="crumb">
-            <span>riyadh-studio-01</span>
+            <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
               <Bi en="Earnings" ar="الأرباح" />
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="Live · earning" ar="مباشر · يكسب" />
+            <span className="d" /> {statusLabel}
           </span>
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
             <span
@@ -432,27 +540,33 @@ export default function ProviderEarningsPage() {
               <Bi en="Paid out weekly · Saudi Riyal" ar="تُدفع أسبوعياً · ريال سعودي" />
             </span>
             <span>
-              <Bi en="Next payout " ar="الدفعة القادمة " />
-              <b>
-                {earnings ? (
-                  `Mon · SAR ${numFmt.format(Math.round(earnings.available_sar || 0))}`
-                ) : (
-                  <Bi en="Mon · SAR 428" ar="الإثنين · ٤٢٨ ريال" />
-                )}
-              </b>
+              <Bi en="Available " ar="المتاح " />
+              <b>{availableSar != null ? `SAR ${fmtSar(availableSar, { precise: true })}` : '—'}</b>
             </span>
             <span>
               <Bi en="Lifetime " ar="الإجمالي " />
-              <b>
-                SAR{' '}
-                {earnings
-                  ? numFmt.format(Math.round(earnings.total_earned_sar || 0))
-                  : '42,180'}
-              </b>
+              <b>{resolvedLifetimeSar != null ? `SAR ${fmtSar(resolvedLifetimeSar)}` : '—'}</b>
+            </span>
+            <span>
+              <Bi en="Jobs " ar="المهام " />
+              <b>{totalJobs != null ? totalJobs.toLocaleString('en-US') : '—'}</b>
             </span>
           </div>
 
-          {/* Big chart */}
+          {dataState === 'missing-key' && (
+            <div className="dash-state err" style={{ marginTop: 24 }}>
+              <Bi en="Sign in with a provider API key to load live earnings and payout data." ar="سجّل الدخول بمفتاح مزوّد لتحميل الأرباح والمدفوعات الحية." />{' '}
+              <Link href="/v2/auth?role=provider&method=apikey&redirect=/v2/provider/earnings">
+                <Bi en="Sign in" ar="تسجيل الدخول" />
+              </Link>
+            </div>
+          )}
+          {dataState === 'error' && (
+            <div className="dash-state err" style={{ marginTop: 24 }} role="alert">
+              {dataError}
+            </div>
+          )}
+
           <div className="panel" style={{ marginTop: 36 }}>
             <div className="panel-hd">
               <div>
@@ -475,35 +589,42 @@ export default function ProviderEarningsPage() {
               </div>
             </div>
             <div className="earn-chart" id="chart">
-              <div className="axis-l" id="ax-l">
-                {chart?.axisL.map((label, i) => (
-                  <span key={i}>{label}</span>
-                ))}
-              </div>
-              <div className="axis-b" id="ax-b">
-                {chart?.axisB.map((label, i) => (
-                  <span key={i}>{label}</span>
-                ))}
-              </div>
-              <svg id="chart-svg" viewBox="0 0 600 300" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="earnArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#ee7a3c" stopOpacity=".45" />
-                    <stop offset="1" stopColor="#ee7a3c" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <g className="grid" id="grid">
-                  {chart?.grid.map((gy, i) => (
-                    <line key={i} x1={chart.padL} y1={gy} x2={chart.W - chart.padR} y2={gy} />
-                  ))}
-                </g>
-                <path className="area" id="area" d={chart?.area} />
-                <path className="line" id="line" d={chart?.line} />
-              </svg>
+              {chart.hasData ? (
+                <>
+                  <div className="axis-l" id="ax-l">
+                    {chart.axisL.map((label, i) => (
+                      <span key={i}>{label}</span>
+                    ))}
+                  </div>
+                  <div className="axis-b" id="ax-b">
+                    {chart.axisB.map((label, i) => (
+                      <span key={i}>{label}</span>
+                    ))}
+                  </div>
+                  <svg id="chart-svg" viewBox="0 0 600 300" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="earnArea" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stopColor="#ee7a3c" stopOpacity=".45" />
+                        <stop offset="1" stopColor="#ee7a3c" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <g className="grid" id="grid">
+                      {chart.grid.map((gy, i) => (
+                        <line key={i} x1={chart.padL} y1={gy} x2={chart.W - chart.padR} y2={gy} />
+                      ))}
+                    </g>
+                    <path className="area" id="area" d={chart.area} />
+                    <path className="line" id="line" d={chart.line} />
+                  </svg>
+                </>
+              ) : (
+                <span className="empty-row">
+                  <Bi en="No daily earnings yet." ar="لا توجد أرباح يومية بعد." />
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Breakdown by rig + by model */}
           <div
             style={{
               display: 'grid',
@@ -521,17 +642,21 @@ export default function ProviderEarningsPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {BY_RIG.map((r) => (
-                  <div className="brk-row" key={r.name}>
-                    <span className="brk-name">{r.name}</span>
-                    <div className="brk-bar">
-                      <span style={{ width: r.width, ...(r.muted ? { background: 'var(--mut)' } : {}) }} />
+                {byRig.length > 0 ? (
+                  byRig.map((r) => (
+                    <div className="brk-row" key={r.name}>
+                      <span className="brk-name">{r.name}</span>
+                      <div className="brk-bar">
+                        <span style={{ width: r.width }} />
+                      </div>
+                      <span className="brk-v">SAR {fmtSar(r.sar, { precise: true })}</span>
                     </div>
-                    <span className="brk-v" style={r.muted ? { color: 'var(--mut)' } : undefined}>
-                      {r.value}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <span className="empty-row">
+                    <Bi en="No rig earnings breakdown yet." ar="لا يوجد تفصيل أرباح حسب الجهاز بعد." />
+                  </span>
+                )}
               </div>
             </div>
             <div className="panel">
@@ -543,24 +668,25 @@ export default function ProviderEarningsPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {BY_MODEL.map((m) => (
-                  <div className="brk-row" key={m.name}>
-                    <span className="brk-name" style={m.muted ? { color: 'var(--mut)' } : undefined}>
-                      {m.name}
-                    </span>
-                    <div className="brk-bar">
-                      <span style={{ width: m.width, ...(m.muted ? { background: 'var(--mut)' } : {}) }} />
+                {byModel.length > 0 ? (
+                  byModel.map((m) => (
+                    <div className="brk-row" key={m.name}>
+                      <span className="brk-name">{m.name}</span>
+                      <div className="brk-bar">
+                        <span style={{ width: m.width }} />
+                      </div>
+                      <span className="brk-v">SAR {fmtSar(m.sar, { precise: true })}</span>
                     </div>
-                    <span className="brk-v" style={m.muted ? { color: 'var(--mut)' } : undefined}>
-                      {m.value}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <span className="empty-row">
+                    <Bi en="No model earnings breakdown yet." ar="لا يوجد تفصيل أرباح حسب النموذج بعد." />
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Payouts */}
           <div className="panel" style={{ marginTop: 28 }}>
             <div className="panel-hd">
               <div>
@@ -577,8 +703,8 @@ export default function ProviderEarningsPage() {
                     marginTop: 6,
                   }}
                 >
-                  <Bi en="Weekly · Mon · SAR to IBAN " ar="أسبوعياً · الإثنين · ريال إلى الآيبان " />
-                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>•••• 2847</b>
+                  <Bi en="Weekly · SAR to IBAN " ar="أسبوعياً · ريال إلى الآيبان " />
+                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>{payoutLabel}</b>
                 </div>
               </div>
               <Link
@@ -621,37 +747,47 @@ export default function ProviderEarningsPage() {
                 </tr>
               </thead>
               <tbody id="payouts">
-                {payouts.map((p, i) => (
-                  <tr key={`${p.period}-${i}`}>
-                    <td>
-                      <span className="period">{p.period}</span>
-                    </td>
-                    <td>
-                      <span className="mode">{p.mode}</span>
-                    </td>
-                    <td>
-                      <span className="amount">
-                        {p.sar.toLocaleString()}
-                        <span className="u">SAR</span>
+                {payouts.length > 0 ? (
+                  payouts.map((p, i) => (
+                    <tr key={`${p.period}-${i}`}>
+                      <td>
+                        <span className="period">{p.period}</span>
+                      </td>
+                      <td>
+                        <span className="mode">{p.mode}</span>
+                      </td>
+                      <td>
+                        <span className="amount">
+                          {fmtSar(p.sar, { precise: true })}
+                          <span className="u">SAR</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`stat ${p.statClass}`}>{p.status}</span>
+                      </td>
+                      <td>
+                        <span className="when">{p.date}</span>
+                      </td>
+                      <td style={{ textAlign: 'end' }}>
+                        {p.inv ? (
+                          <Link className="inv" href="#">
+                            {p.inv} ↓
+                          </Link>
+                        ) : (
+                          <span className="when">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6}>
+                      <span className="empty-row">
+                        <Bi en="No payout requests yet." ar="لا توجد طلبات دفع بعد." />
                       </span>
                     </td>
-                    <td>
-                      <span className={`stat ${p.statClass}`}>{p.status}</span>
-                    </td>
-                    <td>
-                      <span className="when">{p.date}</span>
-                    </td>
-                    <td style={{ textAlign: 'end' }}>
-                      {p.inv ? (
-                        <Link className="inv" href="#">
-                          {p.inv} ↓
-                        </Link>
-                      ) : (
-                        <span className="when">—</span>
-                      )}
-                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

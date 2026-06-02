@@ -254,6 +254,10 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .lj-row .body .sub { font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 4px; letter-spacing: .04em; }
 .lj-row .right { text-align: end; }
 .lj-row .right .sar { font-family: var(--serif); font-size: 15px; color: var(--ink); }
+.empty-row { border: 1px dashed var(--hair); color: var(--mut); padding: 18px; font-size: 13px; line-height: 1.55; text-align: center; }
+.dash-state { background: var(--paper); border: 1px solid var(--hair); padding: 14px 16px; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+.dash-state.err { border-color: color-mix(in oklab, var(--err) 55%, var(--hair)); color: #ffd5dd; }
+.dash-state a { color: var(--teal); border-bottom: 1px solid var(--teal); text-decoration: none; }
 
 .quickstart {
   margin-top: 28px; background: linear-gradient(135deg, color-mix(in oklab, var(--teal) 8%, var(--paper)) 0%, var(--paper) 100%);
