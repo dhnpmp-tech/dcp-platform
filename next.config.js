@@ -71,12 +71,12 @@ const nextConfig = {
     return {
       beforeFiles: v2Live
         ? [
-            // Full public-site cutover: every public marketing/entry route serves
-            // its v2 equivalent. The authenticated consoles stay on v1 until the v2
-            // consoles are auth-gated (they remain reachable at /v2/* for preview).
+            // Public-site cutover: marketing/docs/onboarding entry routes serve
+            // their v2 equivalents. Keep /login on the proven v1 auth surface
+            // until /v2/auth is wired for renter, provider, and admin login; admin,
+            // monitor, and intelligence pages all depend on that token flow.
             { source: '/', destination: '/v2/home' },
             { source: '/setup', destination: '/v2/provider-setup' },
-            { source: '/login', destination: '/v2/auth' },
             { source: '/renter/register', destination: '/v2/setup' },
             { source: '/docs', destination: '/v2/docs' },
           ]
