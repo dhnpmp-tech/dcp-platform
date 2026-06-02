@@ -19,6 +19,7 @@ This changelog is for repository, product, and release-level changes. Detailed e
 
 - Removed obsolete duplicate OpenAPI YAML files and retargeted API guide links to the maintained `docs/openapi.yaml` spec.
 - Rewrote the root `README.md` as a clean platform overview for GitHub visitors.
+- Refreshed the public pricing page with auto-top-up behavior, the 402 pre-flight balance gate, subscription discount math, and per-model-class token rates.
 - Rewrote `DEPLOYMENT.md`, `SECURITY.md`, and `docs/README.md` for public use.
 - Moved the runtime verification guide to `docs/runtime-verification.mdx`.
 - Removed or rewrote stale links to removed internal docs, old `dc1-platform` repository URLs, and legacy `docs.dcp.sa` references.
