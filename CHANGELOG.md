@@ -29,6 +29,10 @@ This changelog is for repository, product, and release-level changes. Detailed e
 - Added Qwen2.5-VL alias coverage and canonical provider-count matching so cached `bge-m3` / `qwen2.5vl` variants surface correctly in the model catalog.
 - Removed the legacy queued-job pre-debit in `/v1/chat/completions`; queued inference now uses the same `settleInferenceOnce` completion settlement path as direct provider proxying.
 
+### CI
+
+- Added disk cleanup before scheduled worker-image Docker builds so heavyweight vLLM/SDXL layers have enough GitHub runner headroom.
+
 ### Notes
 
 - The private Codex/Claude onboarding briefing lives outside this repository at `~/.claude/ops-private/dcp/codex-onboarding/`.
