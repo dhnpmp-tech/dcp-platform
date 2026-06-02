@@ -1,207 +1,32 @@
 'use client'
 
-/**
- * Public /pricing — Saudi Riyal (SAR) per-GPU-hour rate card.
- *
- * Honesty notes (see PR body for context):
- *   - DCP's settlement engine bills in halala for actual GPU-active seconds,
- *     not per million tokens. Rates below are sourced verbatim from
- *     backend/src/config/pricing.js (GPU_RATE_TABLE) and converted to SAR
- *     at SAR_USD_RATE (default 3.75).
- *   - The model catalog (/v1/models) exposes a synthetic
- *     `usd_per_1m_input_tokens` field for OpenAI-client compatibility, but
- *     it is derived from the per-minute halala rate and is not a separate
- *     token-priced product. Displaying it on this page would be misleading
- *     until token-grain settlement actually exists.
- *
- * Data source of truth: backend/src/config/pricing.js
- */
-
 import Link from 'next/link'
+import { Instrument_Serif } from 'next/font/google'
 import Header from '../components/layout/Header'
 import Footer from '../components/layout/Footer'
 
-interface RateRow {
+const serif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--pricing-serif',
+})
+
+interface ModelClassRate {
+  klass: 'embedding' | 'tiny' | 'small' | 'medium' | 'large'
+  label: string
+  examples: string
+  paygHalala: number
+  use: string
+}
+
+interface GpuRate {
   tier: 'entry' | 'standard' | 'high' | 'enterprise'
   display: string
   minVramGb: number
   ratePerHourSar: number
   ratePerMinHalala: number
   ratePerHourUsd: number
-  vastAiUsdHour: number
-}
-
-// SAR/USD rate matches backend/src/config/pricing.js (SAR_USD_RATE=3.75).
-// If the backend ever rotates this, the numbers below should be regenerated
-// from /api/pricing/rates rather than redrawn by hand.
-const SAR_USD = 3.75
-
-const RATE_ROWS: RateRow[] = [
-  {
-    tier: 'enterprise',
-    display: 'NVIDIA H200',
-    minVramGb: 141,
-    ratePerHourUsd: 2.45,
-    ratePerHourSar: 9.19,
-    ratePerMinHalala: 16, // ceil((9.1875 * 100) / 60)
-    vastAiUsdHour: 4.5,
-  },
-  {
-    tier: 'enterprise',
-    display: 'NVIDIA H100',
-    minVramGb: 80,
-    ratePerHourUsd: 1.89,
-    ratePerHourSar: 7.09,
-    ratePerMinHalala: 12,
-    vastAiUsdHour: 2.5,
-  },
-  {
-    tier: 'high',
-    display: 'NVIDIA A100',
-    minVramGb: 40,
-    ratePerHourUsd: 1.2,
-    ratePerHourSar: 4.5,
-    ratePerMinHalala: 8,
-    vastAiUsdHour: 1.89,
-  },
-  {
-    tier: 'standard',
-    display: 'NVIDIA RTX 4090',
-    minVramGb: 24,
-    ratePerHourUsd: 0.267,
-    ratePerHourSar: 1.0,
-    ratePerMinHalala: 2,
-    vastAiUsdHour: 0.35,
-  },
-  {
-    tier: 'standard',
-    display: 'NVIDIA RTX 4080',
-    minVramGb: 16,
-    ratePerHourUsd: 0.178,
-    ratePerHourSar: 0.67,
-    ratePerMinHalala: 2,
-    vastAiUsdHour: 0.23,
-  },
-  {
-    tier: 'standard',
-    display: 'NVIDIA RTX 3090',
-    minVramGb: 24,
-    ratePerHourUsd: 0.134,
-    ratePerHourSar: 0.5,
-    ratePerMinHalala: 1,
-    vastAiUsdHour: 0.2,
-  },
-  {
-    tier: 'entry',
-    display: 'NVIDIA RTX 3080',
-    minVramGb: 10,
-    ratePerHourUsd: 0.089,
-    ratePerHourSar: 0.33,
-    ratePerMinHalala: 1,
-    vastAiUsdHour: 0.13,
-  },
-]
-
-const TIER_LABEL: Record<RateRow['tier'], string> = {
-  entry: 'Entry',
-  standard: 'Standard',
-  high: 'High',
-  enterprise: 'Enterprise',
-}
-
-const TIER_PILL: Record<RateRow['tier'], string> = {
-  entry: 'bg-dc1-surface-l3 text-dc1-text-secondary',
-  standard: 'bg-emerald-500/10 text-emerald-300',
-  high: 'bg-sky-500/10 text-sky-300',
-  enterprise: 'bg-dc1-amber/10 text-dc1-amber',
-}
-
-interface FaqItem {
-  q: string
-  a: React.ReactNode
-}
-
-const FAQ: FaqItem[] = [
-  {
-    q: 'How does DCP bill?',
-    a: (
-      <>
-        DCP bills in SAR halala (1 SAR = 100 halala) for actual GPU-active seconds. Before a job starts the platform
-        places a hold based on the rate above and the requested duration; on completion the hold is settled against
-        actual runtime and any unused balance is returned automatically. There is no monthly subscription, no minimum
-        spend, and no per-seat fee.
-      </>
-    ),
-  },
-  {
-    q: 'What is the minimum top-up?',
-    a: <>5 SAR. New renter accounts also receive a 100 SAR starter credit on signup.</>,
-  },
-  {
-    q: 'Do you charge per million tokens like OpenAI?',
-    a: (
-      <>
-        Not today. Token-grain billing is on the roadmap and will be rolled out per-model as we finish per-engine
-        accounting. The OpenAI-compatible <code className="rounded bg-dc1-surface-l2 px-1 py-0.5 text-dc1-amber">/v1/models</code>{' '}
-        endpoint already returns a <code className="rounded bg-dc1-surface-l2 px-1 py-0.5 text-dc1-amber">pricing</code>{' '}
-        block for client compatibility, but the authoritative unit is per-minute GPU time.
-      </>
-    ),
-  },
-  {
-    q: 'Can I get a corporate invoice?',
-    a: (
-      <>
-        Yes. Email{' '}
-        <a href="mailto:billing@dcp.sa" className="text-dc1-amber hover:underline">
-          billing@dcp.sa
-        </a>{' '}
-        with your VAT number and we will set up monthly invoicing. Existing prepaid balance is treated as a credit on
-        the next invoice.
-      </>
-    ),
-  },
-  {
-    q: 'What is your refund policy?',
-    a: (
-      <>
-        See clause 5.4 of our{' '}
-        <Link href="/terms" className="text-dc1-amber hover:underline">
-          Terms of Service
-        </Link>
-        . In short: unused prepaid balance is refundable on written request within 14 days of top-up; consumed compute
-        is non-refundable but failed jobs that the platform did not deliver are credited back automatically.
-      </>
-    ),
-  },
-  {
-    q: 'Where does compute run?',
-    a: (
-      <>
-        Inside Saudi Arabia, across DCP-vetted providers. The platform is built to be PDPL-compliant; prompts and
-        completions are not used for training and are retained only for the minimum window required by audit and
-        billing reconciliation.
-      </>
-    ),
-  },
-]
-
-function CalculatorRow({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: string
-  hint: string
-}) {
-  return (
-    <div className="rounded-lg border border-dc1-border bg-dc1-surface-l1 p-4">
-      <p className="text-xs uppercase tracking-wide text-dc1-text-muted">{label}</p>
-      <p className="mt-2 font-mono text-2xl tabular-nums text-dc1-text-primary">{value}</p>
-      <p className="mt-1 text-xs text-dc1-text-secondary">{hint}</p>
-    </div>
-  )
 }
 
 interface SubscriptionTier {
@@ -209,10 +34,58 @@ interface SubscriptionTier {
   name: string
   monthlySar: number
   discountPct: number
-  monthlyCreditSar: number
   bestFor: string
-  highlight?: boolean
 }
+
+const SAR_USD = 3.75
+
+const MODEL_CLASS_RATES: ModelClassRate[] = [
+  {
+    klass: 'embedding',
+    label: 'Embedding',
+    examples: 'bge-m3',
+    paygHalala: 5,
+    use: 'Retrieval, RAG indexing, search pipelines',
+  },
+  {
+    klass: 'tiny',
+    label: 'Tiny',
+    examples: 'TinyLlama 1B, qwen2.5vl:3b, Gemma-2B',
+    paygHalala: 15,
+    use: 'Cheap classification, extraction, vision previews',
+  },
+  {
+    klass: 'small',
+    label: 'Small',
+    examples: 'qwen3:8b, Mistral-7B, Llama-3-8B, ALLaM-7B',
+    paygHalala: 30,
+    use: 'Production chat, summaries, support agents',
+  },
+  {
+    klass: 'medium',
+    label: 'Medium',
+    examples: 'Qwen 3.6-27B-MTP, Qwen2.5-Coder-32B',
+    paygHalala: 150,
+    use: 'Coding, long-context reasoning, bilingual workflows',
+  },
+  {
+    klass: 'large',
+    label: 'Large',
+    examples: 'Future 70B class',
+    paygHalala: 400,
+    use: 'High-end reasoning when the catalog has capacity',
+  },
+]
+
+const GPU_RATES: GpuRate[] = [
+  { tier: 'enterprise', display: 'NVIDIA H200', minVramGb: 141, ratePerHourUsd: 2.45, ratePerHourSar: 9.19, ratePerMinHalala: 16 },
+  { tier: 'enterprise', display: 'NVIDIA H100', minVramGb: 80, ratePerHourUsd: 1.89, ratePerHourSar: 7.09, ratePerMinHalala: 12 },
+  { tier: 'high', display: 'NVIDIA A100', minVramGb: 40, ratePerHourUsd: 1.2, ratePerHourSar: 4.5, ratePerMinHalala: 8 },
+  { tier: 'standard', display: 'NVIDIA RTX 4090', minVramGb: 24, ratePerHourUsd: 0.267, ratePerHourSar: 1.0, ratePerMinHalala: 2 },
+  { tier: 'standard', display: 'NVIDIA RTX 4080', minVramGb: 16, ratePerHourUsd: 0.178, ratePerHourSar: 0.67, ratePerMinHalala: 2 },
+  { tier: 'standard', display: 'NVIDIA RTX 3090', minVramGb: 24, ratePerHourUsd: 0.134, ratePerHourSar: 0.5, ratePerMinHalala: 1 },
+  { tier: 'entry', display: 'NVIDIA RTX 3080', minVramGb: 10, ratePerHourUsd: 0.089, ratePerHourSar: 0.33, ratePerMinHalala: 1 },
+]
 
 const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
   {
@@ -220,349 +93,343 @@ const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
     name: 'Starter',
     monthlySar: 375,
     discountPct: 15,
-    monthlyCreditSar: 375,
-    bestFor: 'Indie devs, small Saudi apps with predictable monthly volume',
+    bestFor: 'Solo builders and early internal tools',
   },
   {
     tier: 'growth',
     name: 'Growth',
     monthlySar: 1500,
     discountPct: 22,
-    monthlyCreditSar: 1500,
-    bestFor: 'Saudi SMBs and startups in production',
-    highlight: true,
+    bestFor: 'Production teams with recurring inference',
   },
   {
     tier: 'scale',
     name: 'Scale',
     monthlySar: 5625,
     discountPct: 30,
-    monthlyCreditSar: 5625,
-    bestFor: 'Production teams running heavy inference workloads',
+    bestFor: 'Heavy workloads and private capacity planning',
   },
 ]
 
-function SubscriptionTiersSection() {
+const FLOW = [
+  {
+    title: 'Starter credit first',
+    body: 'New renter accounts start with 100 SAR credit. Usage draws from expiring credits before paid balance.',
+    meta: 'no card required',
+  },
+  {
+    title: 'Auto-top-up when enabled',
+    body: 'Saved-card renters can set a threshold, recharge amount, and monthly cap. A 3D Secure step-up is handled before credit is granted.',
+    meta: 'cap controlled by renter',
+  },
+  {
+    title: '402 before work starts',
+    body: 'If balance cannot cover the pre-flight estimate, the API returns insufficient_balance instead of starting an unpaid job.',
+    meta: 'no silent negative balance',
+  },
+]
+
+function sar(value: number) {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: value < 10 ? 2 : 0 })
+}
+
+function discounted(rate: number, pct: number) {
+  return Math.ceil(rate * (1 - pct / 100))
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  body,
+}: {
+  eyebrow: string
+  title: string
+  body: string
+}) {
   return (
-    <section aria-labelledby="subs-heading" className="mb-14">
-      <h2 id="subs-heading" className="text-xl font-semibold text-dc1-text-primary">
-        Monthly subscription tiers
-      </h2>
-      <p className="mt-1 max-w-3xl text-sm text-dc1-text-secondary">
-        Subscribe and your tokens get cheaper. Each tier is a monthly SAR commit that grants you the same amount in
-        platform credit, debited at <span className="font-semibold text-dc1-text-primary">every model&apos;s own per-million-token rate</span>{' '}
-        — multiplied by your tier discount. Premium models still cost more than small models on Scale; the discount is
-        the same percentage across the catalog. Unused credit rolls over for 30 days. Overage falls back to PAYG.
-      </p>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SUBSCRIPTION_TIERS.map((t) => (
-          <div
-            key={t.tier}
-            className={
-              'rounded-2xl border p-6 transition ' +
-              (t.highlight
-                ? 'border-dc1-amber bg-dc1-surface-l2 shadow-[0_0_0_1px_var(--dc1-amber-soft)]'
-                : 'border-dc1-border bg-dc1-surface-l1')
-            }
-          >
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-lg font-semibold text-dc1-text-primary">{t.name}</h3>
-              {t.highlight && (
-                <span className="rounded-full bg-dc1-amber px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dc1-void">
-                  Popular
-                </span>
-              )}
-            </div>
-            <p className="mt-3 font-mono text-3xl tabular-nums text-dc1-text-primary">
-              {t.monthlySar.toLocaleString()} <span className="text-base text-dc1-text-muted">SAR / mo</span>
-            </p>
-            <p className="mt-1 text-xs text-dc1-text-secondary">
-              ≈ ${(t.monthlySar / SAR_USD).toFixed(0)} USD · {t.discountPct}% off every model&apos;s PAYG rate
-            </p>
-            <ul className="mt-5 space-y-2 text-sm text-dc1-text-secondary">
-              <li>
-                <span className="text-dc1-text-primary">{t.monthlyCreditSar.toLocaleString()} SAR</span> platform credit
-                each month
-              </li>
-              <li>
-                <span className="text-dc1-text-primary">{t.discountPct}%</span> off every model&apos;s per-M-token PAYG
-                rate
-              </li>
-              <li>Unused credit rolls over for 30 days, then expires</li>
-              <li>Overage continues at PAYG rates — no hard cap</li>
-              <li className="text-xs text-dc1-text-muted">Best for: {t.bestFor}</li>
-            </ul>
-            <Link
-              href={`/renter/register?intent=subscribe&tier=${t.tier}`}
-              className={'btn btn-md mt-6 w-full ' + (t.highlight ? 'btn-primary' : 'btn-secondary')}
-            >
-              Start with {t.name}
-            </Link>
-          </div>
-        ))}
+    <div className="grid gap-3 border-t border-dc1-border pt-7 md:grid-cols-[0.36fr_0.64fr]">
+      <p className="text-xs font-semibold uppercase text-dc1-amber">{eyebrow}</p>
+      <div>
+        <h2 className="text-2xl font-semibold text-dc1-text-primary sm:text-3xl">{title}</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-dc1-text-secondary">{body}</p>
       </div>
-
-      {/* Per-class effective rate table */}
-      <div className="mt-8 overflow-x-auto rounded-xl border border-dc1-border">
-        <table className="w-full min-w-[760px] text-left text-sm">
-          <caption className="px-4 py-3 text-left text-sm font-semibold text-dc1-text-primary">
-            Effective halala/M-token rates by model class &amp; tier
-          </caption>
-          <thead className="bg-dc1-surface-l2 text-xs uppercase tracking-wider text-dc1-text-muted">
-            <tr>
-              <th scope="col" className="px-4 py-3 font-semibold">Model class</th>
-              <th scope="col" className="px-4 py-3 font-semibold">Examples</th>
-              <th scope="col" className="px-4 py-3 font-semibold text-right">PAYG</th>
-              <th scope="col" className="px-4 py-3 font-semibold text-right">Starter -15%</th>
-              <th scope="col" className="px-4 py-3 font-semibold text-right">Growth -22%</th>
-              <th scope="col" className="px-4 py-3 font-semibold text-right">Scale -30%</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-dc1-border bg-dc1-surface-l1">
-            {MODEL_CLASS_RATES.map((row) => (
-              <tr key={row.klass}>
-                <td className="px-4 py-3 font-semibold text-dc1-text-primary">{row.label}</td>
-                <td className="px-4 py-3 text-xs text-dc1-text-secondary">{row.examples}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-primary">
-                  {row.paygHalala} <span className="text-xs text-dc1-text-muted">
-                    (${(row.paygHalala / 100 / SAR_USD).toFixed(3)}/M)
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">
-                  {Math.ceil(row.paygHalala * 0.85)}
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-amber">
-                  {Math.ceil(row.paygHalala * 0.78)}
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">
-                  {Math.ceil(row.paygHalala * 0.70)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-6 rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5 text-sm text-dc1-text-secondary">
-        <p className="font-semibold text-dc1-text-primary">How the discount maths works</p>
-        <p className="mt-2">
-          Effective rate ={' '}
-          <code className="rounded bg-dc1-surface-l2 px-1 py-0.5 text-xs text-dc1-text-primary">
-            model_payg_rate × (1 − tier_discount)
-          </code>
-          . Example for Qwen 3.6-27B-MTP (Medium class, 150 halala/M PAYG): Starter (15% off) pays{' '}
-          <span className="font-mono">128 halala/M</span> · Growth (22% off) pays{' '}
-          <span className="font-mono">117 halala/M</span> · Scale (30% off) pays{' '}
-          <span className="font-mono">105 halala/M</span>. Subscription credit is consumed first
-          (oldest-expiring balance first), then PAYG balance picks up any overage. Above Scale:
-          contact us for a custom contract.
-        </p>
-      </div>
-    </section>
+    </div>
   )
 }
 
-interface ModelClassRate {
-  klass: 'tiny' | 'small' | 'medium' | 'large' | 'embedding'
+function Metric({
+  label,
+  value,
+  note,
+}: {
   label: string
-  examples: string
-  paygHalala: number
+  value: string
+  note: string
+}) {
+  return (
+    <div className="border-t border-dc1-border pt-4">
+      <p className="text-xs font-semibold uppercase text-dc1-text-muted">{label}</p>
+      <p className="mt-2 font-mono text-2xl tabular-nums text-dc1-text-primary">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-dc1-text-secondary">{note}</p>
+    </div>
+  )
 }
 
-// Source of truth: backend/migrations/017_cost_rates_model_class.sql.
-// Values mirrored here so the public pricing page does not require a
-// network round-trip to render. If the backend rate card moves, update
-// both this constant and the migration in the same PR.
-const MODEL_CLASS_RATES: ModelClassRate[] = [
-  { klass: 'tiny',      label: 'Tiny',      examples: 'TinyLlama 1B, qwen2.5vl:3b, Gemma-2B',         paygHalala: 15  },
-  { klass: 'small',     label: 'Small',     examples: 'qwen3:8b, Mistral-7B, Llama-3-8B, ALLaM-7B',   paygHalala: 30  },
-  { klass: 'medium',    label: 'Medium',    examples: 'Qwen 3.6-27B-MTP, Qwen2.5-Coder-32B',          paygHalala: 150 },
-  { klass: 'large',     label: 'Large',     examples: 'Future 70B class',                              paygHalala: 400 },
-  { klass: 'embedding', label: 'Embedding', examples: 'bge-m3',                                        paygHalala: 5   },
-]
+function RateTable() {
+  return (
+    <div className="overflow-x-auto border border-dc1-border bg-dc1-surface-l1">
+      <table className="w-full min-w-[820px] text-left text-sm">
+        <thead className="border-b border-dc1-border bg-dc1-surface-l2 text-xs uppercase text-dc1-text-muted">
+          <tr>
+            <th className="px-4 py-3 font-semibold">Model class</th>
+            <th className="px-4 py-3 font-semibold">Typical models</th>
+            <th className="px-4 py-3 font-semibold">Best fit</th>
+            <th className="px-4 py-3 text-right font-semibold">PAYG</th>
+            <th className="px-4 py-3 text-right font-semibold">Starter</th>
+            <th className="px-4 py-3 text-right font-semibold">Growth</th>
+            <th className="px-4 py-3 text-right font-semibold">Scale</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-dc1-border">
+          {MODEL_CLASS_RATES.map((row) => (
+            <tr key={row.klass} className="align-top">
+              <td className="px-4 py-4 font-semibold text-dc1-text-primary">{row.label}</td>
+              <td className="max-w-[260px] px-4 py-4 text-xs leading-5 text-dc1-text-secondary">{row.examples}</td>
+              <td className="max-w-[260px] px-4 py-4 text-xs leading-5 text-dc1-text-secondary">{row.use}</td>
+              <td className="px-4 py-4 text-right font-mono tabular-nums text-dc1-text-primary">
+                {row.paygHalala}
+                <span className="ml-1 text-xs text-dc1-text-muted">h/M</span>
+              </td>
+              {SUBSCRIPTION_TIERS.map((tier) => (
+                <td
+                  key={tier.tier}
+                  className={`px-4 py-4 text-right font-mono tabular-nums ${tier.tier === 'growth' ? 'text-dc1-amber' : 'text-dc1-text-secondary'}`}
+                >
+                  {discounted(row.paygHalala, tier.discountPct)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function SubscriptionLedger() {
+  return (
+    <div className="grid gap-0 border border-dc1-border bg-dc1-surface-l1 md:grid-cols-3">
+      {SUBSCRIPTION_TIERS.map((tier, index) => (
+        <article
+          key={tier.tier}
+          className={`p-5 ${index > 0 ? 'border-t border-dc1-border md:border-l md:border-t-0' : ''} ${tier.tier === 'growth' ? 'bg-dc1-surface-l2' : ''}`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-lg font-semibold text-dc1-text-primary">{tier.name}</h3>
+            {tier.tier === 'growth' && (
+              <span className="border border-dc1-amber px-2 py-0.5 text-[10px] font-semibold uppercase text-dc1-amber">
+                default
+              </span>
+            )}
+          </div>
+          <p className="mt-4 font-mono text-3xl tabular-nums text-dc1-text-primary">
+            {sar(tier.monthlySar)}
+            <span className="text-sm text-dc1-text-muted"> SAR/mo</span>
+          </p>
+          <dl className="mt-5 space-y-3 text-sm">
+            <div className="flex justify-between gap-4 border-t border-dc1-border pt-3">
+              <dt className="text-dc1-text-muted">Credit issued</dt>
+              <dd className="font-mono text-dc1-text-primary">{sar(tier.monthlySar)} SAR</dd>
+            </div>
+            <div className="flex justify-between gap-4 border-t border-dc1-border pt-3">
+              <dt className="text-dc1-text-muted">Rate discount</dt>
+              <dd className="font-mono text-dc1-amber">{tier.discountPct}%</dd>
+            </div>
+            <div className="border-t border-dc1-border pt-3">
+              <dt className="text-dc1-text-muted">Use case</dt>
+              <dd className="mt-1 leading-5 text-dc1-text-secondary">{tier.bestFor}</dd>
+            </div>
+          </dl>
+          <Link href={`/renter/register?intent=subscribe&tier=${tier.tier}`} className="btn btn-secondary btn-sm mt-5 w-full">
+            Choose {tier.name}
+          </Link>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+function GpuTable() {
+  return (
+    <div className="overflow-x-auto border border-dc1-border bg-dc1-surface-l1">
+      <table className="w-full min-w-[680px] text-left text-sm">
+        <thead className="border-b border-dc1-border bg-dc1-surface-l2 text-xs uppercase text-dc1-text-muted">
+          <tr>
+            <th className="px-4 py-3 font-semibold">GPU</th>
+            <th className="px-4 py-3 font-semibold">Class</th>
+            <th className="px-4 py-3 text-right font-semibold">Min VRAM</th>
+            <th className="px-4 py-3 text-right font-semibold">SAR/hour</th>
+            <th className="px-4 py-3 text-right font-semibold">Halala/min</th>
+            <th className="px-4 py-3 text-right font-semibold">USD/hour</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-dc1-border">
+          {GPU_RATES.map((row) => (
+            <tr key={row.display}>
+              <td className="px-4 py-3 font-semibold text-dc1-text-primary">{row.display}</td>
+              <td className="px-4 py-3 text-dc1-text-secondary">{row.tier}</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">{row.minVramGb} GB</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-amber">{row.ratePerHourSar.toFixed(2)}</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">{row.ratePerMinHalala}</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-muted">{row.ratePerHourUsd.toFixed(3)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-dc1-void" dir="ltr">
+    <div className={`${serif.variable} min-h-screen bg-dc1-void text-dc1-text-primary`} dir="ltr">
       <Header />
 
-      <main className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Hero */}
-        <section aria-labelledby="pricing-heading" className="mb-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dc1-amber">PRICING</p>
-          <h1 id="pricing-heading" className="mt-2 text-4xl font-bold text-dc1-text-primary sm:text-5xl">
-            Pricing in SAR. Two SKUs, one balance.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base text-dc1-text-secondary">
-            Pay-as-you-go per million tokens, or upgrade to a monthly subscription that gives you the same tokens at a
-            discount. Every signup gets a 100 SAR starter credit — no card required.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/renter/register" className="btn btn-primary btn-md">
-              Start free (100 SAR credit)
-            </Link>
-            <Link href="/quickstart" className="btn btn-secondary btn-md">
-              Read the quickstart
-            </Link>
+      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+        <section aria-labelledby="pricing-heading" className="grid gap-8 border-b border-dc1-border pb-10 lg:grid-cols-[0.58fr_0.42fr]">
+          <div>
+            <p className="text-xs font-semibold uppercase text-dc1-amber">Pricing</p>
+            <h1
+              id="pricing-heading"
+              className={`${serif.className} mt-4 max-w-3xl text-5xl leading-[0.98] text-dc1-text-primary sm:text-6xl lg:text-7xl`}
+            >
+              Saudi GPU pricing without hidden starts.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-dc1-text-secondary">
+              DCP has two renter SKUs: pay-as-you-go balance and monthly credit commits.
+              The API checks balance before dispatch. If credit is missing, it returns
+              <code className="mx-1 bg-dc1-surface-l2 px-1.5 py-0.5 font-mono text-sm text-dc1-amber">402 insufficient_balance</code>
+              before any provider starts work.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link href="/renter/register" className="btn btn-primary btn-md">
+                Start with 100 SAR
+              </Link>
+              <Link href="/docs/quickstart" className="btn btn-secondary btn-md">
+                API quickstart
+              </Link>
+            </div>
           </div>
+
+          <aside className="border border-dc1-border bg-dc1-surface-l1 p-5">
+            <p className="text-sm font-semibold text-dc1-text-primary">Balance contract</p>
+            <div className="mt-5 grid gap-5">
+              <Metric label="Starter credit" value="100 SAR" note="Issued on renter signup. It is consumed before paid balance." />
+              <Metric label="Minimum top-up" value="5 SAR" note="Card top-ups run through Moyasar. Bank transfer top-ups stay admin-confirmed." />
+              <Metric label="Pre-flight gate" value="HTTP 402" note="Returned before dispatch when estimated cost exceeds available balance." />
+            </div>
+          </aside>
         </section>
 
-        {/* Subscription tiers */}
-        <SubscriptionTiersSection />
-
-        {/* Rate table */}
-        <section aria-labelledby="rate-table-heading" className="mb-14">
-          <h2 id="rate-table-heading" className="text-xl font-semibold text-dc1-text-primary">
-            GPU rate card
-          </h2>
-          <p className="mt-1 text-sm text-dc1-text-secondary">
-            Rates are charged per GPU-hour of active compute, rounded up to the nearest minute. Prices below are sourced
-            verbatim from <code>backend/src/config/pricing.js</code> at SAR/USD = {SAR_USD}.
-          </p>
-          <div className="mt-4 overflow-x-auto rounded-xl border border-dc1-border">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-dc1-surface-l2 text-xs uppercase tracking-wider text-dc1-text-muted">
-                <tr>
-                  <th scope="col" className="px-4 py-3 font-semibold">GPU</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Tier</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Min VRAM</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">SAR / hour</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Halala / minute</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">vs Vast.ai</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-dc1-border bg-dc1-surface-l1">
-                {RATE_ROWS.map((row) => {
-                  const savings = Math.max(
-                    0,
-                    Math.round(((row.vastAiUsdHour - row.ratePerHourUsd) / row.vastAiUsdHour) * 100),
-                  )
-                  return (
-                    <tr key={row.display}>
-                      <td className="px-4 py-3 font-medium text-dc1-text-primary">{row.display}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_PILL[row.tier]}`}>
-                          {TIER_LABEL[row.tier]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-dc1-text-secondary">{row.minVramGb} GB</td>
-                      <td className="px-4 py-3 font-mono tabular-nums text-dc1-amber">
-                        {row.ratePerHourSar.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 font-mono tabular-nums text-dc1-text-secondary">
-                        {row.ratePerMinHalala}
-                      </td>
-                      <td className="px-4 py-3 text-emerald-300">−{savings}%</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-xs text-dc1-text-muted">
-            Comparison column uses public Vast.ai marketplace prices captured March 2026. Your actual savings depend on
-            workload, batch size, and queue priority class.
-          </p>
-        </section>
-
-        {/* Sample cost */}
-        <section aria-labelledby="sample-cost-heading" className="mb-14">
-          <h2 id="sample-cost-heading" className="text-xl font-semibold text-dc1-text-primary">
-            What a real job costs
-          </h2>
-          <p className="mt-1 text-sm text-dc1-text-secondary">
-            Concrete numbers using the standard pricing class (no surcharge), based on the rate table above.
-          </p>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <CalculatorRow
-              label="5-minute RTX 3090 call"
-              value="0.05 SAR"
-              hint="5 halala/minute × 5 minutes on a 3090."
-            />
-            <CalculatorRow
-              label="1-hour A100 fine-tune"
-              value="4.50 SAR"
-              hint="A100 at 4.50 SAR/hour, settled to the second."
-            />
-            <CalculatorRow
-              label="100 SAR starter credit"
-              value="~66M tokens"
-              hint="At Qwen 3.6-27B-MTP PAYG (150 halala/M). ~333M tokens on small models, ~25M on large."
-            />
-          </div>
-          <p className="mt-3 text-xs text-dc1-text-muted">
-            Rule of thumb: 1M tokens of typical chat output ≈ ~750K English words ≈ a ~300-page novel. On a 3090
-            serving Qwen3 at ~85 tok/s, that's roughly 3.3 hours — about 1.65 SAR of compute.
-          </p>
-        </section>
-
-        {/* What's included */}
-        <section aria-labelledby="included-heading" className="mb-14">
-          <h2 id="included-heading" className="text-xl font-semibold text-dc1-text-primary">
-            What's included
-          </h2>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {[
-              {
-                title: 'Saudi-hosted compute',
-                body: 'Every provider is registered, vetted, and physically located inside Saudi Arabia. No cross-border data egress for routine inference.',
-              },
-              {
-                title: 'PDPL-compliant by default',
-                body: 'Prompts and completions are never used to train models. Audit logs are retained only as long as billing reconciliation requires.',
-              },
-              {
-                title: 'OpenAI-compatible API',
-                body: 'Drop-in for the OpenAI SDK at api.dcp.sa/v1. Bearer, x-renter-key, or ?key= auth — all three accepted.',
-              },
-              {
-                title: 'Refund on failure',
-                body: 'Jobs the platform fails to deliver are credited back automatically. Unused prepaid balance is refundable within 14 days.',
-              },
-            ].map((item) => (
-              <div key={item.title} className="rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5">
-                <p className="text-sm font-semibold text-dc1-text-primary">{item.title}</p>
-                <p className="mt-2 text-sm text-dc1-text-secondary">{item.body}</p>
+        <section aria-labelledby="flow-heading" className="py-10">
+          <SectionHeader
+            eyebrow="Balance flow"
+            title="How money moves before a request reaches a GPU"
+            body="The important parts are explicit: credit order, optional auto-top-up, and the insufficient-balance gate. This is what keeps billing predictable for renters and prevents unpaid provider work."
+          />
+          <div id="flow-heading" className="mt-6 border border-dc1-border bg-dc1-surface-l1">
+            {FLOW.map((item, index) => (
+              <div key={item.title} className={`grid gap-4 p-5 md:grid-cols-[0.24fr_0.56fr_0.2fr] ${index > 0 ? 'border-t border-dc1-border' : ''}`}>
+                <p className="font-mono text-sm tabular-nums text-dc1-amber">0{index + 1}</p>
+                <div>
+                  <h3 className="font-semibold text-dc1-text-primary">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-dc1-text-secondary">{item.body}</p>
+                </div>
+                <p className="text-sm text-dc1-text-muted md:text-right">{item.meta}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* FAQ */}
-        <section aria-labelledby="faq-heading" className="mb-12">
-          <h2 id="faq-heading" className="text-xl font-semibold text-dc1-text-primary">
-            FAQ
-          </h2>
-          <div className="mt-4 space-y-3">
-            {FAQ.map((item) => (
-              <details
-                key={item.q}
-                className="group rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5 [&_summary::-webkit-details-marker]:hidden"
-              >
-                <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-semibold text-dc1-text-primary">
-                  <span>{item.q}</span>
-                  <span className="text-dc1-amber transition group-open:rotate-45">+</span>
-                </summary>
-                <div className="mt-3 text-sm text-dc1-text-secondary">{item.a}</div>
-              </details>
-            ))}
+        <section aria-labelledby="model-rates-heading" className="py-10">
+          <SectionHeader
+            eyebrow="Model classes"
+            title="Per-million-token rates by model class"
+            body="Token rates are class-based so renters can estimate before picking a model. Subscription discounts multiply each class rate; premium models remain premium on every tier."
+          />
+          <div id="model-rates-heading" className="mt-6">
+            <RateTable />
+          </div>
+          <p className="mt-3 text-xs leading-5 text-dc1-text-muted">
+            h/M means halala per million tokens. Source: backend model-class rate table. The live API may return only models whose providers pass catalog and routing checks.
+          </p>
+        </section>
+
+        <section aria-labelledby="subscriptions-heading" className="py-10">
+          <SectionHeader
+            eyebrow="Monthly commits"
+            title="Subscription credit is a discount ledger, not a different product"
+            body="Each plan issues the same amount in platform credit every month. The discount applies to model-class token rates, then PAYG balance covers any overage."
+          />
+          <div id="subscriptions-heading" className="mt-6">
+            <SubscriptionLedger />
           </div>
         </section>
 
-        {/* Footer CTA */}
-        <section className="rounded-2xl border border-dc1-border bg-dc1-surface-l1 p-8 text-center">
-          <h2 className="text-2xl font-bold text-dc1-text-primary">Ready to ship?</h2>
-          <p className="mt-2 text-sm text-dc1-text-secondary">
-            Read the quickstart — your first call takes under two minutes.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <Link href="/quickstart" className="btn btn-primary btn-md">
-              Open quickstart
-            </Link>
-            <Link href="/status" className="btn btn-secondary btn-md">
-              Check live status
-            </Link>
+        <section aria-labelledby="gpu-rates-heading" className="py-10">
+          <SectionHeader
+            eyebrow="GPU time"
+            title="Raw GPU-hour floor for jobs that bill by active runtime"
+            body="Some control-plane jobs still settle against active GPU time. The values below mirror the backend GPU rate table at SAR/USD 3.75."
+          />
+          <div id="gpu-rates-heading" className="mt-6">
+            <GpuTable />
+          </div>
+        </section>
+
+        <section aria-labelledby="examples-heading" className="py-10">
+          <SectionHeader
+            eyebrow="Examples"
+            title="Concrete balances, before a renter ships traffic"
+            body="These examples are intentionally plain. They show how the same balance behaves across token classes, auto-top-up, and failed delivery."
+          />
+          <div id="examples-heading" className="mt-6 grid gap-4 lg:grid-cols-[0.42fr_0.58fr]">
+            <div className="border border-dc1-border bg-dc1-surface-l1 p-5">
+              <p className="font-mono text-4xl tabular-nums text-dc1-amber">333M</p>
+              <p className="mt-2 text-sm font-semibold text-dc1-text-primary">Approximate small-model tokens from starter credit</p>
+              <p className="mt-2 text-sm leading-6 text-dc1-text-secondary">
+                100 SAR starter credit at 30 halala per million tokens gives roughly 333 million small-class tokens before paid balance is needed.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Metric label="Medium class" value="66M tokens" note="100 SAR at 150 halala/M, before subscription discounts." />
+              <Metric label="Auto-top-up cap" value="renter set" note="Threshold, recharge amount, and monthly cap are configured from billing settings." />
+              <Metric label="Failed delivery" value="credited back" note="Undelivered jobs are credited automatically; unused paid balance can enter refund review." />
+              <Metric label="Corporate billing" value="available" note="Monthly invoicing is available through billing@dcp.sa for VAT-ready accounts." />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="policy-heading" className="grid gap-6 border border-dc1-border bg-dc1-surface-l1 p-6 md:grid-cols-[0.35fr_0.65fr]">
+          <div>
+            <p className="text-xs font-semibold uppercase text-dc1-amber">Policy</p>
+            <h2 id="policy-heading" className="mt-3 text-2xl font-semibold text-dc1-text-primary">Refunds and data residency</h2>
+          </div>
+          <div className="grid gap-5 text-sm leading-6 text-dc1-text-secondary">
+            <p>
+              Refund requests for paid top-ups are submitted from the renter payment record and reviewed by an admin.
+              Approved card refunds are sent through Moyasar when the original payment has a Moyasar id; bank-transfer
+              or sandbox records use the internal/manual refund path.
+            </p>
+            <p>
+              DCP providers are vetted for Saudi-hosted compute. Prompts and completions are not used for model training,
+              and billing records are retained for reconciliation and audit.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/legal/terms-v2" className="text-dc1-amber hover:underline">Terms</Link>
+              <Link href="/legal/privacy-v2" className="text-dc1-amber hover:underline">Privacy</Link>
+              <a href="mailto:billing@dcp.sa" className="text-dc1-amber hover:underline">billing@dcp.sa</a>
+            </div>
           </div>
         </section>
       </main>
