@@ -249,6 +249,27 @@ interface NotificationPosturePayload {
   }
 }
 
+interface AdminAuditEntry {
+  id?: number | string
+  action?: string
+  admin_user_id?: string | null
+  target_type?: string | null
+  target_id?: string | number | null
+  details?: string | null
+  timestamp?: string | null
+}
+
+interface AdminAuditPayload {
+  entries?: AdminAuditEntry[]
+  audit_log?: AdminAuditEntry[]
+  pagination?: {
+    page?: number
+    limit?: number
+    total?: number
+    total_pages?: number
+  }
+}
+
 interface ApprovalDecisionResult {
   success?: boolean
   provider_id?: number
@@ -379,6 +400,13 @@ function missionAssigneeRows(payload: MissionAssigneesPayload | null): MissionAs
 function missionGoalRows(payload: MissionGoalsPayload | null): MissionGoal[] {
   if (!payload || !Array.isArray(payload.goals)) return []
   return payload.goals
+}
+
+function adminAuditRows(payload: AdminAuditPayload | null): AdminAuditEntry[] {
+  if (!payload) return []
+  if (Array.isArray(payload.entries)) return payload.entries
+  if (Array.isArray(payload.audit_log)) return payload.audit_log
+  return []
 }
 
 function listSize(value: unknown[] | undefined): number {
@@ -910,6 +938,7 @@ export default function V2AdminPage() {
   const [missionPulse, setMissionPulse] = useState<MissionPulsePayload | null>(null)
   const [accessPolicy, setAccessPolicy] = useState<AccessPolicyPayload | null>(null)
   const [notificationPosture, setNotificationPosture] = useState<NotificationPosturePayload | null>(null)
+  const [adminAuditEntries, setAdminAuditEntries] = useState<AdminAuditEntry[]>([])
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -946,6 +975,7 @@ export default function V2AdminPage() {
         missionPulseRes,
         accessPolicyRes,
         notificationPostureRes,
+        adminAuditRes,
       ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
@@ -965,6 +995,7 @@ export default function V2AdminPage() {
         fetchJson<MissionPulsePayload>('/mission/pulse?hours=24', token),
         fetchJson<AccessPolicyPayload>('/admin/access/policy', token),
         fetchJson<NotificationPosturePayload>('/admin/notifications/posture', token),
+        fetchJson<AdminAuditPayload>('/admin/audit?limit=8', token),
       ])
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
@@ -984,6 +1015,7 @@ export default function V2AdminPage() {
       setMissionPulse(missionPulseRes)
       setAccessPolicy(accessPolicyRes)
       setNotificationPosture(notificationPostureRes)
+      setAdminAuditEntries(adminAuditRows(adminAuditRes))
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -1158,6 +1190,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#notifications" className="rail-link">
             <span>NT</span><Bi en="Notify" ar="التنبيه" />
+          </a>
+          <a href="#audit" className="rail-link">
+            <span>AU</span><Bi en="Audit" ar="التدقيق" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -1616,6 +1651,42 @@ export default function V2AdminPage() {
                   ar="تعرض إدارة v2 حالة التنبيهات فقط. تبقى رسائل الاختبار وتعديل القنوات في لوحة الإدارة الحالية حتى تصبح قوائم الأحداث وملاحظات الموافقة وأغلفة التدقيق واضحة."
                 />
               </p>
+            </section>
+
+            <section className="audit-trail" id="audit" aria-label="Recent admin audit trail">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Accountability layer" ar="طبقة المساءلة" /></p>
+                  <h2><Bi en="Recent audit trail" ar="سجل التدقيق الحديث" /></h2>
+                </div>
+                <Link href="/admin/security" prefetch={false}>
+                  <Bi en="Full log" ar="السجل الكامل" />
+                </Link>
+              </div>
+
+              <div className="audit-list">
+                {adminAuditEntries.slice(0, 8).map((entry, index) => (
+                  <article key={entry.id || `${entry.action || 'audit'}-${index}`} className="audit-entry">
+                    <div>
+                      <span>{entry.action || 'admin_event'}</span>
+                      <strong>{entry.target_type || 'system'}{entry.target_id != null ? ` #${entry.target_id}` : ''}</strong>
+                    </div>
+                    <p>{entry.details || 'No audit detail recorded.'}</p>
+                    <small>{formatDate(entry.timestamp)} · {entry.admin_user_id || 'admin token'}</small>
+                  </article>
+                ))}
+
+                {adminAuditEntries.length === 0 && (
+                  <article className="audit-entry empty">
+                    <div>
+                      <span><Bi en="Audit trail" ar="سجل التدقيق" /></span>
+                      <strong><Bi en="No recent entries" ar="لا توجد إدخالات حديثة" /></strong>
+                    </div>
+                    <p><Bi en="When admins approve providers, edit notification channels, or perform guarded actions, the latest entries appear here." ar="عندما يوافق المسؤولون على المزوّدين أو يعدّلون قنوات التنبيه أو ينفذون إجراءات محروسة، تظهر أحدث الإدخالات هنا." /></p>
+                    <small><Bi en="read-only evidence" ar="دليل قراءة فقط" /></small>
+                  </article>
+                )}
+              </div>
             </section>
 
             <section className="admin-two-col">

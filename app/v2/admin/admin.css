@@ -1165,6 +1165,88 @@ body {
   font-size: 13.5px;
 }
 
+.audit-trail {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.audit-trail .section-head a {
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.audit-trail .section-head a:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.audit-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.audit-entry {
+  min-height: 166px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 13px;
+}
+
+.audit-entry span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  overflow-wrap: anywhere;
+}
+
+.audit-entry strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.audit-entry p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.audit-entry small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  overflow-wrap: anywhere;
+}
+
+.audit-entry.empty {
+  grid-column: 1 / -1;
+  min-height: 132px;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -1527,6 +1609,7 @@ body {
   .mission-layout,
   .access-grid,
   .notification-grid,
+  .audit-list,
   .lane-grid,
   .future-map {
     grid-template-columns: 1fr;
@@ -1551,6 +1634,10 @@ body {
   .notification-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .audit-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -1571,6 +1658,7 @@ body {
   .approval-facts,
   .access-ladder,
   .notification-grid,
+  .audit-list,
   .lane-stats,
   .workflow-grid {
     grid-template-columns: 1fr;

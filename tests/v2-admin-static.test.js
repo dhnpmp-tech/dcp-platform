@@ -19,6 +19,7 @@ assert(page.includes('/admin/fleet/alerts'), 'v2 admin should load fleet alerts'
 assert(page.includes('/admin/finance/reconciliation?days=7'), 'v2 admin should load finance reconciliation');
 assert(page.includes('/admin/errors?limit=20'), 'v2 admin should load recent error context');
 assert(page.includes('/admin/control-plane/signals?limit=5'), 'v2 admin should load control-plane signals');
+assert(page.includes('/admin/audit?limit=8'), 'v2 admin should load recent admin audit entries');
 assert(page.includes('/mission/overview'), 'v2 admin should load mission overview context');
 assert(page.includes('/mission/tasks?status=todo,in_progress,blocked,review'), 'v2 admin should load open mission tasks');
 assert(page.includes('/mission/assignees'), 'v2 admin should load the human and agent roster');
@@ -59,6 +60,11 @@ assert(page.includes('notificationNotifyState'), 'v2 admin should display agent 
 assert(page.includes('redacted destination only'), 'v2 admin should state that notification destinations are redacted');
 assert(page.includes('v2 admin shows notification posture only'), 'v2 admin should keep notification writes outside the v2 surface');
 assert(!page.includes('/admin/notifications/config'), 'v2 admin should not consume raw notification config');
+assert(page.includes('Recent audit trail'), 'v2 admin should expose a recent audit trail');
+assert(page.includes('Accountability layer'), 'v2 admin should label audit as accountability context');
+assert(page.includes('adminAuditRows'), 'v2 admin should normalize admin audit payloads');
+assert(page.includes('adminAuditEntries'), 'v2 admin should render recent admin audit entries');
+assert(page.includes('No recent entries'), 'v2 admin should render an empty audit state');
 assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
 assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
 assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
@@ -84,6 +90,9 @@ assert(css.includes('.access-ladder'), 'v2 admin should style the access permiss
 assert(css.includes('.notification-posture'), 'v2 admin should style notification posture');
 assert(css.includes('.notification-grid'), 'v2 admin should style notification routing cards');
 assert(css.includes('.notification-policy'), 'v2 admin should style the notification policy note');
+assert(css.includes('.audit-trail'), 'v2 admin should style the audit trail');
+assert(css.includes('.audit-list'), 'v2 admin should style audit entries');
+assert(css.includes('.audit-entry'), 'v2 admin should style individual audit cards');
 assert(css.includes('.lane-grid'), 'v2 admin should style operational lanes');
 assert(css.includes('min-height: 100dvh'), 'v2 admin should use dynamic viewport height for mobile stability');
 assert(!css.includes('h-screen'), 'v2 admin should not use unstable h-screen layouts');
