@@ -225,6 +225,62 @@ interface FleetAlertsPayload {
   generated_at?: string
 }
 
+interface ProbeEvidenceGate {
+  gate?: string
+  state?: 'pass' | 'fail' | 'unknown' | string
+  detail?: string
+}
+
+interface ProbeEvidenceRow {
+  provider_id?: number | string
+  name?: string | null
+  email?: string | null
+  gpu_model?: string | null
+  status?: string | null
+  is_paused?: boolean | null
+  last_heartbeat?: string | null
+  heartbeat_age_seconds?: number | null
+  endpoint_reachable?: boolean | null
+  endpoint_probed_at?: string | null
+  endpoint_probe_error?: string | null
+  endpoint_probe_failures?: number | null
+  wg_handshake_age_s?: number | null
+  wg_tunnel_healthy?: boolean | null
+  cached_models?: string[] | null
+  cached_models_count?: number | null
+  verified_online?: boolean | null
+  verified_at?: string | null
+  verified_models?: string[] | null
+  verified_models_count?: number | null
+  verify_chat_ok?: boolean | null
+  verify_latency_ms?: number | null
+  verify_error?: string | null
+  verify_endpoint?: string | null
+  focus_code?: string | null
+  recovery_focus?: string | null
+  recommended_next_action?: string | null
+  severity?: Severity | string | null
+  agent_mode?: AgentMode | string | null
+  gates?: ProbeEvidenceGate[] | null
+}
+
+interface ProbeEvidencePayload {
+  generated_at?: string
+  summary?: {
+    total?: number
+    online?: number
+    endpoint_reachable?: number
+    verified_online?: number
+    route_blocked?: number
+    inference_blocked?: number
+    timeout?: number
+    model_gap?: number
+    ready?: number
+    focus_counts?: Record<string, number>
+  }
+  providers?: ProbeEvidenceRow[]
+}
+
 interface FleetProviderRow {
   id?: number | string
   name?: string | null
@@ -867,6 +923,10 @@ function fleetAlertRows(payload: FleetAlertsPayload | null): FleetAlertRow[] {
   return Array.isArray(payload?.alerts) ? payload.alerts : []
 }
 
+function probeEvidenceRows(payload: ProbeEvidencePayload | null): ProbeEvidenceRow[] {
+  return Array.isArray(payload?.providers) ? payload.providers : []
+}
+
 function errorEventRows(payload: ErrorsPayload | null): ErrorEventRow[] {
   return Array.isArray(payload?.errors) ? payload.errors : []
 }
@@ -1018,6 +1078,122 @@ function buildServingRecoveryItem(provider: FleetProviderRow): ServingRecoveryIt
       : 'أبقِ هذا المزوّد تحت المراقبة وأكد وجود حركة مقاسة قبل توسيع الوعود العامة.',
     severity: blockers.length > 0 ? 'watch' : 'routine',
     agentMode: blockers.length > 0 ? 'propose' : 'read',
+  }
+}
+
+function probeEvidenceToFleetProvider(row: ProbeEvidenceRow): FleetProviderRow {
+  return {
+    id: row.provider_id,
+    name: row.name,
+    email: row.email,
+    gpu_model: row.gpu_model,
+    last_heartbeat: row.last_heartbeat,
+    heartbeat_age_seconds: row.heartbeat_age_seconds,
+    status: row.status,
+    status_claimed: row.status,
+    jobs_running: 0,
+    jobs_failed_24h: 0,
+    container_restart_count_24h: 0,
+    verified_online: row.verified_online,
+    verified_at: row.verified_at,
+    verified_models: row.verified_models,
+    verify_chat_ok: row.verify_chat_ok,
+    verify_latency_ms: row.verify_latency_ms,
+    verify_error: row.verify_error,
+    verify_endpoint: row.verify_endpoint,
+    wg_handshake_age_s: row.wg_handshake_age_s,
+    wg_tunnel_healthy: row.wg_tunnel_healthy,
+    endpoint_reachable: row.endpoint_reachable,
+    endpoint_probed_at: row.endpoint_probed_at,
+    cached_models: row.cached_models,
+    cached_models_count: row.cached_models_count,
+  }
+}
+
+function probeFocusCopy(row: ProbeEvidenceRow): { focusEn: string; focusAr: string; actionEn: string; actionAr: string } | null {
+  const code = row.focus_code || ''
+  if (code === 'endpoint_route') {
+    return {
+      focusEn: 'Endpoint route',
+      focusAr: 'مسار النقطة',
+      actionEn: 'From the VPS, confirm the provider endpoint route, bind address, and runtime port before changing catalog state.',
+      actionAr: 'من الخادم، أكد مسار نقطة المزوّد وعنوان الربط والمنفذ قبل تغيير حالة الكتالوج.',
+    }
+  }
+  if (code === 'inference_timeout') {
+    return {
+      focusEn: 'Inference timeout',
+      focusAr: 'انتهاء مهلة الاستدلال',
+      actionEn: 'Run /v1/models and a one-token inference from the VPS, then inspect runtime logs and catalog aliases.',
+      actionAr: 'شغّل /v1/models واستدلالاً برمز واحد من الخادم، ثم افحص سجلات وقت التشغيل ومرادفات الكتالوج.',
+    }
+  }
+  if (code === 'earned_probe') {
+    return {
+      focusEn: 'Inference probe',
+      focusAr: 'فحص الاستدلال',
+      actionEn: 'Run /v1/models and a one-token inference from the VPS, then inspect runtime logs and catalog aliases.',
+      actionAr: 'شغّل /v1/models واستدلالاً برمز واحد من الخادم، ثم افحص سجلات وقت التشغيل ومرادفات الكتالوج.',
+    }
+  }
+  if (code === 'model_coverage') {
+    return {
+      focusEn: 'Model coverage',
+      focusAr: 'تغطية النماذج',
+      actionEn: 'Confirm daemon-reported cached models and catalog aliases before this provider counts toward model availability.',
+      actionAr: 'أكد النماذج المخزنة التي يرسلها الخادم المحلي ومرادفات الكتالوج قبل احتساب المزوّد ضمن توفر النماذج.',
+    }
+  }
+  if (code === 'wireguard') {
+    return {
+      focusEn: 'WireGuard freshness',
+      focusAr: 'حداثة WireGuard',
+      actionEn: 'Confirm handshake age, peer IP, and tunnel health in the verified fleet console before touching routing.',
+      actionAr: 'أكد عمر المصافحة وعنوان النظير وصحة النفق في لوحة الأسطول المتحققة قبل لمس التوجيه.',
+    }
+  }
+  if (code === 'heartbeat') {
+    return {
+      focusEn: 'Daemon heartbeat',
+      focusAr: 'نبض الخادم المحلي',
+      actionEn: 'Confirm the provider daemon is running and heartbeating before catalog or routing decisions use this provider.',
+      actionAr: 'أكد أن خادم المزوّد المحلي يعمل ويرسل النبض قبل استخدامه في قرارات الكتالوج أو التوجيه.',
+    }
+  }
+  if (code === 'ready') {
+    return {
+      focusEn: 'Ready provider',
+      focusAr: 'مزوّد جاهز',
+      actionEn: 'Keep this provider under observation and confirm metered traffic before widening public promises.',
+      actionAr: 'أبقِ هذا المزوّد تحت المراقبة وأكد وجود حركة مقاسة قبل توسيع الوعود العامة.',
+    }
+  }
+  return null
+}
+
+function buildServingRecoveryItemFromProbe(row: ProbeEvidenceRow): ServingRecoveryItem {
+  const provider = probeEvidenceToFleetProvider(row)
+  const fallback = buildServingRecoveryItem(provider)
+  const copy = probeFocusCopy(row)
+  const severity = row.severity === 'critical' || row.severity === 'watch' || row.severity === 'routine'
+    ? row.severity
+    : fallback.severity
+  const agentMode = row.agent_mode === 'read' || row.agent_mode === 'notify' || row.agent_mode === 'propose' || row.agent_mode === 'guarded'
+    ? row.agent_mode
+    : fallback.agentMode
+  const gateDetail = Array.isArray(row.gates)
+    ? row.gates.map((gate) => `${gate.gate || 'gate'} ${gate.state || 'unknown'}`).join(' · ')
+    : fallback.detail
+  return {
+    ...fallback,
+    key: String(row.provider_id || fallback.key),
+    focusEn: copy?.focusEn || row.recovery_focus || fallback.focusEn,
+    focusAr: copy?.focusAr || fallback.focusAr,
+    actionEn: copy?.actionEn || row.recommended_next_action || fallback.actionEn,
+    actionAr: copy?.actionAr || fallback.actionAr,
+    detail: gateDetail,
+    severity,
+    agentMode,
   }
 }
 
@@ -1557,6 +1733,7 @@ export default function V2AdminPage() {
   const [approvalQueue, setApprovalQueue] = useState<ApprovalQueuePayload | null>(null)
   const [fleet, setFleet] = useState<FleetHealthPayload | null>(null)
   const [fleetAlerts, setFleetAlerts] = useState<FleetAlertsPayload | null>(null)
+  const [probeEvidence, setProbeEvidence] = useState<ProbeEvidencePayload | null>(null)
   const [reconciliation, setReconciliation] = useState<ReconciliationPayload | null>(null)
   const [errorsPayload, setErrorsPayload] = useState<ErrorsPayload | null>(null)
   const [signals, setSignals] = useState<ControlPlaneSignalsPayload | null>(null)
@@ -1607,6 +1784,7 @@ export default function V2AdminPage() {
         approvalRes,
         fleetRes,
         fleetAlertsRes,
+        probeEvidenceRes,
         reconciliationRes,
         errorsRes,
         signalsRes,
@@ -1634,6 +1812,7 @@ export default function V2AdminPage() {
         fetchJson<ApprovalQueuePayload>('/admin/providers/approval-queue?limit=100', token),
         fetchJson<FleetHealthPayload>('/admin/fleet/health', token),
         fetchJson<FleetAlertsPayload>('/admin/fleet/alerts', token),
+        fetchJson<ProbeEvidencePayload>('/admin/fleet/probe-evidence?limit=50', token),
         fetchJson<ReconciliationPayload>('/admin/finance/reconciliation?days=7', token),
         fetchJson<ErrorsPayload>('/admin/errors?limit=20', token),
         fetchJson<ControlPlaneSignalsPayload>('/admin/control-plane/signals?limit=5', token),
@@ -1661,6 +1840,7 @@ export default function V2AdminPage() {
       setApprovalQueue(approvalRes)
       setFleet(fleetRes)
       setFleetAlerts(fleetAlertsRes)
+      setProbeEvidence(probeEvidenceRes)
       setReconciliation(reconciliationRes)
       setErrorsPayload(errorsRes)
       setSignals(signalsRes)
@@ -1882,9 +2062,13 @@ export default function V2AdminPage() {
   const missionWritePolicy = accessPolicy?.mission_surface?.write_policy || 'unknown'
   const agentWriteState = accessPolicy?.agent_permissions?.find((permission) => permission.level === 'guarded_write')?.state || 'unknown'
   const fleetProviderList = fleetProviderRows(fleet)
+  const probeEvidenceList = probeEvidenceRows(probeEvidence)
+  const hasProbeEvidence = probeEvidence !== null
   const fleetReadyProviders = fleetProviderList.filter((provider) => fleetProviderBlockers(provider).length === 0)
   const fleetBlockedProviders = fleetProviderList.filter((provider) => fleetProviderBlockers(provider).length > 0)
-  const fleetEndpointReachable = fleetProviderList.filter((provider) => provider.endpoint_reachable === true).length
+  const fleetEndpointReachable = probeEvidence?.summary?.endpoint_reachable != null
+    ? toNumber(probeEvidence.summary.endpoint_reachable)
+    : fleetProviderList.filter((provider) => provider.endpoint_reachable === true).length
   const fleetModelReady = fleetProviderList.filter((provider) => (toNumber(provider.cached_models_count) || fleetCachedModels(provider).length) > 0).length
   const fleetProviderPreview = [...fleetProviderList]
     .sort((a, b) => {
@@ -1895,8 +2079,10 @@ export default function V2AdminPage() {
       return toNumber(a.id) - toNumber(b.id)
     })
     .slice(0, 6)
-  const servingRecoveryRows = (fleetBlockedProviders.length > 0 ? fleetBlockedProviders : fleetProviderList)
-    .map(buildServingRecoveryItem)
+  const servingRecoveryRows = hasProbeEvidence
+    ? probeEvidenceList.map(buildServingRecoveryItemFromProbe)
+    : (fleetBlockedProviders.length > 0 ? fleetBlockedProviders : fleetProviderList).map(buildServingRecoveryItem)
+  const servingRecoveryPreview = servingRecoveryRows
     .sort((a, b) => {
       const bySeverity = severityRank(a.severity) - severityRank(b.severity)
       if (bySeverity !== 0) return bySeverity
@@ -1904,9 +2090,16 @@ export default function V2AdminPage() {
     })
     .slice(0, 5)
   const servingRecoveryCritical = servingRecoveryRows.filter((item) => item.severity === 'critical').length
-  const servingInferenceProbeBlocked = fleetProviderList.filter((provider) => provider.endpoint_reachable === true && provider.verified_online !== true).length
-  const servingTimeoutCount = fleetProviderList.filter((provider) => String(provider.verify_error || '').toLowerCase().includes('timeout')).length
-  const servingNoModelCount = fleetProviderList.filter((provider) => (toNumber(provider.cached_models_count) || fleetCachedModels(provider).length) <= 0).length
+  const servingInferenceProbeBlocked = probeEvidence?.summary?.inference_blocked != null
+    ? toNumber(probeEvidence.summary.inference_blocked)
+    : fleetProviderList.filter((provider) => provider.endpoint_reachable === true && provider.verified_online !== true).length
+  const servingTimeoutCount = probeEvidence?.summary?.timeout != null
+    ? toNumber(probeEvidence.summary.timeout)
+    : fleetProviderList.filter((provider) => String(provider.verify_error || '').toLowerCase().includes('timeout')).length
+  const servingNoModelCount = probeEvidence?.summary?.model_gap != null
+    ? toNumber(probeEvidence.summary.model_gap)
+    : fleetProviderList.filter((provider) => (toNumber(provider.cached_models_count) || fleetCachedModels(provider).length) <= 0).length
+  const servingProbeEvidenceAge = probeEvidence?.generated_at ? formatDate(probeEvidence.generated_at) : 'fleet fallback'
   const fleetAlertsPreview = fleetAlertRows(fleetAlerts).slice(0, 4)
   const notificationChannels = notificationPosture?.channels || []
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
@@ -2469,6 +2662,13 @@ export default function V2AdminPage() {
                 </div>
               </div>
 
+              <p className="serving-recovery-source">
+                <Bi
+                  en={`Canonical probe evidence: ${servingProbeEvidenceAge}`}
+                  ar={`دليل الفحص المعتمد: ${servingProbeEvidenceAge}`}
+                />
+              </p>
+
               <div className="serving-recovery-grid">
                 <article className="serving-recovery-main">
                   <div className="mission-panel-head">
@@ -2476,11 +2676,11 @@ export default function V2AdminPage() {
                     <Link href="#fleet"><Bi en="Open fleet evidence" ar="افتح دليل الأسطول" /></Link>
                   </div>
 
-                  {servingRecoveryRows.length === 0 ? (
+                  {servingRecoveryPreview.length === 0 ? (
                     <p className="serving-recovery-empty"><Bi en="No provider evidence returned yet. Fleet health must load before recovery can be assigned." ar="لم يعد دليل مزوّدين بعد. يجب تحميل صحة الأسطول قبل إسناد الاستعادة." /></p>
                   ) : (
                     <div className="serving-recovery-list">
-                      {servingRecoveryRows.map((item) => {
+                      {servingRecoveryPreview.map((item) => {
                         const label = agentLabel(item.agentMode)
                         const blockers = fleetProviderBlockers(item.provider)
                         return (

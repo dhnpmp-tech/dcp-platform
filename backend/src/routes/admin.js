@@ -20,6 +20,7 @@ const { buildDaemonHealthSummary } = require('../services/daemonHealthSummary');
 const {
   countUsableProviders,
   getVerificationMap,
+  ensureSchema: ensureProviderVerificationSchema,
 } = require('../services/providerVerification');
 const { safeErrorPayload } = require('../lib/error-response');
 const {
@@ -496,6 +497,116 @@ function resolveFleetStatus(lastHeartbeat, restartCount = 0, nowMs = Date.now())
   if ((Number(restartCount) || 0) > 10) return { status: 'degraded', ageSeconds };
   if (ageSeconds >= 5 * 60) return { status: 'degraded', ageSeconds };
   return { status: 'online', ageSeconds };
+}
+
+function buildProbeEvidenceGate(gate, state, detail) {
+  return { gate, state, detail };
+}
+
+function classifyProbeEvidence(row, verification, cachedModels, heartbeatAge) {
+  const endpointReachable = row.endpoint_reachable == null ? null : Number(row.endpoint_reachable) === 1;
+  const verifiedOnline = verification ? verification.verified_online === true : false;
+  const verifyError = verification?.probe_error || null;
+  const lowerVerifyError = String(verifyError || '').toLowerCase();
+  const cachedModelCount = cachedModels.length;
+  const wgAge = row.wg_handshake_age_s == null ? null : Number(row.wg_handshake_age_s);
+  const endpointProbeError = row.endpoint_probe_error || null;
+  const endpointFailures = Number(row.endpoint_probe_failures || 0);
+  const gates = [
+    buildProbeEvidenceGate(
+      'heartbeat',
+      heartbeatAge != null && heartbeatAge <= 5 * 60 ? 'pass' : 'fail',
+      heartbeatAge == null ? 'heartbeat missing' : `${heartbeatAge}s since daemon heartbeat`
+    ),
+    buildProbeEvidenceGate(
+      'endpoint_reachable',
+      endpointReachable === true ? 'pass' : endpointReachable === false ? 'fail' : 'unknown',
+      endpointReachable === true
+        ? 'provider endpoint probe is reachable'
+        : (endpointProbeError || 'provider endpoint has no current reachable verdict')
+    ),
+    buildProbeEvidenceGate(
+      'verified_online',
+      verifiedOnline ? 'pass' : 'fail',
+      verifiedOnline
+        ? 'earned-online verification passed'
+        : (verifyError || 'earned-online verification has not passed')
+    ),
+    buildProbeEvidenceGate(
+      'model_coverage',
+      cachedModelCount > 0 || (verification?.verified_models || []).length > 0 ? 'pass' : 'fail',
+      cachedModelCount > 0
+        ? `${cachedModelCount} daemon cached model${cachedModelCount === 1 ? '' : 's'}`
+        : `${(verification?.verified_models || []).length} models reported by verifier`
+    ),
+  ];
+
+  if (endpointReachable !== true) {
+    return {
+      focus_code: 'endpoint_route',
+      recovery_focus: 'Endpoint route',
+      recommended_next_action: 'From the VPS, confirm the provider endpoint route, bind address, and runtime port before changing catalog state.',
+      severity: 'critical',
+      agent_mode: 'propose',
+      gates,
+      endpoint_failures: endpointFailures,
+    };
+  }
+  if (!verifiedOnline) {
+    const timeout = lowerVerifyError.includes('timeout') || lowerVerifyError.includes('aborted');
+    return {
+      focus_code: timeout ? 'inference_timeout' : 'earned_probe',
+      recovery_focus: timeout ? 'Inference timeout' : 'Inference probe',
+      recommended_next_action: 'Run /v1/models and a one-token inference from the VPS, then inspect runtime logs and catalog aliases.',
+      severity: 'critical',
+      agent_mode: 'propose',
+      gates,
+      endpoint_failures: endpointFailures,
+    };
+  }
+  if (cachedModelCount <= 0 && (verification?.verified_models || []).length <= 0) {
+    return {
+      focus_code: 'model_coverage',
+      recovery_focus: 'Model coverage',
+      recommended_next_action: 'Confirm daemon-reported cached models and catalog aliases before this provider counts toward model availability.',
+      severity: 'critical',
+      agent_mode: 'propose',
+      gates,
+      endpoint_failures: endpointFailures,
+    };
+  }
+  if (row.wg_tunnel_healthy != null && Number(row.wg_tunnel_healthy) !== 1) {
+    return {
+      focus_code: 'wireguard',
+      recovery_focus: 'WireGuard freshness',
+      recommended_next_action: 'Confirm handshake age, peer IP, and tunnel health in the verified fleet console before touching routing.',
+      severity: 'watch',
+      agent_mode: 'propose',
+      gates,
+      endpoint_failures: endpointFailures,
+    };
+  }
+  if (heartbeatAge == null || heartbeatAge > 5 * 60) {
+    return {
+      focus_code: 'heartbeat',
+      recovery_focus: 'Daemon heartbeat',
+      recommended_next_action: 'Confirm the provider daemon is running and heartbeating before catalog or routing decisions use this provider.',
+      severity: 'watch',
+      agent_mode: 'notify',
+      gates,
+      endpoint_failures: endpointFailures,
+    };
+  }
+  return {
+    focus_code: 'ready',
+    recovery_focus: 'Ready provider',
+    recommended_next_action: 'Keep this provider under observation and confirm metered traffic before widening public promises.',
+    severity: 'routine',
+    agent_mode: 'read',
+    gates,
+    endpoint_failures: endpointFailures,
+    wg_handshake_age_s: wgAge,
+  };
 }
 
 function getProviderColumnSet() {
@@ -4161,6 +4272,101 @@ router.get('/finance/transactions', (req, res) => {
 });
 
 // ── Provider Fleet Monitoring ────────────────────────────────────────────────
+router.get('/fleet/probe-evidence', (req, res) => {
+  try {
+    const nowMs = Date.now();
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
+    try { ensureProviderVerificationSchema(db); } catch (_) { /* best-effort for older DBs */ }
+
+    const rows = db.all(
+      `SELECT id, name, email, gpu_model, status, last_heartbeat, cached_models,
+              vllm_endpoint_url, wg_mesh_ip, wg_handshake_age_s, wg_tunnel_healthy,
+              endpoint_reachable, endpoint_probed_at, endpoint_probe_error,
+              endpoint_probe_failures, deleted_at, COALESCE(is_paused, 0) AS is_paused
+       FROM providers
+       WHERE deleted_at IS NULL
+       ORDER BY
+         CASE WHEN status = 'online' THEN 0 ELSE 1 END,
+         last_heartbeat DESC,
+         id DESC
+       LIMIT ?`,
+      limit
+    );
+
+    let verifyMap = new Map();
+    try { verifyMap = getVerificationMap(db); } catch (_) { verifyMap = new Map(); }
+
+    const providers = rows.map((row) => {
+      const heartbeatAge = heartbeatAgeSeconds(row.last_heartbeat, nowMs);
+      const verification = verifyMap.get(Number(row.id)) || null;
+      const cachedModels = parseCachedModelsSafe(row.cached_models);
+      const classification = classifyProbeEvidence(row, verification, cachedModels, heartbeatAge);
+      const endpointReachable = row.endpoint_reachable == null ? null : Number(row.endpoint_reachable) === 1;
+      const wgTunnelHealthy = row.wg_tunnel_healthy == null ? null : Number(row.wg_tunnel_healthy) === 1;
+
+      return {
+        provider_id: row.id,
+        name: row.name || null,
+        email: row.email || null,
+        gpu_model: row.gpu_model || null,
+        status: row.status || null,
+        is_paused: Number(row.is_paused || 0) === 1,
+        last_heartbeat: toIsoOrNull(row.last_heartbeat),
+        heartbeat_age_seconds: heartbeatAge,
+        endpoint_reachable: endpointReachable,
+        endpoint_probed_at: toIsoOrNull(row.endpoint_probed_at),
+        endpoint_probe_error: row.endpoint_probe_error || null,
+        endpoint_probe_failures: Number(row.endpoint_probe_failures || 0),
+        wg_handshake_age_s: row.wg_handshake_age_s == null ? null : Number(row.wg_handshake_age_s),
+        wg_tunnel_healthy: wgTunnelHealthy,
+        cached_models: cachedModels,
+        cached_models_count: cachedModels.length,
+        verified_online: verification ? verification.verified_online === true : false,
+        verified_at: verification ? verification.verified_at : null,
+        verified_models: verification ? verification.verified_models : [],
+        verified_models_count: verification ? (verification.verified_models || []).length : 0,
+        verify_chat_ok: verification ? verification.chat_ok : null,
+        verify_latency_ms: verification ? verification.probe_latency_ms : null,
+        verify_error: verification ? verification.probe_error : null,
+        verify_endpoint: verification ? verification.probed_endpoint : null,
+        focus_code: classification.focus_code,
+        recovery_focus: classification.recovery_focus,
+        recommended_next_action: classification.recommended_next_action,
+        severity: classification.severity,
+        agent_mode: classification.agent_mode,
+        gates: classification.gates,
+      };
+    });
+
+    const countWhere = (predicate) => providers.filter(predicate).length;
+    const focusCounts = providers.reduce((acc, provider) => {
+      const key = provider.focus_code || 'unknown';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      generated_at: new Date(nowMs).toISOString(),
+      summary: {
+        total: providers.length,
+        online: countWhere((p) => p.status === 'online'),
+        endpoint_reachable: countWhere((p) => p.endpoint_reachable === true),
+        verified_online: countWhere((p) => p.verified_online === true),
+        route_blocked: countWhere((p) => p.focus_code === 'endpoint_route'),
+        inference_blocked: countWhere((p) => p.focus_code === 'earned_probe' || p.focus_code === 'inference_timeout'),
+        timeout: countWhere((p) => p.focus_code === 'inference_timeout'),
+        model_gap: countWhere((p) => p.focus_code === 'model_coverage'),
+        ready: countWhere((p) => p.focus_code === 'ready'),
+        focus_counts: focusCounts,
+      },
+      providers,
+    });
+  } catch (error) {
+    console.error('Fleet probe evidence error:', error);
+    res.status(500).json({ error: 'Failed to fetch fleet probe evidence' });
+  }
+});
+
 router.get('/fleet/health', (req, res) => {
   try {
     const nowMs = Date.now();
