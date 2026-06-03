@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 03:38 UTC — [PR #524](https://github.com/dhnpmp-tech/dcp-platform/pull/524) — `fix(v2): remove stale homepage capacity table`
+
+Included:
+- Removed the remaining illustrative GPU-class marketplace table from `/v2/home` so the public site no longer looks like it has static provider inventory.
+- Replaced the table with an explicit capacity truth panel that names the real publication gates: endpoint reachability, earned-online verification, and model coverage.
+- Kept the zero-capacity meter and `/status` link as the correct public state while providers or WireGuard tunnels are not serving verified inference.
+- Added static regressions to prevent hard-coded GPU classes, token-metered inventory rows, and old marketplace-table markup from returning.
+
 ### 03:30 UTC — [PR #523](https://github.com/dhnpmp-tech/dcp-platform/pull/523) — `fix(v2): close public website gaps`
 
 Included:
