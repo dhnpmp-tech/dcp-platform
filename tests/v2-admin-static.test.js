@@ -136,7 +136,7 @@ assert(page.includes('billingExceptionRows'), 'v2 admin should render billing ex
 assert(page.includes('autoTopupIssueRows'), 'v2 admin should render auto-top-up issue rows from the payment audit feed');
 assert(page.includes('financeQueueTotal'), 'v2 admin should summarize the finance review queue total');
 assert(page.includes('v2 finance is review-only for now'), 'v2 admin should keep finance money actions review-only');
-assert(page.includes('/admin/withdrawals'), 'v2 admin should link payout review to the verified withdrawals console');
+assert(page.includes('Review payouts'), 'v2 admin should keep payout review anchored inside the v2 finance section');
 assert(!page.includes('/admin/payments/refund-requests/${'), 'v2 admin should not call refund approve/reject endpoints directly');
 assert(!page.includes('/admin/payouts/${'), 'v2 admin should not call payout mutation endpoints directly');
 assert(page.includes('#support'), 'v2 admin should expose support operations as a primary rail section');
@@ -216,9 +216,12 @@ assert(!page.includes('/admin/providers/sweep-stale'), 'v2 admin launch readines
 assert(!page.includes('/admin/providers/${providerId}/preload-model'), 'v2 admin launch readiness should not trigger provider preload actions');
 assert(!page.includes('/admin/payments/confirm-topup'), 'v2 admin runbooks should not trigger payment confirmation');
 assert(!page.includes('/admin/notifications/test'), 'v2 admin runbooks should not trigger notification test sends');
-assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
-assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
-assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
+assert(!page.includes('href="/admin'), 'v2 admin visible links should not send operators to legacy admin pages');
+assert(!page.includes("href: '/admin"), 'v2 admin generated action links should stay inside v2 sections');
+assert(!page.includes('href={`/admin'), 'v2 admin provider drilldowns should stay inside v2 sections');
+assert(!page.includes('Current console'), 'v2 admin rail should not advertise the legacy admin console as a primary action');
+assert(!page.includes('isLegacyAdminHref'), 'v2 admin should not need legacy admin link handling for primary actions');
+assert(!page.includes('prefetch={false}'), 'v2 admin should not carry legacy prefetch suppression for primary actions');
 assert(page.includes("method: 'POST'"), 'v2 admin command center should perform guarded mission POST actions');
 assert(!page.includes("method: 'DELETE'"), 'v2 admin command center should not delete mission/admin entities');
 assert(!page.includes("postJson<{ task?: MissionTask }>(`/mission/tasks`"), 'v2 admin should not create mission tasks');
