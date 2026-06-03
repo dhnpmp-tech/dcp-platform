@@ -1,6 +1,6 @@
 'use client'
 
-// /v2/provider-setup — ported from prototypes/Provider-Setup.html
+// /v2/provider-setup.
 // 6-step provider onboarding wizard (orange accent = provider context).
 // Bilingual via the V2Provider context; dir/lang/palette handled globally.
 

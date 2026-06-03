@@ -104,8 +104,10 @@ const nextConfig = {
 
     return [
       ...v2CutoverRedirects,
-      // Homepage "Start Building" banner + any stale refs → the live model catalog
-      { source: '/models', destination: '/marketplace/models', permanent: false },
+      // Retired v2 design-handoff URLs previously lived under public/dcp-v2.
+      { source: '/dcp-v2/:path*', destination: '/v2/home', permanent: false },
+      // Retired model-browser URL → the v2 playground/catalog source of truth.
+      { source: '/models', destination: '/v2/renter/playground', permanent: false },
       // Provider activation funnel (4 call sites link here) → the real onboarding entry
       { source: '/provider-onboarding', destination: '/earn', permanent: false },
       // Draft/legal docs sometimes cross-link /legal/terms; canonical effective terms live at /terms

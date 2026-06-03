@@ -22,7 +22,7 @@ function buildProviderEmail(name, apiKey) {
   const dashboardUrl = `${process.env.FRONTEND_URL || 'https://dcp.sa'}/provider`;
 
   return {
-    subject: 'Welcome to DC1 — Your Provider API Key',
+    subject: 'Welcome to DCP — Your Provider API Key',
     html: `
 <!DOCTYPE html>
 <html>
@@ -42,7 +42,7 @@ function buildProviderEmail(name, apiKey) {
         <tr><td style="padding:32px;">
           <h2 style="color:#F5A524;margin:0 0 16px;font-size:20px;">Welcome, ${escapeHtml(name)}!</h2>
           <p style="color:#A0A0B0;line-height:1.6;margin:0 0 24px;">
-            Your provider account is ready. You're now part of the DCP inference network — share your GPU, earn 70% of the inference revenue it serves.
+            Your provider account is ready. You're now part of the DCP inference network — share your GPU and earn from verified inference traffic it serves.
             Save your API key — it won't be shown again.
           </p>
 
@@ -91,7 +91,7 @@ function buildRenterEmail(name, apiKey) {
   const dashboardUrl = `${process.env.FRONTEND_URL || 'https://dcp.sa'}/renter`;
 
   return {
-    subject: 'Welcome to DC1 — Your Renter API Key',
+    subject: 'Welcome to DCP — Your Renter API Key',
     html: `
 <!DOCTYPE html>
 <html>
@@ -111,7 +111,7 @@ function buildRenterEmail(name, apiKey) {
         <tr><td style="padding:32px;">
           <h2 style="color:#F5A524;margin:0 0 16px;font-size:20px;">Welcome, ${escapeHtml(name)}!</h2>
           <p style="color:#A0A0B0;line-height:1.6;margin:0 0 24px;">
-            Your renter account is ready. You can now hit our OpenAI-compatible API to run inference on ALLaM, JAIS, Llama, Qwen, and 50+ open models — all hosted inside Saudi Arabia.
+            Your renter account is ready. You can now hit our OpenAI-compatible API and choose from models that are currently verified as serving inside Saudi Arabia.
             Save your API key — it won't be shown again.
           </p>
 

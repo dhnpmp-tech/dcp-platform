@@ -32,6 +32,8 @@ async function run() {
   assert.strictEqual(redirectMap.get('/earn'), '/v2/provider-setup', 'public /earn should be the provider onboarding flow');
   assert.strictEqual(redirectMap.get('/renter/register'), '/setup', 'legacy renter registration should land on public /setup');
   assert.strictEqual(redirectMap.get('/provider-onboarding'), '/earn', 'legacy provider onboarding should land on public /earn');
+  assert.strictEqual(redirectMap.get('/dcp-v2/:path*'), '/v2/home', 'retired public v2 handoff URLs should land on the real v2 home');
+  assert.strictEqual(redirectMap.get('/models'), '/v2/renter/playground', 'retired model-browser URLs should not send visitors to the legacy marketplace');
   assert(redirectSources.includes('/docs'), 'DCP_V2_LIVE should cut over public docs');
   assert(!redirectSources.includes('/login'), 'DCP_V2_LIVE must not redirect /login before v2 auth can mint admin tokens');
   assert(!rewriteSources.includes('/'), 'DCP_V2_LIVE must not internally rewrite the home page because v2 is mounted under /v2');

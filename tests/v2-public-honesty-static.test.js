@@ -4,6 +4,7 @@ const path = require('path');
 
 const home = fs.readFileSync(path.join(__dirname, '..', 'app/v2/home/page.tsx'), 'utf8');
 const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/v2/provider-setup/page.tsx'), 'utf8');
+const retiredPublicHandoff = path.join(__dirname, '..', 'public/dcp-v2');
 
 [
   'href="/setup"',
@@ -41,6 +42,11 @@ const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/v2/provide
   'Math.random',
   'util-pct',
   'headroom',
+  'Try the live demo',
+  'Try the demo',
+  'working inference call',
+  '100–270 tok/s',
+  '100-270 tok/s',
 ].forEach((claim) => {
   assert(!home.includes(claim), `v2 home should not present simulated live marketplace telemetry: ${claim}`);
 });
@@ -72,5 +78,6 @@ assert(home.includes('85% provider'), 'v2 home should show the current provider 
 assert(home.includes('15% platform'), 'v2 home should show the current platform share');
 assert(providerSetup.includes('const PROVIDER_SHARE = 0.85'), 'provider setup estimator should use the current provider share');
 assert(providerSetup.includes('const PLATFORM_SHARE = 0.15'), 'provider setup estimator should use the current platform share');
+assert(!fs.existsSync(retiredPublicHandoff), 'retired v2 design handoff/prototype files must not be published under public/dcp-v2');
 
 console.log('v2 public honesty static checks passed');

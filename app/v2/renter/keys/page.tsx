@@ -1,6 +1,6 @@
 'use client'
 
-// Ported from public/dcp-v2/prototypes/renter/Keys.html (renter console · API keys).
+// Ported from the v2 renter console source design (API keys).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./keys.css.
 import { useCallback, useEffect, useRef, useState } from 'react'

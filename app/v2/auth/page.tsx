@@ -1,6 +1,6 @@
 'use client'
 
-// Ported from prototypes/Auth.html, wired to the live magic-link/API-key auth
+// v2 auth, wired to the live magic-link/API-key contracts.
 // contracts used by app/login/page.tsx. Nafath and Google remain explicit
 // coming-soon choices until real integrations exist.
 import './auth.css'

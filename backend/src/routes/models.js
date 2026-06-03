@@ -6,6 +6,8 @@ const db = require('../db');
 const { publicEndpointLimiter, modelDeployLimiter, modelCatalogLimiter } = require('../middleware/rateLimiter');
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
+const { modelIdsMatch } = require('../lib/model-aliases');
+const { getEarnedRoutingState } = require('../services/providerVerification');
 
 const PROVIDER_FRESHNESS_MS = 10 * 60 * 1000;
 const DEFAULT_DEPLOY_DURATION_MINUTES = 60;
@@ -178,6 +180,18 @@ function parseComputeTypes(raw) {
   return new Set(String(raw).split(',').map((value) => value.trim().toLowerCase()).filter(Boolean));
 }
 
+function parseCachedModels(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((value) => String(value).trim()).filter(Boolean);
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((value) => String(value).trim()).filter(Boolean);
+  } catch (_) {
+    // Fall through to comma-separated parsing.
+  }
+  return String(raw).split(',').map((value) => value.trim()).filter(Boolean);
+}
+
 function resolveProviderVramMb(provider) {
   const candidates = [
     provider.vram_mb,
@@ -192,6 +206,35 @@ function resolveProviderVramMb(provider) {
   }
 
   return 0;
+}
+
+function resolveEarnedCatalogMode() {
+  const mode = String(process.env.DCP_ROUTING_EARNED_MODE || 'exclude-dead').toLowerCase().trim();
+  return ['off', 'exclude-dead', 'earned-first', 'strict'].includes(mode) ? mode : 'exclude-dead';
+}
+
+function applyEarnedCatalogPolicy(providers) {
+  const mode = resolveEarnedCatalogMode();
+  if (mode === 'off' || !Array.isArray(providers) || providers.length === 0) return providers;
+
+  let state;
+  try {
+    state = getEarnedRoutingState(db);
+  } catch (_) {
+    return providers;
+  }
+
+  if (!state?.active) return providers;
+  if (mode === 'strict') {
+    return providers.filter((provider) => state.servingIds.has(Number(provider.id)));
+  }
+  return providers.filter((provider) => !state.deadIds.has(Number(provider.id)));
+}
+
+function providerCanServeModel(provider, modelId) {
+  const cachedModels = parseCachedModels(provider.cached_models);
+  if (cachedModels.length === 0) return false;
+  return cachedModels.some((cachedModel) => modelIdsMatch(cachedModel, modelId));
 }
 
 function estimateColdStartMs(model) {
@@ -334,7 +377,10 @@ function getModelRows() {
      LEFT JOIN providers p
        ON p.status = 'online'
       AND COALESCE(p.is_paused, 0) = 0
+      AND p.deleted_at IS NULL
       AND p.vllm_endpoint_url IS NOT NULL
+      AND COALESCE(p.endpoint_reachable, 0) = 1
+      AND p.endpoint_probed_at IS NOT NULL
       AND p.cached_models IS NOT NULL
       AND LOWER(p.cached_models) LIKE '%' || LOWER(m.model_id) || '%'
      WHERE m.is_active = 1
@@ -347,16 +393,25 @@ function buildFreshProviderLookup() {
   const providers = db.all(
     `SELECT id, status, is_paused, last_heartbeat, supported_compute_types,
             vram_mb, gpu_vram_mb, gpu_vram_mib, vram_gb, price_per_min_halala,
-            model_preload_status, model_preload_model
+            model_preload_status, model_preload_model, cached_models,
+            endpoint_reachable, endpoint_probed_at
      FROM providers
-     WHERE status = 'online' AND COALESCE(is_paused, 0) = 0`
+     WHERE status = 'online'
+       AND COALESCE(is_paused, 0) = 0
+       AND deleted_at IS NULL
+       AND vllm_endpoint_url IS NOT NULL
+       AND COALESCE(endpoint_reachable, 0) = 1
+       AND endpoint_probed_at IS NOT NULL`
   );
 
-  return providers.filter((provider) => {
+  const reachableFreshProviders = providers.filter((provider) => {
     if (!isFreshHeartbeat(provider.last_heartbeat)) return false;
+    if (Number(provider.endpoint_reachable || 0) !== 1 || !provider.endpoint_probed_at) return false;
     const computeTypes = parseComputeTypes(provider.supported_compute_types);
     return computeTypes.has('inference');
   });
+
+  return applyEarnedCatalogPolicy(reachableFreshProviders);
 }
 
 function buildModelPayload(row, freshProviders, portfolioIndex) {
@@ -364,7 +419,10 @@ function buildModelPayload(row, freshProviders, portfolioIndex) {
   const minVramGb = toInt(row.min_gpu_vram_gb, { min: 1, max: 1024 }) || 1;
   const minVramMb = minVramGb * 1024;
 
-  const capableFreshProviders = freshProviders.filter((provider) => resolveProviderVramMb(provider) >= minVramMb);
+  const capableFreshProviders = freshProviders.filter((provider) => (
+    resolveProviderVramMb(provider) >= minVramMb
+      && providerCanServeModel(provider, row.model_id)
+  ));
   const warmFreshProviders = capableFreshProviders.filter((provider) => {
     const status = String(provider.model_preload_status || '').toLowerCase();
     return status === 'ready' && String(provider.model_preload_model || '') === row.model_id;
@@ -1000,6 +1058,12 @@ router.post(/^\/([a-zA-Z0-9._/-]+)\/deploy$/, modelDeployLimiter, requireRenter,
     const modelId = normalizeString(req.params[0], { maxLen: 200, trim: false });
     const model = modelId ? getModelById(modelId) : null;
     if (!model) return res.status(404).json({ error: 'Model not found or inactive' });
+    if (Number(model.availability?.providers_online || 0) <= 0) {
+      return res.status(409).json({
+        error: 'No verified providers are currently serving this model',
+        code: 'model_unavailable',
+      });
+    }
 
     const deployBody = req.body && typeof req.body === 'object' ? req.body : {};
     const submitBody = buildDeploySubmitPayload(model, deployBody);
@@ -1067,4 +1131,10 @@ router.get(/^\/([a-zA-Z0-9._/-]+)$/, publicEndpointLimiter, (req, res) => {
 });
 
 router.invalidateCatalogCache = invalidateCatalogCache;
+router.__test = {
+  applyEarnedCatalogPolicy,
+  parseCachedModels,
+  providerCanServeModel,
+  resolveEarnedCatalogMode,
+};
 module.exports = router;
