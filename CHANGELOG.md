@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 05:21 UTC — [PR #534](https://github.com/dhnpmp-tech/dcp-platform/pull/534) — `feat(v2): add admin launch readiness`
+
+Included:
+- Added a first-class founder go/no-go launch readiness section to `/v2/admin` for public-capacity, system-health, finance, security, queue, demand, and incident blockers.
+- Wired the section to existing read-only admin evidence feeds, including `/api/admin/metrics` and `/api/admin/demand`, without adding new mutation routes.
+- Made public capacity readiness depend on earned serving capacity, endpoint/model readiness, and fleet evidence before the team can safely claim marketplace availability.
+- Kept provider repair, payment actions, deploys, and control-plane runs out of this v2 surface; the section is decision support only.
+- Added static regressions for launch readiness wiring, public-capacity honesty copy, read-only policy copy, no unsafe mutation endpoints, and scoped launch styling.
+
 ### 05:10 UTC — [PR #533](https://github.com/dhnpmp-tech/dcp-platform/pull/533) — `feat(v2): add admin incident command`
 
 Included:

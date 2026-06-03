@@ -445,6 +445,164 @@ body {
   font-size: 13px;
 }
 
+.launch-readiness {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.launch-readiness .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.launch-readiness .section-head > span.ready {
+  color: var(--teal);
+}
+
+.launch-readiness .section-head > span.critical {
+  color: var(--err);
+}
+
+.launch-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.launch-summary-grid > div {
+  min-height: 128px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.launch-summary-grid span,
+.launch-summary-grid small,
+.launch-gate span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.launch-summary-grid strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.launch-summary-grid .critical strong {
+  color: var(--err);
+}
+
+.launch-summary-grid .watch strong {
+  color: var(--orange);
+}
+
+.launch-summary-grid small {
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.launch-gate-list {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.launch-gate {
+  min-height: 254px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.launch-gate.critical {
+  box-shadow: inset 0 3px 0 var(--err);
+}
+
+.launch-gate.watch {
+  box-shadow: inset 0 3px 0 var(--orange);
+}
+
+.launch-gate.ready {
+  box-shadow: inset 0 3px 0 var(--teal);
+}
+
+.launch-gate strong {
+  display: block;
+  margin-top: 10px;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.launch-gate.critical strong {
+  color: var(--err);
+}
+
+.launch-gate.watch strong {
+  color: var(--orange);
+}
+
+.launch-gate.ready strong {
+  color: var(--teal);
+}
+
+.launch-gate p,
+.launch-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.48;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.launch-gate a {
+  margin-top: auto;
+  align-self: flex-start;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+
+.launch-gate a:hover {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+
+.launch-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
 .fleet-readiness {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
@@ -2315,6 +2473,7 @@ body {
   .fleet-readiness-grid,
   .finance-review-grid,
   .incident-command-grid,
+  .launch-gate-list,
   .mission-layout,
   .mission-action-grid,
   .access-grid,
@@ -2331,6 +2490,10 @@ body {
 
   .finance-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .launch-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .incident-summary-grid {
@@ -2377,6 +2540,8 @@ body {
   .admin-status-strip,
   .metric-grid,
   .readiness-grid,
+  .launch-summary-grid,
+  .launch-gate-list,
   .fleet-summary-grid,
   .fleet-readiness-grid,
   .fleet-provider-facts,

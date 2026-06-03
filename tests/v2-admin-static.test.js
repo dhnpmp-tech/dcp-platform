@@ -12,6 +12,8 @@ assert(page.includes('/admin/dashboard'), 'v2 admin should load the verified adm
 assert(page.includes('/admin/payments/audit?limit=40'), 'v2 admin should load the payments audit queue');
 assert(page.includes('/admin/health'), 'v2 admin should load system health');
 assert(page.includes('/admin/security/summary'), 'v2 admin should load security summary');
+assert(page.includes('/admin/metrics'), 'v2 admin should load operational metrics for launch readiness');
+assert(page.includes('/admin/demand'), 'v2 admin should load read-only demand signals for launch readiness');
 assert(page.includes('/admin/providers?page=0&limit=200'), 'v2 admin should load provider supply context');
 assert(page.includes('/admin/providers/approval-queue?limit=100'), 'v2 admin should load provider approval queue context');
 assert(page.includes('/admin/fleet/health'), 'v2 admin should load earned fleet health');
@@ -31,6 +33,15 @@ assert(page.includes('/admin/notifications/posture'), 'v2 admin should load noti
 assert(page.includes('buildTasks'), 'v2 admin should synthesize an ops inbox');
 assert(page.includes('buildReadinessChecks'), 'v2 admin should synthesize a launch readiness board');
 assert(page.includes('agentMode'), 'v2 admin should model agent permission classes per task');
+assert(page.includes('#launch'), 'v2 admin should expose founder launch readiness as a primary rail section');
+assert(page.includes('Founder go / no-go'), 'v2 admin should label launch readiness as a founder decision layer');
+assert(page.includes('Launch readiness'), 'v2 admin should expose a launch readiness section');
+assert(page.includes('publicCapacityReady'), 'v2 admin should derive public capacity readiness from real fleet evidence');
+assert(page.includes('launchBlockers'), 'v2 admin should compute launch blockers from operational evidence');
+assert(page.includes('demandModelKeys'), 'v2 admin should normalize read-only demand signals');
+assert(page.includes('Do not claim live marketplace capacity'), 'v2 admin should block public live-capacity claims when earned serving capacity is absent');
+assert(page.includes('v2 launch readiness is read-only'), 'v2 admin should keep launch readiness read-only');
+assert(page.includes('does not trigger provider repair, payments, deploys, or control-plane runs'), 'v2 admin should state that launch readiness has no mutation side effects');
 assert(page.includes('Guarded write'), 'v2 admin should expose guarded-write policy language');
 assert(page.includes('Task envelope'), 'v2 admin should describe the future agent action envelope');
 assert(page.includes('No verified serving capacity'), 'v2 admin should expose earned-serving capacity as an operational blocker');
@@ -116,6 +127,8 @@ assert(page.includes('Control-plane snapshots, prewarm runs, run-cycle triggers,
 assert(!page.includes('/admin/control-plane/signals/snapshot'), 'v2 admin should not call control-plane snapshot actions');
 assert(!page.includes('/admin/control-plane/prewarm/run'), 'v2 admin should not call control-plane prewarm actions');
 assert(!page.includes('/admin/control-plane/run-cycle'), 'v2 admin should not call control-plane run-cycle actions');
+assert(!page.includes('/admin/providers/sweep-stale'), 'v2 admin launch readiness should not trigger stale-provider sweeps');
+assert(!page.includes('/admin/providers/${providerId}/preload-model'), 'v2 admin launch readiness should not trigger provider preload actions');
 assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
 assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
 assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
@@ -131,6 +144,11 @@ assert(!auth.includes("redirect=/admin'"), 'v2 auth should not default admin sig
 
 assert(css.includes('.v2-admin'), 'v2 admin should have scoped styles');
 assert(css.includes('.readiness-board'), 'v2 admin should style the readiness board');
+assert(css.includes('.launch-readiness'), 'v2 admin should style launch readiness');
+assert(css.includes('.launch-summary-grid'), 'v2 admin should style launch readiness summary metrics');
+assert(css.includes('.launch-gate-list'), 'v2 admin should style launch readiness gates');
+assert(css.includes('.launch-gate'), 'v2 admin should style launch gate rows');
+assert(css.includes('.launch-policy'), 'v2 admin should style the launch read-only policy');
 assert(css.includes('.fleet-readiness'), 'v2 admin should style fleet readiness');
 assert(css.includes('.fleet-summary-grid'), 'v2 admin should style fleet summary gates');
 assert(css.includes('.fleet-readiness-grid'), 'v2 admin should style fleet provider and alert panels');
