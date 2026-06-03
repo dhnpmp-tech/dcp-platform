@@ -123,6 +123,13 @@ interface HealthPayload {
   database?: { status?: string }
   queues?: Record<string, unknown>
   cleanup?: Record<string, unknown>
+  checks?: {
+    database?: string
+    providers?: { online?: number; total?: number }
+    jobs?: { active?: number; stuck?: number }
+    errors?: { failed_last_hour?: number; critical_events?: number }
+    withdrawals?: { pending?: number }
+  }
   [key: string]: unknown
 }
 
@@ -132,6 +139,43 @@ interface SecurityPayload {
   high?: number
   recent?: unknown[]
   summary?: Record<string, number>
+}
+
+interface AdminMetricsPayload {
+  queue?: {
+    pending_jobs?: number
+    running_jobs?: number
+    failed_last_1h?: number
+    avg_wait_seconds?: number
+  }
+  providers?: {
+    online?: number
+    active?: number
+    registered?: number
+    total_registered?: number
+    pending_approval?: number
+    avg_heartbeat_age_seconds?: number
+  }
+  renters?: {
+    total_registered?: number
+    active_last_24h?: number
+    total_balance_halala?: number
+  }
+  revenue?: {
+    today_halala?: number
+    this_week_halala?: number
+    this_month_halala?: number
+  }
+  system?: {
+    uptime_seconds?: number
+    db_size_bytes?: number
+    node_version?: string
+  }
+}
+
+interface AdminDemandPayload {
+  demand?: Record<string, unknown>
+  error?: string
 }
 
 interface ProviderListPayload {
@@ -663,6 +707,11 @@ function controlPlaneSignalRows(payload: ControlPlaneSignalsPayload | null): Con
 
 function incidentTimelineRows(payload: IncidentsFeedPayload | null): IncidentTimelineItem[] {
   return Array.isArray(payload?.items) ? payload.items : []
+}
+
+function demandModelKeys(payload: AdminDemandPayload | null): string[] {
+  if (!payload?.demand || typeof payload.demand !== 'object' || Array.isArray(payload.demand)) return []
+  return Object.keys(payload.demand)
 }
 
 function listSize(value: unknown[] | undefined): number {
@@ -1240,6 +1289,8 @@ export default function V2AdminPage() {
   const [audit, setAudit] = useState<PaymentsAuditPayload | null>(null)
   const [health, setHealth] = useState<HealthPayload | null>(null)
   const [security, setSecurity] = useState<SecurityPayload | null>(null)
+  const [adminMetrics, setAdminMetrics] = useState<AdminMetricsPayload | null>(null)
+  const [adminDemand, setAdminDemand] = useState<AdminDemandPayload | null>(null)
   const [providers, setProviders] = useState<unknown[]>([])
   const [approvalQueue, setApprovalQueue] = useState<ApprovalQueuePayload | null>(null)
   const [fleet, setFleet] = useState<FleetHealthPayload | null>(null)
@@ -1284,6 +1335,8 @@ export default function V2AdminPage() {
         auditRes,
         healthRes,
         securityRes,
+        metricsRes,
+        demandRes,
         providerRes,
         approvalRes,
         fleetRes,
@@ -1305,6 +1358,8 @@ export default function V2AdminPage() {
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
         fetchJson<HealthPayload>('/admin/health', token),
         fetchJson<SecurityPayload>('/admin/security/summary', token),
+        fetchJson<AdminMetricsPayload>('/admin/metrics', token),
+        fetchJson<AdminDemandPayload>('/admin/demand', token),
         fetchJson<ProviderListPayload | unknown[]>('/admin/providers?page=0&limit=200', token),
         fetchJson<ApprovalQueuePayload>('/admin/providers/approval-queue?limit=100', token),
         fetchJson<FleetHealthPayload>('/admin/fleet/health', token),
@@ -1326,6 +1381,8 @@ export default function V2AdminPage() {
       setAudit(auditRes)
       setHealth(healthRes)
       setSecurity(securityRes)
+      setAdminMetrics(metricsRes)
+      setAdminDemand(demandRes)
       setProviders(providerRows(providerRes))
       setApprovalQueue(approvalRes)
       setFleet(fleetRes)
@@ -1535,6 +1592,29 @@ export default function V2AdminPage() {
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
   const configuredNotificationChannels = notificationChannels.filter((channel) => channel.configured).length
   const notificationNotifyState = notificationPosture?.agent_policy?.notify_state || 'unknown'
+  const securityPriorityCount = toNumber(security?.critical) + toNumber(security?.high)
+  const metricsPendingJobs = toNumber(adminMetrics?.queue?.pending_jobs)
+  const metricsRunningJobs = toNumber(adminMetrics?.queue?.running_jobs)
+  const metricsFailedLastHour = toNumber(adminMetrics?.queue?.failed_last_1h)
+  const metricsAvgWaitSeconds = toNumber(adminMetrics?.queue?.avg_wait_seconds)
+  const healthStuckJobs = toNumber(health?.checks?.jobs?.stuck)
+  const healthCriticalEvents = toNumber(health?.checks?.errors?.critical_events)
+  const healthPendingWithdrawals = toNumber(health?.checks?.withdrawals?.pending)
+  const demandKeys = demandModelKeys(adminDemand)
+  const demandSignalCount = demandKeys.length
+  const publicCapacityReady = fleet?.serving_now === true && usableOnline > 0 && verifiedOnline > 0 && fleetModelReady > 0
+  const launchMoneyBlockers = financeQueueTotal + reconciliationIssues + healthPendingWithdrawals
+  const launchSystemBlockers = (health?.status === 'healthy' || health?.ok === true) && healthStuckJobs === 0 && healthCriticalEvents === 0 ? 0 : 1
+  const launchCapacityBlockers = publicCapacityReady ? 0 : 1
+  const launchSecurityBlockers = securityPriorityCount
+  const launchIncidentBlockers = incidentCommandHasCritical ? 1 : 0
+  const launchBlockers =
+    launchCapacityBlockers
+    + launchSystemBlockers
+    + launchMoneyBlockers
+    + launchSecurityBlockers
+    + launchIncidentBlockers
+  const launchState = launchBlockers > 0 ? 'blocked' : 'ready'
 
   useEffect(() => {
     if (!selectedMissionTask) {
@@ -1693,6 +1773,9 @@ export default function V2AdminPage() {
           <a href="#command" className="rail-link on">
             <span>CC</span><Bi en="Command" ar="القيادة" />
           </a>
+          <a href="#launch" className="rail-link">
+            <span>GO</span><Bi en="Launch" ar="الإطلاق" />
+          </a>
           <a href="#inbox" className="rail-link">
             <span>IN</span><Bi en="Inbox" ar="الصندوق" />
           </a>
@@ -1824,6 +1907,105 @@ export default function V2AdminPage() {
                   <span><Bi en={`${numFmt.format(toNumber(stats.active_jobs))} active`} ar={`${numFmt.format(toNumber(stats.active_jobs))} نشطة`} /></span>
                 </div>
               </div>
+            </section>
+
+            <section className="launch-readiness" id="launch" aria-label="Launch go no-go">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Founder go / no-go" ar="قرار إطلاق المؤسسين" /></p>
+                  <h2><Bi en="Launch readiness" ar="جاهزية الإطلاق" /></h2>
+                </div>
+                <span className={launchState === 'ready' ? 'ready' : 'critical'}>
+                  <Bi en={launchState === 'ready' ? 'ready' : `${launchBlockers} blockers`} ar={launchState === 'ready' ? 'جاهز' : `${launchBlockers} عوائق`} />
+                </span>
+              </div>
+
+              <div className="launch-summary-grid">
+                <div className={publicCapacityReady ? 'ready' : 'critical'}>
+                  <span><Bi en="public capacity" ar="السعة العامة" /></span>
+                  <strong><Bi en={publicCapacityReady ? 'serving' : 'gated'} ar={publicCapacityReady ? 'تخدم' : 'محجوبة'} /></strong>
+                  <small><Bi en={`${verifiedOnline} earned · ${fleetModelReady} model-ready`} ar={`${verifiedOnline} متحقق · ${fleetModelReady} جاهز نموذجياً`} /></small>
+                </div>
+                <div className={launchSystemBlockers > 0 ? 'critical' : 'ready'}>
+                  <span><Bi en="system health" ar="صحة النظام" /></span>
+                  <strong>{health?.status || 'unknown'}</strong>
+                  <small><Bi en={`${healthStuckJobs} stuck jobs · ${healthCriticalEvents} critical events`} ar={`${healthStuckJobs} مهام عالقة · ${healthCriticalEvents} أحداث حرجة`} /></small>
+                </div>
+                <div className={launchMoneyBlockers > 0 ? 'critical' : 'ready'}>
+                  <span><Bi en="money blockers" ar="عوائق مالية" /></span>
+                  <strong>{numFmt.format(launchMoneyBlockers)}</strong>
+                  <small><Bi en="refunds, payouts, reconciliation, withdrawals" ar="استرداد ودفعات ومطابقة وسحوبات" /></small>
+                </div>
+                <div className={securityPriorityCount > 0 ? 'critical' : 'ready'}>
+                  <span><Bi en="security" ar="الأمن" /></span>
+                  <strong>{numFmt.format(securityPriorityCount)}</strong>
+                  <small><Bi en="critical + high events" ar="أحداث حرجة وعالية" /></small>
+                </div>
+                <div className={metricsFailedLastHour > 0 ? 'watch' : ''}>
+                  <span><Bi en="queue" ar="الطابور" /></span>
+                  <strong>{numFmt.format(metricsPendingJobs + metricsRunningJobs)}</strong>
+                  <small><Bi en={`${metricsFailedLastHour} failed last hour · ${metricsAvgWaitSeconds}s avg wait`} ar={`${metricsFailedLastHour} فشل آخر ساعة · ${metricsAvgWaitSeconds}ث انتظار`} /></small>
+                </div>
+                <div>
+                  <span><Bi en="demand signals" ar="إشارات الطلب" /></span>
+                  <strong>{numFmt.format(demandSignalCount)}</strong>
+                  <small>{demandKeys.slice(0, 2).join(', ') || 'no demand window'}</small>
+                </div>
+              </div>
+
+              <div className="launch-gate-list">
+                <article className={`launch-gate ${publicCapacityReady ? 'ready' : 'critical'}`}>
+                  <div>
+                    <span><Bi en="01 · Catalog publication" ar="٠١ · نشر الكتالوج" /></span>
+                    <strong><Bi en={publicCapacityReady ? 'Real serving capacity is present' : 'Do not claim live marketplace capacity'} ar={publicCapacityReady ? 'توجد سعة خدمة حقيقية' : 'لا تعلن سعة سوق مباشرة'} /></strong>
+                  </div>
+                  <p><Bi en="Public inventory is allowed only when earned-online, endpoint reachability, and model coverage all pass." ar="يسمح بالمخزون العام فقط عندما تمر الخدمة المتحققة والوصول للنقاط وتغطية النماذج كلها." /></p>
+                  <Link href="#fleet"><Bi en="Inspect fleet evidence" ar="افحص دليل الأسطول" /></Link>
+                </article>
+
+                <article className={`launch-gate ${launchSystemBlockers > 0 ? 'critical' : 'ready'}`}>
+                  <div>
+                    <span><Bi en="02 · System health" ar="٠٢ · صحة النظام" /></span>
+                    <strong>{health?.status || 'unknown'}</strong>
+                  </div>
+                  <p><Bi en={`DB ${health?.checks?.database || 'unknown'} · active jobs ${toNumber(health?.checks?.jobs?.active)} · stuck jobs ${healthStuckJobs} · critical events ${healthCriticalEvents}`} ar={`قاعدة البيانات ${health?.checks?.database || 'غير معروفة'} · مهام نشطة ${toNumber(health?.checks?.jobs?.active)} · عالقة ${healthStuckJobs} · أحداث حرجة ${healthCriticalEvents}`} /></p>
+                  <Link href="/admin/security" prefetch={false}><Bi en="Open health console" ar="افتح لوحة الصحة" /></Link>
+                </article>
+
+                <article className={`launch-gate ${launchMoneyBlockers > 0 ? 'critical' : 'ready'}`}>
+                  <div>
+                    <span><Bi en="03 · Money operations" ar="٠٣ · عمليات المال" /></span>
+                    <strong>{numFmt.format(launchMoneyBlockers)} <Bi en="open" ar="مفتوحة" /></strong>
+                  </div>
+                  <p><Bi en="Refunds, payouts, reconciliation drift, and pending withdrawals must be clear or assigned before launch pushes." ar="يجب تصفية أو إسناد الاستردادات والدفعات وانحراف المطابقة والسحوبات المعلقة قبل دفعات الإطلاق." /></p>
+                  <Link href="#finance"><Bi en="Review finance queue" ar="راجع طابور المالية" /></Link>
+                </article>
+
+                <article className={`launch-gate ${securityPriorityCount > 0 ? 'critical' : 'ready'}`}>
+                  <div>
+                    <span><Bi en="04 · Security posture" ar="٠٤ · الوضع الأمني" /></span>
+                    <strong>{numFmt.format(securityPriorityCount)} <Bi en="priority" ar="أولوية" /></strong>
+                  </div>
+                  <p><Bi en="Critical and high security events block public launch language until triaged." ar="الأحداث الأمنية الحرجة والعالية تمنع لغة الإطلاق العامة حتى الفرز." /></p>
+                  <Link href="/admin/security" prefetch={false}><Bi en="Open security" ar="افتح الأمن" /></Link>
+                </article>
+
+                <article className={`launch-gate ${incidentCommandHasCritical ? 'critical' : recentErrors > 0 ? 'watch' : 'ready'}`}>
+                  <div>
+                    <span><Bi en="05 · Incident command" ar="٠٥ · قيادة الحوادث" /></span>
+                    <strong>{numFmt.format(incidentMergedCount)} <Bi en="events" ar="أحداث" /></strong>
+                  </div>
+                  <p><Bi en="Daemon, job, audit, and status incidents should be quiet or assigned before changing public promises." ar="يجب أن تكون حوادث الخادم والمهام والتدقيق والحالة هادئة أو مسندة قبل تغيير الوعود العامة." /></p>
+                  <Link href="#incidents"><Bi en="Open incidents" ar="افتح الحوادث" /></Link>
+                </article>
+              </div>
+
+              <p className="launch-policy">
+                <Bi
+                  en="v2 launch readiness is read-only. It decides what the founding team may safely say publicly; it does not trigger provider repair, payments, deploys, or control-plane runs."
+                  ar="جاهزية إطلاق v2 للقراءة فقط. تحدد ما يمكن لفريق المؤسسين قوله علناً بأمان؛ ولا تشغل إصلاح مزوّد أو مدفوعات أو نشر أو دورات لوحة التحكم."
+                />
+              </p>
             </section>
 
             <section className="readiness-board" id="readiness" aria-label="Launch readiness">
