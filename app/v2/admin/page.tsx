@@ -817,6 +817,18 @@ interface ServingProofItem {
   detailAr: string
 }
 
+interface ServingHandoffCard {
+  key: string
+  labelEn: string
+  labelAr: string
+  value: string
+  detailEn: string
+  detailAr: string
+  href: string
+  severity: Severity
+  agentMode: AgentMode
+}
+
 const API_BASE = getApiBase()
 const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 const HEARTBEAT_STALE_SECONDS = 5 * 60
@@ -1958,6 +1970,83 @@ function buildWorkflows(
   ]
 }
 
+function buildServingHandoffCards(
+  row: ProbeEvidenceRow | null,
+  provider: FleetProviderRow | null,
+  checklist: ServingProofItem[],
+  copy: { focusEn: string; focusAr: string; actionEn: string; actionAr: string } | null,
+): ServingHandoffCard[] {
+  if (!row || !provider) return []
+  const providerLabel = fleetProviderLabel(provider)
+  const focusEn = copy?.focusEn || row.recovery_focus || 'Probe evidence'
+  const focusAr = copy?.focusAr || 'دليل الفحص'
+  const nextActionEn = copy?.actionEn || row.recommended_next_action || 'Collect route, inference, and model proof before changing public capacity.'
+  const nextActionAr = copy?.actionAr || 'اجمع دليل المسار والاستدلال والنموذج قبل تغيير السعة العامة.'
+  const gateSummary = checklist.map((item) => `${item.key}=${item.state}`).join(' · ')
+  const evidenceNote = `Provider #${row.provider_id || 'unknown'} · ${providerLabel} · ${focusEn} · ${gateSummary} · next=${nextActionEn}`
+  const handoffSeverity = row.severity === 'critical' || row.severity === 'watch' || row.severity === 'routine'
+    ? row.severity
+    : missionLedgerSeverity({ status: provider.verified_online ? 'review' : 'blocked' })
+
+  return [
+    {
+      key: 'owner',
+      labelEn: 'human owner',
+      labelAr: 'المالك البشري',
+      value: 'Founding operator',
+      detailEn: `Own ${providerLabel} until route, inference, model, and publication proof all pass.`,
+      detailAr: `امتلك ${providerLabel} (${focusAr}) حتى ينجح دليل المسار والاستدلال والنموذج والنشر.`,
+      href: '#serving-recovery',
+      severity: handoffSeverity,
+      agentMode: 'guarded',
+    },
+    {
+      key: 'verified-console',
+      labelEn: 'verified console',
+      labelAr: 'اللوحة المتحققة',
+      value: 'Fleet evidence',
+      detailEn: `Use the fleet evidence panel for this target; v2 may summarize evidence but does not repair the provider.`,
+      detailAr: 'استخدم لوحة دليل الأسطول لهذا الهدف؛ يمكن لـ v2 تلخيص الدليل لكنه لا يصلح المزوّد.',
+      href: '#fleet',
+      severity: 'routine',
+      agentMode: 'read',
+    },
+    {
+      key: 'agent-role',
+      labelEn: 'agent role',
+      labelAr: 'دور الوكيل',
+      value: 'agent propose',
+      detailEn: nextActionEn,
+      detailAr: nextActionAr,
+      href: '#action-ledger',
+      severity: handoffSeverity,
+      agentMode: 'propose',
+    },
+    {
+      key: 'evidence-note',
+      labelEn: 'copy-ready evidence note',
+      labelAr: 'ملاحظة دليل جاهزة',
+      value: evidenceNote,
+      detailEn: `Paste this into the mission action desk after the human verifies the probe from the VPS.`,
+      detailAr: 'الصق هذه الملاحظة في مكتب إجراءات المهمة بعد أن يتحقق الإنسان من الفحص من الخادم.',
+      href: '#mission',
+      severity: 'watch',
+      agentMode: 'guarded',
+    },
+    {
+      key: 'stop-rule',
+      labelEn: 'stop rule',
+      labelAr: 'قاعدة التوقف',
+      value: 'No public capacity flip',
+      detailEn: 'No daemon restart, WireGuard edit, endpoint edit, routing change, or public marketplace language change happens from this v2 packet.',
+      detailAr: 'لا تحدث إعادة تشغيل للخادم المحلي أو تعديل WireGuard أو نقطة أو توجيه أو لغة السوق العامة من هذه الحزمة في v2.',
+      href: '#launch',
+      severity: 'critical',
+      agentMode: 'read',
+    },
+  ]
+}
+
 function buildReadinessChecks(
   fleet: FleetHealthPayload | null,
   fleetAlerts: FleetAlertsPayload | null,
@@ -2469,6 +2558,12 @@ export default function V2AdminPage() {
   const servingProofChecklist = buildServingProofChecklist(servingProofTarget)
   const servingProofProvider = servingProofTarget ? probeEvidenceToFleetProvider(servingProofTarget) : null
   const servingProofCopy = servingProofTarget ? probeFocusCopy(servingProofTarget) : null
+  const servingHandoffCards = buildServingHandoffCards(
+    servingProofTarget,
+    servingProofProvider,
+    servingProofChecklist,
+    servingProofCopy,
+  )
   const fleetAlertsPreview = fleetAlertRows(fleetAlerts).slice(0, 4)
   const notificationChannels = notificationPosture?.channels || []
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
@@ -3209,6 +3304,29 @@ export default function V2AdminPage() {
                           <p><Bi en={item.detailEn} ar={item.detailAr} /></p>
                         </article>
                       ))}
+                    </div>
+
+                    <div className="serving-handoff">
+                      <div className="mission-panel-head">
+                        <span><Bi en="Provider recovery handoff" ar="تسليم استعادة المزوّد" /></span>
+                        <Link href="#mission"><Bi en="Mission note" ar="ملاحظة المهمة" /></Link>
+                      </div>
+
+                      <div className="serving-handoff-grid">
+                        {servingHandoffCards.map((card) => {
+                          const label = agentLabel(card.agentMode)
+                          return (
+                            <Link href={card.href} className={`serving-handoff-card ${card.severity}`} key={card.key}>
+                              <div>
+                                <span><Bi en={card.labelEn} ar={card.labelAr} /></span>
+                                <em><Bi en={label.en} ar={label.ar} /></em>
+                              </div>
+                              <strong>{card.value}</strong>
+                              <p><Bi en={card.detailEn} ar={card.detailAr} /></p>
+                            </Link>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     <p className="serving-proof-exit">

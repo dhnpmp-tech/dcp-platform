@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 08:02 UTC — [PR #547](https://github.com/dhnpmp-tech/dcp-platform/pull/547) — `feat(v2): add admin serving handoff packet`
+
+Included:
+- Added a read-only Provider recovery handoff inside `/v2/admin` so founders, operators, and agents can see the owner, verified console, agent role, evidence note, and stop rule for the selected serving proof target.
+- Derived the handoff from canonical `/admin/fleet/probe-evidence` rows already loaded by the Serving proof packet; no new backend route or write path was added.
+- Included a copy-ready mission evidence note that summarizes provider id, provider label, recovery focus, route/inference/model/publication gate states, and the next recommended action.
+- Kept recovery mutation boundaries explicit: no daemon restart, WireGuard edit, endpoint edit, routing change, or public marketplace language change happens from the v2 handoff packet.
+- Added static regressions for the handoff model, copy-ready evidence note, verified-console label, mutation boundary language, and responsive styling.
+
 ### 07:51 UTC — [PR #546](https://github.com/dhnpmp-tech/dcp-platform/pull/546) — `feat(v2): add admin action ledger`
 
 Included:
