@@ -819,6 +819,38 @@ const agentManifestRouter = require('./routes/agentManifest');
 app.use('/agent', agentManifestRouter);
 
 const db = require('./db');
+const { countUsableProviders } = require('./services/providerVerification');
+
+function getProviderCapacitySnapshot() {
+  const total = db.prepare('SELECT COUNT(*) AS count FROM providers').get()?.count || 0;
+  const heartbeating = db.prepare("SELECT COUNT(*) AS count FROM providers WHERE status = 'online'").get()?.count || 0;
+  const endpointReachable = db.prepare(
+    `SELECT COUNT(*) AS count
+       FROM providers
+      WHERE status = 'online'
+        AND COALESCE(is_paused, 0) = 0
+        AND deleted_at IS NULL
+        AND vllm_endpoint_url IS NOT NULL
+        AND COALESCE(endpoint_reachable, 0) = 1
+        AND endpoint_probed_at IS NOT NULL`
+  ).get()?.count || 0;
+
+  let serving = 0;
+  try {
+    serving = countUsableProviders(db);
+  } catch (_) {
+    serving = 0;
+  }
+
+  return {
+    total,
+    heartbeating,
+    endpoint_reachable: endpointReachable,
+    serving,
+    capacity_reason: serving > 0 ? 'verified_serving_capacity' : 'no_verified_serving_provider',
+  };
+}
+
 const sweepIntervalMsRaw = Number.parseInt(process.env.JOB_SWEEP_INTERVAL_MS || '30000', 10);
 const sweepIntervalMs = Number.isFinite(sweepIntervalMsRaw) && sweepIntervalMsRaw > 0 ? sweepIntervalMsRaw : 30000;
 startJobSweep(db, sweepIntervalMs);
@@ -919,13 +951,7 @@ app.get('/api/health', (req, res) => {
     db.prepare('SELECT 1').get();
     const sweep = getSweepMetrics();
 
-    const providersTotal = db.prepare(
-      `SELECT COUNT(*) AS count FROM providers`
-    ).get()?.count || 0;
-
-    const providersOnline = db.prepare(
-      `SELECT COUNT(*) AS count FROM providers WHERE status = 'online'`
-    ).get()?.count || 0;
+    const providerCapacity = getProviderCapacitySnapshot();
 
     const jobsQueued = db.prepare(
       `SELECT COUNT(*) AS count FROM jobs WHERE status = 'queued'`
@@ -950,7 +976,18 @@ app.get('/api/health', (req, res) => {
       status: 'ok',
       timestamp: new Date().toISOString(),
       db: 'ok',
-      providers: { total: providersTotal, online: providersOnline },
+      providers: {
+        total: providerCapacity.total,
+        online: providerCapacity.heartbeating,
+        heartbeating: providerCapacity.heartbeating,
+        endpoint_reachable: providerCapacity.endpoint_reachable,
+        serving: providerCapacity.serving,
+      },
+      capacity: {
+        serving_providers: providerCapacity.serving,
+        reason: providerCapacity.capacity_reason,
+        gates: ['fresh_heartbeat', 'endpoint_reachable', 'verified_online', 'model_coverage'],
+      },
       jobs: { queued: jobsQueued, running: jobsRunning },
       payments,
       sweepErrors: sweep.sweepErrors,
@@ -969,13 +1006,7 @@ app.get('/api/health/detailed', (req, res) => {
     const sweep = getSweepMetrics();
     const now24hAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const providersRegistered = db.prepare(
-      `SELECT COUNT(*) AS count FROM providers`
-    ).get()?.count || 0;
-
-    const providersOnline = db.prepare(
-      `SELECT COUNT(*) AS count FROM providers WHERE status = 'online'`
-    ).get()?.count || 0;
+    const providerCapacity = getProviderCapacitySnapshot();
 
     const jobsQueued = db.prepare(
       `SELECT COUNT(*) AS count FROM jobs WHERE status = 'queued'`
@@ -1030,7 +1061,18 @@ app.get('/api/health/detailed', (req, res) => {
       timestamp: new Date().toISOString(),
       uptime_seconds: Math.floor(process.uptime()),
       db: 'ok',
-      providers: { registered: providersRegistered, online: providersOnline },
+      providers: {
+        registered: providerCapacity.total,
+        online: providerCapacity.heartbeating,
+        heartbeating: providerCapacity.heartbeating,
+        endpoint_reachable: providerCapacity.endpoint_reachable,
+        serving: providerCapacity.serving,
+      },
+      capacity: {
+        serving_providers: providerCapacity.serving,
+        reason: providerCapacity.capacity_reason,
+        gates: ['fresh_heartbeat', 'endpoint_reachable', 'verified_online', 'model_coverage'],
+      },
       jobs: {
         queued: jobsQueued,
         running: jobsRunning,
