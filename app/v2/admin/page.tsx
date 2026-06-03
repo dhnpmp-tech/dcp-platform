@@ -73,6 +73,54 @@ interface ProviderListPayload {
   rows?: unknown[]
 }
 
+interface ApprovalQueuePayload {
+  count?: number
+  sla_target_seconds?: number
+  providers?: unknown[]
+}
+
+interface FleetHealthPayload {
+  total_providers?: number
+  online?: number
+  offline?: number
+  degraded?: number
+  usable_online?: number
+  verified_online?: number
+  serving_now?: boolean
+  providers?: unknown[]
+  generated_at?: string
+}
+
+interface FleetAlertsPayload {
+  total_alerts?: number
+  alerts?: unknown[]
+  generated_at?: string
+}
+
+interface ReconciliationPayload {
+  period_days?: number
+  summary?: {
+    total_completed_jobs?: number
+    total_billed_halala?: number
+    split_mismatches?: number
+    missing_billing?: number
+    provider_drift_count?: number
+    renter_drift_count?: number
+  }
+  issues?: Record<string, unknown[]>
+}
+
+interface ErrorsPayload {
+  errors?: unknown[]
+}
+
+interface ControlPlaneSignalsPayload {
+  mode?: string
+  count?: number
+  signals?: unknown[]
+  snapshot?: unknown
+}
+
 interface TaskItem {
   id: string
   titleEn: string
@@ -94,6 +142,17 @@ interface WorkflowItem {
   status: Severity
   noteEn: string
   noteAr: string
+}
+
+interface ReadinessCheck {
+  key: string
+  labelEn: string
+  labelAr: string
+  value: string
+  status: Severity
+  detailEn: string
+  detailAr: string
+  href: string
 }
 
 const API_BASE = getApiBase()
@@ -141,6 +200,10 @@ function providerRows(payload: ProviderListPayload | unknown[] | null): unknown[
   return payload.providers || payload.data || payload.rows || []
 }
 
+function listSize(value: unknown[] | undefined): number {
+  return Array.isArray(value) ? value.length : 0
+}
+
 function severityRank(severity: Severity): number {
   if (severity === 'critical') return 0
   if (severity === 'watch') return 1
@@ -164,20 +227,50 @@ function buildTasks(
   health: HealthPayload | null,
   security: SecurityPayload | null,
   providers: unknown[],
+  approvalQueue: ApprovalQueuePayload | null,
+  fleet: FleetHealthPayload | null,
+  fleetAlerts: FleetAlertsPayload | null,
+  reconciliation: ReconciliationPayload | null,
+  errorsPayload: ErrorsPayload | null,
 ): TaskItem[] {
   const stats = dashboard?.stats || {}
   const refundPending = countByStatus(audit?.summary?.refund_requests, ['pending', 'processing'])
   const payoutPending = countByStatus(audit?.summary?.payouts, ['pending', 'processing'])
   const billingExceptions = countByStatus(audit?.summary?.billing_attempts, ['error', 'insufficient_balance'])
   const autoTopupIssues = countByStatus(audit?.summary?.auto_topup, ['failed', 'capped', 'paused'])
+  const approvalPending = toNumber(approvalQueue?.count)
   const failedJobs = toNumber(stats.failed_jobs)
   const activeJobs = toNumber(stats.active_jobs)
-  const onlineProviders = toNumber(stats.online_now)
   const totalProviders = toNumber(stats.total_providers) || providers.length
+  const usableOnline = toNumber(fleet?.usable_online)
+  const usableRatio = totalProviders > 0 ? usableOnline / totalProviders : 0
+  const verifiedOnline = toNumber(fleet?.verified_online)
+  const fleetAlertCount = toNumber(fleetAlerts?.total_alerts) || listSize(fleetAlerts?.alerts)
+  const reconciliationIssues =
+    toNumber(reconciliation?.summary?.split_mismatches)
+    + toNumber(reconciliation?.summary?.missing_billing)
+    + toNumber(reconciliation?.summary?.provider_drift_count)
+    + toNumber(reconciliation?.summary?.renter_drift_count)
+  const recentErrors = listSize(errorsPayload?.errors)
   const criticalSecurity = toNumber(security?.critical) + toNumber(security?.high)
   const healthBad = health && (health.ok === false || String(health.status || '').toLowerCase().includes('fail'))
 
   const tasks: TaskItem[] = []
+
+  if (approvalPending > 0) {
+    tasks.push({
+      id: 'provider-approvals',
+      titleEn: `${approvalPending} provider approval${approvalPending === 1 ? '' : 's'} waiting`,
+      titleAr: `${approvalPending} موافقة مزوّد بانتظار القرار`,
+      detailEn: 'Keep the first provider experience human-reviewed; agents may collect logs, SLA age, and onboarding notes.',
+      detailAr: 'أبقِ تجربة المزوّد الأولى بمراجعة بشرية؛ يمكن للوكلاء جمع السجلات وعمر SLA وملاحظات التجهيز.',
+      owner: 'Fleet',
+      source: 'approval queue',
+      severity: 'critical',
+      agentMode: 'guarded',
+      href: '/admin/providers',
+    })
+  }
 
   if (refundPending > 0) {
     tasks.push({
@@ -254,7 +347,35 @@ function buildTasks(
     })
   }
 
-  if (onlineProviders === 0 || (totalProviders > 0 && onlineProviders / totalProviders < 0.35)) {
+  if (fleetAlertCount > 0) {
+    tasks.push({
+      id: 'fleet-alerts',
+      titleEn: `${fleetAlertCount} fleet alert${fleetAlertCount === 1 ? '' : 's'} need triage`,
+      titleAr: `${fleetAlertCount} تنبيه أسطول يحتاج فرزاً`,
+      detailEn: 'Prioritize providers with running jobs, restart loops, or model-cache disk pressure.',
+      detailAr: 'أعطِ الأولوية للمزوّدين مع مهام نشطة أو حلقات إعادة تشغيل أو ضغط تخزين للنماذج.',
+      owner: 'Fleet',
+      source: 'fleet alerts',
+      severity: 'critical',
+      agentMode: 'notify',
+      href: '/admin/fleet',
+    })
+  }
+
+  if ((totalProviders > 0 && usableOnline === 0) || (fleet?.serving_now === false && verifiedOnline === 0)) {
+    tasks.push({
+      id: 'verified-serving-capacity',
+      titleEn: 'No verified serving capacity',
+      titleAr: 'لا توجد سعة خدمة متحققة',
+      detailEn: 'Heartbeat-only nodes are not enough. Check endpoint reachability, WireGuard, and earned-online probes before enabling catalog promises.',
+      detailAr: 'النبض وحده لا يكفي. تحقق من الوصول للنقاط و WireGuard وفحوصات الخدمة المتحققة قبل وعود الكتالوج.',
+      owner: 'Fleet',
+      source: 'earned verification',
+      severity: 'critical',
+      agentMode: 'notify',
+      href: '/admin/fleet',
+    })
+  } else if (usableOnline === 0 || usableRatio < 0.35) {
     tasks.push({
       id: 'fleet-capacity',
       titleEn: 'Fleet capacity is thin',
@@ -266,6 +387,36 @@ function buildTasks(
       severity: 'critical',
       agentMode: 'notify',
       href: '/admin/fleet',
+    })
+  }
+
+  if (reconciliationIssues > 0) {
+    tasks.push({
+      id: 'finance-reconciliation',
+      titleEn: `${reconciliationIssues} reconciliation issue${reconciliationIssues === 1 ? '' : 's'}`,
+      titleAr: `${reconciliationIssues} مشكلة مطابقة مالية`,
+      detailEn: 'Review billing splits, missing billing, and renter/provider drift before finance reporting.',
+      detailAr: 'راجع تقسيمات الفوترة والفوترة الناقصة وانحرافات المستأجر/المزوّد قبل التقارير المالية.',
+      owner: 'Finance',
+      source: 'reconciliation',
+      severity: 'critical',
+      agentMode: 'guarded',
+      href: '/admin/finance',
+    })
+  }
+
+  if (recentErrors > 0) {
+    tasks.push({
+      id: 'recent-errors',
+      titleEn: `${recentErrors} recent error event${recentErrors === 1 ? '' : 's'}`,
+      titleAr: `${recentErrors} حدث خطأ حديث`,
+      detailEn: 'Group by daemon, provider, and job source before deciding whether to page a human.',
+      detailAr: 'جمّع حسب الخادم والمزوّد والمهمة قبل قرار تنبيه إنسان.',
+      owner: 'Engineering',
+      source: 'error feed',
+      severity: recentErrors > 5 ? 'critical' : 'watch',
+      agentMode: 'propose',
+      href: '/admin/incidents',
     })
   }
 
@@ -322,14 +473,21 @@ function buildWorkflows(
   audit: PaymentsAuditPayload | null,
   health: HealthPayload | null,
   providers: unknown[],
+  fleet: FleetHealthPayload | null,
+  reconciliation: ReconciliationPayload | null,
 ): WorkflowItem[] {
   const stats = dashboard?.stats || {}
   const totalProviders = toNumber(stats.total_providers) || providers.length
-  const onlineProviders = toNumber(stats.online_now)
-  const providerRatio = totalProviders > 0 ? onlineProviders / totalProviders : 0
+  const usableOnline = toNumber(fleet?.usable_online)
+  const usableRatio = totalProviders > 0 ? usableOnline / totalProviders : 0
   const refundPending = countByStatus(audit?.summary?.refund_requests, ['pending', 'processing'])
   const payoutPending = countByStatus(audit?.summary?.payouts, ['pending', 'processing'])
   const billingExceptions = countByStatus(audit?.summary?.billing_attempts, ['error', 'insufficient_balance'])
+  const reconciliationIssues =
+    toNumber(reconciliation?.summary?.split_mismatches)
+    + toNumber(reconciliation?.summary?.missing_billing)
+    + toNumber(reconciliation?.summary?.provider_drift_count)
+    + toNumber(reconciliation?.summary?.renter_drift_count)
   const healthStatus = health?.ok === false ? 'review' : String(health?.status || 'unknown')
 
   return [
@@ -337,8 +495,8 @@ function buildWorkflows(
       key: 'launch',
       labelEn: 'Launch readiness',
       labelAr: 'جاهزية الإطلاق',
-      value: providerRatio >= 0.5 && refundPending === 0 ? 'steady' : 'watch',
-      status: providerRatio >= 0.5 && refundPending === 0 ? 'routine' : 'watch',
+      value: usableOnline > 0 && refundPending === 0 && reconciliationIssues === 0 ? 'steady' : 'watch',
+      status: usableOnline > 0 && refundPending === 0 && reconciliationIssues === 0 ? 'routine' : 'watch',
       noteEn: 'Combines supply, money queue, and system health into a simple founder signal.',
       noteAr: 'يجمع العرض وطابور المال وصحة النظام في إشارة مؤسسين بسيطة.',
     },
@@ -355,8 +513,8 @@ function buildWorkflows(
       key: 'fleet',
       labelEn: 'Serving supply',
       labelAr: 'عرض الخدمة',
-      value: `${onlineProviders}/${totalProviders || 0}`,
-      status: onlineProviders === 0 ? 'critical' : providerRatio < 0.5 ? 'watch' : 'routine',
+      value: `${usableOnline}/${totalProviders || 0}`,
+      status: usableOnline === 0 ? 'critical' : usableRatio < 0.5 ? 'watch' : 'routine',
       noteEn: 'Verified serving state matters more than heartbeat freshness.',
       noteAr: 'حالة الخدمة المتحققة أهم من حداثة النبض فقط.',
     },
@@ -370,6 +528,15 @@ function buildWorkflows(
       noteAr: 'يمكن للوكلاء تجميع الأخطاء، لكن تغييرات الرصيد تحتاج موافقة.',
     },
     {
+      key: 'reconciliation',
+      labelEn: 'Reconciliation',
+      labelAr: 'المطابقة المالية',
+      value: `${reconciliationIssues}`,
+      status: reconciliationIssues > 0 ? 'critical' : 'routine',
+      noteEn: 'Split drift, missing billing, and account drift are launch blockers.',
+      noteAr: 'انحراف التقسيم والفوترة الناقصة وانحراف الحسابات عوائق إطلاق.',
+    },
+    {
       key: 'system',
       labelEn: 'System health',
       labelAr: 'صحة النظام',
@@ -377,6 +544,103 @@ function buildWorkflows(
       status: health?.ok === false ? 'critical' : 'routine',
       noteEn: 'DB, queue, cleanup, and probe status should be checked before launch pushes.',
       noteAr: 'يجب فحص قاعدة البيانات والطوابير والتنظيف والفحوصات قبل دفعات الإطلاق.',
+    },
+  ]
+}
+
+function buildReadinessChecks(
+  fleet: FleetHealthPayload | null,
+  fleetAlerts: FleetAlertsPayload | null,
+  approvalQueue: ApprovalQueuePayload | null,
+  audit: PaymentsAuditPayload | null,
+  reconciliation: ReconciliationPayload | null,
+  errorsPayload: ErrorsPayload | null,
+  signals: ControlPlaneSignalsPayload | null,
+): ReadinessCheck[] {
+  const usableOnline = toNumber(fleet?.usable_online)
+  const totalProviders = toNumber(fleet?.total_providers)
+  const fleetAlertCount = toNumber(fleetAlerts?.total_alerts) || listSize(fleetAlerts?.alerts)
+  const approvalPending = toNumber(approvalQueue?.count)
+  const moneyQueue = countByStatus(audit?.summary?.refund_requests, ['pending', 'processing'])
+    + countByStatus(audit?.summary?.payouts, ['pending', 'processing'])
+  const reconciliationIssues =
+    toNumber(reconciliation?.summary?.split_mismatches)
+    + toNumber(reconciliation?.summary?.missing_billing)
+    + toNumber(reconciliation?.summary?.provider_drift_count)
+    + toNumber(reconciliation?.summary?.renter_drift_count)
+  const errorCount = listSize(errorsPayload?.errors)
+  const signalCount = toNumber(signals?.count) || listSize(signals?.signals)
+
+  return [
+    {
+      key: 'verified-supply',
+      labelEn: 'Verified supply',
+      labelAr: 'العرض المتحقق',
+      value: `${usableOnline}/${totalProviders || 0}`,
+      status: usableOnline > 0 ? 'routine' : 'critical',
+      detailEn: 'Requires earned-online serving capacity, not just heartbeats.',
+      detailAr: 'يتطلب سعة خدمة متحققة، وليس نبضات فقط.',
+      href: '/admin/fleet',
+    },
+    {
+      key: 'fleet-alerts',
+      labelEn: 'Fleet alerts',
+      labelAr: 'تنبيهات الأسطول',
+      value: `${fleetAlertCount}`,
+      status: fleetAlertCount > 0 ? 'critical' : 'routine',
+      detailEn: 'Running jobs, restart loops, and disk pressure surface here.',
+      detailAr: 'تظهر هنا المهام النشطة وحلقات الإعادة وضغط التخزين.',
+      href: '/admin/fleet',
+    },
+    {
+      key: 'approvals',
+      labelEn: 'Provider approvals',
+      labelAr: 'موافقات المزوّدين',
+      value: `${approvalPending}`,
+      status: approvalPending > 0 ? 'watch' : 'routine',
+      detailEn: 'First provider activation stays human-reviewed.',
+      detailAr: 'تفعيل المزوّد الأول يبقى بمراجعة بشرية.',
+      href: '/admin/providers',
+    },
+    {
+      key: 'money',
+      labelEn: 'Money queue',
+      labelAr: 'طابور الأموال',
+      value: `${moneyQueue}`,
+      status: moneyQueue > 0 ? 'critical' : 'routine',
+      detailEn: 'Refunds and payouts are approval-gated.',
+      detailAr: 'الاستردادات والدفعات محكومة بالموافقة.',
+      href: '/admin/payments',
+    },
+    {
+      key: 'reconciliation',
+      labelEn: 'Reconciliation',
+      labelAr: 'المطابقة',
+      value: `${reconciliationIssues}`,
+      status: reconciliationIssues > 0 ? 'critical' : 'routine',
+      detailEn: 'Billing split and account drift checks for finance confidence.',
+      detailAr: 'فحوصات تقسيم الفوترة وانحراف الحسابات لثقة المالية.',
+      href: '/admin/finance',
+    },
+    {
+      key: 'incidents',
+      labelEn: 'Error feed',
+      labelAr: 'سجل الأخطاء',
+      value: `${errorCount}`,
+      status: errorCount > 5 ? 'critical' : errorCount > 0 ? 'watch' : 'routine',
+      detailEn: 'Recent daemon and job failures feed incident review.',
+      detailAr: 'أخطاء الخوادم والمهام الحديثة تغذي مراجعة الحوادث.',
+      href: '/admin/incidents',
+    },
+    {
+      key: 'control-plane',
+      labelEn: 'Control plane',
+      labelAr: 'لوحة التحكم',
+      value: signalCount > 0 ? `${signalCount}` : 'quiet',
+      status: 'routine',
+      detailEn: 'Demand, prewarm, and capacity signals remain read-only here.',
+      detailAr: 'إشارات الطلب والتسخين والسعة تبقى للقراءة هنا.',
+      href: '/admin/fleet',
     },
   ]
 }
@@ -391,6 +655,12 @@ export default function V2AdminPage() {
   const [health, setHealth] = useState<HealthPayload | null>(null)
   const [security, setSecurity] = useState<SecurityPayload | null>(null)
   const [providers, setProviders] = useState<unknown[]>([])
+  const [approvalQueue, setApprovalQueue] = useState<ApprovalQueuePayload | null>(null)
+  const [fleet, setFleet] = useState<FleetHealthPayload | null>(null)
+  const [fleetAlerts, setFleetAlerts] = useState<FleetAlertsPayload | null>(null)
+  const [reconciliation, setReconciliation] = useState<ReconciliationPayload | null>(null)
+  const [errorsPayload, setErrorsPayload] = useState<ErrorsPayload | null>(null)
+  const [signals, setSignals] = useState<ControlPlaneSignalsPayload | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
@@ -404,18 +674,42 @@ export default function V2AdminPage() {
     setState('loading')
     setError('')
     try {
-      const [dashRes, auditRes, healthRes, securityRes, providerRes] = await Promise.all([
+      const [
+        dashRes,
+        auditRes,
+        healthRes,
+        securityRes,
+        providerRes,
+        approvalRes,
+        fleetRes,
+        fleetAlertsRes,
+        reconciliationRes,
+        errorsRes,
+        signalsRes,
+      ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
         fetchJson<HealthPayload>('/admin/health', token),
         fetchJson<SecurityPayload>('/admin/security/summary', token),
         fetchJson<ProviderListPayload | unknown[]>('/admin/providers?page=0&limit=200', token),
+        fetchJson<ApprovalQueuePayload>('/admin/providers/approval-queue?limit=100', token),
+        fetchJson<FleetHealthPayload>('/admin/fleet/health', token),
+        fetchJson<FleetAlertsPayload>('/admin/fleet/alerts', token),
+        fetchJson<ReconciliationPayload>('/admin/finance/reconciliation?days=7', token),
+        fetchJson<ErrorsPayload>('/admin/errors?limit=20', token),
+        fetchJson<ControlPlaneSignalsPayload>('/admin/control-plane/signals?limit=5', token),
       ])
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
       setHealth(healthRes)
       setSecurity(securityRes)
       setProviders(providerRows(providerRes))
+      setApprovalQueue(approvalRes)
+      setFleet(fleetRes)
+      setFleetAlerts(fleetAlertsRes)
+      setReconciliation(reconciliationRes)
+      setErrorsPayload(errorsRes)
+      setSignals(signalsRes)
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -435,10 +729,32 @@ export default function V2AdminPage() {
   }, [load])
 
   const stats = dashboard?.stats || {}
-  const tasks = useMemo(() => buildTasks(dashboard, audit, health, security, providers), [dashboard, audit, health, security, providers])
-  const workflows = useMemo(() => buildWorkflows(dashboard, audit, health, providers), [dashboard, audit, health, providers])
+  const tasks = useMemo(
+    () => buildTasks(dashboard, audit, health, security, providers, approvalQueue, fleet, fleetAlerts, reconciliation, errorsPayload),
+    [dashboard, audit, health, security, providers, approvalQueue, fleet, fleetAlerts, reconciliation, errorsPayload],
+  )
+  const workflows = useMemo(
+    () => buildWorkflows(dashboard, audit, health, providers, fleet, reconciliation),
+    [dashboard, audit, health, providers, fleet, reconciliation],
+  )
+  const readiness = useMemo(
+    () => buildReadinessChecks(fleet, fleetAlerts, approvalQueue, audit, reconciliation, errorsPayload, signals),
+    [fleet, fleetAlerts, approvalQueue, audit, reconciliation, errorsPayload, signals],
+  )
   const urgentCount = tasks.filter((task) => task.severity === 'critical').length
   const watchCount = tasks.filter((task) => task.severity === 'watch').length
+  const totalProviders = toNumber(fleet?.total_providers) || toNumber(stats.total_providers)
+  const usableOnline = toNumber(fleet?.usable_online)
+  const verifiedOnline = toNumber(fleet?.verified_online)
+  const fleetAlertCount = toNumber(fleetAlerts?.total_alerts) || listSize(fleetAlerts?.alerts)
+  const approvalPending = toNumber(approvalQueue?.count)
+  const reconciliationIssues =
+    toNumber(reconciliation?.summary?.split_mismatches)
+    + toNumber(reconciliation?.summary?.missing_billing)
+    + toNumber(reconciliation?.summary?.provider_drift_count)
+    + toNumber(reconciliation?.summary?.renter_drift_count)
+  const recentErrors = listSize(errorsPayload?.errors)
+  const signalCount = toNumber(signals?.count) || listSize(signals?.signals)
   const refreshedLabel = refreshedAt
     ? refreshedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '--:--'
@@ -455,6 +771,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#inbox" className="rail-link">
             <span>IN</span><Bi en="Inbox" ar="الصندوق" />
+          </a>
+          <a href="#readiness" className="rail-link">
+            <span>RD</span><Bi en="Readiness" ar="الجاهزية" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -542,7 +861,7 @@ export default function V2AdminPage() {
               </div>
               <div className="metric">
                 <span className="metric-label"><Bi en="Serving providers" ar="المزوّدون النشطون" /></span>
-                <strong>{numFmt.format(toNumber(stats.online_now))}<small> / {numFmt.format(toNumber(stats.total_providers))}</small></strong>
+                <strong>{numFmt.format(usableOnline)}<small> / {numFmt.format(totalProviders)}</small></strong>
               </div>
               <div className="metric">
                 <span className="metric-label"><Bi en="Active renters" ar="المستأجرون النشطون" /></span>
@@ -556,6 +875,32 @@ export default function V2AdminPage() {
                   <span><Bi en={`${numFmt.format(toNumber(stats.failed_jobs))} failed`} ar={`${numFmt.format(toNumber(stats.failed_jobs))} فاشلة`} /></span>
                   <span><Bi en={`${numFmt.format(toNumber(stats.active_jobs))} active`} ar={`${numFmt.format(toNumber(stats.active_jobs))} نشطة`} /></span>
                 </div>
+              </div>
+            </section>
+
+            <section className="readiness-board" id="readiness" aria-label="Launch readiness">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Launch control" ar="تحكم الإطلاق" /></p>
+                  <h2><Bi en="Readiness board" ar="لوحة الجاهزية" /></h2>
+                </div>
+                <span><Bi en="read-only" ar="قراءة فقط" /></span>
+              </div>
+              <div className="readiness-grid">
+                {readiness.map((check) => (
+                  <Link
+                    key={check.key}
+                    href={check.href}
+                    className={`readiness ${check.status}`}
+                    prefetch={isLegacyAdminHref(check.href) ? false : undefined}
+                  >
+                    <div>
+                      <span><Bi en={check.labelEn} ar={check.labelAr} /></span>
+                      <strong>{check.value}</strong>
+                    </div>
+                    <p><Bi en={check.detailEn} ar={check.detailAr} /></p>
+                  </Link>
+                ))}
               </div>
             </section>
 
@@ -628,6 +973,80 @@ export default function V2AdminPage() {
                   <p><Bi en="Every future agent action should carry owner, evidence, proposed change, permission class, and audit outcome." ar="كل إجراء مستقبلي للوكيل يجب أن يحمل المالك والدليل والتغيير المقترح وفئة الصلاحية ونتيجة التدقيق." /></p>
                 </div>
               </div>
+            </section>
+
+            <section className="lane-grid" aria-label="Operational lanes">
+              <article className="lane-panel fleet-lane">
+                <div className="section-head">
+                  <div>
+                    <p className="admin-kicker"><Bi en="Fleet truth" ar="حقيقة الأسطول" /></p>
+                    <h2><Bi en="Serving capacity" ar="سعة الخدمة" /></h2>
+                  </div>
+                </div>
+                <div className="lane-stats">
+                  <div>
+                    <span><Bi en="usable online" ar="قابل للخدمة" /></span>
+                    <strong>{numFmt.format(usableOnline)}</strong>
+                  </div>
+                  <div>
+                    <span><Bi en="verified online" ar="متحقق نشط" /></span>
+                    <strong>{numFmt.format(verifiedOnline)}</strong>
+                  </div>
+                  <div>
+                    <span><Bi en="fleet alerts" ar="تنبيهات الأسطول" /></span>
+                    <strong>{numFmt.format(fleetAlertCount)}</strong>
+                  </div>
+                </div>
+                <p className="lane-note">
+                  <Bi
+                    en="This panel follows endpoint reachability and earned-online probes. Heartbeat-only nodes do not count as serving capacity."
+                    ar="تتبع هذه اللوحة الوصول للنقاط وفحوصات الخدمة المتحققة. النبض وحده لا يُحسب كسعة خدمة."
+                  />
+                </p>
+                <Link href="/admin/fleet" prefetch={false} className="lane-action"><Bi en="Open fleet console" ar="افتح لوحة الأسطول" /></Link>
+              </article>
+
+              <article className="lane-panel finance-lane">
+                <div className="section-head">
+                  <div>
+                    <p className="admin-kicker"><Bi en="Finance guardrails" ar="حواجز المالية" /></p>
+                    <h2><Bi en="Money state" ar="حالة الأموال" /></h2>
+                  </div>
+                </div>
+                <div className="lane-list">
+                  <div><span><Bi en="refunds + payouts" ar="استردادات + دفعات" /></span><strong>{countByStatus(audit?.summary?.refund_requests, ['pending', 'processing']) + countByStatus(audit?.summary?.payouts, ['pending', 'processing'])}</strong></div>
+                  <div><span><Bi en="reconciliation issues" ar="مشاكل المطابقة" /></span><strong>{reconciliationIssues}</strong></div>
+                  <div><span><Bi en="billed in 7d" ar="فوترة 7 أيام" /></span><strong>{formatHalala(reconciliation?.summary?.total_billed_halala)}</strong></div>
+                </div>
+                <p className="lane-note">
+                  <Bi
+                    en="Agents can summarize evidence, but refunds, payouts, balance edits, and provider payments stay human-approved."
+                    ar="يمكن للوكلاء تلخيص الأدلة، لكن الاستردادات والدفعات وتعديلات الرصيد ومدفوعات المزوّدين بموافقة بشرية."
+                  />
+                </p>
+                <Link href="/admin/payments" prefetch={false} className="lane-action"><Bi en="Open payments" ar="افتح المدفوعات" /></Link>
+              </article>
+
+              <article className="lane-panel incident-lane">
+                <div className="section-head">
+                  <div>
+                    <p className="admin-kicker"><Bi en="Signals" ar="الإشارات" /></p>
+                    <h2><Bi en="Incidents and control plane" ar="الحوادث ولوحة التحكم" /></h2>
+                  </div>
+                </div>
+                <div className="lane-list">
+                  <div><span><Bi en="recent errors" ar="أخطاء حديثة" /></span><strong>{recentErrors}</strong></div>
+                  <div><span><Bi en="control signals" ar="إشارات التحكم" /></span><strong>{signalCount}</strong></div>
+                  <div><span><Bi en="provider approvals" ar="موافقات المزوّدين" /></span><strong>{approvalPending}</strong></div>
+                </div>
+                <p className="lane-note">
+                  <Bi
+                    en="This is the future agent inbox source: evidence first, proposed action second, guarded write last."
+                    ar="هذا مصدر صندوق الوكلاء القادم: الدليل أولاً، الإجراء المقترح ثانياً، والكتابة المحروسة أخيراً."
+                  />
+                </p>
+                <Link href="/admin/incidents" prefetch={false} className="lane-action"><Bi en="Open incidents" ar="افتح الحوادث" /></Link>
+              </article>
             </section>
 
             <section className="workflow-strip" id="workflows">
