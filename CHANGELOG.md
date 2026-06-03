@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:35 UTC — [PR #530](https://github.com/dhnpmp-tech/dcp-platform/pull/530) — `feat(v2): add admin mission action desk`
+
+Included:
+- Added a guarded mission action desk to `/v2/admin` so founding-team operators can move task status, reassign work, and record evidence notes without leaving the v2 surface.
+- Reused the existing mission backend write routes (`PATCH /api/mission/tasks/:id`, `POST /api/mission/tasks/:id/reassign`, and `POST /api/mission/tasks/:id/comments`) instead of introducing a new experimental admin mutation API.
+- Kept mission task creation and deletion out of v2 admin; the action desk only supports bounded operational updates through the current admin token and mission write gate.
+- Added static regressions for mission action wiring, strict-vs-legacy write posture copy, no delete/create controls, and action-desk styling.
+
 ### 04:26 UTC — [PR #529](https://github.com/dhnpmp-tech/dcp-platform/pull/529) — `feat(v2): add admin audit trail`
 
 Included:
