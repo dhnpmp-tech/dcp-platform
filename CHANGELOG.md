@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 03:11 UTC — [PR #522](https://github.com/dhnpmp-tech/dcp-platform/pull/522) — `feat(v2): add guarded provider approval desk`
+
+Included:
+- Added a v2-native provider approval desk to `/v2/admin` so founding-team operators can review pending providers without dropping into the legacy provider table first.
+- Wired approve/reject actions to the audited `/api/admin/providers/:id/approval-decision` route instead of the older legacy shortcut endpoints.
+- Kept the workflow one-provider-at-a-time, labeled as a guarded write, and required a clear rejection reason before sending a reject decision.
+- Surfaced SLA age, queued time, audit-envelope language, and a legacy detail link beside each pending provider decision.
+- Added static regressions for the approval desk, audited PATCH route, rejection reason guard, and approval desk styling.
+
 ### 02:53 UTC — [PR #521](https://github.com/dhnpmp-tech/dcp-platform/pull/521) — `feat(v2): expand admin operational dashboard`
 
 Included:

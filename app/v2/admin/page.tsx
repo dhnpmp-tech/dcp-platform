@@ -73,10 +73,26 @@ interface ProviderListPayload {
   rows?: unknown[]
 }
 
+interface ApprovalProvider {
+  provider_id?: number
+  name?: string
+  email?: string
+  approval_status?: string
+  created_at?: string | null
+  pending_duration_seconds?: number | null
+  pending_duration?: string | null
+  reason?: string | null
+  sla_target_seconds?: number
+  sla_deadline_at?: string | null
+  sla_remaining_seconds?: number | null
+  sla_breached?: boolean | null
+}
+
 interface ApprovalQueuePayload {
   count?: number
   sla_target_seconds?: number
-  providers?: unknown[]
+  providers?: ApprovalProvider[]
+  generated_at?: string
 }
 
 interface FleetHealthPayload {
@@ -119,6 +135,21 @@ interface ControlPlaneSignalsPayload {
   count?: number
   signals?: unknown[]
   snapshot?: unknown
+}
+
+interface ApprovalDecisionResult {
+  success?: boolean
+  provider_id?: number
+  approval_status?: string
+  decided_at?: string
+  rejected_reason?: string | null
+  audit_entry?: unknown
+  error?: string
+}
+
+interface ActionMessage {
+  kind: 'success' | 'error'
+  text: string
 }
 
 interface TaskItem {
@@ -164,10 +195,6 @@ function toNumber(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
-function countList(value: unknown): number {
-  return Array.isArray(value) ? value.length : 0
-}
-
 function countByStatus(summary: Record<string, number> | undefined, keys: string[]): number {
   if (!summary) return 0
   return keys.reduce((total, key) => total + toNumber(summary[key]), 0)
@@ -189,6 +216,28 @@ async function fetchJson<T>(path: string, token: string): Promise<T | null> {
   return (await res.json().catch(() => null)) as T | null
 }
 
+async function patchJson<T>(path: string, token: string, body: Record<string, unknown>): Promise<T | null> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'x-admin-token': token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const payload = (await res.json().catch(() => null)) as T | null
+  if (res.status === 401) {
+    throw new Error('admin-auth-expired')
+  }
+  if (!res.ok) {
+    const message = payload && typeof payload === 'object' && 'error' in payload
+      ? String((payload as { error?: unknown }).error || 'Admin action failed.')
+      : 'Admin action failed.'
+    throw new Error(message)
+  }
+  return payload
+}
+
 function unwrapDashboard(payload: DashboardResponse | null): DashboardPayload | null {
   if (!payload) return null
   return payload.dashboard || payload
@@ -200,8 +249,43 @@ function providerRows(payload: ProviderListPayload | unknown[] | null): unknown[
   return payload.providers || payload.data || payload.rows || []
 }
 
+function approvalRows(payload: ApprovalQueuePayload | null): ApprovalProvider[] {
+  if (!payload || !Array.isArray(payload.providers)) return []
+  return payload.providers.filter((provider) => toNumber(provider.provider_id) > 0)
+}
+
 function listSize(value: unknown[] | undefined): number {
   return Array.isArray(value) ? value.length : 0
+}
+
+function formatDuration(value: unknown): string {
+  const seconds = toNumber(value)
+  if (seconds <= 0) return 'new'
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${Math.max(1, minutes)}m`
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return 'unknown'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'unknown'
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function approvalSlaClass(provider: ApprovalProvider): Severity {
+  if (provider.sla_breached) return 'critical'
+  const remaining = toNumber(provider.sla_remaining_seconds)
+  if (remaining > 0 && remaining <= 3600) return 'watch'
+  return 'routine'
 }
 
 function severityRank(severity: Severity): number {
@@ -662,6 +746,10 @@ export default function V2AdminPage() {
   const [errorsPayload, setErrorsPayload] = useState<ErrorsPayload | null>(null)
   const [signals, setSignals] = useState<ControlPlaneSignalsPayload | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
+  const [approvalReason, setApprovalReason] = useState('')
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null)
+  const [approvalMessage, setApprovalMessage] = useState<ActionMessage | null>(null)
 
   const load = useCallback(async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
@@ -729,6 +817,71 @@ export default function V2AdminPage() {
   }, [load])
 
   const stats = dashboard?.stats || {}
+  const approvalProviders = useMemo(() => approvalRows(approvalQueue), [approvalQueue])
+  const selectedApproval = useMemo(() => {
+    if (approvalProviders.length === 0) return null
+    return approvalProviders.find((provider) => provider.provider_id === selectedApprovalId) || approvalProviders[0]
+  }, [approvalProviders, selectedApprovalId])
+
+  useEffect(() => {
+    if (approvalProviders.length === 0) {
+      if (selectedApprovalId !== null) setSelectedApprovalId(null)
+      return
+    }
+    if (!selectedApproval || selectedApproval.provider_id !== selectedApprovalId) {
+      setSelectedApprovalId(approvalProviders[0].provider_id || null)
+    }
+  }, [approvalProviders, selectedApproval, selectedApprovalId])
+
+  const submitApprovalDecision = useCallback(async (decision: 'approve' | 'reject') => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const providerId = toNumber(selectedApproval?.provider_id)
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (!providerId) {
+      setApprovalMessage({ kind: 'error', text: 'No pending provider is selected.' })
+      return
+    }
+    const reason = approvalReason.trim()
+    if (decision === 'reject' && reason.length < 8) {
+      setApprovalMessage({ kind: 'error', text: 'Rejection needs a clear reason before it can be audited.' })
+      return
+    }
+
+    setApprovalAction(decision)
+    setApprovalMessage(null)
+    try {
+      const result = await patchJson<ApprovalDecisionResult>(
+        `/admin/providers/${providerId}/approval-decision`,
+        token,
+        decision === 'approve' ? { decision } : { decision, reason },
+      )
+      const nextStatus = result?.approval_status || (decision === 'approve' ? 'approved' : 'rejected')
+      setApprovalMessage({
+        kind: 'success',
+        text: `${selectedApproval?.name || `Provider #${providerId}`} marked ${nextStatus}; audit row recorded.`,
+      })
+      setApprovalReason('')
+      await load()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'admin-auth-expired') {
+        localStorage.removeItem('dc1_admin_token')
+        setState('missing-key')
+        router.replace(AUTH_HREF)
+        return
+      }
+      setApprovalMessage({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Provider approval decision failed.',
+      })
+    } finally {
+      setApprovalAction(null)
+    }
+  }, [approvalReason, load, router, selectedApproval])
+
   const tasks = useMemo(
     () => buildTasks(dashboard, audit, health, security, providers, approvalQueue, fleet, fleetAlerts, reconciliation, errorsPayload),
     [dashboard, audit, health, security, providers, approvalQueue, fleet, fleetAlerts, reconciliation, errorsPayload],
@@ -774,6 +927,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#readiness" className="rail-link">
             <span>RD</span><Bi en="Readiness" ar="الجاهزية" />
+          </a>
+          <a href="#approvals" className="rail-link">
+            <span>AP</span><Bi en="Approvals" ar="الموافقات" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -902,6 +1058,118 @@ export default function V2AdminPage() {
                   </Link>
                 ))}
               </div>
+            </section>
+
+            <section className="approval-desk" id="approvals" aria-label="Provider approval desk">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Provider operations" ar="عمليات المزوّدين" /></p>
+                  <h2><Bi en="Approval desk" ar="مكتب الموافقات" /></h2>
+                </div>
+                <span><Bi en="guarded write" ar="كتابة محروسة" /></span>
+              </div>
+
+              {approvalProviders.length === 0 ? (
+                <div className="approval-empty">
+                  <strong><Bi en="No providers are waiting for approval" ar="لا يوجد مزوّدون بانتظار الموافقة" /></strong>
+                  <p><Bi en="New registrations will appear here with SLA age, audit policy, and one-provider-at-a-time decisions." ar="ستظهر التسجيلات الجديدة هنا مع عمر SLA وسياسة التدقيق وقرارات مزوّد واحد في كل مرة." /></p>
+                </div>
+              ) : (
+                <div className="approval-layout">
+                  <div className="approval-list" aria-label="Pending provider approvals">
+                    {approvalProviders.map((provider) => {
+                      const providerId = toNumber(provider.provider_id)
+                      const slaClass = approvalSlaClass(provider)
+                      return (
+                        <button
+                          key={providerId}
+                          type="button"
+                          className={`approval-row ${slaClass} ${providerId === selectedApproval?.provider_id ? 'selected' : ''}`}
+                          onClick={() => {
+                            setSelectedApprovalId(providerId)
+                            setApprovalMessage(null)
+                          }}
+                        >
+                          <span>{provider.name || `Provider #${providerId}`}</span>
+                          <strong>{formatDuration(provider.pending_duration_seconds)}</strong>
+                          <small>{provider.email || 'no email'}</small>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="approval-detail">
+                    <div className="approval-provider-head">
+                      <div>
+                        <span><Bi en="selected provider" ar="المزوّد المحدد" /></span>
+                        <h3>{selectedApproval?.name || (selectedApproval ? `Provider #${selectedApproval.provider_id}` : 'Provider')}</h3>
+                      </div>
+                      {selectedApproval && (
+                        <Link href={`/admin/providers/${selectedApproval.provider_id}`} prefetch={false}>
+                          <Bi en="Open legacy detail" ar="افتح التفاصيل الحالية" />
+                        </Link>
+                      )}
+                    </div>
+
+                    <div className="approval-facts">
+                      <div>
+                        <span><Bi en="queued" ar="دخل الطابور" /></span>
+                        <strong>{formatDate(selectedApproval?.created_at)}</strong>
+                      </div>
+                      <div>
+                        <span><Bi en="pending age" ar="عمر الانتظار" /></span>
+                        <strong>{formatDuration(selectedApproval?.pending_duration_seconds)}</strong>
+                      </div>
+                      <div>
+                        <span><Bi en="SLA" ar="اتفاقية الخدمة" /></span>
+                        <strong><Bi en={selectedApproval?.sla_breached ? 'breached' : 'open'} ar={selectedApproval?.sla_breached ? 'متجاوزة' : 'مفتوحة'} /></strong>
+                      </div>
+                    </div>
+
+                    <div className="approval-evidence">
+                      <span><Bi en="Decision envelope" ar="غلاف القرار" /></span>
+                      <ul>
+                        <li><Bi en="Human chooses the final decision." ar="الإنسان يختار القرار النهائي." /></li>
+                        <li><Bi en="Backend accepts pending providers only." ar="الخلفية تقبل المزوّدين المعلّقين فقط." /></li>
+                        <li><Bi en="Every decision records an immutable audit row." ar="كل قرار يسجل صف تدقيق غير قابل للتغيير." /></li>
+                      </ul>
+                    </div>
+
+                    <label className="approval-reason">
+                      <span><Bi en="Reject reason" ar="سبب الرفض" /></span>
+                      <textarea
+                        value={approvalReason}
+                        onChange={(event) => setApprovalReason(event.target.value)}
+                        placeholder={lang === 'ar' ? 'مطلوب عند الرفض، ويبقى في سجل التدقيق.' : 'Required for rejection; stored in the audit trail.'}
+                        rows={4}
+                      />
+                    </label>
+
+                    {approvalMessage && (
+                      <p className={`approval-message ${approvalMessage.kind}`}>{approvalMessage.text}</p>
+                    )}
+
+                    <div className="approval-actions">
+                      <button
+                        type="button"
+                        className="approve"
+                        disabled={!selectedApproval || approvalAction !== null}
+                        onClick={() => void submitApprovalDecision('approve')}
+                      >
+                        <Bi en={approvalAction === 'approve' ? 'Approving' : 'Approve provider'} ar={approvalAction === 'approve' ? 'جارٍ الموافقة' : 'وافق على المزوّد'} />
+                      </button>
+                      <button
+                        type="button"
+                        className="reject"
+                        disabled={!selectedApproval || approvalAction !== null || approvalReason.trim().length < 8}
+                        onClick={() => void submitApprovalDecision('reject')}
+                      >
+                        <Bi en={approvalAction === 'reject' ? 'Rejecting' : 'Reject with reason'} ar={approvalAction === 'reject' ? 'جارٍ الرفض' : 'ارفض مع السبب'} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="admin-two-col">
