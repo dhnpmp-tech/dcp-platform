@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:19 UTC — [PR #528](https://github.com/dhnpmp-tech/dcp-platform/pull/528) — `feat(v2): add admin notification posture`
+
+Included:
+- Added an admin-only `/api/admin/notifications/posture` endpoint for safe alert-channel readiness without returning raw webhook URLs, Telegram bot tokens, or Telegram chat IDs.
+- Added a v2 admin notification-routing panel so founders can see whether human and agent alerts have active channels, redacted destinations, and an explicit agent notify policy.
+- Kept notification test sends and channel edits out of v2 admin; the panel is read-only until event allowlists, approval notes, and audit envelopes are explicit.
+- Added static regressions for safe notification posture redaction, v2 posture wiring, notification panel styling, and avoiding the raw legacy notification config payload.
+
 ### 04:12 UTC — [PR #527](https://github.com/dhnpmp-tech/dcp-platform/pull/527) — `fix(mission): add strict write auth gate`
 
 Included:
