@@ -46,6 +46,7 @@ const router = express.Router();
 const VLLM_COMPATIBILITY_MATRIX_PATH = path.join(__dirname, '../../../infra/vllm-configs/compatibility-matrix.json');
 const TOKEN_RATE_BILLING_UNIT_TOKENS = 1_000_000;
 const DEFAULT_TOKEN_RATE_HALALA = 19;
+const PROVIDER_HEARTBEAT_STALE_MS = 10 * 60 * 1000;
 
 // ── Idempotency cache for /v1/chat/completions (H6) ─────────────────────────
 // Tunnel timeouts cause renter SDKs to retry, which without dedup would create
@@ -766,13 +767,21 @@ router.get('/models', (req, res) => {
     // order. applyEarnedRoutingPolicy drops freshly-confirmed-dead providers
     // (default) / keeps only verified-serving ones (strict), degrading to the
     // claimed-state list when verification is inactive.
-    const onlineProviders = applyEarnedRoutingPolicy(db.all(
-      `SELECT id, cached_models, vram_mb FROM providers
+    let providerRows = [];
+    try {
+      const rawProviderRows = db.all(
+        `SELECT id, cached_models, vram_mb, last_heartbeat FROM providers
        WHERE status = 'online' AND COALESCE(is_paused, 0) = 0
          AND deleted_at IS NULL AND vllm_endpoint_url IS NOT NULL
          AND COALESCE(endpoint_reachable, 0) = 1
          AND endpoint_probed_at IS NOT NULL`
-    ), db);
+      );
+      providerRows = Array.isArray(rawProviderRows) ? rawProviderRows : [];
+    } catch (_) {
+      providerRows = [];
+    }
+    const onlineProvidersRaw = applyEarnedRoutingPolicy(providerRows, db);
+    const onlineProviders = Array.isArray(onlineProvidersRaw) ? onlineProvidersRaw : [];
     const providerCountByModel = new Map();
     const addProviderModelKeys = (modelId, out) => {
       const rawKey = normalizeModelToken(modelId);
@@ -781,7 +790,9 @@ router.get('/models', (req, res) => {
       out.add(rawKey);
       if (canonicalKey) out.add(canonicalKey);
     };
+    const providerCountNowMs = Date.now();
     for (const p of onlineProviders) {
+      if (isProviderHeartbeatStale(p, providerCountNowMs)) continue;
       const cached = parseCachedModels(p.cached_models);
       const providerModelKeys = new Set();
       for (const m of cached) {
@@ -875,7 +886,6 @@ router.get('/models', (req, res) => {
 
 // ── POST /v1/chat/completions — unified streaming + non-streaming ──────────
 
-const PROVIDER_HEARTBEAT_STALE_MS = 10 * 60 * 1000;
 // Dynamic timeout: 30s base + scales with max_tokens (14B model at ~9 tok/s)
 const PROXY_TIMEOUT_BASE_MS = 30000;
 const PROXY_TIMEOUT_PER_TOKEN_MS = 150;
@@ -1102,6 +1112,11 @@ function applyEarnedRoutingPolicy(providers, dbInstance = db) {
   return providers.filter((p) => !state.deadIds.has(Number(p.id)));
 }
 
+function isProviderHeartbeatStale(provider, nowMs = Date.now()) {
+  const hbMs = provider?.last_heartbeat ? Date.parse(provider.last_heartbeat) : NaN;
+  return Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS;
+}
+
 function getCapableProviders(minVramMb, requestedModelId) {
   // Flagged: try the multi-engine table first. When it returns matches we
   // skip the legacy SELECT entirely. When it returns nothing we fall through
@@ -1112,8 +1127,7 @@ function getCapableProviders(minVramMb, requestedModelId) {
       const nowMs = Date.now();
       const filtered = [];
       for (const candidate of engineCandidates) {
-        const hbMs = candidate.last_heartbeat ? Date.parse(candidate.last_heartbeat) : NaN;
-        if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
+        if (isProviderHeartbeatStale(candidate, nowMs)) continue;
         if (Number(candidate.endpoint_reachable) !== 1 || !candidate.endpoint_probed_at) continue;
         if (!parseComputeTypes(candidate.supported_compute_types).has('inference')) continue;
         if (resolveProviderVramMb(candidate) < minVramMb) continue;
@@ -1145,8 +1159,7 @@ function getCapableProviders(minVramMb, requestedModelId) {
     ? String(requestedModelId).toLowerCase().trim()
     : null;
   for (const p of providers) {
-    const hbMs = p.last_heartbeat ? Date.parse(p.last_heartbeat) : NaN;
-    if (Number.isFinite(hbMs) && (nowMs - hbMs) > PROVIDER_HEARTBEAT_STALE_MS) continue;
+    if (isProviderHeartbeatStale(p, nowMs)) continue;
     // Audit C3 — backend-side reachability probe. The probe writes a positive
     // verdict only after this backend can touch the provider endpoint. A
     // heartbeat-only provider must never be routable.

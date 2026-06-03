@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 08:58 UTC — [PR #552](https://github.com/dhnpmp-tech/dcp-platform/pull/552) — `fix(v1): keep stale providers out of model counts`
+
+Included:
+- Tightened `/v1/models` provider counts so stale-heartbeat providers do not inflate `provider_count`, even when their cached model list matches a catalog model.
+- Kept existing catalog alias matching intact, including BGE-M3 and HF-style model IDs, so a fresh verified provider can still make the renter playground discoverable.
+- Made the provider-count scan conservative if provider rows cannot be read: the model catalog stays available, but provider counts fall back to zero instead of throwing.
+- Added a focused `/v1/models` regression for alias-matched cached models and stale-heartbeat exclusion.
+
 ### 08:50 UTC — [PR #551](https://github.com/dhnpmp-tech/dcp-platform/pull/551) — `fix(v2): remove playground demo wording`
 
 Included:
