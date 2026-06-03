@@ -603,6 +603,206 @@ body {
   font-size: 13.5px;
 }
 
+.serving-recovery {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.serving-recovery .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.serving-recovery .section-head > span.ready {
+  color: var(--teal);
+}
+
+.serving-recovery .section-head > span.critical {
+  color: var(--err);
+}
+
+.serving-recovery-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.serving-recovery-summary > div {
+  min-height: 116px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.serving-recovery-summary span,
+.serving-recovery-summary small,
+.serving-recovery-card-head span,
+.serving-recovery-card-head em,
+.serving-recovery-card small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.serving-recovery-summary strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.serving-recovery-summary .critical strong {
+  color: var(--err);
+}
+
+.serving-recovery-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, .6fr);
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.serving-recovery-main,
+.serving-recovery-playbook {
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.serving-recovery-list {
+  display: grid;
+  gap: 10px;
+}
+
+.serving-recovery-card {
+  border-top: 1px solid var(--hair);
+  padding-top: 13px;
+  display: grid;
+  gap: 10px;
+}
+
+.serving-recovery-card:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.serving-recovery-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.serving-recovery-card-head > div {
+  display: grid;
+  gap: 5px;
+}
+
+.serving-recovery-card-head strong {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.serving-recovery-card-head em {
+  flex: 0 0 auto;
+  border: 1px solid var(--hair);
+  padding: 4px 7px;
+  font-style: normal;
+}
+
+.serving-recovery-card.critical .serving-recovery-card-head em {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 36%, var(--hair));
+}
+
+.serving-recovery-card.watch .serving-recovery-card-head em {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.serving-recovery-card p,
+.serving-recovery-empty,
+.serving-recovery-playbook p,
+.serving-recovery-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.48;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.serving-recovery-blockers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.serving-recovery-blockers span {
+  border: 1px solid var(--hair);
+  color: var(--ink-2);
+  padding: 5px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.serving-recovery-blockers .ready {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+}
+
+.serving-recovery-playbook ol {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.serving-recovery-playbook li {
+  padding-top: 12px;
+  border-top: 1px solid var(--hair);
+}
+
+.serving-recovery-playbook li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.serving-recovery-playbook strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.serving-recovery-playbook p {
+  margin-top: 6px;
+}
+
+.serving-recovery-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
 .runbook-queue {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
@@ -2764,6 +2964,7 @@ body {
   .fleet-readiness-grid,
   .finance-review-grid,
   .support-grid,
+  .serving-recovery-grid,
   .incident-command-grid,
   .launch-gate-list,
   .runbook-grid,
@@ -2786,6 +2987,10 @@ body {
   }
 
   .support-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .serving-recovery-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2850,6 +3055,8 @@ body {
   .finance-review-grid,
   .support-summary-grid,
   .support-grid,
+  .serving-recovery-summary,
+  .serving-recovery-grid,
   .incident-summary-grid,
   .incident-command-grid,
   .approval-facts,

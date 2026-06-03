@@ -680,6 +680,18 @@ interface RunbookStep {
   href: string
 }
 
+interface ServingRecoveryItem {
+  key: string
+  provider: FleetProviderRow
+  focusEn: string
+  focusAr: string
+  actionEn: string
+  actionAr: string
+  detail: string
+  severity: Severity
+  agentMode: AgentMode
+}
+
 const API_BASE = getApiBase()
 const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 const HEARTBEAT_STALE_SECONDS = 5 * 60
@@ -915,6 +927,98 @@ function fleetProviderSeverity(provider: FleetProviderRow): Severity {
     || blockers.includes('no cached models')
   ) return 'critical'
   return 'watch'
+}
+
+function buildServingRecoveryItem(provider: FleetProviderRow): ServingRecoveryItem {
+  const blockers = fleetProviderBlockers(provider)
+  const cachedModelCount = toNumber(provider.cached_models_count) || fleetCachedModels(provider).length
+  const verifyError = provider.verify_error || null
+  const endpoint = shortId(provider.verify_endpoint, 34)
+  const base = {
+    key: String(provider.id || fleetProviderLabel(provider)),
+    provider,
+    detail: [
+      `${blockers.length || 0} blocker${blockers.length === 1 ? '' : 's'}`,
+      `endpoint ${provider.endpoint_reachable === true ? 'reachable' : provider.endpoint_reachable === false ? 'down' : 'unprobed'}`,
+      `earned ${provider.verified_online === true ? 'yes' : 'no'}`,
+      `models ${cachedModelCount}`,
+      verifyError ? `probe ${shortId(verifyError, 44)}` : `probe ${endpoint}`,
+    ].join(' · '),
+  }
+
+  if (provider.endpoint_reachable !== true) {
+    return {
+      ...base,
+      focusEn: 'Endpoint route',
+      focusAr: 'مسار النقطة',
+      actionEn: 'From the VPS, confirm the provider endpoint is reachable, then inspect WireGuard routing, bind address, and runtime port before changing catalog state.',
+      actionAr: 'من الخادم، أكد إمكانية الوصول إلى نقطة المزوّد ثم افحص توجيه WireGuard وعنوان الربط والمنفذ قبل تغيير حالة الكتالوج.',
+      severity: 'critical',
+      agentMode: 'propose',
+    }
+  }
+
+  if (provider.verified_online !== true) {
+    return {
+      ...base,
+      focusEn: verifyError && verifyError.toLowerCase().includes('timeout') ? 'Inference timeout' : 'Inference probe',
+      focusAr: verifyError && verifyError.toLowerCase().includes('timeout') ? 'انتهاء مهلة الاستدلال' : 'فحص الاستدلال',
+      actionEn: 'Run /v1/models and a one-token inference from the VPS, inspect vLLM or Ollama logs, and confirm the served model alias matches the catalog.',
+      actionAr: 'شغّل /v1/models واستدلالاً برمز واحد من الخادم، وافحص سجلات vLLM أو Ollama، وأكد أن اسم النموذج المخدوم يطابق الكتالوج.',
+      severity: 'critical',
+      agentMode: 'propose',
+    }
+  }
+
+  if (cachedModelCount <= 0) {
+    return {
+      ...base,
+      focusEn: 'Model coverage',
+      focusAr: 'تغطية النماذج',
+      actionEn: 'Confirm daemon-reported cached models and catalog aliases before allowing this provider to satisfy renter model availability.',
+      actionAr: 'أكد النماذج المخزنة التي يرسلها الخادم المحلي ومرادفات الكتالوج قبل السماح للمزوّد بتلبية توفر نماذج المستأجرين.',
+      severity: 'critical',
+      agentMode: 'propose',
+    }
+  }
+
+  if (provider.wg_tunnel_healthy === false || blockers.some((blocker) => blocker.includes('WireGuard'))) {
+    return {
+      ...base,
+      focusEn: 'WireGuard freshness',
+      focusAr: 'حداثة WireGuard',
+      actionEn: 'Confirm handshake age, peer IP, and tunnel health from the verified fleet console before touching provider routing.',
+      actionAr: 'أكد عمر المصافحة وعنوان النظير وصحة النفق من لوحة الأسطول المتحققة قبل لمس توجيه المزوّد.',
+      severity: 'watch',
+      agentMode: 'propose',
+    }
+  }
+
+  if (blockers.some((blocker) => blocker.includes('heartbeat'))) {
+    return {
+      ...base,
+      focusEn: 'Daemon heartbeat',
+      focusAr: 'نبض الخادم المحلي',
+      actionEn: 'Confirm the provider daemon is running and heartbeating before using the provider for catalog or routing decisions.',
+      actionAr: 'أكد أن خادم المزوّد المحلي يعمل ويرسل النبض قبل استخدامه في قرارات الكتالوج أو التوجيه.',
+      severity: 'watch',
+      agentMode: 'notify',
+    }
+  }
+
+  return {
+    ...base,
+    focusEn: blockers.length > 0 ? 'Serving stability' : 'Ready provider',
+    focusAr: blockers.length > 0 ? 'استقرار الخدمة' : 'مزوّد جاهز',
+    actionEn: blockers.length > 0
+      ? 'Review job failures, restart count, and runtime health before moving public capacity language.'
+      : 'Keep this provider under observation and confirm metered traffic before widening public promises.',
+    actionAr: blockers.length > 0
+      ? 'راجع فشل المهام وعدد إعادة التشغيل وصحة وقت التشغيل قبل تغيير لغة السعة العامة.'
+      : 'أبقِ هذا المزوّد تحت المراقبة وأكد وجود حركة مقاسة قبل توسيع الوعود العامة.',
+    severity: blockers.length > 0 ? 'watch' : 'routine',
+    agentMode: blockers.length > 0 ? 'propose' : 'read',
+  }
 }
 
 function fleetReasonLabel(reason: string): string {
@@ -1791,6 +1895,18 @@ export default function V2AdminPage() {
       return toNumber(a.id) - toNumber(b.id)
     })
     .slice(0, 6)
+  const servingRecoveryRows = (fleetBlockedProviders.length > 0 ? fleetBlockedProviders : fleetProviderList)
+    .map(buildServingRecoveryItem)
+    .sort((a, b) => {
+      const bySeverity = severityRank(a.severity) - severityRank(b.severity)
+      if (bySeverity !== 0) return bySeverity
+      return toNumber(a.provider.id) - toNumber(b.provider.id)
+    })
+    .slice(0, 5)
+  const servingRecoveryCritical = servingRecoveryRows.filter((item) => item.severity === 'critical').length
+  const servingInferenceProbeBlocked = fleetProviderList.filter((provider) => provider.endpoint_reachable === true && provider.verified_online !== true).length
+  const servingTimeoutCount = fleetProviderList.filter((provider) => String(provider.verify_error || '').toLowerCase().includes('timeout')).length
+  const servingNoModelCount = fleetProviderList.filter((provider) => (toNumber(provider.cached_models_count) || fleetCachedModels(provider).length) <= 0).length
   const fleetAlertsPreview = fleetAlertRows(fleetAlerts).slice(0, 4)
   const notificationChannels = notificationPosture?.channels || []
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
@@ -2078,6 +2194,9 @@ export default function V2AdminPage() {
           <a href="#launch" className="rail-link">
             <span>GO</span><Bi en="Launch" ar="الإطلاق" />
           </a>
+          <a href="#serving-recovery" className="rail-link">
+            <span>SR</span><Bi en="Recovery" ar="الاستعادة" />
+          </a>
           <a href="#runbooks" className="rail-link">
             <span>RB</span><Bi en="Runbooks" ar="كتيبات" />
           </a>
@@ -2312,6 +2431,109 @@ export default function V2AdminPage() {
                 <Bi
                   en="v2 launch readiness is read-only. It decides what the founding team may safely say publicly; it does not trigger provider repair, payments, deploys, or control-plane runs."
                   ar="جاهزية إطلاق v2 للقراءة فقط. تحدد ما يمكن لفريق المؤسسين قوله علناً بأمان؛ ولا تشغل إصلاح مزوّد أو مدفوعات أو نشر أو دورات لوحة التحكم."
+                />
+              </p>
+            </section>
+
+            <section className="serving-recovery" id="serving-recovery" aria-label="Serving recovery workflow">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Runtime recovery" ar="استعادة وقت التشغيل" /></p>
+                  <h2><Bi en="Serving recovery" ar="استعادة الخدمة" /></h2>
+                </div>
+                <span className={publicCapacityReady ? 'ready' : 'critical'}>
+                  <Bi en={publicCapacityReady ? 'serving' : `${servingRecoveryCritical} critical`} ar={publicCapacityReady ? 'يخدم' : `${servingRecoveryCritical} حرجة`} />
+                </span>
+              </div>
+
+              <div className="serving-recovery-summary">
+                <div className={usableOnline > 0 ? 'ready' : 'critical'}>
+                  <span><Bi en="verified serving" ar="خدمة متحققة" /></span>
+                  <strong>{numFmt.format(usableOnline)}</strong>
+                  <small><Bi en="metering-grade providers" ar="مزوّدون بدرجة القياس" /></small>
+                </div>
+                <div className={fleetEndpointReachable > 0 ? 'ready' : 'critical'}>
+                  <span><Bi en="endpoint reachable" ar="النقطة متاحة" /></span>
+                  <strong>{numFmt.format(fleetEndpointReachable)}</strong>
+                  <small><Bi en={`${servingInferenceProbeBlocked} still fail earned probe`} ar={`${servingInferenceProbeBlocked} ما زالت تفشل فحص الخدمة`} /></small>
+                </div>
+                <div className={servingTimeoutCount > 0 ? 'critical' : ''}>
+                  <span><Bi en="probe timeouts" ar="انتهاء مهلة الفحص" /></span>
+                  <strong>{numFmt.format(servingTimeoutCount)}</strong>
+                  <small><Bi en="runtime accepts route but not verified inference" ar="وقت التشغيل يقبل المسار لكن لا يثبت الاستدلال" /></small>
+                </div>
+                <div className={servingNoModelCount > 0 ? 'critical' : ''}>
+                  <span><Bi en="model gaps" ar="فجوات النماذج" /></span>
+                  <strong>{numFmt.format(servingNoModelCount)}</strong>
+                  <small><Bi en="cached model or alias evidence missing" ar="دليل النموذج المخزن أو المرادف مفقود" /></small>
+                </div>
+              </div>
+
+              <div className="serving-recovery-grid">
+                <article className="serving-recovery-main">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Provider recovery queue" ar="طابور استعادة المزوّدين" /></span>
+                    <Link href="#fleet"><Bi en="Open fleet evidence" ar="افتح دليل الأسطول" /></Link>
+                  </div>
+
+                  {servingRecoveryRows.length === 0 ? (
+                    <p className="serving-recovery-empty"><Bi en="No provider evidence returned yet. Fleet health must load before recovery can be assigned." ar="لم يعد دليل مزوّدين بعد. يجب تحميل صحة الأسطول قبل إسناد الاستعادة." /></p>
+                  ) : (
+                    <div className="serving-recovery-list">
+                      {servingRecoveryRows.map((item) => {
+                        const label = agentLabel(item.agentMode)
+                        const blockers = fleetProviderBlockers(item.provider)
+                        return (
+                          <article className={`serving-recovery-card ${item.severity}`} key={item.key}>
+                            <div className="serving-recovery-card-head">
+                              <div>
+                                <span><Bi en={item.focusEn} ar={item.focusAr} /></span>
+                                <strong>{fleetProviderLabel(item.provider)}</strong>
+                              </div>
+                              <em><Bi en={label.en} ar={label.ar} /></em>
+                            </div>
+                            <p><Bi en={item.actionEn} ar={item.actionAr} /></p>
+                            <small>{item.detail}</small>
+                            <div className="serving-recovery-blockers">
+                              {blockers.length === 0 ? (
+                                <span className="ready"><Bi en="No current blocker in fleet health." ar="لا يوجد عائق حالي في صحة الأسطول." /></span>
+                              ) : (
+                                blockers.slice(0, 4).map((blocker) => <span key={blocker}>{blocker}</span>)
+                              )}
+                            </div>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )}
+                </article>
+
+                <article className="serving-recovery-playbook">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Recovery playbook" ar="كتيب الاستعادة" /></span>
+                    <Link href="/admin/fleet" prefetch={false}><Bi en="Verified console" ar="اللوحة المتحققة" /></Link>
+                  </div>
+                  <ol>
+                    <li>
+                      <strong><Bi en="Prove the route" ar="أثبت المسار" /></strong>
+                      <p><Bi en="From the VPS, test the provider /v1/models endpoint and record whether the route fails, times out, or returns an OpenAI-shaped response." ar="من الخادم، اختبر نقطة /v1/models للمزوّد وسجّل هل يفشل المسار أو تنتهي مهلته أو يعيد استجابة بشكل OpenAI." /></p>
+                    </li>
+                    <li>
+                      <strong><Bi en="Prove inference" ar="أثبت الاستدلال" /></strong>
+                      <p><Bi en="Run a one-token chat or embedding probe against the served model before changing catalog, pricing, or public marketplace language." ar="شغّل فحص محادثة أو تضمين برمز واحد على النموذج المخدوم قبل تغيير الكتالوج أو التسعير أو لغة السوق العامة." /></p>
+                    </li>
+                    <li>
+                      <strong><Bi en="Prove model coverage" ar="أثبت تغطية النموذج" /></strong>
+                      <p><Bi en="Match daemon-reported cached models and catalog aliases so renters do not see provider_count until a real model can answer." ar="طابق النماذج المخزنة التي يرسلها الخادم المحلي مع مرادفات الكتالوج حتى لا يرى المستأجرون provider_count قبل أن يجيب نموذج حقيقي." /></p>
+                    </li>
+                  </ol>
+                </article>
+              </div>
+
+              <p className="serving-recovery-policy">
+                <Bi
+                  en="v2 serving recovery is read-only. agents may collect probe evidence, draft provider handoff notes, and suggest the next verified-console action; daemon restarts, tunnel changes, endpoint edits, routing changes, and public capacity flips stay outside v2 until audited recovery actions exist."
+                  ar="استعادة الخدمة في v2 للقراءة فقط. يمكن للوكلاء جمع أدلة الفحص وصياغة ملاحظات تسليم للمزوّد واقتراح الإجراء التالي في اللوحة المتحققة؛ تبقى إعادة تشغيل الخادم المحلي وتغييرات النفق وتعديلات النقاط والتوجيه وقلب السعة العامة خارج v2 حتى توجد إجراءات استعادة مدققة."
                 />
               </p>
             </section>

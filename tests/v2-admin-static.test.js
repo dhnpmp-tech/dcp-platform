@@ -46,6 +46,25 @@ assert(page.includes('demandModelKeys'), 'v2 admin should normalize read-only de
 assert(page.includes('Do not claim live marketplace capacity'), 'v2 admin should block public live-capacity claims when earned serving capacity is absent');
 assert(page.includes('v2 launch readiness is read-only'), 'v2 admin should keep launch readiness read-only');
 assert(page.includes('does not trigger provider repair, payments, deploys, or control-plane runs'), 'v2 admin should state that launch readiness has no mutation side effects');
+assert(page.includes('#serving-recovery'), 'v2 admin should expose serving recovery as a primary rail section');
+assert(page.includes('Serving recovery'), 'v2 admin should expose a serving recovery workflow');
+assert(page.includes('buildServingRecoveryItem'), 'v2 admin should derive serving recovery actions from fleet evidence');
+assert(page.includes('servingRecoveryRows'), 'v2 admin should render serving recovery rows');
+assert(page.includes('servingInferenceProbeBlocked'), 'v2 admin should summarize endpoint-reachable providers that still fail earned inference');
+assert(page.includes('Inference timeout'), 'v2 admin should classify timeout-based earned probe failures');
+assert(page.includes('Run /v1/models and a one-token inference from the VPS'), 'v2 admin should tell operators how to verify earned serving state');
+assert(page.includes('v2 serving recovery is read-only'), 'v2 admin should keep serving recovery read-only');
+assert(page.includes('agents may collect probe evidence'), 'v2 admin should allow agents to collect probe evidence without executing repairs');
+assert(page.includes('daemon restarts, tunnel changes, endpoint edits, routing changes, and public capacity flips stay outside v2'), 'v2 admin should keep serving recovery mutation actions out of v2');
+[
+  '/admin/providers/${providerId}/restart',
+  '/admin/providers/${providerId}/repair',
+  '/admin/providers/${providerId}/endpoint',
+  '/admin/providers/${providerId}/wireguard',
+  '/admin/providers/${providerId}/routing',
+].forEach((unsafePath) => {
+  assert(!page.includes(unsafePath), `v2 admin serving recovery should not call unsafe provider repair mutation path: ${unsafePath}`);
+});
 assert(page.includes('#runbooks'), 'v2 admin should expose runbooks as a primary rail section');
 assert(page.includes('Runbook queue'), 'v2 admin should expose a founder runbook queue');
 assert(page.includes('runbookSteps'), 'v2 admin should derive runbook steps from loaded operational evidence');
@@ -187,6 +206,12 @@ assert(css.includes('.launch-summary-grid'), 'v2 admin should style launch readi
 assert(css.includes('.launch-gate-list'), 'v2 admin should style launch readiness gates');
 assert(css.includes('.launch-gate'), 'v2 admin should style launch gate rows');
 assert(css.includes('.launch-policy'), 'v2 admin should style the launch read-only policy');
+assert(css.includes('.serving-recovery'), 'v2 admin should style serving recovery');
+assert(css.includes('.serving-recovery-summary'), 'v2 admin should style serving recovery summary metrics');
+assert(css.includes('.serving-recovery-grid'), 'v2 admin should style serving recovery panels');
+assert(css.includes('.serving-recovery-card'), 'v2 admin should style serving recovery cards');
+assert(css.includes('.serving-recovery-blockers'), 'v2 admin should style serving recovery blocker chips');
+assert(css.includes('.serving-recovery-policy'), 'v2 admin should style the serving recovery read-only policy');
 assert(css.includes('.runbook-queue'), 'v2 admin should style the runbook queue');
 assert(css.includes('.runbook-grid'), 'v2 admin should style runbook cards');
 assert(css.includes('.runbook-card'), 'v2 admin should style individual runbook cards');
