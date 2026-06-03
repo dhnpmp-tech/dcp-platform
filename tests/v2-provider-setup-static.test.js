@@ -14,6 +14,10 @@ const forbidden = [
   'RTX 4090',
   'first job is already routing',
   'earning now',
+  'illustrative MOCK data',
+  'We detected the basics from your browser',
+  'auto-detected',
+  '280 Mbps',
 ];
 
 for (const text of forbidden) {

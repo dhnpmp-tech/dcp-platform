@@ -23,9 +23,6 @@ export default function DocsPage() {
         <Link href="/v2/home" className="wm">
           DCP<i>∞</i><span className="tag">Docs</span>
         </Link>
-        <div className="search">
-          <input type="search" placeholder={lang === 'ar' ? 'ابحث في التوثيق…  /' : 'Search the docs…  /'} />
-        </div>
         <div className="links">
           <Link href="/v2/home"><Bi en="Home" ar="الرئيسية" /></Link>
           <Link href="/v2/auth"><Bi en="Console" ar="لوحة التحكم" /></Link>

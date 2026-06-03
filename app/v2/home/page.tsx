@@ -531,8 +531,8 @@ export default function V2HomePage() {
                   <Bi en="No simulated telemetry" ar="لا توجد قياسات مصطنعة" />
                 </b>
               </div>
-              <div className="demand-bar">
-                <span id="verified-capacity-bar" style={{ transform: 'scaleX(.34)', transformOrigin: 'left' }} />
+              <div className="demand-bar" aria-label={lang === 'ar' ? 'لا توجد سعة منشورة حتى يجتاز مزوّد حي فحوصات التحقق' : 'No published capacity until a live provider passes verification'}>
+                <span id="verified-capacity-bar" style={{ transform: 'scaleX(0)', transformOrigin: 'left' }} />
               </div>
             </div>
             <div className="right">
@@ -541,7 +541,7 @@ export default function V2HomePage() {
               </span>
               <br />
               <b>
-                <Bi en="See /status before routing" ar="راجع /status قبل التوجيه" />
+                <Bi en="Gated by /status" ar="محكوم عبر /status" />
               </b>
             </div>
           </div>
@@ -588,12 +588,12 @@ export default function V2HomePage() {
           <div className="mp-foot">
             <span>
               <Bi
-                en="Illustrative capacity classes; live model availability is checked before routing."
-                ar="فئات سعة توضيحية؛ يتم فحص توفر النماذج الحي قبل التوجيه."
+                en="Illustrative capacity classes only; public capacity stays hidden until endpoint reachability, model coverage, and earned-online checks pass."
+                ar="فئات سعة توضيحية فقط؛ تبقى السعة العامة مخفية حتى تنجح فحوصات الوصول للنقطة وتغطية النموذج والتحقق المكتسب."
               />
             </span>
-            <Link href="/v2/renter/playground">
-              <Bi en="Open model playground →" ar="افتح بيئة النماذج ←" />
+            <Link href="/status">
+              <Bi en="Check live status →" ar="تحقق من الحالة الحية ←" />
             </Link>
           </div>
 

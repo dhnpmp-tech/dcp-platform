@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 03:30 UTC — [PR #523](https://github.com/dhnpmp-tech/dcp-platform/pull/523) — `fix(v2): close public website gaps`
+
+Included:
+- Made the v2 homepage capacity meter render as zero until live endpoint, model-coverage, and earned-online checks pass, and routed visitors to `/status` for live availability.
+- Reworded v2 provider setup requirements so static minimums are not presented as browser-detected hardware telemetry before the daemon runs.
+- Removed the decorative docs search input and its unused styles from `/v2/docs`.
+- Added `robots.txt` and a Next.js sitemap route so `/robots.txt` and `/sitemap.xml` no longer 404.
+- Added static regressions for homepage capacity honesty, provider setup wording, docs anchors/search chrome, and site index files.
+
 ### 03:11 UTC — [PR #522](https://github.com/dhnpmp-tech/dcp-platform/pull/522) — `feat(v2): add guarded provider approval desk`
 
 Included:
