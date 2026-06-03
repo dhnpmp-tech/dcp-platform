@@ -75,6 +75,13 @@ assert(page.includes('Canonical probe evidence'), 'v2 admin should label canonic
 assert(page.includes('Serving proof packet'), 'v2 admin should expose a serving proof packet for the next provider target');
 assert(page.includes('pickServingProofTarget'), 'v2 admin should choose a focused provider target from canonical probe evidence');
 assert(page.includes('buildServingProofChecklist'), 'v2 admin should derive a route/inference/model proof checklist');
+assert(page.includes('ServingHandoffCard'), 'v2 admin should type provider recovery handoff cards');
+assert(page.includes('buildServingHandoffCards'), 'v2 admin should derive provider recovery handoffs from canonical probe evidence');
+assert(page.includes('servingHandoffCards'), 'v2 admin should render the selected provider handoff packet');
+assert(page.includes('Provider recovery handoff'), 'v2 admin should expose a provider recovery handoff packet');
+assert(page.includes('copy-ready evidence note'), 'v2 admin handoff should include a copy-ready mission evidence note');
+assert(page.includes('verified console'), 'v2 admin handoff should name the verified console for recovery evidence');
+assert(page.includes('No daemon restart, WireGuard edit, endpoint edit, routing change, or public marketplace language change happens from this v2 packet'), 'v2 admin handoff should state its serving recovery mutation boundary');
 assert(page.includes('Route proof'), 'v2 admin should show route proof separately from heartbeat state');
 assert(page.includes('Inference proof'), 'v2 admin should show earned-inference proof separately from endpoint reachability');
 assert(page.includes('Model proof'), 'v2 admin should show model alias/cache proof separately from route proof');
@@ -271,6 +278,9 @@ assert(css.includes('.serving-recovery-policy'), 'v2 admin should style the serv
 assert(css.includes('.serving-proof'), 'v2 admin should style the serving proof packet');
 assert(css.includes('.serving-proof-checklist'), 'v2 admin should style the serving proof checklist');
 assert(css.includes('.serving-proof-exit'), 'v2 admin should style the serving proof exit criteria');
+assert(css.includes('.serving-handoff'), 'v2 admin should style the provider recovery handoff');
+assert(css.includes('.serving-handoff-grid'), 'v2 admin should style provider recovery handoff cards');
+assert(css.includes('.serving-handoff-card'), 'v2 admin should style individual recovery handoff cards');
 assert(css.includes('.runbook-queue'), 'v2 admin should style the runbook queue');
 assert(css.includes('.runbook-grid'), 'v2 admin should style runbook cards');
 assert(css.includes('.runbook-card'), 'v2 admin should style individual runbook cards');

@@ -930,6 +930,95 @@ body {
   padding-top: 12px;
 }
 
+.serving-handoff {
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.serving-handoff-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.serving-handoff-card {
+  min-height: 178px;
+  background: color-mix(in oklab, var(--bg) 90%, var(--paper));
+  padding: 14px;
+  color: var(--ink);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 2px solid var(--teal);
+}
+
+.serving-handoff-card.watch {
+  border-top-color: var(--orange);
+}
+
+.serving-handoff-card.critical {
+  border-top-color: var(--err);
+}
+
+.serving-handoff-card > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.serving-handoff-card span,
+.serving-handoff-card em {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-style: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.serving-handoff-card em {
+  color: var(--teal);
+  text-align: end;
+}
+
+.serving-handoff-card.watch em {
+  color: var(--orange);
+}
+
+.serving-handoff-card.critical em {
+  color: var(--err);
+}
+
+.serving-handoff-card strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.serving-handoff-card p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
+.serving-handoff-card:hover {
+  background: color-mix(in oklab, var(--paper) 70%, var(--bg));
+}
+
 .serving-recovery-grid {
   margin-top: 16px;
   display: grid;
@@ -3592,7 +3681,8 @@ body {
   }
 
   .serving-proof-target,
-  .serving-proof-checklist {
+  .serving-proof-checklist,
+  .serving-handoff-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3668,6 +3758,7 @@ body {
   .serving-recovery-grid,
   .serving-proof-target,
   .serving-proof-checklist,
+  .serving-handoff-grid,
   .incident-summary-grid,
   .incident-command-grid,
   .approval-facts,
