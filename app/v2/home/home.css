@@ -610,7 +610,7 @@
   }
   .hiw-foot b { color:var(--ink); font-weight:500; }
 
-  /* ════════════ MARKETPLACE TABLE ════════════ */
+  /* ════════════ CAPACITY TRUTH ════════════ */
   .mp-meta { display:flex; justify-content:space-between; align-items:baseline; margin: 0 0 18px; font-family:var(--mono); font-size:11px; letter-spacing:.12em; color:var(--mut); text-transform:uppercase; }
   .mp-meta b { color:var(--ink); font-weight:500; }
   .demand-v2 { display:flex; gap:18px; padding:18px 22px; background:var(--paper); border:1px solid var(--line); margin-bottom:20px; align-items:center; }
@@ -622,30 +622,45 @@
   .demand-v2 .demand-bar { margin-top:10px; height:5px; background:var(--hair); border-radius:2px; overflow:hidden; position:relative; }
   .demand-v2 .demand-bar span { position:absolute; inset:0 24% 0 0; background:var(--grad); transition: inset .6s; }
 
-  .mp-table { width:100%; border-collapse:collapse; font-size:14px; background:var(--paper); border:1px solid var(--line); }
-  .mp-table thead th {
-    font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
-    text-align:start; padding:14px 16px; border-bottom:1px solid var(--line); color:var(--mut); background:var(--bg-2);
+  .capacity-truth {
+    display:grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+    border:1px solid var(--line); background:var(--paper);
   }
-  .mp-table tbody td { padding:18px 16px; border-bottom:1px solid var(--hair); vertical-align:middle; }
-  .mp-table tbody tr:last-child td { border-bottom:0; }
-  .mp-table tbody tr { transition: background .15s; }
-  .mp-table tbody tr:hover { background: color-mix(in oklab, var(--teal) 8%, var(--paper)); }
-  .mp-table .gpu { font-family:var(--serif); font-size:20px; letter-spacing:-.01em; color:var(--ink); }
-  .mp-table .gpu small { display:block; color:var(--mut); font-size:11px; font-family:var(--mono); margin-top:3px; letter-spacing:.04em; }
-  .mp-table .region { display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--ink-2); }
-  .mp-table .region .pin { width:6px; height:6px; border-radius:50%; background:var(--teal); }
-  .mp-table .provider { font-family:var(--mono); font-size:12.5px; color:var(--ink-2); }
-  .mp-table .util-cell { display:flex; align-items:center; gap:10px; min-width:120px; }
-  .mp-table .util-bar { flex:1; height:4px; background:var(--hair); position:relative; border-radius:2px; overflow:hidden; }
-  .mp-table .util-bar span { position:absolute; inset:0; background:var(--grad); transform-origin:left; }
-  .mp-table .util-val { font-family:var(--mono); font-size:11.5px; color:var(--mut); min-width:34px; }
-  .mp-table .price { font-family:var(--mono); font-size:12px; letter-spacing:.02em; color:var(--ink); text-transform:uppercase; }
-  .mp-table .price .u { font-family:var(--mono); font-size:11px; color:var(--mut); margin-inline-start:6px; }
-  .mp-table .tag.neutral { color:var(--ink-2); font-family:var(--mono); font-size:11px; }
+  .capacity-copy {
+    padding:34px 34px 36px; border-inline-end:1px solid var(--hair);
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .capacity-copy .truth-label {
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal);
+  }
+  .capacity-copy h3 {
+    margin:0; font-family:var(--serif); font-weight:400; font-size:42px; line-height:1.02; letter-spacing:-.018em; color:var(--ink);
+  }
+  html[data-lang="ar"] .capacity-copy h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; letter-spacing:0; }
+  .capacity-copy p {
+    margin:0; max-width:62ch; color:var(--ink-2); font-size:15px; line-height:1.65;
+  }
+  .capacity-gates { display:grid; grid-template-columns:1fr; }
+  .capacity-gate {
+    min-height:118px; padding:22px 24px; border-bottom:1px solid var(--hair);
+    display:grid; grid-template-columns:42px 1fr; gap:8px 14px; align-content:start;
+  }
+  .capacity-gate:last-child { border-bottom:0; }
+  .capacity-gate .gate-n {
+    grid-row:span 2; font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--mut); padding-top:2px;
+  }
+  .capacity-gate .gate-k {
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink);
+  }
+  .capacity-gate p { margin:0; color:var(--ink-2); font-size:13px; line-height:1.55; }
   .mp-foot { margin-top:14px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.08em; text-transform:uppercase; }
   .mp-foot a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
   .mp-foot a:hover { color:var(--teal); border-bottom-color:var(--teal); }
+  @media (max-width: 900px) {
+    .capacity-truth { grid-template-columns:1fr; }
+    .capacity-copy { border-inline-end:0; border-bottom:1px solid var(--hair); }
+    .capacity-copy h3 { font-size:34px; }
+  }
 
   /* ════════════ ARABIC WEDGE ════════════ */
   .wedge { display:grid; grid-template-columns: 1fr 1fr; gap:56px; align-items:start; }

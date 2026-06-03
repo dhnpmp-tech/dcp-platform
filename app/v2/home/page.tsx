@@ -28,40 +28,22 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }>
   { href: '/v2/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
-// ───────── marketplace rows ─────────
-const CAPACITY_CLASSES = [
+// ───────── capacity truth cards ─────────
+const CAPACITY_GATES = [
   {
-    gpu: 'NVIDIA H100 / A100 80GB',
-    spec: 'Data-center class',
-    fit: 'Large context, batch inference, private deployments',
-    fitAr: 'سياق كبير، استدلال دفعي، نشر خاص',
-    availability: 'Listed only after verified endpoint checks',
-    availabilityAr: 'تظهر فقط بعد فحص نقطة الخدمة والتحقق',
-    billing: 'Token-metered or quoted',
-    billingAr: 'حسب الرموز أو بعرض سعر',
-    routing: 'verified_online + endpoint_reachable',
+    k: 'endpoint_reachable',
+    en: 'Backend endpoint probe can reach the provider runtime.',
+    ar: 'فحص الخلفية يصل إلى بيئة تشغيل المزوّد.',
   },
   {
-    gpu: 'NVIDIA L40S / A6000 48GB',
-    spec: 'Workstation class',
-    fit: 'Vision, embeddings, medium LLM serving',
-    fitAr: 'رؤية، تضمينات، وخدمة نماذج متوسطة',
-    availability: 'Requires live model coverage',
-    availabilityAr: 'تتطلب تغطية نموذج حي',
-    billing: 'Token-metered',
-    billingAr: 'حسب الرموز',
-    routing: 'model match + health probe',
+    k: 'verified_online',
+    en: 'Earned-online inference verification passes on a serving model.',
+    ar: 'تحقق الاستدلال المكتسب ينجح على نموذج مخدوم.',
   },
   {
-    gpu: 'RTX 4090 / RTX 3090 24GB',
-    spec: 'Independent provider class',
-    fit: 'Arabic inference, small models, burst capacity',
-    fitAr: 'استدلال عربي، نماذج صغيرة، وسعة مؤقتة',
-    availability: 'Hidden when no model is serving',
-    availabilityAr: 'تُخفى عندما لا يخدم الجهاز نموذجاً',
-    billing: 'Token-metered',
-    billingAr: 'حسب الرموز',
-    routing: 'earned-online gate',
+    k: 'model coverage',
+    en: 'Catalog aliases match a model the provider is actually serving.',
+    ar: 'أسماء الكتالوج تطابق نموذجاً يخدمه المزوّد فعلياً.',
   },
 ]
 
@@ -546,50 +528,39 @@ export default function V2HomePage() {
             </div>
           </div>
 
-          <div className="mk-wrap">
-            <table className="mp-table">
-              <thead>
-                <tr>
-                  <th><Bi en="GPU class" ar="فئة المعالج" /></th>
-                  <th><Bi en="Workload fit" ar="الاستخدام المناسب" /></th>
-                  <th><Bi en="Public availability" ar="التوفر العام" /></th>
-                  <th><Bi en="Billing" ar="الفوترة" /></th>
-                  <th><Bi en="Routing gate" ar="بوابة التوجيه" /></th>
-                </tr>
-              </thead>
-              <tbody>
-                {CAPACITY_CLASSES.map((r) => (
-                  <tr key={r.gpu}>
-                    <td>
-                      <span className="gpu">{r.gpu}</span>
-                      <small>{r.spec}</small>
-                    </td>
-                    <td>
-                      <span className="provider"><Bi en={r.fit} ar={r.fitAr} /></span>
-                    </td>
-                    <td>
-                      <span className="tag neutral"><Bi en={r.availability} ar={r.availabilityAr} /></span>
-                    </td>
-                    <td>
-                      <span className="price">
-                        <Bi en={r.billing} ar={r.billingAr} />
-                      </span>
-                    </td>
-                    <td>
-                      <span className="tag" style={{ color: 'var(--teal)', fontFamily: 'var(--mono)', fontSize: 11 }}>
-                        {r.routing}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="capacity-truth">
+            <div className="capacity-copy">
+              <span className="truth-label">
+                <Bi en="What the public marketplace means" ar="ما معنى السوق العام" />
+              </span>
+              <h3>
+                <Bi
+                  en="No provider is listed until the inference path itself is proven."
+                  ar="لا يظهر أي مزوّد حتى يتم إثبات مسار الاستدلال نفسه."
+                />
+              </h3>
+              <p>
+                <Bi
+                  en="The public page does not advertise GPU inventory, regions, throughput, or model availability from static copy. Renter calls use the catalog only after the backend sees a reachable endpoint, a serving model, and an earned-online inference verdict."
+                  ar="لا تعلن الصفحة العامة عن مخزون معالجات أو مناطق أو سرعة أو توفر نماذج من نص ثابت. تستخدم طلبات المستأجر الكتالوج فقط بعد أن ترى الخلفية نقطة خدمة قابلة للوصول ونموذجاً مخدوماً ونتيجة استدلال متحققة."
+                />
+              </p>
+            </div>
+            <div className="capacity-gates" aria-label={lang === 'ar' ? 'بوابات السعة المنشورة' : 'Published capacity gates'}>
+              {CAPACITY_GATES.map((gate, index) => (
+                <div className="capacity-gate" key={gate.k}>
+                  <span className="gate-n">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="gate-k">{gate.k}</span>
+                  <p><Bi en={gate.en} ar={gate.ar} /></p>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="mp-foot">
             <span>
               <Bi
-                en="Illustrative capacity classes only; public capacity stays hidden until endpoint reachability, model coverage, and earned-online checks pass."
-                ar="فئات سعة توضيحية فقط؛ تبقى السعة العامة مخفية حتى تنجح فحوصات الوصول للنقطة وتغطية النموذج والتحقق المكتسب."
+                en="If those checks fail, the right public state is empty capacity plus a route to status, not a stale GPU list."
+                ar="إذا فشلت هذه الفحوصات، فالحالة العامة الصحيحة هي سعة فارغة مع رابط للحالة، وليست قائمة معالجات قديمة."
               />
             </span>
             <Link href="/status">
@@ -600,11 +571,11 @@ export default function V2HomePage() {
           <div className="callout" style={{ marginTop: 32 }}>
             {lang === 'ar' ? (
               <>
-                <b>أنت تشتري الرموز، لا المعالجات.</b> خريطة السعة أعلاه توضّح أنواع الأجهزة التي يمكن أن يخدمها الموجّه بعد التحقق. إن أردت تحديداً تشغيل جهاز كمزوّد، فابدأ من مسار المزوّد.
+                <b>أنت تشتري الرموز، لا المعالجات.</b> بوابات السعة أعلاه توضّح متى يسمح الكتالوج بالاستدلال الحقيقي. إن أردت تحديداً تشغيل جهاز كمزوّد، فابدأ من مسار المزوّد.
               </>
             ) : (
               <>
-                <b>You buy tokens, not GPUs.</b> The capacity map above explains the hardware classes the router can draw from after verification. If you want to bring hardware as a provider, start with the provider path.
+                <b>You buy tokens, not GPUs.</b> The capacity gates above explain when the catalog can safely enable real inference. If you want to bring hardware as a provider, start with the provider path.
               </>
             )}
           </div>
@@ -1416,11 +1387,11 @@ export default function V2HomePage() {
                   <span className="t">
                     {lang === 'ar' ? (
                       <>
-                        <b>سجّل جهازك</b> — فئة المعالج، الذاكرة، المنطقة، السعة. موافقة خلال ٤٨ ساعة.
+                        <b>سجّل جهازك</b> — ملف العتاد، الذاكرة، المنطقة، السعة. موافقة خلال ٤٨ ساعة.
                       </>
                     ) : (
                       <>
-                        <b>Submit your rig</b> — GPU class, RAM, region, uplink. Approval inside 48h.
+                        <b>Submit your rig</b> — hardware profile, RAM, region, uplink. Approval inside 48h.
                       </>
                     )}
                   </span>

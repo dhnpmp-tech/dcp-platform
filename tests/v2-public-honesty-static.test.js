@@ -51,12 +51,24 @@ const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
   '100-270 tok/s',
   'scaleX(.34)',
   'scaleX(0.34)',
+  'CAPACITY_CLASSES',
+  'mp-table',
+  'GPU class',
+  'NVIDIA H100',
+  'NVIDIA L40S',
+  'RTX 4090',
+  'Token-metered or quoted',
+  'hardware classes the router can draw from',
 ].forEach((claim) => {
   assert(!home.includes(claim), `v2 home should not present simulated live marketplace telemetry: ${claim}`);
 });
 
 assert(home.includes('scaleX(0)'), 'v2 home should not render a non-zero fake verified-capacity meter');
 assert(home.includes('Check live status'), 'v2 home should route live-capacity questions to the status page');
+assert(home.includes('CAPACITY_GATES'), 'v2 home should explain the real gates for published capacity');
+assert(home.includes('endpoint_reachable'), 'v2 home should name endpoint reachability as a capacity gate');
+assert(home.includes('verified_online'), 'v2 home should name earned-online verification as a capacity gate');
+assert(home.includes('No provider is listed until the inference path itself is proven.'), 'v2 home should explain empty marketplace state honestly');
 
 [
   'useState(41)',
