@@ -50,6 +50,7 @@ const { validateBody } = require('../middleware/validate');
 const { providerRegisterSchema, providerBenchmarkSchema } = require('../schemas/providers.schema');
 const analytics = require('../services/analyticsService');
 const conversionFunnel = require('../services/conversionFunnelService');
+const { getEarnedRoutingState } = require('../services/providerVerification');
 
 function flattenRunParams(params) {
     if (params.length === 1 && Array.isArray(params[0])) return params[0];
@@ -6301,11 +6302,34 @@ router.delete('/me', providerAccountDeletionLimiter, (req, res) => {
 });
 
 // ─── Provider Health API ───────────────────────────────────────────────────────
-// GET /api/providers/online  — list of currently online providers (admin only)
+// GET /api/providers/online  — public serving providers, or admin health view
 // GET /api/providers/:id/health — health check history (admin or provider itself)
 // ──────────────────────────────────────────────────────────────────────────────
 
 const { getProviderHealthStatus, getOnlineProviders } = require('../workers/providerHealthWorker');
+
+function resolveProviderOnlineEarnedMode() {
+    const mode = String(process.env.DCP_ROUTING_EARNED_MODE || 'exclude-dead').toLowerCase().trim();
+    return ['off', 'exclude-dead', 'earned-first', 'strict'].includes(mode) ? mode : 'exclude-dead';
+}
+
+function applyProviderOnlineEarnedPolicy(providers) {
+    const mode = resolveProviderOnlineEarnedMode();
+    if (mode === 'off' || !Array.isArray(providers) || providers.length === 0) return providers;
+
+    let state;
+    try {
+        state = getEarnedRoutingState(db);
+    } catch (_) {
+        return providers;
+    }
+
+    if (!state?.active) return providers;
+    if (mode === 'strict') {
+        return providers.filter((provider) => state.servingIds.has(Number(provider.id)));
+    }
+    return providers.filter((provider) => !state.deadIds.has(Number(provider.id)));
+}
 
 router.get('/online', (req, res) => {
     try {
@@ -6318,30 +6342,48 @@ router.get('/online', (req, res) => {
         }
 
         // Public: sanitized marketplace view — no email, no api_key, no internal fields.
-        // Returns providers with a fresh heartbeat (within ONLINE_EXPIRY_SECONDS).
+        // A heartbeat alone is only a daemon claim. Public "live" state also
+        // requires the backend-side endpoint probe to have earned a reachability
+        // verdict, then applies the same earned-state policy used by routing.
         // ONLINE_EXPIRY_SECONDS is defined later in the file; use a safe default if referenced early.
         const freshnessThresholdSec = 90;
         const cutoff = new Date(Date.now() - freshnessThresholdSec * 1000).toISOString();
+        const endpointFreshnessThresholdSec = 300;
+        const endpointCutoff = new Date(Date.now() - endpointFreshnessThresholdSec * 1000).toISOString();
 
         const rows = db.all(
-            `SELECT id, name, gpu_model, vram_gb, location, cached_models, status, last_heartbeat, updated_at
+            `SELECT id, name, gpu_model, vram_gb, location, cached_models, status, last_heartbeat,
+                    endpoint_reachable, endpoint_probed_at, updated_at
              FROM providers
              WHERE status = 'online'
                AND approval_status = 'approved'
                AND COALESCE(is_paused, 0) = 0
                AND deleted_at IS NULL
+               AND vllm_endpoint_url IS NOT NULL
+               AND vllm_endpoint_url != ''
+               AND COALESCE(endpoint_reachable, 0) = 1
+               AND endpoint_probed_at IS NOT NULL
+               AND endpoint_probed_at >= ?
                AND last_heartbeat >= ?
              ORDER BY last_heartbeat DESC
              LIMIT 100`,
+            endpointCutoff,
             cutoff
         );
 
-        const sanitized = rows.map((p) => {
+        const publicRows = applyProviderOnlineEarnedPolicy(rows);
+        const sanitized = publicRows.map((p) => {
             let loadedModels = [];
             try { loadedModels = JSON.parse(p.cached_models || '[]'); } catch (_) {}
-            const heartbeatAgeSec = p.last_heartbeat
-                ? Math.floor((Date.now() - new Date(p.last_heartbeat).getTime()) / 1000)
+            const heartbeatMs = p.last_heartbeat ? new Date(p.last_heartbeat).getTime() : NaN;
+            const heartbeatAgeSec = Number.isFinite(heartbeatMs)
+                ? Math.floor((Date.now() - heartbeatMs) / 1000)
                 : null;
+            const endpointProbeMs = p.endpoint_probed_at ? new Date(p.endpoint_probed_at).getTime() : NaN;
+            const endpointProbeFresh = Number.isFinite(endpointProbeMs)
+                && ((Date.now() - endpointProbeMs) / 1000) <= endpointFreshnessThresholdSec;
+            const endpointReachable = Number(p.endpoint_reachable || 0) === 1 && endpointProbeFresh;
+            const heartbeatFresh = heartbeatAgeSec != null && heartbeatAgeSec < freshnessThresholdSec;
             return {
                 id: p.id,
                 name: p.name,
@@ -6350,7 +6392,8 @@ router.get('/online', (req, res) => {
                 location: p.location || null,
                 loaded_models: Array.isArray(loadedModels) ? loadedModels : [],
                 heartbeat_age_seconds: heartbeatAgeSec,
-                is_live: heartbeatAgeSec != null && heartbeatAgeSec < freshnessThresholdSec,
+                endpoint_reachable: endpointReachable,
+                is_live: heartbeatFresh && endpointReachable,
             };
         });
 

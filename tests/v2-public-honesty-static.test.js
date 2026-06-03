@@ -5,6 +5,8 @@ const path = require('path');
 const home = fs.readFileSync(path.join(__dirname, '..', 'app/v2/home/page.tsx'), 'utf8');
 const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/v2/provider-setup/page.tsx'), 'utf8');
 const retiredPublicHandoff = path.join(__dirname, '..', 'public/dcp-v2');
+const retiredBrandGuide = path.join(__dirname, '..', 'public/docs/DCP-BRAND-GUIDELINES-v3.html');
+const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
 
 [
   'href="/setup"',
@@ -79,5 +81,7 @@ assert(home.includes('15% platform'), 'v2 home should show the current platform 
 assert(providerSetup.includes('const PROVIDER_SHARE = 0.85'), 'provider setup estimator should use the current provider share');
 assert(providerSetup.includes('const PLATFORM_SHARE = 0.15'), 'provider setup estimator should use the current platform share');
 assert(!fs.existsSync(retiredPublicHandoff), 'retired v2 design handoff/prototype files must not be published under public/dcp-v2');
+assert(!fs.existsSync(retiredBrandGuide), 'retired brand guideline HTML must not be published under public/docs');
+assert(!fs.existsSync(retiredBrandPage), 'retired brand guideline iframe page must not remain as an app route');
 
 console.log('v2 public honesty static checks passed');

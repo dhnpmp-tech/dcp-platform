@@ -20,6 +20,9 @@ process.env.ALLOW_UNAPPROVED_PROVIDER_HEARTBEAT = '1';
 const request = require('supertest');
 const express = require('express');
 const db      = require('../src/db');
+const { ensureSchema: ensureProviderVerificationSchema } = require('../src/services/providerVerification');
+
+const ORIGINAL_EARNED_MODE = process.env.DCP_ROUTING_EARNED_MODE;
 
 // ── App factory ───────────────────────────────────────────────────────────────
 
@@ -39,7 +42,7 @@ function cleanDb() {
   try { db.prepare('PRAGMA foreign_keys = OFF').run(); } catch (_) {}
   for (const t of [
     'heartbeat_log', 'provider_gpu_telemetry', 'provider_health_log',
-    'provider_benchmarks', 'jobs', 'providers', 'model_registry',
+    'provider_benchmarks', 'jobs', 'provider_verification', 'providers', 'model_registry',
   ]) { safe(t); }
   try { db.prepare('PRAGMA foreign_keys = ON').run(); } catch (_) {}
 }
@@ -82,10 +85,67 @@ async function registerProvider(overrides = {}) {
   return { id: res.body.provider_id, apiKey: res.body.api_key };
 }
 
+function markProviderReachable(id, overrides = {}) {
+  const now = overrides.endpoint_probed_at || new Date().toISOString();
+  db.prepare(`
+    UPDATE providers
+       SET vllm_endpoint_url = ?,
+           endpoint_reachable = ?,
+           endpoint_probed_at = ?,
+           endpoint_probe_error = ?,
+           updated_at = ?
+     WHERE id = ?
+  `).run(
+    overrides.vllm_endpoint_url || 'http://10.77.0.2:8000',
+    overrides.endpoint_reachable ?? 1,
+    now,
+    overrides.endpoint_probe_error ?? null,
+    now,
+    id,
+  );
+}
+
+function markProviderVerification(id, online, overrides = {}) {
+  ensureProviderVerificationSchema(db);
+  const now = overrides.verified_at || new Date().toISOString();
+  db.prepare(`
+    INSERT INTO provider_verification
+      (provider_id, verified_online, verified_at, verified_models,
+       probe_latency_ms, probe_error, chat_ok, probed_endpoint, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(provider_id) DO UPDATE SET
+      verified_online = excluded.verified_online,
+      verified_at = excluded.verified_at,
+      verified_models = excluded.verified_models,
+      probe_latency_ms = excluded.probe_latency_ms,
+      probe_error = excluded.probe_error,
+      chat_ok = excluded.chat_ok,
+      probed_endpoint = excluded.probed_endpoint,
+      updated_at = excluded.updated_at
+  `).run(
+    id,
+    online ? 1 : 0,
+    now,
+    JSON.stringify(overrides.verified_models || ['llama3-8b']),
+    overrides.probe_latency_ms ?? 25,
+    online ? null : (overrides.probe_error || 'models_http_503'),
+    online ? 1 : 0,
+    overrides.probed_endpoint || 'http://10.77.0.2:8000',
+    now,
+  );
+}
+
 // ── Setup / Teardown ──────────────────────────────────────────────────────────
 
-beforeEach(cleanDb);
-afterAll(cleanDb);
+beforeEach(() => {
+  cleanDb();
+  delete process.env.DCP_ROUTING_EARNED_MODE;
+});
+afterAll(() => {
+  cleanDb();
+  if (ORIGINAL_EARNED_MODE === undefined) delete process.env.DCP_ROUTING_EARNED_MODE;
+  else process.env.DCP_ROUTING_EARNED_MODE = ORIGINAL_EARNED_MODE;
+});
 
 // ── POST /api/providers/:id/online ────────────────────────────────────────────
 
@@ -121,7 +181,7 @@ describe('POST /api/providers/:id/online', () => {
     expect(row.approval_status).toBe('approved');
   });
 
-  test('provider appears in /api/providers/online after marking online', async () => {
+  test('provider appears in /api/providers/online only after endpoint reachability is proven', async () => {
     const { id, apiKey } = await registerProvider({ name: 'MarketplaceProvider' });
 
     await request(app)
@@ -129,10 +189,15 @@ describe('POST /api/providers/:id/online', () => {
       .set('x-provider-key', apiKey)
       .send({ gpuModel: 'RTX 4090', vramGb: 24, loadedModels: ['llama3-8b'] });
 
-    const listRes = await request(app).get('/api/providers/online');
-    expect(listRes.status).toBe(200);
-    const ids = listRes.body.providers.map((p) => p.id);
-    expect(ids).toContain(id);
+    const claimedOnly = await request(app).get('/api/providers/online');
+    expect(claimedOnly.status).toBe(200);
+    expect(claimedOnly.body.providers.map((p) => p.id)).not.toContain(id);
+
+    markProviderReachable(id);
+
+    const reachable = await request(app).get('/api/providers/online');
+    expect(reachable.status).toBe(200);
+    expect(reachable.body.providers.map((p) => p.id)).toContain(id);
   });
 
   test('stores loaded models in DB', async () => {
@@ -274,6 +339,7 @@ describe('GET /api/providers/online (public)', () => {
       .post(`/api/providers/${id}/online`)
       .set('x-provider-key', apiKey)
       .send({ gpuModel: 'RTX 4090', vramGb: 24 });
+    markProviderReachable(id);
 
     const res = await request(app).get('/api/providers/online');
     expect(res.status).toBe(200);
@@ -287,6 +353,7 @@ describe('GET /api/providers/online (public)', () => {
     expect(provider).toHaveProperty('gpu_model');
     expect(provider).toHaveProperty('vram_gb');
     expect(provider).toHaveProperty('is_live');
+    expect(provider).toHaveProperty('endpoint_reachable', true);
     expect(provider).toHaveProperty('heartbeat_age_seconds');
     // Sensitive fields absent
     expect(provider).not.toHaveProperty('email');
@@ -302,6 +369,8 @@ describe('GET /api/providers/online (public)', () => {
       request(app).post(`/api/providers/${id1}/online`).set('x-provider-key', key1).send({ gpuModel: 'RTX 4090', vramGb: 24 }),
       request(app).post(`/api/providers/${id2}/online`).set('x-provider-key', key2).send({ gpuModel: 'RTX 4080', vramGb: 16 }),
     ]);
+    markProviderReachable(id1);
+    markProviderReachable(id2);
 
     const res = await request(app).get('/api/providers/online');
     expect(res.status).toBe(200);
@@ -316,6 +385,7 @@ describe('GET /api/providers/online (public)', () => {
       .post(`/api/providers/${id}/online`)
       .set('x-provider-key', apiKey)
       .send({ gpuModel: 'RTX 4090', vramGb: 24 });
+    markProviderReachable(id);
 
     const res = await request(app).get('/api/providers/online');
     const provider = res.body.providers.find((p) => p.id === id);
@@ -331,12 +401,57 @@ describe('GET /api/providers/online (public)', () => {
       .post(`/api/providers/${id}/online`)
       .set('x-provider-key', apiKey)
       .send({ gpuModel: 'RTX 4090', vramGb: 24, loadedModels: ['allam-7b-instruct', 'llama-3-8b-instruct'] });
+    markProviderReachable(id);
 
     const res = await request(app).get('/api/providers/online');
     const provider = res.body.providers.find((p) => p.id === id);
     expect(provider).toBeDefined();
     expect(Array.isArray(provider.loaded_models)).toBe(true);
     expect(provider.loaded_models).toContain('allam-7b-instruct');
+  });
+
+  test('excludes heartbeat-only providers without backend endpoint proof', async () => {
+    const { id, apiKey } = await registerProvider({ name: 'HeartbeatOnlyProvider' });
+
+    await request(app)
+      .post(`/api/providers/${id}/online`)
+      .set('x-provider-key', apiKey)
+      .send({ gpuModel: 'RTX 4090', vramGb: 24, loadedModels: ['llama3-8b'] });
+
+    const res = await request(app).get('/api/providers/online');
+    expect(res.status).toBe(200);
+    expect(res.body.providers.map((p) => p.id)).not.toContain(id);
+  });
+
+  test('excludes providers with stale endpoint probe verdicts', async () => {
+    const { id, apiKey } = await registerProvider({ name: 'StaleEndpointProvider' });
+
+    await request(app)
+      .post(`/api/providers/${id}/online`)
+      .set('x-provider-key', apiKey)
+      .send({ gpuModel: 'RTX 4090', vramGb: 24, loadedModels: ['llama3-8b'] });
+    markProviderReachable(id, {
+      endpoint_probed_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    });
+
+    const res = await request(app).get('/api/providers/online');
+    expect(res.status).toBe(200);
+    expect(res.body.providers.map((p) => p.id)).not.toContain(id);
+  });
+
+  test('excludes reachable providers freshly failed by earned verification', async () => {
+    const { id, apiKey } = await registerProvider({ name: 'FreshlyDeadProvider' });
+
+    await request(app)
+      .post(`/api/providers/${id}/online`)
+      .set('x-provider-key', apiKey)
+      .send({ gpuModel: 'RTX 4090', vramGb: 24, loadedModels: ['llama3-8b'] });
+    markProviderReachable(id);
+    markProviderVerification(id, false);
+
+    const res = await request(app).get('/api/providers/online');
+    expect(res.status).toBe(200);
+    expect(res.body.providers.map((p) => p.id)).not.toContain(id);
   });
 });
 
@@ -515,6 +630,7 @@ describe('POST /api/providers/:id/heartbeat (after online)', () => {
       .post(`/api/providers/${id}/online`)
       .set('x-provider-key', apiKey)
       .send({ gpuModel: 'RTX 4090', vramGb: 24 });
+    markProviderReachable(id);
 
     await request(app)
       .post(`/api/providers/${id}/heartbeat`)
@@ -544,6 +660,7 @@ describe('Full provider lifecycle', () => {
       .send({ gpuModel: 'RTX 4090', vramGb: 24, loadedModels: ['allam-7b-instruct'] });
     expect(onlineRes.status).toBe(200);
     expect(onlineRes.body.online).toBe(true);
+    markProviderReachable(id);
 
     // 3. Appear in marketplace listing
     const marketList = await request(app).get('/api/providers/online');
