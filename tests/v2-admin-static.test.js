@@ -81,6 +81,10 @@ assert(page.includes('Canonical probe evidence'), 'v2 admin should label canonic
 assert(page.includes('Serving proof packet'), 'v2 admin should expose a serving proof packet for the next provider target');
 assert(page.includes('pickServingProofTarget'), 'v2 admin should choose a focused provider target from canonical probe evidence');
 assert(page.includes('buildServingProofChecklist'), 'v2 admin should derive a route/inference/model proof checklist');
+assert(page.includes('operator_probe_command'), 'v2 admin should render the backend-provided operator probe command');
+assert(page.includes('target_model_hint'), 'v2 admin should surface the target model hint for the selected proof target');
+assert(page.includes('Endpoint reachable; prove earned inference'), 'v2 admin should distinguish endpoint reachability from earned inference proof');
+assert(page.includes('DCP_RENTER_API_KEY'), 'v2 admin should keep the one-token proof command key-based without embedding secrets');
 assert(page.includes('ServingHandoffCard'), 'v2 admin should type provider recovery handoff cards');
 assert(page.includes('buildServingHandoffCards'), 'v2 admin should derive provider recovery handoffs from canonical probe evidence');
 assert(page.includes('servingHandoffCards'), 'v2 admin should render the selected provider handoff packet');
@@ -291,6 +295,7 @@ assert(css.includes('.serving-recovery-card'), 'v2 admin should style serving re
 assert(css.includes('.serving-recovery-blockers'), 'v2 admin should style serving recovery blocker chips');
 assert(css.includes('.serving-recovery-policy'), 'v2 admin should style the serving recovery read-only policy');
 assert(css.includes('.serving-proof'), 'v2 admin should style the serving proof packet');
+assert(css.includes('.serving-proof-command'), 'v2 admin should style the serving proof command hint');
 assert(css.includes('.serving-proof-checklist'), 'v2 admin should style the serving proof checklist');
 assert(css.includes('.serving-proof-exit'), 'v2 admin should style the serving proof exit criteria');
 assert(css.includes('.serving-handoff'), 'v2 admin should style the provider recovery handoff');

@@ -271,6 +271,9 @@ interface ProbeEvidenceRow {
   focus_code?: string | null
   recovery_focus?: string | null
   recommended_next_action?: string | null
+  target_model_hint?: string | null
+  operator_probe_command?: string | null
+  operator_probe_expected?: string | null
   severity?: Severity | string | null
   agent_mode?: AgentMode | string | null
   gates?: ProbeEvidenceGate[] | null
@@ -3595,6 +3598,26 @@ export default function V2AdminPage() {
                         <strong><Bi en={servingProofCopy?.focusEn || servingProofTarget.recovery_focus || 'Probe evidence'} ar={servingProofCopy?.focusAr || 'دليل الفحص'} /></strong>
                         <small><Bi en={servingProofTarget.recommended_next_action || 'Collect route, inference, and model proof before changing public capacity.'} ar="اجمع دليل المسار والاستدلال والنموذج قبل تغيير السعة العامة." /></small>
                       </div>
+                    </div>
+
+                    <div className="serving-proof-command">
+                      <div>
+                        <span><Bi en="next verified check" ar="الفحص المتحقق التالي" /></span>
+                        <strong><Bi en="Endpoint reachable; prove earned inference" ar="النقطة متاحة؛ أثبت الاستدلال المتحقق" /></strong>
+                        <p>
+                          <Bi
+                            en={`Target model hint: ${servingProofTarget.target_model_hint || 'set DCP_MODEL_ID from /v1/models'}`}
+                            ar={`إشارة النموذج الهدف: ${servingProofTarget.target_model_hint || 'حدد DCP_MODEL_ID من /v1/models'}`}
+                          />
+                        </p>
+                      </div>
+                      <pre><code>{servingProofTarget.operator_probe_command || 'curl -fsS "$DCP_API_BASE/v1/models" && run one-token /v1/chat/completions with DCP_RENTER_API_KEY'}</code></pre>
+                      <p>
+                        <Bi
+                          en={servingProofTarget.operator_probe_expected || 'Expected proof: provider_count > 0, one-token inference succeeds, and metering records the request before public capacity language changes.'}
+                          ar="الدليل المتوقع: provider_count أكبر من صفر، ينجح استدلال برمز واحد، وتسجل القياسات الطلب قبل تغيير لغة السعة العامة."
+                        />
+                      </p>
                     </div>
 
                     <div className="serving-proof-checklist">

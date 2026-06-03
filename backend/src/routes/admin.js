@@ -548,6 +548,27 @@ function buildProbeEvidenceGate(gate, state, detail) {
   return { gate, state, detail };
 }
 
+function firstProbeModelHint(cachedModels, verification) {
+  const verifiedModels = Array.isArray(verification?.verified_models)
+    ? verification.verified_models.map((model) => String(model || '').trim()).filter(Boolean)
+    : [];
+  return cachedModels[0] || verifiedModels[0] || '$DCP_MODEL_ID';
+}
+
+function buildOperatorProbeCommand() {
+  return [
+    'export DCP_API_BASE="${DCP_API_BASE:-https://api.dcp.sa}"',
+    'cat >/tmp/dcp-serving-proof.json <<JSON',
+    '{"model":"${DCP_MODEL_ID}","messages":[{"role":"user","content":"DCP serving proof"}],"max_tokens":1}',
+    'JSON',
+    'curl -fsS "$DCP_API_BASE/v1/models"',
+    'curl -fsS "$DCP_API_BASE/v1/chat/completions" \\',
+    '  -H "Authorization: Bearer $DCP_RENTER_API_KEY" \\',
+    '  -H "Content-Type: application/json" \\',
+    '  --data @/tmp/dcp-serving-proof.json',
+  ].join('\n');
+}
+
 function classifyProbeEvidence(row, verification, cachedModels, heartbeatAge) {
   const endpointReachable = row.endpoint_reachable == null ? null : Number(row.endpoint_reachable) === 1;
   const verifiedOnline = verification ? verification.verified_online === true : false;
@@ -4377,6 +4398,9 @@ router.get('/fleet/probe-evidence', (req, res) => {
         focus_code: classification.focus_code,
         recovery_focus: classification.recovery_focus,
         recommended_next_action: classification.recommended_next_action,
+        target_model_hint: firstProbeModelHint(cachedModels, verification),
+        operator_probe_command: buildOperatorProbeCommand(),
+        operator_probe_expected: 'Expected proof: /v1/models shows provider_count > 0 for the target model, a one-token completion succeeds with usage, and billing/metering records the request before public capacity language changes.',
         severity: classification.severity,
         agent_mode: classification.agent_mode,
         gates: classification.gates,

@@ -966,6 +966,59 @@ body {
   overflow-wrap: anywhere;
 }
 
+.serving-proof-command {
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 92%, var(--paper));
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.serving-proof-command > div {
+  display: grid;
+  gap: 7px;
+}
+
+.serving-proof-command span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.serving-proof-command strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.serving-proof-command pre {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 88%, #000);
+  padding: 12px;
+}
+
+.serving-proof-command code {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.serving-proof-command p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
 .serving-proof-checklist {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

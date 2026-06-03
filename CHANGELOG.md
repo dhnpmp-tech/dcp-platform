@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 09:09 UTC — [PR #553](https://github.com/dhnpmp-tech/dcp-platform/pull/553) — `feat(v2): add admin earned-serving proof hint`
+
+Included:
+- Added backend-provided, non-mutating operator probe hints to `/api/admin/fleet/probe-evidence` so founders and agents can distinguish reachable endpoints from missing earned inference proof.
+- Added a copy-ready proof command packet to `/v2/admin` Serving recovery that uses `DCP_API_BASE`, `DCP_MODEL_ID`, and `DCP_RENTER_API_KEY` placeholders instead of embedding secrets.
+- Made the next serving exit criteria explicit in the admin workflow: `/v1/models` must show `provider_count > 0`, a one-token completion must succeed, and metering must record the request before public capacity language changes.
+- Added static regressions for the proof-command contract and the v2 admin rendering/styling.
+
 ### 08:58 UTC — [PR #552](https://github.com/dhnpmp-tech/dcp-platform/pull/552) — `fix(v1): keep stale providers out of model counts`
 
 Included:
