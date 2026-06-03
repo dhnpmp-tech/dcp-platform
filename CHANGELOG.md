@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:26 UTC — [PR #529](https://github.com/dhnpmp-tech/dcp-platform/pull/529) — `feat(v2): add admin audit trail`
+
+Included:
+- Added a read-only recent audit trail to `/v2/admin` so founding-team operators can see the latest guarded admin actions without leaving the v2 surface.
+- Wired the panel to `/api/admin/audit?limit=8`, supporting both the current `entries` response and the older `audit_log` shape.
+- Kept full audit pagination in the current admin security console while v2 shows the latest evidence cards for quick accountability checks.
+- Added static regressions for audit endpoint wiring, payload normalization, empty-state copy, and audit-trail styling.
+
 ### 04:19 UTC — [PR #528](https://github.com/dhnpmp-tech/dcp-platform/pull/528) — `feat(v2): add admin notification posture`
 
 Included:
