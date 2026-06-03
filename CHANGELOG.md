@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 05:10 UTC — [PR #533](https://github.com/dhnpmp-tech/dcp-platform/pull/533) — `feat(v2): add admin incident command`
+
+Included:
+- Added a first-class read-only incident command section to `/v2/admin` for merged incident timeline rows, recent daemon/job errors, and control-plane capacity signals.
+- Wired the section to the existing `/api/admin/incidents/feed`, `/api/admin/errors`, and `/api/admin/control-plane/signals` feeds without adding new operational mutation paths.
+- Added severity summaries, row-level incident evidence, control-plane recommendation context, and links back to the verified incidents/fleet consoles for safe follow-up.
+- Kept control-plane snapshots, prewarm runs, run-cycle triggers, and daemon repair out of v2 admin until each action has explicit owner, approval, audit, and rollback rules.
+- Added static regressions for incident feed wiring, row normalization, read-only policy copy, no control-plane mutation endpoints, and scoped incident styling.
+
 ### 04:59 UTC — [PR #532](https://github.com/dhnpmp-tech/dcp-platform/pull/532) — `feat(v2): add admin fleet readiness blockers`
 
 Included:
