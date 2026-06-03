@@ -726,6 +726,163 @@ body {
   opacity: .45;
 }
 
+.finance-review {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.finance-review .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.finance-review .section-head > span.ready {
+  color: var(--teal);
+}
+
+.finance-review .section-head > span.critical {
+  color: var(--err);
+}
+
+.finance-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.finance-summary-grid > div {
+  min-height: 112px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finance-summary-grid span,
+.finance-row-top span,
+.finance-row small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.finance-summary-grid strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.finance-summary-grid .critical strong {
+  color: var(--err);
+}
+
+.finance-summary-grid .watch strong {
+  color: var(--orange);
+}
+
+.finance-review-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.finance-card {
+  min-height: 304px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.finance-row-list {
+  display: grid;
+  gap: 9px;
+}
+
+.finance-row {
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.finance-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.finance-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.finance-row-top strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.finance-row p,
+.finance-empty,
+.finance-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.finance-row small {
+  line-height: 1.35;
+}
+
+.finance-status {
+  border: 1px solid var(--hair);
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.finance-status.pending,
+.finance-status.processing {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 35%, var(--hair));
+}
+
+.finance-status.insufficient_balance,
+.finance-status.error,
+.finance-status.failed,
+.finance-status.capped,
+.finance-status.paused {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.finance-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
 .mission-control {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
@@ -1720,6 +1877,7 @@ body {
 
   .admin-two-col,
   .approval-layout,
+  .finance-review-grid,
   .mission-layout,
   .mission-action-grid,
   .access-grid,
@@ -1732,6 +1890,10 @@ body {
 
   .mission-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .finance-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .readiness-grid {
@@ -1771,6 +1933,8 @@ body {
   .readiness-grid,
   .mission-summary-grid,
   .mission-action-grid,
+  .finance-summary-grid,
+  .finance-review-grid,
   .approval-facts,
   .access-ladder,
   .notification-grid,

@@ -37,11 +37,78 @@ type DashboardResponse = DashboardPayload & {
   dashboard?: DashboardPayload
 }
 
+interface PayoutRow {
+  payout_id?: string
+  provider_id?: number
+  provider_name?: string | null
+  provider_email?: string | null
+  amount_sar?: number
+  amount_halala?: number
+  status?: string
+  moyasar_payout_id?: string | null
+  moyasar_status?: string | null
+  failure_reason?: string | null
+  requested_at?: string | null
+  processed_at?: string | null
+  payment_ref?: string | null
+}
+
+interface BillingRow {
+  request_id?: string
+  renter_id?: number
+  renter_name?: string | null
+  renter_email?: string | null
+  provider_id?: number | null
+  cost_sar?: number
+  provider_earned_sar?: number
+  status?: string
+  error_code?: string | null
+  settled_at?: string | null
+}
+
+interface AutoTopupRow {
+  attempt_id?: string
+  renter_id?: number
+  renter_name?: string | null
+  renter_email?: string | null
+  amount_sar?: number
+  status?: string
+  moyasar_payment_id?: string | null
+  trigger_reason?: string | null
+  balance_before_sar?: number | null
+  balance_after_sar?: number | null
+  error_code?: string | null
+  error_message?: string | null
+  created_at?: string | null
+  completed_at?: string | null
+}
+
+interface RefundRequestRow {
+  request_id?: string
+  payment_id?: string
+  moyasar_id?: string | null
+  renter_id?: number
+  renter_name?: string | null
+  renter_email?: string | null
+  amount_sar?: number
+  amount_halala?: number
+  reason?: string
+  status?: string
+  requested_at?: string | null
+  reviewed_at?: string | null
+  reviewed_by?: string | null
+  admin_note?: string | null
+  moyasar_refund_id?: string | null
+  payment_amount_sar?: number | null
+  payment_status?: string | null
+  payment_created_at?: string | null
+}
+
 interface PaymentsAuditPayload {
-  payouts?: unknown[]
-  billing?: unknown[]
-  auto_topup?: unknown[]
-  refund_requests?: unknown[]
+  payouts?: PayoutRow[]
+  billing?: BillingRow[]
+  auto_topup?: AutoTopupRow[]
+  refund_requests?: RefundRequestRow[]
   summary?: {
     payouts?: Record<string, number>
     billing_attempts?: Record<string, number>
@@ -340,6 +407,16 @@ function formatHalala(value: unknown): string {
   return `SAR ${sar.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 }
 
+function formatSar(value: unknown): string {
+  const sar = toNumber(value)
+  return `SAR ${sar.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+}
+
+function shortId(value: string | null | undefined, length = 10): string {
+  if (!value) return 'unknown'
+  return value.length > length ? `${value.slice(0, length)}...` : value
+}
+
 async function fetchJson<T>(path: string, token: string): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'x-admin-token': token },
@@ -431,6 +508,22 @@ function adminAuditRows(payload: AdminAuditPayload | null): AdminAuditEntry[] {
   if (Array.isArray(payload.entries)) return payload.entries
   if (Array.isArray(payload.audit_log)) return payload.audit_log
   return []
+}
+
+function refundRequestRows(payload: PaymentsAuditPayload | null): RefundRequestRow[] {
+  return Array.isArray(payload?.refund_requests) ? payload.refund_requests : []
+}
+
+function payoutRows(payload: PaymentsAuditPayload | null): PayoutRow[] {
+  return Array.isArray(payload?.payouts) ? payload.payouts : []
+}
+
+function billingRows(payload: PaymentsAuditPayload | null): BillingRow[] {
+  return Array.isArray(payload?.billing) ? payload.billing : []
+}
+
+function autoTopupRows(payload: PaymentsAuditPayload | null): AutoTopupRow[] {
+  return Array.isArray(payload?.auto_topup) ? payload.auto_topup : []
 }
 
 function listSize(value: unknown[] | undefined): number {
@@ -1142,6 +1235,28 @@ export default function V2AdminPage() {
     () => buildReadinessChecks(fleet, fleetAlerts, approvalQueue, audit, reconciliation, errorsPayload, signals),
     [fleet, fleetAlerts, approvalQueue, audit, reconciliation, errorsPayload, signals],
   )
+  const refundReviewRows = refundRequestRows(audit)
+    .filter((row) => ['pending', 'processing'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const payoutReviewRows = payoutRows(audit)
+    .filter((row) => ['pending', 'processing'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const billingExceptionRows = billingRows(audit)
+    .filter((row) => ['error', 'insufficient_balance'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const autoTopupIssueRows = autoTopupRows(audit)
+    .filter((row) => ['failed', 'capped', 'paused'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const financeQueueTotal =
+    countByStatus(audit?.summary?.refund_requests, ['pending', 'processing'])
+    + countByStatus(audit?.summary?.payouts, ['pending', 'processing'])
+    + countByStatus(audit?.summary?.billing_attempts, ['error', 'insufficient_balance'])
+    + countByStatus(audit?.summary?.auto_topup, ['failed', 'capped', 'paused'])
+  const financeReviewHasRows =
+    refundReviewRows.length
+    + payoutReviewRows.length
+    + billingExceptionRows.length
+    + autoTopupIssueRows.length > 0
   const urgentCount = tasks.filter((task) => task.severity === 'critical').length
   const watchCount = tasks.filter((task) => task.severity === 'watch').length
   const totalProviders = toNumber(fleet?.total_providers) || toNumber(stats.total_providers)
@@ -1356,6 +1471,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#approvals" className="rail-link">
             <span>AP</span><Bi en="Approvals" ar="الموافقات" />
+          </a>
+          <a href="#finance" className="rail-link">
+            <span>FN</span><Bi en="Finance" ar="المالية" />
           </a>
           <a href="#mission" className="rail-link">
             <span>MS</span><Bi en="Mission" ar="المهمة" />
@@ -1608,6 +1726,138 @@ export default function V2AdminPage() {
                   </div>
                 </div>
               )}
+            </section>
+
+            <section className="finance-review" id="finance" aria-label="Finance review queue">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Money operations" ar="عمليات الأموال" /></p>
+                  <h2><Bi en="Finance review" ar="مراجعة المالية" /></h2>
+                </div>
+                <span className={financeQueueTotal > 0 ? 'critical' : 'ready'}>
+                  <Bi en={financeQueueTotal > 0 ? `${financeQueueTotal} review` : 'clear'} ar={financeQueueTotal > 0 ? `${financeQueueTotal} مراجعة` : 'واضح'} />
+                </span>
+              </div>
+
+              <div className="finance-summary-grid">
+                <div className={refundReviewRows.length > 0 ? 'critical' : ''}>
+                  <span><Bi en="refund review" ar="مراجعة الاسترداد" /></span>
+                  <strong>{countByStatus(audit?.summary?.refund_requests, ['pending', 'processing'])}</strong>
+                </div>
+                <div className={payoutReviewRows.length > 0 ? 'critical' : ''}>
+                  <span><Bi en="provider payouts" ar="دفعات المزوّدين" /></span>
+                  <strong>{countByStatus(audit?.summary?.payouts, ['pending', 'processing'])}</strong>
+                </div>
+                <div className={billingExceptionRows.length > 0 ? 'watch' : ''}>
+                  <span><Bi en="billing exceptions" ar="استثناءات الفوترة" /></span>
+                  <strong>{countByStatus(audit?.summary?.billing_attempts, ['error', 'insufficient_balance'])}</strong>
+                </div>
+                <div className={autoTopupIssueRows.length > 0 ? 'watch' : ''}>
+                  <span><Bi en="auto-top-up issues" ar="مشاكل الشحن التلقائي" /></span>
+                  <strong>{countByStatus(audit?.summary?.auto_topup, ['failed', 'capped', 'paused'])}</strong>
+                </div>
+              </div>
+
+              <div className={`finance-review-grid ${financeReviewHasRows ? 'active' : 'clear'}`}>
+                <article className="finance-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Refund requests" ar="طلبات الاسترداد" /></span>
+                    <Link href="/admin/payments" prefetch={false}><Bi en="Open payments" ar="افتح المدفوعات" /></Link>
+                  </div>
+                  {refundReviewRows.length === 0 ? (
+                    <p className="finance-empty"><Bi en="No pending or processing refund requests." ar="لا توجد طلبات استرداد معلقة أو قيد المعالجة." /></p>
+                  ) : (
+                    <div className="finance-row-list">
+                      {refundReviewRows.map((row) => (
+                        <div className="finance-row" key={row.request_id || row.payment_id || row.requested_at || 'refund'}>
+                          <div className="finance-row-top">
+                            <strong>{row.renter_name || row.renter_email || `Renter #${row.renter_id || 'unknown'}`}</strong>
+                            <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.reason || 'No refund reason recorded.'}</p>
+                          <small>{formatSar(row.amount_sar)} · payment {shortId(row.payment_id)} · {formatDate(row.requested_at)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="finance-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Provider payouts" ar="دفعات المزوّدين" /></span>
+                    <Link href="/admin/withdrawals" prefetch={false}><Bi en="Open withdrawals" ar="افتح السحوبات" /></Link>
+                  </div>
+                  {payoutReviewRows.length === 0 ? (
+                    <p className="finance-empty"><Bi en="No pending or processing provider payouts." ar="لا توجد دفعات مزوّدين معلقة أو قيد المعالجة." /></p>
+                  ) : (
+                    <div className="finance-row-list">
+                      {payoutReviewRows.map((row) => (
+                        <div className="finance-row" key={row.payout_id || row.requested_at || 'payout'}>
+                          <div className="finance-row-top">
+                            <strong>{row.provider_name || row.provider_email || `Provider #${row.provider_id || 'unknown'}`}</strong>
+                            <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.failure_reason || row.payment_ref || row.moyasar_status || 'Review earnings, payout account, and transfer evidence.'}</p>
+                          <small>{formatSar(row.amount_sar)} · payout {shortId(row.payout_id)} · {formatDate(row.requested_at)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="finance-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Billing exceptions" ar="استثناءات الفوترة" /></span>
+                    <Link href="/admin/payments" prefetch={false}><Bi en="Open audit" ar="افتح التدقيق" /></Link>
+                  </div>
+                  {billingExceptionRows.length === 0 ? (
+                    <p className="finance-empty"><Bi en="No billing errors or insufficient-balance attempts." ar="لا توجد أخطاء فوترة أو محاولات رصيد غير كافٍ." /></p>
+                  ) : (
+                    <div className="finance-row-list">
+                      {billingExceptionRows.map((row) => (
+                        <div className="finance-row" key={row.request_id || row.settled_at || 'billing'}>
+                          <div className="finance-row-top">
+                            <strong>{shortId(row.request_id, 14)}</strong>
+                            <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.error_code || 'Billing attempt needs review before balance correction or renter support.'}</p>
+                          <small>{formatSar(row.cost_sar)} · {row.renter_email || `Renter #${row.renter_id || 'unknown'}`} · {formatDate(row.settled_at)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="finance-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Auto-top-up issues" ar="مشاكل الشحن التلقائي" /></span>
+                    <Link href="/admin/payments" prefetch={false}><Bi en="Open audit" ar="افتح التدقيق" /></Link>
+                  </div>
+                  {autoTopupIssueRows.length === 0 ? (
+                    <p className="finance-empty"><Bi en="No failed, capped, or paused auto-top-up attempts." ar="لا توجد محاولات شحن تلقائي فاشلة أو محدودة أو متوقفة." /></p>
+                  ) : (
+                    <div className="finance-row-list">
+                      {autoTopupIssueRows.map((row) => (
+                        <div className="finance-row" key={row.attempt_id || row.created_at || 'auto-topup'}>
+                          <div className="finance-row-top">
+                            <strong>{row.renter_name || row.renter_email || `Renter #${row.renter_id || 'unknown'}`}</strong>
+                            <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.error_message || row.error_code || row.trigger_reason || 'Auto-top-up attempt needs review.'}</p>
+                          <small>{formatSar(row.amount_sar)} · attempt {shortId(row.attempt_id)} · {formatDate(row.created_at)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <p className="finance-policy">
+                <Bi
+                  en="v2 finance is review-only for now. Refund approval, rejection, payout sync, and balance-changing actions stay in the current verified payments consoles until the v2 money-action envelope is separately audited."
+                  ar="مالية v2 للقراءة والمراجعة الآن. تبقى موافقة الاسترداد ورفضه ومزامنة الدفعات وأي إجراء يغير الرصيد في لوحات المدفوعات الحالية المتحققة حتى تدقيق غلاف إجراءات المال في v2 بشكل منفصل."
+                />
+              </p>
             </section>
 
             <section className="mission-control" id="mission" aria-label="Mission control and guarded actions">

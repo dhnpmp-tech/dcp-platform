@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:49 UTC — [PR #531](https://github.com/dhnpmp-tech/dcp-platform/pull/531) — `feat(v2): add admin finance review`
+
+Included:
+- Added a first-class finance review section to `/v2/admin` for refund requests, provider payouts, billing exceptions, and auto-top-up issues from the existing `/api/admin/payments/audit` feed.
+- Added finance review navigation, queue counters, row-level evidence, and links to the verified payments and withdrawals consoles for safe human action.
+- Kept refund approval/rejection, payout sync, and balance-changing actions out of v2 admin until the v2 money-action envelope is separately audited.
+- Added static regressions for finance row wiring, review-only policy copy, no direct payment mutation endpoints, and scoped finance styling.
+
 ### 04:35 UTC — [PR #530](https://github.com/dhnpmp-tech/dcp-platform/pull/530) — `feat(v2): add admin mission action desk`
 
 Included:
