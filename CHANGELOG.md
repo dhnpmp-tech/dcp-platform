@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 07:51 UTC — [PR #546](https://github.com/dhnpmp-tech/dcp-platform/pull/546) — `feat(v2): add admin action ledger`
+
+Included:
+- Added a read-only Action ledger to `/v2/admin` that combines recent admin audit rows with the 24-hour mission pulse.
+- Summarized admin writes, mission changes, and agent touches so founders can see who changed what before opening the raw audit feed.
+- Kept the ledger evidence-only from `/admin/audit` and `/mission/pulse`; it does not replay writes, approve providers, send notifications, move money, or repair providers.
+- Added static regressions for the ledger data model, evidence-source contract, mutation boundary language, rail entry, and responsive styling.
+
 ### 07:39 UTC — [PR #545](https://github.com/dhnpmp-tech/dcp-platform/pull/545) — `feat(v2): add provider approval decision envelopes`
 
 Included:
