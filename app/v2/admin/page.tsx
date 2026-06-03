@@ -206,6 +206,30 @@ interface MissionPulsePayload {
   moved?: MissionTask[]
 }
 
+interface AccessPolicyPayload {
+  generated_at?: string
+  admin_surface?: {
+    token_configured?: boolean
+    ip_allowlist_configured?: boolean
+    auth_contract?: string
+    audit_log?: string
+    write_policy?: string
+  }
+  mission_surface?: {
+    read_principals?: string[]
+    write_policy?: string
+    strict_write_auth_enabled?: boolean
+    mission_agent_key_configured?: boolean
+    current_risk?: string
+    next_gate?: string
+  }
+  agent_permissions?: Array<{
+    level?: string
+    state?: string
+    description?: string
+  }>
+}
+
 interface ApprovalDecisionResult {
   success?: boolean
   provider_id?: number
@@ -865,6 +889,7 @@ export default function V2AdminPage() {
   const [missionAssignees, setMissionAssignees] = useState<MissionAssignee[]>([])
   const [missionGoals, setMissionGoals] = useState<MissionGoal[]>([])
   const [missionPulse, setMissionPulse] = useState<MissionPulsePayload | null>(null)
+  const [accessPolicy, setAccessPolicy] = useState<AccessPolicyPayload | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -899,6 +924,7 @@ export default function V2AdminPage() {
         missionAssigneesRes,
         missionGoalsRes,
         missionPulseRes,
+        accessPolicyRes,
       ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
@@ -916,6 +942,7 @@ export default function V2AdminPage() {
         fetchJson<MissionAssigneesPayload>('/mission/assignees', token),
         fetchJson<MissionGoalsPayload>('/mission/goals', token),
         fetchJson<MissionPulsePayload>('/mission/pulse?hours=24', token),
+        fetchJson<AccessPolicyPayload>('/admin/access/policy', token),
       ])
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
@@ -933,6 +960,7 @@ export default function V2AdminPage() {
       setMissionAssignees(missionAssigneeRows(missionAssigneesRes))
       setMissionGoals(missionGoalRows(missionGoalsRes))
       setMissionPulse(missionPulseRes)
+      setAccessPolicy(accessPolicyRes)
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -1069,6 +1097,9 @@ export default function V2AdminPage() {
       return bCount - aCount
     })
     .slice(0, 8)
+  const missionStrictWrites = accessPolicy?.mission_surface?.strict_write_auth_enabled === true
+  const missionWritePolicy = accessPolicy?.mission_surface?.write_policy || 'unknown'
+  const agentWriteState = accessPolicy?.agent_permissions?.find((permission) => permission.level === 'guarded_write')?.state || 'unknown'
   const refreshedLabel = refreshedAt
     ? refreshedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '--:--'
@@ -1094,6 +1125,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#mission" className="rail-link">
             <span>MS</span><Bi en="Mission" ar="المهمة" />
+          </a>
+          <a href="#access" className="rail-link">
+            <span>AC</span><Bi en="Access" ar="الوصول" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -1449,6 +1483,56 @@ export default function V2AdminPage() {
                   ar="هذه الواجهة في v2 مرآة قراءة فقط للبشر والوكلاء. تبقى كتابة المهام في /mission حتى تقوية تفويض الأدوار ومفاتيح كتابة الوكلاء وقواعد موافقة التدقيق."
                 />
               </p>
+            </section>
+
+            <section className="access-governance" id="access" aria-label="Access governance">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Role and agent gates" ar="بوابات الأدوار والوكلاء" /></p>
+                  <h2><Bi en="Access governance" ar="حوكمة الوصول" /></h2>
+                </div>
+                <span className={missionStrictWrites ? 'ready' : 'watch'}>
+                  <Bi en={missionStrictWrites ? 'strict writes' : 'legacy writes'} ar={missionStrictWrites ? 'كتابة صارمة' : 'كتابة قديمة'} />
+                </span>
+              </div>
+
+              <div className="access-grid">
+                <article className="access-card">
+                  <span><Bi en="Admin surface" ar="سطح الإدارة" /></span>
+                  <strong><Bi en={accessPolicy?.admin_surface?.token_configured ? 'token configured' : 'token missing'} ar={accessPolicy?.admin_surface?.token_configured ? 'المفتاح موجود' : 'المفتاح مفقود'} /></strong>
+                  <p>{accessPolicy?.admin_surface?.auth_contract || 'x-admin-token or bearer token via requireAdminRbac'}</p>
+                  <small>{accessPolicy?.admin_surface?.ip_allowlist_configured ? 'IP allowlist configured' : 'No admin IP allowlist reported'}</small>
+                </article>
+                <article className={`access-card ${missionStrictWrites ? 'ready' : 'watch'}`}>
+                  <span><Bi en="Mission writes" ar="كتابة المهمة" /></span>
+                  <strong>{missionWritePolicy}</strong>
+                  <p>{accessPolicy?.mission_surface?.current_risk || 'Mission write policy unavailable.'}</p>
+                  <small>{accessPolicy?.mission_surface?.mission_agent_key_configured ? 'mission agent key configured' : 'mission agent key not configured'}</small>
+                </article>
+                <article className="access-card">
+                  <span><Bi en="Guarded agent writes" ar="كتابة الوكلاء المحروسة" /></span>
+                  <strong>{agentWriteState}</strong>
+                  <p>{accessPolicy?.mission_surface?.next_gate || 'Define approval and audit gates before agent writes.'}</p>
+                  <small><Bi en="no v2 task mutation controls exposed" ar="لا توجد أدوات تعديل مهام في v2" /></small>
+                </article>
+              </div>
+
+              <div className="access-ladder">
+                {(accessPolicy?.agent_permissions || []).map((permission) => (
+                  <div key={permission.level || permission.state || 'permission'}>
+                    <span>{permission.level || 'permission'}</span>
+                    <strong>{permission.state || 'unknown'}</strong>
+                    <p>{permission.description || 'No policy description returned.'}</p>
+                  </div>
+                ))}
+                {(!accessPolicy?.agent_permissions || accessPolicy.agent_permissions.length === 0) && (
+                  <div>
+                    <span><Bi en="policy unavailable" ar="السياسة غير متوفرة" /></span>
+                    <strong><Bi en="read-only fallback" ar="احتياطي قراءة فقط" /></strong>
+                    <p><Bi en="The admin dashboard stays read-only for agents until the access policy endpoint responds." ar="تبقى لوحة الإدارة للقراءة فقط للوكلاء حتى تعود نقطة سياسة الوصول." /></p>
+                  </div>
+                )}
+              </div>
             </section>
 
             <section className="admin-two-col">

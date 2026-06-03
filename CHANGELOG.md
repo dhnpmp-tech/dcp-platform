@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:04 UTC — [PR #526](https://github.com/dhnpmp-tech/dcp-platform/pull/526) — `feat(v2): expose admin access governance`
+
+Included:
+- Added an admin-only `/api/admin/access/policy` posture endpoint that reports admin token/IP allowlist configuration, mission write mode, mission-agent-key presence, and agent permission readiness without returning secret values.
+- Added a v2 admin access-governance panel so founders can see whether mission writes are still on the legacy authenticated-write path or hardened behind the strict admin/agent gate.
+- Kept v2 admin task mutation controls out of the interface; guarded agent writes remain blocked until `DCP_MISSION_STRICT_WRITE_AUTH` is enabled and audited.
+- Added static regressions for the backend policy route, secret non-disclosure, v2 access cards, access ladder, and strict-vs-legacy mission write labels.
+
 ### 03:50 UTC — [PR #525](https://github.com/dhnpmp-tech/dcp-platform/pull/525) — `feat(v2): add admin mission control mirror`
 
 Included:

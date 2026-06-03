@@ -141,6 +141,61 @@ function parseBooleanLike(value, defaultValue = false) {
   return defaultValue;
 }
 
+function buildAdminAccessPolicySnapshot() {
+  const adminTokenConfigured = Boolean(String(process.env.DC1_ADMIN_TOKEN || '').trim());
+  const adminIpAllowlistConfigured = Boolean(String(process.env.ADMIN_IP_ALLOWLIST || '').trim());
+  const missionAgentKeyConfigured = Boolean(String(process.env.MISSION_AGENT_KEY || '').trim());
+  const strictMissionWrites = parseBooleanLike(process.env.DCP_MISSION_STRICT_WRITE_AUTH, false);
+
+  return {
+    generated_at: new Date().toISOString(),
+    admin_surface: {
+      token_configured: adminTokenConfigured,
+      ip_allowlist_configured: adminIpAllowlistConfigured,
+      auth_contract: 'x-admin-token or bearer token via requireAdminRbac',
+      audit_log: 'admin_audit_log',
+      write_policy: 'admin_token_required',
+    },
+    mission_surface: {
+      read_principals: [
+        'admin_token',
+        'renter_api_key',
+        'provider_api_key',
+        'mission_agent_key_when_configured',
+      ],
+      write_policy: strictMissionWrites ? 'strict_admin_or_agent_key' : 'legacy_authenticated_write',
+      strict_write_auth_enabled: strictMissionWrites,
+      mission_agent_key_configured: missionAgentKeyConfigured,
+      current_risk: strictMissionWrites
+        ? 'write access is gated to admins or the dedicated mission agent key'
+        : 'mission task writes currently follow the legacy broad authenticated-write path',
+      next_gate: 'enable DCP_MISSION_STRICT_WRITE_AUTH before exposing v2 admin or agent task mutation controls',
+    },
+    agent_permissions: [
+      {
+        level: 'read',
+        state: 'enabled',
+        description: 'Agents may inspect admin and mission context through guarded tokens.',
+      },
+      {
+        level: 'notify',
+        state: 'planned',
+        description: 'Agents may create notifications after channel policy is explicit.',
+      },
+      {
+        level: 'propose',
+        state: 'enabled_in_ui',
+        description: 'v2 admin can display agent-suggested work without executing it.',
+      },
+      {
+        level: 'guarded_write',
+        state: strictMissionWrites ? 'backend_gate_ready' : 'blocked_by_legacy_mission_write_policy',
+        description: 'Writes require explicit approval policy, audit evidence, and a hardened backend gate.',
+      },
+    ],
+  };
+}
+
 function normalizeIdArray(value, { maxItems = 500 } = {}) {
   if (!Array.isArray(value) || value.length === 0) return null;
   const ids = [];
@@ -1868,6 +1923,16 @@ router.post('/providers/sweep-stale', (req, res) => {
   } catch (error) {
     console.error('Admin sweep-stale error:', error);
     return res.status(500).json({ error: 'Sweep failed' });
+  }
+});
+
+// === GET /api/admin/access/policy - Human/agent access posture ===
+router.get('/access/policy', (req, res) => {
+  try {
+    res.json(buildAdminAccessPolicySnapshot());
+  } catch (error) {
+    console.error('Admin access policy error:', error);
+    res.status(500).json({ error: 'Access policy check failed' });
   }
 });
 

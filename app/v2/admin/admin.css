@@ -961,6 +961,122 @@ body {
   padding-top: 14px;
 }
 
+.access-governance {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.access-governance .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.access-governance .section-head > span.ready {
+  color: var(--teal);
+}
+
+.access-governance .section-head > span.watch {
+  color: var(--orange);
+}
+
+.access-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.access-card {
+  min-height: 186px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.access-card span,
+.access-ladder span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.access-card strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.access-card.watch strong {
+  color: var(--orange);
+}
+
+.access-card.ready strong {
+  color: var(--teal);
+}
+
+.access-card p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.access-card small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.access-ladder {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.access-ladder > div {
+  min-height: 140px;
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 14px;
+  display: grid;
+  align-content: start;
+  gap: 11px;
+}
+
+.access-ladder strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.access-ladder p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 12.5px;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -1321,6 +1437,7 @@ body {
   .admin-two-col,
   .approval-layout,
   .mission-layout,
+  .access-grid,
   .lane-grid,
   .future-map {
     grid-template-columns: 1fr;
@@ -1335,6 +1452,10 @@ body {
   }
 
   .workflow-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .access-ladder {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1355,6 +1476,7 @@ body {
   .readiness-grid,
   .mission-summary-grid,
   .approval-facts,
+  .access-ladder,
   .lane-stats,
   .workflow-grid {
     grid-template-columns: 1fr;
