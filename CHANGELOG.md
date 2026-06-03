@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 06:14 UTC — [PR #538](https://github.com/dhnpmp-tech/dcp-platform/pull/538) — `feat(v2): add admin serving recovery`
+
+Included:
+- Added a read-only v2 admin serving recovery workflow for the zero verified-serving provider state.
+- Derived recovery focus from fleet evidence: endpoint reachability, earned-online inference probes, timeout errors, model coverage, WireGuard freshness, heartbeat freshness, and job/runtime stability.
+- Added a recovery playbook for proving `/v1/models`, one-token inference, and model alias coverage before changing catalog or public capacity language.
+- Kept daemon restarts, tunnel changes, endpoint edits, routing changes, and public capacity flips outside v2 until audited recovery actions exist.
+- Added static regressions for recovery queue wiring, mutation boundaries, and scoped serving-recovery styling.
+
 ### 06:02 UTC — [PR #537](https://github.com/dhnpmp-tech/dcp-platform/pull/537) — `feat(v2): add admin support operations`
 
 Included:
