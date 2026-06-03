@@ -167,9 +167,15 @@ assert(page.includes('guarded actions'), 'v2 admin should label mission control 
 assert(page.includes('human / agent roster'), 'v2 admin should summarize human and agent assignees');
 assert(page.includes('Task ownership'), 'v2 admin should show mission task ownership');
 assert(page.includes('Action desk'), 'v2 admin should expose the mission action desk');
+assert(page.includes('MissionActionEnvelope'), 'v2 admin should type the mission action envelope preview');
+assert(page.includes('buildMissionActionEnvelopes'), 'v2 admin should derive mission action envelopes from selected task inputs');
+assert(page.includes('Mission action envelope'), 'v2 admin should render the mission action envelope before guarded writes');
+assert(page.includes('strict guarded write'), 'v2 admin should label strict mission action envelopes');
+assert(page.includes('legacy admin write'), 'v2 admin should label legacy mission action envelopes');
 assert(page.includes('strict write gate'), 'v2 admin should label the strict mission write gate in the action desk');
 assert(page.includes('legacy write gate'), 'v2 admin should label the legacy mission write gate in the action desk');
 assert(page.includes('Evidence note'), 'v2 admin should require an evidence note for mission actions');
+assert(page.includes('Add at least 8 characters of evidence'), 'v2 admin should explain mission evidence-note readiness');
 assert(page.includes('Move status'), 'v2 admin should allow guarded mission status moves');
 assert(page.includes('Reassign'), 'v2 admin should allow guarded mission reassignment');
 assert(page.includes('Add note'), 'v2 admin should allow guarded mission notes');
@@ -258,6 +264,7 @@ assert(css.includes('.runbook-card'), 'v2 admin should style individual runbook 
 assert(css.includes('.runbook-policy'), 'v2 admin should style the runbook read-only policy');
 assert(css.includes('.fleet-readiness'), 'v2 admin should style fleet readiness');
 assert(css.includes('.fleet-summary-grid'), 'v2 admin should style fleet summary gates');
+assert(css.includes('.mission-action-envelope'), 'v2 admin should style the mission action envelope');
 assert(css.includes('.fleet-readiness-grid'), 'v2 admin should style fleet provider and alert panels');
 assert(css.includes('.fleet-provider-card'), 'v2 admin should style fleet provider blocker cards');
 assert(css.includes('.fleet-blockers'), 'v2 admin should style fleet blocker chips');

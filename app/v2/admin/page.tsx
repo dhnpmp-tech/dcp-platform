@@ -689,6 +689,21 @@ interface ActionMessage {
   text: string
 }
 
+interface MissionActionEnvelope {
+  key: 'status' | 'reassign' | 'comment'
+  labelEn: string
+  labelAr: string
+  route: string
+  permission: string
+  evidenceEn: string
+  evidenceAr: string
+  auditEn: string
+  auditAr: string
+  readinessEn: string
+  readinessAr: string
+  state: Severity
+}
+
 interface TaskItem {
   id: string
   titleEn: string
@@ -1384,6 +1399,69 @@ function missionGoalProgress(goal: MissionGoal): string {
   const done = toNumber(goal.task_done)
   if (total <= 0) return '0%'
   return `${Math.round((done / total) * 100)}%`
+}
+
+function buildMissionActionEnvelopes(
+  task: MissionTask | null,
+  targetStatus: MissionTaskStatus,
+  targetAssigneeLabel: string,
+  note: string,
+  strictWrites: boolean,
+): MissionActionEnvelope[] {
+  const taskId = task?.id || ':taskId'
+  const permission = strictWrites ? 'strict guarded write' : 'legacy admin write'
+  const noteReady = note.trim().length >= 8
+  const closingNeedsNote = targetStatus === 'done' && !noteReady
+  const assigneeReady = Boolean(targetAssigneeLabel)
+
+  return [
+    {
+      key: 'status',
+      labelEn: 'Status move',
+      labelAr: 'نقل الحالة',
+      route: `/mission/tasks/${taskId}`,
+      permission,
+      evidenceEn: targetStatus === 'done'
+        ? 'Closing requires an evidence note before the task can be marked done.'
+        : 'Status moves are allowed without extra evidence, but a note is still preferred for handoff clarity.',
+      evidenceAr: targetStatus === 'done'
+        ? 'الإغلاق يتطلب ملاحظة دليل قبل وسم المهمة كمنجزة.'
+        : 'نقل الحالة مسموح دون دليل إضافي، لكن الملاحظة مفضلة لوضوح التسليم.',
+      auditEn: `Writes status=${missionStatusLabel(targetStatus)} with author_id=admin${targetStatus === 'done' ? ' and closing_comment' : ''}.`,
+      auditAr: `يكتب الحالة=${missionStatusLabel(targetStatus)} مع author_id=admin${targetStatus === 'done' ? ' و closing_comment' : ''}.`,
+      readinessEn: !task?.id ? 'Select a task first.' : closingNeedsNote ? 'Add at least 8 characters of evidence before closing.' : 'Ready for guarded status move.',
+      readinessAr: !task?.id ? 'اختر مهمة أولاً.' : closingNeedsNote ? 'أضف ملاحظة دليل من 8 أحرف على الأقل قبل الإغلاق.' : 'جاهز لنقل حالة محروس.',
+      state: !task?.id || closingNeedsNote ? 'watch' : 'routine',
+    },
+    {
+      key: 'reassign',
+      labelEn: 'Reassign owner',
+      labelAr: 'إعادة إسناد المالك',
+      route: `/mission/tasks/${taskId}/reassign`,
+      permission,
+      evidenceEn: `Requires a target owner${targetAssigneeLabel ? ` (${targetAssigneeLabel})` : ''} and a rationale note.`,
+      evidenceAr: `يتطلب مالكاً مستهدفاً${targetAssigneeLabel ? ` (${targetAssigneeLabel})` : ''} وملاحظة سبب.`,
+      auditEn: 'Posts new_assignee_id, comment, and author_id=admin to task history.',
+      auditAr: 'يرسل new_assignee_id و comment و author_id=admin إلى سجل المهمة.',
+      readinessEn: !task?.id ? 'Select a task first.' : !assigneeReady ? 'Choose the next owner.' : !noteReady ? 'Add at least 8 characters of rationale.' : 'Ready for guarded reassignment.',
+      readinessAr: !task?.id ? 'اختر مهمة أولاً.' : !assigneeReady ? 'اختر المالك التالي.' : !noteReady ? 'أضف سبباً من 8 أحرف على الأقل.' : 'جاهز لإعادة إسناد محروسة.',
+      state: !task?.id || !assigneeReady || !noteReady ? 'watch' : 'routine',
+    },
+    {
+      key: 'comment',
+      labelEn: 'Admin note',
+      labelAr: 'ملاحظة إدارية',
+      route: `/mission/tasks/${taskId}/comments`,
+      permission,
+      evidenceEn: 'Records the evidence note without changing ownership or status.',
+      evidenceAr: 'يسجل ملاحظة الدليل دون تغيير الملكية أو الحالة.',
+      auditEn: 'Posts source=v2_admin and kind=admin_note for future human and agent review.',
+      auditAr: 'يرسل source=v2_admin و kind=admin_note للمراجعة البشرية والآلية لاحقاً.',
+      readinessEn: !task?.id ? 'Select a task first.' : !noteReady ? 'Add at least 8 characters of evidence.' : 'Ready to record audited note.',
+      readinessAr: !task?.id ? 'اختر مهمة أولاً.' : !noteReady ? 'أضف ملاحظة دليل من 8 أحرف على الأقل.' : 'جاهز لتسجيل ملاحظة مدققة.',
+      state: !task?.id || !noteReady ? 'watch' : 'routine',
+    },
+  ]
 }
 
 function buildTasks(
@@ -2164,6 +2242,14 @@ export default function V2AdminPage() {
   const missionStrictWrites = accessPolicy?.mission_surface?.strict_write_auth_enabled === true
   const missionWritePolicy = accessPolicy?.mission_surface?.write_policy || 'unknown'
   const agentWriteState = accessPolicy?.agent_permissions?.find((permission) => permission.level === 'guarded_write')?.state || 'unknown'
+  const missionTargetAssigneeLabel = missionAssignees.find((assignee) => assignee.id === missionTargetAssignee)?.display_name || missionTargetAssignee
+  const missionActionEnvelopes = buildMissionActionEnvelopes(
+    selectedMissionTask,
+    missionTargetStatus,
+    missionTargetAssigneeLabel,
+    missionActionNote,
+    missionStrictWrites,
+  )
   const fleetProviderList = fleetProviderRows(fleet)
   const probeEvidenceList = probeEvidenceRows(probeEvidence)
   const hasProbeEvidence = probeEvidence !== null
@@ -3764,6 +3850,21 @@ export default function V2AdminPage() {
                           ))}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="mission-action-envelope" aria-label="Mission action envelope">
+                      {missionActionEnvelopes.map((envelope) => (
+                        <article className={envelope.state} key={envelope.key}>
+                          <div className="mission-action-envelope-head">
+                            <span><Bi en={envelope.labelEn} ar={envelope.labelAr} /></span>
+                            <em>{envelope.permission}</em>
+                          </div>
+                          <strong>{envelope.route}</strong>
+                          <p><Bi en={envelope.evidenceEn} ar={envelope.evidenceAr} /></p>
+                          <small><Bi en={envelope.auditEn} ar={envelope.auditAr} /></small>
+                          <b><Bi en={envelope.readinessEn} ar={envelope.readinessAr} /></b>
+                        </article>
+                      ))}
                     </div>
 
                     <label className="mission-action-note">
