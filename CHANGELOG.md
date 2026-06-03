@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 05:29 UTC — [PR #535](https://github.com/dhnpmp-tech/dcp-platform/pull/535) — `feat(v2): add admin runbook queue`
+
+Included:
+- Added a read-only founder runbook queue to `/v2/admin` that translates launch, fleet, finance, incident, access, and mission signals into owner-specific next actions.
+- Derived runbook evidence from the already-loaded admin feeds instead of adding a new backend endpoint or static operating checklist.
+- Labeled each runbook with owner, evidence, severity, and agent permission class so humans and agents can coordinate without guessing who should act next.
+- Kept repairs, money movement, deploys, provider actions, notification sends, and control-plane writes out of the runbook surface; verified consoles remain the action boundary.
+- Added static regressions for runbook presence, public-capacity gating, finance/incident/access runbooks, no unsafe mutation endpoints, and scoped runbook styling.
+
 ### 05:21 UTC — [PR #534](https://github.com/dhnpmp-tech/dcp-platform/pull/534) — `feat(v2): add admin launch readiness`
 
 Included:
