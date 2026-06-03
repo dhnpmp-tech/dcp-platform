@@ -104,6 +104,10 @@ const nextConfig = {
 
     return [
       ...v2CutoverRedirects,
+      // Retired public brand-guideline artifact. Keep old links landing on
+      // current docs without continuing to publish stale internal design HTML.
+      { source: '/docs/DCP-BRAND-GUIDELINES-v3.html', destination: '/v2/docs', permanent: false },
+      { source: '/docs/brand', destination: '/v2/docs', permanent: false },
       // Retired v2 design-handoff URLs previously lived under public/dcp-v2.
       { source: '/dcp-v2/:path*', destination: '/v2/home', permanent: false },
       // Retired model-browser URL → the v2 playground/catalog source of truth.
