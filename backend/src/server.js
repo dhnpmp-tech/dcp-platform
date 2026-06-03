@@ -1024,14 +1024,14 @@ app.get('/api/health/detailed', (req, res) => {
       `SELECT COUNT(*) AS count FROM jobs WHERE status = 'failed' AND updated_at >= ?`
     ).get(now24hAgo)?.count || 0;
 
-    // Models: count from arabic-portfolio.json
+    // Models: count the live public catalog source. The optional Arabic
+    // portfolio file only enriches catalog metadata; it is not the catalog.
     let modelCatalogCount = 0;
     try {
-      const portfolioPath = require('path').join(__dirname, '../../../infra/config/arabic-portfolio.json');
-      const portfolio = JSON.parse(require('fs').readFileSync(portfolioPath, 'utf8'));
-      modelCatalogCount = Array.isArray(portfolio) ? portfolio.length
-        : Array.isArray(portfolio?.models) ? portfolio.models.length : 0;
-    } catch { /* portfolio file unavailable */ }
+      modelCatalogCount = db.prepare(
+        `SELECT COUNT(*) AS count FROM model_registry WHERE COALESCE(is_active, 1) = 1`
+      ).get()?.count || 0;
+    } catch { /* model_registry unavailable */ }
 
     // Templates: count .json files in docker-templates
     let templateCount = 0;
@@ -1041,20 +1041,39 @@ app.get('/api/health/detailed', (req, res) => {
         .filter((f) => f.endsWith('.json')).length;
     } catch { /* templates dir unavailable */ }
 
-    // Metering: last token record and 24h total from serve_sessions
+    // Metering: v1/chat writes the canonical usage_events ledger. Keep the
+    // legacy serve_sessions fallback for older proxy sessions only.
     let lastTokenRecordAt = null;
     let totalTokens24h = 0;
     try {
-      const lastSession = db.prepare(
-        `SELECT last_inference_at FROM serve_sessions WHERE last_inference_at IS NOT NULL ORDER BY last_inference_at DESC LIMIT 1`
+      const lastUsageEvent = db.prepare(
+        `SELECT occurred_at FROM usage_events
+         WHERE occurred_at IS NOT NULL
+         ORDER BY occurred_at DESC
+         LIMIT 1`
       ).get();
-      lastTokenRecordAt = lastSession?.last_inference_at || null;
+      lastTokenRecordAt = lastUsageEvent?.occurred_at || null;
 
       const tokens24h = db.prepare(
-        `SELECT COALESCE(SUM(total_tokens), 0) AS total FROM serve_sessions WHERE updated_at >= ?`
+        `SELECT COALESCE(SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)), 0) AS total
+         FROM usage_events
+         WHERE occurred_at >= ?`
       ).get(now24hAgo);
       totalTokens24h = tokens24h?.total || 0;
-    } catch { /* serve_sessions unavailable */ }
+    } catch { /* usage_events unavailable */ }
+    if (!lastTokenRecordAt) {
+      try {
+        const lastSession = db.prepare(
+          `SELECT last_inference_at FROM serve_sessions WHERE last_inference_at IS NOT NULL ORDER BY last_inference_at DESC LIMIT 1`
+        ).get();
+        lastTokenRecordAt = lastSession?.last_inference_at || null;
+
+        const tokens24h = db.prepare(
+          `SELECT COALESCE(SUM(total_tokens), 0) AS total FROM serve_sessions WHERE updated_at >= ?`
+        ).get(now24hAgo);
+        totalTokens24h = tokens24h?.total || 0;
+      } catch { /* serve_sessions unavailable */ }
+    }
 
     res.json({
       status: 'ok',

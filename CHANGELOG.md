@@ -14,6 +14,13 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 10:00 UTC — [PR #556](https://github.com/dhnpmp-tech/dcp-platform/pull/556) — `fix(health): report live catalog and v1 usage counts`
+
+Included:
+- Updated `/api/health/detailed` so `models.catalog_count` reads active `model_registry` rows, matching the public `/api/models` catalog source instead of optional Arabic portfolio metadata.
+- Updated detailed health metering to read the canonical `usage_events` ledger written by `/v1/chat/completions`, with the older `serve_sessions` table retained only as a fallback.
+- Added static regressions so health cannot drift back to a missing portfolio file or miss v1 usage tokens again.
+
 ### 09:46 UTC — [PR #555](https://github.com/dhnpmp-tech/dcp-platform/pull/555) — `fix(providers): verify served model from live endpoint`
 
 Included:
