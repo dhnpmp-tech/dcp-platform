@@ -48,6 +48,7 @@ const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
   'headroom',
   'Try the live demo',
   'Try the demo',
+  'Watch the round-trip',
   'working inference call',
   '100–270 tok/s',
   '100-270 tok/s',

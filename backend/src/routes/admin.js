@@ -79,6 +79,23 @@ function normalizeString(value, { maxLen = 500, trim = true } = {}) {
   return next.slice(0, maxLen);
 }
 
+function ensureSupportContactsAdminSchema() {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS support_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      category TEXT NOT NULL,
+      message TEXT NOT NULL,
+      source TEXT,
+      provider_state TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_support_contacts_created_at ON support_contacts(created_at DESC)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_support_contacts_category ON support_contacts(category, created_at DESC)`);
+}
+
 function toFiniteNumber(value, { min = null, max = null } = {}) {
   const num = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(num)) return null;
@@ -2738,6 +2755,69 @@ router.get('/daemon-health', (req, res) => {
   } catch (error) {
     console.error('Daemon health dashboard error:', error);
     res.status(500).json({ error: 'Dashboard query failed' });
+  }
+});
+
+// ============================================================================
+// GET /api/admin/support/contacts - Read-only support inbox for operators
+// ============================================================================
+router.get('/support/contacts', (req, res) => {
+  try {
+    ensureSupportContactsAdminSchema();
+
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const search = normalizeString(String(req.query.search || '').toLowerCase(), { maxLen: 120 }) || '';
+    const category = normalizeString(String(req.query.category || '').toLowerCase(), { maxLen: 40 }) || '';
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    let where = '1=1';
+    const params = [];
+    if (category) {
+      where += ' AND category = ?';
+      params.push(category);
+    }
+    if (search) {
+      where += ' AND (LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(category) LIKE ? OR LOWER(message) LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const contacts = db.all(
+      `SELECT id, name, email, category, message, source, provider_state, created_at
+       FROM support_contacts
+       WHERE ${where}
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      ...params, limit, offset
+    );
+    const total = db.get(`SELECT COUNT(*) as count FROM support_contacts WHERE ${where}`, ...params);
+    const categoryRows = db.all(
+      `SELECT category, COUNT(*) as count
+       FROM support_contacts
+       GROUP BY category
+       ORDER BY count DESC, category ASC`
+    );
+    const recent24h = db.get(
+      'SELECT COUNT(*) as count FROM support_contacts WHERE created_at >= ?',
+      since24h
+    );
+
+    res.json({
+      contacts,
+      pagination: {
+        limit,
+        offset,
+        total: total?.count || 0,
+      },
+      total: total?.count || 0,
+      summary: {
+        recent_24h: recent24h?.count || 0,
+        by_category: Object.fromEntries(categoryRows.map((row) => [row.category || 'unknown', row.count || 0])),
+      },
+    });
+  } catch (error) {
+    console.error('Admin support contacts error:', error);
+    res.status(500).json({ error: 'Failed to fetch support contacts' });
   }
 });
 

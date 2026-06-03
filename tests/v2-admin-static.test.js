@@ -30,6 +30,10 @@ assert(page.includes('/mission/goals'), 'v2 admin should load mission goals');
 assert(page.includes('/mission/pulse?hours=24'), 'v2 admin should load the 24h mission pulse');
 assert(page.includes('/admin/access/policy'), 'v2 admin should load the access governance policy');
 assert(page.includes('/admin/notifications/posture'), 'v2 admin should load notification posture instead of raw notification config');
+assert(page.includes('/admin/support/contacts?limit=12'), 'v2 admin should load saved support contact submissions');
+assert(page.includes('/admin/renters?page=1&limit=12'), 'v2 admin should load a bounded renter support sample');
+assert(page.includes('/admin/jobs?limit=12'), 'v2 admin should load recent jobs for support triage');
+assert(page.includes('/admin/payments?limit=12'), 'v2 admin should load recent payments for support context');
 assert(page.includes('buildTasks'), 'v2 admin should synthesize an ops inbox');
 assert(page.includes('buildReadinessChecks'), 'v2 admin should synthesize a launch readiness board');
 assert(page.includes('agentMode'), 'v2 admin should model agent permission classes per task');
@@ -86,6 +90,28 @@ assert(page.includes('v2 finance is review-only for now'), 'v2 admin should keep
 assert(page.includes('/admin/withdrawals'), 'v2 admin should link payout review to the verified withdrawals console');
 assert(!page.includes('/admin/payments/refund-requests/${'), 'v2 admin should not call refund approve/reject endpoints directly');
 assert(!page.includes('/admin/payouts/${'), 'v2 admin should not call payout mutation endpoints directly');
+assert(page.includes('#support'), 'v2 admin should expose support operations as a primary rail section');
+assert(page.includes('Support desk'), 'v2 admin should expose the customer support operations section');
+assert(page.includes('supportContactRows'), 'v2 admin should normalize support contact rows');
+assert(page.includes('renterSupportRows'), 'v2 admin should normalize renter support rows');
+assert(page.includes('jobSupportRows'), 'v2 admin should normalize job support rows');
+assert(page.includes('paymentSupportRows'), 'v2 admin should normalize payment support rows');
+assert(page.includes('supportQueueTotal'), 'v2 admin should summarize the support queue total');
+assert(page.includes('v2 support is read-only'), 'v2 admin should keep support operations read-only');
+assert(page.includes('agents may summarize contacts'), 'v2 admin should allow agents to summarize support evidence');
+assert(page.includes('suspensions, credits, balance edits, job cancel/requeue, refunds, and key rotation stay in verified consoles'), 'v2 admin should keep customer-support mutation actions out of the support desk');
+[
+  '/admin/renters/${renterId}/suspend',
+  '/admin/renters/${renterId}/unsuspend',
+  '/admin/renters/${renterId}/credit',
+  '/admin/renters/${renterId}/balance',
+  '/admin/renters/${renterId}/rotate-key',
+  '/admin/jobs/${jobId}/cancel',
+  '/admin/jobs/${jobId}/requeue',
+  '/admin/payments/${paymentId}/refund',
+].forEach((unsafePath) => {
+  assert(!page.includes(unsafePath), `v2 admin support desk should not call unsafe customer-support mutation path: ${unsafePath}`);
+});
 assert(page.includes('Team operating layer'), 'v2 admin should expose the team operating layer');
 assert(page.includes('Mission control'), 'v2 admin should expose the mission control section');
 assert(page.includes('guarded actions'), 'v2 admin should label mission control as guarded actions');
@@ -177,6 +203,12 @@ assert(css.includes('.finance-summary-grid'), 'v2 admin should style finance sum
 assert(css.includes('.finance-review-grid'), 'v2 admin should style finance review cards');
 assert(css.includes('.finance-row'), 'v2 admin should style finance rows');
 assert(css.includes('.finance-policy'), 'v2 admin should style the finance review-only policy');
+assert(css.includes('.support-ops'), 'v2 admin should style support operations');
+assert(css.includes('.support-summary-grid'), 'v2 admin should style support summary metrics');
+assert(css.includes('.support-grid'), 'v2 admin should style support cards');
+assert(css.includes('.support-card'), 'v2 admin should style individual support cards');
+assert(css.includes('.support-row'), 'v2 admin should style support evidence rows');
+assert(css.includes('.support-policy'), 'v2 admin should style the support read-only policy');
 assert(css.includes('.mission-control'), 'v2 admin should style mission control');
 assert(css.includes('.mission-summary-grid'), 'v2 admin should style mission summary metrics');
 assert(css.includes('.mission-roster'), 'v2 admin should style the mission roster');

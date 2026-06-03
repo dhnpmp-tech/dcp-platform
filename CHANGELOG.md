@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 06:02 UTC — [PR #537](https://github.com/dhnpmp-tech/dcp-platform/pull/537) — `feat(v2): add admin support operations`
+
+Included:
+- Added a protected read-only `/api/admin/support/contacts` endpoint for saved public support submissions, with bounded pagination, category summary, and recent-24h counts.
+- Added a v2 admin support desk that correlates contact submissions with bounded renter, job, and payment evidence for customer triage.
+- Kept support actions read-only in v2 admin; suspensions, credits, balance edits, job cancel/requeue, refunds, and key rotation stay in verified consoles until an audited action envelope exists.
+- Removed the remaining prototype-style "Demo" label from the v2 home mobile menu and replaced it with a concrete quickstart label.
+- Added static regressions for support-contact read contracts, v2 support UI wiring, mutation boundaries, and public demo-language cleanup.
+
 ### 05:45 UTC — [PR #536](https://github.com/dhnpmp-tech/dcp-platform/pull/536) — `fix(public): clarify serving capacity and remove stale savings claims`
 
 Included:
