@@ -1637,12 +1637,88 @@ body {
   padding-top: 14px;
 }
 
-.approval-evidence ul {
-  margin: 10px 0 0;
-  padding-inline-start: 18px;
+.approval-envelope-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.approval-envelope-grid article {
+  min-height: 188px;
+  background: color-mix(in oklab, var(--bg) 90%, var(--paper));
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.approval-envelope-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.approval-envelope-head strong,
+.approval-envelope-head em {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.approval-envelope-head strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.approval-envelope-head em {
+  color: var(--orange);
+  font-style: normal;
+  text-align: end;
+}
+
+.approval-envelope-grid code {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.approval-envelope-grid p,
+.approval-envelope-grid small,
+.approval-envelope-grid b {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.approval-envelope-grid p {
   color: var(--ink-2);
-  line-height: 1.55;
-  font-size: 13.5px;
+  font-size: 12.5px;
+}
+
+.approval-envelope-grid small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.approval-envelope-grid b {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.approval-envelope-grid article.watch b {
+  color: var(--orange);
 }
 
 .approval-reason {
@@ -3304,6 +3380,7 @@ body {
 
   .admin-two-col,
   .approval-layout,
+  .approval-envelope-grid,
   .fleet-readiness-grid,
   .finance-review-grid,
   .support-grid,
@@ -3419,6 +3496,7 @@ body {
   .incident-summary-grid,
   .incident-command-grid,
   .approval-facts,
+  .approval-envelope-grid,
   .access-ladder,
   .notification-grid,
   .audit-list,

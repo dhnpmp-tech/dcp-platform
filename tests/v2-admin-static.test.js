@@ -125,9 +125,14 @@ assert(!page.includes('/admin/providers/resume'), 'v2 admin should not call prov
 assert(page.includes('Approval desk'), 'v2 admin should expose a native provider approval desk');
 assert(page.includes('guarded write'), 'v2 admin should label provider approval decisions as guarded writes');
 assert(page.includes('ApprovalDecisionResult'), 'v2 admin should type approval decision responses');
+assert(page.includes('ApprovalDecisionEnvelope'), 'v2 admin should type provider approval decision envelopes');
+assert(page.includes('buildApprovalDecisionEnvelopes'), 'v2 admin should derive provider approval decision envelopes');
+assert(page.includes('Provider approval decision envelope'), 'v2 admin should render provider approval decision envelopes');
+assert(page.includes('human approval'), 'v2 admin approval envelopes should label human approval');
 assert(page.includes("method: 'PATCH'"), 'v2 admin provider decisions should use the audited PATCH path');
 assert(page.includes('/approval-decision'), 'v2 admin should call the immutable provider approval decision endpoint');
 assert(page.includes('reason.length < 8'), 'v2 admin should require a clear rejection reason before rejecting a provider');
+assert(page.includes('Add at least 8 characters of rejection reason'), 'v2 admin should explain provider rejection readiness');
 assert(page.includes('#finance'), 'v2 admin should expose finance as a primary rail section');
 assert(page.includes('Finance review'), 'v2 admin should expose the finance review section');
 assert(page.includes('refundReviewRows'), 'v2 admin should render refund request rows from the payment audit feed');
@@ -269,6 +274,7 @@ assert(css.includes('.fleet-readiness-grid'), 'v2 admin should style fleet provi
 assert(css.includes('.fleet-provider-card'), 'v2 admin should style fleet provider blocker cards');
 assert(css.includes('.fleet-blockers'), 'v2 admin should style fleet blocker chips');
 assert(css.includes('.approval-desk'), 'v2 admin should style the provider approval desk');
+assert(css.includes('.approval-envelope-grid'), 'v2 admin should style provider approval decision envelopes');
 assert(css.includes('.approval-actions'), 'v2 admin should style approval decision actions');
 assert(css.includes('.finance-review'), 'v2 admin should style finance review');
 assert(css.includes('.finance-summary-grid'), 'v2 admin should style finance summary cards');
