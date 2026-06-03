@@ -35,6 +35,12 @@ assert(page.includes('/admin/support/contacts?limit=12'), 'v2 admin should load 
 assert(page.includes('/admin/renters?page=1&limit=12'), 'v2 admin should load a bounded renter support sample');
 assert(page.includes('/admin/jobs?limit=12'), 'v2 admin should load recent jobs for support triage');
 assert(page.includes('/admin/payments?limit=12'), 'v2 admin should load recent payments for support context');
+assert(page.includes('Operator brief'), 'v2 admin should expose a top-level operator brief');
+assert(page.includes('operatorBriefItems'), 'v2 admin should derive operator brief items from loaded operational evidence');
+assert(page.includes('primaryBrief'), 'v2 admin should pick the highest-priority operator brief item');
+assert(page.includes('Today’s operating posture'), 'v2 admin should label the operator brief as the daily operating posture');
+assert(page.includes('Serving proof is the sprint blocker'), 'v2 admin should elevate serving proof when public capacity is not ready');
+assert(page.includes('Operator brief is read-only prioritization'), 'v2 admin should keep the operator brief read-only');
 assert(page.includes('buildTasks'), 'v2 admin should synthesize an ops inbox');
 assert(page.includes('buildReadinessChecks'), 'v2 admin should synthesize a launch readiness board');
 assert(page.includes('agentMode'), 'v2 admin should model agent permission classes per task');
@@ -220,6 +226,9 @@ assert(!auth.includes("redirect=/admin'"), 'v2 auth should not default admin sig
 
 assert(css.includes('.v2-admin'), 'v2 admin should have scoped styles');
 assert(css.includes('.readiness-board'), 'v2 admin should style the readiness board');
+assert(css.includes('.operator-brief'), 'v2 admin should style the operator brief');
+assert(css.includes('.operator-brief-grid'), 'v2 admin should style the operator brief grid');
+assert(css.includes('.operator-brief-primary'), 'v2 admin should style the primary operator brief');
 assert(css.includes('.launch-readiness'), 'v2 admin should style launch readiness');
 assert(css.includes('.launch-summary-grid'), 'v2 admin should style launch readiness summary metrics');
 assert(css.includes('.launch-gate-list'), 'v2 admin should style launch readiness gates');
