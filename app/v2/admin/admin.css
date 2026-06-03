@@ -667,6 +667,109 @@ body {
   color: var(--err);
 }
 
+.serving-proof {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.serving-proof-target {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.serving-proof-target > div {
+  min-height: 118px;
+  background: color-mix(in oklab, var(--bg) 90%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.serving-proof-target span,
+.serving-proof-target small,
+.serving-proof-checklist span,
+.serving-proof-checklist strong {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.serving-proof-target strong {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.serving-proof-target small {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.serving-proof-checklist {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.serving-proof-checklist article {
+  min-height: 152px;
+  background: color-mix(in oklab, var(--bg) 90%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.serving-proof-checklist strong {
+  width: fit-content;
+  border: 1px solid var(--hair);
+  padding: 5px 7px;
+}
+
+.serving-proof-checklist article.pass strong {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+}
+
+.serving-proof-checklist article.fail strong {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 36%, var(--hair));
+}
+
+.serving-proof-checklist article.unknown strong {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.serving-proof-checklist p,
+.serving-proof-empty,
+.serving-proof-exit {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.48;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.serving-proof-exit {
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+}
+
 .serving-recovery-grid {
   margin-top: 16px;
   display: grid;
@@ -2994,6 +3097,11 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .serving-proof-target,
+  .serving-proof-checklist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .launch-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -3057,6 +3165,8 @@ body {
   .support-grid,
   .serving-recovery-summary,
   .serving-recovery-grid,
+  .serving-proof-target,
+  .serving-proof-checklist,
   .incident-summary-grid,
   .incident-command-grid,
   .approval-facts,
