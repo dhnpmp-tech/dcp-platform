@@ -362,6 +362,89 @@ body {
   font-size: 10.5px;
 }
 
+.readiness-board {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.readiness-board .section-head > span {
+  border: 1px solid var(--hair);
+  color: var(--mut);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  background: transparent;
+  border: 0;
+  font-size: 0;
+  overflow: hidden;
+}
+
+.readiness {
+  min-height: 190px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  color: var(--ink);
+  text-decoration: none;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 15px;
+}
+
+.readiness:hover {
+  background: color-mix(in oklab, var(--teal) 7%, var(--bg));
+}
+
+.readiness:active {
+  transform: translateY(1px);
+}
+
+.readiness span,
+.lane-stats span,
+.lane-list span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.readiness strong {
+  display: block;
+  margin-top: 12px;
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.readiness.watch strong {
+  color: var(--orange);
+}
+
+.readiness.critical strong {
+  color: var(--err);
+}
+
+.readiness p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -527,13 +610,107 @@ body {
   text-transform: uppercase;
 }
 
+.lane-grid {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr) minmax(0, .95fr);
+  gap: 1px;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+  font-size: 0;
+}
+
+.lane-panel {
+  min-height: 360px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-size: 15px;
+}
+
+.lane-panel .section-head {
+  margin-bottom: 0;
+}
+
+.lane-stats,
+.lane-list {
+  display: grid;
+  gap: 1px;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+}
+
+.lane-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lane-stats > div,
+.lane-list > div {
+  min-height: 84px;
+  background: color-mix(in oklab, var(--bg) 84%, var(--paper));
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lane-stats strong,
+.lane-list strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.fleet-lane .lane-stats strong {
+  color: var(--teal);
+}
+
+.finance-lane .lane-list > div:nth-child(2) strong,
+.incident-lane .lane-list > div:first-child strong {
+  color: var(--orange);
+}
+
+.lane-note {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+
+.lane-action {
+  margin-top: auto;
+  align-self: flex-start;
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  padding: 9px 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.lane-action:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.lane-action:active {
+  transform: translateY(1px);
+}
+
 .workflow-strip {
   margin-top: 34px;
 }
 
 .workflow-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1px;
   background: var(--hair);
   border: 1px solid var(--hair);
@@ -626,8 +803,13 @@ body {
   }
 
   .admin-two-col,
+  .lane-grid,
   .future-map {
     grid-template-columns: 1fr;
+  }
+
+  .readiness-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .workflow-grid {
@@ -648,8 +830,14 @@ body {
 
   .admin-status-strip,
   .metric-grid,
+  .readiness-grid,
+  .lane-stats,
   .workflow-grid {
     grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    display: grid;
   }
 
   .admin-status-strip > div {

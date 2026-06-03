@@ -14,6 +14,16 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 02:53 UTC — [PR #521](https://github.com/dhnpmp-tech/dcp-platform/pull/521) — `feat(v2): expand admin operational dashboard`
+
+Included:
+- Expanded `/v2/admin` from a first command-center shell into a broader read-only operations surface for founding-team workflows.
+- Added v2 admin reads for provider approvals, earned fleet health, fleet alerts, finance reconciliation, recent errors, and control-plane signals.
+- Added a launch-readiness board that treats verified serving capacity, fleet alerts, money queues, reconciliation, incidents, and control-plane signals as first-class operating checks.
+- Added fleet, finance, and incident/control-plane lanes so humans and future agents can see the current risk areas without jumping through multiple legacy pages.
+- Kept provider/payment/fleet mutations out of v2 admin for now; guarded writes still route to the existing admin console until explicit v2 approval flows are built.
+- Added static regressions for the new admin API dependencies, read-only policy, readiness board, and operational lane styling.
+
 ### 02:41 UTC — [PR #520](https://github.com/dhnpmp-tech/dcp-platform/pull/520) — `fix: align provider online truth and retire stale brand docs`
 
 Included:
