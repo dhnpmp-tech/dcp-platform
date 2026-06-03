@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:59 UTC — [PR #532](https://github.com/dhnpmp-tech/dcp-platform/pull/532) — `feat(v2): add admin fleet readiness blockers`
+
+Included:
+- Added a first-class fleet readiness section to `/v2/admin` for inference-serving blockers from the existing `/api/admin/fleet/health` and `/api/admin/fleet/alerts` feeds.
+- Surfaced row-level provider evidence for earned-online verification, endpoint reachability, WireGuard freshness, heartbeat freshness, cached model coverage, running jobs, and restart risk.
+- Added fleet readiness navigation, summary gates, blocked-provider cards, alert evidence, and a link back to the verified fleet console for safe action.
+- Kept provider pause/resume, endpoint edits, WireGuard repair, and routing changes out of v2 admin until v2 fleet actions have explicit audit and rollback rules.
+
 ### 04:49 UTC — [PR #531](https://github.com/dhnpmp-tech/dcp-platform/pull/531) — `feat(v2): add admin finance review`
 
 Included:
