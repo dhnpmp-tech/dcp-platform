@@ -102,7 +102,7 @@ const SAMPLE_PROMPTS: { text: string; rtl: boolean }[] = [
   { text: 'اكتب رسالة بريد لعميل', rtl: true },
   { text: 'حلّل نصاً قانونياً', rtl: true },
   { text: 'Summarize this PDF…', rtl: false },
-  { text: 'Function calling demo', rtl: false },
+  { text: 'Plan a tool call', rtl: false },
 ]
 
 interface ChatMessage {
