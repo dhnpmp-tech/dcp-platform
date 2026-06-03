@@ -1,6 +1,6 @@
 'use client'
 
-// v2 Docs — ported from prototypes/docs/Docs.html.
+// v2 docs.
 // Three-pane docs shell (left nav / content / right TOC) with the Midnight kit.
 // The only prototype interactivity is the Quickstart code-tab switcher, here a
 // React useState. A language toggle (EN / ع) is added to the header chrome; the

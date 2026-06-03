@@ -1,6 +1,6 @@
 'use client'
 
-// v2 marketing Home — ported from prototypes/Home.html (Midnight design system).
+// v2 marketing home.
 // dcp-kit.css is imported by app/v2/layout.tsx; only the co-located page CSS is
 // imported here. The data-en/data-ar swap is handled by V2Provider + <Bi>.
 
@@ -418,7 +418,7 @@ export default function V2HomePage() {
               </p>
               <div className="ctas">
                 <Link className="btn primary lg magnet" href="/v2/renter/playground">
-                  <Bi en="Try the live demo →" ar="جرّب التجربة الحية ←" />
+                  <Bi en="Open playground →" ar="افتح ساحة التجربة ←" />
                 </Link>
                 <Link className="btn ghost lg" href="/v2/setup">
                   <Bi en="Start free · no card" ar="ابدأ مجاناً · بلا بطاقة" />
@@ -698,8 +698,8 @@ export default function V2HomePage() {
               </h3>
               <p>
                 <Bi
-                  en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and starts earning. 100–270 tok/s on consumer GPUs from RTX 3060 Ti to RTX 5090. Auto NAT traversal via Cloudflare Tunnel — no port forwarding."
-                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال (Ollama أو MLX)، ويبدأ الربح. ١٠٠-٢٧٠ رمز/ثانية على معالجات استهلاكية من RTX 3060 Ti إلى RTX 5090. عبور NAT تلقائي عبر Cloudflare Tunnel — دون فتح منافذ."
+                  en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and reports measured throughput after verification. Auto NAT traversal via Cloudflare Tunnel — no port forwarding."
+                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال (Ollama أو MLX)، وينزّل نموذجاً، ويعرض السرعة المقاسة بعد التحقق. عبور NAT تلقائي عبر Cloudflare Tunnel — دون فتح منافذ."
                 />
               </p>
               <ul>
@@ -1665,8 +1665,8 @@ export default function V2HomePage() {
           </h2>
           <p>
             <Bi
-              en="Eight minutes from this page to a working inference call. No procurement. No data-egress conversation. No flat GPU rental."
-              ar="ثماني دقائق من هذه الصفحة إلى أول استدعاء استدلال يعمل. بلا مشتريات، بلا نقاش حول خروج البيانات، بلا إيجار معالجات ثابت."
+              en="Eight minutes from this page to a ready renter workspace. First inference is enabled by the catalog only when a verified serving model is online. No procurement. No data-egress conversation. No flat GPU rental."
+              ar="ثماني دقائق من هذه الصفحة إلى مساحة عمل جاهزة للمستأجر. يفتح الفهرس أول طلب استدلال فقط عندما يكون نموذج مخدوم ومتحقق متصلاً. بلا مشتريات، بلا نقاش حول خروج البيانات، بلا إيجار معالجات ثابت."
             />
           </p>
           <div className="ctas">
@@ -1674,7 +1674,7 @@ export default function V2HomePage() {
               <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
             </Link>
             <Link className="btn ghost lg" href="/v2/renter/playground">
-              <Bi en="Try the demo" ar="جرّب التجربة" />
+              <Bi en="Open playground" ar="افتح ساحة التجربة" />
             </Link>
             <Link className="btn ghost lg" href="/v2/provider-setup">
               <Bi en="Or apply as provider" ar="أو تقدّم كمزوّد" />

@@ -1,6 +1,6 @@
 'use client'
 
-// Ported from public/dcp-v2/prototypes/renter/Invoices.html (renter console · Invoices).
+// Ported from the v2 renter console source design (Invoices).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./invoices.css.
 import { useEffect, useState } from 'react'

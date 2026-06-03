@@ -1,6 +1,6 @@
 'use client'
 
-// Ported from public/dcp-v2/prototypes/renter/Dashboard.html (renter console · Overview).
+// Ported from the v2 renter console source design (Overview).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./dashboard.css.
 import { useEffect, useMemo, useState } from 'react'
