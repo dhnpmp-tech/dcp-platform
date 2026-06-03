@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 06:52 UTC — [PR #541](https://github.com/dhnpmp-tech/dcp-platform/pull/541) — `feat(v2): add admin operator brief`
+
+Included:
+- Added a read-only Operator brief near the top of `/v2/admin` that turns loaded admin evidence into a daily operating posture for founders and agents.
+- Prioritized serving proof, money queue, support evidence, mission ownership, and incident watch into owner-labeled next actions.
+- Elevated serving proof as the sprint blocker while public capacity is not ready, with direct links back to the evidence sections instead of unsafe actions.
+- Kept the brief as prioritization only; repairs, money movement, provider actions, and public capacity changes remain in verified consoles.
+- Added static regressions for operator-brief evidence derivation, highest-priority selection, read-only policy copy, and scoped styling.
+
 ### 06:42 UTC — [PR #540](https://github.com/dhnpmp-tech/dcp-platform/pull/540) — `feat(v2): add admin serving proof packet`
 
 Included:

@@ -736,6 +736,19 @@ interface RunbookStep {
   href: string
 }
 
+interface OperatorBriefItem {
+  key: string
+  owner: string
+  titleEn: string
+  titleAr: string
+  evidence: string
+  actionEn: string
+  actionAr: string
+  severity: Severity
+  agentMode: AgentMode
+  href: string
+}
+
 interface ServingRecoveryItem {
   key: string
   provider: FleetProviderRow
@@ -2215,6 +2228,89 @@ export default function V2AdminPage() {
     + launchSecurityBlockers
     + launchIncidentBlockers
   const launchState = launchBlockers > 0 ? 'blocked' : 'ready'
+  const operatorBriefItems = ([
+    {
+      key: 'serving-proof',
+      owner: 'Fleet',
+      titleEn: publicCapacityReady ? 'Serving proof is ready to confirm' : 'Serving proof is the sprint blocker',
+      titleAr: publicCapacityReady ? 'دليل الخدمة جاهز للتأكيد' : 'دليل الخدمة هو عائق السبرنت',
+      evidence: `${usableOnline} serving · ${fleetEndpointReachable} endpoint · ${verifiedOnline} earned`,
+      actionEn: publicCapacityReady
+        ? 'Confirm one metered inference and then review public marketplace capacity language.'
+        : 'Use Serving recovery to get one provider through route, inference, and model proof before changing public promises.',
+      actionAr: publicCapacityReady
+        ? 'أكد استدلالاً مقاساً واحداً ثم راجع لغة سعة السوق العامة.'
+        : 'استخدم استعادة الخدمة لتمرير مزوّد واحد عبر دليل المسار والاستدلال والنموذج قبل تغيير الوعود العامة.',
+      severity: publicCapacityReady ? 'routine' : 'critical',
+      agentMode: 'propose',
+      href: '#serving-recovery',
+    },
+    {
+      key: 'money-queue',
+      owner: 'Finance',
+      titleEn: launchMoneyBlockers > 0 ? 'Money queue needs assignment' : 'Money queue is clear enough for launch work',
+      titleAr: launchMoneyBlockers > 0 ? 'طابور المال يحتاج إسناداً' : 'طابور المال واضح بما يكفي لعمل الإطلاق',
+      evidence: `${financeQueueTotal} finance · ${reconciliationIssues} reconciliation · ${healthPendingWithdrawals} withdrawals`,
+      actionEn: launchMoneyBlockers > 0
+        ? 'Assign refund, payout, withdrawal, and reconciliation blockers before launch claims move.'
+        : 'Keep money actions in verified consoles and use the quiet window for settlement review.',
+      actionAr: launchMoneyBlockers > 0
+        ? 'أسند عوائق الاسترداد والدفعات والسحوبات والمطابقة قبل تحريك ادعاءات الإطلاق.'
+        : 'أبقِ إجراءات المال في اللوحات المتحققة واستخدم الهدوء لمراجعة التسوية.',
+      severity: launchMoneyBlockers > 0 ? 'critical' : 'routine',
+      agentMode: launchMoneyBlockers > 0 ? 'guarded' : 'propose',
+      href: '#finance',
+    },
+    {
+      key: 'support-watch',
+      owner: 'Support',
+      titleEn: supportQueueTotal > 0 ? 'Customer evidence needs triage' : 'Support desk is quiet',
+      titleAr: supportQueueTotal > 0 ? 'دليل العملاء يحتاج فرزاً' : 'مكتب الدعم هادئ',
+      evidence: `${supportContactList.length} contacts · ${failedJobRows.length} failed jobs · ${paymentIssueRows.length} payment rows`,
+      actionEn: supportQueueTotal > 0
+        ? 'Summarize contacts, failed jobs, and payment rows before deciding whether a verified-console action is needed.'
+        : 'Keep monitoring contact submissions and failed-job evidence while capacity is gated.',
+      actionAr: supportQueueTotal > 0
+        ? 'لخص جهات الاتصال والمهام الفاشلة وصفوف الدفع قبل قرار الحاجة إلى إجراء في لوحة متحققة.'
+        : 'استمر في مراقبة طلبات الاتصال ودليل المهام الفاشلة بينما السعة محجوبة.',
+      severity: supportQueueTotal > 0 ? 'watch' : 'routine',
+      agentMode: 'propose',
+      href: '#support',
+    },
+    {
+      key: 'mission-work',
+      owner: 'Founders',
+      titleEn: missionBlockedCount > 0 ? 'Mission work has blocked ownership' : 'Mission work needs daily owner review',
+      titleAr: missionBlockedCount > 0 ? 'عمل المهمة لديه ملكية محجوبة' : 'عمل المهمة يحتاج مراجعة مالك يومية',
+      evidence: `${openMissionWork} open · ${missionBlockedCount} blocked · ${missionShippedCount} shipped`,
+      actionEn: missionBlockedCount > 0
+        ? 'Use the mission action desk to add evidence notes, reassign owners, or move status through the guarded route.'
+        : 'Review owner coverage and add evidence notes for today’s highest-impact task.',
+      actionAr: missionBlockedCount > 0
+        ? 'استخدم مكتب إجراءات المهمة لإضافة ملاحظات دليل أو إعادة إسناد المالكين أو نقل الحالة عبر المسار المحروس.'
+        : 'راجع تغطية المالكين وأضف ملاحظات دليل للمهمة الأعلى أثراً اليوم.',
+      severity: missionBlockedCount > 0 ? 'watch' : 'routine',
+      agentMode: missionBlockedCount > 0 ? 'guarded' : 'propose',
+      href: '#mission',
+    },
+    {
+      key: 'incident-watch',
+      owner: 'Engineering',
+      titleEn: incidentCommandHasCritical ? 'Incident command needs a human' : 'Incident watch is quiet',
+      titleAr: incidentCommandHasCritical ? 'قيادة الحوادث تحتاج إنساناً' : 'مراقبة الحوادث هادئة',
+      evidence: `${incidentMergedCount} incidents · ${recentErrors} errors · ${controlCriticalCount} critical signals`,
+      actionEn: incidentCommandHasCritical
+        ? 'Open incident command and separate daemon, audit, status, and control-plane evidence before any launch push.'
+        : 'Keep incident command as read-only watch while serving capacity remains the main blocker.',
+      actionAr: incidentCommandHasCritical
+        ? 'افتح قيادة الحوادث وافصل دليل الخادم والتدقيق والحالة ولوحة التحكم قبل أي دفعة إطلاق.'
+        : 'أبقِ قيادة الحوادث كمراقبة قراءة فقط بينما تبقى سعة الخدمة العائق الرئيسي.',
+      severity: incidentCommandHasCritical ? 'critical' : recentErrors > 0 ? 'watch' : 'routine',
+      agentMode: incidentCommandHasCritical ? 'notify' : 'read',
+      href: '#incidents',
+    },
+  ] satisfies OperatorBriefItem[]).sort((a, b) => severityRank(a.severity) - severityRank(b.severity))
+  const primaryBrief = operatorBriefItems[0]
   const runbookSteps: RunbookStep[] = [
     {
       key: 'public-capacity',
@@ -2591,6 +2687,52 @@ export default function V2AdminPage() {
 
         {state === 'ready' && (
           <>
+            <section className="operator-brief" aria-label="Operator brief">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Today’s operating posture" ar="وضع التشغيل اليوم" /></p>
+                  <h2><Bi en="Operator brief" ar="موجز التشغيل" /></h2>
+                </div>
+                <span className={primaryBrief.severity}>
+                  <Bi en={`${primaryBrief.owner} · ${primaryBrief.severity}`} ar={`${primaryBrief.owner} · ${primaryBrief.severity}`} />
+                </span>
+              </div>
+
+              <div className="operator-brief-grid">
+                <article className={`operator-brief-primary ${primaryBrief.severity}`}>
+                  <span><Bi en="top priority" ar="الأولوية الأولى" /></span>
+                  <strong><Bi en={primaryBrief.titleEn} ar={primaryBrief.titleAr} /></strong>
+                  <p><Bi en={primaryBrief.actionEn} ar={primaryBrief.actionAr} /></p>
+                  <small>{primaryBrief.evidence}</small>
+                  <Link href={primaryBrief.href}><Bi en="Open evidence" ar="افتح الدليل" /></Link>
+                </article>
+
+                <div className="operator-brief-list">
+                  {operatorBriefItems.slice(1).map((item) => {
+                    const label = agentLabel(item.agentMode)
+                    return (
+                      <article className={item.severity} key={item.key}>
+                        <div>
+                          <span>{item.owner}</span>
+                          <em><Bi en={label.en} ar={label.ar} /></em>
+                        </div>
+                        <strong><Bi en={item.titleEn} ar={item.titleAr} /></strong>
+                        <p>{item.evidence}</p>
+                        <Link href={item.href}><Bi en="Evidence" ar="الدليل" /></Link>
+                      </article>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <p className="operator-brief-policy">
+                <Bi
+                  en="Operator brief is read-only prioritization. It helps humans and agents decide what to inspect next; repairs, money movement, provider actions, and public capacity changes stay in verified consoles."
+                  ar="موجز التشغيل ترتيب أولويات للقراءة فقط. يساعد البشر والوكلاء على قرار ما يجب فحصه تالياً؛ تبقى الإصلاحات وحركة الأموال وإجراءات المزوّد وتغييرات السعة العامة في اللوحات المتحققة."
+                />
+              </p>
+            </section>
+
             <section className="metric-grid" aria-label="Admin metrics">
               <div className="metric tall">
                 <span className="metric-label"><Bi en="Revenue today" ar="إيراد اليوم" /></span>

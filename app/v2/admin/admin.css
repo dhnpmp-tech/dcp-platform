@@ -241,6 +241,158 @@ body {
   50% { opacity: 1; transform: scale(1); }
 }
 
+.operator-brief {
+  margin: 22px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+  padding: 20px 0;
+}
+
+.operator-brief .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.operator-brief .section-head > span.critical {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 36%, var(--hair));
+}
+
+.operator-brief .section-head > span.watch {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.operator-brief .section-head > span.routine {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+}
+
+.operator-brief-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: minmax(320px, .78fr) minmax(0, 1.22fr);
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.operator-brief-primary,
+.operator-brief-list article {
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 16px;
+}
+
+.operator-brief-primary {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.operator-brief-primary > span,
+.operator-brief-primary small,
+.operator-brief-list span,
+.operator-brief-list em {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.operator-brief-primary strong {
+  color: var(--ink);
+  font-size: 21px;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.operator-brief-primary p,
+.operator-brief-list p,
+.operator-brief-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.operator-brief-primary a,
+.operator-brief-list a {
+  width: fit-content;
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  padding: 7px 9px;
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.operator-brief-primary.critical a,
+.operator-brief-list article.critical a {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 36%, var(--hair));
+}
+
+.operator-brief-primary.watch a,
+.operator-brief-list article.watch a {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.operator-brief-primary.routine a,
+.operator-brief-list article.routine a {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+}
+
+.operator-brief-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hair);
+}
+
+.operator-brief-list article {
+  min-height: 164px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.operator-brief-list article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.operator-brief-list em {
+  flex: 0 0 auto;
+  border: 1px solid var(--hair);
+  padding: 4px 6px;
+  font-style: normal;
+}
+
+.operator-brief-list strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.operator-brief-policy {
+  margin-top: 14px;
+}
+
 .admin-state,
 .admin-skeleton {
   margin-top: 28px;
@@ -3067,6 +3219,7 @@ body {
   .fleet-readiness-grid,
   .finance-review-grid,
   .support-grid,
+  .operator-brief-grid,
   .serving-recovery-grid,
   .incident-command-grid,
   .launch-gate-list,
@@ -3094,6 +3247,10 @@ body {
   }
 
   .serving-recovery-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operator-brief-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3152,6 +3309,8 @@ body {
   .readiness-grid,
   .launch-summary-grid,
   .launch-gate-list,
+  .operator-brief-grid,
+  .operator-brief-list,
   .runbook-grid,
   .fleet-summary-grid,
   .fleet-readiness-grid,
