@@ -310,7 +310,7 @@ body {
   color: var(--mut);
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: .12em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -676,6 +676,95 @@ body {
 .launch-summary-grid small {
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.capacity-blocker {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  display: grid;
+  grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr);
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+}
+
+.capacity-blocker.critical {
+  box-shadow: inset 3px 0 0 var(--err);
+}
+
+.capacity-blocker.ready {
+  box-shadow: inset 3px 0 0 var(--teal);
+}
+
+.capacity-blocker-main {
+  padding: 18px;
+  border-inline-end: 1px solid var(--hair);
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.capacity-blocker-main span,
+.capacity-blocker-main small,
+.capacity-gate-grid span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.capacity-blocker-main strong {
+  color: var(--err);
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.capacity-blocker.ready .capacity-blocker-main strong {
+  color: var(--teal);
+}
+
+.capacity-blocker-main p,
+.capacity-gate-grid p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
+.capacity-gate-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hair);
+}
+
+.capacity-gate-grid article {
+  min-height: 156px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.capacity-gate-grid strong {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.capacity-gate-grid article.pass strong {
+  color: var(--teal);
+}
+
+.capacity-gate-grid article.fail strong {
+  color: var(--err);
 }
 
 .launch-gate-list {
@@ -3735,6 +3824,7 @@ body {
   .operator-brief-grid,
   .serving-recovery-grid,
   .incident-command-grid,
+  .capacity-blocker,
   .launch-gate-list,
   .runbook-grid,
   .mission-layout,
@@ -3763,6 +3853,10 @@ body {
   }
 
   .serving-recovery-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .capacity-gate-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3829,6 +3923,8 @@ body {
   .metric-grid,
   .readiness-grid,
   .launch-summary-grid,
+  .capacity-blocker,
+  .capacity-gate-grid,
   .launch-gate-list,
   .operator-brief-grid,
   .operator-brief-list,
@@ -3888,6 +3984,11 @@ body {
 
   .admin-status-strip > div:last-child {
     border-bottom: 0;
+  }
+
+  .capacity-blocker-main {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--hair);
   }
 
   .metric.tall,

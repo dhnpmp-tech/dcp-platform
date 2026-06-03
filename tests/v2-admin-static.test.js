@@ -16,6 +16,12 @@ assert(page.includes('/v2/auth?role=admin&method=apikey&redirect=/v2/admin'), 'v
 assert(page.includes('/admin/dashboard'), 'v2 admin should load the verified admin dashboard API');
 assert(page.includes('/admin/payments/audit?limit=40'), 'v2 admin should load the payments audit queue');
 assert(page.includes('/admin/health'), 'v2 admin should load system health');
+assert(page.includes('health?.capacity?.reason'), 'v2 admin should read the admin health capacity reason');
+assert(page.includes('capacityReasonCopy'), 'v2 admin should render machine-readable capacity reasons as operator copy');
+assert(page.includes('capacityGateCards'), 'v2 admin should derive capacity gate cards from health/fleet evidence');
+assert(page.includes('Live capacity reason'), 'v2 admin should expose the live serving blocker reason in launch readiness');
+assert(page.includes('no verified serving provider'), 'v2 admin should name the zero-serving-capacity reason');
+assert(page.includes('heartbeat, endpoint reachability, earned inference, or model coverage'), 'v2 admin should explain which serving gate is blocking public capacity');
 assert(page.includes('/admin/security/summary'), 'v2 admin should load security summary');
 assert(page.includes('/admin/metrics'), 'v2 admin should load operational metrics for launch readiness');
 assert(page.includes('/admin/demand'), 'v2 admin should load read-only demand signals for launch readiness');
@@ -276,6 +282,8 @@ assert(css.includes('.launch-summary-grid'), 'v2 admin should style launch readi
 assert(css.includes('.launch-gate-list'), 'v2 admin should style launch readiness gates');
 assert(css.includes('.launch-gate'), 'v2 admin should style launch gate rows');
 assert(css.includes('.launch-policy'), 'v2 admin should style the launch read-only policy');
+assert(css.includes('.capacity-blocker'), 'v2 admin should style the live capacity blocker packet');
+assert(css.includes('.capacity-gate-grid'), 'v2 admin should style the capacity gate cards');
 assert(css.includes('.serving-recovery'), 'v2 admin should style serving recovery');
 assert(css.includes('.serving-recovery-summary'), 'v2 admin should style serving recovery summary metrics');
 assert(css.includes('.serving-recovery-grid'), 'v2 admin should style serving recovery panels');

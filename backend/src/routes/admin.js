@@ -159,6 +159,51 @@ function parseBooleanLike(value, defaultValue = false) {
   return defaultValue;
 }
 
+function getAdminCapacitySnapshot() {
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  let total = 0;
+  let heartbeating = 0;
+  let endpointReachable = 0;
+  let serving = 0;
+
+  try {
+    total = db.get('SELECT COUNT(*) AS count FROM providers')?.count || 0;
+  } catch (_) { total = 0; }
+
+  try {
+    heartbeating = db.get(
+      "SELECT COUNT(*) AS count FROM providers WHERE status = 'online' AND last_heartbeat > ?",
+      fiveMinAgo
+    )?.count || 0;
+  } catch (_) { heartbeating = 0; }
+
+  try {
+    endpointReachable = db.get(
+      `SELECT COUNT(*) AS count
+         FROM providers
+        WHERE status = 'online'
+          AND last_heartbeat > ?
+          AND COALESCE(is_paused, 0) = 0
+          AND vllm_endpoint_url IS NOT NULL
+          AND COALESCE(endpoint_reachable, 0) = 1
+          AND endpoint_probed_at IS NOT NULL`,
+      fiveMinAgo
+    )?.count || 0;
+  } catch (_) { endpointReachable = 0; }
+
+  try {
+    serving = countUsableProviders(db);
+  } catch (_) { serving = 0; }
+
+  return {
+    total,
+    heartbeating,
+    endpoint_reachable: endpointReachable,
+    serving,
+    capacity_reason: serving > 0 ? 'verified_serving_capacity' : 'no_verified_serving_provider',
+  };
+}
+
 function buildAdminAccessPolicySnapshot() {
   const adminTokenConfigured = Boolean(String(process.env.DC1_ADMIN_TOKEN || '').trim());
   const adminIpAllowlistConfigured = Boolean(String(process.env.ADMIN_IP_ALLOWLIST || '').trim());
@@ -4664,6 +4709,7 @@ router.get('/health', (req, res) => {
       "SELECT COUNT(*) as count FROM withdrawals WHERE status = 'pending'"
     )?.count || 0;
 
+    const providerCapacity = getAdminCapacitySnapshot();
     const healthy = dbOk && stuckJobs === 0 && criticalEvents === 0;
 
     res.json({
@@ -4675,6 +4721,18 @@ router.get('/health', (req, res) => {
         jobs: { active: activeJobs, stuck: stuckJobs },
         errors: { failed_last_hour: recentErrors, critical_events: criticalEvents },
         withdrawals: { pending: pendingWithdrawals }
+      },
+      providers: {
+        total: providerCapacity.total,
+        online: providerCapacity.heartbeating,
+        heartbeating: providerCapacity.heartbeating,
+        endpoint_reachable: providerCapacity.endpoint_reachable,
+        serving: providerCapacity.serving,
+      },
+      capacity: {
+        serving_providers: providerCapacity.serving,
+        reason: providerCapacity.capacity_reason,
+        gates: ['fresh_heartbeat', 'endpoint_reachable', 'verified_online', 'model_coverage'],
       }
     });
   } catch (error) {
