@@ -1925,6 +1925,8 @@ body {
 }
 
 .finance-summary-grid span,
+.finance-handoff-card span,
+.finance-handoff-card em,
 .finance-row-top span,
 .finance-row small {
   color: var(--mut);
@@ -1947,6 +1949,93 @@ body {
 
 .finance-summary-grid .watch strong {
   color: var(--orange);
+}
+
+.finance-handoff {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.finance-handoff-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.finance-handoff-card {
+  min-height: 176px;
+  background: color-mix(in oklab, var(--bg) 90%, var(--paper));
+  padding: 14px;
+  color: var(--ink);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 2px solid var(--teal);
+}
+
+.finance-handoff-card.watch {
+  border-top-color: var(--orange);
+}
+
+.finance-handoff-card.critical {
+  border-top-color: var(--err);
+}
+
+.finance-handoff-card > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.finance-handoff-card span,
+.finance-handoff-card em {
+  font-size: 9.5px;
+  line-height: 1.35;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+.finance-handoff-card em {
+  color: var(--teal);
+  text-align: end;
+}
+
+.finance-handoff-card.watch em {
+  color: var(--orange);
+}
+
+.finance-handoff-card.critical em {
+  color: var(--err);
+}
+
+.finance-handoff-card strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.finance-handoff-card p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
+.finance-handoff-card:hover {
+  background: color-mix(in oklab, var(--paper) 70%, var(--bg));
 }
 
 .finance-review-grid {
@@ -3641,6 +3730,7 @@ body {
   .approval-envelope-grid,
   .fleet-readiness-grid,
   .finance-review-grid,
+  .finance-handoff-grid,
   .support-grid,
   .operator-brief-grid,
   .serving-recovery-grid,
@@ -3752,6 +3842,7 @@ body {
   .mission-action-envelope,
   .finance-summary-grid,
   .finance-review-grid,
+  .finance-handoff-grid,
   .support-summary-grid,
   .support-grid,
   .serving-recovery-summary,
