@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 04:12 UTC — [PR #527](https://github.com/dhnpmp-tech/dcp-platform/pull/527) — `fix(mission): add strict write auth gate`
+
+Included:
+- Added a dormant `DCP_MISSION_STRICT_WRITE_AUTH` guard for mission mutations so task, comment, milestone, and goal writes can be hardened to admin token or `x-mission-agent-key` without changing default production behavior.
+- Kept read endpoints and the read-only `/mission/pr-state` proxy on the existing authenticated-read path.
+- Switched mission-agent-key comparison to a timing-safe helper and added a stable `mission_write_forbidden` response for strict-mode write denials.
+- Added static regressions to keep every mission mutation on `requireWriteAuth` while preserving the read-only PR-state proxy behavior.
+
 ### 04:04 UTC — [PR #526](https://github.com/dhnpmp-tech/dcp-platform/pull/526) — `feat(v2): expose admin access governance`
 
 Included:
