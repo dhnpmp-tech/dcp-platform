@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 07:01 UTC — [PR #542](https://github.com/dhnpmp-tech/dcp-platform/pull/542) — `feat(v2): add admin session lock`
+
+Included:
+- Added a visible Lock action to `/v2/admin` so operators can clear the local admin key from a shared or agent-assisted browser session.
+- The lock action removes `dc1_admin_token`, returns the command center to the missing-key state, and routes back to the existing v2 admin sign-in flow.
+- In-flight admin loads are now generation-gated so a stale dashboard refresh cannot restore the ready view after Lock clears the token.
+- Kept the control local-only: no backend session mutation, provider action, payment action, or operational write is triggered.
+- Added static regressions for token clearing, missing-key state transition, sign-in redirect reuse, and scoped lock-button styling.
+
 ### 06:52 UTC — [PR #541](https://github.com/dhnpmp-tech/dcp-platform/pull/541) — `feat(v2): add admin operator brief`
 
 Included:
