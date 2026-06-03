@@ -2747,6 +2747,175 @@ body {
   font-size: 13.5px;
 }
 
+.action-ledger {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.action-ledger .section-head > span {
+  border: 1px solid var(--hair);
+  color: var(--teal);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.action-ledger-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.action-ledger-summary > div {
+  min-height: 128px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-ledger-summary span,
+.action-ledger-meta span,
+.action-ledger-row-head span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  overflow-wrap: anywhere;
+}
+
+.action-ledger-summary strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 25px;
+  line-height: 1.1;
+  font-weight: 500;
+}
+
+.action-ledger-summary small {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.action-ledger-list {
+  margin-top: 1px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  border: 1px solid var(--hair);
+  border-top: 0;
+  background: var(--hair);
+}
+
+.action-ledger-row {
+  min-height: 136px;
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(184px, .28fr);
+  gap: 1px;
+  border-inline-start: 2px solid var(--teal);
+}
+
+.action-ledger-row.mission_pulse {
+  border-inline-start-color: var(--orange);
+}
+
+.action-ledger-row.critical {
+  border-inline-start-color: var(--err);
+}
+
+.action-ledger-main,
+.action-ledger-meta {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-ledger-meta {
+  border-inline-start: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--paper) 44%, transparent);
+}
+
+.action-ledger-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.action-ledger-row-head strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.action-ledger-row-head em {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.action-ledger-row p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.action-ledger-meta strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.action-ledger-meta small {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.action-ledger-row.empty {
+  border-inline-start-color: var(--hair);
+}
+
+.action-ledger-row.empty .action-ledger-meta {
+  display: none;
+}
+
+.action-ledger-policy {
+  margin: 14px 0 0;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+
 .audit-trail {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
@@ -3394,6 +3563,8 @@ body {
   .mission-action-envelope,
   .access-grid,
   .notification-grid,
+  .action-ledger-summary,
+  .action-ledger-row,
   .audit-list,
   .lane-grid,
   .future-map {
@@ -3454,6 +3625,10 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .action-ledger-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .audit-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3499,10 +3674,25 @@ body {
   .approval-envelope-grid,
   .access-ladder,
   .notification-grid,
+  .action-ledger-summary,
+  .action-ledger-row,
   .audit-list,
   .lane-stats,
   .workflow-grid {
     grid-template-columns: 1fr;
+  }
+
+  .action-ledger-meta {
+    border-inline-start: 0;
+    border-top: 1px solid var(--hair);
+  }
+
+  .action-ledger-row-head {
+    flex-direction: column;
+  }
+
+  .action-ledger-row-head em {
+    white-space: normal;
   }
 
   .metric-grid {

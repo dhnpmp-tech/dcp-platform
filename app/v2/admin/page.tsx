@@ -534,6 +534,23 @@ interface AdminAuditEntry {
   timestamp?: string | null
 }
 
+type ActionLedgerSource = 'admin_audit' | 'mission_pulse'
+type ActionLedgerActorKind = 'admin' | 'human' | 'agent' | 'system'
+
+interface ActionLedgerItem {
+  key: string
+  source: ActionLedgerSource
+  sourceLabel: string
+  actorKind: ActionLedgerActorKind
+  actor: string
+  target: string
+  titleEn: string
+  titleAr: string
+  detail: string
+  timestamp?: string | null
+  severity: Severity
+}
+
 interface AdminAuditPayload {
   entries?: AdminAuditEntry[]
   audit_log?: AdminAuditEntry[]
@@ -933,6 +950,100 @@ function adminAuditRows(payload: AdminAuditPayload | null): AdminAuditEntry[] {
   if (Array.isArray(payload.entries)) return payload.entries
   if (Array.isArray(payload.audit_log)) return payload.audit_log
   return []
+}
+
+function parseTime(value: string | null | undefined): number {
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
+function inferActionActorKind(actor: string | null | undefined, assigneeKind?: string | null): ActionLedgerActorKind {
+  const explicitKind = String(assigneeKind || '').toLowerCase()
+  if (explicitKind === 'agent') return 'agent'
+  if (explicitKind === 'human') return 'human'
+  const normalizedActor = String(actor || '').toLowerCase()
+  if (!normalizedActor) return 'system'
+  if (normalizedActor.includes('agent') || normalizedActor.includes('codex') || normalizedActor.includes('claude') || normalizedActor.includes('opus') || normalizedActor.includes('nexus')) return 'agent'
+  if (normalizedActor.includes('admin')) return 'admin'
+  return 'human'
+}
+
+function auditLedgerSeverity(entry: AdminAuditEntry): Severity {
+  const text = `${entry.action || ''} ${entry.details || ''}`.toLowerCase()
+  if (text.includes('reject') || text.includes('fail') || text.includes('error') || text.includes('suspend') || text.includes('block')) return 'critical'
+  if (text.includes('refund') || text.includes('payout') || text.includes('approval') || text.includes('provider')) return 'watch'
+  return 'routine'
+}
+
+function missionLedgerSeverity(task: MissionTask): Severity {
+  if (task.status === 'blocked' || task.blocked_reason) return 'critical'
+  if (task.priority === 'p0' || task.status === 'review') return 'watch'
+  return 'routine'
+}
+
+function missionLedgerTarget(task: MissionTask): string {
+  if (task.id) return task.id
+  if (task.goal_title) return task.goal_title
+  return missionStatusLabel(task.status)
+}
+
+function buildActionLedger(
+  adminEntries: AdminAuditEntry[],
+  missionPulse: MissionPulsePayload | null,
+): ActionLedgerItem[] {
+  const auditItems = adminEntries.map((entry, index): ActionLedgerItem => {
+    const action = entry.action || 'admin_event'
+    const target = `${entry.target_type || 'system'}${entry.target_id != null ? ` #${entry.target_id}` : ''}`
+    const actor = entry.admin_user_id || 'admin token'
+    return {
+      key: `admin-${entry.id || action}-${index}`,
+      source: 'admin_audit',
+      sourceLabel: 'admin audit',
+      actorKind: inferActionActorKind(actor),
+      actor,
+      target,
+      titleEn: action.replace(/_/g, ' '),
+      titleAr: action.replace(/_/g, ' '),
+      detail: entry.details || 'No audit detail recorded.',
+      timestamp: entry.timestamp,
+      severity: auditLedgerSeverity(entry),
+    }
+  })
+
+  const missionGroups = [
+    { key: 'moved', labelEn: 'Task moved', labelAr: 'نقل مهمة', rows: missionPulse?.moved || [] },
+    { key: 'created', labelEn: 'Task created', labelAr: 'إنشاء مهمة', rows: missionPulse?.created || [] },
+    { key: 'shipped', labelEn: 'Task shipped', labelAr: 'تسليم مهمة', rows: missionPulse?.shipped || [] },
+  ]
+
+  const missionItems = missionGroups.flatMap((group) => (
+    group.rows.map((task, index): ActionLedgerItem => {
+      const actor = task.assignee_name || task.assignee_id || task.source || 'mission system'
+      const status = missionStatusLabel(task.status)
+      const evidence = task.blocked_reason || task.goal_title || task.source || 'Mission pulse event.'
+      return {
+        key: `mission-${group.key}-${task.id || index}`,
+        source: 'mission_pulse',
+        sourceLabel: 'mission pulse',
+        actorKind: inferActionActorKind(actor, task.assignee_kind),
+        actor,
+        target: missionLedgerTarget(task),
+        titleEn: group.labelEn,
+        titleAr: group.labelAr,
+        detail: `${task.title || 'Untitled mission task'} · ${status} · ${evidence}`,
+        timestamp: task.completed_at || task.updated_at || task.due_date,
+        severity: missionLedgerSeverity(task),
+      }
+    })
+  ))
+
+  return [...auditItems, ...missionItems]
+    .sort((a, b) => {
+      const byTime = parseTime(b.timestamp) - parseTime(a.timestamp)
+      if (byTime !== 0) return byTime
+      return severityRank(a.severity) - severityRank(b.severity)
+    })
 }
 
 function supportContactRows(payload: SupportContactsPayload | null): SupportContactRow[] {
@@ -2276,6 +2387,14 @@ export default function V2AdminPage() {
   const missionBlockedCount = missionCount(missionOverview, 'blocked') || listSize(missionOverview?.blocked)
   const missionTodayCount = listSize(missionOverview?.today)
   const missionShippedCount = listSize(missionPulse?.shipped) || listSize(missionOverview?.recent_done)
+  const actionLedger = useMemo(
+    () => buildActionLedger(adminAuditEntries, missionPulse),
+    [adminAuditEntries, missionPulse],
+  )
+  const actionLedgerPreview = actionLedger.slice(0, 10)
+  const actionLedgerAdminCount = actionLedger.filter((item) => item.source === 'admin_audit').length
+  const actionLedgerMissionCount = actionLedger.filter((item) => item.source === 'mission_pulse').length
+  const actionLedgerAgentCount = actionLedger.filter((item) => item.actorKind === 'agent').length
   const activeMissionGoals = (missionOverview?.active_goals && missionOverview.active_goals.length > 0)
     ? missionOverview.active_goals
     : missionGoals.filter((goal) => goal.status === 'active').slice(0, 6)
@@ -2762,6 +2881,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#notifications" className="rail-link">
             <span>NT</span><Bi en="Notify" ar="التنبيه" />
+          </a>
+          <a href="#action-ledger" className="rail-link">
+            <span>LG</span><Bi en="Ledger" ar="السجل" />
           </a>
           <a href="#audit" className="rail-link">
             <span>AU</span><Bi en="Audit" ar="التدقيق" />
@@ -4083,6 +4205,84 @@ export default function V2AdminPage() {
                 <Bi
                   en="v2 admin shows notification posture only. Test sends and channel edits stay in the current admin console until event allowlists, approval notes, and audit envelopes are explicit."
                   ar="تعرض إدارة v2 حالة التنبيهات فقط. تبقى رسائل الاختبار وتعديل القنوات في لوحة الإدارة الحالية حتى تصبح قوائم الأحداث وملاحظات الموافقة وأغلفة التدقيق واضحة."
+                />
+              </p>
+            </section>
+
+            <section className="action-ledger" id="action-ledger" aria-label="Action ledger">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Human and agent history" ar="تاريخ البشر والوكلاء" /></p>
+                  <h2><Bi en="Action ledger" ar="سجل الإجراءات" /></h2>
+                </div>
+                <span><Bi en="read-only ledger" ar="سجل قراءة فقط" /></span>
+              </div>
+
+              <div className="action-ledger-summary">
+                <div>
+                  <span><Bi en="ledger rows" ar="صفوف السجل" /></span>
+                  <strong>{numFmt.format(actionLedger.length)}</strong>
+                  <small><Bi en="admin audit + mission pulse" ar="تدقيق الإدارة + نبض المهمة" /></small>
+                </div>
+                <div>
+                  <span><Bi en="admin writes" ar="كتابات الإدارة" /></span>
+                  <strong>{numFmt.format(actionLedgerAdminCount)}</strong>
+                  <small><Bi en="immutable audit rows" ar="صفوف تدقيق ثابتة" /></small>
+                </div>
+                <div>
+                  <span><Bi en="mission changes" ar="تغييرات المهمة" /></span>
+                  <strong>{numFmt.format(actionLedgerMissionCount)}</strong>
+                  <small><Bi en="moved / created / shipped" ar="منقولة / منشأة / مسلمة" /></small>
+                </div>
+                <div>
+                  <span><Bi en="agent touches" ar="لمسات الوكيل" /></span>
+                  <strong>{numFmt.format(actionLedgerAgentCount)}</strong>
+                  <small><Bi en="delegated ownership signals" ar="إشارات ملكية مفوضة" /></small>
+                </div>
+              </div>
+
+              <div className="action-ledger-list">
+                {actionLedgerPreview.map((item) => (
+                  <article className={`action-ledger-row ${item.source} ${item.severity}`} key={item.key}>
+                    <div className="action-ledger-main">
+                      <div className="action-ledger-row-head">
+                        <div>
+                          <span>{item.sourceLabel} · {item.actorKind}</span>
+                          <strong><Bi en={item.titleEn} ar={item.titleAr} /></strong>
+                        </div>
+                        <em>{formatDate(item.timestamp)}</em>
+                      </div>
+                      <p>{item.detail}</p>
+                    </div>
+                    <div className="action-ledger-meta">
+                      <span><Bi en="actor" ar="الفاعل" /></span>
+                      <strong>{item.actor}</strong>
+                      <span><Bi en="target" ar="الهدف" /></span>
+                      <small>{item.target}</small>
+                    </div>
+                  </article>
+                ))}
+
+                {actionLedger.length === 0 && (
+                  <article className="action-ledger-row empty">
+                    <div className="action-ledger-main">
+                      <div className="action-ledger-row-head">
+                        <div>
+                          <span><Bi en="admin audit + mission pulse" ar="تدقيق الإدارة + نبض المهمة" /></span>
+                          <strong><Bi en="No recent actions" ar="لا توجد إجراءات حديثة" /></strong>
+                        </div>
+                        <em><Bi en="read-only" ar="قراءة فقط" /></em>
+                      </div>
+                      <p><Bi en="When admins approve providers or mission work moves between humans and agents, this ledger shows the latest action history without replaying writes." ar="عندما يوافق المسؤولون على المزوّدين أو تنتقل أعمال المهمة بين البشر والوكلاء، يعرض هذا السجل أحدث تاريخ للإجراءات دون إعادة تنفيذ الكتابات." /></p>
+                    </div>
+                  </article>
+                )}
+              </div>
+
+              <p className="action-ledger-policy">
+                <Bi
+                  en="The action ledger is read-only from /admin/audit and /mission/pulse. It does not create tasks, approve providers, replay writes, send notifications, move money, or repair providers."
+                  ar="سجل الإجراءات للقراءة فقط من /admin/audit و /mission/pulse. لا ينشئ مهاماً أو يوافق على مزوّدين أو يعيد تنفيذ كتابات أو يرسل تنبيهات أو يحرك أموالاً أو يصلح مزوّدين."
                 />
               </p>
             </section>

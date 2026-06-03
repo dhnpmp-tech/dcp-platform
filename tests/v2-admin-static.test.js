@@ -206,6 +206,14 @@ assert(page.includes('notificationNotifyState'), 'v2 admin should display agent 
 assert(page.includes('redacted destination only'), 'v2 admin should state that notification destinations are redacted');
 assert(page.includes('v2 admin shows notification posture only'), 'v2 admin should keep notification writes outside the v2 surface');
 assert(!page.includes('/admin/notifications/config'), 'v2 admin should not consume raw notification config');
+assert(page.includes('Action ledger'), 'v2 admin should expose an action ledger before the raw audit trail');
+assert(page.includes('ActionLedgerItem'), 'v2 admin should type action ledger rows');
+assert(page.includes('buildActionLedger'), 'v2 admin should derive the ledger from already-loaded evidence');
+assert(page.includes('admin audit + mission pulse'), 'v2 admin ledger should identify its two evidence sources');
+assert(page.includes('agent touches'), 'v2 admin ledger should summarize agent-visible action history');
+assert(page.includes('The action ledger is read-only from /admin/audit and /mission/pulse'), 'v2 admin ledger should state its read-only source contract');
+assert(page.includes('It does not create tasks, approve providers, replay writes, send notifications, move money, or repair providers'), 'v2 admin ledger should state its mutation boundary');
+assert(page.includes('#action-ledger'), 'v2 admin should expose the action ledger in the rail');
 assert(page.includes('Recent audit trail'), 'v2 admin should expose a recent audit trail');
 assert(page.includes('Accountability layer'), 'v2 admin should label audit as accountability context');
 assert(page.includes('adminAuditRows'), 'v2 admin should normalize admin audit payloads');
@@ -299,6 +307,11 @@ assert(css.includes('.access-ladder'), 'v2 admin should style the access permiss
 assert(css.includes('.notification-posture'), 'v2 admin should style notification posture');
 assert(css.includes('.notification-grid'), 'v2 admin should style notification routing cards');
 assert(css.includes('.notification-policy'), 'v2 admin should style the notification policy note');
+assert(css.includes('.action-ledger'), 'v2 admin should style the action ledger');
+assert(css.includes('.action-ledger-summary'), 'v2 admin should style action ledger summary metrics');
+assert(css.includes('.action-ledger-row'), 'v2 admin should style action ledger rows');
+assert(css.includes('.action-ledger-meta'), 'v2 admin should style action ledger actor and target metadata');
+assert(css.includes('.action-ledger-policy'), 'v2 admin should style the action ledger read-only policy');
 assert(css.includes('.audit-trail'), 'v2 admin should style the audit trail');
 assert(css.includes('.audit-list'), 'v2 admin should style audit entries');
 assert(css.includes('.audit-entry'), 'v2 admin should style individual audit cards');
