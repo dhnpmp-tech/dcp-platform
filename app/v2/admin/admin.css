@@ -1761,6 +1761,198 @@ body {
   min-height: 132px;
 }
 
+.incident-command {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.incident-command .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.incident-command .section-head > span.ready {
+  color: var(--teal);
+}
+
+.incident-command .section-head > span.critical {
+  color: var(--err);
+}
+
+.incident-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.incident-summary-grid > div {
+  min-height: 116px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.incident-summary-grid span,
+.incident-summary-grid small,
+.incident-row-top span,
+.incident-row-top small,
+.incident-row em,
+.control-signal-facts span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.incident-summary-grid strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.incident-summary-grid .watch strong {
+  color: var(--orange);
+}
+
+.incident-summary-grid .critical strong {
+  color: var(--err);
+}
+
+.incident-summary-grid small {
+  line-height: 1.35;
+}
+
+.incident-command-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, .94fr) minmax(0, .94fr);
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.incident-timeline-panel,
+.incident-error-panel,
+.control-plane-panel {
+  min-height: 386px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.incident-row-list,
+.control-signal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.incident-row,
+.control-signal {
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.incident-row:first-child,
+.control-signal:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.incident-row.critical,
+.control-signal.critical {
+  box-shadow: inset 3px 0 0 var(--err);
+  padding-inline-start: 12px;
+}
+
+[dir="rtl"] .incident-row.critical,
+[dir="rtl"] .control-signal.critical {
+  box-shadow: inset -3px 0 0 var(--err);
+}
+
+.incident-row.watch,
+.control-signal.watch {
+  box-shadow: inset 3px 0 0 var(--orange);
+  padding-inline-start: 12px;
+}
+
+[dir="rtl"] .incident-row.watch,
+[dir="rtl"] .control-signal.watch {
+  box-shadow: inset -3px 0 0 var(--orange);
+}
+
+.incident-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.incident-row-top strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.incident-row-top small {
+  white-space: nowrap;
+}
+
+.incident-row p,
+.control-signal p,
+.incident-empty,
+.incident-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.incident-row em {
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.control-signal-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.control-signal-facts span {
+  border: 1px solid var(--hair);
+  padding: 5px 7px;
+  color: var(--ink-2);
+}
+
+.incident-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -2122,6 +2314,7 @@ body {
   .approval-layout,
   .fleet-readiness-grid,
   .finance-review-grid,
+  .incident-command-grid,
   .mission-layout,
   .mission-action-grid,
   .access-grid,
@@ -2137,6 +2330,10 @@ body {
   }
 
   .finance-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .incident-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2188,6 +2385,8 @@ body {
   .mission-action-grid,
   .finance-summary-grid,
   .finance-review-grid,
+  .incident-summary-grid,
+  .incident-command-grid,
   .approval-facts,
   .access-ladder,
   .notification-grid,

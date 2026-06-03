@@ -244,15 +244,70 @@ interface ReconciliationPayload {
   issues?: Record<string, unknown[]>
 }
 
+interface ErrorEventRow {
+  id?: number | string
+  message?: string | null
+  severity?: string | null
+  daemon_version?: string | null
+  hostname?: string | null
+  os_info?: string | null
+  details?: string | null
+  created_at?: string | null
+  source?: string | null
+}
+
 interface ErrorsPayload {
-  errors?: unknown[]
+  errors?: ErrorEventRow[]
+}
+
+interface ControlPlaneSignalRow {
+  id?: number | string
+  pricing_class?: string | null
+  capacity_class?: string | null
+  compute_type?: string | null
+  queued_total?: number | null
+  active_total?: number | null
+  providers_online?: number | null
+  providers_degraded?: number | null
+  providers_warm?: number | null
+  avg_queue_wait_seconds?: number | null
+  p95_queue_wait_seconds?: number | null
+  recommended_warm_pool?: number | null
+  recommended_scale_delta?: number | null
+  recommended_action?: string | null
+  reason?: string | null
+  created_at?: string | null
 }
 
 interface ControlPlaneSignalsPayload {
   mode?: string
   count?: number
-  signals?: unknown[]
+  signals?: ControlPlaneSignalRow[]
   snapshot?: unknown
+}
+
+interface IncidentTimelineItem {
+  source?: 'audit' | 'daemon' | 'status' | string
+  severity?: 'info' | 'warning' | 'critical' | string
+  timestamp?: string
+  title?: string
+  actor?: string
+  target?: string | null
+  provider_id?: number | null
+  details?: string | null
+  ref_id?: string
+}
+
+interface IncidentsFeedPayload {
+  generated_at?: string
+  period_hours?: number
+  counts?: {
+    audit?: number
+    daemon?: number
+    status?: number
+    merged?: number
+  }
+  items?: IncidentTimelineItem[]
 }
 
 type MissionTaskStatus = 'todo' | 'in_progress' | 'blocked' | 'review' | 'done' | 'cancelled'
@@ -598,6 +653,18 @@ function fleetAlertRows(payload: FleetAlertsPayload | null): FleetAlertRow[] {
   return Array.isArray(payload?.alerts) ? payload.alerts : []
 }
 
+function errorEventRows(payload: ErrorsPayload | null): ErrorEventRow[] {
+  return Array.isArray(payload?.errors) ? payload.errors : []
+}
+
+function controlPlaneSignalRows(payload: ControlPlaneSignalsPayload | null): ControlPlaneSignalRow[] {
+  return Array.isArray(payload?.signals) ? payload.signals : []
+}
+
+function incidentTimelineRows(payload: IncidentsFeedPayload | null): IncidentTimelineItem[] {
+  return Array.isArray(payload?.items) ? payload.items : []
+}
+
 function listSize(value: unknown[] | undefined): number {
   return Array.isArray(value) ? value.length : 0
 }
@@ -645,6 +712,21 @@ function fleetProviderSeverity(provider: FleetProviderRow): Severity {
 
 function fleetReasonLabel(reason: string): string {
   return reason.replace(/_/g, ' ')
+}
+
+function incidentSeverity(value: string | null | undefined): Severity {
+  if (value === 'critical' || value === 'error') return 'critical'
+  if (value === 'warning' || value === 'warn') return 'watch'
+  return 'routine'
+}
+
+function controlSignalSeverity(signal: ControlPlaneSignalRow): Severity {
+  const action = String(signal.recommended_action || '').toLowerCase()
+  const queue = toNumber(signal.queued_total)
+  const warm = toNumber(signal.providers_warm)
+  if (action === 'scale_up' || (queue > 0 && warm === 0)) return 'critical'
+  if (action === 'scale_down' || queue > 0) return 'watch'
+  return 'routine'
 }
 
 function missionCount(payload: MissionOverviewPayload | null, status: MissionTaskStatus): number {
@@ -1165,6 +1247,7 @@ export default function V2AdminPage() {
   const [reconciliation, setReconciliation] = useState<ReconciliationPayload | null>(null)
   const [errorsPayload, setErrorsPayload] = useState<ErrorsPayload | null>(null)
   const [signals, setSignals] = useState<ControlPlaneSignalsPayload | null>(null)
+  const [incidentsFeed, setIncidentsFeed] = useState<IncidentsFeedPayload | null>(null)
   const [missionOverview, setMissionOverview] = useState<MissionOverviewPayload | null>(null)
   const [missionTasks, setMissionTasks] = useState<MissionTask[]>([])
   const [missionAssignees, setMissionAssignees] = useState<MissionAssignee[]>([])
@@ -1208,6 +1291,7 @@ export default function V2AdminPage() {
         reconciliationRes,
         errorsRes,
         signalsRes,
+        incidentsFeedRes,
         missionOverviewRes,
         missionTasksRes,
         missionAssigneesRes,
@@ -1228,6 +1312,7 @@ export default function V2AdminPage() {
         fetchJson<ReconciliationPayload>('/admin/finance/reconciliation?days=7', token),
         fetchJson<ErrorsPayload>('/admin/errors?limit=20', token),
         fetchJson<ControlPlaneSignalsPayload>('/admin/control-plane/signals?limit=5', token),
+        fetchJson<IncidentsFeedPayload>('/admin/incidents/feed?hours=24&limit=8', token),
         fetchJson<MissionOverviewPayload>('/mission/overview', token),
         fetchJson<MissionTasksPayload>('/mission/tasks?status=todo,in_progress,blocked,review', token),
         fetchJson<MissionAssigneesPayload>('/mission/assignees', token),
@@ -1248,6 +1333,7 @@ export default function V2AdminPage() {
       setReconciliation(reconciliationRes)
       setErrorsPayload(errorsRes)
       setSignals(signalsRes)
+      setIncidentsFeed(incidentsFeedRes)
       setMissionOverview(missionOverviewRes)
       setMissionTasks(missionTaskRows(missionTasksRes))
       setMissionAssignees(missionAssigneeRows(missionAssigneesRes))
@@ -1388,6 +1474,18 @@ export default function V2AdminPage() {
     + toNumber(reconciliation?.summary?.renter_drift_count)
   const recentErrors = listSize(errorsPayload?.errors)
   const signalCount = toNumber(signals?.count) || listSize(signals?.signals)
+  const incidentTimeline = incidentTimelineRows(incidentsFeed).slice(0, 6)
+  const errorEvents = errorEventRows(errorsPayload).slice(0, 6)
+  const controlSignals = controlPlaneSignalRows(signals).slice(0, 5)
+  const incidentMergedCount = toNumber(incidentsFeed?.counts?.merged) || incidentTimeline.length
+  const daemonIncidentCount = toNumber(incidentsFeed?.counts?.daemon)
+  const auditIncidentCount = toNumber(incidentsFeed?.counts?.audit)
+  const statusIncidentCount = toNumber(incidentsFeed?.counts?.status)
+  const controlPlaneMode = signals?.mode || 'unknown'
+  const controlCriticalCount = controlSignals.filter((signal) => controlSignalSeverity(signal) === 'critical').length
+  const incidentCriticalCount = incidentTimeline.filter((item) => incidentSeverity(item.severity) === 'critical').length
+  const errorCriticalCount = errorEvents.filter((event) => incidentSeverity(event.severity) === 'critical').length
+  const incidentCommandHasCritical = incidentCriticalCount + errorCriticalCount + controlCriticalCount > 0
   const openMissionWork = missionCount(missionOverview, 'todo')
     + missionCount(missionOverview, 'in_progress')
     + missionCount(missionOverview, 'review')
@@ -1621,6 +1719,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#audit" className="rail-link">
             <span>AU</span><Bi en="Audit" ar="التدقيق" />
+          </a>
+          <a href="#incidents" className="rail-link">
+            <span>IC</span><Bi en="Incidents" ar="الحوادث" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -2484,6 +2585,148 @@ export default function V2AdminPage() {
                   </article>
                 )}
               </div>
+            </section>
+
+            <section className="incident-command" id="incidents" aria-label="Incident command">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Ops timeline" ar="الخط الزمني للعمليات" /></p>
+                  <h2><Bi en="Incident command" ar="قيادة الحوادث" /></h2>
+                </div>
+                <span className={incidentCommandHasCritical ? 'critical' : 'ready'}>
+                  <Bi en={incidentCommandHasCritical ? 'active review' : 'steady'} ar={incidentCommandHasCritical ? 'مراجعة نشطة' : 'مستقر'} />
+                </span>
+              </div>
+
+              <div className="incident-summary-grid">
+                <div className={incidentCriticalCount > 0 ? 'critical' : ''}>
+                  <span><Bi en="timeline" ar="الخط الزمني" /></span>
+                  <strong>{numFmt.format(incidentMergedCount)}</strong>
+                  <small><Bi en={`${daemonIncidentCount} daemon · ${auditIncidentCount} audit · ${statusIncidentCount} status`} ar={`${daemonIncidentCount} خادم · ${auditIncidentCount} تدقيق · ${statusIncidentCount} حالة`} /></small>
+                </div>
+                <div className={errorCriticalCount > 0 ? 'critical' : recentErrors > 0 ? 'watch' : ''}>
+                  <span><Bi en="recent errors" ar="أخطاء حديثة" /></span>
+                  <strong>{numFmt.format(recentErrors)}</strong>
+                  <small><Bi en="daemon and job error feed" ar="تغذية أخطاء الخادم والمهام" /></small>
+                </div>
+                <div className={controlCriticalCount > 0 ? 'critical' : signalCount > 0 ? 'watch' : ''}>
+                  <span><Bi en="control signals" ar="إشارات التحكم" /></span>
+                  <strong>{numFmt.format(signalCount)}</strong>
+                  <small><Bi en={`${controlCriticalCount} critical`} ar={`${controlCriticalCount} حرجة`} /></small>
+                </div>
+                <div>
+                  <span><Bi en="mode" ar="الوضع" /></span>
+                  <strong>{controlPlaneMode}</strong>
+                  <small><Bi en="read-only signal posture" ar="حالة إشارات للقراءة فقط" /></small>
+                </div>
+              </div>
+
+              <div className="incident-command-grid">
+                <article className="incident-timeline-panel">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Merged incident feed" ar="تغذية الحوادث المدمجة" /></span>
+                    <Link href="/admin/incidents" prefetch={false}><Bi en="Open incidents" ar="افتح الحوادث" /></Link>
+                  </div>
+
+                  {incidentTimeline.length === 0 ? (
+                    <p className="incident-empty"><Bi en="No incident timeline rows returned for the last 24 hours." ar="لم تعد صفوف حوادث خلال آخر 24 ساعة." /></p>
+                  ) : (
+                    <div className="incident-row-list">
+                      {incidentTimeline.map((item, index) => {
+                        const severity = incidentSeverity(item.severity)
+                        const rowKey = item.ref_id || `${item.source || 'incident'}-${item.timestamp || index}`
+                        return (
+                          <article className={`incident-row ${severity}`} key={rowKey}>
+                            <div className="incident-row-top">
+                              <div>
+                                <span>{item.source || 'incident'} · {item.severity || 'info'}</span>
+                                <strong>{item.title || 'Incident event'}</strong>
+                              </div>
+                              <small>{formatDate(item.timestamp)}</small>
+                            </div>
+                            <p>{item.details || item.target || 'No incident details returned.'}</p>
+                            <em>{item.actor || 'system'}{item.provider_id ? ` · provider #${item.provider_id}` : ''}</em>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )}
+                </article>
+
+                <article className="incident-error-panel">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Recent errors" ar="الأخطاء الحديثة" /></span>
+                    <Link href="/admin/incidents" prefetch={false}><Bi en="Open error feed" ar="افتح تغذية الأخطاء" /></Link>
+                  </div>
+
+                  {errorEvents.length === 0 ? (
+                    <p className="incident-empty"><Bi en="No recent errors returned by the admin error feed." ar="لم تعد تغذية أخطاء الإدارة أخطاء حديثة." /></p>
+                  ) : (
+                    <div className="incident-row-list">
+                      {errorEvents.map((event, index) => {
+                        const severity = incidentSeverity(event.severity)
+                        const rowKey = String(event.id || `${event.source || 'error'}-${event.created_at || index}`)
+                        return (
+                          <article className={`incident-row ${severity}`} key={rowKey}>
+                            <div className="incident-row-top">
+                              <div>
+                                <span>{event.source || 'error'} · {event.severity || 'unknown'}</span>
+                                <strong>{event.hostname || event.os_info || 'unknown host'}</strong>
+                              </div>
+                              <small>{formatDate(event.created_at)}</small>
+                            </div>
+                            <p>{event.message || event.details || 'No error message returned.'}</p>
+                            <em>{event.daemon_version || 'daemon version unknown'}</em>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )}
+                </article>
+
+                <article className="control-plane-panel">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Control-plane signals" ar="إشارات لوحة التحكم" /></span>
+                    <Link href="/admin/fleet" prefetch={false}><Bi en="Open fleet" ar="افتح الأسطول" /></Link>
+                  </div>
+
+                  {controlSignals.length === 0 ? (
+                    <p className="incident-empty"><Bi en="No control-plane demand or warm-pool signals returned." ar="لم تعد إشارات طلب أو تسخين من لوحة التحكم." /></p>
+                  ) : (
+                    <div className="control-signal-list">
+                      {controlSignals.map((signal, index) => {
+                        const severity = controlSignalSeverity(signal)
+                        const rowKey = String(signal.id || `${signal.pricing_class || 'signal'}-${signal.created_at || index}`)
+                        return (
+                          <article className={`control-signal ${severity}`} key={rowKey}>
+                            <div className="incident-row-top">
+                              <div>
+                                <span>{signal.pricing_class || 'pricing'} · {signal.capacity_class || signal.compute_type || 'capacity'}</span>
+                                <strong>{signal.recommended_action || 'observe'}</strong>
+                              </div>
+                              <small>{formatDate(signal.created_at)}</small>
+                            </div>
+                            <div className="control-signal-facts">
+                              <span>{toNumber(signal.queued_total)} queued</span>
+                              <span>{toNumber(signal.active_total)} active</span>
+                              <span>{toNumber(signal.providers_warm)} warm</span>
+                              <span>{toNumber(signal.recommended_warm_pool)} target</span>
+                            </div>
+                            <p>{signal.reason || 'No control-plane recommendation reason returned.'}</p>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <p className="incident-policy">
+                <Bi
+                  en="v2 incident command is read-only. Control-plane snapshots, prewarm runs, run-cycle triggers, and daemon repair stay in verified consoles until each action has explicit owner, approval, audit, and rollback rules."
+                  ar="قيادة حوادث v2 للقراءة فقط. تبقى لقطات لوحة التحكم وتشغيل التسخين ودورات التشغيل وإصلاح الخادم في اللوحات المتحققة حتى يملك كل إجراء مالكاً وموافقة وتدقيقاً وقواعد رجوع صريحة."
+                />
+              </p>
             </section>
 
             <section className="admin-two-col">
