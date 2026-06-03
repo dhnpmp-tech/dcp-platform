@@ -147,6 +147,13 @@ assert(page.includes('payoutReviewRows'), 'v2 admin should render provider payou
 assert(page.includes('billingExceptionRows'), 'v2 admin should render billing exception rows from the payment audit feed');
 assert(page.includes('autoTopupIssueRows'), 'v2 admin should render auto-top-up issue rows from the payment audit feed');
 assert(page.includes('financeQueueTotal'), 'v2 admin should summarize the finance review queue total');
+assert(page.includes('FinanceHandoffCard'), 'v2 admin should type money review handoff cards');
+assert(page.includes('buildFinanceHandoffCards'), 'v2 admin should derive money review handoffs from loaded finance evidence');
+assert(page.includes('financeHandoffCards'), 'v2 admin should render the finance handoff packet');
+assert(page.includes('Money review handoff'), 'v2 admin should expose a money review handoff packet');
+assert(page.includes('Payments console'), 'v2 admin finance handoff should name the verified payments console');
+assert(page.includes('copy-ready evidence note'), 'v2 admin finance handoff should include a copy-ready evidence note');
+assert(page.includes('No refund approval, refund rejection, payout sync, balance edit, credit grant, payment confirmation, or auto-top-up retry happens from this v2 packet'), 'v2 admin finance handoff should state its money mutation boundary');
 assert(page.includes('v2 finance is review-only for now'), 'v2 admin should keep finance money actions review-only');
 assert(page.includes('Review payouts'), 'v2 admin should keep payout review anchored inside the v2 finance section');
 assert(!page.includes('/admin/payments/refund-requests/${'), 'v2 admin should not call refund approve/reject endpoints directly');
@@ -296,6 +303,9 @@ assert(css.includes('.approval-envelope-grid'), 'v2 admin should style provider 
 assert(css.includes('.approval-actions'), 'v2 admin should style approval decision actions');
 assert(css.includes('.finance-review'), 'v2 admin should style finance review');
 assert(css.includes('.finance-summary-grid'), 'v2 admin should style finance summary cards');
+assert(css.includes('.finance-handoff'), 'v2 admin should style the money review handoff');
+assert(css.includes('.finance-handoff-grid'), 'v2 admin should style money handoff cards');
+assert(css.includes('.finance-handoff-card'), 'v2 admin should style individual money handoff cards');
 assert(css.includes('.finance-review-grid'), 'v2 admin should style finance review cards');
 assert(css.includes('.finance-row'), 'v2 admin should style finance rows');
 assert(css.includes('.finance-policy'), 'v2 admin should style the finance review-only policy');

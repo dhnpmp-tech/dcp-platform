@@ -829,6 +829,18 @@ interface ServingHandoffCard {
   agentMode: AgentMode
 }
 
+interface FinanceHandoffCard {
+  key: string
+  labelEn: string
+  labelAr: string
+  value: string
+  detailEn: string
+  detailAr: string
+  href: string
+  severity: Severity
+  agentMode: AgentMode
+}
+
 const API_BASE = getApiBase()
 const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 const HEARTBEAT_STALE_SECONDS = 5 * 60
@@ -854,6 +866,15 @@ function formatHalala(value: unknown): string {
 function formatSar(value: unknown): string {
   const sar = toNumber(value)
   return `SAR ${sar.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+}
+
+function formatFinanceAmount(sarValue: unknown, halalaValue?: unknown): string {
+  const sar = typeof sarValue === 'number' && Number.isFinite(sarValue)
+    ? sarValue
+    : typeof halalaValue === 'number' && Number.isFinite(halalaValue)
+      ? halalaValue / 100
+      : 0
+  return `SAR ${sar.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function shortId(value: string | null | undefined, length = 10): string {
@@ -2047,6 +2068,149 @@ function buildServingHandoffCards(
   ]
 }
 
+function buildFinanceHandoffCards(
+  refundRows: RefundRequestRow[],
+  payoutRows: PayoutRow[],
+  billingRows: BillingRow[],
+  autoTopupRows: AutoTopupRow[],
+  reconciliationIssues: number,
+  pendingWithdrawals: number,
+): FinanceHandoffCard[] {
+  const refund = refundRows[0]
+  const payout = payoutRows[0]
+  const billing = billingRows[0]
+  const autoTopup = autoTopupRows[0]
+  const target = refund
+    ? {
+        type: 'refund request',
+        label: 'Refund request',
+        subject: refund.renter_name || refund.renter_email || `Renter #${refund.renter_id || 'unknown'}`,
+        amount: formatFinanceAmount(refund.amount_sar, refund.amount_halala),
+        status: refund.status || 'pending',
+        ref: refund.request_id || refund.payment_id || 'refund',
+        detail: refund.reason || 'No refund reason recorded.',
+        nextAction: 'Verify renter reason, original payment, usage impact, and Moyasar refund eligibility before any approval.',
+        severity: 'critical' as Severity,
+      }
+    : payout
+      ? {
+          type: 'provider payout',
+          label: 'Provider payout',
+          subject: payout.provider_name || payout.provider_email || `Provider #${payout.provider_id || 'unknown'}`,
+          amount: formatFinanceAmount(payout.amount_sar, payout.amount_halala),
+          status: payout.status || 'pending',
+          ref: payout.payout_id || payout.payment_ref || 'payout',
+          detail: payout.failure_reason || payout.payment_ref || payout.moyasar_status || 'Review provider balance and payout account evidence.',
+          nextAction: 'Verify provider earnings, payout account, Moyasar state, and reconciliation drift before any transfer action.',
+          severity: 'critical' as Severity,
+        }
+      : billing
+        ? {
+            type: 'billing exception',
+            label: 'Billing exception',
+            subject: billing.renter_email || `Renter #${billing.renter_id || 'unknown'}`,
+            amount: formatSar(billing.cost_sar),
+            status: billing.status || 'error',
+            ref: billing.request_id || 'billing',
+            detail: billing.error_code || 'Billing attempt needs review before balance correction or renter support.',
+            nextAction: 'Compare job invoice, wallet reservation, settlement row, and renter balance before any manual adjustment.',
+            severity: 'watch' as Severity,
+          }
+        : autoTopup
+          ? {
+              type: 'auto-top-up issue',
+              label: 'Auto-top-up issue',
+              subject: autoTopup.renter_name || autoTopup.renter_email || `Renter #${autoTopup.renter_id || 'unknown'}`,
+              amount: formatSar(autoTopup.amount_sar),
+              status: autoTopup.status || 'failed',
+              ref: autoTopup.attempt_id || autoTopup.moyasar_payment_id || 'auto-topup',
+              detail: autoTopup.error_message || autoTopup.error_code || autoTopup.trigger_reason || 'Auto-top-up attempt needs review.',
+              nextAction: 'Verify renter balance threshold, card payment state, cap policy, and retry history before changing settings.',
+              severity: 'watch' as Severity,
+            }
+          : reconciliationIssues > 0 || pendingWithdrawals > 0
+            ? {
+                type: 'reconciliation drift',
+                label: 'Reconciliation drift',
+                subject: 'Finance control',
+                amount: `${reconciliationIssues} reconciliation · ${pendingWithdrawals} withdrawals`,
+                status: 'review',
+                ref: 'finance-reconciliation',
+                detail: 'Finance summary has drift or pending withdrawals but no row-level payment item is loaded.',
+                nextAction: 'Open the verified payments console and reconcile account drift before any balance or payout decision.',
+                severity: 'watch' as Severity,
+              }
+            : null
+
+  const evidenceNote = target
+    ? `${target.label} · ${target.subject} · ${target.amount} · status=${target.status} · ref=${shortId(target.ref, 18)} · ${target.detail}`
+    : 'Finance queue clear · no refund, payout, billing, auto-top-up, reconciliation, or withdrawal blocker loaded.'
+
+  const targetSeverity = target?.severity || 'routine'
+  const targetLabel = target?.type || 'finance queue'
+  const targetSubject = target?.subject || 'No active money blocker'
+  const targetAmount = target?.amount || 'clear'
+  const nextAction = target?.nextAction || 'Keep observing finance evidence; no money action is needed from v2 admin.'
+
+  return [
+    {
+      key: 'owner',
+      labelEn: 'human owner',
+      labelAr: 'المالك البشري',
+      value: 'Finance operator',
+      detailEn: `Own ${targetLabel}: ${targetSubject} until evidence is reconciled in the verified payment system.`,
+      detailAr: `امتلك ${targetLabel}: ${targetSubject} حتى تتم مطابقة الدليل في نظام المدفوعات المتحقق.`,
+      href: '#finance',
+      severity: targetSeverity,
+      agentMode: 'guarded',
+    },
+    {
+      key: 'verified-console',
+      labelEn: 'verified console',
+      labelAr: 'اللوحة المتحققة',
+      value: 'Payments console',
+      detailEn: 'Use the current verified payments consoles for refund approval, rejection, payout sync, and balance-changing actions.',
+      detailAr: 'استخدم لوحات المدفوعات الحالية المتحققة لموافقة الاسترداد أو رفضه أو مزامنة الدفعات أو أي إجراء يغير الرصيد.',
+      href: '#finance',
+      severity: 'routine',
+      agentMode: 'read',
+    },
+    {
+      key: 'agent-role',
+      labelEn: 'agent role',
+      labelAr: 'دور الوكيل',
+      value: 'agent summarize',
+      detailEn: nextAction,
+      detailAr: 'يمكن للوكيل تلخيص الدليل واقتراح الخطوة التالية فقط؛ القرار المالي يبقى بشرياً.',
+      href: '#action-ledger',
+      severity: targetSeverity,
+      agentMode: 'propose',
+    },
+    {
+      key: 'evidence-note',
+      labelEn: 'copy-ready evidence note',
+      labelAr: 'ملاحظة دليل جاهزة',
+      value: evidenceNote,
+      detailEn: `Paste this into the mission action desk or audit handoff before a human uses the verified payments console.`,
+      detailAr: 'الصق هذه الملاحظة في مكتب إجراءات المهمة أو تسليم التدقيق قبل استخدام الإنسان للوحة المدفوعات المتحققة.',
+      href: '#mission',
+      severity: target ? 'watch' : 'routine',
+      agentMode: target ? 'guarded' : 'read',
+    },
+    {
+      key: 'stop-rule',
+      labelEn: 'stop rule',
+      labelAr: 'قاعدة التوقف',
+      value: target ? `No v2 money movement · ${targetAmount}` : 'No v2 money movement',
+      detailEn: 'No refund approval, refund rejection, payout sync, balance edit, credit grant, payment confirmation, or auto-top-up retry happens from this v2 packet.',
+      detailAr: 'لا تحدث موافقة استرداد أو رفضه أو مزامنة دفعة أو تعديل رصيد أو منح رصيد أو تأكيد دفعة أو إعادة محاولة شحن تلقائي من هذه الحزمة في v2.',
+      href: '#launch',
+      severity: target ? 'critical' : 'routine',
+      agentMode: 'read',
+    },
+  ]
+}
+
 function buildReadinessChecks(
   fleet: FleetHealthPayload | null,
   fleetAlerts: FleetAlertsPayload | null,
@@ -2577,6 +2741,14 @@ export default function V2AdminPage() {
   const healthStuckJobs = toNumber(health?.checks?.jobs?.stuck)
   const healthCriticalEvents = toNumber(health?.checks?.errors?.critical_events)
   const healthPendingWithdrawals = toNumber(health?.checks?.withdrawals?.pending)
+  const financeHandoffCards = buildFinanceHandoffCards(
+    refundReviewRows,
+    payoutReviewRows,
+    billingExceptionRows,
+    autoTopupIssueRows,
+    reconciliationIssues,
+    healthPendingWithdrawals,
+  )
   const demandKeys = demandModelKeys(adminDemand)
   const demandSignalCount = demandKeys.length
   const publicCapacityReady = fleet?.serving_now === true && usableOnline > 0 && verifiedOnline > 0 && fleetModelReady > 0
@@ -3760,6 +3932,29 @@ export default function V2AdminPage() {
                 <div className={autoTopupIssueRows.length > 0 ? 'watch' : ''}>
                   <span><Bi en="auto-top-up issues" ar="مشاكل الشحن التلقائي" /></span>
                   <strong>{countByStatus(audit?.summary?.auto_topup, ['failed', 'capped', 'paused'])}</strong>
+                </div>
+              </div>
+
+              <div className="finance-handoff">
+                <div className="mission-panel-head">
+                  <span><Bi en="Money review handoff" ar="تسليم مراجعة الأموال" /></span>
+                  <Link href="#mission"><Bi en="Mission note" ar="ملاحظة المهمة" /></Link>
+                </div>
+
+                <div className="finance-handoff-grid">
+                  {financeHandoffCards.map((card) => {
+                    const label = agentLabel(card.agentMode)
+                    return (
+                      <Link href={card.href} className={`finance-handoff-card ${card.severity}`} key={card.key}>
+                        <div>
+                          <span><Bi en={card.labelEn} ar={card.labelAr} /></span>
+                          <em><Bi en={label.en} ar={label.ar} /></em>
+                        </div>
+                        <strong>{card.value}</strong>
+                        <p><Bi en={card.detailEn} ar={card.detailAr} /></p>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
 

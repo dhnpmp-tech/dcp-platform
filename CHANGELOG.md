@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 08:15 UTC — [PR #548](https://github.com/dhnpmp-tech/dcp-platform/pull/548) — `feat(v2): add admin finance handoff packet`
+
+Included:
+- Added a read-only Money review handoff inside `/v2/admin` so founders, operators, and agents can see the human owner, verified payments console, agent summary role, evidence note, and stop rule for the highest-priority finance blocker.
+- Derived the handoff from existing finance evidence already loaded by v2 admin: refund requests, provider payouts, billing exceptions, auto-top-up issues, reconciliation drift, and pending withdrawals.
+- Included a copy-ready finance evidence note that summarizes the queue type, subject, amount, status, reference, and current review detail before a human uses the verified payments console.
+- Kept money mutation boundaries explicit: no refund approval/rejection, payout sync, balance edit, credit grant, payment confirmation, or auto-top-up retry happens from the v2 handoff packet.
+- Added static regressions for the finance handoff model, verified-console label, copy-ready evidence note, mutation boundary language, and responsive styling.
+
 ### 08:02 UTC — [PR #547](https://github.com/dhnpmp-tech/dcp-platform/pull/547) — `feat(v2): add admin serving handoff packet`
 
 Included:
