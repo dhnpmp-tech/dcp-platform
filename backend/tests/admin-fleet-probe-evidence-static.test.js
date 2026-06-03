@@ -18,6 +18,10 @@ assert(endpointSource.includes('endpoint_probe_error'), 'probe evidence endpoint
 assert(endpointSource.includes('endpoint_probe_failures'), 'probe evidence endpoint should include consecutive endpoint probe failures');
 assert(endpointSource.includes('focus_code'), 'probe evidence endpoint should return machine-readable focus codes');
 assert(endpointSource.includes('recommended_next_action'), 'probe evidence endpoint should return human/agent next actions');
+assert(endpointSource.includes('target_model_hint'), 'probe evidence endpoint should return a target model hint for the next proof');
+assert(endpointSource.includes('operator_probe_command'), 'probe evidence endpoint should return a copy-ready non-mutating proof command');
+assert(adminRoute.includes('DCP_RENTER_API_KEY'), 'probe evidence command should require a renter key placeholder without embedding secrets');
+assert(endpointSource.includes('provider_count > 0'), 'probe evidence endpoint should define the positive serving proof expected before publication');
 assert(endpointSource.includes('gates: classification.gates'), 'probe evidence endpoint should return gate-level evidence');
 assert(endpointSource.includes('route_blocked'), 'probe evidence summary should count endpoint-route blockers');
 assert(endpointSource.includes('inference_blocked'), 'probe evidence summary should count earned-inference blockers');
