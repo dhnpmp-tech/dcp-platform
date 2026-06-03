@@ -42,6 +42,16 @@ assert(page.includes('demandModelKeys'), 'v2 admin should normalize read-only de
 assert(page.includes('Do not claim live marketplace capacity'), 'v2 admin should block public live-capacity claims when earned serving capacity is absent');
 assert(page.includes('v2 launch readiness is read-only'), 'v2 admin should keep launch readiness read-only');
 assert(page.includes('does not trigger provider repair, payments, deploys, or control-plane runs'), 'v2 admin should state that launch readiness has no mutation side effects');
+assert(page.includes('#runbooks'), 'v2 admin should expose runbooks as a primary rail section');
+assert(page.includes('Runbook queue'), 'v2 admin should expose a founder runbook queue');
+assert(page.includes('runbookSteps'), 'v2 admin should derive runbook steps from loaded operational evidence');
+assert(page.includes('Keep public capacity gated'), 'v2 admin should provide a public-capacity gating runbook');
+assert(page.includes('Clear provider approval queue'), 'v2 admin should provide a provider approval runbook');
+assert(page.includes('Assign money blockers'), 'v2 admin should provide a finance blocker runbook');
+assert(page.includes('Triage incident evidence'), 'v2 admin should provide an incident handoff runbook');
+assert(page.includes('Harden mission write gate'), 'v2 admin should provide an access/agent write gate runbook');
+assert(page.includes('v2 runbooks are decision support for humans and agents'), 'v2 admin should keep runbooks as decision support');
+assert(page.includes('repairs, money movement, deploys, provider actions, and control-plane writes stay in verified consoles'), 'v2 admin should state runbook mutation boundaries');
 assert(page.includes('Guarded write'), 'v2 admin should expose guarded-write policy language');
 assert(page.includes('Task envelope'), 'v2 admin should describe the future agent action envelope');
 assert(page.includes('No verified serving capacity'), 'v2 admin should expose earned-serving capacity as an operational blocker');
@@ -129,6 +139,8 @@ assert(!page.includes('/admin/control-plane/prewarm/run'), 'v2 admin should not 
 assert(!page.includes('/admin/control-plane/run-cycle'), 'v2 admin should not call control-plane run-cycle actions');
 assert(!page.includes('/admin/providers/sweep-stale'), 'v2 admin launch readiness should not trigger stale-provider sweeps');
 assert(!page.includes('/admin/providers/${providerId}/preload-model'), 'v2 admin launch readiness should not trigger provider preload actions');
+assert(!page.includes('/admin/payments/confirm-topup'), 'v2 admin runbooks should not trigger payment confirmation');
+assert(!page.includes('/admin/notifications/test'), 'v2 admin runbooks should not trigger notification test sends');
 assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
 assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
 assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
@@ -149,6 +161,10 @@ assert(css.includes('.launch-summary-grid'), 'v2 admin should style launch readi
 assert(css.includes('.launch-gate-list'), 'v2 admin should style launch readiness gates');
 assert(css.includes('.launch-gate'), 'v2 admin should style launch gate rows');
 assert(css.includes('.launch-policy'), 'v2 admin should style the launch read-only policy');
+assert(css.includes('.runbook-queue'), 'v2 admin should style the runbook queue');
+assert(css.includes('.runbook-grid'), 'v2 admin should style runbook cards');
+assert(css.includes('.runbook-card'), 'v2 admin should style individual runbook cards');
+assert(css.includes('.runbook-policy'), 'v2 admin should style the runbook read-only policy');
 assert(css.includes('.fleet-readiness'), 'v2 admin should style fleet readiness');
 assert(css.includes('.fleet-summary-grid'), 'v2 admin should style fleet summary gates');
 assert(css.includes('.fleet-readiness-grid'), 'v2 admin should style fleet provider and alert panels');

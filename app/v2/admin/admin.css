@@ -603,6 +603,134 @@ body {
   font-size: 13.5px;
 }
 
+.runbook-queue {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.runbook-queue .section-head > span {
+  border: 1px solid var(--hair);
+  color: var(--mut);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.runbook-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.runbook-card {
+  min-height: 270px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.runbook-card.critical {
+  box-shadow: inset 0 3px 0 var(--err);
+}
+
+.runbook-card.watch {
+  box-shadow: inset 0 3px 0 var(--orange);
+}
+
+.runbook-card.routine {
+  box-shadow: inset 0 3px 0 var(--teal);
+}
+
+.runbook-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.runbook-card-head span,
+.runbook-card-head em,
+.runbook-card small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.runbook-card-head em {
+  flex: 0 0 auto;
+  border: 1px solid var(--hair);
+  padding: 4px 7px;
+  color: var(--ink-2);
+}
+
+.runbook-card strong {
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.runbook-card.critical strong {
+  color: var(--err);
+}
+
+.runbook-card.watch strong {
+  color: var(--orange);
+}
+
+.runbook-card.routine strong {
+  color: var(--teal);
+}
+
+.runbook-card p,
+.runbook-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.runbook-card small {
+  margin-top: auto;
+  color: var(--ink-2);
+}
+
+.runbook-card a {
+  align-self: flex-start;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+
+.runbook-card a:hover {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+
+.runbook-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
 .fleet-readiness {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
@@ -2474,6 +2602,7 @@ body {
   .finance-review-grid,
   .incident-command-grid,
   .launch-gate-list,
+  .runbook-grid,
   .mission-layout,
   .mission-action-grid,
   .access-grid,
@@ -2542,6 +2671,7 @@ body {
   .readiness-grid,
   .launch-summary-grid,
   .launch-gate-list,
+  .runbook-grid,
   .fleet-summary-grid,
   .fleet-readiness-grid,
   .fleet-provider-facts,

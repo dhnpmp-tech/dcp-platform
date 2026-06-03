@@ -538,6 +538,19 @@ interface ReadinessCheck {
   href: string
 }
 
+interface RunbookStep {
+  key: string
+  owner: string
+  titleEn: string
+  titleAr: string
+  evidence: string
+  actionEn: string
+  actionAr: string
+  severity: Severity
+  agentMode: AgentMode
+  href: string
+}
+
 const API_BASE = getApiBase()
 const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 const HEARTBEAT_STALE_SECONDS = 5 * 60
@@ -1615,6 +1628,104 @@ export default function V2AdminPage() {
     + launchSecurityBlockers
     + launchIncidentBlockers
   const launchState = launchBlockers > 0 ? 'blocked' : 'ready'
+  const runbookSteps: RunbookStep[] = [
+    {
+      key: 'public-capacity',
+      owner: 'Fleet',
+      titleEn: publicCapacityReady ? 'Prepare public capacity language' : 'Keep public capacity gated',
+      titleAr: publicCapacityReady ? 'حضّر لغة السعة العامة' : 'أبقِ السعة العامة محجوبة',
+      evidence: `${usableOnline} usable · ${verifiedOnline} earned · ${fleetModelReady} model-ready`,
+      actionEn: publicCapacityReady
+        ? 'Confirm /status, catalog model coverage, and support readiness before changing marketplace copy.'
+        : 'Do not update marketplace copy. Repair endpoint, WireGuard, earned-online, and model blockers first.',
+      actionAr: publicCapacityReady
+        ? 'أكد /status وتغطية نماذج الكتالوج وجاهزية الدعم قبل تغيير نص السوق.'
+        : 'لا تحدّث نص السوق. أصلح عوائق النقطة و WireGuard والتحقق وتغطية النماذج أولاً.',
+      severity: publicCapacityReady ? 'routine' : 'critical',
+      agentMode: 'notify',
+      href: '#fleet',
+    },
+    {
+      key: 'provider-activation',
+      owner: 'Fleet',
+      titleEn: approvalPending > 0 ? 'Clear provider approval queue' : 'Prepare next provider activation',
+      titleAr: approvalPending > 0 ? 'صفِّ طابور موافقات المزوّدين' : 'حضّر تفعيل المزوّد التالي',
+      evidence: `${approvalPending} approvals · ${fleetBlockedProviders.length} blocked providers`,
+      actionEn: approvalPending > 0
+        ? 'Review pending providers one at a time; approve or reject with an audited reason.'
+        : 'Use fleet blockers to prepare the next provider onboarding call and daemon evidence request.',
+      actionAr: approvalPending > 0
+        ? 'راجع المزوّدين المعلقين واحداً تلو الآخر؛ وافق أو ارفض بسبب مدقق.'
+        : 'استخدم عوائق الأسطول لتحضير مكالمة تجهيز المزوّد التالية وطلب دليل الخادم.',
+      severity: approvalPending > 0 ? 'watch' : fleetBlockedProviders.length > 0 ? 'critical' : 'routine',
+      agentMode: approvalPending > 0 ? 'guarded' : 'propose',
+      href: '#approvals',
+    },
+    {
+      key: 'money-ops',
+      owner: 'Finance',
+      titleEn: launchMoneyBlockers > 0 ? 'Assign money blockers' : 'Keep finance queue clear',
+      titleAr: launchMoneyBlockers > 0 ? 'أسند عوائق المال' : 'أبقِ طابور المالية واضحاً',
+      evidence: `${financeQueueTotal} review · ${reconciliationIssues} reconciliation · ${healthPendingWithdrawals} withdrawals`,
+      actionEn: launchMoneyBlockers > 0
+        ? 'Assign refunds, payouts, withdrawals, or reconciliation drift before public launch pushes.'
+        : 'Keep refunds and payouts in verified consoles; use this quiet window for pricing and settlement review.',
+      actionAr: launchMoneyBlockers > 0
+        ? 'أسند الاستردادات والدفعات والسحوبات أو انحراف المطابقة قبل دفعات الإطلاق العامة.'
+        : 'أبقِ الاستردادات والدفعات في اللوحات المتحققة؛ استخدم الهدوء لمراجعة التسعير والتسوية.',
+      severity: launchMoneyBlockers > 0 ? 'critical' : 'routine',
+      agentMode: launchMoneyBlockers > 0 ? 'guarded' : 'propose',
+      href: '#finance',
+    },
+    {
+      key: 'incident-handoff',
+      owner: 'Engineering',
+      titleEn: incidentCommandHasCritical || recentErrors > 0 ? 'Triage incident evidence' : 'Keep incident watch quiet',
+      titleAr: incidentCommandHasCritical || recentErrors > 0 ? 'افرز دليل الحوادث' : 'أبقِ مراقبة الحوادث هادئة',
+      evidence: `${incidentMergedCount} incidents · ${recentErrors} errors · ${signalCount} signals`,
+      actionEn: incidentCommandHasCritical || recentErrors > 0
+        ? 'Group daemon, job, audit, and control-plane evidence; page a human only with owner and rollback notes.'
+        : 'Let agents summarize the feed daily; keep control-plane and daemon repair actions in verified consoles.',
+      actionAr: incidentCommandHasCritical || recentErrors > 0
+        ? 'جمّع دليل الخادم والمهام والتدقيق ولوحة التحكم؛ نبّه إنساناً فقط مع مالك وملاحظات رجوع.'
+        : 'دع الوكلاء يلخصون التغذية يومياً؛ أبقِ إجراءات لوحة التحكم وإصلاح الخادم في اللوحات المتحققة.',
+      severity: incidentCommandHasCritical ? 'critical' : recentErrors > 0 ? 'watch' : 'routine',
+      agentMode: 'propose',
+      href: '#incidents',
+    },
+    {
+      key: 'access-agent',
+      owner: 'Ops',
+      titleEn: missionStrictWrites ? 'Guarded agent writes can be piloted' : 'Harden mission write gate',
+      titleAr: missionStrictWrites ? 'يمكن تجربة كتابة الوكلاء المحروسة' : 'قوِّ بوابة كتابة المهمة',
+      evidence: `${missionWritePolicy} · agent ${agentWriteState} · notify ${notificationNotifyState}`,
+      actionEn: missionStrictWrites
+        ? 'Pilot one low-risk mission action with owner, note, and audit trail before expanding agent writes.'
+        : 'Keep agents propose-only until strict mission writes and notification allowlists are enabled.',
+      actionAr: missionStrictWrites
+        ? 'جرّب إجراء مهمة منخفض المخاطر مع مالك وملاحظة وسجل تدقيق قبل توسيع كتابة الوكلاء.'
+        : 'أبقِ الوكلاء في وضع الاقتراح فقط حتى تفعيل كتابة المهمة الصارمة وقوائم التنبيه.',
+      severity: missionStrictWrites ? 'watch' : 'routine',
+      agentMode: missionStrictWrites ? 'guarded' : 'propose',
+      href: '#access',
+    },
+    {
+      key: 'mission-ownership',
+      owner: 'Founders',
+      titleEn: missionBlockedCount > 0 ? 'Unblock mission work' : 'Review mission ownership',
+      titleAr: missionBlockedCount > 0 ? 'فك عوائق عمل المهمة' : 'راجع ملكية المهمة',
+      evidence: `${openMissionWork || missionTasks.length} open · ${missionBlockedCount} blocked · ${missionShippedCount} shipped`,
+      actionEn: missionBlockedCount > 0
+        ? 'Move blocked tasks to a named owner with evidence notes; avoid creating broad new work.'
+        : 'Use the action desk for status moves, reassignments, and notes only; create/delete stays outside v2.',
+      actionAr: missionBlockedCount > 0
+        ? 'انقل المهام المحظورة إلى مالك محدد مع ملاحظات دليل؛ تجنب إنشاء عمل واسع جديد.'
+        : 'استخدم مكتب الإجراءات لنقل الحالة وإعادة الإسناد والملاحظات فقط؛ الإنشاء والحذف خارج v2.',
+      severity: missionBlockedCount > 0 ? 'watch' : 'routine',
+      agentMode: 'guarded',
+      href: '#mission',
+    },
+  ]
 
   useEffect(() => {
     if (!selectedMissionTask) {
@@ -1775,6 +1886,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#launch" className="rail-link">
             <span>GO</span><Bi en="Launch" ar="الإطلاق" />
+          </a>
+          <a href="#runbooks" className="rail-link">
+            <span>RB</span><Bi en="Runbooks" ar="كتيبات" />
           </a>
           <a href="#inbox" className="rail-link">
             <span>IN</span><Bi en="Inbox" ar="الصندوق" />
@@ -2004,6 +2118,43 @@ export default function V2AdminPage() {
                 <Bi
                   en="v2 launch readiness is read-only. It decides what the founding team may safely say publicly; it does not trigger provider repair, payments, deploys, or control-plane runs."
                   ar="جاهزية إطلاق v2 للقراءة فقط. تحدد ما يمكن لفريق المؤسسين قوله علناً بأمان؛ ولا تشغل إصلاح مزوّد أو مدفوعات أو نشر أو دورات لوحة التحكم."
+                />
+              </p>
+            </section>
+
+            <section className="runbook-queue" id="runbooks" aria-label="Founder runbook queue">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Owner map" ar="خريطة الملكية" /></p>
+                  <h2><Bi en="Runbook queue" ar="طابور كتيبات التشغيل" /></h2>
+                </div>
+                <span><Bi en="decision support" ar="دعم القرار" /></span>
+              </div>
+
+              <div className="runbook-grid">
+                {runbookSteps.map((step, index) => {
+                  const label = agentLabel(step.agentMode)
+                  return (
+                    <article className={`runbook-card ${step.severity}`} key={step.key}>
+                      <div className="runbook-card-head">
+                        <span>{String(index + 1).padStart(2, '0')} · {step.owner}</span>
+                        <em><Bi en={label.en} ar={label.ar} /></em>
+                      </div>
+                      <strong><Bi en={step.titleEn} ar={step.titleAr} /></strong>
+                      <p><Bi en={step.actionEn} ar={step.actionAr} /></p>
+                      <small>{step.evidence}</small>
+                      <Link href={step.href} prefetch={isLegacyAdminHref(step.href) ? false : undefined}>
+                        <Bi en="Open evidence" ar="افتح الدليل" />
+                      </Link>
+                    </article>
+                  )
+                })}
+              </div>
+
+              <p className="runbook-policy">
+                <Bi
+                  en="v2 runbooks are decision support for humans and agents. Agents may collect evidence and draft notes; repairs, money movement, deploys, provider actions, and control-plane writes stay in verified consoles."
+                  ar="كتيبات v2 لدعم قرار البشر والوكلاء. يمكن للوكلاء جمع الدليل وصياغة الملاحظات؛ الإصلاحات وحركة المال والنشر وإجراءات المزوّد وكتابة لوحة التحكم تبقى في اللوحات المتحققة."
                 />
               </p>
             </section>
