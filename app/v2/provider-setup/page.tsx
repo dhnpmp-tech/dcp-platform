@@ -4,7 +4,7 @@
 // 6-step provider onboarding wizard (orange accent = provider context).
 // Bilingual via the V2Provider context; dir/lang/palette handled globally.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '../lib/i18n'
 import { getApiBase, getProviderKey } from '@/lib/api'
@@ -15,8 +15,6 @@ const PER_HOUR = [1.15, 1.6, 2.2] as const
 const WEEKS_PER_MONTH = 4.33
 const PROVIDER_SHARE = 0.85
 const PLATFORM_SHARE = 0.15
-const INSTALL_STEP_DELAY_MS = 750
-const INSTALL_BASE_DELAY_MS = 300
 
 type SetupOs = 'windows' | 'mac' | 'linux'
 type VerifyState = 'idle' | 'checking' | 'connected' | 'waiting' | 'error'
@@ -34,18 +32,6 @@ function roundTo10(n: number): number {
   return Math.round(n / 10) * 10
 }
 
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
-    const onChange = () => setReduced(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return reduced
-}
-
 const STEPS = [
   { en: 'Sign in', ar: 'الدخول' },
   { en: 'Requirements', ar: 'المتطلبات' },
@@ -57,7 +43,6 @@ const STEPS = [
 
 export default function V2ProviderSetup() {
   const { lang, toggle } = useV2()
-  const reducedMotion = useReducedMotion()
 
   // wizard
   const [step, setStep] = useState(1)
@@ -80,10 +65,8 @@ export default function V2ProviderSetup() {
   const [days, setDays] = useState(7)
   const [demand, setDemand] = useState(1)
 
-  // step 5 — install sequence
-  const [seqShown, setSeqShown] = useState(0)
+  // step 5 — installer command target
   const [selectedOs, setSelectedOs] = useState<SetupOs>('linux')
-  const seqTimers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   // step 6 — verify
   const [verifyState, setVerifyState] = useState<VerifyState>('idle')
@@ -98,16 +81,8 @@ export default function V2ProviderSetup() {
     }
   }, [])
 
-  // ── clean up install-sequence timers on unmount ──
-  useEffect(() => {
-    return () => {
-      seqTimers.current.forEach((t) => clearTimeout(t))
-    }
-  }, [])
-
   const go = useCallback((n: number) => {
     setStep(n)
-    if (n === 5) setSeqShown(0)
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -212,19 +187,7 @@ export default function V2ProviderSetup() {
 
   const runSeq = useCallback((os: SetupOs) => {
     setSelectedOs(os)
-    if (!providerKey) return
-    seqTimers.current.forEach((t) => clearTimeout(t))
-    seqTimers.current = []
-    setSeqShown(0)
-    if (reducedMotion) {
-      setSeqShown(5)
-      return
-    }
-    for (let i = 0; i < 5; i++) {
-      const id = setTimeout(() => setSeqShown((s) => Math.max(s, i + 1)), INSTALL_BASE_DELAY_MS + i * INSTALL_STEP_DELAY_MS)
-      seqTimers.current.push(id)
-    }
-  }, [providerKey, reducedMotion])
+  }, [])
 
   const copyInstall = useCallback(() => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -693,26 +656,26 @@ export default function V2ProviderSetup() {
           <div className="rail">
             <div className="rail-card tint">
               <h4>
-                <Bi en="§ Your card's throughput" ar="§ إنتاجية معالجك" />
+                <Bi en="§ Throughput proof" ar="§ إثبات الإنتاجية" />
               </h4>
               <div className="counter">
-                ~210 <span className="u">tok/sec</span>
+                <Bi en="after install" ar="بعد التثبيت" />
               </div>
               <p style={{ marginTop: 8 }}>
                 <Bi
-                  en="Throughput depends on the GPU the daemon reports and the model class routed to it."
-                  ar="تعتمد الإنتاجية على المعالج الذي يرسله الخادم المحلي وفئة النموذج الموجّه إليه."
+                  en="The console shows measured tokens per second only after the daemon reports your exact GPU and a backend probe can reach the served model."
+                  ar="تعرض لوحة التحكم الرموز في الثانية فقط بعد أن يرسل الخادم المحلي نوع معالجك الدقيق وبعد أن يصل فحص الخلفية إلى النموذج المخدوم."
                 />
               </p>
             </div>
             <div className="rail-card">
               <h4>
-                <Bi en="§ How tiers work" ar="§ كيف تعمل الفئات" />
+                <Bi en="§ Reliability" ar="§ الموثوقية" />
               </h4>
               <p>
                 <Bi
-                  en="The more reliably you serve jobs, the bigger your share of each Riyal. Everyone starts at Bronze and climbs automatically — no application."
-                  ar="كلما خدمت المهام بموثوقية أكبر، زادت حصتك من كل ريال. الجميع يبدأ برونزياً ويصعد تلقائياً — دون طلب."
+                  en="Reliability affects routing and future eligibility. The published payout split remains 85% provider and 15% platform unless a separately audited policy changes it."
+                  ar="تؤثر الموثوقية في التوجيه والأهلية المستقبلية. يبقى تقسيم الدفع المنشور ٨٥٪ للمزوّد و١٥٪ للمنصّة ما لم تتغير سياسة مدققة بشكل منفصل."
                 />
               </p>
             </div>
@@ -786,8 +749,8 @@ export default function V2ProviderSetup() {
               </div>
               <div className="note">
                 <Bi
-                  en="Based on ~210 tok/sec measured throughput and current demand. An estimate, not a guarantee."
-                  ar="بناءً على إنتاجية مقاسة ~٢١٠ رمز/ث والطلب الحالي. تقدير، وليس ضماناً."
+                  en="Based on the planning rate selected above until your daemon reports measured throughput. An estimate, not a guarantee."
+                  ar="بناءً على سعر التخطيط المحدد أعلاه حتى يرسل الخادم المحلي إنتاجية مقاسة. تقدير، وليس ضماناً."
                 />
               </div>
               <div className="est-split">
@@ -862,8 +825,8 @@ export default function V2ProviderSetup() {
               </h4>
               <p>
                 <Bi
-                  en="Nobody can promise a fixed income — demand moves. We show a range tied to real measured speeds, and you keep 85% of every Riyal a job earns."
-                  ar="لا أحد يستطيع وعدك بدخل ثابت — الطلب يتغير. نعرض نطاقاً مرتبطاً بسرعات حقيقية مقاسة، وتحتفظ بـ ٨٥٪ من كل ريال تكسبه المهمة."
+                  en="Nobody can promise a fixed income — demand moves. Before the first verified throughput report, this range is planning guidance only; once jobs settle, you keep 85% of every Riyal a job earns."
+                  ar="لا أحد يستطيع وعدك بدخل ثابت — الطلب يتغير. قبل أول تقرير إنتاجية متحقق، هذا النطاق إرشاد تخطيطي فقط؛ وبعد تسوية المهام تحتفظ بـ ٨٥٪ من كل ريال تكسبه المهمة."
                 />
               </p>
             </div>
@@ -897,7 +860,7 @@ export default function V2ProviderSetup() {
             <div className="os-dl">
               <button
                 type="button"
-                className="os detected"
+                className={selectedOs === 'windows' ? 'os selected' : 'os'}
                 onClick={(e) => {
                   e.preventDefault()
                   runSeq('windows')
@@ -905,13 +868,15 @@ export default function V2ProviderSetup() {
               >
                 <div className="nm">Windows</div>
                 <div className="meta">.msi · 4 MB</div>
-                <span className="tag">
-                  <Bi en="✓ your device" ar="✓ جهازك" />
-                </span>
+                {selectedOs === 'windows' && (
+                  <span className="tag">
+                    <Bi en="selected" ar="محدد" />
+                  </span>
+                )}
               </button>
               <button
                 type="button"
-                className="os"
+                className={selectedOs === 'mac' ? 'os selected' : 'os'}
                 onClick={(e) => {
                   e.preventDefault()
                   runSeq('mac')
@@ -919,10 +884,15 @@ export default function V2ProviderSetup() {
               >
                 <div className="nm">macOS</div>
                 <div className="meta">.dmg · Apple Silicon</div>
+                {selectedOs === 'mac' && (
+                  <span className="tag">
+                    <Bi en="selected" ar="محدد" />
+                  </span>
+                )}
               </button>
               <button
                 type="button"
-                className="os"
+                className={selectedOs === 'linux' ? 'os selected' : 'os'}
                 onClick={(e) => {
                   e.preventDefault()
                   runSeq('linux')
@@ -930,6 +900,11 @@ export default function V2ProviderSetup() {
               >
                 <div className="nm">Linux</div>
                 <div className="meta">.deb / script</div>
+                {selectedOs === 'linux' && (
+                  <span className="tag">
+                    <Bi en="selected" ar="محدد" />
+                  </span>
+                )}
               </button>
             </div>
 
@@ -949,42 +924,42 @@ export default function V2ProviderSetup() {
             )}
 
             <div className="seq" id="seq">
-              <div className={`ln${seqShown >= 1 ? ' show' : ''}`} data-d="0">
+              <div className="ln show" data-d="0">
                 <span className="ic">→</span>
                 <span>
-                  <Bi en="Scanning hardware…" ar="فحص العتاد…" />
+                  <Bi en="Installer checks hardware and reports exact GPU/VRAM to DCP." ar="يفحص المثبّت العتاد ويرسل نوع المعالج والذاكرة بدقة إلى DCP." />
                 </span>
               </div>
-              <div className={`ln${seqShown >= 2 ? ' show' : ''}`} data-d="1">
-                <span className="ic">✓</span>
+              <div className="ln show" data-d="1">
+                <span className="ic">○</span>
                 <span>
                   {lang === 'ar' ? (
                     <>
-                      ينتظر DCP <b>تقرير المعالج</b> من الخادم المحلي
+                      تنتظر الخلفية <b>تقرير المعالج</b> من الخادم المحلي، وليس تخميناً من المتصفح
                     </>
                   ) : (
                     <>
-                      Waiting for the daemon's <b>GPU report</b>
+                      Backend waits for the daemon's <b>GPU report</b>, not a browser guess
                     </>
                   )}
                 </span>
               </div>
-              <div className={`ln${seqShown >= 3 ? ' show' : ''}`} data-d="2">
-                <span className="ic">✓</span>
+              <div className="ln show" data-d="2">
+                <span className="ic">○</span>
                 <span>
-                  <Bi en="Installed inference engine" ar="تم تثبيت محرّك الاستدلال" />
+                  <Bi en="Inference engine install runs on your machine." ar="يعمل تثبيت محرّك الاستدلال على جهازك." />
                 </span>
               </div>
-              <div className={`ln${seqShown >= 4 ? ' show' : ''}`} data-d="3">
-                <span className="ic">✓</span>
+              <div className="ln show" data-d="3">
+                <span className="ic">○</span>
                 <span>
-                  <Bi en="Pulled model weights · 4.1 GB" ar="تم سحب أوزان النموذج · ٤٫١ جيجابايت" />
+                  <Bi en="Model download size depends on the served model." ar="يعتمد حجم تنزيل النموذج على النموذج المخدوم." />
                 </span>
               </div>
-              <div className={`ln${seqShown >= 5 ? ' show' : ''}`} data-d="4">
-                <span className="ic">✓</span>
+              <div className="ln show" data-d="4">
+                <span className="ic">○</span>
                 <span>
-                  <Bi en="Opened secure tunnel — no port forwarding" ar="تم فتح نفق آمن — دون توجيه منافذ" />
+                  <Bi en="Secure tunnel opens only after the installer succeeds." ar="يفتح النفق الآمن فقط بعد نجاح المثبّت." />
                 </span>
               </div>
             </div>

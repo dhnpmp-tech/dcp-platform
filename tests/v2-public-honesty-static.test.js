@@ -83,6 +83,13 @@ assert(home.includes('No provider is listed until the inference path itself is p
   'illustrative MOCK data',
   'We detected the basics from your browser',
   'auto-detected',
+  '~210',
+  'tok/sec',
+  'How tiers work',
+  'bigger your share',
+  'className="os detected"',
+  '✓ your device',
+  'Pulled model weights · 4.1 GB',
 ].forEach((claim) => {
   assert(!providerSetup.includes(claim), `v2 provider setup should not show a fake live provider counter: ${claim}`);
 });

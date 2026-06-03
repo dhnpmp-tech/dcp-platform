@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 08:28 UTC — [PR #549](https://github.com/dhnpmp-tech/dcp-platform/pull/549) — `fix(v2): remove stale provider setup proof claims`
+
+Included:
+- Removed the hard-coded provider setup throughput claim and replaced it with proof-gated copy that only promises measured tokens per second after daemon and backend verification.
+- Replaced tier-language that implied reliability changes the provider payout split with copy that keeps reliability separate from the published 85/15 split.
+- Stopped the provider setup OS selector from claiming a browser-detected device and changed it to a plain selected installer target.
+- Replaced the auto-playing installer success sequence with a pending installer plan so the page no longer claims hardware scan, engine install, model download, or tunnel success before the daemon reports back.
+- Added static regressions for stale throughput, fake device detection, fake installer progress, and payout-split wording.
+
 ### 08:15 UTC — [PR #548](https://github.com/dhnpmp-tech/dcp-platform/pull/548) — `feat(v2): add admin finance handoff packet`
 
 Included:
