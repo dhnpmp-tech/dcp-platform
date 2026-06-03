@@ -2340,6 +2340,86 @@ body {
   outline: none;
 }
 
+.mission-action-envelope {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.mission-action-envelope article {
+  min-height: 178px;
+  background: color-mix(in oklab, var(--bg) 90%, var(--paper));
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mission-action-envelope-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mission-action-envelope-head span,
+.mission-action-envelope-head em {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.mission-action-envelope-head em {
+  color: var(--orange);
+  font-style: normal;
+  text-align: end;
+}
+
+.mission-action-envelope strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mission-action-envelope p,
+.mission-action-envelope small,
+.mission-action-envelope b {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.mission-action-envelope p {
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+
+.mission-action-envelope small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.mission-action-envelope b {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.mission-action-envelope article.watch b {
+  color: var(--orange);
+}
+
 .mission-action-message {
   margin: 0;
   border: 1px solid var(--hair);
@@ -3234,6 +3314,7 @@ body {
   .runbook-grid,
   .mission-layout,
   .mission-action-grid,
+  .mission-action-envelope,
   .access-grid,
   .notification-grid,
   .audit-list,
@@ -3326,6 +3407,7 @@ body {
   .fleet-alert-stats,
   .mission-summary-grid,
   .mission-action-grid,
+  .mission-action-envelope,
   .finance-summary-grid,
   .finance-review-grid,
   .support-summary-grid,

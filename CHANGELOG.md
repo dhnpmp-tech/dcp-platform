@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 07:30 UTC — [PR #544](https://github.com/dhnpmp-tech/dcp-platform/pull/544) — `feat(v2): add admin mission action envelopes`
+
+Included:
+- Added a mission action-envelope preview to `/v2/admin` before guarded task writes so founders, operators, and agents can see the route, permission gate, evidence requirement, audit output, and readiness state before acting.
+- Derived separate envelopes for status moves, reassignment, and admin notes from the selected task, target status, target assignee, evidence note, and strict-vs-legacy write posture.
+- Kept the existing guarded mission routes and write boundaries intact; no new create/delete, payment, provider repair, or control-plane actions were added.
+- Added static regressions for the envelope model, strict/legacy permission labeling, evidence readiness language, and responsive envelope styling.
+
 ### 07:20 UTC — [PR #543](https://github.com/dhnpmp-tech/dcp-platform/pull/543) — `fix(v2): keep admin actions in the v2 workspace`
 
 Included:
