@@ -61,6 +61,14 @@ assert(page.includes('probeEvidence?.summary?.inference_blocked != null'), 'v2 a
 assert(page.includes('servingRecoveryPreview'), 'v2 admin should render a bounded serving recovery preview');
 assert(page.includes('servingProbeEvidenceAge'), 'v2 admin should show the latest probe evidence timestamp or fallback source');
 assert(page.includes('Canonical probe evidence'), 'v2 admin should label canonical probe evidence as the recovery source');
+assert(page.includes('Serving proof packet'), 'v2 admin should expose a serving proof packet for the next provider target');
+assert(page.includes('pickServingProofTarget'), 'v2 admin should choose a focused provider target from canonical probe evidence');
+assert(page.includes('buildServingProofChecklist'), 'v2 admin should derive a route/inference/model proof checklist');
+assert(page.includes('Route proof'), 'v2 admin should show route proof separately from heartbeat state');
+assert(page.includes('Inference proof'), 'v2 admin should show earned-inference proof separately from endpoint reachability');
+assert(page.includes('Model proof'), 'v2 admin should show model alias/cache proof separately from route proof');
+assert(page.includes('Publication proof'), 'v2 admin should keep public provider_count publication behind all proof gates');
+assert(page.includes('verified_online=1, provider_count > 0'), 'v2 admin should state concrete serving proof exit criteria');
 assert(page.includes('servingInferenceProbeBlocked'), 'v2 admin should summarize endpoint-reachable providers that still fail earned inference');
 assert(page.includes('Inference timeout'), 'v2 admin should classify timeout-based earned probe failures');
 assert(page.includes('Run /v1/models and a one-token inference from the VPS'), 'v2 admin should tell operators how to verify earned serving state');
@@ -223,6 +231,9 @@ assert(css.includes('.serving-recovery-grid'), 'v2 admin should style serving re
 assert(css.includes('.serving-recovery-card'), 'v2 admin should style serving recovery cards');
 assert(css.includes('.serving-recovery-blockers'), 'v2 admin should style serving recovery blocker chips');
 assert(css.includes('.serving-recovery-policy'), 'v2 admin should style the serving recovery read-only policy');
+assert(css.includes('.serving-proof'), 'v2 admin should style the serving proof packet');
+assert(css.includes('.serving-proof-checklist'), 'v2 admin should style the serving proof checklist');
+assert(css.includes('.serving-proof-exit'), 'v2 admin should style the serving proof exit criteria');
 assert(css.includes('.runbook-queue'), 'v2 admin should style the runbook queue');
 assert(css.includes('.runbook-grid'), 'v2 admin should style runbook cards');
 assert(css.includes('.runbook-card'), 'v2 admin should style individual runbook cards');

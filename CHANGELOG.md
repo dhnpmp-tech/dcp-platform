@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 06:42 UTC — [PR #540](https://github.com/dhnpmp-tech/dcp-platform/pull/540) — `feat(v2): add admin serving proof packet`
+
+Included:
+- Added a read-only Serving proof packet to `/v2/admin` so founders and agents can see the next provider target from canonical probe evidence.
+- Split serving readiness into route proof, inference proof, model proof, and publication proof so endpoint reachability can no longer be confused with usable inference capacity.
+- Added concrete exit criteria before public capacity language changes: `verified_online=1`, `provider_count > 0`, and one metered inference proof.
+- Kept the workflow evidence-only and linked back to the verified fleet console; no provider repair, routing, endpoint, catalog, or daemon mutation actions were added.
+- Added static regressions for proof-target selection, proof checklist copy, exit criteria, and scoped styling.
+
 ### 06:28 UTC — [PR #539](https://github.com/dhnpmp-tech/dcp-platform/pull/539) — `feat(v2): add admin probe evidence`
 
 Included:

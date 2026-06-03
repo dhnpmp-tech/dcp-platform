@@ -748,6 +748,15 @@ interface ServingRecoveryItem {
   agentMode: AgentMode
 }
 
+interface ServingProofItem {
+  key: string
+  labelEn: string
+  labelAr: string
+  state: 'pass' | 'fail' | 'unknown'
+  detailEn: string
+  detailAr: string
+}
+
 const API_BASE = getApiBase()
 const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 const HEARTBEAT_STALE_SECONDS = 5 * 60
@@ -1195,6 +1204,80 @@ function buildServingRecoveryItemFromProbe(row: ProbeEvidenceRow): ServingRecove
     severity,
     agentMode,
   }
+}
+
+function probeGate(row: ProbeEvidenceRow | null, gateName: string): ProbeEvidenceGate | null {
+  if (!row || !Array.isArray(row.gates)) return null
+  return row.gates.find((gate) => gate.gate === gateName) || null
+}
+
+function probeGateState(row: ProbeEvidenceRow | null, gateName: string): 'pass' | 'fail' | 'unknown' {
+  const state = probeGate(row, gateName)?.state
+  if (state === 'pass' || state === 'fail') return state
+  return 'unknown'
+}
+
+function servingProofPriority(row: ProbeEvidenceRow): number {
+  const code = row.focus_code || ''
+  if (code === 'endpoint_route') return 0
+  if (code === 'inference_timeout' || code === 'earned_probe') return 1
+  if (code === 'model_coverage') return 2
+  if (code === 'wireguard' || code === 'heartbeat') return 3
+  if (code === 'ready') return 5
+  return 4
+}
+
+function pickServingProofTarget(rows: ProbeEvidenceRow[]): ProbeEvidenceRow | null {
+  if (rows.length === 0) return null
+  return [...rows].sort((a, b) => {
+    const byFocus = servingProofPriority(a) - servingProofPriority(b)
+    if (byFocus !== 0) return byFocus
+    const byFailures = toNumber(b.endpoint_probe_failures) - toNumber(a.endpoint_probe_failures)
+    if (byFailures !== 0) return byFailures
+    return toNumber(a.provider_id) - toNumber(b.provider_id)
+  })[0] || null
+}
+
+function buildServingProofChecklist(row: ProbeEvidenceRow | null): ServingProofItem[] {
+  const routeState = probeGateState(row, 'endpoint_reachable')
+  const inferenceState = probeGateState(row, 'verified_online')
+  const modelState = probeGateState(row, 'model_coverage')
+  const publicationState = routeState === 'pass' && inferenceState === 'pass' && modelState === 'pass' ? 'pass' : 'fail'
+
+  return [
+    {
+      key: 'route',
+      labelEn: 'Route proof',
+      labelAr: 'دليل المسار',
+      state: routeState,
+      detailEn: probeGate(row, 'endpoint_reachable')?.detail || 'Backend must reach the provider OpenAI-compatible endpoint from the VPS.',
+      detailAr: 'يجب أن يصل الخادم الخلفي إلى نقطة المزوّد المتوافقة مع OpenAI من الخادم.',
+    },
+    {
+      key: 'inference',
+      labelEn: 'Inference proof',
+      labelAr: 'دليل الاستدلال',
+      state: inferenceState,
+      detailEn: probeGate(row, 'verified_online')?.detail || 'Earned-online verification must complete a real one-token inference or embedding probe.',
+      detailAr: 'يجب أن يكمل التحقق المتحقق فحص استدلال أو تضمين حقيقي برمز واحد.',
+    },
+    {
+      key: 'model',
+      labelEn: 'Model proof',
+      labelAr: 'دليل النموذج',
+      state: modelState,
+      detailEn: probeGate(row, 'model_coverage')?.detail || 'A daemon-cached or verifier-reported model must match a catalog alias.',
+      detailAr: 'يجب أن يطابق نموذج مخزن من الخادم المحلي أو مبلّغ من الفاحص مرادفاً في الكتالوج.',
+    },
+    {
+      key: 'publication',
+      labelEn: 'Publication proof',
+      labelAr: 'دليل النشر',
+      state: publicationState,
+      detailEn: 'Only after route, inference, and model proof pass may provider_count and public marketplace language move.',
+      detailAr: 'لا يتحرك provider_count أو نص السوق العام إلا بعد نجاح دليل المسار والاستدلال والنموذج.',
+    },
+  ]
 }
 
 function fleetReasonLabel(reason: string): string {
@@ -2100,6 +2183,10 @@ export default function V2AdminPage() {
     ? toNumber(probeEvidence.summary.model_gap)
     : fleetProviderList.filter((provider) => (toNumber(provider.cached_models_count) || fleetCachedModels(provider).length) <= 0).length
   const servingProbeEvidenceAge = probeEvidence?.generated_at ? formatDate(probeEvidence.generated_at) : 'fleet fallback'
+  const servingProofTarget = pickServingProofTarget(probeEvidenceList)
+  const servingProofChecklist = buildServingProofChecklist(servingProofTarget)
+  const servingProofProvider = servingProofTarget ? probeEvidenceToFleetProvider(servingProofTarget) : null
+  const servingProofCopy = servingProofTarget ? probeFocusCopy(servingProofTarget) : null
   const fleetAlertsPreview = fleetAlertRows(fleetAlerts).slice(0, 4)
   const notificationChannels = notificationPosture?.channels || []
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
@@ -2668,6 +2755,54 @@ export default function V2AdminPage() {
                   ar={`دليل الفحص المعتمد: ${servingProbeEvidenceAge}`}
                 />
               </p>
+
+              <div className="serving-proof">
+                <div className="mission-panel-head">
+                  <span><Bi en="Serving proof packet" ar="حزمة إثبات الخدمة" /></span>
+                  <Link href="/admin/fleet" prefetch={false}><Bi en="Verified fleet console" ar="لوحة الأسطول المتحققة" /></Link>
+                </div>
+
+                {servingProofTarget && servingProofProvider ? (
+                  <>
+                    <div className="serving-proof-target">
+                      <div>
+                        <span><Bi en="target provider" ar="المزوّد الهدف" /></span>
+                        <strong>{fleetProviderLabel(servingProofProvider)}</strong>
+                        <small><Bi en={`provider #${servingProofTarget.provider_id || 'unknown'} · ${servingProofTarget.gpu_model || 'GPU unknown'}`} ar={`المزوّد #${servingProofTarget.provider_id || 'غير معروف'} · ${servingProofTarget.gpu_model || 'المعالج غير معروف'}`} /></small>
+                      </div>
+                      <div>
+                        <span><Bi en="current focus" ar="التركيز الحالي" /></span>
+                        <strong><Bi en={servingProofCopy?.focusEn || servingProofTarget.recovery_focus || 'Probe evidence'} ar={servingProofCopy?.focusAr || 'دليل الفحص'} /></strong>
+                        <small><Bi en={servingProofTarget.recommended_next_action || 'Collect route, inference, and model proof before changing public capacity.'} ar="اجمع دليل المسار والاستدلال والنموذج قبل تغيير السعة العامة." /></small>
+                      </div>
+                    </div>
+
+                    <div className="serving-proof-checklist">
+                      {servingProofChecklist.map((item) => (
+                        <article className={item.state} key={item.key}>
+                          <span><Bi en={item.labelEn} ar={item.labelAr} /></span>
+                          <strong><Bi en={item.state} ar={item.state === 'pass' ? 'ناجح' : item.state === 'fail' ? 'فاشل' : 'غير معروف'} /></strong>
+                          <p><Bi en={item.detailEn} ar={item.detailAr} /></p>
+                        </article>
+                      ))}
+                    </div>
+
+                    <p className="serving-proof-exit">
+                      <Bi
+                        en="Exit criteria: verified_online=1, provider_count > 0 for at least one model, and one metered inference proof before public capacity language changes."
+                        ar="معايير الخروج: verified_online=1 و provider_count أكبر من صفر لنموذج واحد على الأقل ودليل استدلال مقاس واحد قبل تغيير لغة السعة العامة."
+                      />
+                    </p>
+                  </>
+                ) : (
+                  <p className="serving-proof-empty">
+                    <Bi
+                      en="No canonical provider probe rows are loaded yet. Keep public capacity gated until route, inference, and model proof exist."
+                      ar="لم يتم تحميل صفوف فحص مزوّدين معتمدة بعد. أبقِ السعة العامة محجوبة حتى يوجد دليل المسار والاستدلال والنموذج."
+                    />
+                  </p>
+                )}
+              </div>
 
               <div className="serving-recovery-grid">
                 <article className="serving-recovery-main">
