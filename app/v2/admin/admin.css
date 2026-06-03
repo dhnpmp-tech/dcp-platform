@@ -726,6 +726,241 @@ body {
   opacity: .45;
 }
 
+.mission-control {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.mission-control .section-head > span {
+  border: 1px solid var(--hair);
+  color: var(--teal);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.mission-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.mission-summary-grid > div {
+  min-height: 118px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mission-summary-grid span,
+.mission-panel-head span,
+.mission-task-meta span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.mission-summary-grid strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.mission-summary-grid .warn strong {
+  color: var(--orange);
+}
+
+.mission-layout {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr) minmax(280px, .9fr);
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.mission-roster,
+.mission-queue,
+.mission-goals {
+  min-height: 340px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 18px;
+}
+
+.mission-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mission-panel-head a,
+.mission-panel-head em {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-style: normal;
+}
+
+.mission-panel-head a {
+  border-bottom: 1px solid var(--ink);
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+
+.mission-panel-head a:hover {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+
+.mission-roster-list,
+.mission-task-list,
+.mission-goal-list {
+  display: grid;
+  gap: 9px;
+}
+
+.mission-roster-list > div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hair);
+}
+
+.mission-roster-list > div:last-child {
+  border-bottom: 0;
+}
+
+.mission-roster-list span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--hair);
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.mission-roster-list span.agent {
+  color: var(--orange);
+}
+
+.mission-roster-list strong,
+.mission-task-list strong,
+.mission-goal-list strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mission-roster-list small,
+.mission-goal-list small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+.mission-task-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--hair);
+}
+
+.mission-task-list > div:last-child {
+  border-bottom: 0;
+}
+
+.mission-task-list > div.blocked {
+  box-shadow: inset 3px 0 0 var(--orange);
+  padding-inline-start: 12px;
+}
+
+[dir="rtl"] .mission-task-list > div.blocked {
+  box-shadow: inset -3px 0 0 var(--orange);
+}
+
+.mission-task-list p {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 12.5px;
+}
+
+.mission-task-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 112px;
+}
+
+.mission-task-meta span {
+  color: var(--ink-2);
+}
+
+.mission-goal-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--hair);
+}
+
+.mission-goal-list > div:last-child {
+  border-bottom: 0;
+}
+
+.mission-goal-list span {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.mission-goal-list small {
+  grid-column: 1 / -1;
+}
+
+.mission-empty,
+.mission-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+
+.mission-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -1085,9 +1320,14 @@ body {
 
   .admin-two-col,
   .approval-layout,
+  .mission-layout,
   .lane-grid,
   .future-map {
     grid-template-columns: 1fr;
+  }
+
+  .mission-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .readiness-grid {
@@ -1113,6 +1353,7 @@ body {
   .admin-status-strip,
   .metric-grid,
   .readiness-grid,
+  .mission-summary-grid,
   .approval-facts,
   .lane-stats,
   .workflow-grid {
@@ -1150,6 +1391,17 @@ body {
 
   .approval-provider-head {
     flex-direction: column;
+  }
+
+  .mission-task-list > div {
+    grid-template-columns: 1fr;
+  }
+
+  .mission-task-meta {
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
   }
 }
 

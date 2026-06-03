@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 03:50 UTC — [PR #525](https://github.com/dhnpmp-tech/dcp-platform/pull/525) — `feat(v2): add admin mission control mirror`
+
+Included:
+- Added a read-only mission-control layer to `/v2/admin` so founders can see open work, blocked tasks, active goals, shipped-in-24h pulse, and the human/agent roster without leaving the v2 admin surface.
+- Wired the section to real `/api/mission/*` endpoints using the existing admin token: overview, open tasks, assignees, goals, and 24h pulse.
+- Kept task writes out of v2 admin for now; the section links to `/mission` for the full board while role delegation, agent write keys, and audit approval rules remain separate hardening work.
+- Added static regressions for the mission API dependencies, read-only mission policy, roster/task ownership copy, and mission-control styling.
+
 ### 03:38 UTC — [PR #524](https://github.com/dhnpmp-tech/dcp-platform/pull/524) — `fix(v2): remove stale homepage capacity table`
 
 Included:
