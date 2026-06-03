@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 07:39 UTC — [PR #545](https://github.com/dhnpmp-tech/dcp-platform/pull/545) — `feat(v2): add provider approval decision envelopes`
+
+Included:
+- Upgraded the `/v2/admin` provider approval desk from a static decision-envelope note into explicit approve/reject decision envelopes.
+- Each provider approval envelope now shows the guarded backend route, human-approval gate, evidence requirement, audit result, and readiness state before the operator acts.
+- The reject envelope mirrors the existing button guard and stays in a watch state until a rejection reason has at least 8 characters.
+- Kept provider approval behavior on the existing audited `PATCH /admin/providers/:id/approval-decision` route; no new provider repair, routing, payment, or control-plane actions were added.
+
 ### 07:30 UTC — [PR #544](https://github.com/dhnpmp-tech/dcp-platform/pull/544) — `feat(v2): add admin mission action envelopes`
 
 Included:

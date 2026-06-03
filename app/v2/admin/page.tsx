@@ -684,6 +684,21 @@ interface ApprovalDecisionResult {
   error?: string
 }
 
+interface ApprovalDecisionEnvelope {
+  key: 'approve' | 'reject'
+  labelEn: string
+  labelAr: string
+  route: string
+  permission: string
+  evidenceEn: string
+  evidenceAr: string
+  auditEn: string
+  auditAr: string
+  readinessEn: string
+  readinessAr: string
+  state: Severity
+}
+
 interface ActionMessage {
   kind: 'success' | 'error'
   text: string
@@ -1359,6 +1374,47 @@ function approvalSlaClass(provider: ApprovalProvider): Severity {
   const remaining = toNumber(provider.sla_remaining_seconds)
   if (remaining > 0 && remaining <= 3600) return 'watch'
   return 'routine'
+}
+
+function buildApprovalDecisionEnvelopes(
+  provider: ApprovalProvider | null,
+  rejectReason: string,
+): ApprovalDecisionEnvelope[] {
+  const providerId = provider?.provider_id || ':providerId'
+  const route = `/admin/providers/${providerId}/approval-decision`
+  const reasonReady = rejectReason.trim().length >= 8
+  const hasProvider = toNumber(provider?.provider_id) > 0
+
+  return [
+    {
+      key: 'approve',
+      labelEn: 'Approve provider',
+      labelAr: 'الموافقة على المزوّد',
+      route,
+      permission: 'human approval',
+      evidenceEn: 'Confirms this pending provider can enter the approved onboarding path.',
+      evidenceAr: 'يؤكد أن هذا المزوّد المعلق يمكنه دخول مسار التجهيز المعتمد.',
+      auditEn: 'PATCHes decision=approve and stores the immutable admin audit row.',
+      auditAr: 'يرسل decision=approve ويسجل صف تدقيق إداري غير قابل للتغيير.',
+      readinessEn: hasProvider ? 'Ready for human approval.' : 'Select a pending provider first.',
+      readinessAr: hasProvider ? 'جاهز لموافقة بشرية.' : 'اختر مزوّداً معلقاً أولاً.',
+      state: hasProvider ? 'routine' : 'watch',
+    },
+    {
+      key: 'reject',
+      labelEn: 'Reject provider',
+      labelAr: 'رفض المزوّد',
+      route,
+      permission: 'human approval',
+      evidenceEn: 'Requires a clear rejection reason so the provider and audit trail understand the decision.',
+      evidenceAr: 'يتطلب سبب رفض واضحاً حتى يفهم المزوّد وسجل التدقيق القرار.',
+      auditEn: 'PATCHes decision=reject with reason and stores the immutable admin audit row.',
+      auditAr: 'يرسل decision=reject مع السبب ويسجل صف تدقيق إداري غير قابل للتغيير.',
+      readinessEn: !hasProvider ? 'Select a pending provider first.' : reasonReady ? 'Ready to reject with recorded reason.' : 'Add at least 8 characters of rejection reason.',
+      readinessAr: !hasProvider ? 'اختر مزوّداً معلقاً أولاً.' : reasonReady ? 'جاهز للرفض مع سبب مسجل.' : 'أضف سبب رفض من 8 أحرف على الأقل.',
+      state: hasProvider && reasonReady ? 'routine' : 'watch',
+    },
+  ]
 }
 
 function severityRank(severity: Severity): number {
@@ -2062,6 +2118,7 @@ export default function V2AdminPage() {
     if (approvalProviders.length === 0) return null
     return approvalProviders.find((provider) => provider.provider_id === selectedApprovalId) || approvalProviders[0]
   }, [approvalProviders, selectedApprovalId])
+  const approvalDecisionEnvelopes = buildApprovalDecisionEnvelopes(selectedApproval, approvalReason)
 
   useEffect(() => {
     if (approvalProviders.length === 0) {
@@ -3383,11 +3440,20 @@ export default function V2AdminPage() {
 
                     <div className="approval-evidence">
                       <span><Bi en="Decision envelope" ar="غلاف القرار" /></span>
-                      <ul>
-                        <li><Bi en="Human chooses the final decision." ar="الإنسان يختار القرار النهائي." /></li>
-                        <li><Bi en="Backend accepts pending providers only." ar="الخلفية تقبل المزوّدين المعلّقين فقط." /></li>
-                        <li><Bi en="Every decision records an immutable audit row." ar="كل قرار يسجل صف تدقيق غير قابل للتغيير." /></li>
-                      </ul>
+                      <div className="approval-envelope-grid" aria-label="Provider approval decision envelope">
+                        {approvalDecisionEnvelopes.map((envelope) => (
+                          <article className={envelope.state} key={envelope.key}>
+                            <div className="approval-envelope-head">
+                              <strong><Bi en={envelope.labelEn} ar={envelope.labelAr} /></strong>
+                              <em>{envelope.permission}</em>
+                            </div>
+                            <code>{envelope.route}</code>
+                            <p><Bi en={envelope.evidenceEn} ar={envelope.evidenceAr} /></p>
+                            <small><Bi en={envelope.auditEn} ar={envelope.auditAr} /></small>
+                            <b><Bi en={envelope.readinessEn} ar={envelope.readinessAr} /></b>
+                          </article>
+                        ))}
+                      </div>
                     </div>
 
                     <label className="approval-reason">
