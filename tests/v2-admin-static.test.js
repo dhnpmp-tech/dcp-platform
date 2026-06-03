@@ -34,6 +34,19 @@ assert(page.includes('Guarded write'), 'v2 admin should expose guarded-write pol
 assert(page.includes('Task envelope'), 'v2 admin should describe the future agent action envelope');
 assert(page.includes('No verified serving capacity'), 'v2 admin should expose earned-serving capacity as an operational blocker');
 assert(page.includes('read-only'), 'v2 admin should label the operational readiness board as read-only');
+assert(page.includes('#fleet'), 'v2 admin should expose fleet readiness as a primary rail section');
+assert(page.includes('Fleet blockers'), 'v2 admin should expose the fleet blocker section');
+assert(page.includes('fleetProviderRows'), 'v2 admin should normalize fleet-health provider rows');
+assert(page.includes('fleetProviderBlockers'), 'v2 admin should derive provider readiness blockers');
+assert(page.includes('fleetProviderSeverity'), 'v2 admin should classify provider blocker severity');
+assert(page.includes('endpoint reachable'), 'v2 admin should show endpoint reachability as a fleet readiness gate');
+assert(page.includes('earned online'), 'v2 admin should show earned-online verification as a fleet readiness gate');
+assert(page.includes('WireGuard stale'), 'v2 admin should surface WireGuard freshness blockers');
+assert(page.includes('heartbeat critical'), 'v2 admin should surface stale heartbeat blockers');
+assert(page.includes('no cached models'), 'v2 admin should surface model coverage blockers');
+assert(page.includes('v2 fleet readiness is read-only'), 'v2 admin should keep fleet operations read-only');
+assert(!page.includes('/admin/providers/pause'), 'v2 admin should not call provider pause from the fleet readiness surface');
+assert(!page.includes('/admin/providers/resume'), 'v2 admin should not call provider resume from the fleet readiness surface');
 assert(page.includes('Approval desk'), 'v2 admin should expose a native provider approval desk');
 assert(page.includes('guarded write'), 'v2 admin should label provider approval decisions as guarded writes');
 assert(page.includes('ApprovalDecisionResult'), 'v2 admin should type approval decision responses');
@@ -105,6 +118,11 @@ assert(!auth.includes("redirect=/admin'"), 'v2 auth should not default admin sig
 
 assert(css.includes('.v2-admin'), 'v2 admin should have scoped styles');
 assert(css.includes('.readiness-board'), 'v2 admin should style the readiness board');
+assert(css.includes('.fleet-readiness'), 'v2 admin should style fleet readiness');
+assert(css.includes('.fleet-summary-grid'), 'v2 admin should style fleet summary gates');
+assert(css.includes('.fleet-readiness-grid'), 'v2 admin should style fleet provider and alert panels');
+assert(css.includes('.fleet-provider-card'), 'v2 admin should style fleet provider blocker cards');
+assert(css.includes('.fleet-blockers'), 'v2 admin should style fleet blocker chips');
 assert(css.includes('.approval-desk'), 'v2 admin should style the provider approval desk');
 assert(css.includes('.approval-actions'), 'v2 admin should style approval decision actions');
 assert(css.includes('.finance-review'), 'v2 admin should style finance review');

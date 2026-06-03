@@ -170,14 +170,65 @@ interface FleetHealthPayload {
   usable_online?: number
   verified_online?: number
   serving_now?: boolean
-  providers?: unknown[]
+  metering_last_token_at?: string | null
+  providers?: FleetProviderRow[]
   generated_at?: string
 }
 
 interface FleetAlertsPayload {
   total_alerts?: number
-  alerts?: unknown[]
+  alerts?: FleetAlertRow[]
   generated_at?: string
+}
+
+interface FleetProviderRow {
+  id?: number | string
+  name?: string | null
+  email?: string | null
+  gpu_model?: string | null
+  vram_mb?: number | null
+  gpu_count?: number | null
+  last_heartbeat?: string | null
+  heartbeat_age_seconds?: number | null
+  status?: string | null
+  status_claimed?: string | null
+  jobs_running?: number | null
+  jobs_failed_24h?: number | null
+  container_restart_count_24h?: number | null
+  model_cache_disk_mb?: number | null
+  verified_online?: boolean | null
+  verified_at?: string | null
+  verified_models?: string[] | null
+  verify_chat_ok?: boolean | null
+  verify_latency_ms?: number | null
+  verify_error?: string | null
+  verify_endpoint?: string | null
+  wg_handshake_age_s?: number | null
+  wg_tunnel_healthy?: boolean | null
+  endpoint_reachable?: boolean | null
+  endpoint_probed_at?: string | null
+  engines?: number | null
+  cached_models?: string[] | null
+  cached_models_count?: number | null
+  gpu_temp_c?: number | null
+  gpu_util_pct?: number | null
+  gpu_vram_used_mib?: number | null
+  gpu_vram_total_mib?: number | null
+}
+
+interface FleetAlertRow {
+  provider_id?: number | string
+  email?: string | null
+  gpu_model?: string | null
+  last_heartbeat?: string | null
+  heartbeat_age_seconds?: number | null
+  status?: string | null
+  jobs_in_progress?: number | null
+  restart_count_last_hour?: number | null
+  model_cache_disk_mb?: number | null
+  model_cache_disk_total_mb?: number | null
+  model_cache_disk_used_pct?: number | null
+  reasons?: string[] | null
 }
 
 interface ReconciliationPayload {
@@ -390,6 +441,9 @@ interface ReadinessCheck {
 
 const API_BASE = getApiBase()
 const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
+const HEARTBEAT_STALE_SECONDS = 5 * 60
+const HEARTBEAT_CRITICAL_SECONDS = 15 * 60
+const WG_STALE_SECONDS = 3 * 60
 
 const numFmt = new Intl.NumberFormat('en-US')
 
@@ -415,6 +469,16 @@ function formatSar(value: unknown): string {
 function shortId(value: string | null | undefined, length = 10): string {
   if (!value) return 'unknown'
   return value.length > length ? `${value.slice(0, length)}...` : value
+}
+
+function formatAgeSeconds(value: unknown): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'unknown'
+  const seconds = value
+  if (seconds <= 0) return 'fresh'
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
+  return `${Math.round(seconds / 86400)}d`
 }
 
 async function fetchJson<T>(path: string, token: string): Promise<T | null> {
@@ -526,8 +590,61 @@ function autoTopupRows(payload: PaymentsAuditPayload | null): AutoTopupRow[] {
   return Array.isArray(payload?.auto_topup) ? payload.auto_topup : []
 }
 
+function fleetProviderRows(payload: FleetHealthPayload | null): FleetProviderRow[] {
+  return Array.isArray(payload?.providers) ? payload.providers : []
+}
+
+function fleetAlertRows(payload: FleetAlertsPayload | null): FleetAlertRow[] {
+  return Array.isArray(payload?.alerts) ? payload.alerts : []
+}
+
 function listSize(value: unknown[] | undefined): number {
   return Array.isArray(value) ? value.length : 0
+}
+
+function fleetProviderLabel(provider: FleetProviderRow): string {
+  return provider.name || provider.email || `Provider #${provider.id || 'unknown'}`
+}
+
+function fleetCachedModels(provider: FleetProviderRow): string[] {
+  if (Array.isArray(provider.cached_models)) return provider.cached_models.filter(Boolean)
+  return []
+}
+
+function fleetProviderBlockers(provider: FleetProviderRow): string[] {
+  const blockers: string[] = []
+  const heartbeatAge = provider.heartbeat_age_seconds
+  const wgAge = provider.wg_handshake_age_s
+  const cachedModelCount = toNumber(provider.cached_models_count) || fleetCachedModels(provider).length
+
+  if (provider.verified_online !== true) blockers.push('earned-online missing')
+  if (provider.endpoint_reachable !== true) blockers.push(provider.endpoint_reachable === false ? 'endpoint unreachable' : 'endpoint unprobed')
+  if (provider.wg_tunnel_healthy === false) blockers.push('WireGuard unhealthy')
+  if (typeof wgAge !== 'number' || !Number.isFinite(wgAge) || wgAge > WG_STALE_SECONDS) blockers.push('WireGuard stale')
+  if (typeof heartbeatAge !== 'number' || !Number.isFinite(heartbeatAge)) blockers.push('heartbeat missing')
+  else if (heartbeatAge > HEARTBEAT_CRITICAL_SECONDS) blockers.push('heartbeat critical')
+  else if (heartbeatAge > HEARTBEAT_STALE_SECONDS) blockers.push('heartbeat stale')
+  if (cachedModelCount <= 0) blockers.push('no cached models')
+  if (toNumber(provider.jobs_failed_24h) > 0) blockers.push(`${toNumber(provider.jobs_failed_24h)} failed job${toNumber(provider.jobs_failed_24h) === 1 ? '' : 's'} / 24h`)
+  if (toNumber(provider.container_restart_count_24h) > 5) blockers.push('restart loop risk')
+  return blockers
+}
+
+function fleetProviderSeverity(provider: FleetProviderRow): Severity {
+  const blockers = fleetProviderBlockers(provider)
+  if (blockers.length === 0) return 'routine'
+  if (
+    provider.verified_online !== true
+    || provider.endpoint_reachable !== true
+    || blockers.includes('heartbeat missing')
+    || blockers.includes('heartbeat critical')
+    || blockers.includes('no cached models')
+  ) return 'critical'
+  return 'watch'
+}
+
+function fleetReasonLabel(reason: string): string {
+  return reason.replace(/_/g, ' ')
 }
 
 function missionCount(payload: MissionOverviewPayload | null, status: MissionTaskStatus): number {
@@ -1301,6 +1418,21 @@ export default function V2AdminPage() {
   const missionStrictWrites = accessPolicy?.mission_surface?.strict_write_auth_enabled === true
   const missionWritePolicy = accessPolicy?.mission_surface?.write_policy || 'unknown'
   const agentWriteState = accessPolicy?.agent_permissions?.find((permission) => permission.level === 'guarded_write')?.state || 'unknown'
+  const fleetProviderList = fleetProviderRows(fleet)
+  const fleetReadyProviders = fleetProviderList.filter((provider) => fleetProviderBlockers(provider).length === 0)
+  const fleetBlockedProviders = fleetProviderList.filter((provider) => fleetProviderBlockers(provider).length > 0)
+  const fleetEndpointReachable = fleetProviderList.filter((provider) => provider.endpoint_reachable === true).length
+  const fleetModelReady = fleetProviderList.filter((provider) => (toNumber(provider.cached_models_count) || fleetCachedModels(provider).length) > 0).length
+  const fleetProviderPreview = [...fleetProviderList]
+    .sort((a, b) => {
+      const bySeverity = severityRank(fleetProviderSeverity(a)) - severityRank(fleetProviderSeverity(b))
+      if (bySeverity !== 0) return bySeverity
+      const byRunningJobs = toNumber(b.jobs_running) - toNumber(a.jobs_running)
+      if (byRunningJobs !== 0) return byRunningJobs
+      return toNumber(a.id) - toNumber(b.id)
+    })
+    .slice(0, 6)
+  const fleetAlertsPreview = fleetAlertRows(fleetAlerts).slice(0, 4)
   const notificationChannels = notificationPosture?.channels || []
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
   const configuredNotificationChannels = notificationChannels.filter((channel) => channel.configured).length
@@ -1469,6 +1601,9 @@ export default function V2AdminPage() {
           <a href="#readiness" className="rail-link">
             <span>RD</span><Bi en="Readiness" ar="الجاهزية" />
           </a>
+          <a href="#fleet" className="rail-link">
+            <span>FL</span><Bi en="Fleet" ar="الأسطول" />
+          </a>
           <a href="#approvals" className="rail-link">
             <span>AP</span><Bi en="Approvals" ar="الموافقات" />
           </a>
@@ -1614,6 +1749,146 @@ export default function V2AdminPage() {
                   </Link>
                 ))}
               </div>
+            </section>
+
+            <section className="fleet-readiness" id="fleet" aria-label="Inference fleet readiness">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Inference readiness" ar="جاهزية الاستدلال" /></p>
+                  <h2><Bi en="Fleet blockers" ar="عوائق الأسطول" /></h2>
+                </div>
+                <span className={fleet?.serving_now && usableOnline > 0 ? 'ready' : 'critical'}>
+                  <Bi en={fleet?.serving_now && usableOnline > 0 ? 'serving' : 'blocked'} ar={fleet?.serving_now && usableOnline > 0 ? 'يخدم' : 'محجوب'} />
+                </span>
+              </div>
+
+              <div className="fleet-summary-grid">
+                <div className={fleet?.serving_now ? 'ready' : 'critical'}>
+                  <span><Bi en="serving now" ar="يخدم الآن" /></span>
+                  <strong><Bi en={fleet?.serving_now ? 'yes' : 'no'} ar={fleet?.serving_now ? 'نعم' : 'لا'} /></strong>
+                </div>
+                <div className={usableOnline > 0 ? 'ready' : 'critical'}>
+                  <span><Bi en="usable online" ar="قابل للخدمة" /></span>
+                  <strong>{numFmt.format(usableOnline)}</strong>
+                </div>
+                <div className={verifiedOnline > 0 ? 'ready' : 'critical'}>
+                  <span><Bi en="earned online" ar="نشط متحقق" /></span>
+                  <strong>{numFmt.format(verifiedOnline)}</strong>
+                </div>
+                <div className={fleetEndpointReachable > 0 ? 'ready' : 'critical'}>
+                  <span><Bi en="endpoint reachable" ar="النقطة قابلة للوصول" /></span>
+                  <strong>{numFmt.format(fleetEndpointReachable)}</strong>
+                </div>
+                <div className={fleetModelReady > 0 ? 'ready' : 'critical'}>
+                  <span><Bi en="model coverage" ar="تغطية النماذج" /></span>
+                  <strong>{numFmt.format(fleetModelReady)}</strong>
+                </div>
+              </div>
+
+              <div className="fleet-readiness-grid">
+                <article className="fleet-provider-panel">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Provider blockers" ar="عوائق المزوّدين" /></span>
+                    <Link href="/admin/fleet" prefetch={false}><Bi en="Open fleet console" ar="افتح لوحة الأسطول" /></Link>
+                  </div>
+
+                  {fleetProviderPreview.length === 0 ? (
+                    <p className="fleet-empty"><Bi en="No provider rows returned by fleet health yet." ar="لم تعد صحة الأسطول صفوف مزوّدين بعد." /></p>
+                  ) : (
+                    <div className="fleet-provider-list">
+                      {fleetProviderPreview.map((provider) => {
+                        const blockers = fleetProviderBlockers(provider)
+                        const severity = fleetProviderSeverity(provider)
+                        const cachedModels = fleetCachedModels(provider)
+                        const providerId = provider.id || fleetProviderLabel(provider)
+                        return (
+                          <article className={`fleet-provider-card ${severity}`} key={providerId}>
+                            <div className="fleet-provider-top">
+                              <div>
+                                <span>{provider.gpu_model || 'GPU unknown'}</span>
+                                <strong>{fleetProviderLabel(provider)}</strong>
+                              </div>
+                              <em><Bi en={blockers.length === 0 ? 'ready' : `${blockers.length} blockers`} ar={blockers.length === 0 ? 'جاهز' : `${blockers.length} عوائق`} /></em>
+                            </div>
+
+                            <div className="fleet-provider-facts">
+                              <div>
+                                <span><Bi en="earned" ar="متحقق" /></span>
+                                <strong><Bi en={provider.verified_online ? 'yes' : 'no'} ar={provider.verified_online ? 'نعم' : 'لا'} /></strong>
+                              </div>
+                              <div>
+                                <span><Bi en="endpoint" ar="النقطة" /></span>
+                                <strong><Bi en={provider.endpoint_reachable ? 'reachable' : provider.endpoint_reachable === false ? 'down' : 'unprobed'} ar={provider.endpoint_reachable ? 'متاحة' : provider.endpoint_reachable === false ? 'متوقفة' : 'لم تفحص'} /></strong>
+                              </div>
+                              <div>
+                                <span><Bi en="heartbeat" ar="النبض" /></span>
+                                <strong>{formatAgeSeconds(provider.heartbeat_age_seconds)}</strong>
+                              </div>
+                              <div>
+                                <span><Bi en="WireGuard" ar="WireGuard" /></span>
+                                <strong>{formatAgeSeconds(provider.wg_handshake_age_s)}</strong>
+                              </div>
+                              <div>
+                                <span><Bi en="models" ar="النماذج" /></span>
+                                <strong>{toNumber(provider.cached_models_count) || cachedModels.length}</strong>
+                              </div>
+                            </div>
+
+                            <div className="fleet-blockers">
+                              {blockers.length === 0 ? (
+                                <span className="ready"><Bi en="Ready to serve if routing selects this provider." ar="جاهز للخدمة إذا اختاره التوجيه." /></span>
+                              ) : (
+                                blockers.map((blocker) => <span key={blocker}>{blocker}</span>)
+                              )}
+                            </div>
+
+                            <small>
+                              <Bi
+                                en={`jobs ${toNumber(provider.jobs_running)} running · ${toNumber(provider.container_restart_count_24h)} restarts / 24h · ${shortId(provider.verify_endpoint, 28)}`}
+                                ar={`مهام ${toNumber(provider.jobs_running)} نشطة · ${toNumber(provider.container_restart_count_24h)} إعادة تشغيل / 24 ساعة · ${shortId(provider.verify_endpoint, 28)}`}
+                              />
+                            </small>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )}
+                </article>
+
+                <article className="fleet-alert-panel">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Alert evidence" ar="دليل التنبيهات" /></span>
+                    <em>{numFmt.format(fleetBlockedProviders.length)} <Bi en="blocked" ar="محجوب" /></em>
+                  </div>
+
+                  <div className="fleet-alert-stats">
+                    <div><span><Bi en="ready providers" ar="مزوّدون جاهزون" /></span><strong>{numFmt.format(fleetReadyProviders.length)}</strong></div>
+                    <div><span><Bi en="blocked providers" ar="مزوّدون محجوبون" /></span><strong>{numFmt.format(fleetBlockedProviders.length)}</strong></div>
+                    <div><span><Bi en="alerts" ar="تنبيهات" /></span><strong>{numFmt.format(fleetAlertCount)}</strong></div>
+                  </div>
+
+                  {fleetAlertsPreview.length === 0 ? (
+                    <p className="fleet-empty"><Bi en="No fleet alerts returned. If serving is still blocked, inspect provider readiness above first." ar="لا توجد تنبيهات أسطول. إذا كانت الخدمة لا تزال محجوبة، افحص جاهزية المزوّدين أعلاه أولاً." /></p>
+                  ) : (
+                    <div className="fleet-alert-list">
+                      {fleetAlertsPreview.map((alert, index) => (
+                        <div className="fleet-alert" key={`${alert.provider_id || alert.email || 'alert'}-${index}`}>
+                          <strong>{alert.email || `Provider #${alert.provider_id || 'unknown'}`}</strong>
+                          <p>{(alert.reasons || []).map(fleetReasonLabel).join(', ') || 'Fleet alert requires review.'}</p>
+                          <small>{formatAgeSeconds(alert.heartbeat_age_seconds)} heartbeat · {toNumber(alert.jobs_in_progress)} jobs · {toNumber(alert.restart_count_last_hour)} restarts</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <p className="fleet-policy">
+                <Bi
+                  en="v2 fleet readiness is read-only. Provider pause/resume, endpoint edits, WireGuard repair, and routing changes stay in the verified fleet/provider consoles until v2 fleet actions have explicit audit and rollback rules."
+                  ar="جاهزية الأسطول في v2 للقراءة فقط. تبقى إيقاف/استئناف المزوّد وتعديل النقاط وإصلاح WireGuard وتغييرات التوجيه في لوحات الأسطول/المزوّدين المتحققة حتى تملك إجراءات الأسطول في v2 قواعد تدقيق ورجوع صريحة."
+                />
+              </p>
             </section>
 
             <section className="approval-desk" id="approvals" aria-label="Provider approval desk">
