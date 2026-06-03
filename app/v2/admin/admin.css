@@ -1412,6 +1412,169 @@ body {
   font-size: 13.5px;
 }
 
+.support-ops {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.support-ops .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.support-ops .section-head > span.ready {
+  color: var(--teal);
+}
+
+.support-ops .section-head > span.watch {
+  color: var(--orange);
+}
+
+.support-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.support-summary-grid > div {
+  min-height: 112px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.support-summary-grid span,
+.support-row-top span,
+.support-row small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.support-summary-grid strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.support-summary-grid .critical strong {
+  color: var(--err);
+}
+
+.support-summary-grid .watch strong {
+  color: var(--orange);
+}
+
+.support-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.support-card {
+  min-height: 300px;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.support-row-list {
+  display: grid;
+  gap: 9px;
+}
+
+.support-row {
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.support-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.support-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.support-row-top strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.support-row p,
+.support-empty,
+.support-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.support-row p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.support-category {
+  border: 1px solid var(--hair);
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.support-category.failed,
+.support-category.error,
+.support-category.cancelled,
+.support-category.suspended {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 35%, var(--hair));
+}
+
+.support-category.pending,
+.support-category.initiated,
+.support-category.refunded,
+.support-category.queued,
+.support-category.assigned,
+.support-category.running {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.support-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
 .mission-control {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
@@ -2600,6 +2763,7 @@ body {
   .approval-layout,
   .fleet-readiness-grid,
   .finance-review-grid,
+  .support-grid,
   .incident-command-grid,
   .launch-gate-list,
   .runbook-grid,
@@ -2618,6 +2782,10 @@ body {
   }
 
   .finance-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .support-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2680,6 +2848,8 @@ body {
   .mission-action-grid,
   .finance-summary-grid,
   .finance-review-grid,
+  .support-summary-grid,
+  .support-grid,
   .incident-summary-grid,
   .incident-command-grid,
   .approval-facts,

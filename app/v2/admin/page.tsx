@@ -489,6 +489,135 @@ interface AdminAuditPayload {
   }
 }
 
+interface SupportContactRow {
+  id?: number | string
+  name?: string | null
+  email?: string | null
+  category?: string | null
+  message?: string | null
+  source?: string | null
+  provider_state?: string | null
+  created_at?: string | null
+}
+
+interface SupportContactsPayload {
+  contacts?: SupportContactRow[]
+  total?: number
+  pagination?: {
+    limit?: number
+    offset?: number
+    total?: number
+  }
+  summary?: {
+    recent_24h?: number
+    by_category?: Record<string, number>
+  }
+}
+
+interface RenterSupportRow {
+  id?: number | string
+  name?: string | null
+  email?: string | null
+  organization?: string | null
+  balance_halala?: number | null
+  status?: string | null
+  created_at?: string | null
+  total_jobs?: number | null
+  completed_jobs?: number | null
+  failed_jobs?: number | null
+  total_spent_halala?: number | null
+}
+
+interface AdminRentersPayload {
+  total?: number
+  active?: number
+  suspended?: number
+  renters?: RenterSupportRow[]
+  pagination?: {
+    page?: number
+    limit?: number
+    total?: number
+    total_pages?: number
+  }
+}
+
+interface AdminJobRow {
+  id?: number | string
+  job_id?: string | null
+  provider_id?: number | string | null
+  renter_id?: number | string | null
+  status?: string | null
+  job_type?: string | null
+  model?: string | null
+  cost_halala?: number | null
+  actual_cost_halala?: number | null
+  duration_minutes?: number | null
+  duration_seconds?: number | null
+  prompt_tokens?: number | null
+  completion_tokens?: number | null
+  submitted_at?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  created_at?: string | null
+  provider_name?: string | null
+  gpu_model?: string | null
+  renter_name?: string | null
+}
+
+interface AdminJobsPayload {
+  stats?: {
+    total?: number
+    completed?: number
+    failed?: number
+    active?: number
+    total_revenue_halala?: number
+  }
+  jobs?: AdminJobRow[]
+  pagination?: {
+    page?: number
+    limit?: number
+    total?: number
+    total_pages?: number
+  }
+}
+
+interface AdminPaymentRow {
+  id?: number | string
+  payment_id?: string | null
+  amount_sar?: number | null
+  amount_halala?: number | null
+  status?: string | null
+  source_type?: string | null
+  description?: string | null
+  created_at?: string | null
+  confirmed_at?: string | null
+  refunded_at?: string | null
+  refund_amount_halala?: number | null
+  renter_id?: number | string | null
+  renter_name?: string | null
+  renter_email?: string | null
+}
+
+interface AdminPaymentsPayload {
+  payments?: AdminPaymentRow[]
+  pagination?: {
+    limit?: number
+    offset?: number
+    total?: number
+  }
+  summary?: {
+    total_payments?: number
+    total_revenue_halala?: number
+    total_refunded_halala?: number
+    pending_count?: number
+    paid_count?: number
+    failed_count?: number
+    refunded_count?: number
+    total_revenue_sar?: number
+    total_refunded_sar?: number
+  }
+}
+
 interface ApprovalDecisionResult {
   success?: boolean
   provider_id?: number
@@ -684,6 +813,22 @@ function adminAuditRows(payload: AdminAuditPayload | null): AdminAuditEntry[] {
   if (Array.isArray(payload.entries)) return payload.entries
   if (Array.isArray(payload.audit_log)) return payload.audit_log
   return []
+}
+
+function supportContactRows(payload: SupportContactsPayload | null): SupportContactRow[] {
+  return Array.isArray(payload?.contacts) ? payload.contacts : []
+}
+
+function renterSupportRows(payload: AdminRentersPayload | null): RenterSupportRow[] {
+  return Array.isArray(payload?.renters) ? payload.renters : []
+}
+
+function jobSupportRows(payload: AdminJobsPayload | null): AdminJobRow[] {
+  return Array.isArray(payload?.jobs) ? payload.jobs : []
+}
+
+function paymentSupportRows(payload: AdminPaymentsPayload | null): AdminPaymentRow[] {
+  return Array.isArray(payload?.payments) ? payload.payments : []
 }
 
 function refundRequestRows(payload: PaymentsAuditPayload | null): RefundRequestRow[] {
@@ -1320,6 +1465,10 @@ export default function V2AdminPage() {
   const [accessPolicy, setAccessPolicy] = useState<AccessPolicyPayload | null>(null)
   const [notificationPosture, setNotificationPosture] = useState<NotificationPosturePayload | null>(null)
   const [adminAuditEntries, setAdminAuditEntries] = useState<AdminAuditEntry[]>([])
+  const [supportContacts, setSupportContacts] = useState<SupportContactsPayload | null>(null)
+  const [renterSupport, setRenterSupport] = useState<AdminRentersPayload | null>(null)
+  const [jobSupport, setJobSupport] = useState<AdminJobsPayload | null>(null)
+  const [paymentSupport, setPaymentSupport] = useState<AdminPaymentsPayload | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -1366,6 +1515,10 @@ export default function V2AdminPage() {
         accessPolicyRes,
         notificationPostureRes,
         adminAuditRes,
+        supportContactsRes,
+        renterSupportRes,
+        jobSupportRes,
+        paymentSupportRes,
       ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
@@ -1389,6 +1542,10 @@ export default function V2AdminPage() {
         fetchJson<AccessPolicyPayload>('/admin/access/policy', token),
         fetchJson<NotificationPosturePayload>('/admin/notifications/posture', token),
         fetchJson<AdminAuditPayload>('/admin/audit?limit=8', token),
+        fetchJson<SupportContactsPayload>('/admin/support/contacts?limit=12', token),
+        fetchJson<AdminRentersPayload>('/admin/renters?page=1&limit=12', token),
+        fetchJson<AdminJobsPayload>('/admin/jobs?limit=12', token),
+        fetchJson<AdminPaymentsPayload>('/admin/payments?limit=12', token),
       ])
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
@@ -1412,6 +1569,10 @@ export default function V2AdminPage() {
       setAccessPolicy(accessPolicyRes)
       setNotificationPosture(notificationPostureRes)
       setAdminAuditEntries(adminAuditRows(adminAuditRes))
+      setSupportContacts(supportContactsRes)
+      setRenterSupport(renterSupportRes)
+      setJobSupport(jobSupportRes)
+      setPaymentSupport(paymentSupportRes)
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -1530,6 +1691,36 @@ export default function V2AdminPage() {
     + payoutReviewRows.length
     + billingExceptionRows.length
     + autoTopupIssueRows.length > 0
+  const supportContactList = supportContactRows(supportContacts)
+  const renterSupportList = renterSupportRows(renterSupport)
+  const jobSupportList = jobSupportRows(jobSupport)
+  const paymentSupportList = paymentSupportRows(paymentSupport)
+  const supportRecent24h = toNumber(supportContacts?.summary?.recent_24h)
+  const supportCategoryCount = Object.keys(supportContacts?.summary?.by_category || {}).length
+  const failedJobRows = jobSupportList
+    .filter((row) => ['failed', 'error', 'cancelled'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const activeJobRows = jobSupportList
+    .filter((row) => ['pending', 'assigned', 'running', 'queued'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const jobPainRows = (failedJobRows.length > 0 ? failedJobRows : activeJobRows).slice(0, 4)
+  const lowBalanceRenterRows = renterSupportList
+    .filter((row) => toNumber(row.balance_halala) <= 1000 || String(row.status || '').toLowerCase() === 'suspended' || toNumber(row.failed_jobs) > 0)
+    .sort((a, b) => toNumber(a.balance_halala) - toNumber(b.balance_halala))
+    .slice(0, 4)
+  const paymentIssueRows = paymentSupportList
+    .filter((row) => ['failed', 'initiated', 'pending', 'refunded'].includes(String(row.status || '').toLowerCase()))
+    .slice(0, 4)
+  const supportQueueTotal =
+    supportContactList.length
+    + failedJobRows.length
+    + lowBalanceRenterRows.length
+    + paymentIssueRows.length
+  const supportDeskHasRows =
+    supportContactList.length
+    + lowBalanceRenterRows.length
+    + jobPainRows.length
+    + paymentIssueRows.length > 0
   const urgentCount = tasks.filter((task) => task.severity === 'critical').length
   const watchCount = tasks.filter((task) => task.severity === 'watch').length
   const totalProviders = toNumber(fleet?.total_providers) || toNumber(stats.total_providers)
@@ -1904,6 +2095,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#finance" className="rail-link">
             <span>FN</span><Bi en="Finance" ar="المالية" />
+          </a>
+          <a href="#support" className="rail-link">
+            <span>SP</span><Bi en="Support" ar="الدعم" />
           </a>
           <a href="#mission" className="rail-link">
             <span>MS</span><Bi en="Mission" ar="المهمة" />
@@ -2565,6 +2759,138 @@ export default function V2AdminPage() {
                 <Bi
                   en="v2 finance is review-only for now. Refund approval, rejection, payout sync, and balance-changing actions stay in the current verified payments consoles until the v2 money-action envelope is separately audited."
                   ar="مالية v2 للقراءة والمراجعة الآن. تبقى موافقة الاسترداد ورفضه ومزامنة الدفعات وأي إجراء يغير الرصيد في لوحات المدفوعات الحالية المتحققة حتى تدقيق غلاف إجراءات المال في v2 بشكل منفصل."
+                />
+              </p>
+            </section>
+
+            <section className="support-ops" id="support" aria-label="Customer support operations">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Customer operations" ar="عمليات العملاء" /></p>
+                  <h2><Bi en="Support desk" ar="مكتب الدعم" /></h2>
+                </div>
+                <span className={supportQueueTotal > 0 ? 'watch' : 'ready'}>
+                  <Bi en={supportQueueTotal > 0 ? `${supportQueueTotal} signals` : 'quiet'} ar={supportQueueTotal > 0 ? `${supportQueueTotal} إشارة` : 'هادئ'} />
+                </span>
+              </div>
+
+              <div className="support-summary-grid">
+                <div className={supportRecent24h > 0 ? 'watch' : ''}>
+                  <span><Bi en="contacts 24h" ar="تواصل 24س" /></span>
+                  <strong>{numFmt.format(supportRecent24h)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="renter records" ar="سجلات المستأجرين" /></span>
+                  <strong>{numFmt.format(toNumber(renterSupport?.total) || renterSupportList.length)}</strong>
+                </div>
+                <div className={failedJobRows.length > 0 ? 'critical' : ''}>
+                  <span><Bi en="failed jobs" ar="مهام فاشلة" /></span>
+                  <strong>{numFmt.format(toNumber(jobSupport?.stats?.failed) || failedJobRows.length)}</strong>
+                </div>
+                <div className={paymentIssueRows.length > 0 ? 'watch' : ''}>
+                  <span><Bi en="payment issues" ar="مشاكل الدفع" /></span>
+                  <strong>{numFmt.format(paymentIssueRows.length)}</strong>
+                </div>
+              </div>
+
+              <div className={`support-grid ${supportDeskHasRows ? 'active' : 'clear'}`}>
+                <article className="support-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Contact submissions" ar="طلبات التواصل" /></span>
+                    <em><Bi en={`${supportCategoryCount} categories`} ar={`${supportCategoryCount} فئات`} /></em>
+                  </div>
+                  {supportContactList.length === 0 ? (
+                    <p className="support-empty"><Bi en="No saved support submissions yet." ar="لا توجد طلبات دعم محفوظة بعد." /></p>
+                  ) : (
+                    <div className="support-row-list">
+                      {supportContactList.slice(0, 4).map((row) => (
+                        <div className="support-row" key={row.id || row.email || row.created_at || 'contact'}>
+                          <div className="support-row-top">
+                            <strong>{row.name || row.email || 'Unknown contact'}</strong>
+                            <span className="support-category">{row.category || 'general'}</span>
+                          </div>
+                          <p>{row.message || 'No message recorded.'}</p>
+                          <small>{row.email || 'no email'} · {row.source || 'site'} · {formatDate(row.created_at)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="support-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Renter risk" ar="مخاطر المستأجر" /></span>
+                    <Link href="/admin/renters" prefetch={false}><Bi en="Open renters" ar="افتح المستأجرين" /></Link>
+                  </div>
+                  {lowBalanceRenterRows.length === 0 ? (
+                    <p className="support-empty"><Bi en="No suspended, low-balance, or failed-job renter records in the latest sample." ar="لا توجد سجلات مستأجرين معلقة أو منخفضة الرصيد أو كثيرة الفشل في العينة الأخيرة." /></p>
+                  ) : (
+                    <div className="support-row-list">
+                      {lowBalanceRenterRows.map((row) => (
+                        <div className="support-row" key={row.id || row.email || 'renter'}>
+                          <div className="support-row-top">
+                            <strong>{row.name || row.email || `Renter #${row.id || 'unknown'}`}</strong>
+                            <span className={`support-category ${String(row.status || '').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.organization || row.email || 'No organization recorded.'}</p>
+                          <small>{formatHalala(row.balance_halala)} balance · {toNumber(row.failed_jobs)} failed / {toNumber(row.total_jobs)} jobs · {formatHalala(row.total_spent_halala)} spent</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="support-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Job pain" ar="مشاكل المهام" /></span>
+                    <Link href="/admin/jobs" prefetch={false}><Bi en="Open jobs" ar="افتح المهام" /></Link>
+                  </div>
+                  {jobPainRows.length === 0 ? (
+                    <p className="support-empty"><Bi en="No failed, queued, assigned, or running jobs in the latest sample." ar="لا توجد مهام فاشلة أو منتظرة أو معينة أو قيد التشغيل في العينة الأخيرة." /></p>
+                  ) : (
+                    <div className="support-row-list">
+                      {jobPainRows.map((row) => (
+                        <div className="support-row" key={row.job_id || row.id || 'job'}>
+                          <div className="support-row-top">
+                            <strong>{shortId(row.job_id || String(row.id || ''), 14)}</strong>
+                            <span className={`support-category ${String(row.status || '').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.model || row.job_type || 'Model not recorded.'}</p>
+                          <small>{row.renter_name || `Renter #${row.renter_id || 'unknown'}`} · {row.provider_name || `Provider #${row.provider_id || 'unknown'}`} · {formatHalala(row.actual_cost_halala || row.cost_halala)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="support-card">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Payment context" ar="سياق الدفع" /></span>
+                    <Link href="/admin/payments" prefetch={false}><Bi en="Open payments" ar="افتح المدفوعات" /></Link>
+                  </div>
+                  {paymentIssueRows.length === 0 ? (
+                    <p className="support-empty"><Bi en="No failed, pending, initiated, or refunded payments in the latest sample." ar="لا توجد مدفوعات فاشلة أو معلقة أو مبدوءة أو مستردة في العينة الأخيرة." /></p>
+                  ) : (
+                    <div className="support-row-list">
+                      {paymentIssueRows.map((row) => (
+                        <div className="support-row" key={row.payment_id || row.id || 'payment'}>
+                          <div className="support-row-top">
+                            <strong>{row.renter_name || row.renter_email || `Renter #${row.renter_id || 'unknown'}`}</strong>
+                            <span className={`support-category ${String(row.status || '').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                          </div>
+                          <p>{row.description || row.source_type || 'No payment description recorded.'}</p>
+                          <small>{formatSar(row.amount_sar)} · payment {shortId(row.payment_id)} · {formatDate(row.created_at)}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <p className="support-policy">
+                <Bi
+                  en="v2 support is read-only. agents may summarize contacts and correlate renter, job, and payment evidence; suspensions, credits, balance edits, job cancel/requeue, refunds, and key rotation stay in verified consoles until support actions have audit and approval envelopes."
+                  ar="دعم v2 للقراءة فقط. يمكن للوكلاء تلخيص طلبات التواصل وربط أدلة المستأجر والمهام والدفع؛ تبقى الإيقافات والائتمانات وتعديلات الرصيد وإلغاء/إعادة تشغيل المهام والاستردادات وتدوير المفاتيح في اللوحات المتحققة حتى يكون لإجراءات الدعم غلاف موافقة وتدقيق."
                 />
               </p>
             </section>

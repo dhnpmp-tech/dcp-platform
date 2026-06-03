@@ -195,11 +195,11 @@ export default function V2HomePage() {
             <span className="n">02</span>
             <span className="body">
               <span className="t">
-                <Bi en="Demo" ar="تجربة" />
+                <Bi en="Quickstart" ar="البدء السريع" />
               </span>
-              <span className="ar">تجربة</span>
+              <span className="ar">البدء السريع</span>
               <span className="s">
-                <Bi en="Watch the round-trip" ar="شاهد الدورة" />
+                <Bi en="Start the renter path" ar="ابدأ مسار المستأجر" />
               </span>
             </span>
             <span className="arrow">→</span>
