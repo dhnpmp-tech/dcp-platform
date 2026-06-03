@@ -1207,8 +1207,9 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           gpu_count = COALESCE(?, gpu_count),
           gpu_model = COALESCE(?, gpu_model),
           gpu_info_json = COALESCE(?, gpu_info_json),
-          -- cached_models / vllm_models are owned by provider_engines (engines-sync);
-          -- no longer overwritten from the heartbeat payload (reconciled 2026-05-30).
+          -- cached_models / vllm_models are normally owned by provider_engines
+          -- (engines-sync). A guarded compatibility bridge below preserves model
+          -- coverage for legacy daemons that still do not send engines.
           container_restart_count = ?,
           model_cache_disk_mb = ?,
           model_cache_disk_total_mb = ?,
@@ -1239,13 +1240,40 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           p.id
         );
 
-        const normalizedCachedModels = Array.isArray(cached_models)
-            ? cached_models
+        const normalizeHeartbeatModelList = (value) => Array.isArray(value)
+            ? value
                 .map((model) => normalizeString(model, { maxLen: 200 }))
                 .filter(Boolean)
+                .slice(0, 64)
             : [];
+        const normalizedCachedModels = normalizeHeartbeatModelList(cached_models);
+        const normalizedVllmModels = normalizeHeartbeatModelList(vllm_models);
+        const legacyModelCoverage = Array.from(new Set([
+            ...normalizedCachedModels,
+            ...normalizedVllmModels,
+        ])).slice(0, 64);
+        if (legacyModelCoverage.length > 0 && !(Array.isArray(engines) && engines.length > 0)) {
+            try {
+                const engineRows = db.get('SELECT COUNT(*) AS n FROM provider_engines WHERE provider_id = ?', p.id);
+                if (Number(engineRows?.n || 0) === 0) {
+                    runStatement(
+                        `UPDATE providers
+                         SET cached_models = ?,
+                             vllm_models = COALESCE(?, vllm_models),
+                             updated_at = ?
+                         WHERE id = ?`,
+                        JSON.stringify(legacyModelCoverage),
+                        normalizedVllmModels.length > 0 ? JSON.stringify(normalizedVllmModels) : null,
+                        now,
+                        p.id
+                    );
+                }
+            } catch (legacyCoverageErr) {
+                console.warn(`[providers/heartbeat] legacy model coverage bridge skipped for provider=${p.id}: ${legacyCoverageErr?.message}`);
+            }
+        }
         const tierCapability = getProviderRoutingProfile({
-            cached_models: JSON.stringify(normalizedCachedModels),
+            cached_models: JSON.stringify(legacyModelCoverage),
             available_gpu_tiers: p.available_gpu_tiers || null,
             model_preload_status: p.model_preload_status || null,
         });
