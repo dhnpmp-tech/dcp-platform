@@ -18,6 +18,7 @@ assert(page.includes('/admin/providers?page=0&limit=200'), 'v2 admin should load
 assert(page.includes('/admin/providers/approval-queue?limit=100'), 'v2 admin should load provider approval queue context');
 assert(page.includes('/admin/fleet/health'), 'v2 admin should load earned fleet health');
 assert(page.includes('/admin/fleet/alerts'), 'v2 admin should load fleet alerts');
+assert(page.includes('/admin/fleet/probe-evidence?limit=50'), 'v2 admin should load canonical probe evidence');
 assert(page.includes('/admin/finance/reconciliation?days=7'), 'v2 admin should load finance reconciliation');
 assert(page.includes('/admin/errors?limit=20'), 'v2 admin should load recent error context');
 assert(page.includes('/admin/control-plane/signals?limit=5'), 'v2 admin should load control-plane signals');
@@ -49,7 +50,17 @@ assert(page.includes('does not trigger provider repair, payments, deploys, or co
 assert(page.includes('#serving-recovery'), 'v2 admin should expose serving recovery as a primary rail section');
 assert(page.includes('Serving recovery'), 'v2 admin should expose a serving recovery workflow');
 assert(page.includes('buildServingRecoveryItem'), 'v2 admin should derive serving recovery actions from fleet evidence');
+assert(page.includes('ProbeEvidencePayload'), 'v2 admin should type canonical probe evidence payloads');
+assert(page.includes('probeEvidenceRows'), 'v2 admin should normalize canonical probe evidence rows');
+assert(page.includes('probeFocusCopy'), 'v2 admin should map backend recovery focus codes into bilingual operator copy');
+assert(page.includes('buildServingRecoveryItemFromProbe'), 'v2 admin should derive serving recovery actions from canonical probe evidence');
 assert(page.includes('servingRecoveryRows'), 'v2 admin should render serving recovery rows');
+assert(page.includes('hasProbeEvidence'), 'v2 admin should treat an empty canonical probe response as available evidence');
+assert(page.includes('probeEvidence?.summary?.endpoint_reachable != null'), 'v2 admin should preserve zero endpoint-reachable counts from canonical evidence');
+assert(page.includes('probeEvidence?.summary?.inference_blocked != null'), 'v2 admin should preserve zero inference-blocked counts from canonical evidence');
+assert(page.includes('servingRecoveryPreview'), 'v2 admin should render a bounded serving recovery preview');
+assert(page.includes('servingProbeEvidenceAge'), 'v2 admin should show the latest probe evidence timestamp or fallback source');
+assert(page.includes('Canonical probe evidence'), 'v2 admin should label canonical probe evidence as the recovery source');
 assert(page.includes('servingInferenceProbeBlocked'), 'v2 admin should summarize endpoint-reachable providers that still fail earned inference');
 assert(page.includes('Inference timeout'), 'v2 admin should classify timeout-based earned probe failures');
 assert(page.includes('Run /v1/models and a one-token inference from the VPS'), 'v2 admin should tell operators how to verify earned serving state');

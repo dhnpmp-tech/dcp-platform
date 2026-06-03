@@ -14,6 +14,16 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 06:28 UTC — [PR #539](https://github.com/dhnpmp-tech/dcp-platform/pull/539) — `feat(v2): add admin probe evidence`
+
+Included:
+- Added a protected read-only `/api/admin/fleet/probe-evidence` endpoint that exposes canonical provider probe gates for serving recovery.
+- Merged endpoint reachability, endpoint probe failures, earned-online verifier state, cached-model evidence, WireGuard freshness, and heartbeat age into one bounded admin evidence feed.
+- Wired the v2 admin Serving recovery workflow to the new probe-evidence feed, with fallback to the existing fleet-health feed when canonical evidence is unavailable.
+- Added summary counters for endpoint-route blockers, earned-inference blockers, inference timeouts, model coverage gaps, ready providers, and recovery focus groups.
+- Kept the endpoint evidence-only: no live probes, provider repairs, endpoint edits, routing flips, or catalog state mutations run from this v2 surface.
+- Added static regressions for the backend evidence contract, v2 admin wiring, bounded preview rendering, evidence timestamp copy, and unsafe mutation boundaries.
+
 ### 06:14 UTC — [PR #538](https://github.com/dhnpmp-tech/dcp-platform/pull/538) — `feat(v2): add admin serving recovery`
 
 Included:
