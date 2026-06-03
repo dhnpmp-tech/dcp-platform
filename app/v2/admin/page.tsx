@@ -121,6 +121,18 @@ interface HealthPayload {
   status?: string
   ok?: boolean
   database?: { status?: string }
+  providers?: {
+    total?: number
+    online?: number
+    heartbeating?: number
+    endpoint_reachable?: number
+    serving?: number
+  }
+  capacity?: {
+    serving_providers?: number
+    reason?: string
+    gates?: string[]
+  }
   queues?: Record<string, unknown>
   cleanup?: Record<string, unknown>
   checks?: {
@@ -846,6 +858,7 @@ const AUTH_HREF = '/v2/auth?role=admin&method=apikey&redirect=/v2/admin'
 const HEARTBEAT_STALE_SECONDS = 5 * 60
 const HEARTBEAT_CRITICAL_SECONDS = 15 * 60
 const WG_STALE_SECONDS = 3 * 60
+const CAPACITY_GATES = ['fresh_heartbeat', 'endpoint_reachable', 'verified_online', 'model_coverage'] as const
 
 const numFmt = new Intl.NumberFormat('en-US')
 
@@ -890,6 +903,72 @@ function formatAgeSeconds(value: unknown): string {
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`
   if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
   return `${Math.round(seconds / 86400)}d`
+}
+
+function capacityReasonCopy(reason: string): { en: string; ar: string } {
+  if (reason === 'verified_serving_capacity') {
+    return {
+      en: 'verified serving capacity',
+      ar: 'سعة خدمة متحققة',
+    }
+  }
+  if (reason === 'no_verified_serving_provider') {
+    return {
+      en: 'no verified serving provider',
+      ar: 'لا يوجد مزوّد خدمة متحقق',
+    }
+  }
+  if (!reason || reason === 'unknown') {
+    return {
+      en: 'capacity reason unknown',
+      ar: 'سبب السعة غير معروف',
+    }
+  }
+  return {
+    en: reason.replace(/_/g, ' '),
+    ar: reason.replace(/_/g, ' '),
+  }
+}
+
+function capacityGateCopy(gate: string): { labelEn: string; labelAr: string; detailEn: string; detailAr: string } {
+  if (gate === 'fresh_heartbeat') {
+    return {
+      labelEn: 'Fresh heartbeat',
+      labelAr: 'نبض حديث',
+      detailEn: 'At least one provider is reporting recent daemon health.',
+      detailAr: 'يوجد مزوّد واحد على الأقل يرسل صحة خادم حديثة.',
+    }
+  }
+  if (gate === 'endpoint_reachable') {
+    return {
+      labelEn: 'Endpoint reachable',
+      labelAr: 'النقطة متاحة',
+      detailEn: 'The backend can reach the provider runtime endpoint from the VPS.',
+      detailAr: 'تستطيع الخلفية الوصول إلى نقطة تشغيل المزوّد من الخادم.',
+    }
+  }
+  if (gate === 'verified_online') {
+    return {
+      labelEn: 'Earned inference',
+      labelAr: 'استدلال متحقق',
+      detailEn: 'The verifier completed a real model probe, not only a daemon heartbeat.',
+      detailAr: 'أكمل الفاحص اختبار نموذج حقيقي، وليس نبض الخادم فقط.',
+    }
+  }
+  if (gate === 'model_coverage') {
+    return {
+      labelEn: 'Model coverage',
+      labelAr: 'تغطية النموذج',
+      detailEn: 'A catalog model or alias matches what the provider can actually serve.',
+      detailAr: 'يطابق نموذج أو مرادف في الكتالوج ما يستطيع المزوّد خدمته فعلاً.',
+    }
+  }
+  return {
+    labelEn: gate.replace(/_/g, ' '),
+    labelAr: gate.replace(/_/g, ' '),
+    detailEn: 'Capacity gate reported by the backend health contract.',
+    detailAr: 'بوابة سعة أبلغ عنها عقد صحة الخلفية.',
+  }
 }
 
 async function fetchJson<T>(path: string, token: string): Promise<T | null> {
@@ -2752,6 +2831,27 @@ export default function V2AdminPage() {
   const demandKeys = demandModelKeys(adminDemand)
   const demandSignalCount = demandKeys.length
   const publicCapacityReady = fleet?.serving_now === true && usableOnline > 0 && verifiedOnline > 0 && fleetModelReady > 0
+  const healthHeartbeatingProviders = toNumber(health?.providers?.heartbeating) || toNumber(health?.providers?.online) || toNumber(health?.checks?.providers?.online)
+  const healthEndpointReachableProviders = toNumber(health?.providers?.endpoint_reachable) || fleetEndpointReachable
+  const healthServingProviders = toNumber(health?.capacity?.serving_providers) || toNumber(health?.providers?.serving) || usableOnline
+  const capacityReason = health?.capacity?.reason || (publicCapacityReady ? 'verified_serving_capacity' : 'no_verified_serving_provider')
+  const capacityReasonLabel = capacityReasonCopy(capacityReason)
+  const capacityGateNames = (Array.isArray(health?.capacity?.gates) && health.capacity.gates.length > 0)
+    ? health.capacity.gates
+    : [...CAPACITY_GATES]
+  const capacityGateCards = capacityGateNames.map((gate) => {
+    const copy = capacityGateCopy(gate)
+    const state = gate === 'fresh_heartbeat'
+      ? (healthHeartbeatingProviders > 0 ? 'pass' : 'fail')
+      : gate === 'endpoint_reachable'
+        ? (healthEndpointReachableProviders > 0 ? 'pass' : 'fail')
+        : gate === 'verified_online'
+          ? (verifiedOnline > 0 ? 'pass' : 'fail')
+          : gate === 'model_coverage'
+            ? (fleetModelReady > 0 ? 'pass' : 'fail')
+            : 'unknown'
+    return { key: gate, state, ...copy }
+  })
   const launchMoneyBlockers = financeQueueTotal + reconciliationIssues + healthPendingWithdrawals
   const launchSystemBlockers = (health?.status === 'healthy' || health?.ok === true) && healthStuckJobs === 0 && healthCriticalEvents === 0 ? 0 : 1
   const launchCapacityBlockers = publicCapacityReady ? 0 : 1
@@ -2770,7 +2870,7 @@ export default function V2AdminPage() {
       owner: 'Fleet',
       titleEn: publicCapacityReady ? 'Serving proof is ready to confirm' : 'Serving proof is the sprint blocker',
       titleAr: publicCapacityReady ? 'دليل الخدمة جاهز للتأكيد' : 'دليل الخدمة هو عائق السبرنت',
-      evidence: `${usableOnline} serving · ${fleetEndpointReachable} endpoint · ${verifiedOnline} earned`,
+      evidence: `${healthServingProviders} serving · ${healthEndpointReachableProviders} endpoint · ${verifiedOnline} earned · ${capacityReason}`,
       actionEn: publicCapacityReady
         ? 'Confirm one metered inference and then review public marketplace capacity language.'
         : 'Use Serving recovery to get one provider through route, inference, and model proof before changing public promises.',
@@ -3348,6 +3448,35 @@ export default function V2AdminPage() {
                   <span><Bi en="demand signals" ar="إشارات الطلب" /></span>
                   <strong>{numFmt.format(demandSignalCount)}</strong>
                   <small>{demandKeys.slice(0, 2).join(', ') || 'no demand window'}</small>
+                </div>
+              </div>
+
+              <div className={`capacity-blocker ${publicCapacityReady ? 'ready' : 'critical'}`}>
+                <div className="capacity-blocker-main">
+                  <span><Bi en="Live capacity reason" ar="سبب السعة الحية" /></span>
+                  <strong><Bi en={capacityReasonLabel.en} ar={capacityReasonLabel.ar} /></strong>
+                  <p>
+                    <Bi
+                      en="Admin health now mirrors the public capacity contract, so operators can see whether the blocker is heartbeat, endpoint reachability, earned inference, or model coverage before changing marketplace language."
+                      ar="تعكس صحة الإدارة الآن عقد السعة العام، حتى يرى المشغّلون هل العائق هو النبض أو وصول النقطة أو الاستدلال المتحقق أو تغطية النموذج قبل تغيير لغة السوق."
+                    />
+                  </p>
+                  <small>
+                    <Bi
+                      en={`${healthHeartbeatingProviders} heartbeating · ${healthEndpointReachableProviders} endpoint · ${verifiedOnline} earned · ${healthServingProviders} serving`}
+                      ar={`${healthHeartbeatingProviders} نبض · ${healthEndpointReachableProviders} نقطة · ${verifiedOnline} متحقق · ${healthServingProviders} يخدم`}
+                    />
+                  </small>
+                </div>
+
+                <div className="capacity-gate-grid">
+                  {capacityGateCards.map((gate) => (
+                    <article className={gate.state} key={gate.key}>
+                      <span><Bi en={gate.labelEn} ar={gate.labelAr} /></span>
+                      <strong><Bi en={gate.state} ar={gate.state === 'pass' ? 'ناجح' : gate.state === 'fail' ? 'فاشل' : 'غير معروف'} /></strong>
+                      <p><Bi en={gate.detailEn} ar={gate.detailAr} /></p>
+                    </article>
+                  ))}
                 </div>
               </div>
 

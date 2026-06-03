@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 08:45 UTC — [PR #550](https://github.com/dhnpmp-tech/dcp-platform/pull/550) — `feat(v2): surface admin serving blocker reason`
+
+Included:
+- Added the same serving-capacity counters and machine-readable capacity reason to the protected `/api/admin/health` endpoint that public health already exposes.
+- Added a Live capacity reason packet to `/v2/admin` Launch readiness so founders and agents can see whether the blocker is fresh heartbeat, endpoint reachability, earned inference, or model coverage.
+- Kept public capacity changes gated behind all four serving gates and continued to keep provider repair, routing, daemon, WireGuard, and marketplace-copy mutations outside the v2 packet.
+- Added static regressions for the admin health capacity contract, v2 capacity reason rendering, and capacity gate styling.
+
 ### 08:28 UTC — [PR #549](https://github.com/dhnpmp-tech/dcp-platform/pull/549) — `fix(v2): remove stale provider setup proof claims`
 
 Included:
