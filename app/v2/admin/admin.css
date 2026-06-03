@@ -1077,6 +1077,94 @@ body {
   font-size: 12.5px;
 }
 
+.notification-posture {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.notification-posture .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.notification-posture .section-head > span.ready {
+  color: var(--teal);
+}
+
+.notification-posture .section-head > span.watch {
+  color: var(--orange);
+}
+
+.notification-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.notification-card {
+  min-height: 172px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 13px;
+}
+
+.notification-card span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.notification-card strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.notification-card.watch strong {
+  color: var(--orange);
+}
+
+.notification-card p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.notification-card small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.notification-policy {
+  margin: 14px 0 0;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -1438,6 +1526,7 @@ body {
   .approval-layout,
   .mission-layout,
   .access-grid,
+  .notification-grid,
   .lane-grid,
   .future-map {
     grid-template-columns: 1fr;
@@ -1456,6 +1545,10 @@ body {
   }
 
   .access-ladder {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notification-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1477,6 +1570,7 @@ body {
   .mission-summary-grid,
   .approval-facts,
   .access-ladder,
+  .notification-grid,
   .lane-stats,
   .workflow-grid {
     grid-template-columns: 1fr;

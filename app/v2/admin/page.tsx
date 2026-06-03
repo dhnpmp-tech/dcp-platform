@@ -230,6 +230,25 @@ interface AccessPolicyPayload {
   }>
 }
 
+interface NotificationPosturePayload {
+  generated_at?: string
+  enabled?: boolean
+  updated_at?: string | null
+  channels?: Array<{
+    id?: string
+    label?: string
+    configured?: boolean
+    active?: boolean
+    destination?: string | null
+    secret_exposed?: boolean
+  }>
+  agent_policy?: {
+    notify_state?: string
+    write_policy?: string
+    next_gate?: string
+  }
+}
+
 interface ApprovalDecisionResult {
   success?: boolean
   provider_id?: number
@@ -890,6 +909,7 @@ export default function V2AdminPage() {
   const [missionGoals, setMissionGoals] = useState<MissionGoal[]>([])
   const [missionPulse, setMissionPulse] = useState<MissionPulsePayload | null>(null)
   const [accessPolicy, setAccessPolicy] = useState<AccessPolicyPayload | null>(null)
+  const [notificationPosture, setNotificationPosture] = useState<NotificationPosturePayload | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -925,6 +945,7 @@ export default function V2AdminPage() {
         missionGoalsRes,
         missionPulseRes,
         accessPolicyRes,
+        notificationPostureRes,
       ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
@@ -943,6 +964,7 @@ export default function V2AdminPage() {
         fetchJson<MissionGoalsPayload>('/mission/goals', token),
         fetchJson<MissionPulsePayload>('/mission/pulse?hours=24', token),
         fetchJson<AccessPolicyPayload>('/admin/access/policy', token),
+        fetchJson<NotificationPosturePayload>('/admin/notifications/posture', token),
       ])
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
@@ -961,6 +983,7 @@ export default function V2AdminPage() {
       setMissionGoals(missionGoalRows(missionGoalsRes))
       setMissionPulse(missionPulseRes)
       setAccessPolicy(accessPolicyRes)
+      setNotificationPosture(notificationPostureRes)
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -1100,6 +1123,10 @@ export default function V2AdminPage() {
   const missionStrictWrites = accessPolicy?.mission_surface?.strict_write_auth_enabled === true
   const missionWritePolicy = accessPolicy?.mission_surface?.write_policy || 'unknown'
   const agentWriteState = accessPolicy?.agent_permissions?.find((permission) => permission.level === 'guarded_write')?.state || 'unknown'
+  const notificationChannels = notificationPosture?.channels || []
+  const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
+  const configuredNotificationChannels = notificationChannels.filter((channel) => channel.configured).length
+  const notificationNotifyState = notificationPosture?.agent_policy?.notify_state || 'unknown'
   const refreshedLabel = refreshedAt
     ? refreshedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '--:--'
@@ -1128,6 +1155,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#access" className="rail-link">
             <span>AC</span><Bi en="Access" ar="الوصول" />
+          </a>
+          <a href="#notifications" className="rail-link">
+            <span>NT</span><Bi en="Notify" ar="التنبيه" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -1533,6 +1563,59 @@ export default function V2AdminPage() {
                   </div>
                 )}
               </div>
+            </section>
+
+            <section className="notification-posture" id="notifications" aria-label="Notification routing">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Human and agent alerts" ar="تنبيهات البشر والوكلاء" /></p>
+                  <h2><Bi en="Notification routing" ar="توجيه التنبيهات" /></h2>
+                </div>
+                <span className={activeNotificationChannels > 0 ? 'ready' : 'watch'}>
+                  <Bi en={activeNotificationChannels > 0 ? 'channels live' : 'channels quiet'} ar={activeNotificationChannels > 0 ? 'القنوات نشطة' : 'القنوات هادئة'} />
+                </span>
+              </div>
+
+              <div className="notification-grid">
+                <article className={`notification-card ${activeNotificationChannels > 0 ? 'ready' : 'watch'}`}>
+                  <span><Bi en="Routing state" ar="حالة التوجيه" /></span>
+                  <strong>{activeNotificationChannels}/{configuredNotificationChannels || notificationChannels.length || 0}</strong>
+                  <p><Bi en="Active channels only count when notifications are enabled and the channel has the required credentials." ar="تُحسب القنوات النشطة فقط عندما تكون التنبيهات مفعلة وتملك القناة بيانات الاعتماد المطلوبة." /></p>
+                  <small>{notificationPosture?.enabled ? 'notification service enabled' : 'notification service disabled'}</small>
+                </article>
+
+                <article className="notification-card">
+                  <span><Bi en="Agent notify policy" ar="سياسة تنبيه الوكيل" /></span>
+                  <strong>{notificationNotifyState}</strong>
+                  <p>{notificationPosture?.agent_policy?.next_gate || 'Define alert channels and event allowlists before agents create notifications.'}</p>
+                  <small>{notificationPosture?.agent_policy?.write_policy || 'admin_only_test_send'}</small>
+                </article>
+
+                {notificationChannels.map((channel) => (
+                  <article key={channel.id || channel.label || 'channel'} className={`notification-card ${channel.active ? 'ready' : channel.configured ? 'watch' : ''}`}>
+                    <span>{channel.label || channel.id || 'channel'}</span>
+                    <strong>{channel.active ? 'active' : channel.configured ? 'configured' : 'missing'}</strong>
+                    <p>{channel.destination || 'No destination reported.'}</p>
+                    <small>{channel.secret_exposed ? 'secret exposure reported' : 'redacted destination only'}</small>
+                  </article>
+                ))}
+
+                {notificationChannels.length === 0 && (
+                  <article className="notification-card watch">
+                    <span><Bi en="Channels" ar="القنوات" /></span>
+                    <strong><Bi en="unavailable" ar="غير متوفرة" /></strong>
+                    <p><Bi en="The posture endpoint did not return channel data, so agents should treat notifications as disabled." ar="لم تعد نقطة الحالة بيانات القنوات، لذلك يجب على الوكلاء اعتبار التنبيهات معطلة." /></p>
+                    <small><Bi en="read-only fallback" ar="احتياطي قراءة فقط" /></small>
+                  </article>
+                )}
+              </div>
+
+              <p className="notification-policy">
+                <Bi
+                  en="v2 admin shows notification posture only. Test sends and channel edits stay in the current admin console until event allowlists, approval notes, and audit envelopes are explicit."
+                  ar="تعرض إدارة v2 حالة التنبيهات فقط. تبقى رسائل الاختبار وتعديل القنوات في لوحة الإدارة الحالية حتى تصبح قوائم الأحداث وملاحظات الموافقة وأغلفة التدقيق واضحة."
+                />
+              </p>
             </section>
 
             <section className="admin-two-col">

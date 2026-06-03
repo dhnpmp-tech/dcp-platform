@@ -196,6 +196,78 @@ function buildAdminAccessPolicySnapshot() {
   };
 }
 
+function redactedTail(value, visible = 4) {
+  const normalized = normalizeString(value, { maxLen: 200 });
+  if (!normalized) return null;
+  if (normalized.length <= visible) return 'configured';
+  const tail = normalized.slice(-visible);
+  return `...${tail}`;
+}
+
+function safeUrlHost(value) {
+  const normalized = normalizeString(value, { maxLen: 500 });
+  if (!normalized) return null;
+  try {
+    const parsed = new URL(normalized);
+    return parsed.hostname || 'configured';
+  } catch (_) {
+    return 'configured';
+  }
+}
+
+function buildNotificationPostureSnapshot() {
+  const config = getNotifConfig();
+  if (!config) {
+    return {
+      generated_at: new Date().toISOString(),
+      enabled: false,
+      updated_at: null,
+      channels: [],
+      agent_policy: {
+        notify_state: 'blocked_until_channel_configured',
+        write_policy: 'admin_only_test_send',
+        next_gate: 'configure at least one alert channel before granting agents notification privileges',
+      },
+    };
+  }
+
+  const enabled = Boolean(config.enabled);
+  const webhookConfigured = Boolean(normalizeString(config.webhook_url, { maxLen: 500 }));
+  const telegramBotConfigured = Boolean(normalizeString(config.telegram_bot_token, { maxLen: 500 }));
+  const telegramChatConfigured = Boolean(normalizeString(config.telegram_chat_id, { maxLen: 200 }));
+  const telegramConfigured = telegramBotConfigured && telegramChatConfigured;
+  const anyChannelConfigured = webhookConfigured || telegramConfigured;
+
+  return {
+    generated_at: new Date().toISOString(),
+    enabled,
+    updated_at: config.updated_at || null,
+    channels: [
+      {
+        id: 'webhook',
+        label: 'Webhook',
+        configured: webhookConfigured,
+        active: enabled && webhookConfigured,
+        destination: safeUrlHost(config.webhook_url),
+        secret_exposed: false,
+      },
+      {
+        id: 'telegram',
+        label: 'Telegram',
+        configured: telegramConfigured,
+        active: enabled && telegramConfigured,
+        destination: telegramChatConfigured ? redactedTail(config.telegram_chat_id) : null,
+        secret_exposed: false,
+      },
+    ],
+    agent_policy: {
+      notify_state: enabled && anyChannelConfigured ? 'ready_for_human_approved_alerts' : 'blocked_until_channel_configured',
+      write_policy: 'admin_only_test_send',
+      next_gate: 'define event allowlist and audit envelope before agent-generated notifications',
+    },
+  };
+}
+
 function normalizeIdArray(value, { maxItems = 500 } = {}) {
   if (!Array.isArray(value) || value.length === 0) return null;
   const ids = [];
@@ -4423,6 +4495,15 @@ router.get('/finance/reconciliation', (req, res) => {
 });
 
 // ── Notification Config ──────────────────────────────────────────────────
+router.get('/notifications/posture', (req, res) => {
+  try {
+    res.json(buildNotificationPostureSnapshot());
+  } catch (error) {
+    console.error('Notification posture error:', error);
+    res.status(500).json({ error: 'Failed to get notification posture' });
+  }
+});
+
 router.get('/notifications/config', (req, res) => {
   try {
     const config = getNotifConfig();

@@ -25,6 +25,7 @@ assert(page.includes('/mission/assignees'), 'v2 admin should load the human and 
 assert(page.includes('/mission/goals'), 'v2 admin should load mission goals');
 assert(page.includes('/mission/pulse?hours=24'), 'v2 admin should load the 24h mission pulse');
 assert(page.includes('/admin/access/policy'), 'v2 admin should load the access governance policy');
+assert(page.includes('/admin/notifications/posture'), 'v2 admin should load notification posture instead of raw notification config');
 assert(page.includes('buildTasks'), 'v2 admin should synthesize an ops inbox');
 assert(page.includes('buildReadinessChecks'), 'v2 admin should synthesize a launch readiness board');
 assert(page.includes('agentMode'), 'v2 admin should model agent permission classes per task');
@@ -52,6 +53,12 @@ assert(page.includes('strict writes'), 'v2 admin should surface the strict write
 assert(page.includes('missionWritePolicy'), 'v2 admin should display the backend mission write policy');
 assert(page.includes('agentWriteState'), 'v2 admin should display guarded agent write readiness');
 assert(page.includes('no v2 task mutation controls exposed'), 'v2 admin should state that task mutation controls are not exposed');
+assert(page.includes('Notification routing'), 'v2 admin should expose notification routing posture');
+assert(page.includes('Human and agent alerts'), 'v2 admin should label notification routing for humans and agents');
+assert(page.includes('notificationNotifyState'), 'v2 admin should display agent notify readiness');
+assert(page.includes('redacted destination only'), 'v2 admin should state that notification destinations are redacted');
+assert(page.includes('v2 admin shows notification posture only'), 'v2 admin should keep notification writes outside the v2 surface');
+assert(!page.includes('/admin/notifications/config'), 'v2 admin should not consume raw notification config');
 assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
 assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
 assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
@@ -74,6 +81,9 @@ assert(css.includes('.mission-roster'), 'v2 admin should style the mission roste
 assert(css.includes('.access-governance'), 'v2 admin should style access governance');
 assert(css.includes('.access-grid'), 'v2 admin should style the access governance cards');
 assert(css.includes('.access-ladder'), 'v2 admin should style the access permission ladder');
+assert(css.includes('.notification-posture'), 'v2 admin should style notification posture');
+assert(css.includes('.notification-grid'), 'v2 admin should style notification routing cards');
+assert(css.includes('.notification-policy'), 'v2 admin should style the notification policy note');
 assert(css.includes('.lane-grid'), 'v2 admin should style operational lanes');
 assert(css.includes('min-height: 100dvh'), 'v2 admin should use dynamic viewport height for mobile stability');
 assert(!css.includes('h-screen'), 'v2 admin should not use unstable h-screen layouts');
