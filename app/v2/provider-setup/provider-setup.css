@@ -152,7 +152,7 @@
   .os-dl { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
   .os-dl .os { flex: 1; min-width: 150px; border: 1px solid var(--line); padding: 20px; text-align: center; text-decoration: none; color: var(--ink); transition: border-color .15s, background .15s; background: transparent; appearance: none; }
   .os-dl .os:hover { border-color: var(--pv); background: var(--pv-soft); }
-  .os-dl .os.detected { border-color: var(--pv); background: var(--pv-soft); }
+  .os-dl .os.selected { border-color: var(--pv); background: var(--pv-soft); }
   .os-dl .os .nm { font-family: var(--serif); font-size: 19px; }
   .os-dl .os .meta { font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 4px; }
   .os-dl .os .tag { font-family: var(--mono); font-size: 9.5px; color: var(--pv); display: block; margin-top: 6px; text-transform: uppercase; letter-spacing: .1em; }
