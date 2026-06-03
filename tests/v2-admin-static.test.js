@@ -7,6 +7,11 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'app/v2/admin/admin.css')
 const auth = fs.readFileSync(path.join(__dirname, '..', 'app/v2/auth/page.tsx'), 'utf8');
 
 assert(page.includes("localStorage.getItem('dc1_admin_token')"), 'v2 admin should guard with the admin token');
+assert(page.includes('lockAdminSession'), 'v2 admin should expose a local session lock action');
+assert(page.includes('loadRequestRef'), 'v2 admin should track in-flight load generations');
+assert(page.includes('const isCurrentLoad'), 'v2 admin should gate stale load completion');
+assert(page.includes("localStorage.removeItem('dc1_admin_token')"), 'v2 admin lock should clear the local admin token');
+assert(page.includes("setState('missing-key')"), 'v2 admin lock should return the page to the missing-key state');
 assert(page.includes('/v2/auth?role=admin&method=apikey&redirect=/v2/admin'), 'v2 admin should send missing auth to v2 admin sign-in');
 assert(page.includes('/admin/dashboard'), 'v2 admin should load the verified admin dashboard API');
 assert(page.includes('/admin/payments/audit?limit=40'), 'v2 admin should load the payments audit queue');
@@ -225,6 +230,7 @@ assert(auth.includes("redirect=/v2/admin"), 'v2 auth admin link should land on t
 assert(!auth.includes("redirect=/admin'"), 'v2 auth should not default admin sign-in back to the old admin console');
 
 assert(css.includes('.v2-admin'), 'v2 admin should have scoped styles');
+assert(css.includes('.admin-lock'), 'v2 admin should style the session lock button');
 assert(css.includes('.readiness-board'), 'v2 admin should style the readiness board');
 assert(css.includes('.operator-brief'), 'v2 admin should style the operator brief');
 assert(css.includes('.operator-brief-grid'), 'v2 admin should style the operator brief grid');

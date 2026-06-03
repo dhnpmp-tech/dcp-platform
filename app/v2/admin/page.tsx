@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
@@ -1817,6 +1817,7 @@ function buildReadinessChecks(
 export default function V2AdminPage() {
   const router = useRouter()
   const { lang, toggle } = useV2()
+  const loadRequestRef = useRef(0)
   const [state, setState] = useState<LoadState>('checking')
   const [error, setError] = useState('')
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null)
@@ -1859,12 +1860,19 @@ export default function V2AdminPage() {
   const [missionActionMessage, setMissionActionMessage] = useState<ActionMessage | null>(null)
 
   const load = useCallback(async () => {
+    const requestId = loadRequestRef.current + 1
+    loadRequestRef.current = requestId
     const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
     if (!token) {
       setState('missing-key')
       router.replace(AUTH_HREF)
       return
     }
+    const isCurrentLoad = () => (
+      loadRequestRef.current === requestId
+      && typeof window !== 'undefined'
+      && localStorage.getItem('dc1_admin_token') === token
+    )
 
     setState('loading')
     setError('')
@@ -1926,6 +1934,7 @@ export default function V2AdminPage() {
         fetchJson<AdminJobsPayload>('/admin/jobs?limit=12', token),
         fetchJson<AdminPaymentsPayload>('/admin/payments?limit=12', token),
       ])
+      if (!isCurrentLoad()) return
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
       setHealth(healthRes)
@@ -1956,8 +1965,10 @@ export default function V2AdminPage() {
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
+      if (!isCurrentLoad()) return
       if (err instanceof Error && err.message === 'admin-auth-expired') {
         localStorage.removeItem('dc1_admin_token')
+        loadRequestRef.current += 1
         setState('missing-key')
         router.replace(AUTH_HREF)
         return
@@ -2557,6 +2568,16 @@ export default function V2AdminPage() {
     ? refreshedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '--:--'
 
+  const lockAdminSession = () => {
+    loadRequestRef.current += 1
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dc1_admin_token')
+    }
+    setError('')
+    setState('missing-key')
+    router.replace(AUTH_HREF)
+  }
+
   return (
     <div className="v2-admin">
       <aside className="admin-rail">
@@ -2639,6 +2660,9 @@ export default function V2AdminPage() {
             </button>
             <button type="button" className="admin-refresh" onClick={() => void load()} disabled={state === 'loading'}>
               <Bi en={state === 'loading' ? 'Refreshing' : 'Refresh'} ar={state === 'loading' ? 'جارٍ التحديث' : 'تحديث'} />
+            </button>
+            <button type="button" className="admin-lock" onClick={lockAdminSession}>
+              <Bi en="Lock" ar="قفل" />
             </button>
           </div>
         </header>
