@@ -111,14 +111,27 @@ function _candidateBases(provider) {
   return bases;
 }
 
-// Pick a model id to use for the 1-token chat probe. Prefer the provider's
-// own cached_models (what it claims to serve); fall back to whatever
-// /v1/models reported. Returns null when no model is known (chat probe is
-// then skipped — GET /v1/models success alone still counts as verified).
+function _normalizeModelId(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+// Pick a model id to use for the 1-token chat probe. If /v1/models reports
+// live model ids, never probe a stale cached_models entry that is absent from
+// that live list. Prefer the provider's cached id only when it is confirmed by
+// /v1/models; otherwise probe the first live model the endpoint actually
+// reports. Returns null when no model is known (chat probe is then skipped —
+// GET /v1/models success alone still counts as verified).
 function _pickProbeModel(provider, reportedModels) {
   const cached = _parseModelList(provider.cached_models);
+  const reported = Array.isArray(reportedModels)
+    ? reportedModels.map((s) => String(s).trim()).filter(Boolean)
+    : [];
+  if (reported.length) {
+    const reportedSet = new Set(reported.map(_normalizeModelId));
+    const cachedMatch = cached.find((model) => reportedSet.has(_normalizeModelId(model)));
+    return cachedMatch || reported[0];
+  }
   if (cached.length) return cached[0];
-  if (Array.isArray(reportedModels) && reportedModels.length) return reportedModels[0];
   return null;
 }
 
@@ -446,6 +459,7 @@ module.exports = {
   _normalizeBaseUrl,
   _candidateBases,
   _pickProbeModel,
+  _normalizeModelId,
   _parseModelList,
   VERIFY_INTERVAL_MS,
   HEARTBEAT_FRESH_MS,

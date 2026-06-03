@@ -14,6 +14,13 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 09:46 UTC — [PR #555](https://github.com/dhnpmp-tech/dcp-platform/pull/555) — `fix(providers): verify served model from live endpoint`
+
+Included:
+- Updated earned-provider verification to probe a model returned by the provider's live `/v1/models` response instead of blindly using the first cached DB model when the cached list is stale.
+- Kept the cached-model preference only when `/v1/models` confirms that cached id is actually served, so healthy providers are not failed by old catalog metadata.
+- Added focused regressions for stale cached model selection, confirmed cached model selection, and the no-reported-model fallback.
+
 ### 09:26 UTC — [PR #554](https://github.com/dhnpmp-tech/dcp-platform/pull/554) — `fix(v1): restore engine-backed model coverage`
 
 Included:
