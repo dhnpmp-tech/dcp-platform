@@ -10,7 +10,7 @@ import { Bi, useV2 } from '../lib/i18n'
 import { getApiBase, getProviderKey } from '@/lib/api'
 import './provider-setup.css'
 
-// ── Earnings formula constants (illustrative MOCK data, per prototype) ──
+// ── Earnings estimate constants. The exact GPU profile is verified by the daemon after install. ──
 const PER_HOUR = [1.15, 1.6, 2.2] as const
 const WEEKS_PER_MONTH = 4.33
 const PROVIDER_SHARE = 0.85
@@ -481,8 +481,8 @@ export default function V2ProviderSetup() {
             </h1>
             <p className="step-sub">
               <Bi
-                en="We detected the basics from your browser. The full check runs after install — this is just to set expectations."
-                ar="اكتشفنا الأساسيات من متصفحك. الفحص الكامل يجري بعد التثبيت — هذا فقط لتوضيح التوقعات."
+                en="These are the minimum expectations before install. The full check runs after the daemon reports your real GPU, memory, network, and serving endpoint."
+                ar="هذه هي التوقعات الدنيا قبل التثبيت. يجري الفحص الكامل بعد أن يرسل الخادم المحلي معالجك الحقيقي والذاكرة والشبكة ونقطة الخدمة."
               />
             </p>
 
@@ -495,7 +495,7 @@ export default function V2ProviderSetup() {
                     <Bi en="Windows, macOS, and Linux installers are available" ar="مثبّتات Windows وmacOS وLinux متاحة" />
                   </small>
                 </span>
-                <span className="v">DCP</span>
+                <span className="v">Win / mac / Linux</span>
               </div>
               <div className="row ok">
                 <span className="ic">✓</span>
@@ -505,7 +505,7 @@ export default function V2ProviderSetup() {
                     <Bi en="The daemon reports your exact GPU after install" ar="يرسل الخادم المحلي نوع المعالج الدقيق بعد التثبيت" />
                   </small>
                 </span>
-                <span className="v">NVIDIA</span>
+                <span className="v">RTX 3060 Ti+</span>
               </div>
               <div className="row ok">
                 <span className="ic">✓</span>
@@ -515,7 +515,7 @@ export default function V2ProviderSetup() {
                     <Bi en="16 GB or more recommended" ar="١٦ جيجابايت أو أكثر مُوصى به" />
                   </small>
                 </span>
-                <span className="v">32 GB</span>
+                <span className="v">16 GB+</span>
               </div>
               <div className="row ok">
                 <span className="ic">✓</span>
@@ -525,7 +525,7 @@ export default function V2ProviderSetup() {
                     <Bi en="Stable connection · 50+ Mbps" ar="اتصال مستقر · ٥٠+ ميجابت" />
                   </small>
                 </span>
-                <span className="v">280 Mbps</span>
+                <span className="v">50+ Mbps</span>
               </div>
               <div className="row warn">
                 <span className="ic">!</span>
@@ -614,7 +614,7 @@ export default function V2ProviderSetup() {
                   <Bi en="Daemon-reported GPU" ar="المعالج كما يرسله الخادم المحلي" /> <small><Bi en="Exact model and VRAM appear after install" ar="يظهر النوع والذاكرة بعد التثبيت" /></small>
                 </div>
                 <span className="badge">
-                  <Bi en="auto-detected" ar="اكتشاف تلقائي" />
+                  <Bi en="after install" ar="بعد التثبيت" />
                 </span>
               </div>
               <div className="body">

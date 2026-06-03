@@ -49,9 +49,14 @@ const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
   'working inference call',
   '100–270 tok/s',
   '100-270 tok/s',
+  'scaleX(.34)',
+  'scaleX(0.34)',
 ].forEach((claim) => {
   assert(!home.includes(claim), `v2 home should not present simulated live marketplace telemetry: ${claim}`);
 });
+
+assert(home.includes('scaleX(0)'), 'v2 home should not render a non-zero fake verified-capacity meter');
+assert(home.includes('Check live status'), 'v2 home should route live-capacity questions to the status page');
 
 [
   'useState(41)',
@@ -60,6 +65,9 @@ const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
   'providers registered',
   'Live network',
   'Math.random',
+  'illustrative MOCK data',
+  'We detected the basics from your browser',
+  'auto-detected',
 ].forEach((claim) => {
   assert(!providerSetup.includes(claim), `v2 provider setup should not show a fake live provider counter: ${claim}`);
 });
