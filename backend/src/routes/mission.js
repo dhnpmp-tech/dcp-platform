@@ -1,11 +1,13 @@
 // Mission Control — tasks, milestones, goals.
 //
 // Public read endpoints (auth: any logged-in DCP user via x-renter-key
-// or admin token) and write endpoints (auth: same + x-mission-agent-key
-// for agents). Single SQLite store. Designed to be both UI-friendly and
-// agent-friendly: every endpoint returns JSON, every list endpoint
-// accepts a status/assignee filter, every write endpoint accepts source
-// metadata so we can trace WHO created what.
+// or admin token). Write endpoints keep the legacy authenticated-write
+// behavior by default, but DCP_MISSION_STRICT_WRITE_AUTH can harden them
+// to admin token or dedicated x-mission-agent-key only. Single SQLite
+// store. Designed to be both UI-friendly and agent-friendly: every
+// endpoint returns JSON, every list endpoint accepts a status/assignee
+// filter, every write endpoint accepts source metadata so we can trace
+// WHO created what.
 
 const express = require('express');
 const router = express.Router();
@@ -17,10 +19,39 @@ const { isAdminRequest } = require('../middleware/auth');
 // Reads: lightweight — any valid renter key OR admin token. We treat
 // this surface as internal/private (will be served from /mission UI),
 // not as a billable tenant boundary like /v1.
-// Writes: same as reads PLUS a separate x-mission-agent-key for bots
-// posting tasks programmatically (Claude, Nexus, Tito).
+// Writes: legacy mode matches reads. Strict mode requires admin or a
+// separate x-mission-agent-key for bots posting tasks programmatically
+// (Claude, Nexus, Tito).
 
 const MISSION_AGENT_KEY = process.env.MISSION_AGENT_KEY || null;
+
+function parseBooleanLike(value, defaultValue = false) {
+  if (value == null) return defaultValue;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'n', 'off', ''].includes(normalized)) return false;
+  }
+  return defaultValue;
+}
+
+function strictMissionWritesEnabled() {
+  return parseBooleanLike(process.env.DCP_MISSION_STRICT_WRITE_AUTH, false);
+}
+
+function timingSafeEqualString(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function isMissionAgentRequest(req) {
+  return Boolean(MISSION_AGENT_KEY && timingSafeEqualString(req.headers['x-mission-agent-key'], MISSION_AGENT_KEY));
+}
 
 function isAuthed(req) {
   // Admin (env-backed DC1_ADMIN_TOKEN, timing-safe compare via shared helper)
@@ -61,13 +92,23 @@ function isAuthed(req) {
     }
   }
   // Dedicated agent key (off unless MISSION_AGENT_KEY env is set)
-  if (MISSION_AGENT_KEY && req.headers['x-mission-agent-key'] === MISSION_AGENT_KEY) return true;
+  if (isMissionAgentRequest(req)) return true;
   return false;
 }
 
 function requireAuth(req, res, next) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
   next();
+}
+
+function requireWriteAuth(req, res, next) {
+  if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
+  if (!strictMissionWritesEnabled()) return next();
+  if (isAdminRequest(req) || isMissionAgentRequest(req)) return next();
+  return res.status(403).json({
+    error: 'mission_write_forbidden',
+    detail: 'mission writes require admin auth or x-mission-agent-key when DCP_MISSION_STRICT_WRITE_AUTH is enabled',
+  });
 }
 
 // ── ID + validation helpers ────────────────────────────────────────────
@@ -224,7 +265,7 @@ router.get('/tasks', requireAuth, (req, res) => {
   res.json({ tasks: rows });
 });
 
-router.post('/tasks', requireAuth, (req, res) => {
+router.post('/tasks', requireWriteAuth, (req, res) => {
   const title = clean(req.body?.title, 300);
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = newId('task');
@@ -260,7 +301,7 @@ router.post('/tasks', requireAuth, (req, res) => {
   res.status(201).json({ task });
 });
 
-router.patch('/tasks/:id', requireAuth, (req, res) => {
+router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
   const existing = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
@@ -339,7 +380,7 @@ router.patch('/tasks/:id', requireAuth, (req, res) => {
 // Reassign with mandatory rationale. Insertion of the explanatory comment +
 // the assignee swap happen together — if validation fails neither side
 // runs, so the comment log stays in sync with the task state.
-router.post('/tasks/:id/reassign', requireAuth, (req, res) => {
+router.post('/tasks/:id/reassign', requireWriteAuth, (req, res) => {
   const task = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
   const newAssigneeId = clean(req.body?.new_assignee_id, 100);
@@ -408,7 +449,7 @@ router.post('/tasks/:id/reassign', requireAuth, (req, res) => {
   res.json({ task: updated, comment: db.get(`SELECT * FROM mission_task_comments WHERE id = ?`, cmtId) });
 });
 
-router.delete('/tasks/:id', requireAuth, (req, res) => {
+router.delete('/tasks/:id', requireWriteAuth, (req, res) => {
   let r;
   try {
     r = db.run(`DELETE FROM mission_tasks WHERE id = ?`, req.params.id);
@@ -426,7 +467,7 @@ router.delete('/tasks/:id', requireAuth, (req, res) => {
   res.json({ deleted: true });
 });
 
-router.post('/tasks/:id/comments', requireAuth, (req, res) => {
+router.post('/tasks/:id/comments', requireWriteAuth, (req, res) => {
   const task = db.get(`SELECT id FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
   const body = clean(req.body?.body, 8000);
@@ -466,7 +507,7 @@ router.get('/milestones', requireAuth, (req, res) => {
   res.json({ milestones: rows });
 });
 
-router.post('/milestones', requireAuth, (req, res) => {
+router.post('/milestones', requireWriteAuth, (req, res) => {
   const name = clean(req.body?.name, 200);
   if (!name) return res.status(400).json({ error: 'name required' });
   const id = newId('ms');
@@ -483,7 +524,7 @@ router.post('/milestones', requireAuth, (req, res) => {
   res.status(201).json({ milestone: db.get(`SELECT * FROM mission_milestones WHERE id = ?`, id) });
 });
 
-router.patch('/milestones/:id', requireAuth, (req, res) => {
+router.patch('/milestones/:id', requireWriteAuth, (req, res) => {
   const existing = db.get(`SELECT * FROM mission_milestones WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
@@ -530,7 +571,7 @@ router.get('/goals', requireAuth, (req, res) => {
   res.json({ goals: rows });
 });
 
-router.post('/goals', requireAuth, (req, res) => {
+router.post('/goals', requireWriteAuth, (req, res) => {
   const title = clean(req.body?.title, 300);
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = newId('goal');
@@ -547,7 +588,7 @@ router.post('/goals', requireAuth, (req, res) => {
   res.status(201).json({ goal: db.get(`SELECT * FROM mission_goals WHERE id = ?`, id) });
 });
 
-router.patch('/goals/:id', requireAuth, (req, res) => {
+router.patch('/goals/:id', requireWriteAuth, (req, res) => {
   const existing = db.get(`SELECT * FROM mission_goals WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
