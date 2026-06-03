@@ -137,6 +137,75 @@ interface ControlPlaneSignalsPayload {
   snapshot?: unknown
 }
 
+type MissionTaskStatus = 'todo' | 'in_progress' | 'blocked' | 'review' | 'done' | 'cancelled'
+type MissionTaskPriority = 'p0' | 'p1' | 'p2' | 'p3'
+type MissionAssigneeKind = 'human' | 'agent'
+
+interface MissionAssignee {
+  id?: string
+  display_name?: string
+  kind?: MissionAssigneeKind | string
+  active?: number
+}
+
+interface MissionTask {
+  id?: string
+  title?: string
+  status?: MissionTaskStatus | string
+  priority?: MissionTaskPriority | string
+  assignee_id?: string | null
+  assignee_name?: string | null
+  assignee_kind?: MissionAssigneeKind | string | null
+  goal_title?: string | null
+  due_date?: string | null
+  blocked_reason?: string | null
+  source?: string | null
+  source_url?: string | null
+  updated_at?: string | null
+  completed_at?: string | null
+}
+
+interface MissionGoal {
+  id?: string
+  title?: string
+  status?: string
+  owner_name?: string | null
+  target_date?: string | null
+  task_count?: number
+  task_done?: number
+  milestone_count?: number
+  milestone_done?: number
+}
+
+interface MissionOverviewPayload {
+  counts?: Partial<Record<MissionTaskStatus, number>>
+  today?: MissionTask[]
+  blocked?: MissionTask[]
+  recent_done?: MissionTask[]
+  active_goals?: MissionGoal[]
+  generated_at?: string
+}
+
+interface MissionTasksPayload {
+  tasks?: MissionTask[]
+}
+
+interface MissionAssigneesPayload {
+  assignees?: MissionAssignee[]
+}
+
+interface MissionGoalsPayload {
+  goals?: MissionGoal[]
+}
+
+interface MissionPulsePayload {
+  since?: string
+  hours?: number
+  shipped?: MissionTask[]
+  created?: MissionTask[]
+  moved?: MissionTask[]
+}
+
 interface ApprovalDecisionResult {
   success?: boolean
   provider_id?: number
@@ -254,8 +323,27 @@ function approvalRows(payload: ApprovalQueuePayload | null): ApprovalProvider[] 
   return payload.providers.filter((provider) => toNumber(provider.provider_id) > 0)
 }
 
+function missionTaskRows(payload: MissionTasksPayload | null): MissionTask[] {
+  if (!payload || !Array.isArray(payload.tasks)) return []
+  return payload.tasks
+}
+
+function missionAssigneeRows(payload: MissionAssigneesPayload | null): MissionAssignee[] {
+  if (!payload || !Array.isArray(payload.assignees)) return []
+  return payload.assignees
+}
+
+function missionGoalRows(payload: MissionGoalsPayload | null): MissionGoal[] {
+  if (!payload || !Array.isArray(payload.goals)) return []
+  return payload.goals
+}
+
 function listSize(value: unknown[] | undefined): number {
   return Array.isArray(value) ? value.length : 0
+}
+
+function missionCount(payload: MissionOverviewPayload | null, status: MissionTaskStatus): number {
+  return toNumber(payload?.counts?.[status])
 }
 
 function formatDuration(value: unknown): string {
@@ -299,6 +387,33 @@ function agentLabel(mode: AgentMode): { en: string; ar: string } {
   if (mode === 'notify') return { en: 'agent notify', ar: 'تنبيه الوكيل' }
   if (mode === 'propose') return { en: 'agent propose', ar: 'اقتراح الوكيل' }
   return { en: 'human approval', ar: 'موافقة بشرية' }
+}
+
+function missionStatusLabel(status: string | undefined | null): string {
+  if (status === 'in_progress') return 'in progress'
+  return status ? status.replace(/_/g, ' ') : 'unknown'
+}
+
+function missionPriorityRank(priority: string | undefined | null): number {
+  if (priority === 'p0') return 0
+  if (priority === 'p1') return 1
+  if (priority === 'p2') return 2
+  return 3
+}
+
+function missionStatusRank(status: string | undefined | null): number {
+  if (status === 'blocked') return 0
+  if (status === 'review') return 1
+  if (status === 'in_progress') return 2
+  if (status === 'todo') return 3
+  return 4
+}
+
+function missionGoalProgress(goal: MissionGoal): string {
+  const total = toNumber(goal.task_count)
+  const done = toNumber(goal.task_done)
+  if (total <= 0) return '0%'
+  return `${Math.round((done / total) * 100)}%`
 }
 
 function isLegacyAdminHref(href: string): boolean {
@@ -745,6 +860,11 @@ export default function V2AdminPage() {
   const [reconciliation, setReconciliation] = useState<ReconciliationPayload | null>(null)
   const [errorsPayload, setErrorsPayload] = useState<ErrorsPayload | null>(null)
   const [signals, setSignals] = useState<ControlPlaneSignalsPayload | null>(null)
+  const [missionOverview, setMissionOverview] = useState<MissionOverviewPayload | null>(null)
+  const [missionTasks, setMissionTasks] = useState<MissionTask[]>([])
+  const [missionAssignees, setMissionAssignees] = useState<MissionAssignee[]>([])
+  const [missionGoals, setMissionGoals] = useState<MissionGoal[]>([])
+  const [missionPulse, setMissionPulse] = useState<MissionPulsePayload | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -774,6 +894,11 @@ export default function V2AdminPage() {
         reconciliationRes,
         errorsRes,
         signalsRes,
+        missionOverviewRes,
+        missionTasksRes,
+        missionAssigneesRes,
+        missionGoalsRes,
+        missionPulseRes,
       ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
@@ -786,6 +911,11 @@ export default function V2AdminPage() {
         fetchJson<ReconciliationPayload>('/admin/finance/reconciliation?days=7', token),
         fetchJson<ErrorsPayload>('/admin/errors?limit=20', token),
         fetchJson<ControlPlaneSignalsPayload>('/admin/control-plane/signals?limit=5', token),
+        fetchJson<MissionOverviewPayload>('/mission/overview', token),
+        fetchJson<MissionTasksPayload>('/mission/tasks?status=todo,in_progress,blocked,review', token),
+        fetchJson<MissionAssigneesPayload>('/mission/assignees', token),
+        fetchJson<MissionGoalsPayload>('/mission/goals', token),
+        fetchJson<MissionPulsePayload>('/mission/pulse?hours=24', token),
       ])
       setDashboard(unwrapDashboard(dashRes))
       setAudit(auditRes)
@@ -798,6 +928,11 @@ export default function V2AdminPage() {
       setReconciliation(reconciliationRes)
       setErrorsPayload(errorsRes)
       setSignals(signalsRes)
+      setMissionOverview(missionOverviewRes)
+      setMissionTasks(missionTaskRows(missionTasksRes))
+      setMissionAssignees(missionAssigneeRows(missionAssigneesRes))
+      setMissionGoals(missionGoalRows(missionGoalsRes))
+      setMissionPulse(missionPulseRes)
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -908,6 +1043,32 @@ export default function V2AdminPage() {
     + toNumber(reconciliation?.summary?.renter_drift_count)
   const recentErrors = listSize(errorsPayload?.errors)
   const signalCount = toNumber(signals?.count) || listSize(signals?.signals)
+  const openMissionWork = missionCount(missionOverview, 'todo')
+    + missionCount(missionOverview, 'in_progress')
+    + missionCount(missionOverview, 'review')
+    + missionCount(missionOverview, 'blocked')
+  const missionBlockedCount = missionCount(missionOverview, 'blocked') || listSize(missionOverview?.blocked)
+  const missionTodayCount = listSize(missionOverview?.today)
+  const missionShippedCount = listSize(missionPulse?.shipped) || listSize(missionOverview?.recent_done)
+  const activeMissionGoals = (missionOverview?.active_goals && missionOverview.active_goals.length > 0)
+    ? missionOverview.active_goals
+    : missionGoals.filter((goal) => goal.status === 'active').slice(0, 6)
+  const humanAssignees = missionAssignees.filter((assignee) => assignee.kind === 'human')
+  const agentAssignees = missionAssignees.filter((assignee) => assignee.kind === 'agent')
+  const missionTaskPreview = [...missionTasks]
+    .sort((a, b) => {
+      const byStatus = missionStatusRank(a.status) - missionStatusRank(b.status)
+      if (byStatus !== 0) return byStatus
+      return missionPriorityRank(a.priority) - missionPriorityRank(b.priority)
+    })
+    .slice(0, 5)
+  const missionRosterPreview = [...missionAssignees]
+    .sort((a, b) => {
+      const aCount = missionTasks.filter((task) => task.assignee_id === a.id).length
+      const bCount = missionTasks.filter((task) => task.assignee_id === b.id).length
+      return bCount - aCount
+    })
+    .slice(0, 8)
   const refreshedLabel = refreshedAt
     ? refreshedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '--:--'
@@ -930,6 +1091,9 @@ export default function V2AdminPage() {
           </a>
           <a href="#approvals" className="rail-link">
             <span>AP</span><Bi en="Approvals" ar="الموافقات" />
+          </a>
+          <a href="#mission" className="rail-link">
+            <span>MS</span><Bi en="Mission" ar="المهمة" />
           </a>
           <a href="#agents" className="rail-link">
             <span>AG</span><Bi en="Agents" ar="الوكلاء" />
@@ -1170,6 +1334,121 @@ export default function V2AdminPage() {
                   </div>
                 </div>
               )}
+            </section>
+
+            <section className="mission-control" id="mission" aria-label="Mission control read-only mirror">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Team operating layer" ar="طبقة تشغيل الفريق" /></p>
+                  <h2><Bi en="Mission control" ar="مركز المهمة" /></h2>
+                </div>
+                <span><Bi en="read-only mirror" ar="مرآة قراءة فقط" /></span>
+              </div>
+
+              <div className="mission-summary-grid">
+                <div>
+                  <span><Bi en="open work" ar="عمل مفتوح" /></span>
+                  <strong>{numFmt.format(openMissionWork || missionTasks.length)}</strong>
+                </div>
+                <div className={missionBlockedCount > 0 ? 'warn' : ''}>
+                  <span><Bi en="blocked" ar="محظور" /></span>
+                  <strong>{numFmt.format(missionBlockedCount)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="today / review" ar="اليوم / مراجعة" /></span>
+                  <strong>{numFmt.format(missionTodayCount)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="shipped 24h" ar="شُحن خلال 24 ساعة" /></span>
+                  <strong>{numFmt.format(missionShippedCount)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="active goals" ar="أهداف نشطة" /></span>
+                  <strong>{numFmt.format(activeMissionGoals.length)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="human / agent roster" ar="قائمة البشر / الوكلاء" /></span>
+                  <strong>{numFmt.format(humanAssignees.length)} / {numFmt.format(agentAssignees.length)}</strong>
+                </div>
+              </div>
+
+              <div className="mission-layout">
+                <article className="mission-roster">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Ownership" ar="الملكية" /></span>
+                    <Link href="/mission" prefetch={false}><Bi en="Open full board" ar="افتح اللوحة كاملة" /></Link>
+                  </div>
+                  {missionRosterPreview.length === 0 ? (
+                    <p className="mission-empty"><Bi en="No mission assignees returned yet." ar="لم تعد قائمة مسؤولين للمهمة بعد." /></p>
+                  ) : (
+                    <div className="mission-roster-list">
+                      {missionRosterPreview.map((assignee) => {
+                        const assigned = missionTasks.filter((task) => task.assignee_id === assignee.id)
+                        return (
+                          <div key={assignee.id || assignee.display_name || 'unknown'}>
+                            <span className={assignee.kind === 'agent' ? 'agent' : 'human'}>{assignee.kind === 'agent' ? 'AG' : 'HM'}</span>
+                            <strong>{assignee.display_name || assignee.id || 'Unassigned'}</strong>
+                            <small>{assigned.length} open</small>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </article>
+
+                <article className="mission-queue">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Task ownership" ar="ملكية المهام" /></span>
+                    <em><Bi en="proposal source" ar="مصدر الاقتراح" /></em>
+                  </div>
+                  {missionTaskPreview.length === 0 ? (
+                    <p className="mission-empty"><Bi en="No open mission tasks are currently assigned." ar="لا توجد مهام مهمة مفتوحة حالياً." /></p>
+                  ) : (
+                    <div className="mission-task-list">
+                      {missionTaskPreview.map((task) => (
+                        <div key={task.id || task.title || 'task'} className={task.status === 'blocked' ? 'blocked' : undefined}>
+                          <div>
+                            <strong>{task.title || 'Untitled task'}</strong>
+                            <p>{task.blocked_reason || task.goal_title || task.source || 'No blocker recorded.'}</p>
+                          </div>
+                          <div className="mission-task-meta">
+                            <span>{String(task.priority || 'p2').toUpperCase()}</span>
+                            <span>{missionStatusLabel(task.status)}</span>
+                            <span>{task.assignee_name || 'unassigned'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="mission-goals">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Active goals" ar="الأهداف النشطة" /></span>
+                    <em><Bi en="launch alignment" ar="اتساق الإطلاق" /></em>
+                  </div>
+                  {activeMissionGoals.length === 0 ? (
+                    <p className="mission-empty"><Bi en="No active goals returned yet." ar="لم تعد أهداف نشطة بعد." /></p>
+                  ) : (
+                    <div className="mission-goal-list">
+                      {activeMissionGoals.slice(0, 4).map((goal) => (
+                        <div key={goal.id || goal.title || 'goal'}>
+                          <strong>{goal.title || 'Untitled goal'}</strong>
+                          <span>{missionGoalProgress(goal)}</span>
+                          <small>{toNumber(goal.task_done)}/{toNumber(goal.task_count)} tasks · {goal.owner_name || 'unowned'}</small>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+
+              <p className="mission-policy">
+                <Bi
+                  en="This v2 admin view is a read-only mirror for humans and agents. Task writes stay in /mission until role delegation, agent write keys, and audit approval rules are hardened."
+                  ar="هذه الواجهة في v2 مرآة قراءة فقط للبشر والوكلاء. تبقى كتابة المهام في /mission حتى تقوية تفويض الأدوار ومفاتيح كتابة الوكلاء وقواعد موافقة التدقيق."
+                />
+              </p>
             </section>
 
             <section className="admin-two-col">
