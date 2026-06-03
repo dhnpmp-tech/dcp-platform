@@ -23,7 +23,7 @@ jest.mock('../services/providerVerification', () => ({
   })),
 }));
 
-function buildApp({ providers }) {
+function buildApp({ providers, engineProviders = [] }) {
   jest.resetModules();
   mockDb.all.mockReset();
   mockDb.get.mockReset();
@@ -64,6 +64,9 @@ function buildApp({ providers }) {
     if (query.includes('FROM cost_rates')) {
       return [{ model: '__default__', token_rate_halala: 19 }];
     }
+    if (query.includes('FROM provider_engines')) {
+      return engineProviders;
+    }
     if (query.includes('FROM providers')) {
       return providers;
     }
@@ -78,12 +81,63 @@ function buildApp({ providers }) {
 }
 
 describe('/v1/models provider_count honesty', () => {
+  afterEach(() => {
+    delete process.env.MULTI_ENGINE_ROUTING_ENABLED;
+  });
+
   test('counts fresh providers whose cached model matches a catalog alias', async () => {
     const app = buildApp({
       providers: [{
         id: 1,
         cached_models: JSON.stringify(['bge-m3']),
         vram_mb: 24576,
+        last_heartbeat: new Date().toISOString(),
+      }],
+    });
+
+    const res = await request(app).get('/v1/models');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).toMatchObject({
+      id: 'BAAI/bge-m3',
+      provider_count: 1,
+    });
+  });
+
+  test('counts fresh multi-engine providers whose served model matches a catalog alias', async () => {
+    process.env.MULTI_ENGINE_ROUTING_ENABLED = 'true';
+    const app = buildApp({
+      providers: [],
+      engineProviders: [{
+        id: 3,
+        engine_served_models: JSON.stringify(['bge-m3']),
+        last_heartbeat: new Date().toISOString(),
+      }],
+    });
+
+    const res = await request(app).get('/v1/models');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).toMatchObject({
+      id: 'BAAI/bge-m3',
+      provider_count: 1,
+    });
+  });
+
+  test('does not double count the same provider across cached_models and provider_engines', async () => {
+    process.env.MULTI_ENGINE_ROUTING_ENABLED = 'true';
+    const app = buildApp({
+      providers: [{
+        id: 4,
+        cached_models: JSON.stringify(['bge-m3']),
+        vram_mb: 24576,
+        last_heartbeat: new Date().toISOString(),
+      }],
+      engineProviders: [{
+        id: 4,
+        engine_served_models: JSON.stringify(['BAAI/bge-m3']),
         last_heartbeat: new Date().toISOString(),
       }],
     });

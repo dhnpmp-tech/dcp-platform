@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 09:26 UTC — [PR #554](https://github.com/dhnpmp-tech/dcp-platform/pull/554) — `fix(v1): restore engine-backed model coverage`
+
+Included:
+- Updated `/v1/models` provider counting to include reachable `provider_engines` rows when multi-engine routing is enabled, de-duplicated by provider ID so engine-backed providers are visible without inflating capacity.
+- Added a guarded compatibility bridge for legacy provider daemons that still report `cached_models` or `vllm_models` but do not yet send the newer `engines` heartbeat payload.
+- The bridge only writes legacy `providers.cached_models` when the provider has no existing `provider_engines` rows, so engine-aware providers keep the newer engine table as source of truth.
+- Preserved existing `vllm_models` unless the heartbeat supplies a `vllm_models` list, and kept bridge failures warn-only so heartbeats cannot fail over catalog coverage bookkeeping.
+- Added targeted regressions for engine-backed catalog counts and the legacy bridge guardrails.
+
 ### 09:09 UTC — [PR #553](https://github.com/dhnpmp-tech/dcp-platform/pull/553) — `feat(v2): add admin earned-serving proof hint`
 
 Included:

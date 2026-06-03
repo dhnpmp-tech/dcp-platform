@@ -782,7 +782,14 @@ router.get('/models', (req, res) => {
     }
     const onlineProvidersRaw = applyEarnedRoutingPolicy(providerRows, db);
     const onlineProviders = Array.isArray(onlineProvidersRaw) ? onlineProvidersRaw : [];
-    const providerCountByModel = new Map();
+    const providerIdsByModelKey = new Map();
+    const addProviderForModelKey = (modelKey, providerId) => {
+      const key = normalizeModelToken(modelKey);
+      const id = Number(providerId);
+      if (!key || !Number.isFinite(id)) return;
+      if (!providerIdsByModelKey.has(key)) providerIdsByModelKey.set(key, new Set());
+      providerIdsByModelKey.get(key).add(id);
+    };
     const addProviderModelKeys = (modelId, out) => {
       const rawKey = normalizeModelToken(modelId);
       if (!rawKey) return;
@@ -799,13 +806,48 @@ router.get('/models', (req, res) => {
         addProviderModelKeys(m, providerModelKeys);
       }
       for (const key of providerModelKeys) {
-        providerCountByModel.set(key, (providerCountByModel.get(key) || 0) + 1);
+        addProviderForModelKey(key, p.id);
       }
       // Also count by VRAM eligibility — if no cached_models, count for models fitting VRAM
       if (cached.length === 0 && p.vram_mb > 0) {
-        providerCountByModel.set('__vram_' + p.vram_mb, (providerCountByModel.get('__vram_' + p.vram_mb) || 0) + 1);
+        addProviderForModelKey('__vram_' + p.vram_mb, p.id);
       }
     }
+    if (isMultiEngineRoutingEnabled()) {
+      try {
+        const rawEngineRows = db.all(
+          `SELECT p.id AS id,
+                  p.last_heartbeat AS last_heartbeat,
+                  pe.served_models AS engine_served_models
+             FROM provider_engines pe
+             JOIN providers p ON p.id = pe.provider_id
+            WHERE pe.reachable = 1
+              AND p.status = 'online'
+              AND COALESCE(p.is_paused, 0) = 0
+              AND p.deleted_at IS NULL
+              AND COALESCE(p.endpoint_reachable, 0) = 1
+              AND p.endpoint_probed_at IS NOT NULL`
+        );
+        const engineRowsRaw = Array.isArray(rawEngineRows) ? rawEngineRows : [];
+        const engineRows = applyEarnedRoutingPolicy(engineRowsRaw, db);
+        for (const row of engineRows) {
+          if (isProviderHeartbeatStale(row, providerCountNowMs)) continue;
+          const engineModels = parseCachedModels(row.engine_served_models);
+          const providerModelKeys = new Set();
+          for (const modelId of engineModels) {
+            addProviderModelKeys(modelId, providerModelKeys);
+          }
+          for (const key of providerModelKeys) {
+            addProviderForModelKey(key, row.id);
+          }
+        }
+      } catch (_) {
+        // provider_engines is optional during migration; legacy provider count remains intact.
+      }
+    }
+    const providerCountByModel = new Map(
+      Array.from(providerIdsByModelKey.entries()).map(([key, providerIds]) => [key, providerIds.size])
+    );
 
     const data = (rows || []).map((row) => {
       // Match provider count: check if any online provider has this model cached
