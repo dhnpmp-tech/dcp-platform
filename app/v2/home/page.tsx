@@ -1602,7 +1602,7 @@ export default function V2HomePage() {
               <li><Bi en="Dedicated tenancy · isolated control plane" ar="استئجار مخصص · بيئة تحكم معزولة" /></li>
               <li><Bi en="Private peering · IPsec or DirectConnect" ar="ربط خاص · IPsec أو DirectConnect" /></li>
               <li><Bi en="Dedicated CSM · onboarding sprint" ar="مسؤول نجاح مخصص · جلسة إعداد" /></li>
-              <li><Bi en="Custom NDMO classification map" ar="خريطة تصنيف NDMO مخصصة" /></li>
+              <li><Bi en="Customer data-classification workbook" ar="دفتر تصنيف بيانات خاص بالعميل" /></li>
               <li><Bi en="99.95% SLA · credits + escalation path" ar="SLA ٩٩٫٩٥٪ · أرصدة + مسار تصعيد" /></li>
             </ul>
             <div className="ctas">

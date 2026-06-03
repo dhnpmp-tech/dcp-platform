@@ -14,6 +14,16 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 05:45 UTC — [PR #536](https://github.com/dhnpmp-tech/dcp-platform/pull/536) — `fix(public): clarify serving capacity and remove stale savings claims`
+
+Included:
+- Added explicit heartbeating, endpoint-reachable, and verified-serving provider counts to `/api/health` and `/api/health/detailed` so operators can distinguish daemon heartbeat from usable inference capacity.
+- Added a machine-readable health capacity reason and serving gates for zero-capacity states instead of implying WireGuard alone explains every empty marketplace state.
+- Removed the remaining unsourced competitor-savings claims and fixed comparison table from the legacy model catalog page.
+- Replaced the shared footer's stale "50+ models" claim with non-numeric catalog readiness copy.
+- Reworded the v2 enterprise classification bullet so the public homepage does not imply a specific NDMO compliance artifact before that pack exists.
+- Added static regressions for public honesty copy and health capacity wording.
+
 ### 05:29 UTC — [PR #535](https://github.com/dhnpmp-tech/dcp-platform/pull/535) — `feat(v2): add admin runbook queue`
 
 Included:

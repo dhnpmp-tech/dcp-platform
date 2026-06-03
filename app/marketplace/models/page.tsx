@@ -47,39 +47,7 @@ interface ModelListItem {
   arabic?: boolean              // alias returned by GET /api/models
 }
 
-// ── Competitive pricing table (SAR per hour, from strategic brief) ─────────────
-// DCP is priced ~23.7% below Vast.ai; Arabic models save 33-51% vs hyperscalers
-const HYPERSCALER_SAR_PER_HR: Record<string, { label: string; sar_per_hr: number; notes?: string }[]> = {
-  'RTX 4090': [
-    { label: 'Vast.ai', sar_per_hr: 1.31 },
-    { label: 'RunPod', sar_per_hr: 1.27 },
-    { label: 'AWS Bedrock', sar_per_hr: 0.0 },
-  ],
-  'A100 80GB': [
-    { label: 'Vast.ai', sar_per_hr: 8.29 },
-    { label: 'RunPod', sar_per_hr: 7.46 },
-    { label: 'AWS Bedrock', sar_per_hr: 13.76 },
-  ],
-  'H100 80GB': [
-    { label: 'Vast.ai', sar_per_hr: 13.12 },
-    { label: 'RunPod', sar_per_hr: 12.34 },
-    { label: 'AWS Bedrock', sar_per_hr: 30.75 },
-  ],
-}
-
-// ── Pricing comparison banner ──────────────────────────────────────────────────
-const PRICING_COMPARISON = [
-  { gpu: 'RTX 4090', dcp_sar_hr: 1.00, vast_sar_hr: 1.31, savings_pct: 24 },
-  { gpu: 'A100 80GB', dcp_sar_hr: 6.75, vast_sar_hr: 8.29, savings_pct: 19 },
-  { gpu: 'H100 80GB', dcp_sar_hr: 9.37, vast_sar_hr: 13.12, savings_pct: 29 },
-]
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function sarPerMinToHr(sarPerMin?: number): string {
-  if (!sarPerMin) return '—'
-  return (sarPerMin * 60).toFixed(2)
-}
-
 function isArabicModel(model: ModelListItem): boolean {
   // Prefer the authoritative backend flag (added in DCP-950)
   if (model.arabic_capability != null) return model.arabic_capability
@@ -227,53 +195,11 @@ function ModelCard({ model }: { model: ModelListItem }) {
         )}
       </div>
 
-      {/* Savings vs AWS (if arabic) */}
-      {arabic && (
-        <div className="bg-status-success/5 border border-status-success/20 rounded-lg px-3 py-2 text-xs">
-          <span className="text-status-success font-semibold">Save up to 51%</span>
-          <span className="text-dc1-text-muted ml-1">vs AWS Bedrock</span>
-        </div>
-      )}
-
       {/* CTA */}
       <Link href={deployHref} className="btn btn-primary w-full text-center text-sm mt-auto">
         Deploy Model
       </Link>
     </article>
-  )
-}
-
-// ── Pricing Table ─────────────────────────────────────────────────────────────
-function PricingComparisonBar() {
-  return (
-    <section className="border-b border-dc1-border bg-dc1-surface-l1/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-        <p className="text-xs font-semibold text-dc1-text-muted uppercase tracking-wider mb-3">
-          DCP vs Competitors (SAR/hr)
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {PRICING_COMPARISON.map(row => (
-            <div key={row.gpu} className="bg-dc1-surface-l2 rounded-xl border border-dc1-border p-4">
-              <p className="text-sm font-bold text-dc1-text-primary mb-3">{row.gpu}</p>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-dc1-amber">DCP (Saudi)</span>
-                  <span className="font-extrabold text-dc1-amber">{row.dcp_sar_hr.toFixed(2)} SAR</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-dc1-text-muted">
-                  <span>Vast.ai</span>
-                  <span className="line-through">{row.vast_sar_hr.toFixed(2)} SAR</span>
-                </div>
-                <div className="mt-2 pt-2 border-t border-dc1-border flex items-center justify-between">
-                  <span className="text-xs text-dc1-text-muted">Your savings</span>
-                  <span className="text-sm font-bold text-status-success">-{row.savings_pct}%</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -361,9 +287,9 @@ export default function MarketplaceModelsPage() {
                 <span className="text-dc1-amber font-bold">⭐ {loading ? '…' : tierACount}</span>
                 <span className="text-dc1-text-secondary">Tier A (pre-warmed)</span>
               </div>
-              <div className="flex items-center gap-2 bg-status-success/10 rounded-lg px-3 py-2 border border-status-success/20">
-                <span className="text-status-success font-bold">Save 33–51%</span>
-                <span className="text-dc1-text-secondary">vs AWS Bedrock</span>
+              <div className="flex items-center gap-2 bg-dc1-surface-l1 rounded-lg px-3 py-2 border border-dc1-border">
+                <span className="text-dc1-amber font-bold">SAR</span>
+                <span className="text-dc1-text-secondary">token-priced catalog</span>
               </div>
               {liveProviderCount !== null && (
                 <div className="flex items-center gap-2 bg-dc1-surface-l1 rounded-lg px-3 py-2 border border-dc1-border">
@@ -375,9 +301,6 @@ export default function MarketplaceModelsPage() {
             </div>
           </div>
         </section>
-
-        {/* Pricing comparison bar */}
-        <PricingComparisonBar />
 
         {/* Filters */}
         <section className="border-b border-dc1-border bg-dc1-surface-l1/50 sticky top-0 z-10 backdrop-blur-sm">
@@ -482,53 +405,6 @@ export default function MarketplaceModelsPage() {
             </div>
           )}
         </section>
-
-        {/* Hyperscaler comparison table */}
-        {!loading && !error && (
-          <section className="border-t border-dc1-border bg-dc1-surface-l1">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-              <h2 className="text-xl font-bold text-dc1-text-primary mb-2">Buyer Economics</h2>
-              <p className="text-dc1-text-secondary text-sm mb-6">
-                Saudi-hosted providers compete directly for your inference traffic. You pay per token, providers earn 70% of revenue, no middleman markup.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b border-dc1-border">
-                      <th className="text-left py-3 px-4 text-dc1-text-muted font-medium">GPU Tier</th>
-                      <th className="text-right py-3 px-4 text-dc1-amber font-medium">DCP (SAR/hr)</th>
-                      <th className="text-right py-3 px-4 text-dc1-text-muted font-medium">Vast.ai</th>
-                      <th className="text-right py-3 px-4 text-dc1-text-muted font-medium">RunPod</th>
-                      <th className="text-right py-3 px-4 text-dc1-text-muted font-medium">AWS Bedrock</th>
-                      <th className="text-right py-3 px-4 text-status-success font-medium">You Save</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {PRICING_COMPARISON.map(row => (
-                      <tr key={row.gpu} className="border-b border-dc1-border/50 hover:bg-dc1-surface-l2/50 transition-colors">
-                        <td className="py-3 px-4 font-medium text-dc1-text-primary">{row.gpu}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-dc1-amber">{row.dcp_sar_hr.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-dc1-text-muted">{row.vast_sar_hr.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-dc1-text-muted">
-                          {row.gpu === 'RTX 4090' ? '1.27' : row.gpu === 'A100 80GB' ? '7.46' : '12.34'}
-                        </td>
-                        <td className="py-3 px-4 text-right text-dc1-text-muted">
-                          {row.gpu === 'RTX 4090' ? '—' : row.gpu === 'A100 80GB' ? '13.76' : '30.75'}
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold text-status-success">-{row.savings_pct}%</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-dc1-amber/5">
-                      <td colSpan={6} className="py-3 px-4 text-xs text-dc1-text-muted italic">
-                        * Prices in SAR (1 USD ≈ 3.75 SAR). DCP floor prices as of March 2026. Arabic model deployments save 33–51% vs AWS Bedrock on-demand inference.
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* CTA */}
         <section className="border-t border-dc1-border">

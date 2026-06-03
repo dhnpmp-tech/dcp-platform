@@ -4,6 +4,8 @@ const path = require('path');
 
 const home = fs.readFileSync(path.join(__dirname, '..', 'app/v2/home/page.tsx'), 'utf8');
 const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/v2/provider-setup/page.tsx'), 'utf8');
+const marketplaceModels = fs.readFileSync(path.join(__dirname, '..', 'app/marketplace/models/page.tsx'), 'utf8');
+const sharedI18n = fs.readFileSync(path.join(__dirname, '..', 'app/lib/i18n.tsx'), 'utf8');
 const retiredPublicHandoff = path.join(__dirname, '..', 'public/dcp-v2');
 const retiredBrandGuide = path.join(__dirname, '..', 'public/docs/DCP-BRAND-GUIDELINES-v3.html');
 const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
@@ -100,6 +102,27 @@ assert(home.includes('85% provider'), 'v2 home should show the current provider 
 assert(home.includes('15% platform'), 'v2 home should show the current platform share');
 assert(providerSetup.includes('const PROVIDER_SHARE = 0.85'), 'provider setup estimator should use the current provider share');
 assert(providerSetup.includes('const PLATFORM_SHARE = 0.15'), 'provider setup estimator should use the current platform share');
+assert(!home.includes('NDMO'), 'v2 home should not imply a specific NDMO compliance artifact before it exists');
+assert(home.includes('Customer data-classification workbook'), 'v2 home should keep the enterprise classification offer generic and accurate');
+assert(!sharedI18n.includes('50+ models'), 'shared public footer should not publish a stale numeric model-count claim');
+assert(sharedI18n.includes('Arabic-first model catalog'), 'shared public footer should describe the catalog without a stale model-count claim');
+
+[
+  'Save 33',
+  'Save up to 51%',
+  'vs AWS Bedrock',
+  'DCP vs Competitors',
+  'Buyer Economics',
+  'HYPERSCALER_SAR_PER_HR',
+  'PRICING_COMPARISON',
+  'Vast.ai',
+  'RunPod',
+  'AWS Bedrock',
+  'Your savings',
+].forEach((claim) => {
+  assert(!marketplaceModels.includes(claim), `legacy marketplace model catalog should not publish unsourced competitor savings copy: ${claim}`);
+});
+
 assert(!fs.existsSync(retiredPublicHandoff), 'retired v2 design handoff/prototype files must not be published under public/dcp-v2');
 assert(!fs.existsSync(retiredBrandGuide), 'retired brand guideline HTML must not be published under public/docs');
 assert(!fs.existsSync(retiredBrandPage), 'retired brand guideline iframe page must not remain as an app route');

@@ -294,7 +294,7 @@ const translations: Record<Language, Record<string, string>> = {
     'jobs_submit_redirect.message': 'This compatibility route now forwards to the canonical submit experience.',
 
     // Footer
-    'footer.brand_description': 'Saudi-hosted AI inference for builders worldwide. ALLaM, JAIS, Qwen, Llama, and 50+ models. OpenAI-compatible API. PDPL-compliant.',
+    'footer.brand_description': 'Saudi-hosted AI inference for builders worldwide. Arabic-first model catalog, OpenAI-compatible API, and PDPL-conscious operations.',
     'footer.platform': 'Platform',
     'footer.rent_gpus': 'Start Renting',
     'footer.earn_with_gpus': 'Start Earning',
