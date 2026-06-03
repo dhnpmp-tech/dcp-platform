@@ -14,6 +14,13 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 08:50 UTC — [PR #551](https://github.com/dhnpmp-tech/dcp-platform/pull/551) — `fix(v2): remove playground demo wording`
+
+Included:
+- Removed the remaining demo-labeled sample prompt from the v2 renter playground so the console no longer suggests a mock/demo flow.
+- Added a static regression that fails if demo wording is reintroduced to the v2 renter playground.
+- Kept the real catalog and inference behavior unchanged: model options still require `provider_count > 0`, and inference still requires a real renter key.
+
 ### 08:45 UTC — [PR #550](https://github.com/dhnpmp-tech/dcp-platform/pull/550) — `feat(v2): surface admin serving blocker reason`
 
 Included:

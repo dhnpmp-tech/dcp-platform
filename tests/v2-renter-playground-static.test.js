@@ -19,6 +19,7 @@ const forbidden = [
   'https://api.dcp.sa',
   "bd: '3'",
   'mock',
+  'demo',
   'fallback',
   'SAR 0.26 / 1M tok',
 ];
