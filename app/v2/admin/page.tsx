@@ -141,6 +141,8 @@ type MissionTaskStatus = 'todo' | 'in_progress' | 'blocked' | 'review' | 'done' 
 type MissionTaskPriority = 'p0' | 'p1' | 'p2' | 'p3'
 type MissionAssigneeKind = 'human' | 'agent'
 
+const TASK_STATUSES: MissionTaskStatus[] = ['todo', 'in_progress', 'blocked', 'review', 'done', 'cancelled']
+
 interface MissionAssignee {
   id?: string
   display_name?: string
@@ -352,6 +354,28 @@ async function fetchJson<T>(path: string, token: string): Promise<T | null> {
 async function patchJson<T>(path: string, token: string, body: Record<string, unknown>): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'PATCH',
+    headers: {
+      'x-admin-token': token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const payload = (await res.json().catch(() => null)) as T | null
+  if (res.status === 401) {
+    throw new Error('admin-auth-expired')
+  }
+  if (!res.ok) {
+    const message = payload && typeof payload === 'object' && 'error' in payload
+      ? String((payload as { error?: unknown }).error || 'Admin action failed.')
+      : 'Admin action failed.'
+    throw new Error(message)
+  }
+  return payload
+}
+
+async function postJson<T>(path: string, token: string, body: Record<string, unknown>): Promise<T | null> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
     headers: {
       'x-admin-token': token,
       'Content-Type': 'application/json',
@@ -944,6 +968,12 @@ export default function V2AdminPage() {
   const [approvalReason, setApprovalReason] = useState('')
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null)
   const [approvalMessage, setApprovalMessage] = useState<ActionMessage | null>(null)
+  const [selectedMissionTaskId, setSelectedMissionTaskId] = useState<string | null>(null)
+  const [missionTargetStatus, setMissionTargetStatus] = useState<MissionTaskStatus>('in_progress')
+  const [missionTargetAssignee, setMissionTargetAssignee] = useState('')
+  const [missionActionNote, setMissionActionNote] = useState('')
+  const [missionAction, setMissionAction] = useState<'status' | 'reassign' | 'comment' | null>(null)
+  const [missionActionMessage, setMissionActionMessage] = useState<ActionMessage | null>(null)
 
   const load = useCallback(async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
@@ -1145,6 +1175,7 @@ export default function V2AdminPage() {
       return missionPriorityRank(a.priority) - missionPriorityRank(b.priority)
     })
     .slice(0, 5)
+  const selectedMissionTask = missionTaskPreview.find((task) => task.id === selectedMissionTaskId) || missionTaskPreview[0] || null
   const missionRosterPreview = [...missionAssignees]
     .sort((a, b) => {
       const aCount = missionTasks.filter((task) => task.assignee_id === a.id).length
@@ -1159,6 +1190,150 @@ export default function V2AdminPage() {
   const activeNotificationChannels = notificationChannels.filter((channel) => channel.active).length
   const configuredNotificationChannels = notificationChannels.filter((channel) => channel.configured).length
   const notificationNotifyState = notificationPosture?.agent_policy?.notify_state || 'unknown'
+
+  useEffect(() => {
+    if (!selectedMissionTask) {
+      if (selectedMissionTaskId !== null) setSelectedMissionTaskId(null)
+      return
+    }
+    if (selectedMissionTask.id && selectedMissionTask.id !== selectedMissionTaskId) {
+      setSelectedMissionTaskId(selectedMissionTask.id)
+    }
+    if (selectedMissionTask.status && TASK_STATUSES.includes(selectedMissionTask.status as MissionTaskStatus)) {
+      setMissionTargetStatus(selectedMissionTask.status as MissionTaskStatus)
+    }
+    setMissionTargetAssignee(selectedMissionTask.assignee_id || '')
+  }, [selectedMissionTask, selectedMissionTaskId])
+
+  const handleMissionAuthError = useCallback((err: unknown, fallback: string) => {
+    if (err instanceof Error && err.message === 'admin-auth-expired') {
+      localStorage.removeItem('dc1_admin_token')
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return true
+    }
+    setMissionActionMessage({
+      kind: 'error',
+      text: err instanceof Error ? err.message : fallback,
+    })
+    return false
+  }, [router])
+
+  const submitMissionStatus = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const taskId = selectedMissionTask?.id
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (!taskId) {
+      setMissionActionMessage({ kind: 'error', text: 'No mission task is selected.' })
+      return
+    }
+    if (missionTargetStatus === 'done' && missionActionNote.trim().length < 8) {
+      setMissionActionMessage({ kind: 'error', text: 'Closing a task needs a short evidence note.' })
+      return
+    }
+
+    setMissionAction('status')
+    setMissionActionMessage(null)
+    try {
+      await patchJson<{ task?: MissionTask }>(
+        `/mission/tasks/${taskId}`,
+        token,
+        {
+          status: missionTargetStatus,
+          closing_comment: missionTargetStatus === 'done' ? missionActionNote.trim() : undefined,
+          author_id: 'admin',
+        },
+      )
+      setMissionActionMessage({ kind: 'success', text: `Task moved to ${missionStatusLabel(missionTargetStatus)}.` })
+      if (missionTargetStatus === 'done') setMissionActionNote('')
+      await load()
+    } catch (err) {
+      handleMissionAuthError(err, 'Mission status update failed.')
+    } finally {
+      setMissionAction(null)
+    }
+  }, [handleMissionAuthError, load, missionActionNote, missionTargetStatus, router, selectedMissionTask])
+
+  const submitMissionReassign = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const taskId = selectedMissionTask?.id
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (!taskId) {
+      setMissionActionMessage({ kind: 'error', text: 'No mission task is selected.' })
+      return
+    }
+    if (!missionTargetAssignee) {
+      setMissionActionMessage({ kind: 'error', text: 'Choose a mission assignee before reassigning.' })
+      return
+    }
+    const note = missionActionNote.trim()
+    if (note.length < 8) {
+      setMissionActionMessage({ kind: 'error', text: 'Reassignment needs a rationale of at least 8 characters.' })
+      return
+    }
+
+    setMissionAction('reassign')
+    setMissionActionMessage(null)
+    try {
+      await postJson<{ task?: MissionTask }>(
+        `/mission/tasks/${taskId}/reassign`,
+        token,
+        { new_assignee_id: missionTargetAssignee, comment: note, author_id: 'admin' },
+      )
+      setMissionActionMessage({ kind: 'success', text: 'Task reassigned with rationale.' })
+      setMissionActionNote('')
+      await load()
+    } catch (err) {
+      handleMissionAuthError(err, 'Mission reassignment failed.')
+    } finally {
+      setMissionAction(null)
+    }
+  }, [handleMissionAuthError, load, missionActionNote, missionTargetAssignee, router, selectedMissionTask])
+
+  const submitMissionComment = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const taskId = selectedMissionTask?.id
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (!taskId) {
+      setMissionActionMessage({ kind: 'error', text: 'No mission task is selected.' })
+      return
+    }
+    const note = missionActionNote.trim()
+    if (note.length < 8) {
+      setMissionActionMessage({ kind: 'error', text: 'Notes need at least 8 characters.' })
+      return
+    }
+
+    setMissionAction('comment')
+    setMissionActionMessage(null)
+    try {
+      await postJson<{ comment?: unknown }>(
+        `/mission/tasks/${taskId}/comments`,
+        token,
+        { body: note, author_id: 'admin', source: 'v2_admin', kind: 'admin_note' },
+      )
+      setMissionActionMessage({ kind: 'success', text: 'Mission note recorded.' })
+      setMissionActionNote('')
+      await load()
+    } catch (err) {
+      handleMissionAuthError(err, 'Mission note failed.')
+    } finally {
+      setMissionAction(null)
+    }
+  }, [handleMissionAuthError, load, missionActionNote, router, selectedMissionTask])
+
   const refreshedLabel = refreshedAt
     ? refreshedAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '--:--'
@@ -1435,13 +1610,13 @@ export default function V2AdminPage() {
               )}
             </section>
 
-            <section className="mission-control" id="mission" aria-label="Mission control read-only mirror">
+            <section className="mission-control" id="mission" aria-label="Mission control and guarded actions">
               <div className="section-head">
                 <div>
                   <p className="admin-kicker"><Bi en="Team operating layer" ar="طبقة تشغيل الفريق" /></p>
                   <h2><Bi en="Mission control" ar="مركز المهمة" /></h2>
                 </div>
-                <span><Bi en="read-only mirror" ar="مرآة قراءة فقط" /></span>
+                <span><Bi en="guarded actions" ar="إجراءات محروسة" /></span>
               </div>
 
               <div className="mission-summary-grid">
@@ -1542,10 +1717,107 @@ export default function V2AdminPage() {
                 </article>
               </div>
 
+              <div className="mission-action-desk">
+                <div className="mission-panel-head">
+                  <span><Bi en="Action desk" ar="مكتب الإجراءات" /></span>
+                  <em><Bi en={missionStrictWrites ? 'strict write gate' : 'legacy write gate'} ar={missionStrictWrites ? 'بوابة كتابة صارمة' : 'بوابة كتابة قديمة'} /></em>
+                </div>
+
+                {selectedMissionTask ? (
+                  <>
+                    <div className="mission-action-grid">
+                      <label>
+                        <span><Bi en="Task" ar="المهمة" /></span>
+                        <select
+                          value={selectedMissionTask.id || ''}
+                          onChange={(event) => {
+                            setSelectedMissionTaskId(event.target.value)
+                            setMissionActionMessage(null)
+                          }}
+                        >
+                          {missionTaskPreview.map((task) => (
+                            <option key={task.id || task.title || 'task'} value={task.id || ''}>
+                              {task.title || 'Untitled task'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label>
+                        <span><Bi en="Status" ar="الحالة" /></span>
+                        <select
+                          value={missionTargetStatus}
+                          onChange={(event) => setMissionTargetStatus(event.target.value as MissionTaskStatus)}
+                        >
+                          {TASK_STATUSES.map((status) => (
+                            <option key={status} value={status}>{missionStatusLabel(status)}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label>
+                        <span><Bi en="Assignee" ar="المسؤول" /></span>
+                        <select
+                          value={missionTargetAssignee}
+                          onChange={(event) => setMissionTargetAssignee(event.target.value)}
+                        >
+                          <option value="">{lang === 'ar' ? 'اختر مسؤولاً' : 'Choose assignee'}</option>
+                          {missionAssignees.map((assignee) => (
+                            <option key={assignee.id || assignee.display_name || 'assignee'} value={assignee.id || ''}>
+                              {assignee.display_name || assignee.id || 'Unassigned'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="mission-action-note">
+                      <span><Bi en="Evidence note" ar="ملاحظة الدليل" /></span>
+                      <textarea
+                        value={missionActionNote}
+                        onChange={(event) => setMissionActionNote(event.target.value)}
+                        placeholder={lang === 'ar' ? 'مطلوب للإغلاق وإعادة الإسناد، ويُحفظ في سجل المهمة.' : 'Required for close and reassign; stored in task history.'}
+                        rows={4}
+                      />
+                    </label>
+
+                    {missionActionMessage && (
+                      <p className={`mission-action-message ${missionActionMessage.kind}`}>{missionActionMessage.text}</p>
+                    )}
+
+                    <div className="mission-action-buttons">
+                      <button
+                        type="button"
+                        disabled={missionAction !== null || !selectedMissionTask.id}
+                        onClick={() => void submitMissionStatus()}
+                      >
+                        <Bi en={missionAction === 'status' ? 'Moving task' : 'Move status'} ar={missionAction === 'status' ? 'جارٍ نقل المهمة' : 'انقل الحالة'} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={missionAction !== null || !selectedMissionTask.id || !missionTargetAssignee || missionActionNote.trim().length < 8}
+                        onClick={() => void submitMissionReassign()}
+                      >
+                        <Bi en={missionAction === 'reassign' ? 'Reassigning' : 'Reassign'} ar={missionAction === 'reassign' ? 'جارٍ إعادة الإسناد' : 'أعد الإسناد'} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={missionAction !== null || !selectedMissionTask.id || missionActionNote.trim().length < 8}
+                        onClick={() => void submitMissionComment()}
+                      >
+                        <Bi en={missionAction === 'comment' ? 'Recording' : 'Add note'} ar={missionAction === 'comment' ? 'جارٍ التسجيل' : 'أضف ملاحظة'} />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mission-empty"><Bi en="No mission task is available for action yet." ar="لا توجد مهمة متاحة للإجراء بعد." /></p>
+                )}
+              </div>
+
               <p className="mission-policy">
                 <Bi
-                  en="This v2 admin view is a read-only mirror for humans and agents. Task writes stay in /mission until role delegation, agent write keys, and audit approval rules are hardened."
-                  ar="هذه الواجهة في v2 مرآة قراءة فقط للبشر والوكلاء. تبقى كتابة المهام في /mission حتى تقوية تفويض الأدوار ومفاتيح كتابة الوكلاء وقواعد موافقة التدقيق."
+                  en="Mission actions in v2 use the admin token and the same guarded backend routes as /mission. Delete and create controls stay out of this surface."
+                  ar="تستخدم إجراءات المهمة في v2 مفتاح الإدارة ونفس مسارات الخلفية المحروسة في /mission. تبقى أدوات الحذف والإنشاء خارج هذه الواجهة."
                 />
               </p>
             </section>
@@ -1578,7 +1850,7 @@ export default function V2AdminPage() {
                   <span><Bi en="Guarded agent writes" ar="كتابة الوكلاء المحروسة" /></span>
                   <strong>{agentWriteState}</strong>
                   <p>{accessPolicy?.mission_surface?.next_gate || 'Define approval and audit gates before agent writes.'}</p>
-                  <small><Bi en="no v2 task mutation controls exposed" ar="لا توجد أدوات تعديل مهام في v2" /></small>
+                  <small><Bi en="limited v2 mission actions exposed" ar="إجراءات مهمة محدودة في v2" /></small>
                 </article>
               </div>
 
