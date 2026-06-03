@@ -445,6 +445,287 @@ body {
   font-size: 13px;
 }
 
+.approval-desk {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.approval-desk .section-head > span {
+  border: 1px solid var(--hair);
+  color: var(--orange);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.approval-empty {
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 18px;
+}
+
+.approval-empty strong {
+  display: block;
+  color: var(--teal);
+  font-size: 17px;
+  margin-bottom: 7px;
+}
+
+.approval-empty p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+  font-size: 13.5px;
+}
+
+.approval-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, .78fr) minmax(0, 1.22fr);
+  gap: 1px;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+}
+
+.approval-list {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  background: var(--hair);
+  min-height: 100%;
+}
+
+.approval-row {
+  appearance: none;
+  border: 0;
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  color: var(--ink);
+  padding: 15px;
+  text-align: start;
+  display: grid;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.approval-row:hover,
+.approval-row.selected {
+  background: color-mix(in oklab, var(--teal) 8%, var(--bg));
+}
+
+.approval-row.selected {
+  box-shadow: inset 3px 0 0 var(--teal);
+}
+
+[dir="rtl"] .approval-row.selected {
+  box-shadow: inset -3px 0 0 var(--teal);
+}
+
+.approval-row.watch.selected {
+  box-shadow: inset 3px 0 0 var(--orange);
+}
+
+[dir="rtl"] .approval-row.watch.selected {
+  box-shadow: inset -3px 0 0 var(--orange);
+}
+
+.approval-row.critical.selected {
+  box-shadow: inset 3px 0 0 var(--err);
+}
+
+[dir="rtl"] .approval-row.critical.selected {
+  box-shadow: inset -3px 0 0 var(--err);
+}
+
+.approval-row span {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.approval-row strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.approval-row.watch strong {
+  color: var(--orange);
+}
+
+.approval-row.critical strong {
+  color: var(--err);
+}
+
+.approval-row small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.approval-detail {
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.approval-provider-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.approval-provider-head span,
+.approval-facts span,
+.approval-evidence > span,
+.approval-reason span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.approval-provider-head h3 {
+  margin: 7px 0 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.approval-provider-head a {
+  flex: 0 0 auto;
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.approval-provider-head a:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.approval-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+}
+
+.approval-facts > div {
+  min-height: 82px;
+  background: color-mix(in oklab, var(--bg) 84%, var(--paper));
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.approval-facts strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.approval-evidence {
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+}
+
+.approval-evidence ul {
+  margin: 10px 0 0;
+  padding-inline-start: 18px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+
+.approval-reason {
+  display: grid;
+  gap: 9px;
+}
+
+.approval-reason textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 92px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--paper) 72%, transparent);
+  color: var(--ink);
+  padding: 12px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.approval-reason textarea:focus {
+  outline: 1px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.approval-message {
+  margin: 0;
+  border: 1px solid var(--hair);
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.approval-message.success {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 38%, var(--hair));
+}
+
+.approval-message.error {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 38%, var(--hair));
+}
+
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.approval-actions button {
+  border: 1px solid var(--hair);
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.approval-actions button.approve {
+  border-color: color-mix(in oklab, var(--teal) 44%, var(--hair));
+  color: var(--teal);
+}
+
+.approval-actions button.reject {
+  border-color: color-mix(in oklab, var(--err) 36%, var(--hair));
+  color: var(--err);
+}
+
+.approval-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
 .admin-two-col {
   margin-top: 28px;
   display: grid;
@@ -803,6 +1084,7 @@ body {
   }
 
   .admin-two-col,
+  .approval-layout,
   .lane-grid,
   .future-map {
     grid-template-columns: 1fr;
@@ -831,6 +1113,7 @@ body {
   .admin-status-strip,
   .metric-grid,
   .readiness-grid,
+  .approval-facts,
   .lane-stats,
   .workflow-grid {
     grid-template-columns: 1fr;
@@ -863,6 +1146,10 @@ body {
 
   .task-action {
     justify-self: start;
+  }
+
+  .approval-provider-head {
+    flex-direction: column;
   }
 }
 

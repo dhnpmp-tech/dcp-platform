@@ -26,11 +26,18 @@ assert(page.includes('Guarded write'), 'v2 admin should expose guarded-write pol
 assert(page.includes('Task envelope'), 'v2 admin should describe the future agent action envelope');
 assert(page.includes('No verified serving capacity'), 'v2 admin should expose earned-serving capacity as an operational blocker');
 assert(page.includes('read-only'), 'v2 admin should label the operational readiness board as read-only');
+assert(page.includes('Approval desk'), 'v2 admin should expose a native provider approval desk');
+assert(page.includes('guarded write'), 'v2 admin should label provider approval decisions as guarded writes');
+assert(page.includes('ApprovalDecisionResult'), 'v2 admin should type approval decision responses');
+assert(page.includes("method: 'PATCH'"), 'v2 admin provider decisions should use the audited PATCH path');
+assert(page.includes('/approval-decision'), 'v2 admin should call the immutable provider approval decision endpoint');
+assert(page.includes('reason.length < 8'), 'v2 admin should require a clear rejection reason before rejecting a provider');
 assert(page.includes('Current console'), 'v2 admin should keep a link to the existing safe admin console');
 assert(page.includes('isLegacyAdminHref'), 'v2 admin should classify old admin console links');
 assert(page.includes('prefetch={false}'), 'v2 admin should not prefetch legacy admin console links');
 assert(!page.includes("method: 'POST'"), 'v2 admin command center should not perform direct write operations yet');
-assert(!page.includes('approval-decision'), 'v2 admin should not expose provider approval writes before the guarded v2 approval flow exists');
+assert(!page.includes('/approve`'), 'v2 admin should not use the legacy provider approve shortcut');
+assert(!page.includes('/reject`'), 'v2 admin should not use the legacy provider reject shortcut');
 assert(!page.includes("router.push('/login"), 'v2 admin should not route missing operators to the old login page');
 
 assert(auth.includes("redirect=/v2/admin"), 'v2 auth admin link should land on the v2 admin command center');
@@ -38,6 +45,8 @@ assert(!auth.includes("redirect=/admin'"), 'v2 auth should not default admin sig
 
 assert(css.includes('.v2-admin'), 'v2 admin should have scoped styles');
 assert(css.includes('.readiness-board'), 'v2 admin should style the readiness board');
+assert(css.includes('.approval-desk'), 'v2 admin should style the provider approval desk');
+assert(css.includes('.approval-actions'), 'v2 admin should style approval decision actions');
 assert(css.includes('.lane-grid'), 'v2 admin should style operational lanes');
 assert(css.includes('min-height: 100dvh'), 'v2 admin should use dynamic viewport height for mobile stability');
 assert(!css.includes('h-screen'), 'v2 admin should not use unstable h-screen layouts');
