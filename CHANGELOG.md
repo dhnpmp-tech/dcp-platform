@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 07:20 UTC — [PR #543](https://github.com/dhnpmp-tech/dcp-platform/pull/543) — `fix(v2): keep admin actions in the v2 workspace`
+
+Included:
+- Kept `/v2/admin` primary task, readiness, finance, support, incident, fleet, and lane actions anchored inside the v2 command center instead of sending operators to legacy `/admin/*` pages.
+- Removed the muted rail shortcut to the legacy admin console and the provider-detail escape hatch that had no v2 route equivalent yet.
+- Preserved the existing verified backend reads and guarded mission/provider writes; this change only adjusts visible navigation and operator workflow flow.
+- Added static regressions that forbid visible legacy admin links, generated legacy action links, and legacy prefetch handling inside the v2 admin surface.
+
 ### 07:01 UTC — [PR #542](https://github.com/dhnpmp-tech/dcp-platform/pull/542) — `feat(v2): add admin session lock`
 
 Included:

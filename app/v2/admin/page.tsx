@@ -1386,10 +1386,6 @@ function missionGoalProgress(goal: MissionGoal): string {
   return `${Math.round((done / total) * 100)}%`
 }
 
-function isLegacyAdminHref(href: string): boolean {
-  return href === '/admin' || href.startsWith('/admin/')
-}
-
 function buildTasks(
   dashboard: DashboardPayload | null,
   audit: PaymentsAuditPayload | null,
@@ -1437,7 +1433,7 @@ function buildTasks(
       source: 'approval queue',
       severity: 'critical',
       agentMode: 'guarded',
-      href: '/admin/providers',
+      href: '#approvals',
     })
   }
 
@@ -1452,7 +1448,7 @@ function buildTasks(
       source: 'payments audit',
       severity: 'critical',
       agentMode: 'guarded',
-      href: '/admin/payments',
+      href: '#finance',
     })
   }
 
@@ -1467,7 +1463,7 @@ function buildTasks(
       source: 'withdrawals',
       severity: 'critical',
       agentMode: 'guarded',
-      href: '/admin/withdrawals',
+      href: '#finance',
     })
   }
 
@@ -1482,7 +1478,7 @@ function buildTasks(
       source: 'billing ledger',
       severity: 'watch',
       agentMode: 'propose',
-      href: '/admin/payments',
+      href: '#finance',
     })
   }
 
@@ -1497,7 +1493,7 @@ function buildTasks(
       source: 'jobs',
       severity: failedJobs > 10 ? 'critical' : 'watch',
       agentMode: 'propose',
-      href: '/admin/jobs',
+      href: '#support',
     })
   }
 
@@ -1512,7 +1508,7 @@ function buildTasks(
       source: 'jobs',
       severity: 'routine',
       agentMode: 'notify',
-      href: '/admin/jobs',
+      href: '#support',
     })
   }
 
@@ -1527,7 +1523,7 @@ function buildTasks(
       source: 'fleet alerts',
       severity: 'critical',
       agentMode: 'notify',
-      href: '/admin/fleet',
+      href: '#fleet',
     })
   }
 
@@ -1542,7 +1538,7 @@ function buildTasks(
       source: 'earned verification',
       severity: 'critical',
       agentMode: 'notify',
-      href: '/admin/fleet',
+      href: '#serving-recovery',
     })
   } else if (usableOnline === 0 || usableRatio < 0.35) {
     tasks.push({
@@ -1555,7 +1551,7 @@ function buildTasks(
       source: 'provider health',
       severity: 'critical',
       agentMode: 'notify',
-      href: '/admin/fleet',
+      href: '#fleet',
     })
   }
 
@@ -1570,7 +1566,7 @@ function buildTasks(
       source: 'reconciliation',
       severity: 'critical',
       agentMode: 'guarded',
-      href: '/admin/finance',
+      href: '#finance',
     })
   }
 
@@ -1585,7 +1581,7 @@ function buildTasks(
       source: 'error feed',
       severity: recentErrors > 5 ? 'critical' : 'watch',
       agentMode: 'propose',
-      href: '/admin/incidents',
+      href: '#incidents',
     })
   }
 
@@ -1600,7 +1596,7 @@ function buildTasks(
       source: 'admin health',
       severity: 'critical',
       agentMode: 'notify',
-      href: '/admin/security',
+      href: '#readiness',
     })
   }
 
@@ -1615,7 +1611,7 @@ function buildTasks(
       source: 'security events',
       severity: 'critical',
       agentMode: 'guarded',
-      href: '/admin/security',
+      href: '#readiness',
     })
   }
 
@@ -1630,7 +1626,7 @@ function buildTasks(
       source: 'command center',
       severity: 'routine',
       agentMode: 'propose',
-      href: '/admin',
+      href: '#command',
     })
   }
 
@@ -1749,7 +1745,7 @@ function buildReadinessChecks(
       status: usableOnline > 0 ? 'routine' : 'critical',
       detailEn: 'Requires earned-online serving capacity, not just heartbeats.',
       detailAr: 'يتطلب سعة خدمة متحققة، وليس نبضات فقط.',
-      href: '/admin/fleet',
+      href: '#fleet',
     },
     {
       key: 'fleet-alerts',
@@ -1759,7 +1755,7 @@ function buildReadinessChecks(
       status: fleetAlertCount > 0 ? 'critical' : 'routine',
       detailEn: 'Running jobs, restart loops, and disk pressure surface here.',
       detailAr: 'تظهر هنا المهام النشطة وحلقات الإعادة وضغط التخزين.',
-      href: '/admin/fleet',
+      href: '#fleet',
     },
     {
       key: 'approvals',
@@ -1769,7 +1765,7 @@ function buildReadinessChecks(
       status: approvalPending > 0 ? 'watch' : 'routine',
       detailEn: 'First provider activation stays human-reviewed.',
       detailAr: 'تفعيل المزوّد الأول يبقى بمراجعة بشرية.',
-      href: '/admin/providers',
+      href: '#approvals',
     },
     {
       key: 'money',
@@ -1779,7 +1775,7 @@ function buildReadinessChecks(
       status: moneyQueue > 0 ? 'critical' : 'routine',
       detailEn: 'Refunds and payouts are approval-gated.',
       detailAr: 'الاستردادات والدفعات محكومة بالموافقة.',
-      href: '/admin/payments',
+      href: '#finance',
     },
     {
       key: 'reconciliation',
@@ -1789,7 +1785,7 @@ function buildReadinessChecks(
       status: reconciliationIssues > 0 ? 'critical' : 'routine',
       detailEn: 'Billing split and account drift checks for finance confidence.',
       detailAr: 'فحوصات تقسيم الفوترة وانحراف الحسابات لثقة المالية.',
-      href: '/admin/finance',
+      href: '#finance',
     },
     {
       key: 'incidents',
@@ -1799,7 +1795,7 @@ function buildReadinessChecks(
       status: errorCount > 5 ? 'critical' : errorCount > 0 ? 'watch' : 'routine',
       detailEn: 'Recent daemon and job failures feed incident review.',
       detailAr: 'أخطاء الخوادم والمهام الحديثة تغذي مراجعة الحوادث.',
-      href: '/admin/incidents',
+      href: '#incidents',
     },
     {
       key: 'control-plane',
@@ -1809,7 +1805,7 @@ function buildReadinessChecks(
       status: 'routine',
       detailEn: 'Demand, prewarm, and capacity signals remain read-only here.',
       detailAr: 'إشارات الطلب والتسخين والسعة تبقى للقراءة هنا.',
-      href: '/admin/fleet',
+      href: '#incidents',
     },
   ]
 }
@@ -2638,9 +2634,6 @@ export default function V2AdminPage() {
           </a>
         </div>
         <div className="rail-section muted">
-          <Link href="/admin" className="rail-link" prefetch={false}>
-            <span>V1</span><Bi en="Current console" ar="اللوحة الحالية" />
-          </Link>
           <Link href="/v2/auth?role=admin&method=apikey&redirect=/v2/admin" className="rail-link">
             <span>AK</span><Bi en="Admin key" ar="مفتاح الإدارة" />
           </Link>
@@ -2842,7 +2835,7 @@ export default function V2AdminPage() {
                     <strong>{health?.status || 'unknown'}</strong>
                   </div>
                   <p><Bi en={`DB ${health?.checks?.database || 'unknown'} · active jobs ${toNumber(health?.checks?.jobs?.active)} · stuck jobs ${healthStuckJobs} · critical events ${healthCriticalEvents}`} ar={`قاعدة البيانات ${health?.checks?.database || 'غير معروفة'} · مهام نشطة ${toNumber(health?.checks?.jobs?.active)} · عالقة ${healthStuckJobs} · أحداث حرجة ${healthCriticalEvents}`} /></p>
-                  <Link href="/admin/security" prefetch={false}><Bi en="Open health console" ar="افتح لوحة الصحة" /></Link>
+                  <Link href="#readiness"><Bi en="Review readiness" ar="راجع الجاهزية" /></Link>
                 </article>
 
                 <article className={`launch-gate ${launchMoneyBlockers > 0 ? 'critical' : 'ready'}`}>
@@ -2860,7 +2853,7 @@ export default function V2AdminPage() {
                     <strong>{numFmt.format(securityPriorityCount)} <Bi en="priority" ar="أولوية" /></strong>
                   </div>
                   <p><Bi en="Critical and high security events block public launch language until triaged." ar="الأحداث الأمنية الحرجة والعالية تمنع لغة الإطلاق العامة حتى الفرز." /></p>
-                  <Link href="/admin/security" prefetch={false}><Bi en="Open security" ar="افتح الأمن" /></Link>
+                  <Link href="#readiness"><Bi en="Review posture" ar="راجع الوضع" /></Link>
                 </article>
 
                 <article className={`launch-gate ${incidentCommandHasCritical ? 'critical' : recentErrors > 0 ? 'watch' : 'ready'}`}>
@@ -2925,7 +2918,7 @@ export default function V2AdminPage() {
               <div className="serving-proof">
                 <div className="mission-panel-head">
                   <span><Bi en="Serving proof packet" ar="حزمة إثبات الخدمة" /></span>
-                  <Link href="/admin/fleet" prefetch={false}><Bi en="Verified fleet console" ar="لوحة الأسطول المتحققة" /></Link>
+                  <Link href="#fleet"><Bi en="Fleet evidence" ar="دليل الأسطول" /></Link>
                 </div>
 
                 {servingProofTarget && servingProofProvider ? (
@@ -3012,7 +3005,7 @@ export default function V2AdminPage() {
                 <article className="serving-recovery-playbook">
                   <div className="mission-panel-head">
                     <span><Bi en="Recovery playbook" ar="كتيب الاستعادة" /></span>
-                    <Link href="/admin/fleet" prefetch={false}><Bi en="Verified console" ar="اللوحة المتحققة" /></Link>
+                    <Link href="#fleet"><Bi en="Fleet evidence" ar="دليل الأسطول" /></Link>
                   </div>
                   <ol>
                     <li>
@@ -3060,7 +3053,7 @@ export default function V2AdminPage() {
                       <strong><Bi en={step.titleEn} ar={step.titleAr} /></strong>
                       <p><Bi en={step.actionEn} ar={step.actionAr} /></p>
                       <small>{step.evidence}</small>
-                      <Link href={step.href} prefetch={isLegacyAdminHref(step.href) ? false : undefined}>
+                      <Link href={step.href}>
                         <Bi en="Open evidence" ar="افتح الدليل" />
                       </Link>
                     </article>
@@ -3090,7 +3083,6 @@ export default function V2AdminPage() {
                     key={check.key}
                     href={check.href}
                     className={`readiness ${check.status}`}
-                    prefetch={isLegacyAdminHref(check.href) ? false : undefined}
                   >
                     <div>
                       <span><Bi en={check.labelEn} ar={check.labelAr} /></span>
@@ -3140,7 +3132,7 @@ export default function V2AdminPage() {
                 <article className="fleet-provider-panel">
                   <div className="mission-panel-head">
                     <span><Bi en="Provider blockers" ar="عوائق المزوّدين" /></span>
-                    <Link href="/admin/fleet" prefetch={false}><Bi en="Open fleet console" ar="افتح لوحة الأسطول" /></Link>
+                    <Link href="#serving-recovery"><Bi en="Review recovery" ar="راجع الاستعادة" /></Link>
                   </div>
 
                   {fleetProviderPreview.length === 0 ? (
@@ -3286,11 +3278,6 @@ export default function V2AdminPage() {
                         <span><Bi en="selected provider" ar="المزوّد المحدد" /></span>
                         <h3>{selectedApproval?.name || (selectedApproval ? `Provider #${selectedApproval.provider_id}` : 'Provider')}</h3>
                       </div>
-                      {selectedApproval && (
-                        <Link href={`/admin/providers/${selectedApproval.provider_id}`} prefetch={false}>
-                          <Bi en="Open legacy detail" ar="افتح التفاصيل الحالية" />
-                        </Link>
-                      )}
                     </div>
 
                     <div className="approval-facts">
@@ -3388,7 +3375,7 @@ export default function V2AdminPage() {
                 <article className="finance-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Refund requests" ar="طلبات الاسترداد" /></span>
-                    <Link href="/admin/payments" prefetch={false}><Bi en="Open payments" ar="افتح المدفوعات" /></Link>
+                    <Link href="#finance"><Bi en="Review refunds" ar="راجع الاستردادات" /></Link>
                   </div>
                   {refundReviewRows.length === 0 ? (
                     <p className="finance-empty"><Bi en="No pending or processing refund requests." ar="لا توجد طلبات استرداد معلقة أو قيد المعالجة." /></p>
@@ -3411,7 +3398,7 @@ export default function V2AdminPage() {
                 <article className="finance-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Provider payouts" ar="دفعات المزوّدين" /></span>
-                    <Link href="/admin/withdrawals" prefetch={false}><Bi en="Open withdrawals" ar="افتح السحوبات" /></Link>
+                    <Link href="#finance"><Bi en="Review payouts" ar="راجع الدفعات" /></Link>
                   </div>
                   {payoutReviewRows.length === 0 ? (
                     <p className="finance-empty"><Bi en="No pending or processing provider payouts." ar="لا توجد دفعات مزوّدين معلقة أو قيد المعالجة." /></p>
@@ -3434,7 +3421,7 @@ export default function V2AdminPage() {
                 <article className="finance-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Billing exceptions" ar="استثناءات الفوترة" /></span>
-                    <Link href="/admin/payments" prefetch={false}><Bi en="Open audit" ar="افتح التدقيق" /></Link>
+                    <Link href="#finance"><Bi en="Review billing" ar="راجع الفوترة" /></Link>
                   </div>
                   {billingExceptionRows.length === 0 ? (
                     <p className="finance-empty"><Bi en="No billing errors or insufficient-balance attempts." ar="لا توجد أخطاء فوترة أو محاولات رصيد غير كافٍ." /></p>
@@ -3457,7 +3444,7 @@ export default function V2AdminPage() {
                 <article className="finance-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Auto-top-up issues" ar="مشاكل الشحن التلقائي" /></span>
-                    <Link href="/admin/payments" prefetch={false}><Bi en="Open audit" ar="افتح التدقيق" /></Link>
+                    <Link href="#finance"><Bi en="Review top-ups" ar="راجع الشحن التلقائي" /></Link>
                   </div>
                   {autoTopupIssueRows.length === 0 ? (
                     <p className="finance-empty"><Bi en="No failed, capped, or paused auto-top-up attempts." ar="لا توجد محاولات شحن تلقائي فاشلة أو محدودة أو متوقفة." /></p>
@@ -3543,7 +3530,7 @@ export default function V2AdminPage() {
                 <article className="support-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Renter risk" ar="مخاطر المستأجر" /></span>
-                    <Link href="/admin/renters" prefetch={false}><Bi en="Open renters" ar="افتح المستأجرين" /></Link>
+                    <Link href="#support"><Bi en="Review renters" ar="راجع المستأجرين" /></Link>
                   </div>
                   {lowBalanceRenterRows.length === 0 ? (
                     <p className="support-empty"><Bi en="No suspended, low-balance, or failed-job renter records in the latest sample." ar="لا توجد سجلات مستأجرين معلقة أو منخفضة الرصيد أو كثيرة الفشل في العينة الأخيرة." /></p>
@@ -3566,7 +3553,7 @@ export default function V2AdminPage() {
                 <article className="support-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Job pain" ar="مشاكل المهام" /></span>
-                    <Link href="/admin/jobs" prefetch={false}><Bi en="Open jobs" ar="افتح المهام" /></Link>
+                    <Link href="#support"><Bi en="Review jobs" ar="راجع المهام" /></Link>
                   </div>
                   {jobPainRows.length === 0 ? (
                     <p className="support-empty"><Bi en="No failed, queued, assigned, or running jobs in the latest sample." ar="لا توجد مهام فاشلة أو منتظرة أو معينة أو قيد التشغيل في العينة الأخيرة." /></p>
@@ -3589,7 +3576,7 @@ export default function V2AdminPage() {
                 <article className="support-card">
                   <div className="mission-panel-head">
                     <span><Bi en="Payment context" ar="سياق الدفع" /></span>
-                    <Link href="/admin/payments" prefetch={false}><Bi en="Open payments" ar="افتح المدفوعات" /></Link>
+                    <Link href="#support"><Bi en="Review payments" ar="راجع المدفوعات" /></Link>
                   </div>
                   {paymentIssueRows.length === 0 ? (
                     <p className="support-empty"><Bi en="No failed, pending, initiated, or refunded payments in the latest sample." ar="لا توجد مدفوعات فاشلة أو معلقة أو مبدوءة أو مستردة في العينة الأخيرة." /></p>
@@ -3658,7 +3645,7 @@ export default function V2AdminPage() {
                 <article className="mission-roster">
                   <div className="mission-panel-head">
                     <span><Bi en="Ownership" ar="الملكية" /></span>
-                    <Link href="/mission" prefetch={false}><Bi en="Open full board" ar="افتح اللوحة كاملة" /></Link>
+                    <Link href="#mission"><Bi en="Review mission" ar="راجع المهمة" /></Link>
                   </div>
                   {missionRosterPreview.length === 0 ? (
                     <p className="mission-empty"><Bi en="No mission assignees returned yet." ar="لم تعد قائمة مسؤولين للمهمة بعد." /></p>
@@ -3939,8 +3926,8 @@ export default function V2AdminPage() {
                   <p className="admin-kicker"><Bi en="Accountability layer" ar="طبقة المساءلة" /></p>
                   <h2><Bi en="Recent audit trail" ar="سجل التدقيق الحديث" /></h2>
                 </div>
-                <Link href="/admin/security" prefetch={false}>
-                  <Bi en="Full log" ar="السجل الكامل" />
+                <Link href="#audit">
+                  <Bi en="Recent log" ar="السجل الحديث" />
                 </Link>
               </div>
 
@@ -4007,7 +3994,7 @@ export default function V2AdminPage() {
                 <article className="incident-timeline-panel">
                   <div className="mission-panel-head">
                     <span><Bi en="Merged incident feed" ar="تغذية الحوادث المدمجة" /></span>
-                    <Link href="/admin/incidents" prefetch={false}><Bi en="Open incidents" ar="افتح الحوادث" /></Link>
+                    <Link href="#incidents"><Bi en="Review incidents" ar="راجع الحوادث" /></Link>
                   </div>
 
                   {incidentTimeline.length === 0 ? (
@@ -4038,7 +4025,7 @@ export default function V2AdminPage() {
                 <article className="incident-error-panel">
                   <div className="mission-panel-head">
                     <span><Bi en="Recent errors" ar="الأخطاء الحديثة" /></span>
-                    <Link href="/admin/incidents" prefetch={false}><Bi en="Open error feed" ar="افتح تغذية الأخطاء" /></Link>
+                    <Link href="#incidents"><Bi en="Review errors" ar="راجع الأخطاء" /></Link>
                   </div>
 
                   {errorEvents.length === 0 ? (
@@ -4069,7 +4056,7 @@ export default function V2AdminPage() {
                 <article className="control-plane-panel">
                   <div className="mission-panel-head">
                     <span><Bi en="Control-plane signals" ar="إشارات لوحة التحكم" /></span>
-                    <Link href="/admin/fleet" prefetch={false}><Bi en="Open fleet" ar="افتح الأسطول" /></Link>
+                    <Link href="#fleet"><Bi en="Review fleet" ar="راجع الأسطول" /></Link>
                   </div>
 
                   {controlSignals.length === 0 ? (
@@ -4137,7 +4124,7 @@ export default function V2AdminPage() {
                             <span><Bi en={label.en} ar={label.ar} /></span>
                           </div>
                         </div>
-                        <Link href={task.href} className="task-action" prefetch={isLegacyAdminHref(task.href) ? false : undefined}>
+                        <Link href={task.href} className="task-action">
                           <Bi en="Open" ar="فتح" />
                         </Link>
                       </article>
@@ -4210,7 +4197,7 @@ export default function V2AdminPage() {
                     ar="تتبع هذه اللوحة الوصول للنقاط وفحوصات الخدمة المتحققة. النبض وحده لا يُحسب كسعة خدمة."
                   />
                 </p>
-                <Link href="/admin/fleet" prefetch={false} className="lane-action"><Bi en="Open fleet console" ar="افتح لوحة الأسطول" /></Link>
+                <Link href="#fleet" className="lane-action"><Bi en="Review fleet" ar="راجع الأسطول" /></Link>
               </article>
 
               <article className="lane-panel finance-lane">
@@ -4231,7 +4218,7 @@ export default function V2AdminPage() {
                     ar="يمكن للوكلاء تلخيص الأدلة، لكن الاستردادات والدفعات وتعديلات الرصيد ومدفوعات المزوّدين بموافقة بشرية."
                   />
                 </p>
-                <Link href="/admin/payments" prefetch={false} className="lane-action"><Bi en="Open payments" ar="افتح المدفوعات" /></Link>
+                <Link href="#finance" className="lane-action"><Bi en="Review finance" ar="راجع المالية" /></Link>
               </article>
 
               <article className="lane-panel incident-lane">
@@ -4252,7 +4239,7 @@ export default function V2AdminPage() {
                     ar="هذا مصدر صندوق الوكلاء القادم: الدليل أولاً، الإجراء المقترح ثانياً، والكتابة المحروسة أخيراً."
                   />
                 </p>
-                <Link href="/admin/incidents" prefetch={false} className="lane-action"><Bi en="Open incidents" ar="افتح الحوادث" /></Link>
+                <Link href="#incidents" className="lane-action"><Bi en="Review incidents" ar="راجع الحوادث" /></Link>
               </article>
             </section>
 
