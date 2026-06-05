@@ -1404,13 +1404,14 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
                 const upsertEngine = db.prepare(`
                     INSERT INTO provider_engines (
                         provider_id, engine_type, base_url, port,
-                        served_models, reachable, last_seen_at
+                        served_models, engine_version, reachable, last_seen_at
                     )
-                    VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+                    VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))
                     ON CONFLICT(provider_id, engine_type) DO UPDATE SET
                         base_url = excluded.base_url,
                         port = excluded.port,
                         served_models = excluded.served_models,
+                        engine_version = excluded.engine_version,
                         reachable = 1,
                         last_seen_at = datetime('now')
                 `);
@@ -1428,12 +1429,16 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
                             .filter(Boolean)
                             .slice(0, 64)
                         : [];
+                    // Optional engine runtime version (e.g. "0.12.3"); older
+                    // daemons omit it, so it is nullable and never required.
+                    const engineVersion = normalizeString(eng.engine_version, { maxLen: 32, trim: true });
                     upsertEngine.run(
                         p.id,
                         engineType,
                         baseUrl,
                         port,
-                        JSON.stringify(servedModelsArr)
+                        JSON.stringify(servedModelsArr),
+                        engineVersion || null
                     );
                 }
             } catch (engineErr) {

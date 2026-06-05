@@ -37,4 +37,11 @@ assert(source.includes("catalogState === 'empty'"), 'v2 renter playground should
 assert(source.includes('Sign in with a real renter key'), 'v2 renter playground should require a real renter key before inference');
 assert(source.includes('From response usage'), 'v2 renter playground should not hardcode a prototype rate label');
 
+// Engine-keyed reasoning toggle (default OFF) + reasoning/content separation.
+assert(source.includes('enable_thinking: showReasoning'), 'playground should send enable_thinking from the Show reasoning toggle');
+assert(source.includes('const [showReasoning, setShowReasoning] = useState(false)'), 'Show reasoning must default OFF');
+assert(source.includes('fullReasoning'), 'playground should track reasoning separately from content');
+assert(/Show reasoning/.test(source), 'playground should render the Show reasoning toggle');
+assert(!source.includes("delta?.content || delta?.reasoning_content"), 'playground must NOT merge reasoning into content (the Ollama leak bug)');
+
 console.log('v2 renter playground static checks passed');
