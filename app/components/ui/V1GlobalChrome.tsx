@@ -8,9 +8,14 @@ import CookieConsent from './CookieConsent'
 import LanguagePreferenceModal from './LanguagePreferenceModal'
 import ChatWidget from './ChatWidget'
 
+// Public routes rewritten in the v2 design language but living outside the
+// /v2 tree (their canonical paths are linked from the landing/footer/email).
+// They must not show the v1 cookie banner / language modal / chat widget.
+const V2_STYLED_ROUTES = ['/status']
+
 export default function V1GlobalChrome() {
   const pathname = usePathname()
-  if (pathname && pathname.startsWith('/v2')) return null
+  if (pathname && (pathname.startsWith('/v2') || V2_STYLED_ROUTES.includes(pathname))) return null
   return (
     <>
       <CookieConsent />
