@@ -3,12 +3,6 @@ import LegalPage from '../components/layout/LegalPage'
 export default function TermsPage() {
   return (
     <LegalPage title="Terms of Service" lastUpdated="March 12, 2026">
-      <p style={{ fontSize: '0.85rem', opacity: 0.75 }}>
-        Reviewers: an expanded PDPL-aligned draft is available at{' '}
-        <a href="/legal/terms-v2">/legal/terms-v2</a> (and{' '}
-        <a href="/legal/privacy-v2">/legal/privacy-v2</a>), pending Saudi legal counsel review. The text below
-        remains the effective Terms of Service.
-      </p>
 
       <h2>1. Acceptance of Terms</h2>
       <p>By accessing or using the DCP platform (&quot;Service&quot;), operated by DC Power Solutions Company (CR: 7053667775), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
@@ -26,9 +20,9 @@ export default function TermsPage() {
       <p>Renters agree to use GPU compute resources only for lawful purposes. Renters must not use the Service for cryptocurrency mining, attacks on third-party systems, or processing of illegal content.</p>
 
       <h2>6. Billing, Payments, and Refunds</h2>
-      <p>Renter usage of the inference API is billed in Saudi halala (1/100 SAR) per million tokens at the published per-model rate. The current rate card by model class is maintained at <a href="https://dcp.sa/pricing">dcp.sa/pricing</a>; rates may change with at least 30 days&apos; prior notice for active subscribers. Renters may pay-as-you-go from a prepaid balance, or subscribe to a monthly tier that grants a SAR credit allotment plus a uniform percentage discount on every model&apos;s per-token rate. Pay-as-you-go top-up balance does not expire. Subscription monthly credit not consumed by the end of the billing period rolls over for thirty (30) days, then expires. GPU-hour rental, where offered, is billed per minute. Provider compensation is determined by a published revenue-share schedule and is paid in halala. Disputes regarding usage metering must be raised within thirty (30) days of the disputed charge via <a href="mailto:billing@dcp.sa">billing@dcp.sa</a>. A draft of the renewed terms with full per-class detail is being prepared at <a href="/legal/terms-v2">/legal/terms-v2</a> and will replace this section once Saudi counsel signoff lands.</p>
+      <p>Renter usage of the inference API is billed in Saudi halala (1/100 SAR) per million tokens at the published per-model rate. The current rate card by model class is maintained at <a href="https://dcp.sa/pricing">dcp.sa/pricing</a>; rates may change with at least 30 days&apos; prior notice for active subscribers. Renters may pay-as-you-go from a prepaid balance, or subscribe to a monthly tier that grants a SAR credit allotment plus a uniform percentage discount on every model&apos;s per-token rate. Pay-as-you-go top-up balance does not expire. Subscription monthly credit not consumed by the end of the billing period rolls over for thirty (30) days, then expires. GPU-hour rental, where offered, is billed per minute. Provider compensation is determined by a published revenue-share schedule and is paid in halala. Disputes regarding usage metering must be raised within thirty (30) days of the disputed charge via <a href="mailto:billing@dcp.sa">billing@dcp.sa</a>.</p>
 
-      <p><strong>Refunds and cancellation.</strong> Where you are a natural person purchasing for non-commercial use, you may cancel and request a full refund of any unused prepaid balance within seven (7) calendar days of a top-up, consistent with the Saudi E-Commerce Law (Royal Decree No. M/126), Article 13. Inference tokens already consumed are non-refundable, as the compute is performed and delivered upon use. Business and enterprise purchases are governed by the applicable order form or contract. To request a cancellation or refund, contact <a href="mailto:billing@dcp.sa">billing@dcp.sa</a>; eligible refunds are returned to the original payment method via Moyasar. This refund text is pending final Saudi counsel sign-off.</p>
+      <p><strong>Refunds and cancellation.</strong> Where you are a natural person purchasing for non-commercial use, you may cancel and request a full refund of any unused prepaid balance within seven (7) calendar days of a top-up, consistent with the Saudi E-Commerce Law (Royal Decree No. M/126), Article 13. Inference tokens already consumed are non-refundable, as the compute is performed and delivered upon use. Business and enterprise purchases are governed by the applicable order form or contract. To request a cancellation or refund, contact <a href="mailto:billing@dcp.sa">billing@dcp.sa</a>; eligible refunds are returned to the original payment method via Moyasar.</p>
 
       <h2>7. Prohibited Uses</h2>
       <p>You may not use DCP to:</p>

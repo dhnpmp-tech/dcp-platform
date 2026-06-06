@@ -992,8 +992,8 @@ export default function V2HomePage() {
               </span>
               <p>
                 <Bi
-                  en="Cross-encodes (query, doc) pairs for final ordering after retrieval. Cuts hallucination rate ~38% in our internal evals."
-                  ar="يُرمّز أزواج (سؤال، وثيقة) للترتيب النهائي بعد الاسترجاع. يقلّل الهلوسة بنحو ٣٨٪ في تقييماتنا الداخلية."
+                  en="Cross-encodes (query, doc) pairs to re-rank the most relevant context first — measurably reducing hallucination in retrieval-augmented answers."
+                  ar="يُرمّز أزواج (سؤال، وثيقة) لإعادة ترتيب أكثر السياقات صلة أولاً — ما يقلّل الهلوسة بوضوح في الإجابات المعزّزة بالاسترجاع."
                 />
               </p>
               <div className="badge-row">
