@@ -75,6 +75,50 @@ function finalizePendingRenter(email) {
 }
 
 /**
+ * Create-or-return a provider row for a magic-link-verified email.
+ *
+ * The v2 provider wizard (/v2/provider-setup) sends a magic link at step 1 —
+ * BEFORE any provider account exists. The real GPU profile is reported by the
+ * daemon after install, so an email-only provider row is valid at this point.
+ * Without this, a first-time provider dead-ends on a 404 "No account found".
+ * Mirrors finalizePendingRenter: idempotent and safe under concurrent clicks.
+ *
+ * - No row for this email → INSERT a registered/pending provider, mint a
+ *   `dcp-provider-…` key, fire the welcome email, return the fresh row.
+ * - Row already exists → return it unchanged (no second key, no second email).
+ */
+function finalizePendingProvider(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  const existing = db.get('SELECT * FROM providers WHERE LOWER(email) = LOWER(?)', cleanEmail);
+  if (existing) return existing;
+
+  const name = cleanEmail.split('@')[0] || 'Provider';
+  const apiKey = 'dcp-provider-' + crypto.randomBytes(16).toString('hex');
+  const now = new Date().toISOString();
+
+  try {
+    db.prepare(
+      `INSERT INTO providers
+         (name, email, api_key, status, approval_status, gpu_profile_source,
+          supported_compute_types, created_at)
+       VALUES (?, ?, ?, 'registered', 'pending', 'pending_detection', '["inference"]', ?)`
+    ).run(name, cleanEmail, apiKey, now);
+  } catch (err) {
+    // UNIQUE(email) race: a concurrent magic-link click already created it.
+    console.warn('[auth.magic-link] provider create race/err, re-reading:', err.message);
+    return db.get('SELECT * FROM providers WHERE LOWER(email) = LOWER(?)', cleanEmail);
+  }
+
+  const created = db.get('SELECT * FROM providers WHERE LOWER(email) = LOWER(?)', cleanEmail);
+  // Only we send the welcome email (the row we just minted), never a racer's.
+  if (created && created.api_key === apiKey) {
+    sendWelcomeEmail(created.email, created.name, apiKey, 'provider')
+      .catch((e) => console.error('[auth.magic-link] provider welcome email failed:', e.message));
+  }
+  return created;
+}
+
+/**
  * POST /api/auth/magic-link
  * Body: { token: string }   (the magic_token from the email URL)
  * Returns: { success, role, api_key, provider|renter }
@@ -112,7 +156,7 @@ function handleMagicLink(req, res) {
     console.log(`[AUTH] Magic-link verified for ${email} ` +
                 `(requested_role=${verification.requested_role}, clientPrefer=${clientPrefer}, prefer=${prefer})`);
 
-    const providerRow = db.get(
+    let providerRow = db.get(
       'SELECT * FROM providers WHERE LOWER(email) = LOWER(?)',
       email
     );
@@ -124,6 +168,16 @@ function handleMagicLink(req, res) {
 
     // Apply preference when both exist; otherwise return whichever is found.
     const preferProvider = prefer === 'provider';
+
+    // First-time provider onboarding: the v2 wizard issues a provider magic
+    // link before any provider row exists. If the verified email has neither a
+    // provider nor a renter and the link was for the provider flow, create the
+    // provider now (daemon fills the GPU profile post-install) instead of
+    // dead-ending on "No account found. Please register first."
+    if (!providerRow && !renterRow && preferProvider) {
+      providerRow = finalizePendingProvider(email);
+    }
+
     const chosen = preferProvider
       ? (providerRow || renterRow)
       : (renterRow || providerRow);

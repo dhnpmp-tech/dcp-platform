@@ -78,6 +78,10 @@ export default function V2ProviderSetup() {
     if (key) {
       setProviderKey(key)
       setApiKeyInput(key)
+      // Already signed in — e.g. returning from the magic-link verify, which
+      // stores the provider key in localStorage before redirecting here. Skip
+      // the sign-in step so the user lands on Requirements, not back on step 1.
+      setStep((s) => (s === 1 ? 2 : s))
     }
   }, [])
 

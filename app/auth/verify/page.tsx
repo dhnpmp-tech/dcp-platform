@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, type CSSProperties } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { setSession } from '../../lib/auth'
 
@@ -129,7 +129,7 @@ function VerifyPageInner() {
           // key set in app/login/page.tsx handleSendMagicLink). Falls back
           // to the renter marketplace if no pending redirect exists or it
           // doesn't look safe.
-          let renterNext = '/renter/marketplace'
+          let renterNext = '/v2/renter/dashboard'
           try {
             const pending = sessionStorage.getItem('dcp_post_auth_redirect')
             if (pending && pending.startsWith('/') && !pending.startsWith('//')) {
@@ -148,9 +148,11 @@ function VerifyPageInner() {
             userName: data.provider?.name,
             email: data.provider?.email,
           })
-          // If the user started in the /setup wizard, return them there
-          // instead of the generic /provider dashboard.
-          let next = '/provider'
+          // Return the provider into the v2 wizard to continue setup. The key
+          // lives in localStorage (survives opening the email in a new tab),
+          // and the wizard skips to step 2 when a key is present. We still
+          // honor an explicit same-tab wizard redirect if one was stashed.
+          let next = '/v2/provider-setup'
           try {
             const pending = sessionStorage.getItem('dcp_wizard_redirect_after_auth')
             if (pending && pending.startsWith('/')) next = pending
@@ -170,23 +172,36 @@ function VerifyPageInner() {
     run()
   }, [router, searchParams])
 
+  // v2 editorial-luxury chrome (locked design language 2026-05-25). This page
+  // lives outside the /v2 route tree — the email + desktop app both target
+  // /auth/verify — so the tokens are inlined rather than pulled from the v2
+  // stylesheet/layout context.
+  const pageStyle: CSSProperties = {
+    minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: '#0a0b1a', padding: '0 16px',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  }
+  const cardStyle: CSSProperties = {
+    width: '100%', maxWidth: 440, background: '#10122a', border: '1px solid #1f2040',
+    padding: '44px 40px', textAlign: 'center',
+  }
+  const titleStyle: CSSProperties = {
+    fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif", fontWeight: 400,
+    fontSize: 30, lineHeight: 1.15, color: '#f5f3ee', margin: '0 0 12px',
+  }
+  const subStyle: CSSProperties = { fontSize: 14, lineHeight: 1.6, color: '#c9c5bd', margin: '0 0 8px' }
+  const iconStyle: CSSProperties = { margin: '0 auto 18px', display: 'block' }
+
   if (status === 'desktop_done') {
     return (
-      <div className="flex flex-col min-h-screen bg-dc1-void items-center justify-center px-4">
-        <div className="w-full max-w-md card border-dc1-border/50 shadow-lg text-center">
-          <div className="mb-4">
-            <svg className="w-12 h-12 mx-auto text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-dc1-text-primary mb-2">You&apos;re signed in</h1>
-          <p className="text-sm text-dc1-text-secondary mb-2">
-            DCP Provider has received your credentials and is finishing setup.
-          </p>
-          <p className="text-sm text-dc1-text-secondary">
-            You can close this tab and return to the DCP Provider app.
-          </p>
+      <div style={pageStyle}>
+        <div style={cardStyle}>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#2dd4b6" style={iconStyle}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <h1 style={titleStyle}>You&apos;re signed in</h1>
+          <p style={subStyle}>DCP Provider has received your credentials and is finishing setup.</p>
+          <p style={subStyle}>You can close this tab and return to the DCP Provider app.</p>
         </div>
       </div>
     )
@@ -194,33 +209,42 @@ function VerifyPageInner() {
 
   if (status === 'desktop_failed' || status === 'error') {
     return (
-      <div className="flex flex-col min-h-screen bg-dc1-void items-center justify-center px-4">
-        <div className="w-full max-w-md card border-dc1-border/50 shadow-lg text-center">
-          <div className="mb-4">
-            <svg className="w-12 h-12 mx-auto text-status-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-dc1-text-primary mb-2">Sign-in link didn&apos;t work</h1>
-          <p className="text-sm text-dc1-text-secondary mb-6">{errorMsg}</p>
-          <a href="/login" className="btn btn-primary inline-block">Request a new link</a>
+      <div style={pageStyle}>
+        <div style={cardStyle}>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#ee7a3c" style={iconStyle}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <h1 style={titleStyle}>Sign-in link didn&apos;t work</h1>
+          <p style={{ ...subStyle, margin: '0 0 26px' }}>{errorMsg}</p>
+          <a
+            href="/v2/auth"
+            style={{
+              display: 'inline-block', background: '#f5f3ee', color: '#0a0b1a', textDecoration: 'none',
+              padding: '13px 32px', fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+              fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+            }}
+          >
+            Request a new link →
+          </a>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-dc1-void items-center justify-center px-4">
-      <div className="w-full max-w-md card border-dc1-border/50 shadow-lg text-center">
-        <div className="mb-4">
-          <svg className="w-10 h-10 mx-auto text-dc1-amber animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        </div>
-        <h1 className="text-xl font-bold text-dc1-text-primary mb-2">Signing you in</h1>
-        <p className="text-sm text-dc1-text-secondary">Verifying your sign-in link…</p>
+    <div style={pageStyle}>
+      <div style={cardStyle}>
+        <svg
+          width="38" height="38" viewBox="0 0 24 24" fill="none"
+          style={{ ...iconStyle, animation: 'dcpspin 0.8s linear infinite' }}
+        >
+          <circle cx="12" cy="12" r="10" stroke="#1f2040" strokeWidth="4" />
+          <path fill="#2dd4b6" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <h1 style={titleStyle}>Signing you in</h1>
+        <p style={subStyle}>Verifying your sign-in link…</p>
+        <style>{'@keyframes dcpspin{to{transform:rotate(360deg)}}'}</style>
       </div>
     </div>
   )
@@ -228,7 +252,7 @@ function VerifyPageInner() {
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-dc1-void" />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#0a0b1a' }} />}>
       <VerifyPageInner />
     </Suspense>
   )

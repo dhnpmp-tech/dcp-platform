@@ -231,38 +231,40 @@ function verifyMagicToken(token) {
 // Magic-link-only flow (state-of-the-art, like GitHub/Anthropic). No 6-digit
 // code is shown to the user — clicking the link is the only sign-in path.
 function buildMagicLinkEmailHtml(magicUrl) {
+  // v2 editorial-luxury chrome (locked design language 2026-05-25): deep navy
+  // bg, warm-cream serif headings (Instrument Serif w/ serif fallback for email
+  // clients), teal accent, cream-filled sharp-cornered CTA. Teal (not the
+  // provider-orange) because this email serves both renter and provider flows.
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#07070E;font-family:'Inter',Arial,sans-serif;color:#E5E5E5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#07070E;padding:40px 0;">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in to DCP</title></head>
+<body style="margin:0;padding:0;background:#0a0b1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#f5f3ee;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0b1a;padding:48px 0;">
     <tr><td align="center">
-      <table width="480" cellpadding="0" cellspacing="0" style="background:#111118;border-radius:12px;overflow:hidden;max-width:480px;">
-        <tr><td style="background:#F5A524;padding:20px 32px;">
-          <h1 style="margin:0;color:#07070E;font-size:22px;font-weight:700;">DCP</h1>
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;background:#10122a;border:1px solid #1f2040;">
+        <tr><td style="padding:26px 36px 22px;border-bottom:1px solid #1f2040;">
+          <span style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-size:26px;color:#f5f3ee;letter-spacing:.01em;">DCP&#8734;</span>
+          <span style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#2dd4b6;float:right;padding-top:13px;">Sign&nbsp;in</span>
         </td></tr>
-        <tr><td style="padding:40px 32px;text-align:center;">
-          <h2 style="color:#E5E5E5;font-size:22px;font-weight:700;margin:0 0 12px;">Sign in to DCP</h2>
-          <p style="color:#A0A0B0;font-size:15px;margin:0 0 32px;line-height:1.5;">Click the button below to sign in to your DCP account.</p>
-          <a href="${magicUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:16px 40px;border-radius:8px;font-weight:700;font-size:16px;margin:0 0 24px;">Sign In to DCP</a>
-          <p style="color:#6B6B7A;font-size:12px;margin:0 0 8px;">Or copy and paste this link into your browser:</p>
-          <p style="color:#A0A0B0;font-size:11px;margin:0 0 32px;word-break:break-all;font-family:'Courier New',monospace;">${magicUrl}</p>
-          <p style="color:#6B6B7A;font-size:12px;margin:0 0 8px;">This link expires in ${OTP_TTL_MINUTES} minutes and can only be used once.</p>
-          <p style="color:#6B6B7A;font-size:12px;margin:0;">If you didn't request this, you can safely ignore this email.</p>
-          <hr style="border:none;border-top:1px solid #2A2A3A;margin:32px 0;" />
-          <!-- Audit C7 fix: wrap AR section in a dir="rtl" container.
-               Inline direction:rtl on h2/p alone leaked LTR layout in
-               Outlook/Apple Mail because the parent td was text-align:
-               center. dir="rtl" attribute is more reliably honored than
-               inline CSS by email clients (Litmus confirms). -->
-          <div dir="rtl" style="text-align:right;direction:rtl;">
-            <h2 style="color:#E5E5E5;font-size:22px;font-weight:700;margin:0 0 12px;">تسجيل الدخول إلى DCP</h2>
-            <p style="color:#A0A0B0;font-size:15px;margin:0 0 32px;line-height:1.6;">اضغط على الزر أدناه لتسجيل الدخول إلى حسابك.</p>
-            <a href="${magicUrl}" style="display:inline-block;background:#F5A524;color:#07070E;text-decoration:none;padding:16px 40px;border-radius:8px;font-weight:700;font-size:16px;margin:0 0 24px;">تسجيل الدخول</a>
-            <p style="color:#6B6B7A;font-size:12px;margin:0 0 8px;">ينتهي هذا الرابط خلال ${OTP_TTL_MINUTES} دقيقة ويمكن استخدامه مرة واحدة فقط.</p>
-            <p style="color:#6B6B7A;font-size:12px;margin:0;">إذا لم تطلب هذا، يمكنك تجاهل هذه الرسالة.</p>
-          </div>
+        <tr><td style="padding:38px 36px 6px;">
+          <p style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7b7a92;margin:0 0 14px;">&mdash; Magic link</p>
+          <h1 style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400;font-size:30px;line-height:1.15;color:#f5f3ee;margin:0 0 14px;">Sign in to DCP</h1>
+          <p style="font-size:15px;line-height:1.6;color:#c9c5bd;margin:0 0 28px;">Tap the button below to sign in. The link works once and expires in ${OTP_TTL_MINUTES} minutes.</p>
+          <a href="${magicUrl}" style="display:inline-block;background:#f5f3ee;color:#0a0b1a;text-decoration:none;padding:15px 38px;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Sign in &rarr;</a>
+          <p style="font-size:12px;color:#7b7a92;margin:28px 0 6px;">Or paste this link into your browser:</p>
+          <p style="font-size:11px;color:#2dd4b6;margin:0;word-break:break-all;font-family:'Courier New',monospace;">${magicUrl}</p>
+          <p style="font-size:12px;color:#7b7a92;margin:22px 0 0;">If you didn't request this, you can safely ignore this email.</p>
+        </td></tr>
+        <tr><td style="padding:0 36px;"><hr style="border:none;border-top:1px solid #1f2040;margin:30px 0 0;"></td></tr>
+        <!-- AR section: dir="rtl" attribute (more reliably honored than inline
+             CSS by Outlook/Apple Mail per Litmus). -->
+        <tr><td dir="rtl" style="padding:30px 36px 38px;text-align:right;direction:rtl;">
+          <h1 style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400;font-size:28px;line-height:1.25;color:#f5f3ee;margin:0 0 14px;">تسجيل الدخول إلى DCP</h1>
+          <p style="font-size:15px;line-height:1.7;color:#c9c5bd;margin:0 0 26px;">اضغط على الزر أدناه لتسجيل الدخول. يعمل الرابط مرة واحدة وينتهي خلال ${OTP_TTL_MINUTES} دقيقة.</p>
+          <a href="${magicUrl}" style="display:inline-block;background:#f5f3ee;color:#0a0b1a;text-decoration:none;padding:15px 38px;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:.04em;">&larr; تسجيل الدخول</a>
+          <p style="font-size:12px;color:#7b7a92;margin:24px 0 0;">إذا لم تطلب هذا، يمكنك تجاهل هذه الرسالة.</p>
         </td></tr>
       </table>
+      <p style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#4e4d67;margin:24px 0 0;">DCP &middot; KSA-resident GPU compute</p>
     </td></tr>
   </table>
 </body></html>`;
