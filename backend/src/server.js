@@ -822,8 +822,10 @@ const db = require('./db');
 const { countUsableProviders } = require('./services/providerVerification');
 
 function getProviderCapacitySnapshot() {
-  const total = db.prepare('SELECT COUNT(*) AS count FROM providers').get()?.count || 0;
-  const heartbeating = db.prepare("SELECT COUNT(*) AS count FROM providers WHERE status = 'online'").get()?.count || 0;
+  // Exclude soft-retired rows so "registered" reflects real providers, not
+  // abandoned/never-onboarded signups (e.g. dead registrations carry deleted_at).
+  const total = db.prepare('SELECT COUNT(*) AS count FROM providers WHERE deleted_at IS NULL').get()?.count || 0;
+  const heartbeating = db.prepare("SELECT COUNT(*) AS count FROM providers WHERE status = 'online' AND deleted_at IS NULL").get()?.count || 0;
   const endpointReachable = db.prepare(
     `SELECT COUNT(*) AS count
        FROM providers
