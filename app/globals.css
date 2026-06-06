@@ -64,7 +64,7 @@
 
   /* Focus indicators for accessibility */
   :focus-visible {
-    outline: 2px solid #00f0ff;
+    outline: 2px solid #2dd4b6;
     outline-offset: 2px;
   }
 
@@ -436,7 +436,7 @@
 .docs-mdx pre .hljs-keyword,
 .docs-mdx pre .hljs-selector-tag,
 .docs-mdx pre .hljs-title.function_ {
-  color: #00f0ff;
+  color: #2dd4b6;
 }
 
 .docs-mdx pre .hljs-string,
