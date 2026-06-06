@@ -14,6 +14,15 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 13:02 UTC — [PR #557](https://github.com/dhnpmp-tech/dcp-platform/pull/557) — `feat(v1): engine-keyed reasoning control + response normalizer + playground toggle`
+
+Included:
+- Replaced the fragile endpoint-string guess + single `think:false` knob (which backfires on Ollama — reasoning leaks into `content` or the response empties) with engine-keyed reasoning control: resolve the engine type (`ollama`/`vllm`/`llamacpp`) from `provider_engines`, inject the model-native `/no_think` directive for Qwen-family models, set `chat_template_kwargs.enable_thinking:false` for vLLM, and never send Ollama `think:false`.
+- Added a response normalizer on both the non-stream and streaming paths that strips `<think>` blocks and the separated reasoning field (`reasoning`/`reasoning_content`/`thinking`) out of renter-visible `content`, with a stateful streaming `<think>` stripper that survives tags split across SSE chunks.
+- Captured `provider_engines.engine_version` in the heartbeat (nullable, back-compat) for version-sensitive knob decisions.
+- Added a "Show reasoning" toggle to the v2 renter playground (default off) that sends `enable_thinking` and renders a separated reasoning panel; answer and reasoning are never merged.
+- Added 25 unit tests (engine resolution, `/no_think` immutability, field canonicalization, cross-chunk stream stripper) and extended the playground static regression. Verified live against an Ollama provider.
+
 ### 10:00 UTC — [PR #556](https://github.com/dhnpmp-tech/dcp-platform/pull/556) — `fix(health): report live catalog and v1 usage counts`
 
 Included:
