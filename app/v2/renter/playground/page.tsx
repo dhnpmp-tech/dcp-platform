@@ -111,6 +111,7 @@ interface ChatMessage {
   ar: boolean
   roleLabel: string
   content: ReactNode
+  reasoning?: string
 }
 
 interface SessionStats {
@@ -162,6 +163,10 @@ export default function PlaygroundPage() {
   const [maxTokens, setMaxTokens] = useState(1024)
   const [topPRaw, setTopPRaw] = useState(100) // 0..100 -> /100
   const [stream, setStream] = useState(true)
+  // Reasoning is OFF by default — clean answers, and the renter is not billed
+  // for thinking tokens. Toggling on sends enable_thinking:true (the backend
+  // translates it to the right per-engine knob) and reveals the reasoning panel.
+  const [showReasoning, setShowReasoning] = useState(false)
 
   // ── live renter shell ──
   const [renter, setRenter] = useState<RenterAccount | null>(null)
@@ -246,6 +251,7 @@ export default function PlaygroundPage() {
     setIsSending(true)
     const startedAt = performance.now()
     let fullContent = ''
+    let fullReasoning = ''
     let outputTokens = 0
     let requestCostSar = 0
 
@@ -263,6 +269,7 @@ export default function PlaygroundPage() {
           temperature: Number(temperature),
           top_p: Number(topP),
           stream,
+          enable_thinking: showReasoning,
         }),
       })
 
@@ -292,11 +299,17 @@ export default function PlaygroundPage() {
             try {
               const chunk = JSON.parse(data)
               const delta = chunk.choices?.[0]?.delta
-              const content = delta?.content || delta?.reasoning_content || ''
-              if (content) {
-                fullContent += content
-                outputTokens += 1
-                updateAssistantMessage(assistantId, { content: fullContent })
+              // Keep the answer and the reasoning on SEPARATE tracks — never
+              // merge reasoning into content (that was the Ollama leak bug).
+              const content = delta?.content || ''
+              const reasoning = delta?.reasoning_content || delta?.reasoning || ''
+              if (content || reasoning) {
+                if (content) {
+                  fullContent += content
+                  outputTokens += 1
+                }
+                if (reasoning) fullReasoning += reasoning
+                updateAssistantMessage(assistantId, { content: fullContent, reasoning: fullReasoning || undefined })
               }
               if (chunk.usage?.completion_tokens) outputTokens = chunk.usage.completion_tokens
               const sarTotal = Number(chunk.usage?.pricing?.sar_total ?? chunk.usage?.pricing?.sar)
@@ -308,11 +321,16 @@ export default function PlaygroundPage() {
         }
       } else {
         const data = await res.json()
-        fullContent = data.choices?.[0]?.message?.content || ''
+        const msg = data.choices?.[0]?.message
+        fullContent = msg?.content || ''
+        fullReasoning = msg?.reasoning_content || msg?.reasoning || ''
         outputTokens = data.usage?.completion_tokens || Math.max(1, Math.ceil(fullContent.length / 4))
         const sarTotal = Number(data.usage?.pricing?.sar_total ?? data.usage?.pricing?.sar)
         if (Number.isFinite(sarTotal)) requestCostSar = sarTotal
-        updateAssistantMessage(assistantId, { content: fullContent || (lang === 'ar' ? 'لا توجد استجابة.' : 'No response returned.') })
+        updateAssistantMessage(assistantId, {
+          content: fullContent || (lang === 'ar' ? 'لا توجد استجابة.' : 'No response returned.'),
+          reasoning: fullReasoning || undefined,
+        })
       }
 
       const elapsedSeconds = (performance.now() - startedAt) / 1000
@@ -326,6 +344,7 @@ export default function PlaygroundPage() {
       updateAssistantMessage(assistantId, {
         roleLabel: `${selectedModelName} · ${outputTokens.toLocaleString('en-US')} tok · ${elapsedSeconds.toFixed(1)}s`,
         content: fullContent || (lang === 'ar' ? 'اكتملت الاستجابة بدون محتوى.' : 'The response completed without content.'),
+        reasoning: fullReasoning || undefined,
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Request failed.'
@@ -648,6 +667,17 @@ export default function PlaygroundPage() {
                     <Bi en="Stream response" ar="بث الاستجابة" />
                   </span>
                 </label>
+                <label className="switch" style={{ marginTop: '12px' }}>
+                  <input
+                    type="checkbox"
+                    checked={showReasoning}
+                    onChange={(e) => setShowReasoning(e.target.checked)}
+                  />
+                  <span className="track"></span>
+                  <span className="lbl-text">
+                    <Bi en="Show reasoning" ar="إظهار الاستدلال" />
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -672,6 +702,14 @@ export default function PlaygroundPage() {
                     <div key={m.id} className={`msg ${m.role}${m.ar ? ' ar' : ''}`}>
                       <div className="role">{m.roleLabel}</div>
                       <div className="content">{m.content}</div>
+                      {showReasoning && m.reasoning ? (
+                        <div className="reasoning">
+                          <span className="reasoning-label">
+                            <Bi en="Reasoning" ar="الاستدلال" />
+                          </span>
+                          {m.reasoning}
+                        </div>
+                      ) : null}
                     </div>
                   ))
                 )}

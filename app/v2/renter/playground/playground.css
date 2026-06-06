@@ -266,6 +266,9 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .msg.assistant .role { color: var(--orange); }
 .msg .content { font-size: 15px; line-height: 1.6; color: var(--ink); }
 .msg.ar .content { font-family: 'Noto Naskh Arabic', serif; font-size: 18px; line-height: 1.85; direction: rtl; text-align: right; }
+.msg .reasoning { font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--mut); white-space: pre-wrap; border-inline-start: 2px dashed var(--hair); padding-inline-start: 12px; padding-block: 8px; margin-top: 2px; opacity: .85; }
+.msg .reasoning .reasoning-label { display: block; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; opacity: .8; }
+.msg.ar .reasoning { font-family: 'Noto Naskh Arabic', serif; font-size: 15px; line-height: 1.8; direction: rtl; text-align: right; }
 .chat-input { border-top: 1px solid var(--hair); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
 .chat-input textarea { width: 100%; min-height: 80px; background: var(--bg-2); border: 1px solid var(--hair); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.55; padding: 12px 14px; border-radius: 2px; resize: vertical; }
 .chat-input textarea:focus { outline: none; border-color: var(--rt-accent); }

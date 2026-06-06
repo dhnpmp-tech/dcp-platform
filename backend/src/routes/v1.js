@@ -1565,12 +1565,6 @@ function isThinkingCapableModel(modelId) {
   return THINKING_MODEL_PREFIX_RE.test(String(modelId).toLowerCase());
 }
 
-function endpointLooksOllamaForThinking(endpointUrl) {
-  if (!endpointUrl) return false;
-  const raw = String(endpointUrl);
-  return raw.includes(':11434') || /ollama/i.test(raw);
-}
-
 // Strip <think>...</think> reasoning blocks from a model response. No-op
 // when no tags are present, so safe to apply unconditionally to thinking-
 // capable model responses.
@@ -1579,6 +1573,133 @@ function stripThinkBlocks(text) {
   // Greedy-but-non-overlapping match. Also tolerates leading whitespace
   // after the closing tag so the user-visible answer doesn't start blank.
   return text.replace(/<think>[\s\S]*?<\/think>\s*/gi, '').trimStart();
+}
+
+// ─── Engine-keyed reasoning control ───────────────────────────────────────
+// Different inference engines expose DIFFERENT knobs to disable "thinking" on
+// reasoning-capable models (Qwen3 / QwQ / DeepSeek-R1), and the same knob can
+// behave differently across engine versions. Empirically, Ollama's top-level
+// `think:false` BACKFIRES on current builds for qwen3 — reasoning leaks into
+// `content`, or the response comes back empty — whereas leaving Ollama at its
+// default cleanly separates reasoning into a `reasoning` field. So rather than
+// one fragile endpoint-string guess + one knob, we:
+//   1. resolve the engine type (from the routing engine hint, else the URL);
+//   2. suppress reasoning engine-appropriately — for Qwen-family models we
+//      inject the model-native `/no_think` directive (engine-agnostic, and it
+//      also saves the renter the reasoning tokens), and for vLLM we set the
+//      native chat-template kwarg. We NEVER send Ollama `think:false`;
+//   3. ALWAYS normalize the response so `content` is reasoning-free regardless
+//      of engine (strip <think> blocks; never promote a separated reasoning
+//      field into content).
+const REASONING_ENGINE_TYPES = new Set(['ollama', 'vllm', 'llamacpp']);
+
+function resolveEngineType(endpointUrl, engineHint) {
+  const hint = typeof engineHint === 'string' ? engineHint.toLowerCase().trim() : '';
+  if (REASONING_ENGINE_TYPES.has(hint)) return hint;
+  const url = String(endpointUrl || '').toLowerCase();
+  if (url.includes(':11434') || url.includes('ollama')) return 'ollama';
+  if (url.includes(':8080')) return 'llamacpp';
+  if (url.includes(':8000') || url.includes('vllm')) return 'vllm';
+  return 'unknown';
+}
+
+// Qwen3 / QwQ honor the `/no_think` soft switch in the prompt; it suppresses
+// reasoning GENERATION (so the renter is not billed for it) and works on every
+// engine. DeepSeek-R1 ignores it and always reasons, so it is excluded — those
+// responses are only cleaned by the normalizer below.
+const QWEN_NOTHINK_PREFIX_RE = /^(qwen3|qwq)/i;
+function modelHonorsNoThink(modelId) {
+  if (!modelId) return false;
+  const tail = String(modelId).replace(/^[^/]+\//, '').toLowerCase().trim();
+  return QWEN_NOTHINK_PREFIX_RE.test(tail) || QWEN_NOTHINK_PREFIX_RE.test(String(modelId).toLowerCase());
+}
+
+// Immutably append the Qwen `/no_think` directive to the last user message.
+// Returns a NEW messages array; never mutates the renter's input. No-op when
+// there is no string-content user message (e.g. multimodal) or it is already
+// present.
+function injectNoThinkDirective(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return messages;
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i] && messages[i].role === 'user') { lastUserIdx = i; break; }
+  }
+  if (lastUserIdx === -1) return messages;
+  const target = messages[lastUserIdx];
+  if (typeof target.content !== 'string') return messages;
+  if (/\/no_think\b/.test(target.content)) return messages;
+  const next = messages.slice();
+  next[lastUserIdx] = { ...target, content: `${target.content} /no_think` };
+  return next;
+}
+
+// Canonicalize an engine's reasoning field name to `reasoning_content`:
+// Ollama /v1 emits `reasoning`, Ollama native emits `thinking`, vLLM/DeepSeek
+// emit `reasoning_content`. Mutates the passed message/delta object in place.
+function canonicalizeReasoningField(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  if (typeof obj.reasoning_content === 'string') { delete obj.reasoning; delete obj.thinking; return; }
+  if (typeof obj.reasoning === 'string') { obj.reasoning_content = obj.reasoning; delete obj.reasoning; delete obj.thinking; }
+  else if (typeof obj.thinking === 'string') { obj.reasoning_content = obj.thinking; delete obj.thinking; }
+}
+
+// Remove reasoning from a message/delta entirely: strip <think> blocks from
+// content and drop any separated reasoning field. Used when thinking is
+// disabled (the default / "Show reasoning" toggle off).
+function stripReasoningFromObject(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  if (typeof obj.content === 'string') obj.content = stripThinkBlocks(obj.content);
+  delete obj.reasoning;
+  delete obj.reasoning_content;
+  delete obj.thinking;
+}
+
+// Stateful <think>…</think> stripper for streaming. Inline reasoning tags can
+// span SSE chunks, so we (a) track whether we're inside a think block across
+// calls and (b) hold back a trailing partial-tag candidate so a tag split on a
+// chunk boundary is never leaked as content. Engines that emit reasoning in a
+// separate field (Ollama, vLLM) are handled by field-dropping instead; this is
+// the belt-and-suspenders path for inline-tag engines (e.g. llama.cpp).
+function createStreamingThinkStripper() {
+  const OPEN = '<think>';
+  const CLOSE = '</think>';
+  let insideThink = false;
+  let carry = '';
+  return function stripChunk(text) {
+    if (typeof text !== 'string' || text.length === 0) return text;
+    const buf = carry + text;
+    carry = '';
+    let out = '';
+    let i = 0;
+    while (i < buf.length) {
+      if (!insideThink) {
+        const open = buf.indexOf(OPEN, i);
+        if (open === -1) {
+          let safeEnd = buf.length;
+          for (let k = Math.max(i, buf.length - OPEN.length + 1); k < buf.length; k++) {
+            if (OPEN.startsWith(buf.slice(k)) || CLOSE.startsWith(buf.slice(k))) { safeEnd = k; break; }
+          }
+          out += buf.slice(i, safeEnd);
+          carry = buf.slice(safeEnd);
+          break;
+        }
+        out += buf.slice(i, open);
+        insideThink = true;
+        i = open + OPEN.length;
+      } else {
+        const close = buf.indexOf(CLOSE, i);
+        if (close === -1) {
+          for (let k = Math.max(i, buf.length - CLOSE.length + 1); k < buf.length; k++) {
+            if (CLOSE.startsWith(buf.slice(k))) { carry = buf.slice(k); break; }
+          }
+          break;
+        }
+        insideThink = false;
+        i = close + CLOSE.length;
+      }
+    }
+    return out;
+  };
 }
 
 function collectProviderOptionalPassthroughFields(requestBody = {}) {
@@ -1783,6 +1904,7 @@ async function proxyToProvider({
   toolChoice,
   passthroughBody = {},
   providerCachedModels = null,
+  engineType = null,
 }) {
   const url = buildProviderChatCompletionsUrl(endpointUrl);
   if (!url) {
@@ -1794,15 +1916,11 @@ async function proxyToProvider({
   // Remap HuggingFace model IDs to Ollama names when targeting an Ollama provider
   const effectiveModelId = resolveOllamaModelId(modelId, endpointUrl, providerCachedModels);
 
-  // Engine + model-family detection for thinking-disable injection.
-  // Thinking-capable models (Qwen3, QwQ, DeepSeek-R1) emit <think>...</think>
-  // by default. Each engine needs a different knob to turn that off:
-  //   - Ollama (/v1/chat/completions on :11434): top-level `think: false`
-  //   - vLLM:                                    `chat_template_kwargs.enable_thinking: false`
-  // The renter can opt back IN by passing `enable_thinking: true` or
-  // `chat_template_kwargs.enable_thinking: true` in the request body
-  // (both are now in the passthrough whitelist).
-  const _endpointIsOllamaLike = endpointLooksOllamaForThinking(endpointUrl);
+  // Engine-keyed thinking control. Thinking-capable models (Qwen3, QwQ,
+  // DeepSeek-R1) reason by default. By DCP policy reasoning is OFF unless the
+  // renter opts in (cleaner output + no billing for tokens they didn't ask
+  // for). The knob to disable it differs per engine — see the helper comment.
+  const _resolvedEngine = resolveEngineType(endpointUrl, engineType);
   const _modelIsThinkingCapable = isThinkingCapableModel(effectiveModelId);
   const _userTplKwargs = (passthroughBody && typeof passthroughBody.chat_template_kwargs === 'object')
     ? passthroughBody.chat_template_kwargs
@@ -1812,19 +1930,32 @@ async function proxyToProvider({
     _userTplKwargs?.enable_thinking === true;
   const _shouldDisableThinking = _modelIsThinkingCapable && !_userEnableThinkingOptIn;
 
-  const body = { model: effectiveModelId, messages, max_tokens: maxTokens, temperature, stream: !!stream, ...passthroughBody };
+  // Strip our own control field out of the passthrough so it is never sent
+  // upstream verbatim (we translate it to the engine's native knob instead).
+  const { enable_thinking: _omitEnableThinking, ...restPassthrough } = passthroughBody || {};
+
+  let effectiveMessages = messages;
+  const body = { model: effectiveModelId, max_tokens: maxTokens, temperature, stream: !!stream, ...restPassthrough };
   if (_shouldDisableThinking) {
-    if (_endpointIsOllamaLike) {
-      body.think = false;
-    } else {
-      // Merge with any user-provided chat_template_kwargs (e.g. tools_in_user_message)
+    // (1) Qwen-family: inject the model-native /no_think directive — suppresses
+    //     reasoning GENERATION (saves tokens) and is engine-agnostic.
+    if (modelHonorsNoThink(effectiveModelId)) {
+      effectiveMessages = injectNoThinkDirective(messages);
+    }
+    // (2) vLLM: also set the native chat-template kwarg (reliable belt).
+    if (_resolvedEngine === 'vllm') {
       body.chat_template_kwargs = { ..._userTplKwargs, enable_thinking: false };
     }
-  } else if (_endpointIsOllamaLike && !_modelIsThinkingCapable) {
-    // Preserve historic behavior for non-thinking models on Ollama: it
-    // doesn't hurt and matches the prior unconditional `think: false`.
-    body.think = false;
+    // (3) Ollama: DO NOT send `think:false` — it backfires (reasoning leaks
+    //     into content / empties the response on current builds). Default
+    //     Ollama separates reasoning into its own field; the response
+    //     normalizer (below + streaming) drops it. llama.cpp/unknown rely on
+    //     /no_think + the <think> normalizer.
+  } else if (_resolvedEngine === 'vllm' && _userTplKwargs) {
+    // Opt-in path: preserve any user-provided chat_template_kwargs verbatim.
+    body.chat_template_kwargs = { ..._userTplKwargs };
   }
+  body.messages = effectiveMessages;
   if (tools !== undefined) body.tools = tools;
   if (toolChoice !== undefined) body.tool_choice = toolChoice;
   let response;
@@ -1841,8 +1972,9 @@ async function proxyToProvider({
   if (!response.ok) {
     return { proxyError: `provider_http_${response.status}`, detail: `Provider returned ${response.status}` };
   }
-  // If streaming, return the raw response for pipe-through
-  if (stream) return { streamResponse: response };
+  // If streaming, return the raw response for pipe-through. The suppress flag
+  // lets the streaming normalizer drop reasoning deltas / <think> spans.
+  if (stream) return { streamResponse: response, suppressReasoning: _shouldDisableThinking };
   let parsed;
   // Clone the response BEFORE reading so we can salvage the raw body on
   // JSON parse failure. fetch bodies are single-shot streams — once
@@ -1867,22 +1999,23 @@ async function proxyToProvider({
     });
     return { proxyError: 'invalid_response', detail: 'Provider returned non-JSON body' };
   }
-  // Belt-and-suspenders: strip <think>...</think> from the response when
-  // thinking should have been disabled. Covers the case where a provider
-  // engine doesn't recognize the disable knob (e.g. an older vLLM, or a
-  // future engine we haven't tested), or the model emits thinking tags
-  // anyway. No-op when no tags are present, so safe for every response.
-  if (_shouldDisableThinking && parsed && Array.isArray(parsed.choices)) {
+  // Response normalizer (non-stream). When thinking is disabled, strip any
+  // <think> blocks AND drop the separated reasoning field so `content` is the
+  // clean answer regardless of engine. When the renter opted in, keep the
+  // reasoning but canonicalize the field name to `reasoning_content` (Ollama
+  // emits `reasoning`, native emits `thinking`, vLLM emits `reasoning_content`).
+  if (parsed && Array.isArray(parsed.choices)) {
     for (const choice of parsed.choices) {
-      if (choice?.message && typeof choice.message.content === 'string') {
-        choice.message.content = stripThinkBlocks(choice.message.content);
-      }
-      if (choice?.delta && typeof choice.delta.content === 'string') {
-        choice.delta.content = stripThinkBlocks(choice.delta.content);
+      if (_shouldDisableThinking) {
+        stripReasoningFromObject(choice?.message);
+        stripReasoningFromObject(choice?.delta);
+      } else {
+        canonicalizeReasoningField(choice?.message);
+        canonicalizeReasoningField(choice?.delta);
       }
     }
   }
-  return { body: parsed };
+  return { body: parsed, suppressReasoning: _shouldDisableThinking };
 }
 
 router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res) => {
@@ -2650,6 +2783,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         toolChoice,
         passthroughBody,
         providerCachedModels: assignedProvider.cached_models,
+        engineType: assignedProvider._selectedEngine?.engine_type || null,
       });
 
       const debitAndReturnProxyResult = (resultBody, providerForUsage) => {
@@ -2759,10 +2893,13 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         return res.json(finalBody);
       };
 
-      const writeStreamingResponse = async (streamResponse, providerForUsage) => {
+      const writeStreamingResponse = async (streamResponse, providerForUsage, suppressReasoning = false) => {
         if (!streamResponse?.body) {
           throw new Error('Provider streaming response missing body');
         }
+        // Stateful <think> stripper for the inline-tag case (e.g. llama.cpp),
+        // shared across all SSE chunks so a tag split on a boundary is handled.
+        const stripStreamThink = createStreamingThinkStripper();
 
         const startedAt = Date.now();
         res.setHeader('Content-Type', 'text/event-stream');
@@ -2811,6 +2948,27 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
               const parsed = JSON.parse(payload);
               if (parsed && typeof parsed.id === 'string' && parsed.id.trim()) {
                 providerResponseId = parsed.id.trim().slice(0, 200);
+              }
+              // Streaming reasoning normalizer. When reasoning is disabled, drop
+              // the separated reasoning field (Ollama `reasoning`, native
+              // `thinking`, vLLM `reasoning_content`) and strip inline <think>
+              // spans so renter-visible `content` is reasoning-free. When opted
+              // in, canonicalize the field name to `reasoning_content`.
+              if (parsed && Array.isArray(parsed.choices)) {
+                for (const choice of parsed.choices) {
+                  const d = choice?.delta;
+                  if (!d || typeof d !== 'object') continue;
+                  if (suppressReasoning) {
+                    delete d.reasoning;
+                    delete d.reasoning_content;
+                    delete d.thinking;
+                    if (typeof d.content === 'string' && d.content) {
+                      d.content = stripStreamThink(d.content);
+                    }
+                  } else {
+                    canonicalizeReasoningField(d);
+                  }
+                }
               }
               const delta = parsed?.choices?.[0]?.delta?.content;
               if (typeof delta === 'string' && delta) {
@@ -2928,7 +3086,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       };
 
       if (wantsStream && proxyResult.streamResponse) {
-        await writeStreamingResponse(proxyResult.streamResponse, assignedProvider);
+        await writeStreamingResponse(proxyResult.streamResponse, assignedProvider, proxyResult.suppressReasoning);
         return;
       }
 
@@ -2979,12 +3137,13 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           toolChoice,
           passthroughBody,
           providerCachedModels: fallbackProvider.cached_models,
+          engineType: fallbackProvider._selectedEngine?.engine_type || null,
         });
 
         if (fallbackResult.proxyError) continue;
 
         if (wantsStream && fallbackResult.streamResponse) {
-          await writeStreamingResponse(fallbackResult.streamResponse, fallbackProvider);
+          await writeStreamingResponse(fallbackResult.streamResponse, fallbackProvider, fallbackResult.suppressReasoning);
           return;
         }
 
@@ -3194,4 +3353,14 @@ module.exports.__test = {
   // Earned-state routing policy (backlog #2)
   resolveEarnedRoutingMode,
   applyEarnedRoutingPolicy,
+  // Engine-keyed reasoning control
+  resolveEngineType,
+  isThinkingCapableModel,
+  modelHonorsNoThink,
+  injectNoThinkDirective,
+  canonicalizeReasoningField,
+  stripReasoningFromObject,
+  createStreamingThinkStripper,
+  stripThinkBlocks,
+  proxyToProvider,
 };

@@ -1243,6 +1243,10 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_provider ON provider_engines(provider_id)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_provider_engines_lookup  ON provider_engines(reachable, engine_type)`);
+// Engine version (e.g. Ollama "0.12.3", vLLM "0.6.2") reported by the daemon's
+// engines[] heartbeat. Used for observability and version-sensitive knob
+// decisions (some reasoning knobs behave differently across engine versions).
+try { db.prepare('ALTER TABLE provider_engines ADD COLUMN engine_version TEXT').run(); } catch (_) {}
 
 // ─── CHANNEL_HEALTH TABLE ─── (migration 018, reconciled into git 2026-05-30)
 // One row per probed channel; written by channels/heartbeat_mvp.py every 60s,
