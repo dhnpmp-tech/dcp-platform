@@ -574,7 +574,7 @@ export default function AdminDashboard() {
                         ? 'var(--color-status-success, #10b981)'
                         : breakevenPct >= 50
                           ? '#f59e0b'
-                          : '#00f0ff',
+                          : '#2dd4b6',
                     }}
                   />
                 </div>
