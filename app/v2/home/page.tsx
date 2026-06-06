@@ -64,6 +64,7 @@ export default function V2HomePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [qsTab, setQsTab] = useState<QsTab>('curl')
   const [copied, setCopied] = useState(false)
+  const [live, setLive] = useState<{ online: number; serving: number; catalog: number } | null>(null)
 
   const codeRef = useRef<HTMLPreElement | null>(null)
 
@@ -76,6 +77,28 @@ export default function V2HomePage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [menuOpen])
+
+  // §01 live capacity — real numbers from the same source /status uses.
+  // Honest: shows whatever is true now (including 0), never simulated.
+  useEffect(() => {
+    let alive = true
+    const load = async () => {
+      try {
+        const res = await fetch('/api/health/detailed', { cache: 'no-store' })
+        if (!res.ok) return
+        const d = await res.json()
+        if (!alive) return
+        setLive({
+          online: Number(d?.providers?.online ?? 0),
+          serving: Number(d?.providers?.serving ?? 0),
+          catalog: Number(d?.models?.catalog_count ?? 0),
+        })
+      } catch { /* offline — keep prior state, no fabricated numbers */ }
+    }
+    load()
+    const id = window.setInterval(load, 60_000)
+    return () => { alive = false; window.clearInterval(id) }
+  }, [])
 
   const copyCode = () => {
     const text = codeRef.current?.textContent ?? ''
@@ -514,7 +537,7 @@ export default function V2HomePage() {
                 </b>
               </div>
               <div className="demand-bar" aria-label={lang === 'ar' ? 'لا توجد سعة منشورة حتى يجتاز مزوّد حي فحوصات التحقق' : 'No published capacity until a live provider passes verification'}>
-                <span id="verified-capacity-bar" style={{ transform: 'scaleX(0)', transformOrigin: 'left' }} />
+                <span id="verified-capacity-bar" style={{ transform: `scaleX(${live ? Math.min(1, live.serving / 4) : 0})`, transformOrigin: 'left', transition: 'transform .6s cubic-bezier(.16,1,.3,1)' }} />
               </div>
             </div>
             <div className="right">
@@ -523,7 +546,11 @@ export default function V2HomePage() {
               </span>
               <br />
               <b>
-                <Bi en="Gated by /status" ar="محكوم عبر /status" />
+                {live
+                  ? (lang === 'ar'
+                      ? `${live.online} مزوّد متصل · ${live.serving} يخدم الآن`
+                      : `${live.online} provider${live.online === 1 ? '' : 's'} online · ${live.serving} serving`)
+                  : <Bi en="Gated by /status" ar="محكوم عبر /status" />}
               </b>
             </div>
           </div>
