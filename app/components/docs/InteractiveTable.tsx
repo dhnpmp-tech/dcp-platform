@@ -32,7 +32,7 @@ function isHigherBetter(header: string): boolean {
 
 // Assign a color to each selected model
 const MODEL_COLORS = [
-  '#00f0ff', // dc1-amber cyan
+  '#2dd4b6', // dc1 accent (v2 teal)
   '#10b981', // emerald
   '#f59e0b', // amber
   '#a78bfa', // violet
@@ -429,7 +429,7 @@ export default function InteractiveTable({ headers, rows }: InteractiveTableProp
                           : 'border border-dc1-border text-transparent hover:border-dc1-text-muted'
                         }
                       `}
-                      style={isSelected ? { borderColor: selColor || '#00f0ff', backgroundColor: `${selColor}33` } : undefined}
+                      style={isSelected ? { borderColor: selColor || '#2dd4b6', backgroundColor: `${selColor}33` } : undefined}
                     >
                       {isSelected ? '✓' : ''}
                     </span>
