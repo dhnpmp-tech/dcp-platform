@@ -13,11 +13,17 @@ const config: Config = {
           'surface-l1': '#0b1221',
           'surface-l2': '#131c2f',
           'surface-l3': '#1e293b',
-          amber: '#00f0ff',
-          'amber-hover': '#00c8d6',
-          'amber-light': '#60d8e8',
-          'text-primary': '#f8fafc',
-          'text-secondary': '#94a3b8',
+          // v2 palette remap (2026-06-06): the pre-redesign cyan accent + cool
+          // slate text were THE "old design" tells. Remap the dc1-* tokens to the
+          // locked v2 design language (teal accent, warm-cream text) so every
+          // legacy v1 page inherits the v2 look in one change. The /v2/* pages use
+          // their own CSS variables and are unaffected. `amber` keeps its name for
+          // back-compat with existing `*-dc1-amber` classes; only the value moved.
+          amber: '#2dd4b6',
+          'amber-hover': '#25b39c',
+          'amber-light': '#5fe3cd',
+          'text-primary': '#f5f3ee',
+          'text-secondary': '#c9c5bd',
           'text-muted': '#7b8da5',
           'section-blue': '#0a1628',
           'border': '#1e293b',
