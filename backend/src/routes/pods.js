@@ -109,11 +109,13 @@ function resolvePodProvider(requestedProviderId) {
           AND p.status = 'online'
           AND COALESCE(p.is_paused, 0) = 0
           AND p.last_heartbeat >= ?
-          AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?`,
+          AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?
+          AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
+          AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1`,
       requestedProviderId, tenMinAgo, POD_MIN_VRAM_MIB
     );
     if (!provider) {
-      return { error: 'provider_not_available', message: 'Requested provider is offline, paused, stale, or below the pod VRAM floor' };
+      return { error: 'provider_not_available', message: 'Requested provider is offline, paused, stale, below the pod VRAM floor, or lacks Docker+CUDA capability' };
     }
     return { provider };
   }
@@ -128,13 +130,15 @@ function resolvePodProvider(requestedProviderId) {
         AND COALESCE(p.is_paused, 0) = 0
         AND p.last_heartbeat >= ?
         AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?
+        AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
+        AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1
       GROUP BY p.id
       ORDER BY active_jobs ASC, p.last_heartbeat DESC
       LIMIT 1`,
     tenMinAgo, POD_MIN_VRAM_MIB
   );
   if (!provider) {
-    return { error: 'no_provider_available', message: 'No online provider currently meets the interactive-pod VRAM floor' };
+    return { error: 'no_provider_available', message: 'No online provider currently has Docker+CUDA capability and meets the interactive-pod VRAM floor' };
   }
   return { provider };
 }
