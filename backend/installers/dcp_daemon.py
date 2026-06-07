@@ -7815,8 +7815,9 @@ def free_gpu_for_pod(required_mib):
 
     gpu = detect_gpu() or {}
     free_before = gpu.get("free_vram_mib", 0)
-    if free_before >= required_mib:
-        return True, free_before
+    # A renter renting the GPU should get the WHOLE card, not share it with
+    # inference. So for an interactive pod we evict idle inference unconditionally
+    # (no early fast-path) — compute preempts idle inference on this provider.
 
     loaded = []
     try:
