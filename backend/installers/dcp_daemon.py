@@ -7536,7 +7536,7 @@ set +e
 mkdir -p /run/sshd /var/run/sshd
 if ! command -v sshd >/dev/null 2>&1 && [ ! -x /usr/sbin/sshd ]; then
   if command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y >/tmp/dcp-ssh.log 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server >>/tmp/dcp-ssh.log 2>&1
+    apt-get update -y -o Acquire::Languages=none >/tmp/dcp-ssh.log 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server >>/tmp/dcp-ssh.log 2>&1
   elif command -v apk >/dev/null 2>&1; then
     apk add --no-cache openssh >/tmp/dcp-ssh.log 2>&1
   elif command -v yum >/dev/null 2>&1; then
@@ -7568,14 +7568,20 @@ def _write_pod_bootstrap():
     return str(path)
 
 
-def _wait_for_tcp(host, port, attempts=72, interval=5, container_name=None):
-    """Wait until host:port accepts a TCP connection (or the container dies)."""
+def _wait_for_ssh(host, port, attempts=90, interval=5, container_name=None):
+    """Wait until host:port actually speaks SSH (reads the 'SSH-...' identification
+    banner). A bare TCP accept is NOT enough: docker-proxy accepts the published
+    port even before the container's sshd is up, so a plain connect would report
+    ready while the injected sshd is still apt-installing. Returns False if the
+    container dies first."""
     import socket
     for _ in range(attempts):
         time.sleep(interval)
         try:
-            with socket.create_connection((host, int(port)), timeout=3):
-                return True
+            with socket.create_connection((host, int(port)), timeout=4) as s:
+                s.settimeout(4)
+                if s.recv(8).startswith(b"SSH-"):
+                    return True
         except Exception:
             pass
         if container_name:
@@ -7685,10 +7691,10 @@ def run_interactive_pod(task_spec, job_id=None):
     if bootstrap_ssh:
         # Arbitrary image: wait for the injected SSH server (the image may have no
         # Jupyter). Installing openssh on first boot can take ~a minute. 72×5s=6min.
-        ready = _wait_for_tcp("127.0.0.1", sport, attempts=72, interval=5, container_name=container_name)
+        ready = _wait_for_ssh("127.0.0.1", sport, attempts=90, interval=5, container_name=container_name)
         if not ready:
             subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
-            return {"success": False, "error": "Pod SSH did not come up within 6 minutes"}
+            return {"success": False, "error": "Pod SSH did not come up within ~7 minutes"}
     else:
         # Default DCP image: poll Jupyter /api until ready (up to 5 minutes).
         health_url = f"http://127.0.0.1:{jport}/api"
