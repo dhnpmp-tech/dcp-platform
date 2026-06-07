@@ -151,6 +151,21 @@ function toPodView(job) {
 
 // ── POST /api/pods — launch an interactive GPU pod ──────────────────────────
 // Body: { provider_id?, duration_minutes?, params: { NOTEBOOK_TOKEN } }
+// ── GET /api/pods — list the renter's pods ──────────────────────────────────
+router.get('/', requireRenter, (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const rows = db.all(
+      `SELECT * FROM jobs WHERE renter_id = ? AND job_type = 'interactive_pod' ORDER BY created_at DESC LIMIT ?`,
+      req.renter.id, limit
+    );
+    return res.json({ pods: rows.map(toPodView) });
+  } catch (error) {
+    console.error('[pods] list error:', error.message);
+    return res.status(500).json({ error: 'Failed to list pods' });
+  }
+});
+
 router.post('/', requireRenter, (req, res) => {
   try {
     const body = req.body || {};
