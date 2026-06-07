@@ -3462,7 +3462,11 @@ function buildNextPendingJob(providerId) {
     runStatement(`UPDATE providers SET current_job_id = ? WHERE id = ?`, job.job_id, providerId);
 
     let taskSpec = job.task_spec;
-    try { taskSpec = JSON.parse(taskSpec); } catch {}
+    // interactive_pod: deliver the RAW signed task_spec string so the daemon's HMAC
+    // verify (which hashes the exact bytes) matches; the daemon json.loads it itself.
+    if (job.job_type !== 'interactive_pod') {
+        try { taskSpec = JSON.parse(taskSpec); } catch {}
+    }
 
     fireAndForgetJobEmail('started', job, {
         estimated_duration_minutes: Number(job.duration_minutes || 0),

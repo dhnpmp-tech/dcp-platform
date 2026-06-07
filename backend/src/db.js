@@ -1201,6 +1201,15 @@ const migrations = [
   // come back online. Persisted so a worker restart never re-spams providers,
   // and so we can conservatively re-alert if a node stays offline > 24h.
   'ALTER TABLE providers ADD COLUMN last_offline_alert_at TEXT',
+  // Interactive GPU pods (job_type='interactive_pod') — provider-side published
+  // ports, the provider WG mesh IP, and the public access surface (relay).
+  'ALTER TABLE jobs ADD COLUMN jupyter_host_port INTEGER',
+  'ALTER TABLE jobs ADD COLUMN ssh_host_port INTEGER',
+  'ALTER TABLE jobs ADD COLUMN pod_wg_mesh_ip TEXT',
+  'ALTER TABLE jobs ADD COLUMN access_url TEXT',
+  'ALTER TABLE jobs ADD COLUMN ssh_command TEXT',
+  'ALTER TABLE jobs ADD COLUMN pod_jpub INTEGER',
+  'ALTER TABLE jobs ADD COLUMN pod_spub INTEGER',
   // Migration 021 renter columns are applied AFTER CREATE TABLE renters
   // (see the second migration sweep below) because the table is created
   // later in this file.

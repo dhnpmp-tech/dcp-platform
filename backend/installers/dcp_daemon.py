@@ -172,6 +172,7 @@ VRAM_REQUIREMENTS = {
     "benchmark": 1000,          # Matrix multiply needs ~1 GB
     "rendering": 2000,          # General GPU rendering
     "vllm_serve": 14336,        # vLLM 7B model in FP16 needs ~14 GB
+    "interactive_pod": 4000,    # Interactive Jupyter/SSH pod baseline (~4 GB headroom)
 }
 VRAM_DEFAULT_REQUIREMENT = 2000  # Default if job type unknown
 
@@ -7490,6 +7491,193 @@ def run_vllm_serve_job(task_spec, job_id=None):
     }
 
 
+def run_interactive_pod(task_spec, job_id=None):
+    """
+    Start an interactive GPU pod (Jupyter on :8888 + sshd on :22) in a detached
+    container on two free host ports. The container stays running until
+    duration_minutes expires or the job is cancelled. Reports jupyter/ssh host
+    ports to backend once Jupyter's /api responds 200.
+
+    task_spec is delivered pre-signed (HMAC verified at the job-poll boundary),
+    so this function only consumes its fields — it never re-signs.
+    """
+    # Parse task_spec JSON (mirrors run_vllm_serve_job)
+    if isinstance(task_spec, str):
+        try:
+            task_spec = json.loads(task_spec)
+        except Exception:
+            pass
+    if not isinstance(task_spec, dict):
+        return {"success": False, "error": "Invalid task_spec for interactive_pod — expected JSON"}
+
+    image = task_spec.get("image", "dcp-compute:pytorch")
+    jupyter_token = task_spec.get("jupyter_token")
+    root_password = task_spec.get("root_password")
+    if not jupyter_token or not root_password:
+        return {"success": False, "error": "interactive_pod task_spec missing jupyter_token/root_password"}
+
+    container_name = f"dcp-pod-{job_id or int(time.time())}"
+    volume_name = f"dcp-pod-{job_id or int(time.time())}-vol"
+
+    # Allocate free host ports: Jupyter 8100-8149, SSH 8150-8199
+    jport = _find_free_port(8100, 8149)
+    sport = _find_free_port(8150, 8199)
+    if not jport:
+        return {"success": False, "error": "No free Jupyter port available in range 8100-8149"}
+    if not sport:
+        return {"success": False, "error": "No free SSH port available in range 8150-8199"}
+
+    log.info(f"Interactive pod: image={image} jport={jport} sport={sport} container={container_name}")
+    report_job_progress(job_id, "pulling")
+
+    # Pull image
+    try:
+        pull = subprocess.run(
+            ["docker", "pull", image],
+            capture_output=True, text=True, timeout=600
+        )
+        if pull.returncode != 0:
+            return {"success": False, "error": f"Pod image pull failed: {pull.stderr[:200]}", "transient": True}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Pod image pull timed out (600s)", "transient": True}
+    except Exception as e:
+        return {"success": False, "error": f"Pod pull error: {e}", "transient": True}
+
+    report_job_progress(job_id, "loading_model")
+    report_event(
+        "container_start",
+        f"Starting interactive pod: {container_name} image={image} jport={jport} sport={sport}",
+        job_id=job_id
+    )
+
+    # Start container detached. NOTE: deliberately NO --cap-drop all and NO
+    # --security-opt no-new-privileges here — both break sshd inside the pod.
+    # Only soft limits are applied; full kernel isolation (gVisor/Kata) is the GA gate.
+    docker_cmd = [
+        "docker", "run", "-d",
+        "--gpus", "all",
+        "--name", container_name,
+        "-p", f"{jport}:8888",
+        "-p", f"{sport}:22",
+        "-e", f"JUPYTER_TOKEN={jupyter_token}",
+        "-e", f"ROOT_PASSWORD={root_password}",
+        "-v", f"{volume_name}:/workspace",
+        "--pids-limit", "4096",
+        image,
+    ]
+
+    try:
+        start_result = subprocess.run(docker_cmd, capture_output=True, text=True, timeout=30)
+        if start_result.returncode != 0:
+            return {"success": False, "error": f"Failed to start pod container: {start_result.stderr[:300]}"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Docker start timed out"}
+    except Exception as e:
+        return {"success": False, "error": f"Docker start error: {e}"}
+
+    # Poll Jupyter /api until ready (up to 5 minutes for image boot)
+    health_url = f"http://127.0.0.1:{jport}/api"
+    ready = False
+    for attempt in range(60):  # 60 × 5s = 5 minutes
+        time.sleep(5)
+        try:
+            import urllib.request as _urllib
+            with _urllib.urlopen(health_url, timeout=3) as r:
+                if r.status == 200:
+                    ready = True
+                    break
+        except Exception:
+            pass
+        # Check container is still alive
+        check = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
+            capture_output=True, text=True
+        )
+        if check.stdout.strip() != "true":
+            log.error(f"Pod container {container_name} exited during startup")
+            return {"success": False, "error": "Pod container exited before becoming healthy"}
+
+    if not ready:
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        return {"success": False, "error": "Pod Jupyter endpoint did not become healthy within 5 minutes"}
+
+    # Report endpoint ready to backend (jupyter/ssh host ports + mesh & public IP)
+    public_ip = _get_public_ip()
+    wg_mesh_ip = _detect_wg_mesh_ip()
+    try:
+        http_post(f"{API_URL}/api/jobs/{job_id}/endpoint-ready", {
+            "api_key": API_KEY,
+            "jupyter_host_port": jport,
+            "ssh_host_port": sport,
+            "wg_mesh_ip": wg_mesh_ip,
+            "provider_ip": public_ip,
+        }, timeout=15)
+    except Exception as e:
+        log.warning(f"Failed to report endpoint-ready: {e}")
+
+    report_job_progress(job_id, "generating")  # "generating" = pod live & serving
+    log.info(f"Interactive pod ready: container={container_name} jport={jport} sport={sport} wg={wg_mesh_ip}")
+
+    # Hold loop — monitor container until backend says job is done or duration expires.
+    poll_interval = 30  # seconds between container health checks
+    while True:
+        time.sleep(poll_interval)
+        # Check if container is still running
+        check = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
+            capture_output=True, text=True
+        )
+        if check.stdout.strip() != "true":
+            log.info(f"Pod container {container_name} stopped externally")
+            break
+        # Check if the backend job is still running
+        try:
+            code, job_status_resp = http_get(
+                f"{API_URL}/api/jobs/{job_id}",
+                headers=_auth_headers(),
+            )
+            if code == 200:
+                current_status = job_status_resp.get("job", {}).get("status", "running")
+                if current_status not in ("running", "pulling", "assigned"):
+                    log.info(f"Job {job_id} status={current_status} — stopping pod container")
+                    break
+        except Exception:
+            pass  # Network hiccup — keep the pod alive
+
+    # Cleanup: stop and remove container
+    subprocess.run(["docker", "stop", "--time", "10", container_name], capture_output=True)
+    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+    report_event("container_complete", f"Interactive pod job {job_id} completed — container stopped", job_id=job_id)
+    log.info(f"Pod container {container_name} stopped and removed")
+
+    return {
+        "success": True,
+        "result": {
+            "jupyter_host_port": jport,
+            "ssh_host_port": sport,
+            "image": image,
+        },
+        # Backward-compatible top-level keys for consumers that read outcome directly.
+        "jupyter_host_port": jport,
+        "ssh_host_port": sport,
+        "image": image,
+    }
+
+
+def stop_pod(job_id):
+    """Tear down an interactive pod container/volume by job_id (idempotent).
+
+    Mirrors the cleanup tail of run_interactive_pod for out-of-band stops
+    (e.g. DELETE /api/pods/:id). Safe to call when nothing is running.
+    """
+    container_name = f"dcp-pod-{job_id}"
+    subprocess.run(["docker", "stop", "--time", "10", container_name], capture_output=True)
+    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+    report_event("container_complete", f"Interactive pod {job_id} stopped via stop_pod", job_id=job_id)
+    log.info(f"Pod container {container_name} stopped and removed (stop_pod)")
+    return {"success": True, "result": {"stopped": True, "container": container_name}}
+
+
 def execute_job(job):
     """Execute a job with Docker-only script execution."""
     global _current_job_id
@@ -7511,6 +7699,12 @@ def execute_job(job):
     log.info(f"Executing job {job_id} (type: {job_type})")
 
     try:
+        # Interactive pod — long-running detached Jupyter+SSH container with health polling.
+        # Must run before the benchmark fallback (task_spec may carry unrelated metadata).
+        if job_type == "interactive_pod":
+            if not check_docker():
+                return {"success": False, "error": "Docker not available — interactive_pod requires Docker with NVIDIA Container Toolkit"}
+            return run_interactive_pod(task_spec, job_id=job_id)
         # vLLM serverless serve — long-running detached container with health polling.
         # This must run before benchmark fallback in case task_spec contains benchmark metadata.
         if job_type == "vllm_serve":

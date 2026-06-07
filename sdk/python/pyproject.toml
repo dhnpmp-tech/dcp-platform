@@ -18,6 +18,9 @@ classifiers = [
 ]
 dependencies = []  # stdlib-only; no third-party deps
 
+[project.scripts]
+dcp = "dc1.cli:main"
+
 [project.urls]
 Homepage = "https://dcp.sa"
 Documentation = "https://dcp.sa/docs"
