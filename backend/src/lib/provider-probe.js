@@ -108,6 +108,86 @@ function _onlineProviders() {
 const _consecutiveFailures = new Map(); // provider_id -> count
 const UNREACHABLE_THRESHOLD = 3;
 
+// ── Per-engine backend reachability (multi-engine routing) ─────────────────
+// The legacy probe above only tests providers.vllm_endpoint_url (one port).
+// A provider can run several engines on different ports (e.g. Node 2:
+// llama.cpp :8080 + Ollama :11434), and the router sends each model to ITS
+// engine's base_url. So we must know which engines the BACKEND can actually
+// reach — not just the single registered endpoint. We probe each engine,
+// persist provider_engines.reachable, and treat the provider as reachable as
+// long as ANY engine is reachable (so one flaky engine can't black-hole the
+// provider's healthy ones).
+const _engineFailures = new Map(); // engine_id -> consecutive backend-probe fails
+const ENGINE_UNREACHABLE_THRESHOLD = 2;
+
+function _engineProbeBase(rawBaseUrl) {
+  // engine base_url may carry a trailing /v1 (Ollama OAI) — strip it so the
+  // shared _probeEndpoint appends /v1/models without doubling the path.
+  let b = String(rawBaseUrl || '').trim().replace(/\/+$/, '');
+  b = b.replace(/\/v1$/i, '');
+  return _normalizeBaseUrl(b);
+}
+
+// Probe every engine of a provider, persist per-engine reachability with the
+// same transient-failure hysteresis, and return true if any engine is
+// reachable. Returns false (and is a no-op) when the provider has no engine
+// rows — the legacy single-endpoint path still governs those providers.
+async function _probeEngines(providerId) {
+  let engines;
+  try {
+    engines = db.all(
+      'SELECT id, engine_type, base_url FROM provider_engines WHERE provider_id = ?',
+      [providerId]
+    );
+  } catch (_) {
+    return false; // table missing on older schema
+  }
+  if (!Array.isArray(engines) || engines.length === 0) return false;
+
+  const updReach = db.prepare(
+    'UPDATE provider_engines SET reachable = ?, last_probed_at = ?, last_probe_error = ? WHERE id = ?'
+  );
+  // hysteresis case: refresh probe metadata WITHOUT flipping reachable
+  const updKeep = db.prepare(
+    'UPDATE provider_engines SET last_probed_at = ?, last_probe_error = ? WHERE id = ?'
+  );
+  const nowIso = new Date().toISOString();
+
+  await Promise.all(engines.map(async (e) => {
+    const eid = Number(e.id);
+    let ok = false;
+    let error = 'no base_url';
+    if (e.base_url) {
+      const r = await _probeEndpoint(_engineProbeBase(e.base_url));
+      ok = r.ok;
+      error = r.error;
+    }
+    if (ok) {
+      _engineFailures.delete(eid);
+      try { updReach.run(1, nowIso, null, eid); } catch (_) { /* write gap */ }
+    } else {
+      const fails = (_engineFailures.get(eid) || 0) + 1;
+      _engineFailures.set(eid, fails);
+      if (fails >= ENGINE_UNREACHABLE_THRESHOLD) {
+        try { updReach.run(0, nowIso, error || 'unreachable', eid); } catch (_) { /* write gap */ }
+      } else {
+        try { updKeep.run(nowIso, `probe_fail_${fails}`, eid); } catch (_) { /* write gap */ }
+      }
+    }
+  }));
+
+  // Re-read so the verdict includes engines kept up by hysteresis.
+  try {
+    const any = db.get(
+      'SELECT 1 AS x FROM provider_engines WHERE provider_id = ? AND reachable = 1 LIMIT 1',
+      [providerId]
+    );
+    return Boolean(any);
+  } catch (_) {
+    return false;
+  }
+}
+
 async function runProbeOnce() {
   const providers = _onlineProviders();
   if (!providers.length) return { probed: 0 };
@@ -125,7 +205,12 @@ async function runProbeOnce() {
   let unreachable = 0;
   await Promise.all(
     providers.map(async (p) => {
-      const { ok, error } = await _probeOne(p);
+      const legacy = await _probeOne(p);
+      // Also probe each engine's own base_url so multi-engine providers stay
+      // routable via ANY reachable engine, not just the registered endpoint.
+      const engineOk = await _probeEngines(Number(p.id));
+      const ok = legacy.ok || engineOk;
+      const error = ok ? null : (legacy.error || 'all engines unreachable');
       const nowIso = new Date().toISOString();
       const pid = Number(p.id);
 

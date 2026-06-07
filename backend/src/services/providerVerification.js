@@ -100,7 +100,7 @@ function _normalizeBaseUrl(url) {
 // Resolve the candidate base URLs in routing-preference order: WG mesh IP
 // first (matches lib/provider-probe.js H5 preference), then the public
 // vllm_endpoint_url. Returns [] when nothing is resolvable.
-function _candidateBases(provider) {
+function _candidateBases(provider, db) {
   const bases = [];
   if (provider.wg_mesh_ip) {
     const wgPort = (provider.vllm_endpoint_url || '').match(/:(\d+)\/?$/)?.[1] || '11434';
@@ -108,6 +108,22 @@ function _candidateBases(provider) {
   }
   const direct = _normalizeBaseUrl(provider.vllm_endpoint_url);
   if (direct) bases.push(direct);
+  // Multi-engine providers expose several ports (e.g. llama.cpp :8080 +
+  // Ollama :11434). Add each engine's own base_url so verification succeeds
+  // via ANY reachable engine, keeping the provider in serving state instead
+  // of failing whenever the single registered endpoint is flaky.
+  if (db) {
+    try {
+      const engines = db.all(
+        'SELECT base_url FROM provider_engines WHERE provider_id = ?',
+        [provider.id]
+      );
+      for (const e of (engines || [])) {
+        const eb = _normalizeBaseUrl(e.base_url);
+        if (eb && !bases.includes(eb)) bases.push(eb);
+      }
+    } catch (_) { /* table missing on older schema — legacy candidates apply */ }
+  }
   return bases;
 }
 
@@ -216,8 +232,8 @@ async function _probeChat(base, model) {
 // Verify a single provider across its candidate bases. First base that
 // answers GET /v1/models wins; we then attempt the chat probe on that same
 // base when a model is known.
-async function _verifyOne(provider) {
-  const bases = _candidateBases(provider);
+async function _verifyOne(provider, db) {
+  const bases = _candidateBases(provider, db);
   if (!bases.length) {
     return {
       verified_online: 0,
@@ -314,7 +330,7 @@ async function runVerificationOnce(db) {
   let online = 0;
   await Promise.all(
     providers.map(async (p) => {
-      const r = await _verifyOne(p);
+      const r = await _verifyOne(p, db);
       const nowIso = new Date().toISOString();
       if (r.verified_online === 1) online += 1;
       try {
