@@ -6,6 +6,8 @@ Reads the renter API key from ``--api-key`` or the ``DCP_API_KEY`` /
 Examples::
 
     dcp pod create --provider 42 --duration 60 --token s3cr3t-notebook-token
+    dcp pod create --duration 60 --token s3cr3t --image vllm
+    dcp pod create --duration 60 --token s3cr3t --image ghcr.io/org/repo:tag
     dcp pod list
     dcp pod get <pod_id>
     dcp pod stop <pod_id>
@@ -49,24 +51,26 @@ def _cmd_create(client: DC1Client, args: argparse.Namespace) -> int:
         image=args.image,
     )
     pod_id = pod['id']
+    status = pod.get('status', 'starting')
     root_password = pod.get('root_password')
     jupyter_token = pod.get('jupyter_token') or args.token
-    print(f'Pod {pod_id} {pod.get("status", "starting")}. Booting...')
+    print(f'Pod {pod_id} {status}. Booting...')
 
     access_url = pod.get('access_url')
     ssh_command = pod.get('ssh_command')
 
     if not (access_url and ssh_command) and not args.no_wait:
         access_url, ssh_command = _poll_until_ready(client, pod_id, args.timeout)
+        if access_url and ssh_command:
+            status = 'running'
 
-    print(f'id:          {pod_id}')
-    print(f'token:       {jupyter_token}')
+    print(f'id:            {pod_id}')
+    print(f'status:        {status}')
+    print(f'token:         {jupyter_token}')
     if root_password:
-        print(f'ssh_password: {root_password}')
-    if access_url:
-        print(f'access_url:  {access_url}')
-    if ssh_command:
-        print(f'ssh_command: {ssh_command}')
+        print(f'root_password: {root_password}')
+    print(f'access_url:    {access_url or "-"}')
+    print(f'ssh_command:   {ssh_command or "-"}')
     if not (access_url and ssh_command):
         print(f'(not ready yet — run `dcp pod get {pod_id}` to check again)')
     return 0
@@ -100,10 +104,13 @@ def _cmd_list(client: DC1Client, args: argparse.Namespace) -> int:
 
 def _cmd_get(client: DC1Client, args: argparse.Namespace) -> int:
     pod = client.pods.get(args.pod_id)
-    print(f'id:          {pod["id"]}')
-    print(f'status:      {pod["status"]}')
-    print(f'access_url:  {pod.get("access_url") or "-"}')
-    print(f'ssh_command: {pod.get("ssh_command") or "-"}')
+    print(f'id:            {pod["id"]}')
+    print(f'status:        {pod["status"]}')
+    root_password = pod.get('root_password')
+    if root_password:
+        print(f'root_password: {root_password}')
+    print(f'access_url:    {pod.get("access_url") or "-"}')
+    print(f'ssh_command:   {pod.get("ssh_command") or "-"}')
     return 0
 
 
@@ -125,11 +132,19 @@ def _build_parser() -> argparse.ArgumentParser:
     pod = sub.add_parser('pod', help='Manage interactive GPU pods (Jupyter + SSH).')
     pod_sub = pod.add_subparsers(dest='action', required=True)
 
-    p_create = pod_sub.add_parser('create', help='Launch an interactive pod.')
+    p_create = pod_sub.add_parser('create', help='Launch an interactive GPU pod (SSH; Jupyter on pytorch).')
     p_create.add_argument('--provider', type=int, default=None, help='Provider ID to pin to (auto-picked if omitted).')
     p_create.add_argument('--duration', type=int, required=True, help='Max runtime in minutes.')
     p_create.add_argument('--token', required=True, help='Strong Jupyter notebook token.')
-    p_create.add_argument('--image', default='dcp-compute:pytorch', help='Container image (default dcp-compute:pytorch).')
+    p_create.add_argument(
+        '--image',
+        default=None,
+        help=(
+            'Pod image: an alias (pytorch, vllm, cuda, ubuntu) for a pre-baked '
+            'dcp-compute image, or any Docker image ref (e.g. '
+            'ghcr.io/org/repo:tag). Defaults to pytorch.'
+        ),
+    )
     p_create.add_argument('--timeout', type=int, default=300, help='Seconds to wait for the pod to become ready (default 300).')
     p_create.add_argument('--no-wait', action='store_true', help='Return immediately instead of polling until ready.')
     p_create.set_defaults(func=_cmd_create)

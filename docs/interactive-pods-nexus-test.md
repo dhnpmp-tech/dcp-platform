@@ -21,6 +21,8 @@ API="https://api.dcp.sa/api"
 RKEY="dc1-renter-7007e3da33dfcdbf8afa39af4613f242"
 
 echo "== 1. CREATE pod =="
+# image is optional — omitted here defaults to the pre-baked "pytorch" image.
+# Swap in "vllm"|"cuda"|"ubuntu" (aliases) or any Docker ref to test other images.
 C=$(curl -s -X POST "$API/pods" -H "x-renter-key: $RKEY" -H 'content-type: application/json' -d '{"gpu_count":1}')
 echo "$C"
 PID=$(echo "$C" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
@@ -76,7 +78,7 @@ bash /tmp/nexus_pod_test.sh
 ## What each step verifies
 | Step | Proves |
 |---|---|
-| 1 CREATE | renter-auth, `interactive_pod` job on the job rails, HMAC-signed, pinned to a **Docker+CUDA-capable** provider only (Apple-Silicon/non-CUDA providers are excluded) |
+| 1 CREATE | renter-auth, `interactive_pod` job on the job rails, HMAC-signed, pinned to a **Docker+CUDA-capable** provider only (Apple-Silicon/non-CUDA providers are excluded). Honors the optional **`image`** field — a friendly alias (`pytorch`\|`vllm`\|`cuda`\|`ubuntu`) → pre-baked `dcp-compute:<alias>` (native sshd, fast start), or any other valid Docker ref → arbitrary image with daemon-injected sshd (`bootstrap_ssh=true`). Omitted → `pytorch`. |
 | 2 POLL | daemon picked up the job, **evicted idle inference to free the GPU** (make-room), `docker run`, health-checked Jupyter, registered the public socat relay |
 | 3 Jupyter | gateway relay (VPS:41xxx → provider mesh IP over WireGuard) serves the pod to the open internet |
 | 4 SSH | gateway relay (VPS:42xxx → pod :22), root shell, GPU passthrough (`nvidia-smi` sees the real 3090) |
@@ -84,11 +86,19 @@ bash /tmp/nexus_pod_test.sh
 
 ## CLI equivalent (same thing, via the SDK)
 ```bash
-dcp pod create --base-url https://api.dcp.sa          # prints id, token, ssh password, access_url, ssh_command
+# --image is optional (defaults to pytorch). Use an alias or any Docker ref.
+dcp pod create --duration 60 --token <strong-token> --base-url https://api.dcp.sa          # default pytorch image
+dcp pod create --duration 60 --token <strong-token> --image vllm --base-url https://api.dcp.sa            # pre-baked alias
+dcp pod create --duration 60 --token <strong-token> --image ghcr.io/org/repo:tag --base-url https://api.dcp.sa   # arbitrary image
 dcp pod list   --base-url https://api.dcp.sa
 dcp pod get    <id> --base-url https://api.dcp.sa
 dcp pod stop   <id> --base-url https://api.dcp.sa
 ```
+`dcp pod create` prints id, Jupyter token, ssh root password, access_url, ssh_command.
+
+> For the full renter-facing walkthrough (CLI, web `/renter/pods`, raw API, picking
+> images, SSHing in, and a HF download-and-train example) see
+> [`renter-quickstart.md`](renter-quickstart.md).
 
 ## Provider-side proof (optional, needs Node 2 access)
 While a pod runs, on the provider you can confirm the make-room + container:

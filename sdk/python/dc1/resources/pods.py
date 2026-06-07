@@ -1,16 +1,23 @@
-"""Pods resource — interactive GPU pods (Jupyter + SSH).
+"""Pods resource — interactive GPU pods (SSH, best-effort Jupyter).
 
-A pod is a long-lived interactive container (``job_type='interactive_pod'``)
-backed by a single provider. The backend boots a ``dcp-compute`` image with a
-Jupyter server and an SSH daemon, relays the ports out through the VPS, and
-exposes an ``access_url`` (Jupyter) plus an ``ssh_command``.
+A pod is a renter-launched GPU container (``job_type='interactive_pod'``)
+backed by a single provider. The renter gets a blank GPU box reachable over
+SSH and runs anything inside it.
+
+The renter picks the image via the ``image`` field. Friendly aliases
+(``pytorch``, ``vllm``, ``cuda``, ``ubuntu``) map to pre-baked
+``dcp-compute:<alias>`` images that ship an SSH daemon for fast starts; any
+other valid Docker image reference (e.g. ``ghcr.io/org/repo:tag``) is allowed
+as an arbitrary image, with the daemon injecting an SSH daemon at boot.
+``pytorch`` is the default when no image is given, and is the only image that
+ships Jupyter (surfaced via ``access_url``).
 """
 from __future__ import annotations
 from typing import Optional
 
 from ..exceptions import APIError
 
-DEFAULT_POD_IMAGE = 'dcp-compute:pytorch'
+DEFAULT_POD_IMAGE = 'pytorch'
 
 
 class PodsResource:
@@ -23,9 +30,9 @@ class PodsResource:
         provider_id: Optional[int] = None,
         duration_minutes: int,
         notebook_token: str,
-        image: str = DEFAULT_POD_IMAGE,
+        image: Optional[str] = None,
     ) -> dict:
-        """Launch an interactive GPU pod (Jupyter notebook + SSH).
+        """Launch an interactive GPU pod (SSH; Jupyter on the pytorch image).
 
         Args:
             provider_id: ID of the provider to pin the pod to. If omitted, the
@@ -33,8 +40,13 @@ class PodsResource:
             duration_minutes: Maximum runtime in minutes. Billing is based on
                 actual usage.
             notebook_token: Strong token used to authenticate against the
-                pod's Jupyter server. The backend rejects weak tokens.
-            image: Container image to boot (default ``dcp-compute:pytorch``).
+                pod's Jupyter server (pytorch image only). The backend rejects
+                weak tokens.
+            image: Image to boot. A friendly alias (``pytorch``, ``vllm``,
+                ``cuda``, ``ubuntu``) maps to a pre-baked ``dcp-compute``
+                image, or any valid Docker image reference (e.g.
+                ``ghcr.io/org/repo:tag``) for an arbitrary image. If omitted,
+                the backend defaults to ``pytorch``.
 
         Returns:
             Dict with ``id`` (the pod/job id) and initial ``status``
@@ -48,7 +60,7 @@ class PodsResource:
         }
         if provider_id is not None:
             body['provider_id'] = provider_id
-        if image and image != DEFAULT_POD_IMAGE:
+        if image:
             body['image'] = image
 
         data = self._http.post('/api/pods', body)
@@ -75,9 +87,9 @@ class PodsResource:
             pod_id: The pod id returned by create().
 
         Returns:
-            Dict with ``id``, ``status``, ``access_url``, and ``ssh_command``.
-            ``access_url`` and ``ssh_command`` are populated once the pod
-            reaches ``status == 'running'``.
+            Dict with ``id``, ``status``, ``access_url``, ``ssh_command``, and
+            ``root_password``. ``access_url`` and ``ssh_command`` are populated
+            once the pod reaches ``status == 'running'``.
         """
         data = self._http.get(f'/api/pods/{pod_id}')
         return {
@@ -85,6 +97,7 @@ class PodsResource:
             'status': data.get('status', 'unknown'),
             'access_url': data.get('access_url'),
             'ssh_command': data.get('ssh_command'),
+            'root_password': data.get('root_password'),
         }
 
     def list(self, limit: int = 20) -> list[dict]:

@@ -41,33 +41,51 @@ const signTaskSpec = jobsRouter.signTaskSpec;
 
 // Pod defaults / bounds.
 const DEFAULT_POD_IMAGE = 'dcp-compute:pytorch';
-// Renter-selectable images (trusted-pilot allow-list). The renter gets a blank
-// GPU container running THEIR chosen runtime; the daemon injects SSH into any
-// image so they can always get in. The default image ships Jupyter+SSH baked in;
-// every other image gets the daemon's generic SSH bootstrap.
-const POD_IMAGE_ALLOWLIST = [
-  /^dcp-compute:[\w.-]+$/,
-  /^pytorch\/pytorch:[\w.-]+$/,
-  /^nvidia\/cuda:[\w.-]+$/,
-  /^vllm\/vllm-openai:[\w.-]+$/,
-  /^ghcr\.io\/[\w./-]+:[\w.-]+$/,
-  /^(docker\.io\/)?(library\/)?ubuntu:[\w.-]+$/,
-];
-// A valid, non-injectable Docker image reference (subprocess passes it as one
-// argv element, so this is defense-in-depth against a malformed ref).
-const IMAGE_REF_RE = /^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?(:[\w][\w.-]{0,127})?(@sha256:[a-f0-9]{64})?$/i;
+// Friendly aliases → PRE-BAKED dcp-compute image tags. These ship sshd (and, for
+// pytorch, Jupyter) baked in, so the daemon starts them natively without
+// injecting SSH (bootstrap=false → fast start). "pytorch" is the default when no
+// image is given.
+const ALIASES = {
+  pytorch: 'dcp-compute:pytorch',
+  vllm: 'dcp-compute:vllm',
+  cuda: 'dcp-compute:cuda',
+  ubuntu: 'dcp-compute:ubuntu',
+};
+// A safe Docker image reference. The daemon passes this as a single argv element
+// (no shell), and it is HMAC-signed into the task_spec, so the real defense is a
+// charset+length guard: must start alphanumeric (blocks leading '-' → docker
+// flags) and contain only image-ref characters (blocks spaces, ';', '|', '$',
+// backticks, quotes). Permissive enough for private registries with ports
+// (registry.io:5000/org/img:tag@sha256:...); docker validates the exact structure
+// at pull time and fails closed if it's malformed.
+const IMAGE_REF_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/:@-]{0,255}$/;
 
 // Returns { image, bootstrap } or { error, code }. bootstrap=true means the
-// daemon must inject SSH (the image is not the DCP-baked default).
+// daemon must inject SSH (the image is an ARBITRARY renter-chosen image, not a
+// DCP pre-baked one).
+//
+// Resolution order:
+//   • null / no image → default pre-baked pytorch (bootstrap=false).
+//   • friendly alias (pytorch|vllm|cuda|ubuntu) → pre-baked dcp-compute:<alias>
+//     (bootstrap=false).
+//   • any literal dcp-compute:<x> tag → pre-baked DCP image (bootstrap=false).
+//   • ANY other valid Docker ref (passes IMAGE_REF_RE, length<=256) → ARBITRARY
+//     image, ALLOWED, with bootstrap=true (the daemon injects sshd).
+//   • malformed / oversized ref → reject with code INVALID_IMAGE.
 function validatePodImage(raw) {
   if (raw == null) return { image: DEFAULT_POD_IMAGE, bootstrap: false };
   if (typeof raw !== 'string' || raw.length > 256 || !IMAGE_REF_RE.test(raw)) {
-    return { error: 'image must be a valid Docker image reference, e.g. "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"', code: 'INVALID_IMAGE' };
+    return { error: 'image must be a valid Docker image reference, e.g. "pytorch" (alias) or "tensorflow/tensorflow:latest-gpu"', code: 'INVALID_IMAGE' };
   }
-  if (raw === DEFAULT_POD_IMAGE) return { image: raw, bootstrap: false };
-  if (!POD_IMAGE_ALLOWLIST.some((re) => re.test(raw))) {
-    return { error: `image "${raw}" is not allow-listed. Allowed: dcp-compute, pytorch/pytorch, nvidia/cuda, vllm/vllm-openai, ghcr.io/*, ubuntu.`, code: 'IMAGE_NOT_ALLOWED' };
+  // Friendly alias → pre-baked image, native start (no SSH injection).
+  if (Object.prototype.hasOwnProperty.call(ALIASES, raw)) {
+    return { image: ALIASES[raw], bootstrap: false };
   }
+  // Any literal dcp-compute:<x> tag is a DCP pre-baked image too.
+  if (/^dcp-compute:[\w.-]+$/.test(raw)) {
+    return { image: raw, bootstrap: false };
+  }
+  // Otherwise it's an arbitrary, valid image → allowed, daemon injects SSH.
   return { image: raw, bootstrap: true };
 }
 const MIN_DURATION_MINUTES = 5;

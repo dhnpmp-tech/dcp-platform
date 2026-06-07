@@ -15,6 +15,18 @@ const DURATION_OPTIONS = [30, 60, 120, 240, 480] as const
 const DEFAULT_DURATION_MINUTES = 60
 const MIN_TOKEN_LENGTH = 12
 
+// Friendly aliases map to pre-baked dcp-compute:<alias> images (sshd baked in →
+// fast start). "Custom…" lets the renter pass any valid Docker image reference,
+// which the daemon boots with sshd injected. PyTorch is the default.
+const IMAGE_PRESETS = [
+  { value: 'pytorch', label: 'PyTorch' },
+  { value: 'vllm', label: 'vLLM' },
+  { value: 'cuda', label: 'CUDA base' },
+  { value: 'ubuntu', label: 'Ubuntu' },
+] as const
+const CUSTOM_IMAGE_OPTION = 'custom'
+const DEFAULT_IMAGE = 'pytorch'
+
 // ── Types ──────────────────────────────────────────────────────────
 interface Pod {
   id: number | string
@@ -40,6 +52,10 @@ interface LaunchState {
   providerId: string
   durationMinutes: number
   notebookToken: string
+  // Selected preset value, or CUSTOM_IMAGE_OPTION to use customImage instead.
+  imageChoice: string
+  // Free-form Docker image ref, only used when imageChoice === CUSTOM_IMAGE_OPTION.
+  customImage: string
   submitting: boolean
   error: string
 }
@@ -110,6 +126,13 @@ function isActivePod(pod: Pod): boolean {
   return ACTIVE_POD_STATUSES.has(String(pod.status || '').toLowerCase())
 }
 
+// Resolve the image to send in the POST body: a preset alias, or the trimmed
+// custom Docker ref when "Custom…" is selected. Returns '' if custom is empty.
+function resolveImage(launch: Pick<LaunchState, 'imageChoice' | 'customImage'>): string {
+  if (launch.imageChoice === CUSTOM_IMAGE_OPTION) return launch.customImage.trim()
+  return launch.imageChoice
+}
+
 function formatDuration(minutes?: number | null): string {
   if (!minutes || minutes <= 0) return '—'
   if (minutes < 60) return `${minutes}m`
@@ -130,6 +153,8 @@ export default function RenterPodsPage() {
     providerId: '',
     durationMinutes: DEFAULT_DURATION_MINUTES,
     notebookToken: generateNotebookToken(),
+    imageChoice: DEFAULT_IMAGE,
+    customImage: '',
     submitting: false,
     error: '',
   })
@@ -235,6 +260,12 @@ export default function RenterPodsPage() {
       return
     }
 
+    const image = resolveImage(launch)
+    if (launch.imageChoice === CUSTOM_IMAGE_OPTION && !image) {
+      setLaunch(l => ({ ...l, error: 'Enter a Docker image reference for a custom pod.' }))
+      return
+    }
+
     setLaunch(l => ({ ...l, submitting: true, error: '' }))
     try {
       const res = await fetch(`${API_BASE}/pods?key=${encodeURIComponent(apiKey)}`, {
@@ -246,6 +277,7 @@ export default function RenterPodsPage() {
         body: JSON.stringify({
           provider_id: launch.providerId ? Number(launch.providerId) : undefined,
           duration_minutes: launch.durationMinutes,
+          image,
           params: { NOTEBOOK_TOKEN: token },
         }),
       })
@@ -269,6 +301,8 @@ export default function RenterPodsPage() {
         providerId: launch.providerId,
         durationMinutes: launch.durationMinutes,
         notebookToken: generateNotebookToken(),
+        imageChoice: launch.imageChoice,
+        customImage: launch.customImage,
         submitting: false,
         error: '',
       })
@@ -380,6 +414,39 @@ export default function RenterPodsPage() {
               </select>
               <p className="text-xs text-dc1-text-muted">The pod is torn down automatically when the duration elapses.</p>
             </div>
+          </div>
+
+          {/* Image */}
+          <div className="space-y-1.5">
+            <label htmlFor="pod-image" className="block text-sm font-medium text-dc1-text-secondary">
+              Image
+            </label>
+            <select
+              id="pod-image"
+              value={launch.imageChoice}
+              onChange={e => setLaunch(l => ({ ...l, imageChoice: e.target.value, error: l.error === 'insufficient_balance' ? l.error : '' }))}
+              className="w-full bg-dc1-surface-l2 border border-white/10 rounded-lg px-4 py-3 text-dc1-text-primary focus:outline-none focus:border-dc1-amber/60 transition text-sm"
+            >
+              {IMAGE_PRESETS.map(img => (
+                <option key={img.value} value={img.value}>{img.label}</option>
+              ))}
+              <option value={CUSTOM_IMAGE_OPTION}>Custom…</option>
+            </select>
+            {launch.imageChoice === CUSTOM_IMAGE_OPTION ? (
+              <input
+                id="pod-image-custom"
+                type="text"
+                value={launch.customImage}
+                onChange={e => setLaunch(l => ({ ...l, customImage: e.target.value, error: l.error === 'insufficient_balance' ? l.error : '' }))}
+                className="w-full bg-dc1-surface-l2 border border-white/10 rounded-lg px-4 py-3 text-dc1-text-primary font-mono text-sm placeholder-dc1-text-muted focus:outline-none focus:border-dc1-amber/60 transition"
+                placeholder="e.g. tensorflow/tensorflow:latest-gpu"
+                spellCheck={false}
+                autoComplete="off"
+              />
+            ) : null}
+            <p className="text-xs text-dc1-text-muted">
+              Presets start fast with SSH ready. Custom images boot any Docker reference with SSH injected automatically.
+            </p>
           </div>
 
           {/* Notebook token */}
