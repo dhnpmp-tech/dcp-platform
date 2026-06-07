@@ -49,6 +49,8 @@ def _cmd_create(client: DC1Client, args: argparse.Namespace) -> int:
         image=args.image,
     )
     pod_id = pod['id']
+    root_password = pod.get('root_password')
+    jupyter_token = pod.get('jupyter_token') or args.token
     print(f'Pod {pod_id} {pod.get("status", "starting")}. Booting...')
 
     access_url = pod.get('access_url')
@@ -58,7 +60,9 @@ def _cmd_create(client: DC1Client, args: argparse.Namespace) -> int:
         access_url, ssh_command = _poll_until_ready(client, pod_id, args.timeout)
 
     print(f'id:          {pod_id}')
-    print(f'token:       {args.token}')
+    print(f'token:       {jupyter_token}')
+    if root_password:
+        print(f'ssh_password: {root_password}')
     if access_url:
         print(f'access_url:  {access_url}')
     if ssh_command:

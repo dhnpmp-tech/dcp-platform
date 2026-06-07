@@ -7530,18 +7530,22 @@ def run_interactive_pod(task_spec, job_id=None):
     log.info(f"Interactive pod: image={image} jport={jport} sport={sport} container={container_name}")
     report_job_progress(job_id, "pulling")
 
-    # Pull image
-    try:
-        pull = subprocess.run(
-            ["docker", "pull", image],
-            capture_output=True, text=True, timeout=600
-        )
-        if pull.returncode != 0:
-            return {"success": False, "error": f"Pod image pull failed: {pull.stderr[:200]}", "transient": True}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Pod image pull timed out (600s)", "transient": True}
-    except Exception as e:
-        return {"success": False, "error": f"Pod pull error: {e}", "transient": True}
+    # Template-first model: pod images are pre-baked on the provider. A locally-built
+    # tag (e.g. dcp-compute:pytorch) is NOT in any registry, so only pull when absent.
+    have_local = subprocess.run(["docker", "image", "inspect", image],
+                                capture_output=True, text=True).returncode == 0
+    if not have_local:
+        try:
+            pull = subprocess.run(
+                ["docker", "pull", image],
+                capture_output=True, text=True, timeout=600
+            )
+            if pull.returncode != 0:
+                return {"success": False, "error": f"Pod image absent locally and pull failed: {pull.stderr[:200]}", "transient": True}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Pod image pull timed out (600s)", "transient": True}
+        except Exception as e:
+            return {"success": False, "error": f"Pod pull error: {e}", "transient": True}
 
     report_job_progress(job_id, "loading_model")
     report_event(

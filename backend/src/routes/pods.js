@@ -240,6 +240,8 @@ router.post('/', requireRenter, (req, res) => {
       id: job_id,
       status: 'starting',
       provider_id: provider.id,
+      root_password: rootPassword,
+      jupyter_token: jupyterToken,
     });
   } catch (error) {
     console.error('[pods] launch error:', error.message, error.stack);
