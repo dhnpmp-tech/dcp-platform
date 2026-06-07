@@ -246,6 +246,7 @@ async function _verifyOne(provider, db) {
   }
 
   let lastError = 'unknown';
+  let lastFail = null; // a "/v1/models OK but chat failed" result, kept as fallback
   for (const base of bases) {
     const models = await _probeModels(base);
     if (!models.ok) {
@@ -270,7 +271,7 @@ async function _verifyOne(provider, db) {
     // not "earned online". When no model is known we cannot run chat, so
     // /v1/models success stands on its own.
     const online = model ? (chatOk === 1 ? 1 : 0) : 1;
-    return {
+    const result = {
       verified_online: online,
       verified_models: models.models,
       probe_latency_ms: latency,
@@ -278,8 +279,19 @@ async function _verifyOne(provider, db) {
       chat_ok: chatOk,
       probed_endpoint: base,
     };
+    // Success on this base — done. Otherwise (/v1/models worked but the chat
+    // probe failed, e.g. a slow 27B on a flaky port) DON'T give up: keep
+    // trying the other engine bases — a different engine (e.g. Ollama :11434)
+    // may chat fine. This stops a single flaky engine from flickering the
+    // whole provider out of "serving".
+    if (online === 1) return result;
+    lastFail = result;
+    lastError = chatError || 'chat_failed';
   }
 
+  // No base passed the chat probe. Prefer the "endpoint up, chat failed"
+  // result (still has verified_models + the real error) over a hard miss.
+  if (lastFail) return lastFail;
   return {
     verified_online: 0,
     verified_models: [],
