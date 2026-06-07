@@ -2856,6 +2856,14 @@ _served_models_lock = threading.Lock()
 
 OLLAMA_INTEGRITY_INTERVAL = int(os.environ.get("DCP_OLLAMA_INTEGRITY_INTERVAL", "300"))
 OLLAMA_INTEGRITY_TIMEOUT = int(os.environ.get("DCP_OLLAMA_INTEGRITY_TIMEOUT", "5"))
+
+# ─── GPU MAKE-ROOM (inference->pod preemption) ───────────────────────────────
+# When an interactive_pod is assigned but idle Ollama models fill the card,
+# evict those models (keep_alive=0) so the pod can claim the GPU.
+OLLAMA_MAKEROOM_HOST = os.environ.get("DCP_OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_EVICT_TIMEOUT = int(os.environ.get("DCP_OLLAMA_EVICT_TIMEOUT", "10"))
+GPU_FREE_POLL_ATTEMPTS = int(os.environ.get("DCP_GPU_FREE_POLL_ATTEMPTS", "6"))
+GPU_FREE_POLL_INTERVAL_S = float(os.environ.get("DCP_GPU_FREE_POLL_INTERVAL_S", "1.0"))
 OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
 # Audit M3 — retry + post-pull checksum. On a non-zero `ollama pull` exit
@@ -7793,6 +7801,63 @@ def _circuit_record(name, ok):
                 )
 
 
+def free_gpu_for_pod(required_mib):
+    """Evict idle Ollama models so an interactive_pod can claim the GPU.
+
+    Lists loaded models via GET /api/ps, asks Ollama to unload each (POST
+    /api/generate keep_alive=0), then polls detect_gpu() until free VRAM clears
+    required_mib. Best-effort; never raises. Returns (freed_ok, free_mib).
+    """
+    if not HAS_REQUESTS:
+        log.warning("free_gpu_for_pod: requests unavailable - cannot evict Ollama models")
+        gpu = detect_gpu() or {}
+        return False, gpu.get("free_vram_mib", 0)
+
+    gpu = detect_gpu() or {}
+    free_before = gpu.get("free_vram_mib", 0)
+    if free_before >= required_mib:
+        return True, free_before
+
+    loaded = []
+    try:
+        r = requests.get(f"{OLLAMA_MAKEROOM_HOST}/api/ps", timeout=OLLAMA_EVICT_TIMEOUT)
+        if r.ok:
+            for m in (r.json().get("models") or []):
+                name = m.get("name") or m.get("model")
+                if name:
+                    loaded.append(name)
+    except Exception as e:
+        log.warning(f"free_gpu_for_pod: /api/ps query failed ({e})")
+
+    if not loaded:
+        log.info(f"free_gpu_for_pod: no loaded Ollama models to evict "
+                 f"(free={free_before} MiB, need={required_mib} MiB)")
+        return free_before >= required_mib, free_before
+
+    log.info(f"free_gpu_for_pod: evicting {len(loaded)} idle Ollama model(s) "
+             f"to free GPU for pod: {loaded}")
+    for name in loaded:
+        try:
+            requests.post(
+                f"{OLLAMA_MAKEROOM_HOST}/api/generate",
+                json={"model": name, "keep_alive": 0},
+                timeout=OLLAMA_EVICT_TIMEOUT,
+            )
+        except Exception as e:
+            log.warning(f"free_gpu_for_pod: unload request for {name} failed ({e})")
+
+    free_after = free_before
+    for _ in range(GPU_FREE_POLL_ATTEMPTS):
+        time.sleep(GPU_FREE_POLL_INTERVAL_S)
+        gpu = detect_gpu() or {}
+        free_after = gpu.get("free_vram_mib", free_after)
+        if free_after >= required_mib:
+            break
+
+    log.info(f"free_gpu_for_pod: VRAM {free_before} -> {free_after} MiB (need {required_mib} MiB)")
+    return free_after >= required_mib, free_after
+
+
 def poll_and_execute():
     """Poll for assigned jobs and execute them."""
     # Skip polling if draining (finishing current jobs, no new ones)
@@ -7895,6 +7960,17 @@ def poll_and_execute():
     # ── Guard: Job dedup ──
     if is_duplicate_job(job_id):
         return  # Already processed this job
+
+    # ── Make room: evict idle Ollama models so an interactive_pod can take the GPU ──
+    # Pod-only: inference is preemptible for pods; other job types must NOT evict.
+    if job_type == "interactive_pod":
+        pod_required = VRAM_REQUIREMENTS.get("interactive_pod", VRAM_DEFAULT_REQUIREMENT)
+        try:
+            freed_ok, free_after = free_gpu_for_pod(pod_required)
+            if freed_ok:
+                log.info(f"Job {job_id}: freed GPU for interactive_pod ({free_after} MiB free)")
+        except Exception as e:
+            log.warning(f"Job {job_id}: free_gpu_for_pod failed ({e}); proceeding to VRAM gate")
 
     # ── Guard: VRAM check ──
     vram_ok, free_vram, required_vram = check_vram_available(job_type)
@@ -8104,6 +8180,55 @@ def poll_and_execute():
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
 
+def reap_orphan_pods():
+    """Tear down dcp-pod-* containers whose backend job is no longer live.
+
+    Cheap when no pods exist. Reaps on a non-live status OR a 404 (job deleted);
+    leaves the container on 403/5xx/network-error (ambiguous - never kill a live
+    pod on a transient quirk). Mirrors stop_pod()'s teardown.
+    """
+    LIVE_STATUSES = ("running", "pulling", "assigned", "pending", "queued")
+    try:
+        ps = subprocess.run(
+            ["docker", "ps", "--filter", "name=dcp-pod-", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except Exception as e:
+        log.debug(f"reap_orphan_pods: docker ps failed ({e})")
+        return
+    if ps.returncode != 0:
+        return
+    names = [n.strip() for n in ps.stdout.splitlines() if n.strip().startswith("dcp-pod-")]
+    if not names:
+        return
+    for name in names:
+        job_id = name[len("dcp-pod-"):]
+        if not job_id:
+            continue
+        try:
+            code, resp = http_get(f"{API_URL}/api/jobs/{job_id}", headers=_auth_headers())
+        except Exception as e:
+            log.debug(f"reap_orphan_pods: status check for {job_id} failed ({e}); leaving {name}")
+            continue
+        should_reap = False
+        if code == 404:
+            log.info(f"reap_orphan_pods: job {job_id} 404 (deleted) - reaping {name}")
+            should_reap = True
+        elif code == 200:
+            status = (resp.get("job") or {}).get("status")
+            if status not in LIVE_STATUSES:
+                log.info(f"reap_orphan_pods: job {job_id} status={status} - reaping {name}")
+                should_reap = True
+        else:
+            continue
+        if should_reap:
+            try:
+                subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=10)
+                log.info(f"reap_orphan_pods: removed orphan container {name}")
+            except Exception as e:
+                log.warning(f"reap_orphan_pods: docker rm -f {name} failed ({e})")
+
+
 def job_poll_loop():
     """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds.
 
@@ -8126,6 +8251,8 @@ def job_poll_loop():
         poll_and_execute()
         # Also check for verification challenges every cycle
         check_pending_verification()
+        # Reap dcp-pod-* containers whose backend job is no longer live (cheap no-op when none).
+        reap_orphan_pods()
         _sleep()
 
 # ─── AUTO VERIFICATION ON STARTUP ───────────────────────────────────────────

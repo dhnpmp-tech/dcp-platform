@@ -1148,6 +1148,26 @@ restart_nohup_daemon() {
 }
 
 setup_linux_service() {
+  # Ensure the daemon's user can reach the Docker socket (it runs `docker run`).
+  # Group membership only -- never chmod the socket.
+  if command -v docker >/dev/null 2>&1 && getent group docker >/dev/null 2>&1; then
+    if ! id -nG "${USER}" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+      step "Granting '${USER}' docker-group access"
+      if command -v sudo >/dev/null 2>&1; then
+        sudo usermod -aG docker "${USER}" 2>/dev/null \
+          && info "Added '${USER}' to docker group." \
+          || warn "Could not add '${USER}' to docker group; run: sudo usermod -aG docker ${USER}"
+      else
+        warn "sudo not available; run manually: usermod -aG docker ${USER}"
+      fi
+      # USER-mode services snapshot group membership at manager start; a plain
+      # daemon-reload will NOT pick this up -- the user manager must restart.
+      if [ "${DCP_SYSTEMD_MODE:-user}" != "system" ] && command -v loginctl >/dev/null 2>&1; then
+        warn "Docker group added: the user systemd manager must restart to honor it."
+        warn "Run: loginctl terminate-user ${USER}  (or log out/in), then re-enable the service."
+      fi
+    fi
+  fi
   if ! command -v systemctl >/dev/null 2>&1; then
     warn "systemctl not found. Falling back to background process mode."
     restart_nohup_daemon
@@ -1177,6 +1197,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=${USER}
+SupplementaryGroups=docker
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${CONFIG_DIR}/env
 ${ollama_env}
@@ -1216,6 +1237,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+SupplementaryGroups=docker
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${CONFIG_DIR}/env
 ${ollama_env}
