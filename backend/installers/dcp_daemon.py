@@ -7688,39 +7688,15 @@ def run_interactive_pod(task_spec, job_id=None):
     except Exception as e:
         return {"success": False, "error": f"Docker start error: {e}"}
 
-    if bootstrap_ssh:
-        # Arbitrary image: wait for the injected SSH server (the image may have no
-        # Jupyter). Installing openssh on first boot can take ~a minute. 72×5s=6min.
-        ready = _wait_for_ssh("127.0.0.1", sport, attempts=90, interval=5, container_name=container_name)
-        if not ready:
-            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
-            return {"success": False, "error": "Pod SSH did not come up within ~7 minutes"}
-    else:
-        # Default DCP image: poll Jupyter /api until ready (up to 5 minutes).
-        health_url = f"http://127.0.0.1:{jport}/api"
-        ready = False
-        for attempt in range(60):  # 60 × 5s = 5 minutes
-            time.sleep(5)
-            try:
-                import urllib.request as _urllib
-                with _urllib.urlopen(health_url, timeout=3) as r:
-                    if r.status == 200:
-                        ready = True
-                        break
-            except Exception:
-                pass
-            # Check container is still alive
-            check = subprocess.run(
-                ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
-                capture_output=True, text=True
-            )
-            if check.stdout.strip() != "true":
-                log.error(f"Pod container {container_name} exited during startup")
-                return {"success": False, "error": "Pod container exited before becoming healthy"}
-
-        if not ready:
-            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
-            return {"success": False, "error": "Pod Jupyter endpoint did not become healthy within 5 minutes"}
+    # Every pod is reachable over SSH — baked into the DCP images, injected into
+    # renter-chosen images. Wait for the real SSH banner (a baked image's sshd
+    # comes up in seconds; a bootstrap image apt-installs it, a few minutes).
+    # Jupyter, when the image ships it, is exposed via access_url but is no longer
+    # the readiness gate (cuda/vllm/ubuntu images have no Jupyter).
+    ready = _wait_for_ssh("127.0.0.1", sport, attempts=90, interval=5, container_name=container_name)
+    if not ready:
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        return {"success": False, "error": "Pod SSH did not become reachable within ~7 minutes"}
 
     # Report endpoint ready to backend (jupyter/ssh host ports + mesh & public IP)
     public_ip = _get_public_ip()
