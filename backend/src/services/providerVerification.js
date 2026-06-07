@@ -137,17 +137,29 @@ function _normalizeModelId(value) {
 // /v1/models; otherwise probe the first live model the endpoint actually
 // reports. Returns null when no model is known (chat probe is then skipped —
 // GET /v1/models success alone still counts as verified).
+// A 1-token text chat probe only makes sense against a chat/completion model.
+// Embedding, reranker, vision-only, audio and diffusion models return errors
+// for a plain chat request, which would yield a false "not earned online"
+// verdict (and flicker the provider out of serving). Skip them when picking
+// the probe model.
+function _isChatProbeModel(id) {
+  const s = String(id || '').toLowerCase();
+  return !/(bge[-/]|\bbge\b|embed|gte[-/]|e5[-/]|rerank|vl[:_-]|[0-9]vl\b|vision|whisper|\btts\b|diffusion|sdxl|clip[-/])/.test(s);
+}
+
 function _pickProbeModel(provider, reportedModels) {
-  const cached = _parseModelList(provider.cached_models);
-  const reported = Array.isArray(reportedModels)
+  const cached = _parseModelList(provider.cached_models).filter(_isChatProbeModel);
+  const reported = (Array.isArray(reportedModels)
     ? reportedModels.map((s) => String(s).trim()).filter(Boolean)
-    : [];
+    : []
+  ).filter(_isChatProbeModel);
   if (reported.length) {
     const reportedSet = new Set(reported.map(_normalizeModelId));
     const cachedMatch = cached.find((model) => reportedSet.has(_normalizeModelId(model)));
     return cachedMatch || reported[0];
   }
   if (cached.length) return cached[0];
+  // No chat-capable model known — GET /v1/models success stands on its own.
   return null;
 }
 
