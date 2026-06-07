@@ -2877,6 +2877,11 @@ DCP_DRAIN_INFERENCE_FOR_PODS = os.environ.get("DCP_DRAIN_INFERENCE_FOR_PODS", "1
 INFERENCE_UNIT_PATTERNS = [p.strip() for p in os.environ.get(
     "DCP_INFERENCE_UNIT_PATTERNS", "dcp-llama-*,dcp-vllm-*,dcp-inference-*").split(",") if p.strip()]
 DRAINED_UNITS_STATE = CONFIG_DIR / "drained_inference.json"
+# Backstop: if a pod's job can't be confirmed dead (backend unreachable) AND no
+# pod container exists, restore inference after this long rather than leave the
+# GPU drained forever. A genuinely-running pod holds a container, so the reaper
+# safety-net never reaches this during normal operation.
+POD_DRAIN_BACKSTOP_S = int(os.environ.get("DCP_POD_DRAIN_BACKSTOP_S", "600"))
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
 # Audit M3 — retry + post-pull checksum. On a non-zero `ollama pull` exit
 # (network blip, registry 5xx, partial blob) we retry up to MAX_ATTEMPTS with
@@ -7885,17 +7890,20 @@ def _systemctl_user(*args, timeout=30):
 
 
 def _list_running_inference_units():
-    """Running systemd user units matching INFERENCE_UNIT_PATTERNS (e.g. dcp-llama-*)."""
+    """systemd user units matching INFERENCE_UNIT_PATTERNS that are active OR
+    activating/reloading — i.e. holding or about to hold the GPU (catches a
+    loading or crash-recovering llama-server, not just a fully-running one)."""
     if not INFERENCE_UNIT_PATTERNS:
         return []
-    rc, out = _systemctl_user("list-units", "--type=service", "--state=running",
+    rc, out = _systemctl_user("list-units", "--type=service", "--all",
                               "--no-legend", "--plain", *INFERENCE_UNIT_PATTERNS)
     if rc != 0:
         return []
     units = []
     for line in out.splitlines():
         parts = line.split()
-        if parts and parts[0].endswith(".service"):
+        # columns: UNIT LOAD ACTIVE SUB DESCRIPTION...
+        if len(parts) >= 3 and parts[0].endswith(".service") and parts[2] in ("active", "activating", "reloading"):
             units.append(parts[0])
     return units
 
@@ -7915,10 +7923,11 @@ def _evict_all_ollama():
         pass
 
 
-def drain_inference_for_pod():
+def drain_inference_for_pod(job_id=None):
     """Compute preempts inference: stop the provider's inference engines so a
-    compute pod gets the whole GPU. Records stopped units to DRAINED_UNITS_STATE
-    so any teardown path can restore them. Best-effort; returns stopped units."""
+    compute pod gets the whole GPU. Records stopped units + the owning job_id to
+    DRAINED_UNITS_STATE so any teardown path can restore them (and so the reaper
+    knows which job's liveness gates the restore). Best-effort; returns stopped."""
     if not DCP_DRAIN_INFERENCE_FOR_PODS:
         return []
     stopped = []
@@ -7931,7 +7940,8 @@ def drain_inference_for_pod():
             log.warning(f"drain_inference_for_pod: could not stop {unit}")
     try:
         DRAINED_UNITS_STATE.parent.mkdir(parents=True, exist_ok=True)
-        DRAINED_UNITS_STATE.write_text(json.dumps({"units": stopped, "ts": int(time.time())}))
+        DRAINED_UNITS_STATE.write_text(json.dumps(
+            {"units": stopped, "job_id": job_id, "ts": int(time.time())}))
     except Exception as e:
         log.warning(f"drain_inference_for_pod: could not persist state ({e})")
     return stopped
@@ -7957,6 +7967,41 @@ def restore_inference_after_pod():
         DRAINED_UNITS_STATE.unlink()
     except Exception:
         pass
+
+
+def _maybe_restore_drained_inference():
+    """Reaper safety-net: restore drained inference ONLY once the pod job is no
+    longer live (stopped/failed/404) — never while a pod is still launching
+    (queued/pulling/running), which would steal the renter's GPU mid-setup. If the
+    backend is unreachable, leaves inference drained until POD_DRAIN_BACKSTOP_S
+    elapses (a genuinely-running pod holds a container, so this is failure-only)."""
+    try:
+        data = json.loads(DRAINED_UNITS_STATE.read_text() or "{}")
+    except Exception:
+        data = {}
+    jid = data.get("job_id")
+    ts = data.get("ts", 0)
+    live = ("running", "pulling", "assigned", "pending", "queued")
+    restore = False
+    if jid:
+        try:
+            code, resp = http_get(f"{API_URL}/api/jobs/{jid}", headers=_auth_headers())
+            if code == 404:
+                restore = True
+            elif code == 200:
+                if ((resp.get("job") or {}).get("status")) not in live:
+                    restore = True
+            # else 5xx/403: ambiguous — fall through to the backstop grace
+        except Exception:
+            pass
+    else:
+        restore = True  # legacy state with no job_id recorded
+    if not restore and ts and (time.time() - ts) > POD_DRAIN_BACKSTOP_S:
+        log.warning("reap_orphan_pods: drain backstop elapsed with no pod container — restoring inference")
+        restore = True
+    if restore:
+        log.info("reap_orphan_pods: pod job no longer live — restoring inference")
+        restore_inference_after_pod()
 
 
 def poll_and_execute():
@@ -8067,7 +8112,7 @@ def poll_and_execute():
     if job_type == "interactive_pod":
         pod_required = VRAM_REQUIREMENTS.get("interactive_pod", VRAM_DEFAULT_REQUIREMENT)
         try:
-            stopped = drain_inference_for_pod()
+            stopped = drain_inference_for_pod(job_id)
             if stopped:
                 log.info(f"Job {job_id}: compute preempts inference — stopped {stopped}")
             freed_ok, free_after = free_gpu_for_pod(pod_required)
@@ -8307,8 +8352,7 @@ def reap_orphan_pods():
     # running (gate-rejected, failed launch, crashed teardown, or daemon restart)
     # — restore the inference engines so the GPU never sits idle/drained.
     if not names and DRAINED_UNITS_STATE.exists():
-        log.info("reap_orphan_pods: drained-inference state with no pod container — restoring inference")
-        restore_inference_after_pod()
+        _maybe_restore_drained_inference()
     if not names:
         return
     for name in names:
