@@ -2868,6 +2868,15 @@ OLLAMA_EVICT_TIMEOUT = int(os.environ.get("DCP_OLLAMA_EVICT_TIMEOUT", "10"))
 GPU_FREE_POLL_ATTEMPTS = int(os.environ.get("DCP_GPU_FREE_POLL_ATTEMPTS", "30"))
 GPU_FREE_POLL_INTERVAL_S = float(os.environ.get("DCP_GPU_FREE_POLL_INTERVAL_S", "1.0"))
 OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
+
+# ─── INFERENCE↔COMPUTE MUTEX (compute preempts inference) ────────────────────
+# Product decision 2026-06-08: a compute pod gets the WHOLE GPU. On pod accept
+# the daemon stops the provider's inference systemd USER units and evicts Ollama;
+# on teardown it restores them. Best-effort; gated by DCP_DRAIN_INFERENCE_FOR_PODS.
+DCP_DRAIN_INFERENCE_FOR_PODS = os.environ.get("DCP_DRAIN_INFERENCE_FOR_PODS", "1").lower() not in ("0", "false", "no")
+INFERENCE_UNIT_PATTERNS = [p.strip() for p in os.environ.get(
+    "DCP_INFERENCE_UNIT_PATTERNS", "dcp-llama-*,dcp-vllm-*,dcp-inference-*").split(",") if p.strip()]
+DRAINED_UNITS_STATE = CONFIG_DIR / "drained_inference.json"
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
 # Audit M3 — retry + post-pull checksum. On a non-zero `ollama pull` exit
 # (network blip, registry 5xx, partial blob) we retry up to MAX_ATTEMPTS with
@@ -7674,6 +7683,8 @@ def run_interactive_pod(task_spec, job_id=None):
     subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
     report_event("container_complete", f"Interactive pod job {job_id} completed — container stopped", job_id=job_id)
     log.info(f"Pod container {container_name} stopped and removed")
+    # Compute pod done — restore the inference engines we preempted.
+    restore_inference_after_pod()
 
     return {
         "success": True,
@@ -7700,6 +7711,7 @@ def stop_pod(job_id):
     subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
     report_event("container_complete", f"Interactive pod {job_id} stopped via stop_pod", job_id=job_id)
     log.info(f"Pod container {container_name} stopped and removed (stop_pod)")
+    restore_inference_after_pod()
     return {"success": True, "result": {"stopped": True, "container": container_name}}
 
 
@@ -7862,6 +7874,91 @@ def free_gpu_for_pod(required_mib):
     return free_after >= required_mib, free_after
 
 
+def _systemctl_user(*args, timeout=30):
+    """Run `systemctl --user <args>`; return (rc, stdout). Best-effort, never raises."""
+    try:
+        r = subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=timeout)
+        return r.returncode, (r.stdout or "")
+    except Exception as e:
+        log.warning(f"systemctl --user {' '.join(args)} failed ({e})")
+        return 1, ""
+
+
+def _list_running_inference_units():
+    """Running systemd user units matching INFERENCE_UNIT_PATTERNS (e.g. dcp-llama-*)."""
+    if not INFERENCE_UNIT_PATTERNS:
+        return []
+    rc, out = _systemctl_user("list-units", "--type=service", "--state=running",
+                              "--no-legend", "--plain", *INFERENCE_UNIT_PATTERNS)
+    if rc != 0:
+        return []
+    units = []
+    for line in out.splitlines():
+        parts = line.split()
+        if parts and parts[0].endswith(".service"):
+            units.append(parts[0])
+    return units
+
+
+def _evict_all_ollama():
+    """Unload every loaded Ollama model (keep_alive=0) so its VRAM is freed. Best-effort."""
+    if not HAS_REQUESTS:
+        return
+    try:
+        r = requests.get(f"{OLLAMA_MAKEROOM_HOST}/api/ps", timeout=OLLAMA_EVICT_TIMEOUT)
+        for m in (r.json().get("models") or []) if r.ok else []:
+            name = m.get("name") or m.get("model")
+            if name:
+                requests.post(f"{OLLAMA_MAKEROOM_HOST}/api/generate",
+                              json={"model": name, "keep_alive": 0}, timeout=OLLAMA_EVICT_TIMEOUT)
+    except Exception:
+        pass
+
+
+def drain_inference_for_pod():
+    """Compute preempts inference: stop the provider's inference engines so a
+    compute pod gets the whole GPU. Records stopped units to DRAINED_UNITS_STATE
+    so any teardown path can restore them. Best-effort; returns stopped units."""
+    if not DCP_DRAIN_INFERENCE_FOR_PODS:
+        return []
+    stopped = []
+    for unit in _list_running_inference_units():
+        rc, _ = _systemctl_user("stop", unit, timeout=30)
+        if rc == 0:
+            stopped.append(unit)
+            log.info(f"drain_inference_for_pod: stopped {unit}")
+        else:
+            log.warning(f"drain_inference_for_pod: could not stop {unit}")
+    try:
+        DRAINED_UNITS_STATE.parent.mkdir(parents=True, exist_ok=True)
+        DRAINED_UNITS_STATE.write_text(json.dumps({"units": stopped, "ts": int(time.time())}))
+    except Exception as e:
+        log.warning(f"drain_inference_for_pod: could not persist state ({e})")
+    return stopped
+
+
+def restore_inference_after_pod():
+    """Restart inference units stopped by drain_inference_for_pod, after evicting
+    any Ollama model that reloaded (so the big llama.cpp model can refit its VRAM).
+    Idempotent and best-effort; clears DRAINED_UNITS_STATE."""
+    try:
+        if not DRAINED_UNITS_STATE.exists():
+            return
+        data = json.loads(DRAINED_UNITS_STATE.read_text() or "{}")
+    except Exception:
+        data = {}
+    units = data.get("units") or []
+    # Free Ollama's VRAM first so the inference engine can reload its full model.
+    _evict_all_ollama()
+    for unit in units:
+        rc, _ = _systemctl_user("start", unit, timeout=30)
+        log.info(f"restore_inference_after_pod: {'started' if rc == 0 else 'FAILED to start'} {unit}")
+    try:
+        DRAINED_UNITS_STATE.unlink()
+    except Exception:
+        pass
+
+
 def poll_and_execute():
     """Poll for assigned jobs and execute them."""
     # Skip polling if draining (finishing current jobs, no new ones)
@@ -7970,11 +8067,14 @@ def poll_and_execute():
     if job_type == "interactive_pod":
         pod_required = VRAM_REQUIREMENTS.get("interactive_pod", VRAM_DEFAULT_REQUIREMENT)
         try:
+            stopped = drain_inference_for_pod()
+            if stopped:
+                log.info(f"Job {job_id}: compute preempts inference — stopped {stopped}")
             freed_ok, free_after = free_gpu_for_pod(pod_required)
             if freed_ok:
                 log.info(f"Job {job_id}: freed GPU for interactive_pod ({free_after} MiB free)")
         except Exception as e:
-            log.warning(f"Job {job_id}: free_gpu_for_pod failed ({e}); proceeding to VRAM gate")
+            log.warning(f"Job {job_id}: GPU claim for pod failed ({e}); proceeding to VRAM gate")
 
     # ── Guard: VRAM check ──
     vram_ok, free_vram, required_vram = check_vram_available(job_type)
@@ -8203,6 +8303,12 @@ def reap_orphan_pods():
     if ps.returncode != 0:
         return
     names = [n.strip() for n in ps.stdout.splitlines() if n.strip().startswith("dcp-pod-")]
+    # Mutex safety-net: inference was drained for a pod but no pod container is
+    # running (gate-rejected, failed launch, crashed teardown, or daemon restart)
+    # — restore the inference engines so the GPU never sits idle/drained.
+    if not names and DRAINED_UNITS_STATE.exists():
+        log.info("reap_orphan_pods: drained-inference state with no pod container — restoring inference")
+        restore_inference_after_pod()
     if not names:
         return
     for name in names:
