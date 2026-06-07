@@ -64,6 +64,8 @@ class PodsResource:
             'status': data.get('status', 'starting'),
             'access_url': data.get('access_url'),
             'ssh_command': data.get('ssh_command'),
+            'root_password': data.get('root_password'),
+            'jupyter_token': data.get('jupyter_token'),
         }
 
     def get(self, pod_id: str) -> dict:
