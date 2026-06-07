@@ -2862,7 +2862,10 @@ OLLAMA_INTEGRITY_TIMEOUT = int(os.environ.get("DCP_OLLAMA_INTEGRITY_TIMEOUT", "5
 # evict those models (keep_alive=0) so the pod can claim the GPU.
 OLLAMA_MAKEROOM_HOST = os.environ.get("DCP_OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_EVICT_TIMEOUT = int(os.environ.get("DCP_OLLAMA_EVICT_TIMEOUT", "10"))
-GPU_FREE_POLL_ATTEMPTS = int(os.environ.get("DCP_GPU_FREE_POLL_ATTEMPTS", "6"))
+# Ollama's keep_alive=0 unload + CUDA-context teardown can lag 5-15s behind the
+# request, so the make-room poll must outlast that or the VRAM gate will read
+# stale (still-occupied) VRAM and reject the pod. 30 × 1s = 30s covers it.
+GPU_FREE_POLL_ATTEMPTS = int(os.environ.get("DCP_GPU_FREE_POLL_ATTEMPTS", "30"))
 GPU_FREE_POLL_INTERVAL_S = float(os.environ.get("DCP_GPU_FREE_POLL_INTERVAL_S", "1.0"))
 OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
