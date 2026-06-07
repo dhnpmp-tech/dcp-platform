@@ -41,6 +41,35 @@ const signTaskSpec = jobsRouter.signTaskSpec;
 
 // Pod defaults / bounds.
 const DEFAULT_POD_IMAGE = 'dcp-compute:pytorch';
+// Renter-selectable images (trusted-pilot allow-list). The renter gets a blank
+// GPU container running THEIR chosen runtime; the daemon injects SSH into any
+// image so they can always get in. The default image ships Jupyter+SSH baked in;
+// every other image gets the daemon's generic SSH bootstrap.
+const POD_IMAGE_ALLOWLIST = [
+  /^dcp-compute:[\w.-]+$/,
+  /^pytorch\/pytorch:[\w.-]+$/,
+  /^nvidia\/cuda:[\w.-]+$/,
+  /^vllm\/vllm-openai:[\w.-]+$/,
+  /^ghcr\.io\/[\w./-]+:[\w.-]+$/,
+  /^(docker\.io\/)?(library\/)?ubuntu:[\w.-]+$/,
+];
+// A valid, non-injectable Docker image reference (subprocess passes it as one
+// argv element, so this is defense-in-depth against a malformed ref).
+const IMAGE_REF_RE = /^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?(:[\w][\w.-]{0,127})?(@sha256:[a-f0-9]{64})?$/i;
+
+// Returns { image, bootstrap } or { error, code }. bootstrap=true means the
+// daemon must inject SSH (the image is not the DCP-baked default).
+function validatePodImage(raw) {
+  if (raw == null) return { image: DEFAULT_POD_IMAGE, bootstrap: false };
+  if (typeof raw !== 'string' || raw.length > 256 || !IMAGE_REF_RE.test(raw)) {
+    return { error: 'image must be a valid Docker image reference, e.g. "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"', code: 'INVALID_IMAGE' };
+  }
+  if (raw === DEFAULT_POD_IMAGE) return { image: raw, bootstrap: false };
+  if (!POD_IMAGE_ALLOWLIST.some((re) => re.test(raw))) {
+    return { error: `image "${raw}" is not allow-listed. Allowed: dcp-compute, pytorch/pytorch, nvidia/cuda, vllm/vllm-openai, ghcr.io/*, ubuntu.`, code: 'IMAGE_NOT_ALLOWED' };
+  }
+  return { image: raw, bootstrap: true };
+}
 const MIN_DURATION_MINUTES = 5;
 const MAX_DURATION_MINUTES = 24 * 60; // 24h ceiling for an interactive session
 const DEFAULT_DURATION_MINUTES = 60;
@@ -195,6 +224,13 @@ router.post('/', requireRenter, (req, res) => {
       : generateStrongSecret();
     const rootPassword = generateStrongSecret();
 
+    // Renter-chosen image (Vast.ai-style). Validated against the allow-list;
+    // non-default images get SSH injected by the daemon.
+    const imageResult = validatePodImage(body.image);
+    if (imageResult.error) {
+      return res.status(400).json({ error: imageResult.error, code: imageResult.code });
+    }
+
     // Optional pinned provider — must be a positive integer when provided.
     let requestedProviderId = null;
     if (body.provider_id != null) {
@@ -219,11 +255,13 @@ router.post('/', requireRenter, (req, res) => {
     // signed bytes MUST be identical (the daemon recomputes the HMAC over the
     // task_spec it receives) — so we stringify once and reuse that exact string.
     const taskSpecObj = {
-      image: DEFAULT_POD_IMAGE,
+      image: imageResult.image,
       jupyter_token: jupyterToken,
       root_password: rootPassword,
       duration_minutes: durationMinutes,
     };
+    // Tell the daemon to inject SSH (the image is not the DCP-baked default).
+    if (imageResult.bootstrap) taskSpecObj.bootstrap_ssh = true;
     const taskSpecStr = JSON.stringify(taskSpecObj);
     const taskSpecHmac = signTaskSpec(taskSpecStr);
 

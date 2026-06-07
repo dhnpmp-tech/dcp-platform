@@ -7526,6 +7526,66 @@ def run_vllm_serve_job(task_spec, job_id=None):
     }
 
 
+# Generic SSH bootstrap injected for renter-chosen images (anything that isn't
+# the DCP-baked default). Makes ANY debian/alpine/rhel image SSH-able: installs
+# openssh if missing, sets the root password, starts sshd, and starts Jupyter
+# only if the image happens to ship it. Keeps the container alive so the renter
+# works over SSH (and Jupyter when available).
+POD_SSH_BOOTSTRAP = r'''#!/bin/sh
+set +e
+mkdir -p /run/sshd /var/run/sshd
+if ! command -v sshd >/dev/null 2>&1 && [ ! -x /usr/sbin/sshd ]; then
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y >/tmp/dcp-ssh.log 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server >>/tmp/dcp-ssh.log 2>&1
+  elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache openssh >/tmp/dcp-ssh.log 2>&1
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y openssh-server >/tmp/dcp-ssh.log 2>&1
+  fi
+fi
+echo "root:${ROOT_PASSWORD}" | chpasswd 2>/dev/null
+sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null
+sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null
+ssh-keygen -A >/dev/null 2>&1
+( /usr/sbin/sshd -D >/tmp/dcp-sshd.log 2>&1 || sshd -D >/tmp/dcp-sshd.log 2>&1 ) &
+if command -v jupyter >/dev/null 2>&1; then
+  nohup jupyter lab --ip=0.0.0.0 --port=8888 --allow-root --no-browser --ServerApp.token="${JUPYTER_TOKEN}" --ServerApp.password="" >/var/log/dcp-jupyter.log 2>&1 &
+fi
+echo "[dcp] pod ready: ssh on :22"
+exec tail -f /dev/null
+'''
+
+
+def _write_pod_bootstrap():
+    """Write the SSH bootstrap to a host path and return it (bind-mounted into pods)."""
+    path = CONFIG_DIR / "pod-bootstrap.sh"
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_text(POD_SSH_BOOTSTRAP)
+        os.chmod(path, 0o755)
+    except Exception as e:
+        log.warning(f"_write_pod_bootstrap: {e}")
+    return str(path)
+
+
+def _wait_for_tcp(host, port, attempts=72, interval=5, container_name=None):
+    """Wait until host:port accepts a TCP connection (or the container dies)."""
+    import socket
+    for _ in range(attempts):
+        time.sleep(interval)
+        try:
+            with socket.create_connection((host, int(port)), timeout=3):
+                return True
+        except Exception:
+            pass
+        if container_name:
+            check = subprocess.run(["docker", "inspect", "--format", "{{.State.Running}}", container_name],
+                                   capture_output=True, text=True)
+            if check.stdout.strip() != "true":
+                return False
+    return False
+
+
 def run_interactive_pod(task_spec, job_id=None):
     """
     Start an interactive GPU pod (Jupyter on :8888 + sshd on :22) in a detached
@@ -7546,6 +7606,9 @@ def run_interactive_pod(task_spec, job_id=None):
         return {"success": False, "error": "Invalid task_spec for interactive_pod — expected JSON"}
 
     image = task_spec.get("image", "dcp-compute:pytorch")
+    # Renter-chosen images (anything but the DCP-baked default) get a generic SSH
+    # bootstrap injected so the renter can always get in regardless of the image.
+    bootstrap_ssh = bool(task_spec.get("bootstrap_ssh", False))
     jupyter_token = task_spec.get("jupyter_token")
     root_password = task_spec.get("root_password")
     if not jupyter_token or not root_password:
@@ -7602,8 +7665,13 @@ def run_interactive_pod(task_spec, job_id=None):
         "-e", f"ROOT_PASSWORD={root_password}",
         "-v", f"{volume_name}:/workspace",
         "--pids-limit", "4096",
-        image,
     ]
+    if bootstrap_ssh:
+        bootstrap_path = _write_pod_bootstrap()
+        docker_cmd += ["-v", f"{bootstrap_path}:/dcp-bootstrap.sh:ro",
+                       "--entrypoint", "/bin/sh", image, "/dcp-bootstrap.sh"]
+    else:
+        docker_cmd += [image]
 
     try:
         start_result = subprocess.run(docker_cmd, capture_output=True, text=True, timeout=30)
@@ -7614,31 +7682,39 @@ def run_interactive_pod(task_spec, job_id=None):
     except Exception as e:
         return {"success": False, "error": f"Docker start error: {e}"}
 
-    # Poll Jupyter /api until ready (up to 5 minutes for image boot)
-    health_url = f"http://127.0.0.1:{jport}/api"
-    ready = False
-    for attempt in range(60):  # 60 × 5s = 5 minutes
-        time.sleep(5)
-        try:
-            import urllib.request as _urllib
-            with _urllib.urlopen(health_url, timeout=3) as r:
-                if r.status == 200:
-                    ready = True
-                    break
-        except Exception:
-            pass
-        # Check container is still alive
-        check = subprocess.run(
-            ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
-            capture_output=True, text=True
-        )
-        if check.stdout.strip() != "true":
-            log.error(f"Pod container {container_name} exited during startup")
-            return {"success": False, "error": "Pod container exited before becoming healthy"}
+    if bootstrap_ssh:
+        # Arbitrary image: wait for the injected SSH server (the image may have no
+        # Jupyter). Installing openssh on first boot can take ~a minute. 72×5s=6min.
+        ready = _wait_for_tcp("127.0.0.1", sport, attempts=72, interval=5, container_name=container_name)
+        if not ready:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+            return {"success": False, "error": "Pod SSH did not come up within 6 minutes"}
+    else:
+        # Default DCP image: poll Jupyter /api until ready (up to 5 minutes).
+        health_url = f"http://127.0.0.1:{jport}/api"
+        ready = False
+        for attempt in range(60):  # 60 × 5s = 5 minutes
+            time.sleep(5)
+            try:
+                import urllib.request as _urllib
+                with _urllib.urlopen(health_url, timeout=3) as r:
+                    if r.status == 200:
+                        ready = True
+                        break
+            except Exception:
+                pass
+            # Check container is still alive
+            check = subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
+                capture_output=True, text=True
+            )
+            if check.stdout.strip() != "true":
+                log.error(f"Pod container {container_name} exited during startup")
+                return {"success": False, "error": "Pod container exited before becoming healthy"}
 
-    if not ready:
-        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
-        return {"success": False, "error": "Pod Jupyter endpoint did not become healthy within 5 minutes"}
+        if not ready:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+            return {"success": False, "error": "Pod Jupyter endpoint did not become healthy within 5 minutes"}
 
     # Report endpoint ready to backend (jupyter/ssh host ports + mesh & public IP)
     public_ip = _get_public_ip()
