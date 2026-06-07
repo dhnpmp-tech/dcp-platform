@@ -7693,10 +7693,12 @@ def run_interactive_pod(task_spec, job_id=None):
     # comes up in seconds; a bootstrap image apt-installs it, a few minutes).
     # Jupyter, when the image ships it, is exposed via access_url but is no longer
     # the readiness gate (cuda/vllm/ubuntu images have no Jupyter).
-    ready = _wait_for_ssh("127.0.0.1", sport, attempts=90, interval=5, container_name=container_name)
+    # Baked images expose sshd in seconds; an arbitrary image must apt-install it
+    # over the pod's (slow, sometimes contended) egress, so allow up to ~10 min.
+    ready = _wait_for_ssh("127.0.0.1", sport, attempts=120, interval=5, container_name=container_name)
     if not ready:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
-        return {"success": False, "error": "Pod SSH did not become reachable within ~7 minutes"}
+        return {"success": False, "error": "Pod SSH did not become reachable within ~10 minutes"}
 
     # Report endpoint ready to backend (jupyter/ssh host ports + mesh & public IP)
     public_ip = _get_public_ip()
