@@ -2482,10 +2482,20 @@ def check_docker():
             _docker_available = False
             return False
 
-        # Check NVIDIA Container Toolkit
+        # Check NVIDIA Container Toolkit. A fresh provider won't have the probe
+        # image cached, and the 30s run-timeout is too short to ALSO pull it over a
+        # slow residential link — so pull it explicitly first (idempotent; cached
+        # after the first onboarding), then the run is fast.
+        probe_img = "nvidia/cuda:12.2.0-base-ubuntu22.04"
+        have_probe = subprocess.run(
+            ["docker", "image", "inspect", probe_img], capture_output=True, text=True
+        ).returncode == 0
+        if not have_probe:
+            log.info(f"Pulling NVIDIA toolkit probe image {probe_img} (one-time)...")
+            subprocess.run(["docker", "pull", probe_img], capture_output=True, text=True, timeout=600)
         r2 = subprocess.run(
-            ["docker", "run", "--rm", "--gpus", "all", "nvidia/cuda:12.2.0-base-ubuntu22.04", "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=30
+            ["docker", "run", "--rm", "--gpus", "all", probe_img, "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=60
         )
         if r2.returncode == 0:
             log.info(f"Docker + NVIDIA CT available: {r2.stdout.strip()}")
