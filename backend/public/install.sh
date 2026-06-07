@@ -1163,8 +1163,10 @@ setup_linux_service() {
       # USER-mode services snapshot group membership at manager start; a plain
       # daemon-reload will NOT pick this up -- the user manager must restart.
       if [ "${DCP_SYSTEMD_MODE:-user}" != "system" ] && command -v loginctl >/dev/null 2>&1; then
-        warn "Docker group added: the user systemd manager must restart to honor it."
-        warn "Run: loginctl terminate-user ${USER}  (or log out/in), then re-enable the service."
+        warn "Docker group added. Inference works now; GPU *pods* need the user"
+        warn "manager to restart to inherit the group: log out/in or reboot once"
+        warn "(or run: loginctl terminate-user ${USER}). For immediate pod support,"
+        warn "reinstall with DCP_SYSTEMD_MODE=system (root-managed, no relogin needed)."
       fi
     fi
   fi
@@ -1184,6 +1186,15 @@ setup_linux_service() {
     ollama_exec_pre="ExecStartPre=/bin/sh -c 'if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then OLLAMA_FLASH_ATTENTION=1 nohup ollama serve > ${LOG_DIR}/ollama.log 2>&1 & sleep 5; fi'"
   fi
 
+  # Only reference the docker group if it actually exists. A SupplementaryGroups=
+  # line pointing at a missing group makes systemd REFUSE to start the unit, which
+  # would break inference-only / docker-less providers. (User-mode managers are
+  # unprivileged and cannot apply SupplementaryGroups at all — see below.)
+  local docker_supgroup=""
+  if getent group docker >/dev/null 2>&1; then
+    docker_supgroup="SupplementaryGroups=docker"
+  fi
+
   if [ "${DCP_SYSTEMD_MODE}" = "system" ]; then
     step "Installing systemd system service (requires sudo)"
     local tmp_unit
@@ -1197,7 +1208,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=${USER}
-SupplementaryGroups=docker
+${docker_supgroup}
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${CONFIG_DIR}/env
 ${ollama_env}
@@ -1237,7 +1248,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-SupplementaryGroups=docker
+# No SupplementaryGroups= here: an unprivileged --user manager has no CAP_SETGID
+# and the unit would fail to start. Docker access is inherited from the user's
+# docker-group membership (usermod above) once the user manager restarts
+# (one-time relogin/reboot, or DCP_SYSTEMD_MODE=system for immediate support).
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${CONFIG_DIR}/env
 ${ollama_env}
