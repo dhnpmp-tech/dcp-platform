@@ -207,6 +207,8 @@ function mapStatus(status?: string): string {
   if (s === 'failed' || s === 'error' || s === 'cancelled' || s === 'canceled') return 'failed'
   if (s === 'running' || s === 'active') return 'active'
   if (s === 'pending' || s === 'queued') return 'queued'
+  if (s === 'completed' || s === 'complete' || s === 'succeeded' || s === 'success' || s === 'done') return 'completed'
+  if (s === 'stopped' || s === 'stop') return 'stopped'
   return 'settled'
 }
 
@@ -214,7 +216,7 @@ function rowsFromSpend(source: Array<{ name: string; sar: number }>): BreakdownR
   const total = source.reduce((sum, row) => sum + row.sar, 0)
   return source
     .filter((row) => row.name && row.sar > 0)
-    .map((row) => ({ name: row.name, sar: row.sar, pct: total > 0 ? Math.max(4, Math.round((row.sar / total) * 100)) : 0 }))
+    .map((row) => ({ name: row.name, sar: row.sar, pct: total > 0 ? Math.round((row.sar / total) * 10000) / 100 : 0 }))
     .sort((a, b) => b.sar - a.sar)
     .slice(0, 5)
 }
@@ -266,8 +268,8 @@ export default function RenterUsagePage() {
           readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
           readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
           readJson<AnalyticsResponse>(`${base}/renters/me/analytics?key=${encodedKey}&period=${period}`, headers, true),
-          readJson<JobsResponse>(`${base}/renters/me/jobs?key=${encodedKey}&page=0&limit=50`, headers, true),
-          readJson<UsageResponse>(`${base}/renters/me/usage?key=${encodedKey}&limit=50&offset=0`, headers, true),
+          readJson<JobsResponse>(`${base}/renters/me/jobs?key=${encodedKey}&page=0&limit=50&period=${period}`, headers, true),
+          readJson<UsageResponse>(`${base}/renters/me/usage?key=${encodedKey}&limit=50&offset=0&period=${period}`, headers, true),
         ])
         if (cancelled) return
         setRenter(me?.renter || null)
@@ -620,6 +622,8 @@ export default function RenterUsagePage() {
               </select>
               <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option>All statuses</option>
+                <option>completed</option>
+                <option>stopped</option>
                 <option>settled</option>
                 <option>queued</option>
                 <option>active</option>

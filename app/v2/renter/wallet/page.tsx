@@ -114,6 +114,15 @@ interface RenterPaymentsResponse {
   payments?: RenterPayment[]
 }
 
+interface HealthResponse {
+  payments?: {
+    payments_secret_ready?: boolean
+    payments_webhook_ready?: boolean
+    payout_source_ready?: boolean
+    sandbox_topup_enabled?: boolean
+  }
+}
+
 interface AutoTopupSettings {
   enabled?: boolean
   threshold_halala?: number
@@ -209,6 +218,7 @@ export default function RenterWalletPage() {
   const [payments, setPayments] = useState<RenterPayment[]>([])
   const [autoTopup, setAutoTopup] = useState<AutoTopupSettings | null>(null)
   const [topupResult, setTopupResult] = useState<TopupResult | null>(null)
+  const [paymentsReady, setPaymentsReady] = useState(false)
   const [autoEnabled, setAutoEnabled] = useState(false)
   const [autoThresholdSar, setAutoThresholdSar] = useState(0)
   const [autoAmountSar, setAutoAmountSar] = useState(0)
@@ -230,14 +240,15 @@ export default function RenterWalletPage() {
     async function loadWallet() {
       try {
         setLoadState('loading')
-        const encodedKey = encodeURIComponent(renterKey)
-        const [me, balanceData, paymentData, autoData] = await Promise.all([
-          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
-          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
-          readJson<RenterPaymentsResponse>(`${base}/renters/me/payments?key=${encodedKey}`, headers, true),
+        const [me, balanceData, paymentData, autoData, healthData] = await Promise.all([
+          readJson<RenterMeResponse>(`${base}/renters/me`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
+          readJson<RenterPaymentsResponse>(`${base}/renters/me/payments`, headers, true),
           readJson<AutoTopupSettings>(`${base}/payments/auto-topup-settings`, headers, true),
+          readJson<HealthResponse>(`${base}/health`, headers, true).catch(() => null),
         ])
         if (cancelled) return
+        setPaymentsReady(!!healthData?.payments?.payments_secret_ready)
         const auto = autoData || null
         setRenter(me?.renter || null)
         setBalance(balanceData || null)
@@ -283,7 +294,7 @@ export default function RenterWalletPage() {
   const selectedMethod = TOPUP_METHODS[methodIdx]
   const canUseWallet = loadState === 'ready'
   const topupAmount = customAmount.trim() ? Number(customAmount) : amountSar
-  const canSubmitTopup = canUseWallet && Number.isFinite(topupAmount) && topupAmount >= 1 && topupAmount <= 10000
+  const canSubmitTopup = canUseWallet && paymentsReady && Number.isFinite(topupAmount) && topupAmount >= 1 && topupAmount <= 10000
   const canSaveAutoTopup = canUseWallet && !!autoTopup?.card_on_file
 
   const balanceParts = useMemo(() => {
@@ -377,7 +388,6 @@ export default function RenterWalletPage() {
               <span className="nm">{displayName}</span>
               <span className="sub">{displaySub}</span>
             </span>
-            <span className="chev">⌄</span>
           </button>
         </div>
 
@@ -466,7 +476,11 @@ export default function RenterWalletPage() {
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
+            <span
+              className="d"
+              style={loadState === 'ready' ? undefined : { background: 'var(--mut)', animation: 'none' }}
+            />{' '}
+            <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
           </span>
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
             <span style={{ background: lang === 'en' ? 'var(--ink)' : 'transparent', color: lang === 'en' ? 'var(--bg)' : 'var(--ink)' }}>
@@ -585,6 +599,9 @@ export default function RenterWalletPage() {
                   type="button"
                   className={`topup-method${i === methodIdx ? ' on' : ''}`}
                   onClick={() => setMethodIdx(i)}
+                  disabled={!paymentsReady}
+                  aria-disabled={!paymentsReady}
+                  style={paymentsReady ? undefined : { opacity: 0.5, cursor: 'not-allowed' }}
                 >
                   <div className="nm">
                     <Bi en={m.nm} ar={m.nmAr} />
@@ -630,21 +647,35 @@ export default function RenterWalletPage() {
               </label>
             </div>
 
-            <div className="action-row">
-              <button className="btn-pri" type="submit" disabled={!canSubmitTopup || saveState === 'submitting'}>
-                {saveState === 'submitting' ? (
-                  <Bi en="Starting..." ar="جاري البدء..." />
-                ) : (
-                  <Bi en={`Top up SAR ${fmtSar(topupAmount)}`} ar={`شحن ${fmtSar(topupAmount)} ريال`} />
-                )}
-              </button>
-              <span className="hint">
-                <Bi
-                  en="Card and Apple Pay open Moyasar checkout; bank transfer returns DCP bank instructions."
-                  ar="البطاقة و Apple Pay تفتحان دفع ميسر؛ التحويل البنكي يعرض تعليمات بنك DCP."
-                />
-              </span>
-            </div>
+            {!paymentsReady ? (
+              <div className="dash-state">
+                <b>
+                  <Bi en="Payments are being set up" ar="يتم إعداد المدفوعات" />
+                </b>
+                <span>
+                  <Bi
+                    en="Top-up is unavailable until the DCP payment gateway is configured. No card, Apple Pay, or bank-transfer methods can be started yet."
+                    ar="الشحن غير متاح حتى يتم تهيئة بوابة الدفع في DCP. لا يمكن بدء أي طريقة بطاقة أو Apple Pay أو تحويل بنكي بعد."
+                  />
+                </span>
+              </div>
+            ) : (
+              <div className="action-row">
+                <button className="btn-pri" type="submit" disabled={!canSubmitTopup || saveState === 'submitting'}>
+                  {saveState === 'submitting' ? (
+                    <Bi en="Starting..." ar="جاري البدء..." />
+                  ) : (
+                    <Bi en={`Top up SAR ${fmtSar(topupAmount)}`} ar={`شحن ${fmtSar(topupAmount)} ريال`} />
+                  )}
+                </button>
+                <span className="hint">
+                  <Bi
+                    en="Card and Apple Pay open Moyasar checkout; bank transfer returns DCP bank instructions."
+                    ar="البطاقة و Apple Pay تفتحان دفع ميسر؛ التحويل البنكي يعرض تعليمات بنك DCP."
+                  />
+                </span>
+              </div>
+            )}
 
             {saveState === 'error' && <div className="dash-state error">{error}</div>}
             {topupResult && (

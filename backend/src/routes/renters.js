@@ -774,14 +774,15 @@ router.patch('/settings', (req, res) => {
   }
 });
 
-// GET /api/renters/me/invoices?key=API_KEY&page=1&limit=20
+// GET /api/renters/me/invoices?page=1&limit=20  (auth via x-renter-key header or ?key=)
 router.get('/me/invoices', (req, res) => {
   try {
-    const { key } = req.query;
+    const key = req.headers['x-renter-key'] || req.query.key;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
-    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+    const renter = { id: renterId };
 
     const pageRaw = Number.parseInt(req.query.page, 10);
     const limitRaw = Number.parseInt(req.query.limit, 10);
@@ -1378,8 +1379,8 @@ router.post(['/me/rotate-key', '/rotate-key'], (req, res) => {
 // ─── SCOPED API KEY MANAGEMENT — Sprint 25 Gap 2 ─────────────────────────────
 // Master key (renters.api_key) always has full access.
 // Sub-keys in renter_api_keys have explicit scope grants.
-// Valid scopes: "inference" (submit vLLM jobs), "billing" (view balance), "admin" (all)
-const VALID_KEY_SCOPES = new Set(['inference', 'billing', 'admin']);
+// Valid scopes: "inference" (submit vLLM jobs), "billing" (view balance), "compute" (rent GPU pods), "admin" (all)
+const VALID_KEY_SCOPES = new Set(['inference', 'billing', 'admin', 'compute']);
 const MAX_SCOPED_KEYS_PER_RENTER = 20;
 
 // POST /api/renters/me/keys — create a scoped sub-key
@@ -1820,6 +1821,7 @@ router.get('/me/jobs', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const offset = page * limit;
     const statusFilter = req.query.status;
+    const period = req.query.period;
 
     const conditions = ['j.renter_id = ?'];
     const params = [renter.id];
@@ -1827,6 +1829,13 @@ router.get('/me/jobs', (req, res) => {
     if (statusFilter && ['completed', 'failed', 'running', 'pending', 'queued'].includes(statusFilter)) {
       conditions.push('j.status = ?');
       params.push(statusFilter);
+    }
+
+    if (period && ['7d', '30d', '90d'].includes(period)) {
+      const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      conditions.push('COALESCE(j.created_at, j.submitted_at) >= ?');
+      params.push(cutoff);
     }
 
     const where = conditions.join(' AND ');
@@ -2138,10 +2147,12 @@ router.delete('/me/templates/:id', (req, res) => {
 // ============================================================================
 router.get('/me/live', (req, res) => {
   try {
-    const { key } = req.query;
+    const key = req.headers['x-renter-key'] || req.query.key;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT id, name, email, balance_halala FROM renters WHERE api_key = ?', key);
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+    const renter = db.get('SELECT id, name, email, balance_halala FROM renters WHERE id = ?', renterId);
     if (!renter) return res.status(404).json({ error: 'Renter not found' });
 
     const inferenceTracker = require('../services/inferenceTracker');
@@ -2168,24 +2179,28 @@ router.get('/me/live', (req, res) => {
 // ============================================================================
 router.get('/me/usage', (req, res) => {
   try {
-    const { key, limit: rawLimit, offset: rawOffset } = req.query;
+    const key = req.headers['x-renter-key'] || req.query.key;
+    const { limit: rawLimit, offset: rawOffset, period = '30d' } = req.query;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ?', key);
-    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+    const renter = { id: renterId };
 
     const limit = Math.min(Math.max(parseInt(rawLimit) || 50, 1), 200);
     const offset = Math.max(parseInt(rawOffset) || 0, 0);
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
     const usage = db.all(
       `SELECT id, request_id, model, source, prompt_tokens, completion_tokens, total_tokens,
               cost_halala, currency, created_at, provider_id, usd_prompt, usd_completion, usd_total,
               settlement_status
        FROM openrouter_usage_ledger
-       WHERE renter_id = ?
+       WHERE renter_id = ? AND created_at >= ?
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
-      renter.id, limit, offset
+      renter.id, cutoff, limit, offset
     );
 
     const totals = db.get(
@@ -2195,8 +2210,8 @@ router.get('/me/usage', (req, res) => {
               COALESCE(SUM(total_tokens), 0) as total_tokens,
               COALESCE(SUM(cost_halala), 0) as total_cost_halala
        FROM openrouter_usage_ledger
-       WHERE renter_id = ?`,
-      renter.id
+       WHERE renter_id = ? AND created_at >= ?`,
+      renter.id, cutoff
     );
 
     res.json({
@@ -2213,14 +2228,16 @@ router.get('/me/usage', (req, res) => {
   }
 });
 
-// GET /api/renters/me/analytics?key=API_KEY&period=30d
+// GET /api/renters/me/analytics?period=30d  (auth via x-renter-key header or ?key=)
 router.get('/me/analytics', (req, res) => {
   try {
-    const { key, period = '30d' } = req.query;
+    const key = req.headers['x-renter-key'] || req.query.key;
+    const { period = '30d' } = req.query;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
-    if (!renter) return res.status(404).json({ error: 'Renter not found' });
+    const renterId = resolveRenterIdByKey(key);
+    if (!renterId) return res.status(404).json({ error: 'Renter not found' });
+    const renter = { id: renterId };
 
     const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -2237,22 +2254,22 @@ router.get('/me/analytics', (req, res) => {
       renter.id, cutoff
     );
 
-    // Job counts by status (all time)
+    // Job counts by status (period-scoped; exclude 'stopped' from the success-rate denominator)
     const statusCounts = db.all(
       `SELECT status, COUNT(*) AS count
        FROM jobs
-       WHERE renter_id = ?
+       WHERE renter_id = ? AND submitted_at >= ? AND status != 'stopped'
        GROUP BY status`,
-      renter.id
+      renter.id, cutoff
     );
 
-    // Average job duration (completed jobs only)
+    // Average job duration (completed jobs only, period-scoped)
     const durationRow = db.get(
       `SELECT ROUND(AVG(duration_minutes), 1) AS avg_duration,
               COUNT(*) AS completed_count
        FROM jobs
-       WHERE renter_id = ? AND status = 'completed' AND duration_minutes IS NOT NULL`,
-      renter.id
+       WHERE renter_id = ? AND submitted_at >= ? AND status = 'completed' AND duration_minutes IS NOT NULL`,
+      renter.id, cutoff
     );
 
     // Top GPU models used

@@ -126,12 +126,56 @@ function requireRenter(req, res, next) {
   if (looksLikeProviderKey(key)) {
     return res.status(401).json({ error: 'Wrong key type: provider key cannot be used on renter endpoint', code: 'wrong_key_type' });
   }
+
+  // Scoped sub-key first (same precedence as v1.js): a sub-key carries an
+  // explicit scopes array; the master renters.api_key is full-access (scopes
+  // left null → treated as "all" by requireComputeScope). req.renterScopes is
+  // the JSON-parsed scopes for a sub-key, or null for a master key.
+  const now = new Date().toISOString();
+  const scopedKey = db.get(
+    `SELECT k.id AS key_id, k.scopes, k.expires_at, r.*
+       FROM renter_api_keys k
+       JOIN renters r ON r.id = k.renter_id
+      WHERE k.key = ? AND r.status = 'active' AND k.revoked_at IS NULL`,
+    key
+  );
+  if (scopedKey) {
+    if (scopedKey.expires_at && scopedKey.expires_at < now) {
+      return res.status(403).json({ error: 'API key has expired', code: 'authentication_key_expired' });
+    }
+    let scopes = [];
+    try {
+      scopes = JSON.parse(scopedKey.scopes || '[]');
+    } catch (parseErr) {
+      console.error('[pods] corrupted scopes JSON for key', scopedKey.key_id, parseErr.message);
+    }
+    const { key_id: _k, scopes: _s, expires_at: _e, ...renter } = scopedKey;
+    req.renter = renter;
+    req.renterScopes = scopes;
+    return next();
+  }
+
+  // Fall back to the master renter key (full access).
   const renter = db.get('SELECT * FROM renters WHERE api_key = ? AND status = ?', key, 'active');
   if (!renter) {
     return res.status(403).json({ error: 'Invalid or inactive renter API key' });
   }
   req.renter = renter;
+  req.renterScopes = null;
   next();
+}
+
+// Compute-scope gate for pod launch. A master renter key (req.renterScopes ===
+// null) is full-access. A scoped sub-key must carry 'compute' or 'admin' to
+// launch a GPU pod; otherwise 403. Mounted only on POST /api/pods.
+function requireComputeScope(req, res, next) {
+  const scopes = req.renterScopes;
+  if (scopes == null) return next();
+  if (scopes.includes('compute') || scopes.includes('admin')) return next();
+  return res.status(403).json({
+    error: 'API key does not have compute scope. A compute or admin scope is required to launch a GPU pod.',
+    code: 'authentication_scope_missing',
+  });
 }
 
 function toFiniteInt(value, { min = null, max = null } = {}) {
@@ -201,6 +245,10 @@ function toPodView(job) {
     status: job.status,
     access_url: job.access_url || null,
     ssh_command: job.ssh_command || null,
+    provider_id: job.provider_id ?? null,
+    provider_name: job.provider_name || null,
+    duration_minutes: job.duration_minutes ?? null,
+    submitted_at: job.submitted_at || job.created_at || null,
   };
 }
 
@@ -211,7 +259,11 @@ router.get('/', requireRenter, (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const rows = db.all(
-      `SELECT * FROM jobs WHERE renter_id = ? AND job_type = 'interactive_pod' ORDER BY created_at DESC LIMIT ?`,
+      `SELECT j.*, p.name AS provider_name
+         FROM jobs j
+    LEFT JOIN providers p ON p.id = j.provider_id
+        WHERE j.renter_id = ? AND j.job_type = 'interactive_pod'
+        ORDER BY j.created_at DESC LIMIT ?`,
       req.renter.id, limit
     );
     return res.json({ pods: rows.map(toPodView) });
@@ -221,7 +273,7 @@ router.get('/', requireRenter, (req, res) => {
   }
 });
 
-router.post('/', requireRenter, (req, res) => {
+router.post('/', requireRenter, requireComputeScope, (req, res) => {
   try {
     const body = req.body || {};
     const params = body.params && typeof body.params === 'object' ? body.params : {};
@@ -332,7 +384,10 @@ router.post('/', requireRenter, (req, res) => {
 router.get('/:id', requireRenter, (req, res) => {
   try {
     const job = db.get(
-      `SELECT * FROM jobs WHERE (job_id = ? OR id = ?) AND job_type = 'interactive_pod'`,
+      `SELECT j.*, p.name AS provider_name
+         FROM jobs j
+    LEFT JOIN providers p ON p.id = j.provider_id
+        WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod'`,
       req.params.id, req.params.id
     );
     if (!job) {

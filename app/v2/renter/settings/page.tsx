@@ -54,6 +54,7 @@ interface RenterAccount {
   balance_halala?: number
   total_spent_halala?: number
   total_jobs?: number
+  monthly_spend_cap_halala?: number
   created_at?: string
 }
 
@@ -137,7 +138,12 @@ export default function RenterSettingsPage() {
   const [notificationTotal, setNotificationTotal] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
   const [webhookUrl, setWebhookUrl] = useState('')
-  const [exportHref, setExportHref] = useState('/v2/renter/settings')
+  const [spendCap, setSpendCap] = useState('')
+  const [capState, setCapState] = useState<SaveState>('idle')
+  const [exportState, setExportState] = useState<'idle' | 'working' | 'limited' | 'error'>('idle')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteState, setDeleteState] = useState<SaveState>('idle')
+  const [deleteMessage, setDeleteMessage] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -156,7 +162,6 @@ export default function RenterSettingsPage() {
       try {
         setLoadState('loading')
         setError('')
-        setExportHref(`${base}/renters/me/data-export?key=${encodedKey}`)
         const [me, balanceData, notificationsData] = await Promise.all([
           readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
           readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
@@ -167,6 +172,11 @@ export default function RenterSettingsPage() {
         setRenter(account)
         setBalance(balanceData || null)
         setWebhookUrl(account?.webhook_url || '')
+        setSpendCap(
+          typeof account?.monthly_spend_cap_halala === 'number' && account.monthly_spend_cap_halala > 0
+            ? String(account.monthly_spend_cap_halala / HALALA_PER_SAR)
+            : '',
+        )
         setNotifications(notificationsData?.items || [])
         setNotificationTotal(notificationsData?.total || 0)
         setUnreadCount(notificationsData?.unread_count || 0)
@@ -231,6 +241,97 @@ export default function RenterSettingsPage() {
     }
   }
 
+  async function saveBudget(event: FormEvent) {
+    event.preventDefault()
+    const key = getRenterKey()
+    if (!key) return
+    const trimmed = spendCap.trim()
+    const sar = trimmed === '' ? 0 : Number(trimmed)
+    if (!Number.isFinite(sar) || sar < 0) {
+      setError('Enter a non-negative monthly cap in SAR (blank or 0 = unlimited).')
+      setCapState('error')
+      return
+    }
+    setCapState('submitting')
+    setError('')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me/budget`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-renter-key': key,
+        },
+        body: JSON.stringify({ monthly_spend_cap_sar: sar }),
+      })
+      const data = (await res.json()) as { error?: string; monthly_spend_cap_halala?: number; unlimited?: boolean }
+      if (!res.ok) throw new Error(data.error || `Spend cap save failed: ${res.status}`)
+      const savedHalala = typeof data.monthly_spend_cap_halala === 'number' ? data.monthly_spend_cap_halala : 0
+      setSpendCap(savedHalala > 0 ? String(savedHalala / HALALA_PER_SAR) : '')
+      setRenter((prev) => (prev ? { ...prev, monthly_spend_cap_halala: savedHalala } : prev))
+      setCapState('success')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Spend cap could not be saved')
+      setCapState('error')
+    }
+  }
+
+  async function handleExport() {
+    const key = getRenterKey()
+    if (!key || exportState === 'working' || exportState === 'limited') return
+    setExportState('working')
+    setError('')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me/data-export`, {
+        headers: { 'x-renter-key': key },
+        cache: 'no-store',
+      })
+      if (res.status === 429) {
+        setExportState('limited')
+        return
+      }
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+      const data = await res.json()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `dcp-account-export-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setExportState('idle')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Account data could not be exported')
+      setExportState('error')
+    }
+  }
+
+  async function deleteAccount() {
+    const key = getRenterKey()
+    if (!key) return
+    setDeleteState('submitting')
+    setError('')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me`, {
+        method: 'DELETE',
+        headers: { 'x-renter-key': key },
+      })
+      const data = (await res.json()) as { error?: string; message?: string; deletion_scheduled_for?: string }
+      if (!res.ok) throw new Error(data.error || `Account deletion failed: ${res.status}`)
+      setDeleteMessage(data.message || 'Account scheduled for deletion.')
+      setDeleteState('success')
+      setConfirmDelete(false)
+      window.setTimeout(() => {
+        localStorage.removeItem('dc1_renter_key')
+        window.location.href = '/v2/auth'
+      }, 4000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Account could not be deleted')
+      setDeleteState('error')
+    }
+  }
+
   async function markAllNotificationsRead() {
     const key = getRenterKey()
     if (!key) return
@@ -264,14 +365,13 @@ export default function RenterSettingsPage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Current renter account" type="button">
+          <div className="rt-ws-btn" title="Current renter account">
             <span className="av">{initials(displayName, displayEmail)}</span>
             <span className="body">
               <span className="nm">{displayName}</span>
               <span className="sub">{displaySub}</span>
             </span>
-            <span className="chev">⌄</span>
-          </button>
+          </div>
         </div>
 
         <div className="rt-wallet">
@@ -348,7 +448,14 @@ export default function RenterSettingsPage() {
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
+            <span
+              className="d"
+              style={{
+                background: loadState === 'ready' ? 'var(--rt-accent)' : loadState === 'error' ? 'var(--err)' : 'var(--mut)',
+                animation: loadState === 'ready' ? undefined : 'none',
+              }}
+            />{' '}
+            <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
           </span>
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
             <span style={{ background: lang === 'en' ? 'var(--ink)' : 'transparent', color: lang === 'en' ? 'var(--bg)' : 'var(--ink)' }}>
@@ -385,9 +492,24 @@ export default function RenterSettingsPage() {
                 </span>
               </div>
             </div>
-            <a className="btn-sec" href={exportHref}>
-              ↓ <Bi en="Export account data" ar="تصدير بيانات الحساب" />
-            </a>
+            <button
+              className="btn-sec"
+              type="button"
+              onClick={handleExport}
+              disabled={!canUseSettings || exportState === 'working' || exportState === 'limited'}
+            >
+              {exportState === 'working' ? (
+                <Bi en="Preparing export..." ar="جاري تجهيز التصدير..." />
+              ) : exportState === 'limited' ? (
+                <Bi en="Export available in 24h" ar="التصدير متاح خلال 24 ساعة" />
+              ) : exportState === 'error' ? (
+                <Bi en="Export failed — retry" ar="فشل التصدير — أعد المحاولة" />
+              ) : (
+                <>
+                  ↓ <Bi en="Export account data" ar="تصدير بيانات الحساب" />
+                </>
+              )}
+            </button>
           </div>
 
           {loadState === 'missing-key' && (
@@ -462,6 +584,51 @@ export default function RenterSettingsPage() {
               </Link>
             </div>
           </div>
+
+          <form className="panel" style={{ marginTop: 28 }} onSubmit={saveBudget}>
+            <div className="panel-hd">
+              <div>
+                <h3>
+                  <Bi en="Monthly spend cap" ar="حد الإنفاق الشهري" />
+                </h3>
+              </div>
+            </div>
+            <div className="form-grid">
+              <div className="lbl">
+                <b>
+                  <Bi en="Cap (SAR / month)" ar="الحد (ريال / شهر)" />
+                </b>
+                <Bi en="Blocks inference once this calendar month's spend is reached" ar="يوقف الاستدلال عند بلوغ إنفاق هذا الشهر الميلادي" />
+              </div>
+              <div className="ctl">
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  value={spendCap}
+                  disabled={!canUseSettings}
+                  placeholder="0"
+                  onChange={(e) => setSpendCap(e.target.value)}
+                />
+                <span className="hint">
+                  <Bi en="Leave blank or 0 for unlimited. Independent of your balance." ar="اتركه فارغًا أو 0 لإزالة الحد. مستقل عن رصيدك." />
+                </span>
+              </div>
+            </div>
+            <div className="action-row">
+              <button className="btn-pri" type="submit" disabled={!canUseSettings || capState === 'submitting'}>
+                {capState === 'submitting' ? <Bi en="Saving..." ar="جاري الحفظ..." /> : <Bi en="Save spend cap" ar="حفظ حد الإنفاق" />}
+              </button>
+              {capState === 'success' && (
+                <span className="hint success-text">
+                  <Bi en="Saved" ar="تم الحفظ" />
+                </span>
+              )}
+              {capState === 'error' && <span className="hint error-text">{error}</span>}
+            </div>
+          </form>
 
           <form className="panel" style={{ marginTop: 28 }} onSubmit={saveWebhook}>
             <div className="panel-hd">
@@ -607,10 +774,49 @@ export default function RenterSettingsPage() {
                 </b>
                 <span>
                   <Bi
-                    en="Deletion is intentionally not exposed here until v2 has a two-step confirmation flow and admin audit review."
-                    ar="لا يتم عرض الحذف هنا حتى تملك v2 تأكيدًا بخطوتين ومراجعة تدقيق إدارية."
+                    en="Schedules your account for deletion in 30 days (PDPL right to erasure). Active jobs are cancelled and the account is anonymized."
+                    ar="يجدول حسابك للحذف خلال 30 يومًا (حق المحو وفق نظام حماية البيانات). تُلغى المهام النشطة ويُجهّل الحساب."
                   />
                 </span>
+                {deleteState === 'success' ? (
+                  <span className="hint success-text" style={{ marginTop: 12 }}>
+                    {deleteMessage}
+                  </span>
+                ) : confirmDelete ? (
+                  <div className="action-row" style={{ marginTop: 12 }}>
+                    <button
+                      className="btn-sec danger"
+                      type="button"
+                      onClick={deleteAccount}
+                      disabled={!canUseSettings || deleteState === 'submitting'}
+                    >
+                      {deleteState === 'submitting' ? (
+                        <Bi en="Deleting..." ar="جاري الحذف..." />
+                      ) : (
+                        <Bi en="Confirm delete" ar="تأكيد الحذف" />
+                      )}
+                    </button>
+                    <button
+                      className="btn-sec"
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleteState === 'submitting'}
+                    >
+                      <Bi en="Cancel" ar="إلغاء" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn-sec danger"
+                    type="button"
+                    style={{ marginTop: 12, alignSelf: 'flex-start' }}
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={!canUseSettings}
+                  >
+                    <Bi en="Delete account" ar="حذف الحساب" />
+                  </button>
+                )}
+                {deleteState === 'error' && <span className="hint error-text" style={{ marginTop: 8 }}>{error}</span>}
               </div>
             </div>
           </div>

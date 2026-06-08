@@ -9,7 +9,7 @@ import './pods.css'
 
 // ── Pod domain constants (ported verbatim from the v1 pods page) ──────
 const POD_REFRESH_MS = 8000
-const MIN_TOKEN_LENGTH = 12
+const MIN_TOKEN_LENGTH = 16
 const DEFAULT_DURATION_MINUTES = 60
 
 const DURATION_OPTIONS: { minutes: number; label: string }[] = [
@@ -82,7 +82,18 @@ interface RenterMeResponse {
 interface LaunchResponse {
   id?: number | string | null
   job?: { id?: number | string | null }
+  // One-time secrets returned by the 201 launch response (pods.js:374-375).
+  // Shown ONCE in a reveal panel — never persisted or re-fetchable.
+  root_password?: string | null
+  jupyter_token?: string | null
   error?: string
+}
+
+// One-time credentials surfaced immediately after a successful launch.
+interface LaunchReveal {
+  podId: string
+  rootPassword: string
+  jupyterToken: string
 }
 
 type LoadState = 'loading' | 'ready' | 'missing-key'
@@ -144,6 +155,8 @@ export default function RenterPodsPage() {
   const [renterEmail, setRenterEmail] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
+  // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
+  const [reveal, setReveal] = useState<LaunchReveal | null>(null)
   const [launch, setLaunch] = useState<LaunchState>({
     providerId: '',
     durationMinutes: DEFAULT_DURATION_MINUTES,
@@ -287,6 +300,16 @@ export default function RenterPodsPage() {
       const data = (await res.json()) as LaunchResponse
       const newId = data.id ?? data.job?.id ?? null
       if (newId != null) pollIdsRef.current.add(String(newId))
+
+      // The 201 hands back root_password + jupyter_token EXACTLY ONCE — capture
+      // and surface them now; they are never returned by GET /pods again.
+      if (data.root_password || data.jupyter_token) {
+        setReveal({
+          podId: newId != null ? String(newId) : '',
+          rootPassword: data.root_password || '',
+          jupyterToken: data.jupyter_token || '',
+        })
+      }
 
       // Reset the form (fresh token) and refresh the list immediately.
       setLaunch({
@@ -614,6 +637,74 @@ export default function RenterPodsPage() {
                 </span>
               )}
             </div>
+
+            {/* ── One-time credentials reveal (shown ONCE per launch) ───── */}
+            {reveal && (reveal.rootPassword || reveal.jupyterToken) && (
+              <div className="pod-access" style={{ marginTop: '20px' }}>
+                <div
+                  className="dash-state"
+                  style={{
+                    borderColor: 'color-mix(in oklab, var(--teal) 40%, var(--hair))',
+                    background: 'color-mix(in oklab, var(--teal) 4%, var(--paper))',
+                  }}
+                >
+                  <b>
+                    <Bi en="Save these credentials now" ar="احفظ بيانات الاعتماد الآن" />
+                    {reveal.podId ? ` — Pod #${reveal.podId}` : ''}
+                  </b>
+                  <span>
+                    <Bi
+                      en="Shown only once. They are not stored and cannot be retrieved later — copy them before leaving this page."
+                      ar="تُعرض مرة واحدة فقط. لا يتم تخزينها ولا يمكن استرجاعها لاحقًا — انسخها قبل مغادرة هذه الصفحة."
+                    />
+                  </span>
+                </div>
+
+                {reveal.rootPassword && (
+                  <div className="pod-access-block">
+                    <div className="pod-access-body">
+                      <span className="pod-access-k">
+                        <Bi en="Root password (SSH)" ar="كلمة مرور الجذر (SSH)" />
+                      </span>
+                      <code className="pod-access-ssh">{reveal.rootPassword}</code>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-sec pod-copy"
+                      onClick={() => copyText('reveal-root', reveal.rootPassword)}
+                      aria-label="Copy root password"
+                    >
+                      {copied === 'reveal-root' ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
+                    </button>
+                  </div>
+                )}
+
+                {reveal.jupyterToken && (
+                  <div className="pod-access-block">
+                    <div className="pod-access-body">
+                      <span className="pod-access-k">
+                        <Bi en="Jupyter token" ar="رمز Jupyter" />
+                      </span>
+                      <code className="pod-access-ssh">{reveal.jupyterToken}</code>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-sec pod-copy"
+                      onClick={() => copyText('reveal-token', reveal.jupyterToken)}
+                      aria-label="Copy Jupyter token"
+                    >
+                      {copied === 'reveal-token' ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
+                    </button>
+                  </div>
+                )}
+
+                <div className="action-row">
+                  <button type="button" className="btn-sec" onClick={() => setReveal(null)}>
+                    <Bi en="Dismiss" ar="إخفاء" />
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── Pods list ──────────────────────────────────── */}
