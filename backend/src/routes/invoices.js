@@ -187,9 +187,9 @@ jobsInvoiceRouter.get('/:jobId/invoice.pdf', (req, res) => {
 
 const rentersInvoiceRouter = express.Router();
 
-rentersInvoiceRouter.get('/:renterId/invoices', (req, res) => {
+rentersInvoiceRouter.get('/:renterId/invoices', (req, res, next) => {
   const renterIdInt = parseInt(req.params.renterId, 10);
-  if (!Number.isFinite(renterIdInt)) return res.status(400).json({ error: 'Invalid renter ID' });
+  if (!Number.isFinite(renterIdInt)) return next(); // non-numeric (e.g. 'me') -> fall through to renters.js /me/invoices
   if (!isAdmin(req)) {
     const renter = getRenterFromReq(req);
     if (!renter || renter.id !== renterIdInt) return res.status(403).json({ error: 'Forbidden' });
