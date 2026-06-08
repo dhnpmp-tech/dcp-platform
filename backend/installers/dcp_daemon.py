@@ -376,6 +376,7 @@ log = logging.getLogger("dc1")
 # ─── RUNTIME STATE ──────────────────────────────────────────────────────────
 
 _docker_available = None  # Cached Docker + NVIDIA CT check
+_runsc_capability = None   # Cached gVisor (runsc) capability marker: {installed,gpu,runtime}
 _current_job_id = None    # Track active job for heartbeat
 _provider_peer_id = None  # Stable peer id for P2P heartbeat announcement
 _job_lock = threading.Lock()  # Protects _current_job_id
@@ -2457,6 +2458,41 @@ def collect_container_gpu_metrics(container_name):
 
 # ─── DOCKER DETECTION ───────────────────────────────────────────────────────
 
+def check_runsc():
+    """Return the gVisor (runsc) capability for this node, from the marker that
+    infra/security/install-gvisor.sh writes. Cached.
+
+    Returns a dict: {"installed": bool, "gpu": bool, "runtime": str}.
+      • installed=True, gpu=True  → renter pods can run sandboxed WITH GPU
+        (docker run --runtime=<runtime> --gpus all).
+      • installed=True, gpu=False → CPU sandbox works but nvproxy GPU probe
+        failed (strict driver-version match) — GPU pods fall back to runc.
+      • installed=False           → no gVisor; GPU pods run on runc (no sandbox).
+
+    The daemon NEVER decides a node is sandbox-capable on its own — it only
+    trusts the marker the install script's real probe produced.
+    """
+    global _runsc_capability
+    if _runsc_capability is not None:
+        return _runsc_capability
+    default = {"installed": False, "gpu": False, "runtime": "runc"}
+    marker = CONFIG_DIR / "runsc-capability.json"
+    try:
+        if marker.exists():
+            data = json.loads(marker.read_text())
+            _runsc_capability = {
+                "installed": bool(data.get("installed", False)),
+                "gpu": bool(data.get("gpu", False)),
+                "runtime": str(data.get("runtime", "runc")) or "runc",
+            }
+        else:
+            _runsc_capability = default
+    except Exception as e:
+        log.warning(f"check_runsc: could not read {marker}: {e}")
+        _runsc_capability = default
+    return _runsc_capability
+
+
 def check_docker():
     """Check if Docker + NVIDIA Container Toolkit are available. Cached."""
     global _docker_available
@@ -2524,6 +2560,7 @@ def check_readiness():
         "python_version": platform.python_version(),
         "os_info": f"{platform.system()} {platform.release()}",
         "docker": check_docker(),
+        "runsc": check_runsc(),
     }
 
     gpu = detect_gpu()
@@ -7717,11 +7754,40 @@ def run_interactive_pod(task_spec, job_id=None):
         job_id=job_id
     )
 
-    # Start container detached. NOTE: deliberately NO --cap-drop all and NO
-    # --security-opt no-new-privileges here — both break sshd inside the pod.
-    # Only soft limits are applied; full kernel isolation (gVisor/Kata) is the GA gate.
+    # ── Isolation runtime selection (GA gate) ──────────────────────────────
+    # Renter pods run UNTRUSTED code. When this provider node has gVisor (runsc)
+    # installed AND its GPU-under-gVisor (nvproxy) probe passed, run the pod under
+    # that sandbox so a container escape hits the Sentry, not the host kernel.
+    # When gVisor is absent OR its GPU probe failed (nvproxy strict driver match),
+    # fall back to runc and LOG A WARNING — never silently downgrade an untrusted
+    # workload's isolation without a trail.
+    runsc_cap = check_runsc()
+    sandboxed = bool(runsc_cap.get("installed") and runsc_cap.get("gpu"))
+    runtime = runsc_cap.get("runtime", "runc") if sandboxed else "runc"
+    if sandboxed:
+        log.info(f"Pod {container_name}: sandboxing UNTRUSTED renter code under "
+                 f"gVisor runtime='{runtime}' (GPU via nvproxy).")
+    else:
+        reason = ("gVisor not installed" if not runsc_cap.get("installed")
+                  else "gVisor installed but nvproxy GPU probe failed (driver match)")
+        log.warning(f"Pod {container_name}: NO gVisor sandbox ({reason}) — "
+                    f"falling back to runc. Untrusted renter code shares the host "
+                    f"kernel. Run infra/security/install-gvisor.sh to harden this node.")
+
+    # Per-pod resource caps (previously MISSING — a renter could exhaust host
+    # RAM/CPU). interactive_pod profile: generous but bounded for a single tenant.
+    pod_mem = os.environ.get("DCP_POD_MEMORY", "24g")
+    pod_cpus = os.environ.get("DCP_POD_CPUS", "8")
+    seccomp_path = _ensure_seccomp_profile()
+
+    # Start container detached. We do NOT --cap-drop all and do NOT set
+    # no-new-privileges on this path: both break the injected sshd (the documented
+    # exception, and it holds under runsc too — the Sentry enforces the same
+    # no_new_privs semantics). Isolation comes from the runsc Sentry itself plus
+    # the targeted cap-drops + seccomp below.
     docker_cmd = [
         "docker", "run", "-d",
+        "--runtime", runtime,
         "--gpus", "all",
         "--name", container_name,
         "-p", f"{jport}:8888",
@@ -7729,8 +7795,24 @@ def run_interactive_pod(task_spec, job_id=None):
         "-e", f"JUPYTER_TOKEN={jupyter_token}",
         "-e", f"ROOT_PASSWORD={root_password}",
         "-v", f"{volume_name}:/workspace",
+        "--memory", pod_mem,
+        "--memory-swap", pod_mem,
+        "--cpus", pod_cpus,
         "--pids-limit", "4096",
     ]
+    # Drop the high-blast-radius caps a GPU+Jupyter+sshd pod never needs (defense
+    # in depth). We deliberately do NOT --cap-drop all (breaks the injected sshd).
+    docker_cmd += [
+        "--cap-drop", "NET_ADMIN",
+        "--cap-drop", "NET_RAW",
+        "--cap-drop", "SYS_MODULE",
+        "--cap-drop", "SYS_TIME",
+        "--cap-drop", "SYS_BOOT",
+        "--cap-drop", "MAC_ADMIN",
+        "--cap-drop", "MAC_OVERRIDE",
+    ]
+    if seccomp_path:
+        docker_cmd += ["--security-opt", f"seccomp={seccomp_path}"]
     if bootstrap_ssh:
         bootstrap_path = _write_pod_bootstrap()
         docker_cmd += ["-v", f"{bootstrap_path}:/dcp-bootstrap.sh:ro",
@@ -9238,7 +9320,7 @@ def main():
     log.info("=" * 60)
     log.info(f"DCP Provider Daemon v{DAEMON_VERSION}")
     log.info(f"API URL: {API_URL}")
-    log.info(f"API Key: {API_KEY[:20]}...")
+    log.info(f"API Key: ***redacted*** (len={len(API_KEY)}, sha8={hashlib.sha256(API_KEY.encode()).hexdigest()[:8]})")
     log.info(f"Logs: {LOG_DIR}")
     log.info(f"Max stdout: {MAX_STDOUT} bytes")
     log.info("=" * 60)

@@ -3350,7 +3350,11 @@ router.post('/:job_id/endpoint-ready', (req, res) => {
         const jpub = toFiniteInt(relay && relay.jpub, { min: 1, max: 65535 });
         const spub = toFiniteInt(relay && relay.spub, { min: 1, max: 65535 });
         if (!jpub || !spub) return res.status(502).json({ error: 'Relay returned invalid ports' });
-        const accessUrl = `http://api.dcp.sa:${jpub}/?token=${encodeURIComponent(jupyterToken)}`;
+        // The relay reports whether it TLS-terminated the Jupyter leg. Only emit
+        // https:// when the relay actually did so (cert present + DCP_RELAY_TLS=1);
+        // otherwise an https URL would just fail to connect.
+        const scheme = relay && relay.scheme === 'https' ? 'https' : 'http';
+        const accessUrl = `${scheme}://api.dcp.sa:${jpub}/?token=${encodeURIComponent(jupyterToken)}`;
         const sshCommand = `ssh -p ${spub} root@api.dcp.sa`;
         const nowPod = new Date().toISOString();
         runStatement(
@@ -3359,7 +3363,9 @@ router.post('/:job_id/endpoint-ready', (req, res) => {
             progress_updated_at=?, started_at=COALESCE(started_at, ?) WHERE id=?`,
           jport, sport, meshIp, jpub, spub, accessUrl, sshCommand, nowPod, nowPod, job0.id
         );
-        console.log(`[pod] Job ${job0.job_id}: live at ${accessUrl} | ssh -p ${spub}`);
+        // Do NOT log accessUrl — it embeds the Jupyter token (== container RCE).
+        // Log the scheme + public ports only; the token stays out of the logs.
+        console.log(`[pod] Job ${job0.job_id}: live (${scheme}) jpub=${jpub} | ssh -p ${spub}`);
         return res.json({ success: true, access_url: accessUrl, ssh_command: sshCommand });
       }
     }

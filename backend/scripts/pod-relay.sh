@@ -46,6 +46,17 @@ JPUB_MAX=41999
 SPUB_MIN=42000
 SPUB_MAX=42999
 
+# ── TLS for the public Jupyter leg ────────────────────────────────────
+# Jupyter is reached over a public api.dcp.sa:<jpub> socat forwarder. Plain HTTP
+# there means the Jupyter token (== container RCE) crosses the internet in the
+# clear. When DCP_RELAY_TLS=1 we terminate TLS on the public side with the
+# SAME Let's Encrypt cert nginx already uses for api.dcp.sa, so the renter URL
+# becomes https://. SSH (spub) is already an encrypted protocol end-to-end, so
+# only the Jupyter leg is wrapped.
+RELAY_TLS="${DCP_RELAY_TLS:-0}"
+RELAY_TLS_CERT="${DCP_RELAY_TLS_CERT:-/etc/letsencrypt/live/api.dcp.sa/fullchain.pem}"
+RELAY_TLS_KEY="${DCP_RELAY_TLS_KEY:-/etc/letsencrypt/live/api.dcp.sa/privkey.pem}"
+
 log() { echo "[pod-relay] $*" >&2; }
 die() { echo "[pod-relay] FATAL: $*" >&2; exit 1; }
 
@@ -88,6 +99,31 @@ spawn_forwarder() {
   local pub="$1" mesh_ip="$2" host_port="$3"
   setsid socat \
     "TCP-LISTEN:${pub},fork,reuseaddr" \
+    "TCP:${mesh_ip}:${host_port}" \
+    </dev/null >/dev/null 2>&1 &
+  printf '%s' "$!"
+}
+
+# True iff TLS is requested AND both cert + key are readable by this process.
+# Lets the relay degrade to plain HTTP (with a loud warning) rather than fail
+# the whole pod if /etc/letsencrypt isn't readable by the relay user.
+tls_usable() {
+  [[ "${RELAY_TLS}" == "1" ]] || return 1
+  if [[ -r "${RELAY_TLS_CERT}" && -r "${RELAY_TLS_KEY}" ]]; then
+    command -v openssl >/dev/null 2>&1 && return 0
+    log "TLS requested but openssl missing — falling back to HTTP"; return 1
+  fi
+  log "TLS requested but cert/key not readable (${RELAY_TLS_CERT}) — falling back to HTTP"
+  return 1
+}
+
+# Spawn a TLS-terminating forwarder: public OPENSSL-LISTEN → plain mesh:host-port.
+# Renter connects with https://; socat decrypts and forwards cleartext over the
+# trusted WG mesh to the pod's Jupyter. Echoes its PID.
+spawn_tls_forwarder() {
+  local pub="$1" mesh_ip="$2" host_port="$3"
+  setsid socat \
+    "OPENSSL-LISTEN:${pub},fork,reuseaddr,cert=${RELAY_TLS_CERT},key=${RELAY_TLS_KEY},verify=0" \
     "TCP:${mesh_ip}:${host_port}" \
     </dev/null >/dev/null 2>&1 &
   printf '%s' "$!"
@@ -175,17 +211,25 @@ cmd_start() {
   spub="$(alloc_port "${SPUB_MIN}" "${SPUB_MAX}")" \
     || die "no free SSH public port in ${SPUB_MIN}-${SPUB_MAX}"
 
-  local jpid spid
-  jpid="$(spawn_forwarder "${jpub}" "${mesh_ip}" "${jport}")"
+  # Jupyter leg: TLS-terminate when usable, else plain HTTP. SSH leg is always a
+  # raw TCP forward (SSH is already encrypted end-to-end).
+  local jpid spid scheme
+  if tls_usable; then
+    jpid="$(spawn_tls_forwarder "${jpub}" "${mesh_ip}" "${jport}")"
+    scheme="https"
+  else
+    jpid="$(spawn_forwarder "${jpub}" "${mesh_ip}" "${jport}")"
+    scheme="http"
+  fi
   spid="$(spawn_forwarder "${spub}" "${mesh_ip}" "${sport}")"
 
   local file; file="$(state_file "${job_id}")"
   cat > "${file}" <<JSON
-{"job_id":"${job_id}","mesh_ip":"${mesh_ip}","jport":${jport},"sport":${sport},"jpub":${jpub},"spub":${spub},"jpid":${jpid},"spid":${spid}}
+{"job_id":"${job_id}","mesh_ip":"${mesh_ip}","jport":${jport},"sport":${sport},"jpub":${jpub},"spub":${spub},"jpid":${jpid},"spid":${spid},"scheme":"${scheme}"}
 JSON
 
-  log "start ${job_id}: ${mesh_ip}:${jport}→:${jpub} (pid ${jpid}), ${mesh_ip}:${sport}→:${spub} (pid ${spid})"
-  printf '{"jpub":%s,"spub":%s}\n' "${jpub}" "${spub}"
+  log "start ${job_id}: ${scheme} ${mesh_ip}:${jport}→:${jpub} (pid ${jpid}), ${mesh_ip}:${sport}→:${spub} (pid ${spid})"
+  printf '{"jpub":%s,"spub":%s,"scheme":"%s"}\n' "${jpub}" "${spub}" "${scheme}"
 }
 
 # ── dispatch ─────────────────────────────────────────────────────────────--
