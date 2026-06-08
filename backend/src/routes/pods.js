@@ -156,7 +156,7 @@ function resolvePodProvider(requestedProviderId) {
           AND p.status = 'online'
           AND COALESCE(p.is_paused, 0) = 0
           AND p.last_heartbeat >= ?
-          AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?
+          AND COALESCE(NULLIF(p.gpu_vram_mib, 0), p.vram_gb * 1024, 0) >= ?
           AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
           AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1`,
       requestedProviderId, tenMinAgo, POD_MIN_VRAM_MIB
@@ -176,7 +176,7 @@ function resolvePodProvider(requestedProviderId) {
       WHERE p.status = 'online'
         AND COALESCE(p.is_paused, 0) = 0
         AND p.last_heartbeat >= ?
-        AND COALESCE(p.gpu_vram_mib, p.vram_gb * 1024, 0) >= ?
+        AND COALESCE(NULLIF(p.gpu_vram_mib, 0), p.vram_gb * 1024, 0) >= ?
         AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
         AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1
       GROUP BY p.id
