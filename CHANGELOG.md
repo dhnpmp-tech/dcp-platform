@@ -14,6 +14,12 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 11:00 UTC — [PR #570](https://github.com/dhnpmp-tech/dcp-platform/pull/570) — `fix(renters): API key management accepts master or admin-scoped keys`
+
+Included:
+- Fixed the renter API-keys page where a renter logged in with a scoped sub-key got `Invalid or inactive master API key` on every key operation. The `GET/POST/DELETE /api/renters/me/keys` handlers used a master-key-only lookup while login and the rest of the renter API already accept scoped sub-keys via `resolveRenterIdByKey`. All three handlers now resolve via the existing `getRenterAuthContext()` (master or active scoped key): list works for any valid renter key; create/revoke require the master key or an `admin`-scoped key, with a clear actionable error instead of an opaque 403.
+- Removed the hard-coded "3" sidebar badge on the API-keys nav item (keys / dashboard / invoices) and drove it from the real active-key count on the keys page. Key secrets remain show-once (industry standard); the list shows metadata + a masked prefix.
+
 ### 10:24 UTC — [PR #569](https://github.com/dhnpmp-tech/dcp-platform/pull/569) — `feat(compute): interactive GPU pods (Vast.ai-style) + driver-auto-update resilience`
 
 Included:
