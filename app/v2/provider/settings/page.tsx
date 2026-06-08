@@ -195,7 +195,7 @@ export default function ProviderSettingsPage() {
         setTempLimit(Number(data.preferences.temp_limit_c ?? tempLimit))
       }
       setSaveState('success')
-      setSaveMessage('Provider preferences saved.')
+      setSaveMessage('Saved to your DCP account. Run mode, schedule, GPU cap, VRAM reserve and temperature are NOT yet enforced on your node — the daemon still reads these from its local config.json. Only Pause / Resume takes effect live.')
     } catch (err) {
       setSaveState('error')
       setSaveMessage(err instanceof Error ? err.message : 'Preferences update failed.')
@@ -303,7 +303,15 @@ export default function ProviderSettingsPage() {
             {displayName}
             <span className="e">{displayScope}</span>
           </div>
-          <span className="out" title="Sign out">↱</span>
+          <span
+            className="out"
+            title={lang === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={() => { localStorage.removeItem('dc1_provider_key'); window.location.href = '/v2/auth?role=provider' }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { localStorage.removeItem('dc1_provider_key'); window.location.href = '/v2/auth?role=provider' } }}
+          >↱</span>
         </div>
       </aside>
 
@@ -340,7 +348,12 @@ export default function ProviderSettingsPage() {
           >
             {lang === 'en' ? 'ع' : 'EN'}
           </button>
-          <button className="kill" title={lang === 'en' ? 'Pause all rigs' : 'إيقاف كل الأجهزة'}>
+          <button
+            className="kill"
+            title={lang === 'en' ? 'Pause all rigs' : 'إيقاف كل الأجهزة'}
+            disabled={loadState !== 'ready' || saveState === 'saving' || isPaused}
+            onClick={() => setPaused(true)}
+          >
             ◉ <Bi en="Kill switch" ar="إيقاف طارئ" />
           </button>
         </header>
@@ -357,10 +370,14 @@ export default function ProviderSettingsPage() {
               <Bi en="Live provider preferences only" ar="تفضيلات المزوّد الحية فقط" />
             </span>
             <span>
-              <Bi en="Writable backend: " ar="Backend قابل للحفظ: " />
+              <Bi en="Live on the node: " ar="الفعّال على الجهاز: " />
               <b>
-                <Bi en="run mode · limits · pause" ar="وضع التشغيل · الحدود · الإيقاف" />
+                <Bi en="pause / resume only" ar="الإيقاف / الاستئناف فقط" />
               </b>
+              <Bi
+                en=" — run mode, schedule and limits are stored on your account but not yet enforced by the daemon."
+                ar=" — يُحفظ وضع التشغيل والجدولة والحدود في حسابك لكن لا يطبّقها الخادم المحلي بعد."
+              />
             </span>
           </div>
 
@@ -412,8 +429,8 @@ export default function ProviderSettingsPage() {
                 </select>
                 <span className="hint">
                   <Bi
-                    en="This updates the persisted provider preference read by setup scripts and daemon templates."
-                    ar="يحدّث هذا تفضيل المزوّد المحفوظ الذي تقرأه سكربتات الإعداد وقوالب الخادم المحلي."
+                    en="Stored on your account for reference. The running daemon does not read this yet — it still uses its local config.json."
+                    ar="يُحفظ في حسابك للاطّلاع فقط. لا يقرأه الخادم المحلي قيد التشغيل بعد — فهو ما زال يعتمد على config.json المحلي."
                   />
                 </span>
               </div>
@@ -468,7 +485,7 @@ export default function ProviderSettingsPage() {
                   style={{ maxWidth: '160px' }}
                 />
                 <span className="hint">
-                  <Bi en="Backend validates this as gpu_usage_cap_pct." ar="يتحقق backend من هذه القيمة كـ gpu_usage_cap_pct." />
+                  <Bi en="Saved to your account as gpu_usage_cap_pct. Not yet enforced on the node." ar="يُحفظ في حسابك كـ gpu_usage_cap_pct. لا يُطبّق على الجهاز بعد." />
                 </span>
               </div>
 
@@ -488,7 +505,7 @@ export default function ProviderSettingsPage() {
                   style={{ maxWidth: '160px' }}
                 />
                 <span className="hint">
-                  <Bi en="Backend validates this as vram_reserve_gb." ar="يتحقق backend من هذه القيمة كـ vram_reserve_gb." />
+                  <Bi en="Saved to your account as vram_reserve_gb. Not yet enforced on the node." ar="يُحفظ في حسابك كـ vram_reserve_gb. لا يُطبّق على الجهاز بعد." />
                 </span>
               </div>
 
@@ -507,7 +524,7 @@ export default function ProviderSettingsPage() {
                   style={{ maxWidth: '160px' }}
                 />
                 <span className="hint">
-                  <Bi en="Backend validates this as temp_limit_c." ar="يتحقق backend من هذه القيمة كـ temp_limit_c." />
+                  <Bi en="Saved to your account as temp_limit_c. Not yet enforced on the node." ar="يُحفظ في حسابك كـ temp_limit_c. لا يُطبّق على الجهاز بعد." />
                 </span>
               </div>
             </div>

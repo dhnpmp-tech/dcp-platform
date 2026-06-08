@@ -146,6 +146,46 @@ export default function ProviderRigsPage() {
   const [providerName, setProviderName] = useState('')
   const [providerEmail, setProviderEmail] = useState('')
   const [providerKey, setProviderKey] = useState('')
+  const [actionBusy, setActionBusy] = useState(false)
+  const [copyNote, setCopyNote] = useState('')
+
+  function signOut() {
+    if (typeof window === 'undefined') return
+    localStorage.removeItem('dc1_provider_key')
+    window.location.href = '/v2/auth'
+  }
+
+  async function setPaused(rigId: string, pause: boolean) {
+    if (!providerKey || actionBusy) return
+    setActionBusy(true)
+    setError('')
+    try {
+      const res = await fetch(`${getApiBase()}/providers/${pause ? 'pause' : 'resume'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: providerKey }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { status?: string; error?: string }
+      if (!res.ok) throw new Error(data.error || (pause ? 'Pause failed.' : 'Resume failed.'))
+      const nextStatus: RigStatus = pause ? 'paused' : toRigStatus(data.status, false)
+      setRigs((prev) => prev.map((r) => (r.id === rigId ? { ...r, status: nextStatus } : r)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Action failed.')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  function killAll() {
+    rigs.filter((r) => r.status !== 'paused').forEach((r) => void setPaused(r.id, true))
+  }
+
+  function copyInstall() {
+    if (typeof navigator === 'undefined' || !setupCmd) return
+    void navigator.clipboard?.writeText(setupCmd)
+    setCopyNote(lang === 'ar' ? 'تم نسخ الأمر' : 'Command copied')
+    setTimeout(() => setCopyNote(''), 2500)
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -211,6 +251,14 @@ export default function ProviderRigsPage() {
   const setupPath = providerKey
     ? `/api/providers/download/setup?key=${encodeURIComponent(providerKey)}&os=linux`
     : '/v2/auth?role=provider&method=apikey&redirect=/v2/provider/rigs'
+  // Full key lives ONLY in the clipboard command, never in the rendered DOM/href.
+  const maskedKey = providerKey ? `dcp-provider-…${providerKey.slice(-4)}` : ''
+  const maskedPath = providerKey
+    ? `/api/providers/download/setup?key=${maskedKey}&os=linux`
+    : setupPath
+  const setupCmd = providerKey
+    ? `curl -fsSL "${setupPath}" -o dcp-setup.sh && bash dcp-setup.sh`
+    : ''
 
   return (
     <div className="pv-app">
@@ -271,7 +319,14 @@ export default function ProviderRigsPage() {
             {displayName}
             <span className="e">{displayScope}</span>
           </div>
-          <span className="out" title="Sign out">
+          <span
+            className="out"
+            title="Sign out"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={signOut}
+          >
             ↱
           </span>
         </div>
@@ -306,7 +361,7 @@ export default function ProviderRigsPage() {
           <button className="lang" onClick={toggle} aria-label="Toggle language">
             {lang === 'ar' ? 'EN' : 'ع'}
           </button>
-          <button className="kill" title="Pause all rigs">
+          <button className="kill" title="Pause all rigs" onClick={killAll} disabled={actionBusy || rigs.length === 0}>
             ◉ <Bi en="Kill switch" ar="إيقاف الكل" />
           </button>
         </header>
@@ -334,9 +389,15 @@ export default function ProviderRigsPage() {
                 </span>
               </div>
             </div>
-            <Link href={setupPath} className="btn primary lg" style={{ background: 'var(--orange)', borderColor: 'var(--orange)', color: '#0a0b1a' }}>
-              <Bi en="+ Connect a new rig" ar="+ ربط جهاز جديد" />
-            </Link>
+            {providerKey ? (
+              <button type="button" onClick={copyInstall} className="btn primary lg" style={{ background: 'var(--orange)', borderColor: 'var(--orange)', color: '#0a0b1a', cursor: 'pointer' }}>
+                <Bi en="+ Connect a new rig" ar="+ ربط جهاز جديد" />
+              </button>
+            ) : (
+              <Link href={setupPath} className="btn primary lg" style={{ background: 'var(--orange)', borderColor: 'var(--orange)', color: '#0a0b1a' }}>
+                <Bi en="+ Connect a new rig" ar="+ ربط جهاز جديد" />
+              </Link>
+            )}
           </div>
 
           {loadState === 'missing-key' && (
@@ -469,12 +530,15 @@ export default function ProviderRigsPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <button className="seg-btn" id="btn-pause">
-                      ⏸ <Bi en="Pause this rig" ar="إيقاف هذا الجهاز" />
-                    </button>
-                    <button className="seg-btn" id="btn-restart">
-                      ↻ <Bi en="Restart daemon" ar="إعادة تشغيل الخدمة" />
-                    </button>
+                    {selected.status === 'paused' ? (
+                      <button className="seg-btn" id="btn-resume" onClick={() => setPaused(selected.id, false)} disabled={actionBusy}>
+                        ▶ <Bi en="Resume this rig" ar="تشغيل هذا الجهاز" />
+                      </button>
+                    ) : (
+                      <button className="seg-btn" id="btn-pause" onClick={() => setPaused(selected.id, true)} disabled={actionBusy}>
+                        ⏸ <Bi en="Pause this rig" ar="إيقاف هذا الجهاز" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -498,7 +562,7 @@ export default function ProviderRigsPage() {
                       {selected.today != null ? `SAR ${selected.today.toFixed(2)}` : '—'}
                     </div>
                     <div className="rd-foot">
-                      {selected.todayJobs != null ? `${selected.todayJobs} jobs` : '—'}
+                      {selected.todayJobs != null ? <Bi en={`active now · ${selected.todayJobs}/1`} ar={`نشط الآن · ${selected.todayJobs}/1`} /> : '—'}
                     </div>
                   </div>
                   <div>
@@ -529,8 +593,18 @@ export default function ProviderRigsPage() {
                   <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', marginBottom: '10px' }}>
                     <Bi en="Re-pair this rig" ar="إعادة إقران هذا الجهاز" />
                   </div>
-                  <pre className="code">$ curl -fsSL "{setupPath}" -o dcp-setup.sh
+                  <pre className="code">$ curl -fsSL "{maskedPath}" -o dcp-setup.sh
 $ bash dcp-setup.sh</pre>
+                  {providerKey && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+                      <button type="button" className="seg-btn" onClick={copyInstall}>
+                        ⎘ <Bi en="Copy install command" ar="نسخ أمر التثبيت" />
+                      </button>
+                      {copyNote && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--pv-accent)' }}>{copyNote}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

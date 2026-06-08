@@ -64,6 +64,7 @@ export default function V2ProviderSetup() {
   const [hrs, setHrs] = useState(8)
   const [days, setDays] = useState(7)
   const [demand, setDemand] = useState(1)
+  const [iban, setIban] = useState('')
 
   // step 5 — installer command target
   const [selectedOs, setSelectedOs] = useState<SetupOs>('linux')
@@ -781,11 +782,30 @@ export default function V2ProviderSetup() {
               <label>
                 <Bi en="Where should we pay you? · Saudi IBAN" ar="أين ندفع لك؟ · آيبان سعودي" />
               </label>
-              <input type="text" placeholder={ibanPh} />
+              <input
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                placeholder={ibanPh}
+                value={iban}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setIban(next)
+                  // No payout-registration endpoint is wired into this wizard yet
+                  // (the real Saudi-IBAN endpoint, POST /providers/:id/payout-account,
+                  // also needs a holder name + Moyasar keys). Keep the typed IBAN as a
+                  // local draft so it is not silently lost between steps and can be
+                  // submitted once payout registration is wired up.
+                  if (typeof window !== 'undefined') {
+                    if (next.trim()) localStorage.setItem('dc1_provider_iban_draft', next.trim())
+                    else localStorage.removeItem('dc1_provider_iban_draft')
+                  }
+                }}
+              />
               <div className="hint">
                 <Bi
-                  en="Weekly payouts in SAR via Moyasar, straight to your bank. Verified once, in about two minutes."
-                  ar="مدفوعات أسبوعية بالريال عبر Moyasar، مباشرة إلى بنكك. تُوثّق مرة واحدة، في دقيقتين تقريباً."
+                  en="Payouts in SAR land in your bank once your payout details are verified."
+                  ar="تصل مدفوعاتك بالريال إلى بنكك بعد التحقق من بيانات الدفع."
                 />
               </div>
             </div>
@@ -818,8 +838,8 @@ export default function V2ProviderSetup() {
               </h4>
               <p>
                 <Bi
-                  en="SAR, weekly, to your Saudi bank account via Moyasar. No crypto required, no currency conversion, no waiting on foreign transfers."
-                  ar="بالريال، أسبوعياً، إلى حسابك البنكي السعودي عبر Moyasar. لا عملات رقمية، لا تحويل عملات، لا انتظار حوالات خارجية."
+                  en="SAR, to your Saudi bank account via Moyasar. No crypto required, no currency conversion, no waiting on foreign transfers."
+                  ar="بالريال، إلى حسابك البنكي السعودي عبر Moyasar. لا عملات رقمية، لا تحويل عملات، لا انتظار حوالات خارجية."
                 />
               </p>
             </div>
@@ -1005,8 +1025,8 @@ export default function V2ProviderSetup() {
               </h4>
               <p>
                 <Bi
-                  en="Signed and notarized for Windows and macOS. Open-source daemon — inspect exactly what runs on your machine."
-                  ar="موقّع ومُوثّق لويندوز وماك. خادم مفتوح المصدر — افحص بالضبط ما يعمل على جهازك."
+                  en="Open-source daemon — inspect exactly what runs on your machine."
+                  ar="خادم مفتوح المصدر — افحص بالضبط ما يعمل على جهازك."
                 />
               </p>
             </div>
@@ -1095,7 +1115,7 @@ export default function V2ProviderSetup() {
                         <Bi en="First payout" ar="أول دفعة" />
                       </b>{' '}
                       <span>
-                        <Bi en="lands next Monday, in SAR, to your bank." ar="تصل الإثنين القادم، بالريال، إلى بنكك." />
+                        <Bi en="lands in SAR, to your bank, once your payout details are verified." ar="تصل بالريال إلى بنكك بعد التحقق من بيانات الدفع." />
                       </span>
                     </span>
                   </div>

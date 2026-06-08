@@ -472,7 +472,17 @@ export default function ProviderEarningsPage() {
             {displayName}
             <span className="e">{displayScope}</span>
           </div>
-          <span className="out" title="Sign out">
+          <span
+            className="out"
+            title="Sign out"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={() => {
+              localStorage.removeItem('dc1_provider_key')
+              window.location.href = '/v2/auth?role=provider'
+            }}
+          >
             ↱
           </span>
         </div>
@@ -523,7 +533,35 @@ export default function ProviderEarningsPage() {
               ع
             </span>
           </button>
-          <button className="kill" title="Pause all rigs" type="button">
+          <button
+            className="kill"
+            title="Pause all rigs"
+            type="button"
+            onClick={async () => {
+              const key = getProviderKey()
+              if (!key) {
+                window.location.href = '/v2/auth?role=provider&redirect=/v2/provider/earnings'
+                return
+              }
+              if (!window.confirm(lang === 'ar' ? 'إيقاف كل الأجهزة عن استقبال المهام؟' : 'Pause all rigs from accepting jobs?')) {
+                return
+              }
+              try {
+                const res = await fetch(`${getApiBase()}/providers/pause`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ key }),
+                })
+                if (!res.ok) {
+                  const body = (await res.json().catch(() => ({}))) as { error?: string }
+                  throw new Error(body.error || 'Pause failed')
+                }
+                window.location.reload()
+              } catch (err) {
+                window.alert(err instanceof Error ? err.message : 'Pause failed')
+              }
+            }}
+          >
             ◉ <Bi en="Kill switch" ar="إيقاف الكل" />
           </button>
         </header>
@@ -637,7 +675,7 @@ export default function ProviderEarningsPage() {
               <div className="panel-hd">
                 <div>
                   <h3>
-                    <Bi en="By rig · last 30 days" ar="حسب الجهاز · آخر ٣٠ يوم" />
+                    <Bi en="Estimated by rig · last 30 days" ar="تقديري حسب الجهاز · آخر ٣٠ يوم" />
                   </h3>
                 </div>
               </div>

@@ -1698,7 +1698,11 @@ router.get('/:id/liveness', (req, res) => {
 // ============================================================================
 const METRICS_PERIOD_SECONDS = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800 };
 
-router.get('/:id/metrics', (req, res) => {
+router.get('/:id/metrics', (req, res, next) => {
+    // Route-shadow fix: this '/:id/metrics' is registered before '/me/metrics',
+    // so '/me/metrics' would otherwise match here with id='me' and 404. Defer to
+    // the dedicated '/me/metrics' handler when the literal 'me' segment is used.
+    if (req.params.id === 'me') return next();
     try {
         const providerId = normalizeString(req.params.id, { maxLen: 128, trim: true });
         if (!providerId) return res.status(400).json({ error: 'Provider ID required' });
@@ -2143,6 +2147,12 @@ router.get('/me', async (req, res) => {
                 id: provider.id,
                 name: provider.name,
                 status: provider.status,
+                // Contact / identity fields surfaced for the Profile page
+                // (Contact email / Joined / Region). Previously omitted, so the
+                // UI rendered '—'. Sourced from SELECT * above.
+                email: provider.email || null,
+                created_at: toRfc3339(provider.created_at) || provider.created_at || null,
+                location: provider.location || null,
                 gpu_model: provider.gpu_model,
                 gpu_vram_mib: provider.gpu_vram_mib || 0,
                 gpu_count_reported: provider.gpu_count_reported || 1,
@@ -2159,9 +2169,13 @@ router.get('/me', async (req, res) => {
                 resource_spec: resourceSpec,
                 last_heartbeat: toRfc3339(provider.last_heartbeat) || null,
                 daemon_version: provider.daemon_version || null,
-                run_mode: provider.run_mode || 'always-on',
-                scheduled_start: provider.scheduled_start || '23:00',
-                scheduled_end: provider.scheduled_end || '07:00',
+                // run_mode/schedule columns carry SQLite DEFAULTs ('always-on' /
+                // '23:00' / '07:00'). Returning those verbatim made an unconfigured
+                // provider look configured. Return null when the value is unset
+                // (NULL/empty) so the UI falls through to '—'/'default'.
+                run_mode: provider.run_mode || null,
+                scheduled_start: provider.scheduled_start || null,
+                scheduled_end: provider.scheduled_end || null,
                 wallet_address: provider.wallet_address || null,
                 wallet_address_updated_at: provider.wallet_address_updated_at || null,
                 gpu_usage_cap_pct: provider.gpu_usage_cap_pct != null ? provider.gpu_usage_cap_pct : 80,
@@ -3654,7 +3668,7 @@ router.post('/job-result', (req, res) => {
         if (!cleanApiKey || !cleanJobId) return res.status(400).json({ error: 'api_key and job_id required' });
 
         const provider = db.get(
-            'SELECT id, cost_per_gpu_second_halala FROM providers WHERE api_key = ?',
+            'SELECT id, cost_per_gpu_second_halala, gpu_count FROM providers WHERE api_key = ?',
             cleanApiKey
         );
         if (!provider) return res.status(401).json({ error: 'Invalid API key' });
@@ -3676,10 +3690,22 @@ router.post('/job-result', (req, res) => {
             ? Math.max(0, (Date.now() - new Date(startedAt).getTime()) / 1000)
             : Math.max(0, Number(actualMinutes || 0) * 60);
         const metricsGpuCount = toFiniteInt(metrics?.gpu_count, { min: 1, max: 64 });
-        const gpuCount = metricsGpuCount || 1;
+        // Earnings-inflation guard: a provider cannot bill for more GPUs than
+        // it registered. Clamp the self-reported gpu_count to the provider's
+        // registered profile (provider.gpu_count) so a malicious daemon can't
+        // inflate earnings by claiming extra cards.
+        const registeredGpuCount = toFiniteInt(provider.gpu_count, { min: 1, max: 64 }) || 1;
+        const gpuCount = Math.min(metricsGpuCount || 1, registeredGpuCount);
         const reportedGpuSeconds = toFiniteNumber(gpu_seconds_used, { min: 0 });
+        // Earnings-inflation guard: never trust a self-reported gpu_seconds value
+        // larger than the server-measured wall-clock. Cap it at
+        // (serverMeasuredElapsedSeconds * gpuCount) with a small 5% tolerance for
+        // clock skew / measurement jitter. gpuCount is already clamped to the
+        // provider's registered profile above.
+        const GPU_SECONDS_TOLERANCE = 1.05;
+        const maxBillableGpuSeconds = Math.round(elapsedSeconds * gpuCount * GPU_SECONDS_TOLERANCE * 1000) / 1000;
         const actualGpuSeconds = reportedGpuSeconds != null
-            ? reportedGpuSeconds
+            ? Math.min(reportedGpuSeconds, maxBillableGpuSeconds)
             : Math.round(elapsedSeconds * gpuCount * 1000) / 1000;
 
         // Billing rates (halala / GPU-second)
@@ -4371,10 +4397,23 @@ router.post('/me/withdraw', (req, res) => {
              LIMIT 1`,
             provider.id
         );
-        if (existingPending) {
+        // Single-pending guard must span BOTH withdrawal tables. The legacy
+        // POST /withdraw queues into `withdrawals`; this route queues into
+        // `withdrawal_requests`. Check both so a provider can't double-queue
+        // across the two endpoints.
+        const existingLegacyPending = db.get(
+            `SELECT withdrawal_id AS id, status, amount_sar, requested_at AS created_at
+             FROM withdrawals
+             WHERE provider_id = ?
+               AND status IN ('pending', 'processing')
+             ORDER BY requested_at DESC
+             LIMIT 1`,
+            provider.id
+        );
+        if (existingPending || existingLegacyPending) {
             return res.status(409).json({
                 error: 'Provider already has a pending withdrawal request',
-                existing_withdrawal_request: existingPending,
+                existing_withdrawal_request: existingPending || existingLegacyPending,
             });
         }
 
@@ -4405,8 +4444,11 @@ router.post('/me/withdraw', (req, res) => {
 
         return res.status(201).json({
             withdrawal_id: requestId,
-            status: 'pending',
-            message: 'Withdrawal queued for review. Expect 1-3 business days.',
+            status: 'recorded',
+            // Honest copy: nothing automated pays these yet (the real payout
+            // flow needs Moyasar keys we don't have). Don't promise a 1-3 day
+            // SLA — the request is recorded and reviewed manually.
+            message: 'Withdrawal request recorded. It will be reviewed and processed manually by the DCP team.',
             withdrawal_request,
         });
     } catch (error) {
@@ -4515,8 +4557,11 @@ router.post('/withdraw', (req, res) => {
             success: true,
             withdrawal_id,
             amount_sar: amountSar,
-            status: 'pending',
-            message: 'Withdrawal request submitted. Processing takes 1-3 business days.'
+            status: 'recorded',
+            // Honest copy: nothing automated pays these yet (the real payout
+            // flow needs Moyasar keys we don't have). Don't promise a 1-3 day
+            // SLA — the request is recorded and reviewed manually.
+            message: 'Withdrawal request recorded. It will be reviewed and processed manually by the DCP team.'
         });
     } catch (error) {
         console.error('Withdrawal error:', error);
@@ -5980,8 +6025,14 @@ router.get('/public', publicProvidersLimiter, (req, res) => {
                 }
             } catch (_) {}
 
-            const costPerSecHalala = Number(p.cost_per_gpu_second_halala || 0.25);
-            const costPerHourSar = parseFloat(((costPerSecHalala * 3600) / 100).toFixed(2));
+            // Marketplace honesty: a provider with no configured price must NOT
+            // be shown a fabricated 0.25 halala/GPU-sec rate as if it were live.
+            // Render null so the UI can show 'price not set'.
+            const rawCostPerSecHalala = toFiniteNumber(p.cost_per_gpu_second_halala, { min: 0 });
+            const costPerSecHalala = rawCostPerSecHalala != null ? rawCostPerSecHalala : null;
+            const costPerHourSar = costPerSecHalala != null
+                ? parseFloat(((costPerSecHalala * 3600) / 100).toFixed(2))
+                : null;
 
             return {
                 id: p.id,
