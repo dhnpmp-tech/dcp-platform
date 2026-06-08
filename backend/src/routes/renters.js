@@ -1385,10 +1385,14 @@ const MAX_SCOPED_KEYS_PER_RENTER = 20;
 // POST /api/renters/me/keys — create a scoped sub-key
 router.post('/me/keys', (req, res) => {
   try {
-    const masterKey = req.headers['x-renter-key'] || req.query.key;
-    if (!masterKey) return res.status(401).json({ error: 'Master API key required' });
-    const renter = db.get('SELECT id, organization FROM renters WHERE api_key = ? AND status = ?', masterKey, 'active');
-    if (!renter) return res.status(403).json({ error: 'Invalid or inactive master API key' });
+    const rawKey = req.headers['x-renter-key'] || req.query.key;
+    if (!rawKey) return res.status(401).json({ error: 'API key required' });
+    const authCtx = getRenterAuthContext(rawKey);
+    if (!authCtx) return res.status(403).json({ error: 'Invalid or inactive API key' });
+    if (authCtx.actorType !== 'master_key' && !authCtx.scopes.includes('admin')) {
+      return res.status(403).json({ error: 'Creating API keys requires your master key or an admin-scoped key. Log in with your master key (email magic link) to manage keys.' });
+    }
+    const renter = authCtx.renter;
 
     const rawScopes = req.body?.scopes;
     const scopes = Array.isArray(rawScopes) ? rawScopes.filter(s => VALID_KEY_SCOPES.has(s)) : ['inference'];
@@ -1430,10 +1434,11 @@ router.post('/me/keys', (req, res) => {
 // GET /api/renters/me/keys — list active scoped sub-keys
 router.get('/me/keys', (req, res) => {
   try {
-    const masterKey = req.headers['x-renter-key'] || req.query.key;
-    if (!masterKey) return res.status(401).json({ error: 'Master API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', masterKey, 'active');
-    if (!renter) return res.status(403).json({ error: 'Invalid or inactive master API key' });
+    const rawKey = req.headers['x-renter-key'] || req.query.key;
+    if (!rawKey) return res.status(401).json({ error: 'API key required' });
+    const authCtx = getRenterAuthContext(rawKey);
+    if (!authCtx) return res.status(403).json({ error: 'Invalid or inactive API key' });
+    const renter = authCtx.renter;
 
     const keys = db.all(
       `SELECT id, label, scopes, org_id, org_role, expires_at, last_used_at, created_at,
@@ -1465,10 +1470,14 @@ router.get('/me/keys', (req, res) => {
 // DELETE /api/renters/me/keys/:keyId — revoke a scoped sub-key
 router.delete('/me/keys/:keyId', (req, res) => {
   try {
-    const masterKey = req.headers['x-renter-key'] || req.query.key;
-    if (!masterKey) return res.status(401).json({ error: 'Master API key required' });
-    const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', masterKey, 'active');
-    if (!renter) return res.status(403).json({ error: 'Invalid or inactive master API key' });
+    const rawKey = req.headers['x-renter-key'] || req.query.key;
+    if (!rawKey) return res.status(401).json({ error: 'API key required' });
+    const authCtx = getRenterAuthContext(rawKey);
+    if (!authCtx) return res.status(403).json({ error: 'Invalid or inactive API key' });
+    if (authCtx.actorType !== 'master_key' && !authCtx.scopes.includes('admin')) {
+      return res.status(403).json({ error: 'Revoking API keys requires your master key or an admin-scoped key.' });
+    }
+    const renter = authCtx.renter;
 
     const keyId = req.params.keyId;
     if (!keyId) return res.status(400).json({ error: 'Key ID required' });
