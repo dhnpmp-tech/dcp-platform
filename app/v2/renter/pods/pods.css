@@ -1,0 +1,234 @@
+/* ════════════════════════════════════════
+   GPU Pods page — v2 renter console
+   Editorial-luxury dark · teal accent · hairline borders.
+   Extends the shared renter shell (rt-*) and reuses .panel,
+   .btn-pri/.btn-sec, .select/.input, .stat, .dash-state, .kpi.
+   ════════════════════════════════════════ */
+
+/* ── Stat tiles ─────────────────────────────────────────── */
+.pod-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+}
+.pod-kpis .kpi { border-inline-end: 1px solid var(--hair); }
+.pod-kpis .kpi:last-child { border-inline-end: 0; }
+@media (max-width: 760px) {
+  .pod-kpis { grid-template-columns: 1fr; }
+  .pod-kpis .kpi { border-inline-end: 0; border-bottom: 1px solid var(--hair); }
+  .pod-kpis .kpi:last-child { border-bottom: 0; }
+}
+
+/* ── Launch panel ───────────────────────────────────────── */
+.pod-launch .panel-hd .hint { align-self: center; }
+
+.pod-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 28px;
+}
+@media (max-width: 720px) {
+  .pod-form-grid { grid-template-columns: 1fr; gap: 18px; }
+}
+.pod-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pod-field-wide { grid-column: 1 / -1; }
+
+.pod-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.pod-field .select,
+.pod-field .input { max-width: none; }
+
+.pod-help {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--mut);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Image + custom ref */
+.pod-image-row { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
+@media (max-width: 620px) { .pod-image-row { grid-template-columns: 1fr; } }
+.pod-mono-input {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: .01em;
+}
+.pod-mono-input::placeholder { color: var(--mut); }
+
+/* Notebook token */
+.pod-token-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+.pod-token-row .input { flex: 1; min-width: 220px; }
+.pod-token-row .btn-sec { white-space: nowrap; }
+
+.pod-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* ── Pods list ──────────────────────────────────────────── */
+.pod-list-panel .panel-hd .hint { align-self: center; }
+
+.pod-empty {
+  border: 1px dashed var(--hair);
+  background: color-mix(in oklab, var(--teal) 3%, var(--paper));
+  padding: 40px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+.pod-empty b { font-family: var(--serif); font-weight: 400; font-size: 22px; color: var(--ink); letter-spacing: -.01em; }
+.pod-empty span { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--mut); }
+
+.pod-rows { display: flex; flex-direction: column; gap: 0; }
+.pod-row {
+  border: 1px solid var(--hair);
+  border-bottom: 0;
+  background: var(--paper);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+.pod-row:last-child { border-bottom: 1px solid var(--hair); }
+.pod-row.on::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -1px;
+  width: 2px;
+  background: var(--teal);
+}
+.pod-row.off { background: color-mix(in oklab, var(--mut) 4%, var(--paper)); }
+.pod-row.off::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -1px;
+  width: 2px;
+  background: var(--hair);
+}
+
+.pod-row-hd {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+@media (max-width: 620px) {
+  .pod-row-hd { grid-template-columns: 1fr; align-items: start; gap: 8px; }
+}
+.pod-row-id { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pod-row-id .mono { font-family: var(--mono); font-size: 13px; color: var(--ink); letter-spacing: .02em; }
+
+.pod-row-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: var(--mut);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 620px) { .pod-row-meta { white-space: normal; } }
+
+.pod-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  padding: 8px 16px;
+}
+@media (max-width: 620px) { .pod-stop { justify-self: start; } }
+
+/* Access blocks (Jupyter + SSH) */
+.pod-access { display: flex; flex-direction: column; gap: 10px; }
+.pod-access-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--bg-2);
+  border: 1px solid var(--hair);
+  border-radius: 2px;
+  padding: 12px 14px;
+}
+.pod-access-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pod-access-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-access-url {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--teal);
+  word-break: break-all;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s;
+}
+.pod-access-url:hover { border-bottom-color: var(--teal); }
+.pod-access-ssh {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+.pod-open { padding: 9px 16px; flex-shrink: 0; }
+.pod-copy { padding: 9px 14px; flex-shrink: 0; min-width: 84px; text-align: center; }
+
+/* Provisioning + inactive states */
+.pod-provisioning {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+.pod-inactive {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--mut);
+}
+
+/* ── Spinner (compositor-friendly transform animation) ──── */
+.pod-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in oklab, var(--teal) 35%, transparent);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pod-spin .7s linear infinite;
+}
+.pod-spinner.dark {
+  border-color: color-mix(in oklab, var(--err) 30%, transparent);
+  border-top-color: var(--err);
+}
+.pod-launch-btn .pod-spinner {
+  border-color: color-mix(in oklab, #0a0b1a 30%, transparent);
+  border-top-color: #0a0b1a;
+}
+@keyframes pod-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pod-spinner { animation-duration: 1.6s; }
+}
