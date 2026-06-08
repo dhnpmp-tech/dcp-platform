@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DCP — GPU Containers · rent a whole GPU, do anything</title>
+<meta name="description" content="A DCP pod is a blank GPU container on a Saudi mesh — root, the whole card, SSH + Jupyter. Launch in seconds via CLI, API, or the web console." />
+<meta property="og:title" content="DCP GPU Containers — rent a whole GPU, do anything" />
+<meta property="og:description" content="Root, the whole card, SSH + Jupyter, open internet. Launch in seconds, three ways, on a Saudi GPU mesh." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0a0b1a; --bg-2:#10122a; --paper:#0c0e22;
+    --ink:#f5f3ee; --ink-2:#c9c5bd; --mut:#7b7a92; --hair:#1f2040;
+    --teal:#2dd4b6; --orange:#ee7a3c;
+    --grad:linear-gradient(90deg,var(--teal) 18%,var(--orange) 82%);
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --serif:'Instrument Serif','Times New Roman',serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --hero:clamp(3.2rem,1rem+8vw,8.2rem);
+    --h2:clamp(2rem,1rem+3vw,3.6rem);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    font-size:17px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  /* atmosphere */
+  body::before{content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(1100px 620px at 88% -8%, color-mix(in oklab,var(--teal) 10%,transparent), transparent 58%),
+      radial-gradient(820px 560px at -8% 26%, color-mix(in oklab,var(--orange) 5%,transparent), transparent 52%);}
+  body::after{content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  main,header,footer{position:relative; z-index:1}
+  .wrap{max-width:1040px; margin:0 auto; padding:0 30px}
+  a{color:inherit; text-decoration:none}
+  .mono{font-family:var(--mono)} .teal{color:var(--teal)} em{font-style:italic; color:var(--teal)}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--mut)}
+  .rule{height:2px; background:var(--grad); border:0; opacity:.85; width:64px; margin:0}
+
+  /* marquee */
+  .marq{background:#04050d; border-bottom:1px solid var(--hair); overflow:hidden; white-space:nowrap}
+  .marq .in{display:inline-block; padding:9px 0; font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--mut)}
+  .marq .in span{margin:0 26px} .marq .in b{color:var(--teal); font-weight:400}
+
+  /* topbar */
+  header.bar{position:sticky; top:0; z-index:9; backdrop-filter:blur(12px);
+    background:color-mix(in oklab,var(--bg) 86%,transparent); border-bottom:1px solid var(--hair)}
+  .bar .wrap{display:flex; align-items:center; height:66px; gap:16px}
+  .wm{font-family:var(--serif); font-size:27px; letter-spacing:-.01em; line-height:1}
+  .wm i{font-style:italic; font-size:18px; margin-inline-start:3px;
+    background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .bar .sep{flex:1}
+  .lamp{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2); display:inline-flex; align-items:center; gap:8px}
+  .lamp::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px color-mix(in oklab,var(--teal) 22%,transparent)}
+  .cta{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--bg); background:var(--teal); padding:9px 16px; border-radius:3px; transition:transform .2s}
+  .cta:hover{transform:translateY(-2px)}
+
+  /* hero */
+  .hero{padding:clamp(60px,6vw,120px) 0 46px}
+  .hero .eyebrow{margin-bottom:26px}
+  .hero h1{font-family:var(--serif); font-weight:400; font-size:var(--hero); line-height:.94; letter-spacing:-.022em; margin:0}
+  .lede{max-width:620px; margin:30px 0 0; font-size:clamp(1.08rem,.95rem+.6vw,1.4rem); color:var(--ink-2); line-height:1.55}
+  .lede b{color:var(--ink); font-weight:600}
+  .runline{margin-top:34px; display:flex; flex-wrap:wrap; gap:22px 30px; align-items:center}
+  .runline .k{font-family:var(--mono); font-size:12px; color:var(--mut); letter-spacing:.04em}
+  .runline .k b{color:var(--teal); font-weight:500}
+
+  section{padding:clamp(48px,5vw,76px) 0; border-top:1px solid var(--hair)}
+  .snum{font-family:var(--mono); font-size:12px; color:var(--mut); letter-spacing:.12em}
+  h2{font-family:var(--serif); font-weight:400; font-size:var(--h2); line-height:1.02; letter-spacing:-.015em; margin:14px 0 0; max-width:18ch}
+  .sub{color:var(--ink-2); max-width:560px; margin:18px 0 0; font-size:16px}
+
+  /* editorial feature list (NOT a uniform card grid) */
+  .lines{margin-top:38px; border-top:1px solid var(--hair)}
+  .line{display:grid; grid-template-columns:200px 1fr; gap:24px; padding:22px 0; border-bottom:1px solid var(--hair); align-items:baseline}
+  .line .lt{font-family:var(--serif); font-size:23px; letter-spacing:-.01em; color:var(--ink)}
+  .line .ld{color:var(--mut); font-size:15.5px; line-height:1.55}
+  .line .ld code{font-family:var(--mono); font-size:13px; color:var(--ink-2)}
+  .line:hover .lt{color:var(--teal)} .line .lt{transition:color .25s}
+
+  /* three ways */
+  .ways{display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:38px}
+  .way{display:flex; flex-direction:column}
+  .way .wt{display:flex; align-items:baseline; gap:10px; padding-bottom:14px; border-bottom:2px solid transparent; border-image:var(--grad) 1; margin-bottom:16px}
+  .way .wt .lbl{font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--mut)}
+  .way .wt h3{font-family:var(--serif); font-weight:400; font-size:22px; margin:0}
+  .way p{margin:0 0 14px; font-size:14px; color:var(--mut)}
+  pre{margin:auto 0 0; background:#06070f; border:1px solid var(--hair); border-radius:9px; padding:15px 16px; overflow-x:auto; font-family:var(--mono); font-size:12.5px; line-height:1.75; color:var(--ink-2)}
+  pre .p{color:var(--teal)} pre .c{color:var(--mut)} pre .s{color:var(--orange)}
+
+  /* image table */
+  table{width:100%; border-collapse:collapse; font-size:15px; margin-top:32px}
+  th,td{text-align:left; padding:15px 14px; border-bottom:1px solid var(--hair); vertical-align:top}
+  th{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--mut); font-weight:400}
+  td code{font-family:var(--mono); font-size:13px; color:var(--teal)}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--teal)} .no{color:var(--mut)} td .d{color:var(--mut); font-size:14px}
+
+  /* inside */
+  .inside{display:grid; grid-template-columns:1fr 1fr; gap:34px; align-items:center; margin-top:34px}
+  .inside .lines{margin-top:0; border-top:none}
+  .inside .line{grid-template-columns:96px 1fr; gap:16px; padding:15px 0}
+  .inside .line .lt{font-family:var(--mono); font-size:13px; color:var(--teal)}
+  .inside .line .ld{color:var(--ink-2); font-size:15px}
+
+  /* mesh */
+  .mesh{display:grid; grid-template-columns:repeat(3,1fr); gap:0; margin-top:34px; border:1px solid var(--hair); border-radius:12px; overflow:hidden}
+  .mesh .m{padding:26px 24px; border-right:1px solid var(--hair); background:linear-gradient(180deg,var(--paper),color-mix(in oklab,var(--teal) 2.5%,var(--paper)))}
+  .mesh .m:last-child{border-right:none}
+  .mesh .m .mn{font-family:var(--mono); font-size:11px; color:var(--teal); letter-spacing:.12em}
+  .mesh .m h3{font-family:var(--serif); font-weight:400; font-size:21px; margin:12px 0 8px}
+  .mesh .m p{margin:0; font-size:14px; color:var(--mut); line-height:1.55}
+
+  /* proof */
+  .proof{margin-top:34px; padding:34px clamp(22px,3vw,42px); border:1px solid color-mix(in oklab,var(--teal) 26%,var(--hair)); border-radius:14px; background:linear-gradient(180deg,var(--bg-2),var(--paper))}
+  .proof .row{display:grid; grid-template-columns:repeat(3,1fr); gap:26px; margin-top:24px}
+  .proof .v{font-family:var(--serif); font-size:clamp(2.4rem,1rem+3.6vw,3.6rem); line-height:1; letter-spacing:-.02em}
+  .proof .v .u{font-family:var(--sans); font-size:14px; color:var(--mut); margin-left:8px}
+  .proof .k{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--teal); margin-top:10px}
+  .proof .note{margin:26px 0 0; font-size:13.5px; color:var(--mut)}
+
+  footer{border-top:1px solid var(--hair); padding:44px 0 64px; margin-top:20px}
+  footer .big{font-family:var(--serif); font-size:clamp(1.6rem,1rem+2vw,2.4rem); letter-spacing:-.01em; color:var(--ink)}
+  footer .legal{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--mut); margin-top:20px}
+  footer .legal b{color:var(--ink-2); font-weight:400}
+
+  @media(max-width:820px){
+    .ways,.mesh,.proof .row{grid-template-columns:1fr}
+    .inside{grid-template-columns:1fr}
+    .line{grid-template-columns:1fr; gap:6px}
+    .mesh .m{border-right:none; border-bottom:1px solid var(--hair)}
+  }
+</style>
+</head>
+<body>
+
+<div class="marq"><div class="in">
+  <span><b>∞</b> GPU COMPUTE</span><span>ROOT · WHOLE CARD · SSH + JUPYTER</span><span><b>∞</b> A SAUDI GPU MESH</span><span>RENT IN SECONDS</span><span><b>∞</b> CLI · API · WEB</span><span>api.dcp.sa</span>
+</div></div>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="wm">DCP<i>∞</i></span>
+    <span class="eyebrow" style="margin-inline-start:4px">GPU Containers</span>
+    <span class="sep"></span>
+    <span class="lamp">Live · api.dcp.sa</span>
+    <a class="cta" href="https://dcp.sa/renter/pods">Launch a pod</a>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero" style="border-top:none">
+    <div class="wrap">
+      <p class="eyebrow">Rent a whole GPU on a Saudi mesh</p>
+      <h1>Spin up a GPU.<br><em>Do anything.</em></h1>
+      <p class="lede">A DCP <b>pod</b> is a blank GPU container — <b>root</b>, the entire card, open internet,
+        <b>SSH + Jupyter</b>. Isolated, resource-capped, yours. Spin one up in seconds, do whatever you want inside,
+        tear it down. Three ways in: the CLI, the web console, one raw API call.</p>
+      <div class="runline">
+        <span class="k">root + <b>whole GPU</b></span>
+        <span class="k">SSH &amp; <b>Jupyter</b></span>
+        <span class="k"><b>any</b> Docker image</span>
+        <span class="k">billed <b>per second</b></span>
+        <span class="k"><b>sandboxed</b> per tenant</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">01 — the box</span>
+      <h2>A blank box, and it's <em>yours</em>.</h2>
+      <div class="lines">
+        <div class="line"><div class="lt">The whole GPU</div><div class="ld">Not a sandboxed slice of a card — the entire GPU, exclusively. <code>nvidia-smi</code> shows all of it.</div></div>
+        <div class="line"><div class="lt">SSH &amp; Jupyter</div><div class="ld">Every pod is reachable over SSH; the PyTorch image also surfaces a JupyterLab <code>access_url</code>.</div></div>
+        <div class="line"><div class="lt">Open internet</div><div class="ld">Pull models from Hugging Face, <code>pip install</code> anything, push your results out.</div></div>
+        <div class="line"><div class="lt">Isolated &amp; capped</div><div class="ld">Each pod is sandboxed to its own tenant and resource-capped — memory, processes, and dropped capabilities — so one renter's workload can't reach into another's.</div></div>
+        <div class="line"><div class="lt">Per-second billing</div><div class="ld">Set a duration; pay for the GPU-seconds you actually hold. Stop any time.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">02 — launch</span>
+      <h2>Three ways in. <em>Same</em> endpoint.</h2>
+      <p class="sub">CLI, web, and raw API all drive <code class="mono teal">POST /api/pods</code>.</p>
+      <div class="ways">
+        <div class="way">
+          <div class="wt"><span class="lbl">a · CLI</span><h3>dcp pod</h3></div>
+          <p>The <code class="mono teal">dc1</code> SDK ships a <code class="mono">dcp</code> CLI.</p>
+<pre>pip install dc1
+export DCP_API_KEY=<span class="s">dc1-renter-…</span>
+
+<span class="p">dcp pod create</span> \
+  --image pytorch \
+  --duration 60 \
+  --token $(uuidgen)
+
+<span class="p">dcp pod</span> list · get · stop</pre>
+        </div>
+        <div class="way">
+          <div class="wt"><span class="lbl">b · API</span><h3>raw HTTP</h3></div>
+          <p>One <code class="mono">curl</code>, the <code class="mono">x-renter-key</code> header.</p>
+<pre><span class="p">curl</span> -X POST \
+ api.dcp.sa/api/pods \
+ -H <span class="s">"x-renter-key: …"</span> \
+ -d '{
+   <span class="s">"image"</span>:"pytorch",
+   <span class="s">"duration_minutes"</span>:60
+ }'
+<span class="c"># → id · ssh_command
+#   access_url · root_pw</span></pre>
+        </div>
+        <div class="way">
+          <div class="wt"><span class="lbl">c · Web</span><h3>the console</h3></div>
+          <p>Point-and-click at <code class="mono">dcp.sa/renter/pods</code>.</p>
+<pre><span class="c">1</span> Pick an image
+  <span class="c">PyTorch · vLLM · CUDA
+  Ubuntu · Custom…</span>
+<span class="c">2</span> Duration + token
+<span class="c">3</span> <span class="p">Launch GPU pod</span>
+<span class="c">4</span> Jupyter opens · SSH ready
+<span class="c">5</span> Stop from the card</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">03 — images</span>
+      <h2>Boot from <em>any</em> image.</h2>
+      <table>
+        <thead><tr><th>image</th><th>what you get</th><th>ssh</th><th>jupyter</th></tr></thead>
+        <tbody>
+          <tr><td><code>pytorch</code> <span class="d">· default</span></td><td><span class="d">Pre-baked PyTorch + CUDA, sshd + Jupyter baked in — fast start</span></td><td class="yes">●</td><td class="yes">●</td></tr>
+          <tr><td><code>vllm</code></td><td><span class="d">Pre-baked vLLM serving image</span></td><td class="yes">●</td><td class="no">—</td></tr>
+          <tr><td><code>cuda</code></td><td><span class="d">Pre-baked CUDA base</span></td><td class="yes">●</td><td class="no">—</td></tr>
+          <tr><td><code>ubuntu</code></td><td><span class="d">Pre-baked plain Ubuntu</span></td><td class="yes">●</td><td class="no">—</td></tr>
+          <tr><td><code>any docker ref</code></td><td><span class="d">Your image, e.g. <code style="color:var(--ink-2)">tensorflow/tensorflow:latest-gpu</code> — the daemon injects sshd at boot</span></td><td class="yes">●</td><td class="no">if shipped</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">04 — inside</span>
+      <h2>Inside, it's <em>yours</em>.</h2>
+      <div class="inside">
+        <div class="lines">
+          <div class="line"><div class="lt">install</div><div class="ld"><b style="color:var(--ink)">apt-get / pip</b> anything — your root filesystem.</div></div>
+          <div class="line"><div class="lt">pull</div><div class="ld"><b style="color:var(--ink)">Download any model</b> from Hugging Face.</div></div>
+          <div class="line"><div class="lt">train</div><div class="ld"><b style="color:var(--ink)">Run training</b> on the full card; checkpoint to disk.</div></div>
+          <div class="line"><div class="lt">serve</div><div class="ld"><b style="color:var(--ink)">vllm serve</b> a model, or profile a kernel.</div></div>
+        </div>
+<pre><span class="c"># ssh in with the printed command:</span>
+nvidia-smi                     <span class="c"># the whole card</span>
+pip install vllm transformers
+huggingface-cli download <span class="s">&lt;model&gt;</span>
+python train.py                <span class="c"># it's yours</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">05 — the mesh</span>
+      <h2>On a real Saudi GPU mesh.</h2>
+      <p class="sub">A private WireGuard mesh that pools GPUs across three tiers — and keeps renters running when a node drops.</p>
+      <div class="mesh">
+        <div class="m"><div class="mn">tier · supply</div><h3>Three-tier mesh</h3><p>Consumer cards, DCP's own fleet, and datacenter-grade GPUs — one mesh, residential nodes connect outbound from behind NAT. No port-forwarding, no static IP.</p></div>
+        <div class="m"><div class="mn">resilience</div><h3>Failover built in</h3><p>A liveness monitor marks stale nodes offline; in-flight work is requeued and inference retries other capable providers automatically.</p></div>
+        <div class="m"><div class="mn">sovereign</div><h3>Close to home</h3><p>Saudi/MENA-resident compute — regional, data-resident GPU supply a global marketplace can't trivially stand up.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">06 — proof</span>
+      <h2>Proven, not <em>promised</em>.</h2>
+      <div class="proof">
+        <p class="eyebrow">Verified end-to-end on a live RTX 3090 — all three entry points</p>
+        <div class="row">
+          <div><div class="v">68.9<span class="u">TFLOPS</span></div><div class="k">via raw API</div></div>
+          <div><div class="v">62.2<span class="u">TFLOPS</span></div><div class="k">via the dcp CLI</div></div>
+          <div><div class="v">302<span class="u">Jupyter</span></div><div class="k">via the web console</div></div>
+        </div>
+        <p class="note">fp16 matmul measured inside the container · root SSH confirmed · <code class="mono" style="color:var(--ink-2)">pip install</code> + Hugging Face pull working · the provider's own inference auto-restored on teardown.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="big">Spin one up — <a class="teal" href="https://dcp.sa/renter/pods">dcp.sa/renter/pods</a></div>
+    <hr class="rule" style="margin-top:22px" />
+    <p class="legal"><b>DC Power Solutions Company</b> · CR 7053667775 · the Saudi GPU mesh · <span class="teal">api.dcp.sa</span></p>
+  </div>
+</footer>
+
+</body>
+</html>
