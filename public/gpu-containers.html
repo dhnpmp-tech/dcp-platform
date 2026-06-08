@@ -283,7 +283,7 @@ python train.py                <span class="c"># it's yours</span></pre>
       <p class="sub">A private WireGuard mesh that pools GPUs across three tiers — and keeps renters running when a node drops.</p>
       <div class="mesh">
         <div class="m"><div class="mn">tier · supply</div><h3>Three-tier mesh</h3><p>Consumer cards, DCP's own fleet, and datacenter-grade GPUs — one mesh, residential nodes connect outbound from behind NAT. No port-forwarding, no static IP.</p></div>
-        <div class="m"><div class="mn">resilience</div><h3>Failover built in</h3><p>A liveness monitor marks stale nodes offline; in-flight work is requeued and inference retries other capable providers automatically.</p></div>
+        <div class="m"><div class="mn">resilience</div><h3>Resilient by design</h3><p>Every node is health-checked each heartbeat, so a pod only lands on a verified-healthy GPU. Inference traffic fails over across providers automatically; a live pod runs on its host for the session you set — the mesh keeps that host healthy rather than live-migrating a running container.</p></div>
         <div class="m"><div class="mn">sovereign</div><h3>Close to home</h3><p>Saudi/MENA-resident compute — regional, data-resident GPU supply a global marketplace can't trivially stand up.</p></div>
       </div>
     </div>
