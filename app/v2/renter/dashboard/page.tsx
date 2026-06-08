@@ -309,7 +309,7 @@ export default function RenterDashboardPage() {
               <Bi en="Renter account" ar="حساب مستأجر" />
             </span>
           </div>
-          <span className="out" title="Sign out">
+          <span className="out" title="Sign out" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => { localStorage.removeItem('dc1_renter_key'); window.location.href = '/v2/auth' }}>
             ↱
           </span>
         </div>
