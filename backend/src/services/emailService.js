@@ -659,7 +659,7 @@ function buildProviderOfflineTemplate({ providerName, lastSeen }) {
 
   const bodyEn = `
     <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.5;">We stopped receiving heartbeats from <strong style="color:#E5E5E5;">${escapeHtml(safeName)}</strong>, so we've marked it offline. While it's offline it isn't accepting jobs — <strong style="color:#E5E5E5;">you've stopped earning</strong>.</p>
-    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;font-weight:500;">Any job that was running on this node has been safely requeued to another provider, so renters are not affected.</p>
+    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;font-weight:500;">Any job that was running on this node was requeued and will resume on the next available provider.</p>
     ${brandMetaRows([
       { label: 'Node', value: safeName },
       { label: 'Last seen', value: lastSeenLabel },
@@ -669,7 +669,7 @@ function buildProviderOfflineTemplate({ providerName, lastSeen }) {
   `;
   const bodyAr = `
     <p style="color:#A0A0B0;font-size:14px;margin:0 0 14px;line-height:1.6;">توقّفنا عن استقبال نبضات من <strong style="color:#E5E5E5;">${escapeHtml(safeName)}</strong>، لذلك تم تعيينه دون اتصال. أثناء عدم الاتصال لا يقبل الجهاز أي مهام — <strong style="color:#E5E5E5;">لقد توقّفت عن الكسب</strong>.</p>
-    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;font-weight:500;">أي مهمة كانت قيد التنفيذ على هذا الجهاز تمت إعادة جدولتها بأمان إلى مزود آخر، لذا لم يتأثر المستأجرون.</p>
+    <p style="color:#FFB95C;font-size:13px;margin:0 0 18px;direction:rtl;text-align:right;font-weight:500;">أي مهمة كانت قيد التنفيذ على هذا الجهاز تمت إعادة جدولتها وستُستأنف على أول مزود متاح.</p>
     ${brandMetaRows([
       { label: 'الجهاز', value: safeName },
       { label: 'آخر اتصال', value: lastSeenLabelAr },
@@ -682,13 +682,13 @@ function buildProviderOfflineTemplate({ providerName, lastSeen }) {
     text: [
       `${safeName} is offline — DCP stopped receiving heartbeats, so you've stopped earning.`,
       `Last seen: ${lastSeenLabel}`,
-      `Any running job was safely requeued to another provider.`,
+      `Any running job was requeued and will resume on the next available provider.`,
       `Bring it back: ${dashboardUrl}`,
       `Troubleshooting: ${troubleshootUrl}`,
       '',
       `${safeName} غير متصل — توقّف DCP عن استقبال النبضات، لذلك توقّفت عن الكسب.`,
       `آخر اتصال: ${lastSeenLabelAr}`,
-      `تمت إعادة جدولة أي مهمة قيد التنفيذ بأمان إلى مزود آخر.`,
+      `تمت إعادة جدولة أي مهمة قيد التنفيذ وستُستأنف على أول مزود متاح.`,
       `أعده للعمل: ${dashboardUrl}`,
     ].join('\n'),
     html: buildBrandShell({
