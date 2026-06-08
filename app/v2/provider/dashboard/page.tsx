@@ -43,6 +43,8 @@ interface ApiProvider {
   gpu_count?: number
   vram_mb?: number
   is_paused?: boolean
+  created_at?: string
+  location?: string
   uptime_percent?: number
   total_jobs?: number
   today_earnings_halala?: number
@@ -223,6 +225,10 @@ export default function ProviderDashboardPage() {
   const [lifetimeSar, setLifetimeSar] = useState<number | null>(null)
   const [totalJobs, setTotalJobs] = useState<number | null>(null)
   const [uptimePct, setUptimePct] = useState<number | null>(null)
+  const [isPaused, setIsPaused] = useState(false)
+  // Kill-switch action state + a tick that re-runs the loader (range change / post-pause refetch).
+  const [pauseBusy, setPauseBusy] = useState(false)
+  const [reloadTick, setReloadTick] = useState(0)
 
   // ── Wire primary data: KPIs, 30D earnings series, recent jobs ──
   useEffect(() => {
@@ -245,7 +251,7 @@ export default function ProviderDashboardPage() {
         const [meRes, metricsRes, dailyRes] = await Promise.all([
           fetch(`${base}/providers/me?${q}`, { headers }),
           fetch(`${base}/providers/me/metrics?${q}`, { headers }),
-          fetch(`${base}/providers/earnings-daily?${q}&days=30`, { headers }),
+          fetch(`${base}/providers/earnings-daily?${q}&days=${rangeDays}`, { headers }),
         ])
         if (cancelled) return
 
@@ -266,6 +272,7 @@ export default function ProviderDashboardPage() {
           setLifetimeSar(typeof p.total_earnings_halala === 'number' ? p.total_earnings_halala / 100 : null)
           setTotalJobs(typeof p.total_jobs === 'number' ? p.total_jobs : null)
           setUptimePct(typeof p.uptime_percent === 'number' ? p.uptime_percent : null)
+          setIsPaused(p.is_paused === true)
           setRigs([mapRig(p)])
           const fromMe = mapJobs(me.recent_jobs || [])
           if (fromMe.length > 0) setJobs(fromMe)
@@ -294,7 +301,7 @@ export default function ProviderDashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [rangeDays, reloadTick])
 
   // ── chart math ──
   const days = useMemo(() => earn.slice(-rangeDays), [earn, rangeDays])
@@ -368,7 +375,61 @@ export default function ProviderDashboardPage() {
   const displayScope = providerEmail || providerStatus || (lang === 'ar' ? 'حساب المزوّد' : 'Provider account')
   const earningCount = rigs.filter((r) => r.status === 'earning').length
   const activeRigText = `${earningCount} / ${rigs.length} ${lang === 'ar' ? 'نشط' : 'earning'}`
-  const statusLabel = providerStatus || (dataState === 'missing-key' ? 'missing key' : dataState)
+  const statusLabel = isPaused
+    ? lang === 'ar' ? 'موقوف' : 'paused'
+    : providerStatus || (dataState === 'missing-key' ? 'missing key' : dataState)
+
+  // Avatar initial derived from the real provider name (was a hardcoded 'Y').
+  const avatarInitial = (providerName.trim()[0] || 'P').toUpperCase()
+
+  // Time-of-day greeting derived from the local clock (was a hardcoded 'Good morning').
+  const greetHour = new Date().getHours()
+  const greeting =
+    greetHour < 12
+      ? { en: 'Good morning, ', ar: 'صباح الخير، ' }
+      : greetHour < 18
+        ? { en: 'Good afternoon, ', ar: 'مساء الخير، ' }
+        : { en: 'Good evening, ', ar: 'مساء الخير، ' }
+
+  // Yesterday's earnings derived from the real daily series (second-to-last point).
+  const yesterdaySar = earn.length >= 2 ? earn[earn.length - 2].sar : null
+
+  // Sign out: clear the provider key and bounce to the provider auth screen.
+  const signOut = () => {
+    localStorage.removeItem('dc1_provider_key')
+    window.location.href = '/v2/auth?role=provider'
+  }
+
+  // Kill switch: pause/resume all rigs via the backend, then refetch /me to reflect is_paused.
+  const toggleKill = async () => {
+    const key = getProviderKey()
+    if (!key || pauseBusy) return
+    const next = !isPaused
+    const confirmMsg = next
+      ? lang === 'ar'
+        ? 'إيقاف كل الأجهزة وإيقاف قبول المهام؟'
+        : 'Pause all rigs and stop accepting jobs?'
+      : lang === 'ar'
+        ? 'استئناف الأجهزة واستئناف قبول المهام؟'
+        : 'Resume rigs and start accepting jobs again?'
+    if (!window.confirm(confirmMsg)) return
+    setPauseBusy(true)
+    try {
+      const res = await fetch(`${getApiBase()}/providers/${next ? 'pause' : 'resume'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      })
+      if (res.ok) {
+        setIsPaused(next)
+        setReloadTick((t) => t + 1)
+      }
+    } catch {
+      /* leave UI unchanged; the next /me refetch will reconcile state */
+    } finally {
+      setPauseBusy(false)
+    }
+  }
 
   return (
     <div className="pv-app">
@@ -404,7 +465,7 @@ export default function ProviderDashboardPage() {
             <span>
               <Bi en="Yesterday" ar="أمس" />
             </span>
-            <b>—</b>
+            <b>{yesterdaySar != null ? `SAR ${fmtSAR(yesterdaySar)}` : '—'}</b>
           </div>
           <div className="row" style={{ marginTop: '8px', paddingTop: 0, border: 0 }}>
             <span>
@@ -439,12 +500,24 @@ export default function ProviderDashboardPage() {
         </nav>
 
         <div className="pv-sb-foot">
-          <div className="av">Y</div>
+          <div className="av">{avatarInitial}</div>
           <div className="who">
             {displayName}
             <span className="e">{displayScope}</span>
           </div>
-          <span className="out" title="Sign out">↱</span>
+          <span
+            className="out"
+            title="Sign out"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={signOut}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') signOut()
+            }}
+          >
+            ↱
+          </span>
         </div>
       </aside>
 
@@ -473,7 +546,7 @@ export default function ProviderDashboardPage() {
               <Bi en="Dashboard" ar="لوحة التحكم" />
             </span>
           </div>
-          <span className="pill">
+          <span className={`pill${isPaused ? ' paused' : ''}`}>
             <span className="d" /> {statusLabel}
           </span>
           <button
@@ -483,14 +556,31 @@ export default function ProviderDashboardPage() {
           >
             {lang === 'en' ? 'ع' : 'EN'}
           </button>
-          <button className="kill" title={lang === 'en' ? 'Pause all rigs' : 'إيقاف كل الأجهزة'}>
-            ◉ <Bi en="Kill switch" ar="إيقاف طارئ" />
+          <button
+            type="button"
+            className={`kill${isPaused ? ' on' : ''}`}
+            onClick={toggleKill}
+            disabled={pauseBusy || dataState === 'missing-key'}
+            title={
+              isPaused
+                ? lang === 'en' ? 'Resume all rigs' : 'استئناف كل الأجهزة'
+                : lang === 'en' ? 'Pause all rigs' : 'إيقاف كل الأجهزة'
+            }
+          >
+            ◉{' '}
+            {pauseBusy ? (
+              <Bi en="Working…" ar="جارٍ…" />
+            ) : isPaused ? (
+              <Bi en="Resume rigs" ar="استئناف" />
+            ) : (
+              <Bi en="Kill switch" ar="إيقاف طارئ" />
+            )}
           </button>
         </header>
 
         <main className="pv-main">
           <h1 className="pv-h1">
-            <Bi en="Good morning, " ar="صباح الخير، " />
+            <Bi en={greeting.en} ar={greeting.ar} />
             <em style={{ fontStyle: 'italic', color: 'var(--orange)' }}>{displayName}.</em>
           </h1>
           <div className="pv-h1-sub">
@@ -500,10 +590,6 @@ export default function ProviderDashboardPage() {
             <span>
               <Bi en="Uptime " ar="وقت التشغيل " />
               <b>{uptimePct != null ? `${uptimePct.toFixed(1)}%` : '—'}</b>
-            </span>
-            <span>
-              <Bi en="Next payout " ar="الدفعة القادمة " />
-              <b>—</b>
             </span>
             <span>
               <Bi en="Jobs " ar="المهام " />

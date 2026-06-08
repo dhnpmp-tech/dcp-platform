@@ -131,6 +131,42 @@ export default function ProviderProfilePage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [loadError, setLoadError] = useState('')
   const [provider, setProvider] = useState<ProviderMe | null>(null)
+  const [killing, setKilling] = useState(false)
+
+  function signOut() {
+    if (typeof window === 'undefined') return
+    localStorage.removeItem('dc1_provider_key')
+    window.location.href = '/v2/auth'
+  }
+
+  async function killSwitch() {
+    if (typeof window === 'undefined' || killing) return
+    const key = getProviderKey()
+    if (!key) {
+      window.location.href = '/v2/auth?role=provider&method=apikey&redirect=/v2/provider/profile'
+      return
+    }
+    const ok = window.confirm(
+      lang === 'ar'
+        ? 'إيقاف كل الأجهزة الآن؟ ستتوقف المهام الجديدة عن التوجيه إليك.'
+        : 'Pause all rigs now? New jobs will stop routing to you.',
+    )
+    if (!ok) return
+    setKilling(true)
+    try {
+      const res = await fetch(`${getApiBase()}/providers/pause`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-provider-key': key },
+        body: JSON.stringify({ key }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; status?: string }
+      if (!res.ok) throw new Error(data.error || 'Failed to pause rigs.')
+      window.location.reload()
+    } catch (err) {
+      setKilling(false)
+      window.alert(err instanceof Error ? err.message : 'Failed to pause rigs.')
+    }
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -254,7 +290,16 @@ export default function ProviderProfilePage() {
             {displayName}
             <span className="e">{displayScope}</span>
           </div>
-          <span className="out" title="Sign out">↱</span>
+          <span
+            className="out"
+            title="Sign out"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={signOut}
+          >
+            ↱
+          </span>
         </div>
       </aside>
 
@@ -291,7 +336,13 @@ export default function ProviderProfilePage() {
           >
             {lang === 'en' ? 'ع' : 'EN'}
           </button>
-          <button className="kill" title={lang === 'en' ? 'Pause all rigs' : 'إيقاف كل الأجهزة'}>
+          <button
+            className="kill"
+            type="button"
+            title={lang === 'en' ? 'Pause all rigs' : 'إيقاف كل الأجهزة'}
+            disabled={killing}
+            onClick={killSwitch}
+          >
             ◉ <Bi en="Kill switch" ar="إيقاف طارئ" />
           </button>
         </header>

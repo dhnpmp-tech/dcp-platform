@@ -166,6 +166,7 @@ export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [requestState, setRequestState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [requestMessage, setRequestMessage] = useState('')
+  const [killState, setKillState] = useState<'idle' | 'pausing'>('idle')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -267,6 +268,32 @@ export default function PayoutsPage() {
     }
   }
 
+  async function killSwitch() {
+    if (typeof window === 'undefined') return
+    const key = getProviderKey()
+    if (!key || killState === 'pausing') return
+    const confirmMsg =
+      lang === 'ar'
+        ? 'إيقاف كل الأجهزة فورًا؟ ستتوقف عن استقبال المهام حتى تستأنف يدويًا.'
+        : 'Pause all rigs now? They stop accepting jobs until you resume manually.'
+    if (!window.confirm(confirmMsg)) return
+    setKillState('pausing')
+    try {
+      const res = await fetch(`${getApiBase()}/providers/pause`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-provider-key': key },
+        body: JSON.stringify({ key }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to pause rigs.')
+      setProviderStatus(data.status || 'paused')
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed to pause rigs.')
+    } finally {
+      setKillState('idle')
+    }
+  }
+
   const displayName = providerName || (lang === 'ar' ? 'المزوّد' : 'Provider')
   const displayScope = providerEmail || providerStatus || (lang === 'ar' ? 'حساب المزوّد' : 'Provider account')
   const statusLabel = providerStatus || (loadState === 'missing-key' ? 'missing key' : loadState)
@@ -343,7 +370,17 @@ export default function PayoutsPage() {
             {displayName}
             <span className="e">{displayScope}</span>
           </div>
-          <span className="out" title="Sign out" role="button">
+          <span
+            className="out"
+            title="Sign out"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={() => {
+              localStorage.removeItem('dc1_provider_key')
+              window.location.href = '/v2/auth'
+            }}
+          >
             ↱
           </span>
         </div>
@@ -369,8 +406,8 @@ export default function PayoutsPage() {
           <button className="lang" onClick={toggle} aria-label="Toggle language">
             {lang === 'ar' ? 'EN' : 'ع'}
           </button>
-          <button className="kill" title="Pause all rigs">
-            ◉ <Bi en="Kill switch" ar="إيقاف الكل" />
+          <button className="kill" title="Pause all rigs" onClick={killSwitch} disabled={killState === 'pausing'}>
+            ◉ {killState === 'pausing' ? <Bi en="Pausing…" ar="جارٍ الإيقاف…" /> : <Bi en="Kill switch" ar="إيقاف الكل" />}
           </button>
         </header>
 
@@ -481,9 +518,9 @@ export default function PayoutsPage() {
                 <div className="logo">SAR</div>
                 <div>
                   <div className="nm">
-                    <Bi en="Verified payout account" ar="حساب صرف موثّق" />{' '}
+                    <Bi en="Payout account" ar="حساب الصرف" />{' '}
                     <span className="verified">
-                      ✓ <Bi en="Verified" ar="موثّق" />
+                      <Bi en="IBAN on file (unverified)" ar="آيبان محفوظ (غير مُتحقَّق)" />
                     </span>
                   </div>
                   <div className="acc">{maskedIban}</div>
