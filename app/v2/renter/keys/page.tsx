@@ -17,7 +17,7 @@ const NAV = [
     items: [
       { k: 'dash', ic: '⌂', label: 'Overview', labelAr: 'نظرة عامة', href: '/v2/renter/dashboard' },
       { k: 'pg', ic: '▷', label: 'Playground', labelAr: 'البيئة التجريبية', href: '/v2/renter/playground' },
-      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys', bd: '3' },
+      { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/v2/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/v2/renter/usage' },
     ],
   },
@@ -373,7 +373,7 @@ export default function RenterKeysPage() {
                     <span>
                       <Bi en={it.label} ar={it.labelAr} />
                     </span>
-                    <span className="bd">{it.bd || ''}</span>
+                    <span className="bd">{it.k === 'keys' ? String(activeCount) : (it.bd || '')}</span>
                   </Link>
                 )
               })}
