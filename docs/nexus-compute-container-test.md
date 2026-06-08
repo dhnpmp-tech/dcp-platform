@@ -5,10 +5,9 @@ want* inside it (it's Vast.ai-style — root, the whole GPU, open egress). This
 exercises the complete path: launch → SSH/Jupyter → install/download/train/serve →
 stop. Test it via **CLI**, **raw API**, and the **web UI** — all three should work.
 
-> ⚠️ STATUS (2026-06-08): Node 2's NVIDIA driver auto-updated and currently
-> mismatches (NVML 595.71 vs kernel module 595.58.03), so GPU pods fail at
-> attach until the kernel module is reloaded (one `sudo` on Node 2). Everything
-> below is the verified flow; run it once Node 2's GPU is back.
+> ✅ VERIFIED 2026-06-08 (post-reboot, live RTX 3090). Proven both ways:
+> - **API**: create pytorch → SSH root → RTX 3090 → torch cuda → 68.9 TFLOPS fp16 → `pip install cowsay` ran → stop → inference restored.
+> - **CLI**: `dcp pod create --image pytorch` → running → SSH root → RTX 3090 → 62.2 TFLOPS → `dcp pod stop` (list/get also work).
 
 ## Prereqs
 - Funded renter key: `dc1-renter-7007e3da33dfcdbf8afa39af4613f242`
