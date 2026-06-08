@@ -142,6 +142,12 @@ function buildReadiness(model) {
   const p95Ready = targetP95 != null && currentP95 != null ? currentP95 <= targetP95 : null;
   const coldStartReady = targetColdStart != null && currentColdStart != null ? currentColdStart <= targetColdStart : null;
 
+  // Honesty: launch_ready must NEVER be true for a model no provider is serving,
+  // and must not be derived from seeded benchmark rows.
+  const hasLiveProvider = Number(model.availability?.providers_online || 0) > 0;
+  const hasMeasurement = model.benchmark?.measured_at != null;
+  const benchmarkIsLive = hasLiveProvider && hasMeasurement;
+
   return {
     benchmark_profile: model.portfolio?.benchmark_profile || null,
     target_p95_ms: targetP95,
@@ -150,7 +156,7 @@ function buildReadiness(model) {
     current_cold_start_ms: currentColdStart,
     p95_ready: p95Ready,
     cold_start_ready: coldStartReady,
-    launch_ready: [p95Ready, coldStartReady].every((value) => value === true),
+    launch_ready: benchmarkIsLive && [p95Ready, coldStartReady].every((value) => value === true),
   };
 }
 
@@ -271,7 +277,10 @@ function inferTemplateId(modelId) {
 function inferPrefetchStatus(portfolio, availabilityStatus) {
   if (!portfolio) return 'unavailable';
   const prewarmClass = (portfolio.prewarm_class || '').toLowerCase();
-  if (prewarmClass === 'hot') return 'available';
+  // Honesty: prewarm_class is a portfolio INTENT, not live state. A 'hot' model
+  // with no live provider is not actually available — cap by real availability
+  // so prefetch_status never claims 'available' while status='no_providers'.
+  if (prewarmClass === 'hot') return availabilityStatus === 'available' ? 'available' : 'pending';
   if (prewarmClass === 'warm') return availabilityStatus === 'available' ? 'available' : 'pending';
   return 'unavailable';
 }
@@ -600,24 +609,29 @@ function toLegacyListItem(model, tokenRateMap) {
 
 function toBenchmarksEntry(model) {
   const readiness = buildReadiness(model);
+  // Honesty: only emit measured benchmark numbers for a model that has a live
+  // provider AND a real measurement timestamp. Otherwise null the metrics so
+  // the public feed never shows a dead model with fabricated latency/quality/cost.
+  const benchmarkIsLive = Number(model.availability?.providers_online || 0) > 0
+    && model.benchmark?.measured_at != null;
   return {
     model_id: model.model_id,
     display_name: model.display_name,
     family: model.family,
-    vram_required_gb: toNumber(model.benchmark.vram_required_gb),
+    vram_required_gb: benchmarkIsLive ? toNumber(model.benchmark.vram_required_gb) : null,
     latency_ms: {
-      p50: toFixedNumber(model.benchmark.latency_ms.p50, 1),
-      p95: toFixedNumber(model.benchmark.latency_ms.p95, 1),
-      p99: toFixedNumber(model.benchmark.latency_ms.p99, 1),
+      p50: benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p50, 1) : null,
+      p95: benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p95, 1) : null,
+      p99: benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p99, 1) : null,
     },
     arabic_quality: {
-      arabic_mmlu_score: toFixedNumber(model.benchmark.arabic_quality.arabic_mmlu_score, 1),
-      arabicaqa_score: toFixedNumber(model.benchmark.arabic_quality.arabicaqa_score, 1),
+      arabic_mmlu_score: benchmarkIsLive ? toFixedNumber(model.benchmark.arabic_quality.arabic_mmlu_score, 1) : null,
+      arabicaqa_score: benchmarkIsLive ? toFixedNumber(model.benchmark.arabic_quality.arabicaqa_score, 1) : null,
     },
-    cost_per_1k_tokens_halala: toNumber(model.benchmark.cost_per_1k_tokens_halala),
-    cost_per_1k_tokens_sar: toFixedNumber(model.benchmark.cost_per_1k_tokens_sar, 2),
-    cold_start_ms: toNumber(model.benchmark.cold_start_ms) || model.estimated_cold_start_ms,
-    measured_at: model.benchmark.measured_at || null,
+    cost_per_1k_tokens_halala: benchmarkIsLive ? toNumber(model.benchmark.cost_per_1k_tokens_halala) : null,
+    cost_per_1k_tokens_sar: benchmarkIsLive ? toFixedNumber(model.benchmark.cost_per_1k_tokens_sar, 2) : null,
+    cold_start_ms: benchmarkIsLive ? (toNumber(model.benchmark.cold_start_ms) || model.estimated_cold_start_ms) : null,
+    measured_at: benchmarkIsLive ? (model.benchmark.measured_at || null) : null,
     tier: model.portfolio?.tier || null,
     launch_priority: model.portfolio?.launch_priority || null,
     prewarm_class: model.portfolio?.prewarm_class || null,
@@ -629,10 +643,16 @@ function toBenchmarksEntry(model) {
 }
 
 function toCardEntry(model) {
-  const p95 = toFixedNumber(model.benchmark.latency_ms.p95, 0);
-  const mmlu = toFixedNumber(model.benchmark.arabic_quality.arabic_mmlu_score, 1);
-  const costSar = toFixedNumber(model.benchmark.cost_per_1k_tokens_sar, 2);
-  const coldStart = toFixedNumber(model.benchmark.cold_start_ms || model.estimated_cold_start_ms, 0);
+  // Honesty: a card's metrics + summary must reflect a live measurement, not a
+  // seeded/inverted benchmark row. Gate on a live provider AND a real
+  // measured_at; otherwise null the metrics so the card never advertises
+  // fabricated numbers for a model no provider is serving.
+  const benchmarkIsLive = Number(model.availability?.providers_online || 0) > 0
+    && model.benchmark?.measured_at != null;
+  const p95 = benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p95, 0) : null;
+  const mmlu = benchmarkIsLive ? toFixedNumber(model.benchmark.arabic_quality.arabic_mmlu_score, 1) : null;
+  const costSar = benchmarkIsLive ? toFixedNumber(model.benchmark.cost_per_1k_tokens_sar, 2) : null;
+  const coldStart = benchmarkIsLive ? toFixedNumber(model.benchmark.cold_start_ms || model.estimated_cold_start_ms, 0) : null;
 
   return {
     model_id: model.model_id,
@@ -641,25 +661,25 @@ function toCardEntry(model) {
     context_window: model.context_window,
     quantization: model.quantization,
     benchmark_suite: model.benchmark.benchmark_suite,
-    measured_at: model.benchmark.measured_at || null,
+    measured_at: benchmarkIsLive ? (model.benchmark.measured_at || null) : null,
     tier: model.portfolio?.tier || null,
     launch_priority: model.portfolio?.launch_priority || null,
     prewarm_class: model.portfolio?.prewarm_class || null,
     container_profile: model.portfolio?.container_profile || null,
     metrics: {
-      vram_required_gb: toNumber(model.benchmark.vram_required_gb) || model.min_gpu_vram_gb,
+      vram_required_gb: benchmarkIsLive ? (toNumber(model.benchmark.vram_required_gb) || model.min_gpu_vram_gb) : null,
       latency_ms: {
-        p50: toFixedNumber(model.benchmark.latency_ms.p50, 1),
-        p95: toFixedNumber(model.benchmark.latency_ms.p95, 1),
-        p99: toFixedNumber(model.benchmark.latency_ms.p99, 1),
+        p50: benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p50, 1) : null,
+        p95: benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p95, 1) : null,
+        p99: benchmarkIsLive ? toFixedNumber(model.benchmark.latency_ms.p99, 1) : null,
       },
       arabic_quality: {
-        arabic_mmlu_score: toFixedNumber(model.benchmark.arabic_quality.arabic_mmlu_score, 1),
-        arabicaqa_score: toFixedNumber(model.benchmark.arabic_quality.arabicaqa_score, 1),
+        arabic_mmlu_score: benchmarkIsLive ? toFixedNumber(model.benchmark.arabic_quality.arabic_mmlu_score, 1) : null,
+        arabicaqa_score: benchmarkIsLive ? toFixedNumber(model.benchmark.arabic_quality.arabicaqa_score, 1) : null,
       },
-      cost_per_1k_tokens_halala: toNumber(model.benchmark.cost_per_1k_tokens_halala),
-      cost_per_1k_tokens_sar: costSar,
-      cold_start_ms: toNumber(model.benchmark.cold_start_ms) || model.estimated_cold_start_ms,
+      cost_per_1k_tokens_halala: benchmarkIsLive ? toNumber(model.benchmark.cost_per_1k_tokens_halala) : null,
+      cost_per_1k_tokens_sar: benchmarkIsLive ? costSar : null,
+      cold_start_ms: benchmarkIsLive ? (toNumber(model.benchmark.cold_start_ms) || model.estimated_cold_start_ms) : null,
     },
     summary: {
       en: model.benchmark.notes_en
@@ -1037,6 +1057,15 @@ router.get(/^\/([a-zA-Z0-9._/-]+)\/deploy\/estimate$/, publicEndpointLimiter, (r
     const modelId = normalizeString(req.params[0], { maxLen: 200, trim: false });
     const model = modelId ? getModelById(modelId) : null;
     if (!model) return res.status(404).json({ error: 'Model not found or inactive' });
+    // Honesty: don't return a spendable cost estimate for a model no verified
+    // provider is serving — mirror the POST /deploy 409 so the estimate path
+    // can't imply the model is orderable when it isn't.
+    if (Number(model.availability?.providers_online || 0) <= 0) {
+      return res.status(409).json({
+        error: 'No verified providers are currently serving this model',
+        code: 'model_unavailable',
+      });
+    }
 
     const estimate = buildDeployEstimate(model, req.query || {});
     return res.json({

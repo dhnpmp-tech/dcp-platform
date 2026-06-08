@@ -227,10 +227,11 @@ function AuthInner() {
               />
             </p>
             <div className="field">
-              <label>
+              <label htmlFor="admin-api-key">
                 <Bi en="Admin API key" ar="مفتاح API للإدارة" />
               </label>
               <input
+                id="admin-api-key"
                 type="password"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
@@ -269,6 +270,7 @@ function AuthInner() {
                 aria-selected={tab === 'signup'}
                 onClick={() => {
                   setTab('signup')
+                  setMethod('email')
                   setAuthStep('email')
                   resetFeedback()
                 }}
@@ -356,10 +358,11 @@ function AuthInner() {
             {method === 'email' ? (
               <>
                 <div className="field">
-                  <label>
+                  <label htmlFor="auth-email">
                     <Bi en="Email" ar="البريد الإلكتروني" />
                   </label>
                   <input
+                    id="auth-email"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
@@ -390,14 +393,15 @@ function AuthInner() {
             ) : (
               <>
                 <div className="field">
-                  <label>
+                  <label htmlFor="auth-api-key">
                     <Bi en="API key" ar="مفتاح API" />
                   </label>
                   <input
+                    id="auth-api-key"
                     type="password"
                     value={apiKey}
                     onChange={(event) => setApiKey(event.target.value)}
-                    placeholder={role === 'provider' ? 'prov_…' : 'dcp-renter-…'}
+                    placeholder={role === 'provider' ? 'dcp-provider-…' : 'dcp-renter-…'}
                     autoComplete="off"
                   />
                 </div>
