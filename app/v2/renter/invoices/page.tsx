@@ -177,12 +177,11 @@ export default function RenterInvoicesPage() {
       try {
         setLoadState('loading')
         const base = getApiBase()
-        const encodedKey = encodeURIComponent(key)
         const headers = { 'x-renter-key': key }
         const [meData, balanceData, invoiceData] = await Promise.all([
-          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
-          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
-          readJson<InvoicesResponse>(`${base}/renters/me/invoices?key=${encodedKey}&limit=50`, headers),
+          readJson<RenterMeResponse>(`${base}/renters/me`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
+          readJson<InvoicesResponse>(`${base}/renters/me/invoices?limit=50`, headers),
         ])
         if (cancelled) return
         setRenter(meData?.renter || null)
@@ -229,14 +228,13 @@ export default function RenterInvoicesPage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Switch workspace" type="button">
+          <div className="rt-ws-btn">
             <span className="av">{initials(accountName, renter?.email)}</span>
             <span className="body">
               <span className="nm">{accountName}</span>
               <span className="sub">{accountSub}</span>
             </span>
-            <span className="chev">⌄</span>
-          </button>
+          </div>
         </div>
 
         <div className="rt-wallet">
@@ -327,9 +325,11 @@ export default function RenterInvoicesPage() {
               <Bi en="Invoices" ar="الفواتير" />
             </span>
           </div>
-          <span className="pill">
-            <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
-          </span>
+          {loadState === 'ready' && (
+            <span className="pill">
+              <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
+            </span>
+          )}
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
             <span
               style={{
@@ -355,9 +355,9 @@ export default function RenterInvoicesPage() {
 
         <main className="rt-main">
           <h1 className="rt-h1">
-            <Bi en="Tax " ar="فواتير " />
+            <Bi en="Your " ar="فواتيرك" />
             <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="invoices." ar="ضريبية." />
+              <Bi en="invoices." ar="." />
             </em>
           </h1>
           <div className="rt-h1-sub">
@@ -517,12 +517,6 @@ export default function RenterInvoicesPage() {
                     <Bi en="Source" ar="المصدر" />
                   </th>
                   <th style={{ textAlign: 'end' }}>
-                    <Bi en="Subtotal" ar="المجموع الفرعي" />
-                  </th>
-                  <th style={{ textAlign: 'end' }}>
-                    <Bi en="VAT 15%" ar="ضريبة ١٥٪" />
-                  </th>
-                  <th style={{ textAlign: 'end' }}>
                     <Bi en="Total" ar="الإجمالي" />
                   </th>
                   <th>
@@ -533,15 +527,10 @@ export default function RenterInvoicesPage() {
               </thead>
               <tbody id="inv-body">
                 {invoices.map((i) => {
-                  const vat = i.sub * 0.15
-                  const tot = i.sub + vat
                   return (
                     <tr key={i.id}>
                       <td>
                         <span className="nm">{i.id}</span>
-                        <span className="ms">
-                          <Bi en="ZATCA Simplified Tax Invoice" ar="فاتورة ضريبية مبسطة (زاتكا)" />
-                        </span>
                       </td>
                       <td>
                         <span className="mono">{i.period}</span>
@@ -553,18 +542,6 @@ export default function RenterInvoicesPage() {
                       <td>
                         <span className="sar">
                           {fmtSar(i.sub)}
-                          <span className="u">SAR</span>
-                        </span>
-                      </td>
-                      <td>
-                        <span className="sar" style={{ color: 'var(--mut)' }}>
-                          {vat.toFixed(2)}
-                          <span className="u">SAR</span>
-                        </span>
-                      </td>
-                      <td>
-                        <span className="sar">
-                          {tot.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           <span className="u">SAR</span>
                         </span>
                       </td>

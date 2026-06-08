@@ -105,15 +105,29 @@ function fmtDate(iso: string | null | undefined): string {
   })
 }
 
-// Derive the existing scope-pill style from the backend scopes array.
-// admin/billing → write-capable (full); inference-only → read.
+// Derive the scope-pill style + privilege label from the backend scopes array.
+// Privilege is ranked by what the scope can actually do, not by name:
+//   admin     → Full (account-wide control)            → 'full' pill
+//   inference → Inference / Spend (can spend on calls) → 'full' pill
+//   compute   → Compute (launch/manage GPU pods)        → 'read' pill
+//   billing   → Read-only (read invoices/usage, no spend) → 'read' pill
+// The most-privileged present scope wins the label + pill.
 function deriveScope(scopes: string[], revoked: boolean): Pick<KeyRow, 'scope' | 'scopeLabel' | 'scopeLabelAr'> {
   if (revoked) return { scope: 'none', scopeLabel: '—', scopeLabelAr: '—' }
   const label = scopes.join(' · ') || 'inference'
-  if (scopes.includes('admin') || scopes.includes('billing')) {
+  if (scopes.includes('admin')) {
     return { scope: 'full', scopeLabel: `Full · ${label}`, scopeLabelAr: `كامل · ${label}` }
   }
-  return { scope: 'read', scopeLabel: `Read · ${label}`, scopeLabelAr: `قراءة · ${label}` }
+  if (scopes.includes('inference')) {
+    return { scope: 'full', scopeLabel: `Inference / Spend · ${label}`, scopeLabelAr: `استدلال / إنفاق · ${label}` }
+  }
+  if (scopes.includes('compute')) {
+    return { scope: 'read', scopeLabel: `Compute · ${label}`, scopeLabelAr: `حوسبة · ${label}` }
+  }
+  if (scopes.includes('billing')) {
+    return { scope: 'read', scopeLabel: `Read-only · ${label}`, scopeLabelAr: `للقراءة فقط · ${label}` }
+  }
+  return { scope: 'read', scopeLabel: `Read-only · ${label}`, scopeLabelAr: `للقراءة فقط · ${label}` }
 }
 
 // Map a live API key into the row shape the table already renders. Fetched
@@ -350,9 +364,9 @@ export default function RenterKeysPage() {
             </span>
             <b>{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</b>
           </div>
-          <button className="topup" type="button">
+          <Link className="topup" href="/v2/renter/wallet#top-up">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
-          </button>
+          </Link>
         </div>
 
         <nav className="rt-nav">
@@ -537,7 +551,7 @@ export default function RenterKeysPage() {
                 <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="production-server" />
               </label>
               <div className="scope-checks">
-                {['inference', 'billing', 'admin'].map((scope) => (
+                {['inference', 'compute', 'billing', 'admin'].map((scope) => (
                   <label key={scope}>
                     <input type="checkbox" checked={newScopes.includes(scope)} onChange={() => toggleScope(scope)} />
                     {scope}
@@ -709,12 +723,12 @@ export default function RenterKeysPage() {
                   margin: '0 0 10px',
                 }}
               >
-                <Bi en="Set spend limits per key" ar="حدّد سقف الإنفاق لكل مفتاح" />
+                <Bi en="Cap your monthly spend" ar="حدّد سقف إنفاقك الشهري" />
               </h3>
               <p style={{ margin: 0, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.65 }}>
                 <Bi
-                  en="Edit a key to cap its daily or monthly spend. Useful for production keys that shouldn’t accidentally run away. If a key hits its cap we return a 429 — your code can handle it gracefully."
-                  ar="عدّل المفتاح لتحديد سقف إنفاقه اليومي أو الشهري. مفيد لمفاتيح الإنتاج التي لا ينبغي أن تخرج عن السيطرة بالخطأ. إذا بلغ المفتاح سقفه نُعيد الرمز 429 — ويمكن لشيفرتك التعامل معه بسلاسة."
+                  en="Set an account-wide monthly spend cap under Settings → Budget. It applies across every key on the workspace. Once you hit the cap, further billable calls return a 402 until you raise the limit or top up — your code can handle it gracefully."
+                  ar="حدّد سقفاً شهرياً للإنفاق على مستوى الحساب من الإعدادات ← الميزانية. يُطبَّق على كل المفاتيح في مساحة العمل. عند بلوغ السقف تُعيد المكالمات المُحاسَبة الرمز 402 حتى ترفع الحد أو تشحن الرصيد — ويمكن لشيفرتك التعامل معه بسلاسة."
                 />
               </p>
             </div>

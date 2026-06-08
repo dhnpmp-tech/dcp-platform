@@ -1493,6 +1493,15 @@ function computeUsageCostBreakdown({
   };
 }
 
+// 1 SAR = 100 halala. The catalog contract only exposes USD (halala/375), so
+// we derive SAR here for the renter-facing cost meter. Sub-halala precision is
+// preserved (4 dp) so per-token micro-costs don't collapse to 0.00.
+function toSarStringFromHalala(halalaValue) {
+  const halala = Number(halalaValue || 0);
+  if (!Number.isFinite(halala) || halala <= 0) return '0.0000';
+  return (halala / 100).toFixed(4);
+}
+
 function withUsdUsagePricing(rawUsage = {}, tokenRateHalala = DEFAULT_TOKEN_RATE_HALALA, perTokenRates = null) {
   const promptTokens = toFiniteInt(rawUsage.prompt_tokens, { min: 0, max: 1_000_000_000 }) ?? 0;
   const completionTokens = toFiniteInt(rawUsage.completion_tokens, { min: 0, max: 1_000_000_000 }) ?? 0;
@@ -1517,6 +1526,11 @@ function withUsdUsagePricing(rawUsage = {}, tokenRateHalala = DEFAULT_TOKEN_RATE
       usd_prompt: toUsdStringFromHalala(promptCostHalala),
       usd_completion: toUsdStringFromHalala(completionCostHalala),
       usd_total: toUsdStringFromHalala(totalCostHalala),
+      // SAR mirror for the renter playground cost meter. Currency stays 'USD'
+      // for OpenAI-compat clients; SAR fields are additive and ignored by them.
+      sar_prompt: toSarStringFromHalala(promptCostHalala),
+      sar_completion: toSarStringFromHalala(completionCostHalala),
+      sar_total: toSarStringFromHalala(totalCostHalala),
     },
   };
 }
@@ -3018,6 +3032,41 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
 
           const trailing = processSseBuffer(true);
           if (trailing) res.write(trailing);
+
+          // Default stream mode: many providers (Ollama, llama.cpp, some vLLM
+          // configs without stream_options.include_usage) never send a usage
+          // block, so finalUsage stays null and the client gets no token/cost
+          // numbers. Synthesize a final usage chunk from estimated tokens +
+          // priced cost so the playground meter shows real USD/SAR, and so the
+          // downstream debit/snapshot bills against the same numbers. Only fires
+          // when the provider omitted usage (finalUsage still null).
+          if (!finalUsage) {
+            const synthPromptTokens = promptTokens;
+            const synthCompletionTokens = approximateTokenCount(completionText);
+            const synthUsage = withUsdUsagePricing(
+              {
+                prompt_tokens: synthPromptTokens,
+                completion_tokens: synthCompletionTokens,
+                total_tokens: synthPromptTokens + synthCompletionTokens,
+              },
+              tokenRateHalala,
+              { in: inRateHalalaPer1m, out: outRateHalalaPer1m }
+            );
+            finalUsage = synthUsage;
+            try {
+              const usageChunk = {
+                id: providerResponseId || `stream-${meteringRequestId}`,
+                object: 'chat.completion.chunk',
+                created: Math.floor(Date.now() / 1000),
+                model: modelReq.model_id,
+                choices: [],
+                usage: synthUsage,
+              };
+              res.write(`data: ${JSON.stringify(usageChunk)}\n\n`);
+            } catch (synthErr) {
+              console.warn('[v1/stream] synthetic usage chunk write failed:', synthErr?.message);
+            }
+          }
 
           // Record streaming job for provider dashboard.
           // Migration 021: the jobs row + provider/renter totals are now written

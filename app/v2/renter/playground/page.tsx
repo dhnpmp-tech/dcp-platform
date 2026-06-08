@@ -7,6 +7,10 @@ import { getApiBase, getRenterKey } from '@/lib/api'
 import './playground.css'
 
 const HALALA_PER_SAR = 100
+// Codebase-standard FX anchor (matches app/admin/pricing, app/provider/activate,
+// and the v1 playground). Used only as a client-side fallback when the backend
+// pricing object does not already carry sar_total.
+const SAR_PER_USD = 3.75
 
 interface NavItem {
   k: string
@@ -135,6 +139,27 @@ function halalaToSar(halala: number | null | undefined): number | undefined {
   return typeof halala === 'number' && Number.isFinite(halala) ? halala / HALALA_PER_SAR : undefined
 }
 
+// Pricing block carried on the OpenAI-compatible usage object. The backend now
+// emits sar_total directly; older deployments only emit usd_total (a string).
+interface PricingUsage {
+  sar_total?: number | string
+  sar?: number | string
+  usd_total?: number | string
+}
+
+// Resolve the real SAR cost of one request. Prefer the backend's sar_total,
+// then the legacy `sar` field, then convert usd_total client-side at the
+// codebase-standard rate. Returns null when no priced usage is present so the
+// session meter stays honest instead of silently reading 0.
+function resolveRequestSar(pricing: PricingUsage | undefined): number | null {
+  if (!pricing) return null
+  const sarTotal = Number(pricing.sar_total ?? pricing.sar)
+  if (Number.isFinite(sarTotal)) return sarTotal
+  const usdTotal = Number(pricing.usd_total)
+  if (Number.isFinite(usdTotal)) return usdTotal * SAR_PER_USD
+  return null
+}
+
 function fmtSar(sar: number | null | undefined): string {
   return typeof sar === 'number' && Number.isFinite(sar) ? sarFmt.format(sar) : '—'
 }
@@ -206,6 +231,11 @@ export default function PlaygroundPage() {
   const heldSar = balance?.held_sar ?? halalaToSar(balance?.held_halala)
   const totalSpentSar = balance?.total_spent_sar ?? halalaToSar(balance?.total_spent_halala)
 
+  // Drive the topbar status pill off real state instead of static markup.
+  const apiLive = catalogState === 'ready' && accountState === 'ready'
+  const apiConnecting = catalogState === 'loading' || accountState === 'loading'
+  const apiPillColor = apiLive ? 'var(--rt-accent)' : 'var(--mut)'
+
   function updateAssistantMessage(id: string, patch: Partial<ChatMessage>) {
     setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)))
   }
@@ -255,6 +285,7 @@ export default function PlaygroundPage() {
     let fullContent = ''
     let fullReasoning = ''
     let outputTokens = 0
+    let promptTokens = 0
     let requestCostSar = 0
 
     try {
@@ -314,8 +345,9 @@ export default function PlaygroundPage() {
                 updateAssistantMessage(assistantId, { content: fullContent, reasoning: fullReasoning || undefined })
               }
               if (chunk.usage?.completion_tokens) outputTokens = chunk.usage.completion_tokens
-              const sarTotal = Number(chunk.usage?.pricing?.sar_total ?? chunk.usage?.pricing?.sar)
-              if (Number.isFinite(sarTotal)) requestCostSar = sarTotal
+              if (chunk.usage?.prompt_tokens) promptTokens = chunk.usage.prompt_tokens
+              const sarTotal = resolveRequestSar(chunk.usage?.pricing)
+              if (sarTotal !== null) requestCostSar = sarTotal
             } catch {
               // Ignore malformed SSE keepalive lines and continue streaming.
             }
@@ -327,8 +359,9 @@ export default function PlaygroundPage() {
         fullContent = msg?.content || ''
         fullReasoning = msg?.reasoning_content || msg?.reasoning || ''
         outputTokens = data.usage?.completion_tokens || Math.max(1, Math.ceil(fullContent.length / 4))
-        const sarTotal = Number(data.usage?.pricing?.sar_total ?? data.usage?.pricing?.sar)
-        if (Number.isFinite(sarTotal)) requestCostSar = sarTotal
+        if (data.usage?.prompt_tokens) promptTokens = data.usage.prompt_tokens
+        const sarTotal = resolveRequestSar(data.usage?.pricing)
+        if (sarTotal !== null) requestCostSar = sarTotal
         updateAssistantMessage(assistantId, {
           content: fullContent || (lang === 'ar' ? 'لا توجد استجابة.' : 'No response returned.'),
           reasoning: fullReasoning || undefined,
@@ -336,7 +369,9 @@ export default function PlaygroundPage() {
       }
 
       const elapsedSeconds = (performance.now() - startedAt) / 1000
-      const inputTokens = Math.max(1, Math.ceil(text.length / 4))
+      // Prefer the backend's real prompt_tokens; the char/4 estimate is only a
+      // fallback for responses that omit usage.
+      const inputTokens = promptTokens > 0 ? promptTokens : Math.max(1, Math.ceil(text.length / 4))
       setStats((prev) => ({
         inputTokens: prev.inputTokens + inputTokens,
         outputTokens: prev.outputTokens + outputTokens,
@@ -542,8 +577,19 @@ export default function PlaygroundPage() {
               <Bi en="Playground" ar="ساحة التجربة" />
             </span>
           </div>
-          <span className="pill">
-            <span className="d"></span> <Bi en="API live" ar="الواجهة مفعّلة" />
+          <span
+            className="pill"
+            style={{ color: apiPillColor, borderColor: apiPillColor }}
+            title={apiLive ? 'Live model catalog + renter session ready' : 'Catalog or renter session not ready'}
+          >
+            <span className="d" style={apiLive ? undefined : { background: 'var(--mut)', animation: 'none' }}></span>{' '}
+            {apiLive ? (
+              <Bi en="API live" ar="الواجهة مفعّلة" />
+            ) : apiConnecting ? (
+              <Bi en="API connecting" ar="جارٍ الاتصال" />
+            ) : (
+              <Bi en="API offline" ar="الواجهة غير متصلة" />
+            )}
           </span>
           <button className="lang" onClick={toggle} aria-label="Toggle language">
             {lang === 'ar' ? 'EN' : 'ع'}
@@ -563,8 +609,8 @@ export default function PlaygroundPage() {
           <div className="rt-h1-sub">
             <span>
               <Bi
-                en="Same API · same cost · same answer your app would see"
-                ar="نفس الواجهة · نفس التكلفة · نفس الإجابة التي سيراها تطبيقك"
+                en="Same API · metered at your app's exact rate · same answer your app would see"
+                ar="نفس الواجهة · بنفس التسعير الذي يدفعه تطبيقك · نفس الإجابة التي سيراها تطبيقك"
               />
             </span>
           </div>

@@ -127,6 +127,44 @@ interface LiveResp {
 // halala (integer cents) → SAR number
 const halToSar = (h: number) => h / 100
 
+// Sum the SAR spend over the last `n` calendar days of a daily series.
+function sumLastDays(spend: SpendPoint[], n: number): number {
+  if (spend.length === 0) return 0
+  const cutoff = new Date()
+  cutoff.setHours(0, 0, 0, 0)
+  cutoff.setDate(cutoff.getDate() - (n - 1))
+  return spend.filter((p) => p.date >= cutoff).reduce((sum, p) => sum + p.sar, 0)
+}
+
+// Period-over-period trend: compare the most recent `n`-day window to the one
+// before it. Returns the arrow class used by `.kpi .d` (up / down / flat).
+function periodTrend(spend: SpendPoint[], n: number): 'up' | 'down' | 'flat' {
+  if (spend.length === 0) return 'flat'
+  const end = new Date()
+  end.setHours(0, 0, 0, 0)
+  const curStart = new Date(end)
+  curStart.setDate(curStart.getDate() - (n - 1))
+  const prevStart = new Date(curStart)
+  prevStart.setDate(prevStart.getDate() - n)
+  let cur = 0
+  let prev = 0
+  for (const p of spend) {
+    if (p.date >= curStart) cur += p.sar
+    else if (p.date >= prevStart) prev += p.sar
+  }
+  if (cur > prev) return 'up'
+  if (cur < prev) return 'down'
+  return 'flat'
+}
+
+// Two-letter avatar initials derived from an account/workspace name.
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '·'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export default function RenterDashboardPage() {
   const { lang, toggle } = useV2()
 
@@ -146,9 +184,24 @@ export default function RenterDashboardPage() {
   const [workspaceName, setWorkspaceName] = useState('')
   const [balanceSar, setBalanceSar] = useState<number | null>(null)
   const [spentTodaySar, setSpentTodaySar] = useState<number | null>(null)
-  const [totalSpentSar, setTotalSpentSar] = useState<number | null>(null)
+  // Lifetime settled spend from the renter account (all-time total_spent_halala).
+  const [lifetimeSpentSar, setLifetimeSpentSar] = useState<number | null>(null)
   const [totalJobs, setTotalJobs] = useState<number | null>(null)
-  const [liveJobs, setLiveJobs] = useState<LiveJob[]>([])
+  const [activeJobs, setActiveJobs] = useState<LiveJob[]>([])
+  const [recentJobs, setRecentJobs] = useState<LiveJob[]>([])
+
+  // Weekly / monthly spend are computed client-side from the daily series so the
+  // KPI cards reflect a real window instead of binding the all-time total.
+  const liveJobs = useMemo(() => [...activeJobs, ...recentJobs], [activeJobs, recentJobs])
+  const weekSpentSar = useMemo(() => (spend.length > 0 ? sumLastDays(spend, 7) : null), [spend])
+  const monthSpentSar = useMemo(() => (spend.length > 0 ? sumLastDays(spend, 30) : null), [spend])
+  const weekTrend = useMemo(() => periodTrend(spend, 7), [spend])
+  const monthTrend = useMemo(() => periodTrend(spend, 30), [spend])
+  const todayTrend = useMemo(() => periodTrend(spend, 1), [spend])
+  const heldSar = useMemo(
+    () => activeJobs.reduce((sum, j) => sum + halToSar(j.costHalala ?? 0), 0),
+    [activeJobs],
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -166,10 +219,9 @@ export default function RenterDashboardPage() {
 
     ;(async () => {
       try {
-        const [meRes, analyticsRes, liveRes] = await Promise.all([
-          fetch(`${base}/renters/me?key=${encodeURIComponent(key)}`, { headers }),
-          fetch(`${base}/renters/me/analytics?key=${encodeURIComponent(key)}&period=30d`, { headers }),
-          fetch(`${base}/renters/me/live?key=${encodeURIComponent(key)}`, { headers }),
+        const [meRes, liveRes] = await Promise.all([
+          fetch(`${base}/renters/me`, { headers }),
+          fetch(`${base}/renters/me/live`, { headers }),
         ])
 
         if (!meRes.ok) {
@@ -182,27 +234,15 @@ export default function RenterDashboardPage() {
         if (renter?.name) setRenterName(renter.name)
         if (renter?.organization) setWorkspaceName(renter.organization)
         if (typeof renter?.balance_halala === 'number') setBalanceSar(halToSar(renter.balance_halala))
-        if (typeof renter?.total_spent_halala === 'number') setTotalSpentSar(halToSar(renter.total_spent_halala))
+        if (typeof renter?.total_spent_halala === 'number') setLifetimeSpentSar(halToSar(renter.total_spent_halala))
         if (typeof renter?.total_jobs === 'number') setTotalJobs(renter.total_jobs)
-
-        if (analyticsRes.ok) {
-          const analytics = (await analyticsRes.json()) as AnalyticsResp
-          const series: SpendPoint[] = (analytics.daily_spend ?? []).map((row) => ({
-            date: new Date(row.day + 'T00:00:00'),
-            sar: halToSar(row.total_halala),
-            jobs: row.job_count,
-          }))
-          if (!cancelled) {
-            setSpend(series)
-            const last = analytics.daily_spend?.[analytics.daily_spend.length - 1]
-            const today = new Date().toISOString().slice(0, 10)
-            setSpentTodaySar(last && last.day === today ? halToSar(last.total_halala) : 0)
-          }
-        }
 
         if (liveRes.ok) {
           const live = (await liveRes.json()) as LiveResp
-          if (!cancelled) setLiveJobs([...(live.active ?? []), ...(live.recent ?? [])])
+          if (!cancelled) {
+            setActiveJobs(live.active ?? [])
+            setRecentJobs(live.recent ?? [])
+          }
         }
         if (!cancelled) setDataState('ready')
       } catch (err) {
@@ -217,10 +257,78 @@ export default function RenterDashboardPage() {
     }
   }, [])
 
+  // Spend series + today's spend, refetched whenever the chart range changes so
+  // the 7D / 30D / 90D segments actually pull a fresh window from the backend.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    const headers = { 'x-renter-key': key }
+    const base = getApiBase()
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const res = await fetch(`${base}/renters/me/analytics?period=${range}d`, { headers })
+        if (!res.ok || cancelled) return
+        const analytics = (await res.json()) as AnalyticsResp
+        const series: SpendPoint[] = (analytics.daily_spend ?? []).map((row) => ({
+          date: new Date(row.day + 'T00:00:00'),
+          sar: halToSar(row.total_halala),
+          jobs: row.job_count,
+        }))
+        if (cancelled) return
+        setSpend(series)
+        const last = analytics.daily_spend?.[analytics.daily_spend.length - 1]
+        const today = new Date().toISOString().slice(0, 10)
+        setSpentTodaySar(last && last.day === today ? halToSar(last.total_halala) : 0)
+      } catch {
+        // Spend chart keeps its prior data on a transient analytics error.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [range])
+
+  // Live-jobs poll: refresh active/recent jobs every 2s so the panel's
+  // "Updates every 2s" label is honest. Stops on unmount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = getRenterKey()
+    if (!key) return
+
+    const headers = { 'x-renter-key': key }
+    const base = getApiBase()
+    let cancelled = false
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`${base}/renters/me/live`, { headers })
+        if (!res.ok || cancelled) return
+        const live = (await res.json()) as LiveResp
+        if (cancelled) return
+        setActiveJobs(live.active ?? [])
+        setRecentJobs(live.recent ?? [])
+      } catch {
+        // Transient poll failure: keep the last known live jobs on screen.
+      }
+    }
+
+    const timer = setInterval(poll, 2000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+
   const ranges: RangeOpt[] = [7, 30, 90]
   const displayName = renterName || (lang === 'ar' ? 'المستأجر' : 'Renter')
   const displayWorkspace = workspaceName || (lang === 'ar' ? 'مساحة العمل' : 'Workspace')
-  const streamingCount = liveJobs.filter((j) => j.status === 'streaming').length
+  const wsInitials = initials(workspaceName || renterName || displayWorkspace)
+  const userInitials = initials(renterName || workspaceName || displayName)
 
   return (
     <div className="rt-app">
@@ -236,16 +344,15 @@ export default function RenterDashboardPage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Switch workspace" type="button">
-            <span className="av">N</span>
+          <div className="rt-ws-btn">
+            <span className="av">{wsInitials}</span>
             <span className="body">
               <span className="nm">{displayWorkspace}</span>
               <span className="sub">
                 <Bi en="Live renter account" ar="حساب مستأجر حي" />
               </span>
             </span>
-            <span className="chev">⌄</span>
-          </button>
+          </div>
         </div>
 
         <div className="rt-wallet">
@@ -266,17 +373,17 @@ export default function RenterDashboardPage() {
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>—</b>
+            <b>{activeJobs.length > 0 ? `SAR ${heldSar.toFixed(2)}` : (lang === 'ar' ? 'لا يوجد' : 'n/a')}</b>
           </div>
           <div className="row">
             <span>
               <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
             </span>
-            <b>{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</b>
+            <b>{weekSpentSar != null ? `SAR ${weekSpentSar.toFixed(2)}` : '—'}</b>
           </div>
-          <button className="topup" type="button">
+          <Link className="topup" href="/v2/renter/wallet#top-up">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
-          </button>
+          </Link>
         </div>
 
         <nav className="rt-nav">
@@ -302,7 +409,7 @@ export default function RenterDashboardPage() {
         </nav>
 
         <div className="rt-sb-foot">
-          <div className="av">F</div>
+          <div className="av">{userInitials}</div>
           <div className="who">
             {displayName}
             <span className="e">
@@ -341,7 +448,21 @@ export default function RenterDashboardPage() {
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
+            <span
+              className="d"
+              style={
+                dataState === 'ready'
+                  ? undefined
+                  : { background: 'var(--mut)', animation: 'none' }
+              }
+            />{' '}
+            {dataState === 'ready' ? (
+              <Bi en="API live" ar="الواجهة تعمل" />
+            ) : dataState === 'loading' ? (
+              <Bi en="API connecting" ar="جارٍ الاتصال" />
+            ) : (
+              <Bi en="API offline" ar="الواجهة غير متصلة" />
+            )}
           </span>
           <button
             className="lang-pill"
@@ -414,26 +535,26 @@ export default function RenterDashboardPage() {
                   <span className="u">—</span>
                 )}
               </span>
-              <span className="d up">
-                <Bi en="From live analytics" ar="من التحليلات الحية" />
+              <span className={`d ${todayTrend}`}>
+                <Bi en="vs yesterday" ar="مقارنة بالأمس" />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
                 <Bi en="This week" ar="هذا الأسبوع" />
               </span>
-              <span className="v">{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</span>
-              <span className="d flat">
-                — <Bi en="Total settled spend" ar="إجمالي الإنفاق المسجل" />
+              <span className="v">{weekSpentSar != null ? `SAR ${weekSpentSar.toFixed(2)}` : '—'}</span>
+              <span className={`d ${weekTrend}`}>
+                <Bi en="vs prior 7 days" ar="مقارنة بالأيام السبعة السابقة" />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
                 <Bi en="This month" ar="هذا الشهر" />
               </span>
-              <span className="v">{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</span>
-              <span className="d up">
-                <Bi en="Total settled spend" ar="إجمالي الإنفاق المسجل" />
+              <span className="v">{monthSpentSar != null ? `SAR ${monthSpentSar.toFixed(2)}` : '—'}</span>
+              <span className={`d ${monthTrend}`}>
+                <Bi en="vs prior 30 days" ar="مقارنة بالثلاثين يوماً السابقة" />
               </span>
             </div>
             <div className="kpi">
@@ -445,7 +566,10 @@ export default function RenterDashboardPage() {
                 <span className="u">jobs</span>
               </span>
               <span className="d flat">
-                <Bi en="Counted from renter account" ar="محسوبة من حساب المستأجر" />
+                <Bi
+                  en={`Lifetime spend ${lifetimeSpentSar != null ? `SAR ${lifetimeSpentSar.toFixed(2)}` : '—'}`}
+                  ar={`الإنفاق الإجمالي ${lifetimeSpentSar != null ? `SAR ${lifetimeSpentSar.toFixed(2)}` : '—'}`}
+                />
               </span>
             </div>
           </div>
@@ -522,21 +646,10 @@ export default function RenterDashboardPage() {
                     fontSize: '10.5px',
                     letterSpacing: '.12em',
                     textTransform: 'uppercase',
-                    color: 'var(--teal)',
+                    color: 'var(--mut)',
                   }}
                 >
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: 'var(--teal)',
-                      marginInlineEnd: '6px',
-                      animation: 'pulse 1.4s infinite',
-                    }}
-                  />{' '}
-                  <Bi en={`${streamingCount} streaming`} ar={`${streamingCount} قيد البث`} />
+                  <Bi en={`${activeJobs.length} active`} ar={`${activeJobs.length} نشطة`} />
                 </span>
               </div>
               <div className="live-jobs" id="live">

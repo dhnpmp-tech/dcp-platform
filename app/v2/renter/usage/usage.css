@@ -202,6 +202,8 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .stat::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
 .stat.streaming { color: var(--teal); }   .stat.streaming::before { background: var(--teal); animation: pulse 1.4s ease-in-out infinite; }
 .stat.settled   { color: var(--teal); }   .stat.settled::before   { background: var(--teal); }
+.stat.completed { color: var(--teal); }   .stat.completed::before { background: var(--teal); }
+.stat.stopped   { color: var(--orange); } .stat.stopped::before   { background: var(--orange); }
 .stat.queued    { color: var(--mut); }    .stat.queued::before    { background: var(--mut); }
 .stat.failed    { color: var(--err); }    .stat.failed::before    { background: var(--err); }
 .stat.active    { color: var(--teal); }   .stat.active::before    { background: var(--teal); animation: pulse 1.4s ease-in-out infinite; }
