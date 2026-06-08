@@ -6264,6 +6264,38 @@ def _append_job_history(entry):
             log.debug(f"[job-history] failed to write: {e}")
 
 
+# Tracks the last reported GPU-health state so we only ALERT on a transition
+# (healthy→broken / broken→healthy), not every heartbeat.
+_gpu_health_last_state = True
+
+
+def gpu_nvml_healthy():
+    """Fast, UNCACHED NVML health probe. Returns (healthy: bool, error: str|None).
+
+    Catches the NVIDIA driver/library version mismatch — e.g. an unattended driver
+    upgrade that swaps the userspace library without a reboot, leaving the running
+    kernel module a different version. In that state `nvidia-smi`/NVML and
+    `docker run --gpus all` are BROKEN, yet libcuda/`torch.cuda.is_available()`
+    and a cached check_docker() can still report healthy — so this is the only
+    signal that reflects reality for GPU containers. Runs `nvidia-smi -L` every
+    heartbeat (cheap) so a break is detected within one heartbeat.
+
+    Returns healthy=True when nvidia-smi is simply absent (non-NVIDIA box, e.g.
+    Apple Silicon) — those are excluded from pods by the docker+cuda checks, not
+    flagged here.
+    """
+    try:
+        r = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, timeout=8)
+        if r.returncode == 0 and "GPU" in (r.stdout or ""):
+            return True, None
+        err = ((r.stderr or "") + " " + (r.stdout or "")).strip()[:200]
+        return False, err or "nvidia-smi -L returned no GPUs"
+    except FileNotFoundError:
+        return True, None  # no nvidia-smi → not an NVIDIA provider; don't flag
+    except Exception as e:
+        return False, str(e)[:200]
+
+
 def send_heartbeat(final=False, status=None):  # returns HTTP status code or None on transport error
     """Send heartbeat with GPU metrics to backend and P2P network.
 
@@ -6328,6 +6360,33 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
     gpu_status["model_cache_free_gb"] = cache_metrics["free_gb"]
     gpu_status["model_cache_used_gb"] = cache_metrics["used_gb"]
     gpu_status["model_cache_used_percent"] = cache_metrics["used_percent"]
+
+    # GPU-health (NVML) probe — the authoritative signal for whether GPU containers
+    # can actually attach the card. The backend's resolvePodProvider skips a
+    # provider reporting gpu_healthy=false, so a renter is never routed to a dead
+    # GPU (e.g. after a driver auto-update mismatched the kernel module).
+    global _gpu_health_last_state
+    _gpu_healthy, _gpu_err = gpu_nvml_healthy()
+    gpu_status["gpu_healthy"] = _gpu_healthy
+    if not _gpu_healthy:
+        gpu_status["gpu_error"] = _gpu_err
+    if _gpu_healthy != _gpu_health_last_state:
+        if not _gpu_healthy:
+            log.error(f"GPU UNHEALTHY (NVML): {_gpu_err} — provider will be skipped for pods")
+            try:
+                report_event("gpu_unhealthy",
+                    f"GPU/NVML broken: {_gpu_err}. nvidia-smi + GPU containers will fail "
+                    f"(likely a driver auto-update without reboot). Reboot or reload the "
+                    f"nvidia kernel module to recover.", severity="critical")
+            except Exception:
+                pass
+        else:
+            log.info("GPU healthy again (NVML ok)")
+            try:
+                report_event("gpu_recovered", "GPU/NVML healthy again — provider can host pods.", severity="info")
+            except Exception:
+                pass
+        _gpu_health_last_state = _gpu_healthy
 
     peer_id = _get_or_create_peer_id()
     url = f"{API_URL}/api/providers/heartbeat"

@@ -159,7 +159,8 @@ function resolvePodProvider(requestedProviderId) {
           AND COALESCE(NULLIF(p.gpu_vram_mib, 0), NULLIF(p.vram_gb, 0) * 1024,
                      NULLIF(CAST(json_extract(p.readiness_details, '$.vram_gb') AS INTEGER), 0) * 1024, 0) >= ?
           AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
-          AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1`,
+          AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1
+          AND COALESCE(json_extract(p.gpu_status, '$.gpu_healthy'), 1) = 1`,
       requestedProviderId, tenMinAgo, POD_MIN_VRAM_MIB
     );
     if (!provider) {
@@ -181,6 +182,7 @@ function resolvePodProvider(requestedProviderId) {
                      NULLIF(CAST(json_extract(p.readiness_details, '$.vram_gb') AS INTEGER), 0) * 1024, 0) >= ?
         AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
         AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1
+        AND COALESCE(json_extract(p.gpu_status, '$.gpu_healthy'), 1) = 1
       GROUP BY p.id
       ORDER BY active_jobs ASC, p.last_heartbeat DESC
       LIMIT 1`,

@@ -1170,6 +1170,25 @@ setup_linux_service() {
       fi
     fi
   fi
+
+  # Pin the NVIDIA driver so the OS auto-updater can't silently bump the userspace
+  # driver without a reboot — that mismatches the still-loaded kernel module and
+  # breaks nvidia-smi + every GPU container until the box reboots (observed on a
+  # provider 2026-06-08). Driver updates become a deliberate, reboot-windowed op.
+  # Idempotent; best-effort (needs an NVIDIA GPU + apt + sudo).
+  if command -v nvidia-smi >/dev/null 2>&1 && command -v apt-mark >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    local nv_pkgs
+    nv_pkgs="$(dpkg -l 2>/dev/null | awk '/^ii/ && ($2 ~ /nvidia/ || $2 ~ /^libnvidia/ || $2 ~ /linux-modules-nvidia/) {print $2}')"
+    if [ -n "${nv_pkgs}" ]; then
+      step "Pinning NVIDIA driver (apt-mark hold) so an auto-update can't break the GPU"
+      sudo apt-mark hold ${nv_pkgs} >/dev/null 2>&1 \
+        && info "Held $(echo ${nv_pkgs} | wc -w) NVIDIA packages from auto-upgrade." \
+        || warn "Could not hold NVIDIA packages; run: sudo apt-mark hold ${nv_pkgs}"
+      printf 'Unattended-Upgrade::Package-Blacklist {\n  "nvidia-";\n  "libnvidia-";\n  "linux-modules-nvidia-";\n};\n' \
+        | sudo tee /etc/apt/apt.conf.d/51-dcp-pin-nvidia >/dev/null 2>&1 || true
+    fi
+  fi
+
   if ! command -v systemctl >/dev/null 2>&1; then
     warn "systemctl not found. Falling back to background process mode."
     restart_nohup_daemon
