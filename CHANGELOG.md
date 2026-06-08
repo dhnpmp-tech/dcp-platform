@@ -14,6 +14,16 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 10:24 UTC — [PR #569](https://github.com/dhnpmp-tech/dcp-platform/pull/569) — `feat(compute): interactive GPU pods (Vast.ai-style) + driver-auto-update resilience`
+
+Included:
+- Renter-launchable **interactive GPU pods** on the existing job rails (`interactive_pod` job type): a pod is a container with full GPU passthrough, root SSH + JupyterLab, reachable over the WireGuard mesh via a socat relay. Launchable via CLI, raw API (`GET/POST/DELETE /api/pods`), and the v2 web console.
+- Renter image choice: pre-baked `pytorch | vllm | cuda | ubuntu` images (boot in seconds) or any Docker reference (sshd injected on the fly); `dcp pod create --image`.
+- Inference↔compute mutex: a compute pod preempts the provider's own inference (drains llama.cpp / vLLM / Ollama and restores it on teardown via a liveness-gated reaper), so a renter gets the whole GPU and the provider's models come back automatically.
+- Scheduler hardening: `resolvePodProvider` only schedules onto providers the daemon reports as `docker` + `cuda_available` + `gpu_healthy` with enough VRAM, excluding non-CUDA / Apple-Silicon and GPUs broken by a driver mismatch.
+- Driver-auto-update resilience: pin the NVIDIA driver at install time, a `gpu_nvml_healthy()` heartbeat probe with a critical alert when the kernel module and userspace library diverge, and a scheduler guard that skips unhealthy GPUs — closing the unattended-upgrade failure mode that silently broke a provider's GPU.
+- `dc1` Python SDK + `dcp` CLI (`pod create/list/get/stop`), stdlib-only, served at `/installers/dc1-sdk.tar.gz`; v2 GPU Pods console page; renter quickstart + verification docs.
+
 ### 13:02 UTC — [PR #557](https://github.com/dhnpmp-tech/dcp-platform/pull/557) — `feat(v1): engine-keyed reasoning control + response normalizer + playground toggle`
 
 Included:
