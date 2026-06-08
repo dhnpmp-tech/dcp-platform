@@ -1,2 +1,0 @@
-[console_scripts]
-dcp = dc1.cli:main

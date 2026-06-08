@@ -1,2 +1,0 @@
-dc1
-dc1_provider
