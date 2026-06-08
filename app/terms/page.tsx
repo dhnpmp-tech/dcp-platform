@@ -2,7 +2,7 @@ import LegalPage from '../components/layout/LegalPage'
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" lastUpdated="March 12, 2026">
+    <LegalPage title="Terms of Service" lastUpdated="June 7, 2026">
 
       <h2>1. Acceptance of Terms</h2>
       <p>By accessing or using the DCP platform (&quot;Service&quot;), operated by DC Power Solutions Company (CR: 7053667775), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
@@ -21,6 +21,8 @@ export default function TermsPage() {
 
       <h2>6. Billing, Payments, and Refunds</h2>
       <p>Renter usage of the inference API is billed in Saudi halala (1/100 SAR) per million tokens at the published per-model rate. The current rate card by model class is maintained at <a href="https://dcp.sa/pricing">dcp.sa/pricing</a>; rates may change with at least 30 days&apos; prior notice for active subscribers. Renters may pay-as-you-go from a prepaid balance, or subscribe to a monthly tier that grants a SAR credit allotment plus a uniform percentage discount on every model&apos;s per-token rate. Pay-as-you-go top-up balance does not expire. Subscription monthly credit not consumed by the end of the billing period rolls over for thirty (30) days, then expires. GPU-hour rental, where offered, is billed per minute. Provider compensation is determined by a published revenue-share schedule and is paid in halala. Disputes regarding usage metering must be raised within thirty (30) days of the disputed charge via <a href="mailto:billing@dcp.sa">billing@dcp.sa</a>.</p>
+
+      <p><strong>Value Added Tax (VAT).</strong> All published rates are exclusive of Value Added Tax unless stated otherwise. Where applicable under the laws of the Kingdom of Saudi Arabia, VAT is charged at the statutory rate (currently 15%) and shown as a separate line item on your invoice. DC Power Solutions Company&apos;s VAT registration number is 311102233400003.</p>
 
       <p><strong>Refunds and cancellation.</strong> Where you are a natural person purchasing for non-commercial use, you may cancel and request a full refund of any unused prepaid balance within seven (7) calendar days of a top-up, consistent with the Saudi E-Commerce Law (Royal Decree No. M/126), Article 13. Inference tokens already consumed are non-refundable, as the compute is performed and delivered upon use. Business and enterprise purchases are governed by the applicable order form or contract. To request a cancellation or refund, contact <a href="mailto:billing@dcp.sa">billing@dcp.sa</a>; eligible refunds are returned to the original payment method via Moyasar.</p>
 

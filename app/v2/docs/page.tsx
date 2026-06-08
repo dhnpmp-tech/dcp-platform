@@ -105,7 +105,7 @@ export default function DocsPage() {
    <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> \
    <span className="k">-H</span> <span className="s">{'"Content-Type: application/json"'}</span> \
    <span className="k">-d</span> <span className="s">{`'{
-     "model": "allam-7b",
+     "model": "qwen3-4b",
      "messages": [{"role": "user", "content": "اشرح لي زكاة المال"}]
    }'`}</span></pre>
           </div>
@@ -120,7 +120,7 @@ client = <span className="n">OpenAI</span>(
 )
 
 resp = client.chat.completions.create(
-    model=<span className="s">{'"allam-7b"'}</span>,
+    model=<span className="s">{'"qwen3-4b"'}</span>,
     messages=[{`{`}<span className="s">{'"role"'}</span>: <span className="s">{'"user"'}</span>, <span className="s">{'"content"'}</span>: <span className="s">{'"اشرح لي زكاة المال"'}</span>{`}`}],
 )
 <span className="n">print</span>(resp.choices[<span className="k">0</span>].message.content)</pre>
@@ -135,7 +135,7 @@ resp = client.chat.completions.create(
 {`}`});
 
 <span className="k">const</span> resp = <span className="k">await</span> client.chat.completions.create({`{`}
-  model: <span className="s">{'"allam-7b"'}</span>,
+  model: <span className="s">{'"qwen3-4b"'}</span>,
   messages: [{`{`} role: <span className="s">{'"user"'}</span>, content: <span className="s">{'"اشرح لي زكاة المال"'}</span> {`}`}],
 {`}`});</pre>
           </div>
@@ -176,7 +176,7 @@ resp = client.chat.completions.create(
               <Link className="ln" href="/v2/renter/usage"><Bi en="Usage" ar="الاستخدام" /></Link>.
             </li>
             <li>
-              <Bi en="Monthly ZATCA invoices are issued automatically under " ar="تُصدَر فواتير زاتكا الشهرية تلقائياً ضمن " />
+              <Bi en="Per-job receipts for every charge are listed under " ar="إيصالات كل مهمة لكل عملية خصم مدرجة ضمن " />
               <Link className="ln" href="/v2/renter/invoices"><Bi en="Invoices" ar="الفواتير" /></Link>.
             </li>
           </ul>
@@ -203,7 +203,7 @@ resp = client.chat.completions.create(
                 <td className="type">string</td>
                 <td className="desc">
                   <Bi en="The model to use, e.g. " ar="النموذج المراد استخدامه، مثل " />
-                  <code>allam-7b</code>
+                  <code>qwen3-4b</code>
                   <Bi en=". See the model list in your console." ar=". راجع قائمة النماذج في وحدة التحكم." />
                 </td>
               </tr>

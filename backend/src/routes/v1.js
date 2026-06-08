@@ -808,10 +808,6 @@ router.get('/models', (req, res) => {
       for (const key of providerModelKeys) {
         addProviderForModelKey(key, p.id);
       }
-      // Also count by VRAM eligibility — if no cached_models, count for models fitting VRAM
-      if (cached.length === 0 && p.vram_mb > 0) {
-        addProviderForModelKey('__vram_' + p.vram_mb, p.id);
-      }
     }
     if (isMultiEngineRoutingEnabled()) {
       try {
@@ -853,15 +849,15 @@ router.get('/models', (req, res) => {
       // Match provider count: check if any online provider has this model cached
       const modelLower = (row.model_id || '').toLowerCase().trim();
       const canonicalModelLower = normalizeModelToken(getCanonicalModelId(modelLower));
-      let pCount = providerCountByModel.get(modelLower) || (canonicalModelLower ? providerCountByModel.get(canonicalModelLower) : 0) || 0;
-      // Also check partial matches (e.g., "qwen3-8b" matches cached "qwen3:8b")
-      if (pCount === 0) {
-        for (const [cached, count] of providerCountByModel) {
-          if (cached.includes(modelLower) || modelLower.includes(cached)) {
-            pCount = Math.max(pCount, count);
-          }
-        }
-      }
+      // Canonical-alias EQUALITY only. providerCountByModel keys are already
+      // canonicalized (raw + getCanonicalModelId), and the alias table maps
+      // dash/colon and repo-prefixed forms (e.g. baai/bge-m3 -> bge-m3) to the
+      // same key, so this get-by-key is the honest match. The old substring
+      // fallback (cached.includes(modelLower) || modelLower.includes(cached))
+      // inflated every model to provider_count>=1 and was removed — note that
+      // modelIdsMatch() is NOT a substitute here because it also does .includes()
+      // + a separator-stripped loose match, i.e. it would re-introduce inflation.
+      const pCount = providerCountByModel.get(modelLower) || (canonicalModelLower ? providerCountByModel.get(canonicalModelLower) : 0) || 0;
       const contractCore = toCatalogContractCore({
         model: row,
         providerCount: pCount,
@@ -885,8 +881,14 @@ router.get('/models', (req, res) => {
       //   endpoints: [{ url, type }],
       //   provider_priority?: string[]
       // }
+      // Catalog honesty: surface real servability so clients aren't told a model
+      // is orderable when no live provider can serve it. Same vocabulary as
+      // /api/models (status: 'available' | 'no_providers') so the two endpoints AGREE.
+      const isServable = Number(contractCore.provider_count || 0) > 0;
       return {
         ...contractCore,
+        available: isServable,
+        status: isServable ? 'available' : 'no_providers',
         object: 'model',
         owned_by: 'dc1-platform',
         permission: [],

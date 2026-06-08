@@ -250,9 +250,9 @@ function SubscriptionLedger() {
               <dd className="mt-1 leading-5 text-dc1-text-secondary">{tier.bestFor}</dd>
             </div>
           </dl>
-          <Link href={`/renter/register?intent=subscribe&tier=${tier.tier}`} className="btn btn-secondary btn-sm mt-5 w-full">
-            Choose {tier.name}
-          </Link>
+          <a href="mailto:billing@dcp.sa?subject=DCP%20subscription%20enquiry" className="btn btn-secondary btn-sm mt-5 w-full">
+            Talk to sales
+          </a>
         </article>
       ))}
     </div>
@@ -325,7 +325,7 @@ export default function PricingPage() {
             <p className="text-sm font-semibold text-dc1-text-primary">Balance contract</p>
             <div className="mt-5 grid gap-5">
               <Metric label="Starter credit" value="100 SAR" note="Issued on renter signup. It is consumed before paid balance." />
-              <Metric label="Minimum top-up" value="5 SAR" note="Card top-ups run through Moyasar. Bank transfer top-ups stay admin-confirmed." />
+              <Metric label="Minimum top-up" value="1 SAR" note="Card top-ups run through Moyasar. Bank transfer top-ups stay admin-confirmed." />
               <Metric label="Pre-flight gate" value="HTTP 402" note="Returned before dispatch when estimated cost exceeds available balance." />
             </div>
           </aside>
@@ -405,7 +405,7 @@ export default function PricingPage() {
               <Metric label="Medium class" value="66M tokens" note="100 SAR at 150 halala/M, before subscription discounts." />
               <Metric label="Auto-top-up cap" value="renter set" note="Threshold, recharge amount, and monthly cap are configured from billing settings." />
               <Metric label="Failed delivery" value="credited back" note="Undelivered jobs are credited automatically; unused paid balance can enter refund review." />
-              <Metric label="Corporate billing" value="available" note="Monthly invoicing is available through billing@dcp.sa for VAT-ready accounts." />
+              <Metric label="Corporate billing" value="available" note="Monthly invoicing is available through billing@dcp.sa; tax-invoice details are confirmed per account." />
             </div>
           </div>
         </section>
@@ -422,12 +422,14 @@ export default function PricingPage() {
               or sandbox records use the internal/manual refund path.
             </p>
             <p>
-              DCP providers are vetted for Saudi-hosted compute. Prompts and completions are not used for model training,
-              and billing records are retained for reconciliation and audit.
+              DCP recruits providers for Saudi-hosted compute and does not use prompts or completions for model training.
+              Some platform infrastructure (web frontend, billing metadata) currently runs outside the Kingdom; see the
+              <Link href="/privacy" className="text-dc1-amber hover:underline"> Privacy Policy</Link> for the current data-location
+              disclosure. Billing records are retained for reconciliation and audit.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/legal/terms-v2" className="text-dc1-amber hover:underline">Terms</Link>
-              <Link href="/legal/privacy-v2" className="text-dc1-amber hover:underline">Privacy</Link>
+              <Link href="/terms" className="text-dc1-amber hover:underline">Terms</Link>
+              <Link href="/privacy" className="text-dc1-amber hover:underline">Privacy</Link>
               <a href="mailto:billing@dcp.sa" className="text-dc1-amber hover:underline">billing@dcp.sa</a>
             </div>
           </div>

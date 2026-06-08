@@ -696,13 +696,13 @@ export default function V2HomePage() {
               </h3>
               <p>
                 <Bi
-                  en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and reports measured throughput after verification. Auto NAT traversal via Cloudflare Tunnel — no port forwarding."
-                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال (Ollama أو MLX)، وينزّل نموذجاً، ويعرض السرعة المقاسة بعد التحقق. عبور NAT تلقائي عبر Cloudflare Tunnel — دون فتح منافذ."
+                  en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine (Ollama or MLX), downloads a model, and reports measured throughput after verification. Joins a self-hosted WireGuard mesh — no port forwarding."
+                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال (Ollama أو MLX)، وينزّل نموذجاً، ويعرض السرعة المقاسة بعد التحقق. ينضم إلى شبكة WireGuard ذاتية الاستضافة — دون فتح منافذ."
                 />
               </p>
               <ul>
                 <li><Bi en="Windows · macOS Apple Silicon · Linux" ar="Windows · macOS Apple Silicon · Linux" /></li>
-                <li><Bi en="4 MB app · zero config · Cloudflare Tunnel" ar="٤ ميغابايت · بلا إعداد · Cloudflare Tunnel" /></li>
+                <li><Bi en="4 MB app · zero config · WireGuard mesh" ar="٤ ميغابايت · بلا إعداد · شبكة WireGuard" /></li>
                 <li><Bi en="85% provider · 15% platform · monthly SAR payout" ar="٨٥٪ للمزوّد · ١٥٪ للمنصّة · دفع شهري بالريال" /></li>
               </ul>
               <div className="end">
@@ -800,10 +800,9 @@ export default function V2HomePage() {
                   {'\n'}
                   <span className="pmt">$</span> <span className="fn">curl</span> <span className="grad">https://api.dcp.sa/v1/chat/completions</span> \{'\n'}
                   {'  '}<span className="key">-H</span> <span className="str">&quot;Authorization: Bearer $DCP_KEY&quot;</span> \{'\n'}
-                  {'  '}<span className="key">-H</span> <span className="str">&quot;X-Region: RUH-1&quot;</span> \{'\n'}
                   {'  '}<span className="key">-H</span> <span className="str">&quot;Content-Type: application/json&quot;</span> \{'\n'}
                   {'  '}<span className="key">-d</span> <span className="str">{`'{
-    "model": "allam-7b",
+    "model": "qwen3-4b",
     "stream": true,
     "messages": [
       { "role": "user",
@@ -830,8 +829,7 @@ export default function V2HomePage() {
                   <span className="com"># Run inference · streams Arabic answer to stdout</span>
                   {'\n'}
                   <span className="pmt">$</span> <span className="fn">dcp</span> run <span className="str">&quot;ما حكم زكاة الراتب الشهري؟&quot;</span> \{'\n'}
-                  {'        '}<span className="key">--model</span> allam-7b \{'\n'}
-                  {'        '}<span className="key">--region</span> RUH-1 \{'\n'}
+                  {'        '}<span className="key">--model</span> qwen3-4b \{'\n'}
                   {'        '}<span className="key">--cite</span>
                   {'\n\n'}
                   <span className="com"># Pin sovereign-only · frontier blocked even if router prefers it</span>
@@ -854,11 +852,10 @@ export default function V2HomePage() {
                   client = OpenAI({'\n'}
                   {'    '}base_url=<span className="str">&quot;https://api.dcp.sa/v1&quot;</span>,{'\n'}
                   {'    '}api_key=os.environ[<span className="str">&quot;DCP_KEY&quot;</span>],{'\n'}
-                  {'    '}default_headers={'{'}<span className="str">&quot;X-Region&quot;</span>: <span className="str">&quot;RUH-1&quot;</span>{'}'},{'\n'}
                   )
                   {'\n\n'}
                   stream = client.chat.completions.create({'\n'}
-                  {'    '}model=<span className="str">&quot;allam-7b&quot;</span>,{'\n'}
+                  {'    '}model=<span className="str">&quot;qwen3-4b&quot;</span>,{'\n'}
                   {'    '}messages=[{'{'}{'\n'}
                   {'        '}<span className="str">&quot;role&quot;</span>: <span className="str">&quot;user&quot;</span>,{'\n'}
                   {'        '}<span className="str">&quot;content&quot;</span>: <span className="str">&quot;ما حكم زكاة الراتب الشهري؟&quot;</span>,{'\n'}
@@ -881,11 +878,10 @@ export default function V2HomePage() {
                   <span className="key">const</span> client = <span className="key">new</span> OpenAI({'{'}{'\n'}
                   {'  '}baseURL: <span className="str">&quot;https://api.dcp.sa/v1&quot;</span>,{'\n'}
                   {'  '}apiKey:  process.env.DCP_KEY,{'\n'}
-                  {'  '}defaultHeaders: {'{'} <span className="str">&quot;X-Region&quot;</span>: <span className="str">&quot;RUH-1&quot;</span> {'}'},{'\n'}
                   {'}'});
                   {'\n\n'}
                   <span className="key">const</span> stream = <span className="key">await</span> client.chat.completions.create({'{'}{'\n'}
-                  {'  '}model: <span className="str">&quot;allam-7b&quot;</span>,{'\n'}
+                  {'  '}model: <span className="str">&quot;qwen3-4b&quot;</span>,{'\n'}
                   {'  '}messages: [{'{'}{'\n'}
                   {'    '}role:    <span className="str">&quot;user&quot;</span>,{'\n'}
                   {'    '}content: <span className="str">&quot;ما حكم زكاة الراتب الشهري؟&quot;</span>,{'\n'}
@@ -932,9 +928,6 @@ export default function V2HomePage() {
 
           <div className="mg-grid">
             <div className="mg">
-              <span className="hot">
-                <span className="d" /> <span><Bi en="Most used" ar="الأكثر استخداماً" /></span>
-              </span>
               <span className="org">Saudi Data &amp; AI Authority</span>
               <h4 className="nm">ALLaM-7B-Q4</h4>
               <span className="tag">
@@ -952,10 +945,8 @@ export default function V2HomePage() {
                 </span>
               </div>
               <div className="meta">
-                <span>
-                  <b>SAR 0.45/M</b> in · <b>1.80/M</b> out
-                </span>
-                <span><Bi en="default" ar="افتراضي" /></span>
+                <span><Bi en="Pricing on serving" ar="السعر عند التشغيل" /></span>
+                <span><Bi en="registered · not yet online" ar="مُسجَّل · غير متصل بعد" /></span>
               </div>
             </div>
 
@@ -1071,8 +1062,8 @@ export default function V2HomePage() {
               </span>
               <p>
                 <Bi
-                  en="A bigger Arabic-first sovereign model is in pilot with TII. We&rsquo;ll bring it up alongside ALLaM as a router option."
-                  ar="نموذج عربي سيادي أكبر قيد التجربة مع TII. سنُشغّله بجانب اللام كخيار في الموجّه."
+                  en="A bigger Arabic-first sovereign model is in evaluation. We&rsquo;ll bring it up alongside ALLaM as a router option once it&rsquo;s online."
+                  ar="نموذج عربي سيادي أكبر قيد التقييم. سنُشغّله بجانب اللام كخيار في الموجّه عند توفّره."
                 />
               </p>
               <div className="badge-row">
@@ -1544,11 +1535,11 @@ export default function V2HomePage() {
             <span style={{ color: 'var(--ink-2)', fontSize: 15 }}>
               {lang === 'ar' ? (
                 <>
-                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>فئات الاشتراك</b> · المبتدئ ١٨٠ ريال/شهر · الفريق ١٬٢٠٠ ريال/شهر · المتسع ٨٬٤٠٠ ريال/شهر · مؤسسات حسب الطلب.
+                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>فئات الاشتراك</b> · المبتدئ ٣٧٥ ريال/شهر · النمو ١٬٥٠٠ ريال/شهر · المتسع ٥٬٦٢٥ ريال/شهر · مؤسسات حسب الطلب.
                 </>
               ) : (
                 <>
-                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>Subscription tiers</b> · Starter SAR 180/mo · Team SAR 1,200/mo · Scale SAR 8,400/mo · Enterprise on request.
+                  <b style={{ color: 'var(--ink)', fontWeight: 500 }}>Subscription tiers</b> · Starter SAR 375/mo · Growth SAR 1,500/mo · Scale SAR 5,625/mo · Enterprise on request.
                 </>
               )}
             </span>
@@ -1573,7 +1564,7 @@ export default function V2HomePage() {
           <div className="compliance">
             <div className="item">
               <span className="k">PDPL</span>
-              <span className="v"><Bi en="Compliant" ar="متوافق" /></span>
+              <span className="v"><Bi en="Aligned" ar="متوائم" /></span>
               <span className="sub"><Bi en="Saudi residency" ar="إقامة سعودية" /></span>
             </div>
             <div className="item">
@@ -1582,9 +1573,9 @@ export default function V2HomePage() {
               <span className="sub"><Bi en="Halala · SAR" ar="هللة · ريال" /></span>
             </div>
             <div className="item">
-              <span className="k"><Bi en="Cloud dependency" ar="اعتماد سحابي" /></span>
-              <span className="v"><Bi en="Zero" ar="لا يوجد" /></span>
-              <span className="sub"><Bi en="No US/EU cloud dependency" ar="بلا اعتماد سحابي خارجي" /></span>
+              <span className="k"><Bi en="Hosting" ar="الاستضافة" /></span>
+              <span className="v"><Bi en="Self-hosted" ar="ذاتية الاستضافة" /></span>
+              <span className="sub"><Bi en="In-Kingdom infrastructure" ar="بنية تحتية داخل المملكة" /></span>
             </div>
             <div className="item">
               <span className="k">ZATCA</span>
@@ -1630,7 +1621,7 @@ export default function V2HomePage() {
               <li><Bi en="Private peering · IPsec or DirectConnect" ar="ربط خاص · IPsec أو DirectConnect" /></li>
               <li><Bi en="Dedicated CSM · onboarding sprint" ar="مسؤول نجاح مخصص · جلسة إعداد" /></li>
               <li><Bi en="Customer data-classification workbook" ar="دفتر تصنيف بيانات خاص بالعميل" /></li>
-              <li><Bi en="99.95% SLA · credits + escalation path" ar="SLA ٩٩٫٩٥٪ · أرصدة + مسار تصعيد" /></li>
+              <li><Bi en="SLA per enterprise contract · credits + escalation path" ar="اتفاقية مستوى خدمة حسب عقد المؤسسة · أرصدة + مسار تصعيد" /></li>
             </ul>
             <div className="ctas">
               <Link className="btn primary lg" href="/support">
