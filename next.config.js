@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
-// Backend URL must be supplied via env (BACKEND_URL). Falls back to localhost
-// for local development. Production deployments must set BACKEND_URL explicitly.
-const backendUrl = process.env.BACKEND_URL || 'http://localhost:8083';
+// Backend URL. Defaults to the public prod backend (api.dcp.sa) so Vercel
+// preview/prod rewrites resolve a PUBLIC host — an unset BACKEND_URL used to fall
+// back to localhost, which Vercel rejects as DNS_HOSTNAME_RESOLVED_PRIVATE (this
+// broke /api/renters/* on previews). Matches the hardcoded api.dcp.sa in
+// app/api/[...path]/route.ts. For local dev against a local backend, set
+// BACKEND_URL=http://localhost:8083 explicitly.
+const backendUrl = process.env.BACKEND_URL || 'https://api.dcp.sa';
 
 const nextConfig = {
   reactStrictMode: true,

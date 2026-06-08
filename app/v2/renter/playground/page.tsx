@@ -12,6 +12,7 @@ interface NavItem {
   k: string
   ic: string
   label: string
+  labelAr?: string
   href: string
   bd?: string
 }
@@ -28,6 +29,7 @@ const NAV: NavSection[] = [
       { k: 'pg', ic: '▷', label: 'Playground', href: '/v2/renter/playground' },
       { k: 'keys', ic: '⚷', label: 'API keys', href: '/v2/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', href: '/v2/renter/usage' },
+      { k: 'pods', ic: '▦', label: 'GPU Pods', labelAr: 'حاويات GPU', href: '/v2/renter/pods' },
     ],
   },
   {

@@ -157,7 +157,7 @@ const CORS_ALLOWED_HEADERS = [
 // *.vercel.app to project-specific subdomains so a third-party Vercel app
 // can't speak as us. Configurable via VERCEL_PROJECT_NAMES (comma-separated)
 // to cover renames; defaults to the two we own today.
-const _vercelProjects = (process.env.VERCEL_PROJECT_NAMES || 'dcp,dcp-platform')
+const _vercelProjects = (process.env.VERCEL_PROJECT_NAMES || 'dcp,dcp-platform,dc1-platform')
   .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 const _vercelProjectAlt = _vercelProjects.map((p) => p.replace(/[^a-z0-9-]/g, '')).join('|');
 const VERCEL_ORIGIN_RE = new RegExp(
@@ -709,6 +709,9 @@ app.use('/api/recovery', recoveryRouter);
 
 const jobsRouter = require('./routes/jobs');
 app.use('/api/jobs', jobsRouter);
+// Interactive GPU pods (RunPod-style Jupyter + SSH) — same job rails, different template.
+const podsRouter = require('./routes/pods');
+app.use('/api/pods', podsRouter);
 const { jobsInvoiceRouter, rentersInvoiceRouter } = require('./routes/invoices');
 app.use('/api/jobs', jobsInvoiceRouter);
 app.use('/api/renters', rentersInvoiceRouter);

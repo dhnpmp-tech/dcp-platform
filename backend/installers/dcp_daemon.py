@@ -172,6 +172,7 @@ VRAM_REQUIREMENTS = {
     "benchmark": 1000,          # Matrix multiply needs ~1 GB
     "rendering": 2000,          # General GPU rendering
     "vllm_serve": 14336,        # vLLM 7B model in FP16 needs ~14 GB
+    "interactive_pod": 4000,    # Interactive Jupyter/SSH pod baseline (~4 GB headroom)
 }
 VRAM_DEFAULT_REQUIREMENT = 2000  # Default if job type unknown
 
@@ -2481,10 +2482,20 @@ def check_docker():
             _docker_available = False
             return False
 
-        # Check NVIDIA Container Toolkit
+        # Check NVIDIA Container Toolkit. A fresh provider won't have the probe
+        # image cached, and the 30s run-timeout is too short to ALSO pull it over a
+        # slow residential link — so pull it explicitly first (idempotent; cached
+        # after the first onboarding), then the run is fast.
+        probe_img = "nvidia/cuda:12.2.0-base-ubuntu22.04"
+        have_probe = subprocess.run(
+            ["docker", "image", "inspect", probe_img], capture_output=True, text=True
+        ).returncode == 0
+        if not have_probe:
+            log.info(f"Pulling NVIDIA toolkit probe image {probe_img} (one-time)...")
+            subprocess.run(["docker", "pull", probe_img], capture_output=True, text=True, timeout=600)
         r2 = subprocess.run(
-            ["docker", "run", "--rm", "--gpus", "all", "nvidia/cuda:12.2.0-base-ubuntu22.04", "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=30
+            ["docker", "run", "--rm", "--gpus", "all", probe_img, "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=60
         )
         if r2.returncode == 0:
             log.info(f"Docker + NVIDIA CT available: {r2.stdout.strip()}")
@@ -2845,7 +2856,32 @@ _served_models_lock = threading.Lock()
 
 OLLAMA_INTEGRITY_INTERVAL = int(os.environ.get("DCP_OLLAMA_INTEGRITY_INTERVAL", "300"))
 OLLAMA_INTEGRITY_TIMEOUT = int(os.environ.get("DCP_OLLAMA_INTEGRITY_TIMEOUT", "5"))
+
+# ─── GPU MAKE-ROOM (inference->pod preemption) ───────────────────────────────
+# When an interactive_pod is assigned but idle Ollama models fill the card,
+# evict those models (keep_alive=0) so the pod can claim the GPU.
+OLLAMA_MAKEROOM_HOST = os.environ.get("DCP_OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_EVICT_TIMEOUT = int(os.environ.get("DCP_OLLAMA_EVICT_TIMEOUT", "10"))
+# Ollama's keep_alive=0 unload + CUDA-context teardown can lag 5-15s behind the
+# request, so the make-room poll must outlast that or the VRAM gate will read
+# stale (still-occupied) VRAM and reject the pod. 30 × 1s = 30s covers it.
+GPU_FREE_POLL_ATTEMPTS = int(os.environ.get("DCP_GPU_FREE_POLL_ATTEMPTS", "30"))
+GPU_FREE_POLL_INTERVAL_S = float(os.environ.get("DCP_GPU_FREE_POLL_INTERVAL_S", "1.0"))
 OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
+
+# ─── INFERENCE↔COMPUTE MUTEX (compute preempts inference) ────────────────────
+# Product decision 2026-06-08: a compute pod gets the WHOLE GPU. On pod accept
+# the daemon stops the provider's inference systemd USER units and evicts Ollama;
+# on teardown it restores them. Best-effort; gated by DCP_DRAIN_INFERENCE_FOR_PODS.
+DCP_DRAIN_INFERENCE_FOR_PODS = os.environ.get("DCP_DRAIN_INFERENCE_FOR_PODS", "1").lower() not in ("0", "false", "no")
+INFERENCE_UNIT_PATTERNS = [p.strip() for p in os.environ.get(
+    "DCP_INFERENCE_UNIT_PATTERNS", "dcp-llama-*,dcp-vllm-*,dcp-inference-*").split(",") if p.strip()]
+DRAINED_UNITS_STATE = CONFIG_DIR / "drained_inference.json"
+# Backstop: if a pod's job can't be confirmed dead (backend unreachable) AND no
+# pod container exists, restore inference after this long rather than leave the
+# GPU drained forever. A genuinely-running pod holds a container, so the reaper
+# safety-net never reaches this during normal operation.
+POD_DRAIN_BACKSTOP_S = int(os.environ.get("DCP_POD_DRAIN_BACKSTOP_S", "600"))
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
 # Audit M3 — retry + post-pull checksum. On a non-zero `ollama pull` exit
 # (network blip, registry 5xx, partial blob) we retry up to MAX_ATTEMPTS with
@@ -6228,6 +6264,38 @@ def _append_job_history(entry):
             log.debug(f"[job-history] failed to write: {e}")
 
 
+# Tracks the last reported GPU-health state so we only ALERT on a transition
+# (healthy→broken / broken→healthy), not every heartbeat.
+_gpu_health_last_state = True
+
+
+def gpu_nvml_healthy():
+    """Fast, UNCACHED NVML health probe. Returns (healthy: bool, error: str|None).
+
+    Catches the NVIDIA driver/library version mismatch — e.g. an unattended driver
+    upgrade that swaps the userspace library without a reboot, leaving the running
+    kernel module a different version. In that state `nvidia-smi`/NVML and
+    `docker run --gpus all` are BROKEN, yet libcuda/`torch.cuda.is_available()`
+    and a cached check_docker() can still report healthy — so this is the only
+    signal that reflects reality for GPU containers. Runs `nvidia-smi -L` every
+    heartbeat (cheap) so a break is detected within one heartbeat.
+
+    Returns healthy=True when nvidia-smi is simply absent (non-NVIDIA box, e.g.
+    Apple Silicon) — those are excluded from pods by the docker+cuda checks, not
+    flagged here.
+    """
+    try:
+        r = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, timeout=8)
+        if r.returncode == 0 and "GPU" in (r.stdout or ""):
+            return True, None
+        err = ((r.stderr or "") + " " + (r.stdout or "")).strip()[:200]
+        return False, err or "nvidia-smi -L returned no GPUs"
+    except FileNotFoundError:
+        return True, None  # no nvidia-smi → not an NVIDIA provider; don't flag
+    except Exception as e:
+        return False, str(e)[:200]
+
+
 def send_heartbeat(final=False, status=None):  # returns HTTP status code or None on transport error
     """Send heartbeat with GPU metrics to backend and P2P network.
 
@@ -6292,6 +6360,33 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
     gpu_status["model_cache_free_gb"] = cache_metrics["free_gb"]
     gpu_status["model_cache_used_gb"] = cache_metrics["used_gb"]
     gpu_status["model_cache_used_percent"] = cache_metrics["used_percent"]
+
+    # GPU-health (NVML) probe — the authoritative signal for whether GPU containers
+    # can actually attach the card. The backend's resolvePodProvider skips a
+    # provider reporting gpu_healthy=false, so a renter is never routed to a dead
+    # GPU (e.g. after a driver auto-update mismatched the kernel module).
+    global _gpu_health_last_state
+    _gpu_healthy, _gpu_err = gpu_nvml_healthy()
+    gpu_status["gpu_healthy"] = _gpu_healthy
+    if not _gpu_healthy:
+        gpu_status["gpu_error"] = _gpu_err
+    if _gpu_healthy != _gpu_health_last_state:
+        if not _gpu_healthy:
+            log.error(f"GPU UNHEALTHY (NVML): {_gpu_err} — provider will be skipped for pods")
+            try:
+                report_event("gpu_unhealthy",
+                    f"GPU/NVML broken: {_gpu_err}. nvidia-smi + GPU containers will fail "
+                    f"(likely a driver auto-update without reboot). Reboot or reload the "
+                    f"nvidia kernel module to recover.", severity="critical")
+            except Exception:
+                pass
+        else:
+            log.info("GPU healthy again (NVML ok)")
+            try:
+                report_event("gpu_recovered", "GPU/NVML healthy again — provider can host pods.", severity="info")
+            except Exception:
+                pass
+        _gpu_health_last_state = _gpu_healthy
 
     peer_id = _get_or_create_peer_id()
     url = f"{API_URL}/api/providers/heartbeat"
@@ -7490,6 +7585,260 @@ def run_vllm_serve_job(task_spec, job_id=None):
     }
 
 
+# Generic SSH bootstrap injected for renter-chosen images (anything that isn't
+# the DCP-baked default). Makes ANY debian/alpine/rhel image SSH-able: installs
+# openssh if missing, sets the root password, starts sshd, and starts Jupyter
+# only if the image happens to ship it. Keeps the container alive so the renter
+# works over SSH (and Jupyter when available).
+POD_SSH_BOOTSTRAP = r'''#!/bin/sh
+set +e
+mkdir -p /run/sshd /var/run/sshd
+if ! command -v sshd >/dev/null 2>&1 && [ ! -x /usr/sbin/sshd ]; then
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y -o Acquire::Languages=none >/tmp/dcp-ssh.log 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server >>/tmp/dcp-ssh.log 2>&1
+  elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache openssh >/tmp/dcp-ssh.log 2>&1
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y openssh-server >/tmp/dcp-ssh.log 2>&1
+  fi
+fi
+echo "root:${ROOT_PASSWORD}" | chpasswd 2>/dev/null
+sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null
+sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null
+ssh-keygen -A >/dev/null 2>&1
+( /usr/sbin/sshd -D >/tmp/dcp-sshd.log 2>&1 || sshd -D >/tmp/dcp-sshd.log 2>&1 ) &
+if command -v jupyter >/dev/null 2>&1; then
+  nohup jupyter lab --ip=0.0.0.0 --port=8888 --allow-root --no-browser --ServerApp.token="${JUPYTER_TOKEN}" --ServerApp.password="" >/var/log/dcp-jupyter.log 2>&1 &
+fi
+echo "[dcp] pod ready: ssh on :22"
+exec tail -f /dev/null
+'''
+
+
+def _write_pod_bootstrap():
+    """Write the SSH bootstrap to a host path and return it (bind-mounted into pods)."""
+    path = CONFIG_DIR / "pod-bootstrap.sh"
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_text(POD_SSH_BOOTSTRAP)
+        os.chmod(path, 0o755)
+    except Exception as e:
+        log.warning(f"_write_pod_bootstrap: {e}")
+    return str(path)
+
+
+def _wait_for_ssh(host, port, attempts=90, interval=5, container_name=None):
+    """Wait until host:port actually speaks SSH (reads the 'SSH-...' identification
+    banner). A bare TCP accept is NOT enough: docker-proxy accepts the published
+    port even before the container's sshd is up, so a plain connect would report
+    ready while the injected sshd is still apt-installing. Returns False if the
+    container dies first."""
+    import socket
+    for _ in range(attempts):
+        time.sleep(interval)
+        try:
+            with socket.create_connection((host, int(port)), timeout=4) as s:
+                s.settimeout(4)
+                if s.recv(8).startswith(b"SSH-"):
+                    return True
+        except Exception:
+            pass
+        if container_name:
+            check = subprocess.run(["docker", "inspect", "--format", "{{.State.Running}}", container_name],
+                                   capture_output=True, text=True)
+            if check.stdout.strip() != "true":
+                return False
+    return False
+
+
+def run_interactive_pod(task_spec, job_id=None):
+    """
+    Start an interactive GPU pod (Jupyter on :8888 + sshd on :22) in a detached
+    container on two free host ports. The container stays running until
+    duration_minutes expires or the job is cancelled. Reports jupyter/ssh host
+    ports to backend once Jupyter's /api responds 200.
+
+    task_spec is delivered pre-signed (HMAC verified at the job-poll boundary),
+    so this function only consumes its fields — it never re-signs.
+    """
+    # Parse task_spec JSON (mirrors run_vllm_serve_job)
+    if isinstance(task_spec, str):
+        try:
+            task_spec = json.loads(task_spec)
+        except Exception:
+            pass
+    if not isinstance(task_spec, dict):
+        return {"success": False, "error": "Invalid task_spec for interactive_pod — expected JSON"}
+
+    image = task_spec.get("image", "dcp-compute:pytorch")
+    # Renter-chosen images (anything but the DCP-baked default) get a generic SSH
+    # bootstrap injected so the renter can always get in regardless of the image.
+    bootstrap_ssh = bool(task_spec.get("bootstrap_ssh", False))
+    jupyter_token = task_spec.get("jupyter_token")
+    root_password = task_spec.get("root_password")
+    if not jupyter_token or not root_password:
+        return {"success": False, "error": "interactive_pod task_spec missing jupyter_token/root_password"}
+
+    container_name = f"dcp-pod-{job_id or int(time.time())}"
+    volume_name = f"dcp-pod-{job_id or int(time.time())}-vol"
+
+    # Allocate free host ports: Jupyter 8100-8149, SSH 8150-8199
+    jport = _find_free_port(8100, 8149)
+    sport = _find_free_port(8150, 8199)
+    if not jport:
+        return {"success": False, "error": "No free Jupyter port available in range 8100-8149"}
+    if not sport:
+        return {"success": False, "error": "No free SSH port available in range 8150-8199"}
+
+    log.info(f"Interactive pod: image={image} jport={jport} sport={sport} container={container_name}")
+    report_job_progress(job_id, "pulling")
+
+    # Template-first model: pod images are pre-baked on the provider. A locally-built
+    # tag (e.g. dcp-compute:pytorch) is NOT in any registry, so only pull when absent.
+    have_local = subprocess.run(["docker", "image", "inspect", image],
+                                capture_output=True, text=True).returncode == 0
+    if not have_local:
+        try:
+            pull = subprocess.run(
+                ["docker", "pull", image],
+                capture_output=True, text=True, timeout=600
+            )
+            if pull.returncode != 0:
+                return {"success": False, "error": f"Pod image absent locally and pull failed: {pull.stderr[:200]}", "transient": True}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Pod image pull timed out (600s)", "transient": True}
+        except Exception as e:
+            return {"success": False, "error": f"Pod pull error: {e}", "transient": True}
+
+    report_job_progress(job_id, "loading_model")
+    report_event(
+        "container_start",
+        f"Starting interactive pod: {container_name} image={image} jport={jport} sport={sport}",
+        job_id=job_id
+    )
+
+    # Start container detached. NOTE: deliberately NO --cap-drop all and NO
+    # --security-opt no-new-privileges here — both break sshd inside the pod.
+    # Only soft limits are applied; full kernel isolation (gVisor/Kata) is the GA gate.
+    docker_cmd = [
+        "docker", "run", "-d",
+        "--gpus", "all",
+        "--name", container_name,
+        "-p", f"{jport}:8888",
+        "-p", f"{sport}:22",
+        "-e", f"JUPYTER_TOKEN={jupyter_token}",
+        "-e", f"ROOT_PASSWORD={root_password}",
+        "-v", f"{volume_name}:/workspace",
+        "--pids-limit", "4096",
+    ]
+    if bootstrap_ssh:
+        bootstrap_path = _write_pod_bootstrap()
+        docker_cmd += ["-v", f"{bootstrap_path}:/dcp-bootstrap.sh:ro",
+                       "--entrypoint", "/bin/sh", image, "/dcp-bootstrap.sh"]
+    else:
+        docker_cmd += [image]
+
+    try:
+        start_result = subprocess.run(docker_cmd, capture_output=True, text=True, timeout=30)
+        if start_result.returncode != 0:
+            return {"success": False, "error": f"Failed to start pod container: {start_result.stderr[:300]}"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Docker start timed out"}
+    except Exception as e:
+        return {"success": False, "error": f"Docker start error: {e}"}
+
+    # Every pod is reachable over SSH — baked into the DCP images, injected into
+    # renter-chosen images. Wait for the real SSH banner (a baked image's sshd
+    # comes up in seconds; a bootstrap image apt-installs it, a few minutes).
+    # Jupyter, when the image ships it, is exposed via access_url but is no longer
+    # the readiness gate (cuda/vllm/ubuntu images have no Jupyter).
+    # Baked images expose sshd in seconds; an arbitrary image must apt-install it
+    # over the pod's (slow, sometimes contended) egress, so allow up to ~10 min.
+    ready = _wait_for_ssh("127.0.0.1", sport, attempts=120, interval=5, container_name=container_name)
+    if not ready:
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        return {"success": False, "error": "Pod SSH did not become reachable within ~10 minutes"}
+
+    # Report endpoint ready to backend (jupyter/ssh host ports + mesh & public IP)
+    public_ip = _get_public_ip()
+    wg_mesh_ip = _detect_wg_mesh_ip()
+    try:
+        http_post(f"{API_URL}/api/jobs/{job_id}/endpoint-ready", {
+            "api_key": API_KEY,
+            "jupyter_host_port": jport,
+            "ssh_host_port": sport,
+            "wg_mesh_ip": wg_mesh_ip,
+            "provider_ip": public_ip,
+        }, timeout=15)
+    except Exception as e:
+        log.warning(f"Failed to report endpoint-ready: {e}")
+
+    report_job_progress(job_id, "generating")  # "generating" = pod live & serving
+    log.info(f"Interactive pod ready: container={container_name} jport={jport} sport={sport} wg={wg_mesh_ip}")
+
+    # Hold loop — monitor container until backend says job is done or duration expires.
+    poll_interval = 30  # seconds between container health checks
+    while True:
+        time.sleep(poll_interval)
+        # Check if container is still running
+        check = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
+            capture_output=True, text=True
+        )
+        if check.stdout.strip() != "true":
+            log.info(f"Pod container {container_name} stopped externally")
+            break
+        # Check if the backend job is still running
+        try:
+            code, job_status_resp = http_get(
+                f"{API_URL}/api/jobs/{job_id}",
+                headers=_auth_headers(),
+            )
+            if code == 200:
+                current_status = job_status_resp.get("job", {}).get("status", "running")
+                if current_status not in ("running", "pulling", "assigned"):
+                    log.info(f"Job {job_id} status={current_status} — stopping pod container")
+                    break
+        except Exception:
+            pass  # Network hiccup — keep the pod alive
+
+    # Cleanup: stop and remove container
+    subprocess.run(["docker", "stop", "--time", "10", container_name], capture_output=True)
+    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+    report_event("container_complete", f"Interactive pod job {job_id} completed — container stopped", job_id=job_id)
+    log.info(f"Pod container {container_name} stopped and removed")
+    # Compute pod done — restore the inference engines we preempted.
+    restore_inference_after_pod()
+
+    return {
+        "success": True,
+        "result": {
+            "jupyter_host_port": jport,
+            "ssh_host_port": sport,
+            "image": image,
+        },
+        # Backward-compatible top-level keys for consumers that read outcome directly.
+        "jupyter_host_port": jport,
+        "ssh_host_port": sport,
+        "image": image,
+    }
+
+
+def stop_pod(job_id):
+    """Tear down an interactive pod container/volume by job_id (idempotent).
+
+    Mirrors the cleanup tail of run_interactive_pod for out-of-band stops
+    (e.g. DELETE /api/pods/:id). Safe to call when nothing is running.
+    """
+    container_name = f"dcp-pod-{job_id}"
+    subprocess.run(["docker", "stop", "--time", "10", container_name], capture_output=True)
+    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+    report_event("container_complete", f"Interactive pod {job_id} stopped via stop_pod", job_id=job_id)
+    log.info(f"Pod container {container_name} stopped and removed (stop_pod)")
+    restore_inference_after_pod()
+    return {"success": True, "result": {"stopped": True, "container": container_name}}
+
+
 def execute_job(job):
     """Execute a job with Docker-only script execution."""
     global _current_job_id
@@ -7511,6 +7860,12 @@ def execute_job(job):
     log.info(f"Executing job {job_id} (type: {job_type})")
 
     try:
+        # Interactive pod — long-running detached Jupyter+SSH container with health polling.
+        # Must run before the benchmark fallback (task_spec may carry unrelated metadata).
+        if job_type == "interactive_pod":
+            if not check_docker():
+                return {"success": False, "error": "Docker not available — interactive_pod requires Docker with NVIDIA Container Toolkit"}
+            return run_interactive_pod(task_spec, job_id=job_id)
         # vLLM serverless serve — long-running detached container with health polling.
         # This must run before benchmark fallback in case task_spec contains benchmark metadata.
         if job_type == "vllm_serve":
@@ -7583,6 +7938,189 @@ def _circuit_record(name, ok):
                     f"[circuit] {name} opened for {_CIRCUIT_OPEN_SECONDS}s "
                     f"after {b['fails']} consecutive failures"
                 )
+
+
+def free_gpu_for_pod(required_mib):
+    """Evict idle Ollama models so an interactive_pod can claim the GPU.
+
+    Lists loaded models via GET /api/ps, asks Ollama to unload each (POST
+    /api/generate keep_alive=0), then polls detect_gpu() until free VRAM clears
+    required_mib. Best-effort; never raises. Returns (freed_ok, free_mib).
+    """
+    if not HAS_REQUESTS:
+        log.warning("free_gpu_for_pod: requests unavailable - cannot evict Ollama models")
+        gpu = detect_gpu() or {}
+        return False, gpu.get("free_vram_mib", 0)
+
+    gpu = detect_gpu() or {}
+    free_before = gpu.get("free_vram_mib", 0)
+    # A renter renting the GPU should get the WHOLE card, not share it with
+    # inference. So for an interactive pod we evict idle inference unconditionally
+    # (no early fast-path) — compute preempts idle inference on this provider.
+
+    loaded = []
+    try:
+        r = requests.get(f"{OLLAMA_MAKEROOM_HOST}/api/ps", timeout=OLLAMA_EVICT_TIMEOUT)
+        if r.ok:
+            for m in (r.json().get("models") or []):
+                name = m.get("name") or m.get("model")
+                if name:
+                    loaded.append(name)
+    except Exception as e:
+        log.warning(f"free_gpu_for_pod: /api/ps query failed ({e})")
+
+    if not loaded:
+        log.info(f"free_gpu_for_pod: no loaded Ollama models to evict "
+                 f"(free={free_before} MiB, need={required_mib} MiB)")
+        return free_before >= required_mib, free_before
+
+    log.info(f"free_gpu_for_pod: evicting {len(loaded)} idle Ollama model(s) "
+             f"to free GPU for pod: {loaded}")
+    for name in loaded:
+        try:
+            requests.post(
+                f"{OLLAMA_MAKEROOM_HOST}/api/generate",
+                json={"model": name, "keep_alive": 0},
+                timeout=OLLAMA_EVICT_TIMEOUT,
+            )
+        except Exception as e:
+            log.warning(f"free_gpu_for_pod: unload request for {name} failed ({e})")
+
+    free_after = free_before
+    for _ in range(GPU_FREE_POLL_ATTEMPTS):
+        time.sleep(GPU_FREE_POLL_INTERVAL_S)
+        gpu = detect_gpu() or {}
+        free_after = gpu.get("free_vram_mib", free_after)
+        if free_after >= required_mib:
+            break
+
+    log.info(f"free_gpu_for_pod: VRAM {free_before} -> {free_after} MiB (need {required_mib} MiB)")
+    return free_after >= required_mib, free_after
+
+
+def _systemctl_user(*args, timeout=30):
+    """Run `systemctl --user <args>`; return (rc, stdout). Best-effort, never raises."""
+    try:
+        r = subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=timeout)
+        return r.returncode, (r.stdout or "")
+    except Exception as e:
+        log.warning(f"systemctl --user {' '.join(args)} failed ({e})")
+        return 1, ""
+
+
+def _list_running_inference_units():
+    """systemd user units matching INFERENCE_UNIT_PATTERNS that are active OR
+    activating/reloading — i.e. holding or about to hold the GPU (catches a
+    loading or crash-recovering llama-server, not just a fully-running one)."""
+    if not INFERENCE_UNIT_PATTERNS:
+        return []
+    rc, out = _systemctl_user("list-units", "--type=service", "--all",
+                              "--no-legend", "--plain", *INFERENCE_UNIT_PATTERNS)
+    if rc != 0:
+        return []
+    units = []
+    for line in out.splitlines():
+        parts = line.split()
+        # columns: UNIT LOAD ACTIVE SUB DESCRIPTION...
+        if len(parts) >= 3 and parts[0].endswith(".service") and parts[2] in ("active", "activating", "reloading"):
+            units.append(parts[0])
+    return units
+
+
+def _evict_all_ollama():
+    """Unload every loaded Ollama model (keep_alive=0) so its VRAM is freed. Best-effort."""
+    if not HAS_REQUESTS:
+        return
+    try:
+        r = requests.get(f"{OLLAMA_MAKEROOM_HOST}/api/ps", timeout=OLLAMA_EVICT_TIMEOUT)
+        for m in (r.json().get("models") or []) if r.ok else []:
+            name = m.get("name") or m.get("model")
+            if name:
+                requests.post(f"{OLLAMA_MAKEROOM_HOST}/api/generate",
+                              json={"model": name, "keep_alive": 0}, timeout=OLLAMA_EVICT_TIMEOUT)
+    except Exception:
+        pass
+
+
+def drain_inference_for_pod(job_id=None):
+    """Compute preempts inference: stop the provider's inference engines so a
+    compute pod gets the whole GPU. Records stopped units + the owning job_id to
+    DRAINED_UNITS_STATE so any teardown path can restore them (and so the reaper
+    knows which job's liveness gates the restore). Best-effort; returns stopped."""
+    if not DCP_DRAIN_INFERENCE_FOR_PODS:
+        return []
+    stopped = []
+    for unit in _list_running_inference_units():
+        rc, _ = _systemctl_user("stop", unit, timeout=30)
+        if rc == 0:
+            stopped.append(unit)
+            log.info(f"drain_inference_for_pod: stopped {unit}")
+        else:
+            log.warning(f"drain_inference_for_pod: could not stop {unit}")
+    try:
+        DRAINED_UNITS_STATE.parent.mkdir(parents=True, exist_ok=True)
+        DRAINED_UNITS_STATE.write_text(json.dumps(
+            {"units": stopped, "job_id": job_id, "ts": int(time.time())}))
+    except Exception as e:
+        log.warning(f"drain_inference_for_pod: could not persist state ({e})")
+    return stopped
+
+
+def restore_inference_after_pod():
+    """Restart inference units stopped by drain_inference_for_pod, after evicting
+    any Ollama model that reloaded (so the big llama.cpp model can refit its VRAM).
+    Idempotent and best-effort; clears DRAINED_UNITS_STATE."""
+    try:
+        if not DRAINED_UNITS_STATE.exists():
+            return
+        data = json.loads(DRAINED_UNITS_STATE.read_text() or "{}")
+    except Exception:
+        data = {}
+    units = data.get("units") or []
+    # Free Ollama's VRAM first so the inference engine can reload its full model.
+    _evict_all_ollama()
+    for unit in units:
+        rc, _ = _systemctl_user("start", unit, timeout=30)
+        log.info(f"restore_inference_after_pod: {'started' if rc == 0 else 'FAILED to start'} {unit}")
+    try:
+        DRAINED_UNITS_STATE.unlink()
+    except Exception:
+        pass
+
+
+def _maybe_restore_drained_inference():
+    """Reaper safety-net: restore drained inference ONLY once the pod job is no
+    longer live (stopped/failed/404) — never while a pod is still launching
+    (queued/pulling/running), which would steal the renter's GPU mid-setup. If the
+    backend is unreachable, leaves inference drained until POD_DRAIN_BACKSTOP_S
+    elapses (a genuinely-running pod holds a container, so this is failure-only)."""
+    try:
+        data = json.loads(DRAINED_UNITS_STATE.read_text() or "{}")
+    except Exception:
+        data = {}
+    jid = data.get("job_id")
+    ts = data.get("ts", 0)
+    live = ("running", "pulling", "assigned", "pending", "queued")
+    restore = False
+    if jid:
+        try:
+            code, resp = http_get(f"{API_URL}/api/jobs/{jid}", headers=_auth_headers())
+            if code == 404:
+                restore = True
+            elif code == 200:
+                if ((resp.get("job") or {}).get("status")) not in live:
+                    restore = True
+            # else 5xx/403: ambiguous — fall through to the backstop grace
+        except Exception:
+            pass
+    else:
+        restore = True  # legacy state with no job_id recorded
+    if not restore and ts and (time.time() - ts) > POD_DRAIN_BACKSTOP_S:
+        log.warning("reap_orphan_pods: drain backstop elapsed with no pod container — restoring inference")
+        restore = True
+    if restore:
+        log.info("reap_orphan_pods: pod job no longer live — restoring inference")
+        restore_inference_after_pod()
 
 
 def poll_and_execute():
@@ -7687,6 +8225,20 @@ def poll_and_execute():
     # ── Guard: Job dedup ──
     if is_duplicate_job(job_id):
         return  # Already processed this job
+
+    # ── Make room: evict idle Ollama models so an interactive_pod can take the GPU ──
+    # Pod-only: inference is preemptible for pods; other job types must NOT evict.
+    if job_type == "interactive_pod":
+        pod_required = VRAM_REQUIREMENTS.get("interactive_pod", VRAM_DEFAULT_REQUIREMENT)
+        try:
+            stopped = drain_inference_for_pod(job_id)
+            if stopped:
+                log.info(f"Job {job_id}: compute preempts inference — stopped {stopped}")
+            freed_ok, free_after = free_gpu_for_pod(pod_required)
+            if freed_ok:
+                log.info(f"Job {job_id}: freed GPU for interactive_pod ({free_after} MiB free)")
+        except Exception as e:
+            log.warning(f"Job {job_id}: GPU claim for pod failed ({e}); proceeding to VRAM gate")
 
     # ── Guard: VRAM check ──
     vram_ok, free_vram, required_vram = check_vram_available(job_type)
@@ -7896,6 +8448,60 @@ def poll_and_execute():
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
 
+def reap_orphan_pods():
+    """Tear down dcp-pod-* containers whose backend job is no longer live.
+
+    Cheap when no pods exist. Reaps on a non-live status OR a 404 (job deleted);
+    leaves the container on 403/5xx/network-error (ambiguous - never kill a live
+    pod on a transient quirk). Mirrors stop_pod()'s teardown.
+    """
+    LIVE_STATUSES = ("running", "pulling", "assigned", "pending", "queued")
+    try:
+        ps = subprocess.run(
+            ["docker", "ps", "--filter", "name=dcp-pod-", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except Exception as e:
+        log.debug(f"reap_orphan_pods: docker ps failed ({e})")
+        return
+    if ps.returncode != 0:
+        return
+    names = [n.strip() for n in ps.stdout.splitlines() if n.strip().startswith("dcp-pod-")]
+    # Mutex safety-net: inference was drained for a pod but no pod container is
+    # running (gate-rejected, failed launch, crashed teardown, or daemon restart)
+    # — restore the inference engines so the GPU never sits idle/drained.
+    if not names and DRAINED_UNITS_STATE.exists():
+        _maybe_restore_drained_inference()
+    if not names:
+        return
+    for name in names:
+        job_id = name[len("dcp-pod-"):]
+        if not job_id:
+            continue
+        try:
+            code, resp = http_get(f"{API_URL}/api/jobs/{job_id}", headers=_auth_headers())
+        except Exception as e:
+            log.debug(f"reap_orphan_pods: status check for {job_id} failed ({e}); leaving {name}")
+            continue
+        should_reap = False
+        if code == 404:
+            log.info(f"reap_orphan_pods: job {job_id} 404 (deleted) - reaping {name}")
+            should_reap = True
+        elif code == 200:
+            status = (resp.get("job") or {}).get("status")
+            if status not in LIVE_STATUSES:
+                log.info(f"reap_orphan_pods: job {job_id} status={status} - reaping {name}")
+                should_reap = True
+        else:
+            continue
+        if should_reap:
+            try:
+                subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=10)
+                log.info(f"reap_orphan_pods: removed orphan container {name}")
+            except Exception as e:
+                log.warning(f"reap_orphan_pods: docker rm -f {name} failed ({e})")
+
+
 def job_poll_loop():
     """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds.
 
@@ -7918,6 +8524,8 @@ def job_poll_loop():
         poll_and_execute()
         # Also check for verification challenges every cycle
         check_pending_verification()
+        # Reap dcp-pod-* containers whose backend job is no longer live (cheap no-op when none).
+        reap_orphan_pods()
         _sleep()
 
 # ─── AUTO VERIFICATION ON STARTUP ───────────────────────────────────────────

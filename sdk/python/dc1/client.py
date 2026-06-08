@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .http import HttpClient
 from .resources.jobs import JobsResource
+from .resources.pods import PodsResource
 from .resources.providers import ProvidersResource
 from .resources.wallet import WalletResource
 
@@ -54,5 +55,6 @@ class DC1Client:
             raise ValueError('api_key is required')
         self._http = HttpClient(api_key=api_key, base_url=base_url, timeout=timeout)
         self.jobs = JobsResource(self._http)
+        self.pods = PodsResource(self._http)
         self.providers = ProvidersResource(self._http)
         self.wallet = WalletResource(self._http)

@@ -1148,6 +1148,47 @@ restart_nohup_daemon() {
 }
 
 setup_linux_service() {
+  # Ensure the daemon's user can reach the Docker socket (it runs `docker run`).
+  # Group membership only -- never chmod the socket.
+  if command -v docker >/dev/null 2>&1 && getent group docker >/dev/null 2>&1; then
+    if ! id -nG "${USER}" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+      step "Granting '${USER}' docker-group access"
+      if command -v sudo >/dev/null 2>&1; then
+        sudo usermod -aG docker "${USER}" 2>/dev/null \
+          && info "Added '${USER}' to docker group." \
+          || warn "Could not add '${USER}' to docker group; run: sudo usermod -aG docker ${USER}"
+      else
+        warn "sudo not available; run manually: usermod -aG docker ${USER}"
+      fi
+      # USER-mode services snapshot group membership at manager start; a plain
+      # daemon-reload will NOT pick this up -- the user manager must restart.
+      if [ "${DCP_SYSTEMD_MODE:-user}" != "system" ] && command -v loginctl >/dev/null 2>&1; then
+        warn "Docker group added. Inference works now; GPU *pods* need the user"
+        warn "manager to restart to inherit the group: log out/in or reboot once"
+        warn "(or run: loginctl terminate-user ${USER}). For immediate pod support,"
+        warn "reinstall with DCP_SYSTEMD_MODE=system (root-managed, no relogin needed)."
+      fi
+    fi
+  fi
+
+  # Pin the NVIDIA driver so the OS auto-updater can't silently bump the userspace
+  # driver without a reboot — that mismatches the still-loaded kernel module and
+  # breaks nvidia-smi + every GPU container until the box reboots (observed on a
+  # provider 2026-06-08). Driver updates become a deliberate, reboot-windowed op.
+  # Idempotent; best-effort (needs an NVIDIA GPU + apt + sudo).
+  if command -v nvidia-smi >/dev/null 2>&1 && command -v apt-mark >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    local nv_pkgs
+    nv_pkgs="$(dpkg -l 2>/dev/null | awk '/^ii/ && ($2 ~ /nvidia/ || $2 ~ /^libnvidia/ || $2 ~ /linux-modules-nvidia/) {print $2}')"
+    if [ -n "${nv_pkgs}" ]; then
+      step "Pinning NVIDIA driver (apt-mark hold) so an auto-update can't break the GPU"
+      sudo apt-mark hold ${nv_pkgs} >/dev/null 2>&1 \
+        && info "Held $(echo ${nv_pkgs} | wc -w) NVIDIA packages from auto-upgrade." \
+        || warn "Could not hold NVIDIA packages; run: sudo apt-mark hold ${nv_pkgs}"
+      printf 'Unattended-Upgrade::Package-Blacklist {\n  "nvidia-";\n  "libnvidia-";\n  "linux-modules-nvidia-";\n};\n' \
+        | sudo tee /etc/apt/apt.conf.d/51-dcp-pin-nvidia >/dev/null 2>&1 || true
+    fi
+  fi
+
   if ! command -v systemctl >/dev/null 2>&1; then
     warn "systemctl not found. Falling back to background process mode."
     restart_nohup_daemon
@@ -1164,6 +1205,15 @@ setup_linux_service() {
     ollama_exec_pre="ExecStartPre=/bin/sh -c 'if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then OLLAMA_FLASH_ATTENTION=1 nohup ollama serve > ${LOG_DIR}/ollama.log 2>&1 & sleep 5; fi'"
   fi
 
+  # Only reference the docker group if it actually exists. A SupplementaryGroups=
+  # line pointing at a missing group makes systemd REFUSE to start the unit, which
+  # would break inference-only / docker-less providers. (User-mode managers are
+  # unprivileged and cannot apply SupplementaryGroups at all — see below.)
+  local docker_supgroup=""
+  if getent group docker >/dev/null 2>&1; then
+    docker_supgroup="SupplementaryGroups=docker"
+  fi
+
   if [ "${DCP_SYSTEMD_MODE}" = "system" ]; then
     step "Installing systemd system service (requires sudo)"
     local tmp_unit
@@ -1177,6 +1227,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=${USER}
+${docker_supgroup}
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${CONFIG_DIR}/env
 ${ollama_env}
@@ -1216,6 +1267,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# No SupplementaryGroups= here: an unprivileged --user manager has no CAP_SETGID
+# and the unit would fail to start. Docker access is inherited from the user's
+# docker-group membership (usermod above) once the user manager restarts
+# (one-time relogin/reboot, or DCP_SYSTEMD_MODE=system for immediate support).
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${CONFIG_DIR}/env
 ${ollama_env}

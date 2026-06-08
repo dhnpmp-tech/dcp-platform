@@ -93,6 +93,16 @@ function getApiKeyFromReq(req, options = {}) {
 
   const candidates = [];
   if (headerName) candidates.push(req.headers?.[headerName]);
+  // Authorization: Bearer <token> — the form the provider daemon's _auth_headers()
+  // sends. Accept it on every credentialed lookup so daemon -> /api/jobs/* calls
+  // (e.g. the interactive-pod hold-loop status poll) authenticate as the provider.
+  // The key value/prefix disambiguates provider vs renter; renter paths still
+  // reject provider-prefixed keys via looksLikeProviderKey.
+  const authzHeader = req.headers && req.headers['authorization'];
+  if (typeof authzHeader === 'string') {
+    const m = authzHeader.match(/^Bearer\s+(.+)$/i);
+    if (m) candidates.push(m[1]);
+  }
   for (const queryName of queryNames) candidates.push(req.query?.[queryName]);
   for (const bodyName of bodyNames) candidates.push(req.body?.[bodyName]);
 

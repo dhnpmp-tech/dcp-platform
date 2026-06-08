@@ -164,3 +164,6 @@ docs/*Report*.md
 docs/*COPY*.md
 docs/*Copy*.md
 docs/launch-*.md
+
+# Python build artifacts
+sdk/python/*.egg-info/

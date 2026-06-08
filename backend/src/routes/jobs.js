@@ -12,6 +12,7 @@ const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
 const { validateBody } = require('../middleware/validate');
 const { jobSubmitSchema } = require('../schemas/jobs.schema');
 const { getChainEscrow } = require('../services/escrow-chain');
+const { invokePodRelay } = require('../lib/pod-relay');
 const pricingService = require('../services/pricingService');
 const {
   sendJobQueued,
@@ -1092,7 +1093,7 @@ function splitBilling(totalHalala) {
 }
 
 // Whitelisted job types — renters may only submit these types
-const ALLOWED_JOB_TYPES = new Set(['image_generation', 'llm-inference', 'llm_inference', 'rendering', 'training', 'benchmark', 'custom_container', 'vllm_serve', 'rag-pipeline']);
+const ALLOWED_JOB_TYPES = new Set(['image_generation', 'llm-inference', 'llm_inference', 'rendering', 'training', 'benchmark', 'custom_container', 'vllm_serve', 'rag-pipeline', 'interactive_pod']);
 
 // Whitelisted GPU model identifiers (finding S1-02).
 // Sourced from GPU_COMPATIBILITY (jobScheduler) + GPU_RATE_TABLE (pricing config).
@@ -3325,6 +3326,44 @@ router.post('/:job_id/progress', (req, res) => {
 // Backend constructs endpoint_url from provider's stored IP + port, stores on job
 router.post('/:job_id/endpoint-ready', (req, res) => {
   try {
+    // ── interactive_pod: publish Jupyter+SSH via the VPS relay (same job rails) ──
+    {
+      const podApiKey = req.body && req.body.api_key;
+      const prov0 = podApiKey ? db.get('SELECT id FROM providers WHERE api_key = ?', podApiKey) : null;
+      const job0 = prov0 ? db.get('SELECT * FROM jobs WHERE (id = ? OR job_id = ?) AND provider_id = ?',
+        req.params.job_id, req.params.job_id, prov0.id) : null;
+      if (job0 && job0.job_type === 'interactive_pod') {
+        const jport = toFiniteInt(req.body.jupyter_host_port, { min: 1, max: 65535 });
+        const sport = toFiniteInt(req.body.ssh_host_port, { min: 1, max: 65535 });
+        const meshIp = String(req.body.wg_mesh_ip || '');
+        if (!jport || !sport) return res.status(400).json({ error: 'jupyter_host_port and ssh_host_port required' });
+        if (!/^10\.[89]\.\d+\.\d+$/.test(meshIp)) return res.status(400).json({ error: 'Invalid wg_mesh_ip (expected 10.8/10.9 mesh)' });
+        let jupyterToken = '';
+        try { jupyterToken = (JSON.parse(job0.task_spec) || {}).jupyter_token || ''; } catch {}
+        let relay;
+        try {
+          relay = invokePodRelay(['start', String(job0.job_id), meshIp, String(jport), String(sport)]);
+        } catch (e) {
+          console.error('[pod] relay start failed:', e.message);
+          return res.status(502).json({ error: 'Relay setup failed' });
+        }
+        const jpub = toFiniteInt(relay && relay.jpub, { min: 1, max: 65535 });
+        const spub = toFiniteInt(relay && relay.spub, { min: 1, max: 65535 });
+        if (!jpub || !spub) return res.status(502).json({ error: 'Relay returned invalid ports' });
+        const accessUrl = `http://api.dcp.sa:${jpub}/?token=${encodeURIComponent(jupyterToken)}`;
+        const sshCommand = `ssh -p ${spub} root@api.dcp.sa`;
+        const nowPod = new Date().toISOString();
+        runStatement(
+          `UPDATE jobs SET jupyter_host_port=?, ssh_host_port=?, pod_wg_mesh_ip=?, pod_jpub=?, pod_spub=?,
+            access_url=?, ssh_command=?, status='running', progress_phase='serving',
+            progress_updated_at=?, started_at=COALESCE(started_at, ?) WHERE id=?`,
+          jport, sport, meshIp, jpub, spub, accessUrl, sshCommand, nowPod, nowPod, job0.id
+        );
+        console.log(`[pod] Job ${job0.job_id}: live at ${accessUrl} | ssh -p ${spub}`);
+        return res.json({ success: true, access_url: accessUrl, ssh_command: sshCommand });
+      }
+    }
+
     const { api_key, port, provider_ip: reportedIp } = req.body;
     if (!api_key || !port) return res.status(400).json({ error: 'api_key and port required' });
 
