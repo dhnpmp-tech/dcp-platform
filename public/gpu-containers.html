@@ -168,6 +168,7 @@
         <span class="k"><b>any</b> Docker image</span>
         <span class="k">billed <b>per second</b></span>
         <span class="k"><b>sandboxed</b> per tenant</span>
+        <span class="k"><b>health-checked</b> GPUs</span>
       </div>
     </div>
   </section>
@@ -288,10 +289,24 @@ python train.py                <span class="c"># it's yours</span></pre>
     </div>
   </section>
 
-  <!-- 06 -->
+  <!-- 06 trust -->
   <section>
     <div class="wrap">
-      <span class="snum">06 — proof</span>
+      <span class="snum">06 — trust</span>
+      <h2>Built to be <em>trusted</em>.</h2>
+      <p class="sub">Reliable where it lands, fair on the meter, isolated from your neighbours.</p>
+      <div class="mesh">
+        <div class="m"><div class="mn">health-gated</div><h3>Lands on a live GPU</h3><p>Your pod only schedules onto a provider the platform has verified healthy — drivers are pinned and every node is health-checked each heartbeat, so you never boot onto a dead card.</p></div>
+        <div class="m"><div class="mn">fair meter</div><h3>Server-measured billing</h3><p>You pay for the GPU-seconds the platform measures server-side, capped to real wall-clock — never a number a node reports about itself.</p></div>
+        <div class="m"><div class="mn">isolated</div><h3>Your tenant only</h3><p>Each pod is sandboxed and resource-capped — memory, processes, and dropped capabilities — so one renter's workload can't reach into another's.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 -->
+  <section>
+    <div class="wrap">
+      <span class="snum">07 — proof</span>
       <h2>Proven, not <em>promised</em>.</h2>
       <div class="proof">
         <p class="eyebrow">Verified end-to-end on a live RTX 3090 — all three entry points</p>
