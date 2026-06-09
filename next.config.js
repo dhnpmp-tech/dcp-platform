@@ -115,6 +115,10 @@ const nextConfig = {
       ...v2CutoverRedirects,
       // GPU Pods page is canonical in the v2 console design.
       { source: '/renter/pods', destination: '/v2/renter/pods', permanent: false },
+      // GPU Pods product page lives in the app now; the static one-pager is retired.
+      { source: '/containers', destination: '/v2/containers', permanent: false },
+      { source: '/gpu-containers', destination: '/v2/containers', permanent: false },
+      { source: '/gpu-containers.html', destination: '/v2/containers', permanent: false },
       // Retired public brand-guideline artifact. Keep old links landing on
       // current docs without continuing to publish stale internal design HTML.
       { source: '/docs/DCP-BRAND-GUIDELINES-v3.html', destination: '/v2/docs', permanent: false },
