@@ -2882,6 +2882,16 @@ DRAINED_UNITS_STATE = CONFIG_DIR / "drained_inference.json"
 # GPU drained forever. A genuinely-running pod holds a container, so the reaper
 # safety-net never reaches this during normal operation.
 POD_DRAIN_BACKSTOP_S = int(os.environ.get("DCP_POD_DRAIN_BACKSTOP_S", "600"))
+
+# Hard cap on any interactive pod's lifetime regardless of the requested
+# duration. A pod can never live longer than this — it bounds the blast radius
+# of a stuck backend, a lost status flip, or a daemon restart that orphans the
+# container. Stamped into the container's dcp.deadline label and enforced by
+# both the in-process hold loop and reap_expired_pod_containers().
+HARD_POD_LIFETIME_CAP_S = int(os.environ.get("DCP_HARD_POD_LIFETIME_CAP_S", str(24 * 3600)))
+# Fallback pod duration when neither max_duration_seconds nor duration_minutes
+# is supplied in the task_spec.
+DEFAULT_POD_DURATION_S = int(os.environ.get("DCP_DEFAULT_POD_DURATION_S", str(60 * 60)))
 OLLAMA_REPULL_THROTTLE_SEC = int(os.environ.get("DCP_OLLAMA_REPULL_THROTTLE_SEC", "3600"))
 # Audit M3 — retry + post-pull checksum. On a non-zero `ollama pull` exit
 # (network blip, registry 5xx, partial blob) we retry up to MAX_ATTEMPTS with
@@ -7682,6 +7692,27 @@ def run_interactive_pod(task_spec, job_id=None):
     container_name = f"dcp-pod-{job_id or int(time.time())}"
     volume_name = f"dcp-pod-{job_id or int(time.time())}-vol"
 
+    # Self-enforced lifetime. The backend may never flip job status (the proven
+    # 29h-stuck-pod bug), so the duration is bounded here regardless: prefer an
+    # explicit max_duration_seconds, else duration_minutes*60, else a 60-min
+    # fallback — then hard-cap at HARD_POD_LIFETIME_CAP_S. effective_duration is
+    # used both for the dcp.deadline label and the hold-loop deadline below.
+    try:
+        _req_max = task_spec.get("max_duration_seconds")
+        if _req_max is not None:
+            effective_duration = int(_req_max)
+        elif task_spec.get("duration_minutes") is not None:
+            effective_duration = int(task_spec.get("duration_minutes")) * 60
+        else:
+            effective_duration = DEFAULT_POD_DURATION_S
+    except (TypeError, ValueError):
+        effective_duration = DEFAULT_POD_DURATION_S
+    if effective_duration <= 0:
+        effective_duration = DEFAULT_POD_DURATION_S
+    effective_duration = min(effective_duration, HARD_POD_LIFETIME_CAP_S)
+    pod_start_epoch = time.time()
+    pod_deadline_epoch = int(pod_start_epoch + effective_duration)
+
     # Allocate free host ports: Jupyter 8100-8149, SSH 8150-8199
     jport = _find_free_port(8100, 8149)
     sport = _find_free_port(8150, 8199)
@@ -7730,6 +7761,11 @@ def run_interactive_pod(task_spec, job_id=None):
         "-e", f"ROOT_PASSWORD={root_password}",
         "-v", f"{volume_name}:/workspace",
         "--pids-limit", "4096",
+        # Deadline labels — persisted on the container so the reaper can enforce
+        # lifetime even after a daemon restart kills this in-process hold loop.
+        "--label", "dcp.pod=1",
+        "--label", f"dcp.job_id={job_id or ''}",
+        "--label", f"dcp.deadline={pod_deadline_epoch}",
     ]
     if bootstrap_ssh:
         bootstrap_path = _write_pod_bootstrap()
@@ -7778,8 +7814,16 @@ def run_interactive_pod(task_spec, job_id=None):
 
     # Hold loop — monitor container until backend says job is done or duration expires.
     poll_interval = 30  # seconds between container health checks
+    # Self-enforced deadline: enforce the requested/ capped duration even if the
+    # backend never flips job status. Computed from the same start epoch the
+    # dcp.deadline label was stamped from, so in-process and reaper agree.
+    hold_deadline = pod_start_epoch + effective_duration
     while True:
         time.sleep(poll_interval)
+        # Self-enforced deadline reached — stop regardless of backend/container state.
+        if time.time() >= hold_deadline:
+            log.info(f"Pod container {container_name} reached self-enforced deadline ({int(effective_duration)}s) — stopping")
+            break
         # Check if container is still running
         check = subprocess.run(
             ["docker", "inspect", "--format", "{{.State.Running}}", container_name],
@@ -8502,6 +8546,168 @@ def reap_orphan_pods():
                 log.warning(f"reap_orphan_pods: docker rm -f {name} failed ({e})")
 
 
+
+def reap_expired_pod_containers():
+    """Restart-proof pod reaper: tear down interactive pod containers that have
+    outlived their deadline OR whose backend job is no longer live.
+
+    Unlike reap_orphan_pods (which keys off in-process expectations and only
+    restores inference), this scans the REAL docker state — so a container that
+    was orphaned by a daemon restart, a lost status flip, or a stuck backend is
+    still reaped. Three independent kill conditions, in priority order:
+
+      1. now >= dcp.deadline label (self-stamped at launch)
+      2. backend job is 404 (deleted) or non-live (stopped/failed/cancelled)
+      3. legacy container with NO dcp.deadline label:
+         .State.StartedAt + HARD_POD_LIFETIME_CAP_S has passed
+
+    Fully best-effort and try/except-wrapped: a docker/network hiccup must never
+    crash the daemon. Reaping mirrors stop_pod()'s teardown and restores the
+    inference engines we preempted.
+    """
+    LIVE_STATUSES = ("running", "pulling", "assigned", "pending", "queued")
+    now = time.time()
+    try:
+        # Discover candidate containers two ways and union them: by our label
+        # (new pods) and by the dcp-pod-* name prefix (legacy / label-less pods).
+        names = set()
+        for filt in ("label=dcp.pod=1", "name=dcp-pod-"):
+            try:
+                ps = subprocess.run(
+                    ["docker", "ps", "--filter", filt, "--format", "{{.Names}}"],
+                    capture_output=True, text=True, timeout=10,
+                )
+            except Exception as e:
+                log.debug(f"reap_expired_pod_containers: docker ps ({filt}) failed ({e})")
+                continue
+            if ps.returncode != 0:
+                continue
+            for n in ps.stdout.splitlines():
+                n = n.strip()
+                if n:
+                    names.add(n)
+        if not names:
+            return
+
+        for name in names:
+            try:
+                # Pull the labels + StartedAt in one inspect call.
+                insp = subprocess.run(
+                    ["docker", "inspect", "--format",
+                     "{{index .Config.Labels \"dcp.deadline\"}}|{{index .Config.Labels \"dcp.job_id\"}}|{{.State.StartedAt}}",
+                     name],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if insp.returncode != 0:
+                    continue  # container vanished between ps and inspect — fine
+                raw = (insp.stdout or "").strip()
+                parts = raw.split("|", 2)
+                deadline_label = parts[0].strip() if len(parts) > 0 else ""
+                job_id = parts[1].strip() if len(parts) > 1 else ""
+                started_at = parts[2].strip() if len(parts) > 2 else ""
+                # docker prints "<no value>" for a missing label.
+                if deadline_label == "<no value>":
+                    deadline_label = ""
+                if job_id == "<no value>":
+                    job_id = ""
+                # Fall back to the name-derived job_id for legacy pods.
+                if not job_id and name.startswith("dcp-pod-"):
+                    job_id = name[len("dcp-pod-"):]
+
+                reason = None
+
+                # Condition 1: explicit deadline label has passed.
+                if deadline_label:
+                    try:
+                        if now >= int(float(deadline_label)):
+                            reason = f"deadline {deadline_label} reached"
+                    except (TypeError, ValueError):
+                        deadline_label = ""  # malformed — treat as legacy below
+
+                # Condition 3 (legacy): no usable deadline label — derive one from
+                # StartedAt + the hard cap so a label-less pod can never run forever.
+                if reason is None and not deadline_label:
+                    parsed_start = _parse_docker_started_at(started_at)
+                    if parsed_start is not None and now >= (parsed_start + HARD_POD_LIFETIME_CAP_S):
+                        reason = f"legacy pod exceeded hard cap (started {started_at})"
+
+                # Condition 2: backend job is gone / no longer live. Only kill on a
+                # definite 404 or a non-live 200; ambiguous 5xx/403/network leaves it.
+                if reason is None and job_id:
+                    try:
+                        code, resp = http_get(f"{API_URL}/api/jobs/{job_id}", headers=_auth_headers())
+                        if code == 404:
+                            reason = f"job {job_id} 404 (deleted)"
+                        elif code == 200:
+                            status = (resp.get("job") or {}).get("status")
+                            if status not in LIVE_STATUSES:
+                                reason = f"job {job_id} status={status}"
+                    except Exception as e:
+                        log.debug(f"reap_expired_pod_containers: status check for {job_id} failed ({e}); leaving {name}")
+
+                if reason is None:
+                    continue
+
+                log.info(f"reap_expired_pod_containers: reaping {name} — {reason}")
+                try:
+                    subprocess.run(["docker", "stop", "--time", "10", name], capture_output=True, timeout=20)
+                    subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=15)
+                    report_event(
+                        "container_complete",
+                        f"Expired interactive pod {name} reaped — {reason}",
+                        job_id=job_id or None,
+                    )
+                    log.info(f"reap_expired_pod_containers: removed {name}")
+                except Exception as e:
+                    log.warning(f"reap_expired_pod_containers: teardown of {name} failed ({e})")
+                # Restore the inference engines we preempted for the pod (idempotent).
+                try:
+                    restore_inference_after_pod()
+                except Exception as e:
+                    log.debug(f"reap_expired_pod_containers: restore_inference_after_pod failed ({e})")
+            except Exception as e:
+                log.debug(f"reap_expired_pod_containers: error handling {name} ({e})")
+    except Exception as e:
+        # Absolute backstop — this reaper must never crash the daemon.
+        log.debug(f"reap_expired_pod_containers: unexpected error ({e})")
+
+
+def _parse_docker_started_at(started_at):
+    """Parse docker inspect .State.StartedAt (RFC3339, e.g.
+    '2026-06-09T12:34:56.789012345Z') into an epoch float, or None on failure.
+
+    Python's datetime can't handle 9-digit fractional seconds, so the fraction
+    is truncated to microseconds before parsing.
+    """
+    if not started_at or started_at.startswith("0001-01-01"):
+        return None  # docker's zero-value timestamp = never started
+    try:
+        from datetime import datetime, timezone
+        s = started_at.strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        # Truncate over-long fractional seconds to 6 digits (microseconds).
+        if "." in s:
+            head, _, tail = s.partition(".")
+            # tail looks like "789012345+00:00" or "789012345"
+            frac = ""
+            tz = ""
+            for i, ch in enumerate(tail):
+                if ch.isdigit():
+                    frac += ch
+                else:
+                    tz = tail[i:]
+                    break
+            frac = frac[:6]
+            s = f"{head}.{frac}{tz}" if frac else f"{head}{tz}"
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except Exception:
+        return None
+
+
 def job_poll_loop():
     """Background thread: poll for jobs every JOB_POLL_INTERVAL seconds.
 
@@ -8526,6 +8732,9 @@ def job_poll_loop():
         check_pending_verification()
         # Reap dcp-pod-* containers whose backend job is no longer live (cheap no-op when none).
         reap_orphan_pods()
+        # Restart-proof reaper: tear down pods past their deadline or with a dead
+        # backend job, scanning real docker state (survives daemon restarts).
+        reap_expired_pod_containers()
         _sleep()
 
 # ─── AUTO VERIFICATION ON STARTUP ───────────────────────────────────────────
@@ -9511,6 +9720,15 @@ def main():
     # Step 5: Send initial heartbeat
     log.info("Sending initial heartbeat...")
     send_heartbeat()
+
+    # Restart-proof pod sweep on startup: a daemon restart kills every in-process
+    # hold loop, orphaning their containers with nothing to stop them. Reap any
+    # that are already past deadline / whose backend job is dead before we even
+    # start the background threads.
+    try:
+        reap_expired_pod_containers()
+    except Exception as _reap_err:
+        log.debug(f"startup reap_expired_pod_containers failed: {_reap_err}")
 
     # Step 6: Auto-verify GPU on first run
     log.info("Checking verification status...")

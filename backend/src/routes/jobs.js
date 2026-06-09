@@ -3350,7 +3350,7 @@ router.post('/:job_id/endpoint-ready', (req, res) => {
         const jpub = toFiniteInt(relay && relay.jpub, { min: 1, max: 65535 });
         const spub = toFiniteInt(relay && relay.spub, { min: 1, max: 65535 });
         if (!jpub || !spub) return res.status(502).json({ error: 'Relay returned invalid ports' });
-        const accessUrl = `http://api.dcp.sa:${jpub}/?token=${encodeURIComponent(jupyterToken)}`;
+        const accessUrl = `https://api.dcp.sa:${jpub}/?token=${encodeURIComponent(jupyterToken)}`;
         const sshCommand = `ssh -p ${spub} root@api.dcp.sa`;
         const nowPod = new Date().toISOString();
         runStatement(
