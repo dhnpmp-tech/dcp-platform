@@ -5,7 +5,7 @@
 #   needs: bash, curl, python3, sshpass   (apt-get install -y sshpass)
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
-KEY="dc1-renter-7007e3da33dfcdbf8afa39af4613f242"   # funded renter key
+KEY="${DCP_RENTER_KEY:?set DCP_RENTER_KEY to a funded renter API key (never commit one)}"
 API="https://api.dcp.sa/api"
 SSHO="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=20"
 jget(){ python3 -c "import sys,json;print(json.load(sys.stdin).get('$1') or '')"; }

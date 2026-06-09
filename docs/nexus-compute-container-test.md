@@ -10,8 +10,8 @@ stop. Test it via **CLI**, **raw API**, and the **web UI** — all three should 
 > - **CLI**: `dcp pod create --image pytorch` → running → SSH root → RTX 3090 → 62.2 TFLOPS → `dcp pod stop` (list/get also work).
 
 ## Prereqs
-- Funded renter key: `dc1-renter-7007e3da33dfcdbf8afa39af4613f242`
-- `export DCP_API_KEY=dc1-renter-7007e3da33dfcdbf8afa39af4613f242`
+- Funded renter key: `dc1-renter-<REDACTED-ROTATED>`
+- `export DCP_API_KEY=dc1-renter-<REDACTED-ROTATED>`
 - `sshpass` for the SSH step (`apt-get install -y sshpass`)
 
 ## A) CLI (the SDK)
