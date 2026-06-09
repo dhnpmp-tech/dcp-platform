@@ -85,7 +85,7 @@ describe('model-aliases: deduplicateModelAliases', () => {
     const out = deduplicateModelAliases(input);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('qwen3:30b-a3b');
-    expect(out[0].provider_count).toBe(5);
+    expect(out[0].provider_count).toBe(3);
     expect(out[0].name).toBe('Qwen3 30B');
   });
 
@@ -110,7 +110,7 @@ describe('model-aliases: deduplicateModelAliases', () => {
     expect(out[1]).toEqual(input[1]);
   });
 
-  test('sums across multiple aliases of the same canonical', () => {
+  test('takes the max across multiple aliases of the same canonical (same provider counted once)', () => {
     const input = [
       { id: 'qwen3:30b-a3b', provider_count: 1 },
       { id: 'qwen3-30b-a3b', provider_count: 2 },
@@ -119,7 +119,7 @@ describe('model-aliases: deduplicateModelAliases', () => {
     const out = deduplicateModelAliases(input);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('qwen3:30b-a3b');
-    expect(out[0].provider_count).toBe(6);
+    expect(out[0].provider_count).toBe(3);
   });
 
   test('collapses Qwen2.5-VL aliases into the catalog canonical', () => {
@@ -131,7 +131,7 @@ describe('model-aliases: deduplicateModelAliases', () => {
     const out = deduplicateModelAliases(input);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('qwen2.5vl:3b');
-    expect(out[0].provider_count).toBe(4);
+    expect(out[0].provider_count).toBe(2);
   });
 
   test('collapses BGE HF ID into bge-m3 when both are present', () => {
@@ -142,7 +142,7 @@ describe('model-aliases: deduplicateModelAliases', () => {
     const out = deduplicateModelAliases(input);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe('bge-m3');
-    expect(out[0].provider_count).toBe(3);
+    expect(out[0].provider_count).toBe(2);
   });
 
   test('treats non-numeric provider_count as zero', () => {

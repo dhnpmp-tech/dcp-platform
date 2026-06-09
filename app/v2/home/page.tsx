@@ -22,6 +22,7 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
 const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }> = [
   { href: '/v2/home', en: 'Overview', ar: 'نظرة عامة', on: true },
   { href: '#marketplace', en: 'Marketplace', ar: 'السوق' },
+  { href: '#compute', en: 'GPU Pods', ar: 'حاويات GPU' },
   { href: '#agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/v2/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '#pricing', en: 'Pricing', ar: 'الأسعار' },
@@ -280,8 +281,21 @@ export default function V2HomePage() {
             </span>
             <span className="arrow">→</span>
           </a>
-          <a className="mm-link" href="#agents">
+          <a className="mm-link" href="#compute">
             <span className="n">05</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="GPU Pods" ar="حاويات GPU" />
+              </span>
+              <span className="ar">حاويات GPU</span>
+              <span className="s">
+                <Bi en="Whole-GPU compute rental" ar="إيجار معالجات كاملة" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+          <a className="mm-link" href="#agents">
+            <span className="n">06</span>
             <span className="body">
               <span className="t">
                 <Bi en="Agents" ar="الوكلاء" />
@@ -294,7 +308,7 @@ export default function V2HomePage() {
             <span className="arrow">→</span>
           </a>
           <Link className="mm-link" href="/v2/docs">
-            <span className="n">06</span>
+            <span className="n">07</span>
             <span className="body">
               <span className="t">
                 <Bi en="Docs" ar="التوثيق" />
@@ -311,7 +325,7 @@ export default function V2HomePage() {
             <Bi en="Trust" ar="الثقة" />
           </div>
           <a className="mm-link" href="#residency">
-            <span className="n">07</span>
+            <span className="n">08</span>
             <span className="body">
               <span className="t">
                 <Bi en="Sovereignty" ar="السيادة" />
@@ -687,11 +701,11 @@ export default function V2HomePage() {
           <div className="callout" style={{ marginTop: 32 }}>
             {lang === 'ar' ? (
               <>
-                <b>أنت تشتري الرموز، لا المعالجات.</b> بوابات السعة أعلاه توضّح متى يسمح الكتالوج بالاستدلال الحقيقي. إن أردت تحديداً تشغيل جهاز كمزوّد، فابدأ من مسار المزوّد.
+                <b>رموز للإجابات — أو المعالج كاملاً للتحكم.</b> بوابات السعة أعلاه تحكم الاستدلال الحقيقي. إن أردت حوسبة خام، فحاويات GPU في القسم التالي. وإن أردت تشغيل جهازك كمزوّد، فابدأ من مسار المزوّد.
               </>
             ) : (
               <>
-                <b>You buy tokens, not GPUs.</b> The capacity gates above explain when the catalog can safely enable real inference. If you want to bring hardware as a provider, start with the provider path.
+                <b>Tokens for answers — or the whole GPU for control.</b> The capacity gates above govern real inference. If you want raw compute instead, GPU pods are one section down. And if you want to bring hardware as a provider, start with the provider path.
               </>
             )}
           </div>
@@ -699,11 +713,87 @@ export default function V2HomePage() {
       </section>
 
       {/* ═══════════════ THREE LAYERS ═══════════════ */}
+      {/* ═══════════════ COMPUTE PODS ═══════════════ */}
+      <section id="compute">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 02 · Raw compute · GPU pods" ar="§ ٠٢ · حوسبة خام · حاويات GPU" />
+            </span>
+            <span>
+              <Bi en="The second product · whole GPUs, not slices" ar="المنتج الثاني · معالجات كاملة، لا شرائح" />
+            </span>
+          </div>
+
+          <div className="capacity-truth" style={{ marginBottom: 24 }}>
+            <div className="capacity-copy">
+              <span className="truth-label">
+                <Bi en="Inference and raw compute" ar="الاستدلال والحوسبة الخام" />
+              </span>
+              <h3>
+                <Bi
+                  en="Buy tokens when you want answers. Rent the whole GPU when you want control."
+                  ar="اشترِ الرموز عندما تريد إجابات. استأجر المعالج كاملاً عندما تريد التحكم."
+                />
+              </h3>
+              <p>
+                <Bi
+                  en="A DCP pod is a dedicated GPU container on the same verified mesh: pick an image, get Jupyter over TLS and root SSH in about a minute, train or fine-tune, tear it down. The same health gates that protect inference decide which machines may host your pod."
+                  ar="حاوية DCP هي حاوية GPU مخصصة على الشبكة المتحققة نفسها: اختر صورة، واحصل على Jupyter عبر TLS و SSH جذري خلال دقيقة تقريباً، درّب أو خصّص نموذجك، ثم أوقفها. نفس بوابات الصحة التي تحمي الاستدلال تقرر أي الأجهزة يمكنها استضافة حاويتك."
+                />
+              </p>
+              <div style={{ marginTop: 22, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <Link className="btn" href="/v2/renter/pods">
+                  <Bi en="Launch a pod →" ar="شغّل حاوية ←" />
+                </Link>
+                <a className="btn ghost" href="/gpu-containers.html">
+                  <Bi en="Read the containers brief" ar="اقرأ موجز الحاويات" />
+                </a>
+              </div>
+            </div>
+            <div className="capacity-gates" aria-label="GPU pod properties">
+              <div className="capacity-gate">
+                <span className="gate-n">01</span>
+                <span className="gate-k">whole_gpu</span>
+                <p><Bi en="Full GPU passthrough — the card is yours for the rental, not a time-slice." ar="تمرير كامل للمعالج — البطاقة لك طوال مدة الإيجار، وليست شريحة وقت." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">02</span>
+                <span className="gate-k">jupyter_tls_ssh</span>
+                <p><Bi en="Jupyter served over TLS plus direct root SSH, live in about 60 seconds." ar="Jupyter عبر TLS مع SSH جذري مباشر، جاهز خلال نحو ٦٠ ثانية." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">03</span>
+                <span className="gate-k">any_image</span>
+                <p><Bi en="PyTorch, vLLM, CUDA, Ubuntu — or any public Docker image you bring." ar="PyTorch أو vLLM أو CUDA أو Ubuntu — أو أي صورة Docker عامة تجلبها." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">04</span>
+                <span className="gate-k">deadline_enforced</span>
+                <p><Bi en="Rentals end at their deadline — the host enforces it even across restarts. No zombie pods." ar="ينتهي الإيجار عند موعده — يفرض المضيف ذلك حتى عبر إعادة التشغيل. لا حاويات شبح." /></p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mp-foot">
+            <span>
+              <Bi
+                en="Same mesh, same verification, same KSA residency — applied to raw compute. Pods launch only on providers that pass live Docker + CUDA + GPU-health probes."
+                ar="نفس الشبكة، نفس التحقق، نفس الإقامة داخل المملكة — مطبقة على الحوسبة الخام. تنطلق الحاويات فقط على مزوّدين اجتازوا فحوصات حية لـ Docker و CUDA وصحة المعالج."
+              />
+            </span>
+            <Link href="/v2/renter/pods">
+              <Bi en="dcp pod create →" ar="dcp pod create ←" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <section id="residency">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 02 · Three layers, one runtime" ar="§ ٠٢ · ثلاث طبقات، بيئة تشغيل واحدة" />
+              <Bi en="§ 03 · Three layers, one runtime" ar="§ ٠٣ · ثلاث طبقات، بيئة تشغيل واحدة" />
             </span>
             <span>
               <Bi en="Inference · Agents · Sovereignty" ar="استدلال · وكلاء · سيادة" />
@@ -810,7 +900,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 03 · Quick start" ar="§ ٠٣ · البدء السريع" />
+              <Bi en="§ 04 · Quick start" ar="§ ٠٤ · البدء السريع" />
             </span>
             <span>
               <Bi en="cURL · CLI · Python SDK" ar="cURL · CLI · Python SDK" />
@@ -1008,7 +1098,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 04 · Models we serve" ar="§ ٠٤ · النماذج التي نُقدّمها" />
+              <Bi en="§ 05 · Models we serve" ar="§ ٠٥ · النماذج التي نُقدّمها" />
             </span>
             <span>
               <Bi en="Sovereign by default · Frontier opt-in" ar="سيادي افتراضياً · متقدم بإذن" />
@@ -1125,7 +1215,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 05 · DCP-Agent" ar="§ ٠٥ · DCP-Agent" />
+              <Bi en="§ 06 · DCP-Agent" ar="§ ٠٦ · DCP-Agent" />
             </span>
             <span>
               <Bi en="Live for SMB · agents.dcp.sa" ar="جاهز للمنشآت · agents.dcp.sa" />
@@ -1253,7 +1343,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 06 · Arabic is the wedge" ar="§ ٠٦ · العربية هي الميزة" />
+              <Bi en="§ 07 · Arabic is the wedge" ar="§ ٠٧ · العربية هي الميزة" />
             </span>
             <span>
               <Bi en="Try it live →" ar="جرّبه مباشرة ←" />
@@ -1313,7 +1403,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 07 · Two paths in" ar="§ ٠٧ · مساران للدخول" />
+              <Bi en="§ 08 · Two paths in" ar="§ ٠٨ · مساران للدخول" />
             </span>
             <span>
               <Bi en="Renter · or · Provider" ar="مستخدم · أو · مزوّد" />
@@ -1521,7 +1611,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 08 · Pricing at a glance" ar="§ ٠٨ · نظرة سريعة على الأسعار" />
+              <Bi en="§ 09 · Pricing at a glance" ar="§ ٠٩ · نظرة سريعة على الأسعار" />
             </span>
             <span>
               <Bi en="Full table + calculator on Pricing →" ar="الجدول الكامل + الحاسبة في الأسعار ←" />
@@ -1574,7 +1664,7 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 09 · Proof, not promises" ar="§ ٠٩ · دليل، لا وعود" />
+              <Bi en="§ 10 · Proof, not promises" ar="§ ١٠ · دليل، لا وعود" />
             </span>
             <span>
               <Bi en="Updated 2026-05-25" ar="آخر تحديث ٢٠٢٦-٠٥-٢٥" />
@@ -1719,6 +1809,7 @@ export default function V2HomePage() {
             <ul>
               <li><Link href="/v2/home"><Bi en="Overview" ar="نظرة عامة" /></Link></li>
               <li><a href="#marketplace"><Bi en="Marketplace" ar="السوق" /></a></li>
+              <li><a href="#compute"><Bi en="GPU Pods" ar="حاويات GPU" /></a></li>
               <li><a href="#agents"><Bi en="Agents" ar="الوكلاء" /></a></li>
               <li><a href="#models"><Bi en="Models" ar="النماذج" /></a></li>
               <li><a href="#pricing"><Bi en="Pricing" ar="الأسعار" /></a></li>
