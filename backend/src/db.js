@@ -105,6 +105,12 @@ try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_reachable INTEGER DE
 try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probed_at TEXT').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probe_error TEXT').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE providers ADD COLUMN endpoint_probe_failures INTEGER DEFAULT 0').run(); } catch (_) {}
+// Daemon Health Contract: accepting_jobs = the daemon's own 'an engine answers
+// its health endpoint right now' signal (top-level heartbeat field, dcp_daemon.py
+// ~6456). DEFAULT 1 = back-compat (a provider that never reports it stays
+// candidate). Gating status/availability on this is what makes 'online' mean
+// 'can actually serve' — closing the heartbeat-alive-but-engine-dead zombie class.
+try { db.prepare('ALTER TABLE providers ADD COLUMN accepting_jobs INTEGER DEFAULT 1').run(); } catch (_) {}
 
 // ─── Audit C2 — financial idempotency table ─────────────────────────────────
 // DB-backed (not in-memory like H6's inference cache) so a server restart
