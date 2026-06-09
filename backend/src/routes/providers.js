@@ -1051,6 +1051,7 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             wg_health,           // Tier-1 WG telemetry (handshake age, rx/tx, ping)
             task_updates,        // Migration 008: agent reports back on pull_model tasks
             engines,             // Migration 015: per-engine endpoints (Ollama + llamacpp + vLLM)
+            accepting_jobs,      // Daemon Health Contract: true only if an engine answers health NOW
         } = req.body;
         const cleanApiKey = normalizeString(api_key, { maxLen: 128, trim: false });
         if (!cleanApiKey) return res.status(400).json({ error: 'api_key required' });
@@ -1196,6 +1197,21 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
 
         const providerRuntimeStatus = reportedContainerRestarts > 10 ? 'degraded' : 'online';
 
+        // Daemon Health Contract — accepting_jobs gate (SHADOW MODE).
+        // accepting_jobs is the daemon's real "an engine answers health right now"
+        // signal. We persist it now and LOG where it WOULD flip status, but do NOT
+        // yet enforce — so a transient false can't knock the live fleet offline mid
+        // rollout. Once the shadow logs confirm it tracks reality (Node 2 stays
+        // true; a dead-engine box reads false), a follow-up derives status from it
+        // and adds AND accepting_jobs=1 to the availability/routing queries.
+        const reportedAcceptingJobs =
+            (accepting_jobs === true || accepting_jobs === 1) ? 1
+            : (accepting_jobs === false || accepting_jobs === 0) ? 0
+            : null; // null = not reported → COALESCE preserves the prior value
+        if (reportedAcceptingJobs === 0 && providerRuntimeStatus === 'online') {
+            console.warn(`[heartbeat] SHADOW accepting_jobs: provider #${p.id} reports accepting_jobs=false but is marked status=online — under enforcement this would be NON-ROUTABLE (engine not answering health).`);
+        }
+
         runStatement(`UPDATE providers SET
           gpu_status = ?, provider_ip = ?, provider_hostname = ?, last_heartbeat = ?, status = ?,
           p2p_peer_id = COALESCE(?, p2p_peer_id),
@@ -1219,7 +1235,8 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           -- vllm_endpoint_url is owned by provider_engines (engines-sync).
           wg_mesh_ip = COALESCE(?, wg_mesh_ip),
           wg_tunnel_healthy = COALESCE(?, wg_tunnel_healthy),
-          wg_handshake_age_s = COALESCE(?, wg_handshake_age_s)
+          wg_handshake_age_s = COALESCE(?, wg_handshake_age_s),
+          accepting_jobs = COALESCE(?, accepting_jobs)
           WHERE id = ?`,
           JSON.stringify(normalizedGpuStatus || {}), providerIp || null, providerHostname || null, now, providerRuntimeStatus,
           peerId || p.p2p_peer_id,
@@ -1237,6 +1254,7 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
           cleanWgMeshIp,
           wgTunnelHealthy == null ? null : (wgTunnelHealthy ? 1 : 0),
           wgHandshakeAgeS == null ? null : Math.round(wgHandshakeAgeS),
+          reportedAcceptingJobs,
           p.id
         );
 
