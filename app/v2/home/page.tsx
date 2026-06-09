@@ -746,9 +746,9 @@ export default function V2HomePage() {
                 <Link className="btn" href="/v2/renter/pods">
                   <Bi en="Launch a pod →" ar="شغّل حاوية ←" />
                 </Link>
-                <a className="btn ghost" href="/gpu-containers.html">
+                <Link className="btn ghost" href="/v2/containers">
                   <Bi en="Technical brief — send it to your CTO" ar="الموجز التقني — أرسله لمديرك التقني" />
-                </a>
+                </Link>
               </div>
             </div>
             <div className="capacity-gates" aria-label="Why rent a DCP pod">
