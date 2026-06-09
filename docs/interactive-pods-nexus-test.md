@@ -8,7 +8,7 @@ All steps are the **renter's-eye view** — no provider/SSH access needed. Run f
 anywhere that can reach `api.dcp.sa` (the VPS works).
 
 ## Prereqs
-- Funded test renter key: `dc1-renter-7007e3da33dfcdbf8afa39af4613f242`
+- Funded test renter key: `dc1-renter-<REDACTED-ROTATED>`
 - `sshpass` for the SSH step: `apt-get install -y sshpass` (optional; Jupyter step needs nothing extra)
 
 ## One-shot test script
@@ -18,7 +18,7 @@ cat > /tmp/nexus_pod_test.sh <<'SCRIPT'
 #!/usr/bin/env bash
 set -uo pipefail
 API="https://api.dcp.sa/api"
-RKEY="dc1-renter-7007e3da33dfcdbf8afa39af4613f242"
+RKEY="dc1-renter-<REDACTED-ROTATED>"
 
 echo "== 1. CREATE pod =="
 # image is optional — omitted here defaults to the pre-baked "pytorch" image.
