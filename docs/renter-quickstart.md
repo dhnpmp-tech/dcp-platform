@@ -38,8 +38,9 @@ one.
 ## (a) CLI — `dcp pod`
 
 ```bash
-# Install the SDK (ships the `dcp` CLI)
-pip install dc1
+# Install the SDK (ships the `dcp` CLI) — stdlib-only, served as a tarball
+curl -sL https://api.dcp.sa/installers/dc1-sdk.tar.gz | tar xz
+dcp() { python3 -m dc1.cli "$@"; }   # or add the extracted dir to PATH
 
 # Auth: pass --api-key, or export one of these
 export DCP_API_KEY="dc1-renter-…"      # (DC1_RENTER_KEY also works)
