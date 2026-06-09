@@ -55,7 +55,7 @@ interface ProviderMe {
   approval_status?: string | null
   approved_at?: string | null
   rejected_reason?: string | null
-  region?: string | null
+  location?: string | null
   gpu_model?: string | null
   gpu_vram_mib?: number | null
   gpu_count_reported?: number | null
@@ -444,7 +444,7 @@ export default function ProviderProfilePage() {
                 <span>
                   <Bi en="Region" ar="المنطقة" />
                 </span>
-                <b>{valueText(provider?.region)}</b>
+                <b>{valueText(provider?.location)}</b>
               </div>
               <div className="kv">
                 <span>

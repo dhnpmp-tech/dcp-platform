@@ -48,6 +48,29 @@ const TOKEN_RATE_BILLING_UNIT_TOKENS = 1_000_000;
 const DEFAULT_TOKEN_RATE_HALALA = 19;
 const PROVIDER_HEARTBEAT_STALE_MS = 10 * 60 * 1000;
 
+// SITE-15: thinking models (qwen3:4b, qwen2.5vl:3b, etc.) can burn the entire
+// max_tokens budget on internal reasoning and return ZERO visible content with
+// finish_reason === 'length'. That is a non-answer, not a billable completion.
+// A completion is only an unbillable non-answer when BOTH hold:
+//   1. the renter-visible answer text is empty / whitespace, AND
+//   2. the model stopped because it ran out of budget (finish_reason 'length').
+// We deliberately do NOT no-bill on finish_reason 'stop'/'content_filter'/etc.
+// with empty content — an intentional empty answer (e.g. a tool-only turn) is a
+// real completion. Reasoning text the renter never sees does NOT count as an
+// answer here; callers pass the post-merge visible content.
+const isUnbillableNonAnswer = ({ content = '', finishReason = null } = {}) => {
+  const visible = typeof content === 'string' ? content.trim() : '';
+  return visible.length === 0 && finishReason === 'length';
+};
+
+// SITE-15 (rate audit): surface — once per model — when a model is billed via
+// the cost_rates '__default__' fallback rather than its own explicit active
+// rate. Silent default-rate billing is how a model like qwen2.5vl:3b can end up
+// charged at the wrong number (or, if '__default__' were ever 0, a real answer
+// billed 0.00). One WARN per model keeps the log readable; reconciliation can
+// then add the missing cost_rates row.
+const defaultRateBilledModels = new Set();
+
 // ── Idempotency cache for /v1/chat/completions (H6) ─────────────────────────
 // Tunnel timeouts cause renter SDKs to retry, which without dedup would create
 // two upstream inferences and bill twice. We cache `Idempotency-Key` results
@@ -1251,13 +1274,24 @@ function resolveModelRequirements(model) {
 
 function resolveTokenRateHalala(modelId) {
   try {
-    const row = db.get(
+    const explicitRow = db.get(
       'SELECT token_rate_halala FROM cost_rates WHERE model = ? AND is_active = 1',
       modelId
-    ) || db.get(
+    );
+    const row = explicitRow || db.get(
       'SELECT token_rate_halala FROM cost_rates WHERE model = ? AND is_active = 1',
       '__default__'
     );
+    // SITE-15 rate audit: no explicit active row for this model means it is
+    // being priced off '__default__'. Warn once so a missing/deactivated rate
+    // (e.g. qwen2.5vl:3b not seeded) does not silently bill at the wrong number.
+    if (!explicitRow && modelId && modelId !== '__default__' && !defaultRateBilledModels.has(modelId)) {
+      defaultRateBilledModels.add(modelId);
+      console.warn('[v1.billing] no explicit cost_rates row — billing via __default__ fallback', {
+        model: modelId,
+        fallback_token_rate_halala: toFiniteInt(row?.token_rate_halala, { min: 0, max: 100_000_000 }) ?? DEFAULT_TOKEN_RATE_HALALA,
+      });
+    }
     return toFiniteInt(row?.token_rate_halala, { min: 0, max: 100_000_000 }) ?? DEFAULT_TOKEN_RATE_HALALA;
   } catch (error) {
     if (!isMissingCostRatesSchemaError(error)) throw error;
@@ -2602,7 +2636,44 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     };
 
-    const debitAndPersistUsage = ({ providerForUsage, providerResponseId = null, usage, completionText = '', jobMeta = null }) => {
+    const debitAndPersistUsage = ({ providerForUsage, providerResponseId = null, usage, completionText = '', responseContent = null, finishReason = null, jobMeta = null }) => {
+      // SITE-15: a genuinely empty answer that stopped on 'length' (the model
+      // over-reasoned and never produced visible content) is a non-answer. Do
+      // NOT debit the renter for it. We still persist a durable, idempotent
+      // 'failed' receipt (delivered-not-billed) + a billing_attempts audit row
+      // so on-call/reconciliation can see it — exactly the unbilled treatment
+      // used when balance is short, minus the gate. Falls back to completionText
+      // when the caller has no separate visible-content handle (stream path).
+      const visibleAnswer = responseContent != null ? responseContent : completionText;
+      if (isUnbillableNonAnswer({ content: visibleAnswer, finishReason })) {
+        console.warn('[v1.billing] no-bill: empty completion with finish_reason=length (over-reasoned non-answer)', {
+          request_id: meteringRequestId,
+          renter_id: req.renter.id,
+          model: modelReq.model_id,
+          finish_reason: finishReason,
+        });
+        runUsageTransaction(() => {
+          try {
+            db.prepare(
+              `INSERT OR IGNORE INTO billing_attempts
+                 (request_id, renter_id, provider_id, cost_halala, provider_earned_halala, status, error_code, settled_at)
+               VALUES (?, ?, ?, 0, 0, 'insufficient_balance', 'no_answer', ?)`
+            ).run(
+              meteringRequestId,
+              req.renter.id,
+              providerForUsage?.id || null,
+              new Date().toISOString()
+            );
+          } catch (e) {
+            console.error('[v1] no-bill billing_attempts insert failed', {
+              request_id: meteringRequestId, renter_id: req.renter.id, msg: e?.message,
+            });
+          }
+          persistUsageOnce({ providerForUsage, providerResponseId, usage, completionText, settlementStatus: 'failed' });
+        });
+        usagePersisted = true;
+        return;
+      }
       const snapshot = toUsageSnapshot(usage, completionText);
       // Per-minute fallback only when the token-priced cost is exactly 0 AND we
       // truly have no tokens to price (mirrors the legacy proxy/stream job math).
@@ -2876,6 +2947,15 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           providerForUsage,
           providerResponseId: normalizeString(resultBody?.id, { maxLen: 200 }),
           usage: usageForResponse,
+          // SITE-15: pass the renter-VISIBLE answer for the no-bill check. The
+          // reasoning->content merge runs ~12 lines below (L2887-2896), so at
+          // this point message.content may be empty while `reasoning` holds the
+          // real answer — count reasoning as a real answer so we never no-bill a
+          // completion the renter actually receives.
+          responseContent: (resultBody?.choices?.[0]?.message?.content
+            || resultBody?.choices?.[0]?.message?.reasoning
+            || ''),
+          finishReason: resultBody?.choices?.[0]?.finish_reason || null,
           jobMeta: proxyJobMeta,
         });
         inferenceTracker.trackComplete(meteringRequestId, {
@@ -2932,6 +3012,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
         let providerResponseId = null;
         let finalUsage = null;
         let completionText = '';
+        let streamFinishReason = null; // SITE-15: last non-null finish_reason seen across chunks
         let sseBuffer = '';
         let doneWritten = false;
 
@@ -2990,6 +3071,12 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
               if (typeof delta === 'string' && delta) {
                 completionText += delta;
                 inferenceTracker.trackTokens(meteringRequestId, 1);
+              }
+              // SITE-15: remember the terminal finish_reason so an empty stream
+              // that stopped on 'length' (over-reasoned) is not billed below.
+              const chunkFinishReason = parsed?.choices?.[0]?.finish_reason;
+              if (typeof chunkFinishReason === 'string' && chunkFinishReason) {
+                streamFinishReason = chunkFinishReason;
               }
               if (parsed && parsed.usage && typeof parsed.usage === 'object') {
                 const usageWithPricing = withUsdUsagePricing(parsed.usage, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m });
@@ -3100,6 +3187,10 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             providerResponseId,
             usage: finalUsage || {},
             completionText,
+            // SITE-15: completionText is already the renter-visible (post-strip)
+            // answer for the stream path; finish_reason from the terminal chunk
+            // gates the no-bill check.
+            finishReason: streamFinishReason,
             jobMeta: streamJobMeta,
           });
           inferenceTracker.trackComplete(meteringRequestId, {
@@ -3313,11 +3404,31 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             usage,
           })}\n\n`);
           res.write('data: [DONE]\n\n');
-          debitAndPersistUsage({ providerForUsage: assignedProvider, providerResponseId: completionId, usage });
+          debitAndPersistUsage({
+            providerForUsage: assignedProvider,
+            providerResponseId: completionId,
+            usage,
+            // SITE-15: queued job text is the final visible answer (jobs table has
+            // no separate reasoning column — verified). The synthetic terminal
+            // chunk above reports finish_reason 'stop', so a non-empty answer
+            // always bills; an empty result_text is inferred as 'length' and
+            // no-billed. (job.finish_reason is not a real column today, so the
+            // `||` always falls through to the text inference — harmless.)
+            responseContent: text,
+            finishReason: job.finish_reason || (text && text.trim() ? 'stop' : 'length'),
+          });
           return res.end();
         }
 
-        debitAndPersistUsage({ providerForUsage: assignedProvider, providerResponseId: completionId, usage });
+        debitAndPersistUsage({
+          providerForUsage: assignedProvider,
+          providerResponseId: completionId,
+          usage,
+          // SITE-15: same non-answer guard for the non-streaming queued response.
+          // jobs has no reasoning column, so `text` is the full visible answer.
+          responseContent: text,
+          finishReason: job.finish_reason || (text && text.trim() ? 'stop' : 'length'),
+        });
         return res.json({
           id: completionId,
           object: 'chat.completion',

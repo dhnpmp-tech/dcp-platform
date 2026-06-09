@@ -154,6 +154,21 @@ function inferRoleFromScopes(scopes) {
   return 'member';
 }
 
+// RENT-3: make scoped sub-keys actually enforce their scopes on read endpoints.
+// Master keys (renters.api_key) resolve via getRenterAuthContext with
+// actorType:'master_key' and scopes:['admin'], so they bypass every check below.
+// For scoped sub-keys we require the key to hold at least one scope from `allowed`;
+// a key that only holds an unrelated scope (e.g. a default/inference key hitting a
+// billing-only read) is rejected with 403. This turns the "billing" checkbox into a
+// real privilege instead of a no-op.
+function hasReadScope(authCtx, allowed) {
+  if (!authCtx) return false;
+  if (authCtx.actorType === 'master_key') return true;
+  const scopes = Array.isArray(authCtx.scopes) ? authCtx.scopes : [];
+  if (scopes.includes('admin')) return true;
+  return scopes.some((scope) => allowed.includes(scope));
+}
+
 function recordOrgAudit(entry) {
   try {
     const now = new Date().toISOString();
@@ -505,10 +520,16 @@ router.get('/me', (req, res) => {
 
     // Accept either the legacy renters.api_key column or any active sub-key
     // in renter_api_keys (dcp- prefixed keys minted via /me/keys live there).
-    const renterId = resolveRenterIdByKey(key);
-    const renter = renterId
-      ? db.get('SELECT * FROM renters WHERE id = ? AND status = ?', renterId, 'active')
-      : null;
+    // RENT-3: resolve through getRenterAuthContext so scopes are enforced. /me
+    // returns profile + balance + usage, so any read-capable scope may read it
+    // (inference keys need to see their own balance/usage); a key that holds
+    // neither inference nor billing is rejected. Master keys bypass.
+    const authCtx = getRenterAuthContext(key);
+    if (!authCtx) return res.status(404).json({ error: 'Renter not found' });
+    if (!hasReadScope(authCtx, ['inference', 'billing'])) {
+      return res.status(403).json({ error: 'This API key does not have permission to read renter data. Use your master key or a key with the inference, billing, or admin scope.' });
+    }
+    const renter = db.get('SELECT * FROM renters WHERE id = ? AND status = ?', authCtx.renter.id, 'active');
     if (!renter) return res.status(404).json({ error: 'Renter not found' });
 
     // Get recent jobs
@@ -1135,7 +1156,17 @@ router.get('/balance', (req, res) => {
     const key = req.headers['x-renter-key'] || req.query.key;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
-    const renter = db.get('SELECT id, balance_halala, total_spent_halala, total_jobs FROM renters WHERE api_key = ? AND status = ?', key, 'active');
+    // RENT-3: balance is billing data. Previously this matched only renters.api_key
+    // (master key) and silently 404'd every sub-key, so the "billing" scope was never
+    // exercised. Resolve through getRenterAuthContext and require a billing/admin
+    // (or master) key: a billing-scoped sub-key can now read balance, while
+    // inference/compute/default-only keys are rejected with 403.
+    const authCtx = getRenterAuthContext(key);
+    if (!authCtx) return res.status(404).json({ error: 'Renter not found' });
+    if (!hasReadScope(authCtx, ['billing'])) {
+      return res.status(403).json({ error: 'This API key does not have permission to read billing data. Use your master key or a key with the billing or admin scope.' });
+    }
+    const renter = db.get('SELECT id, balance_halala, total_spent_halala, total_jobs FROM renters WHERE id = ? AND status = ?', authCtx.renter.id, 'active');
     if (!renter) return res.status(404).json({ error: 'Renter not found' });
 
     // Calculate held amount (running jobs estimated cost)
@@ -1439,6 +1470,12 @@ router.get('/me/keys', (req, res) => {
     if (!rawKey) return res.status(401).json({ error: 'API key required' });
     const authCtx = getRenterAuthContext(rawKey);
     if (!authCtx) return res.status(403).json({ error: 'Invalid or inactive API key' });
+    // RENT-3: listing API keys exposes key metadata (labels, scopes, org roles) and
+    // is a billing/account-management surface. Require billing/admin (or master);
+    // an inference/compute/default-only sub-key must not enumerate the account's keys.
+    if (!hasReadScope(authCtx, ['billing'])) {
+      return res.status(403).json({ error: 'This API key does not have permission to list API keys. Use your master key or a key with the billing or admin scope.' });
+    }
     const renter = authCtx.renter;
 
     const keys = db.all(

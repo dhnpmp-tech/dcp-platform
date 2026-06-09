@@ -302,7 +302,18 @@ export default function StatusPage() {
 
   const summary = useMemo(() => {
     const live = models.filter((m) => m.status === 'live').length
-    return { live, modelCount: models.length }
+    const degraded = models.some((m) => m.status === 'degraded')
+    let pill: { label: string; dot: string }
+    if (models.length === 0) {
+      pill = { label: 'Checking', dot: 'var(--dim)' }
+    } else if (live === 0) {
+      pill = { label: 'Standby', dot: 'var(--amber)' }
+    } else if (degraded) {
+      pill = { label: 'Degraded', dot: 'var(--amber)' }
+    } else {
+      pill = { label: 'Live', dot: 'var(--teal)' }
+    }
+    return { live, modelCount: models.length, pill }
   }, [models])
 
   return (
@@ -313,7 +324,7 @@ export default function StatusPage() {
           <Link href="/v2/home" className="lnk">Home</Link>
           <Link href="/v2/docs" className="lnk">Docs</Link>
           <Link href="/pricing" className="lnk">Pricing</Link>
-          <span className="st-pill"><span className="dot" />Live</span>
+          <span className="st-pill"><span className="dot" style={{ background: summary.pill.dot, boxShadow: `0 0 8px ${summary.pill.dot}` }} />{summary.pill.label}</span>
         </div>
       </nav>
 
