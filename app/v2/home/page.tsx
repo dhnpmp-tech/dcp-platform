@@ -59,12 +59,29 @@ const HIW_STATIONS = [
 
 type QsTab = 'curl' | 'cli' | 'py' | 'js'
 
+// §01 live marketplace — shape of /v1/models entries (earned-online catalog)
+type MpModel = {
+  id: string
+  name?: string
+  context_length?: number
+  quantization?: string
+  available?: boolean
+  provider_count?: number
+  pricing?: { usd_per_1m_input_tokens?: string }
+}
+
+const fmtMpPrice = (m: MpModel): string => {
+  const p = Number(m.pricing?.usd_per_1m_input_tokens ?? 0)
+  return p > 0 ? `$${p.toFixed(2)}` : '—'
+}
+
 export default function V2HomePage() {
   const { lang, toggle } = useV2()
   const [menuOpen, setMenuOpen] = useState(false)
   const [qsTab, setQsTab] = useState<QsTab>('curl')
   const [copied, setCopied] = useState(false)
   const [live, setLive] = useState<{ online: number; serving: number; catalog: number } | null>(null)
+  const [catalog, setCatalog] = useState<MpModel[] | null>(null)
 
   const codeRef = useRef<HTMLPreElement | null>(null)
 
@@ -93,6 +110,12 @@ export default function V2HomePage() {
           serving: Number(d?.providers?.serving ?? 0),
           catalog: Number(d?.models?.catalog_count ?? 0),
         })
+      } catch { /* offline — keep prior state, no fabricated numbers */ }
+      try {
+        const mres = await fetch('/v1/models', { cache: 'no-store' })
+        if (!mres.ok) return
+        const md = await mres.json()
+        if (alive && Array.isArray(md?.data)) setCatalog(md.data as MpModel[])
       } catch { /* offline — keep prior state, no fabricated numbers */ }
     }
     load()
@@ -555,7 +578,7 @@ export default function V2HomePage() {
                 </b>
               </div>
               <div className="demand-bar" aria-label={lang === 'ar' ? 'لا توجد سعة منشورة حتى يجتاز مزوّد حي فحوصات التحقق' : 'No published capacity until a live provider passes verification'}>
-                <span id="verified-capacity-bar" style={{ transform: `scaleX(${live ? Math.min(1, live.serving / 4) : 0})`, transformOrigin: 'left', transition: 'transform .6s cubic-bezier(.16,1,.3,1)' }} />
+                <span id="verified-capacity-bar" style={{ transform: `scaleX(${live ? Math.min(1, live.serving / Math.max(live.online, 1)) : 0})`, transformOrigin: 'left', transition: 'transform .6s cubic-bezier(.16,1,.3,1)' }} />
               </div>
             </div>
             <div className="right">
@@ -572,6 +595,54 @@ export default function V2HomePage() {
               </b>
             </div>
           </div>
+
+          {(() => {
+            const served = (catalog ?? []).filter((m) => m.available)
+            return (
+              <div className="mp-live">
+                <div className="mp-live-head">
+                  <span><Bi en="Serving right now — live from /v1/models" ar="يُخدم الآن — مباشرة من الكتالوج" /></span>
+                  <span>
+                    {catalog
+                      ? (lang === 'ar'
+                          ? `${served.length} متاح من ${catalog.length} في الكتالوج`
+                          : `${served.length} available of ${catalog.length} catalog models`)
+                      : <Bi en="querying…" ar="جارٍ الاستعلام…" />}
+                  </span>
+                </div>
+                {served.length > 0 ? (
+                  <div className="mp-rows">
+                    <div className="mp-row mp-row-head" aria-hidden="true">
+                      <span><Bi en="Model" ar="النموذج" /></span>
+                      <span><Bi en="Context" ar="السياق" /></span>
+                      <span><Bi en="Quant" ar="التكميم" /></span>
+                      <span><Bi en="Price / 1M in" ar="السعر / مليون رمز" /></span>
+                      <span><Bi en="Providers" ar="المزوّدون" /></span>
+                    </div>
+                    {served.slice(0, 8).map((m) => (
+                      <div className="mp-row" key={m.id}>
+                        <span className="mp-model"><b>{m.name || m.id}</b><i dir="ltr">{m.id}</i></span>
+                        <span>{m.context_length ? `${Math.round(m.context_length / 1024)}K` : '—'}</span>
+                        <span>{m.quantization || '—'}</span>
+                        <span>{fmtMpPrice(m)}</span>
+                        <span>{m.provider_count ?? 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mp-empty">
+                    <span>
+                      <Bi
+                        en="No verified capacity is serving right now, so nothing is listed. That is the honest state — not an error."
+                        ar="لا توجد سعة متحققة تعمل الآن، لذلك لا يُعرض شيء. هذه هي الحالة الصادقة — وليست خطأ."
+                      />
+                    </span>
+                    <Link href="/status"><Bi en="Watch live status →" ar="تابع الحالة الحية ←" /></Link>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           <div className="capacity-truth">
             <div className="capacity-copy">

@@ -45,6 +45,11 @@ const nextConfig = {
         source: '/api/models/:path*',
         destination: `${backendUrl}/api/models/:path*`,
       },
+      // OpenAI-compatible earned-online catalog — used by the landing §01 live marketplace
+      {
+        source: '/v1/models',
+        destination: `${backendUrl}/v1/models`,
+      },
       // Docker template catalog — used by TemplateCatalog component
       {
         source: '/api/templates/:path*',
