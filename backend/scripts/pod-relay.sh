@@ -46,6 +46,15 @@ JPUB_MAX=41999
 SPUB_MIN=42000
 SPUB_MAX=42999
 
+# TLS for the public Jupyter forwarder. We terminate TLS on the VPS using the
+# existing api.dcp.sa Let's Encrypt cert (relay runs as root → key is readable)
+# so the Jupyter token never crosses the public internet in cleartext. The
+# VPS→provider hop stays plain TCP but rides inside the WireGuard mesh, so the
+# token is never exposed on an untrusted network. Path is overridable; if the
+# cert is unreadable we fall back to plain TCP (see spawn_forwarder) so a node
+# without the cert still works on http.
+DCP_POD_TLS_CERT_DIR="${DCP_POD_TLS_CERT_DIR:-/etc/letsencrypt/live/api.dcp.sa}"
+
 log() { echo "[pod-relay] $*" >&2; }
 die() { echo "[pod-relay] FATAL: $*" >&2; exit 1; }
 
@@ -84,8 +93,27 @@ alloc_port() {
 }
 
 # Spawn a detached socat forwarder pub-port → mesh:host-port. Echoes its PID.
+# A truthy 4th arg requests TLS termination on the public side: we listen with
+# OPENSSL-LISTEN using the api.dcp.sa LE cert so the (cleartext-on-mesh) upstream
+# is fronted by https. The SSH forwarder passes no 4th arg and stays raw TCP —
+# SSH is already encrypted. If TLS is requested but the cert/key are unreadable
+# (node without the LE cert) we log a warning and fall back to plain TCP-LISTEN
+# so the pod still works over http instead of failing to start.
 spawn_forwarder() {
-  local pub="$1" mesh_ip="$2" host_port="$3"
+  local pub="$1" mesh_ip="$2" host_port="$3" use_tls="${4:-}"
+  local cert="${DCP_POD_TLS_CERT_DIR}/fullchain.pem"
+  local key="${DCP_POD_TLS_CERT_DIR}/privkey.pem"
+  if [[ -n "${use_tls}" ]]; then
+    if [[ -r "${cert}" && -r "${key}" ]]; then
+      setsid socat \
+        "OPENSSL-LISTEN:${pub},cert=${cert},key=${key},fork,reuseaddr,verify=0" \
+        "TCP:${mesh_ip}:${host_port}" \
+        </dev/null >/dev/null 2>&1 &
+      printf '%s' "$!"
+      return 0
+    fi
+    log "WARN: TLS requested but cert unreadable (${cert}) — falling back to plain TCP-LISTEN:${pub} (http)"
+  fi
   setsid socat \
     "TCP-LISTEN:${pub},fork,reuseaddr" \
     "TCP:${mesh_ip}:${host_port}" \
@@ -99,7 +127,7 @@ kill_forwarder() {
   local pid="$1" pub="$2"
   is_uint "${pid}" || return 0
   kill -0 "${pid}" 2>/dev/null || return 0
-  if grep -qa "TCP-LISTEN:${pub}," "/proc/${pid}/cmdline" 2>/dev/null \
+  if grep -qaE "(TCP-LISTEN|OPENSSL-LISTEN):${pub}," "/proc/${pid}/cmdline" 2>/dev/null \
      || ! [[ -r "/proc/${pid}/cmdline" ]]; then
     kill "${pid}" 2>/dev/null || true
   fi
@@ -176,7 +204,8 @@ cmd_start() {
     || die "no free SSH public port in ${SPUB_MIN}-${SPUB_MAX}"
 
   local jpid spid
-  jpid="$(spawn_forwarder "${jpub}" "${mesh_ip}" "${jport}")"
+  # Jupyter forwarder terminates TLS (4th arg 'tls'); SSH stays raw TCP.
+  jpid="$(spawn_forwarder "${jpub}" "${mesh_ip}" "${jport}" tls)"
   spid="$(spawn_forwarder "${spub}" "${mesh_ip}" "${sport}")"
 
   local file; file="$(state_file "${job_id}")"

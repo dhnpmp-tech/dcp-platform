@@ -173,7 +173,7 @@ function requireComputeScope(req, res, next) {
   if (scopes == null) return next();
   if (scopes.includes('compute') || scopes.includes('admin')) return next();
   return res.status(403).json({
-    error: 'API key does not have compute scope. A compute or admin scope is required to launch a GPU pod.',
+    error: 'API key does not have compute scope',
     code: 'authentication_scope_missing',
   });
 }
