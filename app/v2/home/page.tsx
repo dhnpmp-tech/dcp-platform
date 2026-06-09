@@ -747,30 +747,42 @@ export default function V2HomePage() {
                   <Bi en="Launch a pod →" ar="شغّل حاوية ←" />
                 </Link>
                 <a className="btn ghost" href="/gpu-containers.html">
-                  <Bi en="Read the containers brief" ar="اقرأ موجز الحاويات" />
+                  <Bi en="Technical brief — send it to your CTO" ar="الموجز التقني — أرسله لمديرك التقني" />
                 </a>
               </div>
             </div>
-            <div className="capacity-gates" aria-label="GPU pod properties">
+            <div className="capacity-gates" aria-label="Why rent a DCP pod">
               <div className="capacity-gate">
                 <span className="gate-n">01</span>
-                <span className="gate-k">whole_gpu</span>
-                <p><Bi en="Full GPU passthrough — the card is yours for the rental, not a time-slice." ar="تمرير كامل للمعالج — البطاقة لك طوال مدة الإيجار، وليست شريحة وقت." /></p>
+                <span className="gate-k">zero_setup · jupyter + root_ssh ≤ 60s</span>
+                <p><Bi
+                  en="From idea to training in about a minute. Open Jupyter in your browser or SSH straight in — nothing to install, no ticket queue, no GPU waitlist."
+                  ar="من الفكرة إلى التدريب خلال دقيقة تقريباً. افتح Jupyter في متصفحك أو ادخل مباشرة عبر SSH — لا شيء للتثبيت، ولا طابور تذاكر، ولا قائمة انتظار للمعالجات."
+                /></p>
               </div>
               <div className="capacity-gate">
                 <span className="gate-n">02</span>
-                <span className="gate-k">jupyter_tls_ssh</span>
-                <p><Bi en="Jupyter served over TLS plus direct root SSH, live in about 60 seconds." ar="Jupyter عبر TLS مع SSH جذري مباشر، جاهز خلال نحو ٦٠ ثانية." /></p>
+                <span className="gate-k">--gpus all · pinned driver</span>
+                <p><Bi
+                  en="The whole card is yours. No sharing, no throttling, no noisy neighbors — your benchmarks run at bare-metal speed and reproduce tomorrow, because we even freeze driver updates mid-rental."
+                  ar="البطاقة كلها لك. لا مشاركة، ولا تقييد، ولا جيران مزعجين — تعمل اختباراتك بسرعة المعدن الخام وتتكرر نتائجها غداً، لأننا نجمّد حتى تحديثات التعريف أثناء الإيجار."
+                /></p>
               </div>
               <div className="capacity-gate">
                 <span className="gate-n">03</span>
-                <span className="gate-k">any_image</span>
-                <p><Bi en="PyTorch, vLLM, CUDA, Ubuntu — or any public Docker image you bring." ar="PyTorch أو vLLM أو CUDA أو Ubuntu — أو أي صورة Docker عامة تجلبها." /></p>
+                <span className="gate-k">hard deadline · restart-proof reaper</span>
+                <p><Bi
+                  en="It ends when you said it ends. The host machine itself enforces your rental's deadline — even across crashes and reboots — so a forgotten pod can never squat a GPU or surprise you later."
+                  ar="ينتهي عندما قلت أنت إنه ينتهي. الجهاز المضيف نفسه يفرض موعد نهاية إيجارك — حتى عبر الأعطال وإعادة التشغيل — فلا يمكن لحاوية منسية أن تحتل معالجاً أو تفاجئك لاحقاً."
+                /></p>
               </div>
               <div className="capacity-gate">
                 <span className="gate-n">04</span>
-                <span className="gate-k">deadline_enforced</span>
-                <p><Bi en="Rentals end at their deadline — the host enforces it even across restarts. No zombie pods." ar="ينتهي الإيجار عند موعده — يفرض المضيف ذلك حتى عبر إعادة التشغيل. لا حاويات شبح." /></p>
+                <span className="gate-k">wireguard mesh · live docker/cuda/nvml gates</span>
+                <p><Bi
+                  en="Verified Saudi machines only. Your pod lands exclusively on hardware that just passed live Docker, CUDA, and GPU-health probes — the same earned-online discipline behind our inference catalog. Your data stays in the Kingdom."
+                  ar="أجهزة سعودية متحققة فقط. تهبط حاويتك حصرياً على عتاد اجتاز للتو فحوصات حية لـ Docker و CUDA وصحة المعالج — نفس انضباط «الاتصال المُكتسب» وراء كتالوج الاستدلال لدينا. بياناتك تبقى داخل المملكة."
+                /></p>
               </div>
             </div>
           </div>
