@@ -395,6 +395,45 @@ function hashProviderApiKey(apiKey) {
     return crypto.createHash('sha256').update(String(apiKey || '')).digest('hex');
 }
 
+// PROV-9: stable alias for the project's provider-key digest. Same bytes as
+// db.js sha256hex so a key hashed at backfill time matches a key hashed here.
+function hashProviderKey(k) {
+    return hashProviderApiKey(k);
+}
+
+// PROV-9: central provider-key resolver. Looks up BY HASH first (constant-shape
+// query, no plaintext secret in the WHERE), then FALLS BACK to the legacy
+// plaintext column so any not-yet-backfilled row still authenticates — this
+// dual-path is the safety net that keeps the LIVE fleet from ever breaking.
+// The daemon still sends its plaintext key every heartbeat; we hash it here.
+//   columns        — SELECT list the caller needs (default '*')
+//   includeDeleted — when false, appends AND deleted_at IS NULL
+function resolveProviderByKey(rawKey, { columns = '*', includeDeleted = true } = {}) {
+    const key = typeof rawKey === 'string' ? rawKey : String(rawKey || '');
+    if (!key) return null;
+    const deletedClause = includeDeleted ? '' : ' AND deleted_at IS NULL';
+    // Primary path: hashed lookup.
+    const keyHash = hashProviderKey(key);
+    let row = db.get(
+        `SELECT ${columns} FROM providers WHERE api_key_hash = ?${deletedClause}`,
+        keyHash
+    );
+    if (row) return row;
+    // Legacy fallback: row whose api_key_hash is not yet backfilled. SQL '='
+    // already matched byte-for-byte; the timingSafeEqual is belt-and-suspenders
+    // and only runs on equal-length buffers.
+    row = db.get(
+        `SELECT ${columns}, api_key AS __raw_api_key FROM providers WHERE api_key = ?${deletedClause}`,
+        key
+    );
+    if (!row) return null;
+    const storedBuf = Buffer.from(String(row.__raw_api_key || ''));
+    const givenBuf = Buffer.from(key);
+    const matches = storedBuf.length === givenBuf.length && crypto.timingSafeEqual(storedBuf, givenBuf);
+    delete row.__raw_api_key;
+    return matches ? row : null;
+}
+
 function signProviderReactivationTokenPayload(payloadBase64, secret) {
     return crypto.createHmac('sha256', secret).update(payloadBase64).digest('hex');
 }
@@ -770,10 +809,12 @@ router.post('/register', registerLimiter, validateBody(providerRegisterSchema), 
         // configured and `provider.run_mode || null` could never emit null in
         // /me or the heartbeat run_config. Explicitly INSERT NULL here so these
         // stay NULL until the provider actually sets them via the config route.
+        // PROV-9: write api_key_hash alongside api_key on register so a brand
+        // new provider is hash-resolvable immediately (no backfill needed).
         const result = await runStatement(
-            `INSERT INTO providers (name, email, gpu_model, os, api_key, status, approval_status, created_at, location, resource_spec, supported_compute_types, run_mode, scheduled_start, scheduled_end)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [cleanName, cleanEmail, cleanGpuModel, cleanOs, api_key, 'registered', 'pending', new Date().toISOString(), cleanLocation, resourceSpecJson, '["inference"]', null, null, null]
+            `INSERT INTO providers (name, email, gpu_model, os, api_key, api_key_hash, status, approval_status, created_at, location, resource_spec, supported_compute_types, run_mode, scheduled_start, scheduled_end)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [cleanName, cleanEmail, cleanGpuModel, cleanOs, api_key, hashProviderKey(api_key), 'registered', 'pending', new Date().toISOString(), cleanLocation, resourceSpecJson, '["inference"]', null, null, null]
         );
         
         // Return canonical setup download route so clients can follow the URL directly.
@@ -1199,13 +1240,12 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
         // Tier 4.16 / G47: include is_paused so the response can echo it back
         // to the daemon. The daemon flips its local _REMOTE_PAUSED flag from
         // this field, which forces accepting_jobs=false on the next heartbeat.
-        const p = db.get(
-            `SELECT id, approval_status, model_preload_status, model_preload_model, p2p_peer_id, available_gpu_tiers, is_paused,
-                    run_mode, scheduled_start, scheduled_end, gpu_usage_cap_pct, vram_reserve_gb, temp_limit_c
-             FROM providers
-             WHERE api_key = ? AND deleted_at IS NULL`,
-            cleanApiKey
-        );
+        // PROV-9: resolve the daemon's plaintext key via hash-first / plaintext
+        // fallback. The daemon is unchanged — it still posts cleanApiKey verbatim.
+        const p = resolveProviderByKey(cleanApiKey, {
+            columns: 'id, approval_status, model_preload_status, model_preload_model, p2p_peer_id, available_gpu_tiers, is_paused, run_mode, scheduled_start, scheduled_end, gpu_usage_cap_pct, vram_reserve_gb, temp_limit_c',
+            includeDeleted: false
+        });
         if (!p) return res.status(401).json({ error: 'Invalid API key' });
         const approvalStatus = normalizeString(p.approval_status, { maxLen: 32 }) || 'pending';
         const isTestRuntime = Boolean(process.env.JEST_WORKER_ID) || process.env.DC1_DB_PATH === ':memory:';
@@ -2119,8 +2159,11 @@ router.get('/me', async (req, res) => {
         const key = req.query.key || req.headers['x-provider-key'];
         if (!key) return res.status(400).json({ error: 'API key required' });
 
-        const provider = db.get('SELECT * FROM providers WHERE api_key = ?', [key]);
-        if (!provider) return res.status(404).json({ error: 'Provider not found' });
+        // PROV-9: hash-first resolve + plaintext fallback. Normalize the
+        // invalid-key response to 401 (was 404) to kill the 404-vs-401
+        // enumeration oracle on the /me family.
+        const provider = resolveProviderByKey(key);
+        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
 
         // Today, week, and month earnings
         const todayStart = new Date();

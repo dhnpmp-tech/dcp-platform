@@ -1,6 +1,13 @@
 // DC1 Provider Onboarding - SQLite Database Module
 const Database = require('better-sqlite3');
 const path = require('path');
+const crypto = require('crypto');
+
+// PROV-9: deterministic sha256hex used both to backfill api_key_hash here and
+// (mirrored as hashProviderApiKey) in routes/providers.js. Keep the two in lockstep.
+function sha256hex(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
 
 const DB_PATH = process.env.DC1_DB_PATH || path.join(__dirname, '..', 'data', 'providers.db');
 
@@ -2465,6 +2472,32 @@ try { db.prepare('ALTER TABLE providers ADD COLUMN referral_code TEXT').run(); }
 try { db.prepare('ALTER TABLE providers ADD COLUMN referred_by INTEGER').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE providers ADD COLUMN referral_earnings_halala INTEGER DEFAULT 0').run(); } catch (_) {}
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_referral_code ON providers(referral_code)`);
+
+// ─── PROV-9 — provider API-key hashing (backward-compatible) ────────────────
+// Provider keys were stored + compared as raw plaintext across ~58 WHERE
+// api_key = ? lookups. Add a sha256 hash column + a one-time startup backfill.
+// CRITICAL SAFETY: the LIVE fleet's daemon keeps sending its PLAINTEXT key in
+// every heartbeat and we do NOT change the daemon. The server hashes the
+// incoming plaintext to look up by hash; routes/providers.js also keeps a
+// legacy plaintext fallback so a row whose hash was not yet backfilled still
+// authenticates. The plaintext `api_key` column is intentionally retained.
+try { db.prepare('ALTER TABLE providers ADD COLUMN api_key_hash TEXT').run(); } catch (_) { /* idempotent */ }
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_providers_api_key_hash ON providers(api_key_hash)`); } catch (_) {}
+// One-time backfill: hash every existing plaintext key that has no hash yet.
+// Idempotent (WHERE api_key_hash IS NULL) so restarts are cheap no-ops.
+try {
+  const _toBackfill = db.prepare('SELECT id, api_key FROM providers WHERE api_key_hash IS NULL AND api_key IS NOT NULL').all();
+  if (_toBackfill.length > 0) {
+    const _setHash = db.prepare('UPDATE providers SET api_key_hash = ? WHERE id = ?');
+    const _runBackfill = db.transaction((rows) => {
+      for (const r of rows) _setHash.run(sha256hex(r.api_key), r.id);
+    });
+    _runBackfill(_toBackfill);
+    console.log(`[db][PROV-9] backfilled api_key_hash for ${_toBackfill.length} provider(s)`);
+  }
+} catch (e) {
+  console.warn('[db][PROV-9] api_key_hash backfill failed (non-fatal, plaintext fallback still authenticates):', e && e.message);
+}
 
 // ─── PROVIDER GROUPS TABLE ───
 // Fleet management: group multiple machines under one account.

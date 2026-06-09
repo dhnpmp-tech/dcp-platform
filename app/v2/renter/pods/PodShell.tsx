@@ -67,14 +67,13 @@ export function PodSidebar({ navOpen, renterName, renterEmail }: SidebarProps) {
       </div>
 
       <div className="rt-ws">
-        <button className="rt-ws-btn" title="Current renter account" type="button">
+        <div className="rt-ws-btn">
           <span className="av">{initials(renterName, renterEmail)}</span>
           <span className="body">
             <span className="nm">{renterName}</span>
             <span className="sub">Renter account</span>
           </span>
-          <span className="chev">⌄</span>
-        </button>
+        </div>
       </div>
 
       <nav className="rt-nav">

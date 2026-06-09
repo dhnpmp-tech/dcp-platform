@@ -151,6 +151,29 @@ async function readJson<T>(url: string, headers: HeadersInit, optional = false):
   return (await res.json()) as T
 }
 
+// RENT-6: a browser <a> cannot set headers, so the CSV link used to carry the
+// renter key in the querystring. Fetch the CSV with the x-renter-key header
+// instead, then trigger a blob download (same pattern as settings data-export).
+// The backend route already accepts the header (renters.js: x-renter-key || key).
+async function downloadInvoiceCsv(numericId: number, invoiceLabel: string): Promise<void> {
+  const key = getRenterKey()
+  if (!key) return
+  const res = await fetch(`${getApiBase()}/renters/me/invoices/${numericId}/csv`, {
+    headers: { 'x-renter-key': key },
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`CSV export failed: ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `dcp-invoice-${invoiceLabel}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export default function RenterInvoicesPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
@@ -552,9 +575,17 @@ export default function RenterInvoicesPage() {
                       </td>
                       <td>
                         <div className="actions">
-                          <Link href={`${getApiBase()}/renters/me/invoices/${i.numericId}/csv?key=${encodeURIComponent(renterKey)}`}>
+                          <a
+                            href={`${getApiBase()}/renters/me/invoices/${i.numericId}/csv`}
+                            onClick={(event) => {
+                              event.preventDefault()
+                              void downloadInvoiceCsv(i.numericId, i.id).catch((err) =>
+                                setError(err instanceof Error ? err.message : 'CSV export failed'),
+                              )
+                            }}
+                          >
                             CSV ↓
-                          </Link>
+                          </a>
                         </div>
                       </td>
                     </tr>

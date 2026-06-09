@@ -368,14 +368,13 @@ export default function RenterUsagePage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Current renter account" type="button">
+          <div className="rt-ws-btn">
             <span className="av">{initials(displayName, displayEmail)}</span>
             <span className="body">
               <span className="nm">{displayName}</span>
               <span className="sub">{displaySub}</span>
             </span>
-            <span className="chev">⌄</span>
-          </button>
+          </div>
         </div>
 
         <div className="rt-wallet">

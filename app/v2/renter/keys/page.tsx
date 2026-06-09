@@ -326,7 +326,7 @@ export default function RenterKeysPage() {
         </div>
 
         <div className="rt-ws">
-          <button className="rt-ws-btn" title="Switch workspace" type="button">
+          <div className="rt-ws-btn">
             <span className="av">N</span>
             <span className="body">
               <span className="nm">{displayWorkspace}</span>
@@ -334,8 +334,7 @@ export default function RenterKeysPage() {
                 <Bi en="Live renter account" ar="حساب مستأجر حي" />
               </span>
             </span>
-            <span className="chev">⌄</span>
-          </button>
+          </div>
         </div>
 
         <div className="rt-wallet">
@@ -356,11 +355,11 @@ export default function RenterKeysPage() {
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>—</b>
+            <b>{lang === 'ar' ? 'لا يوجد' : 'n/a'}</b>
           </div>
           <div className="row">
             <span>
-              <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
+              <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
             </span>
             <b>{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</b>
           </div>
@@ -436,7 +435,11 @@ export default function RenterKeysPage() {
             </span>
           </div>
           <span className="pill">
-            <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
+            <span
+              className="d"
+              style={loadState === 'ready' ? undefined : { background: 'var(--mut)', animation: 'none' }}
+            />{' '}
+            <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
           </span>
           <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
             <span
