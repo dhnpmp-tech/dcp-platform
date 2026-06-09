@@ -395,6 +395,24 @@ export default function V2HomePage() {
           </svg>
         </div>
 
+        <p
+          style={{
+            position: 'absolute',
+            bottom: 14,
+            right: 18,
+            zIndex: 1,
+            margin: 0,
+            fontSize: 11,
+            letterSpacing: '.04em',
+            textTransform: 'uppercase',
+            color: 'var(--ink-2)',
+            opacity: 0.7,
+            pointerEvents: 'none',
+          }}
+        >
+          <Bi en="Illustrative network footprint" ar="رسم توضيحي لانتشار الشبكة" />
+        </p>
+
         <div className="wrap">
           <div className="home-hero-grid">
             <div>
@@ -950,55 +968,6 @@ export default function V2HomePage() {
               </div>
             </div>
 
-            <div className="mg">
-              <span className="org">BAAI · sovereign-hosted</span>
-              <h4 className="nm">bge-m3</h4>
-              <span className="tag">
-                <Bi en="Embedding · 1024-dim" ar="تضمين · ١٠٢٤ بُعد" />
-              </span>
-              <p>
-                <Bi
-                  en="Multilingual embedding — strong on Arabic + English mixed corpora. The retrieval backbone for every RAG agent on DCP."
-                  ar="تضمين متعدد اللغات — قوي على مراجع عربية-إنجليزية مختلطة. العمود الفقري لكل وكيل RAG على DCP."
-                />
-              </p>
-              <div className="badge-row">
-                <span className="residency-badge ksa">
-                  <span className="flag">🇸🇦</span> KSA
-                </span>
-              </div>
-              <div className="meta">
-                <span>
-                  <b>SAR 0.08/M</b> tokens
-                </span>
-                <span><Bi en="vector · 1024d" ar="متجه · ١٠٢٤ بُعد" /></span>
-              </div>
-            </div>
-
-            <div className="mg">
-              <span className="org">BAAI · sovereign-hosted</span>
-              <h4 className="nm">bge-reranker-v2-m3</h4>
-              <span className="tag">
-                <Bi en="Cross-encoder · rerank" ar="مُرمّز متقاطع · ترتيب" />
-              </span>
-              <p>
-                <Bi
-                  en="Cross-encodes (query, doc) pairs to re-rank the most relevant context first — measurably reducing hallucination in retrieval-augmented answers."
-                  ar="يُرمّز أزواج (سؤال، وثيقة) لإعادة ترتيب أكثر السياقات صلة أولاً — ما يقلّل الهلوسة بوضوح في الإجابات المعزّزة بالاسترجاع."
-                />
-              </p>
-              <div className="badge-row">
-                <span className="residency-badge ksa">
-                  <span className="flag">🇸🇦</span> KSA
-                </span>
-              </div>
-              <div className="meta">
-                <span>
-                  <b>SAR 0.12/M</b> pair-tok
-                </span>
-                <span><Bi en="rerank · top-K" ar="ترتيب · أفضل K" /></span>
-              </div>
-            </div>
 
             <div className="mg frontier">
               <span className="org">DeepSeek · cross-border</span>
@@ -1055,7 +1024,7 @@ export default function V2HomePage() {
                 <Bi en="On the roadmap" ar="في خارطة الطريق" />
               </span>
               <h4 className="nm">
-                <Bi en="Falcon-3-Arabic · Q3 2026" ar="Falcon-3-Arabic · الربع الثالث ٢٠٢٦" />
+                <Bi en="Arabic-first sovereign model · in evaluation" ar="نموذج عربي سيادي · قيد التقييم" />
               </h4>
               <span className="tag">
                 <Bi en="Arabic generation · 64k ctx" ar="توليد عربي · ٦٤ ألف سياق" />
@@ -1490,32 +1459,11 @@ export default function V2HomePage() {
           <div className="ps-grid">
             <div className="ps-it">
               <div className="nm">ALLaM-7B</div>
-              <div className="pr">
-                SAR 0.45<span className="u">/M in</span>
-              </div>
-              <div className="pr" style={{ fontSize: 24 }}>
-                SAR 1.80<span className="u">/M out</span>
+              <div className="pr" style={{ fontSize: 20 }}>
+                <Bi en="Pricing on serving" ar="السعر عند التشغيل" />
               </div>
               <div className="sub">
-                <Bi en="Arabic generation · sovereign" ar="توليد عربي · سيادي" />
-              </div>
-            </div>
-            <div className="ps-it">
-              <div className="nm">bge-m3</div>
-              <div className="pr">
-                SAR 0.08<span className="u">/M</span>
-              </div>
-              <div className="sub">
-                <Bi en="Embedding · 1024-dim · sovereign" ar="تضمين · ١٠٢٤ بُعد · سيادي" />
-              </div>
-            </div>
-            <div className="ps-it">
-              <div className="nm">bge-reranker-v2-m3</div>
-              <div className="pr">
-                SAR 0.12<span className="u">/M</span>
-              </div>
-              <div className="sub">
-                <Bi en="Rerank · cross-encoder · sovereign" ar="ترتيب · مُرمّز متقاطع · سيادي" />
+                <Bi en="Arabic generation · sovereign · registered, not yet online" ar="توليد عربي · سيادي · مُسجَّل، غير متصل بعد" />
               </div>
             </div>
             <div className="ps-it frontier">

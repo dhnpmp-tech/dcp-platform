@@ -501,6 +501,38 @@ function getProviderReactivationCommands(providerApiKey) {
     };
 }
 
+// PROV-8: resolve a provider's api_key from EITHER a short-lived one-time setup
+// `?token=` (preferred — the long-lived key never enters a URL) OR the legacy
+// `?key=` (kept for back-compat). The token reuses the reactivation-token system
+// (HMAC-signed, provider-bound via key fingerprint, short TTL), so a leaked
+// setup URL expires quickly and only ever maps back to one provider.
+function resolveProviderFromDownloadQuery(req) {
+    const rawToken = normalizeSingleQueryParam(req.query && req.query.token, { maxLen: 4096 });
+    if (rawToken) {
+        const verified = verifyProviderReactivationToken(rawToken);
+        if (!verified.valid) {
+            return { error: verified.reason === 'expired' ? 'Setup token expired' : 'Invalid setup token', status: 401 };
+        }
+        const provider = db.get(
+            'SELECT id, api_key, deleted_at FROM providers WHERE id = ?',
+            verified.payload.providerId
+        );
+        if (!provider || provider.deleted_at) {
+            return { error: 'Invalid setup token', status: 401 };
+        }
+        if (hashProviderApiKey(provider.api_key) !== verified.payload.keyFingerprint) {
+            return { error: 'Setup token is no longer valid for this provider key', status: 401 };
+        }
+        return { apiKey: provider.api_key, providerId: provider.id };
+    }
+
+    const cleanKey = normalizeSingleQueryParam(req.query && req.query.key, { maxLen: 128 });
+    if (!cleanKey) return { error: 'API key or setup token required', status: 400 };
+    const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
+    if (!provider) return { error: 'Invalid API key', status: 401 };
+    return { apiKey: cleanKey, providerId: provider.id };
+}
+
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -733,10 +765,15 @@ router.post('/register', registerLimiter, validateBody(providerRegisterSchema), 
 
         // Save to database — default supported_compute_types to ["inference"] so
         // the provider is eligible for inference routing immediately after going online.
+        // PROV-20: run_mode/scheduled_* carry non-null SQLite DEFAULTs
+        // ('always-on'/'23:00'/'07:00'), so an unconfigured provider would look
+        // configured and `provider.run_mode || null` could never emit null in
+        // /me or the heartbeat run_config. Explicitly INSERT NULL here so these
+        // stay NULL until the provider actually sets them via the config route.
         const result = await runStatement(
-            `INSERT INTO providers (name, email, gpu_model, os, api_key, status, approval_status, created_at, location, resource_spec, supported_compute_types)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [cleanName, cleanEmail, cleanGpuModel, cleanOs, api_key, 'registered', 'pending', new Date().toISOString(), cleanLocation, resourceSpecJson, '["inference"]']
+            `INSERT INTO providers (name, email, gpu_model, os, api_key, status, approval_status, created_at, location, resource_spec, supported_compute_types, run_mode, scheduled_start, scheduled_end)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [cleanName, cleanEmail, cleanGpuModel, cleanOs, api_key, 'registered', 'pending', new Date().toISOString(), cleanLocation, resourceSpecJson, '["inference"]', null, null, null]
         );
         
         // Return canonical setup download route so clients can follow the URL directly.
@@ -1163,7 +1200,8 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
         // to the daemon. The daemon flips its local _REMOTE_PAUSED flag from
         // this field, which forces accepting_jobs=false on the next heartbeat.
         const p = db.get(
-            `SELECT id, approval_status, model_preload_status, model_preload_model, p2p_peer_id, available_gpu_tiers, is_paused
+            `SELECT id, approval_status, model_preload_status, model_preload_model, p2p_peer_id, available_gpu_tiers, is_paused,
+                    run_mode, scheduled_start, scheduled_end, gpu_usage_cap_pct, vram_reserve_gb, temp_limit_c
              FROM providers
              WHERE api_key = ? AND deleted_at IS NULL`,
             cleanApiKey
@@ -1568,6 +1606,18 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             // Migration 008: agent should execute these in order and report
             // progress in `task_updates` on subsequent heartbeats.
             pending_tasks: pendingTasks,
+            // PROV-4: echo the provider's run-mode / schedule window / resource
+            // caps back to the daemon so a future daemon revision can persist
+            // and enforce them locally. run_mode/scheduled_* are null until the
+            // provider configures them (PROV-20); caps fall back to defaults.
+            run_config: {
+                run_mode: p.run_mode || null,
+                scheduled_start: p.scheduled_start || null,
+                scheduled_end: p.scheduled_end || null,
+                gpu_usage_cap_pct: p.gpu_usage_cap_pct != null ? p.gpu_usage_cap_pct : 80,
+                vram_reserve_gb: p.vram_reserve_gb != null ? p.vram_reserve_gb : 1,
+                temp_limit_c: p.temp_limit_c != null ? p.temp_limit_c : 85,
+            },
         });
         
     } catch (error) {
@@ -2427,8 +2477,33 @@ router.get('/me/metrics', (req, res) => {
             provider.id
         ) || {};
 
-        // Heartbeat cadence is every ~30s, so 120 heartbeats ~= 1 hour.
-        const uptimeHoursLast7d = Number(((hbRow.heartbeat_count || 0) / 120).toFixed(2));
+        // PROV-19: derive uptime from actual heartbeat-log time coverage rather
+        // than a hardcoded 120/hour cadence. We measure the span between the
+        // first and last heartbeat in the window and the median inter-heartbeat
+        // gap, then estimate covered hours as (distinct heartbeat count * median
+        // gap), clamped to the observed span. Falls back to the count/120
+        // approximation only when there are too few samples to infer a cadence.
+        const HEARTBEAT_FALLBACK_PER_HOUR = 120; // ~30s cadence assumption (legacy)
+        const hbCount = hbRow.heartbeat_count || 0;
+        const hbSpanRow = db.get(
+            `SELECT
+                COUNT(*) AS samples,
+                (julianday(MAX(received_at)) - julianday(MIN(received_at))) * 24.0 AS span_hours
+             FROM heartbeat_log
+             WHERE provider_id = ? AND received_at >= datetime('now', '-7 days')`,
+            provider.id
+        ) || {};
+        const spanHours = Number(hbSpanRow.span_hours || 0);
+        const samples = Number(hbSpanRow.samples || hbCount || 0);
+        let uptimeHoursLast7d;
+        if (samples >= 2 && spanHours > 0) {
+            // Median gap ≈ span / (samples - 1); covered time ≈ samples * gap,
+            // but it can never exceed the observed span.
+            const avgGapHours = spanHours / (samples - 1);
+            uptimeHoursLast7d = Number(Math.min(spanHours, samples * avgGapHours).toFixed(2));
+        } else {
+            uptimeHoursLast7d = Number((hbCount / HEARTBEAT_FALLBACK_PER_HOUR).toFixed(2));
+        }
 
         const recentJobs = db.all(
             `SELECT
@@ -4040,12 +4115,13 @@ function _buildInjectedDaemonScript(cleanKey) {
 // ============================================================================
 router.get('/download/daemon', (req, res) => {
     try {
-        const { key, check_only } = req.query;
-        const cleanKey = normalizeSingleQueryParam(key, { maxLen: 128 });
-        if (!cleanKey) return res.status(400).json({ error: 'API key required' });
-
-        const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
-        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
+        const { check_only } = req.query;
+        // PROV-8: accept ?token= (preferred) or ?key= (back-compat) without
+        // ever forcing the long-lived key into the URL.
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const cleanKey = resolved.apiKey;
+        const provider = { id: resolved.providerId };
 
         const built = _buildInjectedDaemonScript(cleanKey);
         if (!built) return res.status(404).json({ error: 'Daemon file not found' });
@@ -4246,12 +4322,13 @@ router.get('/download/tray-mac', (req, res) => {
 // ============================================================================
 router.get('/download/setup', (req, res) => {
     try {
-        const { key, os: osType } = req.query;
-        const cleanKey = normalizeSingleQueryParam(key, { maxLen: 128 });
-        if (!cleanKey) return res.status(400).json({ error: 'API key required' });
-
-        const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
-        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
+        const { os: osType } = req.query;
+        // PROV-8: accept ?token= (preferred) or ?key= (back-compat) so the
+        // long-lived key never travels in the setup-script URL.
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const cleanKey = resolved.apiKey;
+        const provider = { id: resolved.providerId };
 
         const isWindows = (osType || '').toLowerCase() === 'windows';
         const templateFile = isWindows ? 'dc1-setup-windows.ps1' : 'dc1-setup-unix.sh';
@@ -4504,9 +4581,26 @@ router.get('/me/withdrawals', (req, res) => {
 
 // ============================================================================
 // POST /api/providers/withdraw — Provider requests earnings withdrawal
+// ----------------------------------------------------------------------------
+// PROV-2: this legacy route writes the SAR `withdrawals` table. That table is
+// NOT dead — the admin payout dashboard (admin.js), the /earnings balance math,
+// and supabase-sync all read it — but the renter-facing `withdrawal_requests`
+// system (halala, IBAN) is the path the UI now uses. Collapsing the two tables
+// into one is a data migration + admin.js rewrite (tracked separately), so we
+// do NOT delete this route. Instead we hard-gate it admin-internal so no
+// public/provider caller can write the legacy table out of band. Real payout
+// requests must go through the withdrawal_requests endpoints.
 // ============================================================================
 router.post('/withdraw', (req, res) => {
     try {
+        const { secureTokenEqual, normalizeCredential } = require('../middleware/auth');
+        const providedAdminToken = normalizeCredential(req.headers['x-admin-token'] || req.query.admin_token);
+        const expectedAdminToken = normalizeCredential(process.env.DC1_ADMIN_TOKEN);
+        if (!secureTokenEqual(providedAdminToken, expectedAdminToken)) {
+            return res.status(403).json({
+                error: 'This legacy withdrawal route is admin-internal. Use the withdrawal_requests endpoints for provider payouts.',
+            });
+        }
         const { api_key, amount_sar, payout_method, payout_details } = req.body;
         const cleanApiKey = normalizeString(api_key, { maxLen: 128, trim: false });
         if (!cleanApiKey) return res.status(400).json({ error: 'api_key required' });
@@ -5346,6 +5440,46 @@ router.post(['/me/reactivation-token', '/reactivation-token'], (req, res) => {
     } catch (error) {
         console.error('[providers/reactivation-token]', error);
         return res.status(500).json({ error: 'Failed to issue reactivation token' });
+    }
+});
+
+// ============================================================================
+// POST /api/providers/me/setup-token — mint a short-lived one-time setup token
+// PROV-8: the rigs UI calls this with the provider's key in the x-provider-key
+// HEADER (never a URL), then builds the download/setup URLs from the returned
+// token so the long-lived key stays out of every link. The token is the same
+// HMAC-signed, provider-bound, short-TTL primitive as the reactivation token.
+// Auth: x-provider-key or Bearer token.
+// ============================================================================
+router.post(['/me/setup-token', '/setup-token'], (req, res) => {
+    try {
+        const provider = getProviderFromLegacyKey(req);
+        if (!provider) return res.status(401).json({ error: 'Provider API key required' });
+
+        const ttlSeconds = toFiniteInt(req.body && req.body.ttl_seconds, {
+            min: PROVIDER_REACTIVATION_TOKEN_MIN_TTL_SECONDS,
+            max: PROVIDER_REACTIVATION_TOKEN_MAX_TTL_SECONDS,
+        }) || PROVIDER_REACTIVATION_TOKEN_TTL_SECONDS;
+
+        const issued = issueProviderReactivationToken(provider, ttlSeconds);
+        if (!issued.token) {
+            return res.status(500).json({ error: issued.error || 'Failed to issue setup token' });
+        }
+
+        recordActivationEvent(provider.id, 'setup_token_issued', {
+            route: 'me/setup-token',
+            ttl_seconds: ttlSeconds,
+        });
+
+        return res.json({
+            success: true,
+            provider_id: provider.id,
+            setup_token: issued.token,
+            expires_at: issued.expiresAtIso,
+        });
+    } catch (error) {
+        console.error('[providers/setup-token]', error);
+        return res.status(500).json({ error: 'Failed to issue setup token' });
     }
 });
 

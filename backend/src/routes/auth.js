@@ -75,6 +75,54 @@ function finalizePendingRenter(email) {
 }
 
 /**
+ * Create-or-return an *active* renter row for a magic-link-verified email
+ * that has no renter row yet.
+ *
+ * The v2 /v2/auth signup tab (and any direct renters/send-otp caller) issues a
+ * renter magic link BEFORE a renter row exists — renters/send-otp does NOT
+ * pre-stage a row. Without this, finalizePendingRenter() returns null and the
+ * handler dead-ends on a 404 "No account found. Please register first."
+ *
+ * Mirrors finalizePendingProvider: idempotent and safe under concurrent clicks.
+ *
+ * - No row for this email -> INSERT an active renter, mint a real
+ *   `dcp-renter-…` key, credit the starter balance, fire the welcome email,
+ *   and return the fresh row.
+ * - Row already exists (active OR pending) -> return it unchanged. A pending
+ *   row should be finalized via finalizePendingRenter(), not here, so we never
+ *   double-mint a key or double-credit the starter balance.
+ */
+function createActiveRenterFromMagicLink(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  const existing = db.get('SELECT * FROM renters WHERE LOWER(email) = LOWER(?)', cleanEmail);
+  if (existing) return existing;
+
+  const name = cleanEmail.split('@')[0] || 'Renter';
+  const apiKey = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
+  const now = new Date().toISOString();
+
+  try {
+    db.prepare(
+      `INSERT INTO renters
+         (name, email, api_key, status, balance_halala, created_at, updated_at)
+       VALUES (?, ?, ?, 'active', ?, ?, ?)`
+    ).run(name, cleanEmail, apiKey, RENTER_STARTER_BALANCE_HALALA, now, now);
+  } catch (err) {
+    // UNIQUE(email) race: a concurrent magic-link click already created it.
+    console.warn('[auth.magic-link] renter create race/err, re-reading:', err.message);
+    return db.get('SELECT * FROM renters WHERE LOWER(email) = LOWER(?)', cleanEmail);
+  }
+
+  const created = db.get('SELECT * FROM renters WHERE LOWER(email) = LOWER(?)', cleanEmail);
+  // Only we send the welcome email (the row we just minted), never a racer's.
+  if (created && created.api_key === apiKey) {
+    sendWelcomeEmail(created.email, created.name, apiKey, 'renter')
+      .catch((e) => console.error('[auth.magic-link] renter welcome email failed:', e.message));
+  }
+  return created;
+}
+
+/**
  * Create-or-return a provider row for a magic-link-verified email.
  *
  * The v2 provider wizard (/v2/provider-setup) sends a magic link at step 1 —
@@ -178,9 +226,20 @@ function handleMagicLink(req, res) {
       providerRow = finalizePendingProvider(email);
     }
 
+    // First-time renter onboarding: the v2 /v2/auth signup tab issues a renter
+    // magic link via renters/send-otp, which does NOT pre-stage a renter row.
+    // If the verified email has neither a provider nor a renter and the link
+    // was for the renter flow, create the renter now (active, starter balance,
+    // real `dcp-renter-…` key) instead of dead-ending on "No account found."
+    let createdRenterRow = null;
+    if (!providerRow && !renterRow && !preferProvider) {
+      createdRenterRow = createActiveRenterFromMagicLink(email);
+    }
+    const effectiveRenterRow = renterRow || createdRenterRow;
+
     const chosen = preferProvider
-      ? (providerRow || renterRow)
-      : (renterRow || providerRow);
+      ? (providerRow || effectiveRenterRow)
+      : (effectiveRenterRow || providerRow);
 
     if (!chosen) {
       return res.status(404).json({
@@ -208,15 +267,15 @@ function handleMagicLink(req, res) {
     return res.json({
       success: true,
       role: 'renter',
-      api_key: renterRow.api_key,
+      api_key: effectiveRenterRow.api_key,
       renter: {
-        id: renterRow.id,
-        name: renterRow.name,
-        email: renterRow.email,
-        organization: renterRow.organization,
-        balance_halala: renterRow.balance_halala,
-        total_spent_halala: renterRow.total_spent_halala,
-        total_jobs: renterRow.total_jobs,
+        id: effectiveRenterRow.id,
+        name: effectiveRenterRow.name,
+        email: effectiveRenterRow.email,
+        organization: effectiveRenterRow.organization,
+        balance_halala: effectiveRenterRow.balance_halala,
+        total_spent_halala: effectiveRenterRow.total_spent_halala,
+        total_jobs: effectiveRenterRow.total_jobs,
       },
       dual_role: Boolean(providerRow && renterRow),
     });

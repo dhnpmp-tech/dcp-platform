@@ -146,6 +146,7 @@ export default function ProviderRigsPage() {
   const [providerName, setProviderName] = useState('')
   const [providerEmail, setProviderEmail] = useState('')
   const [providerKey, setProviderKey] = useState('')
+  const [setupToken, setSetupToken] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
   const [copyNote, setCopyNote] = useState('')
 
@@ -199,6 +200,22 @@ export default function ProviderRigsPage() {
     setLoadState('loading')
     setError('')
 
+    // PROV-8: mint a short-lived one-time setup token (key in the HEADER, never
+    // a URL) and build the install link from it. Fire-and-forget — if it fails
+    // we silently fall back to the legacy ?key= URL, which still works.
+    fetch(`${getApiBase()}/providers/me/setup-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-provider-key': key },
+      body: JSON.stringify({}),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        const token = (data as { setup_token?: string }).setup_token
+        if (token) setSetupToken(token)
+      })
+      .catch(() => {})
+
     fetch(`${getApiBase()}/providers/me?key=${encodeURIComponent(key)}`, {
       headers: { 'x-provider-key': key },
     })
@@ -248,15 +265,23 @@ export default function ProviderRigsPage() {
     ],
     [earningCount, idleCount, pausedCount, rigs.length]
   )
-  const setupPath = providerKey
-    ? `/api/providers/download/setup?key=${encodeURIComponent(providerKey)}&os=linux`
-    : '/v2/auth?role=provider&method=apikey&redirect=/v2/provider/rigs'
-  // Full key lives ONLY in the clipboard command, never in the rendered DOM/href.
+  // PROV-8: prefer the short-lived ?token= URL (long-lived key never appears in
+  // any link). Fall back to ?key= only until the token has been minted, keeping
+  // the page usable on the first paint / if the mint call failed.
+  const setupPath = setupToken
+    ? `/api/providers/download/setup?token=${encodeURIComponent(setupToken)}&os=linux`
+    : providerKey
+      ? `/api/providers/download/setup?key=${encodeURIComponent(providerKey)}&os=linux`
+      : '/v2/auth?role=provider&method=apikey&redirect=/v2/provider/rigs'
+  // With a token the URL is already safe to show; without one we still mask the
+  // raw key so it never lands in the rendered DOM/href.
   const maskedKey = providerKey ? `dcp-provider-…${providerKey.slice(-4)}` : ''
-  const maskedPath = providerKey
-    ? `/api/providers/download/setup?key=${maskedKey}&os=linux`
-    : setupPath
-  const setupCmd = providerKey
+  const maskedPath = setupToken
+    ? setupPath
+    : providerKey
+      ? `/api/providers/download/setup?key=${maskedKey}&os=linux`
+      : setupPath
+  const setupCmd = setupToken || providerKey
     ? `curl -fsSL "${setupPath}" -o dcp-setup.sh && bash dcp-setup.sh`
     : ''
 
