@@ -188,19 +188,23 @@ function deduplicateModelAliases(models) {
       result.push(model);
       continue;
     }
-    let extraProviderCount = 0;
+    // Fold = MAX, not sum. Alias rows' counts are computed from the same
+    // canonical provider-id set (or a subset key of it), so the same physical
+    // provider appears in both the canonical and dash-form rows — summing
+    // double-counted it (a lone Node 2 showed provider_count=2 for qwen3:8b).
+    let maxAliasProviderCount = 0;
     for (const alias of aliases) {
       const aliasRow = byId.get(alias);
       if (aliasRow && typeof aliasRow.provider_count === 'number') {
-        extraProviderCount += aliasRow.provider_count;
+        maxAliasProviderCount = Math.max(maxAliasProviderCount, aliasRow.provider_count);
       }
     }
-    if (extraProviderCount === 0) {
+    if (maxAliasProviderCount === 0) {
       result.push(model);
     } else {
       result.push({
         ...model,
-        provider_count: (Number(model.provider_count) || 0) + extraProviderCount,
+        provider_count: Math.max(Number(model.provider_count) || 0, maxAliasProviderCount),
       });
     }
   }
