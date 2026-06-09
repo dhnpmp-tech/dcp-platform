@@ -198,12 +198,14 @@
         <div class="way">
           <div class="wt"><span class="lbl">a · CLI</span><h3>dcp pod</h3></div>
           <p>The <code class="mono teal">dc1</code> SDK ships a <code class="mono">dcp</code> CLI.</p>
-<pre>pip install dc1
+<pre><span class="c"># get the CLI — stdlib, no deps</span>
+curl -sL api.dcp.sa/installers/\
+dc1-sdk.tar.gz | tar xz
+<span class="p">dcp</span>(){ python3 -m dc1.cli "$@"; }
 export DCP_API_KEY=<span class="s">dc1-renter-…</span>
 
 <span class="p">dcp pod create</span> \
-  --image pytorch \
-  --duration 60 \
+  --image pytorch --duration 60 \
   --token $(uuidgen)
 
 <span class="p">dcp pod</span> list · get · stop</pre>
