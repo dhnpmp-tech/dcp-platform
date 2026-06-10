@@ -525,7 +525,7 @@ export default function V2HomePage() {
                 <Link className="door" href="/v2/containers">
                   <span className="door-k"><Bi en="for compute" ar="للحوسبة" /></span>
                   <span className="door-t"><Bi en="Rent a whole GPU" ar="استأجر معالجاً كاملاً" /></span>
-                  <span className="door-d"><Bi en="A dedicated 24 GB card with Jupyter + SSH, in about a minute." ar="بطاقة ٢٤ جيجابايت مخصصة مع Jupyter و SSH خلال دقيقة تقريباً." /></span>
+                  <span className="door-d"><Bi en="A whole RTX-class GPU, dedicated to you — Jupyter + SSH in about a minute." ar="معالج RTX كامل مخصص لك — Jupyter و SSH خلال دقيقة تقريباً." /></span>
                   <span className="door-a">→</span>
                 </Link>
                 <Link className="door" href="/v2/provider-setup">
