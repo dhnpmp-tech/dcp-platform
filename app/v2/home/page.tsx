@@ -33,18 +33,24 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }>
 const CAPACITY_GATES = [
   {
     k: 'endpoint_reachable',
-    en: 'Backend endpoint probe can reach the provider runtime.',
-    ar: 'فحص الخلفية يصل إلى بيئة تشغيل المزوّد.',
+    tEn: 'We can reach it',
+    tAr: 'نستطيع الوصول إليه',
+    en: 'Our backend connects to the machine over the private mesh — right now, not at sign-up time.',
+    ar: 'خلفيتنا تتصل بالجهاز عبر الشبكة الخاصة — الآن، لا عند التسجيل.',
   },
   {
     k: 'verified_online',
-    en: 'Earned-online inference verification passes on a serving model.',
-    ar: 'تحقق الاستدلال المكتسب ينجح على نموذج مخدوم.',
+    tEn: 'It really answers',
+    tAr: 'يجيب فعلاً',
+    en: 'We send the machine a real question and verify a real answer comes back. A heartbeat alone earns nothing.',
+    ar: 'نرسل للجهاز سؤالاً حقيقياً ونتحقق من عودة إجابة حقيقية. نبض الاتصال وحده لا يكفي.',
   },
   {
-    k: 'model coverage',
-    en: 'Catalog aliases match a model the provider is actually serving.',
-    ar: 'أسماء الكتالوج تطابق نموذجاً يخدمه المزوّد فعلياً.',
+    k: 'model_coverage',
+    tEn: 'It serves what it claims',
+    tAr: 'يقدّم ما يدّعيه',
+    en: 'A model is listed only while a verified machine is actually serving that exact model.',
+    ar: 'يُعرض النموذج فقط ما دام جهاز متحقق يخدم ذلك النموذج بعينه.',
   },
 ]
 
@@ -764,8 +770,8 @@ export default function V2HomePage() {
               </h3>
               <p>
                 <Bi
-                  en="The public page does not advertise GPU inventory, regions, throughput, or model availability from static copy. Renter calls use the catalog only after the backend sees a reachable endpoint, a serving model, and an earned-online inference verdict."
-                  ar="لا تعلن الصفحة العامة عن مخزون معالجات أو مناطق أو سرعة أو توفر نماذج من نص ثابت. تستخدم طلبات المستأجر الكتالوج فقط بعد أن ترى الخلفية نقطة خدمة قابلة للوصول ونموذجاً مخدوماً ونتيجة استدلال متحققة."
+                  en="Most GPU lists are typed in by hand — and go stale. This one cannot be typed in: a machine appears only after our backend has reached it, asked it a real question, and verified the answer. The moment any check fails, the machine disappears from the list instead of rotting on it."
+                  ar="معظم قوائم المعالجات تُكتب يدوياً — ثم تتقادم. هذه القائمة لا يمكن كتابتها يدوياً: لا يظهر الجهاز إلا بعد أن تصل إليه خلفيتنا وتسأله سؤالاً حقيقياً وتتحقق من الإجابة. ولحظة فشل أي فحص، يختفي الجهاز من القائمة بدلاً من أن يتعفن عليها."
                 />
               </p>
             </div>
@@ -773,7 +779,7 @@ export default function V2HomePage() {
               {CAPACITY_GATES.map((gate, index) => (
                 <div className="capacity-gate" key={gate.k}>
                   <span className="gate-n">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="gate-k">{gate.k}</span>
+                  <span className="gate-t"><Bi en={gate.tEn} ar={gate.tAr} /> <i className="gate-k-inline" dir="ltr">{gate.k}</i></span>
                   <p><Bi en={gate.en} ar={gate.ar} /></p>
                 </div>
               ))}
