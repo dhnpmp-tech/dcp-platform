@@ -712,7 +712,15 @@
   .capacity-gate .gate-k {
     font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink);
   }
-  .capacity-gate p { margin:0; color:var(--ink-2); font-size:13px; line-height:1.55; }
+  .capacity-gate .gate-t {
+    font-size:15px; font-weight:600; letter-spacing:-.01em; color:var(--ink);
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .capacity-gate .gate-k-inline {
+    font-style:normal; font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--mut); padding:2px 7px; border:1px solid var(--hair); border-radius:3px;
+  }
+  .capacity-gate p { margin:0; color:var(--ink-2); font-size:13.5px; line-height:1.65; max-width:46ch; }
   .mp-foot { margin-top:14px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.08em; text-transform:uppercase; }
   .mp-foot a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
   .mp-foot a:hover { color:var(--teal); border-bottom-color:var(--teal); }
