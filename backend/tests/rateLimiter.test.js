@@ -6,7 +6,7 @@
  *   - Returns 429 with Retry-After header when limit is exceeded
  *   - Keys limits per renter/provider key (not just IP)
  *   - Per-endpoint limits match the DCP-805 spec:
- *       POST /api/vllm/complete      → 10/min per renter key
+ *       POST /api/vllm/complete      → 60/min per renter key
  *       POST /api/jobs/submit        → 20/min per renter key
  *       POST /api/providers/register → 5/10min per IP
  *       POST /api/providers/:id/activate → 3/hour per provider key
@@ -116,18 +116,18 @@ describe('createRateLimiter — factory behaviour', () => {
   });
 });
 
-describe('vllmCompleteLimiter — 10/min per renter key', () => {
-  test('allows up to 10 requests per renter key', async () => {
+describe('vllmCompleteLimiter — 60/min per renter key', () => {
+  test('allows up to 60 requests per renter key', async () => {
     const key = uniqueKey('vllm');
     const app = buildApp(vllmCompleteLimiter);
-    const results = await fireRequests(app, 10, { 'x-renter-key': key });
+    const results = await fireRequests(app, 60, { 'x-renter-key': key });
     for (const r of results) expect(r.status).toBe(200);
   });
 
-  test('blocks 11th request for same renter key', async () => {
+  test('blocks 61st request for same renter key', async () => {
     const key = uniqueKey('vllm');
     const app = buildApp(vllmCompleteLimiter);
-    await fireRequests(app, 10, { 'x-renter-key': key });
+    await fireRequests(app, 60, { 'x-renter-key': key });
     const overflow = await request(app).post('/test').set('x-renter-key', key);
     expect(overflow.status).toBe(429);
     expect(overflow.headers['retry-after']).toBeDefined();
@@ -137,7 +137,7 @@ describe('vllmCompleteLimiter — 10/min per renter key', () => {
     const keyA = uniqueKey('vllm-a');
     const keyB = uniqueKey('vllm-b');
     const app = buildApp(vllmCompleteLimiter);
-    await fireRequests(app, 10, { 'x-renter-key': keyA });
+    await fireRequests(app, 60, { 'x-renter-key': keyA });
     // keyA exhausted — keyB should still succeed
     const r = await request(app).post('/test').set('x-renter-key', keyB);
     expect(r.status).toBe(200);

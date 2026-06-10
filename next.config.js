@@ -104,7 +104,7 @@ const nextConfig = {
           // Keep /login on the proven v1 auth surface until /v2/auth can mint
           // renter, provider, and admin sessions with the same production tokens.
           { source: '/', destination: '/v2/home', permanent: false },
-          { source: '/setup', destination: '/v2/setup', permanent: false },
+          { source: '/setup', destination: '/v2/provider-setup', permanent: false },
           { source: '/earn', destination: '/v2/provider-setup', permanent: false },
           { source: '/renter/register', destination: '/setup', permanent: false },
           { source: '/docs', destination: '/v2/docs', permanent: false },

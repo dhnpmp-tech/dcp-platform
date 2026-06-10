@@ -733,7 +733,7 @@ export default function RenterDashboardPage() {
                 {'   '}
                 <span className="k">-d</span>{' '}
                 <span className="s">
-                  {'\'{"model":"allam-7b","messages":[{"role":"user","content":"اشرح لي زكاة المال"}]}\''}
+                  {'\'{"model":"qwen2.5:7b","messages":[{"role":"user","content":"اشرح لي زكاة المال"}]}\''}
                 </span>
               </pre>
             </div>
@@ -747,7 +747,7 @@ export default function RenterDashboardPage() {
                 {'\n    '}api_key=<span className="s">os.environ[&quot;DCP_KEY&quot;]</span>,
                 {'\n'})
                 {'\n\n'}resp = client.chat.completions.create(
-                {'\n    '}model=<span className="s">&quot;allam-7b&quot;</span>,
+                {'\n    '}model=<span className="s">&quot;qwen2.5:7b&quot;</span>,
                 {'\n    '}messages=[{'{'}
                 <span className="s">&quot;role&quot;</span>: <span className="s">&quot;user&quot;</span>,{' '}
                 <span className="s">&quot;content&quot;</span>:{' '}
@@ -773,7 +773,7 @@ export default function RenterDashboardPage() {
                 {'\n\n'}
                 <span className="k">const</span> resp = <span className="k">await</span>{' '}
                 client.chat.completions.create({'{'}
-                {'\n  '}model: <span className="s">&quot;allam-7b&quot;</span>,
+                {'\n  '}model: <span className="s">&quot;qwen2.5:7b&quot;</span>,
                 {'\n  '}messages: [{'{'} role: <span className="s">&quot;user&quot;</span>, content:{' '}
                 <span className="s">&quot;اشرح لي زكاة المال&quot;</span> {'}'}],
                 {'\n'}
