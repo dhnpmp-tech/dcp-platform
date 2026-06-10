@@ -150,7 +150,9 @@ const vllmCompleteLimiter = createRateLimiter({
 });
 const vllmStreamLimiter = createRateLimiter({
   windowMs: 60*1000,
-  max: 5,
+  // 5/min punished the primary paying behavior (chat UIs, agent loops stream
+  // every turn); align with the non-stream budget until tier-based limits land.
+  max: 30,
   keyGenerator: (req) => getRenterKey(req) || ipFallbackKey(req),
   buildBody: openAiRateLimitBody,
 });

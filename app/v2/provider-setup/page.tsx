@@ -891,7 +891,7 @@ export default function V2ProviderSetup() {
                 }}
               >
                 <div className="nm">Windows</div>
-                <div className="meta">.msi · 4 MB</div>
+                <div className="meta">.exe · or terminal script</div>
                 {selectedOs === 'windows' && (
                   <span className="tag">
                     <Bi en="selected" ar="محدد" />
@@ -907,7 +907,7 @@ export default function V2ProviderSetup() {
                 }}
               >
                 <div className="nm">macOS</div>
-                <div className="meta">.dmg · Apple Silicon</div>
+                <div className="meta">Apple Silicon · terminal script</div>
                 {selectedOs === 'mac' && (
                   <span className="tag">
                     <Bi en="selected" ar="محدد" />
@@ -923,7 +923,7 @@ export default function V2ProviderSetup() {
                 }}
               >
                 <div className="nm">Linux</div>
-                <div className="meta">.deb / script</div>
+                <div className="meta">terminal script</div>
                 {selectedOs === 'linux' && (
                   <span className="tag">
                     <Bi en="selected" ar="محدد" />
@@ -932,6 +932,14 @@ export default function V2ProviderSetup() {
               </button>
             </div>
 
+            {selectedOs === 'windows' && (
+              <p className="hint" style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--mut)', marginTop: 14 }}>
+                <Bi en="Prefer an app? " ar="تفضّل تطبيقاً؟ " />
+                <a href="/download/windows" style={{ color: 'var(--ink)' }}>
+                  <Bi en="Download DCP-Provider-Setup.exe →" ar="حمّل DCP-Provider-Setup.exe ←" />
+                </a>
+              </p>
+            )}
             <p className="hint" style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--mut)', marginTop: 18 }}>
               <Bi en="Or paste this in your terminal — generated from your provider key:" ar="أو الصق هذا في الطرفية — مُولّد من مفتاح المزوّد:" />
             </p>

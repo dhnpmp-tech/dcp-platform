@@ -314,7 +314,7 @@ export default function SetupPage() {
           <span className="s">&quot;Authorization: Bearer {apiKey || 'YOUR_DCP_RENTER_KEY'}&quot;</span>
           {' \\\n   '}
           <span className="k">-d</span>{' '}
-          <span className="s">{`'{"model":"allam-7b","messages":[{"role":"user","content":"مرحبا"}]}'`}</span>
+          <span className="s">{`'{"model":"qwen2.5:7b","messages":[{"role":"user","content":"مرحبا"}]}'`}</span>
         </pre>
         <div className="nav-row">
           <button className="btn-sec" onClick={() => go(3)}>

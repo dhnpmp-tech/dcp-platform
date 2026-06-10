@@ -4374,7 +4374,7 @@ router.get('/download/setup', (req, res) => {
         const provider = { id: resolved.providerId };
 
         const isWindows = (osType || '').toLowerCase() === 'windows';
-        const templateFile = isWindows ? 'dc1-setup-windows.ps1' : 'dc1-setup-unix.sh';
+        const templateFile = isWindows ? 'dcp-setup-windows.ps1' : 'dcp-setup-unix.sh';
         const templatePath = path.join(__dirname, '../../installers', templateFile);
 
         if (!fs.existsSync(templatePath)) {
