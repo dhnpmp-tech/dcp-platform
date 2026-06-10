@@ -301,6 +301,15 @@ function toPodView(job) {
     provider_name: job.provider_name || null,
     duration_minutes: job.duration_minutes ?? null,
     submitted_at: job.submitted_at || job.created_at || null,
+    started_at: job.started_at || null,
+    // Rental clock — the #1 surprise in the first live renter test (a pod
+    // 'crashing' was just the rental ending). Null until the pod is running.
+    ends_at: (job.started_at && job.max_duration_seconds)
+      ? new Date(Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000).toISOString()
+      : null,
+    seconds_remaining: (job.started_at && job.max_duration_seconds)
+      ? Math.max(0, Math.round((Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000 - Date.now()) / 1000))
+      : null,
   };
 }
 
@@ -538,13 +547,7 @@ router.delete('/:id', requireRenter, (req, res) => {
 
     // Idempotent: already in a terminal state — report it, settle nothing.
     if (['completed', 'failed', 'stopped', 'cancelled'].includes(job.status)) {
-      // Rental clock visibility — the #1 surprise in the first live renter test
-    // (Jupyter 'crashed' = the rental had simply ended, with no warning).
-    const endsAt = job.started_at && job.max_duration_seconds
-      ? new Date(Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000).toISOString()
-      : null;
-    const secondsRemaining = endsAt ? Math.max(0, Math.round((Date.parse(endsAt) - Date.now()) / 1000)) : null;
-    return res.json({ id: job.job_id, status: job.status });
+      return res.json({ id: job.job_id, status: job.status });
     }
 
     const now = new Date().toISOString();
@@ -616,8 +619,6 @@ router.delete('/:id', requireRenter, (req, res) => {
 
     console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}`);
     return res.json({
-      ends_at: endsAt,
-      seconds_remaining: secondsRemaining,
       id: job.job_id,
       status: job.status === 'running' ? 'stopped' : 'cancelled',
       charged_halala: settlement.actualCostHalala,
