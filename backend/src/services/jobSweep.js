@@ -632,7 +632,7 @@ async function runSweep(state) {
 // Each settlement is one transaction; status flips guard against double-runs.
 const POD_PROVIDER_EARN_SHARE = 0.75;
 const POD_DEADLINE_GRACE_SECONDS = 300;
-const POD_QUEUED_STALE_MINUTES = 15;
+const POD_QUEUED_STALE_MINUTES = 25; // was 15 — gave slow provider pickup / image pulls too little room
 
 function settleExpiredPods(db) {
   const raw = db._db || db;
@@ -687,6 +687,11 @@ function settleExpiredPods(db) {
       SELECT id, job_id, renter_id, cost_halala, refunded_at
         FROM jobs
        WHERE job_type = 'interactive_pod' AND status IN ('pending','queued')
+         -- NEVER cancel a pod the daemon has already started: if it set up the
+         -- relay (jupyter_host_port / access_url), the container is live and the
+         -- status just hasn't flipped to 'running' yet (slow relay, daemon
+         -- restart). Cancelling those killed a renter's live 8h training pod.
+         AND jupyter_host_port IS NULL AND access_url IS NULL
          AND datetime(COALESCE(submitted_at, created_at)) <= datetime('now', '-${POD_QUEUED_STALE_MINUTES} minutes')
        LIMIT 20`),
     'query stale queued pods'
