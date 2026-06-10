@@ -55,14 +55,6 @@ const CAPACITY_GATES = [
 ]
 
 // ───────── how-it-works stations ─────────
-const HIW_STATIONS = [
-  { n: '01', g: 'أ', en: 'Arabic in', ar: 'عربية دخولاً', sen: 'User types or speaks', sar: 'المستخدم يكتب أو يتحدّث', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
-  { n: '02', g: '⇄', en: 'Arabic → English', ar: 'عربي → إنجليزي', sen: 'Sovereign translation', sar: 'ترجمة سيادية', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
-  { n: '03', g: '◇', en: 'Router', ar: 'الموجّه', sen: 'Picks the best model', sar: 'يختار أفضل نموذج', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
-  { n: '04', g: '◆', en: 'Best model runs', ar: 'أفضل نموذج يعمل', sen: 'Sovereign by default · frontier opt-in', sar: 'سيادي افتراضياً · متقدّم بإذن', flagEn: '🇸🇦 KSA / opt-in', flagAr: '🇸🇦 المملكة / بإذن', frontier: true },
-  { n: '05', g: '⇄', en: 'English → Arabic', ar: 'إنجليزي → عربي', sen: 'Native Arabic out', sar: 'عربية أصيلة', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
-  { n: '06', g: 'أ', en: 'Arabic out', ar: 'عربية خروجاً', sen: 'User reads or hears', sar: 'المستخدم يقرأ أو يسمع', flagEn: '🇸🇦 KSA', flagAr: '🇸🇦 المملكة', frontier: false },
-]
 
 type QsTab = 'curl' | 'cli' | 'py' | 'js'
 
@@ -625,34 +617,49 @@ export default function V2HomePage() {
             </span>
           </div>
 
-          <div className="hiw-flow">
-            <div className="hiw-row" aria-hidden="true">
-              {HIW_STATIONS.map((s) => (
-                <div key={s.n} className={s.frontier ? 'hiw-st ksa frontier' : 'hiw-st ksa'}>
-                  <span className="hiw-n">{s.n}</span>
-                  <span className="hiw-g">{s.g}</span>
-                  <h4 className="hiw-h">
-                    <Bi en={s.en} ar={s.ar} />
-                  </h4>
-                  <span className="hiw-sub">
-                    <Bi en={s.sen} ar={s.sar} />
-                  </span>
-                  <span className="hiw-flag">
-                    <Bi en={s.flagEn} ar={s.flagAr} />
-                  </span>
+          {/* Sovereignty boundary — the round-trip never crosses the border.
+              Replaces the old 6-stage flow (which read as a translation
+              pipeline). The plumbing lives on /v2/architecture. */}
+          <div className="sov">
+            <div className="sov-border">
+              <span className="sov-border-tag">
+                <Bi en="🇸🇦 Saudi Arabia · data does not cross this line" ar="🇸🇦 المملكة العربية السعودية · البيانات لا تتجاوز هذا الحد" />
+              </span>
+              <div className="sov-loop">
+                <div className="sov-node">
+                  <span className="sov-k"><Bi en="you send" ar="أنت ترسل" /></span>
+                  <b><Bi en="Your Arabic prompt" ar="سؤالك بالعربية" /></b>
                 </div>
-              ))}
+                <span className="sov-arc" aria-hidden="true">→</span>
+                <div className="sov-node sov-gpu">
+                  <span className="sov-k sov-k-teal"><Bi en="verified · in-Kingdom" ar="متحقق · داخل المملكة" /></span>
+                  <b><Bi en="A Saudi GPU answers" ar="معالج سعودي يجيب" /></b>
+                </div>
+                <span className="sov-arc" aria-hidden="true">→</span>
+                <div className="sov-node">
+                  <span className="sov-k"><Bi en="you receive" ar="أنت تستلم" /></span>
+                  <b><Bi en="Your Arabic answer" ar="إجابتك بالعربية" /></b>
+                </div>
+              </div>
+            </div>
+            <div className="sov-out" aria-hidden="true">
+              <span className="sov-cut"><Bi en="never routed outside" ar="لا يُوجَّه للخارج أبداً" /></span>
+              <span className="sov-ext">AWS</span>
+              <span className="sov-ext">Azure</span>
+              <span className="sov-ext">OpenRouter</span>
             </div>
           </div>
 
           <p className="hiw-foot">
             {lang === 'ar' ? (
               <>
-                المراحل الست تعمل على <b>معالجات داخل المملكة</b> افتراضياً. النماذج المتقدمة (DeepSeek) مغلقة حتى تأذن بها — بياناتك، وقرارك.
+                سؤالك وإجابته يبقيان <b>داخل المملكة</b> — على معالج متحقق، لا على سحابة أجنبية. النماذج المتقدمة عبر الحدود متاحة <b>بإذن صريح لكل عميل</b> فقط.{' '}
+                <Link href="/v2/architecture"><Bi en="See the full architecture →" ar="اطّلع على البنية الكاملة ←" /></Link>
               </>
             ) : (
               <>
-                All six stages live on <b>KSA-resident GPUs</b> by default. Frontier (DeepSeek) stays off unless you opt in — your data, your decision.
+                Your prompt and its answer stay <b>inside the Kingdom</b> — on a verified GPU, never a foreign cloud. Cross-border frontier models are available by <b>explicit per-tenant opt-in</b> only.{' '}
+                <Link href="/v2/architecture"><Bi en="See the full architecture →" ar="اطّلع على البنية الكاملة ←" /></Link>
               </>
             )}
           </p>

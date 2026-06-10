@@ -844,3 +844,32 @@
   .foot-bottom { max-width:1280px; margin: 56px auto 0; padding: 22px 32px 0; border-top:1px solid var(--line);
     display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:11px; color:var(--mut); letter-spacing:.08em; flex-wrap:wrap; gap:14px; }
   .foot-bottom .badges { display:flex; gap:8px; }
+
+  /* ── sovereignty boundary (replaces the 6-stage HIW flow) ── */
+  .sov { margin-top:40px; }
+  .sov-border { position:relative; border:1px dashed var(--accent-teal, #2dd4b6); border-radius:0;
+    background:linear-gradient(180deg, rgba(45,212,182,.04), transparent); padding:46px 28px 34px; }
+  .sov-border-tag { position:absolute; top:-11px; inset-inline-start:24px; background:var(--bg-0,#050a14);
+    padding:0 12px; font-family:var(--mono,'JetBrains Mono',monospace); font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--accent-teal,#2dd4b6); }
+  .sov-loop { display:flex; align-items:stretch; gap:0; flex-wrap:wrap; }
+  .sov-node { flex:1; min-width:180px; border:1px solid var(--border-1,#1f2040); background:var(--bg-1,#0a0b1a);
+    padding:22px 24px; display:flex; flex-direction:column; gap:8px; }
+  .sov-node .sov-k { font-family:var(--mono,'JetBrains Mono',monospace); font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--text-2,#7b7a92); }
+  .sov-node .sov-k-teal { color:var(--accent-teal,#2dd4b6); }
+  .sov-node b { font-size:17px; font-weight:600; color:var(--text-0,#f5f3ee); letter-spacing:-.01em; }
+  .sov-node.sov-gpu { border-color:rgba(45,212,182,.4); background:rgba(45,212,182,.06); }
+  .sov-arc { align-self:center; padding:0 16px; font-size:20px; color:var(--accent-teal,#2dd4b6); }
+  [dir="rtl"] .sov-arc { transform:scaleX(-1); }
+  .sov-out { display:flex; align-items:center; gap:18px; margin-top:18px; padding-inline-start:4px;
+    opacity:.5; flex-wrap:wrap; }
+  .sov-cut { font-family:var(--mono,'JetBrains Mono',monospace); font-size:10.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--text-3,#4e4d67); }
+  .sov-ext { font-family:var(--mono,'JetBrains Mono',monospace); font-size:13px; color:var(--text-3,#4e4d67);
+    text-decoration:line-through; text-decoration-color:var(--accent-orange,#ee7a3c); }
+  @media (max-width:760px){
+    .sov-loop { flex-direction:column; }
+    .sov-arc { transform:rotate(90deg); padding:8px 0; }
+    [dir="rtl"] .sov-arc { transform:rotate(90deg); }
+  }
