@@ -31,6 +31,48 @@ const db = require('../db');
 const jobsRouter = require('./jobs');
 const { getApiKeyFromReq, looksLikeProviderKey } = require('../middleware/auth');
 const { invokePodRelay } = require('../lib/pod-relay');
+const { COST_RATES } = require('./jobs');
+
+// ── Pod billing ──────────────────────────────────────────────────────────────
+// Contract (same as jobs.js /submit): cost_halala on the row IS pre-debited
+// renter money. Launch debits the full-duration quote; stop/expiry settles
+// against it (refund unused, credit provider 75%). The daemon's job-result
+// settle path then no-ops because status has left 'running'.
+const MAX_ACTIVE_PODS_PER_RENTER = Math.max(1, Number.parseInt(process.env.DCP_MAX_ACTIVE_PODS || '2', 10) || 2);
+const PROVIDER_EARN_SHARE = 0.75; // keep in sync with providers.js job-result split
+
+function resolvePodRate(provider) {
+  const providerRate = Number(provider?.cost_per_gpu_second_halala);
+  if (Number.isFinite(providerRate) && providerRate >= 0) return providerRate;
+  return (COST_RATES['interactive_pod'] || COST_RATES['default']) / 60;
+}
+
+function resolvePodGpuCount(provider) {
+  const n = Number.parseInt(provider?.gpu_count, 10);
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 64) : 1;
+}
+
+function computePodQuoteHalala({ durationSeconds, ratePerGpuSecond, gpuCount }) {
+  return Math.max(0, Math.ceil(durationSeconds * ratePerGpuSecond * gpuCount));
+}
+
+// Pure settlement math for a renter-initiated stop. Charge is clamped at the
+// prepaid quote: stopping early refunds the difference; stopping late (clock
+// skew) never charges beyond what was debited.
+function computePodStopSettlement({ costHalala, startedAtMs, nowMs, ratePerGpuSecond, gpuCount }) {
+  const prepaid = Math.max(0, Math.round(Number(costHalala) || 0));
+  const elapsedSeconds = Math.max(0, (nowMs - startedAtMs) / 1000);
+  const rawCost = Math.ceil(elapsedSeconds * ratePerGpuSecond * gpuCount);
+  const actualCostHalala = Math.min(prepaid, Math.max(0, rawCost));
+  const providerEarnedHalala = Math.floor(actualCostHalala * PROVIDER_EARN_SHARE);
+  return {
+    elapsedSeconds: Math.round(elapsedSeconds),
+    actualCostHalala,
+    providerEarnedHalala,
+    dc1FeeHalala: actualCostHalala - providerEarnedHalala,
+    refundHalala: prepaid - actualCostHalala,
+  };
+}
 
 // Reuse the EXACT same HMAC signer the rest of the job pipeline uses. This is
 // load-bearing: signTaskSpec === crypto.createHmac('sha256', HMAC_SECRET)
@@ -194,7 +236,7 @@ function resolvePodProvider(requestedProviderId) {
 
   if (requestedProviderId != null) {
     const provider = db.get(
-      `SELECT p.id, p.name, p.gpu_model
+      `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count
          FROM providers p
         WHERE p.id = ?
           AND p.status = 'online'
@@ -215,7 +257,7 @@ function resolvePodProvider(requestedProviderId) {
 
   // Auto-pick: freshest capable provider with the fewest active jobs.
   const provider = db.get(
-    `SELECT p.id, p.name, p.gpu_model,
+    `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
             COUNT(CASE WHEN j.status IN ('assigned','pulling','running','pending','queued') THEN 1 END) AS active_jobs
        FROM providers p
   LEFT JOIN jobs j ON j.provider_id = p.id
@@ -275,6 +317,20 @@ router.get('/', requireRenter, (req, res) => {
 
 router.post('/', requireRenter, requireComputeScope, (req, res) => {
   try {
+    // Concurrency quota: a renter may hold at most N live pods.
+    const activePods = db.get(
+      `SELECT COUNT(*) AS n FROM jobs
+        WHERE renter_id = ? AND job_type = 'interactive_pod'
+          AND status IN ('pending','queued','assigned','pulling','running')`,
+      req.renter.id
+    );
+    if (Number(activePods?.n || 0) >= MAX_ACTIVE_PODS_PER_RENTER) {
+      return res.status(409).json({
+        error: `Active pod limit reached (${MAX_ACTIVE_PODS_PER_RENTER}). Stop a running pod before launching another.`,
+        code: 'POD_QUOTA_EXCEEDED',
+      });
+    }
+
     const body = req.body || {};
     const params = body.params && typeof body.params === 'object' ? body.params : {};
 
@@ -324,6 +380,36 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     }
     const provider = resolution.provider;
 
+    // ── Quote + pre-debit (the prepaid contract job-result settles against) ──
+    const ratePerGpuSecond = resolvePodRate(provider);
+    const quoteGpuCount = resolvePodGpuCount(provider);
+    const quoteHalala = computePodQuoteHalala({
+      durationSeconds: durationMinutes * 60,
+      ratePerGpuSecond,
+      gpuCount: quoteGpuCount,
+    });
+    if (quoteHalala > 0) {
+      const debit = db.prepare(
+        `UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ?
+          WHERE id = ? AND balance_halala >= ?`
+      ).run(quoteHalala, new Date().toISOString(), req.renter.id, quoteHalala);
+      if (debit.changes !== 1) {
+        const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
+        const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
+        return res.status(402).json({
+          error: {
+            message: `Insufficient balance for this pod. Available: ${(balanceHalala / 100).toFixed(2)} SAR, required: ${(quoteHalala / 100).toFixed(2)} SAR for ${durationMinutes} minutes. Unused time is refunded when you stop the pod early.`,
+            type: 'insufficient_balance',
+            code: 'insufficient_balance',
+            status: 402,
+            retryable: false,
+          },
+          balance_sar: Number((balanceHalala / 100).toFixed(2)),
+          required_sar: Number((quoteHalala / 100).toFixed(2)),
+        });
+      }
+    }
+
     // Build the task_spec EXACTLY as the daemon's run_interactive_pod expects,
     // then sign the serialized string. The stored task_spec string and the
     // signed bytes MUST be identical (the daemon recomputes the HMAC over the
@@ -342,28 +428,44 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     const job_id = 'pod-' + Date.now() + '-' + crypto.randomBytes(3).toString('hex');
     const maxDurationSeconds = durationMinutes * 60;
     const now = new Date().toISOString();
+    let insertedOk = false;
 
     // Insert with provider_id PINNED and status 'queued'. buildNextPendingJob
     // selects status IN ('pending','queued') AND (provider_id = ? OR NULL), so a
     // pinned 'queued' row is delivered to this provider on its next poll. We do
     // NOT call the scheduler's tryAssign, which would overwrite provider_id.
-    db.prepare(
-      `INSERT INTO jobs
-         (job_id, provider_id, renter_id, job_type, status,
-          task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
-          submitted_at, created_at)
-       VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?)`
-    ).run(
-      job_id,
-      provider.id,
-      req.renter.id,
-      taskSpecStr,
-      taskSpecHmac,
-      durationMinutes,
-      maxDurationSeconds,
-      now,
-      now
-    );
+    try {
+      db.prepare(
+        `INSERT INTO jobs
+           (job_id, provider_id, renter_id, job_type, status,
+            task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
+            cost_halala, submitted_at, created_at)
+         VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        job_id,
+        provider.id,
+        req.renter.id,
+        taskSpecStr,
+        taskSpecHmac,
+        durationMinutes,
+        maxDurationSeconds,
+        quoteHalala,
+        now,
+        now
+      );
+      insertedOk = true;
+    } finally {
+      // Compensate the pre-debit if the row never landed — never hold money
+      // against a pod that does not exist.
+      if (!insertedOk && quoteHalala > 0) {
+        try {
+          db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
+            .run(quoteHalala, req.renter.id);
+        } catch (refundErr) {
+          console.error(`[pods] CRITICAL: failed to refund ${quoteHalala} halala to renter ${req.renter.id} after insert failure:`, refundErr.message);
+        }
+      }
+    }
 
     console.log(`[pods] Renter ${req.renter.id} launched interactive_pod ${job_id} on provider ${provider.id} (${durationMinutes}m)`);
 
@@ -373,6 +475,11 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       provider_id: provider.id,
       root_password: rootPassword,
       jupyter_token: jupyterToken,
+      quoted_cost_halala: quoteHalala,
+      quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
+      rate_halala_per_gpu_second: ratePerGpuSecond,
+      gpu_count: quoteGpuCount,
+      billing: 'prepaid — unused minutes are refunded when you stop the pod early',
     });
   } catch (error) {
     console.error('[pods] launch error:', error.message, error.stack);
@@ -406,33 +513,99 @@ router.get('/:id', requireRenter, (req, res) => {
 // ── DELETE /api/pods/:id — stop a pod + tear down its VPS relay ──────────────
 router.delete('/:id', requireRenter, (req, res) => {
   try {
+    // Renter folded into the lookup: unknown id and someone else's pod are both
+    // 404, so pod ids cannot be enumerated.
     const job = db.get(
-      `SELECT * FROM jobs WHERE (job_id = ? OR id = ?) AND job_type = 'interactive_pod'`,
-      req.params.id, req.params.id
+      `SELECT * FROM jobs
+        WHERE (job_id = ? OR id = ?) AND job_type = 'interactive_pod' AND renter_id = ?`,
+      req.params.id, req.params.id, req.renter.id
     );
     if (!job) {
       return res.status(404).json({ error: 'Pod not found' });
     }
-    if (job.renter_id !== req.renter.id) {
-      return res.status(403).json({ error: 'Forbidden' });
+
+    // Idempotent: already in a terminal state — report it, settle nothing.
+    if (['completed', 'failed', 'stopped', 'cancelled'].includes(job.status)) {
+      return res.json({ id: job.job_id, status: job.status });
     }
 
     const now = new Date().toISOString();
-    db.prepare(
-      `UPDATE jobs SET status = 'stopped', completed_at = ? WHERE id = ?`
-    ).run(now, job.id);
+    const nowMs = Date.now();
+    let settlement = null;
+
+    // Settle inside one transaction so a crash can never leave the renter
+    // debited with no terminal job state (or the provider half-credited).
+    db.transaction(() => {
+      if (job.status === 'running') {
+        const provider = db.get(
+          `SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`,
+          job.provider_id
+        );
+        const startedAtMs = Date.parse(job.started_at || job.submitted_at || now) || nowMs;
+        settlement = computePodStopSettlement({
+          costHalala: job.cost_halala,
+          startedAtMs,
+          nowMs,
+          ratePerGpuSecond: resolvePodRate(provider),
+          gpuCount: resolvePodGpuCount(provider),
+        });
+
+        db.prepare(
+          `UPDATE jobs SET status = 'stopped', completed_at = ?, duration_seconds = ?,
+                  actual_cost_halala = ?, provider_earned_halala = ?, dc1_fee_halala = ?
+            WHERE id = ? AND status = 'running'`
+        ).run(now, settlement.elapsedSeconds, settlement.actualCostHalala,
+          settlement.providerEarnedHalala, settlement.dc1FeeHalala, job.id);
+
+        if (settlement.providerEarnedHalala > 0) {
+          db.prepare(
+            `UPDATE providers
+                SET total_earnings = total_earnings + ?,
+                    claimable_earnings_halala = claimable_earnings_halala + ?,
+                    total_jobs = total_jobs + 1, current_job_id = NULL
+              WHERE id = ?`
+          ).run(settlement.providerEarnedHalala / 100, settlement.providerEarnedHalala, job.provider_id);
+        }
+
+        db.prepare(
+          `UPDATE renters
+              SET balance_halala = balance_halala + ?,
+                  total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1
+            WHERE id = ?`
+        ).run(settlement.refundHalala, settlement.actualCostHalala, job.renter_id);
+      } else {
+        // Never started (pending/queued/assigned/pulling): cancel + full refund.
+        db.prepare(
+          `UPDATE jobs SET status = 'cancelled', completed_at = ?, refunded_at = ? WHERE id = ?`
+        ).run(now, now, job.id);
+        const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
+        if (prepaid > 0 && !job.refunded_at) {
+          db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
+            .run(prepaid, job.renter_id);
+        }
+        settlement = { actualCostHalala: 0, refundHalala: prepaid, elapsedSeconds: 0 };
+      }
+    })();
 
     // Best-effort relay teardown — kill the VPS socat forwarders. The daemon's
-    // hold-loop will independently observe status left {running,...} and stop
-    // the container; relay stop just frees the public ports immediately.
+    // hold-loop will independently observe the terminal status and stop the
+    // container; relay stop just frees the public ports immediately.
     try {
       invokePodRelay(['stop', job.job_id]);
     } catch (relayErr) {
       console.error(`[pods] relay stop failed for ${job.job_id}:`, relayErr.message);
     }
 
-    console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id}`);
-    return res.json({ id: job.job_id, status: 'stopped' });
+    console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}`);
+    return res.json({
+      id: job.job_id,
+      status: job.status === 'running' ? 'stopped' : 'cancelled',
+      charged_halala: settlement.actualCostHalala,
+      charged_sar: Number((settlement.actualCostHalala / 100).toFixed(2)),
+      refunded_halala: settlement.refundHalala,
+      refunded_sar: Number((settlement.refundHalala / 100).toFixed(2)),
+      ran_seconds: settlement.elapsedSeconds,
+    });
   } catch (error) {
     console.error('[pods] stop error:', error.message);
     return res.status(500).json({ error: 'Failed to stop pod' });
@@ -440,3 +613,5 @@ router.delete('/:id', requireRenter, (req, res) => {
 });
 
 module.exports = router;
+module.exports.computePodStopSettlement = computePodStopSettlement;
+module.exports.computePodQuoteHalala = computePodQuoteHalala;

@@ -131,6 +131,7 @@ function buildSweepStatements(db) {
     ? `
       SELECT * FROM jobs
       WHERE status = 'running'
+        AND job_type != 'interactive_pod' -- pods settle via sweepExpiredPods, never retry
         AND started_at IS NOT NULL
         AND COALESCE(duration_minutes, 0) > 0
         AND datetime(started_at, '+' || duration_minutes || ' minutes') <= datetime('now')
@@ -141,6 +142,7 @@ function buildSweepStatements(db) {
     ? `
       SELECT * FROM jobs
       WHERE status = 'queued'
+        AND job_type != 'interactive_pod' -- stale pods cancel+refund via sweepExpiredPods
         AND ${queueTsCol} IS NOT NULL
         AND datetime(${queueTsCol}) <= datetime('now', '-30 minutes')
     `
@@ -609,12 +611,103 @@ async function runSweep(state) {
       }
     }
 
+    try { settleExpiredPods(state.db); } catch (error) { recordSweepError('pod settlement sweep', error); }
     await processCompletionEmailCandidates(state);
     await processWebhookCandidates(state);
   } catch (error) {
     recordSweepError('sweep tick failed', error);
   } finally {
     state.sweepInFlight = false;
+  }
+}
+
+// ─── Interactive-pod settlement sweep ────────────────────────────────────────
+// Pods are PREPAID: cost_halala was debited at launch. Two terminal paths the
+// renter-initiated DELETE does not cover:
+//   1. Deadline reached: the daemon's reaper kills the container, but nothing
+//      settles money — the renter consumed the full rental, so settle at the
+//      full quote and credit the provider 75% (same split as job-result).
+//   2. Never picked up: a queued pod whose provider never started it within
+//      15 minutes — cancel and refund the full quote.
+// Each settlement is one transaction; status flips guard against double-runs.
+const POD_PROVIDER_EARN_SHARE = 0.75;
+const POD_DEADLINE_GRACE_SECONDS = 300;
+const POD_QUEUED_STALE_MINUTES = 15;
+
+function settleExpiredPods(db) {
+  const raw = db._db || db;
+  const nowIso = new Date().toISOString();
+
+  const expired = safeAll(
+    raw.prepare(`
+      SELECT id, job_id, renter_id, provider_id, cost_halala, max_duration_seconds, started_at
+        FROM jobs
+       WHERE job_type = 'interactive_pod' AND status = 'running'
+         AND started_at IS NOT NULL AND COALESCE(max_duration_seconds, 0) > 0
+         AND datetime(started_at, '+' || (max_duration_seconds + ${POD_DEADLINE_GRACE_SECONDS}) || ' seconds') <= datetime('now')
+       LIMIT 20`),
+    'query expired pods'
+  );
+  for (const job of expired) {
+    try {
+      const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
+      const earned = Math.floor(prepaid * POD_PROVIDER_EARN_SHARE);
+      const fee = prepaid - earned;
+      raw.transaction(() => {
+        const flip = raw.prepare(`
+          UPDATE jobs SET status = 'completed', completed_at = ?, duration_seconds = max_duration_seconds,
+                 actual_cost_halala = ?, provider_earned_halala = ?, dc1_fee_halala = ?
+           WHERE id = ? AND status = 'running'`).run(nowIso, prepaid, earned, fee, job.id);
+        if (flip.changes !== 1) return; // raced with DELETE or job-result — they settled
+        if (earned > 0 && job.provider_id) {
+          raw.prepare(`
+            UPDATE providers SET total_earnings = total_earnings + ?,
+                   claimable_earnings_halala = claimable_earnings_halala + ?,
+                   total_jobs = total_jobs + 1, current_job_id = NULL
+             WHERE id = ?`).run(earned / 100, earned, job.provider_id);
+        }
+        if (job.renter_id) {
+          raw.prepare(`
+            UPDATE renters SET total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1
+             WHERE id = ?`).run(prepaid, job.renter_id);
+        }
+      })();
+      try {
+        const { invokePodRelay } = require('../lib/pod-relay');
+        invokePodRelay(['stop', job.job_id]);
+      } catch (_) { /* relay teardown is best-effort */ }
+      console.log(`[pod-sweep] settled expired pod ${job.job_id}: charged ${prepaid} halala, provider ${job.provider_id} earned ${earned}`);
+    } catch (error) {
+      recordSweepError(`settle expired pod ${job.job_id}`, error);
+    }
+  }
+
+  const stale = safeAll(
+    raw.prepare(`
+      SELECT id, job_id, renter_id, cost_halala, refunded_at
+        FROM jobs
+       WHERE job_type = 'interactive_pod' AND status IN ('pending','queued')
+         AND datetime(COALESCE(submitted_at, created_at)) <= datetime('now', '-${POD_QUEUED_STALE_MINUTES} minutes')
+       LIMIT 20`),
+    'query stale queued pods'
+  );
+  for (const job of stale) {
+    try {
+      raw.transaction(() => {
+        const flip = raw.prepare(`
+          UPDATE jobs SET status = 'cancelled', completed_at = ?, refunded_at = ?
+           WHERE id = ? AND status IN ('pending','queued')`).run(nowIso, nowIso, job.id);
+        if (flip.changes !== 1) return;
+        const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
+        if (prepaid > 0 && !job.refunded_at && job.renter_id) {
+          raw.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
+            .run(prepaid, job.renter_id);
+        }
+      })();
+      console.log(`[pod-sweep] cancelled stale queued pod ${job.job_id}, refunded ${job.cost_halala || 0} halala`);
+    } catch (error) {
+      recordSweepError(`cancel stale pod ${job.job_id}`, error);
+    }
   }
 }
 

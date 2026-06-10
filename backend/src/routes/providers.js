@@ -1257,6 +1257,18 @@ router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
             if (!(approvalStatus === 'pending' && allowPendingHeartbeat)) {
                 return res.status(403).json({ error: 'Provider is not approved yet' });
             }
+            // Self-serve posture: a pending provider whose heartbeat passed
+            // validation is auto-approved (default ON; set
+            // DCP_AUTO_APPROVE_PROVIDERS=0 to restore manual review). Without
+            // this, a provider shows "connected" in the wizard but is silently
+            // excluded from routing and earns nothing — the zero-earnings trap.
+            if (approvalStatus === 'pending' && process.env.DCP_AUTO_APPROVE_PROVIDERS !== '0') {
+                runStatement(
+                    `UPDATE providers SET approval_status = 'approved' WHERE id = ? AND approval_status = 'pending'`,
+                    p.id
+                );
+                console.log(`[providers] auto-approved provider ${p.id} (${p.name || 'unnamed'}) on first verified heartbeat`);
+            }
         }
 
         const resolvedGpuName = gpuInfoName || gpuName;
@@ -3862,8 +3874,18 @@ router.post('/job-result', (req, res) => {
             actualMinutes, Math.round(elapsedSeconds), actualCostHalala, providerEarned, dc1Fee, restartCount, lastError, job.id
         );
 
+        // ── Billing ownership guard ─────────────────────────────────────
+        // v1 chat/completions queued-fallback jobs are settled EXCLUSIVELY by
+        // settleInferenceOnce (which debits the renter AND credits the
+        // provider in one idempotent transaction). Running the blocks below
+        // for those jobs double-credits the provider and, on failure, refunds
+        // renter money that was never debited (cost_halala is a quote there,
+        // not a pre-debit). Skip all money writes; the job-state UPDATE above
+        // already happened.
+        const billingOwnedByV1 = job.notes === 'v1:chat/completions';
+
         // Update provider stats
-        if (successFlag) {
+        if (successFlag && !billingOwnedByV1) {
             runStatement(
                 `UPDATE providers SET total_earnings = total_earnings + ?, claimable_earnings_halala = claimable_earnings_halala + ?, total_jobs = total_jobs + 1, current_job_id = NULL WHERE id = ?`,
                 providerEarned / 100, providerEarned, provider.id  // total_earnings is in SAR, claimable in halala
@@ -3888,7 +3910,7 @@ router.post('/job-result', (req, res) => {
         // ── Renter billing settlement ──────────────────────────────────
         // Pre-pay hold was deducted at submit time (cost_halala).
         // Now settle: refund difference if actual < estimated, or charge extra.
-        if (job.renter_id) {
+        if (job.renter_id && !billingOwnedByV1) {
             const estimatedCost = job.cost_halala || 0;
             if (successFlag) {
                 const delta = estimatedCost - actualCostHalala; // positive = refund, negative = extra charge

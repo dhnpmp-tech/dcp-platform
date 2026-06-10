@@ -125,6 +125,11 @@ const JOB_TYPE_RATES_HALALA_PER_MIN = {
   'vllm_serve': 9,
   'rag-pipeline': 15,
   'custom_container': 7,
+  // Whole-GPU interactive pods: 2 halala/min ≈ 1.20 SAR/hr/GPU (~$0.32/hr) —
+  // inside the consumer-tier market band (vast.ai 3090 ≈ SAR 0.53-0.68/hr,
+  // RunPod community ≈ SAR 0.83, RunPod secure ≈ SAR 1.73). Providers can
+  // override via cost_per_gpu_second_halala. Adjust here as pricing strategy.
+  'interactive_pod': 2,
   'default': 6,
 };
 
