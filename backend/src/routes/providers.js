@@ -812,8 +812,8 @@ router.post('/register', registerLimiter, validateBody(providerRegisterSchema), 
         // PROV-9: write api_key_hash alongside api_key on register so a brand
         // new provider is hash-resolvable immediately (no backfill needed).
         const result = await runStatement(
-            `INSERT INTO providers (name, email, gpu_model, os, api_key, api_key_hash, status, approval_status, created_at, location, resource_spec, supported_compute_types, run_mode, scheduled_start, scheduled_end)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO providers (name, email, gpu_model, os, api_key, api_key_hash, status, approval_status, created_at, location, resource_spec, supported_compute_types, run_mode, scheduled_start, scheduled_end, cost_per_gpu_second_halala)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
             [cleanName, cleanEmail, cleanGpuModel, cleanOs, api_key, hashProviderKey(api_key), 'registered', 'pending', new Date().toISOString(), cleanLocation, resourceSpecJson, '["inference"]', null, null, null]
         );
         
@@ -2304,6 +2304,9 @@ router.get('/me', async (req, res) => {
                 gpu_usage_cap_pct: provider.gpu_usage_cap_pct != null ? provider.gpu_usage_cap_pct : 80,
                 vram_reserve_gb: provider.vram_reserve_gb != null ? provider.vram_reserve_gb : 1,
                 temp_limit_c: provider.temp_limit_c != null ? provider.temp_limit_c : 85,
+                // Pod pricing: halala per GPU-second a renter pays for this
+                // provider's whole-GPU pods. null = platform default rate.
+                cost_per_gpu_second_halala: provider.cost_per_gpu_second_halala != null ? provider.cost_per_gpu_second_halala : null,
                 is_paused: Boolean(provider.is_paused),
                 approval_status: provider.approval_status || 'pending',
                 approved_at: provider.approved_at || null,
@@ -2646,7 +2649,7 @@ router.post('/resume', async (req, res) => {
 // ============================================================================
 router.post('/preferences', async (req, res) => {
     try {
-        const { key, run_mode, scheduled_start, scheduled_end, gpu_usage_cap_pct, vram_reserve_gb, temp_limit_c } = req.body;
+        const { key, run_mode, scheduled_start, scheduled_end, gpu_usage_cap_pct, vram_reserve_gb, temp_limit_c, pod_rate_sar_per_hour } = req.body;
         const cleanKey = normalizeString(key, { maxLen: 128, trim: false });
         if (!cleanKey) return res.status(400).json({ error: 'API key required' });
 
@@ -2678,6 +2681,22 @@ router.post('/preferences', async (req, res) => {
             return res.status(400).json({ error: 'temp_limit_c must be 50-100' });
         }
 
+        // Pod pricing — entered as SAR per GPU-hour, stored as halala per
+        // GPU-second (sar/hr ÷ 36). Explicit null resets to the platform
+        // default rate; field absent = keep current.
+        let podRateHalalaPerSec = provider.cost_per_gpu_second_halala != null ? provider.cost_per_gpu_second_halala : null;
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, 'pod_rate_sar_per_hour')) {
+            if (pod_rate_sar_per_hour == null) {
+                podRateHalalaPerSec = null;
+            } else {
+                const sarPerHour = toFiniteNumber(pod_rate_sar_per_hour, { min: 0.1, max: 50 });
+                if (sarPerHour == null) {
+                    return res.status(400).json({ error: 'pod_rate_sar_per_hour must be between 0.10 and 50 SAR per GPU-hour' });
+                }
+                podRateHalalaPerSec = Math.round((sarPerHour / 36) * 10000) / 10000;
+            }
+        }
+
         const updates = {
             run_mode: cleanRunMode || provider.run_mode || 'always-on',
             scheduled_start: normalizeString(scheduled_start, { maxLen: 5 }) || provider.scheduled_start || '23:00',
@@ -2688,10 +2707,12 @@ router.post('/preferences', async (req, res) => {
         };
 
         runStatement(
-            `UPDATE providers SET run_mode = ?, scheduled_start = ?, scheduled_end = ?, gpu_usage_cap_pct = ?, vram_reserve_gb = ?, temp_limit_c = ? WHERE id = ?`,
-            updates.run_mode, updates.scheduled_start, updates.scheduled_end, updates.gpu_usage_cap_pct, updates.vram_reserve_gb, updates.temp_limit_c, provider.id
+            `UPDATE providers SET run_mode = ?, scheduled_start = ?, scheduled_end = ?, gpu_usage_cap_pct = ?, vram_reserve_gb = ?, temp_limit_c = ?, cost_per_gpu_second_halala = ? WHERE id = ?`,
+            updates.run_mode, updates.scheduled_start, updates.scheduled_end, updates.gpu_usage_cap_pct, updates.vram_reserve_gb, updates.temp_limit_c, podRateHalalaPerSec, provider.id
         );
 
+        updates.cost_per_gpu_second_halala = podRateHalalaPerSec;
+        updates.pod_rate_sar_per_hour = podRateHalalaPerSec != null ? Math.round(podRateHalalaPerSec * 36 * 100) / 100 : null;
         res.json({ success: true, preferences: updates });
     } catch (error) {
         console.error('Preferences error:', error);
