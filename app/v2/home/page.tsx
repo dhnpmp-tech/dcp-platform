@@ -71,9 +71,10 @@ type MpModel = {
   pricing?: { usd_per_1m_input_tokens?: string }
 }
 
+const SAR_PER_USD = 3.75 // backend stores halala and converts at the SAMA peg; we display SAR, never USD
 const fmtMpPrice = (m: MpModel): string => {
-  const p = Number(m.pricing?.usd_per_1m_input_tokens ?? 0)
-  return p > 0 ? `$${p.toFixed(2)}` : '—'
+  const usd = Number(m.pricing?.usd_per_1m_input_tokens ?? 0)
+  return usd > 0 ? `${(usd * SAR_PER_USD).toFixed(2)} SAR` : '—'
 }
 
 export default function V2HomePage() {
@@ -83,6 +84,43 @@ export default function V2HomePage() {
   const [copied, setCopied] = useState(false)
   const [live, setLive] = useState<{ online: number; serving: number; catalog: number } | null>(null)
   const [catalog, setCatalog] = useState<MpModel[] | null>(null)
+
+  // Hero live demo — one prompt, one real completion from a verified Saudi GPU.
+  const [demoQ, setDemoQ] = useState('')
+  const [demoTyped, setDemoTyped] = useState('')
+  const [demoMeta, setDemoMeta] = useState<{ model: string; providers: number } | null>(null)
+  const [demoState, setDemoState] = useState<'idle' | 'busy' | 'done' | 'down'>('idle')
+  const demoFull = useRef('')
+
+  const askDemo = async () => {
+    const q = demoQ.trim()
+    if (!q || demoState === 'busy') return
+    setDemoState('busy'); setDemoTyped(''); setDemoMeta(null)
+    try {
+      const res = await fetch('/api/public/demo/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: q }),
+      })
+      if (!res.ok) { setDemoState('down'); return }
+      const d = await res.json()
+      demoFull.current = String(d.content || '')
+      setDemoMeta({ model: String(d.model || ''), providers: Number(d.provider_count) || 1 })
+      setDemoState('done')
+    } catch { setDemoState('down') }
+  }
+
+  // typewriter render — presentation only; the answer already arrived whole
+  useEffect(() => {
+    if (demoState !== 'done' || !demoFull.current) return
+    let i = 0
+    const id = window.setInterval(() => {
+      i += 2
+      setDemoTyped(demoFull.current.slice(0, i))
+      if (i >= demoFull.current.length) window.clearInterval(id)
+    }, 16)
+    return () => window.clearInterval(id)
+  }, [demoState])
 
   const codeRef = useRef<HTMLPreElement | null>(null)
 
@@ -462,27 +500,76 @@ export default function V2HomePage() {
               <h1>
                 {lang === 'ar' ? (
                   <>
-                    ذكاء اصطناعي عربي <em>يعيش داخل المملكة.</em>
+                    سحابة المعالجات السعودية <em>المفتوحة.</em>
                   </>
                 ) : (
                   <>
-                    Arabic AI that <em>lives in the Kingdom.</em>
+                    Saudi Arabia&apos;s <em>open GPU cloud.</em>
                   </>
                 )}
               </h1>
               <p className="lead">
                 <Bi
-                  en="Inference and agents, served from inside the Kingdom. Your data stays here. You pay for what you use, in Riyal."
-                  ar="استدلال ووكلاء، تُقدّم من داخل المملكة. بياناتك تبقى هنا. تدفع مقابل ما تستخدم فقط، بالريال."
+                  en="AI by the token. Whole GPUs by the minute. Verified live, billed in Riyal — your data never leaves the Kingdom."
+                  ar="ذكاء اصطناعي بالرمز. معالجات كاملة بالدقيقة. متحقق مباشرةً، بالريال — بياناتك لا تغادر المملكة أبداً."
                 />
               </p>
-              <div className="ctas">
-                <Link className="btn primary lg magnet" href="/v2/renter/playground">
-                  <Bi en="Open playground →" ar="افتح ساحة التجربة ←" />
+
+              <div className="door-grid">
+                <Link className="door" href="/v2/renter/playground">
+                  <span className="door-k"><Bi en="for builders" ar="للمطوّرين" /></span>
+                  <span className="door-t"><Bi en="Use AI models" ar="استخدم النماذج" /></span>
+                  <span className="door-d"><Bi en="OpenAI-compatible API and playground. Pay per token, in SAR." ar="واجهة متوافقة مع OpenAI وساحة تجربة. ادفع بالرمز، بالريال." /></span>
+                  <span className="door-a">→</span>
                 </Link>
-                <Link className="btn ghost lg" href="/v2/setup">
-                  <Bi en="Start free · no card" ar="ابدأ مجاناً · بلا بطاقة" />
+                <Link className="door" href="/v2/containers">
+                  <span className="door-k"><Bi en="for compute" ar="للحوسبة" /></span>
+                  <span className="door-t"><Bi en="Rent a whole GPU" ar="استأجر معالجاً كاملاً" /></span>
+                  <span className="door-d"><Bi en="A dedicated 24 GB card with Jupyter + SSH, in about a minute." ar="بطاقة ٢٤ جيجابايت مخصصة مع Jupyter و SSH خلال دقيقة تقريباً." /></span>
+                  <span className="door-a">→</span>
                 </Link>
+                <Link className="door" href="/v2/provider-setup">
+                  <span className="door-k"><Bi en="for GPU owners" ar="لمالكي المعالجات" /></span>
+                  <span className="door-t"><Bi en="Earn with your GPU" ar="اكسب بمعالجك" /></span>
+                  <span className="door-d"><Bi en="Your idle card joins the verified mesh and gets paid in SAR." ar="بطاقتك الخاملة تنضم إلى الشبكة المتحققة وتُدفع لها بالريال." /></span>
+                  <span className="door-a">→</span>
+                </Link>
+              </div>
+
+              <div className="demo-box">
+                <div className="demo-label">
+                  <Bi en="Proof you can touch — ask a Saudi GPU right now" ar="دليل تلمسه بيدك — اسأل معالجاً سعودياً الآن" />
+                </div>
+                <div className="demo-row">
+                  <input
+                    value={demoQ}
+                    onChange={(e) => setDemoQ(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') askDemo() }}
+                    maxLength={280}
+                    placeholder={lang === 'ar' ? 'اسأل أي شيء — بالعربية أو الإنجليزية…' : 'Ask anything — Arabic or English…'}
+                    aria-label={lang === 'ar' ? 'سؤال التجربة الحية' : 'Live demo question'}
+                  />
+                  <button type="button" onClick={askDemo} disabled={demoState === 'busy'}>
+                    {demoState === 'busy'
+                      ? <Bi en="GPU thinking…" ar="المعالج يفكر…" />
+                      : <Bi en="Ask →" ar="اسأل ←" />}
+                  </button>
+                </div>
+                {demoState === 'done' && (
+                  <div className="demo-out">
+                    <p dir="auto">{demoTyped}</p>
+                    {demoMeta && (
+                      <span className="demo-chain" dir="ltr">
+                        {demoMeta.model} · 🇸🇦 verified GPU · probe ✓ → inference ✓ → served
+                      </span>
+                    )}
+                  </div>
+                )}
+                {demoState === 'down' && (
+                  <div className="demo-out">
+                    <p><Bi en="No live capacity free for the demo right now — that's the honest state." ar="لا توجد سعة حية متاحة للتجربة الآن — هذه هي الحالة الصادقة." /> <Link href="/status"><Bi en="Check /status →" ar="راجع الحالة ←" /></Link></p>
+                  </div>
+                )}
               </div>
               <div className="res-row">
                 <span className="residency-badge ksa">
@@ -574,7 +661,7 @@ export default function V2HomePage() {
               <Bi en="§ 01 · The GPU mesh · verified capacity" ar="§ ٠١ · شبكة المعالجات · سعة متحققة" />
             </span>
             <span>
-              <Bi en="The substrate · transparent · KSA-resident" ar="البنية · شفّافة · داخل المملكة" />
+              <Bi en="Where your requests actually run" ar="أين تعمل طلباتك فعلياً" />
             </span>
           </div>
 
@@ -630,7 +717,7 @@ export default function V2HomePage() {
                       <span><Bi en="Model" ar="النموذج" /></span>
                       <span><Bi en="Context" ar="السياق" /></span>
                       <span><Bi en="Quant" ar="التكميم" /></span>
-                      <span><Bi en="Price / 1M in" ar="السعر / مليون رمز" /></span>
+                      <span><Bi en="SAR / 1M tokens" ar="ريال / مليون رمز" /></span>
                       <span><Bi en="Providers" ar="المزوّدون" /></span>
                     </div>
                     {served.slice(0, 8).map((m) => (
@@ -654,6 +741,12 @@ export default function V2HomePage() {
                     <Link href="/status"><Bi en="Watch live status →" ar="تابع الحالة الحية ←" /></Link>
                   </div>
                 )}
+                <div className="mp-live-head" style={{ borderTop: '1px solid var(--hair)', borderBottom: 0 }}>
+              <span>
+                <Bi en="Prefer the whole card? RTX-class · 24 GB · dedicated — rent it by the minute, in SAR" ar="تفضّل البطاقة كاملة؟ فئة RTX · ٢٤ جيجابايت · مخصصة — استأجرها بالدقيقة، بالريال" />
+              </span>
+                  <Link href="/v2/containers"><Bi en="Launch a pod →" ar="شغّل حاوية ←" /></Link>
+                </div>
               </div>
             )
           })()}
@@ -797,6 +890,51 @@ export default function V2HomePage() {
             <Link href="/v2/renter/pods">
               <Bi en="dcp pod create →" ar="dcp pod create ←" />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ VISION ═══════════════ */}
+      <section id="vision">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx"><Bi en="§ The vision" ar="§ الرؤية" /></span>
+            <span><Bi en="Why this is bigger than a GPU list" ar="لماذا هذا أكبر من قائمة معالجات" /></span>
+          </div>
+          <h2 className="vision-h">
+            <Bi
+              en="Every idle GPU in the Kingdom is a data center."
+              ar="كل معالج خامل في المملكة هو مركز بيانات."
+            />
+          </h2>
+          <p className="vision-p">
+            <Bi
+              en="Hyperscalers build walls around compute. We build rails between the GPUs the Kingdom already owns — gaming rigs, workstations, university clusters — verify each one live, and put it to work serving Arabic-first AI and raw compute, paid in Riyal. The numbers below are the mesh as it exists this minute, not a projection."
+              ar="السحابات الكبرى تبني جدراناً حول الحوسبة. نحن نمدّ السكك بين المعالجات التي تملكها المملكة أصلاً — أجهزة الألعاب ومحطات العمل وعناقيد الجامعات — نتحقق من كل واحدة مباشرةً، ونشغّلها لخدمة ذكاء اصطناعي عربي أولاً وحوسبة خام، بالريال. الأرقام أدناه هي الشبكة كما هي في هذه الدقيقة، لا توقّعاً."
+            />
+          </p>
+          <div className="vision-live" dir="ltr">
+            <div><b>{live ? live.online : '—'}</b><span><Bi en="providers verified online" ar="مزوّدون متحققون الآن" /></span></div>
+            <div><b>{catalog ? catalog.filter((m) => m.available).length : '—'}</b><span><Bi en="models serving this minute" ar="نماذج تخدم هذه الدقيقة" /></span></div>
+            <div><b>{catalog ? catalog.length : '—'}</b><span><Bi en="models in the catalog" ar="نموذجاً في الكتالوج" /></span></div>
+            <div><b>2</b><span><Bi en="products: tokens + whole GPUs" ar="منتجان: رموز ومعالجات كاملة" /></span></div>
+          </div>
+          <div className="mg-grid" style={{ marginTop: 24 }}>
+            <div className="mg">
+              <span className="org"><Bi en="NOW · live today" ar="الآن · يعمل اليوم" /></span>
+              <h4 className="nm"><Bi en="The verified mesh" ar="الشبكة المتحققة" /></h4>
+              <p><Bi en="WireGuard-meshed providers, earned-online catalog, token billing in SAR, interactive GPU pods, Arabic-first models." ar="مزوّدون عبر WireGuard، كتالوج بالاتصال المُكتسب، فوترة بالرمز بالريال، حاويات GPU تفاعلية، نماذج عربية أولاً." /></p>
+            </div>
+            <div className="mg">
+              <span className="org"><Bi en="NEXT · building now" ar="التالي · قيد البناء" /></span>
+              <h4 className="nm"><Bi en="Production hardening" ar="تقوية الإنتاج" /></h4>
+              <p><Bi en="Pod billing by the minute in SAR, VM-grade isolation (gVisor), card payments switched on, a larger verified fleet." ar="فوترة الحاويات بالدقيقة بالريال، عزل بمستوى الأجهزة الافتراضية (gVisor)، تفعيل الدفع بالبطاقات، أسطول متحقق أكبر." /></p>
+            </div>
+            <div className="mg">
+              <span className="org"><Bi en="THEN · the bet" ar="بعد ذلك · الرهان" /></span>
+              <h4 className="nm"><Bi en="Sovereign AI at scale" ar="ذكاء سيادي على نطاق واسع" /></h4>
+              <p><Bi en="ALLaM at scale, a datacenter tier, and the long tail of Saudi expert models — trained, served, and paid for inside the Kingdom." ar="ALLaM على نطاق واسع، وفئة مراكز البيانات، وسلسلة النماذج السعودية المتخصصة — تُدرَّب وتُخدَّم وتُدفع داخل المملكة." /></p>
+            </div>
           </div>
         </div>
       </section>
