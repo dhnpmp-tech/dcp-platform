@@ -7690,7 +7690,11 @@ def run_interactive_pod(task_spec, job_id=None):
         return {"success": False, "error": "interactive_pod task_spec missing jupyter_token/root_password"}
 
     container_name = f"dcp-pod-{job_id or int(time.time())}"
-    volume_name = f"dcp-pod-{job_id or int(time.time())}-vol"
+    # Persistent workspace: honor a backend-supplied stable volume name
+    # (dcp-ws-r<renter_id>) so /workspace reattaches across the renter's pods.
+    # Falls back to a per-job volume for older backends. The volume is NEVER
+    # removed on teardown (only the container is), so work survives.
+    volume_name = task_spec.get("workspace_volume") or f"dcp-pod-{job_id or int(time.time())}-vol"
 
     # Self-enforced lifetime. The backend may never flip job status (the proven
     # 29h-stuck-pod bug), so the duration is bounded here regardless: prefer an
@@ -7813,7 +7817,7 @@ def run_interactive_pod(task_spec, job_id=None):
     log.info(f"Interactive pod ready: container={container_name} jport={jport} sport={sport} wg={wg_mesh_ip}")
 
     # Hold loop — monitor container until backend says job is done or duration expires.
-    poll_interval = 30  # seconds between container health checks
+    poll_interval = 7  # seconds — tight so renter-stop/deadline frees the GPU within ~7s (was 30s)
     # Self-enforced deadline: enforce the requested/ capped duration even if the
     # backend never flips job status. Computed from the same start epoch the
     # dcp.deadline label was stamped from, so in-process and reaper agree.

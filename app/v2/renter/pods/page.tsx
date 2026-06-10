@@ -45,6 +45,9 @@ interface Pod {
   duration_minutes?: number | null
   submitted_at?: string | null
   created_at?: string | null
+  ends_at?: string | null
+  seconds_remaining?: number | null
+  workspace_persisted?: boolean | null
 }
 
 interface AvailableProvider {
@@ -136,6 +139,13 @@ function formatSubmitted(pod: Pod): string {
   return t.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function formatCountdown(secs: number): string {
+  const s = Math.max(0, Math.floor(secs))
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
+
 function statusClass(status: string): string {
   const s = String(status || '').toLowerCase()
   if (s === 'running') return 'active'
@@ -171,6 +181,12 @@ export default function RenterPodsPage() {
   const pollIdsRef = useRef<Set<string>>(new Set())
 
   // ── Data loaders ─────────────────────────────────────────────────────
+  const [nowTick, setNowTick] = useState(() => 0)
+  useEffect(() => {
+    const t = setInterval(() => setNowTick((n) => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+
   const fetchPods = useCallback(async (apiKey: string) => {
     try {
       const res = await fetch(`${getApiBase()}/pods?key=${encodeURIComponent(apiKey)}`, {
@@ -769,6 +785,28 @@ export default function RenterPodsPage() {
                           </button>
                         )}
                       </div>
+
+                      {pod.status === 'running' && typeof pod.seconds_remaining === 'number' && (() => {
+                        // live countdown: recompute from ends_at every tick (nowTick drives re-render)
+                        void nowTick
+                        const left = pod.ends_at
+                          ? Math.max(0, Math.round((Date.parse(pod.ends_at) - Date.now()) / 1000))
+                          : pod.seconds_remaining
+                        const ending = left <= 300
+                        return (
+                          <div className={`pod-clock${ending ? ' warn' : ''}`}>
+                            <span className="pod-clock-t">
+                              {ending ? '⚠ ' : ''}
+                              <Bi en="Rental ends in" ar="ينتهي الإيجار خلال" /> <b>{formatCountdown(left)}</b>
+                            </span>
+                            <span className="pod-clock-sub">
+                              {ending
+                                ? <Bi en="Save anything outside /workspace now — /workspace is kept and reattaches to your next pod." ar="احفظ أي شيء خارج /workspace الآن — يُحتفظ بـ /workspace ويُعاد ربطه بحاويتك التالية." />
+                                : <Bi en="/workspace is saved and reattaches to your next pod." ar="يُحفظ /workspace ويُعاد ربطه بحاويتك التالية." />}
+                            </span>
+                          </div>
+                        )
+                      })()}
 
                       {accessReady ? (
                         <div className="pod-access">

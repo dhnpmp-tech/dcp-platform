@@ -310,6 +310,7 @@ function toPodView(job) {
     seconds_remaining: (job.started_at && job.max_duration_seconds)
       ? Math.max(0, Math.round((Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000 - Date.now()) / 1000))
       : null,
+    workspace_persisted: true,
   };
 }
 
@@ -433,11 +434,18 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     // then sign the serialized string. The stored task_spec string and the
     // signed bytes MUST be identical (the daemon recomputes the HMAC over the
     // task_spec it receives) — so we stringify once and reuse that exact string.
+    // Persistent workspace: a stable per-renter volume name so /workspace
+    // survives across this renter's pods on the same provider. The daemon
+    // mounts this named volume (creating it on first use); pod teardown only
+    // removes the container, never the volume — so work is reattached
+    // automatically on the next pod.
+    const workspaceVolume = `dcp-ws-r${req.renter.id}`;
     const taskSpecObj = {
       image: imageResult.image,
       jupyter_token: jupyterToken,
       root_password: rootPassword,
       duration_minutes: durationMinutes,
+      workspace_volume: workspaceVolume,
     };
     // Tell the daemon to inject SSH (the image is not the DCP-baked default).
     if (imageResult.bootstrap) taskSpecObj.bootstrap_ssh = true;
@@ -496,6 +504,8 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       jupyter_token: jupyterToken,
       duration_minutes: durationMinutes,
       ends_at_hint: 'rental clock starts when the pod reaches running; see GET /api/pods/:id for ends_at',
+      workspace_persisted: true,
+      workspace_note: 'Files in /workspace are saved and reattach automatically to your next pod on this provider.',
       quoted_cost_halala: quoteHalala,
       quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
       rate_halala_per_gpu_second: ratePerGpuSecond,
