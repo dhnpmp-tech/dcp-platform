@@ -325,7 +325,15 @@ function _candidateProviders(db) {
       WHERE status = 'online'
         AND COALESCE(is_paused, 0) = 0
         AND deleted_at IS NULL
-        AND last_heartbeat >= ?`,
+        AND last_heartbeat >= ?
+        -- A provider hosting an active pod is rented out: probing it re-warms
+        -- inference engines (Ollama model load) and steals VRAM from the
+        -- renter's dedicated card. Skip until the pod ends.
+        AND NOT EXISTS (
+            SELECT 1 FROM jobs jp
+             WHERE jp.provider_id = providers.id
+               AND jp.job_type = 'interactive_pod'
+               AND jp.status IN ('queued','assigned','pulling','running'))`,
     [cutoff]
   );
 }
