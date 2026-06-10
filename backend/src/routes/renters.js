@@ -726,7 +726,10 @@ router.post('/me/notifications/read-all', (req, res) => {
 // GET /api/renters/me/payments?key=API_KEY
 router.get('/me/payments', (req, res) => {
   try {
-    const { key } = req.query;
+    // Accept header auth like every sibling /me route — this was the last
+    // query-string-only holdout and it 400'd the entire v2 wallet page
+    // (found in Tareq's live renter test, 2026-06-10).
+    const key = req.headers['x-renter-key'] || req.query.key;
     if (!key) return res.status(400).json({ error: 'API key required' });
 
     const renter = db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active');
