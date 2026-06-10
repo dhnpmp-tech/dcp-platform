@@ -23,7 +23,7 @@ jest.mock('../../src/routes/jobs', () => ({
 jest.mock('../../src/services/notifications', () => ({
   sendAlert: jest.fn(),
 }));
-jest.mock('../../src/services/email', () => ({
+jest.mock('../../src/services/emailService', () => ({
   sendWelcomeEmail: jest.fn(),
 }));
 

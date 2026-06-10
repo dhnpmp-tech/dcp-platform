@@ -12,6 +12,7 @@
  */
 
 const { sendEmail } = require('./emailService');
+const { renderEmail, escapeHtml, COLORS, FONTS } = require('./emailLayout');
 
 const DEFAULT_DIGEST_UTC_HOUR = 7;   // 10:00 KSA
 const DEFAULT_DIGEST_UTC_MINUTE = 0;
@@ -76,16 +77,32 @@ function buildDigestTemplate({ renterName, totalJobs, totalHalala, byModel, dash
   const totalSar = formatSar(totalHalala);
   const subject = `DCP daily — ${totalJobs} job${totalJobs === 1 ? '' : 's'} completed, ${totalSar} SAR spent`;
 
-  const modelRowsHtml = byModel
-    .map(
-      (g) => `
+  // Model breakdown table — hairline borders, mono uppercase headers,
+  // rendered once per language section (headers localized, data shared).
+  const buildModelTable = ({ rtl }) => {
+    const dir = rtl ? 'rtl' : 'ltr';
+    const headers = rtl
+      ? { model: 'النموذج', jobs: 'المهام', cost: 'التكلفة' }
+      : { model: 'Model', jobs: 'Jobs', cost: 'Cost' };
+    const startAlign = rtl ? 'right' : 'left';
+    const endAlign = rtl ? 'left' : 'right';
+    const th = (label, align) =>
+      `<th dir="${dir}" style="padding:10px 14px;border-bottom:1px solid ${COLORS.border};font-family:${FONTS.mono};font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:${COLORS.text2};font-weight:400;text-align:${align};">${label}</th>`;
+    const rows = byModel
+      .map(
+        (g, i) => `
         <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#e6e6e6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;">${g.model}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#e6e6e6;font-size:13px;text-align:right;">${g.count}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#e6e6e6;font-size:13px;text-align:right;">${formatSar(g.costHalala)} SAR</td>
+          <td dir="${dir}" style="padding:10px 14px;${i === byModel.length - 1 ? '' : `border-bottom:1px solid ${COLORS.border};`}font-family:${FONTS.mono};font-size:13px;color:${COLORS.text};text-align:${startAlign};">${escapeHtml(g.model)}</td>
+          <td dir="${dir}" style="padding:10px 14px;${i === byModel.length - 1 ? '' : `border-bottom:1px solid ${COLORS.border};`}font-family:${FONTS.body};font-size:13px;color:${COLORS.text1};text-align:${endAlign};">${g.count}</td>
+          <td dir="${dir}" style="padding:10px 14px;${i === byModel.length - 1 ? '' : `border-bottom:1px solid ${COLORS.border};`}font-family:${FONTS.body};font-size:13px;color:${COLORS.text1};text-align:${endAlign};">${formatSar(g.costHalala)} ${rtl ? 'ريال' : 'SAR'}</td>
         </tr>`
-    )
-    .join('');
+      )
+      .join('');
+    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="${COLORS.surfaceDeep}" style="width:100%;margin:0 0 22px;border:1px solid ${COLORS.border};border-collapse:collapse;background:${COLORS.surfaceDeep};">
+      <thead><tr>${th(headers.model, startAlign)}${th(headers.jobs, endAlign)}${th(headers.cost, endAlign)}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  };
 
   const modelRowsText = byModel
     .map((g) => `  ${g.model}: ${g.count} job(s), ${formatSar(g.costHalala)} SAR`)
@@ -93,39 +110,31 @@ function buildDigestTemplate({ renterName, totalJobs, totalHalala, byModel, dash
 
   const greeting = renterName ? `Hi ${renterName.split(' ')[0]},` : 'Hi,';
 
-  const html = `<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6e6e6;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0a0a0a;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#111;border:1px solid #2a2a2a;border-radius:8px;">
-        <tr><td style="padding:24px 32px;border-bottom:1px solid #2a2a2a;">
-          <div style="color:#ffb84d;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">DCP — daily summary</div>
-          <h1 style="margin:8px 0 0;font-size:22px;color:#fff;font-weight:600;">${totalJobs} job${totalJobs === 1 ? '' : 's'} completed</h1>
-          <div style="color:#9a9a9a;font-size:14px;margin-top:4px;">Total spent in the last 24 hours: <strong style="color:#fff;">${totalSar} SAR</strong></div>
-        </td></tr>
-        <tr><td style="padding:16px 32px;">
-          <p style="margin:0 0 16px;color:#c0c0c0;font-size:14px;line-height:1.5;">${greeting}</p>
-          <p style="margin:0 0 16px;color:#c0c0c0;font-size:14px;line-height:1.5;">Here's a roll-up of the jobs that completed on your account in the last 24 hours.</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #2a2a2a;border-radius:6px;border-collapse:separate;">
-            <thead><tr>
-              <th style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#9a9a9a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;text-align:left;">Model</th>
-              <th style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#9a9a9a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;text-align:right;">Jobs</th>
-              <th style="padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#9a9a9a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;text-align:right;">Cost</th>
-            </tr></thead>
-            <tbody>${modelRowsHtml}</tbody>
-          </table>
-          <div style="margin-top:24px;text-align:center;">
-            <a href="${dashboardUrl}" style="display:inline-block;background:#ffb84d;color:#0a0a0a;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px;">Open dashboard</a>
-          </div>
-          <p style="margin:24px 0 0;color:#6a6a6a;font-size:12px;line-height:1.5;">
-            Per-job emails were retired in favor of this daily summary plus in-dashboard notifications.
-            Real-time alerts are still sent for critical events such as low balance.
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
+  const bodyEnHtml = [
+    `<p style="font-family:${FONTS.body};font-size:14px;line-height:1.65;color:${COLORS.text1};margin:0 0 8px;">${escapeHtml(greeting)}</p>`,
+    `<p style="font-family:${FONTS.body};font-size:14px;line-height:1.65;color:${COLORS.text1};margin:0 0 18px;">A roll-up of the jobs that completed on your account in the last 24 hours. Total spent: <strong style="color:${COLORS.text};font-weight:600;">${totalSar} SAR</strong>.</p>`,
+    buildModelTable({ rtl: false }),
+    `<p style="font-family:${FONTS.body};font-size:12px;line-height:1.6;color:${COLORS.text2};margin:0 0 8px;">Per-job emails were retired in favor of this daily summary plus in-dashboard notifications. Real-time alerts are still sent for critical events such as low balance.</p>`,
+  ].join('');
+
+  const bodyArHtml = [
+    `<p dir="rtl" style="font-family:${FONTS.body};font-size:14px;line-height:1.8;color:${COLORS.text1};margin:0 0 18px;text-align:right;direction:rtl;">ملخص المهام التي اكتملت على حسابك خلال آخر ٢٤ ساعة. إجمالي الإنفاق: <strong style="color:${COLORS.text};font-weight:600;">${totalSar} ريال</strong>.</p>`,
+    buildModelTable({ rtl: true }),
+  ].join('');
+
+  const html = renderEmail({
+    preheader: `${totalJobs} job${totalJobs === 1 ? '' : 's'} completed, ${totalSar} SAR spent in the last 24 hours.`,
+    labelEn: 'Daily summary',
+    labelAr: 'الملخص اليومي',
+    headlineEn: `${totalJobs} job${totalJobs === 1 ? '' : 's'} completed`,
+    // Arabic counting rules: 1 = مهمة, 2 = مهمتان, 3-10 = مهام, 11+ = مهمة.
+    headlineAr: `اكتملت ${totalJobs} ${totalJobs === 1 ? 'مهمة' : totalJobs === 2 ? 'مهمتان' : totalJobs <= 10 ? 'مهام' : 'مهمة'}`,
+    bodyEnHtml,
+    bodyArHtml,
+    cta: { label: 'Open dashboard', labelAr: 'فتح لوحة التحكم', url: dashboardUrl },
+    whyEn: 'You are receiving this daily summary because jobs completed on your DCP renter account in the last 24 hours. Manage notifications at dcp.sa/renter/settings.',
+    whyAr: 'تصلك هذه الرسالة لأن مهامًا اكتملت على حسابك في DCP خلال آخر ٢٤ ساعة. إدارة الإشعارات من dcp.sa/renter/settings.',
+  });
 
   const text = [
     `DCP daily — ${totalJobs} job(s) completed, ${totalSar} SAR spent`,

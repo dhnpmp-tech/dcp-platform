@@ -829,7 +829,7 @@ router.post('/register', registerLimiter, validateBody(providerRegisterSchema), 
         });
 
         // Fire-and-forget: welcome email + analytics
-        sendWelcomeEmail(cleanEmail, cleanName, api_key, 'provider')
+        sendWelcomeEmail(cleanEmail, cleanName, 'provider')
             .catch((e) => console.error('[providers.register] welcome email failed:', e.message));
         analytics.provider.signupComplete(result.lastInsertRowid, {
             gpu_model: cleanGpuModel,

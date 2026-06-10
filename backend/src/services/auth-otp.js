@@ -230,44 +230,30 @@ function verifyMagicToken(token) {
 // ── DCP-branded magic-link email template ────────────────────────────────
 // Magic-link-only flow (state-of-the-art, like GitHub/Anthropic). No 6-digit
 // code is shown to the user — clicking the link is the only sign-in path.
+// Rendered through the shared editorial-dark shell (services/emailLayout.js).
 function buildMagicLinkEmailHtml(magicUrl) {
-  // v2 editorial-luxury chrome (locked design language 2026-05-25): deep navy
-  // bg, warm-cream serif headings (Instrument Serif w/ serif fallback for email
-  // clients), teal accent, cream-filled sharp-cornered CTA. Teal (not the
-  // provider-orange) because this email serves both renter and provider flows.
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in to DCP</title></head>
-<body style="margin:0;padding:0;background:#0a0b1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#f5f3ee;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0b1a;padding:48px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:480px;background:#10122a;border:1px solid #1f2040;">
-        <tr><td style="padding:26px 36px 22px;border-bottom:1px solid #1f2040;">
-          <span style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-size:26px;color:#f5f3ee;letter-spacing:.01em;">DCP&#8734;</span>
-          <span style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#2dd4b6;float:right;padding-top:13px;">Sign&nbsp;in</span>
-        </td></tr>
-        <tr><td style="padding:38px 36px 6px;">
-          <p style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7b7a92;margin:0 0 14px;">&mdash; Magic link</p>
-          <h1 style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400;font-size:30px;line-height:1.15;color:#f5f3ee;margin:0 0 14px;">Sign in to DCP</h1>
-          <p style="font-size:15px;line-height:1.6;color:#c9c5bd;margin:0 0 28px;">Tap the button below to sign in. The link works once and expires in ${OTP_TTL_MINUTES} minutes.</p>
-          <a href="${magicUrl}" style="display:inline-block;background:#f5f3ee;color:#0a0b1a;text-decoration:none;padding:15px 38px;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Sign in &rarr;</a>
-          <p style="font-size:12px;color:#7b7a92;margin:28px 0 6px;">Or paste this link into your browser:</p>
-          <p style="font-size:11px;color:#2dd4b6;margin:0;word-break:break-all;font-family:'Courier New',monospace;">${magicUrl}</p>
-          <p style="font-size:12px;color:#7b7a92;margin:22px 0 0;">If you didn't request this, you can safely ignore this email.</p>
-        </td></tr>
-        <tr><td style="padding:0 36px;"><hr style="border:none;border-top:1px solid #1f2040;margin:30px 0 0;"></td></tr>
-        <!-- AR section: dir="rtl" attribute (more reliably honored than inline
-             CSS by Outlook/Apple Mail per Litmus). -->
-        <tr><td dir="rtl" style="padding:30px 36px 38px;text-align:right;direction:rtl;">
-          <h1 style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400;font-size:28px;line-height:1.25;color:#f5f3ee;margin:0 0 14px;">تسجيل الدخول إلى DCP</h1>
-          <p style="font-size:15px;line-height:1.7;color:#c9c5bd;margin:0 0 26px;">اضغط على الزر أدناه لتسجيل الدخول. يعمل الرابط مرة واحدة وينتهي خلال ${OTP_TTL_MINUTES} دقيقة.</p>
-          <a href="${magicUrl}" style="display:inline-block;background:#f5f3ee;color:#0a0b1a;text-decoration:none;padding:15px 38px;font-family:'Courier New',monospace;font-size:13px;font-weight:700;letter-spacing:.04em;">&larr; تسجيل الدخول</a>
-          <p style="font-size:12px;color:#7b7a92;margin:24px 0 0;">إذا لم تطلب هذا، يمكنك تجاهل هذه الرسالة.</p>
-        </td></tr>
-      </table>
-      <p style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#4e4d67;margin:24px 0 0;">DCP &middot; KSA-resident GPU compute</p>
-    </td></tr>
-  </table>
-</body></html>`;
+  const { renderEmail, COLORS, FONTS } = require('./emailLayout');
+  const bodyEnHtml = [
+    `<p style="font-family:${FONTS.body};font-size:15px;line-height:1.6;color:${COLORS.text1};margin:0 0 8px;">Tap the button below to sign in. The link works once and expires in ${OTP_TTL_MINUTES} minutes.</p>`,
+    `<p style="font-family:${FONTS.body};font-size:12px;color:${COLORS.text2};margin:0 0 6px;">Or paste this link into your browser:</p>`,
+    `<p style="font-family:${FONTS.mono};font-size:11px;color:${COLORS.teal};margin:0 0 20px;word-break:break-all;">${magicUrl}</p>`,
+  ].join('');
+  const bodyArHtml = [
+    `<p dir="rtl" style="font-family:${FONTS.body};font-size:15px;line-height:1.75;color:${COLORS.text1};margin:0 0 12px;text-align:right;direction:rtl;">اضغط على الزر أدناه لتسجيل الدخول. يعمل الرابط مرة واحدة وينتهي خلال ${OTP_TTL_MINUTES} دقيقة.</p>`,
+    `<p dir="rtl" style="font-family:${FONTS.body};font-size:12px;color:${COLORS.text2};margin:0 0 20px;text-align:right;direction:rtl;">إذا لم تطلب هذا، يمكنك تجاهل هذه الرسالة.</p>`,
+  ].join('');
+  return renderEmail({
+    preheader: `Your one-time sign-in link — works once, expires in ${OTP_TTL_MINUTES} minutes.`,
+    labelEn: 'Magic link',
+    labelAr: 'رابط الدخول',
+    headlineEn: 'Sign in to DCP',
+    headlineAr: 'تسجيل الدخول إلى DCP',
+    bodyEnHtml,
+    bodyArHtml,
+    cta: { label: 'Sign in', labelAr: 'تسجيل الدخول', url: magicUrl },
+    whyEn: "You are receiving this because a sign-in was requested for this address on dcp.sa. If it wasn't you, you can safely ignore this email.",
+    whyAr: 'تصلك هذه الرسالة لأن تسجيل دخول طُلب لهذا البريد على dcp.sa.',
+  });
 }
 
 // ── Cleanup old codes (call periodically) ─────────────────────────────────

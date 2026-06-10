@@ -68,7 +68,7 @@ function finalizePendingRenter(email) {
 
   // Only send welcome email if *we* finalized (not if the racing request did).
   if (finalized && finalized.api_key === realKey) {
-    sendWelcomeEmail(finalized.email, finalized.name, realKey, 'renter')
+    sendWelcomeEmail(finalized.email, finalized.name, 'renter')
       .catch((e) => console.error('[auth.magic-link] renter welcome email failed:', e.message));
   }
   return finalized;
@@ -116,7 +116,7 @@ function createActiveRenterFromMagicLink(email) {
   const created = db.get('SELECT * FROM renters WHERE LOWER(email) = LOWER(?)', cleanEmail);
   // Only we send the welcome email (the row we just minted), never a racer's.
   if (created && created.api_key === apiKey) {
-    sendWelcomeEmail(created.email, created.name, apiKey, 'renter')
+    sendWelcomeEmail(created.email, created.name, 'renter')
       .catch((e) => console.error('[auth.magic-link] renter welcome email failed:', e.message));
   }
   return created;
@@ -160,7 +160,7 @@ function finalizePendingProvider(email) {
   const created = db.get('SELECT * FROM providers WHERE LOWER(email) = LOWER(?)', cleanEmail);
   // Only we send the welcome email (the row we just minted), never a racer's.
   if (created && created.api_key === apiKey) {
-    sendWelcomeEmail(created.email, created.name, apiKey, 'provider')
+    sendWelcomeEmail(created.email, created.name, 'provider')
       .catch((e) => console.error('[auth.magic-link] provider welcome email failed:', e.message));
   }
   return created;
