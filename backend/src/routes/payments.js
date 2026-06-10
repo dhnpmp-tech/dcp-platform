@@ -354,23 +354,30 @@ router.post('/topup', requireRenter, withFinancialIdempotency({
   }
   const description = `DCP balance top-up — ${renter.name} (${renter.email})`;
 
-  const moyasarBody = {
+  // Hosted invoice: the renter enters the card (and clears 3-D Secure) on
+  // Moyasar's own checkout page, so no PAN ever touches us and we need no
+  // card form. A card-less POST /payments would fail Moyasar validation
+  // (source.* missing); an invoice returns a hosted `url` and, when paid,
+  // fires payment_paid to /api/payments/webhook which credits the wallet.
+  const invoiceBody = {
     amount: amountHalala,
     currency: 'SAR',
     description,
     callback_url: callbackUrl,
-    source: { type: paymentMethod },
+    success_url: callbackUrl,
     metadata: {
       renter_id: renter.id,
       renter_email: renter.email,
+      kind: 'wallet_topup',
+      payment_method: paymentMethod,
     },
   };
 
-  moyasarRequest('POST', '/payments', moyasarBody)
-    .then(payment => {
+  moyasarRequest('POST', '/invoices', invoiceBody)
+    .then(invoice => {
       const internalPaymentId = `pay_${crypto.randomBytes(12).toString('hex')}`;
-      const moyasarId = payment.id;
-      const paymentUrl = payment.source?.transaction_url || payment.source?.checkout_url || null;
+      const moyasarId = invoice.id;
+      const paymentUrl = invoice.url || null;
       const now = new Date().toISOString();
 
       // Store payment record (status=pending until webhook confirms)
@@ -381,7 +388,7 @@ router.post('/topup', requireRenter, withFinancialIdempotency({
          VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
         internalPaymentId, moyasarId, renter.id, amountSar, amountHalala, paymentMethod, paymentMethod,
         description, callbackUrl, paymentUrl,
-        JSON.stringify(payment), now
+        JSON.stringify(invoice), now
       );
 
       res.json({
@@ -548,11 +555,33 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
   const now = new Date().toISOString();
 
   // Look up stored payment record
-  const payment = db.get(
+  let payment = db.get(
     'SELECT * FROM payments WHERE moyasar_id = ? OR payment_id = ?',
     paymentId,
     paymentId
   );
+
+  // Hosted-invoice top-ups: we stored the INVOICE id as moyasar_id, but Moyasar
+  // fires payment_paid with the PAYMENT id — they never match. Moyasar copies
+  // the invoice metadata onto the payment, so match the renter's most-recent
+  // pending top-up of the same amount, then bind the real payment id so webhook
+  // retries are idempotent. Only on a positive 'paid' event; amount must match.
+  if (!payment && status === 'paid') {
+    const metaRenterId = parseInt(event?.metadata?.renter_id, 10);
+    const eventAmount = Number.parseInt(event?.amount, 10);
+    if (Number.isInteger(metaRenterId) && Number.isInteger(eventAmount) && eventAmount > 0) {
+      payment = db.get(
+        `SELECT * FROM payments
+           WHERE renter_id = ? AND status = 'pending' AND amount_halala = ?
+           ORDER BY created_at DESC LIMIT 1`,
+        metaRenterId, eventAmount
+      );
+      if (payment) {
+        runStatement('UPDATE payments SET moyasar_id = ? WHERE payment_id = ?', paymentId, payment.payment_id);
+        console.log(`[payments/webhook] matched hosted-invoice payment ${paymentId} to pending top-up ${payment.payment_id} (renter ${metaRenterId})`);
+      }
+    }
+  }
 
   if (!payment) {
     // Unknown payment — return 200 to prevent Moyasar retries for stale events
