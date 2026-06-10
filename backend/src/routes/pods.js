@@ -246,7 +246,12 @@ function resolvePodProvider(requestedProviderId) {
                      NULLIF(CAST(json_extract(p.readiness_details, '$.vram_gb') AS INTEGER), 0) * 1024, 0) >= ?
           AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
           AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1
-          AND COALESCE(json_extract(p.gpu_status, '$.gpu_healthy'), 1) = 1`,
+          AND COALESCE(json_extract(p.gpu_status, '$.gpu_healthy'), 1) = 1
+          AND NOT EXISTS (
+            SELECT 1 FROM jobs jp
+             WHERE jp.provider_id = p.id
+               AND jp.job_type = 'interactive_pod'
+               AND jp.status IN ('queued','assigned','pulling','running'))`,
       requestedProviderId, tenMinAgo, POD_MIN_VRAM_MIB
     );
     if (!provider) {
@@ -269,6 +274,11 @@ function resolvePodProvider(requestedProviderId) {
         AND COALESCE(json_extract(p.readiness_details, '$.docker'), 0) = 1
         AND COALESCE(json_extract(p.readiness_details, '$.cuda_available'), 0) = 1
         AND COALESCE(json_extract(p.gpu_status, '$.gpu_healthy'), 1) = 1
+        AND NOT EXISTS (
+          SELECT 1 FROM jobs jp
+           WHERE jp.provider_id = p.id
+             AND jp.job_type = 'interactive_pod'
+             AND jp.status IN ('queued','assigned','pulling','running'))
       GROUP BY p.id
       ORDER BY active_jobs ASC, p.last_heartbeat DESC
       LIMIT 1`,
@@ -475,6 +485,8 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       provider_id: provider.id,
       root_password: rootPassword,
       jupyter_token: jupyterToken,
+      duration_minutes: durationMinutes,
+      ends_at_hint: 'rental clock starts when the pod reaches running; see GET /api/pods/:id for ends_at',
       quoted_cost_halala: quoteHalala,
       quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
       rate_halala_per_gpu_second: ratePerGpuSecond,
@@ -526,7 +538,13 @@ router.delete('/:id', requireRenter, (req, res) => {
 
     // Idempotent: already in a terminal state — report it, settle nothing.
     if (['completed', 'failed', 'stopped', 'cancelled'].includes(job.status)) {
-      return res.json({ id: job.job_id, status: job.status });
+      // Rental clock visibility — the #1 surprise in the first live renter test
+    // (Jupyter 'crashed' = the rental had simply ended, with no warning).
+    const endsAt = job.started_at && job.max_duration_seconds
+      ? new Date(Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000).toISOString()
+      : null;
+    const secondsRemaining = endsAt ? Math.max(0, Math.round((Date.parse(endsAt) - Date.now()) / 1000)) : null;
+    return res.json({ id: job.job_id, status: job.status });
     }
 
     const now = new Date().toISOString();
@@ -598,6 +616,8 @@ router.delete('/:id', requireRenter, (req, res) => {
 
     console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}`);
     return res.json({
+      ends_at: endsAt,
+      seconds_remaining: secondsRemaining,
       id: job.job_id,
       status: job.status === 'running' ? 'stopped' : 'cancelled',
       charged_halala: settlement.actualCostHalala,

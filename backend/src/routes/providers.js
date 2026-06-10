@@ -3881,7 +3881,15 @@ router.post('/job-result', (req, res) => {
         const fallbackGpuSecondRate = (COST_RATES[job.job_type] || COST_RATES['default']) / 60;
         const providerGpuSecondRate = toFiniteNumber(provider.cost_per_gpu_second_halala, { min: 0 });
         const ratePerGpuSecond = providerGpuSecondRate != null ? providerGpuSecondRate : fallbackGpuSecondRate;
-        const actualCostHalala = Math.max(0, Math.round(actualGpuSeconds * ratePerGpuSecond));
+        let actualCostHalala = Math.max(0, Math.round(actualGpuSeconds * ratePerGpuSecond));
+        // Pods are PREPAID at a fixed quote (jobs.cost_halala). The rental can
+        // never cost more than what was quoted and debited — clock skew or the
+        // daemon's teardown lag must not turn into an overcharge (a live test
+        // settled 251 on a 250 quote via this path).
+        if (job.job_type === 'interactive_pod') {
+            const podQuote = Math.max(0, Math.round(Number(job.cost_halala) || 0));
+            if (podQuote > 0) actualCostHalala = Math.min(actualCostHalala, podQuote);
+        }
         const providerEarned = Math.floor(actualCostHalala * 0.75);
         const dc1Fee = actualCostHalala - providerEarned;
 

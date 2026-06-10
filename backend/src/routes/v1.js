@@ -1077,7 +1077,13 @@ function lookupProviderEnginesForModel(modelAlias) {
           AND COALESCE(p.is_paused, 0) = 0
           AND p.deleted_at IS NULL
           AND COALESCE(p.endpoint_reachable, 0) = 1
-          AND p.endpoint_probed_at IS NOT NULL`
+          AND p.endpoint_probed_at IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM jobs jp
+                 WHERE jp.provider_id = p.id
+                   AND jp.job_type = 'interactive_pod'
+                   AND jp.status IN ('queued','assigned','pulling','running'))
+            `
     );
   } catch (e) {
     // Table missing or other schema issue — degrade silently to legacy path.
@@ -1218,7 +1224,13 @@ function getCapableProviders(minVramMb, requestedModelId) {
        AND deleted_at IS NULL
        AND vllm_endpoint_url IS NOT NULL AND vllm_endpoint_url != ''
        AND COALESCE(endpoint_reachable, 0) = 1
-       AND endpoint_probed_at IS NOT NULL`
+       AND endpoint_probed_at IS NOT NULL
+       -- rented out: provider has an active interactive pod
+       AND NOT EXISTS (
+            SELECT 1 FROM jobs jp
+             WHERE jp.provider_id = providers.id
+               AND jp.job_type = 'interactive_pod'
+               AND jp.status IN ('queued','assigned','pulling','running'))`
   );
   const nowMs = Date.now();
   const capable = [];
