@@ -50,7 +50,7 @@ db.exec(`
     storage_tb REAL,
     location TEXT,
     ip_address TEXT,
-    cost_per_gpu_second_halala REAL DEFAULT 0.25,
+    cost_per_gpu_second_halala REAL DEFAULT NULL, -- null = platform default rate; provider-settable via /preferences
     status TEXT DEFAULT 'pending',
     approval_status TEXT DEFAULT 'pending',
     approved_at TEXT,
@@ -978,7 +978,7 @@ const migrations = [
   'ALTER TABLE providers ADD COLUMN uptime_percent REAL DEFAULT 0',
   'ALTER TABLE providers ADD COLUMN reliability_score INTEGER DEFAULT 0',
   'ALTER TABLE providers ADD COLUMN rotated_at TEXT',
-  'ALTER TABLE providers ADD COLUMN cost_per_gpu_second_halala REAL DEFAULT 0.25',
+  'ALTER TABLE providers ADD COLUMN cost_per_gpu_second_halala REAL DEFAULT NULL',
   // jobs columns (for existing DBs that had the old narrow schema)
   'ALTER TABLE jobs ADD COLUMN job_type TEXT',
   'ALTER TABLE jobs ADD COLUMN model TEXT',

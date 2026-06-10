@@ -15,6 +15,7 @@ interface ProviderProfile {
   scheduled_start?: string | null
   scheduled_end?: string | null
   gpu_usage_cap_pct?: number | null
+  cost_per_gpu_second_halala?: number | null
   vram_reserve_gb?: number | null
   temp_limit_c?: number | null
   today_earnings_halala?: number | null
@@ -110,6 +111,7 @@ export default function ProviderSettingsPage() {
   const [gpuUsageCap, setGpuUsageCap] = useState(80)
   const [vramReserve, setVramReserve] = useState(1)
   const [tempLimit, setTempLimit] = useState(85)
+  const [podRateSar, setPodRateSar] = useState('') // '' = platform default
 
   function applyProvider(p: ProviderProfile) {
     setProviderName(p.name || '')
@@ -125,6 +127,7 @@ export default function ProviderSettingsPage() {
     setGpuUsageCap(typeof p.gpu_usage_cap_pct === 'number' ? p.gpu_usage_cap_pct : 80)
     setVramReserve(typeof p.vram_reserve_gb === 'number' ? p.vram_reserve_gb : 1)
     setTempLimit(typeof p.temp_limit_c === 'number' ? p.temp_limit_c : 85)
+    setPodRateSar(typeof p.cost_per_gpu_second_halala === 'number' ? String(Math.round(p.cost_per_gpu_second_halala * 36 * 100) / 100) : '')
   }
 
   useEffect(() => {
@@ -182,6 +185,7 @@ export default function ProviderSettingsPage() {
           gpu_usage_cap_pct: clampNumber(gpuUsageCap, 0, 100),
           vram_reserve_gb: clampNumber(vramReserve, 0, 16),
           temp_limit_c: clampNumber(tempLimit, 50, 100),
+          pod_rate_sar_per_hour: podRateSar.trim() === '' ? null : clampNumber(Number(podRateSar), 0.1, 50),
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -193,6 +197,7 @@ export default function ProviderSettingsPage() {
         setGpuUsageCap(Number(data.preferences.gpu_usage_cap_pct ?? gpuUsageCap))
         setVramReserve(Number(data.preferences.vram_reserve_gb ?? vramReserve))
         setTempLimit(Number(data.preferences.temp_limit_c ?? tempLimit))
+        setPodRateSar(data.preferences.cost_per_gpu_second_halala != null ? String(Math.round(Number(data.preferences.cost_per_gpu_second_halala) * 36 * 100) / 100) : '')
       }
       setSaveState('success')
       setSaveMessage('Saved to your DCP account. Run mode, schedule, GPU cap, VRAM reserve and temperature are NOT yet enforced on your node — the daemon still reads these from its local config.json. Only Pause / Resume takes effect live.')
@@ -525,6 +530,29 @@ export default function ProviderSettingsPage() {
                 />
                 <span className="hint">
                   <Bi en="Saved to your account as temp_limit_c. Not yet enforced on the node." ar="يُحفظ في حسابك كـ temp_limit_c. لا يُطبّق على الجهاز بعد." />
+                </span>
+              </div>
+
+              <div className="lbl">
+                <b><Bi en="GPU pod price" ar="سعر حاوية GPU" /></b>
+                <Bi en="SAR per GPU-hour" ar="ريال لكل ساعة GPU" />
+              </div>
+              <div className="ctl">
+                <input
+                  className="input"
+                  type="number"
+                  min={0.1}
+                  max={50}
+                  step={0.1}
+                  value={podRateSar}
+                  placeholder="1.20"
+                  onChange={(e) => setPodRateSar(e.target.value)}
+                  style={{ maxWidth: '160px' }}
+                />
+                <span className="hint">
+                  <Bi
+                    en="What renters pay per hour for your whole GPU — you keep 75%. Leave empty for the platform default (1.20 SAR/hr). Market reference: RTX 3090 rents for ~0.5–0.9 SAR/hr on global marketplaces. Takes effect on the next pod launch."
+                    ar="ما يدفعه المستأجرون في الساعة مقابل معالجك كاملاً — تحتفظ بـ ٧٥٪. اتركه فارغاً للسعر الافتراضي (١٫٢٠ ريال/ساعة). مرجع السوق: RTX 3090 يؤجَّر بنحو ٠٫٥–٠٫٩ ريال/ساعة عالمياً. يسري من الحاوية التالية." />
                 </span>
               </div>
             </div>
