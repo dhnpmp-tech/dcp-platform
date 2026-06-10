@@ -14,6 +14,167 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-10 15:31 UTC — [PR #598](https://github.com/dhnpmp-tech/dcp-platform/pull/598) — `feat(provider): self-serve GPU pod pricing in the dashboard`
+
+Included:
+- Providers can now set what renters pay for their whole-GPU pods: a "GPU pod price" field (SAR per GPU-hour) on the provider settings page, saved via `POST /providers/preferences` as `pod_rate_sar_per_hour` (0.10–50; empty resets to the platform default of 1.20 SAR/hr) and stored as `cost_per_gpu_second_halala`.
+- `GET /providers/me` now echoes the rate. Previously the rate existed only as a hardcoded schema default (0.25 halala/gpu-second = 9 SAR/hr) that no provider ever chose and nothing could change.
+- New provider registrations default to NULL (= platform rate) instead of the legacy 0.25; existing providers keep their current value and can change it themselves.
+
+### 2026-06-10 11:56 UTC — [PR #597](https://github.com/dhnpmp-tech/dcp-platform/pull/597) — `feat(email): on-brand editorial redesign for all 15 transactional emails + key removed from welcome`
+
+Included:
+- All 15 outgoing transactional emails (magic link, renter/provider welcome, job queued/started/completed/failed, withdrawal approved/rejected, node offline + 24h reminder, auto-top-up paid/declined/3DS, PDPL data export, daily digest) rebuilt through one shared branded shell (`emailLayout.js` + `emailTemplates.js`): editorial dark, serif headlines, mono fact-row cards, ghost-outline CTAs, bilingual EN + proper `dir="rtl"` Arabic, hidden preheaders, and an honest why-you-got-this footer. Outlook-safe (inline styles, presentation tables, 600px).
+- Security: welcome emails no longer contain the plaintext API key — replaced with a sign-in button; all call sites updated and the dead legacy `services/email.js` (which also embedded keys) deleted.
+
+### 2026-06-10 11:34 UTC — [PR #596](https://github.com/dhnpmp-tech/dcp-platform/pull/596) — `feat(phase0): pod billing on the prepaid contract + money-loop hardening`
+
+Included:
+- **Interactive GPU pods are now billed.** Launch pre-debits the full-duration SAR quote (402 with exact amounts when balance is short; debit compensated if the insert fails); stopping a pod settles transactionally — actual GPU-seconds charged (clamped at the quote), 75% credited to the provider, the rest refunded to the renter. Never-started pods cancel with a full refund. Live-verified on production: 30-min pod quoted 4.50 SAR → stopped at 40s → 0.10 SAR charged, 0.07 to the provider, 4.40 refunded, conservation exact.
+- New `settleExpiredPods` sweep settles deadline-reached pods at the full quote, credits the provider, and tears down the VPS relay (also fixing the socat public-port leak on daemon-side expiry); stale queued pods cancel + refund after 15 minutes. Pods are excluded from the generic timeout-retry sweep — a rental deadline is a normal end, not a timeout.
+- Concurrent-pod quota (default 2 active per renter, `DCP_MAX_ACTIVE_PODS`). Pod ids are no longer enumerable (renter folded into the lookup; 404 for both unknown and foreign ids).
+- Providers heartbeating in `pending` state are now auto-approved on first verified heartbeat (`DCP_AUTO_APPROVE_PROVIDERS=0` restores manual review) — previously a provider showed "connected" in the wizard while silently excluded from routing, earning nothing.
+- Closed a free-balance leak: v1 chat/completions queued-fallback jobs are settled exclusively by the idempotent v1 settlement; the generic job-result path no longer double-credits providers or refunds renter money that was never debited.
+- The `?key=` deprecation `Sunset` header is pinned to 2026-07-15 (was a rolling now+30d that never arrived). The 402 top-up hint is now honest about whether card top-up is configured. Explicit `interactive_pod` platform rate: 2 halala/min ≈ 1.20 SAR/hr/GPU.
+
+### 2026-06-10 08:53 UTC — [PR #595](https://github.com/dhnpmp-tech/dcp-platform/pull/595) — `docs(strategy): the path to the next level — 2026-06-10 audit synthesis`
+
+Included:
+- `docs/strategy/2026-06-10-path-to-next-level.md`: synthesis of a four-track production audit (live renter signup, three-persona provider funnel, code-gap sweep, sourced market research) into a persona seamlessness map, a three-phase plan with measurable gates, five quick wins with proof metrics, a prioritized defect backlog, and the investor story.
+
+### 2026-06-10 08:50 UTC — [PR #594](https://github.com/dhnpmp-tech/dcp-platform/pull/594) — `fix(provider-funnel): unblock onboarding for all three OS personas + renter quickstart`
+
+Included:
+- **The provider install path worked again for the first time since the v2 flip.** `GET /api/providers/download/setup` read `dc1-setup-*` template filenames where only `dcp-setup-*` exist — the wizard's only actionable install command 404'd for Windows, macOS, and Linux alike. One-line fix; verified 200 for all three OSes with a real provider key. (Server-side, the companion 403 on `install.sh` was fixed by removing a stale nginx alias block.)
+- Wizard OS cards stopped advertising artifacts that don't exist (`.msi`, `.dmg`); labels are honest and the Windows selection links the real signed `.exe`.
+- `dcp.sa/setup` — hard-linked from the desktop app — redirected to the *renter* wizard; now routes to `/v2/provider-setup`.
+- Renter quickstart and dashboard code samples used `allam-7b` (0 providers — the new user's first documented API call was a guaranteed 503); swapped to a verified-serving model.
+- Streaming rate limit raised 5 → 30/min per renter: 5/min punished exactly the paying behavior (chat UIs, agent loops). Stale limiter test expectations aligned with actual limits.
+
+### 2026-06-10 08:32 UTC — [PR #593](https://github.com/dhnpmp-tech/dcp-platform/pull/593) — `fix(landing): marketplace gates rewritten for humans`
+
+Included:
+- The three §01 capacity gates now lead with a human headline ("We can reach it / It really answers / It serves what it claims") with the code token kept as a small chip signature; plain-language intro paragraph; body text bumped to a readable size and measure. The gates are the literal listing conditions — they now read as a promise instead of a SQL WHERE clause.
+
+### 2026-06-10 08:24 UTC — [PR #592](https://github.com/dhnpmp-tech/dcp-platform/pull/592) — `fix(landing): door copy — RTX-class instead of hardcoded 24 GB`
+
+Included:
+- The hero's "Rent a whole GPU" door pinned today's fleet spec (24 GB) into permanent copy; the pod scheduler places on any verified machine ≥8 GB, so the line goes stale the day the fleet changes. Now "A whole RTX-class GPU, dedicated to you" (EN + AR).
+
+### 2026-06-10 08:04 UTC — [PR #591](https://github.com/dhnpmp-tech/dcp-platform/pull/591) — `fix(landing): ship the CSS for the three doors, hero demo, and vision section`
+
+Included:
+- PR #590's components referenced `.door-grid` / `.demo-box` / `.vision-*` classes whose stylesheet block was lost behind a failed patch chain — they rendered as unstyled text. Pure CSS addition restoring the intended three-door cards, demo widget, and vision stat strip.
+
+### 2026-06-10 07:05 UTC — [PR #590](https://github.com/dhnpmp-tech/dcp-platform/pull/590) — `feat(landing): three doors + live hero demo + SAR pricing + vision section`
+
+Included:
+- Hero rebuilt around one plain sentence ("Saudi Arabia's open GPU cloud") and three self-selection doors: Use AI models → playground, Rent a whole GPU → containers, Earn with your GPU → provider path.
+- **"Proof you can touch":** a hero widget that sends one prompt to a real verified Saudi GPU via the new rate-limited `POST /api/public/demo/chat` (6/min + 40/day per IP, 280-char cap, server-held internal key, honest 503 when no capacity is serving) and renders the answer with a verification-chain receipt line.
+- Marketplace prices now display **SAR** (converted at the same 3.75 peg the backend uses) — never USD; a compute-twin strip under the model table points at whole-GPU rental.
+- New unnumbered Vision section: live mesh numbers labeled as this-minute truth plus a NOW / NEXT / THEN roadmap with no invented dates.
+
+### 2026-06-09 21:15 UTC — [PR #589](https://github.com/dhnpmp-tech/dcp-platform/pull/589) — `feat(web): /v2/containers — GPU Pods product page in the app shell, static one-pager retired`
+
+Included:
+- New `/v2/containers` page with proper v2 chrome (docs-style header, home design system, EN/AR, live capacity from `/api/health/detailed`): hero with live proof → the 60-second path with the real CLI → customer-voice value cards → honest "what runs well on 24 GB" framing → a "promised today / not promised yet" honesty section (host-pinned, Docker-not-gVisor, small fleet).
+- `public/gpu-containers.html` deleted; `/containers`, `/gpu-containers`, and the old shared `/gpu-containers.html` all redirect to the new page; sitemap updated; landing §02 brief CTA repointed.
+
+### 2026-06-09 20:53 UTC — [PR #588](https://github.com/dhnpmp-tech/dcp-platform/pull/588) — `fix(landing): §02 pod cards rewritten in customer voice + technical dog-whistles`
+
+Included:
+- The four pod cards described implementation (`whole_gpu`, `jupyter_tls_ssh`) instead of buyer benefits. Each now leads with the customer outcome ("From idea to training in a minute", "The whole card is yours", "It ends when you said it ends", "Verified Saudi machines only") while the mono key-line carries the infrastructure credibility signal (`--gpus all · pinned driver`, `hard deadline · restart-proof reaper`). Containers brief repositioned as forwardable collateral.
+
+### 2026-06-09 20:40 UTC — [PR #587](https://github.com/dhnpmp-tech/dcp-platform/pull/587) — `feat(landing): §02 Raw compute — GPU pods as the second product + honest provider_count`
+
+Included:
+- New §02 landing section presenting GPU pods as DCP's second product (whole-GPU pods, deadline-enforced, with CTAs to the console and the containers brief); sections renumbered §02–09 → §03–10 in EN and AR; GPU Pods added to the header nav, mobile menu, and footer; the §01 callout reframed ("Tokens for answers — or the whole GPU for control").
+- `fix(catalog)`: `deduplicateModelAliases` folded alias rows by **summing** `provider_count`, double-counting the same physical provider once per alias form (a lone provider showed `provider_count: 2` for `qwen3:8b`). Folding is now by max; 43 catalog tests updated and green.
+
+### 2026-06-09 20:20 UTC — [PR #586](https://github.com/dhnpmp-tech/dcp-platform/pull/586) — `feat(landing): real live marketplace in §01 — earned-online models from /v1/models`
+
+Included:
+- The §01 marketplace section now renders the actual live catalog — every model with an earned-online `available=true` verdict from `/v1/models` (name, context, quantization, price, provider count), refreshed every 60s — with an honest empty state routing to `/status` when nothing serves.
+- The capacity bar's hardcoded `/4` denominator replaced with real `serving / online`; same-origin `/v1/models` rewrite added. The older `/api/models` endpoint was deliberately not used: it claims availability for models the verification layer says have no providers.
+
+### 2026-06-09 20:08 UTC — [PR #585](https://github.com/dhnpmp-tech/dcp-platform/pull/585) — `fix(security): rotate leaked funded renter master key, purge from repo`
+
+Included:
+- The funded benchmark renter's master API key (~100M SAR balance) was committed in `docs/dcp-renter-experience.sh` and referenced in two test docs. Key rotated in production (old key rejected, new key verified); the script now requires `DCP_RENTER_KEY` from the environment; old key redacted from the docs.
+
+### 2026-06-09 19:33 UTC — [PR #584](https://github.com/dhnpmp-tech/dcp-platform/pull/584) — `fix(audit-gaps final): renter-console honesty + PROV-9 provider-key hashing (backward-compat)`
+
+Included:
+- Renter console honesty batch (RENT-6/10/11/18/19): invoice CSV download no longer leaks the renter API key in the URL querystring; the dead "Switch workspace" control removed from keys/usage/PodShell; keys-page wallet rail labels and API pill fixed for data honesty.
+- PROV-9 foundation: provider API-key hashing with a hash-first lookup and a live-fleet-safe plaintext fallback (heartbeat + `GET /me` converted; plaintext column intentionally retained for daemon back-compat during migration).
+
+### 2026-06-09 19:17 UTC — [PR #583](https://github.com/dhnpmp-tech/dcp-platform/pull/583) — `fix(audit-gaps): close workable security + honesty gaps (SITE-6/7/8 auth + 16 more)`
+
+Included:
+- SITE-6/7/8: the `/v2/renter/*` route-guard bypass closed; the forgeable role cookie replaced with an HMAC-signed session cookie (`DC1_SESSION_SECRET`); the dead renter signup fixed; forged-cookie rejection verified live.
+- Renter sub-key scopes enforced on the renter API family; empty over-reasoned completions are no longer billed (SITE-15); the legacy `POST /providers/withdraw` gated behind the admin token; plus 13 further audit fixes across the public site and consoles.
+
+### 2026-06-09 17:17 UTC — [PR #582](https://github.com/dhnpmp-tech/dcp-platform/pull/582) — `feat(daemon-health): accepting_jobs heartbeat gate (shadow mode) — the zombie-provider cure`
+
+Included:
+- The daemon's `accepting_jobs` health signal ("an engine answers right now") is ingested and persisted from every heartbeat and logged in SHADOW mode — divergences are recorded ("under enforcement this would be NON-ROUTABLE") without affecting routing yet, so the flip can be made on evidence once fleet daemons report the field.
+
+### 2026-06-09 16:39 UTC — [PR #581](https://github.com/dhnpmp-tech/dcp-platform/pull/581) — `feat(pods): restart-proof lifecycle (reaper+deadline) + HTTPS Jupyter + compute-scope gate`
+
+Included:
+- Closed the "pod runs forever" failure class (a real pod had run 29h past its rental after a daemon restart orphaned it): pods now carry a self-enforced deadline stamped as docker labels (`dcp.pod`, `dcp.job_id`, `dcp.deadline`), hard-capped at 24h, and a restart-proof reaper scans real docker state every poll cycle and at daemon startup.
+- The public Jupyter relay now terminates TLS using the `api.dcp.sa` certificate — the notebook token no longer crosses the internet in cleartext; pod `access_url` flipped to `https://`.
+
+### 2026-06-09 14:45 UTC — [PR #580](https://github.com/dhnpmp-tech/dcp-platform/pull/580) — `fix(docs+web): real CLI install ('pip install dc1' was broken — not on PyPI)`
+
+Included:
+- The containers one-pager and renter quickstart instructed `pip install dc1`, which does not exist on PyPI. Replaced with the working tarball install (`curl -sL …/dc1-sdk.tar.gz | tar xz`).
+
+### 2026-06-08 18:49 UTC — [PR #579](https://github.com/dhnpmp-tech/dcp-platform/pull/579) — `fix(web): containers page — precise failover claim (pods are host-pinned)`
+
+Included:
+- Removed the implied failover claim from the containers page: pods live and die with their host machine; copy now states host-pinning honestly.
+
+### 2026-06-08 18:45 UTC — [PR #578](https://github.com/dhnpmp-tech/dcp-platform/pull/578) — `feat(web): containers page — add reliability/trust section`
+
+Included:
+- Trust section on the GPU containers page: health-gated scheduling, server-measured billing, health-checked hosts — claims matched to what the code enforces.
+
+### 2026-06-08 17:32 UTC — [PR #577](https://github.com/dhnpmp-tech/dcp-platform/pull/577) — `fix(site): public-surface honesty — catalog filter, false-claim strip, legal + auth polish`
+
+Included:
+- Public catalog and marketing surfaces aligned with verifiable reality: fabricated benchmark numbers and ZATCA/SLA/PDPL overclaims stripped; the public model catalog filtered to what the verification layer can defend; quickstarts pinned to served models; legal and auth-page polish.
+
+### 2026-06-08 16:37 UTC — [PR #576](https://github.com/dhnpmp-tech/dcp-platform/pull/576) — `fix(provider): audit batch — dead controls, earnings cap, route shadow, honest copy`
+
+Included:
+- Provider console dead controls wired (kill switch, sign-out, pause/resume); the gpu-seconds/gpu-count earnings-inflation hole capped (self-reported values clamped to the registered profile and server wall-clock); a shadowing route fixed; provider-facing copy made honest about what is and isn't enforced on the node.
+
+### 2026-06-08 15:25 UTC — [PR #575](https://github.com/dhnpmp-tech/dcp-platform/pull/575) — `feat(web): GPU Containers shareable page + /renter/pods → v2 redirect`
+
+Included:
+- Shareable GPU Containers one-pager published (later replaced by the in-app `/v2/containers` page in PR #589); `/renter/pods` now 307-redirects to the v2 pods console.
+
+### 2026-06-08 14:55 UTC — [PR #574](https://github.com/dhnpmp-tech/dcp-platform/pull/574) — `fix(email): don't over-claim requeue in the node-offline email`
+
+Included:
+- The node-offline email claimed jobs would be requeued in cases where they aren't; the claim now matches actual requeue behavior.
+
+### 2026-06-08 14:37 UTC — [PR #573](https://github.com/dhnpmp-tech/dcp-platform/pull/573) — `fix(renter-dashboard): audit batch — security, scopes, honest data, dead controls`
+
+Included:
+- 12-file renter dashboard batch: header-based auth (closing the `?key=` URL-leak vector client-side), a new `compute` scope with pod-launch enforcement, honest spend/usage/invoice data (fabricated VAT/ZATCA artifacts stripped), real SAR cost metering including synthetic usage for streams without provider usage blocks, account-wide budget cap via `PUT /me/budget`, and dead controls removed.
+
+### 2026-06-08 12:16 UTC — [PR #572](https://github.com/dhnpmp-tech/dcp-platform/pull/572) — `fix(invoices): legacy renter-id route was shadowing /me/invoices (every renter's invoices 400'd)`
+
+Included:
+- A legacy route registered ahead of `/me/invoices` swallowed the path and returned 400 for every renter's invoice list. Route ordering fixed; verified live on production.
+
+### 2026-06-08 11:46 UTC — [PR #571](https://github.com/dhnpmp-tech/dcp-platform/pull/571) — `fix(renter): wire the dead sign-out button across the dashboard`
+
+Included:
+- The sign-out control across the renter dashboard pages did nothing; it now clears the session (key + signed cookie) and routes to the auth page on all renter pages.
+
 ### 11:00 UTC — [PR #570](https://github.com/dhnpmp-tech/dcp-platform/pull/570) — `fix(renters): API key management accepts master or admin-scoped keys`
 
 Included:
