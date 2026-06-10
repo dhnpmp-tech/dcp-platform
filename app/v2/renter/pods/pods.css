@@ -461,3 +461,12 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 @media (prefers-reduced-motion: reduce) {
   .pod-spinner { animation-duration: 1.6s; }
 }
+
+.pod-clock { display:flex; flex-direction:column; gap:3px; margin:10px 0 4px; padding:10px 14px;
+  border:1px solid var(--border-1, #1f2040); border-radius:0; background:rgba(45,212,182,.05); }
+.pod-clock-t { font-family:var(--mono,'JetBrains Mono',monospace); font-size:12px; letter-spacing:.04em; color:var(--text-1,#c9c5bd); }
+.pod-clock-t b { color:var(--accent-teal,#2dd4b6); font-weight:600; }
+.pod-clock-sub { font-size:11.5px; color:var(--text-2,#7b7a92); line-height:1.5; }
+.pod-clock.warn { border-color:var(--accent-orange,#ee7a3c); background:rgba(238,122,60,.08); }
+.pod-clock.warn .pod-clock-t { color:var(--accent-orange,#ee7a3c); }
+.pod-clock.warn .pod-clock-t b { color:var(--accent-orange,#ee7a3c); }
