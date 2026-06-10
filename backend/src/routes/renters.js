@@ -4,7 +4,7 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const db = require('../db');
 const { COST_RATES } = require('./jobs');
-const { sendWelcomeEmail, sendDataExportReady } = require('../services/emailService');
+const { sendDataExportReady } = require('../services/emailService');
 const { renterAccountDeletionLimiter, renterDataExportLimiter, registerLimiter } = require('../middleware/rateLimiter');
 const {
   getDiscoveryStatus,
