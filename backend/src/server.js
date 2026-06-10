@@ -318,6 +318,7 @@ function rejectRenterQueryParamKey(req, res, next) {
 // separate change once the per-path log telemetry shows the call sites are
 // migrated.
 const C1_SUNSET_DAYS = 30;
+const C1_QUERY_KEY_SUNSET = new Date('2026-07-15T00:00:00Z');
 const C1_SUNSET_MS = C1_SUNSET_DAYS * 24 * 60 * 60 * 1000;
 const C1_DEPRECATION_DOC_URL = 'https://api.dcp.sa/docs/auth#bearer';
 const _c1LastLogByPath = new Map(); // path → last-log-ms
@@ -343,7 +344,10 @@ app.use((req, res, next) => {
   if (detected.any) {
     // RFC 8594 (Sunset) + draft-ietf-httpapi-deprecation-header
     res.setHeader('Deprecation', 'true');
-    res.setHeader('Sunset', new Date(Date.now() + C1_SUNSET_MS).toUTCString());
+    // RFC 8594: Sunset must be a FIXED date — a rolling now+30d never arrives,
+    // so the advertised cutoff was moving forward every day. Pinned date gives
+    // ?key= clients (e.g. the AWS poller on /api/pods) one real deadline.
+    res.setHeader('Sunset', C1_QUERY_KEY_SUNSET.toUTCString());
     res.setHeader('Link', `<${C1_DEPRECATION_DOC_URL}>; rel="deprecation"`);
 
     if (_c1ShouldLog(req.path)) {
