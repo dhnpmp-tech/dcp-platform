@@ -716,6 +716,8 @@ app.use('/api/jobs', jobsRouter);
 // Interactive GPU pods (RunPod-style Jupyter + SSH) — same job rails, different template.
 const podsRouter = require('./routes/pods');
 app.use('/api/pods', podsRouter);
+const volumesRouter = require('./routes/volumes');
+app.use('/api/volumes', volumesRouter);
 const publicDemoRouter = require('./routes/public-demo');
 app.use('/api/public/demo', publicDemoRouter);
 const { jobsInvoiceRouter, rentersInvoiceRouter } = require('./routes/invoices');

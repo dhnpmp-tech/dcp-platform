@@ -449,6 +449,26 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     };
     // Tell the daemon to inject SSH (the image is not the DCP-baked default).
     if (imageResult.bootstrap) taskSpecObj.bootstrap_ssh = true;
+
+    // Paid persistent volume: if this renter has an active rented volume, hand
+    // the daemon the S3 coordinates so it RESTORES /workspace on launch and
+    // SNAPSHOTS it on teardown — cross-provider persistence. No volume = the
+    // pod is ephemeral (the paid upsell). Creds come from backend env; the
+    // bucket is the renter's exclusive quota'd bucket.
+    try {
+      const { activeVolumeForRenter } = require('./volumes');
+      const vol = activeVolumeForRenter(req.renter.id);
+      if (vol && process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
+        taskSpecObj.workspace_s3 = {
+          endpoint: process.env.WORKSPACE_S3_ENDPOINT,
+          bucket: vol.bucket,
+          access_key: process.env.WORKSPACE_S3_KEY,
+          secret_key: process.env.WORKSPACE_S3_SECRET,
+        };
+      }
+    } catch (volErr) {
+      console.error('[pods] volume lookup for task_spec failed (pod will be ephemeral):', volErr.message);
+    }
     const taskSpecStr = JSON.stringify(taskSpecObj);
     const taskSpecHmac = signTaskSpec(taskSpecStr);
 
@@ -736,3 +756,4 @@ router.post('/:id/extend', requireRenter, (req, res) => {
 module.exports = router;
 module.exports.computePodStopSettlement = computePodStopSettlement;
 module.exports.computePodQuoteHalala = computePodQuoteHalala;
+module.exports.requireRenter = requireRenter;

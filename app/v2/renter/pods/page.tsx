@@ -167,6 +167,11 @@ export default function RenterPodsPage() {
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
   const [extending, setExtending] = useState<Record<string, boolean>>({})
   const [extendMsg, setExtendMsg] = useState<Record<string, string>>({})
+  const [volume, setVolume] = useState<any>(null)
+  const [volOptions, setVolOptions] = useState<any[]>([])
+  const [volPool, setVolPool] = useState<{ available_gb?: number; ceiling_gb?: number } | null>(null)
+  const [volBusy, setVolBusy] = useState(false)
+  const [volMsg, setVolMsg] = useState('')
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
   const [launch, setLaunch] = useState<LaunchState>({
@@ -258,7 +263,7 @@ export default function RenterPodsPage() {
     }
     let cancelled = false
     const tick = async () => {
-      await Promise.all([fetchPods(apiKey), fetchRenter(apiKey), fetchProviders()])
+      await Promise.all([fetchPods(apiKey), fetchRenter(apiKey), fetchProviders(), fetchVolume(apiKey)])
       if (!cancelled) setLoadState('ready')
     }
     tick()
@@ -394,6 +399,47 @@ export default function RenterPodsPage() {
     }
   }
 
+  const fetchVolume = useCallback(async (apiKey: string) => {
+    try {
+      const res = await fetch(`${getApiBase()}/volumes/me`, { headers: { 'x-renter-key': apiKey } })
+      if (!res.ok) return
+      const data = await res.json()
+      setVolume(data.volume || null)
+      setVolOptions(data.options || [])
+      setVolPool(data.pool || null)
+    } catch (_) { /* non-fatal */ }
+  }, [])
+
+  const rentVolume = async (sizeGb: number) => {
+    const apiKey = getRenterKey() || ''
+    if (!apiKey || volBusy) return
+    setVolBusy(true); setVolMsg('')
+    try {
+      const res = await fetch(`${getApiBase()}/volumes/rent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-renter-key': apiKey },
+        body: JSON.stringify({ size_gb: sizeGb }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) { setVolMsg(`Rented ${sizeGb} GB · ${data.charged_sar} SAR/mo`); fetchVolume(apiKey) }
+      else setVolMsg(String((data && (data.error?.message || data.error)) || `Rent failed (${res.status})`).slice(0, 120))
+    } catch (_) { setVolMsg('Rent failed — try again') }
+    finally { setVolBusy(false) }
+  }
+
+  const releaseVolume = async () => {
+    const apiKey = getRenterKey() || ''
+    if (!apiKey || volBusy) return
+    if (typeof window !== 'undefined' && !window.confirm('Release your volume? Stored files will be deleted and billing stops.')) return
+    setVolBusy(true); setVolMsg('')
+    try {
+      const res = await fetch(`${getApiBase()}/volumes`, { method: 'DELETE', headers: { 'x-renter-key': apiKey } })
+      if (res.ok) { setVolMsg('Volume released'); fetchVolume(apiKey) }
+      else setVolMsg('Release failed')
+    } catch (_) { setVolMsg('Release failed') }
+    finally { setVolBusy(false) }
+  }
+
   // ── Copy helper ──────────────────────────────────────────────────────
   const copyText = (key: string, value: string) => {
     navigator.clipboard
@@ -500,6 +546,54 @@ export default function RenterPodsPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Persistent volume panel ──────────────────────── */}
+          <section className="panel vol-panel" style={{ marginTop: '28px' }}>
+            <div className="panel-hd">
+              <div>
+                <h3><Bi en="Persistent storage" ar="تخزين دائم" /></h3>
+              </div>
+              <span className="hint">
+                <Bi en="In-Kingdom · survives teardown · reattaches to every pod" ar="داخل المملكة · يبقى بعد الإيقاف · يُعاد ربطه بكل حاوية" />
+              </span>
+            </div>
+            {volume ? (
+              <div className="vol-active">
+                <div className="vol-active-row">
+                  <span className="vol-size mono">{volume.size_gb} GB</span>
+                  <span className="vol-stat on">{volume.status}</span>
+                  <span className="vol-price">{volume.price_sar_per_month} SAR/mo</span>
+                  {typeof volume.used_pct === 'number' && (
+                    <span className="vol-used">{volume.used_gb} GB used ({volume.used_pct}%)</span>
+                  )}
+                  <button type="button" className="btn-sec danger vol-release" disabled={volBusy} onClick={releaseVolume}>
+                    <Bi en="Release" ar="إلغاء" />
+                  </button>
+                </div>
+                <p className="vol-note"><Bi en="Files in /workspace are saved here and restore automatically on your next pod — on any provider." ar="تُحفظ ملفات /workspace هنا وتُستعاد تلقائيًا في حاويتك التالية على أي مزوّد." /></p>
+              </div>
+            ) : (
+              <div className="vol-rent">
+                <p className="vol-note"><Bi en="Rent a volume so your work persists across pods. Without one, pods are temporary." ar="استأجر مساحة لتبقى أعمالك بين الحاويات. بدونها تكون الحاويات مؤقتة." /></p>
+                <div className="vol-options">
+                  {volOptions.map((o) => {
+                    const tooBig = volPool && typeof volPool.available_gb === 'number' && o.size_gb > volPool.available_gb
+                    return (
+                      <button key={o.size_gb} type="button" className="vol-opt" disabled={volBusy || !!tooBig} onClick={() => rentVolume(o.size_gb)}>
+                        <span className="vol-opt-gb">{o.size_gb} GB</span>
+                        <span className="vol-opt-price">{o.price_sar_per_month} SAR/mo</span>
+                        {tooBig ? <span className="vol-opt-full"><Bi en="pool full" ar="ممتلئ" /></span> : null}
+                      </button>
+                    )
+                  })}
+                </div>
+                {volPool && typeof volPool.available_gb === 'number' && (
+                  <span className="vol-pool"><Bi en={`${volPool.available_gb} GB available`} ar={`${volPool.available_gb} غيغابايت متاح`} /></span>
+                )}
+              </div>
+            )}
+            {volMsg && <span className="vol-msg">{volMsg}</span>}
+          </section>
 
           {/* ── Launch panel ───────────────────────────────── */}
           <section className="panel pod-launch" style={{ marginTop: '28px' }}>

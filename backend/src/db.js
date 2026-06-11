@@ -94,6 +94,27 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS idx_admin_audit_admin ON admin_audit_log(admin_user_id, timestamp DESC)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_admin_audit_target ON admin_audit_log(target_type, target_id, timestamp DESC)`);
 
+// ─── Rentable persistent volumes (paid, exclusive, quota-enforced) ──────────
+// A renter rents a fixed-size volume (10/20/30 GB); it maps to a per-renter
+// MinIO bucket with a hard quota on the in-Kingdom Node-2 store. Billed monthly
+// in halala. The 100 GB pool ceiling is enforced at rent time in the route.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS renter_volumes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    renter_id INTEGER NOT NULL,
+    size_gb INTEGER NOT NULL,
+    bucket TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'active',          -- active | released | suspended
+    price_halala_per_month INTEGER NOT NULL,
+    rented_at TEXT NOT NULL,
+    current_period_start TEXT NOT NULL,
+    current_period_end TEXT NOT NULL,               -- +30 days; monthly re-bill
+    last_billed_at TEXT,
+    released_at TEXT
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_volumes_renter ON renter_volumes(renter_id, status)`);
+
 try {
   db.prepare('ALTER TABLE providers ADD COLUMN wallet_address TEXT').run();
 } catch (_) {}

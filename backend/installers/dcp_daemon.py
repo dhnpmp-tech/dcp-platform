@@ -7661,6 +7661,44 @@ def _wait_for_ssh(host, port, attempts=90, interval=5, container_name=None):
     return False
 
 
+def _pod_ws_sync(direction, volume_name, ws_s3):
+    """Mirror a pod's /workspace docker volume <-> the renter's S3 bucket.
+
+    direction='restore' pulls S3 -> volume before the pod starts; 'snapshot'
+    pushes volume -> S3 on teardown. Runs a throwaway minio/mc container with the
+    volume mounted and host networking (to reach the mesh MinIO at the endpoint).
+    Best-effort: a failure never blocks pod launch/teardown — it's logged.
+    """
+    if not ws_s3 or not ws_s3.get("endpoint") or not ws_s3.get("bucket") or not ws_s3.get("access_key"):
+        return False
+    endpoint = ws_s3["endpoint"]; bucket = ws_s3["bucket"]
+    ak = ws_s3["access_key"]; sk = ws_s3.get("secret_key", "")
+    if direction == "restore":
+        mirror = "mc mirror --overwrite s3/{b} /workspace".format(b=bucket)
+    elif direction == "snapshot":
+        mirror = "mc mirror --overwrite --remove /workspace s3/{b}".format(b=bucket)
+    else:
+        return False
+    script = (
+        "mc alias set s3 '{ep}' '{ak}' '{sk}' >/dev/null 2>&1 && "
+        "mc mb -p s3/{b} >/dev/null 2>&1 || true; {mir}"
+    ).format(ep=endpoint, ak=ak, sk=sk, b=bucket, mir=mirror)
+    try:
+        r = subprocess.run(
+            ["docker", "run", "--rm", "--network", "host",
+             "-v", "{}:/workspace".format(volume_name),
+             "--entrypoint", "/bin/sh", "minio/mc", "-c", script],
+            capture_output=True, text=True, timeout=600,
+        )
+        if r.returncode == 0:
+            log.info("pod workspace %s OK (bucket=%s vol=%s)", direction, bucket, volume_name)
+            return True
+        log.warning("pod workspace %s failed rc=%s: %s", direction, r.returncode, (r.stderr or "")[:200])
+    except Exception as e:
+        log.warning("pod workspace %s error: %s", direction, e)
+    return False
+
+
 def run_interactive_pod(task_spec, job_id=None):
     """
     Start an interactive GPU pod (Jupyter on :8888 + sshd on :22) in a detached
@@ -7695,6 +7733,7 @@ def run_interactive_pod(task_spec, job_id=None):
     # Falls back to a per-job volume for older backends. The volume is NEVER
     # removed on teardown (only the container is), so work survives.
     volume_name = task_spec.get("workspace_volume") or f"dcp-pod-{job_id or int(time.time())}-vol"
+    ws_s3 = task_spec.get("workspace_s3")  # present only if the renter rents a paid volume
 
     # Self-enforced lifetime. The backend may never flip job status (the proven
     # 29h-stuck-pod bug), so the duration is bounded here regardless: prefer an
@@ -7751,6 +7790,12 @@ def run_interactive_pod(task_spec, job_id=None):
         f"Starting interactive pod: {container_name} image={image} jport={jport} sport={sport}",
         job_id=job_id
     )
+
+    # Paid persistent volume: restore the renter's /workspace from S3 before the
+    # container boots, so their files are present when Jupyter/SSH come up.
+    if ws_s3:
+        report_job_progress(job_id, "restoring_workspace")
+        _pod_ws_sync("restore", volume_name, ws_s3)
 
     # Start container detached. NOTE: deliberately NO --cap-drop all and NO
     # --security-opt no-new-privileges here — both break sshd inside the pod.
@@ -7866,8 +7911,11 @@ def run_interactive_pod(task_spec, job_id=None):
         except Exception:
             pass  # Network hiccup — keep the pod alive
 
-    # Cleanup: stop and remove container
+    # Cleanup: stop the container, then SNAPSHOT /workspace -> S3 (volume persists
+    # after rm; we stop first so writes are flushed), then remove.
     subprocess.run(["docker", "stop", "--time", "10", container_name], capture_output=True)
+    if ws_s3:
+        _pod_ws_sync("snapshot", volume_name, ws_s3)
     subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
     report_event("container_complete", f"Interactive pod job {job_id} completed — container stopped", job_id=job_id)
     log.info(f"Pod container {container_name} stopped and removed")
