@@ -643,6 +643,96 @@ router.delete('/:id', requireRenter, (req, res) => {
   }
 });
 
+// ── POST /api/pods/:id/extend — add time to a running pod (no restart) ───────
+// Charges the incremental quote at the SAME rate, pushes max_duration_seconds.
+// The daemon re-reads the deadline on its next hold-loop poll (≤7s), so the
+// pod never stops and the renter keeps the same workspace + Jupyter token.
+router.post('/:id/extend', requireRenter, (req, res) => {
+  try {
+    const addMinutes = toFiniteInt(req.body && req.body.extend_minutes, {
+      min: MIN_DURATION_MINUTES,
+      max: MAX_DURATION_MINUTES,
+    });
+    if (addMinutes == null) {
+      return res.status(400).json({ error: `extend_minutes must be between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES}`, code: 'INVALID_EXTEND' });
+    }
+
+    const job = db.get(
+      `SELECT * FROM jobs
+        WHERE (job_id = ? OR id = ?) AND job_type = 'interactive_pod' AND renter_id = ?`,
+      req.params.id, req.params.id, req.renter.id
+    );
+    if (!job) return res.status(404).json({ error: 'Pod not found' });
+    if (job.status !== 'running') {
+      return res.status(409).json({ error: `Pod is ${job.status}; only a running pod can be extended`, code: 'NOT_RUNNING' });
+    }
+
+    // 24h hard ceiling on total rental.
+    const currentSeconds = Math.max(0, Number(job.max_duration_seconds) || (Number(job.duration_minutes) || 0) * 60);
+    const addSeconds = addMinutes * 60;
+    if ((currentSeconds + addSeconds) > MAX_DURATION_MINUTES * 60) {
+      const remaining = Math.max(0, MAX_DURATION_MINUTES * 60 - currentSeconds);
+      return res.status(409).json({
+        error: `Extending by ${addMinutes} min would exceed the 24-hour pod ceiling. You can add at most ${Math.floor(remaining / 60)} more minutes.`,
+        code: 'EXCEEDS_MAX',
+      });
+    }
+
+    // Incremental quote at the provider's current rate (same as launch).
+    const provider = db.get(`SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`, job.provider_id);
+    const ratePerGpuSecond = resolvePodRate(provider);
+    const gpuCount = resolvePodGpuCount(provider);
+    const addQuoteHalala = computePodQuoteHalala({ durationSeconds: addSeconds, ratePerGpuSecond, gpuCount });
+
+    // Atomic debit — refuse if balance can't cover the extension.
+    if (addQuoteHalala > 0) {
+      const debit = db.prepare(
+        `UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ?
+          WHERE id = ? AND balance_halala >= ?`
+      ).run(addQuoteHalala, new Date().toISOString(), req.renter.id, addQuoteHalala);
+      if (debit.changes !== 1) {
+        const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
+        const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
+        return res.status(402).json({
+          error: {
+            message: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes.`,
+            type: 'insufficient_balance', code: 'insufficient_balance', status: 402, retryable: false,
+          },
+          balance_sar: Number((balanceHalala / 100).toFixed(2)),
+          required_sar: Number((addQuoteHalala / 100).toFixed(2)),
+        });
+      }
+    }
+
+    // Push the deadline + grow the prepaid quote. The daemon picks up the new
+    // max_duration_seconds on its next poll; the reaper trusts it over the
+    // launch-time docker label.
+    const newSeconds = currentSeconds + addSeconds;
+    db.prepare(
+      `UPDATE jobs SET max_duration_seconds = ?, duration_minutes = ?, cost_halala = COALESCE(cost_halala, 0) + ? WHERE id = ?`
+    ).run(newSeconds, Math.round(newSeconds / 60), addQuoteHalala, job.id);
+
+    const endsAt = job.started_at
+      ? new Date(Date.parse(job.started_at) + newSeconds * 1000).toISOString()
+      : null;
+    console.log(`[pods] Renter ${req.renter.id} extended pod ${job.job_id} by ${addMinutes}m (+${addQuoteHalala} halala); new total ${Math.round(newSeconds/60)}m`);
+    return res.json({
+      id: job.job_id,
+      status: 'running',
+      added_minutes: addMinutes,
+      charged_halala: addQuoteHalala,
+      charged_sar: Number((addQuoteHalala / 100).toFixed(2)),
+      total_minutes: Math.round(newSeconds / 60),
+      ends_at: endsAt,
+      seconds_remaining: endsAt ? Math.max(0, Math.round((Date.parse(endsAt) - Date.now()) / 1000)) : null,
+      note: 'Pod keeps running — same workspace and Jupyter token. Unused time is refunded if you stop early.',
+    });
+  } catch (error) {
+    console.error('[pods] extend error:', error.message);
+    return res.status(500).json({ error: 'Failed to extend pod' });
+  }
+});
+
 module.exports = router;
 module.exports.computePodStopSettlement = computePodStopSettlement;
 module.exports.computePodQuoteHalala = computePodQuoteHalala;

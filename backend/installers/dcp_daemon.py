@@ -7843,7 +7843,23 @@ def run_interactive_pod(task_spec, job_id=None):
                 headers=_auth_headers(),
             )
             if code == 200:
-                current_status = job_status_resp.get("job", {}).get("status", "running")
+                _job = job_status_resp.get("job", {}) or {}
+                # Extend support: the renter can push the deadline via
+                # POST /api/pods/:id/extend, which grows max_duration_seconds in
+                # the backend. Re-read it each poll and recompute hold_deadline so
+                # an extended pod keeps running past its original deadline (the
+                # backend is authoritative; the launch-time docker label is only a
+                # restart fallback). Capped at the hard lifetime ceiling.
+                try:
+                    _maxd = int(_job.get("max_duration_seconds") or 0)
+                    if _maxd > 0:
+                        _new_deadline = min(pod_start_epoch + _maxd, pod_start_epoch + HARD_POD_LIFETIME_CAP_S)
+                        if _new_deadline > hold_deadline:
+                            log.info(f"Pod {job_id} extended — deadline pushed +{int(_new_deadline - hold_deadline)}s")
+                        hold_deadline = _new_deadline
+                except Exception:
+                    pass
+                current_status = _job.get("status", "running")
                 if current_status not in ("running", "pulling", "assigned"):
                     log.info(f"Job {job_id} status={current_status} — stopping pod container")
                     break
