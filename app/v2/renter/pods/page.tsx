@@ -165,6 +165,8 @@ export default function RenterPodsPage() {
   const [renterEmail, setRenterEmail] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
+  const [extending, setExtending] = useState<Record<string, boolean>>({})
+  const [extendMsg, setExtendMsg] = useState<Record<string, string>>({})
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
   const [launch, setLaunch] = useState<LaunchState>({
@@ -362,6 +364,33 @@ export default function RenterPodsPage() {
       console.error('Failed to stop pod:', err)
     } finally {
       setStopping((s) => ({ ...s, [id]: false }))
+    }
+  }
+
+  const extendPod = async (pod: Pod, minutes: number) => {
+    const apiKey = getRenterKey() || ''
+    const id = String(pod.id)
+    if (!apiKey || extending[id]) return
+    setExtending((e) => ({ ...e, [id]: true }))
+    setExtendMsg((m) => ({ ...m, [id]: '' }))
+    try {
+      const res = await fetch(`${getApiBase()}/pods/${encodeURIComponent(id)}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-renter-key': apiKey },
+        body: JSON.stringify({ extend_minutes: minutes }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setExtendMsg((m) => ({ ...m, [id]: `+${minutes >= 60 ? minutes / 60 + 'h' : minutes + 'm'} · ${data.charged_sar ?? '?'} SAR` }))
+        fetchPods(apiKey)
+      } else {
+        const msg = (data && (data.error?.message || data.error)) || `Extend failed (${res.status})`
+        setExtendMsg((m) => ({ ...m, [id]: String(msg).slice(0, 90) }))
+      }
+    } catch (err) {
+      setExtendMsg((m) => ({ ...m, [id]: 'Extend failed — try again' }))
+    } finally {
+      setExtending((e) => ({ ...e, [id]: false }))
     }
   }
 
@@ -804,6 +833,22 @@ export default function RenterPodsPage() {
                                 ? <Bi en="Save anything outside /workspace now — /workspace is kept and reattaches to your next pod." ar="احفظ أي شيء خارج /workspace الآن — يُحتفظ بـ /workspace ويُعاد ربطه بحاويتك التالية." />
                                 : <Bi en="/workspace is saved and reattaches to your next pod." ar="يُحفظ /workspace ويُعاد ربطه بحاويتك التالية." />}
                             </span>
+                            <div className="pod-extend">
+                              <span className="pod-extend-lbl"><Bi en="Extend" ar="تمديد" /></span>
+                              {[30, 60, 120].map((mins) => (
+                                <button
+                                  key={mins}
+                                  type="button"
+                                  className="pod-extend-btn"
+                                  disabled={!!extending[id]}
+                                  onClick={() => extendPod(pod, mins)}
+                                >
+                                  {mins >= 60 ? `+${mins / 60}h` : `+${mins}m`}
+                                </button>
+                              ))}
+                              {extending[id] && <span className="pod-extend-msg"><Bi en="charging…" ar="جارٍ الخصم…" /></span>}
+                              {!extending[id] && extendMsg[id] && <span className="pod-extend-msg">{extendMsg[id]}</span>}
+                            </div>
                           </div>
                         )
                       })()}

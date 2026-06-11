@@ -470,3 +470,10 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .pod-clock.warn { border-color:var(--accent-orange,#ee7a3c); background:rgba(238,122,60,.08); }
 .pod-clock.warn .pod-clock-t { color:var(--accent-orange,#ee7a3c); }
 .pod-clock.warn .pod-clock-t b { color:var(--accent-orange,#ee7a3c); }
+
+.pod-extend { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.pod-extend-lbl { font-family:var(--mono,'JetBrains Mono',monospace); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-2,#7b7a92); }
+.pod-extend-btn { font-family:var(--mono,'JetBrains Mono',monospace); font-size:12px; padding:4px 12px; border:1px solid var(--border-1,#1f2040); background:transparent; color:var(--text-0,#f5f3ee); cursor:pointer; border-radius:0; transition:border-color .2s,color .2s; }
+.pod-extend-btn:hover:not(:disabled) { border-color:var(--accent-teal,#2dd4b6); color:var(--accent-teal,#2dd4b6); }
+.pod-extend-btn:disabled { opacity:.5; cursor:wait; }
+.pod-extend-msg { font-size:11.5px; color:var(--accent-teal,#2dd4b6); }
