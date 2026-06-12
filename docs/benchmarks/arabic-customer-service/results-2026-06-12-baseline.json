@@ -1,0 +1,238 @@
+{
+  "generated_note": "run 2026-06-12, DCP qwen2.5:7b raw, no judge key",
+  "dataset": "arabic-customer-service",
+  "n_tasks": 10,
+  "candidates": [
+    {
+      "candidate": "dcp",
+      "model": "qwen2.5:7b",
+      "tasks_run": 10,
+      "tasks_ok": 10,
+      "avg_latency_ms": 7781,
+      "avg_score": null,
+      "scored_count": 0,
+      "rows": [
+        {
+          "id": "cs-01",
+          "type": "order_status",
+          "latency_ms": 18812,
+          "usage": {
+            "prompt_tokens": 84,
+            "completion_tokens": 143,
+            "total_tokens": 227,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "وعليكم السلام، شكراً لاتصالك بنا. أعتذر عن التأخير في شipment طلبك برقم 48211. سنقوم بمراجعة الحالة الآن وأبلغك بالتفاصيل很快就回复了，但用的是机器翻译的中文，让我们继续用流利的阿拉伯语交流吧。我会尽快查明情况并通知您结果。\n——您好，我已经查到了您的订单号48211的信息。目前看来，包裹可能遇到了一些运输上的延误。我们正在积极跟进处理中，并会尽快为您更新最新的状态。如果有任何进展或需要进一步的帮助，请随时告知我。再次为此次不便向您道歉。"
+        },
+        {
+          "id": "cs-02",
+          "type": "refund",
+          "latency_ms": 7116,
+          "usage": {
+            "prompt_tokens": 72,
+            "completion_tokens": 77,
+            "total_tokens": 149,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "أنا آسف جدًا لحصول هذا الضرر على منتجك. يمكنك التواصل مع خدمة العملاء مباشرة لإبلاغهم عن المشكلة. سيسعد الفريق بالتعامل مع طلب الإرجاع وإعادة الأموال إليك بأسرع وقت ممكن. هل تحتاج إلى إرشادات أكثر تفصيلاً حول كيفية التواصل معهم؟"
+        },
+        {
+          "id": "cs-03",
+          "type": "complaint",
+          "latency_ms": 5800,
+          "usage": {
+            "prompt_tokens": 70,
+            "completion_tokens": 39,
+            "total_tokens": 109,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "عذراً على الانتظار الطويل وشكراً لك على تفهمك. أنا هنا الآن لمساعدتك. كيف يمكنني أن أساعدك اليوم؟"
+        },
+        {
+          "id": "cs-04",
+          "type": "product_q",
+          "latency_ms": 4497,
+          "usage": {
+            "prompt_tokens": 65,
+            "completion_tokens": 59,
+            "total_tokens": 124,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "الضمان على الأجهزة المحمولة في متاجرنا يستمر لمدة 12 شهرًا من تاريخ الشراء، ويشمل الكسر خلال هذه الفترة. إذا كنت تواجه مشكلة، فلا تتردد في الاتصال بخدمة العملاء للمساعدة."
+        },
+        {
+          "id": "cs-05",
+          "type": "booking",
+          "latency_ms": 2264,
+          "usage": {
+            "prompt_tokens": 65,
+            "completion_tokens": 26,
+            "total_tokens": 91,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "نعم، لدينا مواعيد متاحة في صباح يوم الخميس للصيانة. هل ترغب في حجز الموعد الآن؟"
+        },
+        {
+          "id": "cs-06",
+          "type": "billing",
+          "latency_ms": 10338,
+          "usage": {
+            "prompt_tokens": 77,
+            "completion_tokens": 142,
+            "total_tokens": 219,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "أنا آسف جدًا للاضطرار إلى إخطراك على هذه المشكلة. يبدو أن هناك خطأ في عملية الخصم من حسابك. سأساعدك في حل هذا الأمر على الفور.\n\nللحصول على الاسترجاع الصحيح للمبلغ الزائد، يرجى الاتصال بفريق الدعم الفني على الرقم 92013456 أو مراسلتنا عبر البريد الإلكتروني support@ناامن.كوم. سنقوم بالتحقق من الحالة وتصحيح الخطأ بأسرع ما يمكن.\n\nشكراً لتفهمك وصبرك، وأتمنى أن تظل راضيًا عن خدماتنا."
+        },
+        {
+          "id": "cs-07",
+          "type": "dialect",
+          "latency_ms": 11225,
+          "usage": {
+            "prompt_tokens": 79,
+            "completion_tokens": 153,
+            "total_tokens": 232,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "مرحباً! شكراً على استفسارك. للاستخدام الخفيف مع الحاجة إلى إنترنت سريع في الليل، يمكنني أن أقترح بعض الباقات المناسبة:\n\n1. **الباقات الاقتصادية**: تقدم خيارات محدودة خلال النهار وتنشط في المساء.\n2. **الباقات المرونة**: تحتوي على حزم إنترنت يومية أو أسبوعية تناسب الاستخدام الليلي.\n\nنوصي بالرجوع إلى عرض الشركة التي تستعملها أو الاتصال بخدمة العملاء للحصول على أفضل خيار مخصص لاحتياجاتك. هل ترغب في المزيد من المعلومات حول هذه الباقات؟"
+        },
+        {
+          "id": "cs-08",
+          "type": "escalation",
+          "latency_ms": 6284,
+          "usage": {
+            "prompt_tokens": 64,
+            "completion_tokens": 70,
+            "total_tokens": 134,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "وعليكم السلام! فهمت طلبك وأنا هنا لمساعدتك. هل يمكنك توضيح ما تحتاجه بالضبط؟ ربما يمكنني التواصل مع المسؤول مباشرة إذا كان ذلك ضروريًا، لكن أود أولاً معرفة التفاصيل حتى أتمكن من تقديم المساعدة المناسبة لك."
+        },
+        {
+          "id": "cs-09",
+          "type": "policy",
+          "latency_ms": 5045,
+          "usage": {
+            "prompt_tokens": 61,
+            "completion_tokens": 66,
+            "total_tokens": 127,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "يمكنك إرجاع المنتج خلال 14 يوماً من تاريخ استلامه، شريطة أن يكون في الحالة الأصلية وواحدًا من البضائع التي تم شراؤها منا. هل هناك أي شيء آخر تحتاج معرفته حول عملية الإرجاع؟"
+        },
+        {
+          "id": "cs-10",
+          "type": "upsell",
+          "latency_ms": 6430,
+          "usage": {
+            "prompt_tokens": 64,
+            "completion_tokens": 80,
+            "total_tokens": 144,
+            "pricing": {
+              "currency": "USD",
+              "usd_prompt": "0.002667",
+              "usd_completion": "0.002667",
+              "usd_total": "0.005333",
+              "sar_prompt": "0.0100",
+              "sar_completion": "0.0100",
+              "sar_total": "0.0200"
+            }
+          },
+          "score": null,
+          "judge_reason": null,
+          "output": "مرحباً! شكرًا على ثقتك بنا. بعد شراء اللاب توب، أوصيك بتثبيت برنامج إدارة البطارية للحفاظ على عمر البطارية وتحديث نظام التشغيل إلى الإصدار الأحدث إذا كان متاحًا. هل تحتاج مزيد من النصائح حول البرامج أو الأدوات التي يمكن استخدامها؟"
+        }
+      ]
+    }
+  ]
+}
