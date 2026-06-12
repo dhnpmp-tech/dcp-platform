@@ -1,0 +1,19 @@
+{
+  "name": "@dcp/mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for DCP — Saudi Arabia's sovereign AI compute platform. Lets any MCP-capable agent run inference, rent GPUs, and manage persistent storage on DCP.",
+  "type": "module",
+  "bin": {
+    "dcp-mcp": "./index.js"
+  },
+  "main": "./index.js",
+  "files": ["index.js", "README.md"],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "keywords": ["mcp", "model-context-protocol", "dcp", "gpu", "inference", "saudi-arabia", "sovereign-ai", "agent"],
+  "license": "MIT"
+}

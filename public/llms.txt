@@ -1,0 +1,44 @@
+# DCP — Datacenter Compute Platform
+
+> DCP is the Kingdom of Saudi Arabia's sovereign AI compute platform. It exposes an OpenAI-compatible inference API, on-demand whole-GPU rental ("pods"), persistent storage volumes, and an autonomous agent layer — all served from Saudi-owned hardware inside the Kingdom (full PDPL / data-residency compliance). DCP is built to be used by AI agents and software, not only humans: the inference endpoint is a drop-in replacement for `api.openai.com`, and an official MCP server lets any agent rent GPUs, run inference, and manage workloads through tool calls.
+
+## For agents: start here
+
+- **Inference (OpenAI-compatible):** Base URL `https://api.dcp.sa/v1`. Use any OpenAI SDK by setting `base_url` to it and `Authorization: Bearer <renter_api_key>`. Endpoints: `POST /v1/chat/completions`, `GET /v1/models`.
+- **MCP server:** [dcp-mcp](https://github.com/dhnpmp-tech/dcp-platform/tree/main/integrations/dcp-mcp) — exposes DCP as Model Context Protocol tools (`list_models`, `chat`, `create_pod`, `list_pods`, `stop_pod`, `extend_pod`, `rent_volume`, `get_balance`). The native way for an MCP-capable agent (Claude, etc.) to use DCP.
+- **Agent manifest:** [/.well-known/ai-plugin.json](https://dcp.sa/.well-known/ai-plugin.json)
+- **OpenAPI spec:** [/docs/openapi.yaml](https://dcp.sa/docs/openapi.yaml)
+
+## Inference
+
+- Models available right now: query `GET https://api.dcp.sa/v1/models` (returns OpenAI-style `data[]` with an `available` flag — only `available: true` models are currently serveable). Catalog is Arabic-and-long-tail focused (Qwen family, ALLaM-class Arabic models).
+- Auth: a renter API key (`Bearer` token). Get one at https://dcp.sa (renter signup) and fund the wallet (SAR, prepaid).
+- Pricing: per-token, cost-plus, billed in SAR. See `GET https://api.dcp.sa/api/pricing`.
+
+## GPU compute (pods)
+
+- Rent a whole GPU with root + Jupyter + SSH. `POST https://api.dcp.sa/api/pods` `{ "duration_minutes": N }` (Bearer renter key). Returns a pod id; poll `GET /api/pods/{id}` for `access_url` (Jupyter), `ssh_command`, `ends_at`, `seconds_remaining`.
+- Extend without restart: `POST /api/pods/{id}/extend` `{ "extend_minutes": N }`.
+- Stop early (prorated refund): `DELETE /api/pods/{id}`.
+- Billing is prepaid per GPU-second in SAR; unused time is refunded on stop.
+
+## Persistent storage (volumes)
+
+- Rent an exclusive, in-Kingdom persistent volume: `POST https://api.dcp.sa/api/volumes/rent` `{ "size_gb": 10|20|30 }`. A pod's `/workspace` then persists across pods and providers.
+- `GET /api/volumes/me` (status + usage + pool), `DELETE /api/volumes` (release).
+
+## Wallet & account
+
+- Balance: `GET https://api.dcp.sa/api/renters/balance` (Bearer). Top up in SAR via the wallet at https://dcp.sa.
+
+## What DCP is (positioning)
+
+- Sovereign, in-Kingdom AI compute: data, models, storage, and control plane inside Saudi Arabia, under Saudi law — a structural advantage no foreign API can match.
+- A two-sided marketplace of Saudi-owned GPUs (RTX-class) and Apple-Silicon Macs, unified by a self-healing mesh and a smart routing layer that presents one clean OpenAI-compatible endpoint.
+- Not a token pipe: you can run inference, fine-tune and host your own models, rent whole GPUs, attach persistent storage, and deploy agents — all in one place.
+
+## Docs
+
+- Human docs: https://dcp.sa/v2/docs
+- Quickstart: https://dcp.sa/quickstart
+- This file: https://dcp.sa/llms.txt
