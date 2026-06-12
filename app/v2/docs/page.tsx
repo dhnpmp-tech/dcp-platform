@@ -58,6 +58,11 @@ export default function DocsPage() {
           <a href="#arabic"><Bi en="Working in Arabic" ar="العمل بالعربية" /></a>
           <a href="#rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></a>
           <a href="#residency"><Bi en="Data residency" ar="إقامة البيانات" /></a>
+          <div className="sec"><Bi en="Compute" ar="الحوسبة" /></div>
+          <a href="#pods"><Bi en="GPU pods" ar="حاويات GPU" /></a>
+          <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
+          <div className="sec"><Bi en="Agents" ar="الوكلاء" /></div>
+          <a href="#agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></a>
           <div className="sec"><Bi en="SDKs" ar="حِزم التطوير" /></div>
           <a href="#python-sdk"><Bi en="Python" ar="بايثون" /></a>
           <a href="#node-sdk"><Bi en="Node.js" ar="Node.js" /></a>
@@ -338,6 +343,52 @@ resp = client.chat.completions.create(
               ar="افتراضياً، تبقى مطالباتك وإكمالاتك ومواد RAG المُدارة داخل المملكة. تبقى النماذج الحدودية (العابرة للحدود) معطّلة حتى تشغّلها لكل مساحة عمل — وعند ذلك، يُعلَّم كل طلب من هذا النوع لتعرف دائماً أين ذهبت بياناتك."
             />
           </p>
+
+          <span className="dx-eyebrow">§ <Bi en="Compute" ar="الحوسبة" /></span>
+          <h2 id="pods"><Bi en="GPU pods" ar="حاويات GPU" /></h2>
+          <p>
+            <Bi
+              en="Rent a whole GPU with root access, Jupyter, and SSH — prepaid per minute in Riyal, unused time refunded when you stop. Launch returns a pod id; poll it until status is running to get the Jupyter URL and SSH command."
+              ar="استأجر بطاقة GPU كاملة مع صلاحيات الجذر وJupyter وSSH — مدفوعة مسبقاً بالدقيقة بالريال، ويُسترد الوقت غير المستخدم عند الإيقاف. يعيد الإطلاق معرّف الحاوية؛ استعلم عنه حتى تصبح الحالة running للحصول على رابط Jupyter وأمر SSH."
+            />
+          </p>
+          <pre className="code">$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/pods</span> \
+   <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> \
+   <span className="k">-d</span> <span className="s">{"'{\"duration_minutes\": 60}'"}</span>
+
+$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/pods/$POD_ID</span>
+$ <span className="k">curl</span> <span className="k">-X</span> POST <span className="s">https://api.dcp.sa/api/pods/$POD_ID/extend</span> <span className="k">-d</span> <span className="s">{"'{\"extend_minutes\": 30}'"}</span>
+$ <span className="k">curl</span> <span className="k">-X</span> DELETE <span className="s">https://api.dcp.sa/api/pods/$POD_ID</span></pre>
+
+          <h2 id="volumes"><Bi en="Persistent volumes" ar="مساحات تخزين دائمة" /></h2>
+          <p>
+            <Bi
+              en="Rent an exclusive, in-Kingdom persistent volume (10/20/30 GB, billed monthly in Riyal). With an active volume, a pod's /workspace is restored on launch and snapshotted on stop — your files persist across pods and across providers. Without one, pods are ephemeral."
+              ar="استأجر مساحة تخزين دائمة وحصرية داخل المملكة (10/20/30 غيغابايت، تُفوتر شهرياً بالريال). مع مساحة نشطة، يُستعاد /workspace عند الإطلاق ويُحفظ عند الإيقاف — فتبقى ملفاتك بين الحاويات وبين المزوّدين. بدونها تكون الحاويات مؤقتة."
+            />
+          </p>
+          <pre className="code">$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/volumes/rent</span> <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> <span className="k">-d</span> <span className="s">{"'{\"size_gb\": 20}'"}</span>
+$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/volumes/me</span></pre>
+
+          <span className="dx-eyebrow">§ <Bi en="Agents" ar="الوكلاء" /></span>
+          <h2 id="agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></h2>
+          <p>
+            <Bi
+              en="DCP is built to be used by agents and software, not only humans. The inference API is a drop-in OpenAI replacement (point any OpenAI SDK at the base URL above), and an official Model Context Protocol (MCP) server lets an MCP-capable agent — Claude, Cursor, or your own — run inference, rent GPUs, and manage storage through native tool calls."
+              ar="بُنيت DCP لتُستخدم من الوكلاء والبرمجيات، لا البشر فقط. واجهة الاستدلال بديل مباشر لـ OpenAI (وجّه أي حزمة OpenAI إلى عنوان القاعدة أعلاه)، وخادم MCP رسمي يتيح لأي وكيل يدعم MCP — Claude أو Cursor أو وكيلك الخاص — تشغيل الاستدلال واستئجار البطاقات وإدارة التخزين عبر استدعاءات أدوات أصلية."
+            />
+          </p>
+          <pre className="code"><span className="c">{'// MCP client config (Claude Desktop / Claude Code / Cursor)'}</span>
+{'{ "mcpServers": { "dcp": {'}
+   <span className="k">"command"</span>: <span className="s">"npx"</span>, <span className="k">"args"</span>: [<span className="s">"-y"</span>, <span className="s">"@dcp/mcp"</span>],
+   <span className="k">"env"</span>: {'{ '}<span className="k">"DCP_API_KEY"</span>: <span className="s">"dcp-renter-..."</span>{' }'}
+{'} } }'}</pre>
+          <p>
+            <Bi
+              en="Discovery: agents can read /llms.txt and /.well-known/ai-plugin.json at dcp.sa, plus the OpenAPI spec at /docs/openapi.yaml. MCP tools: list_models, chat, create_pod, get_pod, extend_pod, stop_pod, rent_volume, get_volume, get_balance."
+              ar="الاكتشاف: يمكن للوكلاء قراءة /llms.txt و/.well-known/ai-plugin.json على dcp.sa، ومواصفات OpenAPI على /docs/openapi.yaml. أدوات MCP: list_models و chat و create_pod و get_pod و extend_pod و stop_pod و rent_volume و get_volume و get_balance."
+            />
+          </p>
         </main>
 
         {/* Right TOC */}
@@ -354,6 +405,9 @@ resp = client.chat.completions.create(
           <a href="#arabic"><Bi en="Working in Arabic" ar="العمل بالعربية" /></a>
           <a href="#rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></a>
           <a href="#residency"><Bi en="Data residency" ar="إقامة البيانات" /></a>
+          <a href="#pods"><Bi en="GPU pods" ar="حاويات GPU" /></a>
+          <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
+          <a href="#agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></a>
         </aside>
 
       </div>
