@@ -1,0 +1,33 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "DCP — Sovereign AI Compute (KSA)",
+  "name_for_model": "dcp",
+  "description_for_human": "Saudi Arabia's sovereign AI compute platform: OpenAI-compatible inference, on-demand GPU rental, and persistent storage — all in-Kingdom (PDPL compliant).",
+  "description_for_model": "DCP is a sovereign, in-Kingdom (Saudi Arabia) AI compute platform usable directly by agents. Inference is OpenAI-compatible at https://api.dcp.sa/v1 (POST /v1/chat/completions, GET /v1/models) — use it as a drop-in OpenAI base_url with a renter Bearer key. Agents can also rent whole GPUs (pods) with root/Jupyter/SSH via POST https://api.dcp.sa/api/pods, manage them (GET/DELETE /api/pods/{id}, POST /api/pods/{id}/extend), and rent persistent in-Kingdom storage volumes (POST /api/volumes/rent). All billing is prepaid in SAR. For native tool use, prefer the DCP MCP server at integrations/dcp-mcp. Only models with available:true from GET /v1/models are currently serveable. Data, models, and storage never leave the Kingdom.",
+  "auth": {
+    "type": "user_http",
+    "authorization_type": "bearer"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://dcp.sa/docs/openapi.yaml"
+  },
+  "mcp": {
+    "type": "stdio",
+    "package": "@dcp/mcp",
+    "repository": "https://github.com/dhnpmp-tech/dcp-platform/tree/main/integrations/dcp-mcp",
+    "description": "Native Model Context Protocol server exposing DCP inference, pods, and volumes as tools."
+  },
+  "logo_url": "https://dcp.sa/logo.png",
+  "contact_email": "support@dcp.sa",
+  "legal_info_url": "https://dcp.sa/legal",
+  "endpoints": {
+    "inference_base_url": "https://api.dcp.sa/v1",
+    "models": "https://api.dcp.sa/v1/models",
+    "chat_completions": "https://api.dcp.sa/v1/chat/completions",
+    "pods": "https://api.dcp.sa/api/pods",
+    "volumes": "https://api.dcp.sa/api/volumes",
+    "balance": "https://api.dcp.sa/api/renters/balance",
+    "pricing": "https://api.dcp.sa/api/pricing"
+  }
+}
