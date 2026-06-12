@@ -434,37 +434,34 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     // then sign the serialized string. The stored task_spec string and the
     // signed bytes MUST be identical (the daemon recomputes the HMAC over the
     // task_spec it receives) — so we stringify once and reuse that exact string.
-    // Persistent workspace: a stable per-renter volume name so /workspace
-    // survives across this renter's pods on the same provider. The daemon
-    // mounts this named volume (creating it on first use); pod teardown only
-    // removes the container, never the volume — so work is reattached
-    // automatically on the next pod.
-    const workspaceVolume = `dcp-ws-r${req.renter.id}`;
     const taskSpecObj = {
       image: imageResult.image,
       jupyter_token: jupyterToken,
       root_password: rootPassword,
       duration_minutes: durationMinutes,
-      workspace_volume: workspaceVolume,
     };
     // Tell the daemon to inject SSH (the image is not the DCP-baked default).
     if (imageResult.bootstrap) taskSpecObj.bootstrap_ssh = true;
 
-    // Paid persistent volume: if this renter has an active rented volume, hand
-    // the daemon the S3 coordinates so it RESTORES /workspace on launch and
-    // SNAPSHOTS it on teardown — cross-provider persistence. No volume = the
-    // pod is ephemeral (the paid upsell). Creds come from backend env; the
-    // bucket is the renter's exclusive quota'd bucket.
+    // Persistence is a PAID feature. Only when the renter has an active rented
+    // volume do we (a) give the pod a stable per-renter /workspace volume so it
+    // survives teardown, and (b) hand the daemon the S3 coordinates to RESTORE
+    // on launch + SNAPSHOT on teardown (cross-provider persistence). Without a
+    // paid volume the daemon falls back to a per-job volume that dies with the
+    // pod — the pod is fully ephemeral, which is the upsell.
     try {
       const { activeVolumeForRenter } = require('./volumes');
       const vol = activeVolumeForRenter(req.renter.id);
-      if (vol && process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
-        taskSpecObj.workspace_s3 = {
-          endpoint: process.env.WORKSPACE_S3_ENDPOINT,
-          bucket: vol.bucket,
-          access_key: process.env.WORKSPACE_S3_KEY,
-          secret_key: process.env.WORKSPACE_S3_SECRET,
-        };
+      if (vol) {
+        taskSpecObj.workspace_volume = `dcp-ws-r${req.renter.id}`;
+        if (process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
+          taskSpecObj.workspace_s3 = {
+            endpoint: process.env.WORKSPACE_S3_ENDPOINT,
+            bucket: vol.bucket,
+            access_key: process.env.WORKSPACE_S3_KEY,
+            secret_key: process.env.WORKSPACE_S3_SECRET,
+          };
+        }
       }
     } catch (volErr) {
       console.error('[pods] volume lookup for task_spec failed (pod will be ephemeral):', volErr.message);

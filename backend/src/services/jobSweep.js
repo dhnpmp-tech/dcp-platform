@@ -612,12 +612,93 @@ async function runSweep(state) {
     }
 
     try { settleExpiredPods(state.db); } catch (error) { recordSweepError('pod settlement sweep', error); }
+    try { billRenterVolumes(state.db); } catch (error) { recordSweepError('volume billing sweep', error); }
     await processCompletionEmailCandidates(state);
     await processWebhookCandidates(state);
   } catch (error) {
     recordSweepError('sweep tick failed', error);
   } finally {
     state.sweepInFlight = false;
+  }
+}
+
+// ─── Rentable-volume monthly billing sweep ───────────────────────────────────
+// Volumes are billed monthly in advance. First month is charged at rent time;
+// this sweep handles every renewal at period end:
+//   • Funded → charge the monthly fee, advance the 30-day period.
+//   • Unfunded (active) → suspend (stops counting against the 100GB pool's
+//     usable serving, pod stops getting the volume) but KEEP the data through a
+//     grace window so a top-up can revive it.
+//   • Suspended + now funded → reactivate (charge + new period).
+//   • Suspended past the grace window → reclaim: deprovision the bucket, release.
+// current_period_end doubles as the lapse marker for suspended volumes (it is
+// only advanced on a successful charge), so no extra column is needed.
+const VOLUME_SUSPEND_GRACE_DAYS = 7;
+
+function billRenterVolumes(db) {
+  const raw = db._db || db;
+  const nowIso = new Date().toISOString();
+  let store = null;
+  try { store = require('../lib/volume-store'); } catch (_) { /* provisioning offline */ }
+
+  // Due = active or suspended volumes whose paid period has ended.
+  const due = safeAll(
+    raw.prepare(`
+      SELECT id, renter_id, size_gb, bucket, status, price_halala_per_month, current_period_end
+        FROM renter_volumes
+       WHERE status IN ('active','suspended')
+         AND datetime(COALESCE(current_period_end, rented_at)) <= datetime('now')
+       LIMIT 50`),
+    'query due volumes'
+  );
+
+  for (const vol of due) {
+    const price = Math.max(0, Math.round(Number(vol.price_halala_per_month) || 0));
+    try {
+      // Reclaim first: a suspended volume past the grace window is torn down.
+      if (vol.status === 'suspended') {
+        const lapsedDaysRow = raw.prepare(
+          `SELECT (julianday('now') - julianday(?)) AS days`
+        ).get(vol.current_period_end);
+        if (lapsedDaysRow && Number(lapsedDaysRow.days) >= VOLUME_SUSPEND_GRACE_DAYS) {
+          if (store) { try { store.deprovisionVolume(vol.renter_id); } catch (e) { recordSweepError(`volume deprovision ${vol.id}`, e); } }
+          raw.prepare(`UPDATE renter_volumes SET status = 'released', released_at = ? WHERE id = ? AND status = 'suspended'`)
+            .run(nowIso, vol.id);
+          console.log(`[volumes/bill] reclaimed suspended volume ${vol.id} (renter ${vol.renter_id}, ${vol.size_gb}GB) after ${VOLUME_SUSPEND_GRACE_DAYS}d grace`);
+          continue;
+        }
+      }
+
+      // Attempt the renewal charge (atomic; only if balance covers it).
+      const charged = raw.transaction(() => {
+        if (price > 0) {
+          const debit = raw.prepare(
+            `UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ?
+              WHERE id = ? AND balance_halala >= ?`
+          ).run(price, nowIso, vol.renter_id, price);
+          if (debit.changes !== 1) return false;
+        }
+        raw.prepare(
+          `UPDATE renter_volumes
+              SET status = 'active',
+                  current_period_start = current_period_end,
+                  current_period_end = datetime(current_period_end, '+30 days'),
+                  last_billed_at = ?
+            WHERE id = ?`
+        ).run(nowIso, vol.id);
+        return true;
+      })();
+
+      if (charged) {
+        console.log(`[volumes/bill] renewed volume ${vol.id} (renter ${vol.renter_id}, -${price} halala)`);
+      } else if (vol.status === 'active') {
+        // Could not charge → suspend (keep data through the grace window).
+        raw.prepare(`UPDATE renter_volumes SET status = 'suspended' WHERE id = ? AND status = 'active'`).run(vol.id);
+        console.log(`[volumes/bill] suspended volume ${vol.id} (renter ${vol.renter_id}) — insufficient balance for ${price} halala`);
+      }
+    } catch (error) {
+      recordSweepError(`bill volume ${vol.id}`, error);
+    }
   }
 }
 
