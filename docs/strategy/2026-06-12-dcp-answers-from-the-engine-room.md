@@ -1,7 +1,9 @@
-# DCP — The Defensible Position
+# DCP — Answers from the Engine Room
+
+*Four hard questions from an independent reviewer — answered by the team building the platform.*
 
 **Date:** 2026-06-12
-**Context:** Response to independent third-party feedback (experienced AI practitioner) raising four questions: infrastructure strategy, differentiation vs. API providers (Groq et al.), Arabic open-model performance vs. frontier expectations, and defensible value beyond infrastructure access. This document is the canonical positioning answer — written as flowing argument, with every anticipated objection absorbed into the reasoning rather than appended as rebuttals. Source discussion: team chat 2026-06-11/12 (msgs 13248–13255), enhanced with founder reasoning (own clusters, time-to-GPU, Apple-Silicon supply, harness + SMB flywheel, developer-as-channel).
+**Context:** Response to independent third-party feedback (experienced AI practitioner) raising four questions: infrastructure strategy, differentiation vs. API providers (Groq et al.), Arabic open-model performance vs. frontier expectations, and defensible value beyond infrastructure access. This document is what we have to say — written as flowing argument, with every anticipated objection absorbed into the reasoning rather than appended as rebuttals. Source discussion: team chat 2026-06-11/12 (msgs 13248–13255), enhanced with founder reasoning (own clusters, time-to-GPU, Apple-Silicon supply, harness + SMB flywheel, developer-as-channel).
 
 ---
 
