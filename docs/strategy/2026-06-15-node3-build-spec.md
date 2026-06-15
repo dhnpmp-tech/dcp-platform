@@ -14,7 +14,7 @@ All links verified live on Amazon.ae on 2026-06-15 (loaded each page, prices + s
 
 | Part | Model | Price (AED) | Link |
 |---|---|---|---|
-| **Motherboard** | ASUS ProArt X870E-Creator (AM5, supports PCIe bifurcation) | 1,825 | amazon.ae/dp/B0DF123GCV |
+| **Motherboard** | ASRock X670E Taichi Carrara (AM5 — BIOS exposes x4x4x4x4 on the main slot) | 2,512 | amazon.ae/dp/B0BGPGH6WG |
 | **CPU** | AMD Ryzen 5 7600X (6-core — idle during GPU work) | 699 | amazon.ae/dp/B0H5BJKSHN |
 | **RAM** | Crucial Pro 64 GB DDR5-6000 (2×32, non-ECC) | 2,551 | amazon.ae/dp/B0DSQVNBD5 |
 | **Bifurcation card** | JMT PCIe x16 → 4× x4 splitter (x4x4x4x4) | 151 | amazon.ae/dp/B0C9WS3MBG |
@@ -23,13 +23,15 @@ All links verified live on Amazon.ae on 2026-06-15 (loaded each page, prices + s
 | **CPU cooler** | Thermalright Peerless Assassin 120 (AM5) | 207 | amazon.ae/dp/B0DMVVK2YT |
 | **NVMe** | WD Black SN850X 2 TB (1 TB = AED 775 is fine) | 1,458 | amazon.ae/dp/B0B7CKZGN6 |
 | **Frame** | DAN&DRE open-air mining frame | 166 | amazon.ae/dp/B0GW6HD4YC |
-| | **TOTAL (ex-GPUs)** | **≈ AED 9,050 (~$2,465)** | |
+| | **TOTAL (ex-GPUs)** | **≈ AED 9,740 (~$2,650)** | |
 
-*(Drop to ~AED 8,370 with the 1 TB NVMe. vs ~AED 18,000+ for the WRX80 build.)*
+*(Drop to ~AED 9,050 with the 1 TB NVMe. vs ~AED 18,000+ for the WRX80 build.)*
+
+> **Board correction (2026-06-15):** the ASUS ProArt X870E-Creator was initially specced here but **does not support x4x4x4x4** (ASUS spec: x16 / x8/x8 / x8/x4/x4 only) — its splitter plan can't enumerate 4 GPUs. The **ASRock X670E Taichi Carrara** is the in-stock AM5 board that *does* expose `x4x4x4x4` (BIOS, main slot), verified live in stock on Amazon.ae (AED 2,512). KSA: ASRock **X870E Taichi Lite**, Amazon.sa SAR 1,991 (`/dp/B0DFNPK2MX`).
 
 **Two must-dos with Option B:**
-1. **Confirm the ProArt board's BIOS does `x4x4x4x4` bifurcation** on the main slot before relying on it (ProArt Creator boards support bifurcation — verify the exact mode). The JMT splitter then breaks that one x16 slot into 4× x4, one riser → one GPU.
-2. The JMT splitter is PCIe **Gen3 x4** per card (~3.9 GB/s) — fine for inference, only slower on model *loads*. A Gen4 OCuLink splitter is an upgrade if load speed matters.
+1. **Bench-test the ASRock board's `x4x4x4x4` 4-way split before committing the full build** — the menu is real but has documented buggy/inverted behavior; confirm all 4 GPUs enumerate.
+2. Every card runs at **PCIe x4** (AM5 has only 16 CPU lanes) — fine for independent inference + pods, *not* for training/tensor-parallel. For x8–x16 per card use HEDT (Option A, or the TRX50-SAGE when back in stock).
 
 ---
 
