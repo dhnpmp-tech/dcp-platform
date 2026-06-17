@@ -14,6 +14,109 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-17 09:00 UTC — [PR #617](https://github.com/dhnpmp-tech/dcp-platform/pull/617) — `fix(pods): honest workspace-persistence signalling (stop silent data loss)`
+
+Included:
+- `workspace_persisted` was hardcoded `true` (launch response + `toPodView`) with a "files are saved" note even for ephemeral pods — a live renter lost a workspace trusting it. Now derived from the HMAC-signed `task_spec` (`workspace_volume` present ⇔ paid volume), with a loud ⚠️ EPHEMERAL warning + the `POST /api/volumes` upsell surfaced on launch, status, and stop. No change to the paid-persistence gating — only to what the renter is told.
+
+### 2026-06-17 08:52 UTC — [PR #616](https://github.com/dhnpmp-tech/dcp-platform/pull/616) — `fix(pods): reaper enforces backend's CURRENT deadline, not stale launch label (extend bug)`
+
+Included:
+- An extended pod (1h → 3h) was killed at the original 1h: `reap_expired_pod_containers` enforced the immutable `dcp.deadline` docker label stamped at launch, which extend cannot change. The reaper now queries the backend first and, for a live job, enforces `started_at + current max_duration_seconds (+grace)` — extend-aware; the launch label / hard-cap are used only as a fallback when the backend is unreachable. Mirrors the in-process hold-loop's existing re-read.
+
+### 2026-06-15 15:17 UTC — [PR #615](https://github.com/dhnpmp-tech/dcp-platform/pull/615) — `docs(node3): correct board — ProArt can't do x4x4x4x4, use ASRock Taichi`
+
+Included:
+- Corrected the Node 3 build spec: the ASUS ProArt X870E-Creator bifurcates only x16 / x8/x8 / x8/x4/x4 (NOT x4x4x4x4), so the x16→4×x4 splitter plan fails on it. Replaced with the ASRock X670E Taichi Carrara (AED 2,512, Amazon.ae) / X870E Taichi Lite for KSA (SAR 1,991); added the x4-per-card AM5 16-lane limitation and a BIOS bench-test caveat.
+
+### 2026-06-15 15:06 UTC — [PR #614](https://github.com/dhnpmp-tech/dcp-platform/pull/614) — `docs: Node 3 (4× RTX 3090) build spec — verified UAE/KSA sourcing`
+
+Included:
+- `docs/strategy/2026-06-15-node3-build-spec.md`: cheap-path build for the 4 acceptance-passed Palit GameRock 3090s with live-verified UAE (Amazon.ae) + KSA sourcing. Option B (new AM5 board + bifurcation splitter → 4× PCIe x4, ~AED 9–9.7k) vs Option A (used HEDT X399/X299, 64 native lanes). Rules from our own Gen-1 data: x4/card is fine, no x1 USB mining risers; power-limit each card to 285 W to run all four on a single AX1600i at 240 V.
+
+### 2026-06-12 08:16 UTC — [PR #613](https://github.com/dhnpmp-tech/dcp-platform/pull/613) — `feat(benchmark): Arabic customer-service task benchmark (harness + dataset + baseline)`
+
+Included:
+- `docs/benchmarks/arabic-customer-service/`: 10 fixed Saudi CS tasks with per-task rubrics + a runnable harness (`run.mjs`) recording quality (LLM-judge), latency, and cost per candidate; honest by design (records DCP latency/outputs even without a judge key, never fabricates scores).
+- Baseline (DCP qwen2.5:7b raw, 2026-06-12): 10/10 completed, ~7.8s avg latency; already caught a real failure (cs-01 drifted into machine-translated Chinese mid-reply), validating the fine-tune thesis. No public quality claims until judged vs a frontier model.
+
+### 2026-06-12 08:15 UTC — [PR #612](https://github.com/dhnpmp-tech/dcp-platform/pull/612) — agentic access layer: MCP server + agent discoverability *(merged under a mislabeled "rename" squash title)*
+
+Included:
+- Official Model Context Protocol server `integrations/dcp-mcp` (`index.js`, `package.json`, `README.md`) exposing 9 tools — `list_models, chat, create_pod, get_pod, extend_pod, stop_pod, rent_volume, get_volume, get_balance` — so an MCP-capable agent (Claude, Cursor, custom) can run inference, rent GPUs, and manage storage via native tool calls.
+- Agent discoverability files served at dcp.sa: `public/llms.txt` + `public/.well-known/ai-plugin.json`.
+- `/v2/docs`: new bilingual "Persistent volumes" and "Used by agents/software" sections documenting the volume rent flow and the MCP/discovery path.
+
+### 2026-06-12 08:02 UTC — [PR #611](https://github.com/dhnpmp-tech/dcp-platform/pull/611) — paid-only workspace persistence gating + monthly volume billing *(merged under a mislabeled "rename" squash title)*
+
+Included:
+- Pod launch attaches the stable `dcp-ws-r<id>` workspace volume + S3 coordinates ONLY when the renter holds an active rented volume (`activeVolumeForRenter`); without one the pod is ephemeral — persistence became a paid feature/upsell.
+- `billRenterVolumes` monthly billing sweep in `jobSweep.js`: volumes billed monthly in advance (first month at rent time), a 7-day suspend grace on lapse that stops serving the volume to new pods but KEEPS the data, with `current_period_end` as the lapse marker.
+
+### 2026-06-12 04:51 UTC — [PR #610](https://github.com/dhnpmp-tech/dcp-platform/pull/610) — `docs(strategy): rename to 'Answers from the Engine Room'`
+
+Included:
+- Renamed the defensible-position doc to `docs/strategy/2026-06-12-dcp-answers-from-the-engine-room.md`.
+
+### 2026-06-12 04:41 UTC — [PR #609](https://github.com/dhnpmp-tech/dcp-platform/pull/609) — `docs(strategy): DCP defensible position — canonical answers to third-party feedback`
+
+Included:
+- `docs/strategy/2026-06-12-dcp-defensible-position.md`: four canonical answers (infrastructure thesis incl. three tiers + Apple-Silicon supply + time-to-GPU; Groq differentiation incl. developer-as-channel + CLOUD Act; Arabic-performance honesty; layered moat incl. SMB hardware flywheel), customer-facing founding reasons, per-persona reasons, a one-paragraph position, and a claims-discipline list.
+
+### 2026-06-11 15:05 UTC — [PR #608](https://github.com/dhnpmp-tech/dcp-platform/pull/608) — `feat(volumes): rentable persistent storage on the Node-2 MinIO store`
+
+Included:
+- Paid, exclusive, in-Kingdom persistent volumes (10/20/30 GB at $0.05/GB/mo = 18.75 halala/GB/mo): `renter_volumes` table; `POST /api/volumes/rent`, `GET /api/volumes/me`, `DELETE /api/volumes`; per-renter MinIO bucket with a hard quota provisioned over the mesh; 100 GB pool ceiling; atomic first-month debit + refund-on-provision-failure.
+- Pod launch injects the renter's S3 coords into `task_spec` when they hold an active volume; daemon `_pod_ws_sync()` mc-mirrors `/workspace` ↔ the renter's bucket (restore on launch, snapshot on teardown — cross-provider persistence, best-effort, never blocks launch/teardown).
+- Frontend rent-a-volume panel (tiers + SAR price, pool availability, usage, release). All storage routed through `volume-store.js` → S3, so a future managed-KSA store swap is endpoint+creds only.
+
+### 2026-06-11 12:21 UTC — [PR #607](https://github.com/dhnpmp-tech/dcp-platform/pull/607) — `feat(pods): renter-extendable pods — +30m/+1h/+2h, no restart`
+
+Included:
+- `POST /api/pods/:id/extend`: validates wallet, debits the incremental quote at the same per-GPU-second rate, pushes `max_duration_seconds` + `cost_halala` (reuses the prepaid path; early-stop refund still works); 24h hard ceiling.
+- Daemon hold-loop re-reads `max_duration_seconds` each 7s poll (backend authoritative; the launch-time docker label is only the restart fallback), so an extended pod keeps running.
+- Frontend +30m/+1h/+2h buttons on the rental countdown with charge feedback; same workspace + Jupyter token, zero interruption.
+
+### 2026-06-10 21:20 UTC — [PR #606](https://github.com/dhnpmp-tech/dcp-platform/pull/606) — `fix(pods): stale-queued sweep must not cancel a pod the daemon already started`
+
+Included:
+- A live 8-hour training pod was cancelled mid-session: it had a running container but hadn't flipped to `running` yet (slow relay / daemon restart), so the 15-min stale-queued sweep treated it as abandoned and cancelled+refunded it. The sweep now skips any pod with `jupyter_host_port`/`access_url` set (relay up ⇒ container live) and the stale window widened 15 → 25 min for slow pickup / large image pulls.
+
+### 2026-06-10 21:09 UTC — [PR #605](https://github.com/dhnpmp-tech/dcp-platform/pull/605) — `feat(pods): persistent /workspace reattach + rental countdown/warning + faster teardown`
+
+Included:
+- Persistent workspace (first pass): backend sends a stable `dcp-ws-r<id>` volume name; the daemon mounts it (create-on-first-use) and never removes it on teardown, so `/workspace` reattaches across the renter's pods; pod responses expose `workspace_persisted`.
+- v2 pods console shows a live "rental ends in MM:SS" countdown and an amber <5-min warning.
+- Daemon pod hold-loop polls every 7s (was 30s) so a renter stop / deadline frees the GPU + restores inference within ~7s.
+
+### 2026-06-10 20:49 UTC — [PR #604](https://github.com/dhnpmp-tech/dcp-platform/pull/604) — `fix(pods): GET returns ends_at/seconds_remaining; DELETE no longer 500s`
+
+Included:
+- PR #601's edit put the rental-clock fields in the wrong handler: GET (where they belong) never returned them, and DELETE referenced an out-of-scope `endsAt` → ReferenceError → 500 *after* the settlement committed (money correct, response errored). Clock fields now computed in `toPodView` (GET source of truth); removed the dead/misplaced computation + out-of-scope fields from DELETE.
+
+### 2026-06-10 20:29 UTC — [PR #603](https://github.com/dhnpmp-tech/dcp-platform/pull/603) — `fix(payments): card top-up uses Moyasar hosted invoice (was failing validation)`
+
+Included:
+- The v2 wallet posted `/payments` with `source:{type:'creditcard'}` and no card fields → Moyasar rejected every card top-up before a payment page ever showed. Top-up now creates a Moyasar hosted invoice (card + 3DS on checkout.moyasar.com, no PAN touches us, returns a hosted URL to redirect to).
+- Webhook crediting fallback matches the renter's pending top-up by `renter_id + amount` and binds the real payment id (idempotent on retries). Removed a duplicate Moyasar webhook.
+
+### 2026-06-10 20:12 UTC — [PR #602](https://github.com/dhnpmp-tech/dcp-platform/pull/602) — `chore: rebuild — bake NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY into the frontend`
+
+Included:
+- Card top-up went live: backend payment flags green (`payments_secret_ready` + `payments_webhook_ready`), webhook registered with Moyasar; this deploy embedded the publishable key for browser-side tokenization/3DS.
+
+### 2026-06-10 19:50 UTC — [PR #601](https://github.com/dhnpmp-tech/dcp-platform/pull/601) — `fix(pods): findings from the first live renter test (Tareq, 2026-06-10)`
+
+Included:
+- VRAM theft: providers with an active pod are now excluded from the verification probe, v1 routing (legacy + engine lookup), and new-pod scheduling — the probe was re-warming Ollama (~10 GB) on the renter's dedicated card, invisible from inside the container.
+- Overcharge clamp: daemon job-result settlement clamped at the prepaid quote for pods (live test had settled 251 on a 250 quote).
+- Rental clock: `GET /api/pods/:id` returns `ends_at` + `seconds_remaining`; the launch response states duration (the reported "Jupyter crash" was a 60-min rental ending on schedule, unannounced).
+
+### 2026-06-10 18:39 UTC — [PR #600](https://github.com/dhnpmp-tech/dcp-platform/pull/600) — `feat(landing): replace 6-stage HIW flow with a sovereignty boundary; move plumbing to /v2/architecture`
+
+Included:
+- The "How it works" 6-stage diagram (it read as a translation pipeline and gave skeptics ammunition — flagged by Tareq + Nexus) replaced with a sovereignty-boundary visual: prompt → verified Saudi GPU → answer inside a dashed KSA border, with AWS/Azure/OpenRouter shown severed outside. The real 6-stage lifecycle (incl. the honest frontier opt-in) moved to a new `/v2/architecture` page for technical/procurement buyers; sitemap updated.
+
 ### 2026-06-10 15:31 UTC — [PR #598](https://github.com/dhnpmp-tech/dcp-platform/pull/598) — `feat(provider): self-serve GPU pod pricing in the dashboard`
 
 Included:
