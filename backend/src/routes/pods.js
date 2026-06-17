@@ -290,8 +290,29 @@ function resolvePodProvider(requestedProviderId) {
   return { provider };
 }
 
+// True iff this pod was launched with a PAID persistent workspace. Derived from
+// the stored, HMAC-signed task_spec — workspace_volume is set at launch ONLY when
+// the renter had an active rented volume (see POST handler). Never hardcoded, so
+// the pod view tells the renter the truth about whether /workspace survives stop.
+function podWorkspacePersisted(job) {
+  try {
+    const spec = job.task_spec ? JSON.parse(job.task_spec) : null;
+    return Boolean(spec && spec.workspace_volume);
+  } catch {
+    return false;
+  }
+}
+
+// The honest, renter-facing line about workspace durability for a given state.
+function workspaceNote(persisted) {
+  return persisted
+    ? 'Files in /workspace persist: snapshotted on stop and restored to your next pod on ANY provider (your rented volume).'
+    : '⚠️ EPHEMERAL — everything in /workspace is DELETED when this pod stops. To keep files across pods, rent a volume (POST /api/volumes). Download anything you need before stopping.';
+}
+
 // Shape a job row into the public pod view.
 function toPodView(job) {
+  const persisted = podWorkspacePersisted(job);
   return {
     id: job.job_id,
     status: job.status,
@@ -310,7 +331,8 @@ function toPodView(job) {
     seconds_remaining: (job.started_at && job.max_duration_seconds)
       ? Math.max(0, Math.round((Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000 - Date.now()) / 1000))
       : null,
-    workspace_persisted: true,
+    workspace_persisted: persisted,
+    workspace_note: workspaceNote(persisted),
   };
 }
 
@@ -449,11 +471,13 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     // on launch + SNAPSHOT on teardown (cross-provider persistence). Without a
     // paid volume the daemon falls back to a per-job volume that dies with the
     // pod — the pod is fully ephemeral, which is the upsell.
+    let workspacePersisted = false;
     try {
       const { activeVolumeForRenter } = require('./volumes');
       const vol = activeVolumeForRenter(req.renter.id);
       if (vol) {
         taskSpecObj.workspace_volume = `dcp-ws-r${req.renter.id}`;
+        workspacePersisted = true;
         if (process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
           taskSpecObj.workspace_s3 = {
             endpoint: process.env.WORKSPACE_S3_ENDPOINT,
@@ -521,8 +545,8 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       jupyter_token: jupyterToken,
       duration_minutes: durationMinutes,
       ends_at_hint: 'rental clock starts when the pod reaches running; see GET /api/pods/:id for ends_at',
-      workspace_persisted: true,
-      workspace_note: 'Files in /workspace are saved and reattach automatically to your next pod on this provider.',
+      workspace_persisted: workspacePersisted,
+      workspace_note: workspaceNote(workspacePersisted),
       quoted_cost_halala: quoteHalala,
       quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
       rate_halala_per_gpu_second: ratePerGpuSecond,
@@ -653,6 +677,9 @@ router.delete('/:id', requireRenter, (req, res) => {
       refunded_halala: settlement.refundHalala,
       refunded_sar: Number((settlement.refundHalala / 100).toFixed(2)),
       ran_seconds: settlement.elapsedSeconds,
+      workspace_note: podWorkspacePersisted(job)
+        ? 'Your /workspace was snapshotted to your rented volume and will restore on your next pod.'
+        : 'This pod was ephemeral — /workspace has been deleted.',
     });
   } catch (error) {
     console.error('[pods] stop error:', error.message);
