@@ -7810,6 +7810,17 @@ def run_interactive_pod(task_spec, job_id=None):
         "-e", f"JUPYTER_TOKEN={jupyter_token}",
         "-e", f"ROOT_PASSWORD={root_password}",
         "-v", f"{volume_name}:/workspace",
+        # Shared model cache (#3): a per-PROVIDER named volume at the HF cache path
+        # so a model downloaded by one pod is reused by the next — no re-download
+        # each launch. The HF cache is content-addressed (blobs by sha, snapshots
+        # by revision), so sharing across renters is safe on a trusted provider; a
+        # per-renter cache / read-only base layer is the multi-tenant follow-up.
+        "-v", "dcp-hf-cache:/root/.cache/huggingface",
+        "-e", "HF_HOME=/root/.cache/huggingface",
+        # Resumable downloads (#4): the xet downloader fails to resume cleanly on
+        # slow/unstable links (renter-reported). Disabling it falls back to the
+        # standard huggingface_hub HTTP downloader, which resumes partial files.
+        "-e", "HF_HUB_DISABLE_XET=1",
         "--pids-limit", "4096",
         # Deadline labels — persisted on the container so the reaper can enforce
         # lifetime even after a daemon restart kills this in-process hold loop.
