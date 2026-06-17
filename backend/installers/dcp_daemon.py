@@ -2889,6 +2889,7 @@ POD_DRAIN_BACKSTOP_S = int(os.environ.get("DCP_POD_DRAIN_BACKSTOP_S", "600"))
 # container. Stamped into the container's dcp.deadline label and enforced by
 # both the in-process hold loop and reap_expired_pod_containers().
 HARD_POD_LIFETIME_CAP_S = int(os.environ.get("DCP_HARD_POD_LIFETIME_CAP_S", str(24 * 3600)))
+POD_REAP_GRACE_S = int(os.environ.get("DCP_POD_REAP_GRACE_S", "300"))  # kill slightly after deadline so the backend settles first
 # Fallback pod duration when neither max_duration_seconds nor duration_minutes
 # is supplied in the task_spec.
 DEFAULT_POD_DURATION_S = int(os.environ.get("DCP_DEFAULT_POD_DURATION_S", str(60 * 60)))
@@ -8683,35 +8684,53 @@ def reap_expired_pod_containers():
                     job_id = name[len("dcp-pod-"):]
 
                 reason = None
+                backend_reachable = False
 
-                # Condition 1: explicit deadline label has passed.
-                if deadline_label:
-                    try:
-                        if now >= int(float(deadline_label)):
-                            reason = f"deadline {deadline_label} reached"
-                    except (TypeError, ValueError):
-                        deadline_label = ""  # malformed — treat as legacy below
-
-                # Condition 3 (legacy): no usable deadline label — derive one from
-                # StartedAt + the hard cap so a label-less pod can never run forever.
-                if reason is None and not deadline_label:
-                    parsed_start = _parse_docker_started_at(started_at)
-                    if parsed_start is not None and now >= (parsed_start + HARD_POD_LIFETIME_CAP_S):
-                        reason = f"legacy pod exceeded hard cap (started {started_at})"
-
-                # Condition 2: backend job is gone / no longer live. Only kill on a
-                # definite 404 or a non-live 200; ambiguous 5xx/403/network leaves it.
-                if reason is None and job_id:
+                # The BACKEND is the authority on the deadline. Extend bumps the
+                # job's max_duration_seconds but CANNOT change the immutable
+                # launch-time dcp.deadline label — so trusting the label kills
+                # extended pods early (the c91860 bug). Query the backend first
+                # and enforce its CURRENT duration; the label is only a fallback
+                # for when the backend is unreachable.
+                if job_id:
                     try:
                         code, resp = http_get(f"{API_URL}/api/jobs/{job_id}", headers=_auth_headers())
                         if code == 404:
+                            backend_reachable = True
                             reason = f"job {job_id} 404 (deleted)"
                         elif code == 200:
-                            status = (resp.get("job") or {}).get("status")
+                            backend_reachable = True
+                            job = resp.get("job") or {}
+                            status = job.get("status")
                             if status not in LIVE_STATUSES:
                                 reason = f"job {job_id} status={status}"
+                            else:
+                                # Live: enforce started_at + current max_duration
+                                # (+grace) — extend-aware. Never kill a live job
+                                # still inside its current deadline.
+                                try:
+                                    md = int(job.get("max_duration_seconds") or 0)
+                                    se = _parse_docker_started_at(job.get("started_at") or "")
+                                    if md > 0 and se is not None and now >= (se + md + POD_REAP_GRACE_S):
+                                        reason = f"live deadline reached (max_duration={md}s, extend-aware)"
+                                except Exception:
+                                    pass
                     except Exception as e:
-                        log.debug(f"reap_expired_pod_containers: status check for {job_id} failed ({e}); leaving {name}")
+                        log.debug(f"reap_expired_pod_containers: status check for {job_id} failed ({e}); backend unreachable, label fallback")
+
+                # Fallbacks ONLY when the backend was unreachable — never override
+                # a live backend job that is still within its current deadline.
+                if reason is None and not backend_reachable:
+                    if deadline_label:
+                        try:
+                            if now >= int(float(deadline_label)):
+                                reason = f"deadline {deadline_label} reached (label fallback, backend unreachable)"
+                        except (TypeError, ValueError):
+                            deadline_label = ""
+                    if reason is None and not deadline_label:
+                        parsed_start = _parse_docker_started_at(started_at)
+                        if parsed_start is not None and now >= (parsed_start + HARD_POD_LIFETIME_CAP_S):
+                            reason = f"legacy pod exceeded hard cap (started {started_at})"
 
                 if reason is None:
                     continue
