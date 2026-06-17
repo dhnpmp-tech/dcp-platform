@@ -290,29 +290,39 @@ function resolvePodProvider(requestedProviderId) {
   return { provider };
 }
 
-// True iff this pod was launched with a PAID persistent workspace. Derived from
-// the stored, HMAC-signed task_spec — workspace_volume is set at launch ONLY when
-// the renter had an active rented volume (see POST handler). Never hardcoded, so
-// the pod view tells the renter the truth about whether /workspace survives stop.
-function podWorkspacePersisted(job) {
+// Workspace durability TIER, derived from the stored, HMAC-signed task_spec:
+//   portable  — paid rented volume (workspace_s3): snapshot on stop, restore on ANY provider.
+//   provider  — free same-provider volume (workspace_volume only): /workspace stays on THIS
+//               provider and reattaches to the renter's next pod there, at zero cost.
+//   ephemeral — neither (legacy / pre-volume rows): /workspace dies with the pod.
+// Never hardcoded, so the pod view always tells the renter the truth.
+function podWorkspaceTier(job) {
   try {
     const spec = job.task_spec ? JSON.parse(job.task_spec) : null;
-    return Boolean(spec && spec.workspace_volume);
+    if (spec && spec.workspace_s3) return 'portable';
+    if (spec && spec.workspace_volume) return 'provider';
+    return 'ephemeral';
   } catch {
-    return false;
+    return 'ephemeral';
   }
 }
 
-// The honest, renter-facing line about workspace durability for a given state.
-function workspaceNote(persisted) {
-  return persisted
-    ? 'Files in /workspace persist: snapshotted on stop and restored to your next pod on ANY provider (your rented volume).'
-    : '⚠️ EPHEMERAL — everything in /workspace is DELETED when this pod stops. To keep files across pods, rent a volume (POST /api/volumes). Download anything you need before stopping.';
+// The honest, renter-facing line about workspace durability for a given tier.
+function workspaceNote(tier, providerName) {
+  const where = providerName || 'this provider';
+  switch (tier) {
+    case 'portable':
+      return 'Files in /workspace are durable: snapshotted to your rented volume on stop and restored to your next pod on ANY provider — survives this provider going offline.';
+    case 'provider':
+      return `Files in /workspace stay on ${where} for free and reattach to your next pod there when it is online and free. They are NOT copied to other providers — rent a volume (POST /api/volumes) for guaranteed cross-provider durability.`;
+    default:
+      return '⚠️ EPHEMERAL — everything in /workspace is DELETED when this pod stops. Download anything you need before stopping.';
+  }
 }
 
 // Shape a job row into the public pod view.
 function toPodView(job) {
-  const persisted = podWorkspacePersisted(job);
+  const tier = podWorkspaceTier(job);
   return {
     id: job.job_id,
     status: job.status,
@@ -331,8 +341,9 @@ function toPodView(job) {
     seconds_remaining: (job.started_at && job.max_duration_seconds)
       ? Math.max(0, Math.round((Date.parse(job.started_at) + Number(job.max_duration_seconds) * 1000 - Date.now()) / 1000))
       : null,
-    workspace_persisted: persisted,
-    workspace_note: workspaceNote(persisted),
+    workspace_tier: tier,                          // ephemeral | provider (free) | portable (paid)
+    workspace_persisted: tier !== 'ephemeral',     // back-compat boolean for #617 consumers
+    workspace_note: workspaceNote(tier, job.provider_name),
   };
 }
 
@@ -465,30 +476,31 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     // Tell the daemon to inject SSH (the image is not the DCP-baked default).
     if (imageResult.bootstrap) taskSpecObj.bootstrap_ssh = true;
 
-    // Persistence is a PAID feature. Only when the renter has an active rented
-    // volume do we (a) give the pod a stable per-renter /workspace volume so it
-    // survives teardown, and (b) hand the daemon the S3 coordinates to RESTORE
-    // on launch + SNAPSHOT on teardown (cross-provider persistence). Without a
-    // paid volume the daemon falls back to a per-job volume that dies with the
-    // pod — the pod is fully ephemeral, which is the upsell.
-    let workspacePersisted = false;
+    // Tier 1 (free, ALWAYS): pin a stable per-renter named volume so /workspace
+    // persists on the provider and reattaches to the renter's next pod there at
+    // zero marginal cost (the daemon reuses the named volume and never deletes it
+    // on teardown). renter.id is server-derived (requireRenter) — never from the
+    // body — and the whole task_spec is HMAC-signed, so a renter cannot mount
+    // another renter's dcp-ws-r<id>.
+    taskSpecObj.workspace_volume = `dcp-ws-r${req.renter.id}`;
+    let workspaceTier = 'provider';
     try {
       const { activeVolumeForRenter } = require('./volumes');
       const vol = activeVolumeForRenter(req.renter.id);
-      if (vol) {
-        taskSpecObj.workspace_volume = `dcp-ws-r${req.renter.id}`;
-        workspacePersisted = true;
-        if (process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
-          taskSpecObj.workspace_s3 = {
-            endpoint: process.env.WORKSPACE_S3_ENDPOINT,
-            bucket: vol.bucket,
-            access_key: process.env.WORKSPACE_S3_KEY,
-            secret_key: process.env.WORKSPACE_S3_SECRET,
-          };
-        }
+      if (vol && process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
+        // Tier 2 (paid, portable): add S3 coordinates so the daemon RESTORES on
+        // launch and SNAPSHOTS on teardown — survives this provider going offline
+        // and follows the renter to ANY provider.
+        taskSpecObj.workspace_s3 = {
+          endpoint: process.env.WORKSPACE_S3_ENDPOINT,
+          bucket: vol.bucket,
+          access_key: process.env.WORKSPACE_S3_KEY,
+          secret_key: process.env.WORKSPACE_S3_SECRET,
+        };
+        workspaceTier = 'portable';
       }
     } catch (volErr) {
-      console.error('[pods] volume lookup for task_spec failed (pod will be ephemeral):', volErr.message);
+      console.error('[pods] volume lookup failed (free same-provider tier still applies):', volErr.message);
     }
     const taskSpecStr = JSON.stringify(taskSpecObj);
     const taskSpecHmac = signTaskSpec(taskSpecStr);
@@ -545,8 +557,9 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       jupyter_token: jupyterToken,
       duration_minutes: durationMinutes,
       ends_at_hint: 'rental clock starts when the pod reaches running; see GET /api/pods/:id for ends_at',
-      workspace_persisted: workspacePersisted,
-      workspace_note: workspaceNote(workspacePersisted),
+      workspace_tier: workspaceTier,
+      workspace_persisted: workspaceTier !== 'ephemeral',
+      workspace_note: workspaceNote(workspaceTier, provider.name),
       quoted_cost_halala: quoteHalala,
       quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
       rate_halala_per_gpu_second: ratePerGpuSecond,
@@ -677,9 +690,12 @@ router.delete('/:id', requireRenter, (req, res) => {
       refunded_halala: settlement.refundHalala,
       refunded_sar: Number((settlement.refundHalala / 100).toFixed(2)),
       ran_seconds: settlement.elapsedSeconds,
-      workspace_note: podWorkspacePersisted(job)
-        ? 'Your /workspace was snapshotted to your rented volume and will restore on your next pod.'
-        : 'This pod was ephemeral — /workspace has been deleted.',
+      workspace_note: (() => {
+        const t = podWorkspaceTier(job);
+        if (t === 'portable') return 'Your /workspace was snapshotted to your rented volume and will restore on your next pod on any provider.';
+        if (t === 'provider') return `Your /workspace is kept on ${job.provider_name || 'this provider'} and will reattach to your next pod there.`;
+        return 'This pod was ephemeral — /workspace has been deleted.';
+      })(),
     });
   } catch (error) {
     console.error('[pods] stop error:', error.message);
