@@ -9,7 +9,7 @@ function detectDisconnectedProviders() {
   const cutoff = new Date(Date.now() - 90 * 1000).toISOString();
   const stale = db.all(
     `SELECT id, name FROM providers
-     WHERE status = 'online' AND last_heartbeat < ?`,
+     WHERE status = 'online' AND COALESCE(is_burst,0)=0 AND last_heartbeat < ?`,
     cutoff
   );
 
@@ -39,6 +39,7 @@ function findBackupProvider(requiredVram, excludeProviderId) {
   return db.get(
     `SELECT * FROM providers
      WHERE status = 'online'
+       AND COALESCE(is_burst,0)=0
        AND last_heartbeat >= ?
        AND id != ?
        AND gpu_vram_mib >= ?

@@ -15,7 +15,7 @@ let loopState = {
 function handleDisconnects() {
   const cutoff = new Date(Date.now() - 90 * 1000).toISOString();
   const stale = db.all(
-    `SELECT id, name FROM providers WHERE status = 'online' AND last_heartbeat < ?`,
+    `SELECT id, name FROM providers WHERE status = 'online' AND COALESCE(is_burst,0)=0 AND last_heartbeat < ?`,
     cutoff
   );
 
