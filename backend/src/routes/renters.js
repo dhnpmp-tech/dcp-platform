@@ -21,6 +21,7 @@ const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/v
 const { validateBody } = require('../middleware/validate');
 const { renterRegisterSchema, renterTopupSchema } = require('../schemas/topup.schema');
 const { getBearerToken, isAdminRequest } = require('../middleware/auth');
+const { toRenterProviderView, toRenterJobView } = require('../lib/renter-job-view');
 const analytics = require('../services/analyticsService');
 const conversionFunnel = require('../services/conversionFunnelService');
 
@@ -863,7 +864,7 @@ router.get('/me/invoices', (req, res) => {
         job_id: row.job_id,
         amount_halala: totalHalala,
         amount_sar: Number((totalHalala / 100).toFixed(2)),
-        provider_name: row.provider_name || null,
+        // INVISIBILITY: never expose provider machine name. GPU TYPE only.
         gpu_model: row.gpu_model || null,
         job_type: row.job_type,
         duration_minutes: durationMinutes,
@@ -928,12 +929,12 @@ router.get('/me/invoices/:id/csv', (req, res) => {
     const amountHalala = row.actual_cost_halala ?? row.cost_halala ?? fallbackCostHalala;
     const feeHalala = row.dc1_fee_halala ?? Math.round(amountHalala * 0.25);
 
+    // INVISIBILITY: provider_name (machine/host name) removed from the renter CSV.
     const headers = [
       'invoice_id',
       'job_id',
       'status',
       'job_type',
-      'provider_name',
       'gpu_model',
       'duration_minutes',
       'amount_halala',
@@ -947,7 +948,6 @@ router.get('/me/invoices/:id/csv', (req, res) => {
       row.job_id,
       row.status,
       row.job_type,
-      row.provider_name || '',
       row.gpu_model || '',
       durationMinutes,
       amountHalala,
@@ -984,11 +984,14 @@ router.get('/available-providers', async (req, res) => {
         allowStale,
         maxAgeMs,
       });
+      // INVISIBILITY: strip name / peer_id / provider_id / addrs (raw IPs) etc.
+      // via the shared allowlist — a renter sees only GPU TYPE + VRAM + availability.
+      const safeProviders = resolvedProviders
+        .filter((entry) => entry?.found)
+        .map((entry) => toRenterProviderView(buildProviderShapeFromDHTRecord(entry)));
       return res.json({
-        providers: resolvedProviders
-          .filter((entry) => entry?.found)
-          .map((entry) => buildProviderShapeFromDHTRecord(entry)),
-        total: resolvedProviders.filter((entry) => entry?.found).length,
+        providers: safeProviders,
+        total: safeProviders.length,
         discovery_mode: effectiveMode,
         discovery_health: {
           mode: discoveryStatus.mode,
@@ -1006,12 +1009,16 @@ router.get('/available-providers', async (req, res) => {
     // providers and compute liveness from heartbeat age below; exclude only explicit
     // admin/security disables. BUG #4 (booked shown as available): exclude providers
     // already running an active interactive pod.
+    // NATIVE (physical) providers only — heartbeat-gated. Burst/on-demand rows
+    // are handled separately below (they have no daemon, so they never
+    // heartbeat and must NOT be filtered by heartbeat age).
     let providers = db.all(
       `SELECT id, name, gpu_model, gpu_name_detected, gpu_vram_mib, gpu_driver,
               gpu_compute_capability, gpu_cuda_version, gpu_count_reported,
               status, location, run_mode, reliability_score, cached_models, last_heartbeat, p2p_peer_id
        FROM providers
        WHERE is_paused = 0
+         AND COALESCE(is_burst, 0) = 0
          AND last_heartbeat IS NOT NULL
          AND COALESCE(approval_status, 'pending') = 'approved'
          AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')
@@ -1029,6 +1036,50 @@ router.get('/available-providers', async (req, res) => {
       if (!p.last_heartbeat) return false;
       const ageS = Math.floor((Date.now() - new Date(p.last_heartbeat).getTime()) / 1000);
       return ageS < OFFLINE_AGE_S;
+    });
+
+    // ON-DEMAND (burst) GPU TYPES — ALWAYS available. We spin one up on click,
+    // so these read "Available" identical to live native nodes regardless of
+    // heartbeat. INVISIBILITY: the response must NOT reveal that these are
+    // burst-backed or who the vendor is — we surface only GPU TYPE + vram and a
+    // neutral `available: true`. No is_burst, no peer_id, no vendor, no name
+    // beyond the GPU-type label.
+    const burstRows = db.all(
+      `SELECT id, name, gpu_model, gpu_name_detected, gpu_vram_mib, vram_gb,
+              gpu_compute_capability, gpu_cuda_version, location, cached_models,
+              stock_available
+       FROM providers
+       WHERE COALESCE(is_burst, 0) = 1
+         AND is_paused = 0
+         AND COALESCE(approval_status, 'pending') = 'approved'
+         AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')
+       ORDER BY COALESCE(vram_gb, gpu_vram_mib / 1024) DESC`
+    );
+    const burstProviders = burstRows.map((row) => {
+      const vramGb = (row.vram_gb != null && row.vram_gb > 0)
+        ? row.vram_gb
+        : (row.gpu_vram_mib ? Math.round(row.gpu_vram_mib / 1024) : null);
+      return {
+        id: row.id,
+        peer_id: null,
+        gpu_model: row.gpu_name_detected || row.gpu_model || null,
+        vram_gb: vramGb,
+        vram_mib: vramGb != null ? vramGb * 1024 : (row.gpu_vram_mib || null),
+        gpu_count: 1,
+        compute_capability: row.gpu_compute_capability || null,
+        cuda_version: row.gpu_cuda_version || null,
+        // Honest availability: reflect REAL RunPod secure-cloud stock (refreshed by
+        // /root/dcp-burst/stock-refresh.py cron). We ALWAYS advertise all 6 types,
+        // but an out-of-stock type reads available:false so a launch can't surprise-fail.
+        status: (row.stock_available === 0 ? 'offline' : 'online'),
+        is_live: row.stock_available !== 0,
+        available: row.stock_available !== 0,
+        on_demand: true,
+        location: row.location || null,
+        cached_models: parseCachedModels(row.cached_models),
+        discovery_source: 'on_demand',
+        stale: false,
+      };
     });
 
     let discoveryByPeerId = new Map();
@@ -1054,15 +1105,25 @@ router.get('/available-providers', async (req, res) => {
     }
 
     const now = Date.now();
+    const nativeProviders = providers.map((provider) => {
+      const discovery = discoveryByPeerId.get(String(provider.p2p_peer_id || ''));
+      const shape = (includeP2p && discovery?.found && discovery.provider)
+        ? buildProviderShapeFromDHT(provider, discovery, now)
+        : buildProviderShapeFromSQLiteRow(provider, now);
+      // Native nodes that survived the heartbeat filter are live & rentable.
+      // Add a neutral `available` flag so the frontend grid can use ONE field
+      // across native + on-demand rows. on_demand:false distinguishes physical.
+      return { ...shape, available: shape.is_live !== false, on_demand: false };
+    });
+    // On-demand GPU TYPES are appended AFTER native nodes (already vram-sorted
+    // within each group). All 6 burst types always appear as available.
+    // INVISIBILITY: both native + burst rows flow through the shared allowlist
+    // so neither machine name (providers.name), peer_id, provider_id, addrs
+    // (raw IPs), driver_version nor any vendor field can ride out to a renter.
+    const allProviders = [...nativeProviders, ...burstProviders].map(toRenterProviderView);
     res.json({
-      providers: providers.map((provider) => {
-        const discovery = discoveryByPeerId.get(String(provider.p2p_peer_id || ''));
-        if (includeP2p && discovery?.found && discovery.provider) {
-          return buildProviderShapeFromDHT(provider, discovery, now);
-        }
-        return buildProviderShapeFromSQLiteRow(provider, now);
-      }),
-      total: providers.length,
+      providers: allProviders,
+      total: allProviders.length,
       discovery_mode: effectiveMode,
       discovery_health: {
         mode: discoveryStatus.mode,
@@ -2018,10 +2079,12 @@ router.get('/me/jobs/:jobId', (req, res) => {
     const renter = { id: renterId };
 
     const { jobId } = req.params;
+    // INVISIBILITY: do NOT select p.name (machine/host name). The renter only
+    // ever sees GPU TYPE (p.gpu_model) + renter-relevant billing fields.
     const job = db.get(`
       SELECT j.*,
-             p.name AS provider_name,
-             br.id             AS billing_id,
+             p.gpu_model       AS provider_gpu_model,
+             p.gpu_vram_mib    AS provider_gpu_vram_mib,
              br.gross_cost_halala,
              br.platform_fee_halala,
              br.provider_earning_halala,
@@ -2036,7 +2099,26 @@ router.get('/me/jobs/:jobId', (req, res) => {
     `, jobId, jobId, renter.id);
 
     if (!job) return res.status(404).json({ error: 'Job not found' });
-    return res.json({ job });
+
+    // Strict renter allowlist: drops task_spec / container_spec / burst_external_id
+    // / endpoint_url / *_host_port etc. Billing fields are renter-relevant and
+    // passed via `extra` (the BANNED_KEYS guard still blocks any infra key).
+    const safeJob = toRenterJobView(job, {
+      gpu: {
+        gpu_model: job.provider_gpu_model || null,
+        vram_gb: job.provider_gpu_vram_mib ? Math.round(job.provider_gpu_vram_mib / 1024) : null,
+      },
+      extra: {
+        gross_cost_halala: job.gross_cost_halala ?? null,
+        platform_fee_halala: job.platform_fee_halala ?? null,
+        provider_earning_halala: job.provider_earning_halala ?? null,
+        currency: job.currency ?? null,
+        billing_status: job.billing_status ?? null,
+        token_count: job.token_count ?? null,
+        duration_ms: job.duration_ms ?? null,
+      },
+    });
+    return res.json({ job: safeJob });
   } catch (error) {
     console.error('[renters/me/jobs/:jobId]', error);
     return res.status(500).json({ error: 'Failed to fetch job' });
