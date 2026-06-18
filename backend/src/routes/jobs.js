@@ -4093,6 +4093,49 @@ function enforceJobTimeouts() {
     );
 
     for (const job of timedOut) {
+      // A running interactive_pod reaching timeout_at is NORMAL COMPLETION
+      // (the pod ran for its full scheduled duration), not a failure. Bill it
+      // normally — do NOT refund or release escrow back to the renter.
+      // Pods still stuck in 'assigned'/'pulling' never started, so they fall
+      // through to the failure path below like any other timed-out job.
+      if (job.job_type === 'interactive_pod' && job.status === 'running') {
+        const podMessage = 'Pod reached its scheduled duration';
+        runStatement(
+          `UPDATE jobs SET status = 'completed', error = ?, completed_at = ? WHERE id = ?`,
+          podMessage, now, job.id
+        );
+        recordLifecycleEvent(job, 'pod.expired', {
+          status: 'completed',
+          source: 'timeout_enforcer',
+          message: podMessage,
+          payload: {
+            timeout_at: job.timeout_at || null,
+            provider_id: job.provider_id || null,
+            max_duration_seconds: job.max_duration_seconds || null,
+          },
+        });
+        // Settle escrow as paid to the provider — pod billed normally.
+        try {
+          runStatement(
+            `UPDATE escrow_holds SET status = 'released_provider', resolved_at = ?
+             WHERE job_id = ? AND status IN ('held','locked')`,
+            now, job.job_id
+          );
+        } catch(e) { console.error('[timeout] Pod escrow settle error:', e); }
+        if (chainEscrow.isEnabled()) {
+          chainEscrow.claimLock(job.job_id)
+            .catch(err => console.error('[escrow-chain] claimLock async error (pod expired):', err.message));
+        }
+        console.log(`[timeout] Interactive pod ${job.job_id} reached scheduled duration — completed (provider ${job.provider_id})`);
+        const updatedPod = db.get('SELECT * FROM jobs WHERE id = ?', job.id);
+        fireAndForgetJobEmail('completed', updatedPod || job, {
+          actual_cost_halala: Number((updatedPod || job).actual_cost_halala ?? job.cost_halala ?? 0),
+        });
+        // Auto-dispatch: promote next queued job for this provider
+        promoteNextQueuedJob(job.provider_id);
+        continue;
+      }
+
       runStatement(
         `UPDATE jobs SET status = 'failed', error = 'Job timed out — provider may be offline or model too large', completed_at = ? WHERE id = ?`,
         now, job.id
