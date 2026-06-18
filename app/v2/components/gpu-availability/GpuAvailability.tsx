@@ -14,8 +14,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import Link from 'next/link'
-import { Bi, useV2 } from '@/app/v2/lib/i18n'
-import { useGpuTypes, displayGpuType } from '@/app/lib/useGpuTypes'
+import { Bi } from '@/app/v2/lib/i18n'
+import { useGpuTypes, displayGpuType, type GpuTypeEntry } from '@/app/lib/useGpuTypes'
 import './gpu-availability.css'
 
 // Where every "Rent" action lands — the renter pods launch console.
@@ -29,22 +29,19 @@ interface GpuAvailabilityProps {
 }
 
 export default function GpuAvailability({ variant = 'marketplace', showHeading = true }: GpuAvailabilityProps) {
-  const { lang } = useV2()
-  const { types, errored, availableCount } = useGpuTypes()
+  const { types, errored } = useGpuTypes()
 
   return (
     <section className={`gpu-avail gpu-avail--${variant}`} aria-labelledby="gpu-avail-heading">
       {showHeading && (
         <div className="gpu-avail-head">
           <span id="gpu-avail-heading" className="gpu-avail-title">
-            <Bi en="GPUs available to rent" ar="معالجات متاحة للإيجار" />
+            <Bi en="Rent one of these GPUs" ar="استأجر أحد هذه المعالجات" />
           </span>
           <span className="gpu-avail-sub">
             {types === null
               ? <Bi en="querying…" ar="جارٍ الاستعلام…" />
-              : (lang === 'ar'
-                  ? `${availableCount} نوع معالج جاهز الآن`
-                  : `${availableCount} GPU type${availableCount === 1 ? '' : 's'} ready now`)}
+              : <Bi en="spin up your own pod" ar="شغّل وحدتك الخاصة" />}
           </span>
         </div>
       )}
@@ -74,35 +71,61 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
       {types && types.length > 0 && (
         <ul className="gpu-avail-grid">
           {types.map((gpu) => (
-            <li className="gpu-card" key={`${gpu.type}-${gpu.vram_gb}`}>
-              <Link
-                className="gpu-card-link"
-                href={LAUNCH_HREF}
-                aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, available — rent`}
-              >
-                <div className="gpu-card-top">
-                  <span className={`gpu-dot ${gpu.available ? 'is-on' : 'is-off'}`} aria-hidden="true" />
-                  <span className="gpu-state">
-                    {gpu.available
-                      ? <Bi en="Available" ar="متاح" />
-                      : <Bi en="Busy" ar="مشغول" />}
+            <li
+              className={`gpu-card${gpu.available ? '' : ' gpu-card--off'}`}
+              key={`${gpu.type}-${gpu.vram_gb}`}
+            >
+              {gpu.available ? (
+                <Link
+                  className="gpu-card-link"
+                  href={LAUNCH_HREF}
+                  aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, available — rent`}
+                >
+                  <GpuCardInner gpu={gpu} />
+                  <span className="gpu-rent">
+                    <Bi en="Rent →" ar="استأجر ←" />
+                  </span>
+                </Link>
+              ) : (
+                <div
+                  className="gpu-card-link"
+                  aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, temporarily out of stock`}
+                  aria-disabled="true"
+                >
+                  <GpuCardInner gpu={gpu} />
+                  <span className="gpu-rent" aria-hidden="true">
+                    <Bi en="Temporarily out" ar="غير متاح مؤقتاً" />
                   </span>
                 </div>
-                <div className="gpu-card-body">
-                  <span className="gpu-type">{displayGpuType(gpu.type)}</span>
-                  <span className="gpu-vram">
-                    {gpu.vram_gb}
-                    <i> GB</i>
-                  </span>
-                </div>
-                <span className="gpu-rent">
-                  <Bi en="Rent →" ar="استأجر ←" />
-                </span>
-              </Link>
+              )}
             </li>
           ))}
         </ul>
       )}
     </section>
+  )
+}
+
+// Shared card face — identical treatment for every GPU type (native and
+// on-demand alike). Only the availability dot + state label differ.
+function GpuCardInner({ gpu }: { gpu: GpuTypeEntry }) {
+  return (
+    <>
+      <div className="gpu-card-top">
+        <span className={`gpu-dot ${gpu.available ? 'is-on' : 'is-off'}`} aria-hidden="true" />
+        <span className="gpu-state">
+          {gpu.available
+            ? <Bi en="Available" ar="متاح" />
+            : <Bi en="Temporarily out" ar="غير متاح مؤقتاً" />}
+        </span>
+      </div>
+      <div className="gpu-card-body">
+        <span className="gpu-type">{displayGpuType(gpu.type)}</span>
+        <span className="gpu-vram">
+          {gpu.vram_gb}
+          <i> GB</i>
+        </span>
+      </div>
+    </>
   )
 }

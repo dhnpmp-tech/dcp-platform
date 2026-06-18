@@ -70,6 +70,21 @@
   text-decoration: none;
 }
 
+/* Out-of-stock card: still listed (advertised), but visibly muted and
+   non-interactive. Same layout/treatment as available — only dimmed. */
+.gpu-card--off {
+  opacity: 0.5;
+}
+.gpu-card--off:hover {
+  background: var(--paper);
+}
+.gpu-card--off .gpu-card-link {
+  cursor: not-allowed;
+}
+.gpu-card--off .gpu-rent {
+  color: var(--mut);
+}
+
 .gpu-card-top {
   display: flex;
   align-items: center;
