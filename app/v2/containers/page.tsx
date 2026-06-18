@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import GpuAvailability from '@/app/v2/components/gpu-availability/GpuAvailability'
 import '../home/home.css'
 import '../docs/docs.css'
 
@@ -56,9 +57,7 @@ export default function ContainersPage() {
             <span className="idx"><Bi en="Raw compute · interactive GPU pods" ar="حوسبة خام · حاويات GPU تفاعلية" /></span>
             <span>
               {live
-                ? (lang === 'ar'
-                    ? `${live.serving} جهاز متحقق يخدم الآن`
-                    : `${live.serving} verified machine${live.serving === 1 ? '' : 's'} serving right now`)
+                ? <Bi en="Verified capacity, live" ar="سعة متحققة، حياً" />
                 : <Bi en="Live capacity on /status" ar="السعة الحية في /status" />}
             </span>
           </div>
@@ -75,6 +74,17 @@ export default function ContainersPage() {
             <Link className="btn" href="/v2/renter/pods"><Bi en="Launch a pod →" ar="شغّل حاوية ←" /></Link>
             <Link className="btn ghost" href="/status"><Bi en="See live capacity" ar="شاهد السعة الحية" /></Link>
           </div>
+        </div>
+      </section>
+
+      {/* ─── GPU types available to rent ─── */}
+      <section id="availability">
+        <div className="wrap" style={{ paddingTop: 8 }}>
+          <div className="section-meta">
+            <span className="idx"><Bi en="Available to rent · whole GPUs" ar="متاح للإيجار · معالجات كاملة" /></span>
+            <span><Bi en="Type + VRAM · spun up on click" ar="النوع + الذاكرة · تُشغَّل عند النقر" /></span>
+          </div>
+          <GpuAvailability variant="marketplace" />
         </div>
       </section>
 

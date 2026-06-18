@@ -1,0 +1,218 @@
+/* ════════════════════════════════════════════════════════════════════════
+   GpuAvailability — shared GPU-type availability grid.
+   Uses the v2 design tokens defined in app/v2/styles/dcp-kit.css
+   (--bg/--paper/--ink/--ink-2/--mut/--line/--hair/--teal/--grad/--serif/
+   --sans/--mono). Editorial-luxury dark; light palettes inherit the same
+   tokens automatically.
+   Motion stays on compositor-friendly properties (transform/opacity/color).
+   ════════════════════════════════════════════════════════════════════════ */
+
+.gpu-avail {
+  margin: 0;
+}
+
+.gpu-avail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 22px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--paper);
+}
+.gpu-avail-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.gpu-avail-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+/* Responsive bento-ish grid: cards keep an editorial rhythm, not a uniform
+   stock card grid. The largest-VRAM card naturally reads first (vram-sorted). */
+.gpu-avail-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.gpu-card {
+  position: relative;
+  background: var(--paper);
+  min-height: 132px;
+  transition: background 0.2s ease;
+}
+.gpu-card:hover {
+  background: var(--bg-2);
+}
+
+.gpu-card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.gpu-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gpu-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.gpu-dot.is-on {
+  background: var(--teal);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--teal) 60%, transparent);
+  animation: gpu-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+.gpu-dot.is-off {
+  background: var(--mut);
+}
+@keyframes gpu-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--teal) 55%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in oklab, var(--teal) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--teal) 0%, transparent); }
+}
+.gpu-state {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.gpu-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+.gpu-type {
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.gpu-vram {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+.gpu-vram i {
+  font-style: normal;
+  color: var(--mut);
+  font-size: 11px;
+}
+
+.gpu-rent {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mut);
+  transition: color 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gpu-card:hover .gpu-rent,
+.gpu-card-link:focus-visible .gpu-rent {
+  color: var(--teal);
+  transform: translateX(2px);
+}
+.gpu-card-link:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+
+/* Skeleton shimmer while querying. */
+.gpu-card--skel {
+  min-height: 132px;
+  overflow: hidden;
+}
+.gpu-card--skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklab, var(--ink) 6%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: gpu-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes gpu-shimmer {
+  to { transform: translateX(100%); }
+}
+
+.gpu-avail-empty {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 13.5px;
+  color: var(--mut);
+}
+.gpu-avail-empty a {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.gpu-avail-empty a:hover {
+  color: var(--teal);
+}
+
+/* Home variant tucks under the §01 section, so trim its top join. */
+.gpu-avail--home .gpu-avail-head {
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 560px) {
+  .gpu-avail-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  .gpu-type {
+    font-size: 22px;
+  }
+}
+
+/* Respect reduced-motion: kill the pulse + shimmer. */
+@media (prefers-reduced-motion: reduce) {
+  .gpu-dot.is-on,
+  .gpu-card--skel::after {
+    animation: none;
+  }
+  .gpu-card:hover .gpu-rent,
+  .gpu-card-link:focus-visible .gpu-rent {
+    transform: none;
+  }
+}
