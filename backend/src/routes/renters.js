@@ -999,13 +999,37 @@ router.get('/available-providers', async (req, res) => {
       });
     }
 
-    const providers = db.all(
+    // BUG #1 (node list vanished): do NOT trust the stale `status` column — the health
+    // worker lags ~5 min and stamps 'degraded'/'offline' on a live, heartbeating node,
+    // hiding it from the only renter-facing list (Tareq couldn't see Fadi's Node 1).
+    // Mirror /api/providers/available: select non-paused, approved, ever-heartbeated
+    // providers and compute liveness from heartbeat age below; exclude only explicit
+    // admin/security disables. BUG #4 (booked shown as available): exclude providers
+    // already running an active interactive pod.
+    let providers = db.all(
       `SELECT id, name, gpu_model, gpu_name_detected, gpu_vram_mib, gpu_driver,
               gpu_compute_capability, gpu_cuda_version, gpu_count_reported,
               status, location, run_mode, reliability_score, cached_models, last_heartbeat, p2p_peer_id
-       FROM providers WHERE status = 'online' AND is_paused = 0
+       FROM providers
+       WHERE is_paused = 0
+         AND last_heartbeat IS NOT NULL
+         AND COALESCE(approval_status, 'pending') = 'approved'
+         AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')
+         AND id NOT IN (
+           SELECT provider_id FROM jobs
+           WHERE job_type = 'interactive_pod'
+             AND status IN ('queued','assigned','pulling','running')
+             AND provider_id IS NOT NULL
+         )
        ORDER BY gpu_vram_mib DESC NULLS LAST`
     );
+    // Liveness from heartbeat age (not the lagging status column): drop nodes silent > 5 min.
+    const OFFLINE_AGE_S = 300;
+    providers = providers.filter((p) => {
+      if (!p.last_heartbeat) return false;
+      const ageS = Math.floor((Date.now() - new Date(p.last_heartbeat).getTime()) / 1000);
+      return ageS < OFFLINE_AGE_S;
+    });
 
     let discoveryByPeerId = new Map();
     let discoveryLookupLatencyMs = null;
