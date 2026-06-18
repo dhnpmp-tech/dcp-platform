@@ -351,10 +351,10 @@ function getTemplateCapacitySnapshot(minVramGb) {
     provider_heartbeat_stale_ms: 10 * 60 * 1000,
     capable_provider_count: capableCount,
     idle_provider_count: idleCount,
+    // INVISIBILITY: a renter sees only that a GPU TYPE is available with N
+    // idle slots — never the host id or machine name of the selected node.
     selected_provider: selectedProvider
       ? {
-          id: selectedProvider.id,
-          name: selectedProvider.name,
           gpu_model: selectedProvider.gpu_model,
           vram_gb: selectedProvider.vram_gb,
           active_jobs: Number(selectedProvider.active_jobs || 0),
@@ -572,8 +572,9 @@ router.post('/:id/deploy', templateDeployLimiter, (req, res) => {
         sar: (cost_halala / 100).toFixed(2),
       },
       template: { id: template.id, name: template.name },
-      provider: { id: provider.id, name: provider.name },
-      message: `Job created and assigned to provider "${provider.name}". Expected start in ~30 seconds.`,
+      // INVISIBILITY: surface GPU TYPE only — never the provider id / machine name.
+      provider: { gpu_model: provider.gpu_model || gpuTier },
+      message: `Job created and assigned to a ${gpuTier}. Expected start in ~30 seconds.`,
     });
   } catch (err) {
     console.error('[templates/deploy] error:', err.message, err.stack);

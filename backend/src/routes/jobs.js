@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const fs = require('fs');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const router = express.Router();
 const db = require('../db');
 const { retryJobLimiter, jobCreateLimiter } = require('../middleware/rateLimiter');
@@ -9,6 +9,7 @@ const { getApiKeyFromReq, isAdminRequest, requireAdminAuth, looksLikeProviderKey
 const { validateAndNormalizeImageRef, isApprovedImageRef } = require('../lib/container-registry');
 const { isPublicWebhookUrl, isResolvablePublicWebhookUrl } = require('../lib/webhook-security');
 const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
+const { toRenterJobView, sanitizeError } = require('../lib/renter-job-view');
 const { validateBody } = require('../middleware/validate');
 const { jobSubmitSchema } = require('../schemas/jobs.schema');
 const { getChainEscrow } = require('../services/escrow-chain');
@@ -496,6 +497,33 @@ function getAuthenticatedActor(req) {
   const renter = getRenterFromReq(req);
   if (renter) return { type: 'renter', id: renter.id };
   return null;
+}
+
+// Resolve a renter-safe { gpu_model, vram_gb } for a set of provider ids.
+// gpu_model is a GPU TYPE string (e.g. "NVIDIA GeForce RTX 3090") — safe to
+// surface; the machine NAME is never read here. Returns a Map keyed by
+// provider_id. Used to enrich the strict renter job view (the jobs table has
+// no gpu_model column of its own).
+function resolveGpuByProviderIds(providerIds) {
+  const ids = [...new Set((providerIds || []).filter((id) => id != null))];
+  const map = new Map();
+  if (ids.length === 0) return map;
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db.all(
+    `SELECT id, gpu_model, gpu_name_detected, vram_gb, gpu_vram_mib
+       FROM providers WHERE id IN (${placeholders})`,
+    ...ids
+  );
+  for (const r of rows) {
+    const vram = (r.vram_gb != null && r.vram_gb > 0)
+      ? r.vram_gb
+      : (r.gpu_vram_mib ? Math.round(r.gpu_vram_mib / 1024) : null);
+    map.set(r.id, {
+      gpu_model: r.gpu_name_detected || r.gpu_model || null,
+      vram_gb: vram,
+    });
+  }
+  return map;
 }
 
 const TERMINAL_JOB_STATUSES = new Set(['done', 'completed', 'failed', 'cancelled', 'permanently_failed', 'timed_out']);
@@ -2429,6 +2457,20 @@ router.get('/active', (req, res) => {
       );
     }
 
+    // INVISIBILITY: the renter must never see vendor/internal fields. Run every
+    // renter-facing row through the strict allowlist (toRenterJobView), which
+    // strips burst_external_id / pod_* / task_spec / endpoint_url / container_*
+    // and sanitizes the error. Admin & provider are internal / own the machine
+    // and legitimately need the raw row, so they pass through unchanged.
+    if (actor.type === 'renter') {
+      const gpuByProvider = resolveGpuByProviderIds(jobs.map((j) => j.provider_id));
+      const safeJobs = jobs.map((job) => toRenterJobView(job, {
+        halalaToUsd: (h) => jobEventEmitter.halalaToCostUsd(h),
+        gpu: gpuByProvider.get(job.provider_id) || {},
+      }));
+      return res.json({ jobs: safeJobs });
+    }
+
     res.json({ jobs });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch active jobs' });
@@ -2789,12 +2831,15 @@ router.get('/history', (req, res) => {
     if (!renter) return res.status(401).json({ error: 'Invalid renter key' });
 
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    // INVISIBILITY: select burst_external_id so sanitizeError() can detect a
+    // burst-backed job and scrub its raw error; never select p.name (machine
+    // name) — only p.gpu_model (GPU TYPE).
     const jobs = db.all(
       `SELECT j.id, j.job_id, j.job_type, j.status, j.submitted_at, j.started_at,
               j.completed_at, j.progress_phase, j.error, j.actual_cost_halala,
               j.cost_halala, j.actual_duration_minutes, j.duration_minutes,
-              j.refunded_at,
-              p.name as provider_name, p.gpu_model as provider_gpu
+              j.refunded_at, j.burst_external_id,
+              p.gpu_model as provider_gpu
        FROM jobs j
        LEFT JOIN providers p ON j.provider_id = p.id
        WHERE j.renter_id = ?
@@ -2807,11 +2852,17 @@ router.get('/history', (req, res) => {
       balance_halala: renter.balance_halala || 0,
       balance_sar: ((renter.balance_halala || 0) / 100).toFixed(2),
       total_jobs: jobs.length,
-      jobs: jobs.map(j => ({
-        ...j,
-        cost_sar: j.actual_cost_halala ? (j.actual_cost_halala / 100).toFixed(2) : (j.cost_halala ? (j.cost_halala / 100).toFixed(2) : '0.00'),
-        refunded: !!j.refunded_at
-      }))
+      jobs: jobs.map(j => {
+        // Strip the burst marker before it reaches the renter and replace the
+        // raw error with the vendor-free, sanitized message.
+        const { burst_external_id, ...rest } = j;
+        return {
+          ...rest,
+          error: sanitizeError(j),
+          cost_sar: j.actual_cost_halala ? (j.actual_cost_halala / 100).toFixed(2) : (j.cost_halala ? (j.cost_halala / 100).toFixed(2) : '0.00'),
+          refunded: !!j.refunded_at,
+        };
+      }),
     });
   } catch (error) {
     console.error('Job history error:', error);
@@ -2960,18 +3011,36 @@ router.get('/:job_id', (req, res) => {
     if (!canReadJob(req, job)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    job.gpu_requirements = job.gpu_requirements ? JSON.parse(job.gpu_requirements) : null;
 
-    // Add queue position for queued jobs (priority-aware).
-    if (job.status === 'queued') {
-      job.queue_position = getQueuePosition(job);
+    // Polling-friendly fields (mirrors SSE payload) computed once, then shared.
+    const startedAt = job.started_at ? new Date(job.started_at) : null;
+    const elapsedSec = startedAt ? Math.round((Date.now() - startedAt.getTime()) / 1000) : null;
+    const queuePosition = job.status === 'queued' ? getQueuePosition(job) : undefined;
+
+    // INVISIBILITY: only admin or the owning provider get the raw row (they own
+    // the machine / are internal). The renter gets the strict allowlist view —
+    // no burst_external_id / pod_* / task_spec / endpoint_url / container_* and
+    // a sanitized, vendor-free error.
+    const isOwningProvider = (() => {
+      const p = getProviderFromReq(req);
+      return Boolean(p && job.provider_id && p.id === job.provider_id);
+    })();
+    if (!isAdmin(req) && !isOwningProvider) {
+      const gpu = resolveGpuByProviderIds([job.provider_id]).get(job.provider_id) || {};
+      const extra = { elapsed_sec: elapsedSec, tokens_used: job.tokens_used ?? null };
+      if (queuePosition !== undefined) extra.queue_position = queuePosition;
+      return res.json({ job: toRenterJobView(job, {
+        halalaToUsd: (h) => jobEventEmitter.halalaToCostUsd(h),
+        gpu,
+        extra,
+      }) });
     }
 
+    // Admin / owning-provider raw view (back-compat).
+    job.gpu_requirements = job.gpu_requirements ? JSON.parse(job.gpu_requirements) : null;
+    if (queuePosition !== undefined) job.queue_position = queuePosition;
     applyRetryMetadata(job);
-
-    // Polling-friendly fields (mirrors SSE payload)
-    const startedAt = job.started_at ? new Date(job.started_at) : null;
-    job.elapsed_sec = startedAt ? Math.round((Date.now() - startedAt.getTime()) / 1000) : null;
+    job.elapsed_sec = elapsedSec;
     job.tokens_used = job.tokens_used ?? null;
     job.cost_usd = jobEventEmitter.halalaToCostUsd(job.actual_cost_halala ?? job.cost_halala ?? null);
 
@@ -4081,6 +4150,31 @@ router.get('/:job_id/output/:format', (req, res) => {
 });
 
 // Timeout enforcement — called by recovery engine every 30s
+// ── BURST teardown ───────────────────────────────────────────────────────────
+// A burst pod (job.burst_external_id set) runs on an external cloud brokered by
+// /root/dcp-burst/burst.py. There is no native daemon to stop its container, so
+// when the job reaches a terminal state the backend must DELETE the external pod
+// + kill its relay socats. We spawn burst.py teardown DETACHED so a slow external
+// DELETE never blocks the timeout-enforcer loop. Idempotent on the burst.py side;
+// the reap cron is the backstop.
+const BURST_PY_PATH = process.env.DCP_BURST_PY || '/root/dcp-burst/burst.py';
+function maybeTeardownBurstPod(job) {
+  try {
+    if (!job || !job.burst_external_id) return;
+    const args = [
+      BURST_PY_PATH, 'teardown',
+      String(job.burst_external_id),
+      String(job.pod_jpub || 0),
+      String(job.pod_spub || 0),
+    ];
+    const child = spawn('/usr/bin/python3', args, { detached: true, stdio: 'ignore' });
+    child.unref();
+    console.log(`[timeout] burst teardown spawned for ${job.job_id} (pod ${job.burst_external_id})`);
+  } catch (err) {
+    console.error(`[timeout] burst teardown failed for ${job && job.job_id}:`, err.message);
+  }
+}
+
 function enforceJobTimeouts() {
   try {
     const now = new Date().toISOString();
@@ -4104,6 +4198,11 @@ function enforceJobTimeouts() {
           `UPDATE jobs SET status = 'completed', error = ?, completed_at = ? WHERE id = ?`,
           podMessage, now, job.id
         );
+        // BURST: this pod runs on an external cloud brokered by burst.py — there is
+        // no native daemon hold-loop to stop the container, so the backend MUST
+        // explicitly tear down the external pod + its relay socats now. (burst.py
+        // reap cron is the cost backstop; this is the immediate, on-completion path.)
+        maybeTeardownBurstPod(job);
         recordLifecycleEvent(job, 'pod.expired', {
           status: 'completed',
           source: 'timeout_enforcer',
@@ -4140,6 +4239,12 @@ function enforceJobTimeouts() {
         `UPDATE jobs SET status = 'failed', error = 'Job timed out — provider may be offline or model too large', completed_at = ? WHERE id = ?`,
         now, job.id
       );
+      // BURST: if a burst pod is being failed (e.g. a launch that never reached
+      // running, or a running pod we are timing out), tear down any external pod
+      // burst.py may have created so we never leak a paid external GPU.
+      if (job.job_type === 'interactive_pod' && job.burst_external_id) {
+        maybeTeardownBurstPod(job);
+      }
       const timeoutClass = categorizeJobError('Job timed out — provider may be offline or model too large', 'timed_out');
       recordLifecycleEvent(job, 'job.timed_out', {
         status: 'failed',

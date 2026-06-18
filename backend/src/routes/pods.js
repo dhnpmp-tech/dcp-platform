@@ -25,6 +25,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const { spawn, execSync } = require('child_process');
 const router = express.Router();
 
 const db = require('../db');
@@ -32,6 +33,104 @@ const jobsRouter = require('./jobs');
 const { getApiKeyFromReq, looksLikeProviderKey } = require('../middleware/auth');
 const { invokePodRelay } = require('../lib/pod-relay');
 const { COST_RATES } = require('./jobs');
+
+// ── Burst (external-cloud) pod plumbing ──────────────────────────────────────
+// A burst provider (is_burst=1) is NOT a physical DCP machine — the pod is
+// brokered on an external cloud by /root/dcp-burst/burst.py, which scrubs the
+// pod and reverse-SSH-relays it out to THIS VPS so the renter only ever sees
+// api.dcp.sa. The vendor is invisible by construction; the backend only ever
+// surfaces api.dcp.sa. burst.py launch BLOCKS ~3-5 min, so we spawn it DETACHED
+// and let it write the access_url/ssh_command/status back onto the job row via
+// its --job-id hook. Public port ranges below are already firewall-open and used
+// by the native pod relay; we pick a free unique 4-tuple per launch.
+const BURST_PY = process.env.DCP_BURST_PY || '/root/dcp-burst/burst.py';
+const BURST_LOOP_MIN = 55000, BURST_LOOP_MAX = 55999;   // VPS loopback (jloop/sloop)
+const BURST_JPUB_MIN = 41000, BURST_JPUB_MAX = 41999;   // public Jupyter (TLS)
+const BURST_SPUB_MIN = 42000, BURST_SPUB_MAX = 42999;   // public SSH (raw)
+
+// Ports already bound on the VPS (LISTEN), as a Set of integers, so we never
+// hand burst.py a colliding port. Best-effort: if ss is unavailable we fall back
+// to an empty set and rely on the random spread across ~1000-port ranges.
+function listeningPorts() {
+  try {
+    const out = execSync("ss -tlnH 2>/dev/null", { encoding: 'utf8', timeout: 4000 });
+    const ports = new Set();
+    for (const line of out.split('\n')) {
+      const m = line.match(/:(\d+)\s+/);
+      if (m) ports.add(Number(m[1]));
+    }
+    return ports;
+  } catch {
+    return new Set();
+  }
+}
+
+function pickFreePort(min, max, used) {
+  for (let tries = 0; tries < 200; tries++) {
+    const p = min + Math.floor(Math.random() * (max - min + 1));
+    if (!used.has(p)) { used.add(p); return p; }
+  }
+  return null;
+}
+
+// Pick a free unique {jloop, sloop, jpub, spub} tuple, avoiding both currently
+// bound ports and any port already reserved for an in-flight burst job.
+function pickBurstPorts() {
+  const used = listeningPorts();
+  // Also reserve ports held by burst jobs we have already launched this process
+  // life-cycle (pod_jpub/pod_spub written, or pending launch) to avoid races.
+  try {
+    const rows = db.all(
+      `SELECT pod_jpub, pod_spub FROM jobs
+        WHERE job_type = 'interactive_pod' AND burst_external_id IS NOT NULL
+          AND status IN ('pulling','running')`
+    );
+    for (const r of rows) {
+      if (r.pod_jpub) used.add(Number(r.pod_jpub));
+      if (r.pod_spub) used.add(Number(r.pod_spub));
+    }
+  } catch (_) { /* table read best-effort */ }
+
+  const jloop = pickFreePort(BURST_LOOP_MIN, BURST_LOOP_MAX, used);
+  const sloop = pickFreePort(BURST_LOOP_MIN, BURST_LOOP_MAX, used);
+  const jpub = pickFreePort(BURST_JPUB_MIN, BURST_JPUB_MAX, used);
+  const spub = pickFreePort(BURST_SPUB_MIN, BURST_SPUB_MAX, used);
+  if (!jloop || !sloop || !jpub || !spub) return null;
+  return { jloop, sloop, jpub, spub };
+}
+
+// Spawn `burst.py launch <gpuTypeId> <jloop> <sloop> <jpub> <spub> <apikey> --job-id <jobId>`
+// fully detached. burst.py blocks ~3-5 min, then writes the job row itself
+// (status='running', access_url, ssh_command, started_at, timeout_at,
+// burst_external_id, pod_jpub, pod_spub) or, on failure, marks the job failed +
+// refunds + tears down any orphan pod. BURST_DUR_S sets the reaper deadline.
+function spawnBurstLaunch({ gpuTypeId, ports, apiKey, jobId, durationSeconds }) {
+  const args = [
+    BURST_PY, 'launch',
+    gpuTypeId,
+    String(ports.jloop), String(ports.sloop),
+    String(ports.jpub), String(ports.spub),
+    apiKey || '',
+    '--job-id', jobId,
+  ];
+  const child = spawn('/usr/bin/python3', args, {
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, BURST_DUR_S: String(durationSeconds) },
+  });
+  child.unref();
+}
+
+// Tear down a burst pod: DELETE the external pod + kill its relay socats. Spawned
+// DETACHED (the RunPod DELETE is a network call we never want to block a renter's
+// stop request on). Idempotent on the burst.py side. The reaper cron is the
+// backstop; this is the explicit, immediate teardown.
+function spawnBurstTeardown({ podId, jpub, spub }) {
+  if (!podId) return;
+  const args = [BURST_PY, 'teardown', String(podId), String(jpub || 0), String(spub || 0)];
+  const child = spawn('/usr/bin/python3', args, { detached: true, stdio: 'ignore' });
+  child.unref();
+}
 
 // ── Pod billing ──────────────────────────────────────────────────────────────
 // Contract (same as jobs.js /submit): cost_halala on the row IS pre-debited
@@ -231,14 +330,45 @@ function toFiniteInt(value, { min = null, max = null } = {}) {
 // Resolve the provider this pod must run on. Either the renter pins one
 // (validated against the capable-online query — same shape as jobs.js:4692) or
 // we auto-pick the freshest, least-busy capable provider.
+//
+// BURST (additive): a burst provider (is_burst=1) is a synthetic row that carries
+// only a GPU spec; there is no native daemon, no readiness_details, no live
+// heartbeat — a real pod heartbeats true metrics only AFTER it is launched. So a
+// pinned burst provider is resolved through a separate, narrow query that skips
+// the native docker/cuda/heartbeat/VRAM-floor gates but STILL honours the
+// per-provider in-flight interactive_pod mutex. Burst is reachable ONLY when the
+// renter explicitly pins it: auto-pick stays native-only, so we never spend
+// external money by surprise.
 function resolvePodProvider(requestedProviderId) {
   const tenMinAgo = new Date(Date.now() - TEN_MINUTES_MS).toISOString();
 
   if (requestedProviderId != null) {
-    const provider = db.get(
-      `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count
+    // Burst branch first: explicit pin of a synthetic burst provider.
+    const burst = db.get(
+      `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
+              p.is_burst, p.burst_gpu_type_id
          FROM providers p
         WHERE p.id = ?
+          AND COALESCE(p.is_burst, 0) = 1
+          AND p.status = 'online'
+          AND COALESCE(p.is_paused, 0) = 0
+          AND p.approval_status = 'approved'
+          AND p.burst_gpu_type_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM jobs jp
+             WHERE jp.provider_id = p.id
+               AND jp.job_type = 'interactive_pod'
+               AND jp.status IN ('queued','assigned','pulling','running'))`,
+      requestedProviderId
+    );
+    if (burst) return { provider: burst };
+
+    const provider = db.get(
+      `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
+              p.is_burst, p.burst_gpu_type_id
+         FROM providers p
+        WHERE p.id = ?
+          AND COALESCE(p.is_burst, 0) = 0
           AND p.status = 'online'
           AND COALESCE(p.is_paused, 0) = 0
           AND p.last_heartbeat >= ?
@@ -260,13 +390,17 @@ function resolvePodProvider(requestedProviderId) {
     return { provider };
   }
 
-  // Auto-pick: freshest capable provider with the fewest active jobs.
+  // Auto-pick: freshest capable NATIVE provider with the fewest active jobs.
+  // Burst providers are excluded from auto-pick (is_burst=0) so a renter who does
+  // not explicitly choose a burst GPU never triggers external spend.
   const provider = db.get(
     `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
+            p.is_burst, p.burst_gpu_type_id,
             COUNT(CASE WHEN j.status IN ('assigned','pulling','running','pending','queued') THEN 1 END) AS active_jobs
        FROM providers p
   LEFT JOIN jobs j ON j.provider_id = p.id
       WHERE p.status = 'online'
+        AND COALESCE(p.is_burst, 0) = 0
         AND COALESCE(p.is_paused, 0) = 0
         AND p.last_heartbeat >= ?
         AND COALESCE(NULLIF(p.gpu_vram_mib, 0), NULLIF(p.vram_gb, 0) * 1024,
@@ -308,13 +442,15 @@ function podWorkspaceTier(job) {
 }
 
 // The honest, renter-facing line about workspace durability for a given tier.
-function workspaceNote(tier, providerName) {
-  const where = providerName || 'this provider';
+// INVISIBILITY: never name the machine. We describe the workspace as staying on
+// "the same GPU" so the renter understands reattach semantics without ever
+// learning a provider machine name.
+function workspaceNote(tier /* gpuTypeLabel unused: kept generic for invisibility */) {
   switch (tier) {
     case 'portable':
-      return 'Files in /workspace are durable: snapshotted to your rented volume on stop and restored to your next pod on ANY provider — survives this provider going offline.';
+      return 'Files in /workspace are durable: snapshotted to your rented volume on stop and restored to your next pod on ANY GPU — survives this GPU going offline.';
     case 'provider':
-      return `Files in /workspace stay on ${where} for free and reattach to your next pod there when it is online and free. They are NOT copied to other providers — rent a volume (POST /api/volumes) for guaranteed cross-provider durability.`;
+      return 'Files in /workspace stay on the same GPU for free and reattach to your next pod there when it is online and free. They are NOT copied to other GPUs — rent a volume (POST /api/volumes) for guaranteed cross-GPU durability.';
     default:
       return '⚠️ EPHEMERAL — everything in /workspace is DELETED when this pod stops. Download anything you need before stopping.';
   }
@@ -328,8 +464,10 @@ function toPodView(job) {
     status: job.status,
     access_url: job.access_url || null,
     ssh_command: job.ssh_command || null,
-    provider_id: job.provider_id ?? null,
-    provider_name: job.provider_name || null,
+    // INVISIBILITY: never expose provider_id or the raw machine name to a renter.
+    // Surface ONLY the GPU TYPE (e.g. "NVIDIA H100 80GB"). Admin / owning-provider
+    // views keep the raw row elsewhere (jobs allowlist), not this serializer.
+    gpu_type: job.provider_gpu_type || null,
     duration_minutes: job.duration_minutes ?? null,
     submitted_at: job.submitted_at || job.created_at || null,
     started_at: job.started_at || null,
@@ -343,7 +481,7 @@ function toPodView(job) {
       : null,
     workspace_tier: tier,                          // ephemeral | provider (free) | portable (paid)
     workspace_persisted: tier !== 'ephemeral',     // back-compat boolean for #617 consumers
-    workspace_note: workspaceNote(tier, job.provider_name),
+    workspace_note: workspaceNote(tier),
   };
 }
 
@@ -354,7 +492,7 @@ router.get('/', requireRenter, (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const rows = db.all(
-      `SELECT j.*, p.name AS provider_name
+      `SELECT j.*, p.gpu_model AS provider_gpu_type
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
         WHERE j.renter_id = ? AND j.job_type = 'interactive_pod'
@@ -508,31 +646,78 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
     const job_id = 'pod-' + Date.now() + '-' + crypto.randomBytes(3).toString('hex');
     const maxDurationSeconds = durationMinutes * 60;
     const now = new Date().toISOString();
+    const isBurst = Number(provider.is_burst) === 1;
     let insertedOk = false;
 
-    // Insert with provider_id PINNED and status 'queued'. buildNextPendingJob
-    // selects status IN ('pending','queued') AND (provider_id = ? OR NULL), so a
-    // pinned 'queued' row is delivered to this provider on its next poll. We do
-    // NOT call the scheduler's tryAssign, which would overwrite provider_id.
+    // ── BURST: pick the relay port 4-tuple BEFORE insert so a failure refunds ──
+    // the renter and never spawns burst.py. Done here (not after insert) so the
+    // finally-block compensation covers it.
+    let burstPorts = null;
+    if (isBurst) {
+      burstPorts = pickBurstPorts();
+      if (!burstPorts) {
+        if (quoteHalala > 0) {
+          try {
+            db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
+              .run(quoteHalala, req.renter.id);
+          } catch (refundErr) {
+            console.error(`[pods] CRITICAL: refund ${quoteHalala} halala to renter ${req.renter.id} failed after burst port exhaustion:`, refundErr.message);
+          }
+        }
+        return res.status(503).json({
+          error: 'No free relay port available for a burst pod right now. Try again shortly.',
+          code: 'BURST_PORTS_EXHAUSTED',
+          retry_after_seconds: 30,
+        });
+      }
+    }
+
+    // Native: insert with provider_id PINNED and status 'queued'.
+    // buildNextPendingJob selects status IN ('pending','queued') AND
+    // (provider_id = ? OR NULL), so a pinned 'queued' row is delivered to this
+    // provider on its next poll. We do NOT call the scheduler's tryAssign, which
+    // would overwrite provider_id.
+    //
+    // Burst: no daemon polls — insert status 'pulling' (the renter polls exactly
+    // like a native pod: pulling -> running with access_url) and stamp timeout_at
+    // now so enforceJobTimeouts will fail+refund a launch that never reaches
+    // running, AND reserve the relay ports on the row so concurrent launches
+    // don't collide. The detached burst.py (--job-id) flips it to running.
     try {
-      db.prepare(
-        `INSERT INTO jobs
-           (job_id, provider_id, renter_id, job_type, status,
-            task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
-            cost_halala, submitted_at, created_at)
-         VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        job_id,
-        provider.id,
-        req.renter.id,
-        taskSpecStr,
-        taskSpecHmac,
-        durationMinutes,
-        maxDurationSeconds,
-        quoteHalala,
-        now,
-        now
-      );
+      if (isBurst) {
+        const timeoutAt = new Date(Date.now() + maxDurationSeconds * 1000)
+          .toISOString().replace('T', ' ').replace('Z', '');
+        db.prepare(
+          `INSERT INTO jobs
+             (job_id, provider_id, renter_id, job_type, status,
+              task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
+              cost_halala, submitted_at, created_at, timeout_at, pod_jpub, pod_spub)
+           VALUES (?, ?, ?, 'interactive_pod', 'pulling', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          job_id, provider.id, req.renter.id, taskSpecStr, taskSpecHmac,
+          durationMinutes, maxDurationSeconds, quoteHalala, now, now,
+          timeoutAt, burstPorts.jpub, burstPorts.spub
+        );
+      } else {
+        db.prepare(
+          `INSERT INTO jobs
+             (job_id, provider_id, renter_id, job_type, status,
+              task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
+              cost_halala, submitted_at, created_at)
+           VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          job_id,
+          provider.id,
+          req.renter.id,
+          taskSpecStr,
+          taskSpecHmac,
+          durationMinutes,
+          maxDurationSeconds,
+          quoteHalala,
+          now,
+          now
+        );
+      }
       insertedOk = true;
     } finally {
       // Compensate the pre-debit if the row never landed — never hold money
@@ -547,19 +732,60 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       }
     }
 
-    console.log(`[pods] Renter ${req.renter.id} launched interactive_pod ${job_id} on provider ${provider.id} (${durationMinutes}m)`);
+    // ── BURST: kick off the (slow, blocking) external launch DETACHED ──────────
+    // The HTTP request returns immediately with status 'starting'; burst.py
+    // writes access_url/ssh_command/status='running' back onto the job row when
+    // the pod is ready (~3-5 min). If spawn itself throws, fail the job + refund
+    // synchronously so the renter is never left paying for a pod that never boots.
+    if (isBurst && insertedOk) {
+      try {
+        spawnBurstLaunch({
+          gpuTypeId: provider.burst_gpu_type_id,
+          ports: burstPorts,
+          apiKey: '', // burst pods don't heartbeat to a provider key (synthetic row); keep empty
+          jobId: job_id,
+          durationSeconds: maxDurationSeconds,
+        });
+        console.log(`[pods] burst launch spawned for ${job_id} (gpu="${provider.gpu_model}", jpub=${burstPorts.jpub}, spub=${burstPorts.spub}, dur=${maxDurationSeconds}s)`);
+      } catch (spawnErr) {
+        console.error(`[pods] burst spawn failed for ${job_id}:`, spawnErr.message);
+        const failNow = new Date().toISOString();
+        try {
+          db.transaction(() => {
+            const updated = db.prepare(
+              `UPDATE jobs SET status='failed', error=?, completed_at=?, refunded_at=?
+                WHERE id IN (SELECT id FROM jobs WHERE job_id=?) AND refunded_at IS NULL AND status IN ('pulling','queued','assigned')`
+            ).run('Burst launch failed to start', failNow, failNow, job_id);
+            if (updated.changes === 1 && quoteHalala > 0) {
+              db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
+                .run(quoteHalala, req.renter.id);
+            }
+          })();
+        } catch (failErr) {
+          console.error(`[pods] CRITICAL: failed to fail+refund burst job ${job_id} after spawn error:`, failErr.message);
+        }
+        return res.status(503).json({
+          error: 'Failed to start burst pod. You have not been charged.',
+          code: 'BURST_LAUNCH_FAILED',
+        });
+      }
+    }
+
+    console.log(`[pods] Renter ${req.renter.id} launched interactive_pod ${job_id} on provider ${provider.id} (${durationMinutes}m)${isBurst ? ' [burst]' : ''}`);
 
     return res.status(201).json({
       id: job_id,
       status: 'starting',
-      provider_id: provider.id,
+      // INVISIBILITY: surface the GPU TYPE the pod runs on, never provider_id /
+      // machine name. provider.gpu_model is the public type label.
+      gpu_type: provider.gpu_model || null,
       root_password: rootPassword,
       jupyter_token: jupyterToken,
       duration_minutes: durationMinutes,
       ends_at_hint: 'rental clock starts when the pod reaches running; see GET /api/pods/:id for ends_at',
       workspace_tier: workspaceTier,
       workspace_persisted: workspaceTier !== 'ephemeral',
-      workspace_note: workspaceNote(workspaceTier, provider.name),
+      workspace_note: workspaceNote(workspaceTier),
       quoted_cost_halala: quoteHalala,
       quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
       rate_halala_per_gpu_second: ratePerGpuSecond,
@@ -576,7 +802,7 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
 router.get('/:id', requireRenter, (req, res) => {
   try {
     const job = db.get(
-      `SELECT j.*, p.name AS provider_name
+      `SELECT j.*, p.gpu_model AS provider_gpu_type
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
         WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod'`,
@@ -672,16 +898,29 @@ router.delete('/:id', requireRenter, (req, res) => {
       }
     })();
 
-    // Best-effort relay teardown — kill the VPS socat forwarders. The daemon's
-    // hold-loop will independently observe the terminal status and stop the
-    // container; relay stop just frees the public ports immediately.
-    try {
-      invokePodRelay(['stop', job.job_id]);
-    } catch (relayErr) {
-      console.error(`[pods] relay stop failed for ${job.job_id}:`, relayErr.message);
+    // Teardown. BURST pods are NOT relayed via pod-relay.sh (no WG mesh IP) —
+    // burst.py owns their relay socats and the external pod. If this job is a
+    // burst pod, tear it down through burst.py (delete external pod + kill its
+    // socats); otherwise stop the native VPS socat forwarders. Both are
+    // best-effort and never block the renter's stop response.
+    if (job.burst_external_id) {
+      try {
+        spawnBurstTeardown({ podId: job.burst_external_id, jpub: job.pod_jpub, spub: job.pod_spub });
+      } catch (burstErr) {
+        console.error(`[pods] burst teardown failed for ${job.job_id}:`, burstErr.message);
+      }
+    } else {
+      // Best-effort relay teardown — kill the VPS socat forwarders. The daemon's
+      // hold-loop will independently observe the terminal status and stop the
+      // container; relay stop just frees the public ports immediately.
+      try {
+        invokePodRelay(['stop', job.job_id]);
+      } catch (relayErr) {
+        console.error(`[pods] relay stop failed for ${job.job_id}:`, relayErr.message);
+      }
     }
 
-    console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}`);
+    console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}${job.burst_external_id ? ' [burst]' : ''}`);
     return res.json({
       id: job.job_id,
       status: job.status === 'running' ? 'stopped' : 'cancelled',
@@ -693,7 +932,7 @@ router.delete('/:id', requireRenter, (req, res) => {
       workspace_note: (() => {
         const t = podWorkspaceTier(job);
         if (t === 'portable') return 'Your /workspace was snapshotted to your rented volume and will restore on your next pod on any provider.';
-        if (t === 'provider') return `Your /workspace is kept on ${job.provider_name || 'this provider'} and will reattach to your next pod there.`;
+        if (t === 'provider') return 'Your /workspace is kept on the same GPU and will reattach to your next pod there.';
         return 'This pod was ephemeral — /workspace has been deleted.';
       })(),
     });
