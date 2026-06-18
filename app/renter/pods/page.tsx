@@ -12,7 +12,12 @@ const API_BASE = '/api'
 
 // Pods are long-lived; poll a touch slower than the jobs page (30s)
 const POD_REFRESH_MS = 8000
-const DURATION_OPTIONS = [30, 60, 120, 240, 480] as const
+// Launchable, PREPAID durations (minutes). A launch debits the full-duration
+// quote upfront (rate + 40% per gpu-second); an early stop refunds the
+// difference. Capped at 48h on demand — backend rejects > 2880 min with
+// EXCEEDS_MAX_DURATION. 10–90 day runs are a separate reserved-capacity track,
+// surfaced below the selector as a non-launchable contact-us hint.
+const DURATION_OPTIONS = [30, 60, 120, 240, 480, 1440, 2160, 2880] as const
 const DEFAULT_DURATION_MINUTES = 60
 const MIN_TOKEN_LENGTH = 12
 
@@ -415,7 +420,11 @@ export default function RenterPodsPage() {
                   <option key={min} value={min}>{formatDuration(min)}</option>
                 ))}
               </select>
-              <p className="text-xs text-dc1-text-muted">The pod is torn down automatically when the duration elapses.</p>
+              <p className="text-xs text-dc1-text-muted">The pod is torn down automatically when the duration elapses. The full duration is charged upfront; an early stop refunds the difference.</p>
+              <p className="text-xs text-dc1-text-muted mt-1.5 pt-1.5 border-t border-white/5">
+                Need 10–90 days for a long training run? Reserved capacity isn’t booked on demand — contact us at{' '}
+                <a href="mailto:sales@dcp.sa" className="underline">sales@dcp.sa</a> for multi-day reserved GPUs.
+              </p>
             </div>
           </div>
 

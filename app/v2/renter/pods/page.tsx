@@ -13,12 +13,20 @@ const POD_REFRESH_MS = 8000
 const MIN_TOKEN_LENGTH = 16
 const DEFAULT_DURATION_MINUTES = 60
 
+// Launchable, PREPAID durations. A launch debits the full-duration quote
+// upfront (rate + 40% per gpu-second); an early stop refunds the difference.
+// Capped at 48h on demand — backend rejects > 2880 min with EXCEEDS_MAX_DURATION
+// (pods.js). Anything longer is a separate owner-decided "reserved capacity"
+// track, surfaced below the selector as a non-launchable contact-us hint.
 const DURATION_OPTIONS: { minutes: number; label: string }[] = [
   { minutes: 30, label: '30m' },
   { minutes: 60, label: '1h' },
   { minutes: 120, label: '2h' },
   { minutes: 240, label: '4h' },
   { minutes: 480, label: '8h' },
+  { minutes: 1440, label: '24h' },
+  { minutes: 2160, label: '36h' },
+  { minutes: 2880, label: '48h' },
 ]
 
 // Friendly aliases map to pre-baked dcp-compute:<alias> images (sshd baked in →
@@ -669,7 +677,13 @@ export default function RenterPodsPage() {
                   ))}
                 </select>
                 <p className="pod-help">
-                  <Bi en="The pod is torn down automatically when the duration elapses." ar="تُغلق الحاوية تلقائيًا عند انتهاء المدة." />
+                  <Bi en="The pod is torn down automatically when the duration elapses. The full duration is charged upfront; an early stop refunds the difference." ar="تُغلق الحاوية تلقائيًا عند انتهاء المدة. تُحتسب المدة كاملة مسبقًا، ويُعاد الفرق عند الإيقاف المبكر." />
+                </p>
+                <p className="pod-help pod-help-reserved">
+                  <Bi
+                    en="Need 10–90 days for a long training run? Reserved capacity isn’t booked on demand — contact us at sales@dcp.sa for multi-day reserved GPUs."
+                    ar="تحتاج إلى 10–90 يومًا لتدريب طويل؟ السعة المحجوزة لا تُحجز عند الطلب — تواصل معنا على sales@dcp.sa لحجز معالجات رسومات لعدة أيام."
+                  />
                 </p>
               </div>
 

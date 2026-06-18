@@ -284,6 +284,15 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   margin: 0;
 }
 
+/* Reserved-capacity hint: 10–90 day runs are NOT launchable on demand —
+   this is a contact-us pointer, deliberately not a selectable duration. */
+.pod-help-reserved {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  opacity: 0.85;
+}
+
 /* Image + custom ref */
 .pod-image-row { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
 @media (max-width: 620px) { .pod-image-row { grid-template-columns: 1fr; } }
