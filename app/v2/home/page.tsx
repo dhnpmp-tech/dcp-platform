@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
+import GpuAvailability from '@/app/v2/components/gpu-availability/GpuAvailability'
 import './home.css'
 
 // ───────── marquee items ─────────
@@ -81,6 +82,9 @@ export default function V2HomePage() {
   const [qsTab, setQsTab] = useState<QsTab>('curl')
   const [copied, setCopied] = useState(false)
   const [live, setLive] = useState<{ online: number; serving: number; catalog: number } | null>(null)
+  // Count of GPU *types* the mesh can serve right now (type-level, never a
+  // node/provider count). Sourced from /api/health/detailed `gpu_types`.
+  const [gpuTypeCount, setGpuTypeCount] = useState<number | null>(null)
   const [catalog, setCatalog] = useState<MpModel[] | null>(null)
 
   // Hero live demo — one prompt, one real completion from a verified Saudi GPU.
@@ -147,6 +151,10 @@ export default function V2HomePage() {
           serving: Number(d?.providers?.serving ?? 0),
           catalog: Number(d?.models?.catalog_count ?? 0),
         })
+        // GPU-type breadth (deduped, no machine names/counts) — used for the
+        // mesh stat in place of a raw provider count.
+        const gt = Array.isArray(d?.gpu_types) ? d.gpu_types : []
+        setGpuTypeCount(gt.filter((t: { available?: boolean }) => t?.available !== false).length)
       } catch { /* offline — keep prior state, no fabricated numbers */ }
       try {
         const mres = await fetch('/v1/models', { cache: 'no-store' })
@@ -702,9 +710,7 @@ export default function V2HomePage() {
               <br />
               <b>
                 {live
-                  ? (lang === 'ar'
-                      ? `${live.online} مزوّد متصل · ${live.serving} يخدم الآن`
-                      : `${live.online} provider${live.online === 1 ? '' : 's'} online · ${live.serving} serving`)
+                  ? <Bi en="Verified live" ar="متحقق حياً" />
                   : <Bi en="Gated by /status" ar="محكوم عبر /status" />}
               </b>
             </div>
@@ -731,7 +737,6 @@ export default function V2HomePage() {
                       <span><Bi en="Context" ar="السياق" /></span>
                       <span><Bi en="Quant" ar="التكميم" /></span>
                       <span><Bi en="SAR / 1M tokens" ar="ريال / مليون رمز" /></span>
-                      <span><Bi en="Providers" ar="المزوّدون" /></span>
                     </div>
                     {served.slice(0, 8).map((m) => (
                       <div className="mp-row" key={m.id}>
@@ -739,7 +744,6 @@ export default function V2HomePage() {
                         <span>{m.context_length ? `${Math.round(m.context_length / 1024)}K` : '—'}</span>
                         <span>{m.quantization || '—'}</span>
                         <span>{fmtMpPrice(m)}</span>
-                        <span>{m.provider_count ?? 1}</span>
                       </div>
                     ))}
                   </div>
@@ -763,6 +767,15 @@ export default function V2HomePage() {
               </div>
             )
           })()}
+
+          {/* GPU types available to rent — the whole-card counterpart to the
+              models-for-inference table above. Type + VRAM + Available only;
+              no machine names, no node counts. */}
+          <div className="mp-live-head" style={{ border: 0, padding: '0 0 12px' }}>
+            <span><Bi en="And these whole GPUs — available to rent right now" ar="وهذه المعالجات الكاملة — متاحة للإيجار الآن" /></span>
+            <Link href="/v2/renter/pods"><Bi en="Open the launch console →" ar="افتح وحدة الإطلاق ←" /></Link>
+          </div>
+          <GpuAvailability variant="home" showHeading={false} />
 
           <div className="capacity-truth">
             <div className="capacity-copy">
@@ -927,7 +940,7 @@ export default function V2HomePage() {
             />
           </p>
           <div className="vision-live" dir="ltr">
-            <div><b>{live ? live.online : '—'}</b><span><Bi en="providers verified online" ar="مزوّدون متحققون الآن" /></span></div>
+            <div><b>{gpuTypeCount !== null ? gpuTypeCount : '—'}</b><span><Bi en="GPU types available to rent" ar="أنواع معالجات متاحة للإيجار" /></span></div>
             <div><b>{catalog ? catalog.filter((m) => m.available).length : '—'}</b><span><Bi en="models serving this minute" ar="نماذج تخدم هذه الدقيقة" /></span></div>
             <div><b>{catalog ? catalog.length : '—'}</b><span><Bi en="models in the catalog" ar="نموذجاً في الكتالوج" /></span></div>
             <div><b>2</b><span><Bi en="products: tokens + whole GPUs" ar="منتجان: رموز ومعالجات كاملة" /></span></div>

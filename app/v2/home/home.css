@@ -625,7 +625,7 @@
   .mp-live { border:1px solid var(--line); background:var(--paper); margin-bottom:20px; }
   .mp-live-head { display:flex; justify-content:space-between; gap:12px; padding:12px 22px; border-bottom:1px solid var(--hair);
     font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
-  .mp-row { display:grid; grid-template-columns: minmax(0,2.2fr) .8fr .7fr 1fr .8fr; gap:14px; padding:12px 22px;
+  .mp-row { display:grid; grid-template-columns: minmax(0,2.4fr) .9fr .8fr 1.1fr; gap:14px; padding:12px 22px;
     border-bottom:1px solid var(--hair); align-items:baseline; font-size:13.5px; color:var(--ink); }
   .mp-row:last-child { border-bottom:0; }
   .mp-row-head { font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); padding-block:9px; }
@@ -679,7 +679,7 @@
     letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
   @media (max-width: 760px) {
     .mp-row { grid-template-columns: minmax(0,1.6fr) .7fr .9fr; }
-    .mp-row > span:nth-child(3), .mp-row > span:nth-child(5) { display:none; }
+    .mp-row > span:nth-child(3) { display:none; }
   }
 
   .capacity-truth {

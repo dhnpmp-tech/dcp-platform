@@ -6,6 +6,7 @@ import Header from '../components/layout/Header'
 import Footer from '../components/layout/Footer'
 import { useLanguage } from '../lib/i18n'
 import FeaturedArabicModels from '../components/marketplace/FeaturedArabicModels'
+import GpuTypeAvailability from '../components/marketplace/GpuTypeAvailability'
 import ModelRateCard from '../components/pricing/ModelRateCard'
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -320,7 +321,6 @@ function MarketRates({ providers }: { providers: Provider[] }) {
               <span className="text-sm font-bold text-dc1-text-secondary">{halalaPriceToSarHr(maxRate)} {t('marketplace.sar_hr')}</span>
             </div>
           </div>
-          <div className="ms-auto text-xs text-dc1-text-muted">{live.length} {t('marketplace.live_gpus_online')}</div>
         </div>
       </div>
     </section>
@@ -424,7 +424,6 @@ export default function MarketplacePage() {
     return 0
   })
 
-  const onlineCount = providers.filter(p => p.is_live).length
   const pathChooserLanes = [
     {
       key: 'self_serve_renter',
@@ -463,7 +462,7 @@ export default function MarketplacePage() {
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dc1-amber/10 border border-dc1-amber/20 text-dc1-amber text-xs font-medium mb-5">
                 <span className="w-1.5 h-1.5 bg-status-success rounded-full animate-pulse" />
-                {onlineCount > 0 ? `${onlineCount} ${t('marketplace.live_gpus_online')}` : t('marketplace.live_badge')}
+                {t('marketplace.live_badge')}
               </div>
               <h1 className="text-4xl sm:text-5xl font-bold text-dc1-text-primary mb-4 leading-tight">
                 {t('marketplace.hero_title')}<br />
@@ -538,6 +537,10 @@ export default function MarketplacePage() {
             </div>
           </div>
         </section>
+
+        {/* GPU types available to rent — type + VRAM + Available only;
+            no machine names, no node counts. */}
+        <GpuTypeAvailability />
 
         {/* Featured Arabic Models */}
         <FeaturedArabicModels />
@@ -621,7 +624,7 @@ export default function MarketplacePage() {
             </select>
 
             <p className="text-xs text-dc1-text-muted whitespace-nowrap">
-              {loading ? t('common.loading') : `${sorted.length} / ${providers.length} ${t('marketplace.providers_count')}`}
+              {loading ? t('common.loading') : t('marketplace.live_badge')}
             </p>
           </div>
         </section>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/v2/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
+import { displayGpuType } from '@/app/lib/useGpuTypes'
 import { PodSidebar, PodTopbar, initials } from './PodShell'
 import './pods.css'
 
@@ -52,9 +53,12 @@ interface Pod {
 
 interface AvailableProvider {
   id: number
-  name: string
+  // GPU TYPE + VRAM only — never a machine name. On-demand (burst) rows carry
+  // no name and must not surface "Provider #id"; we label by GPU type instead.
   gpu_model: string
   vram_gb: number
+  on_demand: boolean
+  available: boolean
   status: 'online' | 'offline'
 }
 
@@ -222,13 +226,19 @@ export default function RenterPodsPage() {
       const res = await fetch(`${getApiBase()}/renters/available-providers`, { cache: 'no-store' })
       if (!res.ok) return
       const data = (await res.json()) as AvailableProvidersResponse
-      const list: AvailableProvider[] = (data.providers || []).map((p) => ({
-        id: p.id as number,
-        name: (p.name as string) || `Provider #${p.id}`,
-        gpu_model: (p.gpu_model as string) || 'GPU',
-        vram_gb: (p.vram_gb as number) ?? 0,
-        status: 'online' as const,
-      }))
+      const list: AvailableProvider[] = (data.providers || [])
+        // Use the backend `available` flag (present on every row) to drive the
+        // selectable list — burst types are always available, native nodes only
+        // when not booked.
+        .filter((p) => p.available !== false)
+        .map((p) => ({
+          id: p.id as number,
+          gpu_model: (p.gpu_model as string) || 'GPU',
+          vram_gb: (p.vram_gb as number) ?? 0,
+          on_demand: p.on_demand === true,
+          available: p.available !== false,
+          status: 'online' as const,
+        }))
       setProviders(list)
       // Auto-pick the first provider if the renter hasn't chosen one yet.
       setLaunch((prev) => (prev.providerId ? prev : { ...prev, providerId: list[0] ? String(list[0].id) : '' }))
@@ -463,6 +473,9 @@ export default function RenterPodsPage() {
   const isCustom = launch.imageChoice === CUSTOM_IMAGE_OPTION
   const activePods = pods.filter(isActivePod).length
   const noProviders = providers.length === 0
+  // Count of distinct GPU *types* available (type-level, never a node/provider
+  // count) — shown in the console KPI instead of a raw provider total.
+  const gpuTypeCount = new Set(providers.map((p) => p.gpu_model)).size
   const isLive = loadState === 'ready'
 
   return (
@@ -538,11 +551,11 @@ export default function RenterPodsPage() {
             </div>
             <div className="kpi">
               <div className="k">
-                <Bi en="Online providers" ar="مزودون متصلون" />
+                <Bi en="GPU types available" ar="أنواع المعالجات المتاحة" />
               </div>
-              <div className="v">{providers.length}</div>
+              <div className="v">{gpuTypeCount}</div>
               <div className="d flat">
-                <Bi en="Available to host a pod" ar="متاحون لاستضافة حاوية" />
+                <Bi en="Ready to host a pod" ar="جاهزة لاستضافة حاوية" />
               </div>
             </div>
           </div>
@@ -626,8 +639,9 @@ export default function RenterPodsPage() {
                   )}
                   {providers.map((p) => (
                     <option key={p.id} value={String(p.id)}>
-                      {p.name} — {p.gpu_model}
-                      {p.vram_gb ? ` (${p.vram_gb}GB)` : ''}
+                      {displayGpuType(p.gpu_model)}
+                      {p.vram_gb ? ` · ${p.vram_gb}GB` : ''}
+                      {p.on_demand ? (lang === 'ar' ? ' · عند الطلب' : ' · on-demand') : ''}
                     </option>
                   ))}
                 </select>
