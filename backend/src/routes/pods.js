@@ -772,6 +772,33 @@ router.post('/:id/extend', requireRenter, (req, res) => {
       `UPDATE jobs SET max_duration_seconds = ?, duration_minutes = ?, cost_halala = COALESCE(cost_halala, 0) + ? WHERE id = ?`
     ).run(newSeconds, Math.round(newSeconds / 60), addQuoteHalala, job.id);
 
+    // Move the kill-deadline. Without this, enforceJobTimeouts() (which compares
+    // datetime(replace(timeout_at,'T',' '))) still reaps the pod at its ORIGINAL
+    // deadline even though max_duration_seconds grew — stopping it early. SQLite's
+    // datetime() emits the space-separated 'YYYY-MM-DD HH:MM:SS' form the enforcer
+    // parses, and rebases off started_at using the NEW total max_duration_seconds.
+    db.prepare(
+      `UPDATE jobs SET timeout_at = datetime(COALESCE(started_at, 'now'), '+' || max_duration_seconds || ' seconds') WHERE id = ?`
+    ).run(job.id);
+
+    // BURST pods run on an external cloud whose reaper deadline lives in
+    // /root/dcp-burst/active/<podid>.json. The burst.py reap cron tears the pod
+    // down at that deadline regardless of our DB, so push it too — by the seconds
+    // we just ADDED (burst.py `extend` bumps deadline += add_s). Spawned DETACHED
+    // so the local file write can never block the HTTP response.
+    if (job.burst_external_id) {
+      try {
+        const child = spawn(
+          '/usr/bin/python3',
+          [BURST_PY, 'extend', String(job.burst_external_id), String(addSeconds)],
+          { detached: true, stdio: 'ignore' }
+        );
+        child.unref();
+      } catch (burstErr) {
+        console.error(`[pods] burst extend failed for ${job.job_id}:`, burstErr.message);
+      }
+    }
+
     const endsAt = job.started_at
       ? new Date(Date.parse(job.started_at) + newSeconds * 1000).toISOString()
       : null;
