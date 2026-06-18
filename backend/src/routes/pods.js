@@ -241,8 +241,18 @@ function validatePodImage(raw) {
   return { image: raw, bootstrap: true };
 }
 const MIN_DURATION_MINUTES = 5;
-const MAX_DURATION_MINUTES = 24 * 60; // 24h ceiling for an interactive session
+// 48h launchable ceiling (172800s end-to-end) so long training runs can pick
+// 24h / 36h / 48h on the prepaid model. Anything longer is a separate "reserved
+// capacity" track the owner decides on — NOT a prepaid burst launch — so >48h is
+// rejected with a contact-us message (see the launch route). NOTE: native-daemon
+// providers also honor DCP_HARD_POD_LIFETIME_CAP_S in dcp_daemon.py (default
+// 24*3600); raise that env to 172800 on any native provider expected to serve
+// >24h pods. Burst pods are governed by the backend timeout_at + burst.py reaper
+// (BURST_DUR_S = full maxDurationSeconds), so the burst path supports 48h as-is.
+const MAX_DURATION_MINUTES = 48 * 60; // 48h ceiling for an interactive session
 const DEFAULT_DURATION_MINUTES = 60;
+// Above this, point the renter at reserved capacity instead of a prepaid launch.
+const RESERVED_CAPACITY_THRESHOLD_MINUTES = MAX_DURATION_MINUTES;
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 
 // Mirrors the renter VRAM floor for an interactive GPU pod (consumer tier).
@@ -711,7 +721,22 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     const body = req.body || {};
     const params = body.params && typeof body.params === 'object' ? body.params : {};
 
-    // Duration bounds.
+    // Duration bounds. Reject an explicitly over-cap request with a friendly
+    // reserved-capacity pointer FIRST — otherwise toFiniteInt() returns null for
+    // an over-cap value and the `|| DEFAULT_DURATION_MINUTES` fallback would
+    // silently shrink a "10-day" request to 60 min and debit it, surprising the
+    // renter. Anything >48h is a reserved-capacity commitment, not a prepaid
+    // burst launch.
+    if (body.duration_minutes != null) {
+      const requestedMinutes = Number(body.duration_minutes);
+      if (Number.isFinite(requestedMinutes) && requestedMinutes > RESERVED_CAPACITY_THRESHOLD_MINUTES) {
+        return res.status(400).json({
+          error: `Pods can be launched for up to ${RESERVED_CAPACITY_THRESHOLD_MINUTES / 60} hours on demand. For longer runs (multi-day reserved capacity), contact us at sales@dcp.sa.`,
+          code: 'EXCEEDS_MAX_DURATION',
+          max_duration_hours: RESERVED_CAPACITY_THRESHOLD_MINUTES / 60,
+        });
+      }
+    }
     const durationMinutes = toFiniteInt(body.duration_minutes, {
       min: MIN_DURATION_MINUTES,
       max: MAX_DURATION_MINUTES,
@@ -1243,13 +1268,13 @@ function extendPodCore(job, addMinutes, { actorLabel = 'renter' } = {}) {
     return { error: `Pod is ${job.status}; only a running pod can be extended`, code: 'NOT_RUNNING', httpStatus: 409 };
   }
 
-  // 24h hard ceiling on total rental.
+  // Hard ceiling on total rental (MAX_DURATION_MINUTES, currently 48h).
   const currentSeconds = Math.max(0, Number(job.max_duration_seconds) || (Number(job.duration_minutes) || 0) * 60);
   const addSeconds = addMinutes * 60;
   if ((currentSeconds + addSeconds) > MAX_DURATION_MINUTES * 60) {
     const remaining = Math.max(0, MAX_DURATION_MINUTES * 60 - currentSeconds);
     return {
-      error: `Extending by ${addMinutes} min would exceed the 24-hour pod ceiling. You can add at most ${Math.floor(remaining / 60)} more minutes.`,
+      error: `Extending by ${addMinutes} min would exceed the ${MAX_DURATION_MINUTES / 60}-hour pod ceiling. You can add at most ${Math.floor(remaining / 60)} more minutes. For longer runs, contact us about reserved capacity.`,
       code: 'EXCEEDS_MAX',
       httpStatus: 409,
     };
