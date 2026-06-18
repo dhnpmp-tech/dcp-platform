@@ -19,21 +19,19 @@ const LAUNCH_HREF = '/v2/renter/pods'
 export default function GpuTypeAvailability() {
   const { language } = useLanguage()
   const ar = language === 'ar'
-  const { types, errored, availableCount } = useGpuTypes()
+  const { types, errored } = useGpuTypes()
 
   return (
     <section className="border-b border-dc1-border bg-dc1-surface-l1/40" aria-labelledby="gpu-types-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         <div className="flex items-baseline justify-between gap-3 flex-wrap mb-5">
           <h2 id="gpu-types-heading" className="text-xl sm:text-2xl font-bold text-dc1-text-primary">
-            {ar ? 'معالجات متاحة للإيجار' : 'GPUs available to rent'}
+            {ar ? 'استأجر أحد هذه المعالجات' : 'Rent one of these GPUs'}
           </h2>
           <span className="text-xs font-mono uppercase tracking-wider text-dc1-text-muted">
             {types === null
               ? (ar ? 'جارٍ الاستعلام…' : 'querying…')
-              : (ar
-                  ? `${availableCount} نوع معالج جاهز الآن`
-                  : `${availableCount} GPU type${availableCount === 1 ? '' : 's'} ready now`)}
+              : (ar ? 'شغّل وحدتك الخاصة' : 'spin up your own pod')}
           </span>
         </div>
 
@@ -60,20 +58,21 @@ export default function GpuTypeAvailability() {
 
         {types && types.length > 0 && (
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {types.map((gpu) => (
-              <li key={`${gpu.type}-${gpu.vram_gb}`}>
-                <Link
-                  href={LAUNCH_HREF}
-                  aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, available — rent`}
-                  className="group flex h-full flex-col gap-3 rounded-xl border border-dc1-border bg-dc1-surface-l2 p-4 transition-all duration-200 hover:border-dc1-amber/40 hover:shadow-amber"
-                >
+            {types.map((gpu) => {
+              // Identical card face for every GPU type. Available cards link to
+              // the launch console; out-of-stock cards stay listed but dimmed
+              // and non-interactive (advertised, honestly unavailable).
+              const inner = (
+                <>
                   <div className="flex items-center gap-2">
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${gpu.available ? 'bg-status-success animate-pulse' : 'bg-dc1-text-muted'}`}
                       aria-hidden="true"
                     />
                     <span className="text-[10px] font-mono uppercase tracking-widest text-dc1-text-secondary">
-                      {gpu.available ? (ar ? 'متاح' : 'Available') : (ar ? 'مشغول' : 'Busy')}
+                      {gpu.available
+                        ? (ar ? 'متاح' : 'Available')
+                        : (ar ? 'غير متاح مؤقتاً' : 'Temporarily out')}
                     </span>
                   </div>
                   <div className="mt-auto flex flex-col gap-0.5">
@@ -84,12 +83,36 @@ export default function GpuTypeAvailability() {
                       {gpu.vram_gb}<span className="text-dc1-text-muted"> GB</span>
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-dc1-text-muted group-hover:text-dc1-amber transition-colors">
-                    {ar ? 'استأجر ←' : 'Rent →'}
-                  </span>
-                </Link>
-              </li>
-            ))}
+                </>
+              )
+              return (
+                <li key={`${gpu.type}-${gpu.vram_gb}`}>
+                  {gpu.available ? (
+                    <Link
+                      href={LAUNCH_HREF}
+                      aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, available — rent`}
+                      className="group flex h-full flex-col gap-3 rounded-xl border border-dc1-border bg-dc1-surface-l2 p-4 transition-all duration-200 hover:border-dc1-amber/40 hover:shadow-amber"
+                    >
+                      {inner}
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-dc1-text-muted group-hover:text-dc1-amber transition-colors">
+                        {ar ? 'استأجر ←' : 'Rent →'}
+                      </span>
+                    </Link>
+                  ) : (
+                    <div
+                      aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, temporarily out of stock`}
+                      aria-disabled="true"
+                      className="flex h-full flex-col gap-3 rounded-xl border border-dc1-border bg-dc1-surface-l2 p-4 opacity-50 cursor-not-allowed"
+                    >
+                      {inner}
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-dc1-text-muted" aria-hidden="true">
+                        {ar ? 'غير متاح مؤقتاً' : 'Temporarily out'}
+                      </span>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

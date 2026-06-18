@@ -41,8 +41,9 @@ interface Pod {
   status: string
   access_url?: string | null
   ssh_command?: string | null
-  provider_id?: number | null
-  provider_name?: string | null
+  // GPU TYPE only — never a machine name or provider id (backend leak-fix
+  // removed provider_id / provider_name from toPodView).
+  gpu_type?: string | null
   duration_minutes?: number | null
   submitted_at?: string | null
   created_at?: string | null
@@ -53,11 +54,12 @@ interface Pod {
 
 interface AvailableProvider {
   id: number
-  // GPU TYPE + VRAM only — never a machine name. On-demand (burst) rows carry
-  // no name and must not surface "Provider #id"; we label by GPU type instead.
+  // GPU TYPE + VRAM only — never a machine name, never a provider id, and no
+  // native/on-demand distinction. Every option reads identically: GPU type,
+  // VRAM, availability. We deliberately do NOT carry the on_demand flag so it
+  // cannot drive any label or styling.
   gpu_model: string
   vram_gb: number
-  on_demand: boolean
   available: boolean
   status: 'online' | 'offline'
 }
@@ -227,15 +229,14 @@ export default function RenterPodsPage() {
       if (!res.ok) return
       const data = (await res.json()) as AvailableProvidersResponse
       const list: AvailableProvider[] = (data.providers || [])
-        // Use the backend `available` flag (present on every row) to drive the
-        // selectable list — burst types are always available, native nodes only
-        // when not booked.
+        // Drive the selectable list off the backend `available` flag (present
+        // on every row, now reflecting real live stock). Out-of-stock types
+        // simply aren't selectable here. No native/on-demand distinction.
         .filter((p) => p.available !== false)
         .map((p) => ({
           id: p.id as number,
           gpu_model: (p.gpu_model as string) || 'GPU',
           vram_gb: (p.vram_gb as number) ?? 0,
-          on_demand: p.on_demand === true,
           available: p.available !== false,
           status: 'online' as const,
         }))
@@ -641,7 +642,6 @@ export default function RenterPodsPage() {
                     <option key={p.id} value={String(p.id)}>
                       {displayGpuType(p.gpu_model)}
                       {p.vram_gb ? ` · ${p.vram_gb}GB` : ''}
-                      {p.on_demand ? (lang === 'ar' ? ' · عند الطلب' : ' · on-demand') : ''}
                     </option>
                   ))}
                 </select>
@@ -901,11 +901,8 @@ export default function RenterPodsPage() {
                           <span className={`stat ${statusClass(pod.status)}`}>{pod.status}</span>
                         </div>
                         <div className="pod-row-meta">
-                          {pod.provider_name
-                            ? `${pod.provider_name} · `
-                            : pod.provider_id
-                              ? `Provider #${pod.provider_id} · `
-                              : ''}
+                          {/* GPU TYPE only — never a machine name or provider id. */}
+                          {pod.gpu_type ? `${displayGpuType(pod.gpu_type)} · ` : ''}
                           {formatDuration(pod.duration_minutes)}
                           {submitted ? ` · ${submitted}` : ''}
                         </div>

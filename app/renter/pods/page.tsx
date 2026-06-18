@@ -6,6 +6,7 @@ import Link from 'next/link'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import StatusBadge from '../../components/ui/StatusBadge'
 import { useLanguage } from '../../lib/i18n'
+import { displayGpuType } from '../../lib/useGpuTypes'
 
 const API_BASE = '/api'
 
@@ -33,8 +34,9 @@ interface Pod {
   status: string
   access_url?: string | null
   ssh_command?: string | null
-  provider_id?: number | null
-  provider_name?: string | null
+  // GPU TYPE only — never a machine name or provider id (backend leak-fix
+  // removed provider_id / provider_name from toPodView).
+  gpu_type?: string | null
   duration_minutes?: number | null
   submitted_at?: string | null
   created_at?: string | null
@@ -42,7 +44,8 @@ interface Pod {
 
 interface AvailableProvider {
   id: number
-  name: string
+  // GPU TYPE + VRAM only — never a machine name. We deliberately do not hold
+  // the provider name so it cannot surface to a renter.
   gpu_model: string
   vram_gb: number
   status: 'online' | 'offline'
@@ -201,7 +204,6 @@ export default function RenterPodsPage() {
       const data = await res.json()
       const list: AvailableProvider[] = (data.providers || []).map((p: Record<string, unknown>) => ({
         id: p.id as number,
-        name: (p.name as string) || `Provider #${p.id}`,
         gpu_model: (p.gpu_model as string) || 'GPU',
         vram_gb: (p.vram_gb as number) ?? 0,
         status: 'online' as const,
@@ -390,7 +392,8 @@ export default function RenterPodsPage() {
                 {providers.length === 0 && <option value="">No online providers</option>}
                 {providers.map(p => (
                   <option key={p.id} value={String(p.id)}>
-                    {p.name} — {p.gpu_model}{p.vram_gb ? ` (${p.vram_gb}GB)` : ''}
+                    {/* GPU TYPE + VRAM only — never a machine name. */}
+                    {displayGpuType(p.gpu_model)}{p.vram_gb ? ` · ${p.vram_gb}GB` : ''}
                   </option>
                 ))}
               </select>
@@ -546,7 +549,8 @@ export default function RenterPodsPage() {
                           <StatusBadge status={pod.status as any} />
                         </div>
                         <p className="text-xs text-dc1-text-muted">
-                          {pod.provider_name ? `${pod.provider_name} · ` : pod.provider_id ? `Provider #${pod.provider_id} · ` : ''}
+                          {/* GPU TYPE only — never a machine name or provider id. */}
+                          {pod.gpu_type ? `${displayGpuType(pod.gpu_type)} · ` : ''}
                           {formatDuration(pod.duration_minutes)}
                           {(pod.submitted_at || pod.created_at)
                             ? ` · ${new Date((pod.submitted_at || pod.created_at) as string).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
