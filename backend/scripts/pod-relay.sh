@@ -217,14 +217,70 @@ JSON
   printf '{"jpub":%s,"spub":%s}\n' "${jpub}" "${spub}"
 }
 
+# Reject private / loopback / link-local / reserved IPv4 — SSRF guard for burst
+# upstreams (a burst pod's public ip is partner-controlled).
+is_public_ipv4() {
+  local ip="$1" a b
+  [[ "${ip}" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+  a="${BASH_REMATCH[1]}"; b="${BASH_REMATCH[2]}"
+  (( a>=1 && a<=255 )) || return 1
+  (( a==10 || a==127 || a==0 )) && return 1
+  (( a==169 && b==254 )) && return 1
+  (( a==172 && b>=16 && b<=31 )) && return 1
+  (( a==192 && b==168 )) && return 1
+  return 0
+}
+
+# start-burst: identical to cmd_start but the upstream is a PARTNER pod's PUBLIC
+# ip:port instead of a WG mesh ip. The renter still only ever sees api.dcp.sa:<pub>.
+# State-file format matches cmd_start (mesh_ip field holds the public ip), so the
+# existing cmd_stop tears it down with zero changes.
+cmd_start_burst() {
+  local job_id up_ip jport sport
+  job_id="$(sanitize_job_id "${1:?job_id required}")"
+  up_ip="${2:?public_ip required}"
+  jport="${3:?jupyter_port required}"
+  sport="${4:?ssh_port required}"
+
+  is_uint "${jport}" || die "jupyter_port not numeric: ${jport}"
+  is_uint "${sport}" || die "ssh_port not numeric: ${sport}"
+  is_public_ipv4 "${up_ip}" || die "burst upstream not a public IPv4 (private/loopback refused): ${up_ip}"
+
+  command -v socat >/dev/null 2>&1 || die "socat not installed (apt-get install -y socat)"
+  command -v ss    >/dev/null 2>&1 || die "ss not found (install iproute2)"
+  mkdir -p "${STATE_DIR}"
+
+  if [[ -f "$(state_file "${job_id}")" ]]; then
+    log "start-burst ${job_id}: existing relay found — replacing"
+    cmd_stop "${job_id}" >/dev/null
+  fi
+
+  local jpub spub
+  jpub="$(alloc_port "${JPUB_MIN}" "${JPUB_MAX}")" || die "no free Jupyter public port in ${JPUB_MIN}-${JPUB_MAX}"
+  spub="$(alloc_port "${SPUB_MIN}" "${SPUB_MAX}")" || die "no free SSH public port in ${SPUB_MIN}-${SPUB_MAX}"
+
+  local jpid spid
+  jpid="$(spawn_forwarder "${jpub}" "${up_ip}" "${jport}" tls)"
+  spid="$(spawn_forwarder "${spub}" "${up_ip}" "${sport}")"
+
+  local file; file="$(state_file "${job_id}")"
+  cat > "${file}" <<JSON
+{"job_id":"${job_id}","mesh_ip":"${up_ip}","jport":${jport},"sport":${sport},"jpub":${jpub},"spub":${spub},"jpid":${jpid},"spid":${spid},"burst":1}
+JSON
+
+  log "start-burst ${job_id}: ${up_ip}:${jport}→:${jpub} (pid ${jpid}), ${up_ip}:${sport}→:${spub} (pid ${spid})"
+  printf '{"jpub":%s,"spub":%s}\n' "${jpub}" "${spub}"
+}
+
 # ── dispatch ─────────────────────────────────────────────────────────────--
 
 main() {
   local action="${1:-}"
   case "${action}" in
-    start) shift; cmd_start "$@" ;;
-    stop)  shift; cmd_stop  "$@" ;;
-    *)     die "usage: pod-relay.sh start <job_id> <wg_mesh_ip> <jport> <sport> | stop <job_id>" ;;
+    start)       shift; cmd_start "$@" ;;
+    start-burst) shift; cmd_start_burst "$@" ;;
+    stop)        shift; cmd_stop  "$@" ;;
+    *)     die "usage: pod-relay.sh start <job_id> <mesh_ip> <jport> <sport> | start-burst <job_id> <public_ip> <jport> <sport> | stop <job_id>" ;;
   esac
 }
 

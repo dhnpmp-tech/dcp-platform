@@ -1,5 +1,5 @@
 // ============================================================================
-// /api/pods — Interactive GPU pod lifecycle (RunPod-style Jupyter + SSH).
+// /api/pods — Interactive GPU pod lifecycle (cloud Jupyter + SSH).
 //
 // A pod is just a JOB with job_type = 'interactive_pod', dispatched through the
 // same job-poll path every other job uses (GET /api/providers/jobs/next →
@@ -236,7 +236,8 @@ function resolvePodProvider(requestedProviderId) {
 
   if (requestedProviderId != null) {
     const provider = db.get(
-      `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count
+      `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
+              p.is_burst, p.burst_gpu_type_id, p.burst_cloud_type
          FROM providers p
         WHERE p.id = ?
           AND p.status = 'online'
@@ -263,6 +264,7 @@ function resolvePodProvider(requestedProviderId) {
   // Auto-pick: freshest capable provider with the fewest active jobs.
   const provider = db.get(
     `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
+            p.is_burst, p.burst_gpu_type_id, p.burst_cloud_type,
             COUNT(CASE WHEN j.status IN ('assigned','pulling','running','pending','queued') THEN 1 END) AS active_jobs
        FROM providers p
   LEFT JOIN jobs j ON j.provider_id = p.id
@@ -280,7 +282,7 @@ function resolvePodProvider(requestedProviderId) {
              AND jp.job_type = 'interactive_pod'
              AND jp.status IN ('queued','assigned','pulling','running'))
       GROUP BY p.id
-      ORDER BY active_jobs ASC, p.last_heartbeat DESC
+      ORDER BY COALESCE(p.is_burst, 0) ASC, active_jobs ASC, p.last_heartbeat DESC
       LIMIT 1`,
     tenMinAgo, POD_MIN_VRAM_MIB
   );
@@ -547,6 +549,30 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       }
     }
 
+    // Burst (partner-compute) providers have no daemon polling for this job — the
+    // broker provisions the external pod, fronts it through the api.dcp.sa relay, and
+    // flips the job to 'running' itself (the role the daemon's endpoint-ready plays for
+    // native pods). Fire-and-forget: the renter polls GET /api/pods/:id like any pod.
+    // On any failure, mark the job failed + refund the prepaid quote + free the relay.
+    if (insertedOk && provider.is_burst) {
+      require('../lib/burst-broker')
+        .launchBurstPod({ jobId: job_id, provider, taskSpec: taskSpecObj })
+        .catch((err) => {
+          console.error(`[pods] burst launch failed for ${job_id}: ${err.message}`);
+          try {
+            const j = db.get(`SELECT status, refunded_at, cost_halala FROM jobs WHERE job_id = ?`, job_id);
+            if (j && !['stopped', 'completed', 'cancelled'].includes(j.status) && !j.refunded_at) {
+              db.prepare(`UPDATE jobs SET status='failed', completed_at=datetime('now'), refunded_at=datetime('now'), burst_status='failed' WHERE job_id = ?`).run(job_id);
+              const refund = Math.max(0, Math.round(Number(j.cost_halala) || 0));
+              if (refund > 0) db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`).run(refund, req.renter.id);
+              try { invokePodRelay(['stop', job_id]); } catch (_) { /* nothing to free */ }
+            }
+          } catch (refundErr) {
+            console.error(`[pods] burst launch-failure cleanup error for ${job_id}: ${refundErr.message}`);
+          }
+        });
+    }
+
     console.log(`[pods] Renter ${req.renter.id} launched interactive_pod ${job_id} on provider ${provider.id} (${durationMinutes}m)`);
 
     return res.status(201).json({
@@ -679,6 +705,14 @@ router.delete('/:id', requireRenter, (req, res) => {
       invokePodRelay(['stop', job.job_id]);
     } catch (relayErr) {
       console.error(`[pods] relay stop failed for ${job.job_id}:`, relayErr.message);
+    }
+
+    // Burst pod: terminate the external instance so it stops billing (DELETE, not stop —
+    // a merely-stopped partner pod still bills for its volume). Settlement already ran above.
+    if (job.burst_external_id) {
+      require('../lib/burst-broker')
+        .terminateBurstPod(job.burst_external_id)
+        .catch((e) => console.error(`[pods] burst terminate failed for ${job.job_id}: ${e.message}`));
     }
 
     console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}`);
