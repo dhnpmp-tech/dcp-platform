@@ -132,8 +132,8 @@ function buildDigestTemplate({ renterName, totalJobs, totalHalala, byModel, dash
     bodyEnHtml,
     bodyArHtml,
     cta: { label: 'Open dashboard', labelAr: 'فتح لوحة التحكم', url: dashboardUrl },
-    whyEn: 'You are receiving this daily summary because jobs completed on your DCP renter account in the last 24 hours. Manage notifications at dcp.sa/renter/settings.',
-    whyAr: 'تصلك هذه الرسالة لأن مهامًا اكتملت على حسابك في DCP خلال آخر ٢٤ ساعة. إدارة الإشعارات من dcp.sa/renter/settings.',
+    whyEn: 'You are receiving this daily summary because jobs completed on your DCP renter account in the last 24 hours. Manage notifications at dcp.sa/v2/renter/settings.',
+    whyAr: 'تصلك هذه الرسالة لأن مهامًا اكتملت على حسابك في DCP خلال آخر ٢٤ ساعة. إدارة الإشعارات من dcp.sa/v2/renter/settings.',
   });
 
   const text = [

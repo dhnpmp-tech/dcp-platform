@@ -95,6 +95,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // v1 → v2 consolidation: the legacy /renter and /provider surfaces are superseded by the
+  // /v2 console, which mirrors these exact paths (SITE-6). Redirect bookmarks, stale links,
+  // and links inside transactional emails to v2 so nobody lands on the old v1 design. The
+  // provider wizard/register and /renter/register flows are handled above; /admin, /login,
+  // and /marketplace are intentionally left on their current routes for now.
+  if (
+    pathname === '/renter' || pathname.startsWith('/renter/') ||
+    pathname === '/provider' || pathname.startsWith('/provider/')
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = `/v2${pathname}`
+    return NextResponse.redirect(url, 307)
+  }
+
   const role = await verifySession(request.cookies.get(SESSION_COOKIE)?.value)
 
   // SITE-6: the /v2 console tree mirrors the /provider|/renter|/admin paths.
@@ -117,7 +131,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next()
+  // BUG #3 (Back shows the logged-out account page): gated/authenticated pages must not be
+  // cached or kept in the browser bfcache, or pressing Back after logout replays the old
+  // logged-in page. Force revalidation on every gated response (the matcher only matches
+  // gated paths, so this never touches public/marketing pages).
+  const res = NextResponse.next()
+  res.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate')
+  res.headers.set('Vary', 'Cookie')
+  return res
 }
 
 function buildLoginRedirect(request: NextRequest, expectedRole: string): NextResponse {
