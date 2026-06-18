@@ -335,10 +335,16 @@ function toFiniteInt(value, { min = null, max = null } = {}) {
 // only a GPU spec; there is no native daemon, no readiness_details, no live
 // heartbeat — a real pod heartbeats true metrics only AFTER it is launched. So a
 // pinned burst provider is resolved through a separate, narrow query that skips
-// the native docker/cuda/heartbeat/VRAM-floor gates but STILL honours the
-// per-provider in-flight interactive_pod mutex. Burst is reachable ONLY when the
-// renter explicitly pins it: auto-pick stays native-only, so we never spend
-// external money by surprise.
+// the native docker/cuda/heartbeat/VRAM-floor gates. Burst is intentionally NOT
+// mutexed on in-flight interactive_pod jobs: a burst row is a single synthetic
+// "GPU type capacity" row, and every burst launch provisions its OWN external pod
+// with a UNIQUE relay port 4-tuple (pickBurstPorts reserves free unique ports
+// across in-flight burst jobs), so N concurrent burst pods of the same type do
+// not conflict — 10 renters of an H100 each get their own pod. The per-provider
+// in-flight mutex stays on the NATIVE branch only (one physical machine = one
+// pod). Prepaid balance + real RunPod stock are the natural concurrency limits.
+// Burst is reachable ONLY when the renter explicitly pins it: auto-pick stays
+// native-only, so we never spend external money by surprise.
 function resolvePodProvider(requestedProviderId) {
   const tenMinAgo = new Date(Date.now() - TEN_MINUTES_MS).toISOString();
 
@@ -353,12 +359,7 @@ function resolvePodProvider(requestedProviderId) {
           AND p.status = 'online'
           AND COALESCE(p.is_paused, 0) = 0
           AND p.approval_status = 'approved'
-          AND p.burst_gpu_type_id IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1 FROM jobs jp
-             WHERE jp.provider_id = p.id
-               AND jp.job_type = 'interactive_pod'
-               AND jp.status IN ('queued','assigned','pulling','running'))`,
+          AND p.burst_gpu_type_id IS NOT NULL`,
       requestedProviderId
     );
     if (burst) return { provider: burst };
