@@ -2434,6 +2434,495 @@ body {
   font-size: 13.5px;
 }
 
+/* ── Shared ops surfaces: pods / burst / storage ─────────────────────────── */
+.pods-ops,
+.burst-ops,
+.storage-ops {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+  padding-top: 20px;
+}
+
+.pods-ops .section-head > span,
+.burst-ops .section-head > span,
+.storage-ops .section-head > span {
+  border: 1px solid var(--hair);
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pods-ops .section-head > span.ready,
+.burst-ops .section-head > span.ready,
+.storage-ops .section-head > span.ready {
+  color: var(--teal);
+}
+
+.pods-ops .section-head > span.watch,
+.burst-ops .section-head > span.watch,
+.storage-ops .section-head > span.watch {
+  color: var(--orange);
+}
+
+.pods-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.pods-summary-grid > div {
+  min-height: 104px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pods-summary-grid span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.pods-summary-grid strong {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.pods-summary-grid .watch strong {
+  color: var(--orange);
+}
+
+.ops-action-message {
+  margin: 14px 0 0;
+  border: 1px solid var(--hair);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ops-action-message.success {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+  background: color-mix(in oklab, var(--teal) 7%, transparent);
+}
+
+.ops-action-message.error {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 36%, var(--hair));
+  background: color-mix(in oklab, var(--err) 7%, transparent);
+}
+
+.ops-empty,
+.ops-policy {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.45;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ops-empty {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 18px;
+}
+
+.ops-policy {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+  padding-top: 14px;
+  font-size: 13.5px;
+}
+
+.ops-table-wrap {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  overflow-x: auto;
+}
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ops-table thead th {
+  text-align: start;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 82%, var(--paper));
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ops-table tbody td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: top;
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+}
+
+.ops-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ops-table tbody tr.terminal td {
+  background: color-mix(in oklab, var(--bg) 94%, transparent);
+  color: var(--ink-2);
+}
+
+.ops-table strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.ops-sub {
+  display: block;
+  margin-top: 3px;
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.ops-status {
+  display: inline-block;
+  border: 1px solid var(--hair);
+  padding: 3px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ops-status.running,
+.ops-status.active,
+.ops-status.available {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+}
+
+.ops-status.pending,
+.ops-status.assigned,
+.ops-status.starting,
+.ops-status.provisioning {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 36%, var(--hair));
+}
+
+.ops-status.stopped,
+.ops-status.failed,
+.ops-status.cancelled,
+.ops-status.expired,
+.ops-status.released,
+.ops-status.empty,
+.ops-status.paused {
+  color: var(--err);
+  border-color: color-mix(in oklab, var(--err) 32%, var(--hair));
+}
+
+.ops-tag {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-style: normal;
+  color: var(--orange);
+}
+
+.ops-link {
+  color: var(--teal);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--teal) 40%, transparent);
+  font-size: 13px;
+}
+
+.ops-link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.ops-code {
+  display: inline-block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+  border: 1px solid var(--hair);
+  padding: 2px 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-actions {
+  white-space: nowrap;
+}
+
+.ops-actions .ops-btn + .ops-btn,
+.finance-actions .ops-btn + .ops-btn {
+  margin-inline-start: 6px;
+}
+
+.ops-btn {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid var(--hair);
+  background: transparent;
+  color: var(--ink);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color var(--dur, 150ms) ease, color var(--dur, 150ms) ease, background var(--dur, 150ms) ease;
+}
+
+.ops-btn:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.ops-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.ops-btn.extend,
+.ops-btn.resume,
+.ops-btn.approve,
+.ops-btn.complete {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 34%, var(--hair));
+}
+
+.ops-btn.extend:hover:not(:disabled),
+.ops-btn.resume:hover:not(:disabled),
+.ops-btn.approve:hover:not(:disabled),
+.ops-btn.complete:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--teal) 12%, transparent);
+  border-color: var(--teal);
+}
+
+.ops-btn.stop,
+.ops-btn.pause,
+.ops-btn.reject,
+.ops-btn.refund {
+  color: var(--orange);
+  border-color: color-mix(in oklab, var(--orange) 34%, var(--hair));
+}
+
+.ops-btn.stop:hover:not(:disabled),
+.ops-btn.pause:hover:not(:disabled),
+.ops-btn.reject:hover:not(:disabled),
+.ops-btn.refund:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--orange) 12%, transparent);
+  border-color: var(--orange);
+}
+
+.finance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+/* ── Burst catalog cards ─────────────────────────────────────────────────── */
+.burst-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1px;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.burst-card {
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 2px solid var(--teal);
+}
+
+.burst-card.paused {
+  border-top-color: var(--err);
+  background: color-mix(in oklab, var(--bg) 94%, transparent);
+}
+
+.burst-card.empty {
+  border-top-color: var(--orange);
+}
+
+.burst-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.burst-card-head strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.burst-card-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.burst-card-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.burst-card-facts span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.burst-card-facts strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.burst-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--hair);
+  padding-top: 12px;
+}
+
+.burst-card-foot .ops-tag {
+  margin-top: 0;
+}
+
+/* ── Storage pool gauge ──────────────────────────────────────────────────── */
+.storage-pool {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 88%, var(--paper));
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.storage-pool-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.storage-pool-head span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.storage-pool-head strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.storage-gauge {
+  height: 10px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+  overflow: hidden;
+}
+
+.storage-gauge-fill {
+  height: 100%;
+  background: var(--teal);
+  transition: width var(--dur, 300ms) ease;
+}
+
+.storage-gauge-fill.warm {
+  background: var(--orange);
+}
+
+.storage-gauge-fill.hot {
+  background: var(--err);
+}
+
+/* ── Source badge (agent vs human renter) ────────────────────────────────── */
+.support-row-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.source-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-style: normal;
+  border: 1px solid var(--hair);
+  padding: 3px 6px;
+}
+
+.source-badge.agent {
+  color: var(--teal);
+  border-color: color-mix(in oklab, var(--teal) 36%, var(--hair));
+}
+
+.source-badge.human {
+  color: var(--mut);
+}
+
+.support-sub {
+  display: block;
+  margin-top: 4px;
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
 .mission-control {
   margin-top: 28px;
   border-top: 1px solid var(--hair);
