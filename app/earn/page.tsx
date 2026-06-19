@@ -7,6 +7,7 @@ import Footer from '../components/layout/Footer'
 import { useLanguage, LanguageToggle } from '../lib/i18n'
 import { buildInstallCommand } from '../lib/provider-onboarding'
 import { trackProviderInstallEvent } from '../lib/provider-install-telemetry'
+import { ROUTES } from '../lib/routes'
 
 // GPU pricing in halala/hr (matches backend gpu_pricing seed data)
 const GPU_RATES = [
@@ -32,6 +33,36 @@ const TRUST_BULLET_KEYS = [
   'provider.trust.polling',
   'provider.trust.pause_resume',
   'provider.trust.runtime',
+]
+
+// ── INTERIM agentic-demand section content ────────────────────────────────
+// NOTE: This bilingual copy is inlined (not in the i18n dictionary) on purpose:
+// it is an INTERIM addition to the legacy /earn page, pending the full /earn
+// redesign + merge into the /provider-setup wizard. When that lands, port these
+// strings into the proper i18n keys (or the wizard's <Bi> primitive) and delete
+// this block. Frames DCP's agent-first demand as what a provider's GPU serves.
+const AGENTIC_CARDS: { title: { en: string; ar: string }; body: { en: string; ar: string } }[] = [
+  {
+    title: { en: 'MCP connector', ar: 'موصّل MCP' },
+    body: {
+      en: 'Agents plug DCP straight into their toolchain — npx -y github:dhnpmp-tech/dcp-mcp, listed in the official MCP registry. Your GPU becomes a tool an agent can call.',
+      ar: 'يربط الوكلاء DCP مباشرة بسلسلة أدواتهم عبر npx -y github:dhnpmp-tech/dcp-mcp، المدرج في سجل MCP الرسمي. يصبح معالجك أداة يستدعيها الوكيل.',
+    },
+  },
+  {
+    title: { en: 'Agent self-serve onboarding', ar: 'تسجيل ذاتي للوكلاء' },
+    body: {
+      en: 'An agent gets its own key and trial with no human in the loop — it signs up, rents, and runs inference automatically. Demand arrives 24/7, not just office hours.',
+      ar: 'يحصل الوكيل على مفتاحه وتجربته دون أي تدخل بشري — يسجّل ويستأجر ويشغّل الاستدلال تلقائياً. الطلب يصل على مدار الساعة، لا في أوقات العمل فقط.',
+    },
+  },
+  {
+    title: { en: 'OpenAI-compatible API', ar: 'واجهة متوافقة مع OpenAI' },
+    body: {
+      en: 'Renters and agents hit api.dcp.sa/v1 with the OpenAI SDK they already use — zero rewrites. Every call that lands routes real, paid inference work to a rig like yours.',
+      ar: 'يستخدم المستأجرون والوكلاء api.dcp.sa/v1 بحزمة OpenAI التي يملكونها أصلاً — دون أي إعادة كتابة. كل طلب يصل يوجّه عملاً استدلالياً مدفوعاً إلى جهاز مثل جهازك.',
+    },
+  },
 ]
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -62,6 +93,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 
 export default function EarnPage() {
   const { t, dir, isRTL, language } = useLanguage()
+  const isAr = language === 'ar'
 
   const [selectedGpu, setSelectedGpu] = useState(GPU_RATES[2]) // RTX 4090 default
   const [hours, setHours]             = useState(8)
@@ -101,7 +133,9 @@ export default function EarnPage() {
               {t('earn.hero_subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/setup" className="btn btn-primary btn-lg w-full sm:w-auto">
+              {/* Provider CTA → the PROVIDER wizard. /setup is now RENTER signup;
+                  every provider call-to-action here must land on ROUTES.providerSetup. */}
+              <Link href={ROUTES.providerSetup} className="btn btn-primary btn-lg w-full sm:w-auto">
                 {t('earn.cta_primary')}
               </Link>
               <Link href="/marketplace" className="btn btn-secondary btn-lg w-full sm:w-auto">
@@ -135,6 +169,44 @@ export default function EarnPage() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* ── INTERIM: agentic-demand section ────────────────────────────────
+          Added to the legacy /earn page pending the full redesign + merge into
+          the /provider-setup wizard. Frames DCP's agent-first capabilities (MCP
+          connector, agent self-serve onboarding, OpenAI-compatible API) as the
+          DEMAND a provider's GPU serves — not a generic feature list. Bilingual
+          copy is inlined in AGENTIC_CARDS (see note there) until i18n keys exist. */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-14">
+        <div className="rounded-2xl border border-dc1-amber/20 bg-dc1-surface-l1 p-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dc1-amber/10 border border-dc1-amber/20 text-dc1-amber text-xs font-medium mb-5">
+            <span className="w-1.5 h-1.5 bg-dc1-amber rounded-full" />
+            {isAr ? 'مدعوم بالوكلاء' : 'Agent-first demand'}
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-dc1-text-primary mb-4">
+            {isAr ? 'جهازك يخدم أحمال الوكلاء' : 'Your GPU serves agent-driven workloads'}
+          </h2>
+          <p className="text-dc1-text-secondary leading-relaxed mb-8 max-w-3xl">
+            {isAr
+              ? 'DCP منصة وكلاء أولاً. لا ينتظر الطلب بشراً يضغط زراً — يستأجر الوكلاء المعالجات ويشغّلون الاستدلال تلقائياً عبر هذه المسارات. هذا هو العمل المدفوع الذي يُوجَّه إلى جهازك.'
+              : 'DCP is agent-first. Demand does not wait for a human to click a button — agents rent GPUs and run inference automatically through the rails below. That is the paid work routed to your rig.'}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {AGENTIC_CARDS.map((card) => (
+              <div
+                key={card.title.en}
+                className="rounded-xl border border-dc1-border bg-dc1-surface-l2 p-5 hover:border-dc1-amber/40 transition-colors"
+              >
+                <h3 className="text-sm font-bold text-dc1-amber mb-2">
+                  {isAr ? card.title.ar : card.title.en}
+                </h3>
+                <p className="text-sm text-dc1-text-secondary leading-relaxed">
+                  {isAr ? card.body.ar : card.body.en}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -277,7 +349,7 @@ export default function EarnPage() {
                 </div>
               </div>
 
-              <Link href="/setup" className="btn btn-primary btn-lg w-full text-center block">
+              <Link href={ROUTES.providerSetup} className="btn btn-primary btn-lg w-full text-center block">
                 {t('earn.cta_primary')} →
               </Link>
             </div>
@@ -423,9 +495,11 @@ export default function EarnPage() {
           {t('earn.cta_desc')}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/setup" className="btn btn-primary btn-lg w-full sm:w-auto">
+          {/* Provider register CTA → the PROVIDER wizard (was /setup, now renter signup). */}
+          <Link href={ROUTES.providerSetup} className="btn btn-primary btn-lg w-full sm:w-auto">
             {t('earn.cta_register')}
           </Link>
+          {/* Sign-in stays a generic auth entry; /login 308s to /auth. */}
           <Link href="/login" className="btn btn-secondary btn-lg w-full sm:w-auto">
             {t('earn.cta_signin')}
           </Link>

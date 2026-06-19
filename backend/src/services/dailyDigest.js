@@ -132,8 +132,8 @@ function buildDigestTemplate({ renterName, totalJobs, totalHalala, byModel, dash
     bodyEnHtml,
     bodyArHtml,
     cta: { label: 'Open dashboard', labelAr: 'فتح لوحة التحكم', url: dashboardUrl },
-    whyEn: 'You are receiving this daily summary because jobs completed on your DCP renter account in the last 24 hours. Manage notifications at dcp.sa/v2/renter/settings.',
-    whyAr: 'تصلك هذه الرسالة لأن مهامًا اكتملت على حسابك في DCP خلال آخر ٢٤ ساعة. إدارة الإشعارات من dcp.sa/v2/renter/settings.',
+    whyEn: 'You are receiving this daily summary because jobs completed on your DCP renter account in the last 24 hours. Manage notifications at dcp.sa/renter/settings.',
+    whyAr: 'تصلك هذه الرسالة لأن مهامًا اكتملت على حسابك في DCP خلال آخر ٢٤ ساعة. إدارة الإشعارات من dcp.sa/renter/settings.',
   });
 
   const text = [
@@ -217,7 +217,7 @@ async function runDigest(db) {
   const markDigestedStmt = db.prepare(
     `UPDATE renter_notifications SET digested_at = datetime('now') WHERE id = ?`
   );
-  const dashboardUrl = `${getFrontendUrl()}/dashboard`;
+  const dashboardUrl = `${getFrontendUrl()}/renter/dashboard`;
 
   let rentersEmailed = 0;
   let notificationsDigested = 0;

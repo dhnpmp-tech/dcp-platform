@@ -23,7 +23,7 @@
   },
   "logo_url": "https://dcp.sa/dcp-logo-512.png",
   "contact_email": "support@dcp.sa",
-  "legal_info_url": "https://dcp.sa/legal",
+  "legal_info_url": "https://dcp.sa/legal/pdpl",
   "endpoints": {
     "inference_base_url": "https://api.dcp.sa/v1",
     "models": "https://api.dcp.sa/v1/models",

@@ -79,7 +79,9 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'Security Baseline Whitepaper',
       description: 'Network, container, and key-management controls currently enforced in production.',
       state: 'available',
-      href: '/docs/enterprise-trust-package/section-5-security-whitepaper',
+      // Repointed from the dead /docs/enterprise-trust-package/* path (404) to the
+      // live /security page, which is the real home for these production controls.
+      href: '/security',
       asOf: '2026-04-01',
       category: 'Security',
     },
@@ -88,7 +90,9 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'SLA and Trust Appendix',
       description: 'Service-level terms and trust control checklist for enterprise reviews.',
       state: 'available',
-      href: '/docs/enterprise-trust-package/section-5-sla-trust',
+      // Repointed from the dead /docs/enterprise-trust-package/* path (404) to the
+      // live /terms page, where the effective service-level terms actually live.
+      href: '/terms',
       asOf: '2026-04-01',
       category: 'Operations',
     },
@@ -124,7 +128,8 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'الورقة الأمنية الأساسية',
       description: 'ضوابط الشبكة والحاويات وإدارة المفاتيح المطبقة حالياً في الإنتاج.',
       state: 'available',
-      href: '/docs/enterprise-trust-package/section-5-security-whitepaper',
+      // See EN note above: repointed to the live /security page.
+      href: '/security',
       asOf: '2026-04-01',
       category: 'Security',
     },
@@ -133,7 +138,8 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'ملحق SLA والثقة',
       description: 'شروط مستوى الخدمة وقائمة ضوابط الثقة لمراجعات المؤسسات.',
       state: 'available',
-      href: '/docs/enterprise-trust-package/section-5-sla-trust',
+      // See EN note above: repointed to the live /terms page.
+      href: '/terms',
       asOf: '2026-04-01',
       category: 'Operations',
     },
@@ -616,12 +622,12 @@ export default function TrustCenterPage() {
                   {copy.cta.primary}
                 </Link>
                 <Link
-                  href="/docs/enterprise-trust-package/section-5-security-whitepaper"
+                  href="/security"
                   className="btn btn-secondary text-center"
                   onClick={() => {
                     trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
                       cta_id: 'security_whitepaper',
-                      destination: '/docs/enterprise-trust-package/section-5-security-whitepaper',
+                      destination: '/security',
                     })
                   }}
                   data-testid="trust-cta-secondary"
