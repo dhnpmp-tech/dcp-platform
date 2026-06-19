@@ -1970,9 +1970,11 @@ export default function V2HomePage() {
           </div>
 
           {/* Crawlable, plain-text GPU rental SKUs + prices. This is the literal
-              SKU + SAR/hr text AI answer engines match "rent an H100 / A100 /
-              RTX 4090 on demand" against. Mirrors GPU_RATES in
-              app/pricing/page.tsx and app/lib/structured-data.ts. */}
+              SKU + SAR/hr text AI answer engines match "rent an H200 / H100 /
+              A100 / L40S / RTX 5090 / RTX 4090 on demand" against. Mirrors the
+              LIVE rentable set (GET /api/renters/available-providers), GPU_RATES
+              in app/pricing/page.tsx and GPU_SKUS in app/lib/structured-data.ts.
+              On-demand prices are cost-plus floors ("from"); float ~every 4 min. */}
           <div style={{ marginTop: 40 }}>
             <div className="section-meta" style={{ marginBottom: 18 }}>
               <span className="idx">
@@ -1986,30 +1988,30 @@ export default function V2HomePage() {
               <div className="mp-row mp-row-head" role="row">
                 <span role="columnheader"><Bi en="GPU" ar="المعالج" /></span>
                 <span role="columnheader"><Bi en="VRAM" ar="الذاكرة" /></span>
-                <span role="columnheader"><Bi en="SAR / hour" ar="ريال / ساعة" /></span>
+                <span role="columnheader"><Bi en="from SAR / hour" ar="من ريال / ساعة" /></span>
                 <span role="columnheader"><Bi en="≈ USD / hour" ar="≈ دولار / ساعة" /></span>
               </div>
               {[
-                { gpu: 'NVIDIA H200', vram: '141 GB', sar: '9.19', usd: '2.45' },
-                { gpu: 'NVIDIA H100', vram: '80 GB', sar: '7.09', usd: '1.89' },
-                { gpu: 'NVIDIA A100', vram: '40 GB', sar: '4.50', usd: '1.20' },
-                { gpu: 'NVIDIA RTX 4090', vram: '24 GB', sar: '1.00', usd: '0.27' },
-                { gpu: 'NVIDIA RTX 4080', vram: '16 GB', sar: '0.67', usd: '0.18' },
-                { gpu: 'NVIDIA RTX 3090', vram: '24 GB', sar: '0.50', usd: '0.13' },
-                { gpu: 'NVIDIA RTX 3080', vram: '10 GB', sar: '0.33', usd: '0.09' },
+                { gpu: 'NVIDIA H200', vram: '141 GB', sar: '23.05', usd: '6.15', onDemand: true },
+                { gpu: 'NVIDIA H100', vram: '80 GB', sar: '17.27', usd: '4.61', onDemand: true },
+                { gpu: 'NVIDIA A100', vram: '80 GB', sar: '7.30', usd: '1.95', onDemand: true },
+                { gpu: 'NVIDIA L40S', vram: '48 GB', sar: '5.20', usd: '1.39', onDemand: true },
+                { gpu: 'NVIDIA RTX 5090', vram: '32 GB', sar: '5.20', usd: '1.39', onDemand: true },
+                { gpu: 'NVIDIA RTX 4090', vram: '24 GB', sar: '3.62', usd: '0.97', onDemand: true },
+                { gpu: 'NVIDIA RTX 3090', vram: '24 GB', sar: '0.50', usd: '0.13', onDemand: false },
               ].map((r) => (
                 <div className="mp-row" role="row" key={r.gpu}>
                   <span className="mp-model" role="cell"><b>{r.gpu}</b></span>
                   <span role="cell">{r.vram}</span>
-                  <span role="cell">SAR {r.sar}</span>
+                  <span role="cell">{r.onDemand ? 'from ' : ''}SAR {r.sar}</span>
                   <span role="cell" dir="ltr">${r.usd}</span>
                 </div>
               ))}
             </div>
             <p style={{ marginTop: 14, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
               <Bi
-                en="Every pod is a whole, dedicated NVIDIA GPU with root, Jupyter over TLS and SSH in about a minute — served from verified, in-Kingdom Saudi hardware (PDPL-compliant). USD figures are indicative conversions at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in Saudi Riyal."
-                ar="كل حاوية هي معالج NVIDIA كامل ومخصص مع صلاحيات الجذر وJupyter عبر TLS وSSH خلال دقيقة تقريباً — يُخدَّم من عتاد سعودي متحقق داخل المملكة (متوافق مع نظام حماية البيانات). أرقام الدولار تقديرية وفق ربط ساما (١ دولار ≈ ٣٫٧٥ ريال)؛ والفوترة بالريال السعودي."
+                en="Every pod is a whole, dedicated NVIDIA GPU with root, Jupyter over TLS and SSH in about a minute — served from verified, in-Kingdom Saudi hardware (PDPL-compliant). On-demand types (H200, H100, A100, L40S, RTX 5090, RTX 4090) are priced cost-plus from the live market, so each is a 'from' floor that floats with the upstream rate; the native RTX 3090 is a Saudi-owned community card and Apple Silicon (M2-class) is live for inference-only workloads. USD figures are indicative conversions at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in Saudi Riyal."
+                ar="كل حاوية هي معالج NVIDIA كامل ومخصص مع صلاحيات الجذر وJupyter عبر TLS وSSH خلال دقيقة تقريباً — يُخدَّم من عتاد سعودي متحقق داخل المملكة (متوافق مع نظام حماية البيانات). الأنواع عند الطلب (H200 وH100 وA100 وL40S وRTX 5090 وRTX 4090) مُسعّرة بالتكلفة زائد هامش من السوق الحي، فكل سعر هو حدٌّ أدنى «من» يتغير مع السعر الأصلي؛ أما RTX 3090 المحلي فهو بطاقة مجتمعية سعودية، وأجهزة Apple Silicon (من فئة M2) متاحة لأحمال الاستدلال فقط. أرقام الدولار تقديرية وفق ربط ساما (١ دولار ≈ ٣٫٧٥ ريال)؛ والفوترة بالريال السعودي."
               />
             </p>
           </div>
@@ -2051,8 +2053,8 @@ export default function V2HomePage() {
               {
                 qEn: 'How do I rent an H100 (or other GPU) on demand on DCP?',
                 qAr: 'كيف أستأجر معالج H100 (أو غيره) عند الطلب على DCP؟',
-                aEn: 'Sign up for a DCP renter account at dcp.sa, fund your wallet in Saudi Riyal, then launch a pod from the console or via the API — POST https://api.dcp.sa/api/pods with a Bearer renter key. You get a whole NVIDIA GPU (H200, H100, A100, RTX 4090 and more) with root, Jupyter over TLS and SSH in about a minute. Billing is prepaid per GPU-second in SAR, with a prorated refund when you stop early.',
-                aAr: 'سجّل حساب مستأجر على dcp.sa، ومَوّل محفظتك بالريال السعودي، ثم شغّل حاوية من لوحة التحكم أو عبر الواجهة — POST https://api.dcp.sa/api/pods بمفتاح مستأجر من نوع Bearer. تحصل على معالج NVIDIA كامل (H200 وH100 وA100 وRTX 4090 وغيرها) مع صلاحيات الجذر وJupyter عبر TLS وSSH خلال دقيقة تقريباً. الفوترة مدفوعة مسبقاً بالثانية بالريال، مع استرداد تناسبي عند الإيقاف المبكر.',
+                aEn: 'Sign up for a DCP renter account at dcp.sa, fund your wallet in Saudi Riyal, then launch a pod from the console or via the API — POST https://api.dcp.sa/api/pods with a Bearer renter key. You get a whole NVIDIA GPU (H200, H100, A100, L40S, RTX 5090 or RTX 4090) with root, Jupyter over TLS and SSH in about a minute. Billing is prepaid per GPU-second in SAR, with a prorated refund when you stop early.',
+                aAr: 'سجّل حساب مستأجر على dcp.sa، ومَوّل محفظتك بالريال السعودي، ثم شغّل حاوية من لوحة التحكم أو عبر الواجهة — POST https://api.dcp.sa/api/pods بمفتاح مستأجر من نوع Bearer. تحصل على معالج NVIDIA كامل (H200 أو H100 أو A100 أو L40S أو RTX 5090 أو RTX 4090) مع صلاحيات الجذر وJupyter عبر TLS وSSH خلال دقيقة تقريباً. الفوترة مدفوعة مسبقاً بالثانية بالريال، مع استرداد تناسبي عند الإيقاف المبكر.',
               },
               {
                 qEn: 'Is DCP an OpenAI-compatible inference API?',
@@ -2075,8 +2077,8 @@ export default function V2HomePage() {
               {
                 qEn: 'How much does it cost to rent a GPU on DCP?',
                 qAr: 'كم تكلفة استئجار معالج على DCP؟',
-                aEn: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal. Indicative hourly rates: NVIDIA RTX 3080 from about 0.33 SAR/hr, RTX 3090 0.5 SAR/hr, RTX 4090 1.0 SAR/hr, A100 4.5 SAR/hr, H100 7.09 SAR/hr, and H200 9.19 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
-                aAr: 'يُفوتر إيجار المعالجات مدفوعاً مسبقاً بالثانية بالريال السعودي. أسعار تقديرية بالساعة: RTX 3080 من نحو ٠٫٣٣ ريال/ساعة، وRTX 3090 ٠٫٥ ريال/ساعة، وRTX 4090 ١٫٠ ريال/ساعة، وA100 ٤٫٥ ريال/ساعة، وH100 ٧٫٠٩ ريال/ساعة، وH200 ٩٫١٩ ريال/ساعة. تبدأ حسابات المستأجرين الجدد برصيد ١٠٠ ريال دون الحاجة إلى بطاقة.',
+                aEn: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 0.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+                aAr: 'يُفوتر إيجار المعالجات مدفوعاً مسبقاً بالثانية بالريال السعودي، بالتكلفة زائد هامش من السوق الحي. الأنواع عند الطلب وأسعارها التقديرية بالساعة: RTX 4090 من نحو ٣٫٦٢ ريال/ساعة، وRTX 5090 من ٥٫٢ ريال/ساعة، وL40S من ٥٫٢ ريال/ساعة، وA100 (٨٠ جيجابايت) من ٧٫٣ ريال/ساعة، وH100 (٨٠ جيجابايت) من ١٧٫٢٧ ريال/ساعة، وH200 (١٤١ جيجابايت) من ٢٣٫٠٥ ريال/ساعة. أما RTX 3090 المحلي داخل المملكة فهو ٠٫٥ ريال/ساعة. تبدأ حسابات المستأجرين الجدد برصيد ١٠٠ ريال دون الحاجة إلى بطاقة.',
               },
               {
                 qEn: 'Where does my data live when I use DCP?',
