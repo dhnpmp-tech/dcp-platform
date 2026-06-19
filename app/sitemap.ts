@@ -22,6 +22,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/support',
     '/status',
     '/trust-center',
+    // /security is now a real public page (the security-posture surface the
+    // trust center references), no longer a 308 → /trust-center placeholder.
+    '/security',
     '/terms',
     '/privacy',
     '/acceptable-use',
