@@ -49,21 +49,21 @@ export default function Header() {
 
   const publicNav: PublicNavItem[] = useMemo(
     () => [
-      { label: t('header.nav.rent'), href: '/renter/register' },
+      { label: t('header.nav.rent'), href: ROUTES.renterSignup },
       { label: t('header.nav.playground'), href: '/renter/playground?starter=1', matchPath: '/renter/playground' },
       { label: t('header.nav.container_api'), href: docsHref, matchPath: '/docs' },
       { label: t('header.nav.enterprise'), href: supportHref, matchPath: '/support' },
-      { label: t('header.nav.earn'), href: '/setup' },
+      { label: t('header.nav.earn'), href: ROUTES.providerSetup },
     ],
     [docsHref, supportHref, t]
   )
 
   const primaryHref =
     roleIntent === 'provider'
-      ? '/setup'
+      ? ROUTES.providerSetup
       : roleIntent === 'enterprise'
         ? '/support?category=enterprise&source=header-primary-cta#contact-form'
-        : '/renter/register'
+        : ROUTES.renterSignup
 
   const primaryLabel =
     roleIntent === 'provider'
