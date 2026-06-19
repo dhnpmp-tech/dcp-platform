@@ -122,7 +122,12 @@ const nextConfig = {
       { source: '/v2/renter/:path*', destination: '/renter/:path*', permanent: true },
       { source: '/v2/provider/:path*', destination: '/provider/:path*', permanent: true },
       // Catch-all LAST: sweep any stray /v2/* not matched above to its root twin.
-      { source: '/v2/:path*', destination: '/:path*', permanent: true },
+      // The negative lookahead EXCLUDES /v2/home: Vercel's edge router evaluates
+      // a param catch-all with higher precedence than a static source, so without
+      // this guard /v2/home would be swept to the non-existent /home (404) instead
+      // of honouring the specific /v2/home -> / rule above. Every other stray
+      // /v2/<x> maps cleanly to /<x>.
+      { source: '/v2/:path((?!home$).*)', destination: '/:path', permanent: true },
 
       // ── Retired v1 surfaces → canonical ROOT (permanent 308) ────────────
       // GPU Pods product page lives in the app now; the static one-pager is retired.
