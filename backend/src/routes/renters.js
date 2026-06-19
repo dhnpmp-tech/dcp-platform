@@ -5,7 +5,7 @@ const router = express.Router();
 const db = require('../db');
 const { COST_RATES } = require('./jobs');
 const { sendDataExportReady } = require('../services/emailService');
-const { renterAccountDeletionLimiter, renterDataExportLimiter, registerLimiter } = require('../middleware/rateLimiter');
+const { renterAccountDeletionLimiter, renterDataExportLimiter, registerLimiter, agentRegisterLimiter } = require('../middleware/rateLimiter');
 const {
   getDiscoveryStatus,
   resolveProviders,
@@ -19,8 +19,8 @@ const { isPublicWebhookUrl } = require('../lib/webhook-security');
 const { toRfc3339 } = require('../lib/iso-datetime');
 const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/validateWebhookUrl');
 const { validateBody } = require('../middleware/validate');
-const { renterRegisterSchema, renterTopupSchema } = require('../schemas/topup.schema');
-const { getBearerToken, isAdminRequest } = require('../middleware/auth');
+const { renterRegisterSchema, renterTopupSchema, renterAgentRegisterSchema } = require('../schemas/topup.schema');
+const { getBearerToken, isAdminRequest, looksLikeRenterKey } = require('../middleware/auth');
 const { toRenterProviderView, toRenterJobView } = require('../lib/renter-job-view');
 const analytics = require('../services/analyticsService');
 const conversionFunnel = require('../services/conversionFunnelService');
@@ -510,6 +510,157 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
     }
     console.error('Renter registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// POST /api/renters/agent-register — programmatic zero-human renter signup.
+//
+// Motivation: the human flow (/register) pre-stages a PENDING row and requires
+// a magic-link email click to mint the real key. An autonomous AI agent has no
+// inbox to click, so that step is a hard wall. This endpoint mints a REAL,
+// immediately-usable `dcp-renter-…` key + a MODEST trial credit in ONE call so
+// an agent can go zero→list_gpus→create_pod with no human in the loop.
+//
+// It does NOT touch the human magic-link flow — that path still pre-stages
+// pending rows and finalizes on email click. This is an additive, parallel
+// door, clearly tagged source='agent' for audit/revocation.
+//
+// Abuse posture (this auto-mints keys + money — designed defensively):
+//   • Per-IP rate limit (agentRegisterLimiter: 3/IP/hour) is the primary brake.
+//   • MODEST trial — 20 SAR (2000 halala), not the human 100 SAR. Rationale: it
+//     is enough to prove the loop (list_gpus → a short cheap pod → stop) and run
+//     real inference, but small enough that farming N keys across rotating IPs
+//     yields little; the bigger 100 SAR grant stays gated behind email proof.
+//   • Email OPTIONAL — captured for recovery/audit when given, never required.
+//   • Provenance recorded: source='agent', signup_ip, created_at, and the exact
+//     trial_grant_halala, so any agent account can be found, audited, revoked.
+//   • Reuses the cross-role conflict check; an email already held by a PROVIDER
+//     is rejected (no silent dual-role minting on the machine path).
+//   • Idempotent on a supplied email: a second call with the same email returns
+//     the SAME key without re-crediting the trial (no double-spend).
+// ─────────────────────────────────────────────────────────────────────────
+
+// Agent trial: 20 SAR. Deliberately smaller than the human RENTER_STARTER
+// (100 SAR / 10000 halala) because this path skips email verification.
+const AGENT_TRIAL_HALALA = 2000;
+
+router.post('/agent-register', agentRegisterLimiter, validateBody(renterAgentRegisterSchema), async (req, res) => {
+  try {
+    const cleanEmail = req.body.email ? normalizeEmail(req.body.email) : null;
+    const cleanLabel = normalizeString(req.body.label, { maxLen: 120 });
+    const cleanOrg = normalizeString(req.body.organization, { maxLen: 160 });
+    const cleanUseCase = normalizeString(req.body.use_case, { maxLen: 120 });
+    // req.ip is resolved via the app's hardened `trust proxy` hop count.
+    const signupIp = normalizeString(req.ip, { maxLen: 64 }) || null;
+    const now = new Date().toISOString();
+
+    // If an email was supplied and it already belongs to a PROVIDER, refuse —
+    // we never auto-mint a renter key onto a provider's email on this path.
+    if (cleanEmail) {
+      const conflict = findActiveAccountByEmail(db, cleanEmail);
+      if (conflict && conflict.role === 'provider') {
+        return res.status(409).json({
+          error: 'This email is already registered as a provider. Use a different email or omit it.',
+          code: 'EMAIL_BELONGS_TO_PROVIDER',
+        });
+      }
+      // Idempotent: existing ACTIVE renter for this email → return its key,
+      // do NOT re-credit. (Pending rows from the human flow are also returned
+      // active after we activate+mint below only if they have no real key yet.)
+      const existing = db.get(
+        'SELECT id, status, api_key, balance_halala FROM renters WHERE LOWER(email) = LOWER(?)',
+        cleanEmail
+      );
+      if (existing && existing.status === 'active' && looksLikeRenterKey(existing.api_key)) {
+        return res.status(200).json({
+          success: true,
+          already_registered: true,
+          api_key: existing.api_key,
+          renter_id: existing.id,
+          balance_halala: existing.balance_halala,
+          balance_sar: Number((existing.balance_halala / 100).toFixed(2)),
+          message: 'An account already exists for this email; returning its key. No new trial granted.',
+        });
+      }
+    }
+
+    const apiKey = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
+    const name = cleanLabel || (cleanEmail ? cleanEmail.split('@')[0] : null) || 'agent';
+    // Synthetic unique email when none supplied — the column is UNIQUE NOT NULL.
+    // The `agent+…@agents.dcp.sa` shape is reserved/non-deliverable so it can
+    // never collide with a real human signup and is obvious in an audit.
+    const emailForRow = cleanEmail || `agent+${crypto.randomBytes(8).toString('hex')}@agents.dcp.sa`;
+
+    let renterId;
+    try {
+      const result = runStatement(
+        `INSERT INTO renters
+           (name, email, api_key, organization, use_case, status,
+            balance_halala, source, signup_ip, trial_grant_halala, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'active', ?, 'agent', ?, ?, ?, ?)`,
+        name, emailForRow, apiKey, cleanOrg || null, cleanUseCase || null,
+        AGENT_TRIAL_HALALA, signupIp, AGENT_TRIAL_HALALA, now, now
+      );
+      renterId = result.lastInsertRowid;
+    } catch (insErr) {
+      // UNIQUE(email) race: a concurrent agent-register with the same email
+      // already minted the row. Return that row's key (no double-credit).
+      if (cleanEmail && /UNIQUE constraint/i.test(insErr.message || '')) {
+        const raced = db.get('SELECT id, api_key, balance_halala FROM renters WHERE LOWER(email) = LOWER(?)', cleanEmail);
+        if (raced && looksLikeRenterKey(raced.api_key)) {
+          return res.status(200).json({
+            success: true,
+            already_registered: true,
+            api_key: raced.api_key,
+            renter_id: raced.id,
+            balance_halala: raced.balance_halala,
+            balance_sar: Number((raced.balance_halala / 100).toFixed(2)),
+            message: 'An account already exists for this email; returning its key. No new trial granted.',
+          });
+        }
+      }
+      throw insErr;
+    }
+
+    // Immutable audit trail of the trial grant (same table the admin credit
+    // path uses), so the trial is reconcilable independent of balance drift.
+    try {
+      runStatement(
+        `INSERT INTO credit_grants (renter_id, amount_halala, reason, granted_by, created_at)
+         VALUES (?, ?, ?, 'agent-register', ?)`,
+        renterId, AGENT_TRIAL_HALALA, 'agent self-serve trial credit', now
+      );
+    } catch (grantErr) {
+      console.error('[renters/agent-register] credit_grants audit insert failed (non-fatal):', grantErr.message);
+    }
+
+    console.log(`[renters/agent-register] minted agent renter id=${renterId} ip=${signupIp || 'unknown'} trial=${AGENT_TRIAL_HALALA}h email=${cleanEmail ? cleanEmail : '(none)'}`);
+
+    res.status(201).json({
+      success: true,
+      api_key: apiKey,
+      renter_id: renterId,
+      trial_credit_halala: AGENT_TRIAL_HALALA,
+      trial_credit_sar: Number((AGENT_TRIAL_HALALA / 100).toFixed(2)),
+      balance_halala: AGENT_TRIAL_HALALA,
+      balance_sar: Number((AGENT_TRIAL_HALALA / 100).toFixed(2)),
+      next: 'Use this api_key as Authorization: Bearer (or x-renter-key). Call GET /api/renters/available-providers to list GPU types, then POST /api/pods to launch one.',
+      message: 'Agent account ready. Real key minted with a 20 SAR trial — no email verification required.',
+    });
+
+    // Fire-and-forget analytics; never block the response on it.
+    try {
+      analytics.renter.signupComplete(renterId, {
+        organization: cleanOrg || null,
+        use_case: cleanUseCase || null,
+        stage: 'agent_self_serve',
+        source: 'agent',
+      }).catch(() => {});
+    } catch (_) { /* analytics best-effort */ }
+  } catch (error) {
+    console.error('[renters/agent-register] error:', error);
+    res.status(500).json({ error: 'Agent registration failed' });
   }
 });
 
