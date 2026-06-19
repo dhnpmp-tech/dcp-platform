@@ -953,6 +953,19 @@ router.get('/models', (req, res) => {
 
 // ── POST /v1/chat/completions — unified streaming + non-streaming ──────────
 
+// Default output budget when the caller specifies neither `max_tokens` nor
+// `max_completion_tokens`. SITE-15 fix: thinking-capable models (qwen3:4b,
+// qwen3:8b, QwQ, DeepSeek-R1) spend output tokens on internal reasoning before
+// emitting any visible answer. With the legacy 512 floor a reasoning-heavy
+// prompt burns the entire budget on the internal monologue and returns
+// content="" with finish_reason="length" (a non-answer). The /no_think soft
+// switch is unreliable on the live Ollama build, so the robust, engine-agnostic
+// guard is a higher default budget for thinking models so reasoning can never
+// starve the answer. Callers who pass an explicit budget keep full control.
+const DEFAULT_MAX_TOKENS = 512;
+const DEFAULT_MAX_TOKENS_THINKING = 2048;
+const MAX_TOKENS_HARD_CAP = 8192;
+
 // Dynamic timeout: 30s base + scales with max_tokens (14B model at ~9 tok/s)
 const PROXY_TIMEOUT_BASE_MS = 30000;
 const PROXY_TIMEOUT_PER_TOKEN_MS = 150;
@@ -1708,9 +1721,28 @@ function canonicalizeReasoningField(obj) {
 // Remove reasoning from a message/delta entirely: strip <think> blocks from
 // content and drop any separated reasoning field. Used when thinking is
 // disabled (the default / "Show reasoning" toggle off).
+//
+// SITE-15 salvage: a thinking model can exhaust its budget mid-reasoning and
+// return content="" with the answer (or the bulk of its thought) sitting in the
+// separated reasoning field. Blindly deleting reasoning then leaves the renter
+// an empty completion — a non-answer. So when stripping the content yields
+// nothing AND reasoning text exists, promote that reasoning (cleaned of any
+// nested <think> tags) into content rather than shipping "". A real answer the
+// model actually produced is always better than an empty body.
 function stripReasoningFromObject(obj) {
   if (!obj || typeof obj !== 'object') return;
-  if (typeof obj.content === 'string') obj.content = stripThinkBlocks(obj.content);
+  const strippedContent =
+    typeof obj.content === 'string' ? stripThinkBlocks(obj.content) : obj.content;
+  const reasoningText =
+    (typeof obj.reasoning === 'string' && obj.reasoning) ||
+    (typeof obj.reasoning_content === 'string' && obj.reasoning_content) ||
+    (typeof obj.thinking === 'string' && obj.thinking) ||
+    '';
+  const visible = typeof strippedContent === 'string' ? strippedContent.trim() : '';
+  obj.content =
+    visible.length === 0 && reasoningText.trim().length > 0
+      ? stripThinkBlocks(reasoningText)
+      : strippedContent;
   delete obj.reasoning;
   delete obj.reasoning_content;
   delete obj.thinking;
@@ -2134,7 +2166,16 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
-    const maxTokens = toFiniteInt(req.body?.max_tokens, { min: 1, max: 8192 }) || 512;
+    // Output budget. Accept both `max_tokens` (legacy) and `max_completion_tokens`
+    // (current OpenAI SDKs) — whichever the caller sent wins. When neither is
+    // provided, choose a default that won't let a thinking model's reasoning
+    // starve the visible answer (see DEFAULT_MAX_TOKENS_THINKING note above).
+    const requestedMaxTokens =
+      toFiniteInt(req.body?.max_tokens, { min: 1, max: MAX_TOKENS_HARD_CAP }) ??
+      toFiniteInt(req.body?.max_completion_tokens, { min: 1, max: MAX_TOKENS_HARD_CAP });
+    const maxTokens =
+      requestedMaxTokens ??
+      (isThinkingCapableModel(model) ? DEFAULT_MAX_TOKENS_THINKING : DEFAULT_MAX_TOKENS);
     const temperature = toFiniteNumber(req.body?.temperature, { min: 0, max: 2 }) ?? 0.7;
     const wantsStream = !!req.body?.stream;
 
