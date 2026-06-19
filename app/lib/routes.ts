@@ -1,30 +1,32 @@
 // ─────────────────────────────────────────────────────────────────────────
 // routes.ts — single source of truth for canonical internal paths.
 //
-// WHY THIS EXISTS: the site carries a legacy v1 page tree (app/*) alongside the
-// redesigned v2 tree (app/v2/*). Hardcoded path string literals scattered across
-// components, the home NAV/footer, middleware, and next.config drifted — the GPU
-// "Rent →" CTA correctly pointed at /v2/renter/pods but the auth gate bounced
-// unauthenticated visitors to the OLD v1 /login. Centralizing the canonical paths
-// here keeps every internal link, redirect target, and the auth gate in lockstep
-// so nothing lands on a stale v1 surface.
+// WHY THIS EXISTS: the redesigned surface now lives in the app/(site) route
+// group and is CANONICAL at clean ROOT URLs (/, /docs, /agents, /renter/*,
+// /provider/*, …). A handful of legacy v1 pages still live at app/* (pricing,
+// status, terms, /earn, /admin, …). Hardcoded path string literals scattered
+// across components, the home NAV/footer, middleware, and next.config drifted —
+// centralizing the canonical paths here keeps every internal link, redirect
+// target, and the auth gate in lockstep so nothing emits a stale /v2 URL that
+// would only 308 back to root (a wasted redirect hop).
 //
 // SCOPE: app code (components) + middleware import this. next.config.js is
-// CommonJS loaded before the TS toolchain, so its legacy→canonical redirect
-// SOURCES stay literal there; the DESTINATIONS mirror these constants.
+// CommonJS loaded before the TS toolchain, so its /v2→root and legacy→canonical
+// redirect SOURCES stay literal there; the DESTINATIONS mirror these constants.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const ROUTES = {
   // ── Public / marketing ──────────────────────────────────────────────
-  home: '/v2/home',
+  home: '/',
   pricing: '/pricing',
-  docs: '/v2/docs',
+  docs: '/docs',
   // Agent-first product/explainer surface (zero-human onboarding, MCP, the
-  // machine-readable money signals). Clean v2 route — the OLD v1 /agents page
-  // is permanently redirected here in next.config; never reuse /agents.
-  agents: '/v2/agents',
-  containers: '/v2/containers',
-  architecture: '/v2/architecture',
+  // machine-readable money signals). Canonical root route — the OLD v1 /agents
+  // page has been retired and this surface now lives at /agents; the legacy
+  // /v2/agents URL 308s here in next.config to transfer AEO equity.
+  agents: '/agents',
+  containers: '/containers',
+  architecture: '/architecture',
   status: '/status',
   support: '/support',
   trustCenter: '/trust-center',
@@ -34,42 +36,45 @@ export const ROUTES = {
   // ── Auth ────────────────────────────────────────────────────────────
   // The redesigned auth surface. Supports ?role=renter|provider|admin,
   // ?method=apikey, ?new=1 (signup tab) and ?redirect= (post-auth return).
-  auth: '/v2/auth',
+  auth: '/auth',
 
   // ── Renter onboarding / signup ──────────────────────────────────────
-  // Renter "create account" / get-an-API-key funnel.
-  renterSignup: '/v2/setup',
+  // Renter "create account" / get-an-API-key funnel. (The legacy /setup
+  // PROVIDER wizard is retired; /setup is now the renter signup funnel.)
+  renterSignup: '/setup',
 
   // ── Renter console ──────────────────────────────────────────────────
-  renterDashboard: '/v2/renter/dashboard',
+  renterDashboard: '/renter/dashboard',
   // Where every "Rent" / "launch a pod" action lands.
-  renterPods: '/v2/renter/pods',
-  renterPlayground: '/v2/renter/playground',
-  renterWallet: '/v2/renter/wallet',
-  renterUsage: '/v2/renter/usage',
-  renterInvoices: '/v2/renter/invoices',
-  renterKeys: '/v2/renter/keys',
-  renterSettings: '/v2/renter/settings',
+  renterPods: '/renter/pods',
+  renterPlayground: '/renter/playground',
+  renterWallet: '/renter/wallet',
+  renterUsage: '/renter/usage',
+  renterInvoices: '/renter/invoices',
+  renterKeys: '/renter/keys',
+  renterSettings: '/renter/settings',
 
   // ── Provider onboarding / signup ────────────────────────────────────
-  providerSetup: '/v2/provider-setup',
+  providerSetup: '/provider-setup',
 
   // ── Provider console ────────────────────────────────────────────────
-  providerDashboard: '/v2/provider/dashboard',
-  providerEarnings: '/v2/provider/earnings',
-  providerPayouts: '/v2/provider/payouts',
-  providerProfile: '/v2/provider/profile',
-  providerRigs: '/v2/provider/rigs',
-  providerSettings: '/v2/provider/settings',
+  providerDashboard: '/provider/dashboard',
+  providerEarnings: '/provider/earnings',
+  providerPayouts: '/provider/payouts',
+  providerProfile: '/provider/profile',
+  providerRigs: '/provider/rigs',
+  providerSettings: '/provider/settings',
 
   // ── Admin ───────────────────────────────────────────────────────────
-  admin: '/v2/admin',
+  // The deep v1 admin console remains canonical at /admin (the redesigned
+  // single-page admin surface was retired pending parity); /v2/admin 308s here.
+  admin: '/admin',
 } as const
 
 export type RouteKey = keyof typeof ROUTES
 
 /**
- * Builds an auth URL for the redesigned /v2/auth page, preserving the
+ * Builds an auth URL for the redesigned /auth page, preserving the
  * post-auth redirect and the role/signup intent.
  *
  * Used by the middleware auth gate (replacing the old /login bounce) and by

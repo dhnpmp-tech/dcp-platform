@@ -135,7 +135,7 @@ export function mcpServerLd(): Record<string, unknown> {
     operatingSystem: 'Any (Node.js)',
     description:
       'An official Model Context Protocol (MCP) server (npx -y github:dhnpmp-tech/dcp-mcp) that lets any AI agent self-register a DCP renter account (zero human, with a SAR trial credit), rent a GPU, run OpenAI-compatible inference, manage persistent storage, and check wallet balance through tool calls. Tools: register_agent, list_models, chat, get_balance, list_gpus, create_pod, get_pod, extend_pod, stop_pod, rent_volume and get_volume.',
-    softwareHelp: { '@type': 'CreativeWork', url: `${SITE_URL}/v2/agents` },
+    softwareHelp: { '@type': 'CreativeWork', url: `${SITE_URL}/agents` },
     provider: { '@id': `${SITE_URL}/#organization` },
     offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
   }
@@ -158,7 +158,7 @@ export const HOME_FAQ: ReadonlyArray<FaqItem> = [
   },
   {
     q: 'Can an AI agent rent a GPU on DCP via MCP?',
-    a: "Yes. DCP ships an official Model Context Protocol (MCP) server. An MCP-capable agent (such as Claude) can list models, run inference, list available GPU types, create and extend GPU pods, rent storage volumes, and check wallet balance through tool calls. See dcp.sa/v2/docs for the MCP setup and tool reference.",
+    a: "Yes. DCP ships an official Model Context Protocol (MCP) server. An MCP-capable agent (such as Claude) can list models, run inference, list available GPU types, create and extend GPU pods, rent storage volumes, and check wallet balance through tool calls. See dcp.sa/docs for the MCP setup and tool reference.",
   },
   {
     q: 'What is sovereign / in-Kingdom AI compute in Saudi Arabia?',
@@ -204,28 +204,28 @@ export function rentGpuHowToLd(): Record<string, unknown> {
         position: 1,
         name: 'Create a renter account',
         text: 'Sign up at dcp.sa and create a renter API key. New accounts start with 100 SAR of credit.',
-        url: `${SITE_URL}/v2/setup`,
+        url: `${SITE_URL}/setup`,
       },
       {
         '@type': 'HowToStep',
         position: 2,
         name: 'Launch a pod',
         text: 'Call POST https://api.dcp.sa/api/pods with a Bearer renter key (or use the launch console). Choose a GPU type such as H200, H100, A100, L40S, RTX 5090 or RTX 4090.',
-        url: `${SITE_URL}/v2/renter/pods`,
+        url: `${SITE_URL}/renter/pods`,
       },
       {
         '@type': 'HowToStep',
         position: 3,
         name: 'Connect',
         text: 'Poll GET /api/pods/{id} for the Jupyter access_url and ssh_command. The whole GPU is dedicated to you with a pinned driver.',
-        url: `${SITE_URL}/v2/docs`,
+        url: `${SITE_URL}/docs`,
       },
       {
         '@type': 'HowToStep',
         position: 4,
         name: 'Extend or stop',
         text: 'Extend without restart via POST /api/pods/{id}/extend, or stop early with DELETE /api/pods/{id} for a prorated refund. The host enforces a hard deadline even across reboots.',
-        url: `${SITE_URL}/v2/docs`,
+        url: `${SITE_URL}/docs`,
       },
     ],
   }
@@ -250,28 +250,28 @@ export function agentRentGpuHowToLd(): Record<string, unknown> {
         position: 1,
         name: 'Self-register (zero human)',
         text: 'POST https://api.dcp.sa/api/renters/agent-register with an optional JSON body ({email, label, use_case}). The response (201) returns a real api_key (dcp-renter-...) and a 20 SAR trial credit — no human approval and no email verification. Via MCP this is the register_agent tool.',
-        url: `${SITE_URL}/v2/agents`,
+        url: `${SITE_URL}/agents`,
       },
       {
         '@type': 'HowToStep',
         position: 2,
         name: 'List GPU types',
         text: 'GET https://api.dcp.sa/api/renters/available-providers (or the list_gpus MCP tool) to see rentable GPU types — H200, H100, A100, L40S, RTX 5090, RTX 4090 — each with VRAM and live availability. Pick a gpu_type string.',
-        url: `${SITE_URL}/v2/agents`,
+        url: `${SITE_URL}/agents`,
       },
       {
         '@type': 'HowToStep',
         position: 3,
         name: 'Rent a whole GPU',
         text: 'POST https://api.dcp.sa/api/pods with Authorization: Bearer <key>, an Idempotency-Key header (safe retries), and a body of { gpu_type, duration_minutes }. You get root, Jupyter over TLS and SSH in about a minute. If the wallet is short, the API returns HTTP 402 insufficient_balance with a topup_url and creates no pod.',
-        url: `${SITE_URL}/v2/agents`,
+        url: `${SITE_URL}/agents`,
       },
       {
         '@type': 'HowToStep',
         position: 4,
         name: 'Run, then stop',
         text: 'Poll GET /api/pods/{id} for the access_url and ssh_command, run the workload, then DELETE /api/pods/{id} (stop_pod) for a prorated refund of unused minutes.',
-        url: `${SITE_URL}/v2/agents`,
+        url: `${SITE_URL}/agents`,
       },
     ],
   }
@@ -323,7 +323,7 @@ export function callInferenceHowToLd(): Record<string, unknown> {
         position: 1,
         name: 'Get a renter key',
         text: 'Create a renter account at dcp.sa and generate an API key. Fund the wallet in Saudi Riyal.',
-        url: `${SITE_URL}/v2/setup`,
+        url: `${SITE_URL}/setup`,
       },
       {
         '@type': 'HowToStep',
@@ -337,7 +337,7 @@ export function callInferenceHowToLd(): Record<string, unknown> {
         position: 3,
         name: 'Call chat completions',
         text: 'POST to /v1/chat/completions with a model from GET /v1/models (only models with available:true are serveable right now). Streaming, function calling and JSON mode are supported.',
-        url: `${SITE_URL}/v2/docs`,
+        url: `${SITE_URL}/docs`,
       },
     ],
   }

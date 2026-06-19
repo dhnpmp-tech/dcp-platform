@@ -2,8 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const docs = fs.readFileSync(path.join(__dirname, '..', 'app/v2/docs/page.tsx'), 'utf8');
-const css = fs.readFileSync(path.join(__dirname, '..', 'app/v2/docs/docs.css'), 'utf8');
+const docs = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/docs/page.tsx'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/docs/docs.css'), 'utf8');
 
 [
   'id="quickstart"',

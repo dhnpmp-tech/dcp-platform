@@ -96,12 +96,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // v1 → v2 auth cutover (ROOT CAUSE of the "RENT lands on the old login" bug).
-  // The legacy /login surface is retired in favour of the redesigned /v2/auth,
-  // which mints renter, provider, AND admin sessions on the same /api contracts.
-  // Permanently redirect any direct /login hit (bookmarks, transactional-email
-  // links, residual hardcoded refs) to /v2/auth, preserving role/redirect/method
-  // query so the post-auth return target survives.
+  // Legacy /login cutover (ROOT CAUSE of the "RENT lands on the old login" bug).
+  // The legacy /login surface is retired in favour of the redesigned auth page,
+  // which now lives at the canonical root /auth (ROUTES.auth) and mints renter,
+  // provider, AND admin sessions on the same /api contracts. Permanently redirect
+  // any direct /login hit (bookmarks, transactional-email links, residual
+  // hardcoded refs) to /auth, preserving role/redirect/method query so the
+  // post-auth return target survives.
   if (pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = ROUTES.auth
@@ -109,27 +110,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308)
   }
 
-  // v1 → v2 consolidation: the legacy /renter and /provider surfaces are superseded by the
-  // /v2 console, which mirrors these exact paths (SITE-6). Permanently redirect bookmarks,
-  // stale links, and links inside transactional emails to v2 so nobody lands on the old v1
-  // design. The provider wizard/register and /renter/register flows are handled above;
-  // /admin and /marketplace are intentionally left on their current routes for now.
-  if (
-    pathname === '/renter' || pathname.startsWith('/renter/') ||
-    pathname === '/provider' || pathname.startsWith('/provider/')
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = `/v2${pathname}`
-    return NextResponse.redirect(url, 308)
-  }
-
+  // The redesigned renter/provider/admin consoles now live in the app/(site)
+  // route group and serve from the CANONICAL ROOT paths (/renter/*, /provider/*).
+  // There is no longer a /v2 surface to forward to — gating runs directly on the
+  // real pathname. (Legacy /v2/* URLs are 308'd back to root in next.config.js.)
   const role = await verifySession(request.cookies.get(SESSION_COOKIE)?.value)
 
-  // SITE-6: the /v2 console tree mirrors the /provider|/renter|/admin paths.
-  // Strip a single leading /v2 segment so /v2/admin is gated exactly like /admin.
-  const gatedPath = pathname.startsWith('/v2/')
-    ? pathname.slice('/v2'.length)
-    : pathname
+  const gatedPath = pathname
 
   if (gatedPath.startsWith('/provider')) {
     if (role !== 'provider') {
@@ -159,9 +146,9 @@ function buildLoginRedirect(
   request: NextRequest,
   expectedRole: 'renter' | 'provider' | 'admin',
 ): NextResponse {
-  // Bounce unauthenticated visitors to the redesigned /v2/auth surface (NOT the
-  // retired v1 /login). Preserve the role and the originally-requested path so
-  // /v2/auth returns the user to e.g. the pod launch console after sign-in.
+  // Bounce unauthenticated visitors to the redesigned auth surface at /auth
+  // (NOT the retired v1 /login). Preserve the role and the originally-requested
+  // path so /auth returns the user to e.g. the pod launch console after sign-in.
   const url = request.nextUrl.clone()
   const href = buildAuthHref({
     role: expectedRole,
@@ -176,17 +163,18 @@ function buildLoginRedirect(
 
 export const config = {
   matcher: [
-    // v1 → v2 auth cutover: route legacy /login hits through the middleware so
-    // they are permanently redirected to /v2/auth.
+    // Legacy /login cutover: route any direct /login hit through the middleware
+    // so it is permanently redirected to /auth (ROUTES.auth).
     '/login',
+    // The redesigned consoles now live at these canonical ROOT paths (served by
+    // the app/(site) route group). Gate them directly — there is no /v2 surface.
+    // NOTE: '/provider/:path*' matches /provider/dashboard etc. but NOT the
+    // public /provider-setup signup funnel (no slash after "provider"), so the
+    // funnel stays ungated. Same for '/renter/:path*' vs /renter/register.
     '/provider/:path*',
     '/provider-onboarding/:path*',
     '/provider-onboarding',
     '/renter/:path*',
     '/admin/:path*',
-    // SITE-6: the /v2 console tree was bypassing the guard entirely.
-    '/v2/provider/:path*',
-    '/v2/renter/:path*',
-    '/v2/admin/:path*',
   ],
 }

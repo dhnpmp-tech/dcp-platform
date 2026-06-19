@@ -2,28 +2,34 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const home = fs.readFileSync(path.join(__dirname, '..', 'app/v2/home/page.tsx'), 'utf8');
-const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/v2/provider-setup/page.tsx'), 'utf8');
+const home = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/(home)/page.tsx'), 'utf8');
+const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/provider-setup/page.tsx'), 'utf8');
 const marketplaceModels = fs.readFileSync(path.join(__dirname, '..', 'app/marketplace/models/page.tsx'), 'utf8');
 const sharedI18n = fs.readFileSync(path.join(__dirname, '..', 'app/lib/i18n.tsx'), 'utf8');
 const retiredPublicHandoff = path.join(__dirname, '..', 'public/dcp-v2');
 const retiredBrandGuide = path.join(__dirname, '..', 'public/docs/DCP-BRAND-GUIDELINES-v3.html');
 const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
 
+// The redesigned home is now canonical at root. It must not link visitors back
+// through the retired legacy surfaces (the old /earn marketing funnel, the
+// retired marketplace, or any /v2/* URL that now only 308s back to root).
 [
-  'href="/setup"',
   'href="/earn"',
   'href="/marketplace/models"',
-].forEach((legacyHref) => {
-  assert(!home.includes(legacyHref), `v2 home should not link visitors back through ${legacyHref}`);
-});
-
-[
   '/v2/setup',
   '/v2/provider-setup',
   '/v2/renter/playground',
-].forEach((v2Href) => {
-  assert(home.includes(v2Href), `v2 home should keep public CTAs on ${v2Href}`);
+].forEach((legacyHref) => {
+  assert(!home.includes(legacyHref), `redesigned home should not link visitors back through ${legacyHref}`);
+});
+
+// Public CTAs must point at the canonical ROOT funnels.
+[
+  '/setup',
+  '/provider-setup',
+  '/renter/playground',
+].forEach((rootHref) => {
+  assert(home.includes(rootHref), `redesigned home should keep public CTAs on ${rootHref}`);
 });
 
 [

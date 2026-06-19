@@ -1,6 +1,6 @@
 /* Public /status — v2 editorial-luxury chrome (locked design language 2026-05-25).
    Scoped under .status-page so it never leaks into other routes. This page lives
-   outside /v2, so it carries its own tokens + font import rather than the v2
+   outside the app/(site) route group, so it carries its own tokens + font import rather than the v2
    layout context. */
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
 

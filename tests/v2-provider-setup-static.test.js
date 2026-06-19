@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'app/v2/provider-setup/page.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/provider-setup/page.tsx'), 'utf8');
 
 const forbidden = [
   'prov_8f3a',

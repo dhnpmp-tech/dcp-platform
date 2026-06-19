@@ -5,15 +5,17 @@ const BASE_URL = 'https://dcp.sa'
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
   const routes = [
+    // '' is the redesigned home at the canonical root URL. (The legacy /v2/home
+    // URL 308s here, so it must NOT be listed separately — that would advertise
+    // a redirecting URL and duplicate the home entry.)
     '',
-    '/v2/home',
-    '/v2/docs',
-    '/v2/agents',
-    '/v2/containers',
-    '/v2/architecture',
-    '/v2/setup',
-    '/v2/provider-setup',
-    '/v2/renter/playground',
+    '/docs',
+    '/agents',
+    '/containers',
+    '/architecture',
+    '/setup',
+    '/provider-setup',
+    '/renter/playground',
     '/pricing',
     '/quickstart',
     '/status',
@@ -32,7 +34,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return routes.map((route) => ({
     url: `${BASE_URL}${route}`,
     lastModified: now,
-    changeFrequency: route === '' || route === '/v2/home' ? 'daily' : 'weekly',
-    priority: route === '' || route === '/v2/home' ? 1 : 0.7,
+    changeFrequency: route === '' ? 'daily' : 'weekly',
+    priority: route === '' ? 1 : 0.7,
   }))
 }
