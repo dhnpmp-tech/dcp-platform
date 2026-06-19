@@ -144,7 +144,8 @@ const nextConfig = {
       { source: '/marketplace/models', destination: '/renter/playground', permanent: true },
       { source: '/marketplace/templates', destination: '/renter/pods', permanent: true },
       // Retired v1 docs sub-pages → the consolidated single-page docs. (Bare
-      // /quickstart, /pricing and /status keep their own self-canonicals.)
+      // /quickstart 308s to /docs and /pricing 308s to home below; bare /status
+      // keeps its own self-canonical.)
       { source: '/docs/api', destination: '/docs', permanent: true },
       { source: '/docs/api/:path*', destination: '/docs', permanent: true },
       { source: '/docs/quickstart', destination: '/docs', permanent: true },
@@ -172,7 +173,10 @@ const nextConfig = {
       { source: '/renter/marketplace/:path*', destination: '/renter/pods', permanent: true },
       { source: '/renter/gpu-comparison', destination: '/renter/pods', permanent: true },
       { source: '/renter/live', destination: '/renter/dashboard', permanent: true },
-      { source: '/renter/pricing', destination: '/pricing', permanent: true },
+      // /pricing is retired (folded into the home #pricing section), so the
+      // legacy renter pricing deep-link lands on home rather than 308-chaining
+      // through the now-removed /pricing page.
+      { source: '/renter/pricing', destination: '/', permanent: true },
       { source: '/renter/waitlist', destination: '/setup', permanent: true },
       // ── Bare console-root SAFETY NET (permanent 308) ────────────────────
       // The console route groups only ship subpages (/provider/dashboard,
@@ -215,11 +219,18 @@ const nextConfig = {
       { source: '/tokens', destination: '/renter/usage', permanent: true },
       // Quickstart folds into the single-page docs.
       { source: '/quickstart', destination: '/docs', permanent: true },
-      // Marketplace (bare + sub-pages) → the renter pods/catalog source of truth.
-      { source: '/marketplace', destination: '/renter/pods', permanent: true },
-      // Arabic-RAG solution pages → home (the redesign tells this story inline).
-      { source: '/solutions/arabic-rag', destination: '/', permanent: true },
-      { source: '/ar/solutions/arabic-rag', destination: '/', permanent: true },
+      // Dead relic: the marketplace one-pager is retired and unlinked. Owner
+      // decision — fold it into the home overview rather than the renter console.
+      { source: '/marketplace', destination: '/', permanent: true },
+      // Arabic-RAG solution pages are retired/unlinked → the consolidated docs,
+      // which is where the Arabic-RAG how-to now lives (owner decision). No /ar
+      // home exists, so the localized variant also lands on /docs.
+      { source: '/solutions/arabic-rag', destination: '/docs', permanent: true },
+      { source: '/ar/solutions/arabic-rag', destination: '/docs', permanent: true },
+      // /pricing is retired and FOLDED into the home #pricing section (GPU rental
+      // grid + per-token inference rate card + PAYG/subscription billing story).
+      // Permanent 308 to home so bookmarks, AEO equity and the old nav land there.
+      { source: '/pricing', destination: '/', permanent: true },
       // Standalone old-era internal pages → their nearest public twin.
       { source: '/mission', destination: '/trust-center', permanent: true },
       { source: '/security', destination: '/trust-center', permanent: true },
