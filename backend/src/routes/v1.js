@@ -1748,6 +1748,30 @@ function stripReasoningFromObject(obj) {
   delete obj.thinking;
 }
 
+// Neutral system_fingerprint emitted on every /v1 response. The upstream engine
+// stamps its own engine-revealing value (e.g. Ollama → "fp_ollama"), which would
+// disclose the inference engine to every caller. DCP sells a sovereign,
+// engine-agnostic runtime, so we overwrite — never delete (some OpenAI SDKs
+// expect the field) — with a neutral DCP value. Served model names (qwen…) are
+// legitimate and left untouched.
+const DCP_SYSTEM_FINGERPRINT = 'fp_dcp';
+
+// Overwrite system_fingerprint with the neutral DCP value and scrub any other
+// engine tell echoed by the upstream in the response body. Mutates `obj` in
+// place. Safe to call on a chat.completion body, a chat.completion.chunk, or a
+// freshly-built response object. Idempotent.
+function neutralizeEngineFingerprint(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  // Always present + neutral, regardless of what the engine sent.
+  obj.system_fingerprint = DCP_SYSTEM_FINGERPRINT;
+  // Drop non-standard engine-identifying top-level fields some engines append
+  // (llama.cpp `system_fingerprint` is handled above; these are extra tells).
+  // `model` (qwen…) and standard OpenAI fields are intentionally preserved.
+  for (const key of ['__verbose', 'system', 'engine', 'backend', 'served_by']) {
+    if (key in obj) delete obj[key];
+  }
+}
+
 // Stateful <think>…</think> stripper for streaming. Inline reasoning tags can
 // span SSE chunks, so we (a) track whether we're inside a think block across
 // calls and (b) hold back a trailing partial-tag candidate so a tag split on a
@@ -3031,6 +3055,9 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           ...resultBody,
           usage: usageForResponse,
         };
+        // Invisibility: overwrite the engine-revealing system_fingerprint
+        // (e.g. "fp_ollama") with the neutral DCP value on this proxied body.
+        neutralizeEngineFingerprint(finalBody);
         // H6 — cache successful proxy responses keyed by Idempotency-Key so
         // a retry within the TTL replays without re-billing.
         if (idempotencyKey) {
@@ -3136,6 +3163,10 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
                 parsed.usage = usageWithPricing;
                 finalUsage = usageWithPricing;
               }
+              // Invisibility: the engine stamps system_fingerprint on each SSE
+              // chunk too (e.g. "fp_ollama"). Overwrite with the neutral DCP
+              // value before re-serializing so no chunk leaks the engine.
+              neutralizeEngineFingerprint(parsed);
               transformedLines.push(`data: ${JSON.stringify(parsed)}`);
             } catch (_) {
               transformedLines.push(rawLine);
@@ -3201,6 +3232,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
                 object: 'chat.completion.chunk',
                 created: Math.floor(Date.now() / 1000),
                 model: modelReq.model_id,
+                system_fingerprint: DCP_SYSTEM_FINGERPRINT,
                 choices: [],
                 usage: synthUsage,
               };
@@ -3487,6 +3519,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           object: 'chat.completion',
           created: Math.floor(Date.now() / 1000),
           model: modelReq.model_id,
+          system_fingerprint: DCP_SYSTEM_FINGERPRINT,
           choices: [{
             index: 0,
             message: { role: 'assistant', content: text },
@@ -3578,4 +3611,7 @@ module.exports.__test = {
   createStreamingThinkStripper,
   stripThinkBlocks,
   proxyToProvider,
+  // Invisibility — engine fingerprint neutralization
+  neutralizeEngineFingerprint,
+  DCP_SYSTEM_FINGERPRINT,
 };
