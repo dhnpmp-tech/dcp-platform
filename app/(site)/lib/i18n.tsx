@@ -7,8 +7,13 @@
 // app's full i18next bundles when wiring real content.
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { resolveInitialLanguage } from '../../lib/detectLanguage'
 
 type Lang = 'en' | 'ar'
+
+// localStorage key persisting the user's MANUAL choice (header toggle). When
+// present it overrides the browser default on subsequent visits.
+const STORAGE_KEY = 'dcp_v2_lang'
 
 interface V2Ctx {
   lang: Lang
@@ -27,14 +32,12 @@ export function V2Provider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>('en')
   const dir: 'ltr' | 'rtl' = lang === 'ar' ? 'rtl' : 'ltr'
 
-  // restore lang preference
+  // First-visit UX is browser-driven (NO language pop-up). On mount, take the
+  // stored manual choice if present, else auto-detect from navigator.language.
+  // SSR rendered the 'en' default; applying the resolved value here keeps the
+  // server/client markup identical and avoids a hydration mismatch / flash.
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('dcp_v2_lang')
-      if (saved === 'ar' || saved === 'en') setLangState(saved)
-    } catch {
-      /* ignore */
-    }
+    setLangState(resolveInitialLanguage(STORAGE_KEY))
   }, [])
 
   // apply Midnight palette on mount; restore originals on unmount
@@ -68,7 +71,7 @@ export function V2Provider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => {
     setLangState(l)
     try {
-      window.localStorage.setItem('dcp_v2_lang', l)
+      window.localStorage.setItem(STORAGE_KEY, l)
     } catch {
       /* ignore */
     }
