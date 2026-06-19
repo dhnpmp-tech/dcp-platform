@@ -7,9 +7,10 @@
 // can never drift between pages.
 //
 // TRUTH RULES (non-negotiable):
-//   - Prices, GPU SKUs, and VRAM mirror app/pricing/page.tsx exactly.
+//   - Prices, GPU SKUs, and VRAM mirror the home #pricing section exactly
+//     (app/(site)/(home)/page.tsx — the retired /pricing page was folded there).
 //   - NEVER name a GPU vendor partner, machine, endpoint, or node count beyond
-//     the public NVIDIA model names already shown on the pricing page.
+//     the public NVIDIA model names already shown in the home #pricing section.
 //   - No fabricated ratings, review counts, or availability promises.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,8 @@ export const ORG_NAME = 'DCP'
 export const ORG_LEGAL_NAME = 'DC Power Solutions'
 export const SAR_PER_USD = 3.75
 
-// The renter-facing GPU rental SKUs. Mirrors GPU_RATES in app/pricing/page.tsx.
+// The renter-facing GPU rental SKUs. Mirrors the GPU table in the home #pricing
+// section (app/(site)/(home)/page.tsx).
 // price is SAR/hour (priceCurrency SAR). usdPerHour is shown in the description
 // for the global, USD-thinking buyer that AI engines serve.
 export interface GpuSku {

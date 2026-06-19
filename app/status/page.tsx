@@ -323,7 +323,7 @@ export default function StatusPage() {
         <div className="st-nav-right">
           <Link href="/" className="lnk">Home</Link>
           <Link href="/docs" className="lnk">Docs</Link>
-          <Link href="/pricing" className="lnk">Pricing</Link>
+          <Link href="/#pricing" className="lnk">Pricing</Link>
           <span className="st-pill"><span className="dot" style={{ background: summary.pill.dot, boxShadow: `0 0 8px ${summary.pill.dot}` }} />{summary.pill.label}</span>
         </div>
       </nav>
@@ -381,7 +381,7 @@ export default function StatusPage() {
             <p className="t">Read the docs →</p>
             <p className="d">First call in under two minutes. curl, Python, Node.js.</p>
           </Link>
-          <Link href="/pricing" className="st-link-card">
+          <Link href="/#pricing" className="st-link-card">
             <p className="t">See pricing →</p>
             <p className="d">PAYG per million tokens or a monthly tier. 100 SAR starter credit on signup.</p>
           </Link>
@@ -395,7 +395,7 @@ export default function StatusPage() {
           <span>
             <Link href="/">Home</Link>
             <Link href="/docs">Docs</Link>
-            <Link href="/pricing">Pricing</Link>
+            <Link href="/#pricing">Pricing</Link>
           </span>
         </footer>
       </div>

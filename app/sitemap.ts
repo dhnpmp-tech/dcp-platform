@@ -16,7 +16,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/setup',
     '/provider-setup',
     '/renter/playground',
-    '/pricing',
+    // /pricing was retired and folded into the home #pricing section; it now
+    // 308s to "/", so it must NOT be listed (advertising a redirecting URL).
     '/earn',
     '/support',
     '/status',
