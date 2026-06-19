@@ -39,7 +39,7 @@ function safeErrorPayload(err, fallback) {
 
 // Where an agent funds its prepaid wallet. Overridable for the V2 wallet route
 // without touching every call site.
-const TOPUP_URL = process.env.DCP_TOPUP_URL || 'https://dcp.sa/v2/renter/wallet';
+const TOPUP_URL = process.env.DCP_TOPUP_URL || 'https://dcp.sa/renter/wallet';
 
 /**
  * Agent-first HTTP 402 body for "the prepaid wallet can't cover this quote".

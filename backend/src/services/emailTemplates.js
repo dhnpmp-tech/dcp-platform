@@ -32,14 +32,14 @@ function getFrontendUrl() {
 }
 
 function notificationFooterText() {
-  return 'Manage notifications at dcp.sa/v2/renter/settings';
+  return 'Manage notifications at dcp.sa/renter/settings';
 }
 
 // Why-you-got-this footer lines for renter job/billing notifications.
 const WHY_RENTER_NOTIFICATIONS_EN =
-  'You are receiving this because notifications are enabled for your DCP renter account. Manage notifications at dcp.sa/v2/renter/settings.';
+  'You are receiving this because notifications are enabled for your DCP renter account. Manage notifications at dcp.sa/renter/settings.';
 const WHY_RENTER_NOTIFICATIONS_AR =
-  'تصلك هذه الرسالة لأن الإشعارات مفعّلة لحسابك في DCP. إدارة الإشعارات من dcp.sa/v2/renter/settings.';
+  'تصلك هذه الرسالة لأن الإشعارات مفعّلة لحسابك في DCP. إدارة الإشعارات من dcp.sa/renter/settings.';
 const WHY_PROVIDER_EN =
   'You are receiving this because you operate a provider node on dcp.sa.';
 const WHY_PROVIDER_AR =
@@ -77,8 +77,8 @@ function strong(text) {
 function buildWelcomeTemplate({ name, email, role }) {
   const frontend = getFrontendUrl();
   const isProvider = role === 'provider';
-  const dashboardUrl = `${frontend}${isProvider ? '/v2/provider' : '/v2/renter/marketplace'}`;
-  const authUrl = `${frontend}/v2/auth`;
+  const dashboardUrl = `${frontend}${isProvider ? '/provider/dashboard' : '/renter/pods'}`;
+  const authUrl = `${frontend}/auth`;
   const docsUrl = `${frontend}/docs`;
   const roleLabel = isProvider ? 'Provider' : 'Renter';
   const roleLabelAr = isProvider ? 'مزود' : 'مستأجر';
@@ -165,7 +165,7 @@ function buildJobQueuedTemplate({
   estimatedDurationMinutes,
 }) {
   const frontend = getFrontendUrl();
-  const jobDetailUrl = `${frontend}/v2/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
+  const jobDetailUrl = `${frontend}/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
   const quotedCostLabel = formatHalalaAsSar(quotedCostHalala);
   const queueLabel = Number.isFinite(Number(queuePosition)) ? String(Number(queuePosition)) : 'N/A';
   const durationLabel = Number.isFinite(Number(estimatedDurationMinutes))
@@ -225,7 +225,7 @@ function buildJobStartedTemplate({
   estimatedDurationMinutes,
 }) {
   const frontend = getFrontendUrl();
-  const jobDetailUrl = `${frontend}/v2/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
+  const jobDetailUrl = `${frontend}/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
   const durationLabel = Number.isFinite(Number(estimatedDurationMinutes))
     ? `${Number(estimatedDurationMinutes)} min`
     : 'N/A';
@@ -278,7 +278,7 @@ function buildJobCompletedTemplate({
   imageType,
 }) {
   const frontend = getFrontendUrl();
-  const jobDetailUrl = `${frontend}/v2/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
+  const jobDetailUrl = `${frontend}/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
   const costLabel = formatHalalaAsSar(actualCostHalala);
   const gpuSecondsLabel = Number.isFinite(Number(gpuSecondsUsed)) ? String(Number(gpuSecondsUsed)) : 'N/A';
   const safeJobType = jobType || 'general';
@@ -332,7 +332,7 @@ function buildJobFailedTemplate({
   retryAttempts,
 }) {
   const frontend = getFrontendUrl();
-  const jobDetailUrl = `${frontend}/v2/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
+  const jobDetailUrl = `${frontend}/renter/jobs/${encodeURIComponent(String(jobId || ''))}`;
   const refundLabel = formatHalalaAsSar(refundedAmountHalala);
   const retryLabel = Number.isFinite(Number(retryAttempts)) ? String(Number(retryAttempts)) : '0';
   const safeError = lastError || 'No additional error details reported.';
@@ -387,7 +387,7 @@ function buildJobFailedTemplate({
 function buildWithdrawalApprovedTemplate({ amountSar }) {
   const amountLabel = formatSar(amountSar);
   const frontend = getFrontendUrl();
-  const earningsUrl = `${frontend}/v2/provider/earnings`;
+  const earningsUrl = `${frontend}/provider/earnings`;
   return {
     subject: `DCP: Withdrawal of ${amountLabel} SAR approved | تمت الموافقة على السحب`,
     text: [
@@ -422,7 +422,7 @@ function buildWithdrawalRejectedTemplate({ amountSar, reason }) {
   const safeReason = (reason || '').trim() || 'Not specified';
   const safeReasonAr = (reason || '').trim() || 'غير محدد';
   const frontend = getFrontendUrl();
-  const earningsUrl = `${frontend}/v2/provider/earnings`;
+  const earningsUrl = `${frontend}/provider/earnings`;
   return {
     subject: `DCP: Withdrawal of ${amountLabel} SAR rejected | تم رفض طلب السحب`,
     text: [
@@ -472,8 +472,8 @@ function buildWithdrawalRejectedTemplate({ amountSar, reason }) {
 // without checking the requeue path first.
 function buildProviderOfflineTemplate({ providerName, lastSeen }) {
   const frontend = getFrontendUrl();
-  const dashboardUrl = `${frontend}/v2/provider`;
-  const troubleshootUrl = `${frontend}/docs/provider-guide`;
+  const dashboardUrl = `${frontend}/provider/dashboard`;
+  const troubleshootUrl = `${frontend}/docs`;
   const safeName = (providerName || '').trim() || 'your node';
   const lastSeenLabel = lastSeen
     ? new Date(lastSeen).toUTCString()
@@ -531,7 +531,7 @@ function buildAutoTopupPaidTemplate({ amountSar, newBalanceSar, cardBrand, cardL
   const brandLabel = (cardBrand || 'Card').replace(/^./, (c) => c.toUpperCase());
   const cardLabel = cardLast4 ? `${brandLabel} •••• ${cardLast4}` : brandLabel;
   const frontend = getFrontendUrl();
-  const billingUrl = `${frontend}/v2/renter/billing`;
+  const billingUrl = `${frontend}/renter/wallet`;
 
   return {
     subject: `Receipt: ${amountLabel} SAR DCP auto-top-up | إيصال الشحن التلقائي`,
@@ -571,7 +571,7 @@ function buildAutoTopupFailedTemplate({ amountSar, reason, consecutiveFailures, 
   const cardLabel = cardLast4 ? `${brandLabel} •••• ${cardLast4}` : brandLabel;
   const reasonLabel = (reason || '').trim() || 'Card declined';
   const frontend = getFrontendUrl();
-  const billingUrl = `${frontend}/v2/renter/billing`;
+  const billingUrl = `${frontend}/renter/wallet`;
   const pausedNote = pausedUntil
     ? noteEn(`Auto-top-up paused until ${escapeHtml(new Date(pausedUntil).toUTCString())} after ${escapeHtml(String(consecutiveFailures))} consecutive failures.`)
     : '';
@@ -625,7 +625,7 @@ function buildAutoTopup3dsRequiredTemplate({ amountSar, verificationUrl, cardBra
   const brandLabel = (cardBrand || 'Card').replace(/^./, (c) => c.toUpperCase());
   const cardLabel = cardLast4 ? `${brandLabel} •••• ${cardLast4}` : brandLabel;
   const frontend = getFrontendUrl();
-  const ctaUrl = verificationUrl || `${frontend}/v2/renter/billing`;
+  const ctaUrl = verificationUrl || `${frontend}/renter/wallet`;
 
   return {
     subject: `Action needed: verify ${amountLabel} SAR auto-top-up | تحقّق مطلوب`,
