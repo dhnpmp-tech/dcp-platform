@@ -1354,12 +1354,23 @@ export default function V2HomePage() {
                 </div>
               </div>
 
+              <p className="ss" style={{ marginTop: 18 }}>
+                {lang === 'ar' ? (
+                  <>
+                    وأبعد من ذلك: يستطيع الوكيل أن يصنع مفتاحه بنفسه — <code>POST /api/renters/agent-register</code> يعيد مفتاحاً حقيقياً ورصيداً تجريبياً ٢٠ ريالاً، دون بشر ودون بريد. والمسارات المالية تقبل <code>Idempotency-Key</code> وتعيد <code>402</code> قابلاً للقراءة آلياً عند نقص الرصيد.
+                  </>
+                ) : (
+                  <>
+                    Further still: an agent can mint its own key — <code>POST /api/renters/agent-register</code> returns a real key plus a 20 SAR trial, no human and no email. Money routes accept an <code>Idempotency-Key</code> and return a machine-readable <code>402</code> when the wallet is short.
+                  </>
+                )}
+              </p>
               <div style={{ marginTop: 30, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Link className="btn primary lg" href="/v2/docs#agents">
-                  <Bi en="Wire it into your agent →" ar="وصّله بوكيلك ←" />
+                <Link className="btn primary lg" href="/v2/agents">
+                  <Bi en="The agent playbook →" ar="دليل الوكلاء ←" />
                 </Link>
-                <Link className="btn ghost" href="/v2/setup">
-                  <Bi en="Get a renter key" ar="احصل على مفتاح مستأجر" />
+                <Link className="btn ghost" href="/v2/docs#agents">
+                  <Bi en="Wire it into your agent" ar="وصّله بوكيلك" />
                 </Link>
               </div>
             </div>
@@ -1386,7 +1397,7 @@ export default function V2HomePage() {
                   {'    '}<span className="key">&quot;dcp&quot;</span>: {'{'}{'\n'}
                   {'      '}<span className="key">&quot;command&quot;</span>: <span className="str">&quot;npx&quot;</span>,{'\n'}
                   {'      '}<span className="key">&quot;args&quot;</span>: [<span className="str">&quot;-y&quot;</span>, <span className="str">&quot;@dcp/mcp&quot;</span>],{'\n'}
-                  {'      '}<span className="key">&quot;env&quot;</span>: {'{'} <span className="key">&quot;DCP_API_KEY&quot;</span>: <span className="str">&quot;dc1-sk-…&quot;</span> {'}'}{'\n'}
+                  {'      '}<span className="key">&quot;env&quot;</span>: {'{'} <span className="key">&quot;DCP_API_KEY&quot;</span>: <span className="str">&quot;dcp-renter-…&quot;</span> {'}'}{'\n'}
                   {'    '}{'}'}{'\n'}
                   {'  '}{'}'}{'\n'}
                   {'}'}
@@ -1397,23 +1408,23 @@ export default function V2HomePage() {
                   {'\n'}
                   <span className="pmt">»</span> <span className="grad">&quot;ما رصيدي بالريال على DCP؟&quot;</span>
                   {'\n\n'}
-                  <span className="com">{'// 9 native tools: list_models · chat · get_balance'}</span>
+                  <span className="com">{'// 11 native tools: register_agent · list_models · chat'}</span>
                   {'\n'}
-                  <span className="com">{'//   create_pod · get_pod · extend_pod · stop_pod'}</span>
+                  <span className="com">{'//   get_balance · list_gpus · create_pod · get_pod'}</span>
                   {'\n'}
-                  <span className="com">{'//   rent_volume · get_volume'}</span>
+                  <span className="com">{'//   extend_pod · stop_pod · rent_volume · get_volume'}</span>
                 </pre>
               </div>
 
               <div className="qs-foot">
                 <span>
                   <Bi
-                    en="npx -y @dcp/mcp · 9 tools · prepaid in SAR"
-                    ar="npx -y @dcp/mcp · ٩ أدوات · مدفوع مسبقاً بالريال"
+                    en="npx -y @dcp/mcp · 11 tools · prepaid in SAR"
+                    ar="npx -y @dcp/mcp · ١١ أداة · مدفوع مسبقاً بالريال"
                   />
                 </span>
-                <Link href="/v2/docs#agents">
-                  <Bi en="Agent integration guide →" ar="دليل ربط الوكلاء ←" />
+                <Link href="/v2/agents">
+                  <Bi en="Agent playbook →" ar="دليل الوكلاء ←" />
                 </Link>
               </div>
             </div>

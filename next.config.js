@@ -156,6 +156,10 @@ const nextConfig = {
       { source: '/dashboard/jobs', destination: '/v2/renter/jobs', permanent: true },
       { source: '/jobs', destination: '/v2/renter/jobs', permanent: true },
       { source: '/jobs/submit', destination: '/v2/renter/playground', permanent: true },
+      // Retired v1 /agents surface → the canonical v2 agent-first product page.
+      // The new page lives at /v2/agents (ROUTES.agents); this 308 keeps old
+      // links, bookmarks, and crawlers pointed at the current surface.
+      { source: '/agents', destination: '/v2/agents', permanent: true },
       // Retired marketing pages superseded by the v2 home.
       { source: '/intelligence', destination: '/v2/home', permanent: true },
       { source: '/arabic-rag', destination: '/v2/home', permanent: true },

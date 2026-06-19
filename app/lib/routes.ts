@@ -19,6 +19,10 @@ export const ROUTES = {
   home: '/v2/home',
   pricing: '/pricing',
   docs: '/v2/docs',
+  // Agent-first product/explainer surface (zero-human onboarding, MCP, the
+  // machine-readable money signals). Clean v2 route — the OLD v1 /agents page
+  // is permanently redirected here in next.config; never reuse /agents.
+  agents: '/v2/agents',
   containers: '/v2/containers',
   architecture: '/v2/architecture',
   status: '/status',

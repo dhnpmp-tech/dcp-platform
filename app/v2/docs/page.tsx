@@ -62,6 +62,7 @@ export default function DocsPage() {
           <a href="#pods"><Bi en="GPU pods" ar="حاويات GPU" /></a>
           <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
           <div className="sec"><Bi en="Agents" ar="الوكلاء" /></div>
+          <Link href="/v2/agents"><Bi en="Agent product guide ↗" ar="دليل منتج الوكلاء ↗" /></Link>
           <a href="#agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></a>
           <a href="#mcp-install"><Bi en="Install (MCP)" ar="التثبيت (MCP)" /></a>
           <a href="#mcp-tools"><Bi en="Tools" ar="الأدوات" /></a>
@@ -381,6 +382,16 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
               ar="DCP مصمَّمة للوكلاء أولاً: بُنيت لتُقاد من الوكلاء والبرمجيات، لا البشر فقط. خادم MCP رسمي يتيح لأي وكيل يدعم MCP — Claude Desktop أو Claude Code أو Cursor أو وكيلك الخاص — تشغيل استدلال سيادي داخل المملكة، واستئجار معالج كامل، والاحتفاظ بتخزين دائم عبر استدعاءات أدوات أصلية. كل شيء مدفوع مسبقاً بالريال من محفظة مستأجر واحدة."
             />
           </p>
+          <div className="callout">
+            <div className="t"><Bi en="Zero human in the loop" ar="دون تدخل بشري" /></div>
+            <p>
+              <Bi
+                en="An agent can mint its own key with no human: POST /api/renters/agent-register (no auth) returns a real dcp-renter- key plus a 20 SAR trial credit. Money routes accept an Idempotency-Key for safe retries and return a machine-readable HTTP 402 (insufficient_balance, required_sar, topup_url) when the wallet is short. The full narrative + copy-paste recipe live on the "
+                ar="يستطيع الوكيل صنع مفتاحه دون بشر: POST /api/renters/agent-register (دون مصادقة) يعيد مفتاح dcp-renter- حقيقياً ورصيداً تجريبياً ٢٠ ريالاً. المسارات المالية تقبل Idempotency-Key لإعادة آمنة وتعيد HTTP 402 قابلاً للقراءة آلياً (insufficient_balance، required_sar، topup_url) عند نقص الرصيد. السرد الكامل والوصفة الجاهزة على "
+              />
+              <Link className="ln" href="/v2/agents"><Bi en="agent product page" ar="صفحة منتج الوكلاء" /></Link>.
+            </p>
+          </div>
 
           <h3 id="mcp-install"><Bi en="Install" ar="التثبيت" /></h3>
           <p>
@@ -392,12 +403,19 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
             <Bi en=" for Claude Code, " ar=" لـ Claude Code، و" />
             <code>claude_desktop_config.json</code>
             <Bi
-              en=" for Claude Desktop, or your client's equivalent). Set DCP_API_KEY to your renter API key — the plaintext key (it starts with "
-              ar=" لـ Claude Desktop، أو ما يعادله في عميلك). اضبط DCP_API_KEY على مفتاح المستأجر الخاص بك — المفتاح النصي (يبدأ بـ "
+              en=" for Claude Desktop, or your client's equivalent). Set DCP_API_KEY to your renter API key — both "
+              ar=" لـ Claude Desktop، أو ما يعادله في عميلك). اضبط DCP_API_KEY على مفتاح المستأجر الخاص بك — كلا البادئتين "
             />
+            <code>dcp-renter-</code>
+            <Bi en=" and " ar=" و" />
             <code>dc1-sk-</code>
-            <Bi en=") that you create in the console under " ar=") الذي تنشئه في وحدة التحكم ضمن " />
-            <Link className="ln" href="/v2/renter/keys"><Bi en="API keys" ar="مفاتيح الواجهة" /></Link>.
+            <Bi
+              en=" prefixes are accepted (via Bearer or x-renter-key). Create one in the console under "
+              ar=" مقبولتان (عبر Bearer أو x-renter-key). أنشئ مفتاحاً في وحدة التحكم ضمن "
+            />
+            <Link className="ln" href="/v2/renter/keys"><Bi en="API keys" ar="مفاتيح الواجهة" /></Link>
+            <Bi en=", or let an agent mint one with no human via register_agent — see the " ar="، أو دع الوكيل يصنع مفتاحاً دون بشر عبر register_agent — راجع " />
+            <Link className="ln" href="/v2/agents"><Bi en="agent guide" ar="دليل الوكلاء" /></Link>.
           </p>
           <pre className="code"><span className="c">{'// .mcp.json (Claude Code) · claude_desktop_config.json (Claude Desktop) · Cursor'}</span>
 {'{'}
@@ -428,8 +446,8 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
           <h3 id="mcp-tools"><Bi en="Tools" ar="الأدوات" /></h3>
           <p>
             <Bi
-              en="The server exposes nine native tools. Inference is OpenAI-compatible; pods and volumes are prepaid per minute / per month in Riyal, with unused pod time refunded on stop."
-              ar="يكشف الخادم تسع أدوات أصلية. الاستدلال متوافق مع OpenAI؛ والحاويات والمساحات مدفوعة مسبقاً بالدقيقة / بالشهر بالريال، مع استرداد وقت الحاوية غير المستخدم عند الإيقاف."
+              en="The server exposes eleven native tools. The first, register_agent, is unauthenticated — an agent calls it with no key to mint its own (zero human). Inference is OpenAI-compatible; pods and volumes are prepaid per minute / per month in Riyal, with unused pod time refunded on stop."
+              ar="يكشف الخادم إحدى عشرة أداة أصلية. الأولى، register_agent، دون مصادقة — يستدعيها الوكيل بلا مفتاح ليصنع مفتاحه (دون بشر). الاستدلال متوافق مع OpenAI؛ والحاويات والمساحات مدفوعة مسبقاً بالدقيقة / بالشهر بالريال، مع استرداد وقت الحاوية غير المستخدم عند الإيقاف."
             />
           </p>
           <table className="param-tbl">
@@ -440,6 +458,10 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td className="name">register_agent</td>
+                <td className="desc"><Bi en="Self-register a new renter account in one unauthenticated call — a real dcp-renter- key plus a 20 SAR trial credit, no human and no email. Use first when no key is set." ar="يسجّل حساب مستأجر جديد في استدعاء واحد دون مصادقة — مفتاح dcp-renter- حقيقي ورصيد تجريبي ٢٠ ريالاً، دون بشر ودون بريد. استخدمه أولاً عند غياب المفتاح." /></td>
+              </tr>
               <tr>
                 <td className="name">list_models</td>
                 <td className="desc"><Bi en="List the models serveable right now (OpenAI-style entries; only available=true are live)." ar="يسرد النماذج القابلة للخدمة الآن (إدخالات بأسلوب OpenAI؛ المتاح فقط هو available=true)." /></td>
@@ -453,8 +475,12 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
                 <td className="desc"><Bi en="Get the renter wallet balance (SAR). Inference, pods, and volumes are all prepaid from it." ar="يجلب رصيد محفظة المستأجر (بالريال). الاستدلال والحاويات والمساحات كلها مدفوعة مسبقاً منها." /></td>
               </tr>
               <tr>
+                <td className="name">list_gpus</td>
+                <td className="desc"><Bi en="List rentable GPU TYPES right now (gpu_type + vram_gb + available + on_demand). Pick a gpu_type string to pass to create_pod — only the public NVIDIA label, no machine or vendor." ar="يسرد أنواع المعالجات القابلة للإيجار الآن (النوع + الذاكرة + التوفر). اختر نوعاً لتمرّره إلى create_pod — التسمية العامة فقط، دون جهاز أو مورّد." /></td>
+              </tr>
+              <tr>
                 <td className="name">create_pod</td>
-                <td className="desc"><Bi en="Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute in SAR." ar="يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً مسبقاً بالدقيقة بالريال." /></td>
+                <td className="desc"><Bi en="Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute in SAR. Optional gpu_type (from list_gpus, e.g. 'H100'); omit to auto-pick." ar="يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً مسبقاً بالدقيقة بالريال. النوع اختياري (من list_gpus، مثل 'H100')؛ احذفه للاختيار التلقائي." /></td>
               </tr>
               <tr>
                 <td className="name">get_pod</td>
