@@ -8,6 +8,7 @@ import Footer from './components/layout/Footer'
 import { useLanguage } from './lib/i18n'
 import { persistRoleIntent, readRoleIntent, RoleIntent, trackRoleIntentApplied } from './lib/role-intent'
 import { usePublicMetricsContract } from './lib/usePublicMetricsContract'
+import { ROUTES } from './lib/routes'
 
 function formatReliabilityTimestamp(date: Date | null): string {
   if (!date) return '—'
@@ -500,7 +501,7 @@ export default function HomePage() {
             </div>
             <p className="text-dc1-text-secondary text-sm mt-6">
               {t('landing.already_account')}{' '}
-              <Link href="/login" className="text-dc1-amber hover:text-dc1-amber/80 font-semibold underline underline-offset-2">
+              <Link href={ROUTES.auth} className="text-dc1-amber hover:text-dc1-amber/80 font-semibold underline underline-offset-2">
                 {t('landing.sign_in_here')}
               </Link>
             </p>
@@ -648,7 +649,7 @@ export default function HomePage() {
               <li>Medium (Qwen 3.6-27B): $0.40/M</li>
               <li>Embeddings: $0.013/M</li>
             </ul>
-            <a href="/renter/register" className="btn btn-secondary btn-md mt-6 w-full">Start with 100 SAR credit</a>
+            <a href={ROUTES.renterSignup} className="btn btn-secondary btn-md mt-6 w-full">Start with 100 SAR credit</a>
           </div>
 
           {/* Starter */}
@@ -724,8 +725,8 @@ export default function HomePage() {
             <div>)</div>
           </div>
           <div className="mt-6 flex justify-center gap-4">
-            <a href="/renter/register" className="btn btn-primary">{t('landing.instant_api_get_key')}</a>
-            <a href="/docs/api" className="btn btn-secondary">{t('landing.instant_api_view_docs')}</a>
+            <a href={ROUTES.renterSignup} className="btn btn-primary">{t('landing.instant_api_get_key')}</a>
+            <a href={ROUTES.docs} className="btn btn-secondary">{t('landing.instant_api_view_docs')}</a>
           </div>
         </div>
       </section>
@@ -979,7 +980,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/docs" className="inline-flex items-center gap-2 btn btn-secondary btn-sm">
+              <Link href={ROUTES.docs} className="inline-flex items-center gap-2 btn btn-secondary btn-sm">
                 {t('landing.vscode_docs')}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1086,10 +1087,10 @@ provider.start()  # initialize, heartbeat, and serve inference workloads`}</pre>
             {t('landing.cta_desc')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/renter/register" className="btn btn-primary btn-lg w-full sm:w-auto">
+            <Link href={ROUTES.renterSignup} className="btn btn-primary btn-lg w-full sm:w-auto">
               {t('landing.cta_register_renter')}
             </Link>
-            <Link href="/setup" className="btn btn-secondary btn-lg w-full sm:w-auto">
+            <Link href={ROUTES.providerSetup} className="btn btn-secondary btn-lg w-full sm:w-auto">
               {t('landing.cta_register_provider')}
             </Link>
           </div>

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { LanguageToggle, useLanguage } from '../../lib/i18n'
 import { persistRoleIntent, readRoleIntent, RoleIntent, trackRoleIntentApplied } from '../../lib/role-intent'
+import { ROUTES } from '../../lib/routes'
 
 interface PublicNavItem {
   label: string
@@ -131,7 +132,7 @@ export default function Header() {
               ))}
             </div>
             <LanguageToggle />
-            <Link href="/login" className="btn btn-secondary btn-sm">
+            <Link href={ROUTES.auth} className="btn btn-secondary btn-sm">
               {t('header.console_login')}
             </Link>
             <Link href={primaryHref} className="btn btn-primary btn-sm">
@@ -195,7 +196,7 @@ export default function Header() {
                 ))}
               </div>
               <LanguageToggle className="self-start" />
-              <Link href="/login" className="btn btn-secondary text-center">{t('header.console_login')}</Link>
+              <Link href={ROUTES.auth} className="btn btn-secondary text-center">{t('header.console_login')}</Link>
               <Link href={primaryHref} className="btn btn-primary text-center">{primaryLabel}</Link>
             </div>
           </div>

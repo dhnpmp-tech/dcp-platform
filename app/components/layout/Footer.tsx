@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useLanguage } from '../../lib/i18n'
+import { ROUTES } from '../../lib/routes'
 
 export default function Footer() {
   const { t } = useLanguage()
@@ -31,8 +32,8 @@ export default function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-dc1-text-primary mb-4">{t('footer.platform')}</h4>
             <ul className="space-y-2">
-              <li><Link href="/renter/register" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.rent_gpus')}</Link></li>
-              <li><Link href="/setup" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.earn_with_gpus')}</Link></li>
+              <li><Link href={ROUTES.renterSignup} className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.rent_gpus')}</Link></li>
+              <li><Link href={ROUTES.providerSetup} className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.earn_with_gpus')}</Link></li>
               <li><Link href="/marketplace" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.marketplace')}</Link></li>
             </ul>
           </div>
@@ -41,14 +42,14 @@ export default function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-dc1-text-primary mb-4">{t('footer.resources')}</h4>
             <ul className="space-y-2">
-              <li><Link href="/docs" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.docs')}</Link></li>
-              <li><Link href="/docs/api" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.api_reference')}</Link></li>
+              <li><Link href={ROUTES.docs} className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.docs')}</Link></li>
+              <li><Link href={ROUTES.docs} className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.api_reference')}</Link></li>
               <li><Link href="/support?source=footer-support" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.support')}</Link></li>
               <li><Link href="/support?category=provider&source=footer-support-provider#contact-form" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.support_provider_install')}</Link></li>
               <li><Link href="/support?category=bug&source=footer-support-job#contact-form" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.support_job_issue')}</Link></li>
               <li><Link href="/support?category=billing&source=footer-support-billing#contact-form" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.support_billing')}</Link></li>
               <li><Link href="/support?category=enterprise&source=footer-support-enterprise#contact-form" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.support_enterprise')}</Link></li>
-              <li><Link href="/login" className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.console_login')}</Link></li>
+              <li><Link href={ROUTES.auth} className="text-sm text-dc1-text-secondary hover:text-dc1-amber transition-colors">{t('footer.console_login')}</Link></li>
             </ul>
           </div>
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ROUTES, buildAuthHref } from '@/app/lib/routes'
 
 const SESSION_COOKIE = '__dc1_session'
 
@@ -95,18 +96,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // v1 → v2 auth cutover (ROOT CAUSE of the "RENT lands on the old login" bug).
+  // The legacy /login surface is retired in favour of the redesigned /v2/auth,
+  // which mints renter, provider, AND admin sessions on the same /api contracts.
+  // Permanently redirect any direct /login hit (bookmarks, transactional-email
+  // links, residual hardcoded refs) to /v2/auth, preserving role/redirect/method
+  // query so the post-auth return target survives.
+  if (pathname === '/login') {
+    const url = request.nextUrl.clone()
+    url.pathname = ROUTES.auth
+    // search (role, redirect, reason, method, new) is preserved via clone()
+    return NextResponse.redirect(url, 308)
+  }
+
   // v1 → v2 consolidation: the legacy /renter and /provider surfaces are superseded by the
-  // /v2 console, which mirrors these exact paths (SITE-6). Redirect bookmarks, stale links,
-  // and links inside transactional emails to v2 so nobody lands on the old v1 design. The
-  // provider wizard/register and /renter/register flows are handled above; /admin, /login,
-  // and /marketplace are intentionally left on their current routes for now.
+  // /v2 console, which mirrors these exact paths (SITE-6). Permanently redirect bookmarks,
+  // stale links, and links inside transactional emails to v2 so nobody lands on the old v1
+  // design. The provider wizard/register and /renter/register flows are handled above;
+  // /admin and /marketplace are intentionally left on their current routes for now.
   if (
     pathname === '/renter' || pathname.startsWith('/renter/') ||
     pathname === '/provider' || pathname.startsWith('/provider/')
   ) {
     const url = request.nextUrl.clone()
     url.pathname = `/v2${pathname}`
-    return NextResponse.redirect(url, 307)
+    return NextResponse.redirect(url, 308)
   }
 
   const role = await verifySession(request.cookies.get(SESSION_COOKIE)?.value)
@@ -141,18 +155,30 @@ export async function middleware(request: NextRequest) {
   return res
 }
 
-function buildLoginRedirect(request: NextRequest, expectedRole: string): NextResponse {
+function buildLoginRedirect(
+  request: NextRequest,
+  expectedRole: 'renter' | 'provider' | 'admin',
+): NextResponse {
+  // Bounce unauthenticated visitors to the redesigned /v2/auth surface (NOT the
+  // retired v1 /login). Preserve the role and the originally-requested path so
+  // /v2/auth returns the user to e.g. the pod launch console after sign-in.
   const url = request.nextUrl.clone()
-  url.pathname = '/login'
-  url.search = ''
-  url.searchParams.set('role', expectedRole)
-  url.searchParams.set('reason', 'missing_credentials')
-  url.searchParams.set('redirect', request.nextUrl.pathname)
+  const href = buildAuthHref({
+    role: expectedRole,
+    reason: 'missing_credentials',
+    redirect: request.nextUrl.pathname,
+  })
+  const [authPath, authQuery = ''] = href.split('?')
+  url.pathname = authPath
+  url.search = authQuery
   return NextResponse.redirect(url)
 }
 
 export const config = {
   matcher: [
+    // v1 → v2 auth cutover: route legacy /login hits through the middleware so
+    // they are permanently redirected to /v2/auth.
+    '/login',
     '/provider/:path*',
     '/provider-onboarding/:path*',
     '/provider-onboarding',
