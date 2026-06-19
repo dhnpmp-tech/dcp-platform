@@ -921,6 +921,117 @@ router.get('/:id', requireRenter, (req, res) => {
   }
 });
 
+// ── Core stop/settle/teardown for a pod job row ──────────────────────────────
+// Pure of any request/auth context: takes an already-fetched job row and runs
+// the EXACT same settlement transaction + best-effort teardown the renter
+// DELETE path uses. Returns the stop result payload (or { idempotent } when the
+// pod is already terminal). Reused by both the renter route and the admin route
+// so the money math + teardown stay in lock-step.
+function stopPodCore(job, { actorLabel = 'renter' } = {}) {
+  // Idempotent: already in a terminal state — settle nothing.
+  if (['completed', 'failed', 'stopped', 'cancelled'].includes(job.status)) {
+    return { idempotent: true, id: job.job_id, status: job.status };
+  }
+
+  const now = new Date().toISOString();
+  const nowMs = Date.now();
+  let settlement = null;
+
+  // Settle inside one transaction so a crash can never leave the renter
+  // debited with no terminal job state (or the provider half-credited).
+  db.transaction(() => {
+    if (job.status === 'running') {
+      const provider = db.get(
+        `SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`,
+        job.provider_id
+      );
+      const startedAtMs = Date.parse(job.started_at || job.submitted_at || now) || nowMs;
+      settlement = computePodStopSettlement({
+        costHalala: job.cost_halala,
+        startedAtMs,
+        nowMs,
+        ratePerGpuSecond: resolvePodRate(provider),
+        gpuCount: resolvePodGpuCount(provider),
+      });
+
+      db.prepare(
+        `UPDATE jobs SET status = 'stopped', completed_at = ?, duration_seconds = ?,
+                actual_cost_halala = ?, provider_earned_halala = ?, dc1_fee_halala = ?
+          WHERE id = ? AND status = 'running'`
+      ).run(now, settlement.elapsedSeconds, settlement.actualCostHalala,
+        settlement.providerEarnedHalala, settlement.dc1FeeHalala, job.id);
+
+      if (settlement.providerEarnedHalala > 0) {
+        db.prepare(
+          `UPDATE providers
+              SET total_earnings = total_earnings + ?,
+                  claimable_earnings_halala = claimable_earnings_halala + ?,
+                  total_jobs = total_jobs + 1, current_job_id = NULL
+            WHERE id = ?`
+        ).run(settlement.providerEarnedHalala / 100, settlement.providerEarnedHalala, job.provider_id);
+      }
+
+      db.prepare(
+        `UPDATE renters
+            SET balance_halala = balance_halala + ?,
+                total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1
+          WHERE id = ?`
+      ).run(settlement.refundHalala, settlement.actualCostHalala, job.renter_id);
+    } else {
+      // Never started (pending/queued/assigned/pulling): cancel + full refund.
+      db.prepare(
+        `UPDATE jobs SET status = 'cancelled', completed_at = ?, refunded_at = ? WHERE id = ?`
+      ).run(now, now, job.id);
+      const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
+      if (prepaid > 0 && !job.refunded_at) {
+        db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
+          .run(prepaid, job.renter_id);
+      }
+      settlement = { actualCostHalala: 0, refundHalala: prepaid, elapsedSeconds: 0 };
+    }
+  })();
+
+  // Teardown. BURST pods are NOT relayed via pod-relay.sh (no WG mesh IP) —
+  // burst.py owns their relay socats and the external pod. If this job is a
+  // burst pod, tear it down through burst.py (delete external pod + kill its
+  // socats); otherwise stop the native VPS socat forwarders. Both are
+  // best-effort and never block the stop response.
+  if (job.burst_external_id) {
+    try {
+      spawnBurstTeardown({ podId: job.burst_external_id, jpub: job.pod_jpub, spub: job.pod_spub });
+    } catch (burstErr) {
+      console.error(`[pods] burst teardown failed for ${job.job_id}:`, burstErr.message);
+    }
+  } else {
+    // Best-effort relay teardown — kill the VPS socat forwarders. The daemon's
+    // hold-loop will independently observe the terminal status and stop the
+    // container; relay stop just frees the public ports immediately.
+    try {
+      invokePodRelay(['stop', job.job_id]);
+    } catch (relayErr) {
+      console.error(`[pods] relay stop failed for ${job.job_id}:`, relayErr.message);
+    }
+  }
+
+  console.log(`[pods] ${actorLabel} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}${job.burst_external_id ? ' [burst]' : ''}`);
+  return {
+    idempotent: false,
+    id: job.job_id,
+    status: job.status === 'running' ? 'stopped' : 'cancelled',
+    charged_halala: settlement.actualCostHalala,
+    charged_sar: Number((settlement.actualCostHalala / 100).toFixed(2)),
+    refunded_halala: settlement.refundHalala,
+    refunded_sar: Number((settlement.refundHalala / 100).toFixed(2)),
+    ran_seconds: settlement.elapsedSeconds,
+    workspace_note: (() => {
+      const t = podWorkspaceTier(job);
+      if (t === 'portable') return 'Your /workspace was snapshotted to your rented volume and will restore on your next pod on any provider.';
+      if (t === 'provider') return 'Your /workspace is kept on the same GPU and will reattach to your next pod there.';
+      return 'This pod was ephemeral — /workspace has been deleted.';
+    })(),
+  };
+}
+
 // ── DELETE /api/pods/:id — stop a pod + tear down its VPS relay ──────────────
 router.delete('/:id', requireRenter, (req, res) => {
   try {
@@ -935,107 +1046,12 @@ router.delete('/:id', requireRenter, (req, res) => {
       return res.status(404).json({ error: 'Pod not found' });
     }
 
-    // Idempotent: already in a terminal state — report it, settle nothing.
-    if (['completed', 'failed', 'stopped', 'cancelled'].includes(job.status)) {
-      return res.json({ id: job.job_id, status: job.status });
+    const result = stopPodCore(job, { actorLabel: `Renter ${req.renter.id}` });
+    if (result.idempotent) {
+      return res.json({ id: result.id, status: result.status });
     }
-
-    const now = new Date().toISOString();
-    const nowMs = Date.now();
-    let settlement = null;
-
-    // Settle inside one transaction so a crash can never leave the renter
-    // debited with no terminal job state (or the provider half-credited).
-    db.transaction(() => {
-      if (job.status === 'running') {
-        const provider = db.get(
-          `SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`,
-          job.provider_id
-        );
-        const startedAtMs = Date.parse(job.started_at || job.submitted_at || now) || nowMs;
-        settlement = computePodStopSettlement({
-          costHalala: job.cost_halala,
-          startedAtMs,
-          nowMs,
-          ratePerGpuSecond: resolvePodRate(provider),
-          gpuCount: resolvePodGpuCount(provider),
-        });
-
-        db.prepare(
-          `UPDATE jobs SET status = 'stopped', completed_at = ?, duration_seconds = ?,
-                  actual_cost_halala = ?, provider_earned_halala = ?, dc1_fee_halala = ?
-            WHERE id = ? AND status = 'running'`
-        ).run(now, settlement.elapsedSeconds, settlement.actualCostHalala,
-          settlement.providerEarnedHalala, settlement.dc1FeeHalala, job.id);
-
-        if (settlement.providerEarnedHalala > 0) {
-          db.prepare(
-            `UPDATE providers
-                SET total_earnings = total_earnings + ?,
-                    claimable_earnings_halala = claimable_earnings_halala + ?,
-                    total_jobs = total_jobs + 1, current_job_id = NULL
-              WHERE id = ?`
-          ).run(settlement.providerEarnedHalala / 100, settlement.providerEarnedHalala, job.provider_id);
-        }
-
-        db.prepare(
-          `UPDATE renters
-              SET balance_halala = balance_halala + ?,
-                  total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1
-            WHERE id = ?`
-        ).run(settlement.refundHalala, settlement.actualCostHalala, job.renter_id);
-      } else {
-        // Never started (pending/queued/assigned/pulling): cancel + full refund.
-        db.prepare(
-          `UPDATE jobs SET status = 'cancelled', completed_at = ?, refunded_at = ? WHERE id = ?`
-        ).run(now, now, job.id);
-        const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
-        if (prepaid > 0 && !job.refunded_at) {
-          db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
-            .run(prepaid, job.renter_id);
-        }
-        settlement = { actualCostHalala: 0, refundHalala: prepaid, elapsedSeconds: 0 };
-      }
-    })();
-
-    // Teardown. BURST pods are NOT relayed via pod-relay.sh (no WG mesh IP) —
-    // burst.py owns their relay socats and the external pod. If this job is a
-    // burst pod, tear it down through burst.py (delete external pod + kill its
-    // socats); otherwise stop the native VPS socat forwarders. Both are
-    // best-effort and never block the renter's stop response.
-    if (job.burst_external_id) {
-      try {
-        spawnBurstTeardown({ podId: job.burst_external_id, jpub: job.pod_jpub, spub: job.pod_spub });
-      } catch (burstErr) {
-        console.error(`[pods] burst teardown failed for ${job.job_id}:`, burstErr.message);
-      }
-    } else {
-      // Best-effort relay teardown — kill the VPS socat forwarders. The daemon's
-      // hold-loop will independently observe the terminal status and stop the
-      // container; relay stop just frees the public ports immediately.
-      try {
-        invokePodRelay(['stop', job.job_id]);
-      } catch (relayErr) {
-        console.error(`[pods] relay stop failed for ${job.job_id}:`, relayErr.message);
-      }
-    }
-
-    console.log(`[pods] Renter ${req.renter.id} stopped pod ${job.job_id} — charged ${settlement.actualCostHalala} halala, refunded ${settlement.refundHalala}${job.burst_external_id ? ' [burst]' : ''}`);
-    return res.json({
-      id: job.job_id,
-      status: job.status === 'running' ? 'stopped' : 'cancelled',
-      charged_halala: settlement.actualCostHalala,
-      charged_sar: Number((settlement.actualCostHalala / 100).toFixed(2)),
-      refunded_halala: settlement.refundHalala,
-      refunded_sar: Number((settlement.refundHalala / 100).toFixed(2)),
-      ran_seconds: settlement.elapsedSeconds,
-      workspace_note: (() => {
-        const t = podWorkspaceTier(job);
-        if (t === 'portable') return 'Your /workspace was snapshotted to your rented volume and will restore on your next pod on any provider.';
-        if (t === 'provider') return 'Your /workspace is kept on the same GPU and will reattach to your next pod there.';
-        return 'This pod was ephemeral — /workspace has been deleted.';
-      })(),
-    });
+    const { idempotent: _ignored, ...payload } = result;
+    return res.json(payload);
   } catch (error) {
     console.error('[pods] stop error:', error.message);
     return res.status(500).json({ error: 'Failed to stop pod' });
@@ -1046,6 +1062,110 @@ router.delete('/:id', requireRenter, (req, res) => {
 // Charges the incremental quote at the SAME rate, pushes max_duration_seconds.
 // The daemon re-reads the deadline on its next hold-loop poll (≤7s), so the
 // pod never stops and the renter keeps the same workspace + Jupyter token.
+// ── Core extend logic for a running pod job row ──────────────────────────────
+// Pure of any request/auth context. Takes an already-fetched job row + minutes
+// to add. Debits the renter, pushes the deadline, and (for burst) bumps the
+// external reaper. Returns the extend result payload, or an { error } object
+// carrying the HTTP status + code for the caller to surface. Reused by both the
+// renter route and the admin route. The renter debit is intentional: an admin
+// extending charges the SAME renter who owns the pod (no free comp).
+function extendPodCore(job, addMinutes, { actorLabel = 'renter' } = {}) {
+  if (job.status !== 'running') {
+    return { error: `Pod is ${job.status}; only a running pod can be extended`, code: 'NOT_RUNNING', httpStatus: 409 };
+  }
+
+  // 24h hard ceiling on total rental.
+  const currentSeconds = Math.max(0, Number(job.max_duration_seconds) || (Number(job.duration_minutes) || 0) * 60);
+  const addSeconds = addMinutes * 60;
+  if ((currentSeconds + addSeconds) > MAX_DURATION_MINUTES * 60) {
+    const remaining = Math.max(0, MAX_DURATION_MINUTES * 60 - currentSeconds);
+    return {
+      error: `Extending by ${addMinutes} min would exceed the 24-hour pod ceiling. You can add at most ${Math.floor(remaining / 60)} more minutes.`,
+      code: 'EXCEEDS_MAX',
+      httpStatus: 409,
+    };
+  }
+
+  // Incremental quote at the provider's current rate (same as launch).
+  const provider = db.get(`SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`, job.provider_id);
+  const ratePerGpuSecond = resolvePodRate(provider);
+  const gpuCount = resolvePodGpuCount(provider);
+  const addQuoteHalala = computePodQuoteHalala({ durationSeconds: addSeconds, ratePerGpuSecond, gpuCount });
+
+  // Atomic debit — refuse if the pod's renter balance can't cover the extension.
+  if (addQuoteHalala > 0) {
+    const debit = db.prepare(
+      `UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ?
+        WHERE id = ? AND balance_halala >= ?`
+    ).run(addQuoteHalala, new Date().toISOString(), job.renter_id, addQuoteHalala);
+    if (debit.changes !== 1) {
+      const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, job.renter_id);
+      const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
+      return {
+        error: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes. Top up and retry.`,
+        code: 'INSUFFICIENT_BALANCE',
+        httpStatus: 402,
+        payload: paymentRequiredPayload({
+          requiredHalala: addQuoteHalala,
+          balanceHalala,
+          message: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes. Top up and retry.`,
+        }),
+      };
+    }
+  }
+
+  // Push the deadline + grow the prepaid quote. The daemon picks up the new
+  // max_duration_seconds on its next poll; the reaper trusts it over the
+  // launch-time docker label.
+  const newSeconds = currentSeconds + addSeconds;
+  db.prepare(
+    `UPDATE jobs SET max_duration_seconds = ?, duration_minutes = ?, cost_halala = COALESCE(cost_halala, 0) + ? WHERE id = ?`
+  ).run(newSeconds, Math.round(newSeconds / 60), addQuoteHalala, job.id);
+
+  // Move the kill-deadline. Without this, enforceJobTimeouts() (which compares
+  // datetime(replace(timeout_at,'T',' '))) still reaps the pod at its ORIGINAL
+  // deadline even though max_duration_seconds grew — stopping it early. SQLite's
+  // datetime() emits the space-separated 'YYYY-MM-DD HH:MM:SS' form the enforcer
+  // parses, and rebases off started_at using the NEW total max_duration_seconds.
+  db.prepare(
+    `UPDATE jobs SET timeout_at = datetime(COALESCE(started_at, 'now'), '+' || max_duration_seconds || ' seconds') WHERE id = ?`
+  ).run(job.id);
+
+  // BURST pods run on an external cloud whose reaper deadline lives in
+  // /root/dcp-burst/active/<podid>.json. The burst.py reap cron tears the pod
+  // down at that deadline regardless of our DB, so push it too — by the seconds
+  // we just ADDED (burst.py `extend` bumps deadline += add_s). Spawned DETACHED
+  // so the local file write can never block the HTTP response.
+  if (job.burst_external_id) {
+    try {
+      const child = spawn(
+        '/usr/bin/python3',
+        [BURST_PY, 'extend', String(job.burst_external_id), String(addSeconds)],
+        { detached: true, stdio: 'ignore' }
+      );
+      child.unref();
+    } catch (burstErr) {
+      console.error(`[pods] burst extend failed for ${job.job_id}:`, burstErr.message);
+    }
+  }
+
+  const endsAt = job.started_at
+    ? new Date(Date.parse(job.started_at) + newSeconds * 1000).toISOString()
+    : null;
+  console.log(`[pods] ${actorLabel} extended pod ${job.job_id} by ${addMinutes}m (+${addQuoteHalala} halala); new total ${Math.round(newSeconds/60)}m`);
+  return {
+    id: job.job_id,
+    status: 'running',
+    added_minutes: addMinutes,
+    charged_halala: addQuoteHalala,
+    charged_sar: Number((addQuoteHalala / 100).toFixed(2)),
+    total_minutes: Math.round(newSeconds / 60),
+    ends_at: endsAt,
+    seconds_remaining: endsAt ? Math.max(0, Math.round((Date.parse(endsAt) - Date.now()) / 1000)) : null,
+    note: 'Pod keeps running — same workspace and Jupyter token. Unused time is refunded if you stop early.',
+  };
+}
+
 router.post('/:id/extend', requireRenter, withFinancialIdempotency({
   subjectType: 'renter',
   subjectId: (req) => req.renter && req.renter.id,
@@ -1065,94 +1185,13 @@ router.post('/:id/extend', requireRenter, withFinancialIdempotency({
       req.params.id, req.params.id, req.renter.id
     );
     if (!job) return res.status(404).json({ error: 'Pod not found' });
-    if (job.status !== 'running') {
-      return res.status(409).json({ error: `Pod is ${job.status}; only a running pod can be extended`, code: 'NOT_RUNNING' });
+
+    const result = extendPodCore(job, addMinutes, { actorLabel: `Renter ${req.renter.id}` });
+    if (result.error) {
+      const body = result.payload || { error: result.error, code: result.code };
+      return res.status(result.httpStatus || 400).json(body);
     }
-
-    // 24h hard ceiling on total rental.
-    const currentSeconds = Math.max(0, Number(job.max_duration_seconds) || (Number(job.duration_minutes) || 0) * 60);
-    const addSeconds = addMinutes * 60;
-    if ((currentSeconds + addSeconds) > MAX_DURATION_MINUTES * 60) {
-      const remaining = Math.max(0, MAX_DURATION_MINUTES * 60 - currentSeconds);
-      return res.status(409).json({
-        error: `Extending by ${addMinutes} min would exceed the 24-hour pod ceiling. You can add at most ${Math.floor(remaining / 60)} more minutes.`,
-        code: 'EXCEEDS_MAX',
-      });
-    }
-
-    // Incremental quote at the provider's current rate (same as launch).
-    const provider = db.get(`SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`, job.provider_id);
-    const ratePerGpuSecond = resolvePodRate(provider);
-    const gpuCount = resolvePodGpuCount(provider);
-    const addQuoteHalala = computePodQuoteHalala({ durationSeconds: addSeconds, ratePerGpuSecond, gpuCount });
-
-    // Atomic debit — refuse if balance can't cover the extension.
-    if (addQuoteHalala > 0) {
-      const debit = db.prepare(
-        `UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ?
-          WHERE id = ? AND balance_halala >= ?`
-      ).run(addQuoteHalala, new Date().toISOString(), req.renter.id, addQuoteHalala);
-      if (debit.changes !== 1) {
-        const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
-        const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
-        return res.status(402).json(paymentRequiredPayload({
-          requiredHalala: addQuoteHalala,
-          balanceHalala,
-          message: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes. Top up and retry.`,
-        }));
-      }
-    }
-
-    // Push the deadline + grow the prepaid quote. The daemon picks up the new
-    // max_duration_seconds on its next poll; the reaper trusts it over the
-    // launch-time docker label.
-    const newSeconds = currentSeconds + addSeconds;
-    db.prepare(
-      `UPDATE jobs SET max_duration_seconds = ?, duration_minutes = ?, cost_halala = COALESCE(cost_halala, 0) + ? WHERE id = ?`
-    ).run(newSeconds, Math.round(newSeconds / 60), addQuoteHalala, job.id);
-
-    // Move the kill-deadline. Without this, enforceJobTimeouts() (which compares
-    // datetime(replace(timeout_at,'T',' '))) still reaps the pod at its ORIGINAL
-    // deadline even though max_duration_seconds grew — stopping it early. SQLite's
-    // datetime() emits the space-separated 'YYYY-MM-DD HH:MM:SS' form the enforcer
-    // parses, and rebases off started_at using the NEW total max_duration_seconds.
-    db.prepare(
-      `UPDATE jobs SET timeout_at = datetime(COALESCE(started_at, 'now'), '+' || max_duration_seconds || ' seconds') WHERE id = ?`
-    ).run(job.id);
-
-    // BURST pods run on an external cloud whose reaper deadline lives in
-    // /root/dcp-burst/active/<podid>.json. The burst.py reap cron tears the pod
-    // down at that deadline regardless of our DB, so push it too — by the seconds
-    // we just ADDED (burst.py `extend` bumps deadline += add_s). Spawned DETACHED
-    // so the local file write can never block the HTTP response.
-    if (job.burst_external_id) {
-      try {
-        const child = spawn(
-          '/usr/bin/python3',
-          [BURST_PY, 'extend', String(job.burst_external_id), String(addSeconds)],
-          { detached: true, stdio: 'ignore' }
-        );
-        child.unref();
-      } catch (burstErr) {
-        console.error(`[pods] burst extend failed for ${job.job_id}:`, burstErr.message);
-      }
-    }
-
-    const endsAt = job.started_at
-      ? new Date(Date.parse(job.started_at) + newSeconds * 1000).toISOString()
-      : null;
-    console.log(`[pods] Renter ${req.renter.id} extended pod ${job.job_id} by ${addMinutes}m (+${addQuoteHalala} halala); new total ${Math.round(newSeconds/60)}m`);
-    return res.json({
-      id: job.job_id,
-      status: 'running',
-      added_minutes: addMinutes,
-      charged_halala: addQuoteHalala,
-      charged_sar: Number((addQuoteHalala / 100).toFixed(2)),
-      total_minutes: Math.round(newSeconds / 60),
-      ends_at: endsAt,
-      seconds_remaining: endsAt ? Math.max(0, Math.round((Date.parse(endsAt) - Date.now()) / 1000)) : null,
-      note: 'Pod keeps running — same workspace and Jupyter token. Unused time is refunded if you stop early.',
-    });
+    return res.json(result);
   } catch (error) {
     console.error('[pods] extend error:', error.message);
     return res.status(500).json({ error: 'Failed to extend pod' });
@@ -1163,3 +1202,10 @@ module.exports = router;
 module.exports.computePodStopSettlement = computePodStopSettlement;
 module.exports.computePodQuoteHalala = computePodQuoteHalala;
 module.exports.requireRenter = requireRenter;
+module.exports.toPodView = toPodView;
+module.exports.stopPodCore = stopPodCore;
+module.exports.extendPodCore = extendPodCore;
+module.exports.resolvePodRate = resolvePodRate;
+module.exports.resolvePodGpuCount = resolvePodGpuCount;
+module.exports.MIN_DURATION_MINUTES = MIN_DURATION_MINUTES;
+module.exports.MAX_DURATION_MINUTES = MAX_DURATION_MINUTES;
