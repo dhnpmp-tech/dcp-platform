@@ -48,6 +48,32 @@ function err(message) {
 
 const TOOLS = [
   {
+    name: 'register_agent',
+    description: 'Self-register a new DCP renter account in one call and get a REAL, immediately-usable API key plus a small SAR trial credit — no human, no email click. Use this first when DCP_API_KEY is not set. Save the returned api_key (set it as DCP_API_KEY) and you can immediately call list_gpus, create_pod, and chat. Email is optional (captured for recovery only).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', description: 'Optional contact email for account recovery/audit. Not required.' },
+        label: { type: 'string', description: 'Optional free-text tag for this agent account (e.g. "research-bot").' },
+        use_case: { type: 'string', description: 'Optional short description of what the account is for.' },
+      },
+    },
+    // Unauthenticated by design — this is how an agent gets its first key.
+    run: async (a) => {
+      const body = {};
+      if (a.email) body.email = a.email;
+      if (a.label) body.label = a.label;
+      if (a.use_case) body.use_case = a.use_case;
+      const r = await dcp('POST', '/api/renters/agent-register', body);
+      return ok({
+        api_key: r.api_key,
+        trial_credit_sar: r.trial_credit_sar,
+        balance_sar: r.balance_sar,
+        next: 'Set DCP_API_KEY to this api_key, then call list_gpus and create_pod.',
+      });
+    },
+  },
+  {
     name: 'list_models',
     description: 'List the AI models available for inference on DCP right now. Returns OpenAI-style model entries; only models with available=true are currently serveable.',
     inputSchema: { type: 'object', properties: { only_available: { type: 'boolean', description: 'If true (default), return only currently-serveable models.' } } },
@@ -175,7 +201,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const tool = TOOLS.find((t) => t.name === req.params.name);
   if (!tool) return err(`unknown tool: ${req.params.name}`);
-  if (!API_KEY) return err('DCP_API_KEY is not set. Get a renter key + fund the wallet at https://dcp.sa.');
+  // register_agent is the bootstrap tool — it mints the first key, so it must
+  // run WITHOUT one. Every other tool needs an authenticated renter key.
+  if (!API_KEY && req.params.name !== 'register_agent') {
+    return err('DCP_API_KEY is not set. Call register_agent first to mint one (zero-human), or get a key at https://dcp.sa.');
+  }
   try {
     return await tool.run(req.params.arguments || {});
   } catch (e) {

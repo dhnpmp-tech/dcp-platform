@@ -1437,6 +1437,16 @@ db.exec(`
   'ALTER TABLE renters ADD COLUMN auto_topup_consecutive_failures INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN auto_topup_paused_until TEXT',
   'ALTER TABLE renters ADD COLUMN auto_topup_last_attempt_at TEXT',
+  // Agent self-serve onboarding (2026-06): provenance + audit columns so an
+  // auto-minted renter (no email click) can be told apart from a human-verified
+  // one and revoked/audited. All nullable/defaulted — backfilled NULL on
+  // existing rows, never breaks the human magic-link flow.
+  //   source        — 'agent' for the programmatic zero-human path, NULL/'web' otherwise.
+  //   signup_ip     — request IP at agent-register time (revoke/abuse forensics).
+  //   trial_grant_halala — the one-time trial credited at agent-register (audit).
+  "ALTER TABLE renters ADD COLUMN source TEXT",
+  'ALTER TABLE renters ADD COLUMN signup_ip TEXT',
+  'ALTER TABLE renters ADD COLUMN trial_grant_halala INTEGER DEFAULT 0',
 ].forEach((sql) => {
   try { db.exec(sql); } catch (_) { /* column exists */ }
 });
