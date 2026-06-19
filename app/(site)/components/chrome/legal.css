@@ -1,5 +1,5 @@
 /* Legal document prose — editorial-luxury dark, Midnight tokens from dcp-kit.css.
-   Replaces the old Tailwind prose-invert + dc1-amber legal styling. */
+   Replaces the old Tailwind prose-invert + legacy-amber legal styling. */
 
 .legal-doc {
   max-width: 820px;
