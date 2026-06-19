@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '',
     '/v2/home',
     '/v2/docs',
+    '/v2/agents',
     '/v2/containers',
     '/v2/architecture',
     '/v2/setup',

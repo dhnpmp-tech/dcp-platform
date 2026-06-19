@@ -134,8 +134,8 @@ export function mcpServerLd(): Record<string, unknown> {
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Any (Node.js)',
     description:
-      'An official Model Context Protocol (MCP) server that lets any AI agent rent a GPU, run OpenAI-compatible inference, manage persistent storage, and check wallet balance on DCP through tool calls. Tools include list_models, chat, list_gpus, create_pod, get_pod, extend_pod, stop_pod, rent_volume, get_volume and get_balance.',
-    softwareHelp: { '@type': 'CreativeWork', url: `${SITE_URL}/v2/docs` },
+      'An official Model Context Protocol (MCP) server (npx -y @dcp/mcp) that lets any AI agent self-register a DCP renter account (zero human, with a SAR trial credit), rent a GPU, run OpenAI-compatible inference, manage persistent storage, and check wallet balance through tool calls. Tools: register_agent, list_models, chat, get_balance, list_gpus, create_pod, get_pod, extend_pod, stop_pod, rent_volume and get_volume.',
+    softwareHelp: { '@type': 'CreativeWork', url: `${SITE_URL}/v2/agents` },
     provider: { '@id': `${SITE_URL}/#organization` },
     offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
   }
@@ -230,6 +230,83 @@ export function rentGpuHowToLd(): Record<string, unknown> {
     ],
   }
 }
+
+// HowTo — the zero-human agent flow: self-register → key + trial → rent a GPU,
+// no email click and no human in the loop. Distinct @id from rentGpuHowToLd so
+// both can ship without colliding; this one is keyed to the agents surface.
+export function agentRentGpuHowToLd(): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    '@id': `${SITE_URL}/#howto-agent-rent-gpu`,
+    name: 'How an AI agent rents a GPU on DCP with no human in the loop',
+    description:
+      'An autonomous agent self-registers a DCP renter account, receives a real API key plus a 20 SAR trial credit, lists GPU types, rents a whole GPU, runs work, and stops it — entirely through API or MCP tool calls, no email click and no human.',
+    totalTime: 'PT2M',
+    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '0.50' },
+    step: [
+      {
+        '@type': 'HowToStep',
+        position: 1,
+        name: 'Self-register (zero human)',
+        text: 'POST https://api.dcp.sa/api/renters/agent-register with an optional JSON body ({email, label, use_case}). The response (201) returns a real api_key (dcp-renter-...) and a 20 SAR trial credit — no human approval and no email verification. Via MCP this is the register_agent tool.',
+        url: `${SITE_URL}/v2/agents`,
+      },
+      {
+        '@type': 'HowToStep',
+        position: 2,
+        name: 'List GPU types',
+        text: 'GET https://api.dcp.sa/api/renters/available-providers (or the list_gpus MCP tool) to see rentable GPU types — H200, H100, A100, L40S, RTX 5090, RTX 4090 — each with VRAM and live availability. Pick a gpu_type string.',
+        url: `${SITE_URL}/v2/agents`,
+      },
+      {
+        '@type': 'HowToStep',
+        position: 3,
+        name: 'Rent a whole GPU',
+        text: 'POST https://api.dcp.sa/api/pods with Authorization: Bearer <key>, an Idempotency-Key header (safe retries), and a body of { gpu_type, duration_minutes }. You get root, Jupyter over TLS and SSH in about a minute. If the wallet is short, the API returns HTTP 402 insufficient_balance with a topup_url and creates no pod.',
+        url: `${SITE_URL}/v2/agents`,
+      },
+      {
+        '@type': 'HowToStep',
+        position: 4,
+        name: 'Run, then stop',
+        text: 'Poll GET /api/pods/{id} for the access_url and ssh_command, run the workload, then DELETE /api/pods/{id} (stop_pod) for a prorated refund of unused minutes.',
+        url: `${SITE_URL}/v2/agents`,
+      },
+    ],
+  }
+}
+
+export const AGENT_FAQ: ReadonlyArray<FaqItem> = [
+  {
+    q: 'What is DCP?',
+    a: "DCP (Datacenter Compute Platform) is Saudi Arabia's sovereign AI compute platform. It runs on Saudi-owned GPUs inside the Kingdom under full PDPL data-residency and provides an OpenAI-compatible inference API, on-demand whole-GPU rental (pods), persistent in-Kingdom storage, and an official MCP server — all billed prepaid in Saudi Riyal.",
+  },
+  {
+    q: 'What does DCP do for AI agents?',
+    a: 'DCP is built to be driven by software, not only humans. An agent can self-register a renter account in one unauthenticated call (no email click), get a real API key plus a 20 SAR trial credit, then rent GPUs, run OpenAI-compatible inference, and manage storage — over plain HTTPS or through the official MCP server (npx -y @dcp/mcp).',
+  },
+  {
+    q: 'How does an AI agent get an API key on DCP without a human?',
+    a: "POST https://api.dcp.sa/api/renters/agent-register (no auth needed). It returns 201 with { api_key: 'dcp-renter-...', trial_credit_sar: 20, balance_sar: 20 }. Set that key as DCP_API_KEY (or the Bearer token) and start calling immediately. The MCP equivalent is the register_agent tool. The full 100 SAR trial stays behind human email-verified signup.",
+  },
+  {
+    q: 'How does an AI agent start a GPU on DCP?',
+    a: 'After getting a key, an agent lists GPU types (GET /api/renters/available-providers or list_gpus), then POSTs to https://api.dcp.sa/api/pods with { gpu_type, duration_minutes } and an optional Idempotency-Key header for safe retries. A whole NVIDIA GPU (H200, H100, A100, L40S, RTX 5090 or RTX 4090) comes up with root, Jupyter and SSH in about a minute, billed per minute in SAR.',
+  },
+  {
+    q: 'What happens if an agent has insufficient balance?',
+    a: "The money routes (create pod, extend pod, rent volume) return HTTP 402 with a machine-readable body: { code: 'insufficient_balance', required_sar, balance_sar, currency: 'SAR', topup_url, retryable: true }. No pod or charge is created, so an agent can read required_sar, prompt for a top-up, and safely retry with the same Idempotency-Key.",
+  },
+  {
+    q: 'Is DCP an OpenAI-compatible inference API?',
+    a: 'Yes. Point any OpenAI SDK at base_url https://api.dcp.sa/v1 with your DCP key as the Bearer token — no rewrite needed. POST /v1/chat/completions and GET /v1/models (each entry has an available flag) work as expected. Each response carries per-call usage pricing in both USD and SAR.',
+  },
+  {
+    q: 'Where does an agent’s data live when it uses DCP?',
+    a: 'Inside Saudi Arabia. Inference, GPU pods, and persistent volumes all run on in-Kingdom, Saudi-owned hardware under PDPL. DCP never exposes the underlying GPU vendor, machine, or location — only the public NVIDIA GPU type. Cross-border frontier models are available only by explicit per-tenant opt-in.',
+  },
+]
 
 export function callInferenceHowToLd(): Record<string, unknown> {
   return {

@@ -1,0 +1,395 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   agents.css — agent-first product/explainer page.
+
+   Extends the Midnight kit (dcp-kit.css) and the docs shell (docs.css, imported
+   by the page). This file only adds the editorial hero + product-block chrome
+   the docs three-pane shell does not provide. Tokens (--bg, --ink, --teal,
+   --orange, --hair, --serif, --sans, --mono) come from dcp-kit.css; never
+   hardcode the palette here.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.ag-page {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.ag-hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--hair);
+  padding: clamp(3.5rem, 2rem + 7vw, 7rem) 0 clamp(3rem, 2rem + 4vw, 5rem);
+}
+.ag-hero .wrap {
+  position: relative;
+  z-index: 2;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 0.5rem + 2vw, 2rem);
+}
+/* atmospheric ∞ watermark — compositor-friendly (opacity/transform only) */
+.ag-hero .ag-glyph {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  font-family: var(--serif);
+  font-size: clamp(20rem, 50vw, 44rem);
+  line-height: 1;
+  color: var(--teal);
+  opacity: 0.05;
+  transform: translateY(-6%);
+  user-select: none;
+}
+.ag-eyebrow {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.ag-hero h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(2.75rem, 1.2rem + 6.5vw, 5.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 1.25rem 0 0;
+  max-width: 18ch;
+  text-wrap: balance;
+}
+.ag-hero h1 em {
+  font-style: italic;
+  color: var(--teal);
+}
+.ag-hero .lead {
+  color: var(--ink-2);
+  font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.3rem);
+  line-height: 1.55;
+  max-width: 58ch;
+  margin: 1.75rem 0 0;
+  text-wrap: pretty;
+}
+.ag-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2.25rem;
+}
+.ag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.2rem;
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: 2px;
+  border: 1px solid var(--teal);
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.ag-btn.primary {
+  background: var(--teal);
+  color: var(--bg);
+}
+.ag-btn.primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+.ag-btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--hair);
+}
+.ag-btn.ghost:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.ag-residency {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+.ag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  border: 1px solid var(--hair);
+  border-radius: 2px;
+  color: var(--ink-2);
+}
+.ag-badge.ksa {
+  border-color: color-mix(in oklab, var(--teal) 40%, var(--hair));
+  color: var(--teal);
+}
+
+/* ── Section scaffolding ──────────────────────────────────────────────── */
+.ag-body {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 0.5rem + 2vw, 2rem);
+}
+.ag-sec {
+  padding: clamp(3rem, 2rem + 4vw, 5rem) 0;
+  border-bottom: 1px solid var(--hair);
+}
+.ag-sec-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.ag-sec-meta .idx {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.ag-sec-meta .kick {
+  font-family: var(--serif);
+  font-size: clamp(1.5rem, 1rem + 2vw, 2.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  max-width: 22ch;
+  text-align: right;
+}
+.ag-sec > p.intro {
+  color: var(--ink-2);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  max-width: 64ch;
+  margin: 0 0 1.5rem;
+}
+
+/* ── Numbered flow (the zero-human narrative) ─────────────────────────── */
+.ag-flow {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+}
+.ag-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.1rem;
+  padding: 1.4rem 1.5rem;
+}
+.ag-step + .ag-step {
+  border-top: 1px solid var(--hair);
+}
+.ag-step .num {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--teal);
+  padding-top: 0.15rem;
+}
+.ag-step h3 {
+  font-family: var(--sans);
+  font-size: 1.02rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ink);
+}
+.ag-step p {
+  margin: 0.4rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.ag-step code {
+  font-family: var(--mono);
+  font-size: 0.84em;
+  background: var(--bg-2);
+  padding: 0.05rem 0.35rem;
+  border-radius: 2px;
+  color: var(--teal);
+}
+
+/* ── Cards / bento ────────────────────────────────────────────────────── */
+.ag-cards {
+  display: grid;
+  gap: 1px;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.ag-card {
+  background: var(--paper);
+  padding: 1.4rem 1.5rem;
+}
+.ag-card .k {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.ag-card h3 {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  line-height: 1.1;
+  font-weight: 400;
+  margin: 0.5rem 0 0;
+  color: var(--ink);
+}
+.ag-card p {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+/* ── Code block (matches docs .code styling, scoped fallback) ─────────── */
+.ag-code {
+  margin: 0;
+  padding: 1.25rem 1.4rem;
+  background: var(--bg-2);
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--ink);
+  overflow-x: auto;
+  white-space: pre;
+  direction: ltr;
+  text-align: left;
+}
+.ag-code .c { color: var(--ink-2); opacity: 0.75; }
+.ag-code .k { color: var(--teal); }
+.ag-code .s { color: var(--orange); }
+.ag-code .n { color: var(--ink); }
+.ag-code-cap {
+  margin: 0 0 0.6rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ── GPU price table ──────────────────────────────────────────────────── */
+.ag-gpu {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  font-size: 0.9rem;
+}
+.ag-gpu th,
+.ag-gpu td {
+  padding: 0.7rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--hair);
+}
+.ag-gpu thead th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--bg-2);
+}
+.ag-gpu td.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.ag-gpu td.rate {
+  color: var(--teal);
+}
+.ag-gpu tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ── Callout (sovereignty / npm caveat) ──────────────────────────────── */
+.ag-note {
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--teal);
+  background: var(--paper);
+  padding: 1.1rem 1.3rem;
+  border-radius: 2px;
+}
+.ag-note .t {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 0.4rem;
+}
+.ag-note p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.ag-note code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--orange);
+}
+
+.ag-tablewrap { overflow-x: auto; }
+.ag-grid-2 {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 860px) {
+  .ag-grid-2 { grid-template-columns: 1.1fr 0.9fr; align-items: start; }
+}
+
+.ag-faq {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+}
+.ag-faq details {
+  padding: 1.1rem 1.4rem;
+}
+.ag-faq details + details {
+  border-top: 1px solid var(--hair);
+}
+.ag-faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--ink);
+  list-style: none;
+}
+.ag-faq summary::-webkit-details-marker { display: none; }
+.ag-faq summary::after {
+  content: '+';
+  float: right;
+  color: var(--teal);
+  font-family: var(--mono);
+}
+.ag-faq details[open] summary::after { content: '–'; }
+.ag-faq details p {
+  margin: 0.7rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-btn.primary:hover { transform: none; }
+}

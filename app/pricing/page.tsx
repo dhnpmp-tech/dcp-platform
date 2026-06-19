@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Instrument_Serif } from 'next/font/google'
 import Header from '../components/layout/Header'
 import Footer from '../components/layout/Footer'
+import { ROUTES } from '../lib/routes'
 
 const serif = Instrument_Serif({
   subsets: ['latin'],
@@ -319,10 +320,10 @@ export default function PricingPage() {
               before any provider starts work.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/renter/register" className="btn btn-primary btn-md">
+              <Link href={ROUTES.renterSignup} className="btn btn-primary btn-md">
                 Start with 100 SAR
               </Link>
-              <Link href="/docs/quickstart" className="btn btn-secondary btn-md">
+              <Link href={ROUTES.docs} className="btn btn-secondary btn-md">
                 API quickstart
               </Link>
             </div>
