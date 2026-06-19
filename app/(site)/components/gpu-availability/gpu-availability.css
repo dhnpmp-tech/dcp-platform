@@ -211,12 +211,128 @@
   border-top: 1px solid var(--line);
 }
 
+/* ── Section intro ─────────────────────────────────────────────────────────
+   Fills the space between the page header line and the grid with HIERARCHY,
+   not padding: a serif display headline (scale contrast), Inter subcopy, and
+   a row of mono capability chips. Sits flush above the grid on the home
+   variant. */
+.gpu-avail-intro {
+  padding: 26px 22px 22px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gpu-avail--home .gpu-avail-intro {
+  border-top: 1px solid var(--line);
+}
+.gpu-avail-intro-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(28px, 1.6rem + 1.8vw, 44px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.gpu-avail-intro-sub {
+  margin: 0;
+  max-width: 62ch;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.gpu-avail-chips {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.gpu-chip {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--ink) 4%, transparent);
+  white-space: nowrap;
+}
+
+/* ── Trailing CTA filler ───────────────────────────────────────────────────
+   A grid cell that spans the remaining columns of the final row (span set
+   inline from the live column count). Reads as an inviting panel — subtle
+   surface, serif/inter copy, animated arrow — clearly NOT a GPU card. */
+.gpu-cta {
+  position: relative;
+  background: color-mix(in oklab, var(--teal) 6%, var(--paper));
+  min-height: 132px;
+  transition: background 0.2s ease;
+}
+.gpu-cta:hover {
+  background: color-mix(in oklab, var(--teal) 11%, var(--paper));
+}
+.gpu-cta-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 100%;
+  padding: 18px 20px;
+  color: inherit;
+  text-decoration: none;
+}
+.gpu-cta-copy {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink);
+  max-width: 42ch;
+}
+.gpu-cta-arrow {
+  font-family: var(--mono);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--teal);
+  flex: 0 0 auto;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gpu-cta:hover .gpu-cta-arrow,
+.gpu-cta-link:focus-visible .gpu-cta-arrow {
+  transform: translateX(4px);
+}
+.gpu-cta-link:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+/* RTL: arrow points the other way and nudges left. */
+html[data-lang='ar'] .gpu-cta-arrow {
+  transform: scaleX(-1);
+}
+html[data-lang='ar'] .gpu-cta:hover .gpu-cta-arrow,
+html[data-lang='ar'] .gpu-cta-link:focus-visible .gpu-cta-arrow {
+  transform: scaleX(-1) translateX(4px);
+}
+
 @media (max-width: 560px) {
   .gpu-avail-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
   .gpu-type {
     font-size: 22px;
+  }
+  /* On 1-2 col the CTA reads as a stacked block, not a wide row. */
+  .gpu-cta-link {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 10px;
   }
 }
 
@@ -229,5 +345,13 @@
   .gpu-card:hover .gpu-rent,
   .gpu-card-link:focus-visible .gpu-rent {
     transform: none;
+  }
+  .gpu-cta:hover .gpu-cta-arrow,
+  .gpu-cta-link:focus-visible .gpu-cta-arrow {
+    transform: none;
+  }
+  html[data-lang='ar'] .gpu-cta:hover .gpu-cta-arrow,
+  html[data-lang='ar'] .gpu-cta-link:focus-visible .gpu-cta-arrow {
+    transform: scaleX(-1);
   }
 }
