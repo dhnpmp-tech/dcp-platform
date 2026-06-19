@@ -98,39 +98,72 @@ const nextConfig = {
     // from the public entry routes. Use redirects instead of internal rewrites:
     // the v2 shell is intentionally mounted under /v2, and rendering it through
     // a different browser pathname causes hydration mismatches in production.
+    // NOTE on `permanent`: Next.js emits permanent:true as 308 and false as 307.
+    // The DCP_V2_LIVE-gated entries stay temporary (the team may still toggle the
+    // flag), but the genuinely-retired v1 surfaces below are permanent (308) so
+    // search engines, bookmarks, and transactional-email links treat the new v2
+    // URLs as canonical and never re-resolve to a stale v1 page.
     const v2Live = process.env.DCP_V2_LIVE === '1';
     const v2CutoverRedirects = v2Live
       ? [
-          // Keep /login on the proven v1 auth surface until /v2/auth can mint
-          // renter, provider, and admin sessions with the same production tokens.
+          // Public entry-route cutover. Temporary while DCP_V2_LIVE is a flip switch.
+          // /login is handled in middleware.ts (permanent 308 → /v2/auth), NOT here:
+          // tests/v2-cutover-rewrites.test.js asserts /login is absent from this table.
           { source: '/', destination: '/v2/home', permanent: false },
           { source: '/setup', destination: '/v2/provider-setup', permanent: false },
           { source: '/earn', destination: '/v2/provider-setup', permanent: false },
-          { source: '/renter/register', destination: '/setup', permanent: false },
+          // Legacy renter registration → the renter signup funnel (/v2/setup).
+          // Previously pointed at /setup, which chains to the PROVIDER setup —
+          // a wrong-funnel bug. Renters now land on the renter onboarding flow.
+          { source: '/renter/register', destination: '/v2/setup', permanent: false },
           { source: '/docs', destination: '/v2/docs', permanent: false },
         ]
       : [];
 
     return [
       ...v2CutoverRedirects,
+      // ── Retired v1 surfaces → canonical v2 (permanent 308) ──────────────
       // GPU Pods page is canonical in the v2 console design.
-      { source: '/renter/pods', destination: '/v2/renter/pods', permanent: false },
+      { source: '/renter/pods', destination: '/v2/renter/pods', permanent: true },
       // GPU Pods product page lives in the app now; the static one-pager is retired.
-      { source: '/containers', destination: '/v2/containers', permanent: false },
-      { source: '/gpu-containers', destination: '/v2/containers', permanent: false },
-      { source: '/gpu-containers.html', destination: '/v2/containers', permanent: false },
+      { source: '/containers', destination: '/v2/containers', permanent: true },
+      { source: '/gpu-containers', destination: '/v2/containers', permanent: true },
+      { source: '/gpu-containers.html', destination: '/v2/containers', permanent: true },
       // Retired public brand-guideline artifact. Keep old links landing on
       // current docs without continuing to publish stale internal design HTML.
-      { source: '/docs/DCP-BRAND-GUIDELINES-v3.html', destination: '/v2/docs', permanent: false },
-      { source: '/docs/brand', destination: '/v2/docs', permanent: false },
+      { source: '/docs/DCP-BRAND-GUIDELINES-v3.html', destination: '/v2/docs', permanent: true },
+      { source: '/docs/brand', destination: '/v2/docs', permanent: true },
       // Retired v2 design-handoff URLs previously lived under public/dcp-v2.
-      { source: '/dcp-v2/:path*', destination: '/v2/home', permanent: false },
-      // Retired model-browser URL → the v2 playground/catalog source of truth.
-      { source: '/models', destination: '/v2/renter/playground', permanent: false },
-      // Provider activation funnel (4 call sites link here) → the real onboarding entry
-      { source: '/provider-onboarding', destination: '/earn', permanent: false },
+      { source: '/dcp-v2/:path*', destination: '/v2/home', permanent: true },
+      // Retired model-browser URLs → the v2 playground/catalog source of truth.
+      { source: '/models', destination: '/v2/renter/playground', permanent: true },
+      { source: '/marketplace/models', destination: '/v2/renter/playground', permanent: true },
+      { source: '/marketplace/templates', destination: '/v2/renter/pods', permanent: true },
+      // Retired docs sub-pages → the consolidated v2 docs. (Bare /quickstart,
+      // /pricing and /status keep their own self-canonicals and are NOT redirected.)
+      { source: '/docs/api', destination: '/v2/docs', permanent: true },
+      { source: '/docs/api/:path*', destination: '/v2/docs', permanent: true },
+      { source: '/docs/quickstart', destination: '/v2/docs', permanent: true },
+      { source: '/docs/models', destination: '/v2/docs', permanent: true },
+      { source: '/docs/renter-guide', destination: '/v2/docs', permanent: true },
+      { source: '/docs/provider-guide', destination: '/v2/docs', permanent: true },
+      // Retired renter console deep-links not covered by the middleware /renter/* rule.
+      { source: '/api-keys', destination: '/v2/renter/keys', permanent: true },
+      { source: '/connections', destination: '/v2/renter/keys', permanent: true },
+      { source: '/budget', destination: '/v2/renter/usage', permanent: true },
+      { source: '/dashboard', destination: '/v2/renter/dashboard', permanent: true },
+      { source: '/dashboard/notifications', destination: '/v2/renter/dashboard', permanent: true },
+      { source: '/dashboard/jobs', destination: '/v2/renter/jobs', permanent: true },
+      { source: '/jobs', destination: '/v2/renter/jobs', permanent: true },
+      { source: '/jobs/submit', destination: '/v2/renter/playground', permanent: true },
+      // Retired marketing pages superseded by the v2 home.
+      { source: '/intelligence', destination: '/v2/home', permanent: true },
+      { source: '/arabic-rag', destination: '/v2/home', permanent: true },
+      { source: '/onboarding', destination: '/v2/setup', permanent: true },
+      // Provider activation funnel (4 call sites link here) → the real onboarding entry.
+      { source: '/provider-onboarding', destination: '/earn', permanent: true },
       // Draft/legal docs sometimes cross-link /legal/terms; canonical effective terms live at /terms
-      { source: '/legal/terms', destination: '/terms', permanent: false },
+      { source: '/legal/terms', destination: '/terms', permanent: true },
     ];
   },
 }

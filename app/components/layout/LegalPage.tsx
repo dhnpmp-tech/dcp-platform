@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Footer from './Footer'
 import { useLanguage } from '../../lib/i18n'
+import { ROUTES } from '../../lib/routes'
 
 interface LegalPageProps {
   title: string
@@ -22,7 +23,7 @@ export default function LegalPage({ title, lastUpdated, children }: LegalPagePro
           <Link href="/" className="flex items-center">
             <Image src="/dcp-logo-primary.png" alt="DCP" width={96} height={32} className="h-8 w-auto" />
           </Link>
-          <Link href="/login" className="text-sm text-dc1-amber hover:underline">{t('auth.sign_in')}</Link>
+          <Link href={ROUTES.auth} className="text-sm text-dc1-amber hover:underline">{t('auth.sign_in')}</Link>
         </div>
       </header>
 

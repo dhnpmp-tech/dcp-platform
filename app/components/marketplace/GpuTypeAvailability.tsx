@@ -12,9 +12,11 @@
 import Link from 'next/link'
 import { useLanguage } from '../../lib/i18n'
 import { useGpuTypes, displayGpuType } from '../../lib/useGpuTypes'
+import { ROUTES } from '../../lib/routes'
 
-// Every "Rent" action lands on the renter pods launch console.
-const LAUNCH_HREF = '/v2/renter/pods'
+// Every "Rent" action lands on the renter pods launch console. Sourced from
+// the central routes module so it can never drift to a stale v1 path.
+const LAUNCH_HREF = ROUTES.renterPods
 
 export default function GpuTypeAvailability() {
   const { language } = useLanguage()

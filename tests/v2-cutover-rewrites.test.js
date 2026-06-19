@@ -28,9 +28,9 @@ async function run() {
   const redirectMap = new Map(live.redirects.map((redirect) => [redirect.source, redirect.destination]));
 
   assert(redirectSources.includes('/'), 'DCP_V2_LIVE should cut over the public home page');
-  assert.strictEqual(redirectMap.get('/setup'), '/v2/setup', 'public /setup should be the renter onboarding flow');
+  assert.strictEqual(redirectMap.get('/setup'), '/v2/provider-setup', 'public /setup is the provider onboarding flow');
   assert.strictEqual(redirectMap.get('/earn'), '/v2/provider-setup', 'public /earn should be the provider onboarding flow');
-  assert.strictEqual(redirectMap.get('/renter/register'), '/setup', 'legacy renter registration should land on public /setup');
+  assert.strictEqual(redirectMap.get('/renter/register'), '/v2/setup', 'legacy renter registration should land on the renter signup funnel (/v2/setup), not the provider /setup');
   assert.strictEqual(redirectMap.get('/provider-onboarding'), '/earn', 'legacy provider onboarding should land on public /earn');
   assert.strictEqual(redirectMap.get('/dcp-v2/:path*'), '/v2/home', 'retired public v2 handoff URLs should land on the real v2 home');
   assert.strictEqual(redirectMap.get('/models'), '/v2/renter/playground', 'retired model-browser URLs should not send visitors to the legacy marketplace');

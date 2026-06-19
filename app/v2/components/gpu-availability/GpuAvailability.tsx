@@ -16,10 +16,14 @@
 import Link from 'next/link'
 import { Bi } from '@/app/v2/lib/i18n'
 import { useGpuTypes, displayGpuType, type GpuTypeEntry } from '@/app/lib/useGpuTypes'
+import { ROUTES } from '@/app/lib/routes'
 import './gpu-availability.css'
 
-// Where every "Rent" action lands — the renter pods launch console.
-const LAUNCH_HREF = '/v2/renter/pods'
+// Where every "Rent" action lands — the renter pods launch console. Sourced
+// from the central routes module so it can never drift to a stale v1 path.
+// Unauthenticated visitors are forwarded by middleware to /v2/auth (the new
+// auth surface), which returns them here after sign-in.
+const LAUNCH_HREF = ROUTES.renterPods
 
 interface GpuAvailabilityProps {
   // Visual context. 'home' tucks under an existing section (no own heading by
