@@ -14,10 +14,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/v2/provider-setup',
     '/v2/renter/playground',
     '/pricing',
+    '/quickstart',
     '/status',
+    '/trust-center',
+    '/security',
+    '/legal/pdpl',
     '/terms',
     '/privacy',
     '/acceptable-use',
+    // Static AI-discovery surfaces (served from /public). Listed so AI crawlers
+    // and answer engines find the machine-readable contract.
+    '/llms.txt',
+    '/docs/openapi.yaml',
   ]
 
   return routes.map((route) => ({

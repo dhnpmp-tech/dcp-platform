@@ -1,12 +1,30 @@
 openapi: 3.1.0
 info:
   title: DCP Platform API
-  version: 5.0.0
+  version: 5.1.0
   description: |
-    DCP is a Saudi-hosted GPU compute marketplace for AI workloads.
-    Providers register NVIDIA GPUs, install the Python daemon, and earn SAR.
-    Renters submit compute jobs (LLM inference, image generation, training) that
-    run on provider hardware. DCP takes 25% fee; providers earn 75%.
+    DCP is Saudi Arabia's sovereign AI compute platform — built to be used by AI
+    agents and software, not only humans. It exposes:
+
+    - **OpenAI-compatible inference** at `https://api.dcp.sa/v1`
+      (`POST /v1/chat/completions`, `GET /v1/models`) — a drop-in replacement
+      for `api.openai.com`. Set `base_url` and a renter Bearer key; no rewrite.
+    - **On-demand GPU rental (pods)** — rent a whole NVIDIA GPU (H200, H100,
+      A100, RTX 4090 and more) with root + Jupyter + SSH in about a minute via
+      `POST /api/pods`. Billed prepaid per GPU-second in SAR.
+    - **Persistent in-Kingdom storage (volumes)** via `POST /api/volumes/rent`.
+    - An official **MCP server** (`integrations/dcp-mcp`) exposing all of the
+      above as Model Context Protocol tools for agents.
+
+    All compute runs on Saudi-owned hardware inside the Kingdom under full PDPL
+    data-residency compliance. Data, models, and storage never leave Saudi
+    Arabia unless a tenant explicitly opts in to cross-border frontier models.
+
+    The platform is also a two-sided marketplace: providers register NVIDIA
+    GPUs, install the daemon, and earn SAR; renters consume inference, pods, and
+    volumes. Money-mutating writes accept an `Idempotency-Key` header so agent
+    retries are safe, and return HTTP 402 with a structured payment-required
+    body when the prepaid wallet cannot cover a request.
 
     ## Currency
     All monetary amounts are in **halala** (1 SAR = 100 halala) unless the field
@@ -114,6 +132,79 @@ components:
         error:
           type: string
           example: Missing required fields
+
+    PaymentRequiredError:
+      type: object
+      description: Returned with HTTP 402 when the prepaid wallet cannot cover the pre-flight estimate. Lets an agent know how and where to fund before retrying.
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: insufficient_balance
+        message:
+          type: string
+          example: Wallet balance is below the pre-flight estimate for this request.
+        currency:
+          type: string
+          example: SAR
+        required_halala:
+          type: integer
+          example: 5000
+        balance_halala:
+          type: integer
+          example: 1200
+        topup_url:
+          type: string
+          example: https://dcp.sa/v2/renter/wallet
+
+    Pod:
+      type: object
+      description: An on-demand, whole-GPU rental (dedicated container, in-Kingdom).
+      properties:
+        id:
+          type: string
+          example: pod_8fK2x9
+        status:
+          type: string
+          enum: [provisioning, running, stopped, expired]
+          example: running
+        gpu_type:
+          type: string
+          example: NVIDIA RTX 4090
+        access_url:
+          type: string
+          description: Jupyter URL over TLS (present once running).
+          example: https://pod-8fK2x9.dcp.sa
+        ssh_command:
+          type: string
+          example: ssh root@pod-8fK2x9.dcp.sa -p 32222
+        ends_at:
+          type: string
+          format: date-time
+        seconds_remaining:
+          type: integer
+          example: 3540
+        rate_per_minute_halala:
+          type: integer
+          example: 2
+
+    Volume:
+      type: object
+      description: An exclusive, in-Kingdom persistent storage volume that mounts at a pod's /workspace.
+      properties:
+        id:
+          type: string
+          example: vol_3aQ7
+        size_gb:
+          type: integer
+          example: 20
+        used_gb:
+          type: number
+          example: 4.2
+        status:
+          type: string
+          enum: [active, releasing, released]
+          example: active
 
     Template:
       type: object
@@ -353,6 +444,238 @@ components:
           nullable: true
 
 paths:
+
+  # ─── GPU Pods (on-demand whole-GPU rental) ───────────────────────────────────
+
+  /api/pods:
+    post:
+      tags: [Pods]
+      summary: Rent a whole GPU (create a pod)
+      description: |
+        Provisions a dedicated, whole-GPU container with root access, Jupyter
+        over TLS, and SSH — typically ready in about a minute. The pod lands
+        only on a verified, in-Kingdom (Saudi Arabia) machine that just passed
+        live Docker + CUDA + GPU-health probes. Billing is prepaid per
+        GPU-second in SAR; unused time is refunded on early stop.
+
+        GPU types and indicative hourly prices (USD ≈ at 1 USD ≈ 3.75 SAR):
+        NVIDIA H200 (141 GB, 9.19 SAR/hr), H100 (80 GB, 7.09 SAR/hr),
+        A100 (40 GB, 4.50 SAR/hr), RTX 4090 (24 GB, 1.00 SAR/hr),
+        RTX 4080 (16 GB, 0.67 SAR/hr), RTX 3090 (24 GB, 0.50 SAR/hr),
+        RTX 3080 (10 GB, 0.33 SAR/hr).
+
+        Pass an `Idempotency-Key` header to make retries safe.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
+          description: Client-generated key; a retried request with the same key returns the original result instead of renting a second pod.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [duration_minutes]
+              properties:
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                  example: 60
+                  description: How long to rent the GPU for, in minutes.
+                gpu_type:
+                  type: string
+                  example: NVIDIA RTX 4090
+                  description: Optional preferred GPU type. If omitted, any available type is used.
+                image:
+                  type: string
+                  example: dcp-compute:cuda
+                  description: Optional container image. Defaults to a CUDA + Python + Jupyter base.
+      responses:
+        '201':
+          description: Pod created and provisioning.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pod' }
+        '402':
+          description: Insufficient prepaid balance to cover the pre-flight estimate.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentRequiredError' }
+        '409':
+          description: Requested GPU type is temporarily out of stock.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: gpu_type_out_of_stock }
+                  message: { type: string }
+    get:
+      tags: [Pods]
+      summary: List your pods
+      security:
+        - RenterApiKey: []
+      responses:
+        '200':
+          description: Your pods.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pods:
+                    type: array
+                    items: { $ref: '#/components/schemas/Pod' }
+
+  /api/pods/{id}:
+    get:
+      tags: [Pods]
+      summary: Get a pod (access details + remaining time)
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Pod details, including access_url and ssh_command once ready.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pod' }
+        '404':
+          description: No such pod for this renter.
+    delete:
+      tags: [Pods]
+      summary: Stop a pod early (prorated refund)
+      description: Stops the pod immediately. Unused prepaid time is refunded to the wallet in SAR.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Pod stopped; refund applied.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: stopped }
+                  refunded_halala: { type: integer, example: 1200 }
+
+  /api/pods/{id}/extend:
+    post:
+      tags: [Pods]
+      summary: Extend a running pod without restart
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [extend_minutes]
+              properties:
+                extend_minutes:
+                  type: integer
+                  minimum: 1
+                  example: 30
+      responses:
+        '200':
+          description: Deadline extended.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pod' }
+        '402':
+          description: Insufficient balance to cover the extension.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentRequiredError' }
+
+  # ─── Persistent storage (volumes) ────────────────────────────────────────────
+
+  /api/volumes/rent:
+    post:
+      tags: [Volumes]
+      summary: Rent an exclusive, in-Kingdom persistent volume
+      description: |
+        Rents a persistent storage volume that mounts at a pod's `/workspace`
+        and persists across pods and providers — all inside Saudi Arabia.
+        Pass an `Idempotency-Key` header to make retries safe.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [size_gb]
+              properties:
+                size_gb:
+                  type: integer
+                  enum: [10, 20, 30]
+                  example: 20
+      responses:
+        '201':
+          description: Volume rented.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Volume' }
+        '402':
+          description: Insufficient prepaid balance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentRequiredError' }
+
+  /api/volumes/me:
+    get:
+      tags: [Volumes]
+      summary: Get your volume (status + usage)
+      security:
+        - RenterApiKey: []
+      responses:
+        '200':
+          description: Your volume.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Volume' }
+
+  /api/volumes:
+    delete:
+      tags: [Volumes]
+      summary: Release your volume
+      security:
+        - RenterApiKey: []
+      responses:
+        '200':
+          description: Volume released.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: released }
 
   # ─── Providers ──────────────────────────────────────────────────────────────
 
