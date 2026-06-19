@@ -201,6 +201,39 @@ const nextConfig = {
       { source: '/provider-onboarding', destination: '/earn', permanent: true },
       // Draft/legal docs sometimes cross-link /legal/terms; canonical effective terms live at /terms
       { source: '/legal/terms', destination: '/terms', permanent: true },
+
+      // ── Unify-shell cutover (permanent 308) ─────────────────────────────
+      // These legacy v1 pages rendered the OLD public Header/Footer/LegalPage/
+      // DashboardLayout chrome. The ones with real content (pricing, support,
+      // trust-center, earn, terms, privacy, acceptable-use, payment/*) were
+      // MIGRATED into the app/(site) route group and now render the NEW shell
+      // at the SAME URL. The rest are retired here, folded into their nearest
+      // redesigned twin so no old-chrome page is ever reachable again.
+      //
+      // /tokens previously did a JS bounce to /budget → /renter/usage; collapse
+      // the double hop to a single 308.
+      { source: '/tokens', destination: '/renter/usage', permanent: true },
+      // Quickstart folds into the single-page docs.
+      { source: '/quickstart', destination: '/docs', permanent: true },
+      // Marketplace (bare + sub-pages) → the renter pods/catalog source of truth.
+      { source: '/marketplace', destination: '/renter/pods', permanent: true },
+      // Arabic-RAG solution pages → home (the redesign tells this story inline).
+      { source: '/solutions/arabic-rag', destination: '/', permanent: true },
+      { source: '/ar/solutions/arabic-rag', destination: '/', permanent: true },
+      // Standalone old-era internal pages → their nearest public twin.
+      { source: '/mission', destination: '/trust-center', permanent: true },
+      { source: '/security', destination: '/trust-center', permanent: true },
+      // Old draft/duplicate legal docs → the canonical effective documents.
+      { source: '/legal/pdpl', destination: '/privacy', permanent: true },
+      { source: '/legal/privacy', destination: '/privacy', permanent: true },
+      { source: '/legal/privacy-v2', destination: '/privacy', permanent: true },
+      { source: '/legal/terms-v2', destination: '/terms', permanent: true },
+      // Old DashboardLayout job/monitor remnants → the redesigned renter console.
+      // NOTE: the existing /dashboard/jobs EXACT redirect does not catch the
+      // [jobId] child, and /jobs/:id/monitor had no rule — both are added here.
+      { source: '/monitor', destination: '/renter/dashboard', permanent: true },
+      { source: '/dashboard/jobs/:jobId', destination: '/renter/jobs', permanent: true },
+      { source: '/jobs/:id/monitor', destination: '/renter/dashboard', permanent: true },
     ];
   },
 }
