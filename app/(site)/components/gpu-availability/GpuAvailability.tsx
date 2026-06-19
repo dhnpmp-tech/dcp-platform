@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Bi } from '@/app/(site)/lib/i18n'
 import { useGpuTypes, displayGpuType, type GpuTypeEntry } from '@/app/lib/useGpuTypes'
 import { ROUTES } from '@/app/lib/routes'
@@ -45,29 +45,40 @@ function isRentablePodType(gpu: GpuTypeEntry): boolean {
 // span exactly the cells remaining in the final row — at ANY breakpoint and
 // ANY dynamic card count. Pure CSS can't know this for auto-fill, so we read
 // the resolved `grid-template-columns` track list and track it on resize.
-function useGridColumns(ref: React.RefObject<HTMLElement | null>): number {
+//
+// A *callback* ref (not useRef + useEffect) is essential here: the grid <ul>
+// only mounts AFTER the async GPU feed resolves, so a mount-time useEffect
+// observing a RefObject would run while the element is still null, bail out,
+// and — because the ref object identity never changes — never re-run once the
+// grid appears. That left `columns` stuck at its initial 1 in production
+// (10 % 1 === 0 → CTA span 1 → trailing void). React invokes the callback ref
+// the moment the node attaches, so we wire the ResizeObserver exactly then.
+function useGridColumns(): [(node: HTMLElement | null) => void, number] {
   const [columns, setColumns] = useState(1)
+  const observerRef = useRef<ResizeObserver | null>(null)
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof ResizeObserver === 'undefined') return
+  const setGridRef = useCallback((node: HTMLElement | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+
+    if (!node || typeof ResizeObserver === 'undefined') return
 
     const measure = () => {
       const tracks = window
-        .getComputedStyle(el)
+        .getComputedStyle(node)
         .getPropertyValue('grid-template-columns')
         .trim()
       const count = tracks && tracks !== 'none' ? tracks.split(/\s+/).length : 1
-      setColumns(count > 0 ? count : 1)
+      setColumns(count >= 1 ? count : 1)
     }
 
     measure()
     const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [ref])
+    ro.observe(node)
+    observerRef.current = ro
+  }, [])
 
-  return columns
+  return [setGridRef, columns]
 }
 
 interface GpuAvailabilityProps {
@@ -79,8 +90,7 @@ interface GpuAvailabilityProps {
 
 export default function GpuAvailability({ variant = 'marketplace', showHeading = true }: GpuAvailabilityProps) {
   const { types, errored } = useGpuTypes()
-  const gridRef = useRef<HTMLUListElement>(null)
-  const columns = useGridColumns(gridRef)
+  const [setGridRef, columns] = useGridColumns()
 
   // Pod grid shows rentable pods only — drop the inference-only Apple Silicon
   // entry. Filtering here (not in the shared hook) keeps the marketplace/
@@ -156,7 +166,7 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
       )}
 
       {pods && pods.length > 0 && (
-        <ul className="gpu-avail-grid" ref={gridRef}>
+        <ul className="gpu-avail-grid" ref={setGridRef}>
           {pods.map((gpu) => (
             <li
               className={`gpu-card${gpu.available ? '' : ' gpu-card--off'}`}
