@@ -1950,10 +1950,10 @@ export default function V2HomePage() {
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 09 · Pricing at a glance" ar="§ ٠٩ · نظرة سريعة على الأسعار" />
+              <Bi en="§ 09 · Pricing" ar="§ ٠٩ · الأسعار" />
             </span>
             <span>
-              <Bi en="Full table + calculator on Pricing →" ar="الجدول الكامل + الحاسبة في الأسعار ←" />
+              <Bi en="Per-token inference + whole-GPU rental · billed in SAR" ar="استدلال بالرمز + إيجار معالج كامل · بالريال" />
             </span>
           </div>
           <div className="ps-grid">
@@ -1980,11 +1980,55 @@ export default function V2HomePage() {
             </div>
           </div>
 
+          {/* Per-token inference rate card by model class. Folded in from the
+              retired /pricing page so the PAYG-by-class story is not lost on the
+              home page: token billing is class-based (halala per million tokens),
+              cost-plus, and monthly subscription tiers apply a uniform discount on
+              top. Source of truth = backend model-class rate table. */}
+          <div style={{ marginTop: 40 }}>
+            <div className="section-meta" style={{ marginBottom: 18 }}>
+              <span className="idx">
+                <Bi en="Per-token inference · by model class · in SAR" ar="استدلال بالرمز · حسب فئة النموذج · بالريال" />
+              </span>
+              <span>
+                <Bi en="Pay-as-you-go · halala per million tokens" ar="ادفع حسب الاستخدام · هللة لكل مليون رمز" />
+              </span>
+            </div>
+            <div className="mp-rows" role="table" aria-label={lang === 'ar' ? 'أسعار الاستدلال بالرمز حسب الفئة' : 'Per-token inference prices by model class'}>
+              <div className="mp-row mp-row-head" role="row">
+                <span role="columnheader"><Bi en="Model class" ar="فئة النموذج" /></span>
+                <span role="columnheader"><Bi en="Typical models" ar="نماذج نموذجية" /></span>
+                <span role="columnheader"><Bi en="PAYG · halala / 1M" ar="حسب الاستخدام · هللة / مليون" /></span>
+                <span role="columnheader"><Bi en="Best fit" ar="الأنسب لـ" /></span>
+              </div>
+              {[
+                { klass: 'Embedding', klassAr: 'تضمين', models: 'bge-m3', halala: '5', fitEn: 'Retrieval · RAG indexing', fitAr: 'استرجاع · فهرسة RAG' },
+                { klass: 'Tiny', klassAr: 'صغير جداً', models: 'TinyLlama 1B · Gemma-2B', halala: '15', fitEn: 'Classification · extraction', fitAr: 'تصنيف · استخراج' },
+                { klass: 'Small', klassAr: 'صغير', models: 'qwen3:8b · Mistral-7B · ALLaM-7B', halala: '30', fitEn: 'Production chat · summaries', fitAr: 'محادثة إنتاجية · ملخصات' },
+                { klass: 'Medium', klassAr: 'متوسط', models: 'Qwen 3.6-27B · Coder-32B', halala: '150', fitEn: 'Coding · long-context reasoning', fitAr: 'برمجة · استدلال طويل' },
+                { klass: 'Large', klassAr: 'كبير', models: '70B class', halala: '400', fitEn: 'High-end reasoning, when online', fitAr: 'استدلال متقدم عند التوفر' },
+              ].map((r) => (
+                <div className="mp-row" role="row" key={r.klass}>
+                  <span className="mp-model" role="cell"><b><Bi en={r.klass} ar={r.klassAr} /></b></span>
+                  <span role="cell" dir="ltr">{r.models}</span>
+                  <span role="cell">{r.halala}</span>
+                  <span role="cell"><Bi en={r.fitEn} ar={r.fitAr} /></span>
+                </div>
+              ))}
+            </div>
+            <p style={{ marginTop: 14, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
+              <Bi
+                en="Inference runs on the OpenAI-compatible API and is billed per million tokens in Saudi Riyal, cost-plus by model class. Pay-as-you-go from a prepaid balance, or take a monthly tier (Starter / Growth / Scale) for a uniform 15–30% discount on every class. New renter accounts start with 100 SAR of credit — no card required — and the API returns a machine-readable 402 insufficient_balance before any unpaid work starts, so there is never a silent negative balance."
+                ar="يعمل الاستدلال على واجهة متوافقة مع OpenAI ويُفوتر لكل مليون رمز بالريال السعودي، بالتكلفة زائد هامش حسب فئة النموذج. ادفع حسب الاستخدام من رصيد مدفوع مسبقاً، أو اختر فئة شهرية (مبتدئ / نمو / متّسع) لخصم موحّد ١٥–٣٠٪ على كل فئة. تبدأ حسابات المستأجرين الجديدة برصيد ١٠٠ ريال — دون بطاقة — وتُرجع الواجهة رمز 402 رصيد غير كافٍ قابلاً للقراءة آلياً قبل بدء أي عمل غير مدفوع، فلا يوجد رصيد سالب صامت أبداً."
+              />
+            </p>
+          </div>
+
           {/* Crawlable, plain-text GPU rental SKUs + prices. This is the literal
               SKU + SAR/hr text AI answer engines match "rent an H200 / H100 /
               A100 / L40S / RTX 5090 / RTX 4090 on demand" against. Mirrors the
-              LIVE rentable set (GET /api/renters/available-providers), GPU_RATES
-              in app/pricing/page.tsx and GPU_SKUS in app/lib/structured-data.ts.
+              LIVE rentable set (GET /api/renters/available-providers), GPU_SKUS in
+              app/lib/structured-data.ts and the home GPU table below.
               On-demand prices are cost-plus floors ("from"); float ~every 4 min. */}
           <div style={{ marginTop: 40 }}>
             <div className="section-meta" style={{ marginBottom: 18 }}>
@@ -2038,9 +2082,9 @@ export default function V2HomePage() {
                 </>
               )}
             </span>
-            <a className="btn ghost" href="#pricing">
-              <Bi en="See full pricing →" ar="عرض الأسعار كاملةً ←" />
-            </a>
+            <Link className="btn ghost" href="/setup">
+              <Bi en="Start with 100 SAR credit →" ar="ابدأ برصيد ١٠٠ ريال ←" />
+            </Link>
           </div>
         </div>
       </section>

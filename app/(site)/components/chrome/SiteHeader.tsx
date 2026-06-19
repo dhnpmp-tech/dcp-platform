@@ -26,14 +26,15 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
-  { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
+  // Pricing was folded into the home #pricing section — link straight there.
+  { href: '/#pricing', en: 'Pricing', ar: 'الأسعار' },
   { href: '/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
 // ───────── mobile menu rows ─────────
 const MENU: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; sEn: string; sAr: string }> = [
   { href: '/', n: '01', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
-  { href: '/pricing', n: '02', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
+  { href: '/#pricing', n: '02', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
   { href: '/containers', n: '03', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
   { href: '/agents', n: '04', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Zero-human onboarding · MCP', sAr: 'تهيئة بلا بشر · MCP' },
   { href: '/docs', n: '05', tEn: 'Docs', tAr: 'التوثيق', sEn: 'OpenAI-compatible API', sAr: 'واجهة متوافقة مع OpenAI' },

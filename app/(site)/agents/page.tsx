@@ -22,7 +22,7 @@ import { ROUTES } from '@/app/lib/routes'
 import '@/app/(site)/docs/docs.css'
 import './agents.css'
 
-// GPU "from" floors — mirror GPU_RATES in app/pricing/page.tsx and GPU_SKUS in
+// GPU "from" floors — mirror the home #pricing GPU table and GPU_SKUS in
 // app/lib/structured-data.ts exactly. Cost-plus floors that float; "from".
 // Apple Silicon (M2) is inference-only and has no SAR/hr rental price, so it is
 // deliberately absent from this rentable-pod catalog.

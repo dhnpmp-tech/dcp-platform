@@ -18,7 +18,12 @@
 export const ROUTES = {
   // ── Public / marketing ──────────────────────────────────────────────
   home: '/',
-  pricing: '/pricing',
+  // The dedicated /pricing page was retired and FOLDED into the home #pricing
+  // section (GPU rental grid + per-token inference rate card + PAYG/subscription
+  // billing story). This anchor points consumers straight at that section so no
+  // link 308-chains through the now-removed /pricing page. The bare /pricing URL
+  // still 308s to "/" in next.config for old bookmarks/AEO equity.
+  pricing: '/#pricing',
   docs: '/docs',
   // Agent-first product/explainer surface (zero-human onboarding, MCP, the
   // machine-readable money signals). Canonical root route — the OLD v1 /agents
