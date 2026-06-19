@@ -422,7 +422,7 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
   <span className="k">"mcpServers"</span>: {'{'}
     <span className="k">"dcp"</span>: {'{'}
       <span className="k">"command"</span>: <span className="s">"npx"</span>,
-      <span className="k">"args"</span>: [<span className="s">"-y"</span>, <span className="s">"@dcp/mcp"</span>],
+      <span className="k">"args"</span>: [<span className="s">"-y"</span>, <span className="s">"github:dhnpmp-tech/dcp-mcp"</span>],
       <span className="k">"env"</span>: {'{ '}<span className="k">"DCP_API_KEY"</span>: <span className="s">"dc1-sk-..."</span>{' }'}
     {'}'}
   {'}'}

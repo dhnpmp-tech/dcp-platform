@@ -14,9 +14,12 @@
   },
   "mcp": {
     "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "github:dhnpmp-tech/dcp-mcp"],
     "package": "@dcp/mcp",
-    "repository": "https://github.com/dhnpmp-tech/dcp-platform/tree/main/integrations/dcp-mcp",
-    "description": "Native Model Context Protocol server exposing DCP inference, pods, and volumes as tools."
+    "package_status": "coming_soon",
+    "repository": "https://github.com/dhnpmp-tech/dcp-mcp",
+    "description": "Native Model Context Protocol server exposing DCP inference, pods, and volumes as tools. Install with: npx -y github:dhnpmp-tech/dcp-mcp (npm package @dcp/mcp coming soon)."
   },
   "logo_url": "https://dcp.sa/dcp-logo-512.png",
   "contact_email": "support@dcp.sa",
