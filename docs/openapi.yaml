@@ -117,7 +117,7 @@ components:
       type: apiKey
       in: query
       name: key
-      description: Renter API key. Prefix `dc1-renter-`. Also accepted as `x-renter-key` header.
+      description: "Renter API key. Master keys use prefix `dcp-renter-`; sub-keys (minted via /api/renters/me/keys) use `dc1-sk-`; legacy `dc1-renter-` also accepted. Pass as `?key=`, the `x-renter-key` header, or `Authorization: Bearer <key>`."
     AdminToken:
       type: apiKey
       in: header
