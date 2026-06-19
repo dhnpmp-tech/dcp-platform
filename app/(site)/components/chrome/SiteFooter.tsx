@@ -72,6 +72,7 @@ export default function SiteFooter() {
             <li><Link href="/security"><Bi en="Security" ar="الأمن" /></Link></li>
             <li><Link href="/terms"><Bi en="Terms" ar="الشروط" /></Link></li>
             <li><Link href="/privacy"><Bi en="Privacy" ar="الخصوصية" /></Link></li>
+            <li><Link href="/acceptable-use"><Bi en="Acceptable use" ar="الاستخدام المقبول" /></Link></li>
           </ul>
         </div>
       </div>
