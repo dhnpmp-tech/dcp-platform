@@ -30,6 +30,17 @@ const V2_ROUTE_PREFIXES = [
   '/provider-setup',
   '/renter',
   '/provider',
+  // Re-shelled legacy marketing/legal pages — now migrated into the app/(site)
+  // route group, so they carry the new chrome and must never show the v1
+  // cookie banner / language modal / chat widget.
+  '/pricing',
+  '/support',
+  '/trust-center',
+  '/earn',
+  '/terms',
+  '/privacy',
+  '/acceptable-use',
+  '/payment',
 ]
 
 export default function V1GlobalChrome() {
