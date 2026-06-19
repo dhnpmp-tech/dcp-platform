@@ -14,6 +14,8 @@ const express = require('express');
 const db = require('../db');
 const { requireRenter } = require('./pods');
 const { provisionVolume, deprovisionVolume, volumeUsedBytes, bucketFor } = require('../lib/volume-store');
+const { withFinancialIdempotency } = require('../lib/financial-idempotency');
+const { paymentRequiredPayload } = require('../lib/error-response');
 
 const router = express.Router();
 
@@ -77,7 +79,10 @@ router.get('/me', requireRenter, (req, res) => {
 });
 
 // ── POST /api/volumes/rent { size_gb } ───────────────────────────────────────
-router.post('/rent', requireRenter, (req, res) => {
+router.post('/rent', requireRenter, withFinancialIdempotency({
+  subjectType: 'renter',
+  subjectId: (req) => req.renter && req.renter.id,
+}), (req, res) => {
   try {
     const sizeGb = Number(req.body && req.body.size_gb);
     if (!VOLUME_SIZES_GB.includes(sizeGb)) {
@@ -114,14 +119,11 @@ router.post('/rent', requireRenter, (req, res) => {
     if (debit.changes !== 1) {
       const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
       const balanceHalala = Math.max(0, Number(row && row.balance_halala) || 0);
-      return res.status(402).json({
-        error: {
-          message: `Insufficient balance for a ${sizeGb} GB volume. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(priceHalala / 100).toFixed(2)} SAR/month.`,
-          type: 'insufficient_balance', code: 'insufficient_balance', status: 402, retryable: false,
-        },
-        balance_sar: Number((balanceHalala / 100).toFixed(2)),
-        required_sar: Number((priceHalala / 100).toFixed(2)),
-      });
+      return res.status(402).json(paymentRequiredPayload({
+        requiredHalala: priceHalala,
+        balanceHalala,
+        message: `Insufficient balance for a ${sizeGb} GB volume. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(priceHalala / 100).toFixed(2)} SAR/month. Top up and retry.`,
+      }));
     }
 
     // Provision the quota'd MinIO bucket. If it fails, REFUND and surface the error

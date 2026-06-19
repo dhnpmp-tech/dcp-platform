@@ -33,6 +33,8 @@ const jobsRouter = require('./jobs');
 const { getApiKeyFromReq, looksLikeProviderKey } = require('../middleware/auth');
 const { invokePodRelay } = require('../lib/pod-relay');
 const { COST_RATES } = require('./jobs');
+const { withFinancialIdempotency } = require('../lib/financial-idempotency');
+const { paymentRequiredPayload } = require('../lib/error-response');
 
 // ── Burst (external-cloud) pod plumbing ──────────────────────────────────────
 // A burst provider (is_burst=1) is NOT a physical DCP machine — the pod is
@@ -582,7 +584,10 @@ router.get('/', requireRenter, (req, res) => {
   }
 });
 
-router.post('/', requireRenter, requireComputeScope, (req, res) => {
+router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
+  subjectType: 'renter',
+  subjectId: (req) => req.renter && req.renter.id,
+}), (req, res) => {
   try {
     // Concurrency quota: a renter may hold at most N live pods.
     const activePods = db.get(
@@ -688,17 +693,11 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       if (debit.changes !== 1) {
         const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
         const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
-        return res.status(402).json({
-          error: {
-            message: `Insufficient balance for this pod. Available: ${(balanceHalala / 100).toFixed(2)} SAR, required: ${(quoteHalala / 100).toFixed(2)} SAR for ${durationMinutes} minutes. Unused time is refunded when you stop the pod early.`,
-            type: 'insufficient_balance',
-            code: 'insufficient_balance',
-            status: 402,
-            retryable: false,
-          },
-          balance_sar: Number((balanceHalala / 100).toFixed(2)),
-          required_sar: Number((quoteHalala / 100).toFixed(2)),
-        });
+        return res.status(402).json(paymentRequiredPayload({
+          requiredHalala: quoteHalala,
+          balanceHalala,
+          message: `Insufficient balance for this pod. Available: ${(balanceHalala / 100).toFixed(2)} SAR, required: ${(quoteHalala / 100).toFixed(2)} SAR for ${durationMinutes} minutes. Top up and retry — unused time is refunded when you stop the pod early.`,
+        }));
       }
     }
 
@@ -1047,7 +1046,10 @@ router.delete('/:id', requireRenter, (req, res) => {
 // Charges the incremental quote at the SAME rate, pushes max_duration_seconds.
 // The daemon re-reads the deadline on its next hold-loop poll (≤7s), so the
 // pod never stops and the renter keeps the same workspace + Jupyter token.
-router.post('/:id/extend', requireRenter, (req, res) => {
+router.post('/:id/extend', requireRenter, withFinancialIdempotency({
+  subjectType: 'renter',
+  subjectId: (req) => req.renter && req.renter.id,
+}), (req, res) => {
   try {
     const addMinutes = toFiniteInt(req.body && req.body.extend_minutes, {
       min: MIN_DURATION_MINUTES,
@@ -1093,14 +1095,11 @@ router.post('/:id/extend', requireRenter, (req, res) => {
       if (debit.changes !== 1) {
         const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
         const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
-        return res.status(402).json({
-          error: {
-            message: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes.`,
-            type: 'insufficient_balance', code: 'insufficient_balance', status: 402, retryable: false,
-          },
-          balance_sar: Number((balanceHalala / 100).toFixed(2)),
-          required_sar: Number((addQuoteHalala / 100).toFixed(2)),
-        });
+        return res.status(402).json(paymentRequiredPayload({
+          requiredHalala: addQuoteHalala,
+          balanceHalala,
+          message: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes. Top up and retry.`,
+        }));
       }
     }
 
