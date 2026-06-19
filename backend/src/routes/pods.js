@@ -123,13 +123,21 @@ function spawnBurstLaunch({ gpuTypeId, ports, apiKey, jobId, durationSeconds }) 
   child.unref();
 }
 
-// Tear down a burst pod: DELETE the external pod + kill its relay socats. Spawned
-// DETACHED (the RunPod DELETE is a network call we never want to block a renter's
-// stop request on). Idempotent on the burst.py side. The reaper cron is the
-// backstop; this is the explicit, immediate teardown.
-function spawnBurstTeardown({ podId, jpub, spub }) {
+// Tear down a burst pod: SNAPSHOT /workspace to the renter's volume (burst.py,
+// from the persisted active record), DELETE the external pod, then kill its relay
+// socats. Spawned DETACHED so the renter's stop returns instantly (the RunPod
+// DELETE + the snapshot are network/IO we never block the renter on). Idempotent
+// on the burst.py side (the active record guards a double-snapshot). The reaper
+// cron is the backstop; this is the explicit, immediate teardown.
+//
+// jobId is passed so burst.py can recover the renter's workspace_s3 block from
+// the HMAC-signed task_spec if (and only if) the active record is missing it
+// (e.g. a pod launched before storage-persistence shipped). The normal path
+// reads workspace_s3 straight from the active record written at launch.
+function spawnBurstTeardown({ podId, jpub, spub, jobId }) {
   if (!podId) return;
   const args = [BURST_PY, 'teardown', String(podId), String(jpub || 0), String(spub || 0)];
+  if (jobId) args.push('--job-id', String(jobId));
   const child = spawn('/usr/bin/python3', args, { detached: true, stdio: 'ignore' });
   child.unref();
 }
@@ -502,17 +510,35 @@ function resolvePodProvider(requestedProviderId) {
   return { provider };
 }
 
-// Workspace durability TIER, derived from the stored, HMAC-signed task_spec:
+// Detect whether a pod row is a BURST pod (RunPod-backed external pod) rather
+// than a native DCP-machine pod. A burst row carries burst_external_id once it
+// reaches running; before that, the joined providers.is_burst flag is the only
+// signal. Either being truthy means burst — used so the tier never claims a
+// non-existent same-provider reattach for burst.
+function isBurstJob(job) {
+  return Number(job.is_burst) === 1 || job.burst_external_id != null;
+}
+
+// Workspace durability TIER, derived from the stored, HMAC-signed task_spec
+// (and, for the free tier, whether the pod can actually reattach a volume):
 //   portable  — paid rented volume (workspace_s3): snapshot on stop, restore on ANY provider.
 //   provider  — free same-provider volume (workspace_volume only): /workspace stays on THIS
 //               provider and reattaches to the renter's next pod there, at zero cost.
-//   ephemeral — neither (legacy / pre-volume rows): /workspace dies with the pod.
+//   ephemeral — neither (legacy / pre-volume rows), OR a BURST pod without a rented
+//               volume: the RunPod pod is destroyed on stop and there is no
+//               same-provider reattach, so the free workspace_volume name is
+//               meaningless and /workspace dies with the pod.
 // Never hardcoded, so the pod view always tells the renter the truth.
 function podWorkspaceTier(job) {
   try {
     const spec = job.task_spec ? JSON.parse(job.task_spec) : null;
+    // Paid portable tier is honest for burst AND native: the snapshot/restore
+    // is driven over the burst tunnel (VPS-side) or in-pod (native mc mirror).
     if (spec && spec.workspace_s3) return 'portable';
-    if (spec && spec.workspace_volume) return 'provider';
+    // Free same-provider tier only holds for a NATIVE pod, whose named volume
+    // really does reattach on the same machine. A burst pod has no persistent
+    // RunPod volume across stops, so without a rented volume it is ephemeral.
+    if (spec && spec.workspace_volume && !isBurstJob(job)) return 'provider';
     return 'ephemeral';
   } catch {
     return 'ephemeral';
@@ -570,7 +596,7 @@ router.get('/', requireRenter, (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const rows = db.all(
-      `SELECT j.*, p.gpu_model AS provider_gpu_type
+      `SELECT j.*, p.gpu_model AS provider_gpu_type, p.is_burst AS is_burst
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
         WHERE j.renter_id = ? AND j.job_type = 'interactive_pod'
@@ -721,14 +747,21 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // body — and the whole task_spec is HMAC-signed, so a renter cannot mount
     // another renter's dcp-ws-r<id>.
     taskSpecObj.workspace_volume = `dcp-ws-r${req.renter.id}`;
-    let workspaceTier = 'provider';
+    // A burst pod is a RunPod-backed external pod with NO persistent volume that
+    // survives a stop and NO same-provider reattach — so the free
+    // workspace_volume name is meaningless for it. Its only durable option is the
+    // paid portable tier (snapshot/restore over the burst tunnel). Default a
+    // burst pod to 'ephemeral' and only upgrade it to 'portable' below.
+    const launchIsBurst = Number(provider.is_burst) === 1;
+    let workspaceTier = launchIsBurst ? 'ephemeral' : 'provider';
     try {
       const { activeVolumeForRenter } = require('./volumes');
       const vol = activeVolumeForRenter(req.renter.id);
       if (vol && process.env.WORKSPACE_S3_ENDPOINT && process.env.WORKSPACE_S3_KEY) {
-        // Tier 2 (paid, portable): add S3 coordinates so the daemon RESTORES on
-        // launch and SNAPSHOTS on teardown — survives this provider going offline
-        // and follows the renter to ANY provider.
+        // Tier 2 (paid, portable): add S3 coordinates so the workspace RESTORES on
+        // launch and SNAPSHOTS on stop — survives this provider going offline and
+        // follows the renter to ANY provider. Native does this in-pod (mc mirror);
+        // burst drives the same sync VPS-side over the reverse-SSH tunnel.
         taskSpecObj.workspace_s3 = {
           endpoint: process.env.WORKSPACE_S3_ENDPOINT,
           bucket: vol.bucket,
@@ -902,7 +935,7 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
 router.get('/:id', requireRenter, (req, res) => {
   try {
     const job = db.get(
-      `SELECT j.*, p.gpu_model AS provider_gpu_type
+      `SELECT j.*, p.gpu_model AS provider_gpu_type, p.is_burst AS is_burst
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
         WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod'`,
@@ -993,12 +1026,12 @@ function stopPodCore(job, { actorLabel = 'renter' } = {}) {
 
   // Teardown. BURST pods are NOT relayed via pod-relay.sh (no WG mesh IP) —
   // burst.py owns their relay socats and the external pod. If this job is a
-  // burst pod, tear it down through burst.py (delete external pod + kill its
-  // socats); otherwise stop the native VPS socat forwarders. Both are
+  // burst pod, tear it down through burst.py (snapshot + delete external pod +
+  // kill its socats); otherwise stop the native VPS socat forwarders. Both are
   // best-effort and never block the stop response.
   if (job.burst_external_id) {
     try {
-      spawnBurstTeardown({ podId: job.burst_external_id, jpub: job.pod_jpub, spub: job.pod_spub });
+      spawnBurstTeardown({ podId: job.burst_external_id, jpub: job.pod_jpub, spub: job.pod_spub, jobId: job.job_id });
     } catch (burstErr) {
       console.error(`[pods] burst teardown failed for ${job.job_id}:`, burstErr.message);
     }
@@ -1038,8 +1071,10 @@ router.delete('/:id', requireRenter, (req, res) => {
     // Renter folded into the lookup: unknown id and someone else's pod are both
     // 404, so pod ids cannot be enumerated.
     const job = db.get(
-      `SELECT * FROM jobs
-        WHERE (job_id = ? OR id = ?) AND job_type = 'interactive_pod' AND renter_id = ?`,
+      `SELECT j.*, p.is_burst AS is_burst
+         FROM jobs j
+    LEFT JOIN providers p ON p.id = j.provider_id
+        WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod' AND j.renter_id = ?`,
       req.params.id, req.params.id, req.renter.id
     );
     if (!job) {
