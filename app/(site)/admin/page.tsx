@@ -614,6 +614,9 @@ interface RenterSupportRow {
   completed_jobs?: number | null
   failed_jobs?: number | null
   total_spent_halala?: number | null
+  source?: string | null
+  trial_grant_halala?: number | null
+  signup_ip?: string | null
 }
 
 interface AdminRentersPayload {
@@ -704,6 +707,126 @@ interface AdminPaymentsPayload {
     total_revenue_sar?: number
     total_refunded_sar?: number
   }
+}
+
+interface AdminPodRow {
+  id?: string | null
+  status?: string | null
+  gpu_type?: string | null
+  gpu_model?: string | null
+  provider_id?: number | string | null
+  renter_id?: number | string | null
+  renter_name?: string | null
+  access_url?: string | null
+  ssh_command?: string | null
+  pod_jpub?: number | null
+  pod_spub?: number | null
+  started_at?: string | null
+  ends_at?: string | null
+  seconds_remaining?: number | null
+  is_burst?: boolean | null
+  burst_external_id?: string | null
+  source?: string | null
+  rate_halala_per_gpu_second?: number | null
+  rate_sar_per_hour?: number | null
+  cost_halala?: number | null
+  charged_halala?: number | null
+  duration_minutes?: number | null
+  created_at?: string | null
+}
+
+interface AdminPodsPayload {
+  total?: number
+  live?: number
+  burst?: number
+  include_terminated?: boolean
+  pods?: AdminPodRow[]
+}
+
+interface BurstCatalogRow {
+  id?: number | string
+  burst_gpu_type_id?: string | null
+  gpu_model?: string | null
+  vram_gb?: number | null
+  gpu_count?: number | null
+  stock_available?: number | null
+  is_paused?: boolean | null
+  status?: string | null
+  cost_per_gpu_second_halala?: number | null
+  sar_per_hour?: number | null
+  source?: string | null
+}
+
+interface BurstCatalogPayload {
+  total?: number
+  available?: number
+  paused?: number
+  catalog?: BurstCatalogRow[]
+}
+
+interface BurstCatalogPatchResult {
+  success?: boolean
+  gpu_type?: BurstCatalogRow
+  updated_at?: string
+  error?: string
+}
+
+interface VolumeRow {
+  id?: number | string
+  renter_id?: number | string | null
+  renter_name?: string | null
+  renter_email?: string | null
+  size_gb?: number | null
+  used_gb?: number | null
+  used_pct?: number | null
+  status?: string | null
+  bucket?: string | null
+  price_halala_per_month?: number | null
+  price_sar_per_month?: number | null
+  rented_at?: string | null
+  current_period_end?: string | null
+  released_at?: string | null
+}
+
+interface VolumesPayload {
+  total?: number
+  active?: number
+  pool?: {
+    ceiling_gb?: number
+    active_gb?: number
+    available_gb?: number
+    utilization_pct?: number
+  }
+  halala_per_gb_month?: number | null
+  volumes?: VolumeRow[]
+}
+
+interface PodActionResult {
+  id?: string
+  status?: string
+  already_terminal?: boolean
+  added_minutes?: number
+  charged_halala?: number
+  charged_sar?: number
+  total_minutes?: number
+  ends_at?: string | null
+  seconds_remaining?: number | null
+  note?: string
+  error?: string
+  code?: string
+}
+
+interface FinanceActionResult {
+  success?: boolean
+  type?: string
+  payment_id?: string
+  refunded_halala?: number
+  refunded_sar?: number
+  withdrawal_id?: string
+  new_status?: string
+  amount_sar?: number
+  note?: string
+  error?: string
 }
 
 interface ApprovalDecisionResult {
@@ -1175,6 +1298,34 @@ function jobSupportRows(payload: AdminJobsPayload | null): AdminJobRow[] {
 
 function paymentSupportRows(payload: AdminPaymentsPayload | null): AdminPaymentRow[] {
   return Array.isArray(payload?.payments) ? payload.payments : []
+}
+
+function podRows(payload: AdminPodsPayload | null): AdminPodRow[] {
+  return Array.isArray(payload?.pods) ? payload.pods : []
+}
+
+function burstCatalogRows(payload: BurstCatalogPayload | null): BurstCatalogRow[] {
+  return Array.isArray(payload?.catalog) ? payload.catalog : []
+}
+
+function volumeRows(payload: VolumesPayload | null): VolumeRow[] {
+  return Array.isArray(payload?.volumes) ? payload.volumes : []
+}
+
+const LIVE_POD_STATUSES = ['pending', 'assigned', 'running', 'starting', 'provisioning']
+
+function isLivePodStatus(status: string | null | undefined): boolean {
+  return LIVE_POD_STATUSES.includes(String(status || '').toLowerCase())
+}
+
+function formatRemaining(seconds: number | null | undefined): string {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return 'unknown'
+  if (seconds <= 0) return 'expired'
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  const hours = Math.floor(seconds / 3600)
+  const mins = Math.round((seconds % 3600) / 60)
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
 }
 
 function refundRequestRows(payload: PaymentsAuditPayload | null): RefundRequestRow[] {
@@ -2423,6 +2574,15 @@ export default function V2AdminPage() {
   const [renterSupport, setRenterSupport] = useState<AdminRentersPayload | null>(null)
   const [jobSupport, setJobSupport] = useState<AdminJobsPayload | null>(null)
   const [paymentSupport, setPaymentSupport] = useState<AdminPaymentsPayload | null>(null)
+  const [pods, setPods] = useState<AdminPodsPayload | null>(null)
+  const [burstCatalog, setBurstCatalog] = useState<BurstCatalogPayload | null>(null)
+  const [volumes, setVolumes] = useState<VolumesPayload | null>(null)
+  const [podAction, setPodAction] = useState<{ id: string; kind: 'stop' | 'extend' } | null>(null)
+  const [podActionMessage, setPodActionMessage] = useState<ActionMessage | null>(null)
+  const [burstActionId, setBurstActionId] = useState<string | number | null>(null)
+  const [burstActionMessage, setBurstActionMessage] = useState<ActionMessage | null>(null)
+  const [financeAction, setFinanceAction] = useState<string | null>(null)
+  const [financeActionMessage, setFinanceActionMessage] = useState<ActionMessage | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -2481,6 +2641,9 @@ export default function V2AdminPage() {
         renterSupportRes,
         jobSupportRes,
         paymentSupportRes,
+        podsRes,
+        burstCatalogRes,
+        volumesRes,
       ] = await Promise.all([
         fetchJson<DashboardResponse>('/admin/dashboard', token),
         fetchJson<PaymentsAuditPayload>('/admin/payments/audit?limit=40', token),
@@ -2509,6 +2672,9 @@ export default function V2AdminPage() {
         fetchJson<AdminRentersPayload>('/admin/renters?page=1&limit=12', token),
         fetchJson<AdminJobsPayload>('/admin/jobs?limit=12', token),
         fetchJson<AdminPaymentsPayload>('/admin/payments?limit=12', token),
+        fetchJson<AdminPodsPayload>('/admin/pods?all=1&limit=40', token),
+        fetchJson<BurstCatalogPayload>('/admin/burst-catalog', token),
+        fetchJson<VolumesPayload>('/admin/volumes', token),
       ])
       if (!isCurrentLoad()) return
       setDashboard(unwrapDashboard(dashRes))
@@ -2538,6 +2704,9 @@ export default function V2AdminPage() {
       setRenterSupport(renterSupportRes)
       setJobSupport(jobSupportRes)
       setPaymentSupport(paymentSupportRes)
+      setPods(podsRes)
+      setBurstCatalog(burstCatalogRes)
+      setVolumes(volumesRes)
       setRefreshedAt(new Date())
       setState('ready')
     } catch (err) {
@@ -2625,6 +2794,195 @@ export default function V2AdminPage() {
     }
   }, [approvalReason, load, router, selectedApproval])
 
+  const handleAuthExpired = useCallback(() => {
+    if (typeof window !== 'undefined') localStorage.removeItem('dc1_admin_token')
+    loadRequestRef.current += 1
+    setState('missing-key')
+    router.replace(AUTH_HREF)
+  }, [router])
+
+  const stopPod = useCallback(async (podId: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    setPodAction({ id: podId, kind: 'stop' })
+    setPodActionMessage(null)
+    try {
+      const result = await postJson<PodActionResult>(`/admin/pods/${encodeURIComponent(podId)}/stop`, token, {})
+      setPodActionMessage({
+        kind: 'success',
+        text: result?.already_terminal
+          ? `Pod ${shortId(podId, 16)} was already ${result.status || 'terminal'}.`
+          : `Pod ${shortId(podId, 16)} stopped${result?.status ? ` (${result.status})` : ''}.`,
+      })
+      await load()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'admin-auth-expired') {
+        handleAuthExpired()
+        return
+      }
+      setPodActionMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Pod stop failed.' })
+    } finally {
+      setPodAction(null)
+    }
+  }, [handleAuthExpired, load, router])
+
+  const extendPod = useCallback(async (podId: string, minutes: number) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    setPodAction({ id: podId, kind: 'extend' })
+    setPodActionMessage(null)
+    try {
+      const result = await postJson<PodActionResult>(
+        `/admin/pods/${encodeURIComponent(podId)}/extend`,
+        token,
+        { extend_minutes: minutes },
+      )
+      setPodActionMessage({
+        kind: 'success',
+        text: `Pod ${shortId(podId, 16)} extended by ${result?.added_minutes ?? minutes}m${
+          result?.charged_sar != null ? ` · charged ${formatSar(result.charged_sar)}` : ''
+        }.`,
+      })
+      await load()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'admin-auth-expired') {
+        handleAuthExpired()
+        return
+      }
+      setPodActionMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Pod extend failed.' })
+    } finally {
+      setPodAction(null)
+    }
+  }, [handleAuthExpired, load, router])
+
+  const toggleBurstPause = useCallback(async (row: BurstCatalogRow) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const id = row.id
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (id == null) {
+      setBurstActionMessage({ kind: 'error', text: 'No burst GPU type selected.' })
+      return
+    }
+    const nextPaused = !(row.is_paused === true)
+    setBurstActionId(id)
+    setBurstActionMessage(null)
+    try {
+      const result = await patchJson<BurstCatalogPatchResult>(
+        `/admin/burst-catalog/${encodeURIComponent(String(id))}`,
+        token,
+        { is_paused: nextPaused },
+      )
+      const label = result?.gpu_type?.gpu_model || row.gpu_model || `Type #${id}`
+      setBurstActionMessage({
+        kind: 'success',
+        text: `${label} ${nextPaused ? 'paused' : 'resumed'}.`,
+      })
+      await load()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'admin-auth-expired') {
+        handleAuthExpired()
+        return
+      }
+      setBurstActionMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Burst catalog update failed.' })
+    } finally {
+      setBurstActionId(null)
+    }
+  }, [handleAuthExpired, load, router])
+
+  const refundPayment = useCallback(async (row: RefundRequestRow) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const paymentId = row.payment_id
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (!paymentId) {
+      setFinanceActionMessage({ kind: 'error', text: 'No payment id on this refund request.' })
+      return
+    }
+    const actionKey = `refund:${paymentId}`
+    setFinanceAction(actionKey)
+    setFinanceActionMessage(null)
+    try {
+      const body: Record<string, unknown> = { reason: row.reason || 'Admin-approved refund' }
+      if (toNumber(row.amount_halala) > 0) body.amount_halala = toNumber(row.amount_halala)
+      const result = await postJson<FinanceActionResult>(
+        `/admin/payments/${encodeURIComponent(paymentId)}/refund`,
+        token,
+        body,
+      )
+      setFinanceActionMessage({
+        kind: 'success',
+        text: `Refunded ${formatSar(result?.refunded_sar)} on payment ${shortId(paymentId)}${
+          result?.type ? ` (${result.type})` : ''
+        }.`,
+      })
+      await load()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'admin-auth-expired') {
+        handleAuthExpired()
+        return
+      }
+      setFinanceActionMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Refund failed.' })
+    } finally {
+      setFinanceAction(null)
+    }
+  }, [handleAuthExpired, load, router])
+
+  const decideWithdrawal = useCallback(async (row: PayoutRow, decision: 'approve' | 'reject' | 'complete') => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
+    const withdrawalId = row.payout_id
+    if (!token) {
+      setState('missing-key')
+      router.replace(AUTH_HREF)
+      return
+    }
+    if (!withdrawalId) {
+      setFinanceActionMessage({ kind: 'error', text: 'No payout id on this row.' })
+      return
+    }
+    const actionKey = `${decision}:${withdrawalId}`
+    setFinanceAction(actionKey)
+    setFinanceActionMessage(null)
+    try {
+      const body = decision === 'reject'
+        ? { reason: row.failure_reason || 'Rejected after admin review' }
+        : { notes: `Admin ${decision} via command center` }
+      const result = await postJson<FinanceActionResult>(
+        `/admin/withdrawals/${encodeURIComponent(withdrawalId)}/${decision}`,
+        token,
+        body,
+      )
+      const who = row.provider_name || row.provider_email || `Provider #${row.provider_id || 'unknown'}`
+      setFinanceActionMessage({
+        kind: 'success',
+        text: `Payout ${shortId(withdrawalId)} for ${who} → ${result?.new_status || decision}.`,
+      })
+      await load()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'admin-auth-expired') {
+        handleAuthExpired()
+        return
+      }
+      setFinanceActionMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Payout action failed.' })
+    } finally {
+      setFinanceAction(null)
+    }
+  }, [handleAuthExpired, load, router])
+
   const tasks = useMemo(
     () => buildTasks(dashboard, audit, health, security, providers, approvalQueue, fleet, fleetAlerts, reconciliation, errorsPayload),
     [dashboard, audit, health, security, providers, approvalQueue, fleet, fleetAlerts, reconciliation, errorsPayload],
@@ -2663,6 +3021,26 @@ export default function V2AdminPage() {
   const renterSupportList = renterSupportRows(renterSupport)
   const jobSupportList = jobSupportRows(jobSupport)
   const paymentSupportList = paymentSupportRows(paymentSupport)
+  const agentRenterCount = renterSupportList.filter((row) => String(row.source || '').toLowerCase() === 'agent').length
+  const podList = podRows(pods)
+  const livePodList = podList.filter((pod) => isLivePodStatus(pod.status))
+  const podPreview = [...podList]
+    .sort((a, b) => {
+      const aLive = isLivePodStatus(a.status) ? 0 : 1
+      const bLive = isLivePodStatus(b.status) ? 0 : 1
+      if (aLive !== bLive) return aLive - bLive
+      return Date.parse(b.created_at || '') - Date.parse(a.created_at || '')
+    })
+    .slice(0, 8)
+  const livePodCount = toNumber(pods?.live) || livePodList.length
+  const burstPodCount = toNumber(pods?.burst) || podList.filter((pod) => pod.is_burst === true).length
+  const burstCatalogList = burstCatalogRows(burstCatalog)
+  const burstAvailableCount = toNumber(burstCatalog?.available)
+  const burstPausedCount = toNumber(burstCatalog?.paused) || burstCatalogList.filter((row) => row.is_paused === true).length
+  const volumeList = volumeRows(volumes)
+  const volumePool = volumes?.pool
+  const volumePoolUtil = toNumber(volumePool?.utilization_pct)
+  const activeVolumeCount = toNumber(volumes?.active) || volumeList.filter((vol) => String(vol.status || '').toLowerCase() === 'active').length
   const supportRecent24h = toNumber(supportContacts?.summary?.recent_24h)
   const supportCategoryCount = Object.keys(supportContacts?.summary?.by_category || {}).length
   const failedJobRows = jobSupportList
@@ -3234,6 +3612,15 @@ export default function V2AdminPage() {
           <a href="#fleet" className="rail-link">
             <span>FL</span><Bi en="Fleet" ar="الأسطول" />
           </a>
+          <a href="#pods" className="rail-link">
+            <span>PD</span><Bi en="Pods" ar="الحاويات" />
+          </a>
+          <a href="#burst" className="rail-link">
+            <span>BR</span><Bi en="Burst" ar="الطلب" />
+          </a>
+          <a href="#storage" className="rail-link">
+            <span>ST</span><Bi en="Storage" ar="التخزين" />
+          </a>
           <a href="#approvals" className="rail-link">
             <span>AP</span><Bi en="Approvals" ar="الموافقات" />
           </a>
@@ -3398,6 +3785,7 @@ export default function V2AdminPage() {
               <div className="metric">
                 <span className="metric-label"><Bi en="Active renters" ar="المستأجرون النشطون" /></span>
                 <strong>{numFmt.format(toNumber(stats.active_renters))}<small> / {numFmt.format(toNumber(stats.total_renters))}</small></strong>
+                <small><Bi en={`${numFmt.format(agentRenterCount)} agent-sourced`} ar={`${numFmt.format(agentRenterCount)} من الوكلاء`} /></small>
               </div>
               <div className="metric wide">
                 <span className="metric-label"><Bi en="Jobs" ar="المهام" /></span>
@@ -3941,6 +4329,281 @@ export default function V2AdminPage() {
               </p>
             </section>
 
+            <section className="pods-ops" id="pods" aria-label="Interactive pods">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Compute operations" ar="عمليات الحوسبة" /></p>
+                  <h2><Bi en="Interactive pods" ar="الحاويات التفاعلية" /></h2>
+                </div>
+                <span className={livePodCount > 0 ? 'watch' : 'ready'}>
+                  <Bi en={livePodCount > 0 ? `${livePodCount} live` : 'idle'} ar={livePodCount > 0 ? `${livePodCount} نشطة` : 'خامل'} />
+                </span>
+              </div>
+
+              <div className="pods-summary-grid">
+                <div className={livePodCount > 0 ? 'watch' : ''}>
+                  <span><Bi en="live pods" ar="حاويات نشطة" /></span>
+                  <strong>{numFmt.format(livePodCount)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="burst pods" ar="حاويات الطلب" /></span>
+                  <strong>{numFmt.format(burstPodCount)}</strong>
+                </div>
+                <div>
+                  <span><Bi en="recent total" ar="إجمالي حديث" /></span>
+                  <strong>{numFmt.format(toNumber(pods?.total) || podList.length)}</strong>
+                </div>
+              </div>
+
+              {podActionMessage && (
+                <p className={`ops-action-message ${podActionMessage.kind}`}>{podActionMessage.text}</p>
+              )}
+
+              {podList.length === 0 ? (
+                <p className="ops-empty"><Bi en="No interactive pods in the recent window." ar="لا توجد حاويات تفاعلية في النافذة الأخيرة." /></p>
+              ) : (
+                <div className="ops-table-wrap">
+                  <table className="ops-table pods-table">
+                    <thead>
+                      <tr>
+                        <th><Bi en="Status" ar="الحالة" /></th>
+                        <th><Bi en="GPU type" ar="نوع المعالج" /></th>
+                        <th><Bi en="Renter" ar="المستأجر" /></th>
+                        <th><Bi en="Access" ar="الوصول" /></th>
+                        <th><Bi en="Remaining" ar="المتبقي" /></th>
+                        <th><Bi en="Cost" ar="التكلفة" /></th>
+                        <th aria-label="Actions" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {podPreview.map((pod) => {
+                        const podId = pod.id || ''
+                        const live = isLivePodStatus(pod.status)
+                        const busy = podAction?.id === podId
+                        return (
+                          <tr key={podId || pod.created_at || 'pod'} className={live ? 'live' : 'terminal'}>
+                            <td>
+                              <span className={`ops-status ${String(pod.status || 'unknown').toLowerCase()}`}>{pod.status || 'unknown'}</span>
+                              {pod.is_burst && <em className="ops-tag burst">{pod.source || 'burst'}</em>}
+                            </td>
+                            <td>
+                              <strong>{pod.gpu_type || 'unknown GPU'}</strong>
+                              {pod.is_burst && pod.burst_external_id && (
+                                <small className="ops-sub">ext {shortId(pod.burst_external_id, 14)}</small>
+                              )}
+                            </td>
+                            <td>
+                              <strong>{pod.renter_name || `Renter #${pod.renter_id || 'unknown'}`}</strong>
+                              <small className="ops-sub">#{pod.renter_id || 'unknown'}</small>
+                            </td>
+                            <td>
+                              {pod.access_url ? (
+                                <a className="ops-link" href={pod.access_url} target="_blank" rel="noreferrer"><Bi en="Jupyter" ar="جوبيتر" /></a>
+                              ) : (
+                                <small className="ops-sub">no jupyter</small>
+                              )}
+                              {pod.ssh_command && (
+                                <code className="ops-code" title={pod.ssh_command}>
+                                  SSH{pod.pod_spub ? `:${pod.pod_spub}` : ''}
+                                </code>
+                              )}
+                            </td>
+                            <td>
+                              <strong>{live ? formatRemaining(pod.seconds_remaining) : '—'}</strong>
+                              {pod.ends_at && live && <small className="ops-sub">{formatDate(pod.ends_at)}</small>}
+                            </td>
+                            <td>
+                              <strong>{formatHalala(pod.charged_halala ?? pod.cost_halala)}</strong>
+                              {pod.rate_sar_per_hour != null && <small className="ops-sub">{formatSar(pod.rate_sar_per_hour)}/hr</small>}
+                            </td>
+                            <td className="ops-actions">
+                              <button
+                                type="button"
+                                className="ops-btn extend"
+                                disabled={!live || !podId || busy}
+                                onClick={() => podId && void extendPod(podId, 30)}
+                              >
+                                <Bi en={busy && podAction?.kind === 'extend' ? 'Extending' : '+30m'} ar={busy && podAction?.kind === 'extend' ? 'جارٍ' : '+30د'} />
+                              </button>
+                              <button
+                                type="button"
+                                className="ops-btn stop"
+                                disabled={!live || !podId || busy}
+                                onClick={() => podId && void stopPod(podId)}
+                              >
+                                <Bi en={busy && podAction?.kind === 'stop' ? 'Stopping' : 'Stop'} ar={busy && podAction?.kind === 'stop' ? 'جارٍ' : 'إيقاف'} />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="ops-policy">
+                <Bi
+                  en="Pod stop settles and refunds unused time; extend charges the same renter who owns the pod. Both write an admin audit row. Burst pods carry the external pod id for management only."
+                  ar="إيقاف الحاوية يسوّي ويعيد الوقت غير المستخدم؛ التمديد يحاسب نفس المستأجر صاحب الحاوية. كلاهما يكتب سطر تدقيق إداري. حاويات الطلب تحمل معرّف الحاوية الخارجي للإدارة فقط."
+                />
+              </p>
+            </section>
+
+            <section className="burst-ops" id="burst" aria-label="Burst on-demand catalog">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="On-demand capacity" ar="السعة عند الطلب" /></p>
+                  <h2><Bi en="Burst catalog" ar="كتالوج الطلب" /></h2>
+                </div>
+                <span className={burstPausedCount > 0 ? 'watch' : 'ready'}>
+                  <Bi en={`${burstAvailableCount} live · ${burstPausedCount} paused`} ar={`${burstAvailableCount} نشط · ${burstPausedCount} متوقف`} />
+                </span>
+              </div>
+
+              {burstActionMessage && (
+                <p className={`ops-action-message ${burstActionMessage.kind}`}>{burstActionMessage.text}</p>
+              )}
+
+              {burstCatalogList.length === 0 ? (
+                <p className="ops-empty"><Bi en="No burst GPU types configured." ar="لا توجد أنواع معالجات طلب مهيأة." /></p>
+              ) : (
+                <div className="burst-grid">
+                  {burstCatalogList.map((row) => {
+                    const busy = burstActionId === row.id
+                    const paused = row.is_paused === true
+                    const outOfStock = toNumber(row.stock_available) <= 0
+                    return (
+                      <article className={`burst-card ${paused ? 'paused' : outOfStock ? 'empty' : 'live'}`} key={row.id ?? row.gpu_model ?? 'burst'}>
+                        <div className="burst-card-head">
+                          <strong>{row.gpu_model || `Type #${row.id}`}</strong>
+                          <span className={`ops-status ${paused ? 'paused' : outOfStock ? 'empty' : 'available'}`}>
+                            {paused ? 'paused' : outOfStock ? 'no stock' : (row.status || 'available')}
+                          </span>
+                        </div>
+                        <div className="burst-card-facts">
+                          <div>
+                            <span><Bi en="VRAM" ar="الذاكرة" /></span>
+                            <strong>{row.vram_gb != null ? `${row.vram_gb} GB` : '—'}</strong>
+                          </div>
+                          <div>
+                            <span><Bi en="Stock" ar="المخزون" /></span>
+                            <strong>{numFmt.format(toNumber(row.stock_available))}</strong>
+                          </div>
+                          <div>
+                            <span><Bi en="Per GPU·s" ar="لكل ثانية" /></span>
+                            <strong>{row.cost_per_gpu_second_halala != null ? `${row.cost_per_gpu_second_halala} h` : '—'}</strong>
+                          </div>
+                          <div>
+                            <span><Bi en="SAR/hr" ar="ريال/س" /></span>
+                            <strong>{row.sar_per_hour != null ? formatSar(row.sar_per_hour) : '—'}</strong>
+                          </div>
+                        </div>
+                        <div className="burst-card-foot">
+                          <em className="ops-tag burst">{row.source || 'burst'}</em>
+                          <button
+                            type="button"
+                            className={`ops-btn ${paused ? 'resume' : 'pause'}`}
+                            disabled={busy}
+                            onClick={() => void toggleBurstPause(row)}
+                          >
+                            <Bi
+                              en={busy ? 'Saving' : paused ? 'Unpause' : 'Pause'}
+                              ar={busy ? 'جارٍ' : paused ? 'استئناف' : 'إيقاف مؤقت'}
+                            />
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+
+              <p className="ops-policy">
+                <Bi
+                  en="Pausing a burst GPU type removes it from renter availability without deleting state; unpause restores it. Burst capacity is brokered on an external cloud and surfaced only as a generic on-demand type."
+                  ar="إيقاف نوع معالج الطلب مؤقتاً يزيله من توفر المستأجرين دون حذف الحالة؛ الاستئناف يعيده. سعة الطلب تُوسّط على سحابة خارجية وتُعرض كنوع عام عند الطلب فقط."
+                />
+              </p>
+            </section>
+
+            <section className="storage-ops" id="storage" aria-label="Renter storage volumes">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Persistent storage" ar="التخزين الدائم" /></p>
+                  <h2><Bi en="Storage volumes" ar="وحدات التخزين" /></h2>
+                </div>
+                <span className={volumePoolUtil >= 80 ? 'watch' : 'ready'}>
+                  <Bi en={`${activeVolumeCount} active · ${volumePoolUtil}%`} ar={`${activeVolumeCount} نشطة · ${volumePoolUtil}%`} />
+                </span>
+              </div>
+
+              <div className="storage-pool">
+                <div className="storage-pool-head">
+                  <span><Bi en="Pool utilization" ar="استخدام المجمع" /></span>
+                  <strong>{toNumber(volumePool?.active_gb)} / {toNumber(volumePool?.ceiling_gb)} GB</strong>
+                </div>
+                <div className="storage-gauge" role="img" aria-label={`${volumePoolUtil}% of storage pool used`}>
+                  <div
+                    className={`storage-gauge-fill ${volumePoolUtil >= 80 ? 'hot' : volumePoolUtil >= 50 ? 'warm' : ''}`}
+                    style={{ width: `${Math.min(100, Math.max(0, volumePoolUtil))}%` }}
+                  />
+                </div>
+                <small className="ops-sub">
+                  <Bi
+                    en={`${toNumber(volumePool?.available_gb)} GB available${volumes?.halala_per_gb_month != null ? ` · ${formatHalala(volumes.halala_per_gb_month)}/GB·mo` : ''}`}
+                    ar={`${toNumber(volumePool?.available_gb)} جيجابايت متاح${volumes?.halala_per_gb_month != null ? ` · ${formatHalala(volumes.halala_per_gb_month)}/جيجابايت·شهر` : ''}`}
+                  />
+                </small>
+              </div>
+
+              {volumeList.length === 0 ? (
+                <p className="ops-empty"><Bi en="No renter storage volumes provisioned." ar="لا توجد وحدات تخزين مهيأة للمستأجرين." /></p>
+              ) : (
+                <div className="ops-table-wrap">
+                  <table className="ops-table storage-table">
+                    <thead>
+                      <tr>
+                        <th><Bi en="Renter" ar="المستأجر" /></th>
+                        <th><Bi en="Size" ar="الحجم" /></th>
+                        <th><Bi en="Used" ar="المستخدم" /></th>
+                        <th><Bi en="Status" ar="الحالة" /></th>
+                        <th><Bi en="Bucket" ar="الحاوية" /></th>
+                        <th><Bi en="Price" ar="السعر" /></th>
+                        <th><Bi en="Period ends" ar="نهاية الفترة" /></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {volumeList.map((vol) => (
+                        <tr key={vol.id ?? vol.bucket ?? 'volume'} className={String(vol.status || '').toLowerCase() === 'active' ? 'live' : 'terminal'}>
+                          <td>
+                            <strong>{vol.renter_name || vol.renter_email || `Renter #${vol.renter_id || 'unknown'}`}</strong>
+                            <small className="ops-sub">#{vol.renter_id || 'unknown'}</small>
+                          </td>
+                          <td><strong>{toNumber(vol.size_gb)} GB</strong></td>
+                          <td>
+                            <strong>{vol.used_gb != null ? `${vol.used_gb} GB` : '—'}</strong>
+                            {vol.used_pct != null && <small className="ops-sub">{vol.used_pct}%</small>}
+                          </td>
+                          <td><span className={`ops-status ${String(vol.status || 'unknown').toLowerCase()}`}>{vol.status || 'unknown'}</span></td>
+                          <td><code className="ops-code" title={vol.bucket || ''}>{shortId(vol.bucket, 16)}</code></td>
+                          <td><strong>{formatSar(vol.price_sar_per_month)}/mo</strong></td>
+                          <td><small className="ops-sub">{formatDate(vol.current_period_end)}</small></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="ops-policy">
+                <Bi
+                  en="Storage is read-only here. Live usage is sampled only for active volumes; the pool ceiling matches the limit the rent path enforces."
+                  ar="التخزين للقراءة فقط هنا. يُقاس الاستخدام الحي للوحدات النشطة فقط؛ سقف المجمع يطابق الحد الذي يفرضه مسار الإيجار."
+                />
+              </p>
+            </section>
+
             <section className="approval-desk" id="approvals" aria-label="Provider approval desk">
               <div className="section-head">
                 <div>
@@ -4110,6 +4773,10 @@ export default function V2AdminPage() {
                 </div>
               </div>
 
+              {financeActionMessage && (
+                <p className={`ops-action-message ${financeActionMessage.kind}`}>{financeActionMessage.text}</p>
+              )}
+
               <div className={`finance-review-grid ${financeReviewHasRows ? 'active' : 'clear'}`}>
                 <article className="finance-card">
                   <div className="mission-panel-head">
@@ -4120,16 +4787,29 @@ export default function V2AdminPage() {
                     <p className="finance-empty"><Bi en="No pending or processing refund requests." ar="لا توجد طلبات استرداد معلقة أو قيد المعالجة." /></p>
                   ) : (
                     <div className="finance-row-list">
-                      {refundReviewRows.map((row) => (
-                        <div className="finance-row" key={row.request_id || row.payment_id || row.requested_at || 'refund'}>
-                          <div className="finance-row-top">
-                            <strong>{row.renter_name || row.renter_email || `Renter #${row.renter_id || 'unknown'}`}</strong>
-                            <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                      {refundReviewRows.map((row) => {
+                        const busy = financeAction === `refund:${row.payment_id}`
+                        return (
+                          <div className="finance-row" key={row.request_id || row.payment_id || row.requested_at || 'refund'}>
+                            <div className="finance-row-top">
+                              <strong>{row.renter_name || row.renter_email || `Renter #${row.renter_id || 'unknown'}`}</strong>
+                              <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                            </div>
+                            <p>{row.reason || 'No refund reason recorded.'}</p>
+                            <small>{formatSar(row.amount_sar)} · payment {shortId(row.payment_id)} · {formatDate(row.requested_at)}</small>
+                            <div className="finance-actions">
+                              <button
+                                type="button"
+                                className="ops-btn refund"
+                                disabled={!row.payment_id || busy}
+                                onClick={() => void refundPayment(row)}
+                              >
+                                <Bi en={busy ? 'Refunding' : 'Approve refund'} ar={busy ? 'جارٍ' : 'اعتمد الاسترداد'} />
+                              </button>
+                            </div>
                           </div>
-                          <p>{row.reason || 'No refund reason recorded.'}</p>
-                          <small>{formatSar(row.amount_sar)} · payment {shortId(row.payment_id)} · {formatDate(row.requested_at)}</small>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </article>
@@ -4143,16 +4823,52 @@ export default function V2AdminPage() {
                     <p className="finance-empty"><Bi en="No pending or processing provider payouts." ar="لا توجد دفعات مزوّدين معلقة أو قيد المعالجة." /></p>
                   ) : (
                     <div className="finance-row-list">
-                      {payoutReviewRows.map((row) => (
-                        <div className="finance-row" key={row.payout_id || row.requested_at || 'payout'}>
-                          <div className="finance-row-top">
-                            <strong>{row.provider_name || row.provider_email || `Provider #${row.provider_id || 'unknown'}`}</strong>
-                            <span className={`finance-status ${String(row.status || 'unknown').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                      {payoutReviewRows.map((row) => {
+                        const status = String(row.status || '').toLowerCase()
+                        const busy = financeAction != null && financeAction.endsWith(`:${row.payout_id}`)
+                        return (
+                          <div className="finance-row" key={row.payout_id || row.requested_at || 'payout'}>
+                            <div className="finance-row-top">
+                              <strong>{row.provider_name || row.provider_email || `Provider #${row.provider_id || 'unknown'}`}</strong>
+                              <span className={`finance-status ${status || 'unknown'}`}>{row.status || 'unknown'}</span>
+                            </div>
+                            <p>{row.failure_reason || row.payment_ref || row.moyasar_status || 'Review earnings, payout account, and transfer evidence.'}</p>
+                            <small>{formatSar(row.amount_sar)} · payout {shortId(row.payout_id)} · {formatDate(row.requested_at)}</small>
+                            <div className="finance-actions">
+                              {status === 'pending' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="ops-btn approve"
+                                    disabled={!row.payout_id || busy}
+                                    onClick={() => void decideWithdrawal(row, 'approve')}
+                                  >
+                                    <Bi en={financeAction === `approve:${row.payout_id}` ? 'Approving' : 'Approve'} ar={financeAction === `approve:${row.payout_id}` ? 'جارٍ' : 'موافقة'} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ops-btn reject"
+                                    disabled={!row.payout_id || busy}
+                                    onClick={() => void decideWithdrawal(row, 'reject')}
+                                  >
+                                    <Bi en={financeAction === `reject:${row.payout_id}` ? 'Rejecting' : 'Reject'} ar={financeAction === `reject:${row.payout_id}` ? 'جارٍ' : 'رفض'} />
+                                  </button>
+                                </>
+                              )}
+                              {status === 'approved' && (
+                                <button
+                                  type="button"
+                                  className="ops-btn complete"
+                                  disabled={!row.payout_id || busy}
+                                  onClick={() => void decideWithdrawal(row, 'complete')}
+                                >
+                                  <Bi en={financeAction === `complete:${row.payout_id}` ? 'Completing' : 'Mark paid'} ar={financeAction === `complete:${row.payout_id}` ? 'جارٍ' : 'تم الدفع'} />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <p>{row.failure_reason || row.payment_ref || row.moyasar_status || 'Review earnings, payout account, and transfer evidence.'}</p>
-                          <small>{formatSar(row.amount_sar)} · payout {shortId(row.payout_id)} · {formatDate(row.requested_at)}</small>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </article>
@@ -4206,8 +4922,8 @@ export default function V2AdminPage() {
 
               <p className="finance-policy">
                 <Bi
-                  en="v2 finance is review-only for now. Refund approval, rejection, payout sync, and balance-changing actions stay in the current verified payments consoles until the v2 money-action envelope is separately audited."
-                  ar="مالية v2 للقراءة والمراجعة الآن. تبقى موافقة الاسترداد ورفضه ومزامنة الدفعات وأي إجراء يغير الرصيد في لوحات المدفوعات الحالية المتحققة حتى تدقيق غلاف إجراءات المال في v2 بشكل منفصل."
+                  en="Refund approval, payout approve/reject, and payout completion act on the verified backend money routes and write admin audit rows. Each action settles the renter or provider balance immediately; balance edits and auto-top-up changes still stay in the verified payments consoles."
+                  ar="موافقة الاسترداد وموافقة/رفض الدفعة وإتمام الدفعة تعمل على مسارات الأموال الخلفية المتحققة وتكتب سطور تدقيق إدارية. كل إجراء يسوّي رصيد المستأجر أو المزوّد فوراً؛ تبقى تعديلات الرصيد وتغييرات الشحن التلقائي في لوحات المدفوعات المتحققة."
                 />
               </p>
             </section>
@@ -4231,6 +4947,7 @@ export default function V2AdminPage() {
                 <div>
                   <span><Bi en="renter records" ar="سجلات المستأجرين" /></span>
                   <strong>{numFmt.format(toNumber(renterSupport?.total) || renterSupportList.length)}</strong>
+                  <small className="support-sub"><Bi en={`${agentRenterCount} agent`} ar={`${agentRenterCount} وكيل`} /></small>
                 </div>
                 <div className={failedJobRows.length > 0 ? 'critical' : ''}>
                   <span><Bi en="failed jobs" ar="مهام فاشلة" /></span>
@@ -4275,16 +4992,22 @@ export default function V2AdminPage() {
                     <p className="support-empty"><Bi en="No suspended, low-balance, or failed-job renter records in the latest sample." ar="لا توجد سجلات مستأجرين معلقة أو منخفضة الرصيد أو كثيرة الفشل في العينة الأخيرة." /></p>
                   ) : (
                     <div className="support-row-list">
-                      {lowBalanceRenterRows.map((row) => (
-                        <div className="support-row" key={row.id || row.email || 'renter'}>
-                          <div className="support-row-top">
-                            <strong>{row.name || row.email || `Renter #${row.id || 'unknown'}`}</strong>
-                            <span className={`support-category ${String(row.status || '').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                      {lowBalanceRenterRows.map((row) => {
+                        const source = String(row.source || '').toLowerCase() === 'agent' ? 'agent' : 'human'
+                        return (
+                          <div className="support-row" key={row.id || row.email || 'renter'}>
+                            <div className="support-row-top">
+                              <strong>{row.name || row.email || `Renter #${row.id || 'unknown'}`}</strong>
+                              <span className="support-row-tags">
+                                <em className={`source-badge ${source}`}>{source}</em>
+                                <span className={`support-category ${String(row.status || '').toLowerCase()}`}>{row.status || 'unknown'}</span>
+                              </span>
+                            </div>
+                            <p>{row.organization || row.email || 'No organization recorded.'}</p>
+                            <small>{formatHalala(row.balance_halala)} balance · {toNumber(row.failed_jobs)} failed / {toNumber(row.total_jobs)} jobs · {formatHalala(row.total_spent_halala)} spent</small>
                           </div>
-                          <p>{row.organization || row.email || 'No organization recorded.'}</p>
-                          <small>{formatHalala(row.balance_halala)} balance · {toNumber(row.failed_jobs)} failed / {toNumber(row.total_jobs)} jobs · {formatHalala(row.total_spent_halala)} spent</small>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </article>
