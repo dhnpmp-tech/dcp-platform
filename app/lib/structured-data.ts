@@ -29,13 +29,17 @@ export interface GpuSku {
 }
 
 export const GPU_SKUS: ReadonlyArray<GpuSku> = [
-  { model: 'NVIDIA H200', vramGb: 141, sarPerHour: 9.19, usdPerHour: 2.45 },
-  { model: 'NVIDIA H100', vramGb: 80, sarPerHour: 7.09, usdPerHour: 1.89 },
-  { model: 'NVIDIA A100', vramGb: 40, sarPerHour: 4.5, usdPerHour: 1.2 },
-  { model: 'NVIDIA RTX 4090', vramGb: 24, sarPerHour: 1.0, usdPerHour: 0.267 },
-  { model: 'NVIDIA RTX 4080', vramGb: 16, sarPerHour: 0.67, usdPerHour: 0.178 },
-  { model: 'NVIDIA RTX 3090', vramGb: 24, sarPerHour: 0.5, usdPerHour: 0.134 },
-  { model: 'NVIDIA RTX 3080', vramGb: 10, sarPerHour: 0.33, usdPerHour: 0.089 },
+  // The first six are the on-demand types live now from
+  // GET https://api.dcp.sa/api/renters/available-providers, priced cost-plus
+  // from the live market (each is a "from" floor). RTX 3090 is the native
+  // (in-Kingdom community) card. Never advertise a type that is not rentable.
+  { model: 'NVIDIA H200', vramGb: 141, sarPerHour: 23.05, usdPerHour: 6.15 },
+  { model: 'NVIDIA H100', vramGb: 80, sarPerHour: 17.27, usdPerHour: 4.61 },
+  { model: 'NVIDIA A100', vramGb: 80, sarPerHour: 7.3, usdPerHour: 1.95 },
+  { model: 'NVIDIA L40S', vramGb: 48, sarPerHour: 5.2, usdPerHour: 1.39 },
+  { model: 'NVIDIA RTX 5090', vramGb: 32, sarPerHour: 5.2, usdPerHour: 1.39 },
+  { model: 'NVIDIA RTX 4090', vramGb: 24, sarPerHour: 3.62, usdPerHour: 0.97 },
+  { model: 'NVIDIA RTX 3090', vramGb: 24, sarPerHour: 0.5, usdPerHour: 0.13 },
 ]
 
 // Organization — the entity record AI engines resolve "DCP / dcp.sa" against.
@@ -51,7 +55,7 @@ export function organizationLd(): Record<string, unknown> {
     logo: `${SITE_URL}/dcp-logo-512.png`,
     image: `${SITE_URL}/og-image.png`,
     description:
-      "DCP is Saudi Arabia's sovereign AI compute platform: an OpenAI-compatible inference API, on-demand GPU rental (H100, H200, A100, RTX 4090 and more), persistent in-Kingdom storage, and an official MCP server for AI agents. All compute runs on Saudi-owned hardware inside the Kingdom under full PDPL data-residency compliance.",
+      "DCP is Saudi Arabia's sovereign AI compute platform: an OpenAI-compatible inference API, on-demand GPU rental (H200, H100, A100, L40S, RTX 5090, RTX 4090), persistent in-Kingdom storage, and an official MCP server for AI agents. All compute runs on Saudi-owned hardware inside the Kingdom under full PDPL data-residency compliance.",
     foundingLocation: {
       '@type': 'Place',
       address: { '@type': 'PostalAddress', addressCountry: 'SA' },
@@ -90,14 +94,14 @@ export function gpuRentalServiceLd(): Record<string, unknown> {
     provider: { '@id': `${SITE_URL}/#organization` },
     areaServed: { '@type': 'Country', name: 'Saudi Arabia' },
     description:
-      'Rent a whole GPU on demand in Saudi Arabia — NVIDIA H200, H100, A100, RTX 4090, RTX 4080, RTX 3090 and RTX 3080 — with root, Jupyter and SSH access in about a minute. Billed prepaid per GPU-second in Saudi Riyal. Data and hardware stay inside the Kingdom (PDPL compliant).',
+      'Rent a whole GPU on demand in Saudi Arabia — NVIDIA H200, H100, A100, L40S, RTX 5090 and RTX 4090 (plus the native in-Kingdom RTX 3090) — with root, Jupyter and SSH access in about a minute. Billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. Data and hardware stay inside the Kingdom (PDPL compliant).',
     offers: GPU_SKUS.map((g) => ({
       '@type': 'Offer',
       name: `${g.model} (${g.vramGb} GB) — on-demand GPU rental`,
       priceCurrency: 'SAR',
       price: g.sarPerHour,
       unitText: 'HOUR',
-      description: `${g.model} with ${g.vramGb} GB VRAM at ${g.sarPerHour} SAR/hour (about $${g.usdPerHour}/hour). Whole-GPU, dedicated, in-Kingdom. Billed per second, prorated refund on early stop.`,
+      description: `${g.model} with ${g.vramGb} GB VRAM from ${g.sarPerHour} SAR/hour (about $${g.usdPerHour}/hour). Whole-GPU, dedicated, in-Kingdom. Billed per second, prorated refund on early stop.`,
       availability: 'https://schema.org/InStock',
       eligibleRegion: { '@type': 'Country', name: 'Saudi Arabia' },
     })),
@@ -146,7 +150,7 @@ export interface FaqItem {
 export const HOME_FAQ: ReadonlyArray<FaqItem> = [
   {
     q: 'How do I rent an H100 (or other GPU) on demand on DCP?',
-    a: "Sign up for a DCP renter account at dcp.sa, fund your wallet in Saudi Riyal, then launch a pod from the console or via the API: POST https://api.dcp.sa/api/pods with a Bearer renter key. You get a whole NVIDIA GPU (H200, H100, A100, RTX 4090 and more) with root, Jupyter over TLS and SSH in about a minute. Billing is prepaid per GPU-second in SAR, with a prorated refund when you stop early.",
+    a: "Sign up for a DCP renter account at dcp.sa, fund your wallet in Saudi Riyal, then launch a pod from the console or via the API: POST https://api.dcp.sa/api/pods with a Bearer renter key. You get a whole NVIDIA GPU (H200, H100, A100, L40S, RTX 5090 or RTX 4090) with root, Jupyter over TLS and SSH in about a minute. Billing is prepaid per GPU-second in SAR, with a prorated refund when you stop early.",
   },
   {
     q: 'Is DCP an OpenAI-compatible inference API?',
@@ -162,7 +166,7 @@ export const HOME_FAQ: ReadonlyArray<FaqItem> = [
   },
   {
     q: 'How much does it cost to rent a GPU on DCP?',
-    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal. Indicative hourly rates: NVIDIA RTX 3080 from about 0.33 SAR/hr, RTX 3090 0.5 SAR/hr, RTX 4090 1.0 SAR/hr, A100 4.5 SAR/hr, H100 7.09 SAR/hr, and H200 9.19 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 0.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
   },
   {
     q: 'Where does my data live when I use DCP?',
@@ -193,7 +197,7 @@ export function rentGpuHowToLd(): Record<string, unknown> {
     description:
       'Rent a whole NVIDIA GPU on DCP in about a minute, with root, Jupyter and SSH, billed per second in Saudi Riyal.',
     totalTime: 'PT2M',
-    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '0.33' },
+    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '0.50' },
     step: [
       {
         '@type': 'HowToStep',
@@ -206,7 +210,7 @@ export function rentGpuHowToLd(): Record<string, unknown> {
         '@type': 'HowToStep',
         position: 2,
         name: 'Launch a pod',
-        text: 'Call POST https://api.dcp.sa/api/pods with a Bearer renter key (or use the launch console). Choose a GPU type such as H100, A100 or RTX 4090.',
+        text: 'Call POST https://api.dcp.sa/api/pods with a Bearer renter key (or use the launch console). Choose a GPU type such as H200, H100, A100, L40S, RTX 5090 or RTX 4090.',
         url: `${SITE_URL}/v2/renter/pods`,
       },
       {

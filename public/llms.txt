@@ -24,17 +24,19 @@
 
 ### GPU types + indicative price (per hour)
 
-Whole, dedicated NVIDIA GPUs, in-Kingdom (PDPL-compliant). USD ≈ at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in SAR. Live availability per type: `GET https://api.dcp.sa/api/renters/available-providers`.
+Whole, dedicated NVIDIA GPUs, in-Kingdom (PDPL-compliant). On-demand types are priced cost-plus from the live market, so each is a "from" floor (it floats with the upstream rate, refreshed about every 4 minutes); the native RTX 3090 is a Saudi-owned community card at its configured rate. USD ≈ at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in SAR. Live availability per type: `GET https://api.dcp.sa/api/renters/available-providers`.
 
-| GPU | VRAM | SAR/hr | ≈ USD/hr |
-|-----|------|--------|----------|
-| NVIDIA H200 | 141 GB | 9.19 | 2.45 |
-| NVIDIA H100 | 80 GB | 7.09 | 1.89 |
-| NVIDIA A100 | 40 GB | 4.50 | 1.20 |
-| NVIDIA RTX 4090 | 24 GB | 1.00 | 0.27 |
-| NVIDIA RTX 4080 | 16 GB | 0.67 | 0.18 |
-| NVIDIA RTX 3090 | 24 GB | 0.50 | 0.13 |
-| NVIDIA RTX 3080 | 10 GB | 0.33 | 0.09 |
+| GPU | VRAM | Type | from SAR/hr | ≈ USD/hr |
+|-----|------|------|-------------|----------|
+| NVIDIA H200 | 141 GB | on-demand | 23.05 | 6.15 |
+| NVIDIA H100 | 80 GB | on-demand | 17.27 | 4.61 |
+| NVIDIA A100 | 80 GB | on-demand | 7.30 | 1.95 |
+| NVIDIA L40S | 48 GB | on-demand | 5.20 | 1.39 |
+| NVIDIA RTX 5090 | 32 GB | on-demand | 5.20 | 1.39 |
+| NVIDIA RTX 4090 | 24 GB | on-demand | 3.62 | 0.97 |
+| NVIDIA RTX 3090 | 24 GB | native | 0.50 | 0.13 |
+
+Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 
 ## Persistent storage (volumes)
 
@@ -53,7 +55,7 @@ Whole, dedicated NVIDIA GPUs, in-Kingdom (PDPL-compliant). USD ≈ at the SAMA p
 
 ## Use cases (what people ask for, and what DCP answers)
 
-- "Rent an H100 / A100 / RTX 4090 on demand" → whole-GPU pods, per-second billing in SAR, root + Jupyter + SSH in ~1 minute. See GPU table above.
+- "Rent an H200 / H100 / A100 / L40S / RTX 5090 / RTX 4090 on demand" → whole-GPU pods, per-second billing in SAR, root + Jupyter + SSH in ~1 minute. See GPU table above.
 - "OpenAI-compatible inference API alternative" → drop-in `base_url = https://api.dcp.sa/v1` with an OpenAI SDK and a DCP renter key. No rewrite.
 - "MCP server to rent a GPU / run inference" → the official DCP MCP server (`integrations/dcp-mcp`) exposes pods, volumes, inference, and balance as tools for MCP-capable agents (Claude, etc.).
 - "Sovereign / in-Kingdom AI compute in Saudi Arabia / the Gulf" → data, models, storage, and control plane all inside KSA under PDPL; cross-border frontier models only by explicit per-tenant opt-in.

@@ -9,14 +9,14 @@ import {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://dcp.sa'),
-  title: 'DCP Pricing — Rent GPUs from 0.33 SAR/hr + Per-Token Inference (SAR)',
+  title: 'DCP Pricing — Rent GPUs on demand (RTX 4090, RTX 5090, L40S, A100, H100, H200) + Per-Token Inference (SAR)',
   description:
-    'DCP pricing in Saudi Riyals. Rent a whole GPU on demand — RTX 3080 from 0.33 SAR/hr, RTX 4090 1.0 SAR/hr, A100 4.5 SAR/hr, H100 7.09 SAR/hr, H200 9.19 SAR/hr. Or pay per million tokens on the OpenAI-compatible API. Monthly tiers give a 15–30% discount. 100 SAR starter credit, no card required.',
+    'DCP pricing in Saudi Riyals, cost-plus from the live market. Rent a whole GPU on demand — RTX 4090 from 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, H200 (141 GB) from 23.05 SAR/hr; native RTX 3090 0.5 SAR/hr. Or pay per million tokens on the OpenAI-compatible API. Monthly tiers give a 15–30% discount. 100 SAR starter credit, no card required.',
   alternates: { canonical: 'https://dcp.sa/pricing' },
   robots: { index: true, follow: true },
   openGraph: {
-    title: 'DCP Pricing — Rent GPUs from 0.33 SAR/hr + Per-Token Inference',
-    description: 'On-demand GPU rental (RTX 4090 1.0 SAR/hr, A100 4.5 SAR/hr, H100 7.09 SAR/hr) and per-token inference. PDPL-compliant Saudi-hosted compute.',
+    title: 'DCP Pricing — Rent GPUs on demand + Per-Token Inference',
+    description: 'On-demand GPU rental (RTX 4090 from 3.62 SAR/hr, RTX 5090 / L40S from 5.2 SAR/hr, A100 from 7.3 SAR/hr, H100 from 17.27 SAR/hr, H200 from 23.05 SAR/hr) and per-token inference. PDPL-compliant Saudi-hosted compute.',
     url: 'https://dcp.sa/pricing',
     siteName: 'DCP',
     type: 'website',
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DCP Pricing — Rent GPUs from 0.33 SAR/hr',
-    description: 'On-demand GPU rental and per-token inference, billed in Saudi Riyal. PDPL-compliant Saudi-hosted compute.',
+    title: 'DCP Pricing — Rent GPUs on demand, billed in SAR',
+    description: 'On-demand GPU rental (H200, H100, A100, L40S, RTX 5090, RTX 4090) and per-token inference, billed in Saudi Riyal. PDPL-compliant Saudi-hosted compute.',
     images: ['/og-image.png'],
   },
 }
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 const PRICING_FAQ: ReadonlyArray<FaqItem> = [
   {
     q: 'How much does it cost to rent a GPU on DCP?',
-    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal. Indicative hourly rates: NVIDIA RTX 3080 from about 0.33 SAR/hr, RTX 3090 0.5 SAR/hr, RTX 4090 1.0 SAR/hr, A100 4.5 SAR/hr, H100 7.09 SAR/hr, and H200 9.19 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 0.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
   },
   {
     q: 'How is DCP inference billed?',

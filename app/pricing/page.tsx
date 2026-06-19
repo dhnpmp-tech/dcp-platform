@@ -21,7 +21,7 @@ interface ModelClassRate {
 }
 
 interface GpuRate {
-  tier: 'entry' | 'standard' | 'high' | 'enterprise'
+  tier: 'native' | 'on-demand'
   display: string
   minVramGb: number
   ratePerHourSar: number
@@ -77,14 +77,19 @@ const MODEL_CLASS_RATES: ModelClassRate[] = [
   },
 ]
 
+// SKUs mirror the LIVE rentable set returned by
+// GET https://api.dcp.sa/api/renters/available-providers — never a static
+// wishlist. On-demand rates are the live cost-plus floor (the burst repricer
+// refreshes them against the upstream market every ~4 min), shown as "from".
+// The native RTX 3090 is the in-Kingdom community card at its configured rate.
 const GPU_RATES: GpuRate[] = [
-  { tier: 'enterprise', display: 'NVIDIA H200', minVramGb: 141, ratePerHourUsd: 2.45, ratePerHourSar: 9.19, ratePerMinHalala: 16 },
-  { tier: 'enterprise', display: 'NVIDIA H100', minVramGb: 80, ratePerHourUsd: 1.89, ratePerHourSar: 7.09, ratePerMinHalala: 12 },
-  { tier: 'high', display: 'NVIDIA A100', minVramGb: 40, ratePerHourUsd: 1.2, ratePerHourSar: 4.5, ratePerMinHalala: 8 },
-  { tier: 'standard', display: 'NVIDIA RTX 4090', minVramGb: 24, ratePerHourUsd: 0.267, ratePerHourSar: 1.0, ratePerMinHalala: 2 },
-  { tier: 'standard', display: 'NVIDIA RTX 4080', minVramGb: 16, ratePerHourUsd: 0.178, ratePerHourSar: 0.67, ratePerMinHalala: 2 },
-  { tier: 'standard', display: 'NVIDIA RTX 3090', minVramGb: 24, ratePerHourUsd: 0.134, ratePerHourSar: 0.5, ratePerMinHalala: 1 },
-  { tier: 'entry', display: 'NVIDIA RTX 3080', minVramGb: 10, ratePerHourUsd: 0.089, ratePerHourSar: 0.33, ratePerMinHalala: 1 },
+  { tier: 'on-demand', display: 'NVIDIA H200', minVramGb: 141, ratePerHourUsd: 6.15, ratePerHourSar: 23.05, ratePerMinHalala: 38 },
+  { tier: 'on-demand', display: 'NVIDIA H100', minVramGb: 80, ratePerHourUsd: 4.61, ratePerHourSar: 17.27, ratePerMinHalala: 29 },
+  { tier: 'on-demand', display: 'NVIDIA A100', minVramGb: 80, ratePerHourUsd: 1.95, ratePerHourSar: 7.3, ratePerMinHalala: 12 },
+  { tier: 'on-demand', display: 'NVIDIA L40S', minVramGb: 48, ratePerHourUsd: 1.39, ratePerHourSar: 5.2, ratePerMinHalala: 9 },
+  { tier: 'on-demand', display: 'NVIDIA RTX 5090', minVramGb: 32, ratePerHourUsd: 1.39, ratePerHourSar: 5.2, ratePerMinHalala: 9 },
+  { tier: 'on-demand', display: 'NVIDIA RTX 4090', minVramGb: 24, ratePerHourUsd: 0.97, ratePerHourSar: 3.62, ratePerMinHalala: 6 },
+  { tier: 'native', display: 'NVIDIA RTX 3090', minVramGb: 24, ratePerHourUsd: 0.13, ratePerHourSar: 0.5, ratePerMinHalala: 1 },
 ]
 
 const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
@@ -266,11 +271,11 @@ function GpuTable() {
         <thead className="border-b border-dc1-border bg-dc1-surface-l2 text-xs uppercase text-dc1-text-muted">
           <tr>
             <th className="px-4 py-3 font-semibold">GPU</th>
-            <th className="px-4 py-3 font-semibold">Class</th>
-            <th className="px-4 py-3 text-right font-semibold">Min VRAM</th>
-            <th className="px-4 py-3 text-right font-semibold">SAR/hour</th>
+            <th className="px-4 py-3 font-semibold">Type</th>
+            <th className="px-4 py-3 text-right font-semibold">VRAM</th>
+            <th className="px-4 py-3 text-right font-semibold">from SAR/hour</th>
             <th className="px-4 py-3 text-right font-semibold">Halala/min</th>
-            <th className="px-4 py-3 text-right font-semibold">USD/hour</th>
+            <th className="px-4 py-3 text-right font-semibold">≈ USD/hour</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-dc1-border">
@@ -279,9 +284,11 @@ function GpuTable() {
               <td className="px-4 py-3 font-semibold text-dc1-text-primary">{row.display}</td>
               <td className="px-4 py-3 text-dc1-text-secondary">{row.tier}</td>
               <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">{row.minVramGb} GB</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-amber">{row.ratePerHourSar.toFixed(2)}</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-amber">
+                {row.tier === 'on-demand' ? 'from ' : ''}{row.ratePerHourSar.toFixed(2)}
+              </td>
               <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-secondary">{row.ratePerMinHalala}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-muted">{row.ratePerHourUsd.toFixed(3)}</td>
+              <td className="px-4 py-3 text-right font-mono tabular-nums text-dc1-text-muted">{row.ratePerHourUsd.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -379,12 +386,15 @@ export default function PricingPage() {
         <section aria-labelledby="gpu-rates-heading" className="py-10">
           <SectionHeader
             eyebrow="GPU time"
-            title="Raw GPU-hour floor for jobs that bill by active runtime"
-            body="Some control-plane jobs still settle against active GPU time. The values below mirror the backend GPU rate table at SAR/USD 3.75."
+            title="Rent a whole GPU on demand, billed by active runtime"
+            body="On-demand types are available now and priced cost-plus from the live market — the floor below floats with that rate, so each is a 'from' price. The native type is an in-Kingdom community card at its configured rate. Live availability per type: GET https://api.dcp.sa/api/renters/available-providers. USD is an indicative conversion at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in SAR."
           />
           <div id="gpu-rates-heading" className="mt-6">
             <GpuTable />
           </div>
+          <p className="mt-3 text-xs leading-5 text-dc1-text-muted">
+            On-demand types (H200, H100, A100, L40S, RTX 5090, RTX 4090) spin up a whole, dedicated NVIDIA GPU in about a minute. The native RTX 3090 is a Saudi-owned community card. Apple Silicon (M2-class) is also live for inference-only workloads.
+          </p>
         </section>
 
         <section aria-labelledby="examples-heading" className="py-10">
