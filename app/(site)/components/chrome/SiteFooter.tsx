@@ -69,6 +69,7 @@ export default function SiteFooter() {
             <li><Link href="/provider-setup"><Bi en="Become a provider" ar="كن مزوّداً" /></Link></li>
             <li><Link href="/support"><Bi en="Support" ar="الدعم" /></Link></li>
             <li><Link href="/trust-center"><Bi en="Trust center" ar="مركز الثقة" /></Link></li>
+            <li><Link href="/security"><Bi en="Security" ar="الأمن" /></Link></li>
             <li><Link href="/terms"><Bi en="Terms" ar="الشروط" /></Link></li>
             <li><Link href="/privacy"><Bi en="Privacy" ar="الخصوصية" /></Link></li>
           </ul>

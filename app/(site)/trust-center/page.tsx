@@ -1,9 +1,19 @@
 'use client'
 
+// /trust-center — enterprise trust & compliance surface. Redesigned to the
+// Midnight editorial-luxury design language (dcp-kit tokens, Instrument Serif
+// headings, JetBrains Mono labels, SiteShell chrome). The OLD dc1-* Tailwind
+// palette + rounded-card look is gone.
+//
+// i18n migrated to the (site) V2 i18n (useV2). Locale drives the COPY bundle
+// and the live evidence/roadmap fetches keep their static bilingual fallback.
+// Behaviour preserved: API hydration, analytics, sticky enterprise CTA,
+// procurement path, and the link to the real /security posture page.
+
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SiteShell from '../components/chrome/SiteShell'
-import { useLanguage } from '@/app/lib/i18n'
+import { useV2 } from '@/app/(site)/lib/i18n'
 
 type ArtifactState = 'available' | 'planned'
 
@@ -28,23 +38,9 @@ interface RoadmapCard {
 }
 
 interface CopyBundle {
-  hero: {
-    badge: string
-    title: string
-    subtitle: string
-  }
-  sections: {
-    compliance: string
-    evidence: string
-    roadmap: string
-    procurement: string
-  }
-  cta: {
-    title: string
-    primary: string
-    secondary: string
-    helper: string
-  }
+  hero: { badge: string; title: string; subtitle: string }
+  sections: { compliance: string; evidence: string; roadmap: string; procurement: string }
+  cta: { title: string; primary: string; secondary: string; helper: string }
   labels: {
     asOf: string
     available: string
@@ -53,6 +49,9 @@ interface CopyBundle {
     statusInProgress: string
     statusTargetingAudit: string
     sectionError: string
+    viewArtifact: string
+    artifactPending: string
+    procurementBody: string
   }
   compliancePoints: Array<{ id: string; title: string; body: string }>
 }
@@ -78,8 +77,6 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'Security Baseline Whitepaper',
       description: 'Network, container, and key-management controls currently enforced in production.',
       state: 'available',
-      // Repointed from the dead /docs/enterprise-trust-package/* path (404) to the
-      // live /security page, which is the real home for these production controls.
       href: '/security',
       asOf: '2026-04-01',
       category: 'Security',
@@ -89,8 +86,6 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'SLA and Trust Appendix',
       description: 'Service-level terms and trust control checklist for enterprise reviews.',
       state: 'available',
-      // Repointed from the dead /docs/enterprise-trust-package/* path (404) to the
-      // live /terms page, where the effective service-level terms actually live.
       href: '/terms',
       asOf: '2026-04-01',
       category: 'Operations',
@@ -127,7 +122,6 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'الورقة الأمنية الأساسية',
       description: 'ضوابط الشبكة والحاويات وإدارة المفاتيح المطبقة حالياً في الإنتاج.',
       state: 'available',
-      // See EN note above: repointed to the live /security page.
       href: '/security',
       asOf: '2026-04-01',
       category: 'Security',
@@ -137,7 +131,6 @@ const DEFAULT_EVIDENCE: Record<'en' | 'ar', Artifact[]> = {
       title: 'ملحق SLA والثقة',
       description: 'شروط مستوى الخدمة وقائمة ضوابط الثقة لمراجعات المؤسسات.',
       state: 'available',
-      // See EN note above: repointed to the live /terms page.
       href: '/terms',
       asOf: '2026-04-01',
       category: 'Operations',
@@ -226,7 +219,7 @@ const COPY: Record<'en' | 'ar', CopyBundle> = {
   en: {
     hero: {
       badge: 'Enterprise Trust Center',
-      title: 'Trust Artifacts for PDPL, Security, and Procurement Reviews',
+      title: 'Trust artifacts for PDPL, security, and procurement reviews',
       subtitle:
         'A live view of current controls, available evidence, and certification roadmap status for Saudi enterprise buyers.',
     },
@@ -237,10 +230,10 @@ const COPY: Record<'en' | 'ar', CopyBundle> = {
       procurement: 'Procurement Path',
     },
     cta: {
-      title: 'Start Enterprise Review',
-      primary: 'Contact Enterprise Support',
-      secondary: 'Open Security Whitepaper',
-      helper: 'Response target: first contact in one business day.',
+      title: 'Start an enterprise review',
+      primary: 'Contact enterprise support',
+      secondary: 'Open the security posture',
+      helper: 'Response target: first contact within one business day.',
     },
     labels: {
       asOf: 'As of',
@@ -250,6 +243,10 @@ const COPY: Record<'en' | 'ar', CopyBundle> = {
       statusInProgress: 'In Progress',
       statusTargetingAudit: 'Targeting Audit',
       sectionError: 'Section temporarily unavailable',
+      viewArtifact: 'View artifact →',
+      artifactPending: 'Published when the milestone completes',
+      procurementBody:
+        'Share your compliance scope and workload profile; the enterprise team returns a review plan with explicit controls and decision checkpoints.',
     },
     compliancePoints: [
       {
@@ -285,7 +282,7 @@ const COPY: Record<'en' | 'ar', CopyBundle> = {
     cta: {
       title: 'ابدأ مراجعة المؤسسة',
       primary: 'تواصل مع دعم المؤسسات',
-      secondary: 'افتح الورقة الأمنية',
+      secondary: 'افتح الوضع الأمني',
       helper: 'هدف الاستجابة: تواصل أولي خلال يوم عمل واحد.',
     },
     labels: {
@@ -296,6 +293,10 @@ const COPY: Record<'en' | 'ar', CopyBundle> = {
       statusInProgress: 'قيد التنفيذ',
       statusTargetingAudit: 'جاهزية تدقيق',
       sectionError: 'القسم غير متاح مؤقتاً',
+      viewArtifact: 'عرض الدليل ←',
+      artifactPending: 'سيُنشر عند اكتمال المسار',
+      procurementBody:
+        'شارك متطلبات الامتثال ونطاق العمل، وسيرد فريق المؤسسات بخطة تقييم واضحة وقابلة للتدقيق مع نقاط قرار محددة.',
     },
     compliancePoints: [
       {
@@ -364,8 +365,8 @@ function trackTrustCenterEvent(
 }
 
 export default function TrustCenterPage() {
-  const { language, dir } = useLanguage()
-  const locale = language === 'ar' ? 'ar' : 'en'
+  const { lang, dir } = useV2()
+  const locale: 'en' | 'ar' = lang === 'ar' ? 'ar' : 'en'
   const copy = COPY[locale]
 
   const [evidence, setEvidence] = useState<Artifact[]>(DEFAULT_EVIDENCE[locale])
@@ -451,207 +452,267 @@ export default function TrustCenterPage() {
     [copy.labels.statusInProgress, copy.labels.statusPlanned, copy.labels.statusTargetingAudit]
   )
 
+  const sectionLinks: Array<[string, string]> = [
+    ['compliance', copy.sections.compliance],
+    ['evidence', copy.sections.evidence],
+    ['roadmap', copy.sections.roadmap],
+    ['procurement', copy.sections.procurement],
+  ]
+
   return (
     <SiteShell active="/trust-center">
-      <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 lg:pb-12" dir={dir}>
-        <section className="rounded-2xl border border-dc1-border bg-dc1-surface-l1 p-6 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-dc1-amber">{copy.hero.badge}</p>
-          <h1 className="mt-3 text-3xl font-bold text-dc1-text-primary sm:text-4xl">{copy.hero.title}</h1>
-          <p className="mt-3 max-w-3xl text-dc1-text-secondary">{copy.hero.subtitle}</p>
-
-          <div className="mt-6 flex flex-wrap gap-2" aria-label="Trust center sections" data-testid="trust-center-sections">
-            {[
-              ['compliance', copy.sections.compliance],
-              ['evidence', copy.sections.evidence],
-              ['roadmap', copy.sections.roadmap],
-              ['procurement', copy.sections.procurement],
-            ].map(([id, label]) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                onClick={() => {
-                  trackTrustCenterEvent('trust_center_section_nav_clicked', locale, dir, {
-                    section: id,
-                  })
-                }}
-                className="rounded-md border border-dc1-border bg-dc1-surface-l2 px-3 py-1.5 text-sm text-dc1-text-secondary hover:border-dc1-amber hover:text-dc1-text-primary"
-              >
-                {label}
-              </a>
-            ))}
+      <main className="trust-center">
+        {/* ── Hero ── */}
+        <section className="hero" style={{ borderTop: 0 }}>
+          <div className="wrap">
+            <div className="hero-meta">
+              <span className="left">
+                <span className="dot">●</span> {copy.hero.badge}
+              </span>
+              <span>{locale === 'ar' ? 'حي · يتحدث أسبوعياً' : 'Live · refreshed weekly'}</span>
+            </div>
+            <span className="eyebrow">{copy.hero.badge}</span>
+            <h1 className="hero-h">{copy.hero.title}</h1>
+            <p className="hero-sub">{copy.hero.subtitle}</p>
+            <div className="hero-ctas">
+              {sectionLinks.map(([id, label]) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  className="chip"
+                  onClick={() =>
+                    trackTrustCenterEvent('trust_center_section_nav_clicked', locale, dir, { section: id })
+                  }
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 26 }}>
+              <span className="residency-badge ksa">
+                <span className="flag">🇸🇦</span> PDPL
+              </span>
+              <span className="residency-badge ksa">
+                <span className="flag">🇸🇦</span> {locale === 'ar' ? 'داخل المملكة' : 'KSA-resident'}
+              </span>
+              <span className="residency-badge ksa">
+                <span className="flag">🇸🇦</span> ZATCA
+              </span>
+            </div>
           </div>
         </section>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-6">
-            <section id="compliance" className="rounded-xl border border-dc1-border bg-dc1-surface-l1 p-6" data-testid="trust-section-compliance">
-              <h2 className="text-xl font-semibold text-dc1-text-primary">{copy.sections.compliance}</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                {copy.compliancePoints.map((point) => (
-                  <article key={point.id} className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4">
-                    <h3 className="text-sm font-semibold text-dc1-text-primary">{point.title}</h3>
-                    <p className="mt-2 text-sm text-dc1-text-secondary">{point.body}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
+        {/* ── Control posture ── */}
+        <section id="compliance">
+          <div className="wrap">
+            <div className="section-meta">
+              <span className="idx">01 — {copy.sections.compliance}</span>
+              <span>{locale === 'ar' ? 'مطبّق في الإنتاج' : 'Enforced in production'}</span>
+            </div>
+            <div className="grid-3">
+              {copy.compliancePoints.map((point) => (
+                <article className="surface" key={point.id}>
+                  <h3 style={{ fontFamily: 'var(--serif)', fontSize: 24, margin: '0 0 8px', lineHeight: 1.1 }}>
+                    {point.title}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>{point.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
 
-            <section id="evidence" className="rounded-xl border border-dc1-border bg-dc1-surface-l1 p-6" data-testid="trust-section-evidence">
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-xl font-semibold text-dc1-text-primary">{copy.sections.evidence}</h2>
-                {sectionErrors.evidence ? (
-                  <p className="text-xs text-rose-300" data-testid="trust-error-evidence">
-                    {copy.labels.sectionError}: {sectionErrors.evidence}
-                  </p>
-                ) : null}
-              </div>
-              <div className="mt-4 grid gap-4">
-                {evidence.map((item) => (
-                  <article key={item.id} className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4" data-testid={`artifact-${item.id}`}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-dc1-void px-2 py-0.5 text-[11px] text-dc1-text-muted" dir="ltr">
-                        {item.category}
-                      </span>
+        {/* ── Evidence library ── */}
+        <section id="evidence">
+          <div className="wrap">
+            <div className="section-meta">
+              <span className="idx">02 — {copy.sections.evidence}</span>
+              {sectionErrors.evidence ? (
+                <span style={{ color: 'var(--err)' }} data-testid="trust-error-evidence">
+                  {copy.labels.sectionError}: {sectionErrors.evidence}
+                </span>
+              ) : (
+                <span>{locale === 'ar' ? 'متاح ومخطط' : 'Available + planned'}</span>
+              )}
+            </div>
+            <div className="bill-list">
+              {evidence.map((item) => (
+                <div className="bill-row" key={item.id} data-testid={`artifact-${item.id}`}>
+                  <div className="n" dir="ltr">{item.category}</div>
+                  <div>
+                    <div className="t">{item.title}</div>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span
-                        className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                          item.state === 'available'
-                            ? 'bg-emerald-500/20 text-emerald-200'
-                            : 'bg-amber-500/20 text-amber-200'
-                        }`}
+                        className={item.state === 'available' ? 'badge ok' : 'badge warn'}
                         data-testid={`artifact-state-${item.id}`}
                       >
+                        <span className="d" />
                         {item.state === 'available' ? copy.labels.available : copy.labels.planned}
                       </span>
-                      <span className="text-[11px] text-dc1-text-muted">
-                        {copy.labels.asOf} {item.asOf}
+                      <span className="badge">
+                        {copy.labels.asOf} <span dir="ltr" style={{ marginInlineStart: 4 }}>{item.asOf}</span>
                       </span>
                     </div>
-
-                    <h3 className="mt-2 text-base font-semibold text-dc1-text-primary">{item.title}</h3>
-                    <p className="mt-2 text-sm text-dc1-text-secondary">{item.description}</p>
-
-                    <div className="mt-3">
-                      {item.state === 'available' && item.href ? (
-                        <Link
-                          href={item.href}
-                          className="text-sm font-medium text-dc1-amber hover:text-dc1-amber/80"
-                          onClick={() => {
-                            trackTrustCenterEvent('trust_center_artifact_clicked', locale, dir, {
-                              artifact_id: item.id,
-                              artifact_state: item.state,
-                              destination: item.href,
-                            })
-                          }}
-                          data-testid={`artifact-link-${item.id}`}
-                        >
-                          {locale === 'ar' ? 'عرض الدليل' : 'View artifact'}
-                        </Link>
-                      ) : (
-                        <span className="text-sm text-dc1-text-muted" data-testid={`artifact-placeholder-${item.id}`}>
-                          {locale === 'ar' ? 'سيتوفر بعد اكتمال المسار' : 'Will be published when milestone is complete'}
-                        </span>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section id="roadmap" className="rounded-xl border border-dc1-border bg-dc1-surface-l1 p-6" data-testid="trust-section-roadmap">
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-xl font-semibold text-dc1-text-primary">{copy.sections.roadmap}</h2>
-                {sectionErrors.roadmap ? (
-                  <p className="text-xs text-rose-300" data-testid="trust-error-roadmap">
-                    {copy.labels.sectionError}: {sectionErrors.roadmap}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                {roadmap.map((card) => (
-                  <article key={card.id} className="rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4" data-testid={`roadmap-${card.id}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-dc1-text-primary" dir="ltr">{card.title}</h3>
-                      <span className="rounded bg-dc1-void px-2 py-0.5 text-[11px] text-dc1-text-muted">
-                        {statusLabels[card.status]}
+                  </div>
+                  <div className="d">
+                    <p style={{ margin: '0 0 12px' }}>{item.description}</p>
+                    {item.state === 'available' && item.href ? (
+                      <Link
+                        href={item.href}
+                        className="mono"
+                        style={{ color: 'var(--teal)', fontSize: 12.5, letterSpacing: '.04em' }}
+                        onClick={() =>
+                          trackTrustCenterEvent('trust_center_artifact_clicked', locale, dir, {
+                            artifact_id: item.id,
+                            artifact_state: item.state,
+                            destination: item.href,
+                          })
+                        }
+                        data-testid={`artifact-link-${item.id}`}
+                      >
+                        {copy.labels.viewArtifact}
+                      </Link>
+                    ) : (
+                      <span
+                        className="mono"
+                        style={{ color: 'var(--mut)', fontSize: 12 }}
+                        data-testid={`artifact-placeholder-${item.id}`}
+                      >
+                        {copy.labels.artifactPending}
                       </span>
-                    </div>
-                    <p className="mt-2 text-sm text-dc1-text-secondary">{card.detail}</p>
-                    <p className="mt-3 text-xs text-dc1-text-muted" dir="ltr">{card.target}</p>
-                    <p className="mt-1 text-xs text-dc1-text-muted">{card.owner}</p>
-                    <p className="mt-1 text-xs text-dc1-text-muted">
-                      {copy.labels.asOf} {card.asOf}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section id="procurement" className="rounded-xl border border-dc1-border bg-dc1-surface-l1 p-6" data-testid="trust-section-procurement">
-              <h2 className="text-xl font-semibold text-dc1-text-primary">{copy.sections.procurement}</h2>
-              <p className="mt-3 text-sm text-dc1-text-secondary">
-                {locale === 'ar'
-                  ? 'ابدأ بمشاركة متطلبات الامتثال ونطاق العمل، وسيرد فريق المؤسسات بخطة تقييم واضحة وقابلة للتدقيق.'
-                  : 'Share your compliance scope and workload profile; the enterprise team returns a review plan with explicit controls and decision checkpoints.'}
-              </p>
-              <div className="mt-4 rounded-lg border border-dc1-border bg-dc1-surface-l2 p-4" dir="ltr">
-                <p className="font-mono text-xs text-dc1-text-muted">/support?category=enterprise&source=trust-center</p>
-              </div>
-            </section>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        </section>
 
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-xl border border-dc1-border bg-dc1-surface-l1 p-5" data-testid="trust-sticky-cta-desktop">
-              <p className="text-sm font-semibold text-dc1-text-primary">{copy.cta.title}</p>
-              <p className="mt-2 text-xs text-dc1-text-secondary">{copy.cta.helper}</p>
-              <div className="mt-4 flex flex-col gap-2">
-                <Link
-                  href="/support?category=enterprise&source=trust-center#contact-form"
-                  className="btn btn-primary text-center"
-                  onClick={() => {
-                    trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
-                      cta_id: 'enterprise_support',
-                      destination: '/support?category=enterprise&source=trust-center#contact-form',
-                    })
-                  }}
-                  data-testid="trust-cta-primary"
-                >
-                  {copy.cta.primary}
-                </Link>
-                <Link
-                  href="/security"
-                  className="btn btn-secondary text-center"
-                  onClick={() => {
-                    trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
-                      cta_id: 'security_whitepaper',
-                      destination: '/security',
-                    })
-                  }}
-                  data-testid="trust-cta-secondary"
-                >
-                  {copy.cta.secondary}
-                </Link>
+        {/* ── Certification roadmap ── */}
+        <section id="roadmap">
+          <div className="wrap">
+            <div className="section-meta">
+              <span className="idx">03 — {copy.sections.roadmap}</span>
+              {sectionErrors.roadmap ? (
+                <span style={{ color: 'var(--err)' }} data-testid="trust-error-roadmap">
+                  {copy.labels.sectionError}: {sectionErrors.roadmap}
+                </span>
+              ) : (
+                <span>{locale === 'ar' ? '2026 وما بعده' : '2026 and beyond'}</span>
+              )}
+            </div>
+            <div className="grid-3">
+              {roadmap.map((card) => (
+                <article className="m-card" style={{ gridColumn: 'auto' }} key={card.id} data-testid={`roadmap-${card.id}`}>
+                  <span className="org" dir="ltr">{statusLabels[card.status]}</span>
+                  <h3 className="mname" dir="ltr">{card.title}</h3>
+                  <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: 'var(--ink-2)' }}>{card.detail}</p>
+                  <div className="mrow">
+                    <span dir="ltr">{card.target}</span>
+                    <b dir="ltr">{card.owner}</b>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Procurement path ── */}
+        <section id="procurement">
+          <div className="wrap">
+            <div className="section-meta">
+              <span className="idx">04 — {copy.sections.procurement}</span>
+              <span>{locale === 'ar' ? 'تواصل أولي خلال يوم عمل' : 'First contact in 1 business day'}</span>
+            </div>
+            <div className="grid-2">
+              <div>
+                <h2 className="st">{copy.cta.title}</h2>
+                <p className="ss">{copy.labels.procurementBody}</p>
+                <div className="callout" dir="ltr" style={{ marginTop: 24 }}>
+                  <b>{locale === 'ar' ? 'مسار الدخول' : 'Intake route'}</b>
+                  <span className="mono" style={{ fontSize: 12.5 }}>
+                    /support?category=enterprise&amp;source=trust-center
+                  </span>
+                </div>
+              </div>
+              <div className="surface">
+                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, lineHeight: 1.15 }}>
+                  {copy.cta.title}
+                </p>
+                <p style={{ marginTop: 10, fontSize: 13, color: 'var(--mut)' }}>{copy.cta.helper}</p>
+                <div className="col" style={{ marginTop: 18 }}>
+                  <Link
+                    href="/support?category=enterprise&source=trust-center#contact-form"
+                    className="btn primary"
+                    style={{ justifyContent: 'center' }}
+                    onClick={() =>
+                      trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
+                        cta_id: 'enterprise_support',
+                        destination: '/support?category=enterprise&source=trust-center#contact-form',
+                      })
+                    }
+                    data-testid="trust-cta-primary"
+                  >
+                    {copy.cta.primary}
+                  </Link>
+                  <Link
+                    href="/security"
+                    className="btn ghost"
+                    style={{ justifyContent: 'center' }}
+                    onClick={() =>
+                      trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
+                        cta_id: 'security_posture',
+                        destination: '/security',
+                      })
+                    }
+                    data-testid="trust-cta-secondary"
+                  >
+                    {copy.cta.secondary}
+                  </Link>
+                </div>
               </div>
             </div>
-          </aside>
-        </div>
+          </div>
+        </section>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-dc1-border bg-dc1-surface-l1/95 p-3 backdrop-blur lg:hidden" data-testid="trust-sticky-cta-mobile">
+      {/* Mobile sticky enterprise CTA */}
+      <div className="trust-sticky-mobile" data-testid="trust-sticky-cta-mobile">
         <Link
           href="/support?category=enterprise&source=trust-center-mobile#contact-form"
-          className="btn btn-primary w-full justify-center"
-          onClick={() => {
+          className="btn primary"
+          style={{ width: '100%', justifyContent: 'center' }}
+          onClick={() =>
             trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
               cta_id: 'enterprise_support_mobile',
               destination: '/support?category=enterprise&source=trust-center-mobile#contact-form',
             })
-          }}
+          }
           data-testid="trust-cta-mobile"
         >
           {copy.cta.primary}
         </Link>
       </div>
+
+      <style jsx>{`
+        .trust-sticky-mobile {
+          position: fixed;
+          inset-inline: 16px;
+          bottom: 16px;
+          z-index: 40;
+          background: color-mix(in oklab, var(--paper) 94%, transparent);
+          border: 1px solid var(--line);
+          border-radius: 2px;
+          padding: 12px;
+          backdrop-filter: blur(8px);
+          box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.6);
+        }
+        @media (min-width: 901px) {
+          .trust-sticky-mobile {
+            display: none;
+          }
+        }
+      `}</style>
     </SiteShell>
   )
 }

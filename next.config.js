@@ -233,7 +233,10 @@ const nextConfig = {
       { source: '/pricing', destination: '/', permanent: true },
       // Standalone old-era internal pages → their nearest public twin.
       { source: '/mission', destination: '/trust-center', permanent: true },
-      { source: '/security', destination: '/trust-center', permanent: true },
+      // NOTE: /security is now a REAL public page — the security-posture surface
+      // that the trust center references as its "Security Baseline" artifact.
+      // The old /security → /trust-center placeholder redirect was removed so the
+      // page resolves directly. (See app/(site)/security/page.tsx.)
       // Old draft/duplicate legal docs → the canonical effective documents.
       { source: '/legal/pdpl', destination: '/privacy', permanent: true },
       { source: '/legal/privacy', destination: '/privacy', permanent: true },
