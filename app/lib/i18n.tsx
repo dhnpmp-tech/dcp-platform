@@ -1,8 +1,13 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { resolveInitialLanguage } from './detectLanguage'
 
 export type Language = 'en' | 'ar'
+
+// localStorage key persisting the user's MANUAL language choice on legacy v1
+// surfaces. When present it overrides the browser default on later visits.
+const LANG_STORAGE_KEY = 'dc1_language'
 
 export interface I18nContextValue {
   language: Language
@@ -4771,17 +4776,21 @@ const I18nContext = createContext<I18nContextValue>({
 export function LanguageWrapper({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en')
 
-  // Persist language choice; restore on mount
+  // First visit is browser-driven (NO language pop-up). On mount, take the
+  // stored manual choice if present, else auto-detect from navigator.language.
+  // SSR rendered the 'en' default; applying the resolved value here keeps the
+  // server/client markup identical and avoids a hydration mismatch / flash.
   useEffect(() => {
-    const stored = localStorage.getItem('dc1_language') as Language | null
-    if (stored === 'ar' || stored === 'en') {
-      setLanguageState(stored)
-    }
+    setLanguageState(resolveInitialLanguage(LANG_STORAGE_KEY))
   }, [])
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang)
-    localStorage.setItem('dc1_language', lang)
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, lang)
+    } catch {
+      // Ignore storage errors in private browsing modes.
+    }
   }, [])
 
   // Apply dir attribute and font to <html> and <body> when language changes

@@ -1,15 +1,19 @@
 'use client'
 
-// Renders the v1 global overlays (cookie banner, language-preference modal,
-// chat widget) on legacy v1 routes only. The redesigned surface (the app/(site)
-// route group) now lives at CLEAN ROOT URLs (/, /docs, /agents, /renter/*, …)
-// and carries its own chrome via app/(site)/layout.tsx — it must never show the
-// v1 cookie banner / language modal / chat widget. Because the route group does
-// not appear in the URL, this component identifies the redesigned routes by
-// their canonical root path prefixes instead of a /v2 prefix.
+// Renders the v1 global overlays (cookie banner, chat widget) on legacy v1
+// routes only. The redesigned surface (the app/(site) route group) now lives at
+// CLEAN ROOT URLs (/, /docs, /agents, /renter/*, …) and carries its own chrome
+// via app/(site)/layout.tsx — it must never show the v1 cookie banner / chat
+// widget. Because the route group does not appear in the URL, this component
+// identifies the redesigned routes by their canonical root path prefixes
+// instead of a /v2 prefix.
+//
+// There is intentionally NO first-visit language pop-up: the initial language
+// is browser-driven (navigator.language) and the user's manual choice is made
+// via the header language toggle and persisted in localStorage. See
+// app/lib/detectLanguage.ts and the i18n providers.
 import { usePathname } from 'next/navigation'
 import CookieConsent from './CookieConsent'
-import LanguagePreferenceModal from './LanguagePreferenceModal'
 import ChatWidget from './ChatWidget'
 
 // Exact public routes that are part of the redesign but render with v1 chrome
@@ -55,7 +59,6 @@ export default function V1GlobalChrome() {
   return (
     <>
       <CookieConsent />
-      <LanguagePreferenceModal />
       <ChatWidget />
     </>
   )
