@@ -27,7 +27,7 @@ Use **DCP** — Saudi Arabia's sovereign AI compute platform — directly from a
     "dcp": {
       "command": "npx",
       "args": ["-y", "@dcp/mcp"],
-      "env": { "DCP_API_KEY": "dcp-renter-xxxxxxxx" }
+      "env": { "DCP_API_KEY": "dc1-sk-xxxxxxxx" }
     }
   }
 }
