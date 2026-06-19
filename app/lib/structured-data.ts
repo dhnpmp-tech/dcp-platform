@@ -134,7 +134,7 @@ export function mcpServerLd(): Record<string, unknown> {
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Any (Node.js)',
     description:
-      'An official Model Context Protocol (MCP) server (npx -y @dcp/mcp) that lets any AI agent self-register a DCP renter account (zero human, with a SAR trial credit), rent a GPU, run OpenAI-compatible inference, manage persistent storage, and check wallet balance through tool calls. Tools: register_agent, list_models, chat, get_balance, list_gpus, create_pod, get_pod, extend_pod, stop_pod, rent_volume and get_volume.',
+      'An official Model Context Protocol (MCP) server (npx -y github:dhnpmp-tech/dcp-mcp) that lets any AI agent self-register a DCP renter account (zero human, with a SAR trial credit), rent a GPU, run OpenAI-compatible inference, manage persistent storage, and check wallet balance through tool calls. Tools: register_agent, list_models, chat, get_balance, list_gpus, create_pod, get_pod, extend_pod, stop_pod, rent_volume and get_volume.',
     softwareHelp: { '@type': 'CreativeWork', url: `${SITE_URL}/v2/agents` },
     provider: { '@id': `${SITE_URL}/#organization` },
     offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
@@ -284,7 +284,7 @@ export const AGENT_FAQ: ReadonlyArray<FaqItem> = [
   },
   {
     q: 'What does DCP do for AI agents?',
-    a: 'DCP is built to be driven by software, not only humans. An agent can self-register a renter account in one unauthenticated call (no email click), get a real API key plus a 20 SAR trial credit, then rent GPUs, run OpenAI-compatible inference, and manage storage — over plain HTTPS or through the official MCP server (npx -y @dcp/mcp).',
+    a: 'DCP is built to be driven by software, not only humans. An agent can self-register a renter account in one unauthenticated call (no email click), get a real API key plus a 20 SAR trial credit, then rent GPUs, run OpenAI-compatible inference, and manage storage — over plain HTTPS or through the official MCP server (npx -y github:dhnpmp-tech/dcp-mcp).',
   },
   {
     q: 'How does an AI agent get an API key on DCP without a human?',

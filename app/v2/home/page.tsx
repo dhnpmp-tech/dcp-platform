@@ -15,7 +15,7 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
   { en: 'Inference and agents, in the Kingdom', ar: 'استدلال ووكلاء، داخل المملكة' },
   { en: 'Pay per token · Saudi Riyal', ar: 'ادفع لكل رمز · بالريال السعودي' },
   { en: 'DCP-Agent for Saudi business · agents.dcp.sa', ar: 'DCP-Agent للأعمال السعودية · agents.dcp.sa' },
-  { en: 'Agents can rent a GPU · npx -y @dcp/mcp', ar: 'الوكلاء يستأجرون المعالجات · npx -y @dcp/mcp' },
+  { en: 'Agents can rent a GPU · npx -y github:dhnpmp-tech/dcp-mcp', ar: 'الوكلاء يستأجرون المعالجات · npx -y github:dhnpmp-tech/dcp-mcp' },
   { en: 'Earn Riyal from your GPU', ar: 'اكسب ريالاً من معالجك' },
   { en: 'PDPL · Saudi data residency', ar: 'نظام البيانات · إقامة داخل المملكة' },
 ]
@@ -1304,11 +1304,11 @@ export default function V2HomePage() {
               <p className="ss">
                 {lang === 'ar' ? (
                   <>
-                    DCP خادمٌ رسمي لـ <b>Model Context Protocol</b>. وصِّله بأي وكيل يدعم MCP — Claude أو Cursor أو وكيلك الخاص — بأمرٍ واحد: <code>npx -y @dcp/mcp</code>. عندها يستطيع الوكيل تشغيل استدلال سيادي داخل المملكة، واستئجار معالج كامل، والاحتفاظ بتخزين دائم — كله مدفوع مسبقاً بالريال، عبر استدعاءات أدوات أصلية.
+                    DCP خادمٌ رسمي لـ <b>Model Context Protocol</b>. وصِّله بأي وكيل يدعم MCP — Claude أو Cursor أو وكيلك الخاص — بأمرٍ واحد: <code>npx -y github:dhnpmp-tech/dcp-mcp</code>. عندها يستطيع الوكيل تشغيل استدلال سيادي داخل المملكة، واستئجار معالج كامل، والاحتفاظ بتخزين دائم — كله مدفوع مسبقاً بالريال، عبر استدعاءات أدوات أصلية.
                   </>
                 ) : (
                   <>
-                    DCP ships an official <b>Model Context Protocol</b> server. Wire it into any MCP-capable agent — Claude, Cursor, or your own — with one line: <code>npx -y @dcp/mcp</code>. The agent can then run sovereign in-Kingdom inference, rent a whole GPU, and keep persistent storage — all prepaid in Riyal, through native tool calls.
+                    DCP ships an official <b>Model Context Protocol</b> server. Wire it into any MCP-capable agent — Claude, Cursor, or your own — with one line: <code>npx -y github:dhnpmp-tech/dcp-mcp</code>. The agent can then run sovereign in-Kingdom inference, rent a whole GPU, and keep persistent storage — all prepaid in Riyal, through native tool calls.
                   </>
                 )}
               </p>
@@ -1382,7 +1382,7 @@ export default function V2HomePage() {
                 </button>
                 <div className="spacer" />
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', paddingInlineEnd: 4 }}>
-                  npx -y @dcp/mcp
+                  npx -y github:dhnpmp-tech/dcp-mcp
                 </span>
               </div>
 
@@ -1396,7 +1396,7 @@ export default function V2HomePage() {
                   {'  '}<span className="key">&quot;mcpServers&quot;</span>: {'{'}{'\n'}
                   {'    '}<span className="key">&quot;dcp&quot;</span>: {'{'}{'\n'}
                   {'      '}<span className="key">&quot;command&quot;</span>: <span className="str">&quot;npx&quot;</span>,{'\n'}
-                  {'      '}<span className="key">&quot;args&quot;</span>: [<span className="str">&quot;-y&quot;</span>, <span className="str">&quot;@dcp/mcp&quot;</span>],{'\n'}
+                  {'      '}<span className="key">&quot;args&quot;</span>: [<span className="str">&quot;-y&quot;</span>, <span className="str">&quot;github:dhnpmp-tech/dcp-mcp&quot;</span>],{'\n'}
                   {'      '}<span className="key">&quot;env&quot;</span>: {'{'} <span className="key">&quot;DCP_API_KEY&quot;</span>: <span className="str">&quot;dcp-renter-…&quot;</span> {'}'}{'\n'}
                   {'    '}{'}'}{'\n'}
                   {'  '}{'}'}{'\n'}
@@ -1419,8 +1419,8 @@ export default function V2HomePage() {
               <div className="qs-foot">
                 <span>
                   <Bi
-                    en="npx -y @dcp/mcp · 11 tools · prepaid in SAR"
-                    ar="npx -y @dcp/mcp · ١١ أداة · مدفوع مسبقاً بالريال"
+                    en="npx -y github:dhnpmp-tech/dcp-mcp · 11 tools · prepaid in SAR"
+                    ar="npx -y github:dhnpmp-tech/dcp-mcp · ١١ أداة · مدفوع مسبقاً بالريال"
                   />
                 </span>
                 <Link href="/v2/agents">

@@ -10,7 +10,7 @@
 //   - Zero-human onboarding: POST /api/renters/agent-register → dcp-renter- key
 //     + 20 SAR trial. (The 100 SAR trial is the human email-signup path.)
 //   - OpenAI-compatible inference at https://api.dcp.sa/v1.
-//   - Official MCP server @dcp/mcp (11 tools incl. register_agent + list_gpus).
+//   - Official MCP server: npx -y github:dhnpmp-tech/dcp-mcp (11 tools incl. register_agent + list_gpus).
 //   - Cost-plus GPU "from" floors; HTTP 402 funding signal; Idempotency-Key.
 //
 // INVISIBILITY: only public NVIDIA gpu_type names — never the GPU vendor,
@@ -427,7 +427,7 @@ export default function AgentsPage() {
                 {'\n      '}
                 <span className="k">{'"command"'}</span>: <span className="s">{'"npx"'}</span>,
                 {'\n      '}
-                <span className="k">{'"args"'}</span>: [<span className="s">{'"-y"'}</span>, <span className="s">{'"@dcp/mcp"'}</span>],
+                <span className="k">{'"args"'}</span>: [<span className="s">{'"-y"'}</span>, <span className="s">{'"github:dhnpmp-tech/dcp-mcp"'}</span>],
                 {'\n      '}
                 <span className="k">{'"env"'}</span>: {'{ '}
                 <span className="k">{'"DCP_API_KEY"'}</span>: <span className="s">{'"dcp-renter-…"'}</span>
@@ -444,10 +444,10 @@ export default function AgentsPage() {
                   <Bi en="Install line" ar="سطر التثبيت" />
                 </div>
                 <p>
-                  <code>npx -y @dcp/mcp</code>{' '}
+                  <code>npx -y github:dhnpmp-tech/dcp-mcp</code>{' '}
                   <Bi
-                    en="is the canonical command. The package is rolling out to npm; until then, agents that already know DCP can hit the API directly with the curl recipe above. DCP_API_KEY accepts both dcp-renter- and dc1-sk- keys, via Bearer or x-renter-key."
-                    ar="هو الأمر المعتمد. الحزمة في طريقها إلى npm؛ حتى ذلك الحين يمكن للوكلاء استخدام الواجهة مباشرة بوصفة curl أعلاه. يقبل DCP_API_KEY مفاتيح dcp-renter- وdc1-sk- معاً، عبر Bearer أو x-renter-key."
+                    en="is the live install command — it runs the connector straight from GitHub, no npm account needed (the npm package @dcp/mcp is coming soon). Agents that already know DCP can also hit the API directly with the curl recipe above. DCP_API_KEY accepts both dcp-renter- and dc1-sk- keys, via Bearer or x-renter-key."
+                    ar="هو أمر التثبيت المباشر — يشغّل الموصِّل مباشرةً من GitHub دون الحاجة إلى حساب npm (حزمة npm باسم ‎@dcp/mcp قادمة قريباً). يمكن للوكلاء الذين يعرفون DCP أيضاً استخدام الواجهة مباشرةً بوصفة curl أعلاه. يقبل DCP_API_KEY مفاتيح dcp-renter- وdc1-sk- معاً، عبر Bearer أو x-renter-key."
                   />
                 </p>
               </div>

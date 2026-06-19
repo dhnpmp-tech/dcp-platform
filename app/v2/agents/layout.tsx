@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://dcp.sa'),
   title: 'DCP for Agents — Zero-Human GPU Rental, OpenAI-Compatible Inference & MCP Server',
   description:
-    "DCP is built for AI agents: self-register a renter account in one call (no human, no email) for a real key + 20 SAR trial, then rent a whole GPU, run OpenAI-compatible inference at api.dcp.sa/v1, and stop — over HTTPS or the official MCP server (npx -y @dcp/mcp). Idempotency-Key for safe retries, HTTP 402 funding signal, sovereign in-Kingdom and PDPL-compliant.",
+    "DCP is built for AI agents: self-register a renter account in one call (no human, no email) for a real key + 20 SAR trial, then rent a whole GPU, run OpenAI-compatible inference at api.dcp.sa/v1, and stop — over HTTPS or the official MCP server (npx -y github:dhnpmp-tech/dcp-mcp). Idempotency-Key for safe retries, HTTP 402 funding signal, sovereign in-Kingdom and PDPL-compliant.",
   keywords: [
     'AI agent rent GPU',
     'MCP server rent GPU',
