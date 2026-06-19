@@ -168,7 +168,9 @@ export default function FeaturedArabicModels() {
           <p className="text-sm text-dc1-text-secondary mt-1">{subheading}</p>
         </div>
         <Link
-          href="/docs/arabic-rag"
+          // Repointed from the dead /docs/arabic-rag path (404) to the live
+          // "Working in Arabic" section anchor (#arabic) on the canonical /docs page.
+          href="/docs#arabic"
           onClick={() =>
             trackAnalytics('arabic_rag_learn_more_clicked', { source: 'featured_carousel', language })
           }

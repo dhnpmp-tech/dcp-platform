@@ -174,6 +174,17 @@ const nextConfig = {
       { source: '/renter/live', destination: '/renter/dashboard', permanent: true },
       { source: '/renter/pricing', destination: '/pricing', permanent: true },
       { source: '/renter/waitlist', destination: '/setup', permanent: true },
+      // ── Bare console-root SAFETY NET (permanent 308) ────────────────────
+      // The console route groups only ship subpages (/provider/dashboard,
+      // /renter/dashboard, …); neither bare /provider nor bare /renter has a
+      // page.tsx, so they hard-404. These EXACT-path sources (no `:path*`) send
+      // the bare path to the console landing. A static source with no param
+      // segment matches ONLY that exact path, so it CANNOT shadow the deeper
+      // /provider/:path* and /renter/:path* console routes (or the subpath
+      // redirects below). This also fixes broken provider-email links that
+      // point at the bare /provider root.
+      { source: '/provider', destination: '/provider/dashboard', permanent: true },
+      { source: '/renter', destination: '/renter/dashboard', permanent: true },
       // Retired v1 provider sub-pages that the redesigned console does not mirror.
       { source: '/provider/withdraw', destination: '/provider/payouts', permanent: true },
       { source: '/provider/fleet', destination: '/provider/rigs', permanent: true },
