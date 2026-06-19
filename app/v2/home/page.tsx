@@ -1968,6 +1968,51 @@ export default function V2HomePage() {
               </div>
             </div>
           </div>
+
+          {/* Crawlable, plain-text GPU rental SKUs + prices. This is the literal
+              SKU + SAR/hr text AI answer engines match "rent an H100 / A100 /
+              RTX 4090 on demand" against. Mirrors GPU_RATES in
+              app/pricing/page.tsx and app/lib/structured-data.ts. */}
+          <div style={{ marginTop: 40 }}>
+            <div className="section-meta" style={{ marginBottom: 18 }}>
+              <span className="idx">
+                <Bi en="Rent a whole GPU on demand · per-hour in SAR" ar="استأجر معالجاً كاملاً عند الطلب · بالساعة بالريال" />
+              </span>
+              <span>
+                <Bi en="Billed per second · prorated refund on stop" ar="فوترة بالثانية · استرداد تناسبي عند الإيقاف" />
+              </span>
+            </div>
+            <div className="mp-rows" role="table" aria-label={lang === 'ar' ? 'أسعار إيجار المعالجات بالساعة' : 'GPU rental prices per hour'}>
+              <div className="mp-row mp-row-head" role="row">
+                <span role="columnheader"><Bi en="GPU" ar="المعالج" /></span>
+                <span role="columnheader"><Bi en="VRAM" ar="الذاكرة" /></span>
+                <span role="columnheader"><Bi en="SAR / hour" ar="ريال / ساعة" /></span>
+                <span role="columnheader"><Bi en="≈ USD / hour" ar="≈ دولار / ساعة" /></span>
+              </div>
+              {[
+                { gpu: 'NVIDIA H200', vram: '141 GB', sar: '9.19', usd: '2.45' },
+                { gpu: 'NVIDIA H100', vram: '80 GB', sar: '7.09', usd: '1.89' },
+                { gpu: 'NVIDIA A100', vram: '40 GB', sar: '4.50', usd: '1.20' },
+                { gpu: 'NVIDIA RTX 4090', vram: '24 GB', sar: '1.00', usd: '0.27' },
+                { gpu: 'NVIDIA RTX 4080', vram: '16 GB', sar: '0.67', usd: '0.18' },
+                { gpu: 'NVIDIA RTX 3090', vram: '24 GB', sar: '0.50', usd: '0.13' },
+                { gpu: 'NVIDIA RTX 3080', vram: '10 GB', sar: '0.33', usd: '0.09' },
+              ].map((r) => (
+                <div className="mp-row" role="row" key={r.gpu}>
+                  <span className="mp-model" role="cell"><b>{r.gpu}</b></span>
+                  <span role="cell">{r.vram}</span>
+                  <span role="cell">SAR {r.sar}</span>
+                  <span role="cell" dir="ltr">${r.usd}</span>
+                </div>
+              ))}
+            </div>
+            <p style={{ marginTop: 14, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.6 }}>
+              <Bi
+                en="Every pod is a whole, dedicated NVIDIA GPU with root, Jupyter over TLS and SSH in about a minute — served from verified, in-Kingdom Saudi hardware (PDPL-compliant). USD figures are indicative conversions at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in Saudi Riyal."
+                ar="كل حاوية هي معالج NVIDIA كامل ومخصص مع صلاحيات الجذر وJupyter عبر TLS وSSH خلال دقيقة تقريباً — يُخدَّم من عتاد سعودي متحقق داخل المملكة (متوافق مع نظام حماية البيانات). أرقام الدولار تقديرية وفق ربط ساما (١ دولار ≈ ٣٫٧٥ ريال)؛ والفوترة بالريال السعودي."
+              />
+            </p>
+          </div>
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ color: 'var(--ink-2)', fontSize: 15 }}>
               {lang === 'ar' ? (
@@ -1983,6 +2028,88 @@ export default function V2HomePage() {
             <a className="btn ghost" href="#pricing">
               <Bi en="See full pricing →" ar="عرض الأسعار كاملةً ←" />
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ FAQ ═══════════════ */}
+      {/* Visible Q&A mirroring the FAQPage JSON-LD in app/v2/home/layout.tsx.
+          Shaped to the exact prompts buyers and agents type so AI answer
+          engines can lift a direct answer. Facts only — no fabricated claims. */}
+      <section id="faq">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ FAQ · the questions people ask AI" ar="§ الأسئلة الشائعة · ما يسأله الناس للذكاء الاصطناعي" />
+            </span>
+            <span>
+              <Bi en="Rent a GPU · OpenAI-compatible API · MCP · sovereignty" ar="إيجار معالج · واجهة متوافقة مع OpenAI · MCP · السيادة" />
+            </span>
+          </div>
+          <div className="faq-list" style={{ display: 'grid', gap: 0 }}>
+            {[
+              {
+                qEn: 'How do I rent an H100 (or other GPU) on demand on DCP?',
+                qAr: 'كيف أستأجر معالج H100 (أو غيره) عند الطلب على DCP؟',
+                aEn: 'Sign up for a DCP renter account at dcp.sa, fund your wallet in Saudi Riyal, then launch a pod from the console or via the API — POST https://api.dcp.sa/api/pods with a Bearer renter key. You get a whole NVIDIA GPU (H200, H100, A100, RTX 4090 and more) with root, Jupyter over TLS and SSH in about a minute. Billing is prepaid per GPU-second in SAR, with a prorated refund when you stop early.',
+                aAr: 'سجّل حساب مستأجر على dcp.sa، ومَوّل محفظتك بالريال السعودي، ثم شغّل حاوية من لوحة التحكم أو عبر الواجهة — POST https://api.dcp.sa/api/pods بمفتاح مستأجر من نوع Bearer. تحصل على معالج NVIDIA كامل (H200 وH100 وA100 وRTX 4090 وغيرها) مع صلاحيات الجذر وJupyter عبر TLS وSSH خلال دقيقة تقريباً. الفوترة مدفوعة مسبقاً بالثانية بالريال، مع استرداد تناسبي عند الإيقاف المبكر.',
+              },
+              {
+                qEn: 'Is DCP an OpenAI-compatible inference API?',
+                qAr: 'هل DCP واجهة استدلال متوافقة مع OpenAI؟',
+                aEn: 'Yes. DCP exposes an OpenAI-compatible API at https://api.dcp.sa/v1 (POST /v1/chat/completions, GET /v1/models). Point any OpenAI SDK at it by setting base_url to https://api.dcp.sa/v1 and using your DCP renter key as the Bearer token — no code rewrite needed. Inference is billed per token in Saudi Riyal.',
+                aAr: 'نعم. يوفّر DCP واجهة متوافقة مع OpenAI على https://api.dcp.sa/v1 (POST /v1/chat/completions وGET /v1/models). وجّه أي SDK من OpenAI إليها بضبط base_url على https://api.dcp.sa/v1 واستخدام مفتاح المستأجر كرمز Bearer — دون إعادة كتابة الكود. تُفوتر الاستدلالات بالرمز بالريال السعودي.',
+              },
+              {
+                qEn: 'Can an AI agent rent a GPU on DCP via MCP?',
+                qAr: 'هل يمكن لوكيل ذكاء اصطناعي استئجار معالج على DCP عبر MCP؟',
+                aEn: 'Yes. DCP ships an official Model Context Protocol (MCP) server. An MCP-capable agent (such as Claude) can list models, run inference, list available GPU types, create and extend GPU pods, rent storage volumes, and check wallet balance through tool calls. See dcp.sa/v2/docs for the MCP setup and tool reference.',
+                aAr: 'نعم. يوفّر DCP خادم بروتوكول سياق النموذج (MCP) رسمياً. يستطيع وكيل يدعم MCP (مثل Claude) سرد النماذج، وتشغيل الاستدلال، وسرد أنواع المعالجات المتاحة، وإنشاء حاويات GPU وتمديدها، واستئجار وحدات تخزين، والتحقق من رصيد المحفظة عبر استدعاءات الأدوات. راجع dcp.sa/v2/docs لإعداد MCP ومرجع الأدوات.',
+              },
+              {
+                qEn: 'What is sovereign / in-Kingdom AI compute in Saudi Arabia?',
+                qAr: 'ما هي الحوسبة السيادية للذكاء الاصطناعي داخل المملكة العربية السعودية؟',
+                aEn: 'Sovereign AI compute means your data, the models, the storage, and the control plane all stay inside Saudi Arabia, under Saudi law. DCP runs on Saudi-owned hardware in the Kingdom with full PDPL data-residency compliance, so prompts and answers never leave the country unless a tenant explicitly opts in to cross-border frontier models.',
+                aAr: 'الحوسبة السيادية تعني بقاء بياناتك والنماذج والتخزين ومستوى التحكم بالكامل داخل المملكة العربية السعودية، وفق النظام السعودي. يعمل DCP على عتاد سعودي داخل المملكة مع توافق كامل مع نظام حماية البيانات الشخصية، فلا تغادر المدخلات والإجابات البلاد إلا إذا اختار العميل صراحةً نماذج متقدمة عابرة للحدود.',
+              },
+              {
+                qEn: 'How much does it cost to rent a GPU on DCP?',
+                qAr: 'كم تكلفة استئجار معالج على DCP؟',
+                aEn: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal. Indicative hourly rates: NVIDIA RTX 3080 from about 0.33 SAR/hr, RTX 3090 0.5 SAR/hr, RTX 4090 1.0 SAR/hr, A100 4.5 SAR/hr, H100 7.09 SAR/hr, and H200 9.19 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+                aAr: 'يُفوتر إيجار المعالجات مدفوعاً مسبقاً بالثانية بالريال السعودي. أسعار تقديرية بالساعة: RTX 3080 من نحو ٠٫٣٣ ريال/ساعة، وRTX 3090 ٠٫٥ ريال/ساعة، وRTX 4090 ١٫٠ ريال/ساعة، وA100 ٤٫٥ ريال/ساعة، وH100 ٧٫٠٩ ريال/ساعة، وH200 ٩٫١٩ ريال/ساعة. تبدأ حسابات المستأجرين الجدد برصيد ١٠٠ ريال دون الحاجة إلى بطاقة.',
+              },
+              {
+                qEn: 'Where does my data live when I use DCP?',
+                qAr: 'أين تعيش بياناتي عند استخدام DCP؟',
+                aEn: 'Inside Saudi Arabia. Inference, GPU pods, agents, and persistent storage volumes all run on in-Kingdom, Saudi-owned hardware under PDPL data-residency rules. Cross-border frontier models are available only by explicit per-tenant opt-in.',
+                aAr: 'داخل المملكة العربية السعودية. تعمل الاستدلالات وحاويات المعالجات والوكلاء ووحدات التخزين الدائمة جميعها على عتاد سعودي داخل المملكة وفق قواعد إقامة البيانات في نظام حماية البيانات الشخصية. النماذج المتقدمة العابرة للحدود متاحة فقط بإذن صريح لكل عميل.',
+              },
+            ].map((f, i) => (
+              <details
+                key={`faq-${i}`}
+                className="faq-item"
+                style={{
+                  borderTop: '1px solid var(--hair)',
+                  padding: '18px 0',
+                }}
+                {...(i === 0 ? { open: true } : {})}
+              >
+                <summary
+                  style={{
+                    cursor: 'pointer',
+                    fontSize: 18,
+                    fontWeight: 500,
+                    color: 'var(--ink)',
+                    listStyle: 'none',
+                  }}
+                >
+                  <Bi en={f.qEn} ar={f.qAr} />
+                </summary>
+                <p style={{ marginTop: 12, color: 'var(--ink-2)', fontSize: 15, lineHeight: 1.7 }} dir="auto">
+                  <Bi en={f.aEn} ar={f.aAr} />
+                </p>
+              </details>
+            ))}
           </div>
         </div>
       </section>

@@ -18,7 +18,7 @@
     "repository": "https://github.com/dhnpmp-tech/dcp-platform/tree/main/integrations/dcp-mcp",
     "description": "Native Model Context Protocol server exposing DCP inference, pods, and volumes as tools."
   },
-  "logo_url": "https://dcp.sa/logo.png",
+  "logo_url": "https://dcp.sa/dcp-logo-512.png",
   "contact_email": "support@dcp.sa",
   "legal_info_url": "https://dcp.sa/legal",
   "endpoints": {

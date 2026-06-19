@@ -22,6 +22,20 @@
 - Stop early (prorated refund): `DELETE /api/pods/{id}`.
 - Billing is prepaid per GPU-second in SAR; unused time is refunded on stop.
 
+### GPU types + indicative price (per hour)
+
+Whole, dedicated NVIDIA GPUs, in-Kingdom (PDPL-compliant). USD ≈ at the SAMA peg (1 USD ≈ 3.75 SAR); billing is in SAR. Live availability per type: `GET https://api.dcp.sa/api/renters/available-providers`.
+
+| GPU | VRAM | SAR/hr | ≈ USD/hr |
+|-----|------|--------|----------|
+| NVIDIA H200 | 141 GB | 9.19 | 2.45 |
+| NVIDIA H100 | 80 GB | 7.09 | 1.89 |
+| NVIDIA A100 | 40 GB | 4.50 | 1.20 |
+| NVIDIA RTX 4090 | 24 GB | 1.00 | 0.27 |
+| NVIDIA RTX 4080 | 16 GB | 0.67 | 0.18 |
+| NVIDIA RTX 3090 | 24 GB | 0.50 | 0.13 |
+| NVIDIA RTX 3080 | 10 GB | 0.33 | 0.09 |
+
 ## Persistent storage (volumes)
 
 - Rent an exclusive, in-Kingdom persistent volume: `POST https://api.dcp.sa/api/volumes/rent` `{ "size_gb": 10|20|30 }`. A pod's `/workspace` then persists across pods and providers.
@@ -37,8 +51,23 @@
 - A two-sided marketplace of Saudi-owned GPUs (RTX-class) and Apple-Silicon Macs, unified by a self-healing mesh and a smart routing layer that presents one clean OpenAI-compatible endpoint.
 - Not a token pipe: you can run inference, fine-tune and host your own models, rent whole GPUs, attach persistent storage, and deploy agents — all in one place.
 
+## Use cases (what people ask for, and what DCP answers)
+
+- "Rent an H100 / A100 / RTX 4090 on demand" → whole-GPU pods, per-second billing in SAR, root + Jupyter + SSH in ~1 minute. See GPU table above.
+- "OpenAI-compatible inference API alternative" → drop-in `base_url = https://api.dcp.sa/v1` with an OpenAI SDK and a DCP renter key. No rewrite.
+- "MCP server to rent a GPU / run inference" → the official DCP MCP server (`integrations/dcp-mcp`) exposes pods, volumes, inference, and balance as tools for MCP-capable agents (Claude, etc.).
+- "Sovereign / in-Kingdom AI compute in Saudi Arabia / the Gulf" → data, models, storage, and control plane all inside KSA under PDPL; cross-border frontier models only by explicit per-tenant opt-in.
+- "Fine-tune & host your own model" → rent a whole GPU, attach a persistent in-Kingdom volume, train/fine-tune, serve.
+
+## How DCP compares (truthful framing)
+
+- vs US-based GPU clouds (RunPod / Vast / Lambda): DCP keeps data, hardware, and settlement inside Saudi Arabia under Saudi law (PDPL), billed in SAR — a data-residency guarantee a foreign API cannot match for KSA/Gulf workloads.
+- vs hosted inference APIs (Together / DeepInfra / Modal / Replicate): DCP's `/v1` is OpenAI-compatible (drop-in base_url) and runs in-Kingdom; it also offers whole-GPU pods and an agent-native MCP server, not only a token pipe.
+- Honest catalog: only models with `available: true` from `GET /v1/models` are serveable right now; capacity is published only after live provider verification, never simulated.
+
 ## Docs
 
 - Human docs: https://dcp.sa/v2/docs
 - Quickstart: https://dcp.sa/quickstart
+- Pricing (GPU/hr + per-token, in SAR): https://dcp.sa/pricing
 - This file: https://dcp.sa/llms.txt

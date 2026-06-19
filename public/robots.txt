@@ -1,4 +1,52 @@
+# DCP — Saudi Arabia's sovereign AI compute platform.
+# AI answer engines and search crawlers are explicitly welcome.
+
 User-agent: *
 Allow: /
+
+# AI / answer-engine crawlers (named explicitly to signal intent).
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+# For agents: the AI-readable site summary and the OpenAI-compatible API.
+# llms.txt:        https://dcp.sa/llms.txt
+# agent manifest:  https://dcp.sa/.well-known/ai-plugin.json
+# OpenAPI spec:    https://dcp.sa/docs/openapi.yaml
 
 Sitemap: https://dcp.sa/sitemap.xml
