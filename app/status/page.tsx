@@ -319,10 +319,10 @@ export default function StatusPage() {
   return (
     <div className="status-page" dir="ltr">
       <nav className="st-nav">
-        <Link href="/v2/home" className="st-brand">DCP&#8734;</Link>
+        <Link href="/" className="st-brand">DCP&#8734;</Link>
         <div className="st-nav-right">
-          <Link href="/v2/home" className="lnk">Home</Link>
-          <Link href="/v2/docs" className="lnk">Docs</Link>
+          <Link href="/" className="lnk">Home</Link>
+          <Link href="/docs" className="lnk">Docs</Link>
           <Link href="/pricing" className="lnk">Pricing</Link>
           <span className="st-pill"><span className="dot" style={{ background: summary.pill.dot, boxShadow: `0 0 8px ${summary.pill.dot}` }} />{summary.pill.label}</span>
         </div>
@@ -377,7 +377,7 @@ export default function StatusPage() {
         </div>
 
         <section className="st-links">
-          <Link href="/v2/docs" className="st-link-card">
+          <Link href="/docs" className="st-link-card">
             <p className="t">Read the docs →</p>
             <p className="d">First call in under two minutes. curl, Python, Node.js.</p>
           </Link>
@@ -393,8 +393,8 @@ export default function StatusPage() {
           <span className="fb">DCP&#8734;</span>
           <span className="fm">KSA-resident GPU compute</span>
           <span>
-            <Link href="/v2/home">Home</Link>
-            <Link href="/v2/docs">Docs</Link>
+            <Link href="/">Home</Link>
+            <Link href="/docs">Docs</Link>
             <Link href="/pricing">Pricing</Link>
           </span>
         </footer>

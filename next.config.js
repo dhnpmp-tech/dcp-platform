@@ -92,78 +92,95 @@ const nextConfig = {
       afterFiles: proxyRewrites,
     };
   },
-  // Internal link fixes — these source paths have no page and previously 404'd.
+  // Redirect table. Two jobs:
+  //   1. /v2/* → clean ROOT (permanent 308) — the redesign is now CANONICAL at
+  //      root (app/(site) route group). Google, AI answer engines, bookmarks and
+  //      transactional-email links were pointed at /v2/home, /v2/docs, /v2/agents
+  //      etc.; these 308s transfer that equity to the root URLs instead of
+  //      breaking. This is the exact INVERSE of the old root→/v2 cutover.
+  //   2. Retired v1 surfaces → their canonical ROOT twin (permanent 308).
+  // NOTE on `permanent`: Next.js emits permanent:true as 308. Next matches
+  // redirects in array order; the specific /v2/* entries precede the catch-all.
+  // There is NO root→/v2 rule anywhere — that would form an infinite loop with
+  // the /v2→root rules below.
   async redirects() {
-    // Flip switch: set DCP_V2_LIVE=1 in the Vercel env to serve the v2 redesign
-    // from the public entry routes. Use redirects instead of internal rewrites:
-    // the v2 shell is intentionally mounted under /v2, and rendering it through
-    // a different browser pathname causes hydration mismatches in production.
-    // NOTE on `permanent`: Next.js emits permanent:true as 308 and false as 307.
-    // The DCP_V2_LIVE-gated entries stay temporary (the team may still toggle the
-    // flag), but the genuinely-retired v1 surfaces below are permanent (308) so
-    // search engines, bookmarks, and transactional-email links treat the new v2
-    // URLs as canonical and never re-resolve to a stale v1 page.
-    const v2Live = process.env.DCP_V2_LIVE === '1';
-    const v2CutoverRedirects = v2Live
-      ? [
-          // Public entry-route cutover. Temporary while DCP_V2_LIVE is a flip switch.
-          // /login is handled in middleware.ts (permanent 308 → /v2/auth), NOT here:
-          // tests/v2-cutover-rewrites.test.js asserts /login is absent from this table.
-          { source: '/', destination: '/v2/home', permanent: false },
-          { source: '/setup', destination: '/v2/provider-setup', permanent: false },
-          { source: '/earn', destination: '/v2/provider-setup', permanent: false },
-          // Legacy renter registration → the renter signup funnel (/v2/setup).
-          // Previously pointed at /setup, which chains to the PROVIDER setup —
-          // a wrong-funnel bug. Renters now land on the renter onboarding flow.
-          { source: '/renter/register', destination: '/v2/setup', permanent: false },
-          { source: '/docs', destination: '/v2/docs', permanent: false },
-        ]
-      : [];
-
     return [
-      ...v2CutoverRedirects,
-      // ── Retired v1 surfaces → canonical v2 (permanent 308) ──────────────
-      // GPU Pods page is canonical in the v2 console design.
-      { source: '/renter/pods', destination: '/v2/renter/pods', permanent: true },
+      // ── /v2/* → canonical ROOT (equity transfer, permanent 308) ─────────
+      // Home: the bare /v2 and /v2/home both collapse to "/".
+      { source: '/v2', destination: '/', permanent: true },
+      { source: '/v2/home', destination: '/', permanent: true },
+      { source: '/v2/docs', destination: '/docs', permanent: true },
+      { source: '/v2/agents', destination: '/agents', permanent: true },
+      { source: '/v2/containers', destination: '/containers', permanent: true },
+      { source: '/v2/architecture', destination: '/architecture', permanent: true },
+      { source: '/v2/setup', destination: '/setup', permanent: true },
+      { source: '/v2/provider-setup', destination: '/provider-setup', permanent: true },
+      { source: '/v2/auth', destination: '/auth', permanent: true },
+      // The single-page v2 admin was retired; the deep v1 admin console at /admin
+      // stays canonical, so /v2/admin lands there.
+      { source: '/v2/admin', destination: '/admin', permanent: true },
+      { source: '/v2/renter/:path*', destination: '/renter/:path*', permanent: true },
+      { source: '/v2/provider/:path*', destination: '/provider/:path*', permanent: true },
+      // Catch-all LAST: sweep any stray /v2/* not matched above to its root twin.
+      { source: '/v2/:path*', destination: '/:path*', permanent: true },
+
+      // ── Retired v1 surfaces → canonical ROOT (permanent 308) ────────────
       // GPU Pods product page lives in the app now; the static one-pager is retired.
-      { source: '/containers', destination: '/v2/containers', permanent: true },
-      { source: '/gpu-containers', destination: '/v2/containers', permanent: true },
-      { source: '/gpu-containers.html', destination: '/v2/containers', permanent: true },
+      { source: '/gpu-containers', destination: '/containers', permanent: true },
+      { source: '/gpu-containers.html', destination: '/containers', permanent: true },
       // Retired public brand-guideline artifact. Keep old links landing on
       // current docs without continuing to publish stale internal design HTML.
-      { source: '/docs/DCP-BRAND-GUIDELINES-v3.html', destination: '/v2/docs', permanent: true },
-      { source: '/docs/brand', destination: '/v2/docs', permanent: true },
+      { source: '/docs/DCP-BRAND-GUIDELINES-v3.html', destination: '/docs', permanent: true },
+      { source: '/docs/brand', destination: '/docs', permanent: true },
       // Retired v2 design-handoff URLs previously lived under public/dcp-v2.
-      { source: '/dcp-v2/:path*', destination: '/v2/home', permanent: true },
-      // Retired model-browser URLs → the v2 playground/catalog source of truth.
-      { source: '/models', destination: '/v2/renter/playground', permanent: true },
-      { source: '/marketplace/models', destination: '/v2/renter/playground', permanent: true },
-      { source: '/marketplace/templates', destination: '/v2/renter/pods', permanent: true },
-      // Retired docs sub-pages → the consolidated v2 docs. (Bare /quickstart,
-      // /pricing and /status keep their own self-canonicals and are NOT redirected.)
-      { source: '/docs/api', destination: '/v2/docs', permanent: true },
-      { source: '/docs/api/:path*', destination: '/v2/docs', permanent: true },
-      { source: '/docs/quickstart', destination: '/v2/docs', permanent: true },
-      { source: '/docs/models', destination: '/v2/docs', permanent: true },
-      { source: '/docs/renter-guide', destination: '/v2/docs', permanent: true },
-      { source: '/docs/provider-guide', destination: '/v2/docs', permanent: true },
-      // Retired renter console deep-links not covered by the middleware /renter/* rule.
-      { source: '/api-keys', destination: '/v2/renter/keys', permanent: true },
-      { source: '/connections', destination: '/v2/renter/keys', permanent: true },
-      { source: '/budget', destination: '/v2/renter/usage', permanent: true },
-      { source: '/dashboard', destination: '/v2/renter/dashboard', permanent: true },
-      { source: '/dashboard/notifications', destination: '/v2/renter/dashboard', permanent: true },
-      { source: '/dashboard/jobs', destination: '/v2/renter/jobs', permanent: true },
-      { source: '/jobs', destination: '/v2/renter/jobs', permanent: true },
-      { source: '/jobs/submit', destination: '/v2/renter/playground', permanent: true },
-      // Retired v1 /agents surface → the canonical v2 agent-first product page.
-      // The new page lives at /v2/agents (ROUTES.agents); this 308 keeps old
-      // links, bookmarks, and crawlers pointed at the current surface.
-      { source: '/agents', destination: '/v2/agents', permanent: true },
-      // Retired marketing pages superseded by the v2 home.
-      { source: '/intelligence', destination: '/v2/home', permanent: true },
-      { source: '/arabic-rag', destination: '/v2/home', permanent: true },
-      { source: '/onboarding', destination: '/v2/setup', permanent: true },
+      { source: '/dcp-v2/:path*', destination: '/', permanent: true },
+      // Retired model-browser URLs → the playground/catalog source of truth.
+      { source: '/models', destination: '/renter/playground', permanent: true },
+      { source: '/marketplace/models', destination: '/renter/playground', permanent: true },
+      { source: '/marketplace/templates', destination: '/renter/pods', permanent: true },
+      // Retired v1 docs sub-pages → the consolidated single-page docs. (Bare
+      // /quickstart, /pricing and /status keep their own self-canonicals.)
+      { source: '/docs/api', destination: '/docs', permanent: true },
+      { source: '/docs/api/:path*', destination: '/docs', permanent: true },
+      { source: '/docs/quickstart', destination: '/docs', permanent: true },
+      { source: '/docs/models', destination: '/docs', permanent: true },
+      { source: '/docs/renter-guide', destination: '/docs', permanent: true },
+      { source: '/docs/provider-guide', destination: '/docs', permanent: true },
+      // Retired renter console deep-links + legacy signup → canonical root console.
+      { source: '/api-keys', destination: '/renter/keys', permanent: true },
+      { source: '/connections', destination: '/renter/keys', permanent: true },
+      { source: '/budget', destination: '/renter/usage', permanent: true },
+      { source: '/dashboard', destination: '/renter/dashboard', permanent: true },
+      { source: '/dashboard/notifications', destination: '/renter/dashboard', permanent: true },
+      { source: '/dashboard/jobs', destination: '/renter/jobs', permanent: true },
+      { source: '/jobs', destination: '/renter/jobs', permanent: true },
+      { source: '/jobs/submit', destination: '/renter/playground', permanent: true },
+      // Retired v1 renter sub-pages that the redesigned console does not mirror.
+      { source: '/renter/register', destination: '/setup', permanent: true },
+      { source: '/renter/analytics', destination: '/renter/usage', permanent: true },
+      { source: '/renter/cost-dashboard', destination: '/renter/usage', permanent: true },
+      { source: '/renter/billing', destination: '/renter/wallet', permanent: true },
+      { source: '/renter/billing/:path*', destination: '/renter/wallet', permanent: true },
+      { source: '/renter/models', destination: '/renter/playground', permanent: true },
+      { source: '/renter/templates', destination: '/renter/pods', permanent: true },
+      { source: '/renter/marketplace', destination: '/renter/pods', permanent: true },
+      { source: '/renter/marketplace/:path*', destination: '/renter/pods', permanent: true },
+      { source: '/renter/gpu-comparison', destination: '/renter/pods', permanent: true },
+      { source: '/renter/live', destination: '/renter/dashboard', permanent: true },
+      { source: '/renter/pricing', destination: '/pricing', permanent: true },
+      { source: '/renter/waitlist', destination: '/setup', permanent: true },
+      // Retired v1 provider sub-pages that the redesigned console does not mirror.
+      { source: '/provider/withdraw', destination: '/provider/payouts', permanent: true },
+      { source: '/provider/fleet', destination: '/provider/rigs', permanent: true },
+      { source: '/provider/gpu', destination: '/provider/rigs', permanent: true },
+      { source: '/provider/activate', destination: '/provider/profile', permanent: true },
+      { source: '/provider/download', destination: '/earn', permanent: true },
+      { source: '/provider/jobs', destination: '/provider/dashboard', permanent: true },
+      { source: '/provider/jobs/:path*', destination: '/provider/dashboard', permanent: true },
+      // Retired marketing pages superseded by the redesigned home.
+      { source: '/intelligence', destination: '/', permanent: true },
+      { source: '/arabic-rag', destination: '/', permanent: true },
+      { source: '/onboarding', destination: '/setup', permanent: true },
       // Provider activation funnel (4 call sites link here) → the real onboarding entry.
       { source: '/provider-onboarding', destination: '/earn', permanent: true },
       // Draft/legal docs sometimes cross-link /legal/terms; canonical effective terms live at /terms

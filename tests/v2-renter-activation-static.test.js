@@ -2,8 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const setup = fs.readFileSync(path.join(__dirname, '..', 'app/v2/setup/page.tsx'), 'utf8');
-const playground = fs.readFileSync(path.join(__dirname, '..', 'app/v2/renter/playground/page.tsx'), 'utf8');
+const setup = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/setup/page.tsx'), 'utf8');
+const playground = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/playground/page.tsx'), 'utf8');
 
 assert(!setup.includes('dcp-renter-XXXXXXXXXXXXXXXXXXXX'), 'v2 setup must not reveal a placeholder renter key');
 assert(setup.includes('getRenterKey'), 'v2 setup should read the real authenticated renter key');

@@ -155,7 +155,7 @@ components:
           example: 1200
         topup_url:
           type: string
-          example: https://dcp.sa/v2/renter/wallet
+          example: https://dcp.sa/renter/wallet
 
     Pod:
       type: object

@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'app/v2/auth/page.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/auth/page.tsx'), 'utf8');
 
 assert(source.includes("setSession"), 'v2 auth should create the shared session cookie');
 assert(source.includes("renters/send-otp"), 'v2 auth should send renter magic links');

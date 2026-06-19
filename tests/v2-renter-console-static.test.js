@@ -2,8 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const dashboard = fs.readFileSync(path.join(__dirname, '..', 'app/v2/renter/dashboard/page.tsx'), 'utf8');
-const keys = fs.readFileSync(path.join(__dirname, '..', 'app/v2/renter/keys/page.tsx'), 'utf8');
+const dashboard = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/dashboard/page.tsx'), 'utf8');
+const keys = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/keys/page.tsx'), 'utf8');
 
 const prototypeStrings = [
   'NextWave Commerce',
