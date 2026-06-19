@@ -327,6 +327,81 @@ function toFiniteInt(value, { min = null, max = null } = {}) {
   return num;
 }
 
+// ── GPU-TYPE selection (agent/MCP-facing) ────────────────────────────────────
+// Agents (and the MCP server) rent a GPU TYPE by name — "H100", "RTX 4090", or a
+// full gpu_model string — NEVER a provider_id (INVISIBILITY: the agent never
+// learns which machine/vendor backs the type). This map normalizes a short,
+// agent-friendly code to a canonical SUBSTRING that we match case-insensitively
+// against the real is_burst=1 providers.gpu_model (which carry vendor-specific
+// suffixes like "80GB HBM3" / "80GB PCIe"). Anything not in the map is matched as
+// a raw substring, so a full gpu_model also resolves. Keys are lowercased; the
+// request is lowercased before lookup.
+const GPU_TYPE_ALIASES = {
+  'h100': 'h100',
+  'h200': 'h200',
+  'a100': 'a100',
+  'l40s': 'l40s',
+  '5090': 'rtx 5090',
+  'rtx5090': 'rtx 5090',
+  'rtx 5090': 'rtx 5090',
+  '4090': 'rtx 4090',
+  'rtx4090': 'rtx 4090',
+  'rtx 4090': 'rtx 4090',
+};
+
+// Resolve a renter-supplied GPU TYPE string to the matching is_burst=1 provider
+// that is online + approved + not paused + IN STOCK. Returns:
+//   { provider }                         — a launchable burst provider row.
+//   { error, code, message }             — type unknown OR known but out of stock.
+// We deliberately do NOT fall back to a native pod: if a renter asked for "H100"
+// we either give them an H100 or tell them it's unavailable — never a silent
+// RTX 3090 substitution. Matching is a case-insensitive substring of gpu_model
+// using the alias-normalized needle, so "h100" matches "NVIDIA H100 80GB HBM3".
+function resolveGpuType(rawType) {
+  const requested = String(rawType || '').trim();
+  if (!requested) {
+    return { error: 'invalid_gpu_type', code: 'INVALID_GPU_TYPE', message: 'gpu_type must be a non-empty string' };
+  }
+  const key = requested.toLowerCase();
+  const needle = GPU_TYPE_ALIASES[key] || key;
+
+  // Candidate burst rows: approved, not paused, online (status reflects stock via
+  // the stock-refresh cron, which flips status='offline' when stock_available=0).
+  // We additionally require stock_available != 0 so an out-of-stock type fails
+  // clearly instead of launching and surprise-failing on the external cloud.
+  const rows = db.all(
+    `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
+            p.is_burst, p.burst_gpu_type_id, p.stock_available, p.status
+       FROM providers p
+      WHERE COALESCE(p.is_burst, 0) = 1
+        AND COALESCE(p.is_paused, 0) = 0
+        AND p.approval_status = 'approved'
+        AND p.burst_gpu_type_id IS NOT NULL
+        AND p.gpu_model IS NOT NULL`
+  );
+  const matches = rows.filter((r) => String(r.gpu_model).toLowerCase().includes(needle));
+  if (matches.length === 0) {
+    return {
+      error: 'gpu_type_not_found',
+      code: 'GPU_TYPE_NOT_FOUND',
+      message: `Unknown GPU type "${requested}". Call list_gpus (GET /api/renters/available-providers) to see the available GPU types.`,
+    };
+  }
+  // Prefer an in-stock, online match. stock_available === 0 OR status 'offline'
+  // means out of stock right now.
+  const inStock = matches.find(
+    (r) => r.stock_available !== 0 && r.status === 'online'
+  );
+  if (!inStock) {
+    return {
+      error: 'gpu_type_out_of_stock',
+      code: 'GPU_TYPE_OUT_OF_STOCK',
+      message: `The GPU type "${requested}" is not available right now. Try another type from list_gpus, or retry shortly.`,
+    };
+  }
+  return { provider: inStock };
+}
+
 // Resolve the provider this pod must run on. Either the renter pins one
 // (validated against the capable-online query — same shape as jobs.js:4692) or
 // we auto-pick the freshest, least-busy capable provider.
@@ -562,13 +637,38 @@ router.post('/', requireRenter, requireComputeScope, (req, res) => {
       }
     }
 
-    const resolution = resolvePodProvider(requestedProviderId);
-    if (resolution.error) {
-      return res.status(resolution.error === 'provider_not_available' ? 409 : 503).json({
-        error: resolution.message,
-        code: resolution.error.toUpperCase(),
-        retry_after_seconds: 60,
-      });
+    // Optional GPU TYPE (agent/MCP path): "H100" | "RTX 4090" | full gpu_model.
+    // When present, it resolves to the in-stock burst provider for that type and
+    // launches through the SAME burst path as a pinned burst provider_id (the
+    // backend maps type → provider internally; the agent never sees provider_id).
+    // gpu_type takes precedence over provider_id when both are sent. A gpu_type
+    // that is unknown or out of stock returns a clear 4xx — never a silent
+    // fall-through to a native auto-picked pod.
+    let resolution;
+    if (body.gpu_type != null && String(body.gpu_type).trim() !== '') {
+      if (typeof body.gpu_type !== 'string') {
+        return res.status(400).json({ error: 'gpu_type must be a string', code: 'INVALID_GPU_TYPE' });
+      }
+      resolution = resolveGpuType(body.gpu_type);
+      if (resolution.error) {
+        const httpStatus = resolution.error === 'gpu_type_out_of_stock' ? 409 : 400;
+        return res.status(httpStatus).json({
+          error: resolution.message,
+          code: resolution.code,
+          ...(resolution.error === 'gpu_type_out_of_stock' ? { retry_after_seconds: 30 } : {}),
+        });
+      }
+    } else {
+      // No gpu_type — keep the existing behavior unchanged: pinned provider_id, or
+      // native auto-pick when neither is given.
+      resolution = resolvePodProvider(requestedProviderId);
+      if (resolution.error) {
+        return res.status(resolution.error === 'provider_not_available' ? 409 : 503).json({
+          error: resolution.message,
+          code: resolution.error.toUpperCase(),
+          retry_after_seconds: 60,
+        });
+      }
     }
     const provider = resolution.provider;
 

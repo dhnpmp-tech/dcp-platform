@@ -88,14 +88,40 @@ const TOOLS = [
     run: async () => ok(await dcp('GET', '/api/renters/balance')),
   },
   {
+    name: 'list_gpus',
+    description: 'List the GPU types you can rent on DCP right now. Returns each available GPU TYPE with its VRAM and live availability — pick a gpu_type string from here (e.g. "H100", "RTX 4090") and pass it to create_pod. Only entries with available=true can be rented this moment.',
+    inputSchema: { type: 'object', properties: { only_available: { type: 'boolean', description: 'If true (default), return only GPU types that are rentable right now.' } } },
+    run: async (a) => {
+      const r = await dcp('GET', '/api/renters/available-providers');
+      let rows = (r && r.providers) || [];
+      if (a.only_available !== false) rows = rows.filter((p) => p.available !== false);
+      // Type-only view: GPU model + VRAM + availability. No provider_id / machine
+      // name / vendor is ever exposed by the backend; we surface only the fields
+      // an agent needs to choose a type.
+      const gpus = rows.map((p) => ({
+        gpu_type: p.gpu_model || null,
+        vram_gb: p.vram_gb ?? (p.vram_mib ? Math.round(p.vram_mib / 1024) : null),
+        available: p.available !== false,
+        on_demand: p.on_demand === true,
+      }));
+      return ok({ count: gpus.length, gpus });
+    },
+  },
+  {
     name: 'create_pod',
-    description: 'Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute in SAR. Poll get_pod for the access_url once it is running.',
+    description: 'Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute in SAR. Pick a GPU type with the gpu_type argument (call list_gpus first to see the available types, e.g. "H100", "RTX 4090"); omit it to get an auto-picked GPU. Poll get_pod for the access_url once it is running.',
     inputSchema: {
       type: 'object',
-      properties: { duration_minutes: { type: 'number', description: 'Rental duration in minutes (5–1440).' } },
+      properties: {
+        duration_minutes: { type: 'number', description: 'Rental duration in minutes (5–1440).' },
+        gpu_type: { type: 'string', description: 'GPU type to rent, from list_gpus (e.g. "H100", "H200", "A100", "L40S", "RTX 5090", "RTX 4090"). Optional — omit for an auto-picked GPU. If the chosen type is out of stock the call fails clearly instead of substituting a different GPU.' },
+      },
       required: ['duration_minutes'],
     },
-    run: async (a) => ok(await dcp('POST', '/api/pods', { duration_minutes: a.duration_minutes })),
+    run: async (a) => ok(await dcp('POST', '/api/pods', {
+      duration_minutes: a.duration_minutes,
+      ...(a.gpu_type ? { gpu_type: a.gpu_type } : {}),
+    })),
   },
   {
     name: 'get_pod',
