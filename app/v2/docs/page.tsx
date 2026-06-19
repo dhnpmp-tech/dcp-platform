@@ -63,6 +63,9 @@ export default function DocsPage() {
           <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
           <div className="sec"><Bi en="Agents" ar="الوكلاء" /></div>
           <a href="#agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></a>
+          <a href="#mcp-install"><Bi en="Install (MCP)" ar="التثبيت (MCP)" /></a>
+          <a href="#mcp-tools"><Bi en="Tools" ar="الأدوات" /></a>
+          <a href="#mcp-rent-gpu"><Bi en="Agent rents a GPU" ar="وكيل يستأجر معالجاً" /></a>
           <div className="sec"><Bi en="SDKs" ar="حِزم التطوير" /></div>
           <a href="#python-sdk"><Bi en="Python" ar="بايثون" /></a>
           <a href="#node-sdk"><Bi en="Node.js" ar="Node.js" /></a>
@@ -371,24 +374,145 @@ $ <span className="k">curl</span> <span className="k">-X</span> DELETE <span cla
 $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/volumes/me</span></pre>
 
           <span className="dx-eyebrow">§ <Bi en="Agents" ar="الوكلاء" /></span>
-          <h2 id="agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></h2>
-          <p>
+          <h2 id="agents"><Bi en="Use DCP from an agent (MCP)" ar="استخدم DCP من وكيل (MCP)" /></h2>
+          <p className="lead">
             <Bi
-              en="DCP is built to be used by agents and software, not only humans. The inference API is a drop-in OpenAI replacement (point any OpenAI SDK at the base URL above), and an official Model Context Protocol (MCP) server lets an MCP-capable agent — Claude, Cursor, or your own — run inference, rent GPUs, and manage storage through native tool calls."
-              ar="بُنيت DCP لتُستخدم من الوكلاء والبرمجيات، لا البشر فقط. واجهة الاستدلال بديل مباشر لـ OpenAI (وجّه أي حزمة OpenAI إلى عنوان القاعدة أعلاه)، وخادم MCP رسمي يتيح لأي وكيل يدعم MCP — Claude أو Cursor أو وكيلك الخاص — تشغيل الاستدلال واستئجار البطاقات وإدارة التخزين عبر استدعاءات أدوات أصلية."
+              en="DCP is agent-first: it is built to be driven by agents and software, not only humans. An official Model Context Protocol (MCP) server lets any MCP-capable agent — Claude Desktop, Claude Code, Cursor, or your own — run sovereign in-Kingdom inference, rent a whole GPU, and keep persistent storage through native tool calls. Everything is prepaid in Riyal from one renter wallet."
+              ar="DCP مصمَّمة للوكلاء أولاً: بُنيت لتُقاد من الوكلاء والبرمجيات، لا البشر فقط. خادم MCP رسمي يتيح لأي وكيل يدعم MCP — Claude Desktop أو Claude Code أو Cursor أو وكيلك الخاص — تشغيل استدلال سيادي داخل المملكة، واستئجار معالج كامل، والاحتفاظ بتخزين دائم عبر استدعاءات أدوات أصلية. كل شيء مدفوع مسبقاً بالريال من محفظة مستأجر واحدة."
             />
           </p>
-          <pre className="code"><span className="c">{'// MCP client config (Claude Desktop / Claude Code / Cursor)'}</span>
-{'{ "mcpServers": { "dcp": {'}
-   <span className="k">"command"</span>: <span className="s">"npx"</span>, <span className="k">"args"</span>: [<span className="s">"-y"</span>, <span className="s">"@dcp/mcp"</span>],
-   <span className="k">"env"</span>: {'{ '}<span className="k">"DCP_API_KEY"</span>: <span className="s">"dcp-renter-..."</span>{' }'}
-{'} } }'}</pre>
+
+          <h3 id="mcp-install"><Bi en="Install" ar="التثبيت" /></h3>
           <p>
             <Bi
-              en="Discovery: agents can read /llms.txt and /.well-known/ai-plugin.json at dcp.sa, plus the OpenAPI spec at /docs/openapi.yaml. MCP tools: list_models, chat, create_pod, get_pod, extend_pod, stop_pod, rent_volume, get_volume, get_balance."
-              ar="الاكتشاف: يمكن للوكلاء قراءة /llms.txt و/.well-known/ai-plugin.json على dcp.sa، ومواصفات OpenAPI على /docs/openapi.yaml. أدوات MCP: list_models و chat و create_pod و get_pod و extend_pod و stop_pod و rent_volume و get_volume و get_balance."
+              en="The server runs over stdio via npx — there is nothing to install globally. Add it to your MCP client config ("
+              ar="يعمل الخادم عبر stdio بواسطة npx — لا شيء يُثبَّت عالمياً. أضِفه إلى إعدادات عميل MCP لديك ("
+            />
+            <code>.mcp.json</code>
+            <Bi en=" for Claude Code, " ar=" لـ Claude Code، و" />
+            <code>claude_desktop_config.json</code>
+            <Bi
+              en=" for Claude Desktop, or your client's equivalent). Set DCP_API_KEY to your renter API key — the plaintext key (it starts with "
+              ar=" لـ Claude Desktop، أو ما يعادله في عميلك). اضبط DCP_API_KEY على مفتاح المستأجر الخاص بك — المفتاح النصي (يبدأ بـ "
+            />
+            <code>dc1-sk-</code>
+            <Bi en=") that you create in the console under " ar=") الذي تنشئه في وحدة التحكم ضمن " />
+            <Link className="ln" href="/v2/renter/keys"><Bi en="API keys" ar="مفاتيح الواجهة" /></Link>.
+          </p>
+          <pre className="code"><span className="c">{'// .mcp.json (Claude Code) · claude_desktop_config.json (Claude Desktop) · Cursor'}</span>
+{'{'}
+  <span className="k">"mcpServers"</span>: {'{'}
+    <span className="k">"dcp"</span>: {'{'}
+      <span className="k">"command"</span>: <span className="s">"npx"</span>,
+      <span className="k">"args"</span>: [<span className="s">"-y"</span>, <span className="s">"@dcp/mcp"</span>],
+      <span className="k">"env"</span>: {'{ '}<span className="k">"DCP_API_KEY"</span>: <span className="s">"dc1-sk-..."</span>{' }'}
+    {'}'}
+  {'}'}
+{'}'}</pre>
+          <div className="callout">
+            <div className="t"><Bi en="Environment" ar="البيئة" /></div>
+            <p>
+              <code>DCP_API_KEY</code>
+              <Bi
+                en=" — your renter API key (required). "
+                ar=" — مفتاح المستأجر الخاص بك (مطلوب). "
+              />
+              <code>DCP_API_BASE</code>
+              <Bi
+                en=" — API host, defaults to https://api.dcp.sa. Fund the wallet (SAR) and create a key at dcp.sa first."
+                ar=" — مضيف الواجهة، الافتراضي https://api.dcp.sa. موّل المحفظة (بالريال) وأنشئ مفتاحاً على dcp.sa أولاً."
+              />
+            </p>
+          </div>
+
+          <h3 id="mcp-tools"><Bi en="Tools" ar="الأدوات" /></h3>
+          <p>
+            <Bi
+              en="The server exposes nine native tools. Inference is OpenAI-compatible; pods and volumes are prepaid per minute / per month in Riyal, with unused pod time refunded on stop."
+              ar="يكشف الخادم تسع أدوات أصلية. الاستدلال متوافق مع OpenAI؛ والحاويات والمساحات مدفوعة مسبقاً بالدقيقة / بالشهر بالريال، مع استرداد وقت الحاوية غير المستخدم عند الإيقاف."
             />
           </p>
+          <table className="param-tbl">
+            <thead>
+              <tr>
+                <th><Bi en="Tool" ar="الأداة" /></th>
+                <th><Bi en="What it does" ar="ماذا تفعل" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="name">list_models</td>
+                <td className="desc"><Bi en="List the models serveable right now (OpenAI-style entries; only available=true are live)." ar="يسرد النماذج القابلة للخدمة الآن (إدخالات بأسلوب OpenAI؛ المتاح فقط هو available=true)." /></td>
+              </tr>
+              <tr>
+                <td className="name">chat</td>
+                <td className="desc"><Bi en="Run an OpenAI-compatible chat completion — sovereign, in-Kingdom inference. Pick a model id from list_models." ar="يشغّل إكمال محادثة متوافقاً مع OpenAI — استدلال سيادي داخل المملكة. اختر معرّف نموذج من list_models." /></td>
+              </tr>
+              <tr>
+                <td className="name">get_balance</td>
+                <td className="desc"><Bi en="Get the renter wallet balance (SAR). Inference, pods, and volumes are all prepaid from it." ar="يجلب رصيد محفظة المستأجر (بالريال). الاستدلال والحاويات والمساحات كلها مدفوعة مسبقاً منها." /></td>
+              </tr>
+              <tr>
+                <td className="name">create_pod</td>
+                <td className="desc"><Bi en="Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute in SAR." ar="يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً مسبقاً بالدقيقة بالريال." /></td>
+              </tr>
+              <tr>
+                <td className="name">get_pod</td>
+                <td className="desc"><Bi en="Get a pod's status and access details: status, access_url (Jupyter), ssh_command, ends_at, seconds_remaining." ar="يجلب حالة الحاوية وتفاصيل الوصول: الحالة، وaccess_url (Jupyter)، وssh_command، وends_at، وseconds_remaining." /></td>
+              </tr>
+              <tr>
+                <td className="name">extend_pod</td>
+                <td className="desc"><Bi en="Add time to a running pod without restarting it; the workspace and Jupyter token are unchanged." ar="يضيف وقتاً لحاوية قيد التشغيل دون إعادة تشغيلها؛ مساحة العمل ورمز Jupyter يبقيان كما هما." /></td>
+              </tr>
+              <tr>
+                <td className="name">stop_pod</td>
+                <td className="desc"><Bi en="Stop a pod early. Unused prepaid time is refunded to the wallet." ar="يوقف الحاوية مبكراً. يُسترد الوقت المدفوع غير المستخدم إلى المحفظة." /></td>
+              </tr>
+              <tr>
+                <td className="name">rent_volume</td>
+                <td className="desc"><Bi en="Rent an exclusive, in-Kingdom persistent volume (10/20/30 GB) so a pod's /workspace persists across pods and providers." ar="يستأجر مساحة تخزين دائمة حصرية داخل المملكة (10/20/30 غيغابايت) ليبقى /workspace بين الحاويات والمزوّدين." /></td>
+              </tr>
+              <tr>
+                <td className="name">get_volume</td>
+                <td className="desc"><Bi en="Get the renter's active persistent volume (size, usage, price, pool availability)." ar="يجلب مساحة التخزين الدائمة النشطة للمستأجر (الحجم، الاستخدام، السعر، توفر المجمّع)." /></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 id="mcp-rent-gpu"><Bi en="Example: an agent rents a GPU" ar="مثال: وكيل يستأجر معالجاً" /></h3>
+          <p>
+            <Bi
+              en="Once the server is wired in, the agent rents and uses a GPU in three tool calls — no human in the loop. Describe the goal in plain language and the agent picks the tools."
+              ar="بمجرد ربط الخادم، يستأجر الوكيل معالجاً ويستخدمه في ثلاثة استدعاءات أدوات — دون تدخل بشري. صِف الهدف بلغة طبيعية ويختار الوكيل الأدوات."
+            />
+          </p>
+          <pre className="code"><span className="c"># 1 · Rent a whole GPU for 30 minutes (prepaid in SAR)</span>
+create_pod({'{ '}<span className="k">duration_minutes</span>: <span className="n">30</span>{' }'})
+   <span className="c">{'// → { pod_id: "pod-...", status: "starting", quoted_sar: ... }'}</span>
+
+<span className="c"># 2 · Poll until it is running, then open Jupyter / SSH</span>
+get_pod({'{ '}<span className="k">pod_id</span>: <span className="s">"pod-..."</span>{' }'})
+   <span className="c">{'// → { status: "running", access_url: "https://api.dcp.sa:.../?token=...",'}</span>
+   <span className="c">{'//     ssh_command: "ssh ...", seconds_remaining: 1800 }'}</span>
+
+<span className="c"># 3 · Stop early when done — unused minutes are refunded</span>
+stop_pod({'{ '}<span className="k">pod_id</span>: <span className="s">"pod-..."</span>{' }'})
+   <span className="c">{'// → { status: "stopped", refunded_sar: ... }'}</span></pre>
+          <div className="callout">
+            <div className="t"><Bi en="Discovery" ar="الاكتشاف" /></div>
+            <p>
+              <Bi
+                en="Agents can also self-discover DCP without MCP: read "
+                ar="يمكن للوكلاء أيضاً اكتشاف DCP ذاتياً دون MCP: اقرأ "
+              />
+              <code>/llms.txt</code>
+              <Bi en=" and " ar=" و" />
+              <code>/.well-known/ai-plugin.json</code>
+              <Bi en=" at dcp.sa, plus the OpenAPI spec at " ar=" على dcp.sa، إضافةً إلى مواصفات OpenAPI على " />
+              <code>/docs/openapi.yaml</code>
+              <Bi en=". The inference API is a drop-in OpenAI replacement at the base URL above." ar=". واجهة الاستدلال بديل مباشر لـ OpenAI على عنوان القاعدة أعلاه." />
+            </p>
+          </div>
         </main>
 
         {/* Right TOC */}
@@ -408,6 +532,9 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
           <a href="#pods"><Bi en="GPU pods" ar="حاويات GPU" /></a>
           <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
           <a href="#agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></a>
+          <a href="#mcp-install"><Bi en="Install (MCP)" ar="التثبيت (MCP)" /></a>
+          <a href="#mcp-tools"><Bi en="MCP tools" ar="أدوات MCP" /></a>
+          <a href="#mcp-rent-gpu"><Bi en="Agent rents a GPU" ar="وكيل يستأجر معالجاً" /></a>
         </aside>
 
       </div>

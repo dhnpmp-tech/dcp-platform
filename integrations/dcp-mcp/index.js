@@ -7,7 +7,7 @@
  * Auth: set DCP_API_KEY to a renter API key (Bearer). Get one + fund the wallet
  * at https://dcp.sa. Override the host with DCP_API_BASE (default https://api.dcp.sa).
  *
- * Run:  DCP_API_KEY=dcp-renter-... npx @dcp/mcp
+ * Run:  DCP_API_KEY=dc1-sk-... npx @dcp/mcp
  * Or wire it into an MCP client config as a stdio server (see README).
  */
 

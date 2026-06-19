@@ -15,6 +15,7 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
   { en: 'Inference and agents, in the Kingdom', ar: 'استدلال ووكلاء، داخل المملكة' },
   { en: 'Pay per token · Saudi Riyal', ar: 'ادفع لكل رمز · بالريال السعودي' },
   { en: 'DCP-Agent for Saudi business · agents.dcp.sa', ar: 'DCP-Agent للأعمال السعودية · agents.dcp.sa' },
+  { en: 'Agents can rent a GPU · npx -y @dcp/mcp', ar: 'الوكلاء يستأجرون المعالجات · npx -y @dcp/mcp' },
   { en: 'Earn Riyal from your GPU', ar: 'اكسب ريالاً من معالجك' },
   { en: 'PDPL · Saudi data residency', ar: 'نظام البيانات · إقامة داخل المملكة' },
 ]
@@ -24,6 +25,7 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }>
   { href: '/v2/home', en: 'Overview', ar: 'نظرة عامة', on: true },
   { href: '#marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '#compute', en: 'GPU Pods', ar: 'حاويات GPU' },
+  { href: '#mcp', en: 'For agents', ar: 'للوكلاء' },
   { href: '#agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/v2/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '#pricing', en: 'Pricing', ar: 'الأسعار' },
@@ -331,8 +333,21 @@ export default function V2HomePage() {
             </span>
             <span className="arrow">→</span>
           </a>
-          <a className="mm-link" href="#agents">
+          <a className="mm-link" href="#mcp">
             <span className="n">06</span>
+            <span className="body">
+              <span className="t">
+                <Bi en="For agents" ar="للوكلاء" />
+              </span>
+              <span className="ar">للوكلاء</span>
+              <span className="s">
+                <Bi en="MCP · agents rent GPUs" ar="MCP · الوكلاء يستأجرون المعالجات" />
+              </span>
+            </span>
+            <span className="arrow">→</span>
+          </a>
+          <a className="mm-link" href="#agents">
+            <span className="n">07</span>
             <span className="body">
               <span className="t">
                 <Bi en="Agents" ar="الوكلاء" />
@@ -345,7 +360,7 @@ export default function V2HomePage() {
             <span className="arrow">→</span>
           </a>
           <Link className="mm-link" href="/v2/docs">
-            <span className="n">07</span>
+            <span className="n">08</span>
             <span className="body">
               <span className="t">
                 <Bi en="Docs" ar="التوثيق" />
@@ -362,7 +377,7 @@ export default function V2HomePage() {
             <Bi en="Trust" ar="الثقة" />
           </div>
           <a className="mm-link" href="#residency">
-            <span className="n">08</span>
+            <span className="n">09</span>
             <span className="body">
               <span className="t">
                 <Bi en="Sovereignty" ar="السيادة" />
@@ -1254,6 +1269,151 @@ export default function V2HomePage() {
                 </span>
                 <Link href="/v2/docs">
                   <Bi en="Full reference →" ar="المرجع الكامل ←" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ BUILT FOR AGENTS — MCP ═══════════════ */}
+      <section id="mcp">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 05 · Built for agents · MCP" ar="§ ٠٥ · مصمَّم للوكلاء · MCP" />
+            </span>
+            <span>
+              <Bi en="An agent can rent a GPU from DCP — no human in the loop" ar="يستطيع الوكيل استئجار معالج من DCP — دون تدخل بشري" />
+            </span>
+          </div>
+
+          <div className="qs-wrap">
+            <div className="qs-left">
+              <h2 className="st" style={{ marginTop: 0 }}>
+                {lang === 'ar' ? (
+                  <>
+                    وكيلك يستطيع أن يستأجر <em>معالجاً كاملاً</em> من DCP.
+                  </>
+                ) : (
+                  <>
+                    Your agent can rent a <em>whole GPU</em> from DCP.
+                  </>
+                )}
+              </h2>
+              <p className="ss">
+                {lang === 'ar' ? (
+                  <>
+                    DCP خادمٌ رسمي لـ <b>Model Context Protocol</b>. وصِّله بأي وكيل يدعم MCP — Claude أو Cursor أو وكيلك الخاص — بأمرٍ واحد: <code>npx -y @dcp/mcp</code>. عندها يستطيع الوكيل تشغيل استدلال سيادي داخل المملكة، واستئجار معالج كامل، والاحتفاظ بتخزين دائم — كله مدفوع مسبقاً بالريال، عبر استدعاءات أدوات أصلية.
+                  </>
+                ) : (
+                  <>
+                    DCP ships an official <b>Model Context Protocol</b> server. Wire it into any MCP-capable agent — Claude, Cursor, or your own — with one line: <code>npx -y @dcp/mcp</code>. The agent can then run sovereign in-Kingdom inference, rent a whole GPU, and keep persistent storage — all prepaid in Riyal, through native tool calls.
+                  </>
+                )}
+              </p>
+              <div className="stamps">
+                <span className="stamp"><Bi en="Inference · OpenAI-compat" ar="استدلال · متوافق OpenAI" /></span>
+                <span className="stamp"><Bi en="Rent a GPU" ar="استئجار معالج" /></span>
+                <span className="stamp"><Bi en="Persistent storage" ar="تخزين دائم" /></span>
+                <span className="stamp"><Bi en="Prepaid · SAR" ar="مدفوع مسبقاً · بالريال" /></span>
+              </div>
+
+              <div className="capacity-gates" aria-label="What an MCP agent can do on DCP" style={{ marginTop: 30, border: '1px solid var(--line)' }}>
+                <div className="capacity-gate">
+                  <span className="gate-n">01</span>
+                  <span className="gate-k">chat · list_models</span>
+                  <p><Bi
+                    en="Sovereign, in-Kingdom inference. The agent lists what is serving this minute and runs OpenAI-style chat completions — Arabic-first, billed per token."
+                    ar="استدلال سيادي داخل المملكة. يسرد الوكيل ما يخدم هذه الدقيقة ويشغّل إكمالات محادثة بأسلوب OpenAI — عربية أولاً، مفوترة لكل رمز."
+                  /></p>
+                </div>
+                <div className="capacity-gate">
+                  <span className="gate-n">02</span>
+                  <span className="gate-k">create_pod · get_pod · extend_pod · stop_pod</span>
+                  <p><Bi
+                    en="A whole GPU on demand — root, Jupyter, and SSH in about a minute. Prepaid per minute; unused time is refunded when the agent stops the pod."
+                    ar="معالج كامل عند الطلب — صلاحيات الجذر وJupyter وSSH خلال دقيقة تقريباً. مدفوع مسبقاً بالدقيقة؛ ويُسترد الوقت غير المستخدم عند الإيقاف."
+                  /></p>
+                </div>
+                <div className="capacity-gate">
+                  <span className="gate-n">03</span>
+                  <span className="gate-k">rent_volume · get_volume</span>
+                  <p><Bi
+                    en="Exclusive, in-Kingdom persistent storage. With an active volume the pod's /workspace survives across pods and providers — the agent's work is never lost."
+                    ar="تخزين دائم حصري داخل المملكة. مع مساحة نشطة يبقى /workspace بين الحاويات وبين المزوّدين — فلا يضيع عمل الوكيل."
+                  /></p>
+                </div>
+                <div className="capacity-gate">
+                  <span className="gate-n">04</span>
+                  <span className="gate-k">get_balance · prepaid in SAR</span>
+                  <p><Bi
+                    en="One renter wallet funds everything. The agent checks its Riyal balance before it spends, so it never overcommits — inference, pods, and volumes all settle against the same balance."
+                    ar="محفظة مستأجر واحدة تموّل كل شيء. يتحقق الوكيل من رصيده بالريال قبل أن ينفق، فلا يلتزم بما يفوقه — الاستدلال والحاويات والمساحات تُسوّى من الرصيد نفسه."
+                  /></p>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 30, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Link className="btn primary lg" href="/v2/docs#agents">
+                  <Bi en="Wire it into your agent →" ar="وصّله بوكيلك ←" />
+                </Link>
+                <Link className="btn ghost" href="/v2/setup">
+                  <Bi en="Get a renter key" ar="احصل على مفتاح مستأجر" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="qs-card">
+              <div className="qs-tabs">
+                <button type="button" className="on">
+                  .mcp.json
+                </button>
+                <div className="spacer" />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--mut)', paddingInlineEnd: 4 }}>
+                  npx -y @dcp/mcp
+                </span>
+              </div>
+
+              <div className="qs-body on" data-tab="mcp">
+                <pre>
+                  <span className="com">{'// .mcp.json · claude_desktop_config.json · Cursor'}</span>
+                  {'\n'}
+                  <span className="com">{'// One line of npx — no install, no SDK to learn.'}</span>
+                  {'\n\n'}
+                  {'{'}{'\n'}
+                  {'  '}<span className="key">&quot;mcpServers&quot;</span>: {'{'}{'\n'}
+                  {'    '}<span className="key">&quot;dcp&quot;</span>: {'{'}{'\n'}
+                  {'      '}<span className="key">&quot;command&quot;</span>: <span className="str">&quot;npx&quot;</span>,{'\n'}
+                  {'      '}<span className="key">&quot;args&quot;</span>: [<span className="str">&quot;-y&quot;</span>, <span className="str">&quot;@dcp/mcp&quot;</span>],{'\n'}
+                  {'      '}<span className="key">&quot;env&quot;</span>: {'{'} <span className="key">&quot;DCP_API_KEY&quot;</span>: <span className="str">&quot;dc1-sk-…&quot;</span> {'}'}{'\n'}
+                  {'    '}{'}'}{'\n'}
+                  {'  '}{'}'}{'\n'}
+                  {'}'}
+                  {'\n\n'}
+                  <span className="com"># Then just ask the agent, in plain language:</span>
+                  {'\n'}
+                  <span className="pmt">»</span> <span className="grad">&quot;Rent a GPU on DCP for 30 minutes and open Jupyter.&quot;</span>
+                  {'\n'}
+                  <span className="pmt">»</span> <span className="grad">&quot;ما رصيدي بالريال على DCP؟&quot;</span>
+                  {'\n\n'}
+                  <span className="com">{'// 9 native tools: list_models · chat · get_balance'}</span>
+                  {'\n'}
+                  <span className="com">{'//   create_pod · get_pod · extend_pod · stop_pod'}</span>
+                  {'\n'}
+                  <span className="com">{'//   rent_volume · get_volume'}</span>
+                </pre>
+              </div>
+
+              <div className="qs-foot">
+                <span>
+                  <Bi
+                    en="npx -y @dcp/mcp · 9 tools · prepaid in SAR"
+                    ar="npx -y @dcp/mcp · ٩ أدوات · مدفوع مسبقاً بالريال"
+                  />
+                </span>
+                <Link href="/v2/docs#agents">
+                  <Bi en="Agent integration guide →" ar="دليل ربط الوكلاء ←" />
                 </Link>
               </div>
             </div>
