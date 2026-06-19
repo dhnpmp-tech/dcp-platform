@@ -1,5 +1,25 @@
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const { sendJobCompleteEmail } = require('./emailService');
+
+// BURST teardown — see jobs.js maybeTeardownBurstPod. A burst pod settled by the
+// sweep (deadline path) must also have its external pod + relay socats torn down,
+// since there is no native daemon. Spawned DETACHED; idempotent on the burst.py
+// side; the reap cron is the backstop.
+const BURST_PY_PATH = process.env.DCP_BURST_PY || '/root/dcp-burst/burst.py';
+function spawnBurstTeardownSweep(job) {
+  try {
+    if (!job || !job.burst_external_id) return;
+    const child = spawn('/usr/bin/python3', [
+      BURST_PY_PATH, 'teardown',
+      String(job.burst_external_id), String(job.pod_jpub || 0), String(job.pod_spub || 0),
+    ], { detached: true, stdio: 'ignore' });
+    child.unref();
+    console.log(`[pod-sweep] burst teardown spawned for ${job.job_id} (pod ${job.burst_external_id})`);
+  } catch (err) {
+    console.error(`[pod-sweep] burst teardown failed for ${job && job.job_id}:`, err.message);
+  }
+}
 const { isPublicWebhookUrl, isResolvablePublicWebhookUrl } = require('../lib/webhook-security');
 const { resolveRenterWebhookSecret } = require('../lib/webhook-secret');
 const notificationsV2 = require('./notificationsV2');
@@ -721,7 +741,8 @@ function settleExpiredPods(db) {
 
   const expired = safeAll(
     raw.prepare(`
-      SELECT id, job_id, renter_id, provider_id, cost_halala, max_duration_seconds, started_at
+      SELECT id, job_id, renter_id, provider_id, cost_halala, max_duration_seconds, started_at,
+             burst_external_id, pod_jpub, pod_spub
         FROM jobs
        WHERE job_type = 'interactive_pod' AND status = 'running'
          AND started_at IS NOT NULL AND COALESCE(max_duration_seconds, 0) > 0
@@ -753,11 +774,16 @@ function settleExpiredPods(db) {
              WHERE id = ?`).run(prepaid, job.renter_id);
         }
       })();
-      try {
-        const { invokePodRelay } = require('../lib/pod-relay');
-        invokePodRelay(['stop', job.job_id]);
-      } catch (_) { /* relay teardown is best-effort */ }
-      console.log(`[pod-sweep] settled expired pod ${job.job_id}: charged ${prepaid} halala, provider ${job.provider_id} earned ${earned}`);
+      if (job.burst_external_id) {
+        // Burst pod: burst.py owns the external pod + relay socats — not pod-relay.sh.
+        spawnBurstTeardownSweep(job);
+      } else {
+        try {
+          const { invokePodRelay } = require('../lib/pod-relay');
+          invokePodRelay(['stop', job.job_id]);
+        } catch (_) { /* relay teardown is best-effort */ }
+      }
+      console.log(`[pod-sweep] settled expired pod ${job.job_id}: charged ${prepaid} halala, provider ${job.provider_id} earned ${earned}${job.burst_external_id ? ' [burst]' : ''}`);
     } catch (error) {
       recordSweepError(`settle expired pod ${job.job_id}`, error);
     }
@@ -812,6 +838,7 @@ async function sweepOfflineProviders(db) {
       `SELECT id, status, last_heartbeat
        FROM providers
        WHERE status != 'offline'
+         AND COALESCE(is_burst, 0) = 0
          AND (
            last_heartbeat IS NULL
            OR CAST((julianday('now') - julianday(last_heartbeat)) * 86400 AS INTEGER) > ?

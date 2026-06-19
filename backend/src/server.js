@@ -864,6 +864,57 @@ function getProviderCapacitySnapshot() {
   };
 }
 
+// Available GPU TYPES for the public status grid. GPU-TYPE ONLY — no machine
+// names, no node counts. On-demand (burst) types are ALWAYS available; live
+// native nodes contribute their GPU type (deduped) when heartbeating fresh.
+// INVISIBILITY: never reveal that a type is burst-backed or who the vendor is.
+function getAvailableGpuTypes() {
+  const HEARTBEAT_FRESH_MS = 300 * 1000;
+  const byType = new Map(); // gpu_model -> { type, vram_gb, available }
+  const upsert = (gpuModel, vramGb, available = true) => {
+    const type = (gpuModel || '').trim();
+    if (!type) return;
+    const vram = (vramGb != null && Number.isFinite(vramGb) && vramGb > 0) ? Math.round(vramGb) : null;
+    const existing = byType.get(type);
+    if (!existing) {
+      byType.set(type, { type, vram_gb: vram, available: !!available });
+    } else {
+      if (existing.vram_gb == null && vram != null) existing.vram_gb = vram;
+      // If ANY source for this type is live/in-stock, the type is available.
+      if (available) existing.available = true;
+    }
+  };
+  try {
+    const rows = db.prepare(
+      `SELECT gpu_model, gpu_name_detected, vram_gb, gpu_vram_mib, is_burst,
+              last_heartbeat, is_paused, approval_status, status, stock_available
+         FROM providers
+        WHERE deleted_at IS NULL
+          AND is_paused = 0
+          AND COALESCE(approval_status, 'pending') = 'approved'
+          AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')`
+    ).all();
+    for (const r of rows) {
+      const vramGb = (r.vram_gb != null && r.vram_gb > 0)
+        ? r.vram_gb
+        : (r.gpu_vram_mib ? r.gpu_vram_mib / 1024 : null);
+      const gpuModel = r.gpu_name_detected || r.gpu_model;
+      if (r.is_burst) {
+        // Advertise all on-demand types ALWAYS, but availability tracks REAL
+        // RunPod secure-cloud stock (stock_available, refreshed by the burst
+        // stock-refresh cron). Out-of-stock types still show, with available:false.
+        upsert(gpuModel, vramGb, r.stock_available !== 0);
+        continue;
+      }
+      // native: only when heartbeating fresh
+      if (!r.last_heartbeat) continue;
+      const ageMs = Date.now() - new Date(r.last_heartbeat).getTime();
+      if (ageMs < HEARTBEAT_FRESH_MS) upsert(gpuModel, vramGb);
+    }
+  } catch (_) { /* providers table unavailable */ }
+  return Array.from(byType.values()).sort((a, b) => (b.vram_gb || 0) - (a.vram_gb || 0));
+}
+
 const sweepIntervalMsRaw = Number.parseInt(process.env.JOB_SWEEP_INTERVAL_MS || '30000', 10);
 const sweepIntervalMs = Number.isFinite(sweepIntervalMsRaw) && sweepIntervalMsRaw > 0 ? sweepIntervalMsRaw : 30000;
 startJobSweep(db, sweepIntervalMs);
@@ -1100,6 +1151,10 @@ app.get('/api/health/detailed', (req, res) => {
         endpoint_reachable: providerCapacity.endpoint_reachable,
         serving: providerCapacity.serving,
       },
+      // Available GPU TYPES for the public status grid (type + vram_gb +
+      // available). GPU-type only — no machine names, no node counts. Lets the
+      // frontend render a GPU grid and drop the raw provider count.
+      gpu_types: getAvailableGpuTypes(),
       capacity: {
         serving_providers: providerCapacity.serving,
         reason: providerCapacity.capacity_reason,

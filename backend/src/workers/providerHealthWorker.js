@@ -80,7 +80,8 @@ function runHealthCheck(db) {
     `SELECT id, name, email, status, last_heartbeat, consecutive_health_failures, last_offline_alert_at
      FROM providers
      WHERE status NOT IN ('pending', 'deleted', 'cancelled')
-       AND deleted_at IS NULL`
+       AND deleted_at IS NULL
+       AND COALESCE(is_burst, 0) = 0`
   );
 
   if (providers.length === 0) return;
