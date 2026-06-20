@@ -53,13 +53,22 @@
 .gpu-card {
   position: relative;
   background: var(--paper);
-  min-height: 132px;
+  /* Floor clears top row + 2-line name block + VRAM + RENT + padding so the
+     tallest (2-line-name) card never clips; grid equal-height does the rest. */
+  min-height: 158px;
   transition: background 0.2s ease;
 }
 .gpu-card:hover {
   background: var(--bg-2);
 }
 
+/* Card face = a fixed-rhythm flex column. The three internal blocks line up
+   across every card in a row regardless of name length:
+     1. .gpu-card-top  — dot + state, pinned at the top
+     2. .gpu-card-body — name (fixed 2-line block) + VRAM, at a constant offset
+     3. .gpu-rent      — pinned to the bottom (margin-top:auto on the body push)
+   No element here uses margin-top:auto except the rent row, so a 1- vs 2-line
+   name can never shift the dot, the GB line, or the RENT row out of alignment. */
 .gpu-card-link {
   display: flex;
   flex-direction: column;
@@ -117,18 +126,34 @@
   color: var(--ink-2);
 }
 
+/* Body sits directly under the top row (NOT margin-top:auto) so the name
+   always starts at the same offset on every card. */
 .gpu-card-body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: auto;
 }
+/* Name lives in a FIXED-HEIGHT block sized for up to two lines and clamped to
+   two: a 1-line name reserves the same height as a 2-line name, so the GB line
+   below it — and the RENT row at the bottom — stay perfectly aligned across the
+   whole row. A 3-line vendor string can no longer push the card taller.
+   `--gpu-name-lh` × 2 lines drives the reserved height in one place. */
 .gpu-type {
+  --gpu-name-lh: 1.06;
   font-family: var(--serif);
   font-size: 26px;
-  line-height: 1.02;
+  line-height: var(--gpu-name-lh);
   letter-spacing: -0.015em;
   color: var(--ink);
+  /* Reserve exactly two lines, top-aligned, and clamp overflow to two. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: calc(26px * var(--gpu-name-lh) * 2);
+  /* Wrap long multi-word names tidily rather than overflowing a single word. */
+  overflow-wrap: anywhere;
 }
 .gpu-vram {
   font-family: var(--mono);
@@ -142,7 +167,10 @@
   font-size: 11px;
 }
 
+/* RENT row pinned to the card bottom — margin-top:auto absorbs all the slack,
+   so it lands on the same baseline across every card in the row. */
 .gpu-rent {
+  margin-top: auto;
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.14em;
@@ -162,7 +190,7 @@
 
 /* Skeleton shimmer while querying. */
 .gpu-card--skel {
-  min-height: 132px;
+  min-height: 158px;
   overflow: hidden;
 }
 .gpu-card--skel::after {
@@ -272,7 +300,7 @@
 .gpu-cta {
   position: relative;
   background: color-mix(in oklab, var(--teal) 6%, var(--paper));
-  min-height: 132px;
+  min-height: 158px;
   transition: background 0.2s ease;
 }
 .gpu-cta:hover {
@@ -326,6 +354,8 @@ html[data-lang='ar'] .gpu-cta-link:focus-visible .gpu-cta-arrow {
   }
   .gpu-type {
     font-size: 22px;
+    /* Keep the 2-line reservation in sync with the smaller font. */
+    min-height: calc(22px * var(--gpu-name-lh) * 2);
   }
   /* On 1-2 col the CTA reads as a stacked block, not a wide row. */
   .gpu-cta-link {
