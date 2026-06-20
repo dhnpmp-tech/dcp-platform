@@ -90,11 +90,66 @@ export function useGpuTypes(): UseGpuTypesResult {
   return { types, errored, availableCount }
 }
 
-// Strip vendor-y prefixes for a clean type label without inventing a machine
-// name. e.g. "NVIDIA GeForce RTX 4090" -> "RTX 4090".
+// ─────────────────────────────────────────────────────────────────────────
+// displayGpuType — DISPLAY-ONLY short label for a card title.
+//
+// The grid shows VRAM on its own line directly under the name, so the title
+// must NOT repeat it. Long vendor strings (e.g. "NVIDIA RTX PRO 6000 Blackwell
+// Server Edition") also wrap to 3 lines and break row alignment. This mapper
+// produces clean, consistent, mostly-≤2-line labels:
+//   - strips vendor noise ("NVIDIA ", "GeForce ", "Server Edition")
+//   - drops the redundant standalone VRAM token ("80GB", "48 GB", …) — it is
+//     shown on the GB line below
+//   - keeps the meaningful variant suffix (SXM / PCIe / NVL / Blackwell)
+//
+// IMPORTANT: this is a *label* only. It must never be fed back into the RENT
+// action — that uses the raw `gpu_type` string. Display ≠ identity.
+//
+// Special, irregular vendor strings get an explicit override (exact, after a
+// light normalize) so they always read clean; everything else — including a
+// brand-new future GPU — falls through to the rule-based path and still comes
+// out tidy.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Light normalize for override-map lookup only: collapse whitespace + lower.
+function normalizeForOverride(raw: string): string {
+  return raw.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+// Explicit overrides for irregular vendor strings where the generic rules
+// can't infer the right short form (e.g. an 80GB HBM3 card we brand "SXM",
+// or the dash-packed "A100-SXM4-80GB" SKU). Keyed by normalized raw string.
+const GPU_LABEL_OVERRIDES: Record<string, string> = {
+  'nvidia rtx pro 6000 blackwell server edition': 'RTX PRO 6000 Blackwell',
+  'nvidia h100 80gb hbm3': 'H100 SXM',
+  'nvidia a100-sxm4-80gb': 'A100 SXM',
+  'apple silicon (apple m2)': 'Apple M2',
+}
+
 export function displayGpuType(raw: string): string {
-  return raw
+  const normalized = normalizeForOverride(raw)
+  const override = GPU_LABEL_OVERRIDES[normalized]
+  if (override) return override
+
+  let label = raw
+    // Drop vendor / brand prefixes — never part of a clean type name.
     .replace(/^NVIDIA\s+GeForce\s+/i, '')
     .replace(/^NVIDIA\s+/i, '')
+    .replace(/^GeForce\s+/i, '')
+    // Drop marketing suffix that adds no information to the card.
+    .replace(/\s+Server\s+Edition\b/i, '')
+
+  // Normalize the dash-packed A100 SXM SKU shape generically:
+  // "A100-SXM4-80GB" -> "A100 SXM" (covers SXM4/SXM5 variants too).
+  label = label.replace(/\bA100-SXM\d*-\d+GB\b/i, 'A100 SXM')
+
+  // Drop a redundant standalone VRAM token (e.g. "80GB", "48 GB", "80GB HBM3").
+  // The VRAM is shown on its own line right below the name. Only strip it when
+  // it stands as its own word so we never mangle a model number.
+  label = label
+    .replace(/\b\d+\s*GB(?:\s+HBM\d*[a-z]?)?\b/gi, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
+
+  return label
 }
