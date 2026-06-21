@@ -166,6 +166,16 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
       )}
 
       {pods && pods.length > 0 && (
+        <p className="gpu-avail-trust">
+          <span className="gpu-trust-dot" aria-hidden="true" />
+          <Bi
+            en="Ready in under 2 minutes — most pods provision in well under two minutes (recent benchmark: A100 & L40S in about 48 seconds, H100 in about two)."
+            ar="جاهز خلال أقل من دقيقتين — تُجهَّز معظم الوحدات في أقل من دقيقتين بوضوح (قياس حديث: A100 وL40S خلال نحو ٤٨ ثانية، وH100 خلال نحو دقيقتين)."
+          />
+        </p>
+      )}
+
+      {pods && pods.length > 0 && (
         <ul className="gpu-avail-grid" ref={setGridRef}>
           {pods.map((gpu) => (
             <li
@@ -187,12 +197,9 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
                 <div
                   className="gpu-card-link"
                   aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, temporarily out of stock`}
-                  aria-disabled="true"
                 >
                   <GpuCardInner gpu={gpu} />
-                  <span className="gpu-rent" aria-hidden="true">
-                    <Bi en="Temporarily out" ar="غير متاح مؤقتاً" />
-                  </span>
+                  <NotifyMeButton gpuType={gpu.type} label={displayGpuType(gpu.type)} />
                 </div>
               )}
             </li>
@@ -220,6 +227,59 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
         </ul>
       )}
     </section>
+  )
+}
+
+// Out-of-stock affordance — replaces the inert "Temporarily out" label on a
+// card that can't be rented right now with a one-tap "Notify me when available"
+// action. Fire-and-forget POST to /api/pods/notify-me { gpu_type }; on success
+// the card confirms in place. No email is collected here (the API accepts an
+// optional one) — this is a low-friction restock signal, not a form. The button
+// sits inside a non-link card, so it owns its own click and never navigates.
+type NotifyState = 'idle' | 'sending' | 'done' | 'error'
+
+function NotifyMeButton({ gpuType, label }: { gpuType: string; label: string }) {
+  const [state, setState] = useState<NotifyState>('idle')
+
+  const notify = useCallback(async () => {
+    if (state === 'sending' || state === 'done') return
+    setState('sending')
+    try {
+      const res = await fetch('/api/pods/notify-me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gpu_type: gpuType }),
+      })
+      setState(res.ok ? 'done' : 'error')
+    } catch {
+      setState('error')
+    }
+  }, [gpuType, state])
+
+  if (state === 'done') {
+    return (
+      <span className="gpu-rent gpu-notify gpu-notify--done" aria-live="polite">
+        <Bi en="We'll let you know ✓" ar="سنُعلِمك ✓" />
+      </span>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="gpu-rent gpu-notify"
+      onClick={notify}
+      disabled={state === 'sending'}
+      aria-label={`Notify me when ${label} is available`}
+    >
+      {state === 'sending' ? (
+        <Bi en="Saving…" ar="جارٍ الحفظ…" />
+      ) : state === 'error' ? (
+        <Bi en="Try again" ar="حاول مجدداً" />
+      ) : (
+        <Bi en="Notify me →" ar="أعلِمني ←" />
+      )}
+    </button>
   )
 }
 
