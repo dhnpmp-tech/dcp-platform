@@ -565,7 +565,18 @@ function resolveProviderFromDownloadQuery(req) {
         return { apiKey: provider.api_key, providerId: provider.id };
     }
 
-    const cleanKey = normalizeSingleQueryParam(req.query && req.query.key, { maxLen: 128 });
+    let cleanKey = normalizeSingleQueryParam(req.query && req.query.key, { maxLen: 128 });
+    if (!cleanKey) {
+        // PROV-8b: also accept the api_key from the Authorization: Bearer header
+        // (or x-provider-key) — the daemon's _auth_headers() (v4.3.0+) sends the key
+        // as a Bearer header, not ?key=. Without this, /download/daemon?check_only
+        // returns 400 and the ENTIRE fleet's auto-update silently dies.
+        const authHeader = String((req.headers && req.headers['authorization']) || '');
+        const m = authHeader.match(/^Bearer\s+(.+)$/i);
+        const fromHeader = (m && m[1]) ? m[1].trim()
+            : (req.headers && req.headers['x-provider-key'] ? String(req.headers['x-provider-key']).trim() : '');
+        cleanKey = normalizeSingleQueryParam(fromHeader, { maxLen: 128 });
+    }
     if (!cleanKey) return { error: 'API key or setup token required', status: 400 };
     const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
     if (!provider) return { error: 'Invalid API key', status: 401 };
