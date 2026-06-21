@@ -14,10 +14,11 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import Link from 'next/link'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bi } from '@/app/(site)/lib/i18n'
 import { useGpuTypes, displayGpuType, type GpuTypeEntry } from '@/app/lib/useGpuTypes'
-import { ROUTES } from '@/app/lib/routes'
+import { ROUTES, buildAuthHref } from '@/app/lib/routes'
+import { getRenterKey } from '@/lib/api'
 import './gpu-availability.css'
 
 // Where every "Rent" action lands — the renter pods launch console. Sourced
@@ -166,6 +167,16 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
       )}
 
       {pods && pods.length > 0 && (
+        <p className="gpu-avail-trust">
+          <span className="gpu-trust-dot" aria-hidden="true" />
+          <Bi
+            en="Ready in under 2 minutes — most pods provision in well under two minutes (recent benchmark: A100 & L40S in about 48 seconds, H100 in about two)."
+            ar="جاهز خلال أقل من دقيقتين — تُجهَّز معظم الوحدات في أقل من دقيقتين بوضوح (قياس حديث: A100 وL40S خلال نحو ٤٨ ثانية، وH100 خلال نحو دقيقتين)."
+          />
+        </p>
+      )}
+
+      {pods && pods.length > 0 && (
         <ul className="gpu-avail-grid" ref={setGridRef}>
           {pods.map((gpu) => (
             <li
@@ -187,12 +198,9 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
                 <div
                   className="gpu-card-link"
                   aria-label={`${displayGpuType(gpu.type)}, ${gpu.vram_gb} gigabytes, temporarily out of stock`}
-                  aria-disabled="true"
                 >
                   <GpuCardInner gpu={gpu} />
-                  <span className="gpu-rent" aria-hidden="true">
-                    <Bi en="Temporarily out" ar="غير متاح مؤقتاً" />
-                  </span>
+                  <NotifyMeButton gpuType={gpu.type} label={displayGpuType(gpu.type)} />
                 </div>
               )}
             </li>
@@ -220,6 +228,99 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
         </ul>
       )}
     </section>
+  )
+}
+
+// Out-of-stock affordance — replaces the inert "Temporarily out" label on a
+// card that can't be rented right now with a one-tap "Notify me when available"
+// action.
+//
+// This POSTs to the REAL backend waitlist endpoint (POST /api/pods/notify-me),
+// NOT a frontend-local stub. The relative path falls through the catch-all proxy
+// (app/api/[...path]/route.ts → https://api.dcp.sa/api/*) to the Express route,
+// which upserts a row into gpu_waitlist keyed on the renter. When the backend's
+// stock-refresh cron sees that GPU type transition out-of-stock → in-stock it
+// records a `gpu_available` notification for every waitlisted renter — so the
+// subscription only means anything for an authenticated renter (the waitlist is
+// keyed on renter_id; there is nobody to notify otherwise).
+//
+// Therefore: a signed-in renter gets the one-tap subscribe; an anonymous visitor
+// is sent to /auth to sign in first (a silent 401 would just dead-end). The
+// button sits inside a non-link card, so it owns its own click and never
+// navigates the card.
+//
+// INVISIBILITY: only the GPU TYPE string the visitor saw on the public grid is
+// ever sent — never a machine name, node/provider count, vendor, or endpoint.
+type NotifyState = 'idle' | 'sending' | 'done' | 'error'
+
+function NotifyMeButton({ gpuType, label }: { gpuType: string; label: string }) {
+  const [state, setState] = useState<NotifyState>('idle')
+  // Auth presence is read AFTER mount only. localStorage is unavailable during
+  // SSR and on the first client paint, so reading it during render would make the
+  // server HTML (always the button) disagree with the hydrated tree (the sign-in
+  // link for anonymous visitors) → hydration mismatch. Resolve it in an effect so
+  // both passes render the neutral button, then settle once on the client.
+  const [hasRenterKey, setHasRenterKey] = useState<boolean | null>(null)
+  useEffect(() => {
+    setHasRenterKey(Boolean(getRenterKey()))
+  }, [])
+
+  const notify = useCallback(async () => {
+    if (state === 'sending' || state === 'done') return
+    const renterKey = getRenterKey()
+    if (!renterKey) return // anonymous visitors are routed to /auth via the link below
+    setState('sending')
+    try {
+      const res = await fetch('/api/pods/notify-me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-renter-key': renterKey },
+        body: JSON.stringify({ gpu_type: gpuType }),
+      })
+      setState(res.ok ? 'done' : 'error')
+    } catch {
+      setState('error')
+    }
+  }, [gpuType, state])
+
+  if (state === 'done') {
+    return (
+      <span className="gpu-rent gpu-notify gpu-notify--done" aria-live="polite">
+        <Bi en="We'll let you know ✓" ar="سنُعلِمك ✓" />
+      </span>
+    )
+  }
+
+  // Anonymous visitor — there is no renter to attach the waitlist row to, so send
+  // them to sign in (returning to the GPU grid) rather than firing a doomed 401.
+  // Only after the post-mount auth check resolves to "no key".
+  if (hasRenterKey === false) {
+    return (
+      <Link
+        href={buildAuthHref({ role: 'renter', redirect: ROUTES.renterPods, reason: 'notify-restock' })}
+        className="gpu-rent gpu-notify"
+        aria-label={`Sign in to be notified when ${label} is available`}
+      >
+        <Bi en="Notify me →" ar="أعلِمني ←" />
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="gpu-rent gpu-notify"
+      onClick={notify}
+      disabled={state === 'sending'}
+      aria-label={`Notify me when ${label} is available`}
+    >
+      {state === 'sending' ? (
+        <Bi en="Saving…" ar="جارٍ الحفظ…" />
+      ) : state === 'error' ? (
+        <Bi en="Try again" ar="حاول مجدداً" />
+      ) : (
+        <Bi en="Notify me →" ar="أعلِمني ←" />
+      )}
+    </button>
   )
 }
 
