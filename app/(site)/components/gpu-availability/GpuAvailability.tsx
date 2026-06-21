@@ -14,10 +14,11 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import Link from 'next/link'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bi } from '@/app/(site)/lib/i18n'
 import { useGpuTypes, displayGpuType, type GpuTypeEntry } from '@/app/lib/useGpuTypes'
-import { ROUTES } from '@/app/lib/routes'
+import { ROUTES, buildAuthHref } from '@/app/lib/routes'
+import { getRenterKey } from '@/lib/api'
 import './gpu-availability.css'
 
 // Where every "Rent" action lands — the renter pods launch console. Sourced
@@ -232,22 +233,47 @@ export default function GpuAvailability({ variant = 'marketplace', showHeading =
 
 // Out-of-stock affordance — replaces the inert "Temporarily out" label on a
 // card that can't be rented right now with a one-tap "Notify me when available"
-// action. Fire-and-forget POST to /api/pods/notify-me { gpu_type }; on success
-// the card confirms in place. No email is collected here (the API accepts an
-// optional one) — this is a low-friction restock signal, not a form. The button
-// sits inside a non-link card, so it owns its own click and never navigates.
+// action.
+//
+// This POSTs to the REAL backend waitlist endpoint (POST /api/pods/notify-me),
+// NOT a frontend-local stub. The relative path falls through the catch-all proxy
+// (app/api/[...path]/route.ts → https://api.dcp.sa/api/*) to the Express route,
+// which upserts a row into gpu_waitlist keyed on the renter. When the backend's
+// stock-refresh cron sees that GPU type transition out-of-stock → in-stock it
+// records a `gpu_available` notification for every waitlisted renter — so the
+// subscription only means anything for an authenticated renter (the waitlist is
+// keyed on renter_id; there is nobody to notify otherwise).
+//
+// Therefore: a signed-in renter gets the one-tap subscribe; an anonymous visitor
+// is sent to /auth to sign in first (a silent 401 would just dead-end). The
+// button sits inside a non-link card, so it owns its own click and never
+// navigates the card.
+//
+// INVISIBILITY: only the GPU TYPE string the visitor saw on the public grid is
+// ever sent — never a machine name, node/provider count, vendor, or endpoint.
 type NotifyState = 'idle' | 'sending' | 'done' | 'error'
 
 function NotifyMeButton({ gpuType, label }: { gpuType: string; label: string }) {
   const [state, setState] = useState<NotifyState>('idle')
+  // Auth presence is read AFTER mount only. localStorage is unavailable during
+  // SSR and on the first client paint, so reading it during render would make the
+  // server HTML (always the button) disagree with the hydrated tree (the sign-in
+  // link for anonymous visitors) → hydration mismatch. Resolve it in an effect so
+  // both passes render the neutral button, then settle once on the client.
+  const [hasRenterKey, setHasRenterKey] = useState<boolean | null>(null)
+  useEffect(() => {
+    setHasRenterKey(Boolean(getRenterKey()))
+  }, [])
 
   const notify = useCallback(async () => {
     if (state === 'sending' || state === 'done') return
+    const renterKey = getRenterKey()
+    if (!renterKey) return // anonymous visitors are routed to /auth via the link below
     setState('sending')
     try {
       const res = await fetch('/api/pods/notify-me', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-renter-key': renterKey },
         body: JSON.stringify({ gpu_type: gpuType }),
       })
       setState(res.ok ? 'done' : 'error')
@@ -261,6 +287,21 @@ function NotifyMeButton({ gpuType, label }: { gpuType: string; label: string }) 
       <span className="gpu-rent gpu-notify gpu-notify--done" aria-live="polite">
         <Bi en="We'll let you know ✓" ar="سنُعلِمك ✓" />
       </span>
+    )
+  }
+
+  // Anonymous visitor — there is no renter to attach the waitlist row to, so send
+  // them to sign in (returning to the GPU grid) rather than firing a doomed 401.
+  // Only after the post-mount auth check resolves to "no key".
+  if (hasRenterKey === false) {
+    return (
+      <Link
+        href={buildAuthHref({ role: 'renter', redirect: ROUTES.renterPods, reason: 'notify-restock' })}
+        className="gpu-rent gpu-notify"
+        aria-label={`Sign in to be notified when ${label} is available`}
+      >
+        <Bi en="Notify me →" ar="أعلِمني ←" />
+      </Link>
     )
   }
 
