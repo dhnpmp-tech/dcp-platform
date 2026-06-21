@@ -133,7 +133,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.5.0"
+DAEMON_VERSION = "4.5.1"
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -8732,16 +8732,15 @@ def reap_expired_pod_containers():
                 # Fallbacks ONLY when the backend was unreachable — never override
                 # a live backend job that is still within its current deadline.
                 if reason is None and not backend_reachable:
-                    if deadline_label:
-                        try:
-                            if now >= int(float(deadline_label)):
-                                reason = f"deadline {deadline_label} reached (label fallback, backend unreachable)"
-                        except (TypeError, ValueError):
-                            deadline_label = ""
-                    if reason is None and not deadline_label:
-                        parsed_start = _parse_docker_started_at(started_at)
-                        if parsed_start is not None and now >= (parsed_start + HARD_POD_LIFETIME_CAP_S):
-                            reason = f"legacy pod exceeded hard cap (started {started_at})"
+                    # c91860-2 / Tareq: the dcp.deadline LABEL is the ORIGINAL launch
+                    # deadline and is NOT bumped by extends. When the backend is
+                    # unreachable we must NOT reap on the label — a transient backend
+                    # blip (e.g. a deploy reload) would kill an EXTENDED pod early.
+                    # Only the absolute HARD lifetime cap applies as a backstop here;
+                    # the backend-reachable path enforces the real extend-aware deadline.
+                    parsed_start = _parse_docker_started_at(started_at)
+                    if parsed_start is not None and now >= (parsed_start + HARD_POD_LIFETIME_CAP_S):
+                        reason = f"hard cap reached while backend unreachable (started {started_at})"
 
                 if reason is None:
                     continue
