@@ -73,7 +73,6 @@ Core layers:
 | Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS |
 | Backend | Express.js, SQLite via `better-sqlite3`, Zod |
 | Payments | Moyasar, SAR/halala accounting |
-| Blockchain | Solidity, Hardhat, ethers.js, Base testnet |
 | Jobs | Docker, Dockerode, NVIDIA Container Toolkit |
 | P2P | libp2p discovery prototype |
 | Testing | Jest, Playwright, template validation |
