@@ -77,6 +77,21 @@ interface LiveResp {
   recent?: LiveJob[]
 }
 
+interface PodLite {
+  id: number | string
+  status: string
+  gpu_type?: string | null
+}
+
+interface PodsResp {
+  pods?: PodLite[]
+}
+
+// Renter pod quota (DCP_MAX_ACTIVE_PODS) — the bounded, runway-relevant "session".
+const MAX_ACTIVE_PODS = 2
+// Statuses that occupy an active pod slot (mirrors the pods page's ACTIVE_POD_STATUSES).
+const ACTIVE_POD_STATUSES = new Set(['queued', 'assigned', 'pulling', 'running', 'starting'])
+
 // halala (integer cents) → SAR number
 const halToSar = (h: number) => h / 100
 
@@ -104,6 +119,7 @@ export default function RenterDashboardPage() {
   const [totalJobs, setTotalJobs] = useState<number | null>(null)
   const [activeJobs, setActiveJobs] = useState<LiveJob[]>([])
   const [recentJobs, setRecentJobs] = useState<LiveJob[]>([])
+  const [activePodCount, setActivePodCount] = useState<number | null>(null)
 
   const liveJobs = useMemo(() => [...activeJobs, ...recentJobs], [activeJobs, recentJobs])
   // Runway view: how much of the balance is currently held by in-flight jobs, and
@@ -133,9 +149,10 @@ export default function RenterDashboardPage() {
 
     ;(async () => {
       try {
-        const [meRes, liveRes] = await Promise.all([
+        const [meRes, liveRes, podsRes] = await Promise.all([
           fetch(`${base}/renters/me`, { headers }),
           fetch(`${base}/renters/me/live`, { headers }),
+          fetch(`${base}/pods?key=${encodeURIComponent(key)}`, { headers }),
         ])
 
         if (!meRes.ok) {
@@ -155,6 +172,12 @@ export default function RenterDashboardPage() {
           if (!cancelled) {
             setActiveJobs(live.active ?? [])
             setRecentJobs(live.recent ?? [])
+          }
+        }
+        if (podsRes.ok) {
+          const pd = (await podsRes.json()) as PodsResp
+          if (!cancelled) {
+            setActivePodCount((pd.pods ?? []).filter((p) => ACTIVE_POD_STATUSES.has(p.status)).length)
           }
         }
         if (!cancelled) setDataState('ready')
@@ -253,9 +276,9 @@ export default function RenterDashboardPage() {
           </div>
           <div className="row">
             <span>
-              <Bi en="Active sessions" ar="الجلسات النشطة" />
+              <Bi en="Active pods" ar="الحاويات النشطة" />
             </span>
-            <b>{activeJobs.length}</b>
+            <b>{activePodCount != null ? `${activePodCount} / ${MAX_ACTIVE_PODS}` : '—'}</b>
           </div>
           <Link className="topup" href="/renter/wallet#top-up">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
@@ -420,11 +443,17 @@ export default function RenterDashboardPage() {
             </div>
             <div className="kpi">
               <span className="k">
-                <Bi en="Active sessions" ar="الجلسات النشطة" />
+                <Bi en="Active pods" ar="الحاويات النشطة" />
               </span>
-              <span className="v">{activeJobs.length}</span>
+              <span className="v">
+                {activePodCount != null ? activePodCount : '—'}
+                <span className="u"> / {MAX_ACTIVE_PODS}</span>
+              </span>
               <span className="d flat">
-                <Bi en={`${liveJobs.length} visible total`} ar={`${liveJobs.length} ظاهرة إجمالاً`} />
+                <Bi
+                  en={activePodCount ? `${liveJobs.length} live jobs` : 'none running'}
+                  ar={activePodCount ? `${liveJobs.length} مهام حية` : 'لا شيء يعمل'}
+                />
               </span>
             </div>
             <div className="kpi">
@@ -657,7 +686,7 @@ export default function RenterDashboardPage() {
               <Link className="btn-sec" href="/renter/keys">
                 <Bi en="Get an API key" ar="احصل على مفتاح API" />
               </Link>
-              <Link className="btn-sec" href="/docs">
+              <Link className="btn-sec" href="/docs" target="_blank" rel="noopener noreferrer">
                 <Bi en="Read the docs" ar="اقرأ التوثيق" />
               </Link>
             </div>
