@@ -352,7 +352,7 @@ export default function PayoutsPage() {
                 <Bi en={s.sec} ar={s.secAr} />
               </div>
               {s.items.map((it) => (
-                <Link key={it.k} href={it.href} className={it.k === CURRENT ? 'on' : undefined} aria-current={it.k === CURRENT ? 'page' : undefined}>
+                <Link key={it.k} href={it.href} className={it.k === CURRENT ? 'on' : undefined} aria-current={it.k === CURRENT ? 'page' : undefined} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}>
                   <span className="ic">{it.ic}</span>
                   <span>
                     <Bi en={it.label} ar={it.labelAr} />

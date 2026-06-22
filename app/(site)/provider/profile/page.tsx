@@ -272,6 +272,8 @@ export default function ProviderProfilePage() {
                   href={it.href}
                   className={it.k === CURRENT_NAV ? 'on' : undefined}
                   aria-current={it.k === CURRENT_NAV ? 'page' : undefined}
+                  target={it.href === '/docs' ? '_blank' : undefined}
+                  rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
                 >
                   <span className="ic">{it.ic}</span>
                   <span>
