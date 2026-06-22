@@ -271,7 +271,7 @@ export default function RenterDashboardPage() {
               {s.items.map((it) => {
                 const active = it.k === CURRENT_PAGE
                 return (
-                  <Link key={it.k} href={it.href} className={active ? 'on' : ''} aria-current={active ? 'page' : undefined}>
+                  <Link key={it.k} href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined} className={active ? 'on' : ''} aria-current={active ? 'page' : undefined}>
                     <span className="ic">{it.ic}</span>
                     <span>
                       <Bi en={it.label} ar={it.labelAr} />

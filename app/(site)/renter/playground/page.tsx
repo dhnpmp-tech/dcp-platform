@@ -529,7 +529,7 @@ export default function PlaygroundPage() {
               {s.items.map((it) => (
                 <Link
                   key={it.k}
-                  href={it.href}
+                  href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
                   className={CURRENT_PAGE === it.k ? 'on' : ''}
                   aria-current={CURRENT_PAGE === it.k ? 'page' : undefined}
                 >

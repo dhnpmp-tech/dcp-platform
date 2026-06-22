@@ -329,6 +329,8 @@ export default function ProviderRigsPage() {
                   href={it.href}
                   className={CURRENT_PAGE === it.k ? 'on' : ''}
                   aria-current={CURRENT_PAGE === it.k ? 'page' : undefined}
+                  target={it.href === '/docs' ? '_blank' : undefined}
+                  rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
                 >
                   <span className="ic">{it.ic}</span>
                   <span>{lang === 'ar' ? it.labelAr : it.label}</span>

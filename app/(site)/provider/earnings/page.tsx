@@ -453,6 +453,8 @@ export default function ProviderEarningsPage() {
                     href={it.href}
                     className={active ? 'on' : ''}
                     aria-current={active ? 'page' : undefined}
+                    target={it.href === '/docs' ? '_blank' : undefined}
+                    rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
                   >
                     <span className="ic">{it.ic}</span>
                     <span>

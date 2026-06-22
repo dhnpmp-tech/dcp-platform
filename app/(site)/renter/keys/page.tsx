@@ -379,7 +379,7 @@ export default function RenterKeysPage() {
                 return (
                   <Link
                     key={it.k}
-                    href={it.href}
+                    href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
                     className={active ? 'on' : ''}
                     aria-current={active ? 'page' : undefined}
                   >
