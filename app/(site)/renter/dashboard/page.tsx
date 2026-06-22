@@ -3,6 +3,11 @@
 // Ported from the v2 renter console source design (Overview).
 // Sidebar + topbar chrome (formerly injected by renter-shell.js) is inlined here so the
 // route is self-contained; renter-shell.css is folded into ./dashboard.css.
+//
+// Renter mental model = "what's running and how much runway do I have" — NOT "how much
+// have I spent". Spend history/analytics live in Usage (/renter/usage) and Wallet
+// (/renter/wallet); this Overview leads with runway: balance, active sessions, GPU in
+// use, and quick actions.
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
@@ -42,50 +47,8 @@ const NAV = [
 
 const CURRENT_PAGE = 'dash'
 
-interface SpendPoint {
-  date: Date
-  sar: number
-  jobs?: number
-}
-
 const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
-// ── Chart geometry (from prototype render()) ────────────────────────────
-function buildChart(spend: SpendPoint[], rd: number) {
-  const W = 600
-  const H = 220
-  const padL = 56
-  const padR = 8
-  const padT = 16
-  const padB = 22
-  const days = spend.slice(-rd)
-  const max = Math.max(...days.map((d) => d.sar), 1) * 1.1
-  const min = Math.min(...days.map((d) => d.sar), 0) * 0.85
-  const range = Math.max(max - min, 1)
-  const x = (i: number) => padL + (days.length <= 1 ? 0 : (i / (days.length - 1)) * (W - padL - padR))
-  const y = (v: number) => padT + (1 - (v - min) / range) * (H - padT - padB)
-
-  let line = ''
-  days.forEach((d, i) => {
-    line += (i === 0 ? 'M ' : ' L ') + x(i).toFixed(1) + ' ' + y(d.sar).toFixed(1)
-  })
-  const area = `${line} L ${x(days.length - 1)} ${H - padB} L ${x(0)} ${H - padB} Z`
-
-  const grid: number[] = []
-  for (let i = 0; i <= 4; i++) grid.push(padT + (i / 4) * (H - padT - padB))
-
-  const axisL: string[] = []
-  for (let i = 0; i <= 4; i++) axisL.push(`SAR ${numFmt.format(max - (i / 4) * range)}`)
-
-  const e = rd <= 7 ? 1 : rd <= 30 ? 5 : 15
-  const axisB = days
-    .filter((_, i) => i % e === 0 || i === days.length - 1)
-    .map((d) => d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))
-
-  return { W, H, padL, padR, line, area, grid, axisL, axisB }
-}
-
-type RangeOpt = 7 | 30 | 90
 type QsTab = 'curl' | 'py' | 'node'
 
 // ── Fetched API shapes (subset of v1 /renters/* responses) ──────────────
@@ -98,16 +61,6 @@ interface RenterMe {
     total_spent_halala?: number
     total_jobs?: number
   }
-}
-
-interface DailySpendRow {
-  day: string
-  total_halala: number
-  job_count: number
-}
-
-interface AnalyticsResp {
-  daily_spend?: DailySpendRow[]
 }
 
 interface LiveJob {
@@ -127,36 +80,6 @@ interface LiveResp {
 // halala (integer cents) → SAR number
 const halToSar = (h: number) => h / 100
 
-// Sum the SAR spend over the last `n` calendar days of a daily series.
-function sumLastDays(spend: SpendPoint[], n: number): number {
-  if (spend.length === 0) return 0
-  const cutoff = new Date()
-  cutoff.setHours(0, 0, 0, 0)
-  cutoff.setDate(cutoff.getDate() - (n - 1))
-  return spend.filter((p) => p.date >= cutoff).reduce((sum, p) => sum + p.sar, 0)
-}
-
-// Period-over-period trend: compare the most recent `n`-day window to the one
-// before it. Returns the arrow class used by `.kpi .d` (up / down / flat).
-function periodTrend(spend: SpendPoint[], n: number): 'up' | 'down' | 'flat' {
-  if (spend.length === 0) return 'flat'
-  const end = new Date()
-  end.setHours(0, 0, 0, 0)
-  const curStart = new Date(end)
-  curStart.setDate(curStart.getDate() - (n - 1))
-  const prevStart = new Date(curStart)
-  prevStart.setDate(prevStart.getDate() - n)
-  let cur = 0
-  let prev = 0
-  for (const p of spend) {
-    if (p.date >= curStart) cur += p.sar
-    else if (p.date >= prevStart) prev += p.sar
-  }
-  if (cur > prev) return 'up'
-  if (cur < prev) return 'down'
-  return 'flat'
-}
-
 // Two-letter avatar initials derived from an account/workspace name.
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -169,39 +92,30 @@ export default function RenterDashboardPage() {
   const { lang, toggle } = useV2()
 
   const [navOpen, setNavOpen] = useState(false)
-  const [range, setRange] = useState<RangeOpt>(30)
   const [qsTab, setQsTab] = useState<QsTab>('curl')
 
-  const [spend, setSpend] = useState<SpendPoint[]>([])
-
-  const chart = useMemo(() => (spend.length > 0 ? buildChart(spend, range) : null), [spend, range])
-
-  // ── Live data (balance / 30D spend series / live jobs). No mock fallback:
+  // ── Live data (balance / live jobs). No mock fallback:
   // failed or missing auth renders explicit empty/error states.
   const [dataState, setDataState] = useState<'loading' | 'ready' | 'missing-key' | 'error'>('loading')
   const [dataError, setDataError] = useState('')
   const [renterName, setRenterName] = useState('')
   const [workspaceName, setWorkspaceName] = useState('')
   const [balanceSar, setBalanceSar] = useState<number | null>(null)
-  const [spentTodaySar, setSpentTodaySar] = useState<number | null>(null)
-  // Lifetime settled spend from the renter account (all-time total_spent_halala).
-  const [lifetimeSpentSar, setLifetimeSpentSar] = useState<number | null>(null)
   const [totalJobs, setTotalJobs] = useState<number | null>(null)
   const [activeJobs, setActiveJobs] = useState<LiveJob[]>([])
   const [recentJobs, setRecentJobs] = useState<LiveJob[]>([])
 
-  // Weekly / monthly spend are computed client-side from the daily series so the
-  // KPI cards reflect a real window instead of binding the all-time total.
   const liveJobs = useMemo(() => [...activeJobs, ...recentJobs], [activeJobs, recentJobs])
-  const weekSpentSar = useMemo(() => (spend.length > 0 ? sumLastDays(spend, 7) : null), [spend])
-  const monthSpentSar = useMemo(() => (spend.length > 0 ? sumLastDays(spend, 30) : null), [spend])
-  const weekTrend = useMemo(() => periodTrend(spend, 7), [spend])
-  const monthTrend = useMemo(() => periodTrend(spend, 30), [spend])
-  const todayTrend = useMemo(() => periodTrend(spend, 1), [spend])
+  // Runway view: how much of the balance is currently held by in-flight jobs, and
+  // which GPU types are running right now.
   const heldSar = useMemo(
     () => activeJobs.reduce((sum, j) => sum + halToSar(j.costHalala ?? 0), 0),
     [activeJobs],
   )
+  const gpusInUse = useMemo(() => {
+    const set = new Set(activeJobs.map((j) => j.providerGpu).filter(Boolean))
+    return Array.from(set)
+  }, [activeJobs])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -234,7 +148,6 @@ export default function RenterDashboardPage() {
         if (renter?.name) setRenterName(renter.name)
         if (renter?.organization) setWorkspaceName(renter.organization)
         if (typeof renter?.balance_halala === 'number') setBalanceSar(halToSar(renter.balance_halala))
-        if (typeof renter?.total_spent_halala === 'number') setLifetimeSpentSar(halToSar(renter.total_spent_halala))
         if (typeof renter?.total_jobs === 'number') setTotalJobs(renter.total_jobs)
 
         if (liveRes.ok) {
@@ -256,42 +169,6 @@ export default function RenterDashboardPage() {
       cancelled = true
     }
   }, [])
-
-  // Spend series + today's spend, refetched whenever the chart range changes so
-  // the 7D / 30D / 90D segments actually pull a fresh window from the backend.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const key = getRenterKey()
-    if (!key) return
-
-    const headers = { 'x-renter-key': key }
-    const base = getApiBase()
-    let cancelled = false
-
-    ;(async () => {
-      try {
-        const res = await fetch(`${base}/renters/me/analytics?period=${range}d`, { headers })
-        if (!res.ok || cancelled) return
-        const analytics = (await res.json()) as AnalyticsResp
-        const series: SpendPoint[] = (analytics.daily_spend ?? []).map((row) => ({
-          date: new Date(row.day + 'T00:00:00'),
-          sar: halToSar(row.total_halala),
-          jobs: row.job_count,
-        }))
-        if (cancelled) return
-        setSpend(series)
-        const last = analytics.daily_spend?.[analytics.daily_spend.length - 1]
-        const today = new Date().toISOString().slice(0, 10)
-        setSpentTodaySar(last && last.day === today ? halToSar(last.total_halala) : 0)
-      } catch {
-        // Spend chart keeps its prior data on a transient analytics error.
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [range])
 
   // Live-jobs poll: refresh active/recent jobs every 2s so the panel's
   // "Updates every 2s" label is honest. Stops on unmount.
@@ -324,7 +201,6 @@ export default function RenterDashboardPage() {
     }
   }, [])
 
-  const ranges: RangeOpt[] = [7, 30, 90]
   const displayName = renterName || (lang === 'ar' ? 'المستأجر' : 'Renter')
   const displayWorkspace = workspaceName || (lang === 'ar' ? 'مساحة العمل' : 'Workspace')
   const wsInitials = initials(workspaceName || renterName || displayWorkspace)
@@ -377,9 +253,9 @@ export default function RenterDashboardPage() {
           </div>
           <div className="row">
             <span>
-              <Bi en="Burn · last 7 days" ar="الصرف · آخر ٧ أيام" />
+              <Bi en="Active sessions" ar="الجلسات النشطة" />
             </span>
-            <b>{weekSpentSar != null ? `SAR ${weekSpentSar.toFixed(2)}` : '—'}</b>
+            <b>{activeJobs.length}</b>
           </div>
           <Link className="topup" href="/renter/wallet#top-up">
             <Bi en="+ Top up" ar="+ شحن الرصيد" />
@@ -491,11 +367,11 @@ export default function RenterDashboardPage() {
           </h1>
           <div className="rt-h1-sub">
             <span>
-              <Bi en={`${liveJobs.length} jobs visible now`} ar={`${liveJobs.length} مهام ظاهرة الآن`} />
+              <Bi en={`${activeJobs.length} running now`} ar={`${activeJobs.length} قيد التشغيل الآن`} />
             </span>
             <span>
-              <Bi en="Spend today" ar="إنفاق اليوم" />{' '}
-              <b>{spentTodaySar != null ? `SAR ${spentTodaySar.toFixed(2)}` : '—'}</b>
+              <Bi en="Balance" ar="الرصيد" />{' '}
+              <b>{balanceSar != null ? `SAR ${balanceSar.toFixed(2)}` : '—'}</b>
             </span>
             <span>
               <Bi en="Scoped keys live on the keys page" ar="المفاتيح محددة النطاق في صفحة المفاتيح" />
@@ -505,8 +381,8 @@ export default function RenterDashboardPage() {
           {dataState === 'missing-key' && (
             <div className="dash-state err" style={{ marginTop: 24 }}>
               <Bi
-                en="Sign in with a renter key to load balance, spend, and live jobs."
-                ar="سجّل الدخول بمفتاح مستأجر لتحميل الرصيد والإنفاق والمهام الحية."
+                en="Sign in with a renter key to load balance, live jobs, and quick actions."
+                ar="سجّل الدخول بمفتاح مستأجر لتحميل الرصيد والمهام الحية والإجراءات السريعة."
               />{' '}
               <Link href="/auth?role=renter&method=apikey&redirect=/renter/dashboard">
                 <Bi en="Sign in" ar="تسجيل الدخول" />
@@ -519,42 +395,54 @@ export default function RenterDashboardPage() {
             </div>
           )}
 
-          {/* KPI row */}
+          {/* KPI row — runway, not spend. (Spend history lives in Usage + Wallet.) */}
           <div className="kpi-row" style={{ marginTop: 36 }}>
             <div className="kpi featured">
               <span className="k">
-                <Bi en="Today · so far" ar="اليوم · حتى الآن" />
+                <Bi en="Balance" ar="الرصيد" />
               </span>
               <span className="v">
-                {spentTodaySar != null ? (
+                {balanceSar != null ? (
                   <>
-                    SAR {numFmt.format(Math.floor(spentTodaySar))}
-                    <span className="u">.{(spentTodaySar % 1).toFixed(2).slice(2)}</span>
+                    SAR {numFmt.format(Math.floor(balanceSar))}
+                    <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
                   </>
                 ) : (
                   <span className="u">—</span>
                 )}
               </span>
-              <span className={`d ${todayTrend}`}>
-                <Bi en="vs yesterday" ar="مقارنة بالأمس" />
+              <span className="d flat">
+                <Bi
+                  en={`${activeJobs.length > 0 ? `SAR ${heldSar.toFixed(2)} held` : 'Nothing held'} · your runway`}
+                  ar={`${activeJobs.length > 0 ? `محجوز SAR ${heldSar.toFixed(2)}` : 'لا شيء محجوز'} · رصيدك`}
+                />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
-                <Bi en="This week" ar="هذا الأسبوع" />
+                <Bi en="Active sessions" ar="الجلسات النشطة" />
               </span>
-              <span className="v">{weekSpentSar != null ? `SAR ${weekSpentSar.toFixed(2)}` : '—'}</span>
-              <span className={`d ${weekTrend}`}>
-                <Bi en="vs prior 7 days" ar="مقارنة بالأيام السبعة السابقة" />
+              <span className="v">{activeJobs.length}</span>
+              <span className="d flat">
+                <Bi en={`${liveJobs.length} visible total`} ar={`${liveJobs.length} ظاهرة إجمالاً`} />
               </span>
             </div>
             <div className="kpi">
               <span className="k">
-                <Bi en="This month" ar="هذا الشهر" />
+                <Bi en="GPU in use" ar="المعالج المستخدم" />
               </span>
-              <span className="v">{monthSpentSar != null ? `SAR ${monthSpentSar.toFixed(2)}` : '—'}</span>
-              <span className={`d ${monthTrend}`}>
-                <Bi en="vs prior 30 days" ar="مقارنة بالثلاثين يوماً السابقة" />
+              <span className="v" style={{ fontSize: gpusInUse.length > 0 ? '1.4rem' : undefined }}>
+                {gpusInUse.length > 0 ? (
+                  <>
+                    {gpusInUse[0]}
+                    {gpusInUse.length > 1 && <span className="u"> +{gpusInUse.length - 1}</span>}
+                  </>
+                ) : (
+                  <span className="u">—</span>
+                )}
+              </span>
+              <span className="d flat">
+                <Bi en={gpusInUse.length > 0 ? 'serving now' : 'idle'} ar={gpusInUse.length > 0 ? 'يخدم الآن' : 'خامل'} />
               </span>
             </div>
             <div className="kpi">
@@ -566,70 +454,51 @@ export default function RenterDashboardPage() {
                 <span className="u">jobs</span>
               </span>
               <span className="d flat">
-                <Bi
-                  en={`Lifetime spend ${lifetimeSpentSar != null ? `SAR ${lifetimeSpentSar.toFixed(2)}` : '—'}`}
-                  ar={`الإنفاق الإجمالي ${lifetimeSpentSar != null ? `SAR ${lifetimeSpentSar.toFixed(2)}` : '—'}`}
-                />
+                <Link href="/renter/wallet" style={{ color: 'var(--mut)', textDecoration: 'none', borderBottom: '1px solid var(--hair)' }}>
+                  <Bi en="Spend & invoices → Wallet" ar="الإنفاق والفواتير ← المحفظة" />
+                </Link>
               </span>
             </div>
           </div>
 
-          {/* Spend chart + Live jobs */}
+          {/* Quick actions + Live jobs */}
           <div className="two-col" style={{ marginTop: 28 }}>
             <div className="panel">
               <div className="panel-hd">
                 <div>
                   <h3>
-                    <Bi en="Spend" ar="الإنفاق" />
+                    <Bi en="Quick actions" ar="إجراءات سريعة" />
                   </h3>
                 </div>
-                <div className="seg" id="range">
-                  {ranges.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      className={range === r ? 'on' : ''}
-                      onClick={() => setRange(r)}
-                    >
-                      {r}D
-                    </button>
-                  ))}
-                </div>
               </div>
-              <div className="chart" id="chart">
-                {chart ? (
-                  <>
-                    <div className="axis-l" id="ax-l">
-                      {chart.axisL.map((label, i) => (
-                        <span key={i}>{label}</span>
-                      ))}
-                    </div>
-                    <div className="axis-b" id="ax-b">
-                      {chart.axisB.map((label, i) => (
-                        <span key={i}>{label}</span>
-                      ))}
-                    </div>
-                    <svg id="chart-svg" viewBox="0 0 600 220" preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0" stopColor="#2dd4b6" stopOpacity=".45" />
-                          <stop offset="1" stopColor="#2dd4b6" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      <g className="grid" id="grid">
-                        {chart.grid.map((gy, i) => (
-                          <line key={i} x1={chart.padL} y1={gy} x2={chart.W - chart.padR} y2={gy} />
-                        ))}
-                      </g>
-                      <path className="area" id="area" d={chart.area} />
-                      <path className="line" id="line" d={chart.line} />
-                    </svg>
-                  </>
-                ) : (
-                  <div className="empty-row">
-                    <Bi en="No spend data for this period." ar="لا توجد بيانات إنفاق لهذه الفترة." />
-                  </div>
-                )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+                <Link className="btn-pri" href="/renter/pods" style={{ textAlign: 'center' }}>
+                  <Bi en="▦ Launch a GPU pod" ar="▦ تشغيل حاوية GPU" />
+                </Link>
+                <Link className="btn-sec" href="/renter/pods" style={{ textAlign: 'center' }}>
+                  <Bi en="Manage pods · extend · stop" ar="إدارة الحاويات · تمديد · إيقاف" />
+                </Link>
+                <Link className="btn-sec" href="/renter/playground" style={{ textAlign: 'center' }}>
+                  <Bi en="▷ Open Playground" ar="▷ افتح البيئة التجريبية" />
+                </Link>
+                <Link className="btn-sec" href="/renter/wallet#top-up" style={{ textAlign: 'center' }}>
+                  <Bi en="₪ Top up balance" ar="₪ شحن الرصيد" />
+                </Link>
+              </div>
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 14,
+                  borderTop: '1px solid var(--hair)',
+                  fontFamily: 'var(--mono)',
+                  fontSize: '11px',
+                  color: 'var(--mut)',
+                }}
+              >
+                <Bi
+                  en="What's running and how much runway you have — at a glance."
+                  ar="ما الذي يعمل وكم لديك من رصيد — في لمحة."
+                />
               </div>
             </div>
 
