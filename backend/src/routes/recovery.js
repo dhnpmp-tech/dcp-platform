@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { requireAdminAuth } = require('../middleware/auth');
 
 // ============================================================================
 // Recovery Orchestrator State Machine
@@ -191,7 +192,7 @@ router.get('/status/:provider_id', (req, res) => {
 });
 
 // POST /api/recovery/resolve/:event_id — mark event resolved
-router.post('/resolve/:event_id', (req, res) => {
+router.post('/resolve/:event_id', requireAdminAuth, (req, res) => {
   try {
     const eventId = parseInt(req.params.event_id, 10);
     if (isNaN(eventId)) {

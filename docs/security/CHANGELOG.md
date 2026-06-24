@@ -49,3 +49,20 @@ C2 (CSRF), M5, H8.
 C3/H7 (coordinated per-provider task_spec signing), H1 (full plaintext migration), H3 (localStorage→server-side session), H9 (`npm audit fix` in a maintenance window), + rotate the MC token & scrub git history of the old keys.
 
 Every "live" item was verified by HTTP probe + a fleet-health check (heartbeats accepted, 0 rejected) after each deploy.
+
+
+## 2026-06-24 (later) — KB-applied audit: AI/agent + multi-tenant + supply layer
+Applied the Anthropic-Cybersecurity-Skills KB (ATLAS/ATT&CK-mapped) to the DCP-unique surfaces the
+web/backend baseline missed. 4 crit / 9 high / 4 med confirmed (adversarially verified live).
+### Fixed live now (HTTP-verified + fleet heartbeats 0-rejected)
+- DCP-API-01 (crit, denial-of-wallet REALIZED): agent-gateway key-presence gate
+  (`DC1_GATEWAY_REQUIRE_KEY=1`) + 60/min/IP limiter — keyless=401, keyed unaffected, Nexus not a caller.
+- DCP-API-03 (high): requireAdminAuth on the two unauth DB-writes (recovery/resolve, fallback/simulate).
+- AI-1 (crit): Nexus tirith scanner re-enabled fail_closed at the correct path (had regressed to OFF).
+- AI-3 (high): Nexus memory.write_approval:true (stops one-shot-injection -> persistent poisoning).
+- AI-4 (high): Spark tirith fail_open:false + correct path (guardrail no longer fails open).
+### Needs human
+- AI-2: ROTATE the OpenRouter key (leaked verbatim) — OpenRouter dashboard.
+### Staged -> runbooks/ai-agent-and-pod-isolation-hardening.md
+POD-1..6 (pod isolation, daemon-fleet + soak), SC1 (daemon code-signing), SC3 (mesh/bind),
+DCP-API-02/04 (enumeration), DCP-API-05 (folds into H1), AI-5 (promptfoo red-team in CI).

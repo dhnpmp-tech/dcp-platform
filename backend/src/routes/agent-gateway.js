@@ -30,6 +30,30 @@ router.use((req, res, next) => {
   next();
 });
 
+// ── DCP-API-01 mitigation: per-IP rate limit + provider-key presence gate ──
+// Legit callers are provider Hermes brains that send DCP_PROVIDER_KEY
+// (Authorization/x-provider-key/x-api-key). Nexus does NOT use this gateway.
+// Keyless calls = denial-of-wallet abuse (observed exhausting the upstream
+// Token Plan). Enforcement gated by env so it can be flipped instantly.
+const rateLimit = require('express-rate-limit');
+router.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'rate_limited', detail: 'agent-gateway: too many requests' },
+}));
+const GATEWAY_REQUIRE_KEY = process.env.DC1_GATEWAY_REQUIRE_KEY === '1';
+router.use((req, res, next) => {
+  if (req.path === '/health') return next();
+  const hasKey = !!(req.headers['x-provider-key'] || req.headers['authorization'] || req.headers['x-api-key']);
+  if (!hasKey) {
+    console.warn(`[agent-gateway] KEYLESS ${GATEWAY_REQUIRE_KEY ? 'BLOCKED' : 'WARN'} ip=${req.ip} path=${req.path} ua=${String(req.headers['user-agent']||'').slice(0,40)}`);
+    if (GATEWAY_REQUIRE_KEY) return res.status(401).json({ error: 'unauthorized', detail: 'agent-gateway requires a provider key' });
+  }
+  next();
+});
+
 // ── Upstream registry ────────────────────────────────────────────────
 // Add new brains here. Each upstream may expose an Anthropic-format
 // endpoint, an OpenAI-format endpoint, or both — leave fields blank
