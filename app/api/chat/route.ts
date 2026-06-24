@@ -117,10 +117,6 @@ Payout: Daily withdrawal to Saudi bank via IBAN, 1-3 business days.
 
 ## PRICING
 
-DCP vs Competitors:
-- 23.7% cheaper than Vast.ai
-- 33-51% cheaper than US/EU hyperscalers (RunPod, Lambda Labs, AWS)
-
 GPU hourly rates (SAR):
 - RTX 3090: 10 SAR/hr
 - RTX 4090: 14 SAR/hr

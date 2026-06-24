@@ -20,7 +20,6 @@ import {
   RATE_CARD_LAST_UPDATED,
   RateCardCategory,
   RateCardEntry,
-  discountVsAnchor,
   halalaPer1kToSarPer1k,
   halalaPer1kToSarPerMillion,
 } from '../../lib/rate-card'
@@ -119,15 +118,10 @@ export default function ModelRateCard({ variant = 'full', headingOverride }: Mod
               <th className="text-start py-3 px-4 text-dc1-text-muted font-medium hidden md:table-cell">
                 {t('rate_card.col_gpu')}
               </th>
-              <th className="text-end py-3 ps-4 text-dc1-text-muted font-medium hidden lg:table-cell">
-                {t('rate_card.col_savings')}
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-dc1-border">
             {rows.map((r) => {
-              const discount = discountVsAnchor(r)
-              const showDiscount = r.anchorHalalaPer1k > 0 && discount < 0
               const isImageBilling = r.category === 'multimodal' && r.promptHalalaPer1k === 0
               return (
                 <tr key={r.id} className="hover:bg-dc1-surface-l2/40 transition-colors">
@@ -188,15 +182,6 @@ export default function ModelRateCard({ variant = 'full', headingOverride }: Mod
                     <div className="text-[10px] text-dc1-text-muted">
                       {r.minVramGb} GB VRAM
                     </div>
-                  </td>
-                  <td className="py-3 ps-4 text-end hidden lg:table-cell whitespace-nowrap">
-                    {showDiscount ? (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-success/15 text-status-success">
-                        {discount}%
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-dc1-text-muted">—</span>
-                    )}
                   </td>
                 </tr>
               )
