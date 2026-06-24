@@ -70,10 +70,14 @@ interface AvailableProvider {
   vram_gb: number
   available: boolean
   status: 'online' | 'offline'
+  // DCP hourly price for this GPU type, in SAR (from /api/pricing/tiers). null
+  // when no tier matches — the tile then shows "—" rather than a fabricated price.
+  rate_per_hour_sar: number | null
 }
 
 interface LaunchState {
-  providerId: string
+  // Selected GPU TYPE (gpu_model), sent to the backend as `gpu_type`. '' = auto-pick.
+  gpuType: string
   durationMinutes: number
   notebookToken: string
   // Selected preset value, or CUSTOM_IMAGE_OPTION to use customImage instead.
@@ -189,7 +193,7 @@ export default function RenterPodsPage() {
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
   const [launch, setLaunch] = useState<LaunchState>({
-    providerId: '',
+    gpuType: '',
     durationMinutes: DEFAULT_DURATION_MINUTES,
     notebookToken: generateNotebookToken(),
     imageChoice: DEFAULT_IMAGE,
@@ -233,26 +237,51 @@ export default function RenterPodsPage() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch(`${getApiBase()}/renters/available-providers`, { cache: 'no-store' })
-      if (!res.ok) return
-      const data = (await res.json()) as AvailableProvidersResponse
-      const list: AvailableProvider[] = (data.providers || [])
-        // Drive the selectable list off the backend `available` flag (present
-        // on every row, now reflecting real live stock). Out-of-stock types
-        // simply aren't selectable here. No native/on-demand distinction.
-        .filter((p) => p.available !== false)
-        .map((p) => ({
-          id: p.id as number,
-          gpu_model: (p.gpu_model as string) || 'GPU',
-          vram_gb: (p.vram_gb as number) ?? 0,
-          available: p.available !== false,
+      const [provRes, priceRes] = await Promise.all([
+        fetch(`${getApiBase()}/renters/available-providers`, { cache: 'no-store' }),
+        fetch(`${getApiBase()}/pricing/tiers`, { cache: 'no-store' }).catch(() => null),
+      ])
+      if (!provRes.ok) return
+      const data = (await provRes.json()) as AvailableProvidersResponse
+
+      // SAR/hr per GPU type from the public pricing tiers. A tier matches when its
+      // (short) gpu_model is a substring of the provider's full model, e.g. tier
+      // "rtx 3090" ⊂ "NVIDIA GeForce RTX 3090".
+      let tiers: Array<{ gpu_model?: string; pricing?: { rate_per_hour_sar?: number } }> = []
+      if (priceRes && priceRes.ok) {
+        const pj = (await priceRes.json()) as { tiers?: Array<{ gpu_model?: string; pricing?: { rate_per_hour_sar?: number } }> }
+        tiers = pj.tiers || []
+      }
+      const rateFor = (model: string): number | null => {
+        const m = model.toLowerCase()
+        const hit = tiers.find((t) => t.gpu_model && m.includes(String(t.gpu_model).toLowerCase()))
+        return hit?.pricing?.rate_per_hour_sar ?? null
+      }
+
+      // Collapse to distinct GPU TYPES — spec + brand only, never a provider id,
+      // name, or count (vendor invisibility). One tile per gpu_model.
+      const seen = new Set<string>()
+      const list: AvailableProvider[] = []
+      for (const p of data.providers || []) {
+        if ((p as Record<string, unknown>).available === false) continue
+        const gpu_model = ((p as Record<string, unknown>).gpu_model as string) || 'GPU'
+        if (seen.has(gpu_model)) continue
+        seen.add(gpu_model)
+        list.push({
+          id: (((p as Record<string, unknown>).id as number) ?? 0),
+          gpu_model,
+          vram_gb: (((p as Record<string, unknown>).vram_gb as number) ?? 0),
+          available: true,
           status: 'online' as const,
-        }))
+          rate_per_hour_sar: rateFor(gpu_model),
+        })
+      }
+      // Cheapest first; priced options ahead of unpriced ones.
+      list.sort((a, b) => (a.rate_per_hour_sar ?? Infinity) - (b.rate_per_hour_sar ?? Infinity))
       setProviders(list)
-      // Auto-pick the first provider if the renter hasn't chosen one yet.
-      setLaunch((prev) => (prev.providerId ? prev : { ...prev, providerId: list[0] ? String(list[0].id) : '' }))
+      // No auto-select: gpuType '' means "auto-pick the cheapest available GPU".
     } catch (err) {
-      console.error('Failed to load providers:', err)
+      console.error('Failed to load GPUs:', err)
     }
   }, [])
 
@@ -322,7 +351,7 @@ export default function RenterPodsPage() {
           'x-renter-key': apiKey,
         },
         body: JSON.stringify({
-          provider_id: launch.providerId ? Number(launch.providerId) : undefined,
+          gpu_type: launch.gpuType || undefined,
           duration_minutes: launch.durationMinutes,
           image,
           params: { NOTEBOOK_TOKEN: token },
@@ -355,7 +384,7 @@ export default function RenterPodsPage() {
 
       // Reset the form (fresh token) and refresh the list immediately.
       setLaunch({
-        providerId: launch.providerId,
+        gpuType: launch.gpuType,
         durationMinutes: launch.durationMinutes,
         notebookToken: generateNotebookToken(),
         imageChoice: launch.imageChoice,
@@ -631,30 +660,48 @@ export default function RenterPodsPage() {
             </div>
 
             <div className="pod-form-grid">
-              {/* Provider */}
-              <div className="pod-field">
-                <label htmlFor="pod-provider" className="pod-label">
-                  <Bi en="Provider" ar="المزود" />
+              {/* GPU — card selector (GPU type + VRAM + price only; no provider identity) */}
+              <div className="pod-field pod-field-wide">
+                <label className="pod-label">
+                  <Bi en="GPU" ar="المعالج" />
                 </label>
-                <select
-                  id="pod-provider"
-                  className="select"
-                  value={launch.providerId}
-                  onChange={(e) => setLaunch((l) => ({ ...l, providerId: e.target.value }))}
-                  disabled={!isLive}
-                >
-                  {noProviders && (
-                    <option value="">{lang === 'ar' ? 'لا يوجد مزودون متصلون' : 'No online providers'}</option>
-                  )}
-                  {providers.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {displayGpuType(p.gpu_model)}
-                      {p.vram_gb ? ` · ${p.vram_gb}GB` : ''}
-                    </option>
-                  ))}
-                </select>
+                {noProviders ? (
+                  <p className="pod-help">
+                    {lang === 'ar' ? 'لا توجد معالجات رسومات متصلة الآن.' : 'No GPUs are online right now.'}
+                  </p>
+                ) : (
+                  <div className="gpu-grid">
+                    {/* Auto-pick tile (default) */}
+                    <button
+                      type="button"
+                      className={`gpu-opt${launch.gpuType === '' ? ' is-active' : ''}`}
+                      aria-pressed={launch.gpuType === ''}
+                      disabled={!isLive}
+                      onClick={() => setLaunch((l) => ({ ...l, gpuType: '' }))}
+                    >
+                      <span className="gpu-opt-name">{lang === 'ar' ? 'اختيار تلقائي' : 'Auto-pick'}</span>
+                      <span className="gpu-opt-vram">{lang === 'ar' ? 'الأرخص المتاح' : 'Cheapest available'}</span>
+                    </button>
+                    {providers.map((p) => (
+                      <button
+                        key={p.gpu_model}
+                        type="button"
+                        className={`gpu-opt${launch.gpuType === p.gpu_model ? ' is-active' : ''}`}
+                        aria-pressed={launch.gpuType === p.gpu_model}
+                        disabled={!isLive}
+                        onClick={() => setLaunch((l) => ({ ...l, gpuType: p.gpu_model }))}
+                      >
+                        <span className="gpu-opt-name">{displayGpuType(p.gpu_model)}</span>
+                        <span className="gpu-opt-vram">{p.vram_gb ? `${p.vram_gb} GB VRAM` : 'GPU'}</span>
+                        <span className="gpu-opt-price">
+                          {p.rate_per_hour_sar != null && p.rate_per_hour_sar > 0 ? `SAR ${p.rate_per_hour_sar.toFixed(2)}/hr` : '—'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <p className="pod-help">
-                  <Bi en="Leave on the first option to auto-pick an available GPU." ar="اترك الخيار الأول للاختيار التلقائي لمعالج رسومات متاح." />
+                  <Bi en="Pick a GPU type, or leave on Auto-pick. Billed per second — the full duration is reserved upfront and an early stop refunds the difference." ar="اختر نوع المعالج أو اترك الاختيار التلقائي. الفوترة بالثانية — تُحجز المدة كاملة مسبقًا ويُعاد الفرق عند الإيقاف المبكر." />
                 </p>
               </div>
 

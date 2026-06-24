@@ -503,3 +503,13 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .vol-opt-full { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent-orange,#ee7a3c); }
 .vol-pool { display:block; margin-top:10px; font-size:12px; color:var(--text-2,#7b7a92); }
 .vol-msg { display:block; margin-top:12px; font-size:13px; color:var(--accent-teal,#2dd4b6); }
+
+/* GPU type selector — card/tile picker, mirrors .vol-opt storage tiles + active state */
+.gpu-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:6px; }
+.gpu-opt { display:flex; flex-direction:column; gap:4px; padding:14px 18px; border:1px solid var(--border-1,#1f2040); background:transparent; cursor:pointer; border-radius:0; transition:border-color .2s, background .2s; text-align:left; }
+.gpu-opt:hover:not(:disabled) { border-color:var(--accent-teal,#2dd4b6); }
+.gpu-opt:disabled { opacity:.45; cursor:not-allowed; }
+.gpu-opt.is-active { border-color:var(--accent-teal,#2dd4b6); background:rgba(45,212,182,0.08); }
+.gpu-opt-name { font-family:var(--mono,"JetBrains Mono",monospace); font-size:15px; color:var(--text-0,#f5f3ee); }
+.gpu-opt-vram { font-size:12px; color:var(--text-2,#7b7a92); }
+.gpu-opt-price { font-size:13px; color:var(--accent-teal,#2dd4b6); margin-top:4px; }
