@@ -39,7 +39,7 @@
 | AI-3 | high | Nexus auto-writes durable memory -> poisoning | ✅ | `memory.write_approval:true`; Nexus restarted (2026-06-24) |
 | AI-4 | high | Spark guardrail fails-OPEN, tools armed | ✅ | `tirith_fail_open:false` + full path; Spark restarted (2026-06-24) |
 | AI-5 | med | No agent/LLM red-team in CI | 🟡 | `/dcp-security-audit`+KB map ATLAS now; promptfoo suite = runbook |
-| DCP-API-01 | crit | Unauth agent-gateway (denial-of-wallet, realized) | ✅ | key-presence gate `DC1_GATEWAY_REQUIRE_KEY=1` + 60/min/IP; keyless=401 (2026-06-24) |
+| DCP-API-01 | high | Unauth agent-gateway (denial-of-wallet, LATENT) | ✅ | key-presence gate `DC1_GATEWAY_REQUIRE_KEY=1` + 60/min/IP; keyless=401 (2026-06-24). NB: upstream “plan exhausted” was MiniMax NON-PAYMENT, not an attack — never exploited; gated anyway (can route to metered upstream) |
 | DCP-API-02 | high | Unauth provider/fleet enumeration | 🟡 | runbook: gate p2p/network/standup or sanitized marketplace view (verify FE dep) |
 | DCP-API-03 | high | Unauth state-changing ops writes | ✅ | `requireAdminAuth` on recovery/resolve + fallback/simulate; both=401 (2026-06-24) |
 | DCP-API-04 | low | Unauth container-registry disclosure | 🟡 | low; folds into API-02 read-gating |

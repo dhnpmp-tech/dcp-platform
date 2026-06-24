@@ -55,8 +55,10 @@ Every "live" item was verified by HTTP probe + a fleet-health check (heartbeats 
 Applied the Anthropic-Cybersecurity-Skills KB (ATLAS/ATT&CK-mapped) to the DCP-unique surfaces the
 web/backend baseline missed. 4 crit / 9 high / 4 med confirmed (adversarially verified live).
 ### Fixed live now (HTTP-verified + fleet heartbeats 0-rejected)
-- DCP-API-01 (crit, denial-of-wallet REALIZED): agent-gateway key-presence gate
-  (`DC1_GATEWAY_REQUIRE_KEY=1`) + 60/min/IP limiter — keyless=401, keyed unaffected, Nexus not a caller.
+- DCP-API-01 (high, denial-of-wallet LATENT — NOT a realized incident; the MiniMax “plan exhausted”
+  was non-payment, not an attack, and the keyless calls were our own audit probes): agent-gateway
+  key-presence gate (`DC1_GATEWAY_REQUIRE_KEY=1`) + 60/min/IP limiter — keyless=401, keyed unaffected,
+  Nexus not a caller. Gated regardless because the proxy can route to a metered upstream (unbounded).
 - DCP-API-03 (high): requireAdminAuth on the two unauth DB-writes (recovery/resolve, fallback/simulate).
 - AI-1 (crit): Nexus tirith scanner re-enabled fail_closed at the correct path (had regressed to OFF).
 - AI-3 (high): Nexus memory.write_approval:true (stops one-shot-injection -> persistent poisoning).
