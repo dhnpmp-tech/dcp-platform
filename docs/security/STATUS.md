@@ -13,7 +13,7 @@
 | C2 | crit | Forgeable session cookie | ✅ | core already HMAC-signed; +SameSite=strict; live dcp.sa `__dc1_session` signed+strict (2026-06-24) |
 | C3 | crit | Global HMAC secret in every daemon | 🟡 | runbooks/per-provider-taskspec…md — 6-phase, fleet-critical, multi-day. NOT started. |
 | C4 | crit | Live renter key hardcoded in scripts | ✅ | key rotated dead (0 rows); scripts env-read (2026-06-24) |
-| H1 | high | Plaintext API keys at rest | 🟡 | runbooks/…key-at-rest-hashing.md — phases 0-3 ok, Phase-4 drop hard-blocked |
+| H1 | high | Plaintext API keys at rest | 🟡 | 39 sites mapped (runbook). BLOCKER: `DC1_KEY_PEPPER` decision — providers already have UNPEPPERED `api_key_hash` live + hash-first dual-read; renters have no hash col. Rec: match unpeppered scheme (high-entropy keys → pepper marginal; avoids provider re-backfill). Phase 0 ready but touches key-MINTING → run attended |
 | H2 | high | API keys in `?key=` | ✅ | gated reject behind `DC1_REJECT_QUERY_KEYS` (OFF; control wired) (2026-06-24) |
 | H3 | high | API keys in localStorage | 🟡 | runbooks/frontend-localstorage…md — sealed-cookie proxy; frontend branch+preview |
 | H4 | high | v1 billing TOCTOU / silent debit | 🟢 | already fixed by migration 021 (`billingService.settleInferenceOnce` atomic) |
@@ -40,9 +40,9 @@
 | AI-4 | high | Spark guardrail fails-OPEN, tools armed | ✅ | `tirith_fail_open:false` + full path; Spark restarted (2026-06-24) |
 | AI-5 | med | No agent/LLM red-team in CI | 🟡 | `/dcp-security-audit`+KB map ATLAS now; promptfoo suite = runbook |
 | DCP-API-01 | high | Unauth agent-gateway (denial-of-wallet, LATENT) | ✅ | key-presence gate `DC1_GATEWAY_REQUIRE_KEY=1` + 60/min/IP; keyless=401 (2026-06-24). NB: upstream “plan exhausted” was MiniMax NON-PAYMENT, not an attack — never exploited; gated anyway (can route to metered upstream) |
-| DCP-API-02 | high | Unauth provider/fleet enumeration | 🟡 | runbook: gate p2p/network/standup or sanitized marketplace view (verify FE dep) |
+| DCP-API-02 | high | Unauth provider/fleet enumeration | 🟡 | `standup/latest` ✅ GATED requireAdminAuth (401, 2026-06-24). `network/providers`+`p2p/providers` STAGED: leak peer_id/name/addrs but ARE the P2P discovery fallback → branch-scoped sanitize + daemon-read verify first (runbook) |
 | DCP-API-03 | high | Unauth state-changing ops writes | ✅ | `requireAdminAuth` on recovery/resolve + fallback/simulate; both=401 (2026-06-24) |
-| DCP-API-04 | low | Unauth container-registry disclosure | 🟡 | low; folds into API-02 read-gating |
+| DCP-API-04 | low | Unauth container-registry disclosure | ⚪ | ACCEPTED by design — intentional public image allowlist (renter playground + VS Code ext consume it; jobs.js uses it as the allow-list). Verifier confirmed no-change correct |
 | DCP-API-05 | med | Legacy api_key column lookup inconsistency | 🟡 | folds into H1 key-at-rest migration |
 | DCP-API-06 | info | BOLA/IDOR | 🟢 | verified CLOSED (requireRenterRole ownership) — not a gap |
 | POD-1 | crit | Renter pods root, no cap-drop/seccomp/no-new-priv/ro | 🟡 | runbook ai-agent-and-pod-isolation — daemon fleet change + soak |

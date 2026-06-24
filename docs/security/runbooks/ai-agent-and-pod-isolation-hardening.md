@@ -65,3 +65,28 @@ the Nexus `config.yaml auxiliary.vision.api_key` with an env reference; audit co
 Add a promptfoo (or LLM-Guard) suite that fires indirect-injection + jailbreak payloads at Nexus
 / the /v1 surface on each release; assert tirith blocks + no secret-bearing tool calls. The
 `/dcp-security-audit` skill + the KB now map these to ATLAS; this makes it continuous.
+
+
+## DCP-API-02 — network/providers + p2p/providers (branch-scoped sanitize) [added 2026-06-24]
+Adversarial workflow result: NOT a blind gate — both are the **P2P discovery fallback** (p2p/README.md;
+p2p/test-discovery-load.mjs). `requireAdminAuth` would 401 the daemon discovery client.
+- **network.js** (L92-109 `rows.map` return): strip `id, peer_id, name, driver_version, compute_capability,
+  cuda_version, last_heartbeat, last_heartbeat_sec_ago, created_at`; keep `gpu_model, vram_gb, vram_mib,
+  gpu_count, status` + derived `is_available`.
+- **p2p.js**: `toProviderShape` (L81-102) + `toDhtProviderShape` (L109-131) are SHARED with the
+  peer-resolution paths (`/providers/:peerId`). Add a `sanitize` flag and apply the allowlist ONLY on the
+  unauthenticated list branch (L199-265) — do NOT strip `peer_id` from the lookup paths.
+- **GATE (mandatory):** first read `installers/dcp_daemon.py` discovery client + confirm it keys on
+  gpu/availability, NOT on `peer_id`/`name`/`addrs` from these list branches. Apply only after that diff.
+
+## H1 — pepper decision (recommendation, 2026-06-24)
+Providers ALREADY run unpeppered `sha256hex` (db.js:8) with a live hash-first `resolveProviderByKey`
+(providers.js:411) and 11/17 rows backfilled. Renters have no hash column yet.
+**Recommendation: NO pepper — match the existing unpeppered provider scheme.** API keys are high-entropy
+random strings, so a pepper adds marginal brute/rainbow resistance, while adopting one forces a risky
+provider re-backfill (re-hash 11 live rows + keep hashProviderApiKey/sha256hex in lockstep). Consistency +
+zero-retrofit wins. (Reversible later via a hash-version prefix for NEW keys if ever wanted.)
+Phase 0 (additive `api_key_hash`/`key_hash` cols + dual-WRITE) is LOW risk but touches renter key-MINTING
+(auth.js magic-link, renters.js rotate, sub-key mint, reconciliation, admin force-rotate) — **run attended**
+so key issuance can be smoke-tested right after. Phases 1-2 (hash-first reads on v1.js/vllm.js hot paths)
+are MEDIUM-HIGH — never unattended.
