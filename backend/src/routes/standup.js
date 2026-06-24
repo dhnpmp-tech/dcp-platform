@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { requireAdminAuth } = require('../middleware/auth');
 
 const GATE0_DATE = new Date('2026-03-08T00:00:00Z');
 const CHAT_ID = process.env.DC1_TELEGRAM_CHAT_ID || '-5275672778';
@@ -140,7 +141,7 @@ async function sendToTelegram(text) {
 // ============================================================================
 // GET /api/standup/latest — returns latest standup JSON
 // ============================================================================
-router.get('/latest', (req, res) => {
+router.get('/latest', requireAdminAuth, (req, res) => {
   try {
     if (!latestStandup) {
       // Generate on first request

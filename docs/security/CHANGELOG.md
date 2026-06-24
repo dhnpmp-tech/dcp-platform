@@ -68,3 +68,12 @@ web/backend baseline missed. 4 crit / 9 high / 4 med confirmed (adversarially ve
 ### Staged -> runbooks/ai-agent-and-pod-isolation-hardening.md
 POD-1..6 (pod isolation, daemon-fleet + soak), SC1 (daemon code-signing), SC3 (mesh/bind),
 DCP-API-02/04 (enumeration), DCP-API-05 (folds into H1), AI-5 (promptfoo red-team in CI).
+
+## 2026-06-24 (later) — doable-now sweep (adversarial workflow)
+- DCP-API-02 (standup): GATED `/api/standup/latest` with requireAdminAuth (per-route; POST /run keeps its
+  Bearer; cron calls generateStandupData directly) — unauth=401, fleet 0-rejected. Verifier could not refute.
+- DCP-API-02 (network/p2p): STAGED — real identity leak (peer_id/name/addrs) but they are the P2P discovery
+  fallback; branch-scoped sanitize + daemon-read verify required first (runbook).
+- DCP-API-04 (containers/registry): ACCEPTED by design — intentional public image allowlist.
+- H1: full 39-site inventory done; blocked on the DC1_KEY_PEPPER decision (rec: no pepper, match providers);
+  Phase 0 ready but run attended (touches key-minting).
