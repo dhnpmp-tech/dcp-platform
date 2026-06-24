@@ -766,6 +766,41 @@ const adminIncidentsRouter = require('./routes/admin-incidents');
 app.use('/api/admin', adminIncidentsRouter);
 
 const v1Router = require('./routes/v1');
+// ── H2-gated-v1-query-key-reject (H2) ───────────────────────────────
+// /v1/* accepts the renter key via ?key= (routes/v1.js getRenterKey). Keys in
+// URLs leak through access logs, browser history, and Referer headers. We
+// (a) always log a throttled deprecation warning when a query-param key is
+// seen on /v1/*, and (b) reject it with 400 ONLY when DC1_REJECT_QUERY_KEYS
+// is explicitly enabled. The flag DEFAULTS OFF so live SDK/clients that still
+// send ?key= keep working; flip it to '1' after the SDK migration completes.
+const DC1_REJECT_QUERY_KEYS = /^(1|true|yes|on)$/i.test(
+  String(process.env.DC1_REJECT_QUERY_KEYS || '').trim()
+);
+function gatedRejectV1QueryKey(req, res, next) {
+  const detected = detectQueryParamKeys(req);
+  if (detected.hasRenterKey || detected.hasSharedKey) {
+    if (_c1ShouldLog('v1:' + req.path)) {
+      console.warn(
+        `[security][H2] /v1 query-param API key observed: ${req.method} ${req.path} ` +
+        `ip=${req.ip || 'unknown'} reject=${DC1_REJECT_QUERY_KEYS} ` +
+        `— send the key via Authorization: Bearer or X-Renter-Key instead`
+      );
+    }
+    if (DC1_REJECT_QUERY_KEYS) {
+      return res.status(400).json({
+        error: {
+          message: 'API keys must be sent via the Authorization: Bearer header or X-Renter-Key, not a URL query parameter. This prevents credential exposure in logs and browser history.',
+          type: 'invalid_request_error',
+          code: 'query_param_key_rejected',
+          status: 400,
+          retryable: false,
+        },
+      });
+    }
+  }
+  next();
+}
+app.use('/v1', gatedRejectV1QueryKey);
 app.use('/v1', v1Router);
 
 // Provider-onboarding wizard surface (auth bridge + provider endpoints).
@@ -862,6 +897,57 @@ function getProviderCapacitySnapshot() {
     serving,
     capacity_reason: serving > 0 ? 'verified_serving_capacity' : 'no_verified_serving_provider',
   };
+}
+
+// Available GPU TYPES for the public status grid. GPU-TYPE ONLY — no machine
+// names, no node counts. On-demand (burst) types are ALWAYS available; live
+// native nodes contribute their GPU type (deduped) when heartbeating fresh.
+// INVISIBILITY: never reveal that a type is burst-backed or who the vendor is.
+function getAvailableGpuTypes() {
+  const HEARTBEAT_FRESH_MS = 300 * 1000;
+  const byType = new Map(); // gpu_model -> { type, vram_gb, available }
+  const upsert = (gpuModel, vramGb, available = true) => {
+    const type = (gpuModel || '').trim();
+    if (!type) return;
+    const vram = (vramGb != null && Number.isFinite(vramGb) && vramGb > 0) ? Math.round(vramGb) : null;
+    const existing = byType.get(type);
+    if (!existing) {
+      byType.set(type, { type, vram_gb: vram, available: !!available });
+    } else {
+      if (existing.vram_gb == null && vram != null) existing.vram_gb = vram;
+      // If ANY source for this type is live/in-stock, the type is available.
+      if (available) existing.available = true;
+    }
+  };
+  try {
+    const rows = db.prepare(
+      `SELECT gpu_model, gpu_name_detected, vram_gb, gpu_vram_mib, is_burst,
+              last_heartbeat, is_paused, approval_status, status, stock_available
+         FROM providers
+        WHERE deleted_at IS NULL
+          AND is_paused = 0
+          AND COALESCE(approval_status, 'pending') = 'approved'
+          AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')`
+    ).all();
+    for (const r of rows) {
+      const vramGb = (r.vram_gb != null && r.vram_gb > 0)
+        ? r.vram_gb
+        : (r.gpu_vram_mib ? r.gpu_vram_mib / 1024 : null);
+      const gpuModel = r.gpu_name_detected || r.gpu_model;
+      if (r.is_burst) {
+        // Advertise all on-demand types ALWAYS, but availability tracks REAL
+        // RunPod secure-cloud stock (stock_available, refreshed by the burst
+        // stock-refresh cron). Out-of-stock types still show, with available:false.
+        upsert(gpuModel, vramGb, r.stock_available !== 0);
+        continue;
+      }
+      // native: only when heartbeating fresh
+      if (!r.last_heartbeat) continue;
+      const ageMs = Date.now() - new Date(r.last_heartbeat).getTime();
+      if (ageMs < HEARTBEAT_FRESH_MS) upsert(gpuModel, vramGb);
+    }
+  } catch (_) { /* providers table unavailable */ }
+  return Array.from(byType.values()).sort((a, b) => (b.vram_gb || 0) - (a.vram_gb || 0));
 }
 
 const sweepIntervalMsRaw = Number.parseInt(process.env.JOB_SWEEP_INTERVAL_MS || '30000', 10);
@@ -1100,6 +1186,10 @@ app.get('/api/health/detailed', (req, res) => {
         endpoint_reachable: providerCapacity.endpoint_reachable,
         serving: providerCapacity.serving,
       },
+      // Available GPU TYPES for the public status grid (type + vram_gb +
+      // available). GPU-type only — no machine names, no node counts. Lets the
+      // frontend render a GPU grid and drop the raw provider count.
+      gpu_types: getAvailableGpuTypes(),
       capacity: {
         serving_providers: providerCapacity.serving,
         reason: providerCapacity.capacity_reason,
@@ -1154,7 +1244,8 @@ app.get('/api/docs/ui', (req, res) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DCP API — Swagger UI</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <!-- TITOFIX_M2_SWAGGER_SRI: pinned + integrity-protected -->
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" integrity="sha384-wxLW6kwyHktdDGr6Pv1zgm/VGJh99lfUbzSn6HNHBENZlCN7W602k9VkGdxuFvPn" crossorigin="anonymous" />
   <style>
     body { margin: 0; background: #07070E; }
     .topbar { background: #07070E !important; }
@@ -1170,7 +1261,7 @@ app.get('/api/docs/ui', (req, res) => {
 </head>
 <body>
   <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js" integrity="sha384-wmyclcVGX/WhUkdkATwhaK1X1JtiNrr2EoYJ+diV3vj4v6OC5yCeSu+yW13SYJep" crossorigin="anonymous"></script>
   <script>
     window.onload = () => {
       SwaggerUIBundle({

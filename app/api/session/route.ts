@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: true })
   response.cookies.set(SESSION_COOKIE, signedValue, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     path: '/',
     maxAge: COOKIE_MAX_AGE,
     secure: process.env.NODE_ENV === 'production',
@@ -76,7 +76,7 @@ export async function DELETE() {
   const response = NextResponse.json({ ok: true })
   response.cookies.set(SESSION_COOKIE, '', {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     path: '/',
     maxAge: 0,
     secure: process.env.NODE_ENV === 'production',

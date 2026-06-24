@@ -5,7 +5,7 @@ const router = express.Router();
 const db = require('../db');
 const { COST_RATES } = require('./jobs');
 const { sendDataExportReady } = require('../services/emailService');
-const { renterAccountDeletionLimiter, renterDataExportLimiter, registerLimiter } = require('../middleware/rateLimiter');
+const { renterAccountDeletionLimiter, renterDataExportLimiter, registerLimiter, agentRegisterLimiter } = require('../middleware/rateLimiter');
 const {
   getDiscoveryStatus,
   resolveProviders,
@@ -19,8 +19,9 @@ const { isPublicWebhookUrl } = require('../lib/webhook-security');
 const { toRfc3339 } = require('../lib/iso-datetime');
 const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/validateWebhookUrl');
 const { validateBody } = require('../middleware/validate');
-const { renterRegisterSchema, renterTopupSchema } = require('../schemas/topup.schema');
-const { getBearerToken, isAdminRequest } = require('../middleware/auth');
+const { renterRegisterSchema, renterTopupSchema, renterAgentRegisterSchema } = require('../schemas/topup.schema');
+const { getBearerToken, isAdminRequest, looksLikeRenterKey } = require('../middleware/auth');
+const { toRenterProviderView, toRenterJobView } = require('../lib/renter-job-view');
 const analytics = require('../services/analyticsService');
 const conversionFunnel = require('../services/conversionFunnelService');
 
@@ -512,6 +513,157 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// POST /api/renters/agent-register — programmatic zero-human renter signup.
+//
+// Motivation: the human flow (/register) pre-stages a PENDING row and requires
+// a magic-link email click to mint the real key. An autonomous AI agent has no
+// inbox to click, so that step is a hard wall. This endpoint mints a REAL,
+// immediately-usable `dcp-renter-…` key + a MODEST trial credit in ONE call so
+// an agent can go zero→list_gpus→create_pod with no human in the loop.
+//
+// It does NOT touch the human magic-link flow — that path still pre-stages
+// pending rows and finalizes on email click. This is an additive, parallel
+// door, clearly tagged source='agent' for audit/revocation.
+//
+// Abuse posture (this auto-mints keys + money — designed defensively):
+//   • Per-IP rate limit (agentRegisterLimiter: 3/IP/hour) is the primary brake.
+//   • MODEST trial — 20 SAR (2000 halala), not the human 100 SAR. Rationale: it
+//     is enough to prove the loop (list_gpus → a short cheap pod → stop) and run
+//     real inference, but small enough that farming N keys across rotating IPs
+//     yields little; the bigger 100 SAR grant stays gated behind email proof.
+//   • Email OPTIONAL — captured for recovery/audit when given, never required.
+//   • Provenance recorded: source='agent', signup_ip, created_at, and the exact
+//     trial_grant_halala, so any agent account can be found, audited, revoked.
+//   • Reuses the cross-role conflict check; an email already held by a PROVIDER
+//     is rejected (no silent dual-role minting on the machine path).
+//   • Idempotent on a supplied email: a second call with the same email returns
+//     the SAME key without re-crediting the trial (no double-spend).
+// ─────────────────────────────────────────────────────────────────────────
+
+// Agent trial: 20 SAR. Deliberately smaller than the human RENTER_STARTER
+// (100 SAR / 10000 halala) because this path skips email verification.
+const AGENT_TRIAL_HALALA = 2000;
+
+router.post('/agent-register', agentRegisterLimiter, validateBody(renterAgentRegisterSchema), async (req, res) => {
+  try {
+    const cleanEmail = req.body.email ? normalizeEmail(req.body.email) : null;
+    const cleanLabel = normalizeString(req.body.label, { maxLen: 120 });
+    const cleanOrg = normalizeString(req.body.organization, { maxLen: 160 });
+    const cleanUseCase = normalizeString(req.body.use_case, { maxLen: 120 });
+    // req.ip is resolved via the app's hardened `trust proxy` hop count.
+    const signupIp = normalizeString(req.ip, { maxLen: 64 }) || null;
+    const now = new Date().toISOString();
+
+    // If an email was supplied and it already belongs to a PROVIDER, refuse —
+    // we never auto-mint a renter key onto a provider's email on this path.
+    if (cleanEmail) {
+      const conflict = findActiveAccountByEmail(db, cleanEmail);
+      if (conflict && conflict.role === 'provider') {
+        return res.status(409).json({
+          error: 'This email is already registered as a provider. Use a different email or omit it.',
+          code: 'EMAIL_BELONGS_TO_PROVIDER',
+        });
+      }
+      // Idempotent: existing ACTIVE renter for this email → return its key,
+      // do NOT re-credit. (Pending rows from the human flow are also returned
+      // active after we activate+mint below only if they have no real key yet.)
+      const existing = db.get(
+        'SELECT id, status, api_key, balance_halala FROM renters WHERE LOWER(email) = LOWER(?)',
+        cleanEmail
+      );
+      if (existing && existing.status === 'active' && looksLikeRenterKey(existing.api_key)) {
+        return res.status(200).json({
+          success: true,
+          already_registered: true,
+          api_key: existing.api_key,
+          renter_id: existing.id,
+          balance_halala: existing.balance_halala,
+          balance_sar: Number((existing.balance_halala / 100).toFixed(2)),
+          message: 'An account already exists for this email; returning its key. No new trial granted.',
+        });
+      }
+    }
+
+    const apiKey = 'dcp-renter-' + crypto.randomBytes(16).toString('hex');
+    const name = cleanLabel || (cleanEmail ? cleanEmail.split('@')[0] : null) || 'agent';
+    // Synthetic unique email when none supplied — the column is UNIQUE NOT NULL.
+    // The `agent+…@agents.dcp.sa` shape is reserved/non-deliverable so it can
+    // never collide with a real human signup and is obvious in an audit.
+    const emailForRow = cleanEmail || `agent+${crypto.randomBytes(8).toString('hex')}@agents.dcp.sa`;
+
+    let renterId;
+    try {
+      const result = runStatement(
+        `INSERT INTO renters
+           (name, email, api_key, organization, use_case, status,
+            balance_halala, source, signup_ip, trial_grant_halala, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'active', ?, 'agent', ?, ?, ?, ?)`,
+        name, emailForRow, apiKey, cleanOrg || null, cleanUseCase || null,
+        AGENT_TRIAL_HALALA, signupIp, AGENT_TRIAL_HALALA, now, now
+      );
+      renterId = result.lastInsertRowid;
+    } catch (insErr) {
+      // UNIQUE(email) race: a concurrent agent-register with the same email
+      // already minted the row. Return that row's key (no double-credit).
+      if (cleanEmail && /UNIQUE constraint/i.test(insErr.message || '')) {
+        const raced = db.get('SELECT id, api_key, balance_halala FROM renters WHERE LOWER(email) = LOWER(?)', cleanEmail);
+        if (raced && looksLikeRenterKey(raced.api_key)) {
+          return res.status(200).json({
+            success: true,
+            already_registered: true,
+            api_key: raced.api_key,
+            renter_id: raced.id,
+            balance_halala: raced.balance_halala,
+            balance_sar: Number((raced.balance_halala / 100).toFixed(2)),
+            message: 'An account already exists for this email; returning its key. No new trial granted.',
+          });
+        }
+      }
+      throw insErr;
+    }
+
+    // Immutable audit trail of the trial grant (same table the admin credit
+    // path uses), so the trial is reconcilable independent of balance drift.
+    try {
+      runStatement(
+        `INSERT INTO credit_grants (renter_id, amount_halala, reason, granted_by, created_at)
+         VALUES (?, ?, ?, 'agent-register', ?)`,
+        renterId, AGENT_TRIAL_HALALA, 'agent self-serve trial credit', now
+      );
+    } catch (grantErr) {
+      console.error('[renters/agent-register] credit_grants audit insert failed (non-fatal):', grantErr.message);
+    }
+
+    console.log(`[renters/agent-register] minted agent renter id=${renterId} ip=${signupIp || 'unknown'} trial=${AGENT_TRIAL_HALALA}h email=${cleanEmail ? cleanEmail : '(none)'}`);
+
+    res.status(201).json({
+      success: true,
+      api_key: apiKey,
+      renter_id: renterId,
+      trial_credit_halala: AGENT_TRIAL_HALALA,
+      trial_credit_sar: Number((AGENT_TRIAL_HALALA / 100).toFixed(2)),
+      balance_halala: AGENT_TRIAL_HALALA,
+      balance_sar: Number((AGENT_TRIAL_HALALA / 100).toFixed(2)),
+      next: 'Use this api_key as Authorization: Bearer (or x-renter-key). Call GET /api/renters/available-providers to list GPU types, then POST /api/pods to launch one.',
+      message: 'Agent account ready. Real key minted with a 20 SAR trial — no email verification required.',
+    });
+
+    // Fire-and-forget analytics; never block the response on it.
+    try {
+      analytics.renter.signupComplete(renterId, {
+        organization: cleanOrg || null,
+        use_case: cleanUseCase || null,
+        stage: 'agent_self_serve',
+        source: 'agent',
+      }).catch(() => {});
+    } catch (_) { /* analytics best-effort */ }
+  } catch (error) {
+    console.error('[renters/agent-register] error:', error);
+    res.status(500).json({ error: 'Agent registration failed' });
+  }
+});
+
 // GET /api/renters/me?key=API_KEY
 router.get('/me', (req, res) => {
   try {
@@ -863,7 +1015,7 @@ router.get('/me/invoices', (req, res) => {
         job_id: row.job_id,
         amount_halala: totalHalala,
         amount_sar: Number((totalHalala / 100).toFixed(2)),
-        provider_name: row.provider_name || null,
+        // INVISIBILITY: never expose provider machine name. GPU TYPE only.
         gpu_model: row.gpu_model || null,
         job_type: row.job_type,
         duration_minutes: durationMinutes,
@@ -928,12 +1080,12 @@ router.get('/me/invoices/:id/csv', (req, res) => {
     const amountHalala = row.actual_cost_halala ?? row.cost_halala ?? fallbackCostHalala;
     const feeHalala = row.dc1_fee_halala ?? Math.round(amountHalala * 0.25);
 
+    // INVISIBILITY: provider_name (machine/host name) removed from the renter CSV.
     const headers = [
       'invoice_id',
       'job_id',
       'status',
       'job_type',
-      'provider_name',
       'gpu_model',
       'duration_minutes',
       'amount_halala',
@@ -947,7 +1099,6 @@ router.get('/me/invoices/:id/csv', (req, res) => {
       row.job_id,
       row.status,
       row.job_type,
-      row.provider_name || '',
       row.gpu_model || '',
       durationMinutes,
       amountHalala,
@@ -984,11 +1135,14 @@ router.get('/available-providers', async (req, res) => {
         allowStale,
         maxAgeMs,
       });
+      // INVISIBILITY: strip name / peer_id / provider_id / addrs (raw IPs) etc.
+      // via the shared allowlist — a renter sees only GPU TYPE + VRAM + availability.
+      const safeProviders = resolvedProviders
+        .filter((entry) => entry?.found)
+        .map((entry) => toRenterProviderView(buildProviderShapeFromDHTRecord(entry)));
       return res.json({
-        providers: resolvedProviders
-          .filter((entry) => entry?.found)
-          .map((entry) => buildProviderShapeFromDHTRecord(entry)),
-        total: resolvedProviders.filter((entry) => entry?.found).length,
+        providers: safeProviders,
+        total: safeProviders.length,
         discovery_mode: effectiveMode,
         discovery_health: {
           mode: discoveryStatus.mode,
@@ -1006,12 +1160,16 @@ router.get('/available-providers', async (req, res) => {
     // providers and compute liveness from heartbeat age below; exclude only explicit
     // admin/security disables. BUG #4 (booked shown as available): exclude providers
     // already running an active interactive pod.
+    // NATIVE (physical) providers only — heartbeat-gated. Burst/on-demand rows
+    // are handled separately below (they have no daemon, so they never
+    // heartbeat and must NOT be filtered by heartbeat age).
     let providers = db.all(
       `SELECT id, name, gpu_model, gpu_name_detected, gpu_vram_mib, gpu_driver,
               gpu_compute_capability, gpu_cuda_version, gpu_count_reported,
               status, location, run_mode, reliability_score, cached_models, last_heartbeat, p2p_peer_id
        FROM providers
        WHERE is_paused = 0
+         AND COALESCE(is_burst, 0) = 0
          AND last_heartbeat IS NOT NULL
          AND COALESCE(approval_status, 'pending') = 'approved'
          AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')
@@ -1029,6 +1187,50 @@ router.get('/available-providers', async (req, res) => {
       if (!p.last_heartbeat) return false;
       const ageS = Math.floor((Date.now() - new Date(p.last_heartbeat).getTime()) / 1000);
       return ageS < OFFLINE_AGE_S;
+    });
+
+    // ON-DEMAND (burst) GPU TYPES — ALWAYS available. We spin one up on click,
+    // so these read "Available" identical to live native nodes regardless of
+    // heartbeat. INVISIBILITY: the response must NOT reveal that these are
+    // burst-backed or who the vendor is — we surface only GPU TYPE + vram and a
+    // neutral `available: true`. No is_burst, no peer_id, no vendor, no name
+    // beyond the GPU-type label.
+    const burstRows = db.all(
+      `SELECT id, name, gpu_model, gpu_name_detected, gpu_vram_mib, vram_gb,
+              gpu_compute_capability, gpu_cuda_version, location, cached_models,
+              stock_available
+       FROM providers
+       WHERE COALESCE(is_burst, 0) = 1
+         AND is_paused = 0
+         AND COALESCE(approval_status, 'pending') = 'approved'
+         AND COALESCE(status, 'online') NOT IN ('suspended','flagged','rejected','banned','disabled')
+       ORDER BY COALESCE(vram_gb, gpu_vram_mib / 1024) DESC`
+    );
+    const burstProviders = burstRows.map((row) => {
+      const vramGb = (row.vram_gb != null && row.vram_gb > 0)
+        ? row.vram_gb
+        : (row.gpu_vram_mib ? Math.round(row.gpu_vram_mib / 1024) : null);
+      return {
+        id: row.id,
+        peer_id: null,
+        gpu_model: row.gpu_name_detected || row.gpu_model || null,
+        vram_gb: vramGb,
+        vram_mib: vramGb != null ? vramGb * 1024 : (row.gpu_vram_mib || null),
+        gpu_count: 1,
+        compute_capability: row.gpu_compute_capability || null,
+        cuda_version: row.gpu_cuda_version || null,
+        // Honest availability: reflect REAL RunPod secure-cloud stock (refreshed by
+        // /root/dcp-burst/stock-refresh.py cron). We ALWAYS advertise all 6 types,
+        // but an out-of-stock type reads available:false so a launch can't surprise-fail.
+        status: (row.stock_available === 0 ? 'offline' : 'online'),
+        is_live: row.stock_available !== 0,
+        available: row.stock_available !== 0,
+        on_demand: true,
+        location: row.location || null,
+        cached_models: parseCachedModels(row.cached_models),
+        discovery_source: 'on_demand',
+        stale: false,
+      };
     });
 
     let discoveryByPeerId = new Map();
@@ -1054,15 +1256,25 @@ router.get('/available-providers', async (req, res) => {
     }
 
     const now = Date.now();
+    const nativeProviders = providers.map((provider) => {
+      const discovery = discoveryByPeerId.get(String(provider.p2p_peer_id || ''));
+      const shape = (includeP2p && discovery?.found && discovery.provider)
+        ? buildProviderShapeFromDHT(provider, discovery, now)
+        : buildProviderShapeFromSQLiteRow(provider, now);
+      // Native nodes that survived the heartbeat filter are live & rentable.
+      // Add a neutral `available` flag so the frontend grid can use ONE field
+      // across native + on-demand rows. on_demand:false distinguishes physical.
+      return { ...shape, available: shape.is_live !== false, on_demand: false };
+    });
+    // On-demand GPU TYPES are appended AFTER native nodes (already vram-sorted
+    // within each group). All 6 burst types always appear as available.
+    // INVISIBILITY: both native + burst rows flow through the shared allowlist
+    // so neither machine name (providers.name), peer_id, provider_id, addrs
+    // (raw IPs), driver_version nor any vendor field can ride out to a renter.
+    const allProviders = [...nativeProviders, ...burstProviders].map(toRenterProviderView);
     res.json({
-      providers: providers.map((provider) => {
-        const discovery = discoveryByPeerId.get(String(provider.p2p_peer_id || ''));
-        if (includeP2p && discovery?.found && discovery.provider) {
-          return buildProviderShapeFromDHT(provider, discovery, now);
-        }
-        return buildProviderShapeFromSQLiteRow(provider, now);
-      }),
-      total: providers.length,
+      providers: allProviders,
+      total: allProviders.length,
       discovery_mode: effectiveMode,
       discovery_health: {
         mode: discoveryStatus.mode,
@@ -1354,6 +1566,9 @@ router.post('/verify-otp', loginEmailLimiter, async (req, res) => {
 });
 
 router.post('/login-email', loginEmailLimiter, async (req, res) => {
+  // DCP-896 SECURITY FIX (renter): disabled — previously returned the full API key for an email alone (no OTP/password).
+  return res.status(410).json({ error: 'This endpoint has been disabled for security. Use OTP login (/send-otp + /verify-otp).', code: 'LOGIN_EMAIL_DISABLED' });
+  // eslint-disable-next-line no-unreachable
   try {
     const { email } = req.body;
     const cleanEmail = normalizeEmail(email);
@@ -2018,10 +2233,12 @@ router.get('/me/jobs/:jobId', (req, res) => {
     const renter = { id: renterId };
 
     const { jobId } = req.params;
+    // INVISIBILITY: do NOT select p.name (machine/host name). The renter only
+    // ever sees GPU TYPE (p.gpu_model) + renter-relevant billing fields.
     const job = db.get(`
       SELECT j.*,
-             p.name AS provider_name,
-             br.id             AS billing_id,
+             p.gpu_model       AS provider_gpu_model,
+             p.gpu_vram_mib    AS provider_gpu_vram_mib,
              br.gross_cost_halala,
              br.platform_fee_halala,
              br.provider_earning_halala,
@@ -2036,7 +2253,26 @@ router.get('/me/jobs/:jobId', (req, res) => {
     `, jobId, jobId, renter.id);
 
     if (!job) return res.status(404).json({ error: 'Job not found' });
-    return res.json({ job });
+
+    // Strict renter allowlist: drops task_spec / container_spec / burst_external_id
+    // / endpoint_url / *_host_port etc. Billing fields are renter-relevant and
+    // passed via `extra` (the BANNED_KEYS guard still blocks any infra key).
+    const safeJob = toRenterJobView(job, {
+      gpu: {
+        gpu_model: job.provider_gpu_model || null,
+        vram_gb: job.provider_gpu_vram_mib ? Math.round(job.provider_gpu_vram_mib / 1024) : null,
+      },
+      extra: {
+        gross_cost_halala: job.gross_cost_halala ?? null,
+        platform_fee_halala: job.platform_fee_halala ?? null,
+        provider_earning_halala: job.provider_earning_halala ?? null,
+        currency: job.currency ?? null,
+        billing_status: job.billing_status ?? null,
+        token_count: job.token_count ?? null,
+        duration_ms: job.duration_ms ?? null,
+      },
+    });
+    return res.json({ job: safeJob });
   } catch (error) {
     console.error('[renters/me/jobs/:jobId]', error);
     return res.status(500).json({ error: 'Failed to fetch job' });

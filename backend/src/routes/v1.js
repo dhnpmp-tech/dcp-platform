@@ -22,6 +22,7 @@ const rateLimiterMiddleware = require('../middleware/rateLimiter');
 const {
   vllmCompleteLimiter,
   vllmStreamLimiter,
+  modelCatalogLimiter,
 } = rateLimiterMiddleware;
 const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
 const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId, modelIdsMatch } = require('../lib/model-aliases');
@@ -752,7 +753,7 @@ function resolveEffectiveMinVramMb(requestedModelId, registryMinVramMb) {
 
 // ── GET /v1/models — OpenAI-compatible model list ──────────────────────────
 
-router.get('/models', (req, res) => {
+router.get('/models', modelCatalogLimiter, (req, res) => {
   try {
     const columns = getModelRegistryColumns();
     if (columns.size === 0 || !columns.has('model_id')) {
@@ -952,6 +953,19 @@ router.get('/models', (req, res) => {
 });
 
 // ── POST /v1/chat/completions — unified streaming + non-streaming ──────────
+
+// Default output budget when the caller specifies neither `max_tokens` nor
+// `max_completion_tokens`. SITE-15 fix: thinking-capable models (qwen3:4b,
+// qwen3:8b, QwQ, DeepSeek-R1) spend output tokens on internal reasoning before
+// emitting any visible answer. With the legacy 512 floor a reasoning-heavy
+// prompt burns the entire budget on the internal monologue and returns
+// content="" with finish_reason="length" (a non-answer). The /no_think soft
+// switch is unreliable on the live Ollama build, so the robust, engine-agnostic
+// guard is a higher default budget for thinking models so reasoning can never
+// starve the answer. Callers who pass an explicit budget keep full control.
+const DEFAULT_MAX_TOKENS = 512;
+const DEFAULT_MAX_TOKENS_THINKING = 2048;
+const MAX_TOKENS_HARD_CAP = 8192;
 
 // Dynamic timeout: 30s base + scales with max_tokens (14B model at ~9 tok/s)
 const PROXY_TIMEOUT_BASE_MS = 30000;
@@ -1708,12 +1722,55 @@ function canonicalizeReasoningField(obj) {
 // Remove reasoning from a message/delta entirely: strip <think> blocks from
 // content and drop any separated reasoning field. Used when thinking is
 // disabled (the default / "Show reasoning" toggle off).
+//
+// SITE-15 salvage: a thinking model can exhaust its budget mid-reasoning and
+// return content="" with the answer (or the bulk of its thought) sitting in the
+// separated reasoning field. Blindly deleting reasoning then leaves the renter
+// an empty completion — a non-answer. So when stripping the content yields
+// nothing AND reasoning text exists, promote that reasoning (cleaned of any
+// nested <think> tags) into content rather than shipping "". A real answer the
+// model actually produced is always better than an empty body.
 function stripReasoningFromObject(obj) {
   if (!obj || typeof obj !== 'object') return;
-  if (typeof obj.content === 'string') obj.content = stripThinkBlocks(obj.content);
+  const strippedContent =
+    typeof obj.content === 'string' ? stripThinkBlocks(obj.content) : obj.content;
+  const reasoningText =
+    (typeof obj.reasoning === 'string' && obj.reasoning) ||
+    (typeof obj.reasoning_content === 'string' && obj.reasoning_content) ||
+    (typeof obj.thinking === 'string' && obj.thinking) ||
+    '';
+  const visible = typeof strippedContent === 'string' ? strippedContent.trim() : '';
+  obj.content =
+    visible.length === 0 && reasoningText.trim().length > 0
+      ? stripThinkBlocks(reasoningText)
+      : strippedContent;
   delete obj.reasoning;
   delete obj.reasoning_content;
   delete obj.thinking;
+}
+
+// Neutral system_fingerprint emitted on every /v1 response. The upstream engine
+// stamps its own engine-revealing value (e.g. Ollama → "fp_ollama"), which would
+// disclose the inference engine to every caller. DCP sells a sovereign,
+// engine-agnostic runtime, so we overwrite — never delete (some OpenAI SDKs
+// expect the field) — with a neutral DCP value. Served model names (qwen…) are
+// legitimate and left untouched.
+const DCP_SYSTEM_FINGERPRINT = 'fp_dcp';
+
+// Overwrite system_fingerprint with the neutral DCP value and scrub any other
+// engine tell echoed by the upstream in the response body. Mutates `obj` in
+// place. Safe to call on a chat.completion body, a chat.completion.chunk, or a
+// freshly-built response object. Idempotent.
+function neutralizeEngineFingerprint(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  // Always present + neutral, regardless of what the engine sent.
+  obj.system_fingerprint = DCP_SYSTEM_FINGERPRINT;
+  // Drop non-standard engine-identifying top-level fields some engines append
+  // (llama.cpp `system_fingerprint` is handled above; these are extra tells).
+  // `model` (qwen…) and standard OpenAI fields are intentionally preserved.
+  for (const key of ['__verbose', 'system', 'engine', 'backend', 'served_by']) {
+    if (key in obj) delete obj[key];
+  }
 }
 
 // Stateful <think>…</think> stripper for streaming. Inline reasoning tags can
@@ -2134,7 +2191,16 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
-    const maxTokens = toFiniteInt(req.body?.max_tokens, { min: 1, max: 8192 }) || 512;
+    // Output budget. Accept both `max_tokens` (legacy) and `max_completion_tokens`
+    // (current OpenAI SDKs) — whichever the caller sent wins. When neither is
+    // provided, choose a default that won't let a thinking model's reasoning
+    // starve the visible answer (see DEFAULT_MAX_TOKENS_THINKING note above).
+    const requestedMaxTokens =
+      toFiniteInt(req.body?.max_tokens, { min: 1, max: MAX_TOKENS_HARD_CAP }) ??
+      toFiniteInt(req.body?.max_completion_tokens, { min: 1, max: MAX_TOKENS_HARD_CAP });
+    const maxTokens =
+      requestedMaxTokens ??
+      (isThinkingCapableModel(model) ? DEFAULT_MAX_TOKENS_THINKING : DEFAULT_MAX_TOKENS);
     const temperature = toFiniteNumber(req.body?.temperature, { min: 0, max: 2 }) ?? 0.7;
     const wantsStream = !!req.body?.stream;
 
@@ -2990,6 +3056,9 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           ...resultBody,
           usage: usageForResponse,
         };
+        // Invisibility: overwrite the engine-revealing system_fingerprint
+        // (e.g. "fp_ollama") with the neutral DCP value on this proxied body.
+        neutralizeEngineFingerprint(finalBody);
         // H6 — cache successful proxy responses keyed by Idempotency-Key so
         // a retry within the TTL replays without re-billing.
         if (idempotencyKey) {
@@ -3095,6 +3164,10 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
                 parsed.usage = usageWithPricing;
                 finalUsage = usageWithPricing;
               }
+              // Invisibility: the engine stamps system_fingerprint on each SSE
+              // chunk too (e.g. "fp_ollama"). Overwrite with the neutral DCP
+              // value before re-serializing so no chunk leaks the engine.
+              neutralizeEngineFingerprint(parsed);
               transformedLines.push(`data: ${JSON.stringify(parsed)}`);
             } catch (_) {
               transformedLines.push(rawLine);
@@ -3160,6 +3233,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
                 object: 'chat.completion.chunk',
                 created: Math.floor(Date.now() / 1000),
                 model: modelReq.model_id,
+                system_fingerprint: DCP_SYSTEM_FINGERPRINT,
                 choices: [],
                 usage: synthUsage,
               };
@@ -3446,6 +3520,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           object: 'chat.completion',
           created: Math.floor(Date.now() / 1000),
           model: modelReq.model_id,
+          system_fingerprint: DCP_SYSTEM_FINGERPRINT,
           choices: [{
             index: 0,
             message: { role: 'assistant', content: text },
@@ -3537,4 +3612,7 @@ module.exports.__test = {
   createStreamingThinkStripper,
   stripThinkBlocks,
   proxyToProvider,
+  // Invisibility — engine fingerprint neutralization
+  neutralizeEngineFingerprint,
+  DCP_SYSTEM_FINGERPRINT,
 };

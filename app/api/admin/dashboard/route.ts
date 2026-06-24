@@ -27,7 +27,9 @@ function adminHeaders(request: NextRequest): HeadersInit {
   return headers;
 }
 
-// Generic fetch — no auth (intelligence / reconciliation / jobs are open routers)
+// Generic fetch — no auth. NOTE: the admin dashboard no longer uses this for
+// intelligence/reconciliation/jobs (those routers enforce requireAdminAuth);
+// they go through adminFetch so the caller's x-admin-token is forwarded.
 async function safeFetch(url: string) {
   try {
     const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
@@ -64,13 +66,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Admin access denied' }, { status: dashResult.__status });
   }
 
-  const [fleet, reconciliation, activeJobsRaw] = await Promise.all([
-    safeFetch(`${BACKEND_URL}/api/intelligence/fleet`),
-    safeFetch(`${BACKEND_URL}/api/reconciliation/summary`),
-    safeFetch(`${BACKEND_URL}/api/jobs/active`),
+  // These routers enforce requireAdminAuth on the backend, so the caller's
+  // admin token must be forwarded or they 401 and the panels render empty.
+  const [fleetResult, reconciliationResult, activeJobsResult] = await Promise.all([
+    adminFetch(`${BACKEND_URL}/api/intelligence/fleet`, request),
+    adminFetch(`${BACKEND_URL}/api/reconciliation/summary`, request),
+    adminFetch(`${BACKEND_URL}/api/jobs/active`, request),
   ]);
 
-  const activeJobs = activeJobsRaw?.jobs ?? null;
+  const fleet = fleetResult.data;
+  const reconciliation = reconciliationResult.data;
+  const activeJobs = activeJobsResult.data?.jobs ?? null;
 
   return NextResponse.json({
     dashboard: dashResult.data,
