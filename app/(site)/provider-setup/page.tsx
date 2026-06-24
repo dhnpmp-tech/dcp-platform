@@ -7,8 +7,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '../lib/i18n'
-import { getApiBase, getProviderKey } from '@/lib/api'
+import { getApiBase } from '@/lib/api'
+import { sealKeyExchange } from '@/app/lib/auth'
 import './provider-setup.css'
+
+// Pre-auth calls (key validation + magic-link request) must hit the un-secured
+// /api proxy directly: they run BEFORE the sealed-key cookie exists, so they
+// cannot go through /api/secure (which getApiBase() returns post-migration).
+const PRE_AUTH_API_BASE = '/api'
 
 // ── Earnings estimate constants. The exact GPU profile is verified by the daemon after install. ──
 const PER_HOUR = [1.15, 1.6, 2.2] as const
@@ -25,7 +31,15 @@ function isVerifiedProviderStatus(status: string): boolean {
 
 function providerKeyFromStorage(): string {
   if (typeof window === 'undefined') return ''
-  return getProviderKey() || ''
+  // DELIBERATE EXCEPTION to the sealed-cookie migration: the installer command
+  // below is a curl/iwr the provider copy-pastes onto their OWN machine — that
+  // process runs OUTSIDE the browser and cannot carry the httpOnly cookie, so
+  // it needs a real credential in the URL. Read the raw key straight from
+  // localStorage (NOT getProviderKey(), which returns the sentinel post-flip).
+  // The long-term fix is the single-use ?token= flow that /provider/rigs uses
+  // (PROV-8); that token migration is tracked separately. Until then the raw
+  // key remains in the install command only (never in dashboard API calls).
+  return localStorage.getItem('dc1_provider_key') || ''
 }
 
 function roundTo10(n: number): number {
@@ -103,12 +117,14 @@ export default function V2ProviderSetup() {
     setAuthBusy(true)
     setAuthError('')
     try {
-      const res = await fetch(`${getApiBase()}/providers/me?key=${encodeURIComponent(clean)}`, {
+      const res = await fetch(`${PRE_AUTH_API_BASE}/providers/me?key=${encodeURIComponent(clean)}`, {
         headers: { 'x-provider-key': clean },
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.provider) throw new Error(data.error || 'Invalid provider API key.')
       localStorage.setItem('dc1_provider_key', clean)
+      // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept for rollback).
+      await sealKeyExchange('provider', clean)
       setProviderKey(clean)
       setApiKeyInput(clean)
       if (data.provider.name) setName(data.provider.name)
@@ -131,7 +147,7 @@ export default function V2ProviderSetup() {
     }
     setAuthBusy(true)
     try {
-      const res = await fetch(`${getApiBase()}/providers/send-otp`, {
+      const res = await fetch(`${PRE_AUTH_API_BASE}/providers/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),

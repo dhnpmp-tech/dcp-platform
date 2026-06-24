@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, type CSSProperties } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { setSession } from '@/app/lib/auth'
+import { setSession, sealKeyExchange } from '@/app/lib/auth'
 
 // /auth/verify?token=... — the destination of the magic link in the email.
 // Reads the token, exchanges it for an API key + role via /api/auth/magic-link,
@@ -125,6 +125,8 @@ function VerifyPageInner() {
             userName: data.renter?.name,
             email: data.renter?.email,
           })
+          // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept for rollback).
+          await sealKeyExchange('renter', data.api_key)
           // Honor a pre-login redirect stashed by /login (sessionStorage
           // key set in app/login/page.tsx handleSendMagicLink). Falls back
           // to the renter marketplace if no pending redirect exists or it
@@ -148,6 +150,8 @@ function VerifyPageInner() {
             userName: data.provider?.name,
             email: data.provider?.email,
           })
+          // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept for rollback).
+          await sealKeyExchange('provider', data.api_key)
           // Return the provider into the v2 wizard to continue setup. The key
           // lives in localStorage (survives opening the email in a new tab),
           // and the wizard skips to step 2 when a key is present. We still

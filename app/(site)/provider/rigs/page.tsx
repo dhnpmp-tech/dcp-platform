@@ -146,6 +146,10 @@ export default function ProviderRigsPage() {
   const [providerName, setProviderName] = useState('')
   const [providerEmail, setProviderEmail] = useState('')
   const [providerKey, setProviderKey] = useState('')
+  // Raw key straight from localStorage, used ONLY for the off-browser installer
+  // curl/?key= download fallback (which cannot carry the httpOnly cookie). All
+  // dashboard API calls use the sentinel + sealed-cookie proxy instead.
+  const [rawProviderKey, setRawProviderKey] = useState('')
   const [setupToken, setSetupToken] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
   const [copyNote, setCopyNote] = useState('')
@@ -196,6 +200,11 @@ export default function ProviderRigsPage() {
       return
     }
     setProviderKey(key)
+    // Capture the real key (if still present via dual-write) for the installer
+    // download fallback; post-de-persist this is empty and the ?token= path is used.
+    if (typeof localStorage !== 'undefined') {
+      setRawProviderKey(localStorage.getItem('dc1_provider_key') || '')
+    }
     let cancelled = false
     setLoadState('loading')
     setError('')
@@ -268,20 +277,25 @@ export default function ProviderRigsPage() {
   // PROV-8: prefer the short-lived ?token= URL (long-lived key never appears in
   // any link). Fall back to ?key= only until the token has been minted, keeping
   // the page usable on the first paint / if the mint call failed.
+  // PROV-8 + sealed-cookie: prefer the short-lived ?token= URL. The ?key=
+  // fallback uses rawProviderKey (the real key from localStorage) NOT
+  // providerKey (the sentinel post-flip), because the installer curl runs on
+  // the provider's own machine and cannot carry the httpOnly cookie. Once the
+  // raw key is de-persisted, only the ?token= path remains (which is the goal).
   const setupPath = setupToken
     ? `/api/providers/download/setup?token=${encodeURIComponent(setupToken)}&os=linux`
-    : providerKey
-      ? `/api/providers/download/setup?key=${encodeURIComponent(providerKey)}&os=linux`
+    : rawProviderKey
+      ? `/api/providers/download/setup?key=${encodeURIComponent(rawProviderKey)}&os=linux`
       : '/auth?role=provider&method=apikey&redirect=/provider/rigs'
   // With a token the URL is already safe to show; without one we still mask the
   // raw key so it never lands in the rendered DOM/href.
-  const maskedKey = providerKey ? `dcp-provider-…${providerKey.slice(-4)}` : ''
+  const maskedKey = rawProviderKey ? `dcp-provider-…${rawProviderKey.slice(-4)}` : ''
   const maskedPath = setupToken
     ? setupPath
-    : providerKey
+    : rawProviderKey
       ? `/api/providers/download/setup?key=${maskedKey}&os=linux`
       : setupPath
-  const setupCmd = setupToken || providerKey
+  const setupCmd = setupToken || rawProviderKey
     ? `curl -fsSL "${setupPath}" -o dcp-setup.sh && bash dcp-setup.sh`
     : ''
 

@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
-const API_BASE = '/api'
+// Sealed-cookie migration (H3): point the live SSE stream at the authenticated
+// /api/secure proxy. EventSource cannot send custom headers, but it DOES send
+// the same-origin cookies, so the proxy verifies __dc1_session, unseals the
+// real renter key, rewrites the ?key= sentinel, and streams the SSE response
+// straight through (the proxy passes upstream.body, it does not buffer).
+const API_BASE = '/api/secure'
 
 const SAR_TO_USD = 1 / 3.75
 

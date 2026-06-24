@@ -271,7 +271,10 @@ function NotifyMeButton({ gpuType, label }: { gpuType: string; label: string }) 
     if (!renterKey) return // anonymous visitors are routed to /auth via the link below
     setState('sending')
     try {
-      const res = await fetch('/api/pods/notify-me', {
+      // Route through the authenticated /api/secure proxy: the sealed cookie
+      // authenticates and the real renter key is injected server-side. The
+      // sentinel header we send is stripped/overwritten by the proxy.
+      const res = await fetch('/api/secure/pods/notify-me', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-renter-key': renterKey },
         body: JSON.stringify({ gpu_type: gpuType }),

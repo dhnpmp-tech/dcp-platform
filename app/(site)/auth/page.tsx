@@ -8,7 +8,7 @@ import './auth.css'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { setSession } from '@/app/lib/auth'
+import { setSession, sealKeyExchange } from '@/app/lib/auth'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 
 type AuthTab = 'signin' | 'signup'
@@ -130,12 +130,16 @@ function AuthInner() {
         if (!res.ok || !data.renter) throw new Error(data.error || 'Invalid renter API key.')
         localStorage.setItem('dc1_renter_key', key)
         await setSession({ role: 'renter', userName: data.renter.name, email: data.renter.email })
+        // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept for rollback).
+        await sealKeyExchange('renter', key)
       } else {
         const res = await fetch(`${API_BASE}/providers/me?key=${encodeURIComponent(key)}`)
         const data = await res.json().catch(() => ({}))
         if (!res.ok || !data.provider) throw new Error(data.error || 'Invalid provider API key.')
         localStorage.setItem('dc1_provider_key', key)
         await setSession({ role: 'provider', userName: data.provider.name, email: data.provider.email })
+        // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept for rollback).
+        await sealKeyExchange('provider', key)
       }
       router.push(nextPath)
     } catch (err) {
@@ -162,6 +166,8 @@ function AuthInner() {
       if (!res.ok) throw new Error(data.error || 'Invalid admin API key.')
       localStorage.setItem('dc1_admin_token', key)
       await setSession({ role: 'admin', userName: 'Admin' })
+      // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept for rollback).
+      await sealKeyExchange('admin', key)
       router.push(adminNextPath)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Admin sign-in failed.')

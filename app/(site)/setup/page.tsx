@@ -72,7 +72,12 @@ export default function SetupPage() {
           throw new Error(data.error || 'Stored renter key could not be verified.')
         }
         if (cancelled) return
-        setApiKey(key)
+        // Display the REAL key (from localStorage during dual-write), NOT the
+        // sentinel that getRenterKey() returns — this page renders the key and a
+        // copy-paste `Authorization: Bearer <key>` curl the renter runs off-browser.
+        const realKey =
+          (typeof localStorage !== 'undefined' && localStorage.getItem('dc1_renter_key')) || ''
+        setApiKey(realKey)
         setKeyStatus('ready')
       } catch (err) {
         if (cancelled) return

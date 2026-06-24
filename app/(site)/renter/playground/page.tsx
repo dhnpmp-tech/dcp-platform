@@ -289,11 +289,18 @@ export default function PlaygroundPage() {
     let requestCostSar = 0
 
     try {
+      // /v1 is the OpenAI-compat proxy and is OUT OF SCOPE for the sealed-cookie
+      // migration — it is NOT routed through /api/secure, so its Bearer needs the
+      // REAL renter key, not the sentinel that getRenterKey() now returns. Read it
+      // straight from localStorage during the dual-write window. (Migrating /v1 to
+      // a cookie-backed path is tracked separately.)
+      const v1Key =
+        (typeof localStorage !== 'undefined' && localStorage.getItem('dc1_renter_key')) || key
       const res = await fetch('/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${v1Key}`,
         },
         body: JSON.stringify({
           model,

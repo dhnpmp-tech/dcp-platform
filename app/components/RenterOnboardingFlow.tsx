@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useLanguage } from '../lib/i18n'
+import { sealKeyExchange } from '../lib/auth'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -675,6 +676,9 @@ export default function RenterOnboardingFlow() {
     } catch {
       // ignore storage errors
     }
+    // Seal the raw key into the httpOnly cookie (dual-write; localStorage kept
+    // for rollback). Fire-and-forget — failure leaves the localStorage path.
+    void sealKeyExchange('renter', token)
     setStep('usecase')
   }
 

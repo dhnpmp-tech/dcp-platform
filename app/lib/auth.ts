@@ -27,9 +27,31 @@ export async function setSession(metadata: SessionMetadata): Promise<void> {
   }
 }
 
+/**
+ * Seals the raw API key into the httpOnly __Host-dc1_kc cookie via
+ * /api/auth/exchange AND mints the __dc1_session role cookie in one call.
+ * Supersedes the /api/session-only mint. Returns false (without throwing) on
+ * any failure so callers keep their existing localStorage dual-write path —
+ * this is what makes the staged rollout safe and instantly rollback-able.
+ */
+export async function sealKeyExchange(role: AuthRole, key: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, key }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 /** Clears the session cookie, localStorage keys, and redirects to home. */
 export async function clearSession(): Promise<void> {
   await fetch('/api/session', { method: 'DELETE' }).catch(() => {})
+  // Also clear the sealed-key cookie minted by /api/auth/exchange.
+  await fetch('/api/auth/exchange', { method: 'DELETE' }).catch(() => {})
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEYS.renter)
     localStorage.removeItem(STORAGE_KEYS.provider)
