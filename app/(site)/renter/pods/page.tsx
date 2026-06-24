@@ -43,6 +43,49 @@ const DEFAULT_IMAGE = 'pytorch'
 
 const ACTIVE_POD_STATUSES = new Set(['queued', 'assigned', 'pulling', 'running', 'starting'])
 
+// ── GPU selector constants ────────────────────────────────────────────
+// Fixed SAR↔USD peg (3.75 SAR = 1 USD). USD is a SECONDARY, approximate
+// display only — SAR is the source of truth and the billed currency.
+const SAR_TO_USD = 1 / 3.75
+// VRAM band boundary. ≤ this → "Workhorse & consumer"; above → "Data-center".
+const VRAM_BAND_GB = 32
+// GPU types we mark with a quiet "Best value" ribbon — the cheapest strong pick
+// in each band. Keyed by gpu_model substring (case-insensitive), recomputed at
+// render against live stock so we never ribbon an out-of-stock type.
+const VALUE_PICK_MATCHES = ['rtx 3090', 'h100']
+
+type SortKey = 'recommended' | 'price-asc' | 'price-desc' | 'vram-desc' | 'vram-asc' | 'name'
+type AvailFilter = 'available' | 'priced'
+
+// VRAM band keys + their bilingual labels/subtitles.
+const BANDS: { key: 'workhorse' | 'datacenter'; en: string; ar: string; subEn: string; subAr: string }[] = [
+  { key: 'workhorse', en: 'Workhorse & consumer', ar: 'للعمل اليومي والمستهلك', subEn: '32 GB and under', subAr: '32 غيغابايت وأقل' },
+  { key: 'datacenter', en: 'Data-center & high-VRAM', ar: 'مراكز البيانات وذاكرة عالية', subEn: '48 GB and above', subAr: '48 غيغابايت فأكثر' },
+]
+
+// Optional "Guide me by workload" presets. Each sets a VRAM floor + a preferred
+// gpu_model substring; the recommendation resolves against live stock at click.
+interface Workload {
+  key: string
+  titleEn: string
+  titleAr: string
+  descEn: string
+  descAr: string
+  floor: number
+  prefer: string // gpu_model substring of the preferred pick
+}
+const WORKLOADS: Workload[] = [
+  { key: 'finetune', titleEn: 'Fine-tune 7–13B', titleAr: 'ضبط 7–13B', descEn: 'LoRA / QLoRA on a small model', descAr: 'LoRA / QLoRA على نموذج صغير', floor: 24, prefer: 'rtx 4090' },
+  { key: 'infer', titleEn: 'Inference / serving', titleAr: 'الاستدلال / الخدمة', descEn: 'Run a model, batch or API', descAr: 'تشغيل نموذج، دفعات أو API', floor: 24, prefer: 'rtx 3090' },
+  { key: 'diffusion', titleEn: 'Image / video gen', titleAr: 'توليد الصور / الفيديو', descEn: 'SDXL, ComfyUI, video diffusion', descAr: 'SDXL وComfyUI وتوليد الفيديو', floor: 24, prefer: 'rtx 4090' },
+  { key: 'notebook', titleEn: 'Notebook / dev', titleAr: 'دفتر / تطوير', descEn: 'Prototyping, light experiments', descAr: 'نماذج أولية وتجارب خفيفة', floor: 8, prefer: 'rtx 3090' },
+  { key: 'largetrain', titleEn: 'Large training', titleAr: 'تدريب كبير', descEn: 'Full fine-tune, 30B+ models', descAr: 'ضبط كامل، نماذج 30B+', floor: 80, prefer: 'a100' },
+  { key: 'frontier', titleEn: 'Frontier-scale', titleAr: 'نطاق متقدم', descEn: '100B+, long-context training', descAr: '100B+ وسياق طويل', floor: 141, prefer: 'h200' },
+]
+
+// VRAM slider stops (GB). The slider snaps to the nearest stop.
+const VRAM_STOPS = [0, 8, 12, 16, 24, 32, 48, 80, 94, 141, 180]
+
 // ── Types ─────────────────────────────────────────────────────────────
 interface Pod {
   id: number | string
@@ -62,18 +105,32 @@ interface Pod {
 
 interface AvailableProvider {
   id: number
-  // GPU TYPE + VRAM only — never a machine name, never a provider id, and no
-  // native/on-demand distinction. Every option reads identically: GPU type,
-  // VRAM, availability. We deliberately do NOT carry the on_demand flag so it
-  // cannot drive any label or styling.
+  // GPU TYPE + VRAM + price + availability ONLY — never a machine name, never a
+  // provider id/count/region, and NEVER the on_demand flag. on_demand is
+  // deliberately not carried so it can never drive a label or styling (vendor
+  // invisibility). sar_per_hour is the REAL cost-plus price, present on every
+  // row; USD is derived locally as a secondary ≈ display.
   gpu_model: string
   vram_gb: number
   available: boolean
+  sar_per_hour: number | null
   status: 'online' | 'offline'
 }
 
+// A distinct GPU TYPE, deduped from the (possibly repeating) provider rows.
+// This is the unit the selector renders and the unit we POST as gpu_type.
+interface GpuType {
+  gpu_model: string
+  vram_gb: number
+  available: boolean
+  sar_per_hour: number | null
+  band: 'workhorse' | 'datacenter'
+}
+
 interface LaunchState {
-  providerId: string
+  // Selected GPU TYPE (the provider gpu_model string POSTed as gpu_type).
+  // '' = auto-pick (backend chooses any available type).
+  gpuType: string
   durationMinutes: number
   notebookToken: string
   // Selected preset value, or CUSTOM_IMAGE_OPTION to use customImage instead.
@@ -168,6 +225,114 @@ function statusClass(status: string): string {
   return 'revoked'
 }
 
+// ── GPU-selector helpers ───────────────────────────────────────────────
+// Brand eyebrow derived from the raw gpu_model. Apple Silicon vs NVIDIA only —
+// no vendor/provider identity, just the silicon family the card already shows.
+function gpuBrand(gpuModel: string): string {
+  return /apple/i.test(gpuModel) ? 'Apple' : 'NVIDIA'
+}
+
+function bandForVram(vramGb: number): 'workhorse' | 'datacenter' {
+  return vramGb <= VRAM_BAND_GB ? 'workhorse' : 'datacenter'
+}
+
+// Format SAR to 2 dp (cost-plus prices like 2.5 → "2.50").
+function fmtSar(v: number): string {
+  return v.toFixed(2)
+}
+// Approximate USD via the fixed peg — secondary display only.
+function fmtUsd(sar: number): string {
+  return (sar * SAR_TO_USD).toFixed(2)
+}
+
+function isValuePick(gpuModel: string): boolean {
+  const m = gpuModel.toLowerCase()
+  return VALUE_PICK_MATCHES.some((needle) => m.includes(needle))
+}
+
+// Snap an arbitrary slider value to the nearest defined VRAM stop.
+function snapVram(value: number): number {
+  let best = VRAM_STOPS[0]
+  for (const stop of VRAM_STOPS) {
+    if (Math.abs(stop - value) < Math.abs(best - value)) best = stop
+  }
+  return best
+}
+
+// Dedupe the (repeating) provider rows down to distinct GPU TYPES by gpu_model.
+// A type is `available` if ANY row of that type is available; price/vram are
+// taken from the first row (consistent per type). Sort cheapest-first within a
+// type later; unpriced (none expected now) sinks last.
+function dedupeGpuTypes(providers: AvailableProvider[]): GpuType[] {
+  const byModel = new Map<string, GpuType>()
+  for (const p of providers) {
+    const key = p.gpu_model
+    const existing = byModel.get(key)
+    if (existing) {
+      // Promote availability if any row is available; keep first non-null price.
+      if (p.available) existing.available = true
+      if (existing.sar_per_hour == null && p.sar_per_hour != null) existing.sar_per_hour = p.sar_per_hour
+    } else {
+      byModel.set(key, {
+        gpu_model: p.gpu_model,
+        vram_gb: p.vram_gb,
+        available: p.available,
+        sar_per_hour: p.sar_per_hour,
+        band: bandForVram(p.vram_gb),
+      })
+    }
+  }
+  return Array.from(byModel.values())
+}
+
+// price value used for sorting; unpriced sinks to the end.
+function priceValue(g: GpuType): number {
+  return g.sar_per_hour == null ? Infinity : g.sar_per_hour
+}
+
+function sortGpuTypes(arr: GpuType[], sort: SortKey): GpuType[] {
+  const a = [...arr]
+  const cmp: Record<SortKey, (x: GpuType, y: GpuType) => number> = {
+    'price-asc': (x, y) => priceValue(x) - priceValue(y),
+    'price-desc': (x, y) => priceValue(y) - priceValue(x),
+    'vram-desc': (x, y) => y.vram_gb - x.vram_gb,
+    'vram-asc': (x, y) => x.vram_gb - y.vram_gb,
+    name: (x, y) => displayGpuType(x.gpu_model).localeCompare(displayGpuType(y.gpu_model)),
+    // Recommended: available first, then value-picks, then cheapest.
+    recommended: (x, y) => {
+      const order = (g: GpuType) => (g.available ? 0 : 1)
+      if (order(x) !== order(y)) return order(x) - order(y)
+      const vx = isValuePick(x.gpu_model) ? 0 : 1
+      const vy = isValuePick(y.gpu_model) ? 0 : 1
+      if (vx !== vy) return vx - vy
+      return priceValue(x) - priceValue(y)
+    },
+  }
+  return a.sort(cmp[sort])
+}
+
+// Apply the toolbar filters (search text, min-VRAM, availability chips).
+function filterGpuTypes(
+  arr: GpuType[],
+  opts: { search: string; minVram: number; filters: Set<AvailFilter> },
+): GpuType[] {
+  const q = opts.search.trim().toLowerCase()
+  return arr.filter((g) => {
+    if (q) {
+      const hay = `${displayGpuType(g.gpu_model)} ${gpuBrand(g.gpu_model)} ${g.vram_gb}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    if (opts.minVram > 0 && g.vram_gb < opts.minVram) return false
+    if (opts.filters.size) {
+      let pass = false
+      if (opts.filters.has('available') && g.available) pass = true
+      if (opts.filters.has('priced') && g.sar_per_hour != null && g.available) pass = true
+      if (!pass) return false
+    }
+    return true
+  })
+}
+
 export default function RenterPodsPage() {
   const { lang, toggle } = useV2()
 
@@ -189,7 +354,7 @@ export default function RenterPodsPage() {
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
   const [launch, setLaunch] = useState<LaunchState>({
-    providerId: '',
+    gpuType: '',
     durationMinutes: DEFAULT_DURATION_MINUTES,
     notebookToken: generateNotebookToken(),
     imageChoice: DEFAULT_IMAGE,
@@ -197,6 +362,20 @@ export default function RenterPodsPage() {
     submitting: false,
     error: '',
   })
+
+  // ── GPU selector UI state ──────────────────────────────────────────────
+  const [gpuSearch, setGpuSearch] = useState('')
+  const [minVram, setMinVram] = useState(0)
+  const [sortKey, setSortKey] = useState<SortKey>('recommended')
+  const [availFilters, setAvailFilters] = useState<Set<AvailFilter>>(() => new Set())
+  const [collapsedBands, setCollapsedBands] = useState<Set<string>>(() => new Set())
+  const [assistOpen, setAssistOpen] = useState(false)
+  const [activeWorkload, setActiveWorkload] = useState<string | null>(null)
+  // Notify-me waitlist: per-gpu_model busy + done flags so each out-of-stock
+  // card shows its own state without touching the launch flow.
+  const [notifyBusy, setNotifyBusy] = useState<Record<string, boolean>>({})
+  const [notifyDone, setNotifyDone] = useState<Record<string, boolean>>({})
+  const [notifyErr, setNotifyErr] = useState<Record<string, string>>({})
 
   // Track ids we're actively polling so a launch immediately starts polling.
   const pollIdsRef = useRef<Set<string>>(new Set())
@@ -237,20 +416,19 @@ export default function RenterPodsPage() {
       if (!res.ok) return
       const data = (await res.json()) as AvailableProvidersResponse
       const list: AvailableProvider[] = (data.providers || [])
-        // Drive the selectable list off the backend `available` flag (present
-        // on every row, now reflecting real live stock). Out-of-stock types
-        // simply aren't selectable here. No native/on-demand distinction.
-        .filter((p) => p.available !== false)
+        // Keep ALL rows (available AND out-of-stock) so the grid can render
+        // out-of-stock cards with a Notify-me CTA. Carry sar_per_hour (the real
+        // cost-plus price, present on every row). NEVER read on_demand — vendor
+        // invisibility: it must not drive any label, sort, or styling.
         .map((p) => ({
           id: p.id as number,
           gpu_model: (p.gpu_model as string) || 'GPU',
           vram_gb: (p.vram_gb as number) ?? 0,
           available: p.available !== false,
+          sar_per_hour: typeof p.sar_per_hour === 'number' ? (p.sar_per_hour as number) : null,
           status: 'online' as const,
         }))
       setProviders(list)
-      // Auto-pick the first provider if the renter hasn't chosen one yet.
-      setLaunch((prev) => (prev.providerId ? prev : { ...prev, providerId: list[0] ? String(list[0].id) : '' }))
     } catch (err) {
       console.error('Failed to load providers:', err)
     }
@@ -322,7 +500,10 @@ export default function RenterPodsPage() {
           'x-renter-key': apiKey,
         },
         body: JSON.stringify({
-          provider_id: launch.providerId ? Number(launch.providerId) : undefined,
+          // Launch by GPU TYPE, never provider_id. '' → omit so the backend
+          // auto-picks any available type. The backend resolves gpu_type → an
+          // in-stock provider internally; the renter never sees a provider id.
+          gpu_type: launch.gpuType || undefined,
           duration_minutes: launch.durationMinutes,
           image,
           params: { NOTEBOOK_TOKEN: token },
@@ -353,9 +534,10 @@ export default function RenterPodsPage() {
         })
       }
 
-      // Reset the form (fresh token) and refresh the list immediately.
+      // Reset the form (fresh token) and refresh the list immediately. The GPU
+      // selection is preserved so a renter can relaunch the same type quickly.
       setLaunch({
-        providerId: launch.providerId,
+        gpuType: launch.gpuType,
         durationMinutes: launch.durationMinutes,
         notebookToken: generateNotebookToken(),
         imageChoice: launch.imageChoice,
@@ -479,12 +661,93 @@ export default function RenterPodsPage() {
   const onRegenerate = () =>
     setLaunch((l) => ({ ...l, notebookToken: generateNotebookToken(), error: keptError(l.error) }))
 
+  // ── GPU type selection + notify-me ─────────────────────────────────────
+  const selectGpuType = useCallback((gpuModel: string) => {
+    setLaunch((l) => ({ ...l, gpuType: gpuModel, error: keptError(l.error) }))
+  }, [])
+
+  const toggleAvailFilter = (f: AvailFilter) =>
+    setAvailFilters((prev) => {
+      const next = new Set(prev)
+      next.has(f) ? next.delete(f) : next.add(f)
+      return next
+    })
+
+  const toggleBand = (key: string) =>
+    setCollapsedBands((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+
+  const clearGpuFilters = () => {
+    setGpuSearch('')
+    setMinVram(0)
+    setAvailFilters(new Set())
+  }
+
+  // Apply a workload preset: set the VRAM floor and select its preferred type if
+  // that type is live, else leave selection unchanged.
+  const applyWorkload = (w: Workload) => {
+    setActiveWorkload(w.key)
+    setMinVram(w.floor)
+    const match = gpuTypes.find(
+      (g) => g.available && g.sar_per_hour != null && g.gpu_model.toLowerCase().includes(w.prefer),
+    )
+    if (match) selectGpuType(match.gpu_model)
+  }
+
+  // POST /api/pods/notify-me { gpu_type } — renter-authed waitlist for an
+  // out-of-stock type. Prefills nothing (server uses the signed-in renter).
+  const notifyMe = async (gpuModel: string) => {
+    const apiKey = getRenterKey() || ''
+    if (!apiKey || notifyBusy[gpuModel]) return
+    setNotifyBusy((s) => ({ ...s, [gpuModel]: true }))
+    setNotifyErr((e) => ({ ...e, [gpuModel]: '' }))
+    try {
+      const res = await fetch(`${getApiBase()}/pods/notify-me?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-renter-key': apiKey },
+        body: JSON.stringify({ gpu_type: gpuModel }),
+      })
+      if (res.ok) {
+        setNotifyDone((d) => ({ ...d, [gpuModel]: true }))
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        setNotifyErr((e) => ({ ...e, [gpuModel]: data.error || `Failed (${res.status})` }))
+      }
+    } catch {
+      setNotifyErr((e) => ({ ...e, [gpuModel]: 'Network error' }))
+    } finally {
+      setNotifyBusy((s) => ({ ...s, [gpuModel]: false }))
+    }
+  }
+
   const isCustom = launch.imageChoice === CUSTOM_IMAGE_OPTION
   const activePods = pods.filter(isActivePod).length
-  const noProviders = providers.length === 0
+
+  // ── Derived GPU selector data ──────────────────────────────────────────
+  // Distinct GPU types from the (repeating) provider rows. This is the unit the
+  // selector renders and POSTs as gpu_type.
+  const gpuTypes = dedupeGpuTypes(providers)
+  const availableGpuTypes = gpuTypes.filter((g) => g.available && g.sar_per_hour != null)
   // Count of distinct GPU *types* available (type-level, never a node/provider
   // count) — shown in the console KPI instead of a raw provider total.
-  const gpuTypeCount = new Set(providers.map((p) => p.gpu_model)).size
+  const gpuTypeCount = availableGpuTypes.length
+  // No launchable types at all → disable launch + show empty state.
+  const noLaunchable = availableGpuTypes.length === 0
+
+  // Filter + group + sort for the card grid.
+  const filteredTypes = filterGpuTypes(gpuTypes, { search: gpuSearch, minVram, filters: availFilters })
+  const shownCount = filteredTypes.length
+  const minPrice = availableGpuTypes.reduce<number | null>((min, g) => {
+    const v = g.sar_per_hour as number
+    return min == null || v < min ? v : min
+  }, null)
+
+  // The currently-selected type (if still in stock).
+  const selectedType = launch.gpuType ? gpuTypes.find((g) => g.gpu_model === launch.gpuType) || null : null
+
   const isLive = loadState === 'ready'
 
   return (
@@ -630,34 +893,354 @@ export default function RenterPodsPage() {
               </span>
             </div>
 
-            <div className="pod-form-grid">
-              {/* Provider */}
-              <div className="pod-field">
-                <label htmlFor="pod-provider" className="pod-label">
-                  <Bi en="Provider" ar="المزود" />
-                </label>
-                <select
-                  id="pod-provider"
-                  className="select"
-                  value={launch.providerId}
-                  onChange={(e) => setLaunch((l) => ({ ...l, providerId: e.target.value }))}
-                  disabled={!isLive}
+            {/* ── GPU picker: optional workload helper + toolbar + card grid ── */}
+            <div className="gpu-picker">
+              {/* Optional "Guide me by workload" helper (collapsed by default) */}
+              <section className="gpu-assist" data-open={assistOpen} aria-label={lang === 'ar' ? 'دليل العمل' : 'Workload guide'}>
+                <button
+                  type="button"
+                  className="gpu-assist-head"
+                  aria-expanded={assistOpen}
+                  aria-controls="gpu-assist-body"
+                  onClick={() => setAssistOpen((v) => !v)}
                 >
-                  {noProviders && (
-                    <option value="">{lang === 'ar' ? 'لا يوجد مزودون متصلون' : 'No online providers'}</option>
-                  )}
-                  {providers.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {displayGpuType(p.gpu_model)}
-                      {p.vram_gb ? ` · ${p.vram_gb}GB` : ''}
-                    </option>
-                  ))}
-                </select>
-                <p className="pod-help">
-                  <Bi en="Leave on the first option to auto-pick an available GPU." ar="اترك الخيار الأول للاختيار التلقائي لمعالج رسومات متاح." />
-                </p>
+                  <span className="ico" aria-hidden="true">◇</span>
+                  <span className="gpu-assist-title">
+                    <Bi en="Not sure which GPU? Guide me by workload" ar="غير متأكد أي معالج؟ دلّني حسب العمل" />
+                  </span>
+                  <span className="chev" aria-hidden="true">▾</span>
+                </button>
+                {assistOpen && (
+                  <div className="gpu-assist-body" id="gpu-assist-body">
+                    <p className="gpu-assist-q">
+                      <Bi en="What are you running?" ar="ماذا تشغّل؟" />
+                    </p>
+                    <div className="gpu-workloads" role="group" aria-label={lang === 'ar' ? 'نوع العمل' : 'Workload type'}>
+                      {WORKLOADS.map((w) => (
+                        <button
+                          key={w.key}
+                          type="button"
+                          className="gpu-wk"
+                          aria-pressed={activeWorkload === w.key}
+                          onClick={() => applyWorkload(w)}
+                        >
+                          <span className="t">{lang === 'ar' ? w.titleAr : w.titleEn}</span>
+                          <span className="d">{lang === 'ar' ? w.descAr : w.descEn}</span>
+                          <span className="n">{lang === 'ar' ? `≥ ${w.floor} غ.ب` : `≥ ${w.floor} GB`}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {activeWorkload && (() => {
+                      const w = WORKLOADS.find((x) => x.key === activeWorkload)
+                      if (!w) return null
+                      return (
+                        <div className="gpu-reco" aria-live="polite">
+                          <span className="label">
+                            <Bi en="Filtered for this workload" ar="تمت التصفية لهذا العمل" />
+                          </span>
+                          <p className="why">
+                            <Bi
+                              en={`Showing GPU types with at least ${w.floor} GB of VRAM. The best-value available type is pre-selected when one fits.`}
+                              ar={`تُعرض المعالجات بذاكرة ${w.floor} غيغابايت على الأقل. يُختار أفضل نوع متاح من حيث القيمة تلقائيًا عند توفره.`}
+                            />
+                          </p>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </section>
+
+              {/* Quiet toolbar: search + min-VRAM + sort + availability chips */}
+              <div className="gpu-toolbar">
+                <div className="gpu-tb-left">
+                  <div className="gpu-ctl gpu-search">
+                    <span className="mag" aria-hidden="true">⌕</span>
+                    <label className="sr-only" htmlFor="gpu-search">
+                      {lang === 'ar' ? 'ابحث عن معالج بالاسم أو الذاكرة' : 'Search GPU by name, brand or VRAM'}
+                    </label>
+                    <input
+                      id="gpu-search"
+                      type="search"
+                      value={gpuSearch}
+                      onChange={(e) => setGpuSearch(e.target.value)}
+                      placeholder={lang === 'ar' ? 'ابحث عن معالج (مثل 4090، H100)' : 'Search GPU (e.g. 4090, H100, 80GB)'}
+                      autoComplete="off"
+                      disabled={!isLive}
+                    />
+                  </div>
+                  <div className="gpu-ctl gpu-vram">
+                    <div className="rng-head">
+                      <label htmlFor="vram-range">
+                        <Bi en="Min VRAM" ar="أدنى ذاكرة" />
+                      </label>
+                      <output htmlFor="vram-range">
+                        {minVram === 0 ? <Bi en="Any" ar="أي" /> : `≥ ${minVram} GB`}
+                      </output>
+                    </div>
+                    <input
+                      id="vram-range"
+                      type="range"
+                      min={0}
+                      max={180}
+                      step={1}
+                      value={minVram}
+                      onChange={(e) => setMinVram(snapVram(Number(e.target.value)))}
+                      aria-valuetext={minVram === 0 ? (lang === 'ar' ? 'أي ذاكرة' : 'Any VRAM') : `${minVram} GB`}
+                      disabled={!isLive}
+                    />
+                  </div>
+                  <div className="gpu-ctl">
+                    <label htmlFor="gpu-sort">
+                      <Bi en="Sort" ar="ترتيب" />
+                    </label>
+                    <select
+                      id="gpu-sort"
+                      className="gpu-sort"
+                      value={sortKey}
+                      onChange={(e) => setSortKey(e.target.value as SortKey)}
+                      disabled={!isLive}
+                    >
+                      <option value="recommended">{lang === 'ar' ? 'موصى به' : 'Recommended'}</option>
+                      <option value="price-asc">{lang === 'ar' ? 'السعر — من الأقل' : 'Price — low to high'}</option>
+                      <option value="price-desc">{lang === 'ar' ? 'السعر — من الأعلى' : 'Price — high to low'}</option>
+                      <option value="vram-desc">{lang === 'ar' ? 'الذاكرة — من الأعلى' : 'VRAM — high to low'}</option>
+                      <option value="vram-asc">{lang === 'ar' ? 'الذاكرة — من الأقل' : 'VRAM — low to high'}</option>
+                      <option value="name">{lang === 'ar' ? 'الاسم أ–ي' : 'Name A–Z'}</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="gpu-ctl">
+                  <label id="gpu-avail-lbl">
+                    <Bi en="Availability" ar="التوفر" />
+                  </label>
+                  <div className="gpu-chips" role="group" aria-labelledby="gpu-avail-lbl">
+                    <button
+                      type="button"
+                      className="gpu-chip"
+                      aria-pressed={availFilters.has('available')}
+                      onClick={() => toggleAvailFilter('available')}
+                      disabled={!isLive}
+                    >
+                      <Bi en="Available" ar="متاح" />
+                    </button>
+                    <button
+                      type="button"
+                      className="gpu-chip"
+                      aria-pressed={availFilters.has('priced')}
+                      onClick={() => toggleAvailFilter('priced')}
+                      disabled={!isLive}
+                    >
+                      <Bi en="Priced now" ar="مُسعّر الآن" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
+              <p className="gpu-summary" aria-live="polite">
+                {lang === 'ar'
+                  ? `${shownCount} ${shownCount === 1 ? 'نوع' : 'أنواع'} معروضة · ${gpuTypeCount} متاح${minPrice != null ? ` · من ${fmtSar(minPrice)} ﷼/س` : ''}`
+                  : `${shownCount} GPU ${shownCount === 1 ? 'type' : 'types'} shown · ${gpuTypeCount} available${minPrice != null ? ` · from SAR ${fmtSar(minPrice)}/hr` : ''}`}
+              </p>
+
+              {/* ONE radiogroup spanning all bands (a11y: native radio semantics) */}
+              <div className="gpu-results" role="radiogroup" aria-label={lang === 'ar' ? 'نوع المعالج' : 'GPU type'}>
+                {!isLive ? (
+                  <p className="gpu-empty">
+                    <Bi en="Loading GPU types…" ar="جارٍ تحميل أنواع المعالجات…" />
+                  </p>
+                ) : shownCount === 0 ? (
+                  <p className="gpu-empty">
+                    <Bi en="No GPU types match your filters." ar="لا توجد أنواع معالجات تطابق عوامل التصفية." />
+                    <button type="button" className="gpu-clear" onClick={clearGpuFilters}>
+                      <Bi en="Clear filters" ar="مسح التصفية" />
+                    </button>
+                  </p>
+                ) : (
+                  BANDS.map((band) => {
+                    const inBand = sortGpuTypes(filteredTypes.filter((g) => g.band === band.key), sortKey)
+                    if (!inBand.length) return null
+                    const collapsed = collapsedBands.has(band.key)
+                    return (
+                      <section key={band.key} className="gpu-group" data-collapsed={collapsed}>
+                        <button
+                          type="button"
+                          className="gpu-group-head"
+                          aria-expanded={!collapsed}
+                          onClick={() => toggleBand(band.key)}
+                        >
+                          <span className="chev" aria-hidden="true">▾</span>
+                          <h3>{lang === 'ar' ? band.ar : band.en}</h3>
+                          <span className="meta">{lang === 'ar' ? band.subAr : band.subEn}</span>
+                        </button>
+                        {!collapsed && (
+                          <div className="gpu-grid">
+                            {inBand.map((g, idx) => {
+                              const out = !g.available
+                              const unpriced = g.sar_per_hour == null
+                              const selectable = !out && !unpriced
+                              const selected = launch.gpuType === g.gpu_model
+                              const reco = isValuePick(g.gpu_model) && selectable
+                              const brand = gpuBrand(g.gpu_model)
+                              const name = displayGpuType(g.gpu_model)
+                              const cls = ['gpu-card', out ? 'is-out' : '', reco ? 'is-reco' : ''].filter(Boolean).join(' ')
+                              // roving tabindex: the selected radio (or the first
+                              // selectable card) is the single tab stop.
+                              const isFirstSelectable =
+                                selectable && !selectedType && idx === inBand.findIndex((x) => x.available && x.sar_per_hour != null)
+                              const tabIndex = selectable ? (selected || isFirstSelectable ? 0 : -1) : undefined
+                              const availLabel = out
+                                ? lang === 'ar' ? 'غير متوفر' : 'Out of stock'
+                                : lang === 'ar' ? 'متاح' : 'Available'
+                              const ariaLabel = `${name}, ${g.vram_gb} GB VRAM, ${
+                                unpriced ? (lang === 'ar' ? 'السعر عند الطلب' : 'price on request') : `${fmtSar(g.sar_per_hour as number)} SAR/hr`
+                              }, ${availLabel}`
+                              const onSelect = () => selectable && selectGpuType(g.gpu_model)
+                              const onKey = (e: React.KeyboardEvent) => {
+                                if (!selectable) return
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  selectGpuType(g.gpu_model)
+                                }
+                              }
+                              return (
+                                <div
+                                  key={g.gpu_model}
+                                  className={cls}
+                                  role={selectable ? 'radio' : 'group'}
+                                  aria-checked={selectable ? selected : undefined}
+                                  aria-disabled={selectable ? undefined : true}
+                                  aria-label={ariaLabel}
+                                  tabIndex={tabIndex}
+                                  onClick={onSelect}
+                                  onKeyDown={onKey}
+                                >
+                                  {reco && (
+                                    <span className="gpu-ribbon">
+                                      <Bi en="Best value" ar="أفضل قيمة" />
+                                    </span>
+                                  )}
+                                  <div className="gpu-card-top">
+                                    <div>
+                                      <p className="gpu-card-brand">{brand}</p>
+                                      <h4 className="gpu-card-name">{name}</h4>
+                                    </div>
+                                    <div className="gpu-price-block">
+                                      {unpriced ? (
+                                        <div className="gpu-price-tba">
+                                          <Bi en="Contact sales" ar="تواصل مع المبيعات" />
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div className="gpu-price">
+                                            <span className="cur">SAR</span>
+                                            {fmtSar(g.sar_per_hour as number)}
+                                            <span className="unit">/hr</span>
+                                          </div>
+                                          <div className="gpu-price-usd">≈ ${fmtUsd(g.sar_per_hour as number)} USD/hr</div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="gpu-card-specs">
+                                    <div className="spec">
+                                      <span className="k">VRAM</span>
+                                      <span className="v">{g.vram_gb} GB</span>
+                                    </div>
+                                    <div className="spec">
+                                      <span className="k">
+                                        <Bi en="Access" ar="الوصول" />
+                                      </span>
+                                      <span className="v">Jupyter · SSH</span>
+                                    </div>
+                                    <div className="spec">
+                                      <span className="k">
+                                        <Bi en="Billing" ar="الفوترة" />
+                                      </span>
+                                      <span className="v">
+                                        <Bi en="Per second" ar="بالثانية" />
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="gpu-card-foot">
+                                    {/* Availability conveyed by dot SHAPE + LABEL, not color alone. */}
+                                    <span className={`gpu-badge ${out ? 'out' : 'ok'}`}>
+                                      <span className="dot" aria-hidden="true" />
+                                      {availLabel}
+                                    </span>
+                                    {out ? (
+                                      <button
+                                        type="button"
+                                        className="gpu-notify"
+                                        disabled={!!notifyBusy[g.gpu_model] || !!notifyDone[g.gpu_model]}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          notifyMe(g.gpu_model)
+                                        }}
+                                        aria-label={
+                                          lang === 'ar'
+                                            ? `أعلمني عند توفر ${name}`
+                                            : `Notify me when ${name} is back in stock`
+                                        }
+                                      >
+                                        {notifyDone[g.gpu_model] ? (
+                                          <Bi en="✓ Notified" ar="✓ تم" />
+                                        ) : notifyBusy[g.gpu_model] ? (
+                                          <Bi en="…" ar="…" />
+                                        ) : (
+                                          <Bi en="Notify me" ar="أعلمني" />
+                                        )}
+                                      </button>
+                                    ) : (
+                                      <span className="gpu-card-cta">
+                                        {selected ? (
+                                          <Bi en="Selected ✓" ar="محدد ✓" />
+                                        ) : (
+                                          <Bi en="Select →" ar="اختر →" />
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {out && notifyErr[g.gpu_model] && (
+                                    <span className="gpu-notify-err">{notifyErr[g.gpu_model]}</span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Selection summary line — mirrors the mock's sticky-bar pick info. */}
+              <div className="gpu-selection" aria-live="polite">
+                {selectedType ? (
+                  <span className="gpu-selection-pick">
+                    <b>{displayGpuType(selectedType.gpu_model)}</b> · {selectedType.vram_gb} GB
+                    {selectedType.sar_per_hour != null && (
+                      <>
+                        {' · '}
+                        <span className="gpu-selection-price">
+                          SAR {fmtSar(selectedType.sar_per_hour)}/hr · ≈ ${fmtUsd(selectedType.sar_per_hour)}/hr
+                        </span>
+                      </>
+                    )}
+                  </span>
+                ) : (
+                  <span className="gpu-selection-empty">
+                    <Bi
+                      en="No GPU selected — pick a card, or launch to auto-pick an available type."
+                      ar="لم يتم اختيار معالج — اختر بطاقة، أو شغّل للاختيار التلقائي لنوع متاح."
+                    />
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="pod-form-grid">
               {/* Duration */}
               <div className="pod-field">
                 <label htmlFor="pod-duration" className="pod-label">
@@ -789,7 +1372,7 @@ export default function RenterPodsPage() {
                 type="button"
                 className="btn-pri pod-launch-btn"
                 onClick={submitLaunch}
-                disabled={launch.submitting || noProviders || !isLive}
+                disabled={launch.submitting || noLaunchable || !isLive}
               >
                 {launch.submitting && <span className="pod-spinner" aria-hidden="true" />}
                 {launch.submitting ? (
@@ -798,9 +1381,9 @@ export default function RenterPodsPage() {
                   <Bi en="Launch GPU pod" ar="تشغيل حاوية GPU" />
                 )}
               </button>
-              {noProviders && isLive && (
+              {noLaunchable && isLive && (
                 <span className="hint">
-                  <Bi en="No online providers are available right now." ar="لا يوجد مزودون متصلون متاحون حاليًا." />
+                  <Bi en="No GPU types are available right now." ar="لا توجد أنواع معالجات متاحة حاليًا." />
                 </span>
               )}
             </div>

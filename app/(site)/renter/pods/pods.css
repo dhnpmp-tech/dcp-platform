@@ -314,6 +314,232 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   gap: 9px;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   GPU PICKER — finalist editorial card grid
+   Ported from dcp-pod-selector-FINAL.html, mapped onto the renter shell
+   tokens (--teal/--orange/--ink/--mut/--dim/--paper/--bg/--bg-2/--hair).
+   • workload helper (collapsible) · quiet toolbar · grouped radiogroup grid
+   • availability = dot SHAPE + LABEL (never color alone) · WCAG AA
+   • only border-color/opacity animate (reduced-motion safe)
+   ════════════════════════════════════════════════════════════════════ */
+.gpu-picker { margin-bottom: 26px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
+}
+
+/* ── Guided assist (optional, collapsed by default) ───────── */
+.gpu-assist { border: 1px solid var(--hair); background: var(--bg-2); margin-bottom: 20px; }
+.gpu-assist-head {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px 18px; background: transparent; border: 0; color: var(--ink);
+  cursor: pointer; text-align: start; font: inherit;
+}
+.gpu-assist-head .ico { font-family: var(--mono); color: var(--rt-accent); font-size: 13px; }
+.gpu-assist-title { font-family: var(--serif); font-weight: 400; font-size: 19px; flex: 1; color: var(--ink); }
+.gpu-assist-head .chev { font-family: var(--mono); color: var(--mut); transition: transform .18s cubic-bezier(.16,1,.3,1); }
+.gpu-assist[data-open="false"] .chev { transform: rotate(-90deg); }
+.gpu-assist-body { padding: 4px 18px 18px; border-top: 1px solid var(--hair); }
+.gpu-assist-q {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--mut); margin: 14px 0 10px;
+}
+.gpu-workloads {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: var(--hair); border: 1px solid var(--hair);
+}
+@media (max-width: 760px) { .gpu-workloads { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 440px) { .gpu-workloads { grid-template-columns: 1fr; } }
+.gpu-wk {
+  display: flex; flex-direction: column; gap: 4px; padding: 14px;
+  background: var(--bg-2); border: 0; color: var(--ink); cursor: pointer;
+  text-align: start; font: inherit; min-height: 44px;
+}
+.gpu-wk:hover { background: var(--bg); }
+.gpu-wk:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: -2px; z-index: 1; }
+.gpu-wk[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--teal) 12%, var(--bg-2));
+  box-shadow: inset 2px 0 0 var(--rt-accent);
+}
+.gpu-wk .t { font-size: 14px; font-weight: 600; }
+.gpu-wk .d { font-size: 12px; color: var(--mut); line-height: 1.4; }
+.gpu-wk .n { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--rt-accent); margin-top: 2px; }
+.gpu-reco { margin-top: 16px; padding: 14px 16px; border: 1px dashed var(--hair); background: var(--bg); }
+.gpu-reco .label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--mut);
+}
+.gpu-reco .why { color: var(--ink-2); font-size: 13px; line-height: 1.55; margin: 6px 0 0; }
+
+/* ── Toolbar ──────────────────────────────────────────────── */
+.gpu-toolbar { display: grid; grid-template-columns: 1fr auto; gap: 14px 18px; align-items: end; margin-bottom: 8px; }
+@media (max-width: 760px) { .gpu-toolbar { grid-template-columns: 1fr; } }
+.gpu-tb-left { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
+.gpu-ctl { display: flex; flex-direction: column; gap: 6px; }
+.gpu-ctl > label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--mut);
+}
+.gpu-search {
+  display: flex; align-items: center; gap: 8px; border: 1px solid var(--hair);
+  background: var(--bg-2); padding: 0 12px; min-width: 230px;
+}
+.gpu-search input {
+  background: transparent; border: 0; color: var(--ink);
+  font-family: var(--mono); font-size: 13px; padding: 11px 0; width: 100%;
+}
+.gpu-search input:focus { outline: none; }
+.gpu-search:focus-within { border-color: var(--rt-accent); }
+.gpu-search .mag { color: var(--mut); font-family: var(--mono); font-size: 13px; }
+.gpu-vram { min-width: 230px; }
+.gpu-vram .rng-head {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin-bottom: 6px;
+}
+.gpu-vram output { color: var(--rt-accent); }
+.gpu-vram input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 2px;
+  background: var(--hair); cursor: pointer;
+}
+.gpu-vram input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; background: var(--rt-accent);
+  border: 0; border-radius: 0; cursor: pointer;
+}
+.gpu-vram input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; background: var(--rt-accent); border: 0; border-radius: 0;
+}
+.gpu-vram input[type=range]:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: 6px; }
+select.gpu-sort {
+  background: var(--bg-2); border: 1px solid var(--hair); color: var(--ink);
+  font-family: var(--mono); font-size: 12px; padding: 10px 12px; cursor: pointer; border-radius: 2px;
+}
+select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: 2px; }
+.gpu-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.gpu-chip {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--mut); background: transparent; border: 1px solid var(--hair);
+  padding: 8px 12px; cursor: pointer; min-height: 38px; border-radius: 2px;
+}
+.gpu-chip:hover { border-color: var(--ink-2); color: var(--ink-2); }
+.gpu-chip[aria-pressed="true"] {
+  border-color: var(--rt-accent); color: var(--rt-accent);
+  background: color-mix(in oklab, var(--teal) 8%, transparent);
+}
+.gpu-chip:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: 2px; }
+.gpu-chip:disabled { opacity: .5; cursor: not-allowed; }
+.gpu-summary {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .05em;
+  color: var(--mut); margin: 14px 0 18px;
+}
+
+/* ── Groups + radiogroup grid ─────────────────────────────── */
+.gpu-group { margin-bottom: 10px; }
+.gpu-group-head {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: transparent; border: 0; border-bottom: 1px solid var(--hair);
+  padding: 18px 2px 12px; color: var(--ink); cursor: pointer; text-align: start; font: inherit;
+}
+.gpu-group-head:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: 3px; }
+.gpu-group-head .chev {
+  font-family: var(--mono); color: var(--mut); font-size: 12px;
+  transition: transform .18s cubic-bezier(.16,1,.3,1);
+}
+.gpu-group[data-collapsed="true"] .chev { transform: rotate(-90deg); }
+.gpu-group-head h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0; flex: 1; color: var(--ink); }
+.gpu-group-head .meta {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--mut);
+}
+.gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; padding-top: 16px; }
+
+.gpu-card {
+  position: relative; display: flex; flex-direction: column; gap: 14px;
+  border: 1px solid var(--hair); background: var(--paper); padding: 18px;
+  cursor: pointer; min-height: 44px; transition: border-color .18s cubic-bezier(.16,1,.3,1);
+}
+.gpu-card:hover { border-color: var(--ink-2); }
+.gpu-card::before {
+  content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 2px;
+  background: transparent; transition: background .18s cubic-bezier(.16,1,.3,1);
+}
+.gpu-card:hover::before { background: color-mix(in oklab, var(--teal) 40%, transparent); }
+.gpu-card[aria-checked="true"] { border-color: var(--rt-accent); }
+.gpu-card[aria-checked="true"]::before { background: var(--rt-accent); }
+.gpu-card:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: 3px; }
+.gpu-card.is-out { opacity: .62; cursor: default; }
+.gpu-card.is-out:hover { border-color: var(--hair); }
+.gpu-card.is-out:hover::before { background: transparent; }
+.gpu-card.is-reco { border-color: color-mix(in oklab, var(--teal) 45%, var(--hair)); }
+.gpu-ribbon {
+  position: absolute; top: 0; inset-inline-end: 0; font-family: var(--mono); font-size: 9px;
+  letter-spacing: .12em; text-transform: uppercase; color: #0a0b1a;
+  background: var(--rt-accent); padding: 3px 8px;
+}
+.gpu-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.gpu-card-brand {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--mut); margin: 0 0 3px;
+}
+.gpu-card-name { font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1; margin: 0; color: var(--ink); }
+.gpu-price-block { text-align: end; flex-shrink: 0; }
+.gpu-price { font-family: var(--mono); font-size: 21px; color: var(--ink); line-height: 1; white-space: nowrap; }
+.gpu-price .cur { color: var(--rt-accent); font-size: 12px; margin-inline-end: 3px; }
+.gpu-price .unit { font-size: 11px; color: var(--mut); }
+.gpu-price-usd { font-family: var(--mono); font-size: 11px; color: var(--mut); margin-top: 4px; }
+.gpu-price-tba { font-family: var(--mono); font-size: 12px; color: var(--orange); letter-spacing: .04em; }
+.gpu-card-specs { display: flex; gap: 18px; padding-top: 12px; border-top: 1px solid var(--hair); }
+.gpu-card-specs .spec { display: flex; flex-direction: column; gap: 2px; }
+.gpu-card-specs .k {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--dim);
+}
+.gpu-card-specs .v { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.gpu-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+.gpu-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+}
+.gpu-badge .dot { width: 7px; height: 7px; flex-shrink: 0; }
+.gpu-badge.ok { color: var(--rt-accent); }
+.gpu-badge.ok .dot { background: var(--rt-accent); border-radius: 50%; }
+.gpu-badge.out { color: var(--mut); }
+.gpu-badge.out .dot { background: var(--mut); border-radius: 0; } /* square = out (shape, not color) */
+.gpu-card-cta { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--mut); }
+.gpu-card[aria-checked="true"] .gpu-card-cta { color: var(--rt-accent); }
+.gpu-notify {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--orange); background: transparent;
+  border: 1px solid color-mix(in oklab, var(--orange) 40%, transparent);
+  padding: 7px 12px; cursor: pointer; min-height: 38px; border-radius: 2px;
+}
+.gpu-notify:hover, .gpu-notify:focus-visible {
+  background: color-mix(in oklab, var(--orange) 10%, transparent);
+  outline: 2px solid var(--orange); outline-offset: 1px;
+}
+.gpu-notify:disabled { cursor: default; color: var(--rt-accent); border-color: var(--rt-accent); }
+.gpu-notify-err { font-family: var(--mono); font-size: 10px; color: var(--err); letter-spacing: .04em; }
+.gpu-empty {
+  font-family: var(--mono); color: var(--mut); font-size: 13px; letter-spacing: .04em; padding: 40px 0;
+}
+.gpu-clear {
+  margin-inline-start: 10px; color: var(--rt-accent); background: transparent;
+  border: 1px solid var(--rt-accent); font-family: var(--mono); font-size: 11px;
+  text-transform: uppercase; padding: 7px 12px; cursor: pointer; border-radius: 2px;
+}
+
+/* ── Selection summary line (mirrors the mock's sticky-bar pick info) ── */
+.gpu-selection {
+  margin-top: 18px; padding: 14px 16px; border: 1px solid var(--hair);
+  background: var(--bg-2); font-family: var(--mono); font-size: 12px; color: var(--ink-2);
+}
+.gpu-selection-pick b { font-family: var(--serif); font-weight: 400; font-size: 18px; color: var(--ink); }
+.gpu-selection-price { color: var(--rt-accent); }
+.gpu-selection-empty { color: var(--mut); letter-spacing: .04em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gpu-assist .chev, .gpu-group .chev, .gpu-card, .gpu-card::before { transition: none !important; }
+}
+
 /* ── Pods list ──────────────────────────────────────────── */
 .pod-list-panel .panel-hd .hint { align-self: center; }
 
