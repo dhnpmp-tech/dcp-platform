@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.DC1_BACKEND_URL || 'http://localhost:8083';
+const BACKEND_URL = process.env.BACKEND_URL || process.env.DC1_BACKEND_URL || 'https://api.dcp.sa';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

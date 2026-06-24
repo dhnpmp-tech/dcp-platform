@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-API_BASE="${DCP_API_BASE:-https://api.dcp.sa}"
+# TITOFIX_M3_PINNED_API_BASE: production API base is HARD-PINNED.
+# Any override (DCP_API_BASE env, --api-base flag, legacy positional URL) is
+# IGNORED unless the explicit --dev flag is supplied. Prevents MITM/poisoned
+# install commands from redirecting providers to an attacker API.
+API_BASE="https://api.dcp.sa"
+DCP_ALLOW_INSECURE_API_BASE=0          # flipped to 1 only by --dev
+DCP_REQUESTED_API_BASE="${DCP_API_BASE:-}"  # staged override, applied only in dev
 CONFIG_DIR="${HOME}/.dcp"
 CONFIG_FILE="${CONFIG_DIR}/config"
 INSTALL_DIR="${HOME}/dcp-provider"
@@ -62,7 +68,9 @@ while [ $# -gt 0 ]; do
     --phone)
       DCP_PROVIDER_PHONE="${2:-}"; shift 2 ;;
     --api-base)
-      API_BASE="${2:-${API_BASE}}"; shift 2 ;;
+      DCP_REQUESTED_API_BASE="${2:-${DCP_REQUESTED_API_BASE}}"; shift 2 ;;
+    --dev)
+      DCP_ALLOW_INSECURE_API_BASE=1; shift ;;
     --systemd-mode)
       DCP_SYSTEMD_MODE="${2:-${DCP_SYSTEMD_MODE}}"; shift 2 ;;
     --engine)
@@ -95,11 +103,21 @@ USAGE
       elif [ -z "${DCP_PROVIDER_EMAIL}" ] && echo "$1" | grep -q '@'; then
         DCP_PROVIDER_EMAIL="$1"
       elif echo "$1" | grep -qE '^https?://'; then
-        API_BASE="$1"
+        DCP_REQUESTED_API_BASE="$1"
       fi
       shift ;;
   esac
 done
+
+# TITOFIX_M3: apply a requested API_BASE override ONLY in explicit dev mode.
+if [ -n "${DCP_REQUESTED_API_BASE}" ]; then
+  if [ "${DCP_ALLOW_INSECURE_API_BASE}" = "1" ]; then
+    API_BASE="${DCP_REQUESTED_API_BASE}"
+    printf 'WARN: dev mode — API base overridden to %s\n' "${API_BASE}" >&2
+  else
+    printf 'WARN: ignoring API base override %s (production is pinned to %s; pass --dev to override)\n' "${DCP_REQUESTED_API_BASE}" "${API_BASE}" >&2
+  fi
+fi
 
 step()    { printf '\n==> %s\n' "$1"; }
 info()    { printf '  - %s\n' "$1"; }

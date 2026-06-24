@@ -7,6 +7,19 @@
 // BACKEND_URL=http://localhost:8083 explicitly.
 const backendUrl = process.env.BACKEND_URL || 'https://api.dcp.sa';
 
+// titofix-h8: enforce HTTPS backend in production
+// Reject a plaintext, non-localhost backend in production builds so a
+// misconfigured BACKEND_URL can never silently downgrade the proxy to HTTP.
+if (
+  process.env.NODE_ENV === 'production' &&
+  /^http:\/\//i.test(backendUrl) &&
+  !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(backendUrl)
+) {
+  throw new Error(
+    `[next.config] Refusing to build: BACKEND_URL must be HTTPS in production (got: ${backendUrl})`
+  );
+}
+
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {

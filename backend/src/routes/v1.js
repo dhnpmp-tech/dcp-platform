@@ -22,6 +22,7 @@ const rateLimiterMiddleware = require('../middleware/rateLimiter');
 const {
   vllmCompleteLimiter,
   vllmStreamLimiter,
+  modelCatalogLimiter,
 } = rateLimiterMiddleware;
 const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
 const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId, modelIdsMatch } = require('../lib/model-aliases');
@@ -752,7 +753,7 @@ function resolveEffectiveMinVramMb(requestedModelId, registryMinVramMb) {
 
 // ── GET /v1/models — OpenAI-compatible model list ──────────────────────────
 
-router.get('/models', (req, res) => {
+router.get('/models', modelCatalogLimiter, (req, res) => {
   try {
     const columns = getModelRegistryColumns();
     if (columns.size === 0 || !columns.has('model_id')) {

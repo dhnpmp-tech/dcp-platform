@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 DCP Benchmark Run 5 — RTX 4090 + Qwen 2.5 14B AWQ
@@ -11,7 +12,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 API_URL = "http://localhost:8083/v1/chat/completions"
-API_KEY = "dc1-renter-03ab6169e4a205e7e98bfff9206b49fb"
+API_KEY = os.environ.get("DC1_RENTER_KEY", "")  # SECURITY: hardcoded key removed; rotate old key
 MODEL = "Qwen/Qwen2.5-14B-Instruct-AWQ"
 DURATION_MINUTES = 60
 OUTPUT_FILE = "/root/dcp-investor-pitch.md"

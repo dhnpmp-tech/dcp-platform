@@ -766,6 +766,41 @@ const adminIncidentsRouter = require('./routes/admin-incidents');
 app.use('/api/admin', adminIncidentsRouter);
 
 const v1Router = require('./routes/v1');
+// ── H2-gated-v1-query-key-reject (H2) ───────────────────────────────
+// /v1/* accepts the renter key via ?key= (routes/v1.js getRenterKey). Keys in
+// URLs leak through access logs, browser history, and Referer headers. We
+// (a) always log a throttled deprecation warning when a query-param key is
+// seen on /v1/*, and (b) reject it with 400 ONLY when DC1_REJECT_QUERY_KEYS
+// is explicitly enabled. The flag DEFAULTS OFF so live SDK/clients that still
+// send ?key= keep working; flip it to '1' after the SDK migration completes.
+const DC1_REJECT_QUERY_KEYS = /^(1|true|yes|on)$/i.test(
+  String(process.env.DC1_REJECT_QUERY_KEYS || '').trim()
+);
+function gatedRejectV1QueryKey(req, res, next) {
+  const detected = detectQueryParamKeys(req);
+  if (detected.hasRenterKey || detected.hasSharedKey) {
+    if (_c1ShouldLog('v1:' + req.path)) {
+      console.warn(
+        `[security][H2] /v1 query-param API key observed: ${req.method} ${req.path} ` +
+        `ip=${req.ip || 'unknown'} reject=${DC1_REJECT_QUERY_KEYS} ` +
+        `— send the key via Authorization: Bearer or X-Renter-Key instead`
+      );
+    }
+    if (DC1_REJECT_QUERY_KEYS) {
+      return res.status(400).json({
+        error: {
+          message: 'API keys must be sent via the Authorization: Bearer header or X-Renter-Key, not a URL query parameter. This prevents credential exposure in logs and browser history.',
+          type: 'invalid_request_error',
+          code: 'query_param_key_rejected',
+          status: 400,
+          retryable: false,
+        },
+      });
+    }
+  }
+  next();
+}
+app.use('/v1', gatedRejectV1QueryKey);
 app.use('/v1', v1Router);
 
 // Provider-onboarding wizard surface (auth bridge + provider endpoints).
@@ -1209,7 +1244,8 @@ app.get('/api/docs/ui', (req, res) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DCP API — Swagger UI</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <!-- TITOFIX_M2_SWAGGER_SRI: pinned + integrity-protected -->
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" integrity="sha384-wxLW6kwyHktdDGr6Pv1zgm/VGJh99lfUbzSn6HNHBENZlCN7W602k9VkGdxuFvPn" crossorigin="anonymous" />
   <style>
     body { margin: 0; background: #07070E; }
     .topbar { background: #07070E !important; }
@@ -1225,7 +1261,7 @@ app.get('/api/docs/ui', (req, res) => {
 </head>
 <body>
   <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js" integrity="sha384-wmyclcVGX/WhUkdkATwhaK1X1JtiNrr2EoYJ+diV3vj4v6OC5yCeSu+yW13SYJep" crossorigin="anonymous"></script>
   <script>
     window.onload = () => {
       SwaggerUIBundle({

@@ -1566,6 +1566,9 @@ router.post('/verify-otp', loginEmailLimiter, async (req, res) => {
 });
 
 router.post('/login-email', loginEmailLimiter, async (req, res) => {
+  // DCP-896 SECURITY FIX (renter): disabled — previously returned the full API key for an email alone (no OTP/password).
+  return res.status(410).json({ error: 'This endpoint has been disabled for security. Use OTP login (/send-otp + /verify-otp).', code: 'LOGIN_EMAIL_DISABLED' });
+  // eslint-disable-next-line no-unreachable
   try {
     const { email } = req.body;
     const cleanEmail = normalizeEmail(email);

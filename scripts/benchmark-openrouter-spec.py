@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 DCP Benchmark Run 7 — RTX 5090 + Qwen 3.5 27B AWQ
@@ -11,7 +12,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 API_URL = "http://localhost:8083/v1/chat/completions"
-API_KEY = "dc1-renter-03ab6169e4a205e7e98bfff9206b49fb"
+API_KEY = os.environ.get("DC1_RENTER_KEY", "")  # SECURITY: hardcoded key removed; rotate old key
 MODEL = "QuantTrio/Qwen3.5-27B-AWQ"
 DURATION_MINUTES = 60
 OUTPUT_FILE = "/root/dcp-openrouter-spec.md"

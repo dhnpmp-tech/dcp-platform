@@ -7,6 +7,9 @@ const express = require('express');
 const router = express.Router();
 const engine = require('../services/reconciliation-engine');
 const { safeErrorPayload } = require('../lib/error-response');
+const { requireAdminAuth } = require('../middleware/auth');
+
+router.use(requireAdminAuth);
 
 // GET /api/reconciliation/summary
 router.get('/summary', (req, res) => {

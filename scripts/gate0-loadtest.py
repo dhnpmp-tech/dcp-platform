@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 DCP Gate 0 — 1-Hour Sustained Inference Load Test + Content Generation
@@ -13,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 
 API_URL = "https://api.dcp.sa/v1/chat/completions"
-API_KEY = "dc1-renter-03ab6169e4a205e7e98bfff9206b49fb"
+API_KEY = os.environ.get("DC1_RENTER_KEY", "")  # SECURITY: hardcoded key removed; rotate old key
 MODEL = "hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4"
 DURATION_MINUTES = 60
 OUTPUT_FILE = "/root/dcp-content-pack.md"
