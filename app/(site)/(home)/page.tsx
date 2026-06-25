@@ -507,25 +507,29 @@ export default function V2HomePage() {
             <div>
               <span className="eyebrow">
                 <Bi
-                  en="§ DCP · Sovereign Arabic AI Runtime · KSA"
-                  ar="§ DCP · بيئة تشغيل الذكاء الاصطناعي العربي السيادية · المملكة"
+                  en="§ WHOLE GPUs · BY THE SECOND · IN RIYALS"
+                  ar="§ معالجات كاملة · بالثانية · بالريال"
                 />
               </span>
               <h1>
                 {lang === 'ar' ? (
                   <>
-                    سحابة المعالجات السعودية <em>المفتوحة.</em>
+                    استأجر معالجاً كاملاً <em>بالثانية.</em>
+                    <br />
+                    لا تدفع مقابل الدقائق الـ٥٩ الباقية.
                   </>
                 ) : (
                   <>
-                    Saudi Arabia&apos;s <em>open GPU cloud.</em>
+                    Rent a whole GPU <em>by the second.</em>
+                    <br />
+                    Stop paying for the other 59 minutes.
                   </>
                 )}
               </h1>
               <p className="lead">
                 <Bi
-                  en="AI by the token. Whole GPUs by the minute. Verified live, billed in Riyal — your data never leaves the Kingdom."
-                  ar="ذكاء اصطناعي بالرمز. معالجات كاملة بالدقيقة. متحقق مباشرةً، بالريال — بياناتك لا تغادر المملكة أبداً."
+                  en="Root, SSH, and Jupyter in about a minute. Billed per second in Riyal — and the unused time is refunded the instant you stop. No procurement ticket. No quota waitlist. No bill that runs away while you sleep."
+                  ar="‏Root وSSH وJupyter خلال دقيقة تقريباً. محاسبة بالثانية بالريال — ويُعاد إليك الوقت غير المستخدم لحظة إيقافك. بلا طلب شراء، بلا قائمة انتظار، وبلا فاتورة تتضخّم وأنت نائم."
                 />
               </p>
 
