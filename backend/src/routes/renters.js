@@ -658,6 +658,17 @@ router.post('/agent-register', agentRegisterLimiter, validateBody(renterAgentReg
         source: 'agent',
       }).catch(() => {});
     } catch (_) { /* analytics best-effort */ }
+    try {
+      conversionFunnel.trackStage({
+        journey: 'renter',
+        stage: 'register',
+        actorType: 'renter',
+        actorId: renterId,
+        req,
+        inferViewOnRegister: true,
+        metadata: { source: 'agent', organization: cleanOrg || null, use_case: cleanUseCase || null },
+      });
+    } catch (_) { /* funnel best-effort */ }
   } catch (error) {
     console.error('[renters/agent-register] error:', error);
     res.status(500).json({ error: 'Agent registration failed' });
