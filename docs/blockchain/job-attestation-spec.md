@@ -1,5 +1,14 @@
 # Job Attestation Spec
 
+> ⚠️ **STATUS — ON-CHAIN SETTLEMENT IS BUILT BUT DORMANT (not live as of 2026-06-28).**
+> DCP's **live** settlement runs on **fiat SAR via Moyasar** (PCI-DSS processor); provider earnings settle in fiat.
+> The smart-contract escrow / staking / on-chain-verification layer described in this document — Escrow, ProviderStake,
+> JobAttestation; ERC-20 on Base L2 — is deployed only to **Base Sepolia testnet**, holds **no live funds**, and is
+> pending third-party audit + mainnet. It is a planned **future agent-to-agent settlement rail**. Treat every
+> "smart-contract escrow / non-custodial / blockchain-verified" statement below as **design intent, not current
+> production behavior**. See `docs/blockchain/` for the full (dormant) design set.
+
+
 > **Type:** Integration Specification
 > **Status:** Implementation-ready
 > **Purpose:** How `JobAttestation.sol` integrates with backend and renter flow for tamper-evident job completion proof
