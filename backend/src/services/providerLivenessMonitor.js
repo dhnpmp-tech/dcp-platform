@@ -40,6 +40,7 @@ function runLivenessSweep() {
     `SELECT id, name, email, last_heartbeat, last_offline_alert_at
      FROM providers
      WHERE status IN ('online', 'degraded')
+       AND COALESCE(is_burst, 0) = 0
        AND (last_heartbeat IS NULL OR last_heartbeat < ?)`,
     cutoff
   );
