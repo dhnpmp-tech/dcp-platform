@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Renters', href: '/admin/renters', icon: <span className="w-5 h-5 text-center">👥</span> },
   { label: 'Jobs', href: '/admin/jobs', icon: <span className="w-5 h-5 text-center">⚡</span> },
   { label: 'Metrics', href: '/admin/metrics', icon: <span className="w-5 h-5 text-center">📊</span> },
+  { label: 'Analytics', href: '/admin/analytics', icon: <span className="w-5 h-5 text-center">📈</span> },
   { label: 'Finance', href: '/admin/finance', icon: <span className="w-5 h-5 text-center">💰</span> },
   { label: 'Security', href: '/admin/security', icon: <span className="w-5 h-5 text-center">🔒</span> },
 ]
