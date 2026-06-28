@@ -29,7 +29,10 @@ function getRenterFromReq(req) {
   return db.get('SELECT id FROM renters WHERE api_key = ? AND status = ?', key, 'active') || null;
 }
 
-function buildInvoiceData(jobId) {
+// `opts.includeProviderName` — only the ADMIN view may include the provider
+// machine name + provider_id. The renter-facing path (default) NEVER does:
+// invisibility means a renter sees GPU TYPE only, never which host ran the job.
+function buildInvoiceData(jobId, opts = {}) {
   const job = db.get(
     `SELECT j.job_id, j.renter_id, j.provider_id, j.model, j.job_type,
             j.status, j.completed_at, j.duration_minutes, j.duration_seconds,
@@ -64,7 +67,13 @@ function buildInvoiceData(jobId) {
     invoice_id: null,
     job_id: job.job_id,
     renter: { id: renter?.id ?? job.renter_id, name: renter?.name ?? null, email: renter?.email ?? null, organization: renter?.organization ?? null },
-    provider: provider ? { id: provider.id, name: provider.name, gpu_model: provider.gpu_model ?? null } : null,
+    // INVISIBILITY: renter view exposes GPU TYPE only — no provider machine
+    // name, no provider_id. Admin view (opts.includeProviderName) keeps raw.
+    provider: provider
+      ? (opts.includeProviderName
+          ? { id: provider.id, name: provider.name, gpu_model: provider.gpu_model ?? null }
+          : { gpu_model: provider.gpu_model ?? null })
+      : null,
     model: job.model ?? null,
     job_type: job.job_type ?? null,
     tokens_input: null,
@@ -164,7 +173,7 @@ jobsInvoiceRouter.get('/:jobId/invoice', (req, res) => {
     if (!renter || renter.id !== job.renter_id) return res.status(403).json({ error: 'Forbidden' });
   }
   if (job.status !== 'completed') return res.status(409).json({ error: 'Invoice not available', detail: `Job status is '${job.status}'` });
-  const data = buildInvoiceData(jobId);
+  const data = buildInvoiceData(jobId, { includeProviderName: isAdmin(req) });
   if (!data) return res.status(404).json({ error: 'Invoice data not available' });
   data.invoice_id = upsertInvoiceRecord(data);
   return res.json(data);
@@ -179,7 +188,7 @@ jobsInvoiceRouter.get('/:jobId/invoice.pdf', (req, res) => {
     if (!renter || renter.id !== job.renter_id) return res.status(403).json({ error: 'Forbidden' });
   }
   if (job.status !== 'completed') return res.status(409).json({ error: 'Invoice not available', detail: `Job status is '${job.status}'` });
-  const data = buildInvoiceData(jobId);
+  const data = buildInvoiceData(jobId, { includeProviderName: isAdmin(req) });
   if (!data) return res.status(404).json({ error: 'Invoice data not available' });
   data.invoice_id = upsertInvoiceRecord(data);
   generatePdf(data, res);
@@ -190,7 +199,8 @@ const rentersInvoiceRouter = express.Router();
 rentersInvoiceRouter.get('/:renterId/invoices', (req, res, next) => {
   const renterIdInt = parseInt(req.params.renterId, 10);
   if (!Number.isFinite(renterIdInt)) return next(); // non-numeric (e.g. 'me') -> fall through to renters.js /me/invoices
-  if (!isAdmin(req)) {
+  const adminReq = isAdmin(req);
+  if (!adminReq) {
     const renter = getRenterFromReq(req);
     if (!renter || renter.id !== renterIdInt) return res.status(403).json({ error: 'Forbidden' });
   }
@@ -216,7 +226,12 @@ rentersInvoiceRouter.get('/:renterId/invoices', (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename="invoices-renter-${renterIdInt}.csv"`);
     return res.send(lines.join('\r\n'));
   }
-  return res.json({ invoices: rows, pagination: { page, limit, total: total?.n ?? 0, pages: Math.ceil((total?.n ?? 0) / limit) } });
+  // INVISIBILITY: strip provider_name (machine/host name) from the renter JSON
+  // view. Admin keeps it (back-compat). GPU TYPE (provider_gpu) stays for both.
+  const safeRows = adminReq
+    ? rows
+    : rows.map(({ provider_name, ...rest }) => rest);
+  return res.json({ invoices: safeRows, pagination: { page, limit, total: total?.n ?? 0, pages: Math.ceil((total?.n ?? 0) / limit) } });
 });
 
 function e(v) { const s = String(v??''); return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s; }

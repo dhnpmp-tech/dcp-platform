@@ -3007,6 +3007,8 @@ router.get('/renters', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const search = (req.query.search || '').trim().toLowerCase();
     const statusFilter = req.query.status || '';
+    // Optional acquisition-source filter (e.g. ?source=agent). Matches renters.source.
+    const sourceFilter = (req.query.source || '').trim();
 
     let where = '1=1';
     const wParams = [];
@@ -3015,6 +3017,7 @@ router.get('/renters', (req, res) => {
       wParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     if (statusFilter) { where += ` AND status = ?`; wParams.push(statusFilter); }
+    if (sourceFilter) { where += ` AND source = ?`; wParams.push(sourceFilter); }
 
     const countRow = db.get(`SELECT COUNT(*) as total FROM renters WHERE ${where}`, ...wParams);
     const total = countRow?.total || 0;
@@ -3023,7 +3026,8 @@ router.get('/renters', (req, res) => {
     if (page > 0) { paginationSql = `LIMIT ${limit} OFFSET ${(page - 1) * limit}`; }
 
     const renters = db.all(
-      `SELECT id, name, email, organization, balance_halala, status, created_at
+      `SELECT id, name, email, organization, balance_halala, status, created_at,
+              source, trial_grant_halala, signup_ip
        FROM renters WHERE ${where} ORDER BY created_at DESC ${paginationSql}`,
       ...wParams
     );
@@ -5468,7 +5472,13 @@ router.get('/errors', (req, res) => {
       })
       .slice(0, limit);
 
-    return res.json({ errors: combined });
+    const { redactVendorText } = require('../lib/renter-job-view');
+    const safeErrors = combined.map((e) => ({
+      ...e,
+      message: redactVendorText(e.message),
+      details: e.details == null ? e.details : redactVendorText(e.details),
+    }));
+    return res.json({ errors: safeErrors });
   } catch (error) {
     console.error('[admin/errors]', error);
     return res.status(500).json({ error: 'Failed to fetch errors' });
@@ -5528,6 +5538,389 @@ router.get('/provider-logs/:id', (req, res) => {
   } catch (error) {
     console.error('[admin/provider-logs/:id]', error);
     res.status(500).json({ error: 'Failed to read provider logs' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// COMPUTE / POD / BURST / VOLUME admin surface (DCP — internal command center).
+//
+// These endpoints exist ONLY on the gated admin console (requireAdminRbac, see
+// router.use above). They reuse the renter-facing pod/volume logic so the money
+// math + teardown stay in lock-step with the live renter paths.
+//
+// INVISIBILITY: this console is internal, so it MAY surface "burst"/"on-demand"
+// pods and the external pod id for management — but it NEVER prints the literal
+// GPU-vendor brand name. Burst rows are labelled generically ("burst").
+// ════════════════════════════════════════════════════════════════════════════
+
+// Lazy-require so the pod/volume modules (which require each other) finish
+// loading before admin.js touches their exports. Cached after first call.
+let _podsModule = null;
+function podsModule() {
+  if (!_podsModule) _podsModule = require('./pods');
+  return _podsModule;
+}
+let _volumesModule = null;
+function volumesModule() {
+  if (!_volumesModule) _volumesModule = require('./volumes');
+  return _volumesModule;
+}
+let _volumeStore = null;
+function volumeStore() {
+  if (!_volumeStore) _volumeStore = require('../lib/volume-store');
+  return _volumeStore;
+}
+
+// Pod statuses considered "live" (a pod is occupying a GPU / costing money).
+const LIVE_POD_STATUSES = ['pending', 'queued', 'assigned', 'pulling', 'running'];
+
+// Convert a per-GPU-second halala rate to a derived SAR/hour figure.
+function ratePerSecToSarPerHour(costPerGpuSecondHalala) {
+  const rate = Number(costPerGpuSecondHalala);
+  if (!Number.isFinite(rate) || rate < 0) return null;
+  return Number(((rate * 3600) / 100).toFixed(2));
+}
+
+// Shape one interactive-pod job row (joined to its provider) into the admin
+// pod view. Internal/gated, so it carries the full management surface the
+// renter view deliberately hides: renter id+name, provider rate, relay ports,
+// burst flag + external id — but still no vendor brand name.
+function toAdminPodView(row) {
+  const startedMs = row.started_at ? Date.parse(row.started_at) : null;
+  const maxSeconds = Number(row.max_duration_seconds) || 0;
+  const endsAt = (startedMs && maxSeconds)
+    ? new Date(startedMs + maxSeconds * 1000).toISOString()
+    : null;
+  const secondsRemaining = (startedMs && maxSeconds)
+    ? Math.max(0, Math.round((startedMs + maxSeconds * 1000 - Date.now()) / 1000))
+    : null;
+  const isBurst = Number(row.provider_is_burst || 0) === 1 || !!row.burst_external_id;
+  return {
+    id: row.job_id,
+    status: row.status,
+    gpu_type: row.provider_gpu_type || null,        // GPU TYPE only (e.g. "NVIDIA H100 80GB")
+    gpu_model: row.provider_gpu_type || null,        // alias, same value
+    provider_id: row.provider_id,                    // internal/gated — fine to surface
+    renter_id: row.renter_id,
+    renter_name: row.renter_name || null,
+    access_url: row.access_url || null,              // Jupyter
+    ssh_command: row.ssh_command || null,
+    pod_jpub: row.pod_jpub != null ? Number(row.pod_jpub) : null,   // public Jupyter relay port
+    pod_spub: row.pod_spub != null ? Number(row.pod_spub) : null,   // public SSH relay port
+    started_at: row.started_at || null,
+    ends_at: endsAt,
+    seconds_remaining: secondsRemaining,
+    is_burst: isBurst,
+    burst_external_id: row.burst_external_id || null,  // external pod id for management
+    source: isBurst ? 'burst' : 'on-demand',           // generic label — NEVER a vendor brand
+    rate_halala_per_gpu_second: row.provider_rate != null ? Number(row.provider_rate) : null,
+    rate_sar_per_hour: ratePerSecToSarPerHour(row.provider_rate),
+    cost_halala: row.cost_halala != null ? Number(row.cost_halala) : null,      // prepaid quote
+    charged_halala: row.actual_cost_halala != null ? Number(row.actual_cost_halala) : null,
+    duration_minutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
+    created_at: row.created_at || null,
+  };
+}
+
+// Fetch one interactive-pod job (by job_id or numeric id) joined to provider +
+// renter, with the admin-relevant columns aliased. Returns null if not found.
+function fetchAdminPodRow(id) {
+  return db.get(
+    `SELECT j.*,
+            p.gpu_model AS provider_gpu_type,
+            p.cost_per_gpu_second_halala AS provider_rate,
+            COALESCE(p.is_burst, 0) AS provider_is_burst,
+            r.name AS renter_name
+       FROM jobs j
+  LEFT JOIN providers p ON p.id = j.provider_id
+  LEFT JOIN renters r ON r.id = j.renter_id
+      WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod'`,
+    id, id
+  );
+}
+
+// ── GET /api/admin/pods — interactive pods (live by default, ?all=1 for recent)
+// Query: ?all=1 include recently-terminated, ?limit=N (default live=200, all=100)
+router.get('/pods', (req, res) => {
+  try {
+    const includeAll = parseBooleanLike(req.query.all, false);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || (includeAll ? 100 : 200), 1), 500);
+
+    let where = `j.job_type = 'interactive_pod'`;
+    if (!includeAll) {
+      where += ` AND j.status IN (${LIVE_POD_STATUSES.map(() => '?').join(',')})`;
+    }
+    const params = includeAll ? [] : [...LIVE_POD_STATUSES];
+
+    const rows = db.all(
+      `SELECT j.*,
+              p.gpu_model AS provider_gpu_type,
+              p.cost_per_gpu_second_halala AS provider_rate,
+              COALESCE(p.is_burst, 0) AS provider_is_burst,
+              r.name AS renter_name
+         FROM jobs j
+    LEFT JOIN providers p ON p.id = j.provider_id
+    LEFT JOIN renters r ON r.id = j.renter_id
+        WHERE ${where}
+        ORDER BY j.created_at DESC
+        LIMIT ?`,
+      ...params, limit
+    );
+
+    const pods = rows.map(toAdminPodView);
+    const live = pods.filter((p) => LIVE_POD_STATUSES.includes(p.status)).length;
+    return res.json({
+      total: pods.length,
+      live,
+      burst: pods.filter((p) => p.is_burst).length,
+      include_terminated: includeAll,
+      pods,
+    });
+  } catch (error) {
+    console.error('[admin/pods] list error:', error.message);
+    return res.status(500).json({ error: 'Failed to list pods' });
+  }
+});
+
+// ── POST /api/admin/pods/:id/stop — admin force-stop + settle a pod ──────────
+router.post('/pods/:id/stop', (req, res) => {
+  try {
+    const job = fetchAdminPodRow(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Pod not found' });
+
+    const result = podsModule().stopPodCore(job, { actorLabel: `Admin ${req.adminUser?.id || 'unknown'}` });
+    try {
+      db.prepare('INSERT INTO admin_audit_log (action, target_type, target_id, details, timestamp) VALUES (?,?,?,?,?)')
+        .run('pod_stopped', 'pod', String(job.job_id),
+          `Admin stopped pod ${job.job_id} (renter ${job.renter_id})`, new Date().toISOString());
+    } catch (_) { /* audit best-effort */ }
+
+    if (result.idempotent) {
+      return res.json({ id: result.id, status: result.status, already_terminal: true });
+    }
+    const { idempotent: _ignored, ...payload } = result;
+    return res.json(payload);
+  } catch (error) {
+    console.error('[admin/pods] stop error:', error.message);
+    return res.status(500).json({ error: 'Failed to stop pod' });
+  }
+});
+
+// ── POST /api/admin/pods/:id/extend — admin extend a running pod ─────────────
+// Body: { extend_minutes }. Charges the SAME renter who owns the pod.
+router.post('/pods/:id/extend', (req, res) => {
+  try {
+    const pods = podsModule();
+    const MIN = pods.MIN_DURATION_MINUTES;
+    const MAX = pods.MAX_DURATION_MINUTES;
+    const raw = Number(req.body && req.body.extend_minutes);
+    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < MIN || raw > MAX) {
+      return res.status(400).json({ error: `extend_minutes must be an integer between ${MIN} and ${MAX}`, code: 'INVALID_EXTEND' });
+    }
+
+    const job = fetchAdminPodRow(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Pod not found' });
+
+    const result = pods.extendPodCore(job, raw, { actorLabel: `Admin ${req.adminUser?.id || 'unknown'}` });
+    if (result.error) {
+      const body = result.payload || { error: result.error, code: result.code };
+      return res.status(result.httpStatus || 400).json(body);
+    }
+    try {
+      db.prepare('INSERT INTO admin_audit_log (action, target_type, target_id, details, timestamp) VALUES (?,?,?,?,?)')
+        .run('pod_extended', 'pod', String(job.job_id),
+          `Admin extended pod ${job.job_id} by ${raw}m (charged renter ${job.renter_id} ${result.charged_halala} halala)`, new Date().toISOString());
+    } catch (_) { /* audit best-effort */ }
+    return res.json(result);
+  } catch (error) {
+    console.error('[admin/pods] extend error:', error.message);
+    return res.status(500).json({ error: 'Failed to extend pod' });
+  }
+});
+
+// ── GET /api/admin/burst-catalog — the burst (on-demand) GPU type rows ───────
+// is_burst=1 providers are synthetic GPU-TYPE rows brokered on an external
+// cloud. INVISIBILITY: surfaced as generic "burst" types — no vendor brand.
+router.get('/burst-catalog', (req, res) => {
+  try {
+    const rows = db.all(
+      `SELECT id, name, gpu_model, vram_gb, gpu_count,
+              burst_gpu_type_id, stock_available,
+              COALESCE(is_paused, 0) AS is_paused, status,
+              cost_per_gpu_second_halala
+         FROM providers
+        WHERE COALESCE(is_burst, 0) = 1
+        ORDER BY cost_per_gpu_second_halala ASC`
+    );
+    const catalog = rows.map((r) => ({
+      id: r.id,
+      burst_gpu_type_id: r.burst_gpu_type_id || null,
+      gpu_model: r.gpu_model || r.name || null,
+      vram_gb: r.vram_gb != null ? Number(r.vram_gb) : null,
+      gpu_count: r.gpu_count != null ? Number(r.gpu_count) : 1,
+      stock_available: r.stock_available != null ? Number(r.stock_available) : 0,
+      is_paused: Number(r.is_paused) === 1,
+      status: r.status || null,
+      cost_per_gpu_second_halala: r.cost_per_gpu_second_halala != null ? Number(r.cost_per_gpu_second_halala) : null,
+      sar_per_hour: ratePerSecToSarPerHour(r.cost_per_gpu_second_halala),
+      source: 'burst',
+    }));
+    return res.json({
+      total: catalog.length,
+      available: catalog.filter((c) => !c.is_paused && c.stock_available > 0).length,
+      paused: catalog.filter((c) => c.is_paused).length,
+      catalog,
+    });
+  } catch (error) {
+    console.error('[admin/burst-catalog] error:', error.message);
+    return res.status(500).json({ error: 'Failed to load burst catalog' });
+  }
+});
+
+// ── PATCH /api/admin/burst-catalog/:id — pause/unpause or set stock ──────────
+// Body: { is_paused?: boolean, stock_available?: integer >= 0 }
+router.patch('/burst-catalog/:id', (req, res) => {
+  try {
+    const row = db.get(
+      `SELECT id, gpu_model, name, COALESCE(is_paused, 0) AS is_paused, stock_available
+         FROM providers WHERE id = ? AND COALESCE(is_burst, 0) = 1`,
+      req.params.id
+    );
+    if (!row) return res.status(404).json({ error: 'Burst GPU type not found' });
+
+    const body = req.body || {};
+    const sets = [];
+    const params = [];
+    let changedPaused = null;
+    let changedStock = null;
+
+    if (Object.prototype.hasOwnProperty.call(body, 'is_paused')) {
+      const paused = parseBooleanLike(body.is_paused, null);
+      if (paused === null) return res.status(400).json({ error: 'is_paused must be a boolean' });
+      sets.push('is_paused = ?');
+      params.push(paused ? 1 : 0);
+      changedPaused = paused;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'stock_available')) {
+      const stock = Number(body.stock_available);
+      if (!Number.isInteger(stock) || stock < 0) {
+        return res.status(400).json({ error: 'stock_available must be an integer >= 0' });
+      }
+      sets.push('stock_available = ?');
+      params.push(stock);
+      changedStock = stock;
+    }
+    if (sets.length === 0) {
+      return res.status(400).json({ error: 'Provide is_paused and/or stock_available' });
+    }
+
+    const now = new Date().toISOString();
+    sets.push('updated_at = ?');
+    params.push(now, row.id);
+    db.prepare(`UPDATE providers SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+
+    try {
+      db.prepare('INSERT INTO admin_audit_log (action, target_type, target_id, details, timestamp) VALUES (?,?,?,?,?)')
+        .run('burst_catalog_updated', 'provider', String(row.id),
+          `Admin updated burst type ${row.id}` +
+          (changedPaused !== null ? ` is_paused=${changedPaused}` : '') +
+          (changedStock !== null ? ` stock=${changedStock}` : ''), now);
+    } catch (_) { /* audit best-effort */ }
+
+    const updated = db.get(
+      `SELECT id, gpu_model, name, vram_gb, burst_gpu_type_id, stock_available,
+              COALESCE(is_paused, 0) AS is_paused, status, cost_per_gpu_second_halala
+         FROM providers WHERE id = ?`,
+      row.id
+    );
+    return res.json({
+      success: true,
+      gpu_type: {
+        id: updated.id,
+        burst_gpu_type_id: updated.burst_gpu_type_id || null,
+        gpu_model: updated.gpu_model || updated.name || null,
+        vram_gb: updated.vram_gb != null ? Number(updated.vram_gb) : null,
+        stock_available: Number(updated.stock_available) || 0,
+        is_paused: Number(updated.is_paused) === 1,
+        status: updated.status || null,
+        cost_per_gpu_second_halala: updated.cost_per_gpu_second_halala != null ? Number(updated.cost_per_gpu_second_halala) : null,
+        sar_per_hour: ratePerSecToSarPerHour(updated.cost_per_gpu_second_halala),
+        source: 'burst',
+      },
+      updated_at: now,
+    });
+  } catch (error) {
+    console.error('[admin/burst-catalog PATCH] error:', error.message);
+    return res.status(500).json({ error: 'Failed to update burst GPU type' });
+  }
+});
+
+// ── GET /api/admin/volumes — all renter volumes + pool utilization ───────────
+router.get('/volumes', (req, res) => {
+  try {
+    const statusFilter = (req.query.status || '').trim();
+    let where = '1=1';
+    const params = [];
+    if (statusFilter) { where += ' AND v.status = ?'; params.push(statusFilter); }
+
+    const rows = db.all(
+      `SELECT v.*, r.name AS renter_name, r.email AS renter_email
+         FROM renter_volumes v
+    LEFT JOIN renters r ON r.id = v.renter_id
+        WHERE ${where}
+        ORDER BY v.id DESC`,
+      ...params
+    );
+
+    const store = volumeStore();
+    const volumes = rows.map((v) => {
+      // Live usage is only meaningful for active volumes (the bucket still exists).
+      let usedGb = null;
+      if (v.status === 'active') {
+        try {
+          const usedBytes = store.volumeUsedBytes(v.renter_id);
+          usedGb = Number((usedBytes / 1073741824).toFixed(3));
+        } catch (_) { usedGb = null; }
+      }
+      return {
+        id: v.id,
+        renter_id: v.renter_id,
+        renter_name: v.renter_name || null,
+        renter_email: v.renter_email || null,
+        size_gb: Number(v.size_gb) || 0,
+        used_gb: usedGb,
+        used_pct: (usedGb != null && v.size_gb > 0) ? Math.min(100, Math.round((usedGb / v.size_gb) * 100)) : null,
+        status: v.status,
+        bucket: v.bucket || null,
+        price_halala_per_month: Number(v.price_halala_per_month) || 0,
+        price_sar_per_month: Number(((Number(v.price_halala_per_month) || 0) / 100).toFixed(2)),
+        rented_at: v.rented_at || null,
+        current_period_end: v.current_period_end || null,
+        released_at: v.released_at || null,
+      };
+    });
+
+    // Pool utilization — same ceiling the rent path enforces.
+    const vols = volumesModule();
+    const POOL_CEILING_GB = 100;
+    const activeGbRow = db.get(`SELECT COALESCE(SUM(size_gb), 0) AS gb FROM renter_volumes WHERE status = 'active'`);
+    const activePoolGb = Number(activeGbRow && activeGbRow.gb) || 0;
+
+    return res.json({
+      total: volumes.length,
+      active: volumes.filter((v) => v.status === 'active').length,
+      pool: {
+        ceiling_gb: POOL_CEILING_GB,
+        active_gb: activePoolGb,
+        available_gb: Math.max(0, POOL_CEILING_GB - activePoolGb),
+        utilization_pct: Math.min(100, Math.round((activePoolGb / POOL_CEILING_GB) * 100)),
+      },
+      halala_per_gb_month: vols && vols.HALALA_PER_GB_MONTH != null ? vols.HALALA_PER_GB_MONTH : null,
+      volumes,
+    });
+  } catch (error) {
+    console.error('[admin/volumes] error:', error.message);
+    return res.status(500).json({ error: 'Failed to list volumes' });
   }
 });
 
