@@ -48,6 +48,14 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tajawal:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
+        {/* Umami — self-hosted, in-Kingdom web analytics (sovereign, cookieless, PDPL-friendly).
+            data-domains limits collection to production (skips localhost/preview). */}
+        <script
+          defer
+          src="https://analytics.76.13.179.86.nip.io/script.js"
+          data-website-id="1cce8020-c547-4ae1-bb35-e26423ed9cb3"
+          data-domains="dcp.sa,www.dcp.sa"
+        />
       </head>
       <body className="font-inter bg-dc1-void text-dc1-text-primary antialiased">
         <JsonLd data={[organizationLd(), webSiteLd()]} />
