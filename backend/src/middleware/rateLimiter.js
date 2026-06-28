@@ -129,6 +129,13 @@ function createAdminIpAllowlist() {
 // Provider registration: 5 per IP per hour (DCP-855)
 const registerLimiter = createRateLimiter({ windowMs: 60*60*1000, max: 5, keyGenerator: (req) => ipFallbackKey(req) });
 
+// Agent self-serve registration: 3 per IP per hour. Tighter than the human
+// registerLimiter (5/IP/hr) because this path mints a REAL renter key + trial
+// credit in ONE programmatic call with NO email-click verification — every
+// successful call hands out money, so the per-IP cap is the primary abuse
+// brake against credit farming. Keyed on IP (the caller is unauthenticated).
+const agentRegisterLimiter = createRateLimiter({ windowMs: 60*60*1000, max: 3, keyGenerator: (req) => ipFallbackKey(req) });
+
 // Job submission: 20 per renter key per minute (DCP-855)
 const jobSubmitLimiter = createRateLimiter({
   windowMs: 60*1000,
@@ -208,7 +215,7 @@ const webhookRegistrationLimiter = createRateLimiter({ windowMs: 60*60*1000, max
 
 module.exports = {
   createRateLimiter, createAdminIpAllowlist,
-  registerLimiter, jobSubmitLimiter, jobCreateLimiter,
+  registerLimiter, agentRegisterLimiter, jobSubmitLimiter, jobCreateLimiter,
   marketplaceLimiter, publicProvidersLimiter, publicEndpointLimiter,
   catalogLimiter, modelCatalogLimiter, authenticatedEndpointLimiter,
   modelDeployLimiter, containerRegistryLimiter,

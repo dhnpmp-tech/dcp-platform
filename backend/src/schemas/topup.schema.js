@@ -30,4 +30,19 @@ const renterRegisterSchema = z.object({
   phone: z.string().max(40).optional(),
 }).strict();
 
-module.exports = { renterTopupSchema, renterRegisterSchema };
+/**
+ * POST /api/renters/agent-register — programmatic zero-human renter signup.
+ *
+ * Everything is optional: an autonomous agent can register with an empty body
+ * and still get a usable key + trial. Email is OPTIONAL (captured for audit /
+ * recovery when supplied, never required) so we don't gate machine signups on
+ * a mailbox. `label` is a free-text hint the agent can set to tag its account.
+ */
+const renterAgentRegisterSchema = z.object({
+  email: z.string().email().max(254).optional(),
+  label: z.string().max(120).optional(),
+  organization: z.string().max(160).optional(),
+  use_case: z.string().max(120).optional(),
+}).strict();
+
+module.exports = { renterTopupSchema, renterRegisterSchema, renterAgentRegisterSchema };

@@ -73,7 +73,11 @@ function withFinancialIdempotency(opts = {}) {
   const ttlMs = Number.isFinite(opts.ttlMs) ? opts.ttlMs : DEFAULT_TTL_MS;
 
   return function financialIdempotencyMiddleware(req, res, next) {
-    const clientKeyRaw = req.headers['idempotency-key'];
+    // Accept BOTH the OpenAPI-documented `Idempotency-Key` (Node lowercases
+    // header names → 'idempotency-key') and `x-idempotency-key`, the convention
+    // already used by POST /api/jobs in jobs.js. The documented spelling wins
+    // when both are present.
+    const clientKeyRaw = req.headers['idempotency-key'] || req.headers['x-idempotency-key'];
     const clientKey = typeof clientKeyRaw === 'string' ? clientKeyRaw.trim() : '';
 
     // Audit C2 strongly recommends Idempotency-Key on financial calls but we
