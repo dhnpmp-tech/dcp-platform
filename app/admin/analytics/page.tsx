@@ -40,6 +40,59 @@ interface Analytics {
   dashboard_url: string
 }
 
+interface FunnelJourney {
+  journey: string
+  stages: { view: number; register: number; first_action: number; first_success: number }
+  conversion: { register_to_first_action_pct: number; register_to_first_success_pct: number }
+}
+
+interface Funnel {
+  window_days: number
+  journeys: FunnelJourney[]
+}
+
+const FUNNEL_STEPS: { key: keyof FunnelJourney['stages']; label: string }[] = [
+  { key: 'view', label: 'Visited' },
+  { key: 'register', label: 'Registered' },
+  { key: 'first_action', label: 'First action' },
+  { key: 'first_success', label: 'First success' },
+]
+
+function FunnelBars({ j }: { j: FunnelJourney }) {
+  const max = Math.max(j.stages.view, j.stages.register, 1)
+  return (
+    <div className="rounded-lg border border-dc1-border p-5">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-dc1-text-muted">
+        {j.journey} funnel
+      </h3>
+      <div className="space-y-3">
+        {FUNNEL_STEPS.map((step, i) => {
+          const n = j.stages[step.key]
+          const prev = i > 0 ? j.stages[FUNNEL_STEPS[i - 1].key] : n
+          const dropPct = prev > 0 ? Math.round((n / prev) * 100) : 0
+          return (
+            <div key={step.key} className="flex items-center gap-3">
+              <span className="w-28 shrink-0 text-sm text-dc1-text-secondary">{step.label}</span>
+              <div className="relative h-7 flex-1 overflow-hidden rounded bg-dc1-border/30">
+                <div
+                  className="absolute inset-y-0 left-0 bg-dc1-accent/30"
+                  style={{ width: `${max > 0 ? Math.max((n / max) * 100, 2) : 0}%` }}
+                />
+                <span className="absolute inset-0 flex items-center px-3 text-sm font-medium text-dc1-text-primary">
+                  {n.toLocaleString()}
+                </span>
+              </div>
+              <span className="w-14 shrink-0 text-right text-xs text-dc1-text-muted">
+                {i > 0 ? `${dropPct}%` : ''}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function formatDuration(seconds: number): string {
   if (!seconds) return '0s'
   const m = Math.floor(seconds / 60)
@@ -89,6 +142,7 @@ export default function AdminAnalyticsPage() {
   const [error, setError] = useState('')
   const [range, setRange] = useState<'24h' | '30d'>('30d')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [funnel, setFunnel] = useState<Funnel | null>(null)
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('dc1_admin_token') : null
 
@@ -109,6 +163,15 @@ export default function AdminAnalyticsPage() {
       setData(await res.json())
       setLastUpdated(new Date())
       setError('')
+      // Conversion funnel (best-effort — don't fail the page if it errors)
+      try {
+        const fr = await fetch(`${API_BASE}/admin/analytics/conversion-funnel?sinceDays=30`, {
+          headers: { 'x-admin-token': token! },
+        })
+        if (fr.ok) setFunnel(await fr.json())
+      } catch {
+        /* funnel optional */
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics')
     } finally {
@@ -198,6 +261,22 @@ export default function AdminAnalyticsPage() {
             <BreakdownList title="Countries" rows={data.countries} total={visits} />
             <BreakdownList title="Browsers" rows={data.browsers} total={visits} />
           </div>
+
+          {funnel && funnel.journeys.length > 0 && (
+            <section>
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-dc1-text-muted">
+                Conversion Funnel
+              </h2>
+              <p className="mb-4 text-xs text-dc1-text-muted">
+                Unique actors per stage · last {funnel.window_days} days · % = step-to-step conversion
+              </p>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {funnel.journeys.map((j) => (
+                  <FunnelBars key={j.journey} j={j} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       ) : null}
     </DashboardLayout>
