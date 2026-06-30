@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 05:46 UTC — [merge `189dae6`](https://github.com/dhnpmp-tech/dcp-platform/commit/189dae6) + [`87aa7fa`](https://github.com/dhnpmp-tech/dcp-platform/commit/87aa7fa) — `chore(reconcile): merge security/staged-rollouts into main`
+
+Included:
+- Reconciles prod's `security/staged-rollouts` branch into `main` so deploy-from-main no longer regresses production. Prod had been running 10 commits ahead of main (hand-managed on the security branch); this brings those 10 commits into main as an explicit (non-fast-forward) merge commit, then integrates PR #663 on top. Deploy-from-main is now safe — the time-bomb (main lacking the staged funnel/security/invisibility work) is defused. Production itself is unchanged by the merge (it was already running the staged content).
+- **Commits brought in (oldest→newest):** `2174dda` security staged-rollout runbooks + corrected dep overrides; `0f4129f` consolidate security tracker under `docs/security/` + `/dcp-security-audit` skill; `6949d01` AI-agent + unauth-API findings fixed live; `f623ed6` correct DCP-API-01 framing (latent, not realized); `28408cc` gate `/api/standup/latest` (DCP-API-02 partial); `d11dc9b` renter sees GPU TYPE only, never the provider machine name/id; `fb9e733` burst pod lifecycle (launch/stop/extend/sweep + teardown) + `is_burst` guards; `aa24192` zero-human renter signup + 402 wallet flow; `170b747` auth/dashboard URL fixes in job + digest email templates; `0135afd` track agent-register + add `payment_success` funnel stage.
+- **Conflict resolution:** `backend/src/lib/renter-job-view.js` (add/add — both branches had the vendor-scrub; took the prod-proven staged version, all 7 scrub functions present) and `backend/src/routes/pods.js` (content — staged is a strict superset of main's: adds the `POST /notify-me` back-in-stock waitlist route + burst `is_burst` guards on top of main's launch route; verified main had zero lines unique to it, took staged wholesale).
+- **State change:** `main` HEAD `6965817` → `87aa7fa`. No prod deploy performed (prod already runs the equivalent staged content; shipping main's 63 ahead-commits — analytics UI, GPU selector, hero — to prod is a separate smoke-tested release).
+
 ### 2026-06-17 09:00 UTC — [PR #617](https://github.com/dhnpmp-tech/dcp-platform/pull/617) — `fix(pods): honest workspace-persistence signalling (stop silent data loss)`
 
 Included:
