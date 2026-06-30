@@ -1114,9 +1114,12 @@ function estimateThreeComponentCost({ gpuModel, durationSeconds, storageGbSecond
   });
 }
 
-// Floor-plus-remainder: guarantees provider + dc1 === total exactly
+// Floor-plus-remainder: guarantees provider + dc1 === total exactly.
+// Inference rev-share = 75% provider / 25% DC1, aligned to the pod split
+// (PROVIDER_EARN_SHARE=0.75 in pods.js / jobSweep.js) on 2026-06-30 per owner.
+// Previously 85/15 — historical inference settlements stay at their original split.
 function splitBilling(totalHalala) {
-  const dc1 = Math.floor(totalHalala * 15 / 100);
+  const dc1 = Math.floor(totalHalala * 25 / 100);
   return { provider: totalHalala - dc1, dc1 };
 }
 
