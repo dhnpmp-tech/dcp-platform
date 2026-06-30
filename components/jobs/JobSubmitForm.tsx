@@ -91,7 +91,7 @@ export default function JobSubmitForm() {
   async function verifyRenterKey(key: string) {
     setAuthChecking(true);
     try {
-      const res = await fetch(`${API_BASE}/renters/me?key=${encodeURIComponent(key)}`);
+      const res = await fetch(`${API_BASE}/renters/me`, { headers: { 'x-renter-key': key } });
       if (res.ok) {
         const data = await res.json();
         setRenterName(data.renter?.name || 'Renter');

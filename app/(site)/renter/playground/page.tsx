@@ -459,11 +459,10 @@ export default function PlaygroundPage() {
     ;(async () => {
       try {
         setAccountState('loading')
-        const encodedKey = encodeURIComponent(key)
         const headers = { 'x-renter-key': key }
         const [meData, balanceData] = await Promise.all([
-          readJson<RenterMeResponse>(`${getApiBase()}/renters/me?key=${encodedKey}`, headers),
-          readJson<RenterBalanceResponse>(`${getApiBase()}/renters/balance?key=${encodedKey}`, headers, true),
+          readJson<RenterMeResponse>(`${getApiBase()}/renters/me`, headers),
+          readJson<RenterBalanceResponse>(`${getApiBase()}/renters/balance`, headers, true),
         ])
         if (cancelled) return
         setRenter(meData?.renter || null)

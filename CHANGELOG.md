@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 06:18 UTC — `feat(security): C1 phase-2 — reject query-param API keys on /api/renters/me/*`
+
+Nexus/Tito audit item C1 — `?key=` / `?renter_key=` / `?provider_key=` / `?api_key=` leak credentials into browser history, server access logs, referrer headers, and proxy logs. Phase 1 (Deprecation/Sunset/Link headers + telemetry) shipped earlier; this is **phase 2: enforcement**.
+
+- **Backend (`server.js`):** uncommented `app.use('/api/renters/me', rejectRenterQueryParamKey)` — `?key=` / `?renter_key=` on `/api/renters/me/*` now return **400** with a `Set the "X-Renter-Key" header` hint. The `/api/renters/analytics` + `/api/renters/export` mounts are left commented (those exact routes don't exist — verified `grep` of `routes/renters.js`; placeholders only).
+- **Refactor for testability:** extracted `detectQueryParamKeys` + `rejectRenterQueryParamKey` from `server.js` into **`backend/src/middleware/queryKeyReject.js`** (matches the existing `middleware/auth.js` pattern) so the contract is unit-testable without booting the whole app. `server.js` requires them.
+- **Test:** **`backend/src/__tests__/queryKeyReject.test.js`** — 9 cases (rejects `?key=` / `?renter_key=` on `/me` and `/me/analytics` prefix mount → 400; passes header-auth + `?provider_key=` through). Verified logic standalone (8/8 pass) since `node_modules` isn't installed locally; jest file syntax-checked.
+- **Frontend migration (DCP-712):** all `/api/renters/me/*` fetch call sites moved off `?key=` → `X-Renter-Key` header. Most already sent the header (the `?key=` was redundant leftover); 3 didn't (`auth/page.tsx`, `JobSubmitForm.tsx`, `setup/page.tsx` had header; `auth` + `JobSubmitForm` now add it). Files: `renter/{usage,settings,playground,keys,pods}/page.tsx`, `auth/page.tsx`, `setup/page.tsx`, `components/jobs/JobSubmitForm.tsx`.
+- **CSV export blocker solved:** `renter/usage/page.tsx`'s `<a href="?key=…&format=csv">` (browser navigation — can't set headers) converted to a `downloadUsageCsv()` blob-download (fetch with `x-renter-key` header → `URL.createObjectURL` → synthetic `<a>` click), matching the existing `renter/invoices/page.tsx` pattern.
+- **Verification:** `grep "renters/me.*?key=" app/ components/` → **zero** remaining. `node --check` on `server.js` + new module pass.
+- **Scope / residual blockers (documented):** (1) Tauri installer download URLs (`/api/providers/download?key=`) are baked into already-shipped `.exe`/`.dmg` binaries — intentionally NOT covered; needs a signed-URL mechanism. (2) Provider-side `?key=` call sites are NOT enforced (no `rejectProviderQueryParamKey` middleware exists) — they remain on phase-1 deprecation headers. (3) `/v1/*` query-key rejection is the separate H2 item (env-gated), untouched here.
+- **State change:** `?key=` on `/api/renters/me/*` is now refused at the backend. No prod impact yet (prod runs `security/staged-rollouts`, not `main`); lands when main next smoke-deploys.
+
 ### 2026-06-30 06:05 UTC — `investigate(ops): openclaw-gateway + agents-auth health — verdict: both non-DCP, no action`
 
 Investigation (no code change, no prod mutation):

@@ -436,7 +436,7 @@ export default function RenterPodsPage() {
 
   const fetchRenter = useCallback(async (apiKey: string) => {
     try {
-      const res = await fetch(`${getApiBase()}/renters/me?key=${encodeURIComponent(apiKey)}`, {
+      const res = await fetch(`${getApiBase()}/renters/me`, {
         headers: { 'x-renter-key': apiKey },
         cache: 'no-store',
       })

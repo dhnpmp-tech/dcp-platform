@@ -228,6 +228,30 @@ async function readJson<T>(url: string, headers: HeadersInit, optional = false):
   return (await res.json()) as T
 }
 
+// C1 phase-2: a browser <a> cannot set headers, so the CSV link used to carry
+// the renter key in the querystring (?key=). Fetch the CSV with the x-renter-key
+// header instead, then trigger a blob download (same pattern as invoices +
+// settings data-export). The backend route already accepts the header.
+async function downloadUsageCsv(period: Period): Promise<void> {
+  const key = getRenterKey()
+  if (!key) return
+  const base = getApiBase()
+  const res = await fetch(`${base}/renters/me/jobs/export?format=csv&period=${period}`, {
+    headers: { 'x-renter-key': key },
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`CSV export failed: ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `dcp-usage-${period}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export default function RenterUsagePage() {
   const { lang, toggle } = useV2()
 
@@ -244,7 +268,7 @@ export default function RenterUsagePage() {
   const [jobs, setJobs] = useState<JobRecord[]>([])
   const [usage, setUsage] = useState<UsageRecord[]>([])
   const [usageTotals, setUsageTotals] = useState<UsageResponse['totals'] | null>(null)
-  const [exportHref, setExportHref] = useState('/renter/usage')
+  // C1 phase-2: CSV export uses downloadUsageCsv (x-renter-key header) instead of an <a href="?key=">.
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -254,7 +278,6 @@ export default function RenterUsagePage() {
       return
     }
     const renterKey = key
-    const encodedKey = encodeURIComponent(renterKey)
     const base = getApiBase()
     const headers = { 'x-renter-key': renterKey }
     let cancelled = false
@@ -263,13 +286,12 @@ export default function RenterUsagePage() {
       try {
         setLoadState('loading')
         setError('')
-        setExportHref(`${base}/renters/me/jobs/export?key=${encodedKey}&format=csv`)
         const [me, balanceData, analyticsData, jobsData, usageData] = await Promise.all([
-          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
-          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
-          readJson<AnalyticsResponse>(`${base}/renters/me/analytics?key=${encodedKey}&period=${period}`, headers, true),
-          readJson<JobsResponse>(`${base}/renters/me/jobs?key=${encodedKey}&page=0&limit=50&period=${period}`, headers, true),
-          readJson<UsageResponse>(`${base}/renters/me/usage?key=${encodedKey}&limit=50&offset=0&period=${period}`, headers, true),
+          readJson<RenterMeResponse>(`${base}/renters/me`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
+          readJson<AnalyticsResponse>(`${base}/renters/me/analytics?period=${period}`, headers, true),
+          readJson<JobsResponse>(`${base}/renters/me/jobs?page=0&limit=50&period=${period}`, headers, true),
+          readJson<UsageResponse>(`${base}/renters/me/usage?limit=50&offset=0&period=${period}`, headers, true),
         ])
         if (cancelled) return
         setRenter(me?.renter || null)
@@ -500,9 +522,15 @@ export default function RenterUsagePage() {
                 </span>
               </div>
             </div>
-            <a className="btn-sec" href={exportHref}>
+            <button
+              type="button"
+              className="btn-sec"
+              onClick={() => {
+                void downloadUsageCsv(period).catch((err) => setError(String(err?.message || err)))
+              }}
+            >
               ↓ <Bi en="Export CSV" ar="تصدير CSV" />
-            </a>
+            </button>
           </div>
 
           {loadState === 'missing-key' && (

@@ -64,7 +64,7 @@ export default function SetupPage() {
 
     ;(async () => {
       try {
-        const res = await fetch(`${getApiBase()}/renters/me?key=${encodeURIComponent(key)}`, {
+        const res = await fetch(`${getApiBase()}/renters/me`, {
           headers: { 'x-renter-key': key },
         })
         if (!res.ok) {

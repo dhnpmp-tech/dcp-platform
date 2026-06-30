@@ -153,7 +153,6 @@ export default function RenterSettingsPage() {
       return
     }
     const renterKey = key
-    const encodedKey = encodeURIComponent(renterKey)
     const base = getApiBase()
     const headers = { 'x-renter-key': renterKey }
     let cancelled = false
@@ -163,9 +162,9 @@ export default function RenterSettingsPage() {
         setLoadState('loading')
         setError('')
         const [me, balanceData, notificationsData] = await Promise.all([
-          readJson<RenterMeResponse>(`${base}/renters/me?key=${encodedKey}`, headers),
-          readJson<RenterBalanceResponse>(`${base}/renters/balance?key=${encodedKey}`, headers, true),
-          readJson<NotificationsResponse>(`${base}/renters/me/notifications?key=${encodedKey}&limit=10`, headers, true),
+          readJson<RenterMeResponse>(`${base}/renters/me`, headers),
+          readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
+          readJson<NotificationsResponse>(`${base}/renters/me/notifications?limit=10`, headers, true),
         ])
         if (cancelled) return
         const account = me?.renter || null

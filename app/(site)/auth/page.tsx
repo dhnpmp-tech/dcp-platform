@@ -125,13 +125,13 @@ function AuthInner() {
     try {
       const key = apiKey.trim()
       if (role === 'renter') {
-        const res = await fetch(`${API_BASE}/renters/me?key=${encodeURIComponent(key)}`)
+        const res = await fetch(`${API_BASE}/renters/me`, { headers: { 'x-renter-key': key } })
         const data = await res.json().catch(() => ({}))
         if (!res.ok || !data.renter) throw new Error(data.error || 'Invalid renter API key.')
         localStorage.setItem('dc1_renter_key', key)
         await setSession({ role: 'renter', userName: data.renter.name, email: data.renter.email })
       } else {
-        const res = await fetch(`${API_BASE}/providers/me?key=${encodeURIComponent(key)}`)
+        const res = await fetch(`${API_BASE}/providers/me`, { headers: { 'x-provider-key': key } })
         const data = await res.json().catch(() => ({}))
         if (!res.ok || !data.provider) throw new Error(data.error || 'Invalid provider API key.')
         localStorage.setItem('dc1_provider_key', key)

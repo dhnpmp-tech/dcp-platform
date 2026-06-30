@@ -205,7 +205,7 @@ export default function RenterKeysPage() {
       const base = getApiBase()
       const headers = { 'x-renter-key': key }
       const [meRes, res] = await Promise.all([
-        fetch(`${base}/renters/me?key=${encodeURIComponent(key)}`, { headers }),
+        fetch(`${base}/renters/me`, { headers }),
         fetch(`${base}/renters/me/keys`, { headers }),
       ])
       if (meRes.ok) {
@@ -298,7 +298,7 @@ export default function RenterKeysPage() {
     setRevokingId(id)
     setError('')
     try {
-      const res = await fetch(`${getApiBase()}/renters/me/keys/${encodeURIComponent(id)}?key=${encodeURIComponent(key)}`, {
+      const res = await fetch(`${getApiBase()}/renters/me/keys/${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: { 'x-renter-key': key },
       })

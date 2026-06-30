@@ -273,32 +273,10 @@ app.use((req, res, next) => {
 // Credentials in URLs appear in server logs, browser history, and HTTP referrer headers.
 // Providers (daemon) still use query params on some endpoints — only renter-facing
 // endpoints are enforced here. Provider routes remain backward-compatible.
-const RENTER_KEY_QUERY_NAMES = ['renter_key'];
-const PROVIDER_KEY_QUERY_NAMES = ['provider_key'];
-const SHARED_KEY_QUERY_NAME = 'key';
-
-function detectQueryParamKeys(req) {
-  const hasRenterKey = RENTER_KEY_QUERY_NAMES.some(n => req.query[n]);
-  const hasProviderKey = PROVIDER_KEY_QUERY_NAMES.some(n => req.query[n]);
-  const hasSharedKey = !!req.query[SHARED_KEY_QUERY_NAME];
-  return { hasRenterKey, hasProviderKey, hasSharedKey, any: hasRenterKey || hasProviderKey || hasSharedKey };
-}
-
-// Reject API keys in query params on renter-facing endpoints where the frontend
-// was already fixed (DCP-712). Provider heartbeat/daemon routes are excluded.
-function rejectRenterQueryParamKey(req, res, next) {
-  const { hasRenterKey, hasSharedKey } = detectQueryParamKeys(req);
-  if (hasRenterKey || hasSharedKey) {
-    console.warn(
-      `[security] API key in URL query params rejected: ${req.method} ${req.path} ip=${req.ip || 'unknown'}`
-    );
-    return res.status(400).json({
-      error: 'API keys must be sent via header (X-Renter-Key), not URL query parameters. This prevents credential exposure in server logs and browser history.',
-      hint: 'Set the "X-Renter-Key" request header instead of a ?key= or ?renter_key= query parameter.',
-    });
-  }
-  next();
-}
+const {
+  detectQueryParamKeys,
+  rejectRenterQueryParamKey,
+} = require('./middleware/queryKeyReject');
 
 // Audit C1 — query-param API key deprecation telemetry.
 //
@@ -360,11 +338,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// NOTE: Query-param key rejection disabled — frontend still uses ?key= in 30+
-// locations. Re-enable after DCP-712 frontend migration is actually complete.
-// app.use('/api/renters/me', rejectRenterQueryParamKey);
-// app.use('/api/renters/analytics', rejectRenterQueryParamKey);
-// app.use('/api/renters/export', rejectRenterQueryParamKey);
+// C1 phase-2: query-param API key rejection is now LIVE on /api/renters/me/*
+// (the frontend migration is complete — all fetch call sites use the
+// x-renter-key header; the CSV export uses a header-authed blob download).
+// ?key=/​?renter_key= on these routes now returns 400. Installer download URLs
+// (/api/providers/download?key=) are intentionally NOT covered here — they are
+// baked into already-shipped Tauri .exe/.dmg binaries and remain on ?key= until
+// a signed-URL mechanism lands. /api/renters/analytics + /api/renters/export
+// mounts below are inert (those exact routes don't exist) — left as placeholders.
+app.use('/api/renters/me', rejectRenterQueryParamKey);
+// app.use('/api/renters/analytics', rejectRenterQueryParamKey); // route does not exist
+// app.use('/api/renters/export', rejectRenterQueryParamKey);   // route does not exist
 
 // ── Auth Failure Logging ────────────────────────────────────────────────
 // Wrap res.status to detect 401/403 and emit an audit log entry.
