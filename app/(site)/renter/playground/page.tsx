@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, t
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
+import WorkspacePanel from '../workspace/WorkspacePanel'
 import './playground.css'
 
 const HALALA_PER_SAR = 100
@@ -194,6 +195,12 @@ export default function PlaygroundPage() {
   // for thinking tokens. Toggling on sends enable_thinking:true (the backend
   // translates it to the right per-engine knob) and reveals the reasoning panel.
   const [showReasoning, setShowReasoning] = useState(false)
+
+  // ── Playground / Workspace surface tab ──
+  // The renter playground and the workspace file manager share this route.
+  // The chat playground is the default; "Workspace" reveals the file manager
+  // for the renter's persistent in-Kingdom volume (PR #678 backend).
+  const [surface, setSurface] = useState<'playground' | 'workspace'>('playground')
 
   // ── live renter shell ──
   const [renter, setRenter] = useState<RenterAccount | null>(null)
@@ -614,6 +621,32 @@ export default function PlaygroundPage() {
             </span>
           </div>
 
+          {/* ── surface tabs: chat playground ↔ workspace file manager ── */}
+          <div className="tabs pg-surface-tabs" role="tablist" aria-label={lang === 'ar' ? 'سطح الساحة' : 'Playground surface'}>
+            <button
+              role="tab"
+              aria-selected={surface === 'playground'}
+              className={surface === 'playground' ? 'on' : ''}
+              onClick={() => setSurface('playground')}
+            >
+              <Bi en="Playground" ar="الساحة" />
+            </button>
+            <button
+              role="tab"
+              aria-selected={surface === 'workspace'}
+              className={surface === 'workspace' ? 'on' : ''}
+              onClick={() => setSurface('workspace')}
+            >
+              <Bi en="Workspace" ar="مساحة العمل" />
+            </button>
+          </div>
+
+          {surface === 'workspace' ? (
+            <WorkspacePanel
+              apiBase={getApiBase()}
+              renterKey={getRenterKey()}
+            />
+          ) : (
           <div className="pg-grid" style={{ marginTop: '36px' }}>
             {/* Left side: model picker + knobs */}
             <div className="pg-side">
@@ -860,6 +893,7 @@ export default function PlaygroundPage() {
               </div>
             </div>
           </div>
+          )}
         </main>
       </div>
     </div>
