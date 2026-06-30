@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 06:48 UTC — `feat(mcp): add list_pods lifecycle tool — agents can enumerate their own pods (ROADMAP 2.3)`
+
+The DCP MCP server exposed `create_pod` / `get_pod` / `extend_pod` / `stop_pod` but had **no `list_pods`** — an agent that launched pods could not enumerate them, so a forgotten pod kept running and draining the wallet until it expired on its own. Agents could create and kill pods but couldn't *find* them. This closes that gap.
+
+**Included:**
+
+- **New tool** `list_pods` in `integrations/dcp-mcp/index.js` — maps to `GET /api/pods` (backend `pods.js:606`, `requireRenter`-gated). Returns the caller's interactive pods newest-first (`{pods: [...]}`) with `id`, `gpu_type`, `status`, `access_url`, `ends_at`, `seconds_remaining`. Optional `limit` (1–100, default 20) passed as `?limit=`. Inserted in the TOOLS array immediately before `get_pod` so the lifecycle reads naturally: `list_pods → get_pod → extend_pod / stop_pod`.
+- **README** `integrations/dcp-mcp/README.md` — `list_pods` added to the tool table.
+- **Scope note on the original 4-tool ask** (`list_pods`, `stop_pod`, `delete_pod`, `pod_status`): `stop_pod` (DELETE + refund) and `get_pod` (status — i.e. `pod_status`) had already landed since the task was written, so only `list_pods` was genuinely missing. `delete_pod` was **intentionally not added** — it would be a redundant alias of `stop_pod` (same `DELETE /api/pods/:id` + refund), and two tools with identical effect would only confuse an agent about which to call. The full lifecycle is now: `list_pods` (find) → `get_pod` (inspect) → `extend_pod` (add time) → `stop_pod` (stop + refund).
+- **Verified:** `node --check` passes; TOOLS registry well-formed (12 tools). No prod deploy — `main` only.
+
+**State changes:** MCP tool count 11 → 12. No backend changes (the `GET /api/pods` route already existed; only the MCP surface was missing the mapping).
+
+---
+
 ### 2026-06-30 06:40 UTC — `feat(pricing): reconcile pricing sources — port cost-plus logic into tested backend service, kill the mis-named gpu_pricing price path (ROADMAP 1.4/1.5)`
 
 The cost-plus repricing that sets the REAL billed price (`providers.cost_per_gpu_second_halala`) for burst GPUs lived **only in an untracked, unaudited VPS cron script** (`/root/dcp-burst/stock-refresh.py`), and the public `GET /api/renters/pricing` endpoint read a *different* legacy table (`gpu_pricing.rate_halala`) whose column actually stored USD × 100,000 (a mis-named pre-launch artifact) — 2–5× below the real billed rate. Two wrong sources, one right source, zero in-repo audit. This lands the canonical formula in the repo and points the public price list at the real number.
