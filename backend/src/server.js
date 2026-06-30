@@ -714,6 +714,8 @@ const volumesRouter = require('./routes/volumes');
 app.use('/api/volumes', volumesRouter);
 const publicDemoRouter = require('./routes/public-demo');
 app.use('/api/public/demo', publicDemoRouter);
+const funnelRouter = require('./routes/funnel');
+app.use('/api/funnel', funnelRouter);
 const { jobsInvoiceRouter, rentersInvoiceRouter } = require('./routes/invoices');
 app.use('/api/jobs', jobsInvoiceRouter);
 app.use('/api/renters', rentersInvoiceRouter);

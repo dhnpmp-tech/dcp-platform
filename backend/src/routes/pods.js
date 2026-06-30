@@ -35,6 +35,7 @@ const { invokePodRelay } = require('../lib/pod-relay');
 const { COST_RATES } = require('./jobs');
 const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 const { paymentRequiredPayload } = require('../lib/error-response');
+const conversionFunnel = require('../services/conversionFunnelService');
 
 // ── Burst (external-cloud) pod plumbing ──────────────────────────────────────
 // A burst provider (is_burst=1) is NOT a physical DCP machine — the pod is
@@ -964,6 +965,28 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     }
 
     console.log(`[pods] Renter ${req.renter.id} launched interactive_pod ${job_id} on provider ${provider.id} (${durationMinutes}m)${isBurst ? ' [burst]' : ''}`);
+
+    // Revenue funnel: a pod was launched (status 'starting' — the renter
+    // committed to a launch). Deduped per renter, so this records the FIRST
+    // pod launch only. Native-pod vs burst are both covered here; the async
+    // pulling→running transition has no renter req context and is tracked
+    // via the existing job-status analytics instead.
+    try {
+      conversionFunnel.trackStage({
+        journey: 'renter',
+        stage: 'pod_launched',
+        actorType: 'renter',
+        actorId: req.renter.id,
+        req,
+        metadata: {
+          job_id,
+          provider_id: provider.id,
+          duration_minutes: durationMinutes,
+          is_burst: !!isBurst,
+          quoted_cost_halala: quoteHalala,
+        },
+      });
+    } catch (_) { /* funnel best-effort */ }
 
     return res.status(201).json({
       id: job_id,

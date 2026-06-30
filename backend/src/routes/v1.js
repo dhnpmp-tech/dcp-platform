@@ -42,6 +42,7 @@ const {
 const { getEarnedRoutingState } = require('../services/providerVerification');
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { classifyRequest } = require('../lib/request-classifier');
+const conversionFunnel = require('../services/conversionFunnelService');
 
 const router = express.Router();
 const VLLM_COMPATIBILITY_MATRIX_PATH = path.join(__dirname, '../../../infra/vllm-configs/compatibility-matrix.json');
@@ -2804,6 +2805,25 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           autoTopupService
             .maybeTrigger(db._db || db, req.renter.id, { triggerReason: 'post_debit_v1' })
             .catch((e) => console.warn('[v1.auto_topup] trigger failed', e?.message || e));
+          // Revenue funnel: first successful paid inference for this renter.
+          // Deduped per renter by the funnel service, so this records the FIRST
+          // /v1/chat/completions settlement only — the moment the money loop
+          // closed for a new renter. Best-effort, never blocks the response.
+          try {
+            conversionFunnel.trackStage({
+              journey: 'renter',
+              stage: 'first_inference',
+              actorType: 'renter',
+              actorId: req.renter.id,
+              req,
+              metadata: {
+                model_id: modelReq.model_id,
+                cost_halala: settledCostHalala,
+                prompt_tokens: snapshot.promptTokens || 0,
+                completion_tokens: snapshot.completionTokens || 0,
+              },
+            });
+          } catch (_) { /* funnel best-effort */ }
         }
         usagePersisted = true;
       } catch (err) {

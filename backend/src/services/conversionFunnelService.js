@@ -5,7 +5,28 @@ const db = require('../db');
 const analytics = require('./analyticsService');
 
 const VALID_JOURNEYS = new Set(['provider', 'renter']);
-const VALID_STAGES = new Set(['view', 'register', 'first_action', 'first_success']);
+// Revenue funnel stages. The service dedupes per (journey, stage, actor), so
+// the `first_*` / `*_launched` / `*_initiated` / `payment_success` stages
+// naturally record once per renter/provider even though the call sites fire
+// on every relevant transaction.
+//   view → register → first_action → first_success   (baseline funnel)
+//   topup_initiated → payment_success                (revenue: wallet funding)
+//   pod_launched                                    (revenue: first pod launch)
+//   first_inference                                 (revenue: first /v1 completion)
+//   agent_self_serve                                (provider self-serve onboarding)
+//   pending_email_verification                      (provider email-verify gate)
+const VALID_STAGES = new Set([
+  'view',
+  'register',
+  'first_action',
+  'first_success',
+  'topup_initiated',
+  'payment_success',
+  'pod_launched',
+  'first_inference',
+  'agent_self_serve',
+  'pending_email_verification',
+]);
 const VALID_ACTOR_TYPES = new Set(['provider', 'renter', 'anonymous', 'admin', 'system']);
 
 const PATH_SURFACE_HINTS = [

@@ -300,6 +300,20 @@ router.post('/topup', requireRenter, withFinancialIdempotency({
 
   const amountSar = Number((amountHalala / 100).toFixed(2));
 
+  // Revenue funnel: a top-up was initiated (bank transfer OR Moyasar card).
+  // Fires before the payment-method branch so both paths are covered; deduped
+  // per renter by the funnel service so it records the FIRST top-up only.
+  try {
+    conversionFunnel.trackStage({
+      journey: 'renter',
+      stage: 'topup_initiated',
+      actorType: 'renter',
+      actorId: renter.id,
+      req,
+      metadata: { amount_halala: amountHalala, payment_method: paymentMethod },
+    });
+  } catch (_) { /* funnel best-effort */ }
+
   // ── Phase 1: bank transfer (manual IBAN, no gateway required) ──────────────
   if (paymentMethod === 'bank_transfer') {
     // Guard: never hand a renter the placeholder IBAN. If DCP_BANK_IBAN is unset,

@@ -8,6 +8,7 @@ import './styles/dcp-kit.css'
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { V2Provider } from './lib/i18n'
+import FunnelViewBeacon from './components/FunnelViewBeacon'
 
 export const metadata: Metadata = {
   title: 'DCP · Sovereign Arabic AI Runtime · KSA',
@@ -24,7 +25,10 @@ export default function V2Layout({ children }: { children: ReactNode }) {
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap"
       />
-      <V2Provider>{children}</V2Provider>
+      <V2Provider>
+        <FunnelViewBeacon />
+        {children}
+      </V2Provider>
     </>
   )
 }
