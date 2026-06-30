@@ -1090,15 +1090,26 @@ function stopPodCore(job, { actorLabel = 'renter' } = {}) {
       ).run(settlement.refundHalala, settlement.actualCostHalala, job.renter_id);
     } else {
       // Never started (pending/queued/assigned/pulling): cancel + full refund.
-      db.prepare(
-        `UPDATE jobs SET status = 'cancelled', completed_at = ?, refunded_at = ? WHERE id = ?`
-      ).run(now, now, job.id);
+      // Once-only guard mirrors failBurstJobAndRefund (burstLaunchRefund.js): only
+      // flip a non-terminal, non-refunded row, and only THIS caller — the one that
+      // actually flipped it (changes===1) — credits the wallet. The old code gated
+      // the refund on a stale in-memory `!job.refunded_at`, so two concurrent stops
+      // on a never-started pod could both pass and double-credit the renter.
       const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
-      if (prepaid > 0 && !job.refunded_at) {
+      const cancelled = db.prepare(
+        `UPDATE jobs SET status = 'cancelled', completed_at = ?, refunded_at = ?
+          WHERE id = ? AND status NOT IN ('completed','failed','stopped','cancelled')
+            AND refunded_at IS NULL`
+      ).run(now, now, job.id);
+      if (prepaid > 0 && cancelled.changes === 1) {
         db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
           .run(prepaid, job.renter_id);
       }
-      settlement = { actualCostHalala: 0, refundHalala: prepaid, elapsedSeconds: 0 };
+      settlement = {
+        actualCostHalala: 0,
+        refundHalala: cancelled.changes === 1 ? prepaid : 0,
+        elapsedSeconds: 0,
+      };
     }
   })();
 

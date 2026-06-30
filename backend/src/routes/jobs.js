@@ -4194,10 +4194,79 @@ function enforceJobTimeouts() {
       // through to the failure path below like any other timed-out job.
       if (job.job_type === 'interactive_pod' && job.status === 'running') {
         const podMessage = 'Pod reached its scheduled duration';
-        runStatement(
-          `UPDATE jobs SET status = 'completed', error = ?, completed_at = ? WHERE id = ?`,
-          podMessage, now, job.id
+        // Settle a full-duration pod the SAME way stopPodCore does on a
+        // renter-initiated stop: compute actual cost from elapsed GPU-seconds
+        // (capped at the prepaid quote), credit the provider's withdrawable
+        // claimable_earnings_halala at the 75% pod rev-share, book DCP's 25%
+        // fee, refund any unused prepaid to the renter, and write the
+        // settlement columns. Without this, the old code only released
+        // escrow_holds -> released_provider and relied on a downstream sweep
+        // that does NOT exist — reconcileProcessingPayouts reconciles Moyasar
+        // withdrawals, not escrow->earnings — so the provider was never
+        // credited for full-duration pods (3 pods / 2250 halala escrow / 1688
+        // halala provider share confirmed leaked on Tareq Node 2 in prod,
+        // 2026-06-30).
+        //
+        // Pods use a 75/25 split (PROVIDER_EARN_SHARE in pods.js +
+        // POD_PROVIDER_EARN_SHARE in jobSweep.js). Do NOT use splitBilling() —
+        // that helper is the 85/15 inference-job split and would under-book
+        // DCP's fee by 10pp if used here.
+        const POD_PROVIDER_EARN_SHARE = 0.75;
+        const provider = db.get(
+          `SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`,
+          job.provider_id
         );
+        const startedAtMs = Date.parse(job.started_at || job.submitted_at || now) || Date.parse(now);
+        const nowMs = Date.parse(now);
+        const prepaid = Math.max(0, Math.round(Number(job.cost_halala) || 0));
+        const elapsedSeconds = Math.max(0, (nowMs - startedAtMs) / 1000);
+        const ratePerGpuSecond = Number(provider && provider.cost_per_gpu_second_halala);
+        const resolvedRate = Number.isFinite(ratePerGpuSecond) && ratePerGpuSecond >= 0
+          ? ratePerGpuSecond
+          : (COST_RATES['interactive_pod'] || COST_RATES['default']) / 60;
+        const gpuCountRaw = Number.parseInt(provider && provider.gpu_count, 10);
+        const gpuCount = Number.isFinite(gpuCountRaw) && gpuCountRaw >= 1 ? Math.min(gpuCountRaw, 64) : 1;
+        const rawCost = Math.ceil(elapsedSeconds * resolvedRate * gpuCount);
+        const actualCostHalala = Math.min(prepaid, Math.max(0, rawCost));
+        const providerEarnedHalala = Math.floor(actualCostHalala * POD_PROVIDER_EARN_SHARE);
+        const dc1FeeHalala = actualCostHalala - providerEarnedHalala;
+        const refundHalala = prepaid - actualCostHalala;
+        // Race guard: only THIS caller — the one that actually flips 'running'
+        // -> 'completed' (changes===1) — settles money. A concurrent stopPodCore
+        // that already set 'stopped' makes the WHERE status='running' clause
+        // match 0 rows, so we skip all money writes (no double-credit). Mirrors
+        // the once-only guard in failBurstJobAndRefund + stopPodCore's
+        // never-started branch.
+        const completed = runStatement(
+          `UPDATE jobs SET status = 'completed', error = ?, completed_at = ?,
+                  duration_seconds = ?, actual_cost_halala = ?,
+                  provider_earned_halala = ?, dc1_fee_halala = ?
+            WHERE id = ? AND status = 'running'`,
+          podMessage, now, Math.round(elapsedSeconds), actualCostHalala,
+          providerEarnedHalala, dc1FeeHalala, job.id
+        );
+        if (completed.changes === 1) {
+          if (providerEarnedHalala > 0) {
+            runStatement(
+              `UPDATE providers
+                  SET total_earnings = total_earnings + ?,
+                      claimable_earnings_halala = claimable_earnings_halala + ?,
+                      total_jobs = total_jobs + 1, current_job_id = NULL
+                WHERE id = ?`,
+              providerEarnedHalala / 100, providerEarnedHalala, job.provider_id
+            );
+          }
+          if (job.renter_id) {
+            runStatement(
+              `UPDATE renters
+                  SET balance_halala = balance_halala + ?,
+                      total_spent_halala = total_spent_halala + ?,
+                      total_jobs = total_jobs + 1
+                WHERE id = ?`,
+              refundHalala, actualCostHalala, job.renter_id
+            );
+          }
+        }
         // BURST: this pod runs on an external cloud brokered by burst.py — there is
         // no native daemon hold-loop to stop the container, so the backend MUST
         // explicitly tear down the external pod + its relay socats now. (burst.py
@@ -4213,17 +4282,23 @@ function enforceJobTimeouts() {
             max_duration_seconds: job.max_duration_seconds || null,
           },
         });
-        // Settle escrow as paid to the provider — pod billed normally.
-        try {
-          runStatement(
-            `UPDATE escrow_holds SET status = 'released_provider', resolved_at = ?
-             WHERE job_id = ? AND status IN ('held','locked')`,
-            now, job.job_id
-          );
-        } catch(e) { console.error('[timeout] Pod escrow settle error:', e); }
-        if (chainEscrow.isEnabled()) {
-          chainEscrow.claimLock(job.job_id)
-            .catch(err => console.error('[escrow-chain] claimLock async error (pod expired):', err.message));
+        // Settle escrow as paid to the provider — but only if THIS caller won
+        // the race (completed.changes === 1). A peer stopPodCore that already
+        // set 'stopped' released its own escrow; the WHERE status IN
+        // ('held','locked') clause makes this a no-op there anyway, but gating
+        // it on changes===1 keeps the two paths from fighting.
+        if (completed.changes === 1) {
+          try {
+            runStatement(
+              `UPDATE escrow_holds SET status = 'released_provider', resolved_at = ?
+               WHERE job_id = ? AND status IN ('held','locked')`,
+              now, job.job_id
+            );
+          } catch(e) { console.error('[timeout] Pod escrow settle error:', e); }
+          if (chainEscrow.isEnabled()) {
+            chainEscrow.claimLock(job.job_id)
+              .catch(err => console.error('[escrow-chain] claimLock async error (pod expired):', err.message));
+          }
         }
         console.log(`[timeout] Interactive pod ${job.job_id} reached scheduled duration — completed (provider ${job.provider_id})`);
         const updatedPod = db.get('SELECT * FROM jobs WHERE id = ?', job.id);
