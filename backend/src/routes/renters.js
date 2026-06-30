@@ -1327,39 +1327,62 @@ router.get('/available-providers', async (req, res) => {
 });
 
 // === GET /api/renters/pricing - Public GPU pricing ===
-// Returns DCP floor prices for all GPU models. No authentication required.
-// Useful for buyers to see market pricing and cost estimations.
+// Returns the REAL DCP price per GPU model — what a renter is actually billed —
+// derived from providers.cost_per_gpu_second_halala (the live cost-plus value
+// written by the burst stock refresher: upstream secure USD/hr × 3.75 × 100 ×
+// 1.40). No authentication required.
+//
+// RECONCILIATION (ROADMAP 1.4, 2026-06-30): this endpoint previously read the
+// legacy `gpu_pricing` table, whose `rate_halala` column stored USD × 100,000
+// (a mis-named pre-launch artifact) and was 2-5× BELOW the real billed rate.
+// It now mirrors the same canonical source as /available-providers so the
+// public price list and the launch quote/bill agree. The `gpu_pricing` table
+// is left in place (read-only, unused) pending a separate drop migration.
+//
+// INVISIBILITY-safe: this is OUR price. No vendor, broker, or markup % is
+// exposed to the renter — the displayed number is just "DCP SAR/hr".
 router.get('/pricing', (req, res) => {
   try {
-    const prices = db.prepare(
-      `SELECT gpu_model, rate_halala, updated_at
-       FROM gpu_pricing
-       ORDER BY rate_halala ASC`
+    // Cheapest cost_per_gpu_second_halala per gpu_model — same source of truth
+    // the launcher bills against. h = halala per GPU-second (real, fractional).
+    const rows = db.prepare(
+      `SELECT gpu_model,
+              MIN(cost_per_gpu_second_halala) AS h,
+              MAX(updated_at)                AS updated_at
+         FROM providers
+        WHERE cost_per_gpu_second_halala IS NOT NULL
+          AND cost_per_gpu_second_halala > 0
+        GROUP BY gpu_model
+        ORDER BY h ASC`
     ).all();
 
-    if (!prices || prices.length === 0) {
+    if (!rows || rows.length === 0) {
       return res.status(503).json({
         error: 'Pricing data not available',
-        message: 'GPU pricing table is empty. Contact admin.',
+        message: 'No live GPU pricing yet. Contact admin or browse /available-providers.',
       });
     }
 
-    // Transform database format to API response
-    // NOTE: Despite the column name, rate_halala stores USD × 100,000
-    // (e.g. $0.105/hr = 10500). Legacy naming from pre-launch.
-    const pricing = prices.map(p => ({
-      gpu_model: p.gpu_model,
-      rate_halala_per_hour: p.rate_halala,
-      rate_usd_per_hour: (p.rate_halala / 100000).toFixed(3),
-      updated_at: p.updated_at,
-    }));
+    const pricing = rows.map(r => {
+      const halalaPerSecond = r.h;
+      const rate_halala_per_hour = Math.round(halalaPerSecond * 3600); // halala/hr (integer)
+      const rate_sar_per_hour = Number((halalaPerSecond * 3600 / 100).toFixed(2)); // SAR/hr shown to renter
+      const rate_usd_per_hour = Number((rate_sar_per_hour / 3.75).toFixed(3)); // SAR ÷ FX, for display only
+      return {
+        gpu_model: r.gpu_model,
+        rate_halala_per_hour,
+        rate_sar_per_hour,
+        rate_usd_per_hour,
+        updated_at: r.updated_at,
+      };
+    });
 
     res.json({
       success: true,
       pricing,
       count: pricing.length,
       timestamp: new Date().toISOString(),
-      note: 'DCP floor prices - Saudi energy arbitrage passed directly to you',
+      note: 'DCP live price per GPU — billed per second in SAR',
     });
   } catch (error) {
     console.error('Pricing API error:', error);
