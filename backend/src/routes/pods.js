@@ -1255,6 +1255,24 @@ function extendPodCore(job, addMinutes, { actorLabel = 'renter' } = {}) {
     `UPDATE jobs SET timeout_at = datetime(COALESCE(started_at, 'now'), '+' || max_duration_seconds || ' seconds') WHERE id = ?`
   ).run(job.id);
 
+  // Keep the escrow hold in sync with the grown prepaid total. extendPodCore
+  // debits the renter's balance directly (above) and grows cost_halala (above);
+  // without this, escrow_holds.amount_halala stays pinned at the LAUNCH quote, so
+  // escrow understates the true prepaid/refundable total for any extended pod.
+  // Symptom seen on pod-1781781208074-d82c83 (edge-case review 2026-06-30): escrow
+  // held 1000 but cost_halala grew to 1500 after a 120-min extend, so a
+  // released_renter refund referencing escrow under-reported the real 1500 refund
+  // by 500. The refund itself uses job.cost_halala (correct), but escrow
+  // reconciliation becomes unreliable. Top up the held/locked row by the extend
+  // amount so escrow reflects the real prepaid total. (Pods otherwise never touch
+  // escrow_holds — launch/release live in jobs.js — this is the one sync point.)
+  if (addQuoteHalala > 0) {
+    db.prepare(
+      `UPDATE escrow_holds SET amount_halala = amount_halala + ?
+         WHERE job_id = ? AND status IN ('held','locked')`
+    ).run(addQuoteHalala, job.job_id);
+  }
+
   // BURST pods run on an external cloud whose reaper deadline lives in
   // /root/dcp-burst/active/<podid>.json. The burst.py reap cron tears the pod
   // down at that deadline regardless of our DB, so push it too — by the seconds
