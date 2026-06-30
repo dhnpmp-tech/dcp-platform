@@ -942,18 +942,14 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
         console.log(`[pods] burst launch spawned for ${job_id} (gpu="${provider.gpu_model}", jpub=${burstPorts.jpub}, spub=${burstPorts.spub}, dur=${maxDurationSeconds}s)`);
       } catch (spawnErr) {
         console.error(`[pods] burst spawn failed for ${job_id}:`, spawnErr.message);
-        const failNow = new Date().toISOString();
         try {
-          db.transaction(() => {
-            const updated = db.prepare(
-              `UPDATE jobs SET status='failed', error=?, completed_at=?, refunded_at=?
-                WHERE id IN (SELECT id FROM jobs WHERE job_id=?) AND refunded_at IS NULL AND status IN ('pulling','queued','assigned')`
-            ).run('Burst launch failed to start', failNow, failNow, job_id);
-            if (updated.changes === 1 && quoteHalala > 0) {
-              db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
-                .run(quoteHalala, req.renter.id);
-            }
-          })();
+          const { failBurstJobAndRefund } = require('../services/burstLaunchRefund');
+          failBurstJobAndRefund(db, {
+            jobId: job_id,
+            quoteHalala,
+            renterId: req.renter.id,
+            reason: 'Burst launch failed to start',
+          });
         } catch (failErr) {
           console.error(`[pods] CRITICAL: failed to fail+refund burst job ${job_id} after spawn error:`, failErr.message);
         }

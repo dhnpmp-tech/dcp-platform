@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 06:55 UTC — `test(burst): extract + test the launch-fail-refund once-only invariant (ROADMAP 2.1/2.2)`
+
+The burst launch path pre-debits the renter (full-duration quote) BEFORE spawning an external pod via `burst.py`. If spawn fails, the renter must be refunded **exactly once** — never zero (they'd pay for a pod that never booted), never twice (a concurrent timeout sweep could also try to refund the same row). This is the platform's most load-bearing double-charge-prevention path, and it had **zero in-repo tests** — the refund SQL was inlined in the `routes/pods.js` launch handler, untestable.
+
+**Included:**
+
+- **New service** `backend/src/services/burstLaunchRefund.js` — extracts the fail+refund logic into `failBurstJobAndRefund(db, {jobId, quoteHalala, renterId, reason})`. The once-only guard lives in exactly one place: `UPDATE jobs SET status='failed', error=?, completed_at=?, refunded_at=? WHERE id IN (SELECT id FROM jobs WHERE job_id=?) AND refunded_at IS NULL AND status IN ('pulling','queued','assigned')`. `updated.changes === 1` is the single signal that THIS caller won the refund race; only then is the renter balance credited. Idempotent: a second call (retry / concurrent sweep) is a no-op. Returns `{refunded, changes}`.
+- **Wired** `routes/pods.js` spawn-fail catch to call the helper (the inline `db.transaction(...)` block is replaced by one `failBurstJobAndRefund` call). Behavior unchanged; the SQL is byte-identical to what was inline.
+- **New jest test** `backend/src/__tests__/burstLaunchRefund.test.js` — 6 test groups covering: (1) refund fires when the job is in a launch-state and not yet refunded; (2) **idempotent — a second call credits the wallet zero times** (the double-charge guarantee: job UPDATE runs twice, renters credit runs once); (3) no refund when the job already reached a terminal state (changes=0); (4) no wallet credit when `quoteHalala` is 0 (free launch, job still marked failed); (5) the supplied `reason` is written to `jobs.error` with a default fallback; (6) the SQL guard clause is exactly the documented once-only form (both `refunded_at IS NULL` AND the non-terminal status whitelist present, selected by `job_id`). Uses a better-sqlite3-shaped mock db (no real sqlite / no `node_modules` needed). All 6 groups verified standalone.
+- **Deferred (tracked follow-up, NOT shipped here):** "give burst.py structured error feedback (exit codes/JSON) instead of free-text `last_error` flips." `spawnBurstLaunch` runs `stdio:'ignore'` detached and burst.py writes results back to the job row by `--job-id`; structured errors would require a coordinated contract change across `ops/burst.py` (whose live VPS copy at `/root/dcp-burst/burst.py` may differ from the repo), the `jobs` schema, and backend consumption — too risky to do blind in a no-questions sprint. Left as ROADMAP 2.2. The socat-orphan teardown path (`spawnBurstTeardown` + `jobSweep.spawnBurstTeardownSweep`) remains idempotent and backstopped by the reaper cron, unchanged.
+- **No prod deploy** — `main` only; ships via a deliberate smoke-tested release.
+
+**State changes:** `routes/pods.js` spawn-fail path now calls `services/burstLaunchRefund.js` (behavior-identical). The once-only refund invariant is now covered by a regression test.
+
+---
+
 ### 2026-06-30 06:48 UTC — `feat(mcp): add list_pods lifecycle tool — agents can enumerate their own pods (ROADMAP 2.3)`
 
 The DCP MCP server exposed `create_pod` / `get_pod` / `extend_pod` / `stop_pod` but had **no `list_pods`** — an agent that launched pods could not enumerate them, so a forgotten pod kept running and draining the wallet until it expired on its own. Agents could create and kill pods but couldn't *find* them. This closes that gap.
