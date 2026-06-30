@@ -167,3 +167,21 @@ docs/launch-*.md
 
 # Python build artifacts
 sdk/python/*.egg-info/
+
+# Ops secrets — live TG bot token + renter key (NEVER commit)
+ops/.watchdog-env
+ops/.watchdog-env.*
+**/.watchdog-env
+**/.watchdog-env.*
+
+# Hot-patch backups + backup files (regression-risk clutter, not source)
+**/*.bak
+**/*.bak.*
+**/*.bak-*
+**/.hotpatch-backups/
+**/.hotpath-backups/
+**/*.env.bak*
+**/*.bak.*/
+
+# Inert "prepared" feature stubs (decide PR-or-delete per file)
+**/*.prepared
