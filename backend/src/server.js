@@ -712,6 +712,8 @@ const podsRouter = require('./routes/pods');
 app.use('/api/pods', podsRouter);
 const volumesRouter = require('./routes/volumes');
 app.use('/api/volumes', volumesRouter);
+const workspaceRouter = require('./routes/workspace');
+app.use('/api/workspace', workspaceRouter);
 const publicDemoRouter = require('./routes/public-demo');
 app.use('/api/public/demo', publicDemoRouter);
 const funnelRouter = require('./routes/funnel');
