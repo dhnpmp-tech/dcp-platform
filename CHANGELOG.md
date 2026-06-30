@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 06:05 UTC — `investigate(ops): openclaw-gateway + agents-auth health — verdict: both non-DCP, no action`
+
+Investigation (no code change, no prod mutation):
+- **openclaw-gateway-1** was unhealthy (EACCES on `/home/node/.openclaw/openclaw.json` — root-owned file, container runs as uid 1000). Fixed earlier this session with `chown 1000:1000 /root/.openclaw/openclaw.json` + restart → now `Up (healthy)`. **However Peter confirmed this container is DEPRECATED** ("it's the old nexus, we switched to Hermes") — the fix was cosmetic only; no further investment warranted. Left running (no blast-radius evidence either way; not touched further).
+- **agents-auth** (compose project `agents-platform`, image `agents-auth:local`, port `127.0.0.1:8201`) is `Up (unhealthy)`: its `/health` healthcheck (`wget` → `http://127.0.0.1:8201/health`, exit -1 = timeout) hangs because the stack's `agents-postgres` container **exited (127) ~20h ago** — the Node `src/server.js` process (pid 5973) is alive but starved on its DB pool. Root cause = dead DB, not a DCP code defect.
+- **Scope verdict:** the entire `agents-platform` stack lives at `/opt/agents-platform` (a separate voice/persona-agent repo — ElevenLabs, agent-templates; not DCP, not Hermes). `grep -rE "8201|agents-auth|agents-net"` across `backend/ ops/ integrations/` returns **zero** real references (one coincidental `renterId = 8201` in a test). It is an orphaned side-project stack with no DCP dependents and no alerts in 20h of downtime.
+- **Action:** none taken. Stopping another project's stack is Peter's call, not a DCP-platform task. Recorded so future sessions don't re-investigate.
+
 ### 2026-06-30 05:52 UTC — [commit `0e48bf2`](https://github.com/dhnpmp-tech/dcp-platform/commit/0e48bf2) — `chore(ops): commit load-bearing ops scripts + gitignore secrets/backups`
 
 Included:
