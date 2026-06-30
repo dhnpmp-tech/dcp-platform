@@ -199,7 +199,7 @@ export function rentGpuHowToLd(): Record<string, unknown> {
     description:
       'Rent a whole NVIDIA GPU on DCP in about a minute, with root, Jupyter and SSH, billed per second in Saudi Riyal.',
     totalTime: 'PT2M',
-    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '0.50' },
+    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '2.50' },
     step: [
       {
         '@type': 'HowToStep',
@@ -245,7 +245,7 @@ export function agentRentGpuHowToLd(): Record<string, unknown> {
     description:
       'An autonomous agent self-registers a DCP renter account, receives a real API key plus a 20 SAR trial credit, lists GPU types, rents a whole GPU, runs work, and stops it — entirely through API or MCP tool calls, no email click and no human.',
     totalTime: 'PT2M',
-    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '0.50' },
+    estimatedCost: { '@type': 'MonetaryAmount', currency: 'SAR', value: '2.50' },
     step: [
       {
         '@type': 'HowToStep',
@@ -307,6 +307,33 @@ export const AGENT_FAQ: ReadonlyArray<FaqItem> = [
   {
     q: 'Where does an agent’s data live when it uses DCP?',
     a: 'Inside Saudi Arabia. Inference, GPU pods, and persistent volumes all run on in-Kingdom, Saudi-owned hardware under PDPL. DCP never exposes the underlying GPU vendor, machine, or location — only the public NVIDIA GPU type. Cross-border frontier models are available only by explicit per-tenant opt-in.',
+  },
+]
+
+export const PRICING_FAQ: ReadonlyArray<FaqItem> = [
+  {
+    q: 'How is GPU rental priced on DCP?',
+    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. Indicative on-demand hourly rates: NVIDIA RTX 3090 from 2.5 SAR/hr, RTX 4090 from 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S (48 GB) from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. You are billed only for the seconds a verified GPU is actually serving you, and the unused time is refunded the instant you stop.',
+  },
+  {
+    q: 'How is inference billed?',
+    a: 'Inference is billed per million tokens in Saudi Riyal. Rates are by model class — from about 5 halala per 1M tokens for embedding models, 15 halala for tiny, 30 for small, 150 for medium, up to around 400 halala for large. Each chat-completion response carries per-call usage pricing in both USD and SAR. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+  },
+  {
+    q: 'Is there a subscription plan, or is it all pay-as-you-go?',
+    a: 'Both. Pay-as-you-go is the default — per million tokens for inference and per GPU-second for pods, with a prorated refund when you stop early. Optional monthly subscriptions give a discounted token allowance for teams with steady usage: Starter at 375 SAR/mo, Growth at 1,500 SAR/mo, and Scale at 5,625 SAR/mo. Unused subscription tokens do not roll over.',
+  },
+  {
+    q: 'What happens if my balance runs out mid-session?',
+    a: 'A chargeable call returns HTTP 402 with a machine-readable body ({ code: "insufficient_balance", required_sar, balance_sar, topup_url, retryable: true }). No pod or charge is created, so you can top up and retry safely. Running pods are stopped (not killed silently) so you can resume after topping up.',
+  },
+  {
+    q: 'Are prices fixed, or can they change?',
+    a: 'GPU pod prices are cost-plus from the live market and refresh every few minutes, so the per-second rate you see at launch is the rate you pay for that pod. Per-token inference rates are stable per model class. Prices are always shown in SAR before you commit; nothing is billed opaquely.',
+  },
+  {
+    q: 'Do I pay for data egress or cross-border transfer?',
+    a: 'No. Inference, pods, and storage run in-Kingdom on Saudi-owned hardware, so there is no egress fee. Cross-border frontier models are available only by explicit per-tenant opt-in and never incur hidden transfer charges — any cross-border cost is disclosed before you enable it.',
   },
 ]
 

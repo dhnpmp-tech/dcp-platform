@@ -1,0 +1,85 @@
+/* HeroMeshCanvas — WebGL texture background + interactive Canvas 2D node
+   mesh overlay. The host controls layout: .hero-mesh fills its positioned
+   parent (the right-hand hero panel). A reserved aspect-ratio box keeps
+   layout stable while the canvases boot, so CLS stays ~0. */
+
+.hero-mesh {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 6;
+  isolation: isolate;
+  background: radial-gradient(120% 120% at 80% 15%, var(--paper) 0%, var(--bg-2) 55%, var(--bg) 100%);
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+}
+
+.hero-mesh__gl,
+.hero-mesh__mesh {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hero-mesh__gl { z-index: 0; }
+.hero-mesh__mesh { z-index: 1; pointer-events: none; }
+
+/* gentle left-edge scrim so the editorial copy stays legible when the canvas
+   sits behind a full-bleed hero; harmless on the right-panel layout. */
+.hero-mesh__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(10, 11, 26, 0.55) 0%, rgba(10, 11, 26, 0) 60%);
+}
+
+.hero-mesh__badge {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  z-index: 3;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--mut);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.hero-mesh__badge b {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.hero-mesh__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 9px var(--teal);
+  animation: hero-mesh-bp 1.8s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+@keyframes hero-mesh-bp {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-mesh__dot { animation: none; }
+}
+
+/* mobile: a touch less tall so the panel doesn't dominate the hero */
+@media (max-width: 880px) {
+  .hero-mesh { aspect-ratio: 4 / 5; }
+}

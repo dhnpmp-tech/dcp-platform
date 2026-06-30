@@ -232,18 +232,16 @@ const nextConfig = {
       { source: '/tokens', destination: '/renter/usage', permanent: true },
       // Quickstart folds into the single-page docs.
       { source: '/quickstart', destination: '/docs', permanent: true },
-      // Dead relic: the marketplace one-pager is retired and unlinked. Owner
-      // decision — fold it into the home overview rather than the renter console.
-      { source: '/marketplace', destination: '/', permanent: true },
+      // /marketplace is a live page again (verified-live GPU + model capacity).
+      // Only the legacy deep-link sub-routes 308 into the renter console.
       // Arabic-RAG solution pages are retired/unlinked → the consolidated docs,
       // which is where the Arabic-RAG how-to now lives (owner decision). No /ar
       // home exists, so the localized variant also lands on /docs.
       { source: '/solutions/arabic-rag', destination: '/docs', permanent: true },
       { source: '/ar/solutions/arabic-rag', destination: '/docs', permanent: true },
-      // /pricing is retired and FOLDED into the home #pricing section (GPU rental
-      // grid + per-token inference rate card + PAYG/subscription billing story).
-      // Permanent 308 to home so bookmarks, AEO equity and the old nav land there.
-      { source: '/pricing', destination: '/', permanent: true },
+      // /pricing is a live page again (per-token rates + GPU rental grid +
+      // subscription tiers + PRICING_FAQ). The legacy renter pricing deep-link
+      // still lands on home below; the bare /pricing URL no longer 308s.
       // Standalone old-era internal pages → their nearest public twin.
       { source: '/mission', destination: '/trust-center', permanent: true },
       // NOTE: /security is now a REAL public page — the security-posture surface

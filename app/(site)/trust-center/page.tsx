@@ -456,6 +456,7 @@ export default function TrustCenterPage() {
     ['compliance', copy.sections.compliance],
     ['evidence', copy.sections.evidence],
     ['roadmap', copy.sections.roadmap],
+    ['enterprise', locale === 'ar' ? 'تشغيل مؤسسي' : 'Enterprise'],
     ['procurement', copy.sections.procurement],
   ]
 
@@ -613,6 +614,90 @@ export default function TrustCenterPage() {
                   </div>
                 </article>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Enterprise: run it in your own VPC ── */}
+        <section id="enterprise">
+          <div className="wrap">
+            <div className="section-meta">
+              <span className="idx">★ {locale === 'ar' ? 'تشغيل مؤسسي' : 'Enterprise deployment'}</span>
+              <span>{locale === 'ar' ? 'بيئتك الخاصة · سيادة كاملة' : 'Your environment · full sovereignty'}</span>
+            </div>
+            <div className="grid-2">
+              <div>
+                <h2 className="st">
+                  {locale === 'ar' ? (
+                    <>شغّله في بيئتك الخاصة — <em style={{ fontStyle: 'normal', backgroundImage: 'var(--grad)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>تحت سيطرتك الكاملة.</em></>
+                  ) : (
+                    <>Run it in your own VPC — <em style={{ fontStyle: 'italic', backgroundImage: 'var(--grad)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>under your full control.</em></>
+                  )}
+                </h2>
+                <p className="ss">
+                  {locale === 'ar'
+                    ? 'للبنوك والمستشفيات والجهات التنظيمية والوكالات: انشر DCP داخل بيئتك الخاصة على بنية تحتية سعودية، مع اتفاقية معالجة بيانات (DPA) واتفاقية خدمات رئيسية (MSA) وملحق تدفق البيانات. لا تخرج البيانات من ملكيتك إلا بإذنك.'
+                    : 'For banks, hospitals, regulators, and agencies: deploy DCP inside your own VPC on Saudi-owned infrastructure, with a Data Processing Agreement (DPA), Master Services Agreement (MSA), and a data-flow appendix. Your data never leaves your perimeter unless you ask it to.'}
+                </p>
+                <ul style={{ margin: '20px 0 0', paddingInlineStart: 18, color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.75 }}>
+                  {(locale === 'ar'
+                    ? [
+                        'النشر داخل بيئتك (VPC) على بنية تحتية مملوكة سعودياً',
+                        'DPA + MSA + ملحق تدفق البيانات موقّعة',
+                        'سعة مخصصة أو محجوزة حسب الطلب',
+                        'مدير نجاح عملاء (CSM) مخصص ونقاط قرار واضحة',
+                        'مراجعة أمنية مشتركة قبل الإطلاق',
+                        'لا نماذج عابرة للحدود إلا بإذن صريح منك',
+                      ]
+                    : [
+                        'In-VPC deployment on Saudi-owned infrastructure',
+                        'Signed DPA + MSA + data-flow appendix',
+                        'Dedicated or reserved capacity on request',
+                        'A named CSM and explicit decision checkpoints',
+                        'Joint security review before go-live',
+                        'No cross-border models without your explicit opt-in',
+                      ]
+                  ).map((b) => (
+                    <li key={b}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="surface">
+                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, lineHeight: 1.15 }}>
+                  {locale === 'ar' ? 'ابدأ مراجعة مؤسسية' : 'Start an enterprise review'}
+                </p>
+                <p style={{ marginTop: 10, fontSize: 13, color: 'var(--mut)' }}>
+                  {locale === 'ar' ? 'تواصل أولي خلال يوم عمل واحد.' : 'First contact in 1 business day.'}
+                </p>
+                <div className="col" style={{ marginTop: 18 }}>
+                  <Link
+                    href="/support?category=enterprise&source=trust-center#contact-form"
+                    className="btn primary"
+                    style={{ justifyContent: 'center' }}
+                    onClick={() =>
+                      trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
+                        cta_id: 'enterprise_vpc_sales',
+                        destination: '/support?category=enterprise&source=trust-center#contact-form',
+                      })
+                    }
+                  >
+                    {locale === 'ar' ? 'تواصل مع المبيعات ←' : 'Talk to sales →'}
+                  </Link>
+                  <Link
+                    href="/security"
+                    className="btn ghost"
+                    style={{ justifyContent: 'center' }}
+                    onClick={() =>
+                      trackTrustCenterEvent('trust_center_cta_clicked', locale, dir, {
+                        cta_id: 'security_posture',
+                        destination: '/security',
+                      })
+                    }
+                  >
+                    {locale === 'ar' ? 'الأمن السيبراني' : 'Security posture'}
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </section>
