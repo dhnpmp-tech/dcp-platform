@@ -25,6 +25,31 @@ function isBurstBacked(job) {
 // ALWAYS scrub (the raw text can embed an external pod id or proxy host). For
 // native jobs we still strip anything that looks like a URL/host/IP so an
 // internal endpoint can never ride out in an error string.
+// Known on-demand-partner / external-cloud identity tokens that must NEVER ride
+// out in any error string, even on the internal admin console. Closes the
+// failed-launch gap: a burst launch that errors BEFORE provisioning has no
+// burst_external_id (so isBurstBacked() is false), yet the raw provisioning-API
+// error can still embed the vendor name or a datacenter code.
+const VENDOR_LEAK_RE = /\b(runpod|vast\.?ai|lambda\s*labs|coreweave|paperspace|tensordock|latitude\.sh|fluidstack)\b|\b(?:EU|US|AS|EUR|USA|AP|CA)-[A-Z]{2,3}-\d\b|gpuTypeId|dataCenters?|secure\s*cloud|graphql\s*error/i;
+
+function hasVendorLeak(text) {
+  return VENDOR_LEAK_RE.test(String(text == null ? '' : text));
+}
+
+// Targeted redaction for INTERNAL/admin surfaces: keep the operator-useful
+// message but replace any external-cloud identity with a neutral marker, so the
+// admin console shows WHAT failed without ever printing the vendor.
+function redactVendorText(text) {
+  if (text == null) return text;
+  let s = String(text);
+  s = s.replace(/\b(runpod|vast\.?ai|lambda\s*labs|coreweave|paperspace|tensordock|latitude\.sh|fluidstack)\b/gi, 'on-demand partner');
+  s = s.replace(/\b(?:EU|US|AS|EUR|USA|AP|CA)-[A-Z]{2,3}-\d\b/g, '[dc]');
+  s = s.replace(/\bgraphql\b/gi, 'provisioning-API');
+  s = s.replace(/https?:\/\/\S+/gi, '[url]');
+  s = s.replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, '[ip]');
+  return s;
+}
+
 function sanitizeError(job) {
   const raw = job && (job.error || job.last_error);
   if (!raw) return null;
@@ -32,6 +57,11 @@ function sanitizeError(job) {
     return 'The on-demand GPU could not be provisioned. No charge was applied for failed launches.';
   }
   const text = String(raw);
+  // Failed burst launches have no external id yet but can still embed a vendor
+  // name / datacenter code / provisioning-API error - collapse those too.
+  if (hasVendorLeak(text)) {
+    return 'The on-demand GPU could not be provisioned. No charge was applied for failed launches.';
+  }
   // Redact obvious infra leaks (schemes, IPv4, host:port) from native errors.
   const looksLikeInfra = /(https?:\/\/|\b\d{1,3}(?:\.\d{1,3}){3}\b|:\d{2,5}\b|proxy|tunnel|\.runpod\.|\.proxy\.)/i.test(text);
   if (looksLikeInfra) {
@@ -187,6 +217,8 @@ module.exports = {
   toRenterProviderView,
   sanitizeError,
   isBurstBacked,
+  redactVendorText,
+  hasVendorLeak,
   BANNED_KEYS,
   PROVIDER_ALLOWLIST,
 };

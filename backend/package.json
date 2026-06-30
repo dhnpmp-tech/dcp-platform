@@ -54,5 +54,11 @@
   },
   "optionalDependencies": {
     "sharp": "^0.33.0"
+  },
+  "overrides": {
+    "ws": "^8.21.0",
+    "qs": "^6.15.2",
+    "protobufjs": "^7.6.4",
+    "@grpc/grpc-js": "^1.14.4"
   }
 }

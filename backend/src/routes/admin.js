@@ -5472,7 +5472,13 @@ router.get('/errors', (req, res) => {
       })
       .slice(0, limit);
 
-    return res.json({ errors: combined });
+    const { redactVendorText } = require('../lib/renter-job-view');
+    const safeErrors = combined.map((e) => ({
+      ...e,
+      message: redactVendorText(e.message),
+      details: e.details == null ? e.details : redactVendorText(e.details),
+    }));
+    return res.json({ errors: safeErrors });
   } catch (error) {
     console.error('[admin/errors]', error);
     return res.status(500).json({ error: 'Failed to fetch errors' });

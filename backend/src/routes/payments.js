@@ -8,6 +8,7 @@ const router = express.Router();
 const db = require('../db');
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { withFinancialIdempotency } = require('../lib/financial-idempotency');
+const conversionFunnel = require('../services/conversionFunnelService');
 
 function flattenRunParams(params) {
   if (params.length === 1 && Array.isArray(params[0])) return params[0];
@@ -612,6 +613,15 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
     );
     if (changed) {
       console.log(`[payments/webhook] Payment ${payment.payment_id} paid — credited ${payment.amount_halala} halala to renter ${payment.renter_id}`);
+      try {
+        conversionFunnel.trackStage({
+          journey: 'renter',
+          stage: 'payment_success',
+          actorType: 'renter',
+          actorId: payment.renter_id,
+          metadata: { amount_halala: payment.amount_halala, source: 'moyasar_webhook' },
+        });
+      } catch (_) { /* funnel best-effort */ }
       // Codex P1 (PR #428): if this payment originated from an auto-top-up
       // 3DS step-up, finalize the auto_topup_attempts row + send the paid
       // email + bump monthly cap. Idempotent — safe on webhook retries.

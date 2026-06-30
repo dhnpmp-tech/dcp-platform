@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../db');
 const { getStatus } = require('../services/fallback-loop');
 const { safeErrorPayload } = require('../lib/error-response');
+const { requireAdminAuth } = require('../middleware/auth');
 
 // GET /api/fallback/status
 router.get('/status', (req, res) => {
@@ -42,7 +43,7 @@ router.get('/disconnects', (req, res) => {
 });
 
 // POST /api/fallback/simulate
-router.post('/simulate', (req, res) => {
+router.post('/simulate', requireAdminAuth, (req, res) => {
   try {
     const { provider_id, trigger } = req.body;
     if (!provider_id || !trigger) {

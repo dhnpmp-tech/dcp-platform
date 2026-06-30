@@ -389,7 +389,17 @@ function resolveGpuType(rawType) {
         AND p.burst_gpu_type_id IS NOT NULL
         AND p.gpu_model IS NOT NULL`
   );
-  const matches = rows.filter((r) => String(r.gpu_model).toLowerCase().includes(needle));
+  // Match the alias-normalized needle as a substring of gpu_model (original
+  // behavior), OR accept the catalog DISPLAY name (providers.name) exactly,
+  // case-insensitively. The grid surfaces providers.name (e.g. "NVIDIA RTX 5090",
+  // "NVIDIA A100 SXM 80GB"), which differs from the vendor gpu_model string
+  // ("NVIDIA GeForce RTX 5090", "NVIDIA A100-SXM4-80GB"); without the name path
+  // those launchable display labels resolve to "Unknown GPU type".
+  const matches = rows.filter(
+    (r) =>
+      String(r.gpu_model).toLowerCase().includes(needle) ||
+      String(r.name || '').trim().toLowerCase() === key
+  );
   if (matches.length === 0) {
     return {
       error: 'gpu_type_not_found',
@@ -610,21 +620,70 @@ router.get('/', requireRenter, (req, res) => {
   }
 });
 
+// POST /api/pods/notify-me { gpu_type } — "notify me when this GPU type is back
+// in stock". Upserts exactly ONE pending waitlist row per (renter_id, gpu_type):
+// re-requesting the same type re-arms (notified_at → NULL) the existing row
+// rather than stacking duplicates. The stock-refresh cron clears notified_at when
+// a type transitions out-of-stock → in-stock and records the in-dashboard
+// notification. Same auth gate as a launch (requireRenter + requireComputeScope)
+// so only compute-capable keys can subscribe.
+router.post('/notify-me', requireRenter, requireComputeScope, (req, res) => {
+  try {
+    const body = req.body || {};
+    const gpuType = typeof body.gpu_type === 'string' ? body.gpu_type.trim() : '';
+    if (!gpuType) {
+      return res.status(400).json({ error: 'gpu_type must be a non-empty string', code: 'INVALID_GPU_TYPE' });
+    }
+    const renterId = req.renter.id;
+    const nowIso = new Date().toISOString();
+
+    // Re-arm an existing pending/notified row for this (renter, type), else insert.
+    const existing = db.get(
+      'SELECT id FROM gpu_waitlist WHERE renter_id = ? AND gpu_type = ?',
+      renterId, gpuType
+    );
+    if (existing) {
+      db.run(
+        'UPDATE gpu_waitlist SET notified_at = NULL, created_at = ? WHERE id = ?',
+        nowIso, existing.id
+      );
+      return res.json({ ok: true, gpu_type: gpuType, status: 'subscribed', id: existing.id });
+    }
+    const id = crypto.randomUUID();
+    db.run(
+      'INSERT INTO gpu_waitlist (id, renter_id, gpu_type, created_at, notified_at) VALUES (?, ?, ?, ?, NULL)',
+      id, renterId, gpuType, nowIso
+    );
+    return res.json({ ok: true, gpu_type: gpuType, status: 'subscribed', id });
+  } catch (error) {
+    console.error('[pods] notify-me error:', error.message);
+    return res.status(500).json({ error: 'Failed to join GPU waitlist' });
+  }
+});
+
 router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
   subjectType: 'renter',
   subjectId: (req) => req.renter && req.renter.id,
 }), (req, res) => {
   try {
-    // Concurrency quota: a renter may hold at most N live pods.
+    // Concurrency quota: a renter may hold at most N live pods. A per-renter
+    // override (renters.max_active_pods) takes precedence when set to a positive
+    // integer; otherwise we fall back to the global/env default. req.renter is the
+    // full renters row loaded by requireRenter, so the column rides along.
+    const renterCapRaw = req.renter && req.renter.max_active_pods;
+    const renterCap = Number.parseInt(renterCapRaw, 10);
+    const effectivePodCap = (renterCapRaw != null && Number.isFinite(renterCap) && renterCap >= 1)
+      ? renterCap
+      : MAX_ACTIVE_PODS_PER_RENTER;
     const activePods = db.get(
       `SELECT COUNT(*) AS n FROM jobs
         WHERE renter_id = ? AND job_type = 'interactive_pod'
           AND status IN ('pending','queued','assigned','pulling','running')`,
       req.renter.id
     );
-    if (Number(activePods?.n || 0) >= MAX_ACTIVE_PODS_PER_RENTER) {
+    if (Number(activePods?.n || 0) >= effectivePodCap) {
       return res.status(409).json({
-        error: `Active pod limit reached (${MAX_ACTIVE_PODS_PER_RENTER}). Stop a running pod before launching another.`,
+        error: `Active pod limit reached (${effectivePodCap}). Stop a running pod before launching another.`,
         code: 'POD_QUOTA_EXCEEDED',
       });
     }

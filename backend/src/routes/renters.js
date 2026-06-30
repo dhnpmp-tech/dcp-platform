@@ -658,6 +658,17 @@ router.post('/agent-register', agentRegisterLimiter, validateBody(renterAgentReg
         source: 'agent',
       }).catch(() => {});
     } catch (_) { /* analytics best-effort */ }
+    try {
+      conversionFunnel.trackStage({
+        journey: 'renter',
+        stage: 'register',
+        actorType: 'renter',
+        actorId: renterId,
+        req,
+        inferViewOnRegister: true,
+        metadata: { source: 'agent', organization: cleanOrg || null, use_case: cleanUseCase || null },
+      });
+    } catch (_) { /* funnel best-effort */ }
   } catch (error) {
     console.error('[renters/agent-register] error:', error);
     res.status(500).json({ error: 'Agent registration failed' });
@@ -1130,6 +1141,25 @@ router.get('/available-providers', async (req, res) => {
     const allowStale = parseBoolLike(req.query.allow_stale);
     const maxAgeMs = toFiniteInt(req.query.max_age_ms, { min: 1, max: 6 * 60 * 60 * 1000 }) || 120000;
 
+    // Real per-GPU-type price = what a pod is ACTUALLY billed (providers.cost_per_gpu_second_halala
+    // = upstream cost + DCP premium), taken as the cheapest across providers of that type, in SAR/hr.
+    // Single source of truth the renter pays — never a marketing floor, never "price on request".
+    // INVISIBILITY-safe: this is OUR price; no vendor/source is exposed.
+    const priceRows = db.all(
+      `SELECT gpu_model, gpu_name_detected, cost_per_gpu_second_halala AS h
+         FROM providers
+        WHERE cost_per_gpu_second_halala IS NOT NULL AND cost_per_gpu_second_halala > 0`
+    );
+    const priceByModel = {};
+    for (const r of priceRows) {
+      const sar = Math.round(r.h * 3600) / 100;
+      for (const key of [r.gpu_name_detected, r.gpu_model]) {
+        if (!key) continue;
+        if (priceByModel[key] == null || sar < priceByModel[key]) priceByModel[key] = sar;
+      }
+    }
+    const priceFor = (p) => (p && p.gpu_model && priceByModel[p.gpu_model] != null) ? priceByModel[p.gpu_model] : null;
+
     if (strictP2pMode) {
       const resolvedProviders = await listProviders({
         allowStale,
@@ -1141,7 +1171,7 @@ router.get('/available-providers', async (req, res) => {
         .filter((entry) => entry?.found)
         .map((entry) => toRenterProviderView(buildProviderShapeFromDHTRecord(entry)));
       return res.json({
-        providers: safeProviders,
+        providers: safeProviders.map((p) => ({ ...p, sar_per_hour: priceFor(p) })),
         total: safeProviders.length,
         discovery_mode: effectiveMode,
         discovery_health: {
@@ -1271,7 +1301,7 @@ router.get('/available-providers', async (req, res) => {
     // INVISIBILITY: both native + burst rows flow through the shared allowlist
     // so neither machine name (providers.name), peer_id, provider_id, addrs
     // (raw IPs), driver_version nor any vendor field can ride out to a renter.
-    const allProviders = [...nativeProviders, ...burstProviders].map(toRenterProviderView);
+    const allProviders = [...nativeProviders, ...burstProviders].map(toRenterProviderView).map((p) => ({ ...p, sar_per_hour: priceFor(p) }));
     res.json({
       providers: allProviders,
       total: allProviders.length,
