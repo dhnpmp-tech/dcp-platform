@@ -535,29 +535,40 @@ def http_post(url, data, timeout=15, headers=None):
     except (TypeError, ValueError) as e:
         log.warning(f"http_post: payload not JSON-serializable ({e}); sanitizing")
         safe_data = _sanitize_for_json(data)
+    # Pre-serialize once so the X-DC1-Signature (when DC1_HMAC_SECRET is set)
+    # covers the EXACT bytes on the wire — requests' own json= serializer and
+    # our signing must agree, so we send data=<bytes> with Content-Type set
+    # explicitly on both the requests and urllib paths.
+    try:
+        body = json.dumps(safe_data).encode()
+    except (TypeError, ValueError):
+        body = json.dumps(safe_data, default=str).encode()
+    hmac_secret = os.environ.get("DC1_HMAC_SECRET")
+    if hmac_secret:
+        # C3 prep: sign the raw body so the backend's enforceHeartbeatHmac
+        # middleware sees a valid X-DC1-Signature the moment
+        # DC1_REQUIRE_HEARTBEAT_HMAC is flipped to '1'. Ignored server-side
+        # while the flag stays off, so this is safe to ship ahead of enforcement.
+        merged_headers["X-DC1-Signature"] = (
+            "sha256=" + hmac.new(hmac_secret.encode(), body, hashlib.sha256).hexdigest()
+        )
+    merged_headers["Content-Type"] = "application/json"
     if HAS_REQUESTS:
         try:
-            r = requests.post(url, json=safe_data, timeout=timeout,
-                              headers=merged_headers)
+            r = requests.post(url, data=body, timeout=timeout, headers=merged_headers)
         except Exception as e:
             # Final fallback: use default=str so we never raise "Circular reference detected"
-            body = json.dumps(safe_data, default=str)
-            r = requests.post(
-                url,
-                data=body,
-                headers={**merged_headers, "Content-Type": "application/json"},
-                timeout=timeout,
-            )
-            log.warning(f"http_post: requests.post(json=...) failed ({e}); used default=str fallback")
+            body_fb = json.dumps(safe_data, default=str).encode()
+            if hmac_secret:
+                merged_headers["X-DC1-Signature"] = (
+                    "sha256=" + hmac.new(hmac_secret.encode(), body_fb, hashlib.sha256).hexdigest()
+                )
+            r = requests.post(url, data=body_fb, headers=merged_headers, timeout=timeout)
+            log.warning(f"http_post: requests.post failed ({e}); used default=str fallback")
         return r.status_code, _safe_json(r.text)
     else:
         import urllib.request, urllib.error
-        try:
-            body = json.dumps(safe_data).encode()
-        except (TypeError, ValueError):
-            body = json.dumps(safe_data, default=str).encode()
-        req = urllib.request.Request(url, data=body,
-                                     headers={**merged_headers, "Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=body, headers=merged_headers)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.getcode(), _safe_json(resp.read())

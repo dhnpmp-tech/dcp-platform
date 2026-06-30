@@ -198,6 +198,16 @@ app.use('/api/providers/heartbeat', express.raw({ type: 'application/json' }), (
   }
   next();
 });
+// Raw body capture for WireGuard-register HMAC validation (H7) — same pattern as
+// heartbeat so enforceHeartbeatHmac has the bytes to verify once the
+// DC1_REQUIRE_HEARTBEAT_HMAC flag is flipped during the C3 rollout.
+app.use('/api/providers/wg/register', express.raw({ type: 'application/json' }), (req, _res, next) => {
+  if (Buffer.isBuffer(req.body)) {
+    req.rawBody = req.body;
+    try { req.body = JSON.parse(req.body.toString('utf8')); } catch { req.body = {}; }
+  }
+  next();
+});
 // Raw body capture for provider webhook HMAC validation (DCP-722)
 app.use('/api/webhooks', express.raw({ type: 'application/json' }), (req, _res, next) => {
   if (Buffer.isBuffer(req.body)) {

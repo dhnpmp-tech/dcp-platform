@@ -215,30 +215,9 @@ function recordActivationEvent(providerId, eventCode, metadata = null) {
 //   unset / "0" — warn only (backward-compatible, existing daemons work)
 //   "1"         — reject requests without a valid signature
 //
-function verifyHeartbeatHmac(req) {
-    const hmacSecret = process.env.DC1_HMAC_SECRET;
-    if (!hmacSecret) return { valid: false, reason: 'DC1_HMAC_SECRET not configured' };
-
-    const signatureHeader = req.headers['x-dc1-signature'];
-    if (!signatureHeader) return { valid: false, reason: 'X-DC1-Signature header missing' };
-
-    const match = String(signatureHeader).trim().match(/^sha256=([a-f0-9]{64})$/i);
-    if (!match) return { valid: false, reason: 'X-DC1-Signature format invalid (expected sha256=<64 hex chars>)' };
-
-    const rawBody = req.rawBody;
-    if (!rawBody) return { valid: false, reason: 'Raw body unavailable for HMAC check' };
-
-    const expected = crypto.createHmac('sha256', hmacSecret).update(rawBody).digest('hex');
-    try {
-        const isValid = crypto.timingSafeEqual(
-            Buffer.from(expected, 'hex'),
-            Buffer.from(match[1].toLowerCase(), 'hex')
-        );
-        return { valid: isValid, reason: isValid ? null : 'HMAC mismatch' };
-    } catch {
-        return { valid: false, reason: 'HMAC comparison failed' };
-    }
-}
+// Implementation + route middleware live in middleware/heartbeatHmac.js so the
+// gate contract is unit-testable without booting the whole router.
+const { enforceHeartbeatHmac } = require('../middleware/heartbeatHmac');
 
 // Import shared billing rates from jobs module
 const { COST_RATES } = require('./jobs');
@@ -1105,22 +1084,7 @@ function computeReputationScore(providerId) {
 //   2–10 min since last heartbeat → status: "degraded"  (yellow, still bookable)
 //   > 10 min since last heartbeat → status: "offline"   (excluded from marketplace)
 // ============================================================================
-router.post('/heartbeat', heartbeatProviderLimiter, (req, res) => {
-    // HMAC-SHA256 signature validation — prevents spoofed provider status updates.
-    // Daemons set X-DC1-Signature: sha256=<hex> using DC1_HMAC_SECRET.
-    const hmacResult = verifyHeartbeatHmac(req);
-    const requireHmac = process.env.DC1_REQUIRE_HEARTBEAT_HMAC === '1';
-    if (!hmacResult.valid) {
-        if (requireHmac) {
-            console.warn(`[providers/heartbeat] HMAC rejected: ${hmacResult.reason}`);
-            return res.status(401).json({ error: 'Invalid heartbeat signature', detail: hmacResult.reason });
-        }
-        // Warn-only mode: log but allow through for backward-compatible rollout
-        if (req.rawBody) {
-            console.warn(`[providers/heartbeat] HMAC warning (enforcement disabled): ${hmacResult.reason}`);
-        }
-    }
-
+router.post('/heartbeat', heartbeatProviderLimiter, enforceHeartbeatHmac, (req, res) => {
     try {
         const {
             api_key,
@@ -8423,15 +8387,8 @@ router.post('/admin/broadcast-power-config', (req, res) => {
 // Body: { public_key: "base64..." }
 // Returns: { ip, server_pubkey, server_endpoint, psk?, already_registered? }
 // ============================================================================
-router.post('/wg/register', async (req, res) => {
+router.post('/wg/register', enforceHeartbeatHmac, async (req, res) => {
     try {
-        // ── HMAC validation (warn-only until all daemons send signatures) ──
-        const hmacResult = verifyHeartbeatHmac(req);
-        if (!hmacResult.valid) {
-            console.warn(`[wg/register] HMAC warning: ${hmacResult.reason}`);
-            // Continue — API key auth is sufficient for now.
-            // TODO: enforce once DC1_HMAC_SECRET is set to a real value.
-        }
 
         const api_key = req.headers['x-provider-key'] || req.query.key;
         if (!api_key) {
