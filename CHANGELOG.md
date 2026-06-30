@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 05:52 UTC — [commit `0e48bf2`](https://github.com/dhnpmp-tech/dcp-platform/commit/0e48bf2) — `chore(ops): commit load-bearing ops scripts + gitignore secrets/backups`
+
+Included:
+- **Ops scripts committed to main:** `ops/e2e-smoke.sh`, `ops/morning-digest.sh`, `safe-reload.sh` — these were untracked on prod (`/root/dc1-platform`) but cron + the docker-proxy watchdog depend on them; a clean re-deploy was silently losing them. Verified no hardcoded secrets (they read `TG_TOKEN`/`TG_DEV_BOT_TOKEN` from the env file).
+- **`.gitignore` hardened:** now excludes `ops/.watchdog-env` (live TG bot token + renter master key — was sitting untracked in the repo working tree), `*.bak` / `*.bak.*` / `*.bak-*` / `.hotpatch-backups/` / `*.env.bak*` (hot-patch backup clutter), and `*.prepared` (inert feature stubs).
+- **Prod filesystem cleaned:** 78 hot-patch `.bak` files + the `.hotpatch-backups/` dir deleted from prod (75 code backups + 3 secret-bearing `.env.bak*`). 5 `providers.db.bak*` database snapshots **kept** (no confirmed alternate backup — conservative). Prod `git status` noise dropped from 80+ untracked files to build artifacts only.
+- **State change:** prod `.gitignore` synced to the new rules; `.watchdog-env` no longer appears in `git status`. No secrets committed.
+
 ### 2026-06-30 05:46 UTC — [merge `189dae6`](https://github.com/dhnpmp-tech/dcp-platform/commit/189dae6) + [`87aa7fa`](https://github.com/dhnpmp-tech/dcp-platform/commit/87aa7fa) — `chore(reconcile): merge security/staged-rollouts into main`
 
 Included:
