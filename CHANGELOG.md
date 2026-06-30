@@ -14,6 +14,40 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 08:30 UTC — `chore(release): ship main → prod (security/staged-rollouts fast-forward 0135afd9..186b0a23) + smoke-verified`
+
+Production deploy of the 2026-06-30 task batch (tasks #1–#10) plus all other merged `main` work since the last prod update. The prod backend (`root@76.13.179.86:/root/dc1-platform`) runs the `security/staged-rollouts` branch, which had fallen **77 commits behind `origin/main`** (`0135afd9` → `186b0a23`), **0 commits ahead** — a pure stale snapshot with no unique prod-only commits. Reconciliation was therefore a clean fast-forward with zero conflict risk and zero unique work to lose.
+
+**Pre-deploy reconciliation (done on the VPS, live-state-verified — the 2026-06-28 memory snapshot was stale and wrong):**
+
+- **Inspected live prod state, not the memory snapshot.** Memory claimed "19 uncommitted files + 1 untracked required `renter-job-view.js`". Reality: only **1 modified tracked file** (`.gitignore`) + 9 untracked paths; `renter-job-view.js` was already tracked and present on `main` at `backend/src/lib/renter-job-view.js` — never missing. The memory was discarded in favor of `git status` ground truth.
+- **`.gitignore` local modification discarded** — it added secret-protection rules (`ops/.watchdog-env`, `*.bak`, `.hotpatch-backups/`, `*.prepared`); `origin/main`'s `.gitignore` already contains the byte-identical rules (committed in `0e48bf23`). `git restore .gitignore` → zero loss; the fast-forward brings the same content.
+- **4 untracked files removed (byte-identical to `main`'s tracked versions):** `safe-reload.sh`, `ops/e2e-smoke.sh`, `ops/morning-digest.sh`, `docs/security/README.md` — all committed to `main` by `0e48bf23` from these very prod files. `diff` confirmed identical before removal; the fast-forward recreated them as tracked. Zero loss.
+- **5 untracked runtime/artifact paths left in place (untouched by FF, intentionally untracked):** `backend/installers/*.tar.gz` + `*.exe`, `backend/src/data/provider-logs/`, `docs/reports/runtime-parity/*.json`, `extensions/dc1-vscode/*.vsix`. Runtime logs / build artifacts, not source.
+
+**Deploy (2026-06-30 08:29:56Z):**
+
+- **Fast-forward** `security/staged-rollouts` `0135afd9..186b0a23` — pure FF, no merge commit, no conflicts.
+- **Backend = pm2 process `dc1-provider-onboarding`** (PID 1615 → 2613597), `node /root/dc1-platform/backend/src/server.js` (JS, no build step), cwd `/root/dc1-platform/backend`, fork mode, node 22.22.0, listening on `:8083` ← nginx `api.dcp.sa` upstream. Confirmed the pm2 process name is misleading: despite being named "onboarding", it is the full DCP API backend.
+- **Reload via `safe-reload.sh`** — 0 active interactive pods (no `--force` needed), `pm2 reload dc1-provider-onboarding`, restarts 0→1, status `online`. Health blip: `000` at t=1s (restart), `200` at t=2s. No live pods were disrupted.
+- **Syntax + require-resolve pre-checks** (before touching the running process): `node --check` passed on `server.js`, `routes/renters.js`, `routes/pods.js`, `services/burstPricingService.js`, `services/burstLaunchRefund.js`, `lib/renter-job-view.js`; the two new service modules loaded cleanly with the expected exports (`burstPricingService` → `computeCostPerGpuSecondHalala` + 4 constants; `burstLaunchRefund` → `failBurstJobAndRefund`); `renters`/`pods` route modules loaded (require chain resolves).
+- **No `backend/package.json` / lockfile changes** in the 77-commit range → no `npm install` needed.
+
+**Smoke tests (all PASS, 2026-06-30 08:30Z):**
+
+- **Pricing (task #7):** `GET /api/renters/pricing` returns real cost-plus SAR/hr derived from `providers.cost_per_gpu_second_halala` — RTX 3090 2.5, RTX 4090 3.62, RTX 5090 5.2, A100 80GB 7.3–7.82 SAR/hr. Cross-checked against the DB: 3090 = 0.0694 halala/sec × 3600 / 100 = 2.5 SAR/hr ✓. The reconciled billing source is live.
+- **Burst refund (task #9):** `routes/pods.js:946` calls `failBurstJobAndRefund(db, …)` — the extracted once-only refund helper is wired into the launch-fail path.
+- **MCP `list_pods` (task #8):** tool present at `integrations/dcp-mcp/index.js:153` and documented in `integrations/dcp-mcp/README.md:43`. (MCP server is agent-side, not backend-reloaded.)
+- **`server.ts` guard (task #10):** fail-fast guard present at `backend/src/server.ts:75` (`DCP_ALLOW_FASTIFY_ENTRY !== '1'` → exit). Non-production reference cannot start accidentally.
+- **Heartbeat HMAC safety (commit `07fe4e77`, H7):** `DC1_REQUIRE_HEARTBEAT_HMAC` is **unset** on the running pm2 process → the HMAC gate stays warn-only/OFF. **14 providers online before AND after reload** (unchanged) — unsigned heartbeats still accepted, no 401 storm, no providers dropped. The C3 full-enforcement flip remains deliberately NOT applied.
+- **Overall API health:** `http://localhost:8083/api/health` → 200; public `https://api.dcp.sa/api/health` → 200 (full nginx→backend path green post-deploy).
+
+**State changes:** prod `security/staged-rollouts` advanced from `0135afd9` to `186b0a23` (now identical to `origin/main`). The 2026-06-30 task batch (#1–#10) is **live in production**. No prod-only files were lost; no unique prod commits existed. The 4 formerly-untracked ops scripts (`safe-reload.sh`, `ops/e2e-smoke.sh`, `ops/morning-digest.sh`, `docs/security/README.md`) are now tracked on prod as on `main`.
+
+**No new PR** — this is a release of already-merged `main` commits to prod, not new code. Commit range: `0135afd9..186b0a23` (77 commits). Standing constraint honored: deploy from `main` to prod was a deliberate, smoke-tested release — not an auto-deploy.
+
+---
+
 ### 2026-06-30 07:02 UTC — `chore(security): mark stray Fastify server.ts non-production + fail-fast guard (ROADMAP 0.9)`
 
 `backend/src/server.ts` is a small Fastify entry that registers only 3 route modules (audit/billing/jobs) with JWT-only auth and **none** of the Express-layer controls the production server owns (HMAC verification, rate limiters, CORS lockdown, input sanitization, full route surface). If it were ever started by accident (`ts-node server.ts` or a compiled build), it would bind a port and serve traffic with every production guardrail bypassed. The production server is `backend/src/server.js` (Express) — confirmed: it does not use `fastify` / `@fastify/jwt` at all.
