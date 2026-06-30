@@ -262,6 +262,49 @@
   .home-hero-grid { display:block; max-width: 900px; }
   @media (max-width: 1080px) { .home-hero-grid { max-width: none; } }
 
+  /* ─── 2-column hero rework: copy left, interactable mesh right ─── */
+  .home-hero-grid.hero-2col {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: 56px;
+    align-items: center;
+    max-width: none;
+  }
+  .home-hero-grid.hero-2col .hero-copy { min-width: 0; }
+  .home-hero-grid.hero-2col .hero-visual {
+    position: relative;
+    min-width: 0;
+    /* reserve the box so the canvas never causes layout shift (CLS ~0) */
+    aspect-ratio: 5 / 6;
+    max-height: 640px;
+  }
+  @media (max-width: 1180px) {
+    .home-hero-grid.hero-2col { grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 40px; }
+  }
+  @media (max-width: 980px) {
+    .home-hero-grid.hero-2col {
+      grid-template-columns: 1fr;
+      gap: 36px;
+    }
+    .home-hero-grid.hero-2col .hero-visual {
+      order: 2;
+      aspect-ratio: 4 / 3;
+      max-height: none;
+      max-width: 620px;
+      margin-inline: auto;
+      width: 100%;
+    }
+  }
+  @media (max-width: 760px) {
+    .home-hero-grid.hero-2col .hero-visual { aspect-ratio: 5 / 4; }
+  }
+  /* the 2-column copy column is narrower — scale the hero headline down */
+  .home-hero-grid.hero-2col h1 { font-size: clamp(44px, 5.4vw, 96px); margin-top: 20px; }
+  .home-hero-grid.hero-2col .lead { font-size: 18px; margin-top: 22px; }
+  @media (max-width: 980px) {
+    .home-hero-grid.hero-2col h1 { font-size: clamp(40px, 8vw, 72px); }
+  }
+
   /* ═══ Saudi network map — hand-drawn outline + 4 region nodes + connections ═══ */
   .saudi-map {
     position:absolute; top:0; right:0; width:62%; height:100%;

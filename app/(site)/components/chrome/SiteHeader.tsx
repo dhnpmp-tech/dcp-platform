@@ -23,23 +23,24 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
 // ───────── primary nav — points only at canonical NEW routes ─────────
 const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة' },
+  { href: '/marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
-  // Pricing was folded into the home #pricing section — link straight there.
-  { href: '/#pricing', en: 'Pricing', ar: 'الأسعار' },
+  { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
   { href: '/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
 // ───────── mobile menu rows ─────────
 const MENU: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; sEn: string; sAr: string }> = [
   { href: '/', n: '01', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
-  { href: '/#pricing', n: '02', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
-  { href: '/containers', n: '03', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
-  { href: '/agents', n: '04', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Zero-human onboarding · MCP', sAr: 'تهيئة بلا بشر · MCP' },
-  { href: '/docs', n: '05', tEn: 'Docs', tAr: 'التوثيق', sEn: 'OpenAI-compatible API', sAr: 'واجهة متوافقة مع OpenAI' },
-  { href: '/provider-setup', n: '06', tEn: 'Earn', tAr: 'اكسب', sEn: 'Earn Riyal from your GPU', sAr: 'اكسب ريالاً من معالجك' },
-  { href: '/support', n: '07', tEn: 'Support', tAr: 'الدعم', sEn: 'Talk to the team', sAr: 'تواصل مع الفريق' },
+  { href: '/marketplace', n: '02', tEn: 'Marketplace', tAr: 'السوق', sEn: 'Live capacity · verified providers', sAr: 'سعة حية · مزوّدون متحققون' },
+  { href: '/pricing', n: '03', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
+  { href: '/containers', n: '04', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
+  { href: '/agents', n: '05', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Zero-human onboarding · MCP', sAr: 'تهيئة بلا بشر · MCP' },
+  { href: '/docs', n: '06', tEn: 'Docs', tAr: 'التوثيق', sEn: 'OpenAI-compatible API', sAr: 'واجهة متوافقة مع OpenAI' },
+  { href: '/provider-setup', n: '07', tEn: 'Earn', tAr: 'اكسب', sEn: 'Earn Riyal from your GPU', sAr: 'اكسب ريالاً من معالجك' },
+  { href: '/support', n: '08', tEn: 'Support', tAr: 'الدعم', sEn: 'Talk to the team', sAr: 'تواصل مع الفريق' },
 ]
 
 interface SiteHeaderProps {

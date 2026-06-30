@@ -87,3 +87,18 @@ export function Bi({ en, ar }: { en: string; ar: string }) {
   const { lang } = useV2()
   return <>{lang === 'ar' ? ar : en}</>
 }
+
+// Bilingual JSX helper. Server-renders BOTH variants; CSS shows the one
+// matching html[data-lang]. Defaults to EN when no data-lang is set (pre-
+// hydration / no-JS), so the hero headline lands in the initial HTML
+// without waiting for the client i18n context — no hydration mismatch.
+// Usage: <BiX en={<>by the <em>second.</em></>} ar={<>بالثانية.</>} />
+export function BiX({ en, ar, as = 'span' }: { en: ReactNode; ar: ReactNode; as?: 'span' | 'div' }) {
+  const Tag = as
+  return (
+    <Tag className="bix">
+      <span className="bix-en">{en}</span>
+      <span className="bix-ar" aria-hidden="true">{ar}</span>
+    </Tag>
+  )
+}
