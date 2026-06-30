@@ -40,6 +40,7 @@ Then ask your agent to "list DCP models" or "rent a GPU on DCP for 30 minutes." 
 | `get_balance` | Renter wallet balance (SAR). |
 | `list_gpus` | List rentable GPU **types** (e.g. `H100`, `RTX 4090`) with VRAM + live availability. |
 | `create_pod` | Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute. |
+| `list_pods` | List YOUR interactive pods (newest first) — find a `pod_id` or spot forgotten pods. |
 | `get_pod` | Pod status + access URL / SSH command / time remaining. |
 | `extend_pod` | Add time to a running pod, no restart. |
 | `stop_pod` | Stop early; unused prepaid time refunded. |

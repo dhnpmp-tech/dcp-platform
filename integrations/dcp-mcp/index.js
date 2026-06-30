@@ -150,6 +150,15 @@ const TOOLS = [
     })),
   },
   {
+    name: 'list_pods',
+    description: 'List YOUR interactive pods (newest first) — each with id, gpu_type, status, access_url, ends_at, and seconds_remaining. Call this to find a pod_id for get_pod / stop_pod / extend_pod, or to discover pods you launched and forgot. Only returns interactive pods you own.',
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'number', description: 'Max pods to return (1–100, default 20).' } },
+    },
+    run: async (a) => ok(await dcp('GET', `/api/pods${a.limit ? `?limit=${encodeURIComponent(a.limit)}` : ''}`)),
+  },
+  {
     name: 'get_pod',
     description: 'Get a pod\'s status and access details (status, access_url for Jupyter, ssh_command, ends_at, seconds_remaining).',
     inputSchema: { type: 'object', properties: { pod_id: { type: 'string' } }, required: ['pod_id'] },
