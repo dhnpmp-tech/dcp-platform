@@ -14,6 +14,24 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-06-30 07:02 UTC — `chore(security): mark stray Fastify server.ts non-production + fail-fast guard (ROADMAP 0.9)`
+
+`backend/src/server.ts` is a small Fastify entry that registers only 3 route modules (audit/billing/jobs) with JWT-only auth and **none** of the Express-layer controls the production server owns (HMAC verification, rate limiters, CORS lockdown, input sanitization, full route surface). If it were ever started by accident (`ts-node server.ts` or a compiled build), it would bind a port and serve traffic with every production guardrail bypassed. The production server is `backend/src/server.js` (Express) — confirmed: it does not use `fastify` / `@fastify/jwt` at all.
+
+**Why not just delete it:** `backend/src/__tests__/fastify-jwt-hardening.test.js` (DCP-908) reads `server.ts` source text as a regression reference for the JWT hardening properties — F1 algorithm pinning (`verify: { algorithms: ['HS256'] }`) and F2 24h token expiry (`sign: { expiresIn: '24h' }`). It's a documentation fixture, not a runnable server. Deleting it would retire that hardening regression; the principled fix (migrate the assertions onto the real Express server's JWT config) is a separate task.
+
+**Included:**
+
+- **Loud non-production banner** at the top of `backend/src/server.ts` — explains it is NOT the traffic-serving server, names `server.js` (Express) as production, lists the controls it lacks, and states why it's retained (hardening-test fixture).
+- **Fail-fast startup guard** (ROADMAP 0.9) inside `start()` — refuses to call `app.listen` unless `DCP_ALLOW_FASTIFY_ENTRY=1` is explicitly set; everything else (including `NODE_ENV=production`) exits with a FATAL message before binding a port. Verified: default / `=0` / `NODE_ENV=production` all refuse; only `=1` proceeds. Accidental startup is now impossible.
+- **Hardening test preserved** — verified the two `expect(src).toMatch(...)` regexes (`algorithms: ['HS256']` and `expiresIn: '24h'`) still match the edited source. No test changes needed.
+- **Deferred (tracked follow-up, NOT shipped here):** the H9 dependency CVEs (`ws` 8.x + `uuid` via `dockerode`) noted in `docs/security/CHANGELOG.md` as STAGED for a maintenance window. An `npm audit fix` touches transitive deps of a prod-adjacent backend and genuinely needs a maintenance window + a full test-suite run to validate dockerode behavior — not safe to do blind in a no-questions sprint. Left staged.
+- **No prod deploy** — `main` only.
+
+**State changes:** `server.ts` can no longer be accidentally started; the only runnable backend entry remains `server.js` (Express). No behavior change to production traffic.
+
+---
+
 ### 2026-06-30 06:55 UTC — `test(burst): extract + test the launch-fail-refund once-only invariant (ROADMAP 2.1/2.2)`
 
 The burst launch path pre-debits the renter (full-duration quote) BEFORE spawning an external pod via `burst.py`. If spawn fails, the renter must be refunded **exactly once** — never zero (they'd pay for a pod that never booted), never twice (a concurrent timeout sweep could also try to refund the same row). This is the platform's most load-bearing double-charge-prevention path, and it had **zero in-repo tests** — the refund SQL was inlined in the `routes/pods.js` launch handler, untestable.
