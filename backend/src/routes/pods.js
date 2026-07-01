@@ -1088,6 +1088,22 @@ function stopPodCore(job, { actorLabel = 'renter' } = {}) {
                 total_spent_halala = total_spent_halala + ?, total_jobs = total_jobs + 1
           WHERE id = ?`
       ).run(settlement.refundHalala, settlement.actualCostHalala, job.renter_id);
+
+      // Release the escrow hold — the pod is settled. Mirrors the timeout path
+      // (jobs.js ~L4296) and providers.js (~L3904). Without this, renter-stopped
+      // pods leave escrow_holds 'locked' forever — the orphaned-locked-escrow gap
+      // (20 rows on prod as of 2026-07-01: money moved correctly at stop, but the
+      // escrow row was never marked resolved). Provider paid → released_provider;
+      // ran-0s full refund → released_renter. Idempotent: only held/locked rows
+      // match, so a double-stop or a row already released is a no-op.
+      db.prepare(
+        `UPDATE escrow_holds SET status = ?, resolved_at = ?
+          WHERE job_id = ? AND status IN ('held','locked')`
+      ).run(
+        settlement.providerEarnedHalala > 0 ? 'released_provider' : 'released_renter',
+        now,
+        job.job_id
+      );
     } else {
       // Never started (pending/queued/assigned/pulling): cancel + full refund.
       // Once-only guard mirrors failBurstJobAndRefund (burstLaunchRefund.js): only
@@ -1104,6 +1120,16 @@ function stopPodCore(job, { actorLabel = 'renter' } = {}) {
       if (prepaid > 0 && cancelled.changes === 1) {
         db.prepare(`UPDATE renters SET balance_halala = balance_halala + ? WHERE id = ?`)
           .run(prepaid, job.renter_id);
+      }
+      // Release escrow back to renter on never-started cancel (the full prepaid
+      // refund was just credited above). Guarded by cancelled.changes === 1 so
+      // only the caller that actually flipped the job to cancelled releases the
+      // escrow — mirrors the once-only refund guard and is idempotent regardless.
+      if (cancelled.changes === 1) {
+        db.prepare(
+          `UPDATE escrow_holds SET status = 'released_renter', resolved_at = ?
+            WHERE job_id = ? AND status IN ('held','locked')`
+        ).run(now, job.job_id);
       }
       settlement = {
         actualCostHalala: 0,
