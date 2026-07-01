@@ -678,8 +678,10 @@ router.post('/agent-register', agentRegisterLimiter, validateBody(renterAgentReg
 // GET /api/renters/me?key=API_KEY
 router.get('/me', (req, res) => {
   try {
-    const key = req.query.key || req.headers['x-renter-key'];
-    if (!key) return res.status(400).json({ error: 'API key required' });
+    // Accept Authorization: Bearer <key> in addition to ?key= / x-renter-key,
+    // for parity with /v1/* and /api/pods. (agent-readiness fix)
+    const key = req.query.key || req.headers['x-renter-key'] || getBearerToken(req);
+    if (!key) return res.status(400).json({ error: 'API key required. Pass via Authorization: Bearer <key>, the x-renter-key header, or ?key=.' });
 
     // Accept either the legacy renters.api_key column or any active sub-key
     // in renter_api_keys (dcp- prefixed keys minted via /me/keys live there).
@@ -1445,8 +1447,12 @@ router.post('/topup', validateBody(renterTopupSchema), (req, res) => {
 // GET /api/renters/balance — Quick balance check
 router.get('/balance', (req, res) => {
   try {
-    const key = req.headers['x-renter-key'] || req.query.key;
-    if (!key) return res.status(400).json({ error: 'API key required' });
+    // Accept Authorization: Bearer <key> in addition to x-renter-key / ?key=.
+    // /v1/* and /api/pods already accept Bearer (see middleware/auth getApiKeyFromReq);
+    // balance previously ignored it, so a pure-Bearer MCP/OpenAI-style agent got
+    // "API key required" here while pods + inference worked. (agent-readiness fix)
+    const key = req.headers['x-renter-key'] || req.query.key || getBearerToken(req);
+    if (!key) return res.status(400).json({ error: 'API key required. Pass via Authorization: Bearer <key>, the x-renter-key header, or ?key=.' });
 
     // RENT-3: balance is billing data. Previously this matched only renters.api_key
     // (master key) and silently 404'd every sub-key, so the "billing" scope was never
