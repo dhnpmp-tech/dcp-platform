@@ -356,6 +356,8 @@ const GPU_TYPE_ALIASES = {
   'rtx pro 4500': 'rtx pro 4500',
   'rtxpro4500': 'rtx pro 4500',
   'pro 4500': 'rtx pro 4500',
+  // B200 (Blackwell datacenter flagship, sm_100). Launched on the cu128 image.
+  'b200': 'b200',
   // A100 SXM (NVLink) - distinct from the existing A100 80GB PCIe. Bare 'a100'
   // still resolves to whichever A100 variant is in stock.
   'a100 sxm': 'a100-sxm4',

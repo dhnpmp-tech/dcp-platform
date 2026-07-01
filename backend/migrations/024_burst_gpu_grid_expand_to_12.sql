@@ -1,8 +1,8 @@
 -- 024_burst_gpu_grid_expand_to_12.sql
--- Burst grid expansion: 8 -> 12 on-demand GPU types.
+-- Burst grid expansion: 8 -> 13 on-demand GPU types.
 --
--- Adds 4 new is_burst=1 provider rows so GET /api/renters/available-providers
--- (the live home grid) exposes 12 NVIDIA GPU types. Each row is a synthetic
+-- Adds 5 new is_burst=1 provider rows so GET /api/renters/available-providers
+-- (the live home grid) exposes 13 NVIDIA GPU types. Each row is a synthetic
 -- "GPU type capacity" row; the actual machine is launched on-demand and brokered
 -- invisibly (renters only ever see the public NVIDIA gpu_model label, never the
 -- backing vendor).
@@ -42,4 +42,10 @@ VALUES
    0.217291667, 'approved', 0, 1, 'NVIDIA A100-SXM4-80GB', 1, 1),
   (1781798914182, 'NVIDIA H100 NVL', 'burst-h100nvl@dcp.internal',
    'NVIDIA H100 NVL', 1, 94, 'linux', 'online', 96256,
-   0.465208333, 'approved', 0, 1, 'NVIDIA H100 NVL', 1, 1);
+   0.465208333, 'approved', 0, 1, 'NVIDIA H100 NVL', 1, 1),
+  -- B200 (Blackwell datacenter flagship, sm_100). 180GB HBM3e. Launched on the
+  -- cu128 image. Cost-plus seed matches the live RunPod Secure price snapshot
+  -- (0.858958333 halala/s ~= $8.25/hr at 3.75 SAR/USD); stock cron self-heals it.
+  (1781798914183, 'NVIDIA B200', 'burst-b200@dcp.internal',
+   'NVIDIA B200', 1, 180, 'linux', 'online', 184320,
+   0.858958333, 'approved', 0, 1, 'NVIDIA B200', 1, 1);
