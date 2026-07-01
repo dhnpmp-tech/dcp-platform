@@ -358,6 +358,25 @@ const GPU_TYPE_ALIASES = {
   '4090': 'rtx 4090',
   'rtx4090': 'rtx 4090',
   'rtx 4090': 'rtx 4090',
+  // Blackwell workstation/server cards (added: burst grid expansion to 12 types).
+  'rtx pro 6000': 'rtx pro 6000',
+  'rtxpro6000': 'rtx pro 6000',
+  'pro 6000': 'rtx pro 6000',
+  'rtx pro 4500': 'rtx pro 4500',
+  'rtxpro4500': 'rtx pro 4500',
+  'pro 4500': 'rtx pro 4500',
+  // B200 (Blackwell datacenter flagship, sm_100). Launched on the cu128 image.
+  'b200': 'b200',
+  // A100 SXM (NVLink) - distinct from the existing A100 80GB PCIe. Bare 'a100'
+  // still resolves to whichever A100 variant is in stock.
+  'a100 sxm': 'a100-sxm4',
+  'a100sxm': 'a100-sxm4',
+  'a100-sxm4': 'a100-sxm4',
+  // H100 NVL (94GB) - distinct from the existing H100 80GB HBM3. Bare 'h100'
+  // still resolves to whichever H100 variant is in stock.
+  'h100 nvl': 'h100 nvl',
+  'h100nvl': 'h100 nvl',
+  'nvl': 'h100 nvl',
 };
 
 // Resolve a renter-supplied GPU TYPE string to the matching is_burst=1 provider
