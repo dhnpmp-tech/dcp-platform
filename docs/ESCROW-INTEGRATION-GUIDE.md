@@ -1,6 +1,8 @@
 # Escrow Integration Guide — DCP Smart Contracts
 
-**Status:** Maintained
+>**Status: ROADMAP — NOT LIVE.** On-chain escrow (Base Sepolia testnet) is dormant; today all settlement is fiat SAR via Moyasar. This guide describes the future agent-to-agent settlement rail.
+
+**Status:** Roadmap (not live) — future reference
 **Target Audience:** Providers integrating settlement, renters building escrow-backed jobs
 **Last Updated:** 2026-03-23
 

@@ -13,7 +13,7 @@ This guide shows how to submit jobs to DCP using the official Node.js SDK with r
 **Key Stats:**
 - DCP pricing is **23.7% below hyperscalers** (Vast.ai, RunPod)
 - Providers earn **85% of job revenue** (15% DCP platform fee)
-- Jobs are secured by smart contract escrow on BASE Sepolia
+- Jobs are billed and settled in **fiat Saudi Riyal (SAR) via Moyasar** — renters top up SAR (Moyasar pay-in) and providers are paid out in SAR (Moyasar pay-out). This is the live mechanism today. (On-chain smart-contract escrow is a **roadmap** item for agent-to-agent settlement — **not live yet**.)
 
 ---
 
