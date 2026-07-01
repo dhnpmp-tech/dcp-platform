@@ -41,7 +41,7 @@ export const GPU_SKUS: ReadonlyArray<GpuSku> = [
   { model: 'NVIDIA L40S', vramGb: 48, sarPerHour: 5.2, usdPerHour: 1.39 },
   { model: 'NVIDIA RTX 5090', vramGb: 32, sarPerHour: 5.2, usdPerHour: 1.39 },
   { model: 'NVIDIA RTX 4090', vramGb: 24, sarPerHour: 3.62, usdPerHour: 0.97 },
-  { model: 'NVIDIA RTX 3090', vramGb: 24, sarPerHour: 0.5, usdPerHour: 0.13 },
+  { model: 'NVIDIA RTX 3090', vramGb: 24, sarPerHour: 2.5, usdPerHour: 0.67 },
 ]
 
 // Organization — the entity record AI engines resolve "DCP / dcp.sa" against.
@@ -168,7 +168,7 @@ export const HOME_FAQ: ReadonlyArray<FaqItem> = [
   },
   {
     q: 'How much does it cost to rent a GPU on DCP?',
-    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 0.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+    a: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 2.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
   },
   {
     q: 'Where does my data live when I use DCP?',

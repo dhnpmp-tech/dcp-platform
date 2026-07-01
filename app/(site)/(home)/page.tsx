@@ -2057,7 +2057,7 @@ export default function V2HomePage() {
                 { gpu: 'NVIDIA L40S', vram: '48 GB', sar: '5.20', usd: '1.39', onDemand: true },
                 { gpu: 'NVIDIA RTX 5090', vram: '32 GB', sar: '5.20', usd: '1.39', onDemand: true },
                 { gpu: 'NVIDIA RTX 4090', vram: '24 GB', sar: '3.62', usd: '0.97', onDemand: true },
-                { gpu: 'NVIDIA RTX 3090', vram: '24 GB', sar: '0.50', usd: '0.13', onDemand: false },
+                { gpu: 'NVIDIA RTX 3090', vram: '24 GB', sar: '2.50', usd: '0.67', onDemand: false },
               ].map((r) => (
                 <div className="mp-row" role="row" key={r.gpu}>
                   <span className="mp-model" role="cell"><b>{r.gpu}</b></span>
@@ -2136,8 +2136,8 @@ export default function V2HomePage() {
               {
                 qEn: 'How much does it cost to rent a GPU on DCP?',
                 qAr: 'كم تكلفة استئجار معالج على DCP؟',
-                aEn: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 0.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
-                aAr: 'يُفوتر إيجار المعالجات مدفوعاً مسبقاً بالثانية بالريال السعودي، بالتكلفة زائد هامش من السوق الحي. الأنواع عند الطلب وأسعارها التقديرية بالساعة: RTX 4090 من نحو ٣٫٦٢ ريال/ساعة، وRTX 5090 من ٥٫٢ ريال/ساعة، وL40S من ٥٫٢ ريال/ساعة، وA100 (٨٠ جيجابايت) من ٧٫٣ ريال/ساعة، وH100 (٨٠ جيجابايت) من ١٧٫٢٧ ريال/ساعة، وH200 (١٤١ جيجابايت) من ٢٣٫٠٥ ريال/ساعة. أما RTX 3090 المحلي داخل المملكة فهو ٠٫٥ ريال/ساعة. تبدأ حسابات المستأجرين الجدد برصيد ١٠٠ ريال دون الحاجة إلى بطاقة.',
+                aEn: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 2.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+                aAr: 'يُفوتر إيجار المعالجات مدفوعاً مسبقاً بالثانية بالريال السعودي، بالتكلفة زائد هامش من السوق الحي. الأنواع عند الطلب وأسعارها التقديرية بالساعة: RTX 4090 من نحو ٣٫٦٢ ريال/ساعة، وRTX 5090 من ٥٫٢ ريال/ساعة، وL40S من ٥٫٢ ريال/ساعة، وA100 (٨٠ جيجابايت) من ٧٫٣ ريال/ساعة، وH100 (٨٠ جيجابايت) من ١٧٫٢٧ ريال/ساعة، وH200 (١٤١ جيجابايت) من ٢٣٫٠٥ ريال/ساعة. أما RTX 3090 المحلي داخل المملكة فهو ٢٫٥ ريال/ساعة. تبدأ حسابات المستأجرين الجدد برصيد ١٠٠ ريال دون الحاجة إلى بطاقة.',
               },
               {
                 qEn: 'Where does my data live when I use DCP?',
