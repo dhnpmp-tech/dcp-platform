@@ -137,14 +137,47 @@ router.post('/rent', requireRenter, withFinancialIdempotency({
       return res.status(502).json({ error: 'Could not provision the volume — you were not charged. Please try again.', code: 'PROVISION_FAILED' });
     }
 
-    const result = db.prepare(
-      `INSERT INTO renter_volumes
-         (renter_id, size_gb, bucket, status, price_halala_per_month, rented_at, current_period_start, current_period_end, last_billed_at)
-       VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)`
-    ).run(req.renter.id, sizeGb, bucket, priceHalala, nowIso, nowIso, periodEnd, nowIso);
+    // ── Persist the rental row ──────────────────────────────────────────────
+    // The bucket name is deterministic per renter (dcp-vol-r<id>) and a released
+    // rental keeps its row (status='released') for audit. So a re-rent after a
+    // release must UPDATE the existing row back to active — a fresh INSERT
+    // collides with the UNIQUE(bucket) constraint. This bug double-charged renters
+    // who released then re-rented: the debit (above) succeeded, provisionVolume
+    // succeeded, then INSERT threw → the outer catch returned 500 with NO refund.
+    // Reuse the existing row; and if the DB write still fails, refund the debit
+    // so a renter is never charged for a volume they didn't get.
+    const prior = db.get(`SELECT id FROM renter_volumes WHERE bucket = ?`, bucket);
+    let volId;
+    try {
+      if (prior) {
+        db.prepare(
+          `UPDATE renter_volumes
+             SET size_gb = ?, status = 'active', price_halala_per_month = ?,
+                 rented_at = ?, current_period_start = ?, current_period_end = ?,
+                 last_billed_at = ?, released_at = NULL
+           WHERE id = ?`
+        ).run(sizeGb, priceHalala, nowIso, nowIso, periodEnd, nowIso, prior.id);
+        volId = prior.id;
+      } else {
+        const result = db.prepare(
+          `INSERT INTO renter_volumes
+             (renter_id, size_gb, bucket, status, price_halala_per_month, rented_at, current_period_start, current_period_end, last_billed_at)
+           VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)`
+        ).run(req.renter.id, sizeGb, bucket, priceHalala, nowIso, nowIso, periodEnd, nowIso);
+        volId = Number(result.lastInsertRowid);
+      }
+    } catch (dbErr) {
+      // Debit already succeeded — refund it, and deprovision the MinIO bucket we
+      // just (re)created so we don't leave an orphan bucket with no DB row.
+      db.prepare(`UPDATE renters SET balance_halala = balance_halala + ?, updated_at = ? WHERE id = ?`)
+        .run(priceHalala, new Date().toISOString(), req.renter.id);
+      try { deprovisionVolume(req.renter.id); } catch (e) { console.error('[volumes] deprovision-after-db-fail warn:', e.message); }
+      console.error('[volumes] rent persist failed, refunded:', dbErr.message);
+      return res.status(500).json({ error: 'Failed to rent volume — you were not charged. Please try again.', code: 'RENT_PERSIST_FAILED' });
+    }
 
-    const vol = db.get(`SELECT * FROM renter_volumes WHERE id = ?`, result.lastInsertRowid);
-    console.log(`[volumes] Renter ${req.renter.id} rented ${sizeGb}GB (-${priceHalala} halala) bucket=${bucket}`);
+    const vol = db.get(`SELECT * FROM renter_volumes WHERE id = ?`, volId);
+    console.log(`[volumes] Renter ${req.renter.id} rented ${sizeGb}GB (-${priceHalala} halala) bucket=${bucket}${prior ? ' (re-rent)' : ''}`);
     return res.json({
       ...toView(vol),
       charged_sar: Number((priceHalala / 100).toFixed(2)),
