@@ -104,7 +104,7 @@ export default function GpuCardSelector({
     el?.focus()
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+  function onKeyDown(e: KeyboardEvent<HTMLFieldSetElement>) {
     const current = itemIds.indexOf(value)
     const idx = current === -1 ? 0 : current
     switch (e.key) {
