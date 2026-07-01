@@ -62,6 +62,18 @@ html,body { margin:0; padding:0; color:var(--ink); font-family:var(--sans); -web
 html[data-palette], html[data-palette] body { background:var(--bg); }
 html[data-lang="ar"] body { font-family:var(--arabic); }
 html[data-lang="ar"] .mono, html[data-lang="ar"] pre, html[data-lang="ar"] code, html[data-lang="ar"] .tabular { font-family:var(--mono); direction:ltr; unicode-bidi:isolate; }
+
+/* BiX bilingual-JSX toggle: both variants server-rendered, CSS shows the
+   one matching html[data-lang]. Default (no data-lang) shows EN so the
+   hero headline lands in initial HTML without the client i18n context. */
+.bix { display:inline; }
+.bix .bix-ar { display:none; }
+html[data-lang="ar"] .bix .bix-en { display:none; }
+html[data-lang="ar"] .bix .bix-ar { display:inline; }
+div.bix { display:block; }
+div.bix > .bix-en, div.bix > .bix-ar { display:block; }
+html[data-lang="ar"] div.bix > .bix-en { display:none; }
+html[data-lang="ar"] div.bix > .bix-ar { display:block; }
 a { color:inherit; text-decoration:none; }
 button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
 
