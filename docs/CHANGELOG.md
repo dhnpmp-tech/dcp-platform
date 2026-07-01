@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Backend
+- ✅ Fixed the `renter_volumes` re-rent double-charge bug: re-rent after release now UPDATEs the released row instead of INSERTing (no `UNIQUE(bucket)` collision), and any DB-write failure refunds the debit + deprovisions the bucket so a renter is never charged for a volume they didn't get (`RENT_PERSIST_FAILED`). Shipped as PR #686, hot-patched + verified live, prod fast-forwarded to `origin/main`. (Details in the public `CHANGELOG.md`.)
+
+### Docs
+- ✅ Drafted the `dcp` launcher design spec (`docs/superpowers/specs/2026-07-02-dcp-launcher-design.md`): a Node/Ink terminal TUI where `dcp` opens a model selector + agent picker and launches a coding CLI pointed at DCP consumer-GPU inference (v1 = Claude Code; Codex/Cursor to follow). Flags the required new renter-facing Anthropic `/v1/messages` surface and the Claude Code model-env wiring (`ANTHROPIC_MODEL` + `ANTHROPIC_DEFAULT_HAIKU_MODEL` + `ANTHROPIC_DEFAULT_OPUS_MODEL` all → the same DCP model id).
+
 ### Frontend
 - ✅ Cleaned the v2 public flow map: `/setup` is now renter onboarding, `/earn` is provider onboarding, legacy provider paths land on `/earn`, landing CTAs use those public URLs, `/v2` redirects to the real v2 home, and dashboard/docs link smoke no longer finds placeholder links or local 404s.
 - ✅ Tightened v2 docs navigation and API honesty: left-menu anchors now target real sections, API status links to `/status`, missing RAG/rerank/streaming/errors/SDK sections are present, starter credit copy matches pricing, and standalone embeddings/rerank are no longer documented as live OpenAI-compatible `/v1` endpoints.
