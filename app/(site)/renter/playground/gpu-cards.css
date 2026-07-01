@@ -1,0 +1,171 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   GpuCardSelector — price-showing GPU card grid.
+   Editorial-luxury dark theme via dcp-kit tokens. Not a flat uniform card
+   grid: hierarchy comes from price-sorted order, band labels, and the
+   selected card's gradient edge. Compositor-friendly: only transform/opacity
+   animate.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.gpu-fs {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.gpu-fs-legend {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+  padding: 0;
+  margin-bottom: 14px;
+}
+
+.gpu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.gpu-card {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 16px 16px 14px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: transform .15s cubic-bezier(.2,.7,.2,1), border-color .15s, box-shadow .15s;
+  outline: none;
+}
+.gpu-card:hover:not(.off) {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--teal) 60%, var(--line));
+  box-shadow: 4px 4px 0 color-mix(in oklab, var(--teal) 35%, transparent);
+}
+.gpu-card:focus-visible {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--teal) 60%, transparent);
+}
+.gpu-card.sel {
+  border-color: var(--teal);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--teal) 8%, var(--paper)) 0%, var(--paper) 100%);
+  box-shadow: 0 0 0 1px var(--teal) inset, 4px 4px 0 color-mix(in oklab, var(--teal) 45%, transparent);
+}
+.gpu-card.off {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.gpu-card.off:hover { transform: none; box-shadow: none; }
+
+.gpu-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.gpu-band {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+  padding: 2px 7px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+}
+
+.gpu-avail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.gpu-avail.on { color: var(--teal); }
+.gpu-avail .d {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 25%, transparent);
+  animation: gpuPulse 1.8s ease-in-out infinite;
+}
+.gpu-avail.off { color: var(--dim); }
+@keyframes gpuPulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .gpu-avail .d { animation: none; } }
+
+.gpu-name {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: -.01em;
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 4px 0 2px;
+}
+html[data-lang="ar"] .gpu-name { font-family: var(--arabic); font-weight: 600; }
+.gpu-card.auto .gpu-name { font-style: italic; color: var(--ink-2); }
+
+.gpu-vram {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--mut);
+  letter-spacing: .02em;
+}
+.gpu-vram .u { color: var(--dim); margin-inline-start: 4px; }
+
+.gpu-price-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hair);
+}
+.gpu-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 0;
+}
+.gpu-price-row.sub .gpu-price-k { color: var(--dim); }
+.gpu-price-k {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.gpu-price-v {
+  font-family: var(--serif);
+  font-size: 20px;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  font-weight: 400;
+}
+html[data-lang="ar"] .gpu-price-v { font-family: var(--arabic); font-weight: 700; }
+.gpu-card.sel .gpu-price-v {
+  background-image: var(--grad);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+.gpu-price-sec {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.gpu-card.off .gpu-price-sec { color: var(--dim); }
+
+.gpu-sel-mark {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .gpu-grid { grid-template-columns: 1fr; }
+}
