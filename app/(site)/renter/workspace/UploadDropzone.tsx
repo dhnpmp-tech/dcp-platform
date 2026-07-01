@@ -74,7 +74,7 @@ export default function UploadDropzone({
         aria-label={lang === 'ar' ? 'اسحب ملفاً للرفع أو اضغط للاختيار' : 'Drop a file or click to choose'}
       >
         <input
-          ref={fileInputRef}
+          ref={fileInputRef as RefObject<HTMLInputElement>}
           type="file"
           className="ws-file-input"
           onChange={(e) => {
@@ -187,7 +187,7 @@ export default function UploadDropzone({
           </div>
           <div className="ws-resume-actions">
             <input
-              ref={resumeInputRef}
+              ref={resumeInputRef as RefObject<HTMLInputElement>}
               type="file"
               className="ws-file-input"
               onChange={onResumeFile}
