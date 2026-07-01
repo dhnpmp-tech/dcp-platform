@@ -5151,5 +5151,6 @@ module.exports.calculateCostHalala = calculateCostHalala;
 module.exports.COST_RATES = COST_RATES;
 module.exports.PRICING_CLASS_MULTIPLIERS = PRICING_CLASS_MULTIPLIERS;
 module.exports.enforceJobTimeouts = enforceJobTimeouts;
+module.exports.splitBilling = splitBilling;
 module.exports.signTaskSpec = signTaskSpec;
 module.exports.HMAC_SECRET = HMAC_SECRET;
