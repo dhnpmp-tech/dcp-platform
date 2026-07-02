@@ -1504,6 +1504,19 @@ router.post('/heartbeat', heartbeatProviderLimiter, enforceHeartbeatHmac, (req, 
                     if (!engineType || !['ollama', 'vllm', 'llamacpp'].includes(engineType)) continue;
                     const baseUrl = normalizeString(eng.base_url, { maxLen: 512, trim: true });
                     if (!baseUrl) continue;
+                    // OPUS-1 (SSRF): a provider supplies base_url and the backend
+                    // fetches it (verification probe + /anthropic + proxyToProvider).
+                    // Validate host/port/scheme with the SAME guard as the legacy
+                    // vllm_endpoint_url path — dotted-quad IPv4 only (no DNS-rebinding),
+                    // mesh or public unicast, allowlisted inference port; blocks
+                    // loopback / 169.254 metadata / non-mesh private. Reject (skip the
+                    // engine) if it doesn't pass — so a malicious base_url is never
+                    // stored, probed, or proxied. Path (e.g. /v1) is preserved; the
+                    // SSRF target is host:port, which the guard constrains.
+                    if (!sanitizeVllmEndpointUrl(baseUrl)) {
+                        console.warn(`[providers/heartbeat] rejected engine base_url (SSRF guard) provider=${p.id} engine=${engineType}`);
+                        continue;
+                    }
                     const port = toFiniteInt(eng.port, { min: 1, max: 65535 });
                     if (port == null) continue;
                     const servedModelsArr = Array.isArray(eng.served_models)
@@ -9207,6 +9220,7 @@ router.get('/:id/diag/wg', async (req, res) => {
 
 module.exports = router;
 module.exports.__private = {
+    sanitizeVllmEndpointUrl,
     discoverComputeTypesFromResourceSpec,
     inferVramGb,
     _agentRedact,
