@@ -4,12 +4,9 @@ import { readConfig, writeConfig, resolveBaseUrl } from './config.js';
 import { getCodingModels, getBalance } from './api.js';
 import { loginWithKey, loginWithBrowser } from './auth.js';
 import { launchAgent } from './launch.js';
+import { formatSAR } from './format.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-
-const HALALA_PER_SAR = 100;
-
-const formatSAR = (halala) => `${(Number(halala || 0) / HALALA_PER_SAR).toFixed(2)} SAR`;
 
 function fail(message) {
   console.error(`Error: ${message}`);
@@ -33,14 +30,8 @@ function formatModelLine(model) {
   return `  ${dot} ${model.id}  ${model.label}  in ${priceIn} / out ${priceOut} per 1M tokens  [${model.status}]`;
 }
 
-/** Bare `dcp` (pre-TUI placeholder): login if needed, list models + balance + hint. */
-async function defaultAction() {
-  let config = readConfig();
-  if (!config.token) {
-    console.log('Not logged in — starting browser login.');
-    await loginWithBrowser();
-    config = readConfig();
-  }
+/** Non-TTY fallback for bare `dcp`: plain model list + balance + launch hint. */
+async function plainListing(config) {
   const baseUrl = resolveBaseUrl(config);
   const [models, me] = await Promise.all([
     getCodingModels(baseUrl),
@@ -51,7 +42,48 @@ async function defaultAction() {
   console.log(`Balance: ${formatSAR(me.balance_halala)} (${me.email})`);
   const pick = models.find((m) => m.status === 'available') || models[0];
   if (pick) console.log(`Run: dcp launch claude --model ${pick.id}`);
-  console.log('(Interactive picker coming soon.)');
+  console.log('Run `dcp` in an interactive terminal for the picker.');
+}
+
+/**
+ * Render the Ink picker, wait for it to fully release the terminal
+ * (unmount + exit), then hand over to the agent. Ink/react load lazily so
+ * plain subcommands never pay for them.
+ */
+async function interactiveLaunch(config) {
+  const [{ render }, { createElement }, { default: App }] = await Promise.all([
+    import('ink'),
+    import('react'),
+    import('./ui/App.js'),
+  ]);
+  let pick = null;
+  const { waitUntilExit } = render(
+    createElement(App, {
+      api: { getCodingModels, getBalance },
+      config,
+      onLaunch: (selection) => {
+        pick = selection;
+      },
+    })
+  );
+  await waitUntilExit();
+  if (!pick) return; // quit with q / Ctrl+C — clean exit 0
+  process.exitCode = await launchAgent({ agent: pick.agent, modelId: pick.modelId, config });
+}
+
+/** Bare `dcp`: login if needed, then the Ink picker (TTY) or a plain listing. */
+async function defaultAction() {
+  let config = readConfig();
+  if (!config.token) {
+    console.log('Not logged in — starting browser login.');
+    await loginWithBrowser();
+    config = readConfig();
+  }
+  if (process.stdout.isTTY && process.stdin.isTTY) {
+    await interactiveLaunch(config);
+    return;
+  }
+  await plainListing(config);
 }
 
 export function buildProgram() {
