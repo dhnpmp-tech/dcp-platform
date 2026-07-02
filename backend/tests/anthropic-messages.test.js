@@ -257,6 +257,30 @@ describe('POST /anthropic/v1/messages', () => {
     expect(events).toBe(1);
   });
 
+  test('hoists role:"system" messages into the top-level system field (vLLM strict-role fix)', async () => {
+    // Claude Code injects system-role entries INSIDE messages[]; vLLM's
+    // Anthropic endpoint strictly allows user|assistant only. The proxy must
+    // hoist them into the spec-correct top-level `system` field.
+    await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', `Bearer ${RENTER_KEY}`)
+      .send({
+        model: MODEL, max_tokens: 64,
+        system: 'base system',
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'system', content: 'injected reminder' },
+          { role: 'assistant', content: 'ok' },
+          { role: 'user', content: 'go' },
+        ],
+      });
+    const sent = lastUpstreamReq.body;
+    expect(sent.messages.every((m) => m.role === 'user' || m.role === 'assistant')).toBe(true);
+    expect(sent.messages).toHaveLength(3);
+    expect(sent.system).toContain('base system');
+    expect(sent.system).toContain('injected reminder');
+  });
+
   test('tools + tool_result round-trip to the upstream unchanged (Task 4)', async () => {
     const tools = [{ name: 'read_file', description: 'r', input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } }];
     const messages = [
