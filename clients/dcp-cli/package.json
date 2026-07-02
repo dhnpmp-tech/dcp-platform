@@ -1,0 +1,28 @@
+{
+  "name": "@dcp/cli",
+  "version": "0.1.0",
+  "description": "DCP CLI — log in, pick a coding model, and launch Claude Code on DCP consumer-GPU inference",
+  "type": "module",
+  "bin": {
+    "dcp": "bin/dcp.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "execa": "^9.3.0",
+    "open": "^10.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  },
+  "license": "UNLICENSED"
+}
