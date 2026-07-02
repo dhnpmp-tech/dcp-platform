@@ -77,12 +77,27 @@ function cleanDb() {
   for (const t of ['provider_engines', 'providers', 'renters', 'renter_api_keys', 'jobs']) safe(t);
 }
 
+const SSE_FRAMES = [
+  'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_s1","role":"assistant"}}\n\n',
+  'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_s1","name":"read_file","input":{}}}\n\n',
+  'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"path\\":\\"./x\\"}"}}\n\n',
+  'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+];
+
 beforeAll((done) => {
   upstream = http.createServer((req, res) => {
     let raw = '';
     req.on('data', (c) => { raw += c; });
     req.on('end', () => {
-      lastUpstreamReq = { url: req.url, headers: req.headers, body: raw ? JSON.parse(raw) : null };
+      const body = raw ? JSON.parse(raw) : null;
+      lastUpstreamReq = { url: req.url, headers: req.headers, body };
+      if (body && body.stream === true) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        // Two write() calls so piping is exercised across chunk boundaries.
+        res.write(SSE_FRAMES[0] + SSE_FRAMES[1]);
+        setTimeout(() => { res.write(SSE_FRAMES[2] + SSE_FRAMES[3]); res.end(); }, 20);
+        return;
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(UPSTREAM_REPLY));
     });
@@ -137,6 +152,18 @@ describe('POST /anthropic/v1/messages', () => {
       .send({ model: MODEL, max_tokens: 64, messages: [{ role: 'user', content: 'hi' }] });
     expect(lastUpstreamReq.headers['anthropic-version']).toBe('2023-06-01');
     expect(lastUpstreamReq.headers['anthropic-beta']).toBe('prompt-caching-2024-07-31');
+  });
+
+  test('stream:true pipes upstream SSE through unchanged (Task 3)', async () => {
+    const r = await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', `Bearer ${RENTER_KEY}`)
+      .send({ model: MODEL, max_tokens: 64, stream: true, messages: [{ role: 'user', content: 'hi' }] });
+    expect(r.status).toBe(200);
+    expect(r.headers['content-type']).toMatch(/text\/event-stream/);
+    const text = r.text;
+    // All four frames arrive, in order, byte-for-byte (tool_use + input_json_delta intact).
+    expect(text).toBe(SSE_FRAMES.join(''));
   });
 
   test('503 Anthropic-shaped error when no provider serves the model', async () => {
