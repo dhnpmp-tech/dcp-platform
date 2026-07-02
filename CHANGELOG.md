@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-01 13:41 UTC — `fix(volumes): reuse released row + refund on re-rent to stop silent double-charge — PR #686`
+
+**Bug:** `POST /api/volumes/rent` INSERTed a new `renter_volumes` row on every rent, but `bucket` is `TEXT NOT NULL UNIQUE` per renter and a released rental keeps its row (`status='released'`) for audit. A renter who released a volume then re-rented hit `UNIQUE constraint failed: renter_volumes.bucket` — the first-month debit had **already** succeeded and `provisionVolume` had succeeded, then the INSERT threw and the outer catch returned `500 {error:'Failed to rent volume'}` with **no refund**, so each retry silently re-charged the renter.
+
+**Fix (`backend/src/routes/volumes.js`):** re-rent now **UPDATEs the existing released row** back to `active` instead of INSERTing (no UNIQUE collision). The DB write is wrapped in its own try/catch: on any failure it **refunds the debit** and deprovisions the just-(re)created MinIO bucket, so a renter is never charged for a volume they didn't get (`code:'RENT_PERSIST_FAILED'`). The log line gains a `(re-rent)` marker on the UPDATE path; the first-rent INSERT path is unchanged.
+
+**Deploy:** hot-patched on prod 2026-07-01, then committed via PR #686 with prod fast-forwarded to `origin/main` so a redeploy cannot regress it. **Verified:** a live rent→release→re-rent cycle returned the same reused row id with HTTP 200; first-rent unaffected. Renters affected by the earlier double-charge were reconciled with refunds (audited).
+
 ### 2026-06-30 10:48 UTC — `fix(jobs): settle full-duration interactive-pod payouts on timeout (provider-earnings leak) — hot-patched on prod, PR #675`
 
 **Bug:** `enforceJobTimeouts` marked `interactive_pod` jobs `completed` when they reached their scheduled `max_duration`, but never ran the money-flow settlement that `stopPodCore` runs on a renter-initiated stop. The `escrow_holds` row was flipped to `released_provider` and the code relied on a downstream sweep that does not exist — `reconcileProcessingPayouts` reconciles Moyasar *withdrawals* (`payout_requests`), not escrow → provider earnings. So for every pod that ran to its full scheduled duration, the provider's `claimable_earnings_halala` was never credited, DCP's 25% fee was never booked, and the renter's `total_spent_halala` was never incremented. Renters were correctly debited at launch (prepaid) and the escrow was released, but the provider side of the settlement was skipped entirely.
