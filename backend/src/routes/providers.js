@@ -552,8 +552,13 @@ function resolveProviderFromDownloadQuery(req) {
         // returns 400 and the ENTIRE fleet's auto-update silently dies.
         const authHeader = String((req.headers && req.headers['authorization']) || '');
         const m = authHeader.match(/^Bearer\s+(.+)$/i);
+        // PROV-8c: also accept x-api-key. The Tauri installer (dcp-desktop
+        // fetch_verified_daemon) sends the provider key as x-api-key ONLY — a
+        // 2026-05-30 change to keep the key out of the URL. Without this, the
+        // manifest + daemon-download 400 and "Start provider daemon" fails.
         const fromHeader = (m && m[1]) ? m[1].trim()
-            : (req.headers && req.headers['x-provider-key'] ? String(req.headers['x-provider-key']).trim() : '');
+            : (req.headers && req.headers['x-provider-key'] ? String(req.headers['x-provider-key']).trim()
+            : (req.headers && req.headers['x-api-key'] ? String(req.headers['x-api-key']).trim() : ''));
         cleanKey = normalizeSingleQueryParam(fromHeader, { maxLen: 128 });
     }
     if (!cleanKey) return { error: 'API key or setup token required', status: 400 };
@@ -4291,12 +4296,13 @@ router.get('/download/setup-inference-supervisors', (req, res) => {
 // ============================================================================
 router.get('/download/daemon/manifest', (req, res) => {
     try {
-        const { key } = req.query;
-        const cleanKey = normalizeSingleQueryParam(key, { maxLen: 128 });
-        if (!cleanKey) return res.status(400).json({ error: 'API key required' });
-
-        const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
-        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
+        // PROV-8c: resolve the key via ?key=, ?token=, Bearer, x-provider-key,
+        // OR x-api-key (the Tauri installer sends x-api-key only). Previously
+        // this read ?key= alone, so the header-only app got 400 "API key
+        // required" and provider setup died at "Start provider daemon".
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const cleanKey = resolved.apiKey;
 
         const built = _buildInjectedDaemonScript(cleanKey);
         if (!built) return res.status(404).json({ error: 'Daemon file not found' });
