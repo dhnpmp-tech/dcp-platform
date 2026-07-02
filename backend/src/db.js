@@ -1524,6 +1524,25 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_api_keys_key ON renter_api_keys(k
 db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_api_keys_renter ON renter_api_keys(renter_id, revoked_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_api_keys_org ON renter_api_keys(org_id, org_role, revoked_at)`);
 
+// ─── CLI DEVICE-CODE LOGIN TABLE ─── (dcp launcher, routes/cli-auth.js)
+// OAuth-style device flow: `dcp login` creates a pending row, the renter
+// approves the user_code in the browser (binding renter_id + a scoped key),
+// and the CLI polls /v1/cli/device/token until it can claim the key.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cli_device_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_code TEXT NOT NULL UNIQUE,
+    user_code TEXT NOT NULL UNIQUE,
+    renter_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','claimed','expired')),
+    api_key TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    approved_at TEXT
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_cli_device_codes_user ON cli_device_codes(user_code, status)`);
+
 // ─── ORG RBAC AUDIT LOG TABLE ─── (DCP-320)
 // Immutable per-organization trail for RBAC access decisions and privileged mutations.
 db.exec(`
