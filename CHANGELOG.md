@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-02 — `feat: the dcp launcher CLI + supporting backend — PRs #691–#694 (dcp launcher v1 complete)`
+
+**What:** The `dcp` CLI (`clients/dcp-cli/`, npm-packagable as `@dcp/cli`): run `dcp`, get an interactive terminal picker (agent + live model availability + balance), press Enter, and Claude Code launches against DCP GPU inference — per-token, on the renter's balance. Plus the two backend pieces it needed: `GET /v1/coding/models` (#691 — curated coding catalog with live vLLM availability; pricing shared with the `/anthropic` settlement path so the advertised rate is exactly what's charged) and device-code login at `/v1/cli` (#692 — OAuth-style flow; approval mints a one-time-claim scoped `dc1-sk-` inference key).
+
+**CLI (#693, #694):** ESM Node (commander/execa/ink/vitest). `dcp login` (browser device flow or `--key` paste), `dcp` (Ink TUI picker; remembers last agent+model so run two is one Enter; non-TTY falls back to a plain listing), `dcp launch claude --model <id>` (non-interactive), `dcp status`, `dcp logout`. The ClaudeCode adapter sets the full verified env map — `ANTHROPIC_BASE_URL=<base>/anthropic`, auth token, and `ANTHROPIC_MODEL`+`ANTHROPIC_DEFAULT_HAIKU_MODEL`+`ANTHROPIC_DEFAULT_OPUS_MODEL` all pinned to the chosen DCP model (Claude Code silently calls different model roles; single-model endpoints break otherwise), with `ANTHROPIC_API_KEY=''` so an inherited real key never leaks upstream. Codex/Cursor appear as "coming soon".
+
+**Verified:** 94 tests across backend+CLI suites (21 backend, 73 CLI); live on prod: catalog + device flow smoked on `api.dcp.sa`, real `dcp login`/`status` against prod, and a real Claude Code session launched through the adapter env completed a tool round-trip on provider GPU inference. `npm pack` clean (8.8 kB). Publishing to npm + the `dcp.sa/cli-login` approval page are follow-ups.
+
 ### 2026-07-02 — `feat(backend): renter-facing Anthropic /v1/messages surface — PRs #687, #688 (dcp launcher Phase 0)`
 
 **What:** New renter-key-gated Anthropic Messages API at `https://api.dcp.sa/anthropic/v1/messages` (+ `/count_tokens`) so coding agents that speak the Anthropic protocol — Claude Code first — can run against DCP GPU inference by setting `ANTHROPIC_BASE_URL`. First shipped piece of the `dcp` launcher (spec + plan in `docs/superpowers/`, PR #689).
