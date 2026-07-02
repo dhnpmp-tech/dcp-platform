@@ -566,12 +566,10 @@ router.post('/chat/completions', async (req, res) => {
 });
 
 router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    default_upstream: ROUTING.default.upstream,
-    available_upstreams: Object.keys(UPSTREAMS),
-    available_routes: Object.keys(ROUTING),
-  });
+  // OSINT-01: unauthenticated. Return liveness ONLY — do not disclose upstream
+  // topology (which paid brains we run: minimax/anthropic/…) or route names to
+  // anonymous callers. Was leaking default_upstream/available_upstreams/routes.
+  res.json({ status: 'ok' });
 });
 
 module.exports = router;
