@@ -14,6 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-02 — `fix(providers): accept x-api-key on daemon manifest + download — PR #702`
+
+**What:** Provider onboarding via the Tauri "DCP Provider" desktop app (v0.2.8) failed at the final setup step — *"Start provider daemon: Couldn't fetch daemon from platform: Failed to fetch daemon manifest: HTTP 400 Bad Request"* — even though every prior step (GPU detect, sign-in, Ollama, model) passed. The installer (`dcp-desktop` `fetch_verified_daemon`) sends the provider key via the `x-api-key` header only (a security change to keep the key out of the URL), but the backend's `GET /download/daemon/manifest` read `?key=` alone, and the shared `resolveProviderFromDownloadQuery` helper accepted `Authorization: Bearer` and `x-provider-key` but not `x-api-key`. Fix: the helper now also accepts `x-api-key`, and the manifest route routes through the shared resolver (token / `?key=` / Bearer / `x-provider-key` / `x-api-key`) instead of raw `?key=` — which also covers the subsequent `/download/daemon` call. Verified live on `api.dcp.sa`: manifest returns `200 {version, size, sha256}` and `/download/daemon` returns `200` with a byte count matching the manifest size, so the app-side sha256 verification passes and the daemon starts.
+
 ### 2026-07-02 — `feat: the dcp launcher CLI + supporting backend — PRs #691–#694 (dcp launcher v1 complete)`
 
 **What:** The `dcp` CLI (`clients/dcp-cli/`, npm-packagable as `@dcp/cli`): run `dcp`, get an interactive terminal picker (agent + live model availability + balance), press Enter, and Claude Code launches against DCP GPU inference — per-token, on the renter's balance. Plus the two backend pieces it needed: `GET /v1/coding/models` (#691 — curated coding catalog with live vLLM availability; pricing shared with the `/anthropic` settlement path so the advertised rate is exactly what's charged) and device-code login at `/v1/cli` (#692 — OAuth-style flow; approval mints a one-time-claim scoped `dc1-sk-` inference key).
