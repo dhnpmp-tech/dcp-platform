@@ -19,9 +19,27 @@
 process.env.NODE_ENV = 'test';
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const express = require('express');
 const db = require('../src/db');
+
+// Settlement tables live in migrations (no auto-runner) — apply the two the
+// money path needs. 021 contains ALTER TABLE ADD COLUMN statements that are
+// not re-runnable against the db.js bootstrap schema, so apply statement-by-
+// statement and tolerate duplicates.
+for (const mig of ['010_usage_events.sql', '021_billing_rewrite_and_auto_topup.sql']) {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', mig), 'utf8')
+    .split('\n')
+    .map((l) => l.replace(/--.*$/, '')) // comments can contain ';' — strip first
+    .join('\n');
+  for (const stmt of sql.split(';')) {
+    const trimmed = stmt.trim();
+    if (!trimmed) continue;
+    try { (db._db || db).exec(trimmed); } catch (_) { /* already applied */ }
+  }
+}
 
 const RENTER_KEY = 'dcp-renter-anthromsg-test-key';
 const PROVIDER_KEY = 'dcp-provider-anthromsg-test-key';
@@ -74,13 +92,32 @@ function seed() {
 
 function cleanDb() {
   const safe = (t) => { try { db.prepare(`DELETE FROM ${t}`).run(); } catch (_) {} };
-  for (const t of ['provider_engines', 'providers', 'renters', 'renter_api_keys', 'jobs']) safe(t);
+  for (const t of [
+    'provider_engines', 'providers', 'renters', 'renter_api_keys', 'jobs',
+    'usage_events', 'billing_attempts', 'subscription_credits',
+  ]) safe(t);
 }
 
+const BROKE_RENTER_KEY = 'dcp-renter-anthromsg-broke-key';
+
+function seedBrokeRenter() {
+  db.prepare(
+    `INSERT INTO renters (id, name, email, api_key, status, balance_halala, created_at)
+     VALUES (903, 'Broke Test', 'broke@test', ?, 'active', 0, ?)`
+  ).run(BROKE_RENTER_KEY, new Date().toISOString());
+}
+
+function renterBalance(id) {
+  return db.prepare('SELECT balance_halala FROM renters WHERE id = ?').get(id).balance_halala;
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const SSE_FRAMES = [
-  'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_s1","role":"assistant"}}\n\n',
+  'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_s1","role":"assistant","usage":{"input_tokens":10,"output_tokens":0}}}\n\n',
   'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_s1","name":"read_file","input":{}}}\n\n',
   'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"path\\":\\"./x\\"}"}}\n\n',
+  'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"input_tokens":10,"output_tokens":5}}\n\n',
   'event: message_stop\ndata: {"type":"message_stop"}\n\n',
 ];
 
@@ -94,8 +131,8 @@ beforeAll((done) => {
       if (body && body.stream === true) {
         res.writeHead(200, { 'content-type': 'text/event-stream' });
         // Two write() calls so piping is exercised across chunk boundaries.
-        res.write(SSE_FRAMES[0] + SSE_FRAMES[1]);
-        setTimeout(() => { res.write(SSE_FRAMES[2] + SSE_FRAMES[3]); res.end(); }, 20);
+        res.write(SSE_FRAMES.slice(0, 2).join(''));
+        setTimeout(() => { res.write(SSE_FRAMES.slice(2).join('')); res.end(); }, 20);
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -174,5 +211,76 @@ describe('POST /anthropic/v1/messages', () => {
     expect(r.status).toBe(503);
     expect(r.body.type).toBe('error');
     expect(r.body.error.type).toBe('overloaded_error');
+  });
+
+  // ── Task 4: balance gate + settlement + count_tokens + tools round-trip ──
+
+  test('402 when the renter has no balance and no credits (Task 4)', async () => {
+    seedBrokeRenter();
+    const r = await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', `Bearer ${BROKE_RENTER_KEY}`)
+      .send({ model: MODEL, max_tokens: 64, messages: [{ role: 'user', content: 'hi' }] });
+    expect(r.status).toBe(402);
+    expect(r.body.type).toBe('error');
+    expect(lastUpstreamReq).toBeNull(); // never reached the provider
+  });
+
+  test('settles billing once after a non-streaming completion (Task 4)', async () => {
+    const before = renterBalance(901);
+    const r = await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', `Bearer ${RENTER_KEY}`)
+      .send({ model: MODEL, max_tokens: 64, messages: [{ role: 'user', content: 'hi' }] });
+    expect(r.status).toBe(200);
+    const after = renterBalance(901);
+    expect(after).toBeLessThan(before); // debited
+    const events = db.prepare(
+      `SELECT COUNT(*) AS c FROM usage_events WHERE renter_id = 901`
+    ).get().c;
+    expect(events).toBe(1);
+  });
+
+  test('settles billing after a streaming completion using the message_delta usage (Task 4)', async () => {
+    const before = renterBalance(901);
+    const r = await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', `Bearer ${RENTER_KEY}`)
+      .send({ model: MODEL, max_tokens: 64, stream: true, messages: [{ role: 'user', content: 'hi' }] });
+    expect(r.status).toBe(200);
+    await wait(80); // settlement runs at stream end
+    const after = renterBalance(901);
+    expect(after).toBeLessThan(before);
+    const events = db.prepare(
+      `SELECT COUNT(*) AS c FROM usage_events WHERE renter_id = 901`
+    ).get().c;
+    expect(events).toBe(1);
+  });
+
+  test('tools + tool_result round-trip to the upstream unchanged (Task 4)', async () => {
+    const tools = [{ name: 'read_file', description: 'r', input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } }];
+    const messages = [
+      { role: 'user', content: 'read x' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'toolu_9', name: 'read_file', input: { path: './x' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_9', content: 'file body' }] },
+    ];
+    await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', `Bearer ${RENTER_KEY}`)
+      .send({ model: MODEL, max_tokens: 64, tools, messages });
+    expect(lastUpstreamReq.body.tools).toEqual(tools);
+    expect(lastUpstreamReq.body.messages).toEqual(messages);
+  });
+});
+
+describe('POST /anthropic/v1/messages/count_tokens', () => {
+  test('returns an input_tokens estimate (Task 4)', async () => {
+    const r = await request(app())
+      .post('/anthropic/v1/messages/count_tokens')
+      .set('Authorization', `Bearer ${RENTER_KEY}`)
+      .send({ model: MODEL, messages: [{ role: 'user', content: 'count these tokens please' }] });
+    expect(r.status).toBe(200);
+    expect(typeof r.body.input_tokens).toBe('number');
+    expect(r.body.input_tokens).toBeGreaterThan(0);
   });
 });
