@@ -801,6 +801,12 @@ function gatedRejectV1QueryKey(req, res, next) {
 app.use('/v1', gatedRejectV1QueryKey);
 app.use('/v1', v1Router);
 
+// Renter-facing Anthropic Messages surface (dcp launcher / Claude Code).
+// Distinct from /api/agent/gateway/v1/messages (Nexus brain, provider-key-
+// gated) — different callers, auth, and routing. See routes/anthropic.js.
+const anthropicRouter = require('./routes/anthropic');
+app.use('/anthropic', anthropicRouter);
+
 // Provider-onboarding wizard surface (auth bridge + provider endpoints).
 // Mounted after v1Router so OpenAI-compat routes win on shared prefix;
 // wizard router only claims /auth/* and /provider/* below /v1/.
