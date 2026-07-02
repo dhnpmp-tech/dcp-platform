@@ -553,7 +553,8 @@ function resolveProviderFromDownloadQuery(req) {
         const authHeader = String((req.headers && req.headers['authorization']) || '');
         const m = authHeader.match(/^Bearer\s+(.+)$/i);
         const fromHeader = (m && m[1]) ? m[1].trim()
-            : (req.headers && req.headers['x-provider-key'] ? String(req.headers['x-provider-key']).trim() : '');
+            : (req.headers && req.headers['x-provider-key'] ? String(req.headers['x-provider-key']).trim()
+            : (req.headers && req.headers['x-api-key'] ? String(req.headers['x-api-key']).trim() : ''));
         cleanKey = normalizeSingleQueryParam(fromHeader, { maxLen: 128 });
     }
     if (!cleanKey) return { error: 'API key or setup token required', status: 400 };
@@ -4291,12 +4292,10 @@ router.get('/download/setup-inference-supervisors', (req, res) => {
 // ============================================================================
 router.get('/download/daemon/manifest', (req, res) => {
     try {
-        const { key } = req.query;
-        const cleanKey = normalizeSingleQueryParam(key, { maxLen: 128 });
-        if (!cleanKey) return res.status(400).json({ error: 'API key required' });
-
-        const provider = db.get('SELECT id FROM providers WHERE api_key = ?', cleanKey);
-        if (!provider) return res.status(401).json({ error: 'Invalid API key' });
+        // PROV-8c: accept ?key=/?token=/Bearer/x-provider-key/x-api-key.
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const cleanKey = resolved.apiKey;
 
         const built = _buildInjectedDaemonScript(cleanKey);
         if (!built) return res.status(404).json({ error: 'Daemon file not found' });
