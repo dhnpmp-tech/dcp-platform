@@ -98,6 +98,32 @@ function extractStreamUsage(sseTail) {
 
 const STREAM_TAIL_CAP = 65536; // usage frames arrive at stream end
 
+// Claude Code injects `role:"system"` entries INSIDE messages[]; the Anthropic
+// spec (and vLLM's strict implementation) only allows user|assistant there,
+// with system prompts in the top-level `system` field. Hoist them. Pure
+// spec-normalization — never rewrites user/assistant/tool content.
+function hoistSystemMessages(body) {
+  const messages = Array.isArray(body?.messages) ? body.messages : [];
+  if (!messages.some((m) => m && m.role === 'system')) return body;
+  const systemParts = [];
+  if (typeof body.system === 'string' && body.system) systemParts.push(body.system);
+  else if (Array.isArray(body.system)) {
+    for (const b of body.system) systemParts.push(typeof b === 'string' ? b : (b && b.text) || '');
+  }
+  const kept = [];
+  for (const m of messages) {
+    if (m && m.role === 'system') {
+      const text = typeof m.content === 'string'
+        ? m.content
+        : (Array.isArray(m.content) ? m.content.map((b) => (b && b.text) || '').join('\n') : '');
+      if (text) systemParts.push(text);
+    } else {
+      kept.push(m);
+    }
+  }
+  return { ...body, system: systemParts.join('\n\n'), messages: kept };
+}
+
 router.post('/v1/messages', requireAuth, async (req, res) => {
   const model = typeof req.body?.model === 'string' ? req.body.model.trim() : '';
   if (!model) {
@@ -135,7 +161,7 @@ router.post('/v1/messages', requireAuth, async (req, res) => {
   try {
     upstream = await forwardAnthropic({
       engineBaseUrl: provider._selectedEngine.base_url,
-      body: req.body,
+      body: hoistSystemMessages(req.body),
       headers: req.headers,
       timeoutMs: PROXY_TIMEOUT_MS,
     });
