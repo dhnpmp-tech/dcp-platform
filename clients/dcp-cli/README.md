@@ -1,9 +1,9 @@
-# @dcp/cli — `dcp`
+# dcp-launch — `dcp`
 
 Launch your coding agent on [DCP](https://dcp.sa) consumer-GPU inference with one command.
 
 ```bash
-npx @dcp/cli          # or: npm install -g @dcp/cli
+npx dcp-launch          # or: npm install -g dcp-launch
 ```
 
 ## Quick start
@@ -16,7 +16,7 @@ dcp                   # interactive picker: agent + model + balance → Launch
 That's it — `dcp` configures and launches **Claude Code** pointed at DCP's
 Anthropic-compatible endpoint (`api.dcp.sa/anthropic`), billed per-token from
 your DCP balance. Already have Claude Code installed? Then you already have
-Node, and `npx @dcp/cli` just works.
+Node, and `npx dcp-launch` just works.
 
 ## Commands
 

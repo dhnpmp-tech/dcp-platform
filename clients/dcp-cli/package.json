@@ -1,5 +1,5 @@
 {
-  "name": "@dcp/cli",
+  "name": "dcp-launch",
   "version": "0.1.0",
   "description": "DCP CLI — log in, pick a coding model, and launch Claude Code on DCP consumer-GPU inference",
   "type": "module",
@@ -27,5 +27,21 @@
     "ink-testing-library": "^4.0.0",
     "vitest": "^2.1.0"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhnpmp-tech/dcp-platform.git",
+    "directory": "clients/dcp-cli"
+  },
+  "homepage": "https://dcp.sa",
+  "keywords": [
+    "dcp",
+    "claude-code",
+    "llm",
+    "inference",
+    "gpu",
+    "cli",
+    "anthropic",
+    "coding-agent"
+  ]
 }
