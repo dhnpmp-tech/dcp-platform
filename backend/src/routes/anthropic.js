@@ -32,14 +32,12 @@ function anthropicError(res, status, type, message) {
 const PROXY_TIMEOUT_MS = 120000;
 
 // ── Billing ─────────────────────────────────────────────────────────────────
-// Rates are flat env-configured coding rates for now (halala per 1M tokens,
-// defaults matching the public PAYG medium/large tiers). Per-model registry
-// rates land with GET /v1/coding/models. Settlement itself goes through the
-// SAME single money path as /v1/chat/completions (settleInferenceOnce:
-// idempotent billing_attempts row, sub-credit drain, PAYG debit, 75/25
-// provider split, usage_events).
-const IN_RATE_HALALA_PER_1M = Number(process.env.DCP_ANTHROPIC_IN_RATE_HALALA_PER_1M || 150);
-const OUT_RATE_HALALA_PER_1M = Number(process.env.DCP_ANTHROPIC_OUT_RATE_HALALA_PER_1M || 400);
+// Rates come from the shared coding-model catalog (lib/coding-models.js) so
+// what GET /v1/coding/models advertises is exactly what settlement charges.
+// Settlement itself goes through the SAME single money path as
+// /v1/chat/completions (settleInferenceOnce: idempotent billing_attempts row,
+// sub-credit drain, PAYG debit, 75/25 provider split, usage_events).
+const { IN_RATE_HALALA_PER_1M, OUT_RATE_HALALA_PER_1M } = require('../lib/coding-models');
 
 function rawDb() {
   return db._db || db;

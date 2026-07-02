@@ -752,6 +752,39 @@ function resolveEffectiveMinVramMb(requestedModelId, registryMinVramMb) {
   return Math.min(registryMinVramMb, Math.min(...mins));
 }
 
+// ── GET /v1/coding/models — curated coding-model catalog (dcp launcher) ────
+// What the `dcp` CLI shows in its picker: the curated coding models (see
+// lib/coding-models.js) with LIVE availability — 'available' means at least
+// one online provider has a reachable vLLM engine serving the model right
+// now (the /anthropic surface only routes to vLLM's native Anthropic
+// endpoint). Public: the CLI renders the catalog before login.
+router.get('/coding/models', modelCatalogLimiter, (req, res) => {
+  try {
+    const {
+      curatedCodingModels,
+      IN_RATE_HALALA_PER_1M,
+      OUT_RATE_HALALA_PER_1M,
+    } = require('../lib/coding-models');
+    const models = curatedCodingModels().map((m) => {
+      const serving = lookupProviderEnginesForModel(m.id)
+        .filter((p) => p._selectedEngine && p._selectedEngine.engine_type === 'vllm');
+      return {
+        id: m.id,
+        label: m.label || m.id,
+        vram_gb: Number(m.vram_gb) || 0,
+        price_in_halala_per_1m: IN_RATE_HALALA_PER_1M,
+        price_out_halala_per_1m: OUT_RATE_HALALA_PER_1M,
+        status: serving.length > 0 ? 'available' : 'busy',
+        providers_serving: serving.length,
+      };
+    });
+    return res.json({ models });
+  } catch (error) {
+    console.error('[v1] coding/models error:', error.message);
+    return res.status(500).json({ error: 'Failed to load coding models' });
+  }
+});
+
 // ── GET /v1/models — OpenAI-compatible model list ──────────────────────────
 
 router.get('/models', modelCatalogLimiter, (req, res) => {
