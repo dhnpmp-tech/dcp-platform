@@ -103,6 +103,18 @@
 .cli-btn:active { transform: translateY(1px); }
 .cli-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.cli-confirm {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0 0 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #c8c4bc;
+  cursor: pointer;
+}
+.cli-confirm input { margin-top: 0.15rem; accent-color: #c6a45c; flex: none; }
+
 .cli-btn-primary {
   width: 100%;
   padding: 0.9rem 1rem;

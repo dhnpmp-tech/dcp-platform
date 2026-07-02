@@ -213,7 +213,14 @@ const providerActivateLimiter = createRateLimiter({ windowMs: 60*60*1000, max: 3
 // Webhook URLs are validated for SSRF — limit prevents rapid URL rotation attempts.
 const webhookRegistrationLimiter = createRateLimiter({ windowMs: 60*60*1000, max: 10, keyGenerator: (req) => getRenterKey(req) || ipFallbackKey(req) });
 
+// dcp CLI device-code login. /device/code + /device/approve are abuse-sensitive
+// (code-spam, approve/user_code grinding) → tight. /device/token is polled by
+// the CLI every ~5s for up to 15 min → looser so legit polling isn't blocked.
+const cliDeviceCodeLimiter = createRateLimiter({ windowMs: 60*1000, max: 10, keyGenerator: (req) => ipFallbackKey(req) });
+const cliDevicePollLimiter = createRateLimiter({ windowMs: 60*1000, max: 60, keyGenerator: (req) => ipFallbackKey(req) });
+
 module.exports = {
+  cliDeviceCodeLimiter, cliDevicePollLimiter,
   createRateLimiter, createAdminIpAllowlist,
   registerLimiter, agentRegisterLimiter, jobSubmitLimiter, jobCreateLimiter,
   marketplaceLimiter, publicProvidersLimiter, publicEndpointLimiter,

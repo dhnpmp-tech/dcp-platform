@@ -43,6 +43,26 @@ function rawDb() {
   return db._db || db;
 }
 
+// Pre-flight cost estimate (mirrors /v1/chat/completions). Input ~ chars/4
+// across messages + system + tools; output = requested max_tokens. Used to
+// gate BEFORE serving so a near-zero-balance renter can't obtain inference the
+// settlement debit (rowcount-guarded, throws post-response) would never bill.
+function estimateRequestCostHalala(body) {
+  let chars = 0;
+  const add = (v) => { chars += typeof v === 'string' ? v.length : JSON.stringify(v || '').length; };
+  for (const m of (Array.isArray(body?.messages) ? body.messages : [])) add(m?.content);
+  if (body?.system) add(body.system);
+  if (body?.tools) add(body.tools);
+  const promptTokens = Math.ceil(chars / 4);
+  const maxTokens = Math.max(1, Math.min(Number(body?.max_tokens) || 1024, 200000));
+  return billingService.estimateInferenceCost({
+    promptTokens,
+    maxCompletionTokens: maxTokens,
+    inRateHalalaPer1m: IN_RATE_HALALA_PER_1M,
+    outRateHalalaPer1m: OUT_RATE_HALALA_PER_1M,
+  });
+}
+
 function settleAnthropicUsage({ requestId, renterId, providerId, modelId, usage }) {
   const promptTokens = Math.max(0, Number(usage?.input_tokens) || 0);
   const completionTokens = Math.max(0, Number(usage?.output_tokens) || 0);
@@ -68,11 +88,20 @@ function settleAnthropicUsage({ requestId, renterId, providerId, modelId, usage 
       jobRow: null,
     });
   } catch (err) {
-    // Never let a settlement error break an already-delivered response; log
-    // loudly so ledger drift is visible (mirrors v1.js settle-failure path).
-    console.error('[anthropic] settleInferenceOnce failed — ledger/balance drift', {
-      request_id: requestId, renter_id: renterId, msg: err && err.message,
-    });
+    // Never let a settlement error break an already-delivered response, but do
+    // NOT silently swallow it. The pre-flight gate blocks under-balance
+    // requests; reaching here means a concurrent request drained the balance
+    // between gate and settle (TOCTOU) — record it distinctly as UNBILLED so
+    // it's reconcilable, not lost.
+    if (err instanceof billingService.InsufficientBalanceError) {
+      console.error('[anthropic] UNBILLED — balance drained mid-request (TOCTOU); response already delivered', {
+        request_id: requestId, renter_id: renterId, cost_halala: costHalala,
+      });
+    } else {
+      console.error('[anthropic] settleInferenceOnce failed — ledger/balance drift', {
+        request_id: requestId, renter_id: renterId, msg: err && err.message,
+      });
+    }
   }
 }
 
@@ -131,14 +160,18 @@ router.post('/v1/messages', requireAuth, async (req, res) => {
     return anthropicError(res, 400, 'invalid_request_error', '`messages` must be a non-empty array');
   }
 
-  // Balance pre-flight (same gate as /v1/chat/completions). Minimal estimate:
-  // reject only renters with zero effective balance; the real cost settles
-  // post-completion from actual usage.
-  const gate = billingService.checkBalanceGate(rawDb(), req.renter.id, 1);
+  // Balance pre-flight — estimate the REAL cost (input + max_tokens) and reject
+  // before serving if the renter can't cover it. A fixed 1-halala estimate let
+  // a near-zero-balance renter get inference for free (settlement debits are
+  // rowcount-guarded and throw post-response). Mirrors /v1/chat/completions.
+  const estimateHalala = estimateRequestCostHalala(req.body);
+  const gate = billingService.checkBalanceGate(rawDb(), req.renter.id, estimateHalala);
   if (!gate.ok) {
     return anthropicError(
       res, 402, 'permission_error',
-      'Insufficient balance. Top up at https://dcp.sa/renter/wallet and retry.'
+      `Insufficient balance for this request (need ~${(estimateHalala / 100).toFixed(2)} SAR, ` +
+      `available ${(Number(gate.totalAvailableHalala || 0) / 100).toFixed(2)} SAR). ` +
+      'Top up at https://dcp.sa/renter/wallet and retry.'
     );
   }
 

@@ -27,6 +27,7 @@ function CliLogin() {
   const [keyInput, setKeyInput] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState('')
+  const [startedThis, setStartedThis] = useState(false)
 
   useEffect(() => {
     const fromUrl = params.get('code')
@@ -141,10 +142,19 @@ function CliLogin() {
           </div>
         )}
 
+        <label className="cli-confirm">
+          <input
+            type="checkbox"
+            checked={startedThis}
+            onChange={(e) => setStartedThis(e.target.checked)}
+          />
+          <span>I ran <code>dcp login</code> just now and this code matches my terminal.</span>
+        </label>
+
         <button
           className="cli-btn cli-btn-primary"
           onClick={approve}
-          disabled={!renterKey || phase === 'approving'}
+          disabled={!renterKey || !startedThis || phase === 'approving'}
         >
           {phase === 'approving' ? 'Approving…' : 'Approve sign-in'}
         </button>
@@ -152,8 +162,9 @@ function CliLogin() {
         {error && <p className="cli-error" role="alert">{error}</p>}
 
         <p className="cli-foot">
-          Only approve if you just ran <code>dcp login</code>. This grants the CLI a scoped
-          inference key on your account — never your password.
+          <strong>Only approve a code you started yourself.</strong> If someone sent you this link
+          or code, do not approve — it would grant <em>their</em> CLI a scoped inference key on
+          <em> your</em> account (billed to you). This never exposes your password.
         </p>
       </section>
     </main>
