@@ -409,15 +409,25 @@ function resolveGpuType(rawType) {
   // the stock-refresh cron, which flips status='offline' when stock_available=0).
   // We additionally require stock_available != 0 so an out-of-stock type fails
   // clearly instead of launching and surprise-failing on the external cloud.
+  // Candidates: burst providers (external-cloud, stock-gated) OR native NVIDIA
+  // providers (real daemon machines like Node 2 / Fadi). Native providers CAN
+  // host pods — the daemon preempts inference to make VRAM room (dcp_daemon.py
+  // "GPU MAKE-ROOM / INFERENCE<->COMPUTE MUTEX"). They were invisible here
+  // because the query was is_burst=1 only, so a pod requested BY GPU-TYPE NAME
+  // ("NVIDIA GeForce RTX 3060 Ti") resolved to "Unknown GPU type". Apple Silicon
+  // is excluded (pod images are CUDA; M2 is inference-only).
   const rows = db.all(
     `SELECT p.id, p.name, p.gpu_model, p.cost_per_gpu_second_halala, p.gpu_count,
             p.is_burst, p.burst_gpu_type_id, p.stock_available, p.status
        FROM providers p
-      WHERE COALESCE(p.is_burst, 0) = 1
-        AND COALESCE(p.is_paused, 0) = 0
+      WHERE COALESCE(p.is_paused, 0) = 0
         AND p.approval_status = 'approved'
-        AND p.burst_gpu_type_id IS NOT NULL
-        AND p.gpu_model IS NOT NULL`
+        AND p.gpu_model IS NOT NULL
+        AND (
+             (COALESCE(p.is_burst, 0) = 1 AND p.burst_gpu_type_id IS NOT NULL)
+             OR
+             (COALESCE(p.is_burst, 0) = 0 AND UPPER(p.gpu_model) LIKE 'NVIDIA%')
+            )`
   );
   // Match the alias-normalized needle as a substring of gpu_model (original
   // behavior), OR accept the catalog DISPLAY name (providers.name) exactly,
