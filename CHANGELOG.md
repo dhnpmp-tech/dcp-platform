@@ -14,6 +14,14 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-02 — `feat(backend): renter-facing Anthropic /v1/messages surface — PRs #687, #688 (dcp launcher Phase 0)`
+
+**What:** New renter-key-gated Anthropic Messages API at `https://api.dcp.sa/anthropic/v1/messages` (+ `/count_tokens`) so coding agents that speak the Anthropic protocol — Claude Code first — can run against DCP GPU inference by setting `ANTHROPIC_BASE_URL`. First shipped piece of the `dcp` launcher (spec + plan in `docs/superpowers/`, PR #689).
+
+**How:** Same renter auth as `/v1/chat/completions` (`v1.shared.requireAuth`; provider keys rejected); provider resolution via `provider_engines` filtered to vLLM engines; direct passthrough to the provider's **native Anthropic** endpoint over the WireGuard mesh — deliberately no Anthropic↔OpenAI translation (avoids the translation-layer tool-call corruption class). SSE streamed byte-for-byte (`X-Accel-Buffering: no`); `anthropic-version`/`anthropic-beta` headers forwarded; renter Authorization never leaks upstream. Billing: 402 pre-flight via `checkBalanceGate`, settlement through the single money path (`settleInferenceOnce` — idempotent, sub-credit drain, 75/25 split, `usage_events`); streaming settles from the final `message_delta` usage via a side-tap that never touches piped bytes. #688 adds Claude Code compat: `role:'system'` entries injected inside `messages[]` are hoisted into the spec-correct top-level `system` field (vLLM strictly rejects them otherwise — found by the live ship-gate test). Nexus's `/api/agent/gateway/v1/messages` (provider-key-gated) is untouched.
+
+**Verified:** 12 supertest cases green; live end-to-end on prod — a real Claude Code session (`ANTHROPIC_BASE_URL=https://api.dcp.sa/anthropic`, model `qwen3-30b-a3b` on a provider RTX 3090 via vLLM) completed a multi-step tool loop (Read → file write → Bash) with clean streaming `tool_use` frames and correct settlement rows in `usage_events`.
+
 ### 2026-07-01 13:41 UTC — `fix(volumes): reuse released row + refund on re-rent to stop silent double-charge — PR #686`
 
 **Bug:** `POST /api/volumes/rent` INSERTed a new `renter_volumes` row on every rent, but `bucket` is `TEXT NOT NULL UNIQUE` per renter and a released rental keeps its row (`status='released'`) for audit. A renter who released a volume then re-rented hit `UNIQUE constraint failed: renter_volumes.bucket` — the first-month debit had **already** succeeded and `provisionVolume` had succeeded, then the INSERT threw and the outer catch returned `500 {error:'Failed to rent volume'}` with **no refund**, so each retry silently re-charged the renter.
