@@ -16,6 +16,7 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
 const v1 = require('./v1');
+const { cliDeviceCodeLimiter, cliDevicePollLimiter } = require('../middleware/rateLimiter');
 
 const { requireAuth } = v1.shared;
 
@@ -35,7 +36,7 @@ function makeUserCode() {
 }
 
 // ── POST /device/code ───────────────────────────────────────────────────────
-router.post('/device/code', (req, res) => {
+router.post('/device/code', cliDeviceCodeLimiter, (req, res) => {
   try {
     const now = new Date();
     const deviceCode = crypto.randomBytes(24).toString('hex');
@@ -68,7 +69,7 @@ router.post('/device/code', (req, res) => {
 });
 
 // ── POST /device/approve ────────────────────────────────────────────────────
-router.post('/device/approve', requireAuth, (req, res) => {
+router.post('/device/approve', cliDeviceCodeLimiter, requireAuth, (req, res) => {
   try {
     const userCode = String(req.body?.user_code || '').trim().toUpperCase();
     if (!userCode) return res.status(400).json({ error: 'user_code required' });
@@ -103,7 +104,7 @@ router.post('/device/approve', requireAuth, (req, res) => {
 });
 
 // ── POST /device/token ──────────────────────────────────────────────────────
-router.post('/device/token', (req, res) => {
+router.post('/device/token', cliDevicePollLimiter, (req, res) => {
   try {
     const deviceCode = String(req.body?.device_code || '').trim();
     const row = db.get(
@@ -118,9 +119,13 @@ router.post('/device/token', (req, res) => {
     if (row.status === 'pending') {
       return res.status(400).json({ error: 'authorization_pending' });
     }
-    // approved → hand the key over ONCE, then scrub it from this table
-    // (the canonical copy lives in renter_api_keys).
-    db.prepare(`UPDATE cli_device_codes SET status='claimed', api_key=NULL WHERE id=?`).run(row.id);
+    // approved → hand the key over ONCE. Atomic claim: the status guard in the
+    // WHERE means only ONE caller can flip approved→claimed, so a race (or a
+    // future multi-process/async refactor) can't hand the key out twice.
+    const claim = db.prepare(
+      `UPDATE cli_device_codes SET status='claimed', api_key=NULL WHERE id=? AND status='approved'`
+    ).run(row.id);
+    if (claim.changes !== 1) return res.status(400).json({ error: 'invalid_grant' });
     return res.json({ api_key: row.api_key, renter_id: row.renter_id });
   } catch (error) {
     console.error('[cli-auth] device/token error:', error.message);

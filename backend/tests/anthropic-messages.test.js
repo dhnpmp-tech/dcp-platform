@@ -226,6 +226,24 @@ describe('POST /anthropic/v1/messages', () => {
     expect(lastUpstreamReq).toBeNull(); // never reached the provider
   });
 
+  test('OPUS-2 fix: rejects a request whose ESTIMATED cost exceeds a nonzero balance, before serving', async () => {
+    // Renter has 50 halala but the request's estimate (200k max_tokens @ 400/M
+    // out = 80 halala) exceeds it. Pre-fix, any balance > 0 passed the fixed
+    // estimate=1 gate and the provider was hit + settlement silently failed
+    // (free inference). Now it must 402 and never reach the provider.
+    db.prepare(
+      `INSERT INTO renters (id, name, email, api_key, status, balance_halala, created_at)
+       VALUES (904, 'Low Bal', 'lowbal@test', 'dcp-renter-anthromsg-lowbal-key', 'active', 50, ?)`
+    ).run(new Date().toISOString());
+    const r = await request(app())
+      .post('/anthropic/v1/messages')
+      .set('Authorization', 'Bearer dcp-renter-anthromsg-lowbal-key')
+      .send({ model: MODEL, max_tokens: 200000, messages: [{ role: 'user', content: 'write a long essay' }] });
+    expect(r.status).toBe(402);
+    expect(r.body.error.type).toBe('permission_error');
+    expect(lastUpstreamReq).toBeNull(); // never reached the provider = no free inference
+  });
+
   test('settles billing once after a non-streaming completion (Task 4)', async () => {
     const before = renterBalance(901);
     const r = await request(app())
