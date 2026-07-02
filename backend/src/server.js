@@ -807,6 +807,11 @@ app.use('/v1', v1Router);
 const anthropicRouter = require('./routes/anthropic');
 app.use('/anthropic', anthropicRouter);
 
+// dcp CLI device-code login (routes/cli-auth.js). Mounted on its own /v1/cli
+// prefix — same layering pattern as the wizard router below.
+const cliAuthRouter = require('./routes/cli-auth');
+app.use('/v1/cli', cliAuthRouter);
+
 // Provider-onboarding wizard surface (auth bridge + provider endpoints).
 // Mounted after v1Router so OpenAI-compat routes win on shared prefix;
 // wizard router only claims /auth/* and /provider/* below /v1/.
