@@ -604,7 +604,7 @@ app.get('/fix-provider', (req, res) => {
 // Format: https://api.dcp.sa/api/providers/updates/{target}/{current_version}
 app.get('/api/providers/updates/:target/:current_version', (req, res) => {
     const { target, current_version } = req.params;
-    const LATEST_APP_VERSION = '0.2.0';
+    const LATEST_APP_VERSION = '0.2.9';
 
     // Compare versions — if current >= latest, no update
     if (current_version === LATEST_APP_VERSION || current_version > LATEST_APP_VERSION) {
@@ -623,7 +623,7 @@ app.get('/api/providers/updates/:target/:current_version', (req, res) => {
     if (target.includes('windows')) {
         return res.json({
             version: LATEST_APP_VERSION,
-            notes: 'DXGI GPU detection, auto log upload, hidden CMD windows, Ollama 0.0.0.0 binding',
+            notes: 'Windows: your node now connects to the mesh automatically - the secure tunnel activates with a one-time admin prompt, so your GPU can serve.',
             pub_date: new Date().toISOString(),
             platforms: {
                 'windows-x86_64': {
