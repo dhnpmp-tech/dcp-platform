@@ -3606,6 +3606,13 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
 router.getAllDemand = getAllDemand;
 router.getModelDemand = getModelDemand;
 module.exports = router;
+// Shared cross-route contract — deliberately reused by routes/anthropic.js so
+// the renter-facing Anthropic surface authenticates and routes EXACTLY like
+// /v1/chat/completions (one auth path, one provider-resolution path).
+module.exports.shared = {
+  requireAuth,
+  lookupProviderEnginesForModel,
+};
 // Test-only export — internal helpers exposed for unit testing. NOT part of
 // the public router contract; do not depend on this from production code.
 module.exports.__test = {
