@@ -824,3 +824,44 @@ html[dir="rtl"] .ps-stage.done .ps-meter span { inset:0 0 0 0; }
   content:""; position:absolute; inset:0;
   background: linear-gradient(180deg, rgba(10,11,26,.25) 0%, transparent 30%, rgba(10,11,26,.72) 100%);
 }
+
+/* +KIT — scroll-driven signal pulse on every section rule.
+   A tiny teal→amber packet travels along the .section-meta hairline, its
+   position bound to the section's scroll progress through the viewport via
+   CSS scroll-driven animations (animation-timeline: view()) — no JS, no
+   scroll listeners, compositor-only. Browsers without support (or users
+   with reduced motion) simply see the plain hairline. */
+@supports (animation-timeline: view()) {
+  .section-meta { position: relative; }
+  .section-meta::after {
+    content: "";
+    position: absolute;
+    bottom: -1.5px;
+    inset-inline-start: 0;
+    width: 42px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--teal) 35%, var(--orange) 80%, transparent);
+    opacity: 0.9;
+    will-change: transform;
+    animation: kit-meta-pulse linear both;
+    animation-timeline: view();
+    animation-range: entry 0% exit 100%;
+    pointer-events: none;
+  }
+  html[data-lang="ar"] .section-meta::after {
+    background: linear-gradient(270deg, transparent, var(--teal) 35%, var(--orange) 80%, transparent);
+    animation-name: kit-meta-pulse-rtl;
+  }
+  @keyframes kit-meta-pulse {
+    from { transform: translateX(0); }
+    to   { transform: translateX(min(88vw, 1180px)); }
+  }
+  @keyframes kit-meta-pulse-rtl {
+    from { transform: translateX(0); }
+    to   { transform: translateX(max(-88vw, -1180px)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .section-meta::after { display: none; }
+  }
+}
