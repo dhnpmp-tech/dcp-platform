@@ -11,6 +11,14 @@ import { Bi, useV2 } from '../../lib/i18n'
 
 type DemoState = 'idle' | 'busy' | 'done' | 'down'
 
+// Curated starters a 7B-class model answers WELL — steers first-time users
+// away from live-data questions (weather, news) the demo cannot know.
+const STARTERS: ReadonlyArray<{ en: string; ar: string }> = [
+  { en: 'Explain per-second GPU billing in one sentence', ar: 'اشرح الفوترة بالثانية في جملة واحدة' },
+  { en: 'Write one line of poetry about Riyadh', ar: 'اكتب بيت شعر عن الرياض' },
+  { en: 'What is WireGuard, briefly?', ar: 'ما هو WireGuard باختصار؟' },
+]
+
 export function DemoChat() {
   const { lang } = useV2()
   const [demoQ, setDemoQ] = useState('')
@@ -20,8 +28,8 @@ export function DemoChat() {
   const demoFull = useRef('')
   const abortRef = useRef<AbortController | null>(null)
 
-  const askDemo = async () => {
-    const q = demoQ.trim()
+  const askDemo = async (qOverride?: string) => {
+    const q = (qOverride ?? demoQ).trim()
     if (!q || demoState === 'busy') return
     abortRef.current?.abort()
     const ac = new AbortController()
@@ -83,7 +91,7 @@ export function DemoChat() {
           placeholder={lang === 'ar' ? 'اسأل أي شيء — بالعربية أو الإنجليزية…' : 'Ask anything — Arabic or English…'}
           aria-label={lang === 'ar' ? 'سؤال التجربة الحية' : 'Live demo question'}
         />
-        <button type="button" onClick={askDemo} disabled={demoState === 'busy'}>
+        <button type="button" onClick={() => askDemo()} disabled={demoState === 'busy'}>
           {demoState === 'busy' ? (
             <Bi en="GPU thinking…" ar="المعالج يفكر…" />
           ) : (
@@ -91,6 +99,25 @@ export function DemoChat() {
           )}
         </button>
       </div>
+      {demoState === 'idle' && (
+        <div className="demo-starters">
+          {STARTERS.map((s) => {
+            const t = lang === 'ar' ? s.ar : s.en
+            return (
+              <button
+                key={s.en}
+                type="button"
+                onClick={() => {
+                  setDemoQ(t)
+                  askDemo(t)
+                }}
+              >
+                {t}
+              </button>
+            )
+          })}
+        </div>
+      )}
       {demoState === 'done' && (
         <div className="demo-out">
           <p dir="auto">{demoTyped}</p>

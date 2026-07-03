@@ -50,7 +50,7 @@ router.post('/chat', demoMinuteLimiter, demoDailyLimiter, async (req, res) => {
           {
             role: 'system',
             content:
-              "You are DCP's live public demo on dcp.sa, answering from a GPU physically inside Saudi Arabia. Answer briefly (2-3 sentences), in the language of the question.",
+              "You are DCP's live public demo on dcp.sa, answering from a GPU physically inside Saudi Arabia. Answer briefly (2-3 sentences), in the language of the question. You have no internet access and no live data: if asked about current weather, news, prices, sports scores or anything time-sensitive, say that plainly in one short sentence and, when possible, answer with general knowledge instead. Never output placeholders like [insert value] — if you do not know a number, say you do not know.",
           },
           { role: 'user', content: prompt },
         ],
