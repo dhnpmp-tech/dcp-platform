@@ -1135,3 +1135,19 @@
   @media (max-width: 760px) {
     .v2-topbar .menu-toggle { display: inline-flex; }
   }
+
+  /* header row of the live-test column in §04 */
+  .capacity-gates .gates-head {
+    padding: 14px 24px 12px;
+    border-bottom: 1px solid var(--hair);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--teal);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .capacity-gates .gates-head::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 22%, transparent);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .capacity-gates .gates-head::before { animation: none; } }

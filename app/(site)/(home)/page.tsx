@@ -305,44 +305,50 @@ client = OpenAI(
         </div>
       </section>
 
-      {/* ═══════════════ §04 WHY IT'S HONEST ═══════════════ */}
+      {/* ═══════════════ §04 LIVE-VERIFIED CAPACITY ═══════════════
+          The trust section. The reader's real question is "if I click launch,
+          will there actually be a GPU?" — so the copy answers that, and the
+          three gates are framed as the live test every machine keeps passing. */}
       <section id="honest">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 04 · Proof, not a hand-typed list" ar="§ ٠٤ · دليل، لا قائمة مكتوبة يدوياً" />
+              <Bi en="§ 04 · Live-verified capacity" ar="§ ٠٤ · سعة متحققة حياً" />
             </span>
             <span>
-              <Bi en="A machine appears only after we prove it answers" ar="لا يظهر الجهاز إلا بعد أن نثبت أنه يجيب" />
+              <Bi en="If it's listed, it's answering right now" ar="إن كان مدرجاً، فهو يجيب الآن" />
             </span>
           </div>
           <div className="capacity-truth">
             <div className="capacity-copy">
               <span className="truth-label">
-                <Bi en="What the public marketplace means" ar="ما معنى السوق العام" />
+                <Bi en="No stale inventory" ar="لا مخزون متقادم" />
               </span>
               <h3>
                 <Bi
-                  en="No provider is listed until the inference path itself is proven."
-                  ar="لا يظهر أي مزوّد حتى يتم إثبات مسار الاستدلال نفسه."
+                  en="Every GPU on this site just passed a live test."
+                  ar="كل معالج في هذا الموقع اجتاز للتو اختباراً حياً."
                 />
               </h3>
               <p>
                 <Bi
-                  en="Most GPU lists are typed in by hand — and go stale. This one cannot be typed in: a machine appears only after our backend has reached it, asked it a real question, and verified the answer. The moment any check fails, the machine disappears from the list instead of rotting on it."
-                  ar="معظم قوائم المعالجات تُكتب يدوياً — ثم تتقادم. هذه القائمة لا يمكن كتابتها يدوياً: لا يظهر الجهاز إلا بعد أن تصل إليه خلفيتنا وتسأله سؤالاً حقيقياً وتتحقق من الإجابة. ولحظة فشل أي فحص، يختفي الجهاز من القائمة بدلاً من أن يتعفن عليها."
+                  en="Other GPU clouds show inventory someone typed in — and it goes stale. DCP's list writes itself: our backend keeps calling every machine and running a real inference request against it. Pass, and it stays listed. Fail, and it disappears until it recovers. So if you can see a GPU here, you can rent it right now."
+                  ar="السحب الأخرى تعرض مخزوناً كتبه أحدهم يدوياً — ثم يتقادم. قائمة DCP تكتب نفسها: خلفيتنا تستدعي كل جهاز باستمرار وتشغّل عليه طلب استدلال حقيقياً. إن نجح بقي مدرجاً، وإن فشل اختفى حتى يتعافى. فإن رأيت معالجاً هنا، فبإمكانك استئجاره الآن."
                 />
               </p>
               <div className="mp-foot" style={{ marginTop: 18 }}>
                 <Link href="/marketplace">
-                  <Bi en="See live capacity →" ar="راجع السعة الحية ←" />
+                  <Bi en="See what's serving now →" ar="شاهد ما يُخدَم الآن ←" />
                 </Link>
                 <Link href="/status">
-                  <Bi en="Check /status" ar="راجع الحالة" />
+                  <Bi en="Watch it live on /status" ar="راقبه حياً على ‎/status" />
                 </Link>
               </div>
             </div>
-            <div className="capacity-gates" aria-label="Published capacity gates">
+            <div className="capacity-gates" aria-label="The live test every listed machine keeps passing">
+              <div className="gates-head">
+                <Bi en="The test · every machine · continuously" ar="الاختبار · كل جهاز · باستمرار" />
+              </div>
               {CAPACITY_GATES.map((gate, index) => (
                 <div className="capacity-gate" key={gate.k}>
                   <span className="gate-n">{String(index + 1).padStart(2, '0')}</span>

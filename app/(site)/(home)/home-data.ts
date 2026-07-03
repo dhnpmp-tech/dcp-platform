@@ -44,28 +44,30 @@ export const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boo
   { href: '/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
-// ───────── capacity truth cards ─────────
+// ───────── capacity truth cards — the 3 steps of the continuous live test.
+// Written as a TEST the machine passes (reader-facing), not as system flags;
+// the k chip is the real API field name, shown for technical credibility. ─────────
 export const CAPACITY_GATES = [
   {
     k: 'endpoint_reachable',
-    tEn: 'We can reach it',
-    tAr: 'نستطيع الوصول إليه',
-    en: 'Our backend connects to the machine over the private mesh — right now, not at sign-up time.',
-    ar: 'خلفيتنا تتصل بالجهاز عبر الشبكة الخاصة — الآن، لا عند التسجيل.',
+    tEn: 'Can we reach it right now?',
+    tAr: 'هل نصل إليه الآن؟',
+    en: 'Our backend connects to the machine this minute — not once at sign-up.',
+    ar: 'خلفيتنا تتصل بالجهاز في هذه اللحظة — لا مرة واحدة عند التسجيل.',
   },
   {
     k: 'verified_online',
-    tEn: 'It really answers',
-    tAr: 'يجيب فعلاً',
-    en: 'We send the machine a real question and verify a real answer comes back. A heartbeat alone earns nothing.',
-    ar: 'نرسل للجهاز سؤالاً حقيقياً ونتحقق من عودة إجابة حقيقية. نبض الاتصال وحده لا يكفي.',
+    tEn: 'Does it answer a real question?',
+    tAr: 'هل يجيب عن سؤال حقيقي؟',
+    en: 'We run a real inference request against it and check the answer. A heartbeat alone is not enough.',
+    ar: 'نشغّل عليه طلب استدلال حقيقياً ونتحقق من الإجابة. نبض الاتصال وحده لا يكفي.',
   },
   {
     k: 'model_coverage',
-    tEn: 'It serves what it claims',
-    tAr: 'يقدّم ما يدّعيه',
-    en: 'A model is listed only while a verified machine is actually serving that exact model.',
-    ar: 'يُعرض النموذج فقط ما دام جهاز متحقق يخدم ذلك النموذج بعينه.',
+    tEn: 'Is it serving the model it claims?',
+    tAr: 'هل يخدم النموذج الذي يدّعيه؟',
+    en: 'A model stays listed only while a verified machine is actually serving that exact model.',
+    ar: 'يبقى النموذج مدرجاً فقط ما دام جهاز متحقق يخدم ذلك النموذج بعينه.',
   },
 ] as const
 
