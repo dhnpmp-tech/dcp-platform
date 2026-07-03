@@ -17,6 +17,7 @@
 // provider/peer id, machine/node name, IP, or counts.
 
 import Link from 'next/link'
+import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { ROUTES } from '@/app/lib/routes'
 import '@/app/(site)/docs/docs.css'
@@ -39,7 +40,7 @@ const GPU_FLOORS: ReadonlyArray<{
   { model: 'NVIDIA L40S', vram: 48, sar: 5.2, usd: 1.39, tier: 'on-demand' },
   { model: 'NVIDIA RTX 5090', vram: 32, sar: 5.2, usd: 1.39, tier: 'on-demand' },
   { model: 'NVIDIA RTX 4090', vram: 24, sar: 3.62, usd: 0.97, tier: 'on-demand' },
-  { model: 'NVIDIA RTX 3090', vram: 24, sar: 0.5, usd: 0.13, tier: 'native' },
+  { model: 'NVIDIA RTX 3090', vram: 24, sar: 2.5, usd: 0.67, tier: 'native' },
 ]
 
 // The 11 MCP tools exactly as index.js exposes them (register_agent first).
@@ -107,29 +108,7 @@ export default function AgentsPage() {
   return (
     <div className="ag-page">
       {/* Shared docs header chrome */}
-      <header className="dx-top">
-        <Link href={ROUTES.home} className="wm">
-          DCP<i>∞</i>
-          <span className="tag">
-            <Bi en="For agents" ar="للوكلاء" />
-          </span>
-        </Link>
-        <div className="links">
-          <Link href={ROUTES.home}>
-            <Bi en="Home" ar="الرئيسية" />
-          </Link>
-          <Link href={ROUTES.docs}>
-            <Bi en="Docs" ar="التوثيق" />
-          </Link>
-          <Link href={ROUTES.pricing}>
-            <Bi en="Pricing" ar="الأسعار" />
-          </Link>
-          <button type="button" className="dx-langpill" onClick={toggle} aria-label="Toggle language">
-            <span className={lang === 'en' ? 'on' : undefined}>EN</span>
-            <span className={lang === 'ar' ? 'on' : undefined}>ع</span>
-          </button>
-        </div>
-      </header>
+      <SiteHeader active="/agents" />
 
       {/* ═══════════════ HERO ═══════════════ */}
       <section className="ag-hero" aria-labelledby="ag-heading">

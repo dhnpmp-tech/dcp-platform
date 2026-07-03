@@ -7,6 +7,8 @@
 // V2Provider handles dir/lang/palette on <html> globally.
 
 import { useState } from 'react'
+import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
+import { CodeReceipt } from '@/app/(site)/components/code-receipt/CodeReceipt'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import './docs.css'
@@ -19,25 +21,8 @@ export default function DocsPage() {
 
   return (
     <>
-      <header className="dx-top">
-        <Link href="/" className="wm">
-          DCP<i>∞</i><span className="tag">Docs</span>
-        </Link>
-        <div className="links">
-          <Link href="/"><Bi en="Home" ar="الرئيسية" /></Link>
-          <Link href="/auth"><Bi en="Console" ar="لوحة التحكم" /></Link>
-          <Link href="/status"><Bi en="API status" ar="حالة الواجهة" /></Link>
-          <button
-            type="button"
-            className="dx-langpill"
-            onClick={toggle}
-            aria-label="Toggle language"
-          >
-            <span className={lang === 'en' ? 'on' : undefined}>EN</span>
-            <span className={lang === 'ar' ? 'on' : undefined}>ع</span>
-          </button>
-        </div>
-      </header>
+      <SiteHeader active="/docs" />
+      <CodeReceipt scope=".dx-page, main, body" />
 
       <div className="dx-grid">
 

@@ -14,6 +14,7 @@ import { DemoChat } from '@/app/(site)/components/demo-chat/DemoChat'
 import { PodMeter } from '@/app/(site)/components/pod-meter/PodMeter'
 import { BootEgg } from '@/app/(site)/components/boot-egg/BootEgg'
 import { EggWord } from '@/app/(site)/components/boot-egg/EggWord'
+import { TokenDrift } from '@/app/(site)/components/token-drift/TokenDrift'
 import { GPU_SKUS } from '@/app/lib/structured-data'
 import { HOME_FAQ_VISIBLE } from './home-data'
 import './home.css'
@@ -216,6 +217,7 @@ export default function V2HomePage() {
                 decoding="async"
                 alt="Streams of teal and amber light converging — tokens flowing through DCP's OpenAI-compatible inference API served from Saudi GPUs"
               />
+              <TokenDrift />
               <span className="pshow-cap" dir="ltr">fig. 02 — token streams · api.dcp.sa/v1</span>
             </div>
             <div className="pshow-copy">

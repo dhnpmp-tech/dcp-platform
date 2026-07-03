@@ -6,6 +6,7 @@
 // /v1/models and shows whatever is true now (including 0), never simulated.
 
 import Link from 'next/link'
+import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, BiX, useV2 } from '@/app/(site)/lib/i18n'
 import GpuAvailability from '@/app/(site)/components/gpu-availability/GpuAvailability'
 import { LiveCapacity } from '@/app/(site)/components/live-capacity/LiveCapacity'
@@ -17,32 +18,7 @@ export default function MarketplacePage() {
 
   return (
     <>
-      <header className="dx-top">
-        <Link href="/" className="wm">
-          DCP<i>∞</i>
-          <span className="tag">
-            <Bi en="Marketplace" ar="السوق" />
-          </span>
-        </Link>
-        <div className="links">
-          <Link href="/">
-            <Bi en="Home" ar="الرئيسية" />
-          </Link>
-          <Link href="/containers">
-            <Bi en="GPU Pods" ar="حاويات GPU" />
-          </Link>
-          <Link href="/pricing">
-            <Bi en="Pricing" ar="الأسعار" />
-          </Link>
-          <Link href="/status">
-            <Bi en="Live status" ar="الحالة الحية" />
-          </Link>
-          <button type="button" className="dx-langpill" onClick={toggle} aria-label="Toggle language">
-            <span className={lang === 'en' ? 'on' : undefined}>EN</span>
-            <span className={lang === 'ar' ? 'on' : undefined}>ع</span>
-          </button>
-        </div>
-      </header>
+      <SiteHeader active="/marketplace" />
 
       {/* ─── Hero ─── */}
       <section>

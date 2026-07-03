@@ -30,6 +30,10 @@ router.post('/chat', demoMinuteLimiter, demoDailyLimiter, async (req, res) => {
   if (prompt.length > PROMPT_MAX_CHARS) {
     return res.status(400).json({ error: 'prompt_too_long', max_chars: PROMPT_MAX_CHARS });
   }
+  // ?stream=1 → progressive plain-text body (upstream SSE deltas unwrapped),
+  // meta in X-Demo-* headers, X-Dcp-Stream tells the Vercel proxy to pass the
+  // body through instead of buffering. Default path stays JSON for old clients.
+  const wantStream = String(req.query?.stream || '') === '1';
 
   const base = `http://127.0.0.1:${process.env.PORT || 8083}`;
   try {
@@ -56,10 +60,49 @@ router.post('/chat', demoMinuteLimiter, demoDailyLimiter, async (req, res) => {
         ],
         max_tokens: DEMO_MAX_TOKENS,
         temperature: 0.7,
+        stream: wantStream,
       }),
       signal: AbortSignal.timeout(90_000),
     });
     if (!chatRes.ok) return res.status(503).json({ error: 'inference_unavailable' });
+
+    if (wantStream) {
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Dcp-Stream': '1',
+        'X-Demo-Model': String(model.id),
+        'X-Demo-Providers': String(Number(model.provider_count) || 1),
+      });
+      const decoder = new TextDecoder();
+      let buf = '';
+      try {
+        for await (const chunk of chatRes.body) {
+          buf += decoder.decode(chunk, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) !== -1) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') {
+              res.end();
+              return;
+            }
+            try {
+              const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content || '';
+              if (delta) res.write(delta);
+            } catch (_) {
+              /* partial/keepalive line — skip */
+            }
+          }
+        }
+      } catch (_) {
+        /* upstream died mid-stream — end what we have */
+      }
+      res.end();
+      return;
+    }
 
     const completion = await chatRes.json();
     const content = completion?.choices?.[0]?.message?.content || '';

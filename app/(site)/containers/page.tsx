@@ -4,8 +4,10 @@
 // Reuses the home design system (home.css) + docs chrome (docs.css); no new CSS.
 
 import { useEffect, useState } from 'react'
+import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import Link from 'next/link'
-import { Bi, useV2 } from '@/app/(site)/lib/i18n'
+import { Bi, BiX, useV2 } from '@/app/(site)/lib/i18n'
+import { EggWord } from '@/app/(site)/components/boot-egg/EggWord'
 import GpuAvailability from '@/app/(site)/components/gpu-availability/GpuAvailability'
 import '../(home)/home.css'
 import '../docs/docs.css'
@@ -35,20 +37,7 @@ export default function ContainersPage() {
 
   return (
     <>
-      <header className="dx-top">
-        <Link href="/" className="wm">
-          DCP<i>∞</i><span className="tag"><Bi en="GPU Pods" ar="حاويات GPU" /></span>
-        </Link>
-        <div className="links">
-          <Link href="/"><Bi en="Home" ar="الرئيسية" /></Link>
-          <Link href="/renter/pods"><Bi en="Console" ar="لوحة التحكم" /></Link>
-          <Link href="/status"><Bi en="Live status" ar="الحالة الحية" /></Link>
-          <button type="button" className="dx-langpill" onClick={toggle} aria-label="Toggle language">
-            <span className={lang === 'en' ? 'on' : undefined}>EN</span>
-            <span className={lang === 'ar' ? 'on' : undefined}>ع</span>
-          </button>
-        </div>
-      </header>
+      <SiteHeader active="/containers" />
 
       {/* ─── Hero ─── */}
       <section className="hero" style={{ borderTop: 0, padding: 0 }}>
@@ -65,7 +54,10 @@ export default function ContainersPage() {
             </span>
           </div>
           <h1 style={{ fontFamily: 'var(--serif, "Instrument Serif", serif)', fontWeight: 400, fontSize: 'clamp(2.4rem, 1.2rem + 4vw, 4.4rem)', lineHeight: 1.05, maxWidth: 900, margin: '18px 0 18px' }}>
-            <Bi en="A whole Saudi GPU. Yours in about a minute." ar="معالج سعودي كامل. لك خلال دقيقة تقريباً." />
+            <BiX
+              en={<>A whole Saudi <EggWord>GPU</EggWord>. Yours in about a minute.</>}
+              ar={<>‏<EggWord>معالج</EggWord> سعودي كامل. لك خلال دقيقة تقريباً.</>}
+            />
           </h1>
           <p style={{ maxWidth: 640, fontSize: 16, lineHeight: 1.65, color: 'var(--mut)' }}>
             <Bi

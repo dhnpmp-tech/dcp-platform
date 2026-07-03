@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import SiteShell from '../components/chrome/SiteShell'
+import { EggWord } from '@/app/(site)/components/boot-egg/EggWord'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { buildInstallCommand } from '@/app/lib/provider-onboarding'
 import { trackProviderInstallEvent } from '@/app/lib/provider-install-telemetry'
@@ -291,8 +292,8 @@ export default function EarnPage() {
             </span>
             <h1 className="hero-h">
               {rich(
-                <>Your idle GPU is <em>working capital</em>.</>,
-                <>معالجك الخامل هو <em>رأس مال عامل</em>.</>
+                <>Your idle <EggWord>GPU</EggWord> is <em>working capital</em>.</>,
+                <>‏<EggWord>معالجك</EggWord> الخامل هو <em>رأس مال عامل</em>.</>
               )}
             </h1>
             <p className="hero-sub">
