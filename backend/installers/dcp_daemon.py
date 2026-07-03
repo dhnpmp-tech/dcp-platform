@@ -133,7 +133,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.6.0"  # bare-vLLM make-room tier 3
+DAEMON_VERSION = "4.7.0"  # heartbeat foreign-proc scan + --status/--clean CLI
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -6389,6 +6389,13 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
         gpu_status["provider_tier"] = {"tier": "unknown", "tier_rank": 1,
                                        "total_vram_gb": 0.0, "gpu_count": 0,
                                        "primary_gpu": None, "all_tiers": []}
+    # v4.7.0: every heartbeat names the GPU compute processes and classifies
+    # them (pod / known engine / foreign) — the server-side vram-parking
+    # watchdog can then say WHAT is parking the card, not just that something is.
+    try:
+        gpu_status["foreign_gpu_procs"] = scan_foreign_gpu_processes()
+    except Exception as _fp_err:
+        log.debug(f"foreign-proc scan failed: {_fp_err}")
     gpu_status["model_cache_path"] = cache_metrics["path"]
     gpu_status["model_cache_exists"] = cache_metrics["exists"]
     gpu_status["model_cache_total_gb"] = cache_metrics["total_gb"]
@@ -8232,6 +8239,95 @@ def evict_bare_inference_for_pod(required_mib):
     return free_after >= required_mib, free_after
 
 
+# v4.7.0 (Tito rec #2 / incident 2026-07-03): deterministic foreign-process
+# visibility. Binary names that identify an inference server on sight — if a
+# GPU compute process matches one of these, no heuristic is needed.
+KNOWN_INFERENCE_ENGINES = ("vllm", "tgi", "text-generation", "aphrodite", "sglang", "lmdeploy", "ollama", "llama-server", "llama.cpp")
+
+
+def _proc_cmdline(pid):
+    """Best-effort /proc cmdline as a single string; '' on any failure."""
+    try:
+        return Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "ignore").strip()
+    except Exception:
+        return ""
+
+
+def _proc_in_container(pid):
+    """True if the process lives in a container cgroup (docker/containerd) —
+    on a provider node that means it is a DCP pod workload, which per policy
+    is the only sanctioned way to run experiments on the card."""
+    try:
+        cg = Path(f"/proc/{pid}/cgroup").read_text()
+        return ("docker" in cg) or ("containerd" in cg) or ("kubepods" in cg)
+    except Exception:
+        return False
+
+
+def scan_foreign_gpu_processes(min_mib=256):
+    """Enumerate GPU compute processes and classify each one — the heartbeat
+    carries the result so the backend/watchdog can diagnose parked VRAM
+    deterministically instead of inferring from free/util numbers alone.
+
+    Each entry: {pid, used_mib, engine (matched KNOWN_INFERENCE_ENGINES name
+    or None), pod_managed (container cgroup), cmd (first 120 chars)}.
+    Skips processes below min_mib. Best-effort; [] on any failure."""
+    out = []
+    try:
+        for pid, used in _gpu_compute_pids():
+            if used < min_mib or pid == os.getpid():
+                continue
+            cmd = _proc_cmdline(pid)
+            low = cmd.lower()
+            engine = next((e for e in KNOWN_INFERENCE_ENGINES if e in low), None)
+            out.append({
+                "pid": pid,
+                "used_mib": used,
+                "engine": engine,
+                "pod_managed": _proc_in_container(pid),
+                "cmd": cmd[:120],
+            })
+    except Exception:
+        return []
+    return out
+
+
+def run_gpu_hygiene_cli(clean=False):
+    """`dcp_daemon.py --status` / `--clean` — the provider-facing hygiene
+    helper (Tito rec #3), shipped inside the daemon so it reaches every node
+    via the normal auto-update with zero extra distribution.
+
+    --status: print GPU processes classified pod-managed / known-engine /
+    foreign. --clean: additionally offer to stop each non-pod process that
+    matches a known inference engine (SIGTERM, confirm per process)."""
+    procs = scan_foreign_gpu_processes(min_mib=64)
+    if not procs:
+        print("GPU is clean: no compute processes holding >64 MiB.")
+        return
+    print(f"{'PID':>8}  {'VRAM MiB':>9}  {'CLASS':<12}  {'ENGINE':<10}  CMD")
+    for p in procs:
+        cls = "pod" if p["pod_managed"] else ("engine" if p["engine"] else "foreign")
+        print(f"{p['pid']:>8}  {p['used_mib']:>9}  {cls:<12}  {p['engine'] or '-':<10}  {p['cmd']}")
+    if not clean:
+        return
+    targets = [p for p in procs if not p["pod_managed"] and p["engine"]]
+    if not targets:
+        print("\nNothing to clean: no bare inference engines outside pods.")
+        return
+    for p in targets:
+        try:
+            answer = input(f"\nStop pid {p['pid']} ({p['engine']}, {p['used_mib']} MiB)? [y/N] ").strip().lower()
+        except EOFError:
+            break
+        if answer != "y":
+            continue
+        try:
+            os.kill(p["pid"], signal.SIGTERM)
+            print(f"SIGTERM sent to {p['pid']} — VRAM frees within a few seconds.")
+        except Exception as e:
+            print(f"could not stop {p['pid']}: {e}")
+
+
 def _systemctl_user(*args, timeout=30):
     """Run `systemctl --user <args>`; return (rc, stdout). Best-effort, never raises."""
     try:
@@ -9581,7 +9677,16 @@ def main():
         action="store_true",
         help="Ignore cached concurrency probe result and re-measure (v4.0)",
     )
+    parser.add_argument("--status", action="store_true",
+                        help="Show GPU compute processes (pod / engine / foreign) and exit (v4.7)")
+    parser.add_argument("--clean", action="store_true",
+                        help="Like --status, then interactively stop bare inference engines (v4.7)")
     args = parser.parse_args()
+
+    # Provider hygiene CLI — needs no API key, exits before any network use.
+    if args.status or args.clean:
+        run_gpu_hygiene_cli(clean=args.clean)
+        sys.exit(0)
 
     global API_KEY, API_URL, _FORCE_REPROBE_CONCURRENCY
     if args.key:
@@ -10378,6 +10483,12 @@ def watchdog():
 
 if __name__ == "__main__":
     # Parse args early to check --no-watchdog
+    if "--status" in sys.argv or "--clean" in sys.argv:
+        # v4.7.0 hygiene CLI — a one-shot command, never wrapped in the
+        # crash watchdog (which would supervise-restart a tool that is
+        # supposed to print and exit).
+        run_gpu_hygiene_cli(clean="--clean" in sys.argv)
+        sys.exit(0)
     if "--no-watchdog" in sys.argv:
         main()
     else:
