@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>DCP — Live Mesh Hero v4 (one real interactive mesh)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;box-sizing:border-box}
+  html,body{height:100%;background:#050a14;color:#f5f3ee;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  .hero{position:relative;width:100vw;height:100vh;isolation:isolate}
+  #mesh{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block}
+  .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(90deg, rgba(5,10,20,.88) 0%, rgba(5,10,20,.45) 36%, rgba(5,10,20,0) 66%)}
+  .content{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;justify-content:center;
+    padding:0 clamp(24px,7vw,120px);max-width:1040px;pointer-events:none}
+  .eyebrow{font:600 .76rem/1 'JetBrains Mono',monospace;letter-spacing:.24em;text-transform:uppercase;
+    color:#9fb0c9;margin-bottom:24px;display:flex;align-items:center;gap:10px}
+  .eyebrow .d{width:7px;height:7px;border-radius:50%;background:#2dd4b6;box-shadow:0 0 10px #2dd4b6;animation:bp 1.8s ease-in-out infinite}
+  h1{font-weight:800;letter-spacing:-.025em;font-size:clamp(2.6rem,1.4rem+6vw,6rem);line-height:.98}
+  h1 .serif{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-style:italic;
+    background:linear-gradient(100deg,#2dd4b6 10%,#7fe9d6 45%,#EE7A3C 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  p.sub{margin-top:24px;font-size:clamp(1.05rem,.9rem+.7vw,1.35rem);color:#c9c5bd;max-width:560px;line-height:1.5}
+  .cta{margin-top:36px;pointer-events:auto;display:inline-flex;gap:8px;align-items:center;width:max-content;
+    background:linear-gradient(100deg,#2dd4b6,#36c9b0);color:#050a14;font-weight:700;text-decoration:none;padding:15px 28px;border-radius:12px;transition:transform .2s,box-shadow .2s}
+  .cta:hover{transform:translateY(-2px);box-shadow:0 16px 44px rgba(45,212,182,.32)}
+  .meta{position:absolute;left:clamp(24px,7vw,120px);bottom:30px;z-index:2;font:500 .78rem/1.5 'JetBrains Mono',monospace;color:#7b8da5}
+  .meta b{color:#2dd4b6;font-weight:600}
+  .meta .d{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2dd4b6;margin-right:8px;box-shadow:0 0 9px #2dd4b6;animation:bp 1.8s ease-in-out infinite;vertical-align:middle}
+  @keyframes bp{0%,100%{opacity:1}50%{opacity:.25}}
+</style>
+</head>
+<body>
+<section class="hero">
+  <canvas id="mesh"></canvas>
+  <div class="scrim"></div>
+  <div class="content">
+    <div class="eyebrow"><span class="d"></span>Sovereign GPU compute · in-Kingdom</div>
+    <h1>Rent a whole GPU,<br><span class="serif">by the second.</span></h1>
+    <p class="sub">Saudi Arabia's GPU mesh — billed in Riyal, live in seconds. And this page? It's being rendered, right now, on the device in your hands.</p>
+    <a class="cta" href="#">Start free →</a>
+  </div>
+  <div class="meta"><span class="d"></span>Rendered live on your <b id="dev">device</b> · <span id="fps">– fps</span></div>
+</section>
+<script>
+// device name (throwaway gl context)
+(function(){let r='';try{const g=document.createElement('canvas').getContext('webgl');const e=g.getExtension('WEBGL_debug_renderer_info');r=(e?g.getParameter(e.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER))||'';}catch(_){}
+  const ua=navigator.userAgent,t=navigator.maxTouchPoints||0;let n;
+  if(/iPhone/.test(ua))n='iPhone';else if(/iPad/.test(ua)||(/Macintosh/.test(ua)&&t>1))n='iPad';
+  else if(/Android/.test(ua))n=/Mobile/.test(ua)?'Android phone':'Android tablet';
+  else if(/Apple/i.test(r)||/Mac/i.test(navigator.platform||'')){const m=r.match(/Apple\s+(M\d\w*)/i);n=m?('MacBook · '+m[1].toUpperCase()):'Mac';}
+  else{const g=r.replace(/ANGLE|Direct3D11|OpenGL|\(.*?\)|vs_5_0|ps_5_0/gi,'').replace(/\s+/g,' ').trim();n=g?g.slice(0,40):'GPU';}
+  document.getElementById('dev').textContent=n;})();
+
+const cv=document.getElementById('mesh'),ctx=cv.getContext('2d');
+const TEAL=[45,212,182],AMBER=[238,122,60];
+const mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgba=(c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+let W,H,DPR,nodes,edges,cols,rows;
+function build(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  cols=Math.max(14,Math.round(W/64));rows=Math.max(9,Math.round(H/64));
+  nodes=[];edges=[];
+  for(let v=0;v<rows;v++)for(let u=0;u<cols;u++){
+    const un=u/(cols-1),vn=v/(rows-1);
+    // world coords of a gently curved "net" (centred, will be shifted right on projection)
+    const wx=(un-0.5)*3.4, wy=(vn-0.5)*2.0;
+    const wz=0.45*Math.sin(un*3.1)+0.32*Math.cos(vn*2.6+un*1.3); // base curve
+    nodes.push({u,v,wx,wy,wz0:wz,wz,a:0,sx:0,sy:0,d:0,base:0,nb:[]});
+  }
+  const idx=(u,v)=>v*cols+u;
+  for(let v=0;v<rows;v++)for(let u=0;u<cols;u++){
+    const i=idx(u,v);
+    if(u<cols-1){edges.push([i,idx(u+1,v)]);nodes[i].nb.push(idx(u+1,v));nodes[idx(u+1,v)].nb.push(i);}
+    if(v<rows-1){edges.push([i,idx(u,v+1)]);nodes[i].nb.push(idx(u,v+1));nodes[idx(u,v+1)].nb.push(i);}
+    if(u<cols-1&&v<rows-1){edges.push([i,idx(u+1,v+1)]);nodes[i].nb.push(idx(u+1,v+1));nodes[idx(u+1,v+1)].nb.push(i);} // diagonal → triangulated net
+  }
+}
+build();addEventListener('resize',build);
+
+const ms={x:-9999,y:-9999,nx:.5,ny:.5};
+addEventListener('pointermove',e=>{ms.x=e.clientX;ms.y=e.clientY;ms.nx=e.clientX/W;ms.ny=e.clientY/H;},{passive:true});
+addEventListener('pointerleave',()=>{ms.x=ms.y=-9999;});
+
+let t0=performance.now(),frC=0,acc=0,last=t0,fpsEl=document.getElementById('fps');
+let yaw=0,pit=0;
+function loop(now){
+  const t=(now-t0)*0.001;
+  // gentle auto-drift + parallax toward cursor (eased)
+  const tgYaw=0.22*Math.sin(t*0.13)+(ms.nx-0.5)*0.5, tgPit=0.13*Math.sin(t*0.11)-(ms.ny-0.5)*0.32;
+  yaw+=(tgYaw-yaw)*0.04; pit+=(tgPit-pit)*0.04;
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pit),sp=Math.sin(pit);
+  const cx=W*0.6, cyp=H*0.5, f=Math.min(W,H)*0.92, camZ=4.2;
+  // project
+  for(const n of nodes){
+    n.wz=n.wz0+0.07*Math.sin(t*0.7+n.u*0.5+n.v*0.4); // breathing
+    let x=n.wx,y=n.wy,z=n.wz;
+    let x1=x*cy+z*sy, z1=-x*sy+z*cy;          // yaw
+    let y1=y*cp-z1*sp, z2=y*sp+z1*cp;         // pitch
+    const Z=z2+camZ;
+    n.sx=cx+(x1/Z)*f; n.sy=cyp-(y1/Z)*f;
+    n.d=Math.max(0,Math.min(1,(Z-3.0)/2.6));  // 0 near → 1 far
+    n.base=0.45*n.d+0.55*(n.u/(cols-1));      // teal(front/left) → amber(back/right)
+  }
+  // ignite near cursor + propagate
+  const IR=120,IR2=IR*IR;
+  for(const n of nodes){const dx=n.sx-ms.x,dy=n.sy-ms.y;if(dx*dx+dy*dy<IR2)n.a=1;}
+  const prev=nodes.map(n=>n.a);
+  for(let i=0;i<nodes.length;i++){let m=prev[i]*0.91;const nb=nodes[i].nb;for(let k=0;k<nb.length;k++){const w=prev[nb[k]]*0.86;if(w>m)m=w;}nodes[i].a=m<0.002?0:m;}
+
+  // ---- draw ----
+  ctx.clearRect(0,0,W,H);
+  // atmospheric backdrop: navy + soft volumetric glows (no dots)
+  let g=ctx.createRadialGradient(W*0.66,H*0.34,0,W*0.66,H*0.34,H*1.1);
+  g.addColorStop(0,'#0a1424');g.addColorStop(1,'#050a14');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+  g=ctx.createRadialGradient(W*0.78,H*0.28,0,W*0.78,H*0.28,H*0.7);g.addColorStop(0,'rgba(238,122,60,0.10)');g.addColorStop(1,'rgba(238,122,60,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  g=ctx.createRadialGradient(W*0.52,H*0.72,0,W*0.52,H*0.72,H*0.7);g.addColorStop(0,'rgba(45,212,182,0.10)');g.addColorStop(1,'rgba(45,212,182,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // edges (depth + activation)
+  for(const [i,j] of edges){
+    const A=nodes[i],B=nodes[j];const a=Math.max(A.a,B.a);const dd=1-(A.d+B.d)*0.5;
+    const tt=(A.base+B.base)*0.5;const c=mix(mix(TEAL,AMBER,tt),mix(AMBER,TEAL,tt),a);
+    ctx.strokeStyle=rgba(c,(0.05+0.13*dd)+a*0.55);ctx.lineWidth=0.6+dd*0.7+a*0.6;
+    ctx.beginPath();ctx.moveTo(A.sx,A.sy);ctx.lineTo(B.sx,B.sy);ctx.stroke();
+  }
+  // nodes (far first), glow scaled by depth + activation
+  const order=nodes.slice().sort((a,b)=>b.d-a.d);
+  for(const n of order){
+    const dd=1-n.d;const c=mix(mix(TEAL,AMBER,n.base),mix(AMBER,TEAL,n.base),n.a);
+    const r=(0.8+2.4*dd)+n.a*2.6;
+    const glow=(0.18+0.5*dd)+n.a*0.8;
+    if(glow>0.12){const gr=r*4+n.a*40;const rg=ctx.createRadialGradient(n.sx,n.sy,0,n.sx,n.sy,gr);
+      rg.addColorStop(0,rgba(c,Math.min(0.6,glow*0.5)));rg.addColorStop(1,rgba(c,0));ctx.fillStyle=rg;ctx.fillRect(n.sx-gr,n.sy-gr,gr*2,gr*2);}
+    ctx.globalAlpha=Math.min(1,0.45+0.55*dd+n.a*0.5);ctx.fillStyle=rgba(c,1);
+    ctx.beginPath();ctx.arc(n.sx,n.sy,r,0,6.2832);ctx.fill();ctx.globalAlpha=1;
+  }
+  ctx.globalCompositeOperation='source-over';
+  // grain + vignette
+  frC++;acc+=now-last;last=now;if(acc>=500){fpsEl.textContent=Math.round(frC/(acc/1000))+' fps';frC=0;acc=0;}
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

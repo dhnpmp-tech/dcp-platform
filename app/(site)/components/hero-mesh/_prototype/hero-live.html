@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>DCP — Live GPU Hero (prototype)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;box-sizing:border-box}
+  html,body{height:100%;background:#050a14;color:#f5f3ee;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  .hero{position:relative;width:100vw;height:100vh;isolation:isolate}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+  .content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:center;
+    padding:0 clamp(24px,7vw,120px);max-width:980px;pointer-events:none}
+  .eyebrow{font:600 .74rem/1 'JetBrains Mono',monospace;letter-spacing:.22em;text-transform:uppercase;color:#2dd4b6;margin-bottom:22px}
+  h1{font-weight:800;letter-spacing:-.025em;font-size:clamp(2.4rem,1.5rem+5vw,5.4rem);line-height:1.02}
+  h1 .t{color:#2dd4b6}
+  p.sub{margin-top:20px;font-size:clamp(1rem,.9rem+.6vw,1.3rem);color:#c9c5bd;max-width:560px}
+  .cta{margin-top:34px;pointer-events:auto;display:inline-flex;gap:8px;align-items:center;width:max-content;
+    background:#2dd4b6;color:#050a14;font-weight:700;text-decoration:none;padding:14px 26px;border-radius:12px;
+    transition:transform .2s,box-shadow .2s}
+  .cta:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(45,212,182,.3)}
+  /* the meta badge — names the visitor's actual GPU */
+  .meta{position:absolute;left:clamp(24px,7vw,120px);bottom:30px;z-index:1;
+    font:500 .76rem/1.5 'JetBrains Mono',monospace;color:#7b8da5;letter-spacing:.02em}
+  .meta b{color:#2dd4b6;font-weight:600}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2dd4b6;margin-right:7px;
+    box-shadow:0 0 8px #2dd4b6;animation:bp 1.8s ease-in-out infinite;vertical-align:middle}
+  @keyframes bp{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+<section class="hero">
+  <canvas id="gl"></canvas>
+  <div class="content">
+    <div class="eyebrow">Sovereign GPU compute · in-Kingdom</div>
+    <h1>Rent a whole GPU,<br><span class="t">by the second.</span></h1>
+    <p class="sub">Saudi Arabia's GPU mesh — billed in Riyal, live in seconds. This page is being rendered, right now, by a GPU. Like the ones you can rent.</p>
+    <a class="cta" href="#">Start free →</a>
+  </div>
+  <div class="meta"><span class="dot"></span>Rendered live on your GPU: <b id="gpu">detecting…</b> · <span id="fps">– fps</span></div>
+</section>
+<script>
+const cv = document.getElementById('gl');
+const gl = cv.getContext('webgl', { antialias:false, alpha:false, powerPreference:'high-performance' });
+
+// --- name the visitor's actual GPU (the meta-flex) ---
+try{
+  const ext = gl.getExtension('WEBGL_debug_renderer_info');
+  let name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+  name = (name||'GPU').replace(/\s*\(.*?\)\s*/g,' ').replace(/ANGLE|Direct3D11|vs_5_0|ps_5_0/gi,'').replace(/\s+/g,' ').trim();
+  document.getElementById('gpu').textContent = name.slice(0,46);
+}catch(e){ document.getElementById('gpu').textContent='your GPU'; }
+
+const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
+const FRAG = `
+precision highp float;
+uniform float uTime; uniform vec2 uRes; uniform vec2 uMouse;
+vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return fract(sin(p)*43758.5453); }
+float hash1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float noise(vec2 p){ vec2 i=floor(p),f=fract(p); vec2 u=f*f*(3.-2.*f);
+  float a=hash1(i),b=hash1(i+vec2(1,0)),c=hash1(i+vec2(0,1)),d=hash1(i+vec2(1,1));
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y); }
+float fbm(vec2 p){ float v=0.,a=.5; for(int i=0;i<5;i++){v+=a*noise(p);p*=2.02;a*=.5;} return v; }
+vec3 voronoi(vec2 x,float t){ vec2 n=floor(x),f=fract(x); float F1=9.,F2=9.; vec2 nd=vec2(0.);
+  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){ vec2 g=vec2(float(i),float(j)); vec2 o=hash2(n+g);
+    o=.5+.45*sin(t+6.2831*o); vec2 r=g+o-f; float d=dot(r,r);
+    if(d<F1){F2=F1;F1=d;nd=n+g+o;} else if(d<F2){F2=d;} }
+  return vec3(sqrt(F1),sqrt(F2),hash1(nd)); }
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes.xy;
+  vec2 p=(gl_FragCoord.xy-.5*uRes.xy)/uRes.y;
+  float t=uTime;
+  vec2 q=vec2(fbm(p*2.+t*.10), fbm(p*2.-t*.12+5.));
+  float flow=fbm(p*3.+q*1.5+t*.05);
+  vec3 vo=voronoi(p*4.0, t*.4);
+  float node=smoothstep(.14,.0,vo.x);
+  float edge=smoothstep(.05,.0,abs(vo.x-vo.y));
+  float pulse=.5+.5*sin(t*2.+vo.z*34.);
+  vec2 m=(uMouse-.5*uRes.xy)/uRes.y;
+  float md=exp(-length(p-m)*2.6);
+  vec3 navy=vec3(.012,.035,.07), navy2=vec3(.03,.085,.14), teal=vec3(.176,.831,.714);
+  vec3 col=mix(navy,navy2,flow);
+  col+=teal*flow*0.14;
+  col+=teal*node*(.55+.9*pulse);
+  col+=teal*edge*0.10;
+  col+=teal*md*0.45;
+  col*=1.-0.42*length(uv-.5);
+  gl_FragColor=vec4(col,1.);
+}`;
+function sh(t,s){ const o=gl.createShader(t); gl.shaderSource(o,s); gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; }
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,VERT)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FRAG));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
+const loc=gl.getAttribLocation(prog,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+const uTime=gl.getUniformLocation(prog,'uTime'), uRes=gl.getUniformLocation(prog,'uRes'), uMouse=gl.getUniformLocation(prog,'uMouse');
+const mouse={x:.5,y:.5}, target={x:.5,y:.5};
+addEventListener('pointermove',e=>{ target.x=e.clientX; target.y=innerHeight-e.clientY; },{passive:true});
+const DPR=Math.min(devicePixelRatio||1,1.5);
+function resize(){ cv.width=innerWidth*DPR; cv.height=innerHeight*DPR; gl.viewport(0,0,cv.width,cv.height); }
+addEventListener('resize',resize); resize();
+let last=performance.now(), frames=0, fAcc=0, fpsEl=document.getElementById('fps');
+function loop(now){
+  mouse.x+= (target.x-mouse.x)*.06; mouse.y+= (target.y-mouse.y)*.06;
+  gl.uniform1f(uTime, now*0.0005);
+  gl.uniform2f(uRes, cv.width, cv.height);
+  gl.uniform2f(uMouse, mouse.x*DPR, mouse.y*DPR);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  frames++; fAcc+=now-last; last=now;
+  if(fAcc>=500){ fpsEl.textContent=Math.round(frames/(fAcc/1000))+' fps'; frames=0; fAcc=0; }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){last=performance.now();} });
+</script>
+</body>
+</html>

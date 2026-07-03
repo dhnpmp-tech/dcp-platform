@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>DCP — Live Hero v2 (Higgsfield + WebGL)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;box-sizing:border-box}
+  html,body{height:100%;background:#050a14;color:#f5f3ee;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  .hero{position:relative;width:100vw;height:100vh;isolation:isolate}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+  .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(90deg, rgba(5,10,20,.92) 0%, rgba(5,10,20,.55) 38%, rgba(5,10,20,0) 70%)}
+  .content{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;justify-content:center;
+    padding:0 clamp(24px,7vw,120px);max-width:1040px;pointer-events:none}
+  .eyebrow{font:600 .76rem/1 'JetBrains Mono',monospace;letter-spacing:.24em;text-transform:uppercase;
+    color:#9fb0c9;margin-bottom:24px;display:flex;align-items:center;gap:10px}
+  .eyebrow .d{width:7px;height:7px;border-radius:50%;background:#2dd4b6;box-shadow:0 0 10px #2dd4b6;animation:bp 1.8s ease-in-out infinite}
+  h1{font-weight:800;letter-spacing:-.025em;font-size:clamp(2.6rem,1.4rem+6vw,6rem);line-height:.98}
+  h1 .serif{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-style:italic;letter-spacing:0;
+    background:linear-gradient(100deg,#2dd4b6 10%,#7fe9d6 45%,#EE7A3C 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  p.sub{margin-top:24px;font-size:clamp(1.05rem,.9rem+.7vw,1.35rem);color:#c9c5bd;max-width:580px;line-height:1.5}
+  .cta{margin-top:36px;pointer-events:auto;display:inline-flex;gap:8px;align-items:center;width:max-content;
+    background:linear-gradient(100deg,#2dd4b6,#36c9b0);color:#050a14;font-weight:700;text-decoration:none;
+    padding:15px 28px;border-radius:12px;transition:transform .2s,box-shadow .2s}
+  .cta:hover{transform:translateY(-2px);box-shadow:0 16px 44px rgba(45,212,182,.32)}
+  .meta{position:absolute;left:clamp(24px,7vw,120px);bottom:30px;z-index:2;
+    font:500 .78rem/1.5 'JetBrains Mono',monospace;color:#7b8da5;letter-spacing:.02em}
+  .meta b{color:#2dd4b6;font-weight:600}
+  .meta .d{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2dd4b6;margin-right:8px;
+    box-shadow:0 0 9px #2dd4b6;animation:bp 1.8s ease-in-out infinite;vertical-align:middle}
+  @keyframes bp{0%,100%{opacity:1}50%{opacity:.25}}
+</style>
+</head>
+<body>
+<section class="hero">
+  <canvas id="gl"></canvas>
+  <div class="scrim"></div>
+  <div class="content">
+    <div class="eyebrow"><span class="d"></span>Sovereign GPU compute · in-Kingdom</div>
+    <h1>Rent a whole GPU,<br><span class="serif">by the second.</span></h1>
+    <p class="sub">Saudi Arabia's GPU mesh — billed in Riyal, live in seconds. And this page? It's being rendered, right now, on the device in your hands.</p>
+    <a class="cta" href="#">Start free →</a>
+  </div>
+  <div class="meta"><span class="d"></span>Rendered live on your <b id="dev">device</b> · <span id="fps">– fps</span></div>
+</section>
+<script>
+const IMG = (new URLSearchParams(location.search)).get('img') || 'hero-base.jpg';
+const cv=document.getElementById('gl');
+const gl=cv.getContext('webgl',{antialias:false,alpha:false,powerPreference:'high-performance'});
+
+// ---- honest, personal device name ----
+(function(){
+  let r=''; try{const e=gl.getExtension('WEBGL_debug_renderer_info'); r=(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER))||'';}catch(_){}
+  const ua=navigator.userAgent, touch=navigator.maxTouchPoints||0; let name;
+  if(/iPhone/.test(ua)) name='iPhone';
+  else if(/iPad/.test(ua) || (/Macintosh/.test(ua)&&touch>1)) name='iPad';
+  else if(/Android/.test(ua)) name=/Mobile/.test(ua)?'Android phone':'Android tablet';
+  else if(/Apple/i.test(r) || /Mac/i.test(navigator.platform||'')){ const m=r.match(/Apple\s+(M\d\w*)/i); name=m?('MacBook · '+m[1].toUpperCase()):'Mac'; }
+  else { const g=r.replace(/ANGLE|Direct3D11|OpenGL|\(.*?\)|vs_5_0|ps_5_0/gi,'').replace(/\s+/g,' ').trim(); name=g?g.slice(0,40):'GPU'; }
+  document.getElementById('dev').textContent=name;
+})();
+
+const VERT=`attribute vec2 p; varying vec2 vUv; void main(){ vUv=p*0.5+0.5; gl_Position=vec4(p,0.,1.); }`;
+const FRAG=`
+precision highp float;
+uniform sampler2D uTex; uniform float uTime; uniform vec2 uRes; uniform vec2 uMouse; uniform vec2 uImg;
+varying vec2 vUv;
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+void main(){
+  // cover-fit the image to the viewport
+  float sa=uRes.x/uRes.y, ia=uImg.x/uImg.y;
+  vec2 uv=vUv; uv.y=1.-uv.y;
+  vec2 sc = sa>ia ? vec2(1., ia/sa) : vec2(sa/ia, 1.);
+  uv=(uv-0.5)*sc+0.5;
+  // parallax + gentle breathing zoom toward the pointer
+  vec2 m=uMouse-0.5;
+  float zoom=1.0-0.04 - 0.012*sin(uTime*0.4);
+  uv=(uv-0.5)*zoom+0.5 - m*0.022;
+  vec3 col=texture2D(uTex,uv).rgb;
+  // flowing light pass (a soft diagonal sweep)
+  float sweep=smoothstep(0.0,0.5,sin((uv.x+uv.y)*2.2 - uTime*0.5)*0.5+0.5);
+  col += vec3(0.10,0.83,0.71)*sweep*0.05;
+  // pointer glow
+  vec2 mp=uMouse; mp.y=mp.y;
+  float md=exp(-length((vUv-mp)*vec2(uRes.x/uRes.y,1.0))*2.2);
+  col += vec3(0.10,0.83,0.71)*md*0.16;
+  // film grain
+  col += (hash(vUv*uRes.xy + uTime)-0.5)*0.035;
+  // subtle vignette
+  col *= 1.0-0.28*length(vUv-0.5);
+  gl_FragColor=vec4(col,1.0);
+}`;
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(o));return o;}
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,VERT));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FRAG));
+gl.linkProgram(prog);gl.useProgram(prog);
+const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+const loc=gl.getAttribLocation(prog,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+const U={t:gl.getUniformLocation(prog,'uTime'),r:gl.getUniformLocation(prog,'uRes'),
+  m:gl.getUniformLocation(prog,'uMouse'),img:gl.getUniformLocation(prog,'uImg'),tex:gl.getUniformLocation(prog,'uTex')};
+// texture
+const tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex);
+gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([5,10,20,255]));
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+let imgWH=[16,9];
+const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>{ imgWH=[im.width,im.height];
+  gl.bindTexture(gl.TEXTURE_2D,tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im); };
+im.src=IMG;
+const DPR=Math.min(devicePixelRatio||1,2);
+function resize(){cv.width=innerWidth*DPR;cv.height=innerHeight*DPR;gl.viewport(0,0,cv.width,cv.height);}
+addEventListener('resize',resize);resize();
+const mo={x:.5,y:.5},tg={x:.5,y:.5};
+addEventListener('pointermove',e=>{tg.x=e.clientX/innerWidth;tg.y=1-e.clientY/innerHeight;},{passive:true});
+let last=performance.now(),fr=0,acc=0,fpsEl=document.getElementById('fps');
+function loop(now){
+  mo.x+=(tg.x-mo.x)*.05; mo.y+=(tg.y-mo.y)*.05;
+  gl.useProgram(prog); gl.uniform1f(U.t,now*0.001); gl.uniform2f(U.r,cv.width,cv.height);
+  gl.uniform2f(U.m,mo.x,mo.y); gl.uniform2f(U.img,imgWH[0],imgWH[1]);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,tex); gl.uniform1i(U.tex,0);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  fr++; acc+=now-last; last=now; if(acc>=500){fpsEl.textContent=Math.round(fr/(acc/1000))+' fps';fr=0;acc=0;}
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -71,8 +71,8 @@ const MCP_TOOLS: ReadonlyArray<{ name: string; en: string; ar: string }> = [
   },
   {
     name: 'create_pod',
-    en: 'Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute. Optional gpu_type.',
-    ar: 'يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً بالدقيقة. نوع المعالج اختياري.',
+    en: 'Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per second. Optional gpu_type.',
+    ar: 'يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً بالثانية. نوع المعالج اختياري.',
   },
   {
     name: 'get_pod',
@@ -133,6 +133,9 @@ export default function AgentsPage() {
 
       {/* ═══════════════ HERO ═══════════════ */}
       <section className="ag-hero" aria-labelledby="ag-heading">
+        <div className="ag-photo" aria-hidden="true">
+          <img src="/home/swarm.webp" alt="" width={1800} height={1005} decoding="async" />
+        </div>
         <div className="ag-glyph" aria-hidden="true">
           ∞
         </div>
@@ -229,8 +232,8 @@ export default function AgentsPage() {
               </h3>
               <p>
                 <Bi
-                  en="Rent a whole NVIDIA GPU with root, Jupyter and SSH in about a minute, prepaid per minute in SAR. No vendor accounts, no quotas, no cluster to manage."
-                  ar="استأجر معالج NVIDIA كاملاً مع جذر وJupyter وSSH خلال دقيقة تقريباً، مدفوعاً بالدقيقة بالريال. دون حسابات مورّدين ولا حصص ولا عنقود يُدار."
+                  en="Rent a whole NVIDIA GPU with root, Jupyter and SSH in about a minute, prepaid per second in SAR. No vendor accounts, no quotas, no cluster to manage."
+                  ar="استأجر معالج NVIDIA كاملاً مع جذر وJupyter وSSH خلال دقيقة تقريباً، مدفوعاً بالثانية بالريال. دون حسابات مورّدين ولا حصص ولا عنقود يُدار."
                 />
               </p>
             </div>
@@ -368,7 +371,7 @@ export default function AgentsPage() {
               <span className="k">curl</span> -s <span className="s">https://api.dcp.sa/api/renters/available-providers</span> \{'\n'}
               {'  '}-H <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span>
               {'\n\n'}
-              <span className="c"># 3 · Rent a whole GPU — idempotent, prepaid per minute</span>
+              <span className="c"># 3 · Rent a whole GPU — idempotent, prepaid per second</span>
               {'\n'}
               <span className="k">curl</span> -s -X POST <span className="s">https://api.dcp.sa/api/pods</span> \{'\n'}
               {'  '}-H <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> \{'\n'}
@@ -711,8 +714,8 @@ export default function AgentsPage() {
               </summary>
               <p>
                 <Bi
-                  en="List types (GET /api/renters/available-providers or list_gpus), then POST /api/pods with { gpu_type, duration_minutes } and an optional Idempotency-Key. A whole NVIDIA GPU comes up with root, Jupyter and SSH in about a minute, billed per minute in SAR."
-                  ar="اسرد الأنواع (GET /api/renters/available-providers أو list_gpus)، ثم POST /api/pods مع { gpu_type, duration_minutes } وترويسة Idempotency-Key اختيارية. يأتي معالج NVIDIA كامل بجذر وJupyter وSSH خلال دقيقة تقريباً، بالدقيقة بالريال."
+                  en="List types (GET /api/renters/available-providers or list_gpus), then POST /api/pods with { gpu_type, duration_minutes } and an optional Idempotency-Key. A whole NVIDIA GPU comes up with root, Jupyter and SSH in about a minute, billed per second in SAR."
+                  ar="اسرد الأنواع (GET /api/renters/available-providers أو list_gpus)، ثم POST /api/pods مع { gpu_type, duration_minutes } وترويسة Idempotency-Key اختيارية. يأتي معالج NVIDIA كامل بجذر وJupyter وSSH خلال دقيقة تقريباً، بالثانية بالريال."
                 />
               </p>
             </details>
