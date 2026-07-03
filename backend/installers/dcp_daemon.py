@@ -133,7 +133,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.7.0"  # heartbeat foreign-proc scan + --status/--clean CLI
+DAEMON_VERSION = "4.7.1"  # continuous squatter eviction while a pod owns the GPU
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -6691,6 +6691,12 @@ def heartbeat_loop():
                 except Exception as _off_err:
                     log.debug(f"verify_no_cpu_offload failed: {_off_err}")
                 last_offload_probe = now
+                # v4.7.1: same ~60s cadence — evict engine squatters while a
+                # pod owns the GPU (respawn loophole, 2026-07-03).
+                try:
+                    enforce_pod_gpu_ownership()
+                except Exception as _own_err:
+                    log.debug(f"enforce_pod_gpu_ownership wrapper error: {_own_err}")
         except Exception as _probe_err:
             log.debug(f"heartbeat offload-probe wrapper error: {_probe_err}")
 
@@ -8290,6 +8296,37 @@ def scan_foreign_gpu_processes(min_mib=256):
     except Exception:
         return []
     return out
+
+
+def enforce_pod_gpu_ownership():
+    """v4.7.1: while an interactive pod owns the GPU (DRAINED_UNITS_STATE is
+    the daemon's own marker for that), any bare known-engine GPU process is a
+    squatter — evict it CONTINUOUSLY, not only at pod launch.
+
+    Closes the respawn loophole caught live 2026-07-03 ~20:05Z: tier 3 killed
+    the parked vLLM so a pod could claim the card, then a supervisor
+    (screen loop / user unit) respawned it and re-took the VRAM the renter
+    was paying for. Called from the heartbeat loop (~60s cadence). Quiet when
+    there is no pod or no squatter; loud warnings when it acts. Gated by the
+    same DCP_EVICT_BARE_VLLM kill switch as tier 3. Never raises."""
+    if not DCP_EVICT_BARE_VLLM:
+        return
+    try:
+        if not DRAINED_UNITS_STATE.exists():
+            return
+        for p in scan_foreign_gpu_processes():
+            if p["pod_managed"] or not p["engine"]:
+                continue
+            log.warning(
+                f"enforce_pod_gpu_ownership: evicting respawned {p['engine']} pid={p['pid']} "
+                f"({p['used_mib']} MiB) — a paying pod owns this GPU; if it reappears, "
+                f"disable its supervisor on the host (screen -ls / systemctl --user)")
+            try:
+                os.kill(p["pid"], signal.SIGTERM)
+            except Exception as e:
+                log.warning(f"enforce_pod_gpu_ownership: SIGTERM {p['pid']} failed ({e})")
+    except Exception as e:
+        log.debug(f"enforce_pod_gpu_ownership error: {e}")
 
 
 def run_gpu_hygiene_cli(clean=False):
