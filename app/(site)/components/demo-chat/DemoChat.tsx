@@ -39,7 +39,7 @@ export function DemoChat() {
     setDemoMeta(null)
     try {
       const t0 = performance.now()
-      const res = await fetch('/api/public/demo/chat', {
+      const res = await fetch('/api/public/demo/chat?stream=1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: q }),
@@ -49,6 +49,30 @@ export function DemoChat() {
         setDemoState('down')
         return
       }
+      // streaming path: tokens render the moment they arrive from the GPU
+      if (res.headers.get('x-dcp-stream') === '1' && res.body) {
+        const model = res.headers.get('x-demo-model') || ''
+        const providers = Number(res.headers.get('x-demo-providers')) || 1
+        const reader = res.body.getReader()
+        const dec = new TextDecoder()
+        let acc = ''
+        let firstMs = 0
+        demoFull.current = '' // disable the typewriter effect — this IS live
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (!firstMs) {
+            firstMs = Math.round(performance.now() - t0)
+            setDemoState('done')
+            setDemoMeta({ model, providers, ms: firstMs })
+          }
+          acc += dec.decode(value, { stream: true })
+          setDemoTyped(acc)
+        }
+        if (!acc.trim()) setDemoState('down')
+        return
+      }
+      // buffered fallback (old backend): whole answer at once + typewriter
       const d = await res.json()
       const ms = Math.round(performance.now() - t0)
       demoFull.current = String(d.content || '')
@@ -123,7 +147,7 @@ export function DemoChat() {
           <p dir="auto">{demoTyped}</p>
           {demoMeta && (
             <span className="demo-chain" dir="ltr">
-              {demoMeta.model} · 🇸🇦 verified GPU · probe ✓ → inference ✓ → served in{' '}
+              {demoMeta.model} · 🇸🇦 verified GPU · probe ✓ → inference ✓ → first token in{' '}
               {(demoMeta.ms / 1000).toFixed(1)}s from your network
             </span>
           )}

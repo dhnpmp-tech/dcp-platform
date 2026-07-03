@@ -7,6 +7,7 @@
 // single source of truth — so the page and the JSON-LD can never drift.
 
 import Link from 'next/link'
+import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, BiX, useV2 } from '@/app/(site)/lib/i18n'
 import { PRICING_FAQ } from '@/app/lib/structured-data'
 import { PodMeter } from '@/app/(site)/components/pod-meter/PodMeter'
@@ -57,22 +58,7 @@ export default function PricingPage() {
 
   return (
     <>
-      <header className="dx-top">
-        <Link href="/" className="wm">
-          DCP<i>∞</i>
-          <span className="tag"><Bi en="Pricing" ar="الأسعار" /></span>
-        </Link>
-        <div className="links">
-          <Link href="/"><Bi en="Home" ar="الرئيسية" /></Link>
-          <Link href="/marketplace"><Bi en="Marketplace" ar="السوق" /></Link>
-          <Link href="/containers"><Bi en="GPU Pods" ar="حاويات GPU" /></Link>
-          <Link href="/docs"><Bi en="Docs" ar="التوثيق" /></Link>
-          <button type="button" className="dx-langpill" onClick={toggle} aria-label="Toggle language">
-            <span className={lang === 'en' ? 'on' : undefined}>EN</span>
-            <span className={lang === 'ar' ? 'on' : undefined}>ع</span>
-          </button>
-        </div>
-      </header>
+      <SiteHeader active="/pricing" />
 
       {/* ─── Hero ─── */}
       <section>

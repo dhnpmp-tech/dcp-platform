@@ -343,6 +343,13 @@ function GpuCardInner({ gpu }: { gpu: GpuTypeEntry }) {
           {gpu.vram_gb}
           <i> GB</i>
         </span>
+        {/* VRAM ignition: bar fills to this card's share of the largest card
+            (180 GB B200) on hover — memory size made physical */}
+        <span
+          className="gpu-vram-bar"
+          aria-hidden="true"
+          style={{ ['--vram-pct' as never]: `${Math.min(100, Math.round((gpu.vram_gb / 180) * 100))}%` }}
+        />
       </div>
     </>
   )

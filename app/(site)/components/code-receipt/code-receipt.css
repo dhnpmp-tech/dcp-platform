@@ -1,0 +1,36 @@
+/* CodeReceipt — copy buttons with a billing-joke receipt */
+
+.code-receipt-host { position: relative; }
+
+.code-receipt-btn {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  border: 1px solid var(--hair, #1f2040);
+  background: color-mix(in oklab, #04050d 80%, transparent);
+  color: var(--mut, #7b7a92);
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.code-receipt-host:hover .code-receipt-btn,
+.code-receipt-btn:focus-visible {
+  opacity: 1;
+}
+.code-receipt-btn:hover {
+  color: var(--teal, #2dd4b6);
+  border-color: var(--teal, #2dd4b6);
+}
+.code-receipt-btn.done {
+  opacity: 1;
+  color: var(--teal, #2dd4b6);
+  border-color: var(--teal, #2dd4b6);
+}
+@media (hover: none) {
+  .code-receipt-btn { opacity: 1; }
+}

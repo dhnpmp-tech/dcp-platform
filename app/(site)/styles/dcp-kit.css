@@ -865,3 +865,14 @@ html[dir="rtl"] .ps-stage.done .ps-meter span { inset:0 0 0 0; }
     .section-meta::after { display: none; }
   }
 }
+
+/* +KIT — soft page entrance: content rises 10px and fades in on mount.
+   Compositor-only, ends at the neutral state, skipped for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .site-shell, .home-hero ~ section, main.dx-page {
+    animation: kit-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes kit-enter {
+    from { opacity: 0; transform: translateY(10px); }
+  }
+}

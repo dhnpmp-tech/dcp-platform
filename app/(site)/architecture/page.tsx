@@ -5,6 +5,7 @@
 // stays sovereign. Reuses the docs chrome + home design system; no new CSS deps.
 
 import Link from 'next/link'
+import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import '../(home)/home.css'
 import '../docs/docs.css'
@@ -25,20 +26,7 @@ export default function ArchitecturePage() {
 
   return (
     <>
-      <header className="dx-top">
-        <Link href="/" className="wm">
-          DCP<i>∞</i><span className="tag"><Bi en="Architecture" ar="البنية" /></span>
-        </Link>
-        <div className="links">
-          <Link href="/"><Bi en="Home" ar="الرئيسية" /></Link>
-          <Link href="/docs"><Bi en="Docs" ar="التوثيق" /></Link>
-          <Link href="/status"><Bi en="Live status" ar="الحالة الحية" /></Link>
-          <button type="button" className="dx-langpill" onClick={toggle} aria-label="Toggle language">
-            <span className={lang === 'en' ? 'on' : undefined}>EN</span>
-            <span className={lang === 'ar' ? 'on' : undefined}>ع</span>
-          </button>
-        </div>
-      </header>
+      <SiteHeader active="/architecture" />
 
       <section className="hero" style={{ borderTop: 0, padding: 0 }}>
         <div className="hero-bg hero-bg--photo" aria-hidden="true">

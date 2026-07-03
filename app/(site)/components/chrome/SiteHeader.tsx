@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
+import { BootEgg } from '@/app/(site)/components/boot-egg/BootEgg'
 
 // ───────── marquee items ─────────
 const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
@@ -20,14 +21,14 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
   { en: 'PDPL · Saudi data residency', ar: 'نظام البيانات · إقامة داخل المملكة' },
 ]
 
-// ───────── primary nav — points only at canonical NEW routes ─────────
+// ───────── primary nav — product-first, identical to the home topbar ─────────
 const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة' },
-  { href: '/marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
+  { href: '/marketplace', en: 'Inference', ar: 'الاستدلال' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
-  { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
+  { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
@@ -64,6 +65,9 @@ export default function SiteHeader({ active }: SiteHeaderProps) {
 
   return (
     <>
+      {/* the "type gpu" terminal easter egg travels with the shared chrome */}
+      <BootEgg />
+
       {/* ───────── Top marquee ───────── */}
       <div className="v2-marq">
         <div className="in">

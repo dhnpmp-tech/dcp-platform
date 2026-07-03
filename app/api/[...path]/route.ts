@@ -47,6 +47,17 @@ async function proxyToBackend(req: NextRequest, path: string[]): Promise<NextRes
   responseHeaders.delete('content-encoding');
   responseHeaders.delete('transfer-encoding');
 
+  // Progressive endpoints (e.g. the public demo with ?stream=1) mark
+  // themselves with X-Dcp-Stream — pass the body through untouched so
+  // chunks reach the browser as they arrive. Everything else keeps the
+  // buffered behaviour this proxy has always had.
+  if (backendRes.headers.get('x-dcp-stream') === '1' && backendRes.body) {
+    return new NextResponse(backendRes.body, {
+      status: backendRes.status,
+      headers: responseHeaders,
+    });
+  }
+
   return new NextResponse(await backendRes.arrayBuffer(), {
     status: backendRes.status,
     headers: responseHeaders,

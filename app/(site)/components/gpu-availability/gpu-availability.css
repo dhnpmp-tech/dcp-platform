@@ -464,3 +464,23 @@ html[data-lang='ar'] .gpu-cta-link:focus-visible .gpu-cta-arrow {
     transform: scaleX(-1);
   }
 }
+
+/* VRAM ignition — the bar fills to the card's share of the largest VRAM
+   (180 GB) when the card is hovered. Compositor-only (scaleX). */
+.gpu-vram-bar {
+  display: block;
+  height: 3px;
+  margin-top: 10px;
+  background: linear-gradient(90deg, var(--teal, #2dd4b6), var(--orange, #ee7a3c));
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  width: var(--vram-pct, 50%);
+}
+[dir='rtl'] .gpu-vram-bar, html[data-lang='ar'] .gpu-vram-bar { transform-origin: right center; }
+.gpu-card:hover .gpu-vram-bar,
+.gpu-card:focus-within .gpu-vram-bar { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) {
+  .gpu-vram-bar { transition: none; transform: scaleX(1); opacity: 0.5; }
+}
