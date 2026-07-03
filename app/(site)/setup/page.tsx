@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useV2, Bi } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
+import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas'
 import './setup.css'
 
 const STEPS = [
@@ -112,6 +113,9 @@ export default function SetupPage() {
 
   return (
     <div className="setup">
+      <div className="setup-mesh" aria-hidden="true">
+        <HeroMeshCanvas badge={false} />
+      </div>
       <div className="setup-top">
         <Link href="/" className="wm">
           DCP<i>∞</i>

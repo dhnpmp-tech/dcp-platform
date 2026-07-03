@@ -59,3 +59,10 @@
   /* Language toggle in page chrome */
   .lang-toggle { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); background: transparent; border: 1px solid var(--hair); border-radius: 2px; padding: 6px 12px; cursor: pointer; }
   .lang-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
+/* the living mesh behind the onboarding wizard — same engine as the home
+   hero, heavily dimmed so the form stays first. Content stacks above. */
+.setup { position: relative; isolation: isolate; }
+.setup-mesh { position: fixed; inset: 0; z-index: 0; opacity: 0.30; pointer-events: none; }
+.setup-mesh .hero-mesh { position: absolute; inset: 0; aspect-ratio: auto; border: 0; border-radius: 0; }
+.setup > :not(.setup-mesh) { position: relative; z-index: 1; }
