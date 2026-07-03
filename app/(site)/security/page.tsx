@@ -135,6 +135,9 @@ export default function SecurityPage() {
       <main className="security">
         {/* ── Hero ── */}
         <section className="hero" style={{ borderTop: 0 }}>
+          <div className="hero-bg hero-bg--photo" aria-hidden="true">
+            <img src="/hero/hero-chipcity.webp" alt="" width={1800} height={1005} decoding="async" />
+          </div>
           <div className="wrap">
             <div className="hero-meta">
               <span className="left">
