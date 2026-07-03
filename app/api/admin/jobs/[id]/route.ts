@@ -29,13 +29,14 @@ function adminHeaders(request: NextRequest): HeadersInit {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authError = requireAdminCallerAuth(request);
   if (authError) return authError;
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/admin/jobs/${params.id}`, {
+    const { id } = await params;
+    const res = await fetch(`${BACKEND_URL}/api/admin/jobs/${id}`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
       headers: adminHeaders(request),

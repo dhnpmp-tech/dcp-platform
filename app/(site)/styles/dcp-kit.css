@@ -876,3 +876,23 @@ html[dir="rtl"] .ps-stage.done .ps-meter span { inset:0 0 0 0; }
     from { opacity: 0; transform: translateY(10px); }
   }
 }
+
+/* +KIT — View Transitions (Next 15 experimental.viewTransition).
+   Client-side navigations between (site) pages cross-fade via the browser's
+   View Transition API: the (site) layout wraps its children in React's
+   <ViewTransition>. 200ms compositor-only opacity fade on the root snapshot
+   pair; reduced-motion users get an instant swap instead. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*) {
+    animation: none !important;
+  }
+}

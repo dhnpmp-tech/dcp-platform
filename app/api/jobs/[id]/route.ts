@@ -6,12 +6,13 @@ const BACKEND = process.env.BACKEND_URL || 'https://api.dcp.sa';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const renterKey = request.headers.get('x-renter-key');
     const providerKey = request.headers.get('x-provider-key');
-    const res = await fetch(`${BACKEND}/api/jobs/${params.id}`, {
+    const res = await fetch(`${BACKEND}/api/jobs/${id}`, {
       headers: {
         ...(renterKey ? { 'x-renter-key': renterKey } : {}),
         ...(providerKey ? { 'x-provider-key': providerKey } : {}),
