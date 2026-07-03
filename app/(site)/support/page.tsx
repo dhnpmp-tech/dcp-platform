@@ -462,6 +462,20 @@ function SupportPageInner() {
   const searchParams = useSearchParams()
   const [storedIntent, setStoredIntent] = useState<RoleIntent | null>(null)
 
+  // useSearchParams CSR-bails this subtree during prerender, so the static
+  // HTML never contains #contact-form and the browser's native fragment jump
+  // finds nothing on first paint. Re-run the jump once the real tree mounts —
+  // this is what keeps the /support?…#contact-form deep links from
+  // /security and /trust-center working.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (!hash) return
+    const t = window.setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ block: 'start' })
+    }, 80)
+    return () => window.clearTimeout(t)
+  }, [])
+
   const requestedCategory = (searchParams.get('category') || '').toLowerCase()
   const supportSource = searchParams.get('source') || 'direct'
   const supportFlow = searchParams.get('flow') || ''
