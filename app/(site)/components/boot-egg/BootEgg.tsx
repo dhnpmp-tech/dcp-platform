@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { BOOT_EGG_EVENT } from './EggWord'
 import './boot-egg.css'
 
 const LINES: ReadonlyArray<{ t: string; cls: string }> = [
@@ -48,8 +49,16 @@ export function BootEgg() {
         setOpen(true)
       }
     }
+    const onOpenEvent = () => {
+      setProgress(0)
+      setOpen(true)
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener(BOOT_EGG_EVENT, onOpenEvent)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener(BOOT_EGG_EVENT, onOpenEvent)
+    }
   }, [open])
 
   // typewriter: reveal characters across all lines

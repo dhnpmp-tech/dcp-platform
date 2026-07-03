@@ -130,3 +130,18 @@
   user-select: none;
 }
 .egg-hint:hover { color: var(--teal); }
+
+/* the secret door: a word that opens the terminal. Quiet dashed underline
+   on hover so a curious cursor finds it; keyboard-focus gets the same. */
+.egg-word {
+  cursor: pointer;
+  text-decoration: underline dashed transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.14em;
+  transition: text-decoration-color 0.25s;
+}
+.egg-word:hover,
+.egg-word:focus-visible {
+  text-decoration-color: var(--teal);
+  outline: none;
+}
