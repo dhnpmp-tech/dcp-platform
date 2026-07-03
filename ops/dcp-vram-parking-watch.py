@@ -80,6 +80,14 @@ def main():
         "SELECT id, name, gpu_status, strftime('%s', updated_at) "
         "FROM providers WHERE status='online'"
     ).fetchall()
+    # v2.1: providers currently serving a PAID pod are healthy by definition —
+    # a renter parking VRAM inside their own pod is the product working, not
+    # an incident (learned 2026-07-03 when Tareq's pod re-occupied Node 2
+    # minutes after the tier-3 eviction freed it).
+    pod_active = {str(r[0]) for r in con.execute(
+        "SELECT DISTINCT provider_id FROM jobs WHERE job_type='interactive_pod' "
+        "AND status IN ('running','pulling','assigned','provisioning','queued','pending')"
+    ).fetchall()}
     con.close()
 
     seen = set()
@@ -105,7 +113,7 @@ def main():
 
         pct = used / total
         tier = None
-        if util <= UTIL_MAX:
+        if key not in pod_active and util <= UTIL_MAX:
             if pct > FULL_PCT:
                 tier = "full"
             elif pct > PARTIAL_PCT:
