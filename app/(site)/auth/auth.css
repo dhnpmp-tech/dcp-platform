@@ -95,3 +95,9 @@
   }
   .callout.err { border-color: color-mix(in oklab, var(--err) 60%, var(--hair)); color: #ffd5dd; }
   .callout.ok { border-color: color-mix(in oklab, var(--teal) 60%, var(--hair)); color: #c7fff4; }
+
+  /* the living mesh behind the brand panel — same engine as the home hero,
+     dimmed so the copy stays first. Everything else in the panel stacks above. */
+  .auth-mesh { position: absolute; inset: 0; z-index: 0; opacity: 0.55; pointer-events: none; }
+  .auth-mesh .hero-mesh { position: absolute; inset: 0; aspect-ratio: auto; border: 0; border-radius: 0; }
+  .auth-brand > :not(.auth-mesh) { position: relative; z-index: 1; }

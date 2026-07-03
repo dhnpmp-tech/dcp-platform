@@ -15,7 +15,7 @@ export function DemoChat() {
   const { lang } = useV2()
   const [demoQ, setDemoQ] = useState('')
   const [demoTyped, setDemoTyped] = useState('')
-  const [demoMeta, setDemoMeta] = useState<{ model: string; providers: number } | null>(null)
+  const [demoMeta, setDemoMeta] = useState<{ model: string; providers: number; ms: number } | null>(null)
   const [demoState, setDemoState] = useState<DemoState>('idle')
   const demoFull = useRef('')
   const abortRef = useRef<AbortController | null>(null)
@@ -30,6 +30,7 @@ export function DemoChat() {
     setDemoTyped('')
     setDemoMeta(null)
     try {
+      const t0 = performance.now()
       const res = await fetch('/api/public/demo/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,8 +42,9 @@ export function DemoChat() {
         return
       }
       const d = await res.json()
+      const ms = Math.round(performance.now() - t0)
       demoFull.current = String(d.content || '')
-      setDemoMeta({ model: String(d.model || ''), providers: Number(d.provider_count) || 1 })
+      setDemoMeta({ model: String(d.model || ''), providers: Number(d.provider_count) || 1, ms })
       setDemoState('done')
     } catch {
       if (ac.signal.aborted) return // unmount or re-ask — leave state as-is
@@ -94,7 +96,8 @@ export function DemoChat() {
           <p dir="auto">{demoTyped}</p>
           {demoMeta && (
             <span className="demo-chain" dir="ltr">
-              {demoMeta.model} · 🇸🇦 verified GPU · probe ✓ → inference ✓ → served
+              {demoMeta.model} · 🇸🇦 verified GPU · probe ✓ → inference ✓ → served in{' '}
+              {(demoMeta.ms / 1000).toFixed(1)}s from your network
             </span>
           )}
         </div>

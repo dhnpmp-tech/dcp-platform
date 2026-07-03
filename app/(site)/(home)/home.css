@@ -1209,3 +1209,16 @@
     .ways-clock .wc-arrow { display:none; }
     .ways-clock .wc-note { margin-inline-start:0; }
   }
+
+  /* rate rail hover: hourly price flips to the per-second unit */
+  .rate-rail .rr-it { position: relative; cursor: default; }
+  .rate-rail .rr-ps {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+    color: var(--orange); margin-top: 4px; white-space: nowrap;
+    display: none;
+  }
+  @media (hover: hover) {
+    .rate-rail .rr-it:hover .rr-p { display: none; }
+    .rate-rail .rr-it:hover .rr-ps { display: block; }
+    .rate-rail .rr-it:hover { background: color-mix(in oklab, var(--teal) 4%, transparent); }
+  }
