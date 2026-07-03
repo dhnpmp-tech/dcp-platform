@@ -351,6 +351,12 @@ resp = client.chat.completions.create(
               ar="استأجر بطاقة GPU كاملة مع صلاحيات الجذر وJupyter وSSH — مدفوعة مسبقاً بالثانية بالريال، ويُسترد الوقت غير المستخدم عند الإيقاف. يعيد الإطلاق معرّف الحاوية؛ استعلم عنه حتى تصبح الحالة running للحصول على رابط Jupyter وأمر SSH."
             />
           </p>
+          <p>
+            <Bi
+              en="Testing an inference server (vLLM, TGI)? Use the Experiment server preset in the pod console — it launches the pre-baked vLLM image on a time-boxed pod that cleans up its VRAM automatically when stopped. On provider nodes, experiments belong in pods, never bare on the machine: a hand-started server that parks VRAM blocks every pod launch until it is evicted."
+              ar="تختبر خادم استدلال (vLLM أو TGI)؟ استخدم إعداد «الخادم التجريبي» في لوحة الحاويات — يشغّل صورة vLLM الجاهزة في حاوية محددة المدة تُحرر ذاكرتها تلقائياً عند الإيقاف. على أجهزة المزوّدين، التجارب مكانها الحاويات لا الجهاز مباشرةً: أي خادم يُشغَّل يدوياً ويحجز الذاكرة يمنع إطلاق الحاويات حتى يُزال."
+            />
+          </p>
           <pre className="code">$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/pods</span> \
    <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> \
    <span className="k">-d</span> <span className="s">{"'{\"duration_minutes\": 60}'"}</span>
