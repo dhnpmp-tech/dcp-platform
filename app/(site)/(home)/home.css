@@ -1222,3 +1222,13 @@
     .rate-rail .rr-it:hover .rr-ps { display: block; }
     .rate-rail .rr-it:hover { background: color-mix(in oklab, var(--teal) 4%, transparent); }
   }
+
+  /* demo starter chips — curated questions the demo model answers well */
+  .demo-starters { display:flex; gap:8px; flex-wrap:wrap; padding:12px 16px; border-top:1px solid var(--hair); }
+  .demo-starters button {
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.05em;
+    color:var(--ink-2); background:transparent;
+    border:1px solid var(--hair); border-radius:2px; padding:5px 10px;
+    cursor:pointer; transition: border-color .15s, color .15s;
+  }
+  .demo-starters button:hover { border-color:var(--teal); color:var(--teal); }
