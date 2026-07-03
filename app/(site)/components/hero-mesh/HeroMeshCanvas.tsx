@@ -1,10 +1,13 @@
 'use client'
 
-// HeroMeshCanvas — "v3 combo" hero: a WebGL texture background (the
+// HeroMeshCanvas — "v3 combo" hero: a GPU texture background (the
 // Higgsfield mesh image, kept gently alive with parallax + grain + a teal
 // sweep) overlaid by an interactive Canvas 2D node mesh that ignites under
 // the cursor/finger and propagates the signal to its neighbours. An honest
-// device badge names the GPU actually rendering the frame.
+// device badge names the GPU actually rendering the frame — and the API:
+// when the browser grants a WebGPU adapter the background renders through
+// webgpu.ts (a WGSL port of the same shader) and the badge gains a literal
+// "· WebGPU" segment; otherwise the original WebGL path runs, unchanged.
 //
 // Ported faithfully from components/hero-mesh/_prototype/hero-v3.html with
 // production hardening: prefers-reduced-motion → static frame, rAF paused
@@ -14,6 +17,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Bi } from '../../lib/i18n'
+import { initHeroWebGPU, type HeroWebGPURenderer } from './webgpu'
 import './hero-mesh.css'
 
 interface HeroMeshCanvasProps {
@@ -75,6 +79,9 @@ export function HeroMeshCanvas({ className, badge = true, textureSrc }: HeroMesh
   // that the scene is being rendered on the visitor's device right now.
   // Stays null under prefers-reduced-motion (single static frame, no loop).
   const [fps, setFps] = useState<number | null>(null)
+  // True only once the WebGPU backend has actually taken the canvas — the
+  // badge's "· WebGPU" segment must never claim an API that isn't rendering.
+  const [isWebGPU, setIsWebGPU] = useState(false)
 
   useEffect(() => {
     const host = hostRef.current
@@ -85,19 +92,63 @@ export function HeroMeshCanvas({ className, badge = true, textureSrc }: HeroMesh
     const reduced =
       typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    // ---------- WebGL background ----------
-    const gl = glCv.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' })
-    setDevice(detectDevice(gl))
+    // ---------- GPU background: WebGPU first, WebGL fallback ----------
+    // The same scene now has two backends. A canvas can hold only ONE context
+    // kind, so the choice happens before anything touches glCv: when the
+    // browser exposes navigator.gpu AND actually grants an adapter + device
+    // (the async part), webgpu.ts renders the WGSL port; otherwise the
+    // original WebGL path below runs, logic untouched. The mesh loop starts
+    // immediately either way — on the WebGPU path the background joins a few
+    // frames later, the same visual beat as WebGL's 1×1 placeholder texture.
 
     type Gl = {
       prog: WebGLProgram
       u: { t: WebGLUniformLocation | null; r: WebGLUniformLocation | null; m: WebGLUniformLocation | null; img: WebGLUniformLocation | null; tex: WebGLUniformLocation | null; light: WebGLUniformLocation | null }
       tex: WebGLTexture
     }
+    let glCtx: WebGLRenderingContext | null = null
     let glState: Gl | null = null
+    let webgpu: HeroWebGPURenderer | null = null
+    let disposed = false
     let imgWH: [number, number] = [16, 9]
+    let heroImg: HTMLImageElement | null = null // decoded, waiting for a backend
 
-    if (gl) {
+    // The honest device NAME still comes from a WebGL renderer probe — it is
+    // far better populated than WebGPU adapter info — but on a throwaway
+    // canvas, so the background canvas stays free for whichever API wins it.
+    const probeGl = document.createElement('canvas').getContext('webgl', { powerPreference: 'high-performance' })
+    setDevice(detectDevice(probeGl))
+    try {
+      probeGl?.getExtension('WEBGL_lose_context')?.loseContext()
+    } catch {
+      /* best-effort probe context release */
+    }
+
+    // Texture chosen once (random per visit when no prop) and shared by both
+    // backends; whichever one is live when the image decodes gets the upload.
+    const im = new Image()
+    im.crossOrigin = 'anonymous'
+    im.onload = () => {
+      if (disposed) return
+      imgWH = [im.width, im.height]
+      heroImg = im
+      if (glCtx && glState) {
+        glCtx.bindTexture(glCtx.TEXTURE_2D, glState.tex)
+        glCtx.texImage2D(glCtx.TEXTURE_2D, 0, glCtx.RGBA, glCtx.RGBA, glCtx.UNSIGNED_BYTE, im)
+      }
+      if (webgpu) webgpu.setTexture(im)
+    }
+    im.src = textureSrc ?? HERO_TEXTURES[Math.floor(Math.random() * HERO_TEXTURES.length)]
+
+    // The original WebGL path — wrapped in a function so it can run either
+    // immediately (no navigator.gpu) or as the fallback after a failed
+    // WebGPU negotiation. The setup body is unchanged from the pre-WebGPU
+    // version; only the image load (shared, above) moved out of it.
+    function initWebGL() {
+      if (!glCv) return
+      const gl = glCv.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' })
+      glCtx = gl
+      if (!gl) return
       const VERT = `attribute vec2 p;varying vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.,1.);}`
       // Image-specific pointer response, all in the fragment shader:
       //  1) luminance-as-depth parallax — bright pixels (ridges, light veins)
@@ -148,14 +199,13 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-      const im = new Image()
-      im.crossOrigin = 'anonymous'
-      im.onload = () => {
-        imgWH = [im.width, im.height]
+      // the image may already be decoded (the async-fallback case, where the
+      // WebGPU negotiation failed after im.onload fired) — upload it now
+      if (heroImg) {
+        imgWH = [heroImg.width, heroImg.height]
         gl.bindTexture(gl.TEXTURE_2D, tex)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, heroImg)
       }
-      im.src = textureSrc ?? HERO_TEXTURES[Math.floor(Math.random() * HERO_TEXTURES.length)]
 
       glState = {
         prog,
@@ -169,6 +219,37 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         },
         tex,
       }
+
+      // build() may already have sized the canvas before this ran (again the
+      // async-fallback case) — align the viewport; build() keeps it in sync.
+      gl.viewport(0, 0, glCv.width, glCv.height)
+    }
+
+    // Backend selection. navigator.gpu existing is NOT enough — an adapter
+    // must actually be granted (disabled flags, blocklisted drivers and
+    // software-only setups all resolve null) — so the WebGL fallback waits on
+    // the full async negotiation, not just the property sniff. `any`-safe
+    // detection: @webgpu/types is deliberately absent (see webgpu.ts).
+    if (typeof navigator !== 'undefined' && (navigator as { gpu?: unknown }).gpu) {
+      initHeroWebGPU(glCv).then((renderer) => {
+        if (disposed) {
+          renderer?.destroy()
+          return
+        }
+        if (renderer) {
+          webgpu = renderer
+          setIsWebGPU(true) // badge honesty: claim WebGPU only once it renders
+          if (heroImg) renderer.setTexture(heroImg)
+        } else {
+          initWebGL()
+        }
+        // reduced-motion paints exactly one frame — which already happened
+        // synchronously before this negotiation settled, so paint one more
+        // now that the background is actually able to draw.
+        if (reduced) renderStaticFrame()
+      })
+    } else {
+      initWebGL()
     }
 
     // ---------- Canvas 2D mesh ----------
@@ -197,7 +278,7 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       glCv.height = H * DPR
       glCv.style.width = `${W}px`
       glCv.style.height = `${H}px`
-      if (gl && glState) gl.viewport(0, 0, glCv.width, glCv.height)
+      if (glCtx && glState) glCtx.viewport(0, 0, glCv.width, glCv.height)
 
       const target = Math.min(220, Math.max(70, (W * H) / 11000))
       const cols = Math.max(4, Math.round(Math.sqrt((target * W) / H)))
@@ -287,11 +368,19 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         frameCount = 0
       }
 
-      // WebGL background
-      if (gl && glState && glCv) {
+      // GPU background — one scene, whichever backend won the canvas at
+      // mount. Pointer smoothing stays with the draw (as it always did) so
+      // both paths ease identically.
+      if (webgpu || (glCtx && glState)) {
         mo.x += (tg.x - mo.x) * 0.05
         mo.y += (tg.y - mo.y) * 0.05
         lt.sm += (lt.tg - lt.sm) * 0.06
+      }
+      if (webgpu) {
+        // the WGSL port reads uRes off the canvas and tracks uImg internally
+        webgpu.render(t, mo.x, mo.y, lt.sm)
+      } else if (glCtx && glState && glCv) {
+        const gl = glCtx
         gl.useProgram(glState.prog)
         gl.uniform1f(glState.u.t, t)
         gl.uniform2f(glState.u.r, glCv.width, glCv.height)
@@ -417,16 +506,26 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       io.observe(host)
     }
 
-    if (reduced) {
-      // one static frame, no rAF
+    // one static frame, no rAF — also re-invoked when an async backend lands
+    // after the synchronous first paint (see the WebGPU negotiation above).
+    // The fps window resets so the badge stays fps-less under reduced motion.
+    function renderStaticFrame() {
+      running = true
       frame(performance.now())
       cancelAnimationFrame(raf) // frame() schedules another; cancel it
       running = false
+      fpsWindowStart = 0
+      frameCount = 0
+    }
+
+    if (reduced) {
+      renderStaticFrame()
     } else {
       raf = requestAnimationFrame(frame)
     }
 
     return () => {
+      disposed = true
       running = false
       cancelAnimationFrame(raf)
       pointerTarget.removeEventListener('pointermove', onMove)
@@ -436,10 +535,11 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       document.removeEventListener('visibilitychange', onVis)
       ro?.disconnect()
       io?.disconnect()
-      if (gl && glState) {
+      webgpu?.destroy()
+      if (glCtx && glState) {
         try {
-          gl.deleteProgram(glState.prog)
-          gl.deleteTexture(glState.tex)
+          glCtx.deleteProgram(glState.prog)
+          glCtx.deleteTexture(glState.tex)
         } catch {
           /* ignore */
         }
@@ -456,6 +556,11 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         <p className="hero-mesh__badge">
           <span className="hero-mesh__dot" />
           <Bi en="Rendered live on your" ar="يُعرض مباشرة على" /> <b>{device}</b>
+          {isWebGPU ? (
+            <span className="hero-mesh__fps" dir="ltr">
+              · WebGPU
+            </span>
+          ) : null}
           {fps !== null ? (
             <span className="hero-mesh__fps" dir="ltr">
               · {fps} fps
