@@ -40,7 +40,10 @@ export default function ArchitecturePage() {
         </div>
       </header>
 
-      <section>
+      <section className="hero" style={{ borderTop: 0, padding: 0 }}>
+        <div className="hero-bg hero-bg--photo" aria-hidden="true">
+          <img src="/hero/hero-dunes.webp" alt="" width={1800} height={1005} decoding="async" />
+        </div>
         <div className="wrap" style={{ paddingTop: 72, paddingBottom: 8 }}>
           <div className="section-meta">
             <span className="idx"><Bi en="Architecture · how a request stays sovereign" ar="البنية · كيف يبقى الطلب سيادياً" /></span>
