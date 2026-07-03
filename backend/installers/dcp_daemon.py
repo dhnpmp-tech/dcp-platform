@@ -133,7 +133,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.7.1"  # continuous squatter eviction while a pod owns the GPU
+DAEMON_VERSION = "4.7.2"  # ownership gate on live pod container + SIGKILL escalation
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -8298,25 +8298,45 @@ def scan_foreign_gpu_processes(min_mib=256):
     return out
 
 
+def _pod_container_running():
+    """True if a dcp-pod-* container is up — the authoritative 'a pod owns this
+    GPU right now' signal (same probe the reaper uses). Never raises."""
+    try:
+        ps = subprocess.run(
+            ["docker", "ps", "--filter", "name=dcp-pod-", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return ps.returncode == 0 and any(
+            n.strip().startswith("dcp-pod-") for n in ps.stdout.splitlines())
+    except Exception:
+        return False
+
+
 def enforce_pod_gpu_ownership():
-    """v4.7.1: while an interactive pod owns the GPU (DRAINED_UNITS_STATE is
-    the daemon's own marker for that), any bare known-engine GPU process is a
-    squatter — evict it CONTINUOUSLY, not only at pod launch.
+    """v4.7.1: while an interactive pod owns the GPU, any bare known-engine GPU
+    process is a squatter — evict it CONTINUOUSLY, not only at pod launch.
 
     Closes the respawn loophole caught live 2026-07-03 ~20:05Z: tier 3 killed
     the parked vLLM so a pod could claim the card, then a supervisor
     (screen loop / user unit) respawned it and re-took the VRAM the renter
     was paying for. Called from the heartbeat loop (~60s cadence). Quiet when
     there is no pod or no squatter; loud warnings when it acts. Gated by the
-    same DCP_EVICT_BARE_VLLM kill switch as tier 3. Never raises."""
+    same DCP_EVICT_BARE_VLLM kill switch as tier 3. Never raises.
+
+    v4.7.2: gate on the live pod container (reaper's probe), not just
+    DRAINED_UNITS_STATE — the drain marker is skipped when
+    DCP_DRAIN_INFERENCE_FOR_PODS is off, which left 4.7.1 blind on Node 2.
+    The marker still covers the pulling window before the container exists.
+    Also escalate SIGTERM→SIGKILL like tier 3, so a TERM-trapping engine
+    can't outlive the grace period."""
     if not DCP_EVICT_BARE_VLLM:
         return
     try:
-        if not DRAINED_UNITS_STATE.exists():
+        if not (_pod_container_running() or DRAINED_UNITS_STATE.exists()):
             return
-        for p in scan_foreign_gpu_processes():
-            if p["pod_managed"] or not p["engine"]:
-                continue
+        squatters = [p for p in scan_foreign_gpu_processes()
+                     if not p.get("pod_managed") and p.get("engine")]
+        for p in squatters:
             log.warning(
                 f"enforce_pod_gpu_ownership: evicting respawned {p['engine']} pid={p['pid']} "
                 f"({p['used_mib']} MiB) — a paying pod owns this GPU; if it reappears, "
@@ -8325,6 +8345,18 @@ def enforce_pod_gpu_ownership():
                 os.kill(p["pid"], signal.SIGTERM)
             except Exception as e:
                 log.warning(f"enforce_pod_gpu_ownership: SIGTERM {p['pid']} failed ({e})")
+        if squatters:
+            time.sleep(3)
+            for p in squatters:
+                try:
+                    os.kill(p["pid"], 0)
+                except Exception:
+                    continue  # gone
+                log.warning(f"enforce_pod_gpu_ownership: SIGKILL pid={p['pid']} (survived SIGTERM)")
+                try:
+                    os.kill(p["pid"], signal.SIGKILL)
+                except Exception as e:
+                    log.warning(f"enforce_pod_gpu_ownership: SIGKILL {p['pid']} failed ({e})")
     except Exception as e:
         log.debug(f"enforce_pod_gpu_ownership error: {e}")
 
