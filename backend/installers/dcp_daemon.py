@@ -133,7 +133,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.5.1"
+DAEMON_VERSION = "4.6.0"  # bare-vLLM make-room tier 3
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -2879,6 +2879,19 @@ OLLAMA_EVICT_TIMEOUT = int(os.environ.get("DCP_OLLAMA_EVICT_TIMEOUT", "10"))
 GPU_FREE_POLL_ATTEMPTS = int(os.environ.get("DCP_GPU_FREE_POLL_ATTEMPTS", "30"))
 GPU_FREE_POLL_INTERVAL_S = float(os.environ.get("DCP_GPU_FREE_POLL_INTERVAL_S", "1.0"))
 OLLAMA_REPULL_ENABLED = os.environ.get("DCP_OLLAMA_AUTO_REPULL", "").lower() in ("1", "true", "yes")
+
+# ─── BARE-PROCESS EVICTION (make-room tier 3) ────────────────────────────────
+# The Node-2 incident (2026-07-03): a vLLM server started by hand (screen/
+# nohup, NOT a dcp-* systemd unit) preallocated ~22 GB and every pod launch
+# failed the VRAM gate. Tier 1 (Ollama keep_alive=0) and tier 2 (systemd unit
+# drain) are both blind to it. This tier finds GPU compute processes whose
+# cmdline matches DCP_BARE_EVICT_PATTERNS and evicts them — a pod pays for
+# the WHOLE card (product decision 2026-06-08). Deliberately loud, and the
+# daemon cannot restore what it did not start.
+DCP_EVICT_BARE_VLLM = os.environ.get("DCP_EVICT_BARE_VLLM", "1").lower() not in ("0", "false", "no")
+BARE_EVICT_PATTERNS = [p.strip().lower() for p in os.environ.get(
+    "DCP_BARE_EVICT_PATTERNS", "vllm").split(",") if p.strip()]
+BARE_EVICT_TERM_WAIT_S = int(os.environ.get("DCP_BARE_EVICT_TERM_WAIT_S", "15"))
 
 # ─── INFERENCE↔COMPUTE MUTEX (compute preempts inference) ────────────────────
 # Product decision 2026-06-08: a compute pod gets the WHOLE GPU. On pod accept
@@ -8133,6 +8146,92 @@ def free_gpu_for_pod(required_mib):
     return free_after >= required_mib, free_after
 
 
+def _gpu_compute_pids():
+    """[(pid, used_mib)] from `nvidia-smi --query-compute-apps`; [] on any failure."""
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=10)
+        out = []
+        for line in (r.stdout or "").splitlines():
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) >= 2 and parts[0].isdigit():
+                try:
+                    out.append((int(parts[0]), int(float(parts[1] or 0))))
+                except ValueError:
+                    out.append((int(parts[0]), 0))
+        return out
+    except Exception:
+        return []
+
+
+def evict_bare_inference_for_pod(required_mib):
+    """Make-room tier 3: evict BARE inference servers (vLLM & friends started
+    outside the daemon) that hold VRAM a paying pod needs.
+
+    Only runs when the VRAM gate would still fail after tiers 1+2, and only
+    touches GPU compute processes whose /proc cmdline matches
+    BARE_EVICT_PATTERNS (default: vllm). SIGTERM first, SIGKILL after
+    BARE_EVICT_TERM_WAIT_S, then the usual free-VRAM poll. Loud on purpose:
+    each eviction is a warning with pid + cmdline, and the process will NOT
+    be auto-restored after the pod (the daemon didn't start it). Gated by
+    DCP_EVICT_BARE_VLLM (default on). Best-effort; never raises.
+    Returns (freed_ok, free_mib)."""
+    gpu = detect_gpu() or {}
+    free = gpu.get("free_vram_mib", 0)
+    if free >= required_mib or not DCP_EVICT_BARE_VLLM:
+        return free >= required_mib, free
+
+    victims = []
+    for pid, used in _gpu_compute_pids():
+        if pid == os.getpid():
+            continue
+        try:
+            cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "ignore").strip()
+        except Exception:
+            continue
+        if any(pat in cmdline.lower() for pat in BARE_EVICT_PATTERNS):
+            victims.append((pid, used, cmdline))
+    if not victims:
+        return free >= required_mib, free
+
+    for pid, used, cmdline in victims:
+        log.warning(
+            f"evict_bare_inference_for_pod: SIGTERM bare inference pid={pid} (~{used} MiB) — "
+            f"'{cmdline[:160]}' — started outside the daemon, will NOT be auto-restored")
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception as e:
+            log.warning(f"evict_bare_inference_for_pod: SIGTERM pid={pid} failed ({e})")
+
+    victim_pids = {v[0] for v in victims}
+    deadline = time.time() + BARE_EVICT_TERM_WAIT_S
+    while time.time() < deadline:
+        time.sleep(1.0)
+        if not victim_pids & {p for p, _ in _gpu_compute_pids()}:
+            break
+    for pid, _, _ in victims:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            continue
+        log.warning(f"evict_bare_inference_for_pod: SIGKILL pid={pid} (survived SIGTERM)")
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except Exception:
+            pass
+
+    free_after = free
+    for _ in range(GPU_FREE_POLL_ATTEMPTS):
+        time.sleep(GPU_FREE_POLL_INTERVAL_S)
+        gpu = detect_gpu() or {}
+        free_after = gpu.get("free_vram_mib", free_after)
+        if free_after >= required_mib:
+            break
+    log.info(f"evict_bare_inference_for_pod: VRAM {free} -> {free_after} MiB (need {required_mib} MiB)")
+    return free_after >= required_mib, free_after
+
+
 def _systemctl_user(*args, timeout=30):
     """Run `systemctl --user <args>`; return (rc, stdout). Best-effort, never raises."""
     try:
@@ -8370,6 +8469,11 @@ def poll_and_execute():
             if stopped:
                 log.info(f"Job {job_id}: compute preempts inference — stopped {stopped}")
             freed_ok, free_after = free_gpu_for_pod(pod_required)
+            if not freed_ok:
+                # Tier 3: a bare vLLM (or similar) started outside the daemon —
+                # invisible to the Ollama evict and the unit drain — may be
+                # parking the VRAM (the Node-2 2026-07-03 incident).
+                freed_ok, free_after = evict_bare_inference_for_pod(pod_required)
             if freed_ok:
                 log.info(f"Job {job_id}: freed GPU for interactive_pod ({free_after} MiB free)")
         except Exception as e:
