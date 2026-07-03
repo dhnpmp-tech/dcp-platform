@@ -1151,3 +1151,61 @@
     animation: pulse 1.8s ease-in-out infinite;
   }
   @media (prefers-reduced-motion: reduce) { .capacity-gates .gates-head::before { animation: none; } }
+
+  /* ════════════ §04 EVERY WAY IN ════════════ */
+  .ways {
+    display:grid; grid-template-columns: repeat(4, 1fr);
+    border:1px solid var(--line); background:var(--paper);
+  }
+  @media (max-width: 1120px) { .ways { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .ways { grid-template-columns: 1fr; } }
+  .ways .way {
+    padding: 30px 28px 28px; border-inline-end:1px solid var(--hair);
+    display:flex; flex-direction:column; gap:12px; min-width:0; min-height:300px;
+    transition: background .2s;
+  }
+  .ways .way:last-child { border-inline-end:0; }
+  .ways .way:hover { background:var(--bg-2); }
+  @media (max-width: 1120px) {
+    .ways .way { border-bottom:1px solid var(--hair); min-height:0; }
+    .ways .way:nth-child(2n) { border-inline-end:0; }
+    .ways .way:nth-child(n+3) { border-bottom:0; }
+  }
+  @media (max-width: 640px) {
+    .ways .way { border-inline-end:0 !important; border-bottom:1px solid var(--hair) !important; }
+    .ways .way:last-child { border-bottom:0 !important; }
+  }
+  .way .way-k { font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); }
+  .way h3 {
+    font-family:var(--serif); font-weight:400; font-size:27px; line-height:1.05;
+    letter-spacing:-.015em; margin:0; color:var(--ink); text-wrap:balance;
+  }
+  html[data-lang="ar"] .way h3 { font-family:var(--arabic); font-weight:700; line-height:1.25; letter-spacing:0; }
+  .way h3 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .way h3 em { font-style:normal; }
+  .way p { margin:0; color:var(--ink-2); font-size:13.5px; line-height:1.6; text-wrap:pretty; }
+  .way .term.slim { font-size:11px; padding:12px 14px; margin:2px 0; }
+  .way .way-end {
+    margin-top:auto; padding-top:12px; border-top:1px dashed var(--hair);
+    font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+  }
+  .way .way-end a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
+  .way .way-end a:hover { color:var(--teal); border-bottom-color:var(--teal); }
+
+  /* the honest time-to-pod strip */
+  .ways-clock {
+    display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;
+    border:1px solid var(--line); border-top:0; background:var(--bg-2);
+    padding: 16px 24px;
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; color:var(--ink-2);
+  }
+  .ways-clock .wc-step i {
+    font-style:normal; color:var(--teal); font-weight:600; margin-inline-end:8px;
+  }
+  .ways-clock .wc-arrow { color:var(--mut); }
+  .ways-clock .wc-note { margin-inline-start:auto; color:var(--mut); text-transform:uppercase; font-size:10px; letter-spacing:.14em; }
+  @media (max-width: 760px) {
+    .ways-clock { flex-direction:column; gap:8px; align-items:flex-start; }
+    .ways-clock .wc-arrow { display:none; }
+    .ways-clock .wc-note { margin-inline-start:0; }
+  }

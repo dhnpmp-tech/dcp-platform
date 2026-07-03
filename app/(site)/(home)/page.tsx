@@ -12,7 +12,7 @@ import { HomeChrome } from '@/app/(site)/components/home-chrome/HomeChrome'
 import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas'
 import { DemoChat } from '@/app/(site)/components/demo-chat/DemoChat'
 import { GPU_SKUS } from '@/app/lib/structured-data'
-import { CAPACITY_GATES, HOME_FAQ_VISIBLE } from './home-data'
+import { HOME_FAQ_VISIBLE } from './home-data'
 import './home.css'
 
 export default function V2HomePage() {
@@ -305,62 +305,108 @@ client = OpenAI(
         </div>
       </section>
 
-      {/* ═══════════════ §04 LIVE-VERIFIED CAPACITY ═══════════════
-          The trust section. The reader's real question is "if I click launch,
-          will there actually be a GPU?" — so the copy answers that, and the
-          three gates are framed as the live test every machine keeps passing. */}
-      <section id="honest">
+      {/* ═══════════════ §04 EVERY WAY IN ═══════════════
+          The "how easy is this really" section: four doors into the same
+          mesh — terminal, any OpenAI SDK, browser console, your AI agent —
+          plus the honest time-to-pod strip underneath. */}
+      <section id="ways">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 04 · Live-verified capacity" ar="§ ٠٤ · سعة متحققة حياً" />
+              <Bi en="§ 04 · Every way in" ar="§ ٠٤ · كل طرق الدخول" />
             </span>
             <span>
-              <Bi en="If it's listed, it's answering right now" ar="إن كان مدرجاً، فهو يجيب الآن" />
+              <Bi en="Terminal · any OpenAI SDK · browser · your AI agent" ar="طرفية · أي SDK من OpenAI · متصفح · وكيلك الذكي" />
             </span>
           </div>
-          <div className="capacity-truth">
-            <div className="capacity-copy">
-              <span className="truth-label">
-                <Bi en="No stale inventory" ar="لا مخزون متقادم" />
+
+          <div className="ways">
+            <div className="way">
+              <span className="way-k">
+                <Bi en="01 · Terminal" ar="٠١ · الطرفية" />
               </span>
               <h3>
+                <BiX en={<>One curl. <em>Whole GPU.</em></>} ar={<>أمر curl واحد. <em>معالج كامل.</em></>} />
+              </h3>
+              <pre className="term slim" dir="ltr" aria-label="Create a pod from the terminal">{`curl -X POST https://api.dcp.sa/api/pods \\
+  -H "Authorization: Bearer $DCP_KEY" \\
+  -d '{"gpu_type":"H100","duration_minutes":60}'`}</pre>
+              <p>
                 <Bi
-                  en="Every GPU on this site just passed a live test."
-                  ar="كل معالج في هذا الموقع اجتاز للتو اختباراً حياً."
+                  en="Root, Jupyter and SSH come back in the response. Extend or stop it the same way."
+                  ar="يعود Root وJupyter وSSH في الاستجابة. مدّدها أو أوقفها بالطريقة نفسها."
                 />
+              </p>
+            </div>
+
+            <div className="way">
+              <span className="way-k">
+                <Bi en="02 · Any OpenAI SDK" ar="٠٢ · أي SDK من OpenAI" />
+              </span>
+              <h3>
+                <BiX en={<>Change one line. <em>Keep your code.</em></>} ar={<>غيّر سطراً واحداً. <em>وأبقِ كودك.</em></>} />
+              </h3>
+              <pre className="term slim" dir="ltr" aria-label="Point an OpenAI SDK at DCP">{`client = OpenAI(
+  base_url="https://api.dcp.sa/v1",
+  api_key=DCP_KEY)`}</pre>
+              <p>
+                <Bi
+                  en="Chat, embeddings and rerank from in-Kingdom GPUs — streaming, function calling, JSON mode."
+                  ar="محادثة وتضمين وإعادة ترتيب من معالجات داخل المملكة — بث واستدعاء دوال وJSON."
+                />
+              </p>
+            </div>
+
+            <div className="way">
+              <span className="way-k">
+                <Bi en="03 · Browser" ar="٠٣ · المتصفح" />
+              </span>
+              <h3>
+                <BiX en={<>No terminal? <em>The console.</em></>} ar={<>بلا طرفية؟ <em>لوحة التحكم.</em></>} />
               </h3>
               <p>
                 <Bi
-                  en="Other GPU clouds show inventory someone typed in — and it goes stale. DCP's list writes itself: our backend keeps calling every machine and running a real inference request against it. Pass, and it stays listed. Fail, and it disappears until it recovers. So if you can see a GPU here, you can rent it right now."
-                  ar="السحب الأخرى تعرض مخزوناً كتبه أحدهم يدوياً — ثم يتقادم. قائمة DCP تكتب نفسها: خلفيتنا تستدعي كل جهاز باستمرار وتشغّل عليه طلب استدلال حقيقياً. إن نجح بقي مدرجاً، وإن فشل اختفى حتى يتعافى. فإن رأيت معالجاً هنا، فبإمكانك استئجاره الآن."
+                  en="Pick a GPU, click launch, and Jupyter opens in a tab. Wallet, invoices and usage live in the same place. The playground answers before you ever create a key."
+                  ar="اختر معالجاً، اضغط تشغيل، وسيفتح Jupyter في تبويب. المحفظة والفواتير والاستخدام في المكان نفسه. وساحة التجربة تجيبك قبل أن تنشئ مفتاحاً أصلاً."
                 />
               </p>
-              <div className="mp-foot" style={{ marginTop: 18 }}>
-                <Link href="/marketplace">
-                  <Bi en="See what's serving now →" ar="شاهد ما يُخدَم الآن ←" />
-                </Link>
-                <Link href="/status">
-                  <Bi en="Watch it live on /status" ar="راقبه حياً على ‎/status" />
+              <div className="way-end">
+                <Link href="/setup">
+                  <Bi en="Open the console →" ar="افتح لوحة التحكم ←" />
                 </Link>
               </div>
             </div>
-            <div className="capacity-gates" aria-label="The live test every listed machine keeps passing">
-              <div className="gates-head">
-                <Bi en="The test · every machine · continuously" ar="الاختبار · كل جهاز · باستمرار" />
+
+            <div className="way">
+              <span className="way-k">
+                <Bi en="04 · Your AI agent" ar="٠٤ · وكيلك الذكي" />
+              </span>
+              <h3>
+                <BiX en={<>Agents are <em>first-class.</em></>} ar={<>الوكلاء <em>مواطنون من الدرجة الأولى.</em></>} />
+              </h3>
+              <pre className="term slim" dir="ltr" aria-label="Install the DCP MCP server">{`npx -y github:dhnpmp-tech/dcp-mcp`}</pre>
+              <p>
+                <Bi
+                  en="An agent self-registers, gets a real key plus a 20 SAR trial, and rents GPUs — zero humans involved."
+                  ar="يسجّل الوكيل نفسه، ويحصل على مفتاح حقيقي مع رصيد تجريبي ٢٠ ريالاً، ويستأجر المعالجات — دون أي تدخل بشري."
+                />
+              </p>
+              <div className="way-end">
+                <Link href="/agents">
+                  <Bi en="The agent guide →" ar="دليل الوكلاء ←" />
+                </Link>
               </div>
-              {CAPACITY_GATES.map((gate, index) => (
-                <div className="capacity-gate" key={gate.k}>
-                  <span className="gate-n">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="gate-t">
-                    <Bi en={gate.tEn} ar={gate.tAr} /> <i className="gate-k-inline" dir="ltr">{gate.k}</i>
-                  </span>
-                  <p>
-                    <Bi en={gate.en} ar={gate.ar} />
-                  </p>
-                </div>
-              ))}
             </div>
+          </div>
+
+          {/* honest time-to-pod strip */}
+          <div className="ways-clock" dir="ltr" aria-label="Time from sign-up to a running pod">
+            <span className="wc-step"><i>0:00</i> <Bi en="sign up · no card" ar="سجّل · بلا بطاقة" /></span>
+            <span className="wc-arrow">→</span>
+            <span className="wc-step"><i>0:30</i> <Bi en="fund wallet in SAR" ar="موّل المحفظة بالريال" /></span>
+            <span className="wc-arrow">→</span>
+            <span className="wc-step"><i>~1:30</i> <Bi en="Jupyter open on a whole GPU" ar="Jupyter يعمل على معالج كامل" /></span>
+            <span className="wc-note"><Bi en="billed per second only while it runs" ar="فوترة بالثانية فقط أثناء التشغيل" /></span>
           </div>
         </div>
       </section>
@@ -450,14 +496,14 @@ client = OpenAI(
               </h2>
               <p>
                 <Bi
-                  en="A 4 MB desktop app for Windows, macOS Apple Silicon and Linux. It detects your card, installs the inference engine, downloads a model, and reports measured throughput after verification — then your machine joins the self-hosted WireGuard mesh. No port forwarding, no DevOps."
-                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف بطاقتك، ويثبّت محرك الاستدلال، وينزّل نموذجاً، ويعرض السرعة المقاسة بعد التحقق — ثم ينضم جهازك إلى شبكة WireGuard ذاتية الاستضافة. بلا فتح منافذ، بلا عمليات تشغيل."
+                  en="One 4 MB app, packaged natively for every desk: a signed .exe for Windows, a universal .dmg for macOS, .AppImage and .deb for Linux. Run it once — it detects your card, installs the inference engine, downloads a model, verifies real throughput, joins the self-hosted WireGuard mesh, and keeps itself up to date. No port forwarding, no DevOps."
+                  ar="تطبيق واحد بحجم ٤ ميغابايت، مغلّف أصلياً لكل نظام: ‎.exe موقّع لـWindows، و‎.dmg شامل لـmacOS، و‎.AppImage و‎.deb لـLinux. شغّله مرة واحدة — يكتشف بطاقتك، ويثبّت محرك الاستدلال، وينزّل نموذجاً، ويتحقق من السرعة الفعلية، وينضم إلى شبكة WireGuard ذاتية الاستضافة، ويحدّث نفسه تلقائياً. بلا فتح منافذ، بلا عمليات تشغيل."
                 />
               </p>
               <ul className="pshow-list">
-                <li><Bi en="85% provider · 15% platform · monthly SAR payout" ar="٨٥٪ للمزوّد · ١٥٪ للمنصّة · دفع شهري بالريال" /></li>
-                <li><Bi en="Windows · macOS Apple Silicon · Linux · 4 MB · zero config" ar="Windows · macOS Apple Silicon · Linux · ٤ ميغابايت · بلا إعداد" /></li>
-                <li><Bi en="Paid only while verified and serving — the same gates you saw above" ar="تُدفع فقط أثناء التحقق والخدمة — البوابات نفسها التي رأيتها أعلاه" /></li>
+                <li><Bi en="You keep 75% of every Riyal your rig earns · paid out in SAR" ar="تحتفظ بـ٧٥٪ من كل ريال يكسبه جهازك · يُدفع بالريال" /></li>
+                <li><Bi en="Native installers + signed auto-updates · one codebase, three platforms" ar="مثبّتات أصلية وتحديثات موقّعة تلقائية · قاعدة كود واحدة لثلاث منصات" /></li>
+                <li><Bi en="Paid only while your machine is verified and actually serving" ar="تُدفع فقط ما دام جهازك متحققاً منه ويخدم فعلاً" /></li>
               </ul>
               <div className="pshow-ctas">
                 <Link className="btn primary" href="/provider-setup">

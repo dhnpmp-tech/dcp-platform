@@ -20,9 +20,15 @@ interface HeroMeshCanvasProps {
   className?: string
   /** Show the honest "Rendered live on your <device>" badge. @default true */
   badge?: boolean
-  /** WebGL background texture. @default '/hero/hero-mesh-bg.webp' */
+  /** WebGL background texture. When omitted, one of HERO_TEXTURES is picked
+   *  at random per visit — every load renders a different scene. */
   textureSrc?: string
 }
+
+// The rotating scene library: abstract mesh, terrain constellation, chip-city.
+// All share the midnight-navy + teal/amber palette so the node overlay reads
+// identically on top of any of them.
+const HERO_TEXTURES = ['/hero/hero-mesh-bg.webp', '/hero/hero-dunes.webp', '/hero/hero-chipcity.webp'] as const
 
 const TEAL: [number, number, number] = [45, 212, 182]
 const AMBER: [number, number, number] = [238, 122, 60]
@@ -60,7 +66,7 @@ function detectDevice(gl: WebGLRenderingContext | null): string {
   return g ? g.slice(0, 40) : 'GPU'
 }
 
-export function HeroMeshCanvas({ className, badge = true, textureSrc = '/hero/hero-mesh-bg.webp' }: HeroMeshCanvasProps) {
+export function HeroMeshCanvas({ className, badge = true, textureSrc }: HeroMeshCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const glRef = useRef<HTMLCanvasElement>(null)
   const meshRef = useRef<HTMLCanvasElement>(null)
@@ -132,7 +138,7 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         gl.bindTexture(gl.TEXTURE_2D, tex)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im)
       }
-      im.src = textureSrc
+      im.src = textureSrc ?? HERO_TEXTURES[Math.floor(Math.random() * HERO_TEXTURES.length)]
 
       glState = {
         prog,
@@ -149,11 +155,12 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
 
     // ---------- Canvas 2D mesh ----------
     const ctx = meshCv.getContext('2d')
-    type Node = { x: number; y: number; a: number; base: number; nb: number[] }
+    type Node = { x: number; y: number; ox: number; oy: number; ph: number; a: number; base: number; nb: number[] }
     let nodes: Node[] = []
     let edges: [number, number][] = []
     let W = 0
     let H = 0
+    let nextPulse = 0 // ambient signal scheduler (seconds)
 
     const DPR = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)
 
@@ -182,9 +189,14 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       nodes = []
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
+          const nx = (x + 0.5) * cw + (Math.random() - 0.5) * cw * 0.75
+          const ny = (y + 0.5) * ch + (Math.random() - 0.5) * ch * 0.75
           nodes.push({
-            x: (x + 0.5) * cw + (Math.random() - 0.5) * cw * 0.75,
-            y: (y + 0.5) * ch + (Math.random() - 0.5) * ch * 0.75,
+            x: nx,
+            y: ny,
+            ox: nx,
+            oy: ny,
+            ph: Math.random() * 6.2832,
             a: 0,
             base: 0,
             nb: [],
@@ -256,11 +268,25 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         gl.drawArrays(gl.TRIANGLES, 0, 3)
       }
 
-      // Canvas 2D mesh — the cursor leaves a QUIET trace, not a floodlight:
-      // small ignite radius, soft partial activation, short propagation, and
-      // no additive glow blobs. The mesh should read as circuitry waking up,
-      // never as a bright wash over the artwork.
+      // Canvas 2D mesh — alive on its own, quiet under the cursor.
+      // Ambient life: (1) the web breathes — every node drifts a few px on a
+      // slow sine around its origin, (2) node colors slide teal↔amber over
+      // time, (3) every couple of seconds a random node fires and the signal
+      // travels outward along the edges — compute moving through the mesh.
+      // The cursor adds only a soft partial trace (no floodlight, no blobs).
       if (ctx) {
+        // breathing positions
+        for (const n of nodes) {
+          n.x = n.ox + Math.sin(t * 0.22 + n.ph) * 5
+          n.y = n.oy + Math.cos(t * 0.19 + n.ph * 1.31) * 5
+        }
+        // autonomous traveling signals
+        if (t >= nextPulse && nodes.length > 0) {
+          const origin = nodes[(Math.random() * nodes.length) | 0]
+          origin.a = Math.max(origin.a, 0.7)
+          nextPulse = t + 1.4 + Math.random() * 2.2
+        }
+        // cursor trace
         const IR = 60
         const IR2 = IR * IR
         for (const n of nodes) {
@@ -272,6 +298,7 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
             if (strength > n.a) n.a = strength
           }
         }
+        // propagation
         const prev = nodes.map((n) => n.a)
         for (let i = 0; i < nodes.length; i++) {
           let m = prev[i] * 0.9
@@ -282,11 +309,17 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
           }
           nodes[i].a = m < 0.002 ? 0 : m
         }
+        // time-drifted palette position: teal↔amber slides around the node's
+        // spatial gradient anchor, each node on its own phase
+        const shade = (n: Node): number => {
+          const s = n.base + 0.25 * Math.sin(t * 0.16 + n.ph)
+          return s < 0 ? 0 : s > 1 ? 1 : s
+        }
         ctx.clearRect(0, 0, W, H)
         ctx.lineWidth = 1
         for (const [i, j] of edges) {
           const a = Math.max(nodes[i].a, nodes[j].a)
-          const tt = (nodes[i].base + nodes[j].base) * 0.5
+          const tt = (shade(nodes[i]) + shade(nodes[j])) * 0.5
           const c = mix(mix(TEAL, AMBER, tt), mix(AMBER, TEAL, tt), a)
           ctx.strokeStyle = rgba(c, 0.045 + a * 0.18)
           ctx.beginPath()
@@ -295,8 +328,10 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
           ctx.stroke()
         }
         for (const n of nodes) {
-          const c = mix(mix(TEAL, AMBER, n.base), mix(AMBER, TEAL, n.base), n.a)
-          ctx.globalAlpha = 0.3 + n.a * 0.4
+          const b = shade(n)
+          const c = mix(mix(TEAL, AMBER, b), mix(AMBER, TEAL, b), n.a)
+          // gentle twinkle on top of the activation glow
+          ctx.globalAlpha = 0.26 + n.a * 0.4 + 0.1 * (0.5 + 0.5 * Math.sin(t * 0.7 + n.ph * 2))
           ctx.fillStyle = rgba(c, 1)
           ctx.beginPath()
           ctx.arc(n.x, n.y, 1.5 + n.a * 1.1, 0, 6.2832)

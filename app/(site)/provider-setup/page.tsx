@@ -627,7 +627,7 @@ export default function V2ProviderSetup() {
                 <div className="rq">
                   <Bi en="published split" ar="التقسيم المنشور" />
                 </div>
-                <div className="share">85%</div>
+                <div className="share">75%</div>
               </div>
               <div className="t">
                 <div className="nm">
@@ -636,7 +636,7 @@ export default function V2ProviderSetup() {
                 <div className="rq">
                   <Bi en="platform operations" ar="تشغيل المنصة" />
                 </div>
-                <div className="share">15%</div>
+                <div className="share">25%</div>
               </div>
               <div className="t">
                 <div className="nm">
@@ -679,8 +679,8 @@ export default function V2ProviderSetup() {
               </h4>
               <p>
                 <Bi
-                  en="Reliability affects routing and future eligibility. The published payout split remains 85% provider and 15% platform unless a separately audited policy changes it."
-                  ar="تؤثر الموثوقية في التوجيه والأهلية المستقبلية. يبقى تقسيم الدفع المنشور ٨٥٪ للمزوّد و١٥٪ للمنصّة ما لم تتغير سياسة مدققة بشكل منفصل."
+                  en="Reliability affects routing and future eligibility. The published payout split remains 75% provider and 25% platform unless a separately audited policy changes it."
+                  ar="تؤثر الموثوقية في التوجيه والأهلية المستقبلية. يبقى تقسيم الدفع المنشور ٧٥٪ للمزوّد و٢٥٪ للمنصّة ما لم تتغير سياسة مدققة بشكل منفصل."
                 />
               </p>
             </div>
@@ -761,7 +761,7 @@ export default function V2ProviderSetup() {
               <div className="est-split">
                 <div className="s you">
                   <div className="lab">
-                    <Bi en="You keep · 85%" ar="تحتفظ · ٨٥٪" />
+                    <Bi en="You keep · 75%" ar="تحتفظ · ٧٥٪" />
                   </div>
                   <div className="val">
                     <span id="split-you">{fmt(est.youLo)}</span>–<span id="split-you-hi">{fmt(est.youHi)}</span> SAR
@@ -849,8 +849,8 @@ export default function V2ProviderSetup() {
               </h4>
               <p>
                 <Bi
-                  en="Nobody can promise a fixed income — demand moves. Before the first verified throughput report, this range is planning guidance only; once jobs settle, you keep 85% of every Riyal a job earns."
-                  ar="لا أحد يستطيع وعدك بدخل ثابت — الطلب يتغير. قبل أول تقرير إنتاجية متحقق، هذا النطاق إرشاد تخطيطي فقط؛ وبعد تسوية المهام تحتفظ بـ ٨٥٪ من كل ريال تكسبه المهمة."
+                  en="Nobody can promise a fixed income — demand moves. Before the first verified throughput report, this range is planning guidance only; once jobs settle, you keep 75% of every Riyal a job earns."
+                  ar="لا أحد يستطيع وعدك بدخل ثابت — الطلب يتغير. قبل أول تقرير إنتاجية متحقق، هذا النطاق إرشاد تخطيطي فقط؛ وبعد تسوية المهام تحتفظ بـ ٧٥٪ من كل ريال تكسبه المهمة."
                 />
               </p>
             </div>
