@@ -13,6 +13,7 @@ import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas
 import { DemoChat } from '@/app/(site)/components/demo-chat/DemoChat'
 import { PodMeter } from '@/app/(site)/components/pod-meter/PodMeter'
 import { BootEgg } from '@/app/(site)/components/boot-egg/BootEgg'
+import { EggWord } from '@/app/(site)/components/boot-egg/EggWord'
 import { GPU_SKUS } from '@/app/lib/structured-data'
 import { HOME_FAQ_VISIBLE } from './home-data'
 import './home.css'
@@ -35,14 +36,14 @@ export default function V2HomePage() {
                 <BiX
                   en={
                     <>
-                      Rent a whole GPU <em>by the second.</em>
+                      Rent a whole <EggWord>GPU</EggWord> <em>by the second.</em>
                       <br />
                       Stop paying for the other 59{' '}minutes.
                     </>
                   }
                   ar={
                     <>
-                      استأجر معالجاً كاملاً <em>بالثانية.</em>
+                      استأجر <EggWord>معالجاً</EggWord> كاملاً <em>بالثانية.</em>
                       <br />
                       لا تدفع مقابل الدقائق الـ٥٩ الباقية.
                     </>
@@ -667,7 +668,9 @@ client = OpenAI(
         <div className="foot-bottom">
           <span>
             § DC Power Solutions Company · CR 7053667775 · VAT 311102233400003{' '}
-            <span className="egg-hint" dir="ltr">· psst — try typing “gpu”</span>
+            <span className="egg-hint" dir="ltr">
+              · psst — try typing <EggWord>“gpu”</EggWord>
+            </span>
           </span>
           <div className="badges">
             <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>PDPL</span>
