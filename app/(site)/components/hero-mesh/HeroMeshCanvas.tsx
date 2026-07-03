@@ -71,6 +71,10 @@ export function HeroMeshCanvas({ className, badge = true, textureSrc }: HeroMesh
   const glRef = useRef<HTMLCanvasElement>(null)
   const meshRef = useRef<HTMLCanvasElement>(null)
   const [device, setDevice] = useState<string>('device')
+  // Live frame rate, measured from the actual rAF loop — the visible proof
+  // that the scene is being rendered on the visitor's device right now.
+  // Stays null under prefers-reduced-motion (single static frame, no loop).
+  const [fps, setFps] = useState<number | null>(null)
 
   useEffect(() => {
     const host = hostRef.current
@@ -87,7 +91,7 @@ export function HeroMeshCanvas({ className, badge = true, textureSrc }: HeroMesh
 
     type Gl = {
       prog: WebGLProgram
-      u: { t: WebGLUniformLocation | null; r: WebGLUniformLocation | null; m: WebGLUniformLocation | null; img: WebGLUniformLocation | null; tex: WebGLUniformLocation | null }
+      u: { t: WebGLUniformLocation | null; r: WebGLUniformLocation | null; m: WebGLUniformLocation | null; img: WebGLUniformLocation | null; tex: WebGLUniformLocation | null; light: WebGLUniformLocation | null }
       tex: WebGLTexture
     }
     let glState: Gl | null = null
@@ -95,12 +99,25 @@ export function HeroMeshCanvas({ className, badge = true, textureSrc }: HeroMesh
 
     if (gl) {
       const VERT = `attribute vec2 p;varying vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.,1.);}`
-      const FRAG = `precision highp float;uniform sampler2D uTex;uniform float uTime;uniform vec2 uRes;uniform vec2 uMouse;uniform vec2 uImg;varying vec2 vUv;
+      // Image-specific pointer response, all in the fragment shader:
+      //  1) luminance-as-depth parallax — bright pixels (ridges, light veins)
+      //     shift more with the pointer than dark ones, so the flat texture
+      //     reads as a volume the moment you move the mouse;
+      //  2) a soft pointer light — lifts exposure MULTIPLICATIVELY around the
+      //     cursor, so it reveals only detail the image actually contains
+      //     (uLight fades it in/out when the pointer enters/leaves).
+      const FRAG = `precision highp float;uniform sampler2D uTex;uniform float uTime;uniform vec2 uRes;uniform vec2 uMouse;uniform vec2 uImg;uniform float uLight;varying vec2 vUv;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 void main(){float sa=uRes.x/uRes.y,ia=uImg.x/uImg.y;vec2 uv=vUv;uv.y=1.-uv.y;
 vec2 sc=sa>ia?vec2(1.,ia/sa):vec2(sa/ia,1.);uv=(uv-0.5)*sc+0.5;
 vec2 m=uMouse-0.5;float zoom=1.0-0.035-0.01*sin(uTime*0.4);uv=(uv-0.5)*zoom+0.5-m*0.02;
-vec3 col=texture2D(uTex,uv).rgb;
+float lum=dot(texture2D(uTex,uv).rgb,vec3(0.299,0.587,0.114));
+vec2 par=m*(lum-0.35)*0.028*uLight;
+vec3 col=texture2D(uTex,uv+par).rgb;
+float d=distance(vUv,uMouse);
+float glow=smoothstep(0.38,0.0,d)*uLight;
+col+=col*glow*(0.30+lum*0.35);
+col+=vec3(0.10,0.83,0.71)*glow*0.03;
 float sweep=smoothstep(0.0,0.5,sin((uv.x+uv.y)*2.2-uTime*0.5)*0.5+0.5);col+=vec3(0.10,0.83,0.71)*sweep*0.04;
 col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragColor=vec4(col,1.0);}`
 
@@ -148,6 +165,7 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
           m: gl.getUniformLocation(prog, 'uMouse'),
           img: gl.getUniformLocation(prog, 'uImg'),
           tex: gl.getUniformLocation(prog, 'uTex'),
+          light: gl.getUniformLocation(prog, 'uLight'),
         },
         tex,
       }
@@ -226,6 +244,7 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
     const ms = { x: -9999, y: -9999 }
     const tg = { x: 0.5, y: 0.5 } // WebGL parallax target
     const mo = { x: 0.5, y: 0.5 } // WebGL parallax smoothed
+    const lt = { tg: 0, sm: 0 } // pointer-light presence, eased in/out
 
     const onMove = (e: PointerEvent) => {
       const rect = host.getBoundingClientRect()
@@ -233,10 +252,12 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       ms.y = e.clientY - rect.top
       tg.x = (e.clientX - rect.left) / rect.width
       tg.y = 1 - (e.clientY - rect.top) / rect.height
+      lt.tg = 1
     }
     const onLeave = () => {
       ms.x = -9999
       ms.y = -9999
+      lt.tg = 0
     }
     // Listen on the positioned parent, not the host: in the full-bleed hero
     // the copy column sits above the canvases and would otherwise swallow
@@ -248,20 +269,35 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
 
     let raf = 0
     let running = true
+    let frameCount = 0
+    let fpsWindowStart = 0
 
     function frame(now: number) {
       if (!running) return
       const t = now * 0.001
 
+      // fps meter: one measurement window per second
+      frameCount++
+      if (fpsWindowStart === 0) {
+        fpsWindowStart = now
+        frameCount = 0
+      } else if (now - fpsWindowStart >= 1000) {
+        setFps(Math.min(120, Math.round((frameCount * 1000) / (now - fpsWindowStart))))
+        fpsWindowStart = now
+        frameCount = 0
+      }
+
       // WebGL background
       if (gl && glState && glCv) {
         mo.x += (tg.x - mo.x) * 0.05
         mo.y += (tg.y - mo.y) * 0.05
+        lt.sm += (lt.tg - lt.sm) * 0.06
         gl.useProgram(glState.prog)
         gl.uniform1f(glState.u.t, t)
         gl.uniform2f(glState.u.r, glCv.width, glCv.height)
         gl.uniform2f(glState.u.m, mo.x, mo.y)
         gl.uniform2f(glState.u.img, imgWH[0], imgWH[1])
+        gl.uniform1f(glState.u.light, lt.sm)
         gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D, glState.tex)
         gl.uniform1i(glState.u.tex, 0)
@@ -420,6 +456,11 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         <p className="hero-mesh__badge">
           <span className="hero-mesh__dot" />
           <Bi en="Rendered live on your" ar="يُعرض مباشرة على" /> <b>{device}</b>
+          {fps !== null ? (
+            <span className="hero-mesh__fps" dir="ltr">
+              · {fps} fps
+            </span>
+          ) : null}
         </p>
       ) : null}
     </div>

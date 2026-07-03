@@ -59,6 +59,12 @@
   font-weight: 600;
 }
 
+.hero-mesh__fps {
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+  margin-inline-start: 4px;
+}
+
 .hero-mesh__dot {
   display: inline-block;
   width: 7px;
