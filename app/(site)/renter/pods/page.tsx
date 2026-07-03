@@ -73,6 +73,11 @@ interface Workload {
   descAr: string
   floor: number
   prefer: string // gpu_model substring of the preferred pick
+  /** Optional image alias + duration the preset pre-selects (the Experiment
+   *  pod uses this — a pod-shaped test server beats a bare vLLM on the node,
+   *  see the 2026-07-03 VRAM-parking incident + team policy). */
+  image?: string
+  durationMin?: number
 }
 const WORKLOADS: Workload[] = [
   { key: 'finetune', titleEn: 'Fine-tune 7–13B', titleAr: 'ضبط 7–13B', descEn: 'LoRA / QLoRA on a small model', descAr: 'LoRA / QLoRA على نموذج صغير', floor: 24, prefer: 'rtx 4090' },
@@ -81,6 +86,7 @@ const WORKLOADS: Workload[] = [
   { key: 'notebook', titleEn: 'Notebook / dev', titleAr: 'دفتر / تطوير', descEn: 'Prototyping, light experiments', descAr: 'نماذج أولية وتجارب خفيفة', floor: 8, prefer: 'rtx 3090' },
   { key: 'largetrain', titleEn: 'Large training', titleAr: 'تدريب كبير', descEn: 'Full fine-tune, 30B+ models', descAr: 'ضبط كامل، نماذج 30B+', floor: 80, prefer: 'a100' },
   { key: 'frontier', titleEn: 'Frontier-scale', titleAr: 'نطاق متقدم', descEn: '100B+, long-context training', descAr: '100B+ وسياق طويل', floor: 141, prefer: 'h200' },
+  { key: 'experiment', titleEn: 'Experiment server', titleAr: 'خادم تجريبي', descEn: 'vLLM test pod — auto-cleans on stop', descAr: 'حاوية vLLM تجريبية — تُنظَّف تلقائياً عند الإيقاف', floor: 24, prefer: 'rtx 3090', image: 'vllm', durationMin: 120 },
 ]
 
 // VRAM slider stops (GB). The slider snaps to the nearest stop.
@@ -691,6 +697,13 @@ export default function RenterPodsPage() {
   const applyWorkload = (w: Workload) => {
     setActiveWorkload(w.key)
     setMinVram(w.floor)
+    if (w.image || w.durationMin) {
+      setLaunch((l) => ({
+        ...l,
+        ...(w.image ? { imageChoice: w.image } : {}),
+        ...(w.durationMin ? { durationMinutes: w.durationMin } : {}),
+      }))
+    }
     const match = gpuTypes.find(
       (g) => g.available && g.sar_per_hour != null && g.gpu_model.toLowerCase().includes(w.prefer),
     )
