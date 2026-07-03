@@ -22,6 +22,13 @@ if (
 
 const nextConfig = {
   reactStrictMode: true,
+  // View Transitions (Next 15 experimental): opts the App Router into React's
+  // experimental build, which exports unstable_ViewTransition. The (site)
+  // layout wraps its children in <ViewTransition> so client-side navigations
+  // get a browser-native cross-fade (CSS in app/(site)/styles/dcp-kit.css).
+  experimental: {
+    viewTransition: true,
+  },
   async rewrites() {
     const proxyRewrites = [
       // Provider auto-installer: curl dcp.sa/install | bash

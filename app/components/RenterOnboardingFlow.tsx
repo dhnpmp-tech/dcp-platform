@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useLanguage } from '../lib/i18n'
 
@@ -700,9 +701,9 @@ export default function RenterOnboardingFlow() {
     >
       {/* Logo bar */}
       <div className="w-full max-w-2xl mb-8 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2 text-dc1-text-primary hover:text-dc1-amber transition-colors">
+        <Link href="/" className="flex items-center gap-2 text-dc1-text-primary hover:text-dc1-amber transition-colors">
           <span className="text-xl font-bold tracking-tight">DCP</span>
-        </a>
+        </Link>
         <StepIndicator current={step} isRTL={isRTL} />
       </div>
 
