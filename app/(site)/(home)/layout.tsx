@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://dcp.sa'),
   title: 'DCP — Rent GPUs On Demand (H100, A100, RTX 4090) + OpenAI-Compatible Inference API · Saudi Arabia',
   description:
-    'DCP is Saudi Arabia\'s sovereign AI compute cloud. Rent a whole GPU on demand (NVIDIA H200, H100, A100, RTX 4090 and more) from 0.33 SAR/hr, or use the OpenAI-compatible inference API at api.dcp.sa/v1. Official MCP server lets AI agents rent GPUs and run inference. In-Kingdom, PDPL-compliant, billed in Saudi Riyal.',
+    'DCP is Saudi Arabia\'s sovereign AI compute cloud. Rent a whole GPU on demand (NVIDIA H200, H100, A100, RTX 4090 and more) from 2.5 SAR/hr, or use the OpenAI-compatible inference API at api.dcp.sa/v1. Official MCP server lets AI agents rent GPUs and run inference. In-Kingdom, PDPL-compliant, billed in Saudi Riyal.',
   keywords: [
     'rent GPU on demand',
     'rent H100',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'DCP — Rent GPUs On Demand + OpenAI-Compatible Inference · Saudi Arabia',
     description:
-      'Rent a whole GPU on demand (H200, H100, A100, RTX 4090) from 0.33 SAR/hr or call the OpenAI-compatible API at api.dcp.sa/v1. Sovereign, in-Kingdom, PDPL-compliant. Agents can rent GPUs via MCP.',
+      'Rent a whole GPU on demand (H200, H100, A100, RTX 4090) from 2.5 SAR/hr or call the OpenAI-compatible API at api.dcp.sa/v1. Sovereign, in-Kingdom, PDPL-compliant. Agents can rent GPUs via MCP.',
     url: 'https://dcp.sa/',
     siteName: 'DCP',
     type: 'website',
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'DCP — Rent GPUs On Demand + OpenAI-Compatible Inference · Saudi Arabia',
     description:
-      'Rent a whole GPU on demand from 0.33 SAR/hr or call the OpenAI-compatible API at api.dcp.sa/v1. Sovereign, in-Kingdom, PDPL-compliant.',
+      'Rent a whole GPU on demand from 2.5 SAR/hr or call the OpenAI-compatible API at api.dcp.sa/v1. Sovereign, in-Kingdom, PDPL-compliant.',
     images: ['/og-image.png'],
   },
 }

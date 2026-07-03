@@ -393,3 +393,20 @@
 @media (prefers-reduced-motion: reduce) {
   .ag-btn.primary:hover { transform: none; }
 }
+
+/* photographic backdrop under the glyph: an agent swarm in formation */
+.ag-photo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse at 72% 35%, #000 0%, #000 40%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at 72% 35%, #000 0%, #000 40%, transparent 78%);
+}
+.ag-photo img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.5; }
+.ag-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 11, 26, 0.3) 0%, transparent 35%, rgba(10, 11, 26, 0.7) 100%);
+}

@@ -362,8 +362,8 @@ resp = client.chat.completions.create(
           <h2 id="pods"><Bi en="GPU pods" ar="حاويات GPU" /></h2>
           <p>
             <Bi
-              en="Rent a whole GPU with root access, Jupyter, and SSH — prepaid per minute in Riyal, unused time refunded when you stop. Launch returns a pod id; poll it until status is running to get the Jupyter URL and SSH command."
-              ar="استأجر بطاقة GPU كاملة مع صلاحيات الجذر وJupyter وSSH — مدفوعة مسبقاً بالدقيقة بالريال، ويُسترد الوقت غير المستخدم عند الإيقاف. يعيد الإطلاق معرّف الحاوية؛ استعلم عنه حتى تصبح الحالة running للحصول على رابط Jupyter وأمر SSH."
+              en="Rent a whole GPU with root access, Jupyter, and SSH — prepaid per GPU-second in Riyal, unused time refunded when you stop. Launch returns a pod id; poll it until status is running to get the Jupyter URL and SSH command."
+              ar="استأجر بطاقة GPU كاملة مع صلاحيات الجذر وJupyter وSSH — مدفوعة مسبقاً بالثانية بالريال، ويُسترد الوقت غير المستخدم عند الإيقاف. يعيد الإطلاق معرّف الحاوية؛ استعلم عنه حتى تصبح الحالة running للحصول على رابط Jupyter وأمر SSH."
             />
           </p>
           <pre className="code">$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/pods</span> \
@@ -456,8 +456,8 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
           <h3 id="mcp-tools"><Bi en="Tools" ar="الأدوات" /></h3>
           <p>
             <Bi
-              en="The server exposes eleven native tools. The first, register_agent, is unauthenticated — an agent calls it with no key to mint its own (zero human). Inference is OpenAI-compatible; pods and volumes are prepaid per minute / per month in Riyal, with unused pod time refunded on stop."
-              ar="يكشف الخادم إحدى عشرة أداة أصلية. الأولى، register_agent، دون مصادقة — يستدعيها الوكيل بلا مفتاح ليصنع مفتاحه (دون بشر). الاستدلال متوافق مع OpenAI؛ والحاويات والمساحات مدفوعة مسبقاً بالدقيقة / بالشهر بالريال، مع استرداد وقت الحاوية غير المستخدم عند الإيقاف."
+              en="The server exposes eleven native tools. The first, register_agent, is unauthenticated — an agent calls it with no key to mint its own (zero human). Inference is OpenAI-compatible; pods and volumes are prepaid per second / per month in Riyal, with unused pod time refunded on stop."
+              ar="يكشف الخادم إحدى عشرة أداة أصلية. الأولى، register_agent، دون مصادقة — يستدعيها الوكيل بلا مفتاح ليصنع مفتاحه (دون بشر). الاستدلال متوافق مع OpenAI؛ والحاويات والمساحات مدفوعة مسبقاً بالثانية / بالشهر بالريال، مع استرداد وقت الحاوية غير المستخدم عند الإيقاف."
             />
           </p>
           <table className="param-tbl">
@@ -490,7 +490,7 @@ $ <span className="k">curl</span> <span className="s">https://api.dcp.sa/api/vol
               </tr>
               <tr>
                 <td className="name">create_pod</td>
-                <td className="desc"><Bi en="Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per minute in SAR. Optional gpu_type (from list_gpus, e.g. 'H100'); omit to auto-pick." ar="يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً مسبقاً بالدقيقة بالريال. النوع اختياري (من list_gpus، مثل 'H100')؛ احذفه للاختيار التلقائي." /></td>
+                <td className="desc"><Bi en="Rent a whole GPU as an interactive pod (root + Jupyter + SSH), prepaid per second in SAR. Optional gpu_type (from list_gpus, e.g. 'H100'); omit to auto-pick." ar="يستأجر معالجاً كاملاً كحاوية تفاعلية (جذر + Jupyter + SSH)، مدفوعاً مسبقاً بالثانية بالريال. النوع اختياري (من list_gpus، مثل 'H100')؛ احذفه للاختيار التلقائي." /></td>
               </tr>
               <tr>
                 <td className="name">get_pod</td>

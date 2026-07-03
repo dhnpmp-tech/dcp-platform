@@ -465,6 +465,9 @@ export default function TrustCenterPage() {
       <main className="trust-center">
         {/* ── Hero ── */}
         <section className="hero" style={{ borderTop: 0 }}>
+          <div className="hero-bg hero-bg--photo" aria-hidden="true">
+            <img src="/home/skyline.webp" alt="" width={2000} height={849} decoding="async" />
+          </div>
           <div className="wrap">
             <div className="hero-meta">
               <span className="left">

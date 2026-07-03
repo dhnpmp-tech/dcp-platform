@@ -294,7 +294,7 @@ export const AGENT_FAQ: ReadonlyArray<FaqItem> = [
   },
   {
     q: 'How does an AI agent start a GPU on DCP?',
-    a: 'After getting a key, an agent lists GPU types (GET /api/renters/available-providers or list_gpus), then POSTs to https://api.dcp.sa/api/pods with { gpu_type, duration_minutes } and an optional Idempotency-Key header for safe retries. A whole NVIDIA GPU (H200, H100, A100, L40S, RTX 5090 or RTX 4090) comes up with root, Jupyter and SSH in about a minute, billed per minute in SAR.',
+    a: 'After getting a key, an agent lists GPU types (GET /api/renters/available-providers or list_gpus), then POSTs to https://api.dcp.sa/api/pods with { gpu_type, duration_minutes } and an optional Idempotency-Key header for safe retries. A whole NVIDIA GPU (H200, H100, A100, L40S, RTX 5090 or RTX 4090) comes up with root, Jupyter and SSH in about a minute, billed per second in SAR.',
   },
   {
     q: 'What happens if an agent has insufficient balance?',
