@@ -11,6 +11,7 @@ import { Bi, BiX } from '@/app/(site)/lib/i18n'
 import { HomeChrome } from '@/app/(site)/components/home-chrome/HomeChrome'
 import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas'
 import { DemoChat } from '@/app/(site)/components/demo-chat/DemoChat'
+import { PodMeter } from '@/app/(site)/components/pod-meter/PodMeter'
 import { GPU_SKUS } from '@/app/lib/structured-data'
 import { HOME_FAQ_VISIBLE } from './home-data'
 import './home.css'
@@ -408,6 +409,9 @@ client = OpenAI(
             <span className="wc-step"><i>~1:30</i> <Bi en="Jupyter open on a whole GPU" ar="Jupyter يعمل على معالج كامل" /></span>
             <span className="wc-note"><Bi en="billed per second only while it runs" ar="فوترة بالثانية فقط أثناء التشغيل" /></span>
           </div>
+
+          {/* the per-second billing toy — feel the refund instead of reading about it */}
+          <PodMeter />
         </div>
       </section>
 

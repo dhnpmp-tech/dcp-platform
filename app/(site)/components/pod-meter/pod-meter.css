@@ -1,0 +1,79 @@
+/* PodMeter — the per-second billing toy. Sits directly under the ways-clock
+   strip on home and in the pricing hero; shares the mono/hairline language. */
+
+.pod-meter {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: color-mix(in oklab, var(--teal) 4%, var(--bg-2));
+  padding: 14px 24px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  transition: background 0.4s;
+}
+.pod-meter.pm-refunded {
+  background: color-mix(in oklab, var(--teal) 9%, var(--bg-2));
+}
+
+.pod-meter .pm-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+  align-self: center;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.pod-meter.pm-refunded .pm-dot {
+  background: var(--teal);
+  animation: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 25%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pod-meter .pm-dot { animation: none; }
+}
+
+.pod-meter .pm-label { color: var(--mut); text-transform: uppercase; font-size: 10px; letter-spacing: 0.14em; }
+.pod-meter .pm-clock { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pod-meter .pm-cost {
+  color: var(--teal);
+  font-weight: 600;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.pod-meter .pm-cost i { font-style: normal; font-size: 10px; color: var(--mut); }
+.pod-meter.pm-refunding .pm-cost { color: var(--orange); }
+
+.pod-meter .pm-btn {
+  border: 1px solid var(--teal);
+  color: var(--teal);
+  background: transparent;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.pod-meter .pm-btn:hover { background: var(--teal); color: var(--accent-ink); }
+.pod-meter .pm-btn:active { transform: translateY(1px); }
+.pod-meter .pm-btn.ghost { border-color: var(--hair); color: var(--mut); }
+.pod-meter .pm-btn.ghost:hover { border-color: var(--teal); color: var(--teal); background: transparent; }
+.pod-meter .pm-wait { cursor: default; }
+
+.pod-meter .pm-note {
+  margin-inline-start: auto;
+  color: var(--dim);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+@media (max-width: 760px) {
+  .pod-meter { gap: 10px; }
+  .pod-meter .pm-note { margin-inline-start: 0; width: 100%; }
+}

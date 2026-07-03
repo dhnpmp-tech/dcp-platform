@@ -9,6 +9,7 @@
 import Link from 'next/link'
 import { Bi, BiX, useV2 } from '@/app/(site)/lib/i18n'
 import { PRICING_FAQ } from '@/app/lib/structured-data'
+import { PodMeter } from '@/app/(site)/components/pod-meter/PodMeter'
 import '../(home)/home.css'
 import '../docs/docs.css'
 
@@ -115,7 +116,7 @@ export default function PricingPage() {
               <span className="sub"><Bi en="New accounts" ar="الحسابات الجديدة" /></span>
               <span className="nm"><Bi en="Starter credit" ar="رصيد البداية" /></span>
               <span className="pr">100<span className="u"><Bi en="SAR · no card" ar="ريال · بلا بطاقة" /></span></span>
-              <span className="sub"><Bi en="Fund later in SAR or USDC" ar="ادفع لاحقاً بالريال أو USDC" /></span>
+              <span className="sub"><Bi en="Fund later in Saudi Riyal" ar="ادفع لاحقاً بالريال السعودي" /></span>
             </div>
             <div className="ps-it frontier">
               <span className="sub"><Bi en="Subscriptions" ar="الاشتراكات" /></span>
@@ -124,6 +125,8 @@ export default function PricingPage() {
               <span className="sub"><Bi en="Discounted token allowance" ar="بدل رموز بخصم" /></span>
             </div>
           </div>
+          {/* feel the billing model instead of reading it */}
+          <PodMeter />
         </div>
       </section>
 
