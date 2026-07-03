@@ -83,3 +83,35 @@
 @media (max-width: 880px) {
   .hero-mesh { aspect-ratio: 4 / 5; }
 }
+
+/* ─── full-bleed variant: the canvas IS the hero background ─── */
+.hero-mesh.hero-mesh--bleed {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+  border: 0;
+  z-index: 0;
+}
+@media (max-width: 880px) {
+  .hero-mesh.hero-mesh--bleed { aspect-ratio: auto; }
+}
+/* legibility scrim: dark editorial left column, open canvas right, and a
+   fade into the page background at top and bottom so the section breathes */
+.hero-mesh--bleed .hero-mesh__scrim {
+  background:
+    linear-gradient(90deg, rgba(10, 11, 26, 0.86) 0%, rgba(10, 11, 26, 0.52) 44%, rgba(10, 11, 26, 0.06) 78%),
+    linear-gradient(180deg, rgba(10, 11, 26, 0.55) 0%, rgba(10, 11, 26, 0) 24%, rgba(10, 11, 26, 0) 66%, rgba(10, 11, 26, 0.92) 100%);
+}
+html[data-lang="ar"] .hero-mesh--bleed .hero-mesh__scrim {
+  background:
+    linear-gradient(270deg, rgba(10, 11, 26, 0.86) 0%, rgba(10, 11, 26, 0.52) 44%, rgba(10, 11, 26, 0.06) 78%),
+    linear-gradient(180deg, rgba(10, 11, 26, 0.55) 0%, rgba(10, 11, 26, 0) 24%, rgba(10, 11, 26, 0) 66%, rgba(10, 11, 26, 0.92) 100%);
+}
+/* badge becomes the hero's signature, bottom end corner */
+.hero-mesh--bleed .hero-mesh__badge {
+  left: auto;
+  inset-inline-end: 28px;
+  bottom: 22px;
+  font-size: 0.8rem;
+}

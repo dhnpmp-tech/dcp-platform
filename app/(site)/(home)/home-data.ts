@@ -24,8 +24,8 @@ export const fmtMpPrice = (m: MpModel): string => {
 
 // ───────── marquee items ─────────
 export const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
-  { en: 'Inference and agents, in the Kingdom', ar: 'استدلال ووكلاء، داخل المملكة' },
-  { en: 'Pay per token · Saudi Riyal', ar: 'ادفع لكل رمز · بالريال السعودي' },
+  { en: 'GPU pods from 2.5 SAR/hr · billed per second', ar: 'حاويات GPU من ٢٫٥ ريال/ساعة · فوترة بالثانية' },
+  { en: 'Inference from 5 halala per 1M tokens', ar: 'استدلال من ٥ هللات لكل مليون رمز' },
   { en: 'DCP-Agent for Saudi business · agents.dcp.sa', ar: 'DCP-Agent للأعمال السعودية · agents.dcp.sa' },
   { en: 'Agents can rent a GPU · npx -y github:dhnpmp-tech/dcp-mcp', ar: 'الوكلاء يستأجرون المعالجات · npx -y github:dhnpmp-tech/dcp-mcp' },
   { en: 'Earn Riyal from your GPU', ar: 'اكسب ريالاً من معالجك' },
@@ -33,13 +33,14 @@ export const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
 ]
 
 // ───────── nav links (bespoke home topbar; routes resolve via next.config) ─────────
+// Product-first order: the two products (pods, inference) lead.
 export const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة', on: true },
-  { href: '/marketplace', en: 'Marketplace', ar: 'السوق' },
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
+  { href: '/marketplace', en: 'Inference', ar: 'الاستدلال' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
-  { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
+  { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
   { href: '/docs', en: 'Docs', ar: 'التوثيق' },
 ]
 
@@ -68,7 +69,8 @@ export const CAPACITY_GATES = [
   },
 ] as const
 
-// ───────── FAQ — visible top 3 on home (full set lives in HOME_FAQ JSON-LD) ─────────
+// ───────── FAQ — all 6 visible on home, mirroring HOME_FAQ JSON-LD 1:1 so the
+// text AI answer engines cite is the text humans can actually see (GEO parity).
 export const HOME_FAQ_VISIBLE = [
   {
     qEn: 'How do I rent an H100 (or other GPU) on demand on DCP?',
@@ -87,5 +89,23 @@ export const HOME_FAQ_VISIBLE = [
     qAr: 'هل يمكن لوكيل ذكاء اصطناعي استئجار معالج على DCP عبر MCP؟',
     aEn: 'Yes. DCP ships an official Model Context Protocol (MCP) server. An MCP-capable agent (such as Claude) can list models, run inference, list available GPU types, create and extend GPU pods, rent storage volumes, and check wallet balance through tool calls. See dcp.sa/docs for the MCP setup and tool reference.',
     aAr: 'نعم. يوفّر DCP خادم بروتوكول سياق النموذج (MCP) رسمياً. يستطيع وكيل يدعم MCP (مثل Claude) سرد النماذج، وتشغيل الاستدلال، وسرد أنواع المعالجات المتاحة، وإنشاء حاويات GPU وتمديدها، واستئجار وحدات تخزين، والتحقق من رصيد المحفظة عبر استدعاءات الأدوات. راجع dcp.sa/docs لإعداد MCP ومرجع الأدوات.',
+  },
+  {
+    qEn: 'What is sovereign / in-Kingdom AI compute in Saudi Arabia?',
+    qAr: 'ما معنى الحوسبة السيادية / داخل المملكة في السعودية؟',
+    aEn: 'Sovereign AI compute means your data, the models, the storage, and the control plane all stay inside Saudi Arabia, under Saudi law. DCP runs on Saudi-owned hardware in the Kingdom with full PDPL data-residency compliance, so prompts and answers never leave the country unless a tenant explicitly opts in to cross-border frontier models.',
+    aAr: 'الحوسبة السيادية تعني أن بياناتك والنماذج والتخزين وطبقة التحكم تبقى كلها داخل السعودية وتحت النظام السعودي. يعمل DCP على عتاد سعودي داخل المملكة بامتثال كامل لنظام حماية البيانات الشخصية (PDPL)، فلا تغادر الاستفسارات والإجابات البلاد إلا إذا فعّل المستأجر صراحةً النماذج المتقدمة العابرة للحدود.',
+  },
+  {
+    qEn: 'How much does it cost to rent a GPU on DCP?',
+    qAr: 'كم تكلفة استئجار معالج على DCP؟',
+    aEn: 'GPU rental is billed prepaid per GPU-second in Saudi Riyal, cost-plus from the live market. On-demand types and indicative hourly rates: NVIDIA RTX 4090 from about 3.62 SAR/hr, RTX 5090 from 5.2 SAR/hr, L40S from 5.2 SAR/hr, A100 (80 GB) from 7.3 SAR/hr, H100 (80 GB) from 17.27 SAR/hr, and H200 (141 GB) from 23.05 SAR/hr. The native in-Kingdom RTX 3090 is 2.5 SAR/hr. New renter accounts start with 100 SAR of credit and no card is required to begin.',
+    aAr: 'يُفوتر إيجار المعالجات مسبقاً بالثانية بالريال السعودي، بتسعير التكلفة زائد هامش من السوق الحي. الأنواع عند الطلب وأسعارها الإرشادية بالساعة: RTX 4090 من نحو ٣٫٦٢ ريال، RTX 5090 من ٥٫٢ ريال، L40S من ٥٫٢ ريال، A100 (٨٠ غيغابايت) من ٧٫٣ ريال، H100 (٨٠ غيغابايت) من ١٧٫٢٧ ريال، وH200 (١٤١ غيغابايت) من ٢٣٫٠٥ ريال. بطاقة RTX 3090 المحلية داخل المملكة بـ٢٫٥ ريال/ساعة. تبدأ الحسابات الجديدة برصيد ١٠٠ ريال ولا حاجة لبطاقة للبدء.',
+  },
+  {
+    qEn: 'Where does my data live when I use DCP?',
+    qAr: 'أين تُخزَّن بياناتي عند استخدام DCP؟',
+    aEn: 'Inside Saudi Arabia. Inference, GPU pods, agents, and persistent storage volumes all run on in-Kingdom, Saudi-owned hardware under PDPL data-residency rules. Cross-border frontier models are available only by explicit per-tenant opt-in.',
+    aAr: 'داخل السعودية. الاستدلال وحاويات GPU والوكلاء ووحدات التخزين الدائمة تعمل جميعها على عتاد سعودي داخل المملكة وفق قواعد إقامة البيانات في PDPL. النماذج المتقدمة العابرة للحدود متاحة فقط بموافقة صريحة لكل مستأجر.',
   },
 ] as const

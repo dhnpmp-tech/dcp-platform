@@ -916,3 +916,222 @@
     .sov-arc { transform:rotate(90deg); padding:8px 0; }
     [dir="rtl"] .sov-arc { transform:rotate(90deg); }
   }
+
+  /* ════════════ PRODUCT SHOWCASES (pods · inference · earn) ════════════ */
+  .door .door-p {
+    font-family:var(--mono); font-size:11px; letter-spacing:.08em; color:var(--teal);
+    margin-top:2px;
+  }
+
+  .pshow {
+    display:grid; grid-template-columns: minmax(0, .96fr) minmax(0, 1.04fr);
+    border:1px solid var(--line); background:var(--paper); overflow:hidden;
+  }
+  .pshow-media {
+    position:relative; min-height:480px; overflow:hidden;
+    border-inline-end:1px solid var(--hair);
+  }
+  .pshow.flip .pshow-media { order:2; border-inline-end:0; border-inline-start:1px solid var(--hair); }
+  .pshow-media img {
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;
+    transform: scale(1.02); transition: transform .8s var(--ease-out, ease);
+  }
+  .pshow:hover .pshow-media img { transform: scale(1.06); }
+  @media (prefers-reduced-motion: reduce) {
+    .pshow-media img, .pshow:hover .pshow-media img { transform:none; transition:none; }
+  }
+  /* film grain + blend into the paper panel */
+  .pshow-media::after {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(180deg, rgba(10,11,26,.18) 0%, transparent 24%, transparent 70%, rgba(10,11,26,.55) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.88 0 0 0 0 0.82 0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode: normal;
+  }
+  .pshow-cap {
+    position:absolute; bottom:14px; inset-inline-start:18px; z-index:2;
+    font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+    color: rgba(245,243,238,.75);
+  }
+  .pshow-copy {
+    padding: 46px 46px 44px; display:flex; flex-direction:column; gap:16px; min-width:0;
+  }
+  .pshow-copy h2 {
+    font-family:var(--serif); font-weight:400; font-size: clamp(34px, 3.4vw, 52px);
+    line-height:1.02; letter-spacing:-.02em; margin:0; color:var(--ink); text-wrap:balance;
+  }
+  html[data-lang="ar"] .pshow-copy h2 { font-family:var(--arabic); font-weight:700; line-height:1.2; letter-spacing:0; }
+  .pshow-copy h2 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .pshow-copy h2 em { font-style:normal; }
+  .pshow-copy > p { margin:0; color:var(--ink-2); font-size:15.5px; line-height:1.65; max-width:58ch; text-wrap:pretty; }
+  .pshow-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:7px; }
+  .pshow-list li {
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-2);
+    padding-inline-start:18px; position:relative; line-height:1.6;
+  }
+  .pshow-list li::before { content:"+"; position:absolute; inset-inline-start:0; color:var(--teal); font-weight:600; }
+  .pshow-ctas { display:flex; gap:10px; flex-wrap:wrap; margin-top:auto; padding-top:10px; }
+
+  /* terminal / code slab shared by pods + inference + mcp */
+  .term {
+    margin:6px 0 4px; padding: 18px 20px;
+    background:#04050d; border:1px solid var(--line);
+    font-family:var(--mono); font-size:12.5px; line-height:1.7; color:#c9c5bd;
+    overflow-x:auto; position:relative; white-space:pre;
+  }
+  .term::before { content:""; position:absolute; inset:-1px -1px auto -1px; height:2px; background:var(--grad); }
+  .term.slim { margin-top:10px; padding:13px 16px; font-size:12px; }
+
+  @media (max-width: 1020px) {
+    .pshow { grid-template-columns: 1fr; }
+    .pshow-media, .pshow.flip .pshow-media {
+      order:0; min-height:0; aspect-ratio: 16/9;
+      border-inline:0; border-bottom:1px solid var(--hair);
+    }
+    .pshow-copy { padding: 30px 24px 32px; }
+  }
+
+  /* rate rail — the 7 GPU SKUs under the pods showcase */
+  .rate-rail {
+    display:grid; grid-template-columns: repeat(7, 1fr);
+    border:1px solid var(--line); border-top:0; background:var(--bg-2);
+  }
+  .rate-rail .rr-it {
+    padding:16px 18px; border-inline-end:1px solid var(--hair);
+    display:flex; flex-direction:column; gap:3px; min-width:0;
+  }
+  .rate-rail .rr-it:last-child { border-inline-end:0; }
+  .rate-rail .rr-n { font-family:var(--serif); font-size:17px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; }
+  .rate-rail .rr-v { font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
+  .rate-rail .rr-p { font-family:var(--mono); font-size:11px; letter-spacing:.04em; color:var(--teal); margin-top:4px; white-space:nowrap; }
+  @media (max-width: 1080px) {
+    .rate-rail { grid-template-columns: repeat(4, 1fr); }
+    .rate-rail .rr-it { border-bottom:1px solid var(--hair); }
+    .rate-rail .rr-it:nth-child(4n) { border-inline-end:0; }
+    .rate-rail .rr-it:nth-child(n+5) { border-bottom:0; }
+  }
+  @media (max-width: 640px) {
+    .rate-rail { grid-template-columns: repeat(2, 1fr); }
+    .rate-rail .rr-it { border-inline-end:1px solid var(--hair) !important; border-bottom:1px solid var(--hair) !important; }
+    .rate-rail .rr-it:nth-child(2n) { border-inline-end:0 !important; }
+    .rate-rail .rr-it:last-child { border-bottom:0 !important; }
+  }
+
+  /* ════════════ SOVEREIGNTY BAND (full-bleed skyline) ════════════ */
+  .sov-band {
+    position:relative; overflow:hidden;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    padding: 120px 0 96px;
+  }
+  .sov-band > img {
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:cover; object-position:center 62%; display:block;
+  }
+  .sov-band::before {
+    content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:
+      linear-gradient(90deg, rgba(10,11,26,.88) 0%, rgba(10,11,26,.55) 42%, rgba(10,11,26,.18) 100%),
+      linear-gradient(180deg, rgba(10,11,26,.7) 0%, transparent 30%, transparent 62%, rgba(10,11,26,.85) 100%);
+  }
+  html[dir="rtl"] .sov-band::before, html[data-lang="ar"] .sov-band::before {
+    background:
+      linear-gradient(270deg, rgba(10,11,26,.88) 0%, rgba(10,11,26,.55) 42%, rgba(10,11,26,.18) 100%),
+      linear-gradient(180deg, rgba(10,11,26,.7) 0%, transparent 30%, transparent 62%, rgba(10,11,26,.85) 100%);
+  }
+  .sov-band-in { position:relative; z-index:2; }
+  .sov-band-in h2 {
+    font-family:var(--serif); font-weight:400; font-size: clamp(40px, 5.6vw, 84px);
+    line-height:.96; letter-spacing:-.025em; margin: 20px 0 0; max-width: 16ch; text-wrap:balance; color:#f5f3ee;
+  }
+  html[data-lang="ar"] .sov-band-in h2 { font-family:var(--arabic); font-weight:700; line-height:1.15; letter-spacing:0; }
+  .sov-band-in h2 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .sov-band-in h2 em { font-style:normal; }
+  .sov-band-in > p { color:rgba(245,243,238,.82); font-size:16.5px; line-height:1.65; max-width:56ch; margin:20px 0 0; text-wrap:pretty; }
+  .sov-compliance {
+    margin-top:44px; border-color: rgba(245,243,238,.22);
+    background: color-mix(in oklab, #0a0b1a 55%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .sov-compliance .item { border-color: rgba(245,243,238,.14); }
+  .sov-compliance .item .v { color:#f5f3ee; }
+  @media (max-width: 760px) { .sov-band { padding: 84px 0 64px; } }
+
+  /* ════════════ AGENTS BAND ════════════ */
+  .agents-band {
+    display:grid; grid-template-columns: 1fr 1fr;
+    border:1px solid var(--line); background:var(--paper);
+  }
+  @media (max-width: 900px) { .agents-band { grid-template-columns:1fr; } }
+  .agents-band .ab-cell {
+    padding: 38px 40px 36px; border-inline-end:1px solid var(--hair);
+    display:flex; flex-direction:column; gap:12px; min-height:280px;
+    transition: background .2s;
+  }
+  .agents-band .ab-cell:last-child { border-inline-end:0; }
+  @media (max-width: 900px) {
+    .agents-band .ab-cell { border-inline-end:0; border-bottom:1px solid var(--hair); min-height:0; }
+    .agents-band .ab-cell:last-child { border-bottom:0; }
+  }
+  .agents-band .ab-cell:hover { background:var(--bg-2); }
+  .agents-band .ab-k { font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); }
+  .agents-band h3 {
+    font-family:var(--serif); font-weight:400; font-size:36px; line-height:1.04; letter-spacing:-.018em; margin:0; color:var(--ink);
+  }
+  html[data-lang="ar"] .agents-band h3 { font-family:var(--arabic); font-weight:700; line-height:1.2; }
+  .agents-band h3 em { font-style:italic; background-image:var(--grad); background-clip:text; -webkit-background-clip:text; color:transparent; }
+  html[data-lang="ar"] .agents-band h3 em { font-style:normal; }
+  .agents-band p { margin:0; color:var(--ink-2); font-size:15px; line-height:1.62; max-width:52ch; }
+  .agents-band .end {
+    margin-top:auto; padding-top:16px; border-top:1px dashed var(--hair);
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--mut);
+    display:flex; justify-content:space-between;
+  }
+  .agents-band .end a { color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:2px; }
+  .agents-band .end a:hover { color:var(--teal); border-bottom-color:var(--teal); }
+
+  /* ════════════ FULL-BLEED HERO (the mesh IS the background) ════════════ */
+  .home-hero.hero-bleed {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    min-height: clamp(680px, 94dvh, 1020px);
+    padding: 120px 0 110px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .home-hero.hero-bleed::before, .home-hero.hero-bleed::after { display: none; }
+  .hero-bleed .wrap { position: relative; z-index: 3; width: 100%; }
+  .hero-copy-bleed { max-width: 1020px; }
+  .hero-bleed h1 {
+    font-size: clamp(48px, 6.3vw, 96px);
+    margin-top: 22px;
+    max-width: 21ch;
+  }
+  .hero-bleed .lead { font-size: 19px; max-width: 58ch; }
+  /* doors sit ON the canvas: translucent paper + blur, designed hover */
+  .hero-bleed .door-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 780px; gap: 14px; }
+  @media (max-width: 720px) { .hero-bleed .door-grid { grid-template-columns: 1fr; } }
+  .hero-bleed .door {
+    background: color-mix(in oklab, var(--paper) 72%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-color: color-mix(in oklab, var(--line) 80%, transparent);
+    padding: 20px 22px 22px;
+  }
+  .hero-bleed .door:hover {
+    background: color-mix(in oklab, var(--paper) 86%, transparent);
+    border-color: var(--teal);
+    transform: translateY(-2px);
+  }
+  .hero-bleed .res-row { margin-top: 30px; }
+  @media (max-width: 880px) {
+    .home-hero.hero-bleed { min-height: 0; padding: 84px 0 84px; }
+    .hero-bleed h1 { font-size: clamp(42px, 10.4vw, 72px); }
+  }
+
+  /* fix: the base .menu-toggle{display:none} rule sits AFTER the ≤760px media
+     query in source order and silently killed the mobile hamburger. Re-assert
+     the mobile state here, after the base rule. */
+  @media (max-width: 760px) {
+    .v2-topbar .menu-toggle { display: inline-flex; }
+  }

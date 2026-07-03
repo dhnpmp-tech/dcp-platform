@@ -25,14 +25,14 @@ export function HomeChrome() {
   }, [menuOpen])
 
   const menuLinks: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; sEn: string; sAr: string }> = [
-    { href: '/', n: '01', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
-    { href: '/marketplace', n: '02', tEn: 'Marketplace', tAr: 'السوق', sEn: 'KSA provider mesh · live capacity', sAr: 'شبكة مزوّدين · سعة حية' },
-    { href: '/containers', n: '03', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Whole-GPU compute rental', sAr: 'إيجار معالجات كاملة' },
-    { href: '/agents', n: '04', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Live at agents.dcp.sa', sAr: 'على agents.dcp.sa' },
-    { href: '/pricing', n: '05', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
-    { href: '/docs', n: '06', tEn: 'Docs', tAr: 'التوثيق', sEn: 'API · CLI · SDKs', sAr: 'واجهة · سطر أوامر · مكتبات' },
-    { href: '/trust-center', n: '07', tEn: 'Trust center', tAr: 'مركز الثقة', sEn: 'PDPL · compliance · enterprise', sAr: 'نظام البيانات · امتثال · مؤسسات' },
-    { href: '/provider-setup', n: '08', tEn: 'Earn', tAr: 'اكسب', sEn: 'Register a GPU · paid in SAR', sAr: 'سجّل معالجاً · يُدفع بالريال' },
+    { href: '/containers', n: '01', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Whole-GPU rental · from 2.5 SAR/hr', sAr: 'إيجار معالجات كاملة · من ٢٫٥ ريال/س' },
+    { href: '/marketplace', n: '02', tEn: 'Inference', tAr: 'الاستدلال', sEn: 'OpenAI-compatible · live models', sAr: 'متوافقة مع OpenAI · نماذج حية' },
+    { href: '/agents', n: '03', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Live at agents.dcp.sa · MCP', sAr: 'على agents.dcp.sa · MCP' },
+    { href: '/pricing', n: '04', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-second · per-token · SAR', sAr: 'بالثانية · بالرمز · بالريال' },
+    { href: '/docs', n: '05', tEn: 'Docs', tAr: 'التوثيق', sEn: 'API · CLI · SDKs', sAr: 'واجهة · سطر أوامر · مكتبات' },
+    { href: '/trust-center', n: '06', tEn: 'Trust center', tAr: 'مركز الثقة', sEn: 'PDPL · compliance · enterprise', sAr: 'نظام البيانات · امتثال · مؤسسات' },
+    { href: '/provider-setup', n: '07', tEn: 'Earn', tAr: 'اكسب', sEn: 'Register a GPU · paid in SAR', sAr: 'سجّل معالجاً · يُدفع بالريال' },
+    { href: '/', n: '08', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
   ]
 
   return (

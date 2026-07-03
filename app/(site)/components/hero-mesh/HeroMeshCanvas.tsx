@@ -226,9 +226,13 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
       ms.x = -9999
       ms.y = -9999
     }
-    host.addEventListener('pointermove', onMove, { passive: true })
-    host.addEventListener('pointerdown', onMove, { passive: true })
-    host.addEventListener('pointerleave', onLeave)
+    // Listen on the positioned parent, not the host: in the full-bleed hero
+    // the copy column sits above the canvases and would otherwise swallow
+    // pointermove. Coordinates stay host-relative either way.
+    const pointerTarget: HTMLElement = host.parentElement ?? host
+    pointerTarget.addEventListener('pointermove', onMove, { passive: true })
+    pointerTarget.addEventListener('pointerdown', onMove, { passive: true })
+    pointerTarget.addEventListener('pointerleave', onLeave)
 
     let raf = 0
     let running = true
@@ -252,21 +256,28 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
         gl.drawArrays(gl.TRIANGLES, 0, 3)
       }
 
-      // Canvas 2D mesh
+      // Canvas 2D mesh — the cursor leaves a QUIET trace, not a floodlight:
+      // small ignite radius, soft partial activation, short propagation, and
+      // no additive glow blobs. The mesh should read as circuitry waking up,
+      // never as a bright wash over the artwork.
       if (ctx) {
-        const IR = 115
+        const IR = 60
         const IR2 = IR * IR
         for (const n of nodes) {
           const dx = n.x - ms.x
           const dy = n.y - ms.y
-          if (dx * dx + dy * dy < IR2) n.a = 1
+          const d2 = dx * dx + dy * dy
+          if (d2 < IR2) {
+            const strength = 0.5 * (1 - d2 / IR2)
+            if (strength > n.a) n.a = strength
+          }
         }
         const prev = nodes.map((n) => n.a)
         for (let i = 0; i < nodes.length; i++) {
           let m = prev[i] * 0.9
           const nb = nodes[i].nb
           for (let k = 0; k < nb.length; k++) {
-            const v = prev[nb[k]] * 0.85
+            const v = prev[nb[k]] * 0.62
             if (v > m) m = v
           }
           nodes[i].a = m < 0.002 ? 0 : m
@@ -277,31 +288,21 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
           const a = Math.max(nodes[i].a, nodes[j].a)
           const tt = (nodes[i].base + nodes[j].base) * 0.5
           const c = mix(mix(TEAL, AMBER, tt), mix(AMBER, TEAL, tt), a)
-          ctx.strokeStyle = rgba(c, 0.045 + a * 0.55)
+          ctx.strokeStyle = rgba(c, 0.045 + a * 0.18)
           ctx.beginPath()
           ctx.moveTo(nodes[i].x, nodes[i].y)
           ctx.lineTo(nodes[j].x, nodes[j].y)
           ctx.stroke()
         }
-        ctx.globalCompositeOperation = 'lighter'
         for (const n of nodes) {
           const c = mix(mix(TEAL, AMBER, n.base), mix(AMBER, TEAL, n.base), n.a)
-          if (n.a > 0.06) {
-            const gr = 16 + n.a * 60
-            const rg = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, gr)
-            rg.addColorStop(0, rgba(c, 0.3 + n.a * 0.45))
-            rg.addColorStop(1, rgba(c, 0))
-            ctx.fillStyle = rg
-            ctx.fillRect(n.x - gr, n.y - gr, gr * 2, gr * 2)
-          }
-          ctx.globalAlpha = 0.3 + n.a * 0.7
+          ctx.globalAlpha = 0.3 + n.a * 0.4
           ctx.fillStyle = rgba(c, 1)
           ctx.beginPath()
-          ctx.arc(n.x, n.y, 1.5 + n.a * 2.6, 0, 6.2832)
+          ctx.arc(n.x, n.y, 1.5 + n.a * 1.1, 0, 6.2832)
           ctx.fill()
           ctx.globalAlpha = 1
         }
-        ctx.globalCompositeOperation = 'source-over'
       }
 
       raf = requestAnimationFrame(frame)
@@ -357,9 +358,9 @@ col+=(hash(vUv*uRes.xy+uTime)-0.5)*0.03;col*=1.0-0.26*length(vUv-0.5);gl_FragCol
     return () => {
       running = false
       cancelAnimationFrame(raf)
-      host.removeEventListener('pointermove', onMove)
-      host.removeEventListener('pointerdown', onMove)
-      host.removeEventListener('pointerleave', onLeave)
+      pointerTarget.removeEventListener('pointermove', onMove)
+      pointerTarget.removeEventListener('pointerdown', onMove)
+      pointerTarget.removeEventListener('pointerleave', onLeave)
       window.removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVis)
       ro?.disconnect()

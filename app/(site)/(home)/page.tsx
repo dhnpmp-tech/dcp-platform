@@ -1,15 +1,17 @@
-// v2 marketing home — reworked.
-// A SERVER component composing 6 editorial sections + a few interactive client
-// leaves (HomeChrome, HeroMeshCanvas, DemoChat). The hero headline server-renders
-// via the <BiX> bilingual-CSS-toggle so it lands in the initial HTML (LCP win)
-// without waiting for the client i18n context. dcp-kit.css is imported by the
-// site layout; only the co-located page CSS is imported here.
+// v2 marketing home — product-first rework.
+// A SERVER component composing editorial sections + a few interactive client
+// leaves (HomeChrome, HeroMeshCanvas, DemoChat). The two products (GPU pods,
+// inference API) lead: hero doors → §01 pods showcase → §02 inference showcase,
+// each with a generated cinematic visual so the page reads as a product, not a
+// text column. The hero headline server-renders via <BiX> (LCP win). GPU rates
+// import from structured-data.ts so visible prices and JSON-LD can never drift.
 
 import Link from 'next/link'
 import { Bi, BiX } from '@/app/(site)/lib/i18n'
 import { HomeChrome } from '@/app/(site)/components/home-chrome/HomeChrome'
 import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas'
 import { DemoChat } from '@/app/(site)/components/demo-chat/DemoChat'
+import { GPU_SKUS } from '@/app/lib/structured-data'
 import { CAPACITY_GATES, HOME_FAQ_VISIBLE } from './home-data'
 import './home.css'
 
@@ -18,13 +20,13 @@ export default function V2HomePage() {
     <div style={{ background: 'var(--bg)', color: 'var(--ink)', minHeight: '100vh', fontFamily: 'var(--sans)' }}>
       <HomeChrome />
 
-      {/* ═══════════════ §01 HERO ═══════════════ */}
-      <section className="home-hero">
+      {/* ═══════════════ §00 HERO — full-bleed live mesh ═══════════════ */}
+      <section className="home-hero hero-bleed">
+        <HeroMeshCanvas className="hero-mesh--bleed" />
         <div className="wrap">
-          <div className="home-hero-grid hero-2col">
-            <div className="hero-copy">
+          <div className="hero-copy hero-copy-bleed">
               <span className="eyebrow">
-                <Bi en="§ WHOLE GPUs · BY THE SECOND · IN RIYALS" ar="§ معالجات كاملة · بالثانية · بالريال" />
+                <Bi en="§ WHOLE GPUs · RENT BY THE SECOND · IN RIYALS" ar="§ معالجات كاملة · استئجار بالثانية · بالريال" />
               </span>
               <h1>
                 <BiX
@@ -32,7 +34,7 @@ export default function V2HomePage() {
                     <>
                       Rent a whole GPU <em>by the second.</em>
                       <br />
-                      Stop paying for the other 59 minutes.
+                      Stop paying for the other 59{' '}minutes.
                     </>
                   }
                   ar={
@@ -46,45 +48,49 @@ export default function V2HomePage() {
               </h1>
               <p className="lead">
                 <Bi
-                  en="Root, SSH, and Jupyter in about a minute. Billed per second in Riyal — and the unused time is refunded the instant you stop. No procurement ticket. No quota waitlist. No bill that runs away while you sleep."
-                  ar="‏Root وSSH وJupyter خلال دقيقة تقريباً. محاسبة بالثانية بالريال — ويُعاد إليك الوقت غير المستخدم لحظة إيقافك. بلا طلب شراء، بلا قائمة انتظار، وبلا فاتورة تتضخّم وأنت نائم."
+                  en="GPU pods in Saudi Arabia: root, SSH and Jupyter in about a minute, billed per second in Riyal — and the unused time is refunded the instant you stop. When you don't need the whole card, the same mesh answers as an OpenAI-compatible API."
+                  ar="حاويات GPU في السعودية: Root وSSH وJupyter خلال دقيقة تقريباً، بفوترة بالثانية بالريال — ويُعاد الوقت غير المستخدم لحظة إيقافك. وحين لا تحتاج البطاقة كاملة، تجيبك الشبكة نفسها كواجهة متوافقة مع OpenAI."
                 />
               </p>
 
               <div className="door-grid">
-                <Link className="door" href="/renter/playground">
+                <Link className="door" href="/containers">
                   <span className="door-k">
-                    <Bi en="for builders" ar="للمطوّرين" />
+                    <Bi en="Product 01 · compute" ar="المنتج ٠١ · حوسبة" />
                   </span>
                   <span className="door-t">
-                    <Bi en="Use AI models" ar="استخدم النماذج" />
+                    <Bi en="GPU Pods" ar="حاويات GPU" />
                   </span>
                   <span className="door-d">
                     <Bi
-                      en="OpenAI-compatible API and playground. Pay per token, in SAR."
-                      ar="واجهة متوافقة مع OpenAI وساحة تجربة. ادفع بالرمز، بالريال."
+                      en="A whole RTX-class or datacenter GPU, dedicated to you — Jupyter + SSH in about a minute."
+                      ar="معالج كامل من فئة RTX أو مراكز البيانات، مخصص لك — Jupyter وSSH خلال دقيقة تقريباً."
                     />
+                  </span>
+                  <span className="door-p" dir="ltr">
+                    <Bi en="from 2.5 SAR/hr · billed per second" ar="من ٢٫٥ ريال/ساعة · فوترة بالثانية" />
                   </span>
                   <span className="door-a">→</span>
                 </Link>
-                <Link className="door" href="/containers">
+                <Link className="door" href="/renter/playground">
                   <span className="door-k">
-                    <Bi en="for compute" ar="للحوسبة" />
+                    <Bi en="Product 02 · inference" ar="المنتج ٠٢ · استدلال" />
                   </span>
                   <span className="door-t">
-                    <Bi en="Rent a whole GPU" ar="استأجر معالجاً كاملاً" />
+                    <Bi en="Inference API" ar="واجهة الاستدلال" />
                   </span>
                   <span className="door-d">
                     <Bi
-                      en="A whole RTX-class GPU, dedicated to you — Jupyter + SSH in about a minute."
-                      ar="معالج RTX كامل مخصص لك — Jupyter و SSH خلال دقيقة تقريباً."
+                      en="OpenAI-compatible chat, embeddings and rerank — change base_url, keep your code."
+                      ar="محادثة وتضمين وإعادة ترتيب متوافقة مع OpenAI — غيّر base_url وأبقِ كودك كما هو."
                     />
+                  </span>
+                  <span className="door-p" dir="ltr">
+                    <Bi en="from 5 halala / 1M tokens" ar="من ٥ هللات / مليون رمز" />
                   </span>
                   <span className="door-a">→</span>
                 </Link>
               </div>
-
-              <DemoChat />
 
               <div className="res-row">
                 <span className="residency-badge ksa">
@@ -101,116 +107,141 @@ export default function V2HomePage() {
                   <span><Bi en="Frontier · opt-in only" ar="متقدم · بإذن فقط" /></span>
                 </span>
               </div>
-            </div>
-
-            <div className="hero-visual">
-              <HeroMeshCanvas />
-            </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ §02 WHAT DCP IS ═══════════════ */}
-      <section id="what">
+      {/* ═══════════════ §01 PRODUCT · GPU PODS ═══════════════ */}
+      <section id="pods">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 01 · What DCP is" ar="§ ٠١ · ما هو DCP" />
+              <Bi en="§ 01 · GPU Pods" ar="§ ٠١ · حاويات GPU" />
             </span>
             <span>
-              <Bi en="Inference · agents · a provider mesh — one Saudi runtime" ar="استدلال · وكلاء · شبكة مزوّدين — بيئة سعودية واحدة" />
+              <Bi en="Whole, dedicated NVIDIA GPUs · on-demand · in-Kingdom" ar="معالجات NVIDIA كاملة مخصصة · عند الطلب · داخل المملكة" />
             </span>
           </div>
-          <div className="layers">
-            <div className="layer">
-              <span className="n">
-                <Bi en="01 · Inference" ar="٠١ · استدلال" />
-              </span>
-              <h3>
-                <Bi en="One API. Per-million-token billing." ar="واجهة برمجة واحدة. فوترة لكل مليون رمز." />
-              </h3>
+
+          <div className="pshow">
+            <div className="pshow-media">
+              <img
+                src="/home/pods.webp"
+                width={1600}
+                height={894}
+                loading="lazy"
+                decoding="async"
+                alt="Macro photograph of a GPU circuit board lit in teal and amber — the whole-GPU pods DCP rents on demand in Saudi Arabia"
+              />
+              <span className="pshow-cap" dir="ltr">fig. 01 — whole-GPU pod · dedicated silicon</span>
+            </div>
+            <div className="pshow-copy">
+              <h2>
+                <BiX
+                  en={<>A whole GPU. Root, Jupyter, SSH. <em>In about a minute.</em></>}
+                  ar={<>معالج كامل. Root وJupyter وSSH. <em>خلال دقيقة تقريباً.</em></>}
+                />
+              </h2>
               <p>
                 <Bi
-                  en="OpenAI-compatible chat, embedding, and rerank endpoints, served from KSA-resident GPUs. Arabic-first, open-source model lineup. Frontier models stay off unless you opt in."
-                  ar="نقاط نهاية محادثة وتضمين وإعادة ترتيب متوافقة مع OpenAI، تعمل على معالجات داخل المملكة. باقة نماذج مفتوحة عربية أولاً. النماذج المتقدمة تبقى مغلقة حتّى تفتحها."
+                  en="Not a slice, not a queue — the entire card is yours with a pinned driver. Launch from the console or one API call, extend without a restart, and stop whenever you want: the unused seconds come straight back to your wallet."
+                  ar="ليست شريحة ولا طابور انتظار — البطاقة كلها لك مع تعريف مثبّت. شغّلها من لوحة التحكم أو باستدعاء واحد للواجهة، ومدّدها دون إعادة تشغيل، وأوقفها متى شئت: الثواني غير المستخدمة تعود مباشرة إلى محفظتك."
                 />
               </p>
-              <ul>
-                <li><Bi en="OpenAI SDK · no rewrite needed" ar="SDK OpenAI · بلا إعادة كتابة" /></li>
-                <li><Bi en="Streaming · function calling · JSON mode" ar="بثّ · استدعاء دوال · JSON" /></li>
-                <li><Bi en="Halala-grained billing · SAR + USDC" ar="فوترة بالهللة · ريال + USDC" /></li>
+              <ul className="pshow-list">
+                <li><Bi en="Root + Jupyter over TLS + SSH · persistent /workspace volumes" ar="Root وJupyter عبر TLS وSSH · وحدات /workspace دائمة" /></li>
+                <li><Bi en="Prepaid per GPU-second in SAR · prorated refund on early stop" ar="مسبق الدفع بالثانية بالريال · استرداد تناسبي عند الإيقاف المبكر" /></li>
+                <li><Bi en="Idempotent money routes · machine-readable 402 for agents" ar="مسارات دفع آمنة التكرار · استجابة 402 مقروءة آلياً للوكلاء" /></li>
               </ul>
-              <div className="end">
-                <span>api.dcp.sa / v1</span>
-                <Link href="/pricing">
-                  <Bi en="See rates →" ar="عرض الأسعار ←" />
+              <pre className="term" dir="ltr" aria-label="Launch a pod via the API">
+{`$ curl -X POST https://api.dcp.sa/api/pods \\
+    -H "Authorization: Bearer $DCP_KEY" \\
+    -d '{"gpu_type":"H100","duration_minutes":60}'
+
+201 { "access_url": "https://…/jupyter", "ssh_command": "ssh …" }`}
+              </pre>
+              <div className="pshow-ctas">
+                <Link className="btn primary" href="/containers">
+                  <Bi en="Launch a pod →" ar="شغّل حاوية ←" />
+                </Link>
+                <Link className="btn ghost" href="/pricing">
+                  <Bi en="Full pricing" ar="الأسعار الكاملة" />
                 </Link>
               </div>
             </div>
-            <div className="layer">
-              <span className="n">
-                <Bi en="02 · Agents" ar="٠٢ · وكلاء" />
-              </span>
-              <h3>
-                <BiX
-                  en={
-                    <>
-                      DCP-Agent. <em>Live for SMB.</em>
-                    </>
-                  }
-                  ar={
-                    <>
-                      DCP-Agent. <em>جاهز للمنشآت.</em>
-                    </>
-                  }
-                />
-              </h3>
-              <p>
-                <Bi
-                  en="The Arabic AI agent for Saudi small & mid-size businesses. Already in production at agents.dcp.sa. A free personal version for every Saudi is coming."
-                  ar="وكيل الذكاء العربي للمنشآت السعودية الصغيرة والمتوسطة. جاهز وفي الإنتاج على agents.dcp.sa. النسخة الشخصية المجانية لكل مواطن سعودي قريباً."
-                />
-              </p>
-              <div className="end">
-                <span>agents.dcp.sa</span>
-                <Link href="/agents">
-                  <Bi en="Visit →" ar="زر ←" />
-                </Link>
+          </div>
+
+          {/* live rate rail — same source of truth as the JSON-LD offers */}
+          <div className="rate-rail" aria-label="GPU types and indicative hourly rates">
+            {GPU_SKUS.map((g) => (
+              <div className="rr-it" key={g.model} dir="ltr">
+                <span className="rr-n">{g.model.replace('NVIDIA ', '')}</span>
+                <span className="rr-v">{g.vramGb} GB</span>
+                <span className="rr-p">
+                  <Bi en={`from ${g.sarPerHour} SAR/hr`} ar={`من ${g.sarPerHour} ريال/س`} />
+                </span>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ §02 PRODUCT · INFERENCE API ═══════════════ */}
+      <section id="inference">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 02 · Inference API" ar="§ ٠٢ · واجهة الاستدلال" />
+            </span>
+            <span>
+              <Bi en="OpenAI-compatible · per-token billing in SAR · Arabic-first models" ar="متوافقة مع OpenAI · فوترة بالرمز بالريال · نماذج عربية أولاً" />
+            </span>
+          </div>
+
+          <div className="pshow flip">
+            <div className="pshow-media">
+              <img
+                src="/home/inference.webp"
+                width={1600}
+                height={894}
+                loading="lazy"
+                decoding="async"
+                alt="Streams of teal and amber light converging — tokens flowing through DCP's OpenAI-compatible inference API served from Saudi GPUs"
+              />
+              <span className="pshow-cap" dir="ltr">fig. 02 — token streams · api.dcp.sa/v1</span>
             </div>
-            <div className="layer">
-              <span className="n">
-                <Bi en="03 · Providers" ar="٠٣ · مزوّدون" />
-              </span>
-              <h3>
+            <div className="pshow-copy">
+              <h2>
                 <BiX
-                  en={
-                    <>
-                      Earn SAR with <em>your GPU.</em>
-                    </>
-                  }
-                  ar={
-                    <>
-                      اكسب ريالاً من <em>معالجك.</em>
-                    </>
-                  }
+                  en={<>Point your SDK <em>at the Kingdom.</em></>}
+                  ar={<>وجّه SDK الخاص بك <em>إلى المملكة.</em></>}
                 />
-              </h3>
+              </h2>
               <p>
                 <Bi
-                  en="A 4 MB desktop app for Windows, macOS Apple Silicon, and Linux. Auto-detects your GPU, installs the inference engine, downloads a model, and reports measured throughput after verification. Joins a self-hosted WireGuard mesh — no port forwarding."
-                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف المعالج تلقائياً، ويصب محرّك الاستدلال، وينزّل نموذجاً، ويعرض السرعة المقاسة بعد التحقق. ينضم إلى شبكة WireGuard ذاتية الاستضافة — دون فتح منافذ."
+                  en="One line changes: base_url. Chat, embeddings and rerank served from KSA-resident GPUs, with streaming, function calling and JSON mode. An Arabic-first, open-source model lineup — frontier models stay off unless you opt in."
+                  ar="سطر واحد يتغيّر: base_url. محادثة وتضمين وإعادة ترتيب من معالجات داخل المملكة، مع البث واستدعاء الدوال ووضع JSON. باقة نماذج مفتوحة عربية أولاً — النماذج المتقدمة تبقى مغلقة حتى تفتحها بنفسك."
                 />
               </p>
-              <ul>
-                <li><Bi en="Windows · macOS Apple Silicon · Linux" ar="Windows · macOS Apple Silicon · Linux" /></li>
-                <li><Bi en="4 MB app · zero config · WireGuard mesh" ar="٤ ميغابايت · بلا إعداد · شبكة WireGuard" /></li>
-                <li><Bi en="85% provider · 15% platform · monthly SAR payout" ar="٨٥٪ للمزوّد · ١٥٪ للمنصّة · دفع شهري بالريال" /></li>
+              <pre className="term" dir="ltr" aria-label="Point an OpenAI SDK at DCP">
+{`from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.dcp.sa/v1",  # ← the only change
+    api_key=os.environ["DCP_API_KEY"],
+)`}
+              </pre>
+              <ul className="pshow-list">
+                <li><Bi en="Per-1M-token rates by class: 5 → 400 halala · shown before you commit" ar="أسعار لكل مليون رمز حسب الفئة: ٥ → ٤٠٠ هللة · تُعرض قبل الالتزام" /></li>
+                <li><Bi en="GET /v1/models carries a live available flag — no stale catalog" ar="‏GET /v1/models تحمل مؤشر توفّر حي — لا فهرس متقادم" /></li>
               </ul>
-              <div className="end">
-                <span>dcp.sa / provider-setup</span>
-                <Link href="/provider-setup">
-                  <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
+              <DemoChat />
+              <div className="pshow-ctas">
+                <Link className="btn primary" href="/renter/playground">
+                  <Bi en="Open playground →" ar="افتح ساحة التجربة ←" />
+                </Link>
+                <Link className="btn ghost" href="/marketplace">
+                  <Bi en="Live models" ar="النماذج الحية" />
                 </Link>
               </div>
             </div>
@@ -218,12 +249,68 @@ export default function V2HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════ §03 WHY IT'S HONEST ═══════════════ */}
+      {/* ═══════════════ §03 SOVEREIGNTY BAND ═══════════════ */}
+      <section className="sov-band" id="sovereign" aria-labelledby="sov-h">
+        <img
+          src="/home/skyline.webp"
+          width={2000}
+          height={849}
+          loading="lazy"
+          decoding="async"
+          alt="Riyadh skyline at dawn under a constellation of connected GPU nodes — DCP's in-Kingdom compute mesh"
+        />
+        <div className="sov-band-in wrap">
+          <span className="eyebrow">
+            <Bi en="§ 03 · Sovereignty, structurally" ar="§ ٠٣ · سيادة بالبنية" />
+          </span>
+          <h2 id="sov-h">
+            <BiX
+              en={<>Everything above runs <em>inside Saudi Arabia.</em></>}
+              ar={<>كل ما سبق يعمل <em>داخل السعودية.</em></>}
+            />
+          </h2>
+          <p>
+            <Bi
+              en="Data, models, storage and the control plane stay in the Kingdom, under Saudi law — not as a policy promise, but because the hardware is here. Cross-border frontier models exist only behind an explicit per-tenant switch."
+              ar="البيانات والنماذج والتخزين وطبقة التحكم تبقى في المملكة وتحت النظام السعودي — ليس وعداً في سياسة، بل لأن العتاد هنا فعلاً. النماذج العابرة للحدود لا توجد إلا خلف مفتاح صريح لكل مستأجر."
+            />
+          </p>
+          <div className="compliance sov-compliance">
+            <div className="item">
+              <span className="k">PDPL</span>
+              <span className="v"><Bi en="Aligned" ar="متوائم" /></span>
+              <span className="sub"><Bi en="Saudi residency" ar="إقامة سعودية" /></span>
+            </div>
+            <div className="item">
+              <span className="k"><Bi en="Settlement" ar="تسوية" /></span>
+              <span className="v"><Bi en="In-Kingdom" ar="داخل المملكة" /></span>
+              <span className="sub"><Bi en="Halala · SAR" ar="هللة · ريال" /></span>
+            </div>
+            <div className="item">
+              <span className="k"><Bi en="Hosting" ar="الاستضافة" /></span>
+              <span className="v"><Bi en="Self-hosted" ar="ذاتية الاستضافة" /></span>
+              <span className="sub"><Bi en="In-Kingdom infrastructure" ar="بنية تحتية داخل المملكة" /></span>
+            </div>
+            <div className="item">
+              <span className="k">ZATCA</span>
+              <span className="v"><Bi en="VAT-registered" ar="مسجّل ضريبياً" /></span>
+              <span className="sub">311102233400003</span>
+            </div>
+            <div className="item">
+              <span className="k">CR</span>
+              <span className="v">7053667775</span>
+              <span className="sub">DC Power Solutions Co.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ §04 WHY IT'S HONEST ═══════════════ */}
       <section id="honest">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 02 · Proof, not a hand-typed list" ar="§ ٠٢ · دليل، لا قائمة مكتوبة يدوياً" />
+              <Bi en="§ 04 · Proof, not a hand-typed list" ar="§ ٠٤ · دليل، لا قائمة مكتوبة يدوياً" />
             </span>
             <span>
               <Bi en="A machine appears only after we prove it answers" ar="لا يظهر الجهاز إلا بعد أن نثبت أنه يجيب" />
@@ -272,68 +359,119 @@ export default function V2HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════ §04 TWO PATHS IN ═══════════════ */}
-      <section id="register">
+      {/* ═══════════════ §05 AGENTS ═══════════════ */}
+      <section id="agents-band">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 03 · Two paths in" ar="§ ٠٣ · مساران للدخول" />
+              <Bi en="§ 05 · Agents" ar="§ ٠٥ · الوكلاء" />
             </span>
             <span>
-              <Bi en="Renter · or · Provider" ar="مستخدم · أو · مزوّد" />
+              <Bi en="Humans get a console · agents get MCP" ar="البشر لهم لوحة تحكم · والوكلاء لهم MCP" />
             </span>
           </div>
-          <div className="paths paths-2">
-            <div className="path">
-              <span className="lbl">
-                <Bi en="A · I want to use DCP" ar="A · أريد استخدام DCP" />
-              </span>
+          <div className="agents-band">
+            <div className="ab-cell">
+              <span className="ab-k"><Bi en="For Saudi business" ar="للأعمال السعودية" /></span>
               <h3>
                 <BiX
-                  en={<>Build with <em>Arabic AI.</em></>}
-                  ar={<>ابنِ بـ<em>الذكاء العربي.</em></>}
+                  en={<>DCP-Agent. <em>Live for SMB.</em></>}
+                  ar={<>DCP-Agent. <em>جاهز للمنشآت.</em></>}
                 />
               </h3>
-              <p className="desc">
+              <p>
                 <Bi
-                  en="For founders, banks, hospitals, regulators, agencies. You ship the product; we serve the inference and the agents. SAR billing, halala-grained, no rental contracts."
-                  ar="للمؤسسين والبنوك والمستشفيات والجهات التنظيمية والوكالات. أنت تشحن المنتج؛ ونحن نقدّم الاستدلال والوكلاء. فوترة بالريال بدقة الهللة، بلا عقود إيجار."
+                  en="The Arabic AI agent for Saudi small & mid-size businesses — already in production at agents.dcp.sa. A free personal version for every Saudi is coming."
+                  ar="وكيل الذكاء العربي للمنشآت السعودية الصغيرة والمتوسطة — في الإنتاج على agents.dcp.sa. والنسخة الشخصية المجانية لكل سعودي قريباً."
                 />
               </p>
-              <Link className="btn primary lg" href="/setup">
-                <Bi en="Start free · no card →" ar="ابدأ مجاناً · بلا بطاقة ←" />
-              </Link>
+              <div className="end">
+                <span dir="ltr">agents.dcp.sa</span>
+                <Link href="/agents">
+                  <Bi en="Visit →" ar="زر ←" />
+                </Link>
+              </div>
             </div>
-            <div className="path">
-              <span className="lbl">
-                <Bi en="B · I have a GPU to earn from" ar="B · لدي معالج أريد الكسب منه" />
-              </span>
+            <div className="ab-cell">
+              <span className="ab-k"><Bi en="For AI agents · zero human" ar="لوكلاء الذكاء · دون تدخل بشري" /></span>
               <h3>
                 <BiX
-                  en={<>Turn idle iron into <em>Riyal.</em></>}
-                  ar={<>حوّل عتاداً خاملاً إلى <em>ريال.</em></>}
+                  en={<>An agent can rent a GPU <em>by itself.</em></>}
+                  ar={<>وكيل يستأجر معالجاً <em>بنفسه.</em></>}
                 />
               </h3>
-              <p className="desc">
+              <p>
                 <Bi
-                  en="A 4 MB app auto-detects your card, joins the verified WireGuard mesh, and pays you 85% of inference revenue in monthly SAR. No port forwarding, no DevOps."
-                  ar="تطبيق بحجم ٤ ميغابايت يكتشف بطاقتك تلقائياً، ينضم لشبكة WireGuard المتحققة، ويدفع لك ٨٥٪ من إيراد الاستدلال شهرياً بالريال. بلا فتح منافذ، بلا عمليات تشغيل."
+                  en="Self-register in one call, get a real key plus a 20 SAR trial credit, then rent pods and run inference through the official MCP server — no email click, no human."
+                  ar="تسجيل ذاتي باستدعاء واحد، ومفتاح حقيقي مع رصيد تجريبي ٢٠ ريالاً، ثم استئجار الحاويات وتشغيل الاستدلال عبر خادم MCP الرسمي — دون بريد ودون بشر."
                 />
               </p>
-              <Link className="btn primary lg" href="/provider-setup">
-                <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
-              </Link>
+              <pre className="term slim" dir="ltr" aria-label="Install the DCP MCP server">{`npx -y github:dhnpmp-tech/dcp-mcp`}</pre>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ §05 FAQ (top 3 — full set in JSON-LD) ═══════════════ */}
+      {/* ═══════════════ §06 EARN · PROVIDERS ═══════════════ */}
+      <section id="earn">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx">
+              <Bi en="§ 06 · Providers" ar="§ ٠٦ · المزوّدون" />
+            </span>
+            <span>
+              <Bi en="The other side of the marketplace" ar="الطرف الآخر من السوق" />
+            </span>
+          </div>
+          <div className="pshow">
+            <div className="pshow-media">
+              <img
+                src="/home/rig.webp"
+                width={1200}
+                height={896}
+                loading="lazy"
+                decoding="async"
+                alt="A gaming PC with a large GPU glowing teal on a desk at night — the kind of Saudi-owned machine that earns Riyal on DCP"
+              />
+              <span className="pshow-cap" dir="ltr">fig. 03 — a provider node · somewhere in the Kingdom</span>
+            </div>
+            <div className="pshow-copy">
+              <h2>
+                <BiX
+                  en={<>Your idle GPU. <em>Paid in Riyal.</em></>}
+                  ar={<>معالجك الخامل. <em>يُدفع بالريال.</em></>}
+                />
+              </h2>
+              <p>
+                <Bi
+                  en="A 4 MB desktop app for Windows, macOS Apple Silicon and Linux. It detects your card, installs the inference engine, downloads a model, and reports measured throughput after verification — then your machine joins the self-hosted WireGuard mesh. No port forwarding, no DevOps."
+                  ar="تطبيق سطح مكتب بحجم ٤ ميغابايت لـWindows وmacOS Apple Silicon وLinux. يكتشف بطاقتك، ويثبّت محرك الاستدلال، وينزّل نموذجاً، ويعرض السرعة المقاسة بعد التحقق — ثم ينضم جهازك إلى شبكة WireGuard ذاتية الاستضافة. بلا فتح منافذ، بلا عمليات تشغيل."
+                />
+              </p>
+              <ul className="pshow-list">
+                <li><Bi en="85% provider · 15% platform · monthly SAR payout" ar="٨٥٪ للمزوّد · ١٥٪ للمنصّة · دفع شهري بالريال" /></li>
+                <li><Bi en="Windows · macOS Apple Silicon · Linux · 4 MB · zero config" ar="Windows · macOS Apple Silicon · Linux · ٤ ميغابايت · بلا إعداد" /></li>
+                <li><Bi en="Paid only while verified and serving — the same gates you saw above" ar="تُدفع فقط أثناء التحقق والخدمة — البوابات نفسها التي رأيتها أعلاه" /></li>
+              </ul>
+              <div className="pshow-ctas">
+                <Link className="btn primary" href="/provider-setup">
+                  <Bi en="Register a GPU →" ar="سجّل معالجاً ←" />
+                </Link>
+                <Link className="btn ghost" href="/earn">
+                  <Bi en="Estimate earnings" ar="قدّر أرباحك" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ §07 FAQ (all 6 — same set as JSON-LD) ═══════════════ */}
       <section id="faq">
         <div className="wrap">
           <div className="section-meta">
             <span className="idx">
-              <Bi en="§ 04 · The questions people ask AI" ar="§ ٠٤ · الأسئلة الشائعة · ما يسأله الناس للذكاء الاصطناعي" />
+              <Bi en="§ 07 · The questions people ask AI" ar="§ ٠٧ · الأسئلة الشائعة · ما يسأله الناس للذكاء الاصطناعي" />
             </span>
             <span>
               <Bi en="Rent a GPU · OpenAI-compatible API · MCP · sovereignty" ar="إيجار معالج · واجهة متوافقة مع OpenAI · MCP · السيادة" />
@@ -359,48 +497,7 @@ export default function V2HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════ §06 COMPLIANCE BAND ═══════════════ */}
-      <section>
-        <div className="wrap">
-          <div className="section-meta">
-            <span className="idx">
-              <Bi en="§ 05 · Proof, not promises" ar="§ ٠٥ · دليل، لا وعود" />
-            </span>
-            <span>
-              <Bi en="Updated 2026-05-25" ar="آخر تحديث ٢٠٢٦-٠٥-٢٥" />
-            </span>
-          </div>
-          <div className="compliance">
-            <div className="item">
-              <span className="k">PDPL</span>
-              <span className="v"><Bi en="Aligned" ar="متوائم" /></span>
-              <span className="sub"><Bi en="Saudi residency" ar="إقامة سعودية" /></span>
-            </div>
-            <div className="item">
-              <span className="k"><Bi en="Settlement" ar="تسوية" /></span>
-              <span className="v"><Bi en="In-Kingdom" ar="داخل المملكة" /></span>
-              <span className="sub"><Bi en="Halala · SAR" ar="هللة · ريال" /></span>
-            </div>
-            <div className="item">
-              <span className="k"><Bi en="Hosting" ar="الاستضافة" /></span>
-              <span className="v"><Bi en="Self-hosted" ar="ذاتية الاستضافة" /></span>
-              <span className="sub"><Bi en="In-Kingdom infrastructure" ar="بنية تحتية داخل المملكة" /></span>
-            </div>
-            <div className="item">
-              <span className="k">ZATCA</span>
-              <span className="v"><Bi en="VAT-registered" ar="مسجّل ضريبياً" /></span>
-              <span className="sub">311102233400003</span>
-            </div>
-            <div className="item">
-              <span className="k">CR</span>
-              <span className="v">7053667775</span>
-              <span className="sub"><Bi en="DC Power Solutions Co." ar="DC Power Solutions Co." /></span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════ §07 END CTA ═══════════════ */}
+      {/* ═══════════════ §08 END CTA ═══════════════ */}
       <section className="home-end">
         <div className="wrap">
           <span className="eyebrow" style={{ justifyContent: 'center' }}>
@@ -438,8 +535,8 @@ export default function V2HomePage() {
             </div>
             <p className="desc">
               <Bi
-                en="Sovereign Arabic AI — inference, agents, and a KSA GPU mesh. Built by DC Power Solutions Co., Riyadh."
-                ar="ذكاء اصطناعي عربي سيادي — استدلال ووكلاء وشبكة معالجات داخل المملكة. من بناء DC Power Solutions Co.، الرياض."
+                en="Sovereign Arabic AI — GPU pods, inference, agents, and a KSA GPU mesh. Built by DC Power Solutions Co., Riyadh."
+                ar="ذكاء اصطناعي عربي سيادي — حاويات GPU واستدلال ووكلاء وشبكة معالجات داخل المملكة. من بناء DC Power Solutions Co.، الرياض."
               />
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -447,7 +544,7 @@ export default function V2HomePage() {
                 <span className="flag">🇸🇦</span> <span><Bi en="KSA-resident" ar="داخل المملكة" /></span>
               </span>
               <span className="residency-badge">
-                <span className="flag">∞</span> <span><Bi en="agents.dcp.sa" ar="agents.dcp.sa" /></span>
+                <span className="flag">∞</span> <span>agents.dcp.sa</span>
               </span>
             </div>
           </div>
@@ -455,11 +552,11 @@ export default function V2HomePage() {
           <div>
             <h4><Bi en="Product" ar="المنتج" /></h4>
             <ul>
-              <li><Link href="/"><Bi en="Overview" ar="نظرة عامة" /></Link></li>
-              <li><Link href="/marketplace"><Bi en="Marketplace" ar="السوق" /></Link></li>
               <li><Link href="/containers"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
+              <li><Link href="/marketplace"><Bi en="Inference" ar="الاستدلال" /></Link></li>
               <li><Link href="/agents"><Bi en="Agents" ar="الوكلاء" /></Link></li>
               <li><Link href="/pricing"><Bi en="Pricing" ar="الأسعار" /></Link></li>
+              <li><Link href="/"><Bi en="Overview" ar="نظرة عامة" /></Link></li>
             </ul>
           </div>
 
