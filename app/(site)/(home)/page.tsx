@@ -12,6 +12,7 @@ import { HomeChrome } from '@/app/(site)/components/home-chrome/HomeChrome'
 import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas'
 import { DemoChat } from '@/app/(site)/components/demo-chat/DemoChat'
 import { PodMeter } from '@/app/(site)/components/pod-meter/PodMeter'
+import { BootEgg } from '@/app/(site)/components/boot-egg/BootEgg'
 import { GPU_SKUS } from '@/app/lib/structured-data'
 import { HOME_FAQ_VISIBLE } from './home-data'
 import './home.css'
@@ -20,6 +21,7 @@ export default function V2HomePage() {
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--ink)', minHeight: '100vh', fontFamily: 'var(--sans)' }}>
       <HomeChrome />
+      <BootEgg />
 
       {/* ═══════════════ §00 HERO — full-bleed live mesh ═══════════════ */}
       <section className="home-hero hero-bleed">
@@ -172,7 +174,8 @@ export default function V2HomePage() {
             </div>
           </div>
 
-          {/* live rate rail — same source of truth as the JSON-LD offers */}
+          {/* live rate rail — same source of truth as the JSON-LD offers.
+              Hover flips each price to per-second: the billing unit, felt. */}
           <div className="rate-rail" aria-label="GPU types and indicative hourly rates">
             {GPU_SKUS.map((g) => (
               <div className="rr-it" key={g.model} dir="ltr">
@@ -180,6 +183,9 @@ export default function V2HomePage() {
                 <span className="rr-v">{g.vramGb} GB</span>
                 <span className="rr-p">
                   <Bi en={`from ${g.sarPerHour} SAR/hr`} ar={`من ${g.sarPerHour} ريال/س`} />
+                </span>
+                <span className="rr-ps" aria-hidden="true">
+                  = {(g.sarPerHour / 3600).toFixed(5)} SAR/s
                 </span>
               </div>
             ))}
@@ -659,7 +665,10 @@ client = OpenAI(
         </div>
 
         <div className="foot-bottom">
-          <span>§ DC Power Solutions Company · CR 7053667775 · VAT 311102233400003</span>
+          <span>
+            § DC Power Solutions Company · CR 7053667775 · VAT 311102233400003{' '}
+            <span className="egg-hint" dir="ltr">· psst — try typing “gpu”</span>
+          </span>
           <div className="badges">
             <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>PDPL</span>
             <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>KSA-resident</span>

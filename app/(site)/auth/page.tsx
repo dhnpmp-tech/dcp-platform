@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { setSession } from '@/app/lib/auth'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
+import { HeroMeshCanvas } from '@/app/(site)/components/hero-mesh/HeroMeshCanvas'
 
 type AuthTab = 'signin' | 'signup'
 type AuthRole = 'renter' | 'provider'
@@ -178,6 +179,9 @@ function AuthInner() {
   return (
     <div className="auth">
       <div className="auth-brand">
+        <div className="auth-mesh" aria-hidden="true">
+          <HeroMeshCanvas badge={false} />
+        </div>
         <Link href="/" className="wm" style={{ textDecoration: 'none', color: 'var(--ink)' }}>
           DCP<i>∞</i>
         </Link>
