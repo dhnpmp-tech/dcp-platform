@@ -5,6 +5,10 @@
 // dcp-kit.css is imported here so it is scoped to this group's routes (via the
 // segment layout) and never leaks into the remaining legacy v1 pages.
 import './styles/dcp-kit.css'
+// unstable_ViewTransition is provided by the experimental React build that
+// Next.js swaps in when next.config.js sets experimental.viewTransition: true
+// (typed via types/react-view-transition.d.ts until it lands in @types/react).
+import { unstable_ViewTransition as ViewTransition } from 'react'
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { V2Provider } from './lib/i18n'
@@ -27,7 +31,10 @@ export default function V2Layout({ children }: { children: ReactNode }) {
       />
       <V2Provider>
         <FunnelViewBeacon />
-        {children}
+        {/* Cross-fade client-side navigations between (site) pages. The
+            default 200ms fade lives in dcp-kit.css under ::view-transition-*
+            and is disabled for prefers-reduced-motion. */}
+        <ViewTransition>{children}</ViewTransition>
       </V2Provider>
     </>
   )
