@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-07 21:03 UTC - `docs(strategy): Fireworks/Tinker roadmap + Pods/Inference gap audit - PR #729`
+
+**PR:** [#729](https://github.com/dhnpmp-tech/dcp-platform/pull/729) (`codex/fireworks-tinker-roadmap-2026-07-08`).
+**Local timestamp:** 2026-07-08 01:03 +04.
+
+**What:** Captured the Fireworks.ai/Tinker product direction as a repo-visible roadmap and audited the current Pods/POTS and Inference surfaces against that target before starting larger backend/frontend implementation slices.
+
+- **Strategy:** Added `docs/strategy/2026-07-08-fireworks-tinker-product-roadmap.md` with the recommended DCP product rails: Inference, Pods/POTS infrastructure, Fine-Tuning, and Dedicated Deployments.
+- **Gap audit:** Added `docs/architecture/2026-07-08-pods-inference-fireworks-gap-audit.md` mapping current routes, frontend surfaces, LoRA/template assets, and Fireworks-style gaps.
+- **External source check:** Documented current Fireworks and Tinker source links for serverless inference, LoRA deployment, pricing, batch inference, and Tinker training primitives.
+- **Implementation sequence:** Defined the first seven follow-up PRs: ops cleanup, fat pod image plan, Nsight provider benchmark MVP, inference metadata/pricing audit, workspace-to-pod launch polish, and adapter registry/API design.
+- **Verdict:** DCP already has real pod, billing, workspace, OpenAI/Anthropic inference, and vLLM primitives; the next work is product consolidation plus LoRA/adapters/batch/cache rails, not a platform restart.
+
 ### 2026-07-07 16:53 UTC — `docs/ops: codebase-production audit + low-balance watcher env loading — PR #728`
 
 **PR:** [#728](https://github.com/dhnpmp-tech/dcp-platform/pull/728) (`codex/codebase-production-audit-2026-07-07`).
