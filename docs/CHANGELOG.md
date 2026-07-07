@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-### 2026-07-07 16:53 UTC — Codebase/production audit + low-balance watcher env loading (PR #TBD)
+### 2026-07-07 16:53 UTC — Codebase/production audit + low-balance watcher env loading (PR #728)
+
+- **PR:** [#728](https://github.com/dhnpmp-tech/dcp-platform/pull/728) (`codex/codebase-production-audit-2026-07-07`).
 
 - **Audit:** Added `docs/architecture/dcp-codebase-production-audit-2026-07-07.md` so future agents can see the authoritative local path, GitHub URLs, VPS/Vercel mapping, current SHA parity, repo drift, and next improvement backlog in one place.
 - **Ops:** Updated `ops/dcp-low-balance-watch.sh` to load runtime Telegram settings from `/root/dc1-platform/backend/.env` or `DCP_MONITOR_ENV_FILE`, removing the need for inline credentials in the VPS `/usr/local/bin` cron copy. The default low-balance threshold remains 10 SAR.

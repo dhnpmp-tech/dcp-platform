@@ -14,9 +14,9 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-07 16:53 UTC — `docs/ops: codebase-production audit + low-balance watcher env loading — PR #TBD`
+### 2026-07-07 16:53 UTC — `docs/ops: codebase-production audit + low-balance watcher env loading — PR #728`
 
-**PR:** TBD.
+**PR:** [#728](https://github.com/dhnpmp-tech/dcp-platform/pull/728) (`codex/codebase-production-audit-2026-07-07`).
 **Local timestamp:** 2026-07-07 20:53 +04.
 
 **What:** Added the July 7 codebase/production reconciliation audit and cleaned the tracked low-balance watcher so the VPS cron copy can stop carrying inline runtime Telegram values.
