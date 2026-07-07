@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-07 07:39 UTC — Trial/on-demand paid-credit policy + renter credit UX (PR #726)
+
+- **PR:** [#726](https://github.com/dhnpmp-tech/dcp-platform/pull/726) (`codex/tareq-trial-on-demand-policy`).
+- **Backend:** Added `backend/src/services/podAccessPolicy.js` and wired `POST /api/pods` so on-demand/burst supply requires paid available credit before the prepaid debit path runs. The policy classifies `dcp_owned`, `provider`, and `on_demand` supply, computes paid funding net of existing on-demand commitments, and returns stable 402 code `on_demand_requires_prepaid_credit` with paid-credit details.
+- **Frontend:** Updated renter pods launch errors to keep the backend credit-required message visible with an Add credit action, renamed the renter sidebar Wallet item to Credit, and refreshed renter wallet/account copy to distinguish account credit from explicit SAR payment/top-up actions.
+- **Docs/contracts:** Extended `docs/openapi.yaml` payment-required fields for paid-credit gating. Added dated handoff docs: `docs/architecture/dcp-system-map-2026-07-07.md`, `docs/strategy/2026-07-07-tareq-trial-pricing-plan.md`, and `docs/strategy/2026-07-07-codex-dev-process.md`.
+- **Verified:** `npx tsc --noEmit`; `npx jest src/__tests__/podAccessPolicy.test.js src/__tests__/agent-402-payment-required.test.js tests/pods-billing.test.js --runInBand --forceExit`; `npm run lint -- --file 'app/(site)/renter/pods/page.tsx' --file 'app/(site)/renter/wallet/page.tsx' --file 'app/(site)/renter/pods/PodShell.tsx'`; `git diff --check`.
+- **Handoff:** Production/VPS parity work is still pending. Visual QA currently hits the repo-wide existing Next.js `Unsupported Server Component type: undefined` render/prerender failure, so screenshots were not accepted as verification.
+
 ### Backend
 - ✅ Fixed the `renter_volumes` re-rent double-charge bug: re-rent after release now UPDATEs the released row instead of INSERTing (no `UNIQUE(bucket)` collision), and any DB-write failure refunds the debit + deprovisions the bucket so a renter is never charged for a volume they didn't get (`RENT_PERSIST_FAILED`). Shipped as PR #686, hot-patched + verified live, prod fast-forwarded to `origin/main`. (Details in the public `CHANGELOG.md`.)
 

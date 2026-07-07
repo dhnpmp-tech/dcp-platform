@@ -42,28 +42,29 @@ function safeErrorPayload(err, fallback) {
 const TOPUP_URL = process.env.DCP_TOPUP_URL || 'https://dcp.sa/renter/wallet';
 
 /**
- * Agent-first HTTP 402 body for "the prepaid wallet can't cover this quote".
+ * Agent-first HTTP 402 body for "prepaid credit can't cover this quote".
  *
  * Shaped to satisfy the OpenAPI `PaymentRequiredError` schema
  * (error / message / currency / required_halala / balance_halala / topup_url)
  * AND the machine-readable contract an autonomous agent retries against
- * (error + code 'insufficient_balance', required_sar / balance_sar).
+ * (error + stable code, required_sar / balance_sar).
  *
  * It ALSO keeps the legacy nested `error` object that the pre-existing
  * pods/volumes handlers returned, so any caller already keying off
- * `body.error.code === 'insufficient_balance'` keeps working. Top-level
- * `error` is the documented string 'insufficient_balance'; the legacy nested
- * object moves to `error_detail`.
+ * `body.error_detail.code` keeps working. Top-level `error` is the documented
+ * stable code string; the legacy nested object moves to `error_detail`.
  *
  * @param {object} args
  * @param {number} args.requiredHalala  Quote the wallet must cover, in halala.
  * @param {number} args.balanceHalala   Current wallet balance, in halala.
  * @param {string} [args.message]       Human-readable, agent-facing explanation.
+ * @param {string} [args.code]          Stable machine-readable error code.
  * @returns {object} 402 JSON body.
  */
-function paymentRequiredPayload({ requiredHalala, balanceHalala, message } = {}) {
+function paymentRequiredPayload({ requiredHalala, balanceHalala, message, code = 'insufficient_balance' } = {}) {
   const reqHalala = Math.max(0, Math.round(Number(requiredHalala) || 0));
   const balHalala = Math.max(0, Math.round(Number(balanceHalala) || 0));
+  const stableCode = typeof code === 'string' && code ? code : 'insufficient_balance';
   const requiredSar = Number((reqHalala / 100).toFixed(2));
   const balanceSar = Number((balHalala / 100).toFixed(2));
   const humanMessage = typeof message === 'string' && message
@@ -72,8 +73,8 @@ function paymentRequiredPayload({ requiredHalala, balanceHalala, message } = {})
 
   return {
     // Documented (OpenAPI) + machine-readable agent contract.
-    error: 'insufficient_balance',
-    code: 'insufficient_balance',
+    error: stableCode,
+    code: stableCode,
     message: humanMessage,
     currency: 'SAR',
     required_sar: requiredSar,
@@ -86,8 +87,8 @@ function paymentRequiredPayload({ requiredHalala, balanceHalala, message } = {})
     // an object). Preserved here so existing callers don't break on the string.
     error_detail: {
       message: humanMessage,
-      type: 'insufficient_balance',
-      code: 'insufficient_balance',
+      type: stableCode,
+      code: stableCode,
       status: 402,
       retryable: true,
     },
