@@ -16,14 +16,21 @@
 
 set -uo pipefail
 
+# Load runtime secrets from the deployed backend env file when the script runs
+# from cron on VPS2. Local callers can override with DCP_MONITOR_ENV_FILE.
+ENV_FILE="${DCP_MONITOR_ENV_FILE:-/root/dc1-platform/backend/.env}"
+if [ -f "$ENV_FILE" ]; then
+  set -a; . "$ENV_FILE"; set +a
+fi
+
 DB="/root/dc1-platform/backend/data/providers.db"
 STATE_DIR="/var/lib/dcp-monitor"
 STATE_FILE="$STATE_DIR/lowbal-alerts.log"
 LOG_FILE="/var/log/dcp-low-balance-watch.log"
 
-TG_TOKEN="${TG_DEV_BOT_TOKEN:-}"
-TG_CHAT="${TG_ALERT_CHAT_ID:-}"
-TG_TOPIC="4"  # 🔴 Alerts topic (per memory feedback_auto_alerts_topic.md)
+TG_TOKEN="${TG_DEV_BOT_TOKEN:?TG_DEV_BOT_TOKEN missing from $ENV_FILE}"
+TG_CHAT="${TG_ALERT_CHAT_ID:--1003773787353}"
+TG_TOPIC="${TG_ALERT_TOPIC_ID:-4}"  # Alerts topic.
 
 LOW_BALANCE_HALALA="${LOW_BALANCE_HALALA:-1000}"   # 10 SAR
 TODAY="$(date -u +%F)"

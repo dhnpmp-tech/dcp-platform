@@ -7,17 +7,18 @@ Tareq/LoRA handovers.
 
 - Local working tree: `/Users/pp/DC1-Platform/dc1-platform`
 - GitHub origin: `https://github.com/dhnpmp-tech/dcp-platform.git`
-- Confirmed head during audit: `62e8bd7474283309d4723c95e59eb64ea6407e8d`
-- Production VPS checkout: `/root/dc1-platform`, same tracked head during audit.
+- Confirmed head after July 7 deploy/audit refresh: `237b77949a64f43359d96bc649e21f93de533283`
+- Production VPS checkout: `/root/dc1-platform`, same tracked head after audit refresh.
 - DCP org repos also found: `DCP-SA/dcp-desktop`, `DCP-SA/dcp-contracts`, `DCP-SA/dcp-agent`.
 
 Known untracked items at audit time:
 
 - Local: `.verify/`, `ops/dcp-deploy-watch.sh`
-- VPS: runtime/build artifacts, provider logs, reports, binaries, VSIX packages, and
-  the same untracked `ops/dcp-deploy-watch.sh`.
-- The deploy watcher source matched local and VPS by SHA and had no secrets in the
-  file. It reads runtime secrets from the VPS watchdog env file.
+- VPS: runtime/build artifacts, provider logs, reports, binaries, VSIX packages,
+  plus cron-installed helper copies under `/usr/local/bin`.
+- The deploy watcher reads runtime secrets from the VPS watchdog env file.
+- The low-balance watcher drift found on 2026-07-07 is tracked in
+  `docs/architecture/dcp-codebase-production-audit-2026-07-07.md`.
 
 ## Product Surfaces
 
