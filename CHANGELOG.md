@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-07 16:53 UTC — `docs/ops: codebase-production audit + low-balance watcher env loading — PR #TBD`
+
+**PR:** TBD.
+**Local timestamp:** 2026-07-07 20:53 +04.
+
+**What:** Added the July 7 codebase/production reconciliation audit and cleaned the tracked low-balance watcher so the VPS cron copy can stop carrying inline runtime Telegram values.
+
+- **Audit:** Added `docs/architecture/dcp-codebase-production-audit-2026-07-07.md` with the local/GitHub/VPS/Vercel parity table, GitHub repo inventory, production mapping, and next improvement backlog.
+- **Ops:** Updated `ops/dcp-low-balance-watch.sh` to load `/root/dc1-platform/backend/.env` (or `DCP_MONITOR_ENV_FILE`) and read Telegram settings from env/defaults. Default minimum balance remains `1000` halala / 10 SAR, deduped once per renter per UTC day.
+- **System map:** Refreshed the July 7 system map head from the pre-deploy SHA to `237b77949a64`.
+- **Findings captured:** `dcp-platform` aligned local/GitHub/VPS at `237b77949a64`; `dcp-desktop`, `dcp-contracts`, `dcp-mcp`, `dcpgpuscreen`, and `dc1-platform-internal` aligned locally; `dcp-agent` remains detached/stale locally while an active gateway process runs from that checkout.
+- **Verified:** `bash -n ops/dcp-low-balance-watch.sh`.
+
 ### 2026-07-07 07:39 UTC — `feat(pods): require paid credit for on-demand GPUs + renter credit UX — PR #726`
 
 **PR:** [#726](https://github.com/dhnpmp-tech/dcp-platform/pull/726) (`codex/tareq-trial-on-demand-policy`).
