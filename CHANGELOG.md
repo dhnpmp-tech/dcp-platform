@@ -14,9 +14,9 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-07 21:03 UTC - `docs(strategy): Fireworks/Tinker roadmap + Pods/Inference gap audit - PR #TBD`
+### 2026-07-07 21:03 UTC - `docs(strategy): Fireworks/Tinker roadmap + Pods/Inference gap audit - PR #729`
 
-**PR:** TBD (`codex/fireworks-tinker-roadmap-2026-07-08`).
+**PR:** [#729](https://github.com/dhnpmp-tech/dcp-platform/pull/729) (`codex/fireworks-tinker-roadmap-2026-07-08`).
 **Local timestamp:** 2026-07-08 01:03 +04.
 
 **What:** Captured the Fireworks.ai/Tinker product direction as a repo-visible roadmap and audited the current Pods/POTS and Inference surfaces against that target before starting larger backend/frontend implementation slices.

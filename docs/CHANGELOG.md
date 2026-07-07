@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-### 2026-07-07 21:03 UTC - Fireworks/Tinker roadmap + Pods/Inference gap audit (PR #TBD)
+### 2026-07-07 21:03 UTC - Fireworks/Tinker roadmap + Pods/Inference gap audit (PR #729)
 
-- **PR:** TBD (`codex/fireworks-tinker-roadmap-2026-07-08`).
+- **PR:** [#729](https://github.com/dhnpmp-tech/dcp-platform/pull/729) (`codex/fireworks-tinker-roadmap-2026-07-08`).
 - **Strategy:** Added `docs/strategy/2026-07-08-fireworks-tinker-product-roadmap.md` with the recommended DCP product rails: Inference, Pods/POTS infrastructure, Fine-Tuning, and Dedicated Deployments.
 - **Gap audit:** Added `docs/architecture/2026-07-08-pods-inference-fireworks-gap-audit.md` mapping current routes, frontend surfaces, LoRA/template assets, and Fireworks-style gaps.
 - **Source check:** Captured Fireworks and Tinker references for serverless inference, LoRA deployment, pricing, batch inference, and Tinker training primitives.
