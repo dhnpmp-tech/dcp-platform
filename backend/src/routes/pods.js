@@ -35,6 +35,7 @@ const { invokePodRelay } = require('../lib/pod-relay');
 const { COST_RATES } = require('./jobs');
 const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 const { paymentRequiredPayload } = require('../lib/error-response');
+const { evaluatePodLaunchCreditPolicy } = require('../services/podAccessPolicy');
 const conversionFunnel = require('../services/conversionFunnelService');
 
 // ── Burst (external-cloud) pod plumbing ──────────────────────────────────────
@@ -825,6 +826,17 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       ratePerGpuSecond,
       gpuCount: quoteGpuCount,
     });
+    const creditPolicy = evaluatePodLaunchCreditPolicy({
+      db,
+      renter: req.renter,
+      provider,
+      quoteHalala,
+      durationMinutes,
+      ratePerGpuSecond,
+    });
+    if (!creditPolicy.allowed) {
+      return res.status(creditPolicy.status || 402).json(creditPolicy.payload);
+    }
     if (quoteHalala > 0) {
       const debit = db.prepare(
         `UPDATE renters SET balance_halala = balance_halala - ?, updated_at = ?

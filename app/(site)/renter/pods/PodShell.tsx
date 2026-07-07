@@ -29,7 +29,7 @@ export const NAV = [
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/renter/wallet', bd: 'SAR' },
+      { k: 'wallet', ic: '₪', label: 'Credit', labelAr: 'الرصيد', href: '/renter/wallet' },
       { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/renter/invoices' },
     ],
   },

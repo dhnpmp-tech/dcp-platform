@@ -24,7 +24,7 @@ const NAV = [
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/renter/wallet', bd: 'SAR' },
+      { k: 'wallet', ic: '₪', label: 'Credit', labelAr: 'الرصيد', href: '/renter/wallet' },
       { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/renter/invoices' },
     ],
   },
@@ -45,7 +45,7 @@ const TOPUP_METHODS = [
     code: 'creditcard',
     nm: 'Credit card',
     nmAr: 'بطاقة ائتمان',
-    desc: 'Starts a Moyasar card payment and credits the wallet after webhook confirmation.',
+    desc: 'Starts a Moyasar card payment and adds credit after webhook confirmation.',
     descAr: 'تبدأ دفعة بطاقة عبر ميسر ويضاف الرصيد بعد تأكيد الويب هوك.',
   },
   {
@@ -261,7 +261,7 @@ export default function RenterWalletPage() {
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : 'Wallet data could not be loaded')
+        setError(err instanceof Error ? err.message : 'Credit data could not be loaded')
         setLoadState('error')
       }
     }
@@ -393,26 +393,26 @@ export default function RenterWalletPage() {
 
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR {balanceParts.whole}
+            <Bi en="Credit " ar="رصيد " />{balanceParts.whole}
             <span className="u">.{balanceParts.frac}</span>
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR {fmtSar(heldSar)}</b>
+            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
           </div>
           <div className="row">
             <span>
               <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
             </span>
-            <b>SAR {fmtSar(totalSpentSar, false)}</b>
+            <b><Bi en={`${fmtSar(totalSpentSar, false)} credit`} ar={`${fmtSar(totalSpentSar, false)} رصيد`} /></b>
           </div>
           <a className="topup" href="#top-up">
-            <Bi en="+ Top up" ar="+ شحن الرصيد" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </a>
         </div>
 
@@ -458,7 +458,7 @@ export default function RenterWalletPage() {
       <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
 
       <div>
-        <header className="rt-tb" id="rt-tb" data-crumb="Wallet">
+        <header className="rt-tb" id="rt-tb" data-crumb="Credit">
           <button
             className="mb-toggle"
             id="mb-toggle"
@@ -472,7 +472,7 @@ export default function RenterWalletPage() {
             <span>{displayName}</span>
             <span className="sep">/</span>
             <span className="cur">
-              <Bi en="Wallet" ar="المحفظة" />
+              <Bi en="Credit" ar="الرصيد" />
             </span>
           </div>
           <span className="pill">
@@ -499,12 +499,12 @@ export default function RenterWalletPage() {
           <h1 className="rt-h1">
             <Bi en="Your " ar="" />
             <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="wallet." ar="محفظتك." />
+              <Bi en="credit." ar="رصيدك." />
             </em>
           </h1>
           <div className="rt-h1-sub">
             <span>
-              <Bi en="Saudi Riyal · halala-precise" ar="ريال سعودي · بدقة الهللة" />
+              <Bi en="Prepaid DCP credit · halala-precise accounting" ar="رصيد DCP مسبق الدفع · محاسبة دقيقة بالهللة" />
             </span>
             <span>
               <Bi en="Auto top-up " ar="الشحن التلقائي " />
@@ -521,7 +521,7 @@ export default function RenterWalletPage() {
               </b>
               <span>
                 <Bi
-                  en="Sign in or paste a renter API key before v2 can show wallet balance, payments, or top-up controls."
+                  en="Sign in or paste a renter API key before v2 can show credit balance, payments, or add-credit controls."
                   ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تعرض v2 الرصيد والمدفوعات وأدوات الشحن."
                 />
               </span>
@@ -531,7 +531,7 @@ export default function RenterWalletPage() {
           {loadState === 'error' && (
             <div className="dash-state error" style={{ marginTop: '28px' }}>
               <b>
-                <Bi en="Wallet unavailable" ar="المحفظة غير متاحة" />
+                <Bi en="Credit unavailable" ar="الرصيد غير متاح" />
               </b>
               <span>{error}</span>
             </div>
@@ -541,22 +541,22 @@ export default function RenterWalletPage() {
             <div className="balance-grid">
               <div>
                 <div className="k">
-                  <Bi en="Available balance" ar="الرصيد المتاح" />
+                  <Bi en="Available credit" ar="الرصيد المتاح" />
                 </div>
                 <div className="v">
-                  SAR {balanceParts.whole}
+                  <Bi en="Credit " ar="رصيد " />{balanceParts.whole}
                   <span className="u">.{balanceParts.frac}</span>
                 </div>
                 <div className="d">
                   <Bi en="Held in active jobs: " ar="محجوز في مهام نشطة: " />
-                  <b>SAR {fmtSar(heldSar)}</b>
+                  <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
                 </div>
               </div>
               <div>
                 <div className="k">
                   <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
                 </div>
-                <div className="v small">SAR {fmtSar(totalSpentSar)}</div>
+                <div className="v small"><Bi en={`Credit ${fmtSar(totalSpentSar)}`} ar={`رصيد ${fmtSar(totalSpentSar)}`} /></div>
                 <div className="d">
                   <Bi en={`${wholeFmt.format(totalJobs)} completed jobs recorded`} ar={`${wholeFmt.format(totalJobs)} مهام مسجلة`} />
                 </div>
@@ -584,7 +584,7 @@ export default function RenterWalletPage() {
             <div className="panel-hd">
               <div>
                 <h3>
-                  <Bi en="Top up" ar="شحن الرصيد" />
+                  <Bi en="Add credit" ar="إضافة رصيد" />
                 </h3>
               </div>
             </div>
@@ -665,7 +665,7 @@ export default function RenterWalletPage() {
                   {saveState === 'submitting' ? (
                     <Bi en="Starting..." ar="جاري البدء..." />
                   ) : (
-                    <Bi en={`Top up SAR ${fmtSar(topupAmount)}`} ar={`شحن ${fmtSar(topupAmount)} ريال`} />
+                    <Bi en={`Add SAR ${fmtSar(topupAmount)} as credit`} ar={`إضافة ${fmtSar(topupAmount)} ريال كرصيد`} />
                   )}
                 </button>
                 <span className="hint">
@@ -813,14 +813,14 @@ export default function RenterWalletPage() {
                 {payments.length === 0 ? (
                   <tr className="empty-row">
                     <td colSpan={4}>
-                      <Bi en="No wallet payments have been recorded for this renter yet." ar="لم يتم تسجيل أي مدفوعات محفظة لهذا المستأجر بعد." />
+                      <Bi en="No credit payments have been recorded for this renter yet." ar="لم يتم تسجيل أي مدفوعات رصيد لهذا المستأجر بعد." />
                     </td>
                   </tr>
                 ) : (
                   payments.map((payment) => {
                     const when = relTime(payment.created_at)
                     const amount = amountFromPayment(payment)
-                    const method = payment.payment_method || payment.source_type || (payment.moyasar_id ? 'moyasar' : 'wallet')
+                    const method = payment.payment_method || payment.source_type || (payment.moyasar_id ? 'moyasar' : 'credit')
                     const description = payment.description || payment.payment_id || payment.id || 'Payment'
                     return (
                       <tr key={payment.payment_id || payment.id || `${description}-${payment.created_at}`}>

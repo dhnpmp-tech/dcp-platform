@@ -135,11 +135,15 @@ components:
 
     PaymentRequiredError:
       type: object
-      description: Returned with HTTP 402 when the prepaid wallet cannot cover the pre-flight estimate. Lets an agent know how and where to fund before retrying.
+      description: Returned with HTTP 402 when prepaid credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to fund before retrying.
       required: [error]
       properties:
         error:
           type: string
+          example: insufficient_balance
+        code:
+          type: string
+          description: Stable machine-readable reason. `on_demand_requires_prepaid_credit` means trial/free credit cannot be used for this GPU.
           example: insufficient_balance
         message:
           type: string
@@ -153,9 +157,15 @@ components:
         balance_halala:
           type: integer
           example: 1200
+        paid_credit_required:
+          type: boolean
+          example: true
+        paid_available_halala:
+          type: integer
+          example: 1000
         topup_url:
           type: string
-          example: https://dcp.sa/v2/renter/wallet
+          example: https://dcp.sa/renter/wallet
 
     Pod:
       type: object
@@ -501,7 +511,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Pod' }
         '402':
-          description: Insufficient prepaid balance to cover the pre-flight estimate.
+          description: Insufficient prepaid credit to cover the pre-flight estimate, or paid credit required for an on-demand GPU.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentRequiredError' }

@@ -167,6 +167,8 @@ interface LaunchResponse {
   root_password?: string | null
   jupyter_token?: string | null
   error?: string
+  code?: string
+  message?: string
 }
 
 // One-time credentials surfaced immediately after a successful launch.
@@ -229,6 +231,16 @@ function statusClass(status: string): string {
   if (s === 'queued' || s === 'assigned' || s === 'pulling' || s === 'starting') return 'queued'
   if (s === 'failed' || s === 'error') return 'failed'
   return 'revoked'
+}
+
+function isFundingLaunchError(err: string): boolean {
+  return err === 'insufficient_balance' ||
+    /^insufficient (balance|credit)/i.test(err) ||
+    /^this gpu requires prepaid credit/i.test(err)
+}
+
+function keepFundingLaunchError(err: string): string {
+  return isFundingLaunchError(err) ? err : ''
 }
 
 // ── GPU-selector helpers ───────────────────────────────────────────────
@@ -517,7 +529,14 @@ export default function RenterPodsPage() {
       })
 
       if (res.status === 402) {
-        setLaunch((l) => ({ ...l, submitting: false, error: 'insufficient_balance' }))
+        const err = (await res.json().catch(() => ({}))) as LaunchResponse
+        const code = err.code || err.error
+        const message = err.message || (
+          code === 'on_demand_requires_prepaid_credit'
+            ? 'This GPU requires prepaid credit. Add credit and retry.'
+            : 'Insufficient credit. Add credit and retry.'
+        )
+        setLaunch((l) => ({ ...l, submitting: false, error: message }))
         return
       }
       if (!res.ok) {
@@ -660,16 +679,15 @@ export default function RenterPodsPage() {
       })
   }
 
-  // Keep the insufficient_balance error sticky; clear any transient field error.
-  const keptError = (err: string) => (err === 'insufficient_balance' ? err : '')
-  const onImageChoice = (v: string) => setLaunch((l) => ({ ...l, imageChoice: v, error: keptError(l.error) }))
-  const onCustomImage = (v: string) => setLaunch((l) => ({ ...l, customImage: v, error: keptError(l.error) }))
+  // Keep funding errors sticky; clear transient field errors as the renter edits.
+  const onImageChoice = (v: string) => setLaunch((l) => ({ ...l, imageChoice: v, error: keepFundingLaunchError(l.error) }))
+  const onCustomImage = (v: string) => setLaunch((l) => ({ ...l, customImage: v, error: keepFundingLaunchError(l.error) }))
   const onRegenerate = () =>
-    setLaunch((l) => ({ ...l, notebookToken: generateNotebookToken(), error: keptError(l.error) }))
+    setLaunch((l) => ({ ...l, notebookToken: generateNotebookToken(), error: keepFundingLaunchError(l.error) }))
 
   // ── GPU type selection + notify-me ─────────────────────────────────────
   const selectGpuType = useCallback((gpuModel: string) => {
-    setLaunch((l) => ({ ...l, gpuType: gpuModel, error: keptError(l.error) }))
+    setLaunch((l) => ({ ...l, gpuType: gpuModel, error: keepFundingLaunchError(l.error) }))
   }, [])
 
   const toggleAvailFilter = (f: AvailFilter) =>
@@ -1361,17 +1379,19 @@ export default function RenterPodsPage() {
               </div>
             </div>
 
-            {launch.error === 'insufficient_balance' ? (
+            {isFundingLaunchError(launch.error) ? (
               <div className="dash-state error" style={{ marginTop: '20px' }}>
                 <b>
-                  <Bi en="Insufficient balance" ar="رصيد غير كافٍ" />
+                  <Bi en="Credit required" ar="الرصيد مطلوب" />
                 </b>
                 <span>
-                  <Bi en="Please " ar="يرجى " />
+                  {launch.error === 'insufficient_balance'
+                    ? <Bi en="Add credit before launching this pod." ar="أضف رصيدًا قبل تشغيل هذه الحاوية." />
+                    : launch.error}
+                  {' '}
                   <Link href="/renter/wallet">
-                    <Bi en="top up your balance" ar="شحن رصيدك" />
+                    <Bi en="Add credit" ar="إضافة رصيد" />
                   </Link>
-                  <Bi en=" first." ar=" أولًا." />
                 </span>
               </div>
             ) : launch.error ? (

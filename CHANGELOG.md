@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-07 07:39 UTC — `feat(pods): require paid credit for on-demand GPUs + renter credit UX — PR #726`
+
+**PR:** [#726](https://github.com/dhnpmp-tech/dcp-platform/pull/726) (`codex/tareq-trial-on-demand-policy`).
+**Local timestamp:** 2026-07-07 11:39 +04.
+
+**What:** First Tareq trial-pricing implementation slice. Free/trial credit can still unlock ordinary DCP/provider supply, but on-demand/burst launches now require real paid credit already available in the renter account, so trial abuse cannot spill onto third-party GPU costs.
+
+- **Backend:** Added a pod access policy service that classifies supply tiers (`dcp_owned`, `provider`, `on_demand`), computes paid funding minus existing on-demand commitments, and gates on-demand launches before any debit. `POST /api/pods` now returns a stable 402 code (`on_demand_requires_prepaid_credit`) with paid-credit context when an on-demand quote is not covered.
+- **Frontend:** Updated renter pod launch handling to preserve the backend "credit required" message and show an Add credit action. Renter shell and wallet/account copy now use credit-first language while keeping SAR/payment labels where money movement is explicit.
+- **Contracts/docs:** Extended the OpenAPI 402 schema with paid-credit fields, and added dated reference docs for the system map, Tareq trial/pricing plan, and Codex development process.
+- **Verified:** `npx tsc --noEmit`; `npx jest src/__tests__/podAccessPolicy.test.js src/__tests__/agent-402-payment-required.test.js tests/pods-billing.test.js --runInBand --forceExit`; `npm run lint -- --file 'app/(site)/renter/pods/page.tsx' --file 'app/(site)/renter/wallet/page.tsx' --file 'app/(site)/renter/pods/PodShell.tsx'`; `git diff --check`.
+- **Known follow-up:** Visual QA is blocked by an existing broad Next.js render/prerender failure (`Unsupported Server Component type: undefined`) across unrelated routes. Production/VPS reconciliation and the final GitHub PR number update are still pending.
+
 ### 2026-07-03 — `feat(daemon): 4.6.0 → 4.7.2 — bare-vLLM eviction + foreign-proc heartbeat scan + pod-GPU-ownership enforcement — PRs #721 #722 #724 #725 (+ ops #723)`
 
 **What:** The Node-2 pod-launch incident (17:19Z — Tareq's pod failed with "Insufficient VRAM: 1742 MiB free, 4000 MiB required" because a hand-started Phase-0 vLLM was parking 22.4/24 GB) drove four daemon releases + a watchdog upgrade in one day. All shipped to production; Node 2 auto-updated itself through every step (daemon auto-update pipeline validated end-to-end).
