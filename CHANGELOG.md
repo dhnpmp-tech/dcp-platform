@@ -25,7 +25,9 @@ checklists do not belong in this public changelog.
 - **Frontend:** Updated renter pod launch handling to preserve the backend "credit required" message and show an Add credit action. Renter shell and wallet/account copy now use credit-first language while keeping SAR/payment labels where money movement is explicit.
 - **Contracts/docs:** Extended the OpenAPI 402 schema with paid-credit fields, and added dated reference docs for the system map, Tareq trial/pricing plan, and Codex development process.
 - **Verified:** `npx tsc --noEmit`; `npx jest src/__tests__/podAccessPolicy.test.js src/__tests__/agent-402-payment-required.test.js tests/pods-billing.test.js --runInBand --forceExit`; `npm run lint -- --file 'app/(site)/renter/pods/page.tsx' --file 'app/(site)/renter/wallet/page.tsx' --file 'app/(site)/renter/pods/PodShell.tsx'`; `git diff --check`.
-- **Known follow-up:** Visual QA is blocked by an existing broad Next.js render/prerender failure (`Unsupported Server Component type: undefined`) across unrelated routes. Production/VPS reconciliation and the final GitHub PR number update are still pending.
+- **Deploy:** Shipped live to VPS2 (`root@76.13.179.86:/root/dc1-platform`, branch `security/staged-rollouts`) on 2026-07-07 09:18 UTC / 13:18 +04; deploy handoff recorded in [#727](https://github.com/dhnpmp-tech/dcp-platform/pull/727). Production fast-forwarded `62e8bd7 → 9794ed5`, reloaded PM2 process `dc1-provider-onboarding` with `safe-reload.sh`, and had 0 active interactive pods at reload time.
+- **Live verification:** `ops/e2e-smoke.sh` passed all probes: gateway health, `/v1/models` count 33, real inference returned `pong`, Tareq Node 2 heartbeat was fresh, and WG diag passed. Public `https://api.dcp.sa/api/health` and `https://api.dcp.sa/v1/models` both returned 200.
+- **Known follow-up:** Visual QA is blocked by an existing broad Next.js render/prerender failure (`Unsupported Server Component type: undefined`) across unrelated routes.
 
 ### 2026-07-03 — `feat(daemon): 4.6.0 → 4.7.2 — bare-vLLM eviction + foreign-proc heartbeat scan + pod-GPU-ownership enforcement — PRs #721 #722 #724 #725 (+ ops #723)`
 
