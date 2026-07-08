@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 23:48 UTC - LoRA live training artifact proof runner (PR #840)
+### 2026-07-08 23:58 UTC - LoRA live training artifact proof runner (PR #840)
 
 - **PR:** [#840](https://github.com/dhnpmp-tech/dcp-platform/pull/840) (`codex/lora-live-artifact-proof-runner-2026-07-09`).
 - **Live proof command:** Added `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`.
