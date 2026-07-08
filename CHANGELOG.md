@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 16:57 UTC - `feat(frontend): add public Fine-Tuning page - PR #788`
+
+**PR:** [#788](https://github.com/dhnpmp-tech/dcp-platform/pull/788) (`codex/public-fine-tuning-page-2026-07-08`).
+**Local timestamp:** 2026-07-08 20:57 +04.
+
+**What:** Fifty-fifth Fireworks/Tinker execution slice. Adds the first public Fine-Tuning product page tied to shipped LoRA contracts rather than future serving claims.
+
+- **Public route:** Added `/fine-tuning` with product photography, LoRA readiness/deployment-intent positioning, API snippets, and proof-gated workflow copy.
+- **Product IA:** Added Fine-Tuning links to shared site nav, mobile menus, shared footer, and home footer.
+- **Claim guard:** The page says managed training, public adapter serving, Tinker compatibility, route traffic, and quality claims remain gated until GPU artifact proof, vLLM load proof, and benchmark artifacts exist.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/fine-tuning` on desktop/tablet/mobile with loaded images, active nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 16:45 UTC - `feat(frontend): add Fine-Tuning API snippets - PR #787`
 
 **PR:** [#787](https://github.com/dhnpmp-tech/dcp-platform/pull/787) (`codex/frontend-fine-tuning-api-snippets-2026-07-08`).

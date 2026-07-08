@@ -311,6 +311,8 @@ Goal: make the product easy to understand and sell.
   - `/inference`
   - `/pods`
   - `/fine-tuning`
+    **Added in PR #788 with shipped LoRA contract gates and no public-serving
+    overclaim.**
   - `/models/allam`
   - `/models/qwen-arabic`
   - `/batch`

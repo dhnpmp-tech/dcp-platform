@@ -298,6 +298,8 @@ Gaps:
    - Inference
    - Pods
    - Fine-tuning
+     - PR #788 added `/fine-tuning` with shipped LoRA contract gates and no
+       public training/serving/Tinker overclaim.
    - Dedicated deployments
    - Batch, once backend design lands
 5. Add pricing transparency from backend metadata rather than duplicated copy.
