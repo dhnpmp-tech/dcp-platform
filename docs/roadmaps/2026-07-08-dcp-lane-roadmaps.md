@@ -684,6 +684,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 
 | Lane | Mandatory local gate | Live/prod gate |
 |---|---|---|
+| Cross-lane CI-safe suite | `npm run proof:local-roadmap` | Does not replace live gates; report lists blocked external proof inputs |
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
