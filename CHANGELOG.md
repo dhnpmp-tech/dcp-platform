@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 07:20 UTC - `feat(inference): add dormant batch worker scaffold - PR #743`
+
+**PR:** [#743](https://github.com/dhnpmp-tech/dcp-platform/pull/743) (`codex/batch-worker-stub-2026-07-08`).
+**Local timestamp:** 2026-07-08 11:20 +04.
+
+**What:** Eleventh Fireworks/Tinker execution slice. Adds the next batch-inference implementation step: a result-artifact path contract and testable worker scaffold without enabling production execution.
+
+- **Worker scaffold:** Added `runBatchInferenceWorkerOnce`, a dormant batch worker cycle that stays no-op unless explicitly enabled and provided an executor.
+- **Result artifacts:** Added deterministic batch result storage keys under `batch-results/renter-{id}/{batch_id}/output.jsonl`.
+- **Internal scan:** Added an internal service helper to scan `created` batch records across renters for future worker execution.
+- **CLI:** Added `backend/src/scripts/run-batch-inference-worker-once.js`, which reports disabled/no-op status by default unless `DCP_BATCH_WORKER_ENABLED=1` is configured.
+- **Tests/docs:** Added worker tests for disabled no-op, missing executor no-op, successful injected execution, and executor failure; updated the batch design order to mark the worker scaffold complete while billing/capability flags remain pending.
+- **Verified:** Targeted batch worker/job/contract Jest suites; CLI disabled-mode smoke; `git diff --check`.
+
 ### 2026-07-08 07:13 UTC - `fix(inference): accept production DB wrapper in batch route - PR #742`
 
 **PR:** [#742](https://github.com/dhnpmp-tech/dcp-platform/pull/742) (`codex/batch-route-wrapper-fix-2026-07-08`).

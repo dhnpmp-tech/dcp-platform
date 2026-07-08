@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 07:20 UTC - Dormant batch worker scaffold (PR #743)
+
+- **PR:** [#743](https://github.com/dhnpmp-tech/dcp-platform/pull/743) (`codex/batch-worker-stub-2026-07-08`).
+- **Backend:** Added a disabled-by-default batch worker run-once module, deterministic result artifact key builder, and internal created-batch scanner.
+- **CLI:** Added `backend/src/scripts/run-batch-inference-worker-once.js`, which reports disabled/no-op status unless batch execution is explicitly enabled.
+- **Verification:** Added worker tests for disabled no-op, missing executor no-op, successful injected completion, and executor failure. Batch billing and `/v1/models` capability flags remain pending.
+
 ### 2026-07-08 07:13 UTC - Batch route DB wrapper fix (PR #742)
 
 - **PR:** [#742](https://github.com/dhnpmp-tech/dcp-platform/pull/742) (`codex/batch-route-wrapper-fix-2026-07-08`).
