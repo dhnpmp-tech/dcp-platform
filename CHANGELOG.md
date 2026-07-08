@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 05:45 UTC - `feat(lora): add adapter registry foundation - PR #735`
+
+**PR:** [#735](https://github.com/dhnpmp-tech/dcp-platform/pull/735) (`codex/adapter-registry-foundation-2026-07-08`).
+**Local timestamp:** 2026-07-08 09:45 +04.
+
+**What:** Fourth Fireworks/Tinker execution slice. Adds the backend adapter registry foundation required before managed LoRA training or adapter deployment can be honestly exposed.
+
+- **Schema:** Added an idempotent `adapter_registry` table for renter-owned adapter artifacts with adapter id/name, base model, storage key, SHA-256 checksum, rank, metadata, lifecycle status, and created/updated/deployed timestamps.
+- **Service:** Added validation and tenant-scoped registry helpers for creating, listing, reading, and status-updating adapter records without binding them to inference routing.
+- **API:** Added `/api/adapters` list/create and `/api/adapters/{adapter_id}` detail endpoints behind renter auth. Public creation only accepts non-deployment initial states and returns `deployment_enabled: false`.
+- **OpenAPI:** Documented the adapter metadata contract and explicitly states that registry rows do not imply adapter deployment or serving.
+- **Verified:** Adapter registry Jest coverage proves migration idempotency, tenant isolation, checksum/storage-key validation, status/deployed timestamp behavior, and that no deploy route exists in this foundation slice.
+
 ### 2026-07-08 05:12 UTC - `feat(pods): polish workspace-to-pod launch flow - PR #734`
 
 **PR:** [#734](https://github.com/dhnpmp-tech/dcp-platform/pull/734) (`codex/workspace-pod-launch-polish-2026-07-08`).

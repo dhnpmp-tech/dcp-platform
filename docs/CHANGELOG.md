@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 05:45 UTC - Adapter registry foundation (PR #735)
+
+- **PR:** [#735](https://github.com/dhnpmp-tech/dcp-platform/pull/735) (`codex/adapter-registry-foundation-2026-07-08`).
+- **LoRA backend:** Added the `adapter_registry` schema and service for renter-owned adapter artifact metadata: base model, storage key, checksum, rank, metadata, status, and deployed timestamp.
+- **API:** Added renter-authenticated `/api/adapters` list/create and `/api/adapters/{adapter_id}` detail endpoints, with public creation limited to non-deployment states and `deployment_enabled: false`.
+- **Verification:** Added adapter registry tests for idempotent schema creation, tenant isolation, validation, lifecycle timestamps, and absence of a deploy route.
+
 ### 2026-07-08 05:12 UTC - Workspace-to-pod launch polish (PR #734)
 
 - **PR:** [#734](https://github.com/dhnpmp-tech/dcp-platform/pull/734) (`codex/workspace-pod-launch-polish-2026-07-08`).

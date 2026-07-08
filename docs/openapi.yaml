@@ -101,6 +101,8 @@ tags:
     description: Docker compute templates — available job types and approved image whitelist
   - name: Containers
     description: Container registry — approved images, custom image requests, security scans
+  - name: Adapters
+    description: LoRA/QLoRA adapter artifact registry. Metadata only until deployment proof is implemented.
   - name: vLLM
     description: Managed vLLM inference — synchronous and streaming completions
   - name: System
@@ -132,6 +134,57 @@ components:
         error:
           type: string
           example: Missing required fields
+
+    Adapter:
+      type: object
+      description: LoRA/QLoRA adapter artifact metadata owned by one renter. A row does not imply that the adapter is deployed or serving traffic.
+      required: [adapter_id, renter_id, name, base_model, storage_key, checksum_sha256, status, created_at, updated_at]
+      properties:
+        adapter_id:
+          type: string
+          example: adpt_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        name:
+          type: string
+          example: Arabic support adapter
+        base_model:
+          type: string
+          example: meta-llama/Llama-3.1-8B-Instruct
+        storage_key:
+          type: string
+          description: Relative workspace/object-storage key for the adapter artifact.
+          example: adapters/r42/arabic-support/adapter.safetensors
+        checksum_sha256:
+          type: string
+          description: SHA-256 digest of the adapter artifact.
+          example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        rank:
+          type: integer
+          nullable: true
+          example: 16
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example:
+            recipe: qlora-sft
+            train_rows: 1200
+        status:
+          type: string
+          enum: [registered, validating, ready, deploying, deployed, failed, archived]
+          example: registered
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deployed_at:
+          type: string
+          format: date-time
+          nullable: true
 
     PaymentRequiredError:
       type: object
@@ -686,6 +739,141 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: released }
+
+  /api/adapters:
+    get:
+      tags: [Adapters]
+      summary: List renter-owned adapter artifacts
+      description: |
+        Returns LoRA/QLoRA adapter artifact metadata for the authenticated
+        renter. This registry is metadata only: it does not deploy adapters or
+        route inference traffic until a later deployment/load-proof API exists.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [registered, validating, ready, deploying, deployed, failed, archived]
+        - in: query
+          name: base_model
+          required: false
+          schema: { type: string }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Adapter list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Adapter' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+    post:
+      tags: [Adapters]
+      summary: Register adapter artifact metadata
+      description: |
+        Registers an already-produced LoRA/QLoRA adapter artifact under the
+        authenticated renter. The endpoint intentionally does not deploy the
+        adapter or mark it as serving; public creation only accepts
+        `registered`, `validating`, or `ready` as initial states.
+      security:
+        - RenterApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_model, storage_key, checksum_sha256]
+              properties:
+                adapter_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: adpt_8f4c2b9a18e34d220f7a9b12
+                name:
+                  type: string
+                  maxLength: 80
+                  example: Arabic support adapter
+                base_model:
+                  type: string
+                  maxLength: 160
+                  example: meta-llama/Llama-3.1-8B-Instruct
+                storage_key:
+                  type: string
+                  maxLength: 512
+                  example: adapters/r42/arabic-support/adapter.safetensors
+                checksum_sha256:
+                  type: string
+                  pattern: '^[a-fA-F0-9]{64}$'
+                rank:
+                  type: integer
+                  minimum: 1
+                  maximum: 1024
+                metadata:
+                  type: object
+                  additionalProperties: true
+                status:
+                  type: string
+                  enum: [registered, validating, ready]
+                  default: registered
+      responses:
+        '201':
+          description: Adapter metadata registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapter: { $ref: '#/components/schemas/Adapter' }
+                  deployment_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: validate_adapter_or_create_lora_training_job
+        '400':
+          description: Invalid adapter metadata.
+        '409':
+          description: Adapter id already exists.
+
+  /api/adapters/{adapter_id}:
+    get:
+      tags: [Adapters]
+      summary: Get one renter-owned adapter artifact
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Adapter detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapter: { $ref: '#/components/schemas/Adapter' }
+        '404':
+          description: Adapter not found for this renter.
 
   # ─── Providers ──────────────────────────────────────────────────────────────
 
