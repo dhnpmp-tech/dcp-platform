@@ -174,6 +174,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #769 centralized token-pricing serialization so `/api/models`,
   `/api/models/catalog`, and `/v1/models` share SAR/USD/halala per-1M-token
   metadata from one contract helper.
+- PR #770 mirrored measured prompt-cache counters into `usage.pricing` for
+  `/v1/chat/completions` responses while keeping discounts and settlement
+  math disabled.
 
 ### Now
 
@@ -195,7 +198,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - LoRA support
 - Add route tests proving catalog/pricing consistency.
   **Capability honesty for non-chat model entries started in PR #766; token
-  pricing contract parity started in PR #769.**
+  pricing contract parity started in PR #769; prompt-cache pricing observation
+  started in PR #770.**
 
 ### Next
 
@@ -204,6 +208,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - cached input token measurement
   - response usage field
   - no discount until measurement is reliable
+  **Ledger and response fields landed in PRs #754/#755; pricing observation
+  metadata landed in PR #770 without settlement discounts.**
 - Batch inference:
   - JSONL input
   - async job

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 12:59 UTC - `feat(inference): mirror prompt-cache accounting into usage pricing - PR #770`
+
+**PR:** [#770](https://github.com/dhnpmp-tech/dcp-platform/pull/770) (`codex/prompt-cache-accounting-observation-2026-07-08`).
+**Local timestamp:** 2026-07-08 16:59 +04.
+
+**What:** Thirty-seventh Fireworks/Tinker execution slice. Makes measured prompt-cache accounting visible inside the `/v1/chat/completions` usage pricing metadata so clients can reconcile cached-input observations with billing totals without enabling discounts.
+
+- **Pricing observation:** When `usage.pricing` exists, `attachPromptCacheUsage` now mirrors measured cache counters under `usage.pricing.prompt_cache` and top-level pricing counter aliases.
+- **No discount change:** `billable_input_tokens` still equals prompt input tokens, `discount_applied` remains false, and settlement math is untouched.
+- **API proof:** `/v1/chat/completions` route tests now assert prompt-cache pricing metadata is returned alongside the existing `usage.prompt_cache` payload.
+- **Helper proof:** Prompt-cache accounting unit tests verify existing pricing fields are preserved while measurement-only cache fields are added.
+- **Verified:** Targeted prompt-cache and v1 metering Jest suites; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 12:50 UTC - `refactor(inference): share token-pricing metadata contract - PR #769`
 
 **PR:** [#769](https://github.com/dhnpmp-tech/dcp-platform/pull/769) (`codex/model-pricing-metadata-contract-2026-07-08`).

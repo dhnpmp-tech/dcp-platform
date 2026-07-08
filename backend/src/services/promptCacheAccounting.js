@@ -187,22 +187,42 @@ function attachPromptCacheUsage(usage = {}, accounting) {
   const completionTokens = toNonNegativeInteger(usage.completion_tokens, 0);
   const totalTokens = toNonNegativeInteger(usage.total_tokens, promptTokens + completionTokens);
   const safeAccounting = accounting || computePromptCacheAccounting({ usage });
-  return {
+  const promptCache = {
+    version: safeAccounting.version,
+    status: safeAccounting.status,
+    eligible: safeAccounting.eligible,
+    cache_key: safeAccounting.cache_key,
+    cached_input_tokens: toNonNegativeInteger(safeAccounting.cached_input_tokens, 0),
+    billable_input_tokens: toNonNegativeInteger(safeAccounting.billable_input_tokens, promptTokens),
+    discount_applied: false,
+    discount_bps: 0,
+  };
+  const nextUsage = {
     ...usage,
     prompt_tokens: promptTokens,
     completion_tokens: completionTokens,
     total_tokens: totalTokens,
-    prompt_cache: {
-      version: safeAccounting.version,
-      status: safeAccounting.status,
-      eligible: safeAccounting.eligible,
-      cache_key: safeAccounting.cache_key,
-      cached_input_tokens: safeAccounting.cached_input_tokens,
-      billable_input_tokens: safeAccounting.billable_input_tokens,
-      discount_applied: false,
-      discount_bps: 0,
-    },
+    prompt_cache: promptCache,
   };
+  if (usage.pricing && typeof usage.pricing === 'object' && !Array.isArray(usage.pricing)) {
+    nextUsage.pricing = {
+      ...usage.pricing,
+      prompt_cache: {
+        version: promptCache.version,
+        status: promptCache.status,
+        eligible: promptCache.eligible,
+        cached_input_tokens: promptCache.cached_input_tokens,
+        billable_input_tokens: promptCache.billable_input_tokens,
+        discount_applied: false,
+        discount_bps: 0,
+      },
+      cached_input_tokens: promptCache.cached_input_tokens,
+      billable_input_tokens: promptCache.billable_input_tokens,
+      prompt_cache_discount_applied: false,
+      prompt_cache_discount_bps: 0,
+    };
+  }
+  return nextUsage;
 }
 
 function ensurePromptCacheAccountingSchema(db) {

@@ -182,6 +182,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - cached input token estimate
   - response usage field
   - no discount until measurement is trusted
+  - PR #770 mirrors measured prompt-cache counters into `usage.pricing` so
+    pricing/playground clients can display cache observations without changing
+    billing.
 - Add batch inference design:
   - upload JSONL
   - async job

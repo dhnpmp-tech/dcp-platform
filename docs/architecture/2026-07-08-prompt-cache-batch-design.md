@@ -33,6 +33,9 @@ This slice does **not** claim:
    - `prompt_cache.discount_bps`
    **Done in PR #754** for `/v1/chat/completions`; fields are attached to
    non-streaming responses and final/synthetic streaming usage chunks.
+   **Extended in PR #770** by mirroring the measurement-only counters into
+   `usage.pricing.prompt_cache` when pricing metadata is present, so product
+   surfaces can display cache observations without changing billing.
 5. Keep `billable_input_tokens === prompt_tokens` until hit measurement is
    reliable across restarts and provider failover.
 6. Only after measurement is trusted, add per-model cached-input rates and

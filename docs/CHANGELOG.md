@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 12:59 UTC - Prompt-cache pricing observation (PR #770)
+
+- **PR:** [#770](https://github.com/dhnpmp-tech/dcp-platform/pull/770) (`codex/prompt-cache-accounting-observation-2026-07-08`).
+- **Usage pricing:** `/v1/chat/completions` usage pricing now includes measured prompt-cache counters under `usage.pricing.prompt_cache` when pricing metadata is present.
+- **No discounting:** Cached-input observations remain measurement-only; billable input tokens and settlement math do not change.
+- **Tests:** Prompt-cache helper and v1 metering tests assert pricing fields are preserved and cache counters are mirrored.
+- **Verification:** Targeted prompt-cache and v1 metering Jest suites; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 12:50 UTC - Shared inference token-pricing contract (PR #769)
 
 - **PR:** [#769](https://github.com/dhnpmp-tech/dcp-platform/pull/769) (`codex/model-pricing-metadata-contract-2026-07-08`).
