@@ -7,8 +7,11 @@ const {
   createBatchInferenceJob,
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
+  getBatchInferenceJobLine,
   getBatchInferenceResultManifest,
+  listBatchInferenceJobLines,
   listBatchInferenceJobs,
+  updateBatchInferenceJobLineStatus,
   updateBatchInferenceJobStatus,
 } = require('../services/batchInferenceJobs');
 const { createBatchesRouter } = require('../routes/batches');
@@ -113,9 +116,29 @@ describe('batch inference job foundation', () => {
       'result_checksum_sha256',
       'result_normalized_bytes',
     ]));
+    const lineColumns = db.prepare('PRAGMA table_info(batch_inference_job_lines)').all().map((row) => row.name);
+    expect(lineColumns).toEqual(expect.arrayContaining([
+      'batch_id',
+      'renter_id',
+      'line_index',
+      'custom_id',
+      'method',
+      'url',
+      'model_id',
+      'request_checksum_sha256',
+      'status',
+      'status_code',
+      'response_checksum_sha256',
+      'prompt_tokens',
+      'completion_tokens',
+      'total_tokens',
+      'cost_halala',
+      'request_id',
+      'provider_response_id',
+    ]));
   });
 
-  test('creates, lists, and reads a validated batch record without enabling execution', () => {
+  test('creates, lists, and reads a validated batch record and line ledger without enabling execution', () => {
     const db = makeDb();
     const result = createBatchInferenceJob(db, 1, {
       batch_id: 'batch_alpha001',
@@ -142,6 +165,28 @@ describe('batch inference job foundation', () => {
     });
     expect(result.batch.input_checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(result.batch.input_storage_key).toBe('batch-inputs/renter-1/batch_alpha001/input.jsonl');
+
+    const lines = listBatchInferenceJobLines(db, 1, 'batch_alpha001');
+    expect(lines).toMatchObject({
+      batch: { batch_id: 'batch_alpha001' },
+      limit: 50,
+      offset: 0,
+    });
+    expect(lines.lines).toHaveLength(2);
+    expect(lines.lines[0]).toMatchObject({
+      batch_id: 'batch_alpha001',
+      renter_id: 1,
+      line_index: 1,
+      custom_id: 'chat-1',
+      method: 'POST',
+      url: '/v1/chat/completions',
+      model_id: 'qwen/qwen3-coder',
+      status: 'pending',
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      cost_halala: 0,
+    });
+    expect(lines.lines[0].request_checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(lines.lines[0]).not.toHaveProperty('body');
 
     expect(getBatchInferenceJob(db, 1, 'batch_alpha001')).toMatchObject({ batch_id: 'batch_alpha001' });
     expect(listBatchInferenceJobs(db, 1).batches.map((batch) => batch.batch_id)).toEqual(['batch_alpha001']);
@@ -278,6 +323,49 @@ describe('batch inference job foundation', () => {
 
     expect(listBatchInferenceJobs(db, 1).batches.map((batch) => batch.batch_id)).toEqual(['batch_renter01']);
     expect(getBatchInferenceJob(db, 1, 'batch_renter02')).toBeNull();
+    expect(listBatchInferenceJobLines(db, 1, 'batch_renter02')).toBeNull();
+  });
+
+  test('updates one batch line with usage and cost metadata for future settlement proof', () => {
+    const db = makeDb();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_lines001',
+      input_jsonl: jsonl(),
+    });
+
+    const updated = updateBatchInferenceJobLineStatus(db, 1, 'batch_lines001', 'chat-1', 'succeeded', {
+      status_code: 200,
+      response_checksum_sha256: 'e'.repeat(64),
+      response_normalized_bytes: 512,
+      usage: {
+        prompt_tokens: 20,
+        completion_tokens: 7,
+      },
+      cost_halala: 3,
+      request_id: 'batch_lines001:chat-1',
+      provider_response_id: 'resp-123',
+    });
+
+    expect(updated).toMatchObject({
+      custom_id: 'chat-1',
+      status: 'succeeded',
+      status_code: 200,
+      response_checksum_sha256: 'e'.repeat(64),
+      response_normalized_bytes: 512,
+      usage: {
+        prompt_tokens: 20,
+        completion_tokens: 7,
+        total_tokens: 27,
+      },
+      cost_halala: 3,
+      request_id: 'batch_lines001:chat-1',
+      provider_response_id: 'resp-123',
+    });
+    expect(updated.completed_at).toMatch(/T/);
+    expect(getBatchInferenceJobLine(db, 1, 'batch_lines001', 'chat-1')).toMatchObject({
+      status: 'succeeded',
+      cost_halala: 3,
+    });
   });
 
   test('rejects invalid JSONL with stable contract details', () => {
@@ -327,6 +415,18 @@ describe('batch inference job foundation', () => {
     const detail = await request(app).get('/api/batches/batch_route001').expect(200);
     expect(detail.body.batch.batch_id).toBe('batch_route001');
 
+    const lines = await request(app).get('/api/batches/batch_route001/lines').expect(200);
+    expect(lines.body).toMatchObject({
+      object: 'list',
+      batch_id: 'batch_route001',
+      status: 'created',
+      count: 2,
+      limit: 50,
+      offset: 0,
+    });
+    expect(lines.body.data.map((line) => line.custom_id)).toEqual(['chat-1', 'complete-1']);
+    expect(lines.body.data[0]).not.toHaveProperty('body');
+
     const results = await request(app).get('/api/batches/batch_route001/results').expect(200);
     expect(results.body.result).toMatchObject({
       batch_id: 'batch_route001',
@@ -342,6 +442,11 @@ describe('batch inference job foundation', () => {
 
     await request(app)
       .get('/api/batches/batch_route001/results')
+      .set('x-test-renter-id', '2')
+      .expect(404);
+
+    await request(app)
+      .get('/api/batches/batch_route001/lines')
       .set('x-test-renter-id', '2')
       .expect(404);
 

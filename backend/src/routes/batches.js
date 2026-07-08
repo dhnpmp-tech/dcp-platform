@@ -7,6 +7,7 @@ const {
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
   getBatchInferenceResultManifest,
+  listBatchInferenceJobLines,
   listBatchInferenceJobs,
 } = require('../services/batchInferenceJobs');
 const { signBatchResultDownload } = require('../services/batchResultDownloads');
@@ -68,6 +69,32 @@ function createBatchesRouter(deps = {}) {
         });
       }
       return res.json({ batch });
+    } catch (error) {
+      return sendBatchError(res, error);
+    }
+  });
+
+  router.get('/:batchId/lines', requireRenter, (req, res) => {
+    try {
+      const result = listBatchInferenceJobLines(batchDb, req.renter.id, req.params.batchId, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+      });
+      if (!result) {
+        return res.status(404).json({
+          error: 'Batch not found',
+          code: 'batch_not_found',
+        });
+      }
+      return res.json({
+        object: 'list',
+        batch_id: result.batch.batch_id,
+        status: result.batch.status,
+        data: result.lines,
+        count: result.lines.length,
+        limit: result.limit,
+        offset: result.offset,
+      });
     } catch (error) {
       return sendBatchError(res, error);
     }

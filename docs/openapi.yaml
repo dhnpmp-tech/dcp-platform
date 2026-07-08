@@ -414,6 +414,93 @@ components:
           format: date-time
           nullable: true
 
+    BatchInferenceLine:
+      type: object
+      description: Per-line batch inference ledger row. Raw prompt/request bodies are not returned; callers get custom id, endpoint, model, checksums, lifecycle, usage, and cost metadata.
+      required: [batch_id, renter_id, line_index, custom_id, method, url, model_id, request_checksum_sha256, status, usage, cost_halala, created_at, updated_at]
+      properties:
+        batch_id:
+          type: string
+          example: batch_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        line_index:
+          type: integer
+          example: 1
+        custom_id:
+          type: string
+          example: request-1
+        method:
+          type: string
+          enum: [POST]
+          example: POST
+        url:
+          type: string
+          enum: [/v1/chat/completions, /v1/complete]
+          example: /v1/chat/completions
+        model_id:
+          type: string
+          example: qwen/qwen3-coder
+        request_checksum_sha256:
+          type: string
+          description: SHA-256 digest of the normalized batch request line.
+          example: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed, cancelled]
+          example: pending
+        status_code:
+          type: integer
+          nullable: true
+          example: 200
+        response_checksum_sha256:
+          type: string
+          nullable: true
+          example: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+        response_normalized_bytes:
+          type: integer
+          example: 0
+        usage:
+          type: object
+          required: [prompt_tokens, completion_tokens, total_tokens]
+          properties:
+            prompt_tokens:
+              type: integer
+              example: 0
+            completion_tokens:
+              type: integer
+              example: 0
+            total_tokens:
+              type: integer
+              example: 0
+        cost_halala:
+          type: integer
+          example: 0
+        request_id:
+          type: string
+          nullable: true
+          example: batch_8f4c2b9a18e34d220f7a9b12:request-1
+        provider_response_id:
+          type: string
+          nullable: true
+        error_code:
+          type: string
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
     LoraTrainingJob:
       type: object
       description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
@@ -1220,6 +1307,63 @@ paths:
                 type: object
                 properties:
                   batch: { $ref: '#/components/schemas/BatchInferenceJob' }
+        '404':
+          description: Batch not found for this renter.
+
+  /api/batches/{batch_id}/lines:
+    get:
+      tags: [Batches]
+      summary: List one renter batch's per-line ledger rows
+      description: |
+        Returns per-line batch status and accounting metadata without returning
+        raw prompts, messages, or completion bodies. The line ledger is created
+        at batch submission time and is the future write target for worker
+        execution, usage, and settlement proof.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Batch line ledger.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    enum: [list]
+                  batch_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [created, queued, running, completed, failed, cancelled]
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BatchInferenceLine' }
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         '404':
           description: Batch not found for this renter.
 

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 09:40 UTC - Batch line ledger (PR #757)
+
+- **PR:** [#757](https://github.com/dhnpmp-tech/dcp-platform/pull/757) (`codex/batch-line-ledger-2026-07-08`).
+- **Backend:** Added `batch_inference_job_lines` for per-line custom id, endpoint, model, request checksum, status, usage, cost, response checksum, request id, provider response id, and bounded error metadata.
+- **Creation path:** Batch creation now inserts one pending line row per validated JSONL request.
+- **API:** Added renter-authenticated `GET /api/batches/{batch_id}/lines` without exposing raw request or response bodies.
+- **Contracts:** Updated public OpenAPI copies and the prompt-cache/batch design order while keeping batch execution and settlement gated.
+- **Verification:** Targeted batch job, batch contract, result download, and batch worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 09:29 UTC - Batch result download signer (PR #756)
 
 - **PR:** [#756](https://github.com/dhnpmp-tech/dcp-platform/pull/756) (`codex/batch-result-download-signer-2026-07-08`).

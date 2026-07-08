@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 09:40 UTC - `feat(inference): add batch line ledger - PR #757`
+
+**PR:** [#757](https://github.com/dhnpmp-tech/dcp-platform/pull/757) (`codex/batch-line-ledger-2026-07-08`).
+**Local timestamp:** 2026-07-08 13:40 +04.
+
+**What:** Twenty-fourth Fireworks/Tinker execution slice. Adds per-line batch inference ledger rows so future worker execution can write usage, cost, and settlement proof without storing raw prompts in the DB.
+
+- **Schema:** Added `batch_inference_job_lines` with custom id, endpoint, model, request checksum, lifecycle status, usage, cost, response checksum, request id, provider response id, and bounded error metadata.
+- **Creation path:** Batch creation now inserts one pending line row per normalized JSONL request using a stable request checksum.
+- **API:** Added renter-authenticated `GET /api/batches/{batch_id}/lines`, preserving tenant isolation and omitting raw request/response bodies.
+- **Future billing gate:** Added line update helpers for succeeded/failed/cancelled proof metadata; production batch execution and settlement remain disabled.
+- **Docs/tests:** Updated public OpenAPI copies and the prompt-cache/batch design order with targeted service/route coverage.
+- **Verified:** Targeted batch job, batch contract, result download, and batch worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 09:29 UTC - `feat(inference): add batch result download signer - PR #756`
 
 **PR:** [#756](https://github.com/dhnpmp-tech/dcp-platform/pull/756) (`codex/batch-result-download-signer-2026-07-08`).

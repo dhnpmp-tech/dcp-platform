@@ -5,6 +5,7 @@ const {
   BatchInferenceContractError,
   MAX_BATCH_BYTES,
   MAX_BATCH_REQUESTS,
+  checksumBatchRequest,
   parseBatchJsonl,
 } = require('./batchInferenceContract');
 
@@ -18,9 +19,21 @@ const BATCH_STATUSES = Object.freeze([
 ]);
 
 const BATCH_STATUS_SET = new Set(BATCH_STATUSES);
+const BATCH_LINE_STATUSES = Object.freeze([
+  'pending',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+
+const BATCH_LINE_STATUS_SET = new Set(BATCH_LINE_STATUSES);
 const COMPLETION_WINDOWS = Object.freeze(['24h']);
 const MAX_METADATA_BYTES = 8 * 1024;
 const MAX_STORAGE_KEY_LENGTH = 512;
+const MAX_ERROR_CODE_LENGTH = 120;
+const MAX_ERROR_MESSAGE_LENGTH = 500;
+const MAX_PROVIDER_RESPONSE_ID_LENGTH = 180;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 180;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
@@ -83,6 +96,48 @@ function ensureBatchInferenceJobSchema(db) {
   `);
   ensureBatchColumn(schemaDb, 'result_checksum_sha256', 'ALTER TABLE batch_inference_jobs ADD COLUMN result_checksum_sha256 TEXT');
   ensureBatchColumn(schemaDb, 'result_normalized_bytes', 'ALTER TABLE batch_inference_jobs ADD COLUMN result_normalized_bytes INTEGER NOT NULL DEFAULT 0');
+
+  schemaDb.exec(`
+    CREATE TABLE IF NOT EXISTS batch_inference_job_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id TEXT NOT NULL,
+      renter_id INTEGER NOT NULL,
+      line_index INTEGER NOT NULL,
+      custom_id TEXT NOT NULL,
+      method TEXT NOT NULL,
+      url TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      request_checksum_sha256 TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending','running','succeeded','failed','cancelled')),
+      status_code INTEGER,
+      response_checksum_sha256 TEXT,
+      response_normalized_bytes INTEGER NOT NULL DEFAULT 0,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_halala INTEGER NOT NULL DEFAULT 0,
+      request_id TEXT,
+      provider_response_id TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      FOREIGN KEY (batch_id) REFERENCES batch_inference_jobs(batch_id),
+      FOREIGN KEY (renter_id) REFERENCES renters(id)
+    )
+  `);
+  schemaDb.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_batch_lines_batch_custom_id
+      ON batch_inference_job_lines(renter_id, batch_id, custom_id)
+  `);
+  schemaDb.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_batch_lines_batch_line_index
+      ON batch_inference_job_lines(renter_id, batch_id, line_index)
+  `);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_lines_batch_index ON batch_inference_job_lines(renter_id, batch_id, line_index)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_lines_batch_status ON batch_inference_job_lines(renter_id, batch_id, status)`);
 }
 
 function createBatchInferenceJob(db, renterId, input = {}, options = {}) {
@@ -151,6 +206,7 @@ function createBatchInferenceJob(db, renterId, input = {}, options = {}) {
       now,
       expiresAt,
     );
+    insertBatchInferenceJobLines(db, ownerId, batchId, parsed.requests, now);
   } catch (error) {
     const code = String(error && error.code ? error.code : '');
     const message = String(error && error.message ? error.message : '');
@@ -177,6 +233,29 @@ function createBatchInferenceJob(db, renterId, input = {}, options = {}) {
     batch: getBatchInferenceJob(db, ownerId, batchId),
     idempotent_replay: false,
   };
+}
+
+function insertBatchInferenceJobLines(db, renterId, batchId, requests, now) {
+  const stmt = db.prepare(`
+    INSERT INTO batch_inference_job_lines (
+      batch_id, renter_id, line_index, custom_id, method, url, model_id,
+      request_checksum_sha256, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+  `);
+  requests.forEach((request, index) => {
+    stmt.run(
+      batchId,
+      renterId,
+      index + 1,
+      request.custom_id,
+      request.method,
+      request.url,
+      request.body.model,
+      checksumBatchRequest(request),
+      now,
+      now,
+    );
+  });
 }
 
 function getBatchInferenceJob(db, renterId, batchId) {
@@ -238,6 +317,29 @@ function listBatchInferenceJobs(db, renterId, options = {}) {
 
   return {
     batches: rows.map(mapBatchRow),
+    limit,
+    offset,
+  };
+}
+
+function listBatchInferenceJobLines(db, renterId, batchId, options = {}) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeBatchId(batchId);
+  const batch = getBatchInferenceJob(db, ownerId, id);
+  if (!batch) return null;
+  const limit = normalizeLimit(options.limit);
+  const offset = normalizeOffset(options.offset);
+  const rows = db.prepare(`
+    ${selectBatchLineSql()}
+     WHERE renter_id = ? AND batch_id = ?
+     ORDER BY line_index ASC
+     LIMIT ? OFFSET ?
+  `).all(ownerId, id, limit, offset);
+
+  return {
+    batch,
+    lines: rows.map(mapBatchLineRow),
     limit,
     offset,
   };
@@ -323,6 +425,89 @@ function updateBatchInferenceJobStatus(db, renterId, batchId, status, options = 
   return getBatchInferenceJob(db, ownerId, id);
 }
 
+function updateBatchInferenceJobLineStatus(db, renterId, batchId, customId, status, options = {}) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeBatchId(batchId);
+  const lineCustomId = normalizeCustomId(customId);
+  const nextStatus = normalizeLineStatus(status);
+  const now = new Date().toISOString();
+  const completedAt = ['succeeded', 'failed', 'cancelled'].includes(nextStatus) ? now : null;
+  const statusCode = options.status_code == null ? null : normalizeOptionalHttpStatus(options.status_code);
+  const responseChecksum = options.response_checksum_sha256 == null
+    ? null
+    : normalizeChecksum(options.response_checksum_sha256, 'response_checksum_sha256');
+  const responseNormalizedBytes = options.response_normalized_bytes == null
+    ? null
+    : normalizeNonNegativeInteger(options.response_normalized_bytes, 'response_normalized_bytes');
+  const usage = normalizeLineUsage(options.usage || {});
+  const costHalala = options.cost_halala == null ? null : normalizeNonNegativeInteger(options.cost_halala, 'cost_halala');
+  const requestId = options.request_id == null ? null : normalizeBoundedString(options.request_id, 'request_id', MAX_IDEMPOTENCY_KEY_LENGTH);
+  const providerResponseId = options.provider_response_id == null
+    ? null
+    : normalizeBoundedString(options.provider_response_id, 'provider_response_id', MAX_PROVIDER_RESPONSE_ID_LENGTH);
+  const errorCode = options.error_code == null ? null : normalizeBoundedString(options.error_code, 'error_code', MAX_ERROR_CODE_LENGTH);
+  const errorMessage = options.error_message == null
+    ? null
+    : normalizeBoundedString(options.error_message, 'error_message', MAX_ERROR_MESSAGE_LENGTH);
+
+  const result = db.prepare(`
+    UPDATE batch_inference_job_lines
+       SET status = ?,
+           status_code = COALESCE(?, status_code),
+           response_checksum_sha256 = COALESCE(?, response_checksum_sha256),
+           response_normalized_bytes = CASE WHEN ? = 1 THEN ? ELSE response_normalized_bytes END,
+           prompt_tokens = CASE WHEN ? = 1 THEN ? ELSE prompt_tokens END,
+           completion_tokens = CASE WHEN ? = 1 THEN ? ELSE completion_tokens END,
+           total_tokens = CASE WHEN ? = 1 THEN ? ELSE total_tokens END,
+           cost_halala = CASE WHEN ? = 1 THEN ? ELSE cost_halala END,
+           request_id = COALESCE(?, request_id),
+           provider_response_id = COALESCE(?, provider_response_id),
+           error_code = COALESCE(?, error_code),
+           error_message = COALESCE(?, error_message),
+           updated_at = ?,
+           completed_at = COALESCE(?, completed_at)
+     WHERE renter_id = ? AND batch_id = ? AND custom_id = ?
+  `).run(
+    nextStatus,
+    statusCode,
+    responseChecksum,
+    responseNormalizedBytes == null ? 0 : 1,
+    responseNormalizedBytes == null ? 0 : responseNormalizedBytes,
+    usage.present ? 1 : 0,
+    usage.prompt_tokens,
+    usage.present ? 1 : 0,
+    usage.completion_tokens,
+    usage.present ? 1 : 0,
+    usage.total_tokens,
+    costHalala == null ? 0 : 1,
+    costHalala == null ? 0 : costHalala,
+    requestId,
+    providerResponseId,
+    errorCode,
+    errorMessage,
+    now,
+    completedAt,
+    ownerId,
+    id,
+    lineCustomId,
+  );
+  if (!result || result.changes === 0) return null;
+  return getBatchInferenceJobLine(db, ownerId, id, lineCustomId);
+}
+
+function getBatchInferenceJobLine(db, renterId, batchId, customId) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeBatchId(batchId);
+  const lineCustomId = normalizeCustomId(customId);
+  const row = db.prepare(`
+    ${selectBatchLineSql()}
+     WHERE renter_id = ? AND batch_id = ? AND custom_id = ?
+  `).get(ownerId, id, lineCustomId);
+  return mapBatchLineRow(row);
+}
+
 function getBatchByIdempotencyKey(db, renterId, idempotencyKey) {
   if (!idempotencyKey) return null;
   const row = db.prepare(`
@@ -341,6 +526,17 @@ function selectBatchSql() {
            idempotency_key, created_at, updated_at, started_at, completed_at,
            expires_at
       FROM batch_inference_jobs
+  `;
+}
+
+function selectBatchLineSql() {
+  return `
+    SELECT batch_id, renter_id, line_index, custom_id, method, url, model_id,
+           request_checksum_sha256, status, status_code, response_checksum_sha256,
+           response_normalized_bytes, prompt_tokens, completion_tokens,
+           total_tokens, cost_halala, request_id, provider_response_id,
+           error_code, error_message, created_at, updated_at, completed_at
+      FROM batch_inference_job_lines
   `;
 }
 
@@ -378,6 +574,37 @@ function mapBatchRow(row) {
     started_at: row.started_at || null,
     completed_at: row.completed_at || null,
     expires_at: row.expires_at || null,
+  };
+}
+
+function mapBatchLineRow(row) {
+  if (!row) return null;
+  return {
+    batch_id: row.batch_id,
+    renter_id: row.renter_id,
+    line_index: row.line_index,
+    custom_id: row.custom_id,
+    method: row.method,
+    url: row.url,
+    model_id: row.model_id,
+    request_checksum_sha256: row.request_checksum_sha256,
+    status: row.status,
+    status_code: row.status_code == null ? null : row.status_code,
+    response_checksum_sha256: row.response_checksum_sha256 || null,
+    response_normalized_bytes: row.response_normalized_bytes || 0,
+    usage: {
+      prompt_tokens: row.prompt_tokens || 0,
+      completion_tokens: row.completion_tokens || 0,
+      total_tokens: row.total_tokens || 0,
+    },
+    cost_halala: row.cost_halala || 0,
+    request_id: row.request_id || null,
+    provider_response_id: row.provider_response_id || null,
+    error_code: row.error_code || null,
+    error_message: row.error_message || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    completed_at: row.completed_at || null,
   };
 }
 
@@ -498,6 +725,62 @@ function normalizeStatus(value) {
   return status;
 }
 
+function normalizeLineStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  if (!BATCH_LINE_STATUS_SET.has(status)) {
+    batchError('status is not a supported batch line lifecycle state', {
+      code: 'invalid_line_status',
+      details: { allowed: BATCH_LINE_STATUSES },
+    });
+  }
+  return status;
+}
+
+function normalizeCustomId(value) {
+  const customId = normalizeBoundedString(value, 'custom_id', 128);
+  if (!/^[A-Za-z0-9_.:-]{1,128}$/.test(customId)) {
+    batchError('custom_id must be 1-128 URL-safe characters', {
+      code: 'invalid_custom_id',
+      details: { field: 'custom_id' },
+    });
+  }
+  return customId;
+}
+
+function normalizeLineUsage(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      present: false,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    };
+  }
+  const promptTokens = normalizeNonNegativeInteger(value.prompt_tokens ?? 0, 'usage.prompt_tokens');
+  const completionTokens = normalizeNonNegativeInteger(value.completion_tokens ?? 0, 'usage.completion_tokens');
+  const totalTokens = normalizeNonNegativeInteger(
+    value.total_tokens ?? promptTokens + completionTokens,
+    'usage.total_tokens'
+  );
+  return {
+    present: true,
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: totalTokens,
+  };
+}
+
+function normalizeOptionalHttpStatus(value) {
+  const status = Number(value);
+  if (!Number.isInteger(status) || status < 100 || status > 599) {
+    batchError('status_code must be an HTTP status code', {
+      code: 'invalid_status_code',
+      details: { field: 'status_code' },
+    });
+  }
+  return status;
+}
+
 function normalizePositiveInteger(value, fieldName) {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
@@ -581,14 +864,18 @@ function ensureBatchColumn(db, columnName, alterSql) {
 
 module.exports = {
   BATCH_STATUSES,
+  BATCH_LINE_STATUSES,
   COMPLETION_WINDOWS,
   BatchInferenceJobError,
   ensureBatchInferenceJobSchema,
   createBatchInferenceJob,
   getBatchInferenceJob,
+  getBatchInferenceJobLine,
   getBatchInferenceResultManifest,
+  listBatchInferenceJobLines,
   listBatchInferenceJobs,
   listCreatedBatchInferenceJobs,
+  updateBatchInferenceJobLineStatus,
   updateBatchInferenceJobStatus,
   __test: {
     normalizeBatchId,
@@ -597,8 +884,10 @@ module.exports = {
     normalizeMetadata,
     normalizeOptionalIdempotencyKey,
     normalizeStatus,
+    normalizeLineStatus,
     normalizeChecksum,
     generateBatchId,
     mapBatchRow,
+    mapBatchLineRow,
   },
 };
