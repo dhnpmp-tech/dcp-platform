@@ -35,6 +35,10 @@ const subscriptionService = require('../services/subscriptionService');
 const billingService = require('../services/billingService');
 const autoTopupService = require('../services/autoTopupService');
 const {
+  attachPromptCacheUsage,
+  computePromptCacheAccounting,
+} = require('../services/promptCacheAccounting');
+const {
   selectProvidersWithLatencyGate,
   recordStreamOutcome,
   resolveProviderTier,
@@ -1676,6 +1680,34 @@ function withUsdUsagePricing(rawUsage = {}, tokenRateHalala = DEFAULT_TOKEN_RATE
   };
 }
 
+function resolvePromptCacheStaticPrefix(body = {}) {
+  if (body.prompt_cache && Object.prototype.hasOwnProperty.call(body.prompt_cache, 'static_prefix')) {
+    return body.prompt_cache.static_prefix;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'static_prefix')) {
+    return body.static_prefix;
+  }
+  return undefined;
+}
+
+function resolvePromptCacheSessionId(body = {}) {
+  const candidate = body.prompt_cache?.session_id ?? body.session_id ?? body.user;
+  return normalizeString(candidate, { maxLen: 200, trim: true }) || undefined;
+}
+
+function buildPromptCacheUsage(rawUsage, context = {}) {
+  const accounting = computePromptCacheAccounting({
+    model: context.model,
+    messages: context.messages,
+    prompt: context.prompt,
+    staticPrefix: context.staticPrefix,
+    sessionId: context.sessionId,
+    promptTokens: rawUsage?.prompt_tokens ?? context.promptTokens,
+    usage: rawUsage,
+  });
+  return attachPromptCacheUsage(rawUsage, accounting);
+}
+
 function v1ChatRateLimiter(req, res, next) {
   if (req.body?.stream) {
     return vllmStreamLimiter(req, res, next);
@@ -2469,6 +2501,14 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     // Check balance
     const mergedPrompt = estimatePromptFromMessages(messages);
     const promptTokens = approximateTokenCount(mergedPrompt);
+    const promptCacheContext = {
+      model: modelReq.model_id,
+      messages,
+      promptTokens,
+      staticPrefix: resolvePromptCacheStaticPrefix(req.body || {}),
+      sessionId: resolvePromptCacheSessionId(req.body || {}),
+    };
+    const withPromptCacheUsage = (usage) => buildPromptCacheUsage(usage, promptCacheContext);
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
 
@@ -3055,7 +3095,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           requestedModelId: modelReq.model_id,
           routedModelId: resultBody?.model || routedModelId,
         });
-        const usageForResponse = withUsdUsagePricing(resultBody?.usage || {}, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m });
+        const usageForResponse = withPromptCacheUsage(withUsdUsagePricing(resultBody?.usage || {}, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m }));
         // Record as a job so it shows in provider dashboard + recent jobs.
         // Migration 021: the jobs row + provider/renter totals are now written
         // ATOMICALLY by settleInferenceOnce (via debitAndPersistUsage jobMeta),
@@ -3258,7 +3298,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
                 streamFinishReason = chunkFinishReason;
               }
               if (parsed && parsed.usage && typeof parsed.usage === 'object') {
-                const usageWithPricing = withUsdUsagePricing(parsed.usage, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m });
+                const usageWithPricing = withPromptCacheUsage(withUsdUsagePricing(parsed.usage, tokenRateHalala, { in: inRateHalalaPer1m, out: outRateHalalaPer1m }));
                 parsed.usage = usageWithPricing;
                 finalUsage = usageWithPricing;
               }
@@ -3315,7 +3355,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           if (!finalUsage) {
             const synthPromptTokens = promptTokens;
             const synthCompletionTokens = approximateTokenCount(completionText);
-            const synthUsage = withUsdUsagePricing(
+            const synthUsage = withPromptCacheUsage(withUsdUsagePricing(
               {
                 prompt_tokens: synthPromptTokens,
                 completion_tokens: synthCompletionTokens,
@@ -3323,7 +3363,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
               },
               tokenRateHalala,
               { in: inRateHalalaPer1m, out: outRateHalalaPer1m }
-            );
+            ));
             finalUsage = synthUsage;
             try {
               const usageChunk = {

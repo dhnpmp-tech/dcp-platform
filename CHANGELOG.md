@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 09:08 UTC - `feat(inference): expose prompt-cache usage metadata - PR #754`
+
+**PR:** [#754](https://github.com/dhnpmp-tech/dcp-platform/pull/754) (`codex/prompt-cache-usage-fields-2026-07-08`).
+**Local timestamp:** 2026-07-08 13:08 +04.
+
+**What:** Twenty-first Fireworks/Tinker execution slice. Wires the existing prompt-cache accounting contract into `/v1/chat/completions` usage responses without applying any cached-input discount.
+
+- **Usage metadata:** Added `usage.prompt_cache` to non-streaming responses and final/synthetic streaming usage chunks.
+- **Hints:** Accepts optional `static_prefix`, `prompt_cache.static_prefix`, and session-scoped hints for cache-key measurement.
+- **Billing safety:** `billable_input_tokens` remains equal to prompt tokens, `discount_applied` remains false, and settlement still uses the same prompt/completion token counts.
+- **Compatibility:** Keeps OpenAI-compatible top-level usage totals unchanged while adding nested DCP measurement metadata.
+- **Docs/tests:** Updated public OpenAPI copies and the prompt-cache/batch design order with targeted prompt-cache and v1 metering coverage.
+- **Verified:** Targeted prompt-cache accounting and v1 metering Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 09:01 UTC - `chore(inference): add batch worker smoke script - PR #753`
 
 **PR:** [#753](https://github.com/dhnpmp-tech/dcp-platform/pull/753) (`codex/batch-worker-npm-script-2026-07-08`).

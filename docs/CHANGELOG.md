@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 09:08 UTC - Prompt-cache usage metadata (PR #754)
+
+- **PR:** [#754](https://github.com/dhnpmp-tech/dcp-platform/pull/754) (`codex/prompt-cache-usage-fields-2026-07-08`).
+- **Inference:** Added `usage.prompt_cache` metadata to `/v1/chat/completions` responses for prompt-cache measurement.
+- **Hints:** Supports optional `static_prefix`, `prompt_cache.static_prefix`, and session-scoped measurement hints without persisting raw prompt text in accounting metadata.
+- **Billing guardrail:** No discounts are applied; `billable_input_tokens` remains equal to prompt tokens and settlement token counts are unchanged.
+- **Contracts:** Updated public OpenAPI copies and the prompt-cache/batch design order.
+- **Verification:** Targeted prompt-cache accounting and v1 metering Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 09:01 UTC - Batch worker npm smoke script (PR #753)
 
 - **PR:** [#753](https://github.com/dhnpmp-tech/dcp-platform/pull/753) (`codex/batch-worker-npm-script-2026-07-08`).
