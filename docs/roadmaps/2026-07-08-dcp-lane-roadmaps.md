@@ -190,6 +190,10 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 - PR #798 aligned that validate-only route with the same 12 MB / 100,000-row
   dataset limits used by training-job creation and exposed those limits through
   readiness/OpenAPI.
+- PR #804 added cross-surface Jest parity coverage for `/v1/models`,
+  `/api/models`, and `/api/models/catalog` so token pricing, provider count,
+  availability, modalities, max output, capability flags, `capabilities`, and
+  feature-readiness gates cannot silently drift.
 
 ### Now
 
@@ -199,6 +203,8 @@ adapter registry, and deployment lifecycle without breaking money/routing.
     and the 2026-07-08 11:03 UTC refresh confirmed the tracked file is
     byte-identical to the VPS2 cron copy.
 - Add model capability/rate metadata tests.
+  **Cross-surface metadata parity coverage landed in PR #804 for `/v1/models`,
+  `/api/models`, and `/api/models/catalog`.**
 - Add backend design doc for prompt-cache accounting.
 - Add backend design doc for batch inference on existing job/billing rails.
 
@@ -296,6 +302,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   and no-discount billing gates without changing inference settlement.
 - PR #801 surfaced that readiness contract on `/inference`, separating shipped
   measurement from still-gated cache economics in public product copy.
+- PR #804 added a backend parity guard across `/v1/models`, `/api/models`, and
+  `/api/models/catalog` for pricing/capability/readiness fields consumed by
+  Playground, Pricing, and public Inference surfaces.
 
 ### Now
 
@@ -374,6 +383,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
    **Playground router-policy visibility added in PR #779.**
    **Selected-model metadata visibility added in PR #780.**
    **Public pricing visibility added in PR #781.**
+   **Cross-surface catalog parity guard added in PR #804.**
 2. Prompt-cache accounting design with test fixtures.
 3. Batch inference API design and schema, then implementation.
 

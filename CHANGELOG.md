@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 19:53 UTC - `test(backend): add model catalog parity coverage - PR #804`
+
+**PR:** [#804](https://github.com/dhnpmp-tech/dcp-platform/pull/804) (`codex/model-catalog-parity-tests-2026-07-08`).
+**Local timestamp:** 2026-07-08 23:53 +04.
+
+**What:** Sixty-ninth Fireworks/Tinker execution slice. Hardens the model metadata contract that powers pricing, Playground, and inference product surfaces.
+
+- **Backend tests:** Added a cross-surface parity test that mounts `/v1/models`, `/api/models`, and `/api/models/catalog` against the same mocked model/provider/rate fixture.
+- **Contract guard:** The test proves token pricing, provider count, availability, modalities, max output, capability flags, `capabilities`, and `feature_readiness` stay aligned across OpenAI-compatible and DCP catalog surfaces.
+- **Safety:** No production route behavior changed; this is a regression guard for future pricing/capability drift.
+- **Verified:** Targeted Jest suites for `/v1/models`, `/api/models` catalog honesty, and the new parity test; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 19:46 UTC - `feat(frontend): show prompt-cache readiness in renter Playground - PR #802`
 
 **PR:** [#802](https://github.com/dhnpmp-tech/dcp-platform/pull/802) (`codex/renter-playground-prompt-cache-readiness-2026-07-08`).
