@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 22:25 UTC - `test(lora): add LoRA training contract proof - PR #828`
+### 2026-07-08 22:29 UTC - `test(lora): add LoRA training contract proof - PR #828`
 
 **PR:** [#828](https://github.com/dhnpmp-tech/dcp-platform/pull/828) (`codex/lora-training-contract-proof-2026-07-09`).
-**Local timestamp:** 2026-07-09 02:25 +04.
+**Local timestamp:** 2026-07-09 02:29 +04.
 
 **What:** Eighty-first Fireworks/Tinker execution slice. Promotes the LoRA dataset/training/artifact metadata gates into a repeatable CI-safe proof command.
 
