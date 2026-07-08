@@ -150,10 +150,11 @@ function buildLoginRedirect(
   // (NOT the retired v1 /login). Preserve the role and the originally-requested
   // path so /auth returns the user to e.g. the pod launch console after sign-in.
   const url = request.nextUrl.clone()
+  const redirectTarget = `${request.nextUrl.pathname}${request.nextUrl.search}`
   const href = buildAuthHref({
     role: expectedRole,
     reason: 'missing_credentials',
-    redirect: request.nextUrl.pathname,
+    redirect: redirectTarget,
   })
   const [authPath, authQuery = ''] = href.split('?')
   url.pathname = authPath

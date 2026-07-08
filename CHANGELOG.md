@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 20:23 UTC - `fix(auth): preserve query strings in console auth redirects - PR #808`
+
+**PR:** [#808](https://github.com/dhnpmp-tech/dcp-platform/pull/808) (`codex/auth-redirect-preserve-query-2026-07-08`).
+**Local timestamp:** 2026-07-09 00:23 +04.
+
+**What:** Seventy-first Fireworks/Tinker execution slice. Hardens deep links into gated console routes after the workspace pre-upload rollout.
+
+- **Middleware:** Auth redirects now preserve the original pathname plus query string, so links such as `/renter/playground?surface=workspace` survive the sign-in bounce.
+- **Regression guard:** Added a static middleware test that prevents reverting to pathname-only redirects.
+- **Safety:** No auth role, cookie, session-signing, API-key, billing, training, or serving behavior changed.
+- **Verified:** Static middleware redirect test; `node --check`; `git diff --check`; production smoke finding rechecked after deploy.
+
 ### 2026-07-08 20:17 UTC - `feat(frontend): make fine-tuning workspace pre-upload first-class - PR #806`
 
 **PR:** [#806](https://github.com/dhnpmp-tech/dcp-platform/pull/806) (`codex/fine-tuning-workspace-preupload-2026-07-08`).

@@ -44,6 +44,8 @@ what is live.
 - PR #806 made workspace pre-upload the first visible Fine-Tuning step and
   added a `/renter/playground?surface=workspace` deep link into the persistent
   workspace manager before LoRA validation or pod launch.
+- PR #808 preserved gated-console auth redirect query strings, so direct
+  workspace deep links keep `?surface=workspace` through sign-in.
 - PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
   GPU Pods links away from `/containers`, and kept `/containers` as a
   compatibility URL without changing pod backend behavior.
