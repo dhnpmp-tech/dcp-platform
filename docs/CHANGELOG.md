@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-08 22:12 UTC - Prompt-cache contract proof (PR #826)
+
+- **PR:** [#826](https://github.com/dhnpmp-tech/dcp-platform/pull/826) (`codex/prompt-cache-contract-proof-2026-07-09`).
+- **Proof command:** Added `npm run proof:prompt-cache-contract` for the CI-safe prompt-cache measurement proof.
+- **Contract:** The proof verifies readiness remains measurement-only, cache keys are stable and scoped by model/session, hash-only measurements detect future hits, usage fields expose cached-input counters, and non-eligible prompts are not recorded.
+- **Privacy:** Verifies raw prefix text and private image URLs are not persisted in measurement rows or normalized multimodal cache material.
+- **Safety:** Measured hits do not change billable input tokens, settlement amounts, discount flags, provider KV-cache control, routing, billing behavior, or Tinker compatibility claims.
+- **Artifacts:** Writes `dcp.prompt_cache_contract_proof.v1` JSON and Markdown evidence under `docs/reports/reliability` by default.
+- **Roadmaps:** Updated execution, lane, and Fireworks/Tinker roadmap docs so prompt-cache discounts and provider cache claims have a repeatable local gate before live provider cache-hit and discounted settlement proof.
+- **Verification:** `npm run proof:prompt-cache-contract` with temp report output; targeted Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:05 UTC - Batch inference contract proof (PR #824)
 
 - **PR:** [#824](https://github.com/dhnpmp-tech/dcp-platform/pull/824) (`codex/batch-inference-contract-proof-2026-07-09`).

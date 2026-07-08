@@ -148,6 +148,7 @@ Behavior changes need lane-specific smoke evidence.
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
+| Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Batch inference lifecycle contract | `npm run proof:batch-inference-contract` | none | CI-safe gate available; live provider execution and discounted settlement smoke still blocked |
 | Adapter deployment lifecycle contract | `npm run proof:adapter-deployment-contract` | none | CI-safe gate available; live vLLM load and billing smoke still blocked |
 | API health | `curl -fsS https://api.dcp.sa/api/health` | production network | Required after every deploy |
@@ -182,9 +183,9 @@ before or with the feature change.
      `proof:anthropic-sse` for agent-path streaming.
    - Advanced claims stay gated until a funded live proof report exists.
 5. **Prompt-cache and batch economics**
-   - Gate: `proof:batch-inference-contract`, readiness contracts, settlement
-     tests, result-artifact proof, and no-discount/no-execution claim guards
-     until measured billing proof exists.
+   - Gate: `proof:prompt-cache-contract`, `proof:batch-inference-contract`,
+     readiness contracts, settlement tests, result-artifact proof, and
+     no-discount/no-execution claim guards until measured billing proof exists.
 6. **LoRA dataset, training, and artifact proof**
    - Gate: `templates:validate`, dataset validate-only tests, fixed-recipe SFT
      worker proof, adapter artifact checksum, and model-card manifest.
