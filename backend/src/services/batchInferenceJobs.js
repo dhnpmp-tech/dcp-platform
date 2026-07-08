@@ -36,11 +36,16 @@ class BatchInferenceJobError extends Error {
 }
 
 function ensureBatchInferenceJobSchema(db) {
-  if (!db || typeof db.exec !== 'function') {
+  const schemaDb = db && typeof db.exec === 'function'
+    ? db
+    : db && db._db && typeof db._db.exec === 'function'
+      ? db._db
+      : null;
+  if (!schemaDb) {
     throw new TypeError('ensureBatchInferenceJobSchema requires a better-sqlite3 db with exec(sql)');
   }
 
-  db.exec(`
+  schemaDb.exec(`
     CREATE TABLE IF NOT EXISTS batch_inference_jobs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       batch_id TEXT NOT NULL UNIQUE,
@@ -66,10 +71,10 @@ function ensureBatchInferenceJobSchema(db) {
       FOREIGN KEY (renter_id) REFERENCES renters(id)
     )
   `);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_renter_created ON batch_inference_jobs(renter_id, created_at DESC)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_renter_status ON batch_inference_jobs(renter_id, status, created_at DESC)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_checksum ON batch_inference_jobs(input_checksum_sha256)`);
-  db.exec(`
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_renter_created ON batch_inference_jobs(renter_id, created_at DESC)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_renter_status ON batch_inference_jobs(renter_id, status, created_at DESC)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_checksum ON batch_inference_jobs(input_checksum_sha256)`);
+  schemaDb.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_batch_jobs_renter_idempotency
       ON batch_inference_jobs(renter_id, idempotency_key)
      WHERE idempotency_key IS NOT NULL
