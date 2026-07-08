@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 23:35 UTC - `test(inference): add batch live execution proof runner - PR #838`
+### 2026-07-08 23:43 UTC - `test(inference): add batch live execution proof runner - PR #838`
 
 **PR:** [#838](https://github.com/dhnpmp-tech/dcp-platform/pull/838) (`codex/batch-live-proof-runner-2026-07-09`).
-**Local timestamp:** 2026-07-09 03:35 +04.
+**Local timestamp:** 2026-07-09 03:43 +04.
 
 **What:** Eighty-sixth Fireworks/Tinker execution slice. Promotes the batch live execution/discount gate from missing-runner status to an opt-in live readiness proof command.
 
