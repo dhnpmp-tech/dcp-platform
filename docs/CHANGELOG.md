@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 22:12 UTC - Prompt-cache contract proof (PR #826)
+### 2026-07-08 22:16 UTC - Prompt-cache contract proof (PR #826)
 
 - **PR:** [#826](https://github.com/dhnpmp-tech/dcp-platform/pull/826) (`codex/prompt-cache-contract-proof-2026-07-09`).
 - **Proof command:** Added `npm run proof:prompt-cache-contract` for the CI-safe prompt-cache measurement proof.
