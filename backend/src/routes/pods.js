@@ -197,9 +197,11 @@ const DEFAULT_POD_IMAGE = 'dcp-compute:pytorch';
 // Friendly aliases → PRE-BAKED dcp-compute image tags. These ship sshd (and, for
 // pytorch, Jupyter) baked in, so the daemon starts them natively without
 // injecting SSH (bootstrap=false → fast start). "pytorch" is the default when no
-// image is given.
+// image is given. "lora" is the fat fine-tuning pod image; only expose it after
+// a GPU provider host has built dcp-compute:lora and passed the smoke script.
 const ALIASES = {
   pytorch: 'dcp-compute:pytorch',
+  lora: 'dcp-compute:lora',
   vllm: 'dcp-compute:vllm',
   cuda: 'dcp-compute:cuda',
   ubuntu: 'dcp-compute:ubuntu',
@@ -219,7 +221,7 @@ const IMAGE_REF_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/:@-]{0,255}$/;
 //
 // Resolution order:
 //   • null / no image → default pre-baked pytorch (bootstrap=false).
-//   • friendly alias (pytorch|vllm|cuda|ubuntu) → pre-baked dcp-compute:<alias>
+//   • friendly alias (pytorch|lora|vllm|cuda|ubuntu) → pre-baked dcp-compute:<alias>
 //     (bootstrap=false).
 //   • any literal dcp-compute:<x> tag → pre-baked DCP image (bootstrap=false).
 //   • ANY other valid Docker ref (passes IMAGE_REF_RE, length<=256) → ARBITRARY
@@ -1441,5 +1443,6 @@ module.exports.stopPodCore = stopPodCore;
 module.exports.extendPodCore = extendPodCore;
 module.exports.resolvePodRate = resolvePodRate;
 module.exports.resolvePodGpuCount = resolvePodGpuCount;
+module.exports.validatePodImage = validatePodImage;
 module.exports.MIN_DURATION_MINUTES = MIN_DURATION_MINUTES;
 module.exports.MAX_DURATION_MINUTES = MAX_DURATION_MINUTES;

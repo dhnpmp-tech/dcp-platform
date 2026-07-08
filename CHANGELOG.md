@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 04:50 UTC - `feat(pods): add fat LoRA pod image verification path - PR #733`
+
+**PR:** [#733](https://github.com/dhnpmp-tech/dcp-platform/pull/733) (`codex/fat-pod-image-verification-2026-07-08`).
+**Local timestamp:** 2026-07-08 08:50 +04.
+
+**What:** Second Fireworks/Tinker execution slice for Pods/POTS infrastructure. Adds a provider-local `dcp-compute:lora` image build path and GPU-host verification script before any public LoRA training claim or UI launch flow.
+
+- **Fat image path:** Added `backend/docker-templates/dcp-lora.Dockerfile` with PyTorch/CUDA, SSH/Jupyter, LoRA/QLoRA libraries, vLLM, and workspace example scaffolds.
+- **Provider proof:** Added `verify-lora-pod-image.sh` to prove imports, CUDA visibility, and the offline LoRA SFT scaffold on a real provider host without pip installing at pod launch time.
+- **Pod alias:** Added the `lora` pod image alias to resolve to `dcp-compute:lora` without daemon SSH bootstrap, guarded by docs that it should only be exposed after GPU-host smoke passes.
+- **Docs/tests:** Documented the provider build/verification contract and added route-level image alias coverage.
+
 ### 2026-07-08 04:30 UTC - `feat(inference): expose per-model rate and capability metadata - PR #732`
 
 **PR:** [#732](https://github.com/dhnpmp-tech/dcp-platform/pull/732) (`codex/inference-model-metadata-2026-07-08`).

@@ -3,6 +3,7 @@
 const {
   computePodStopSettlement,
   computePodQuoteHalala,
+  validatePodImage,
 } = require('../src/routes/pods');
 
 describe('computePodQuoteHalala', () => {
@@ -87,5 +88,21 @@ describe('computePodStopSettlement', () => {
     expect(s.actualCostHalala).toBe(0);
     expect(s.refundHalala).toBe(0);
     expect(s.providerEarnedHalala).toBe(0);
+  });
+});
+
+describe('validatePodImage', () => {
+  test('maps LoRA alias to the pre-baked fat pod image without SSH bootstrap', () => {
+    expect(validatePodImage('lora')).toEqual({
+      image: 'dcp-compute:lora',
+      bootstrap: false,
+    });
+  });
+
+  test('treats literal dcp-compute LoRA tags as pre-baked images', () => {
+    expect(validatePodImage('dcp-compute:lora')).toEqual({
+      image: 'dcp-compute:lora',
+      bootstrap: false,
+    });
   });
 });

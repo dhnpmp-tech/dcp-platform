@@ -56,5 +56,20 @@ if [ -d /opt/conda ]; then
   done
 fi
 
-# 8. Keep PID 1 alive so the container (and its sshd/jupyter children) persists.
+# 8. Seed example notebooks/scripts into the renter workspace without clobbering
+#    user files. Fat product images can bake examples under /opt/dcp/examples;
+#    a mounted /workspace would otherwise hide any files copied there at build
+#    time.
+if [ -d /opt/dcp/examples ]; then
+  mkdir -p /workspace/examples
+  for example in /opt/dcp/examples/*; do
+    [ -e "$example" ] || continue
+    base="$(basename "$example")"
+    if [ ! -e "/workspace/examples/$base" ]; then
+      cp -R "$example" "/workspace/examples/$base"
+    fi
+  done
+fi
+
+# 9. Keep PID 1 alive so the container (and its sshd/jupyter children) persists.
 exec tail -f /dev/null
