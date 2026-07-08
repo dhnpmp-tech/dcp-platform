@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 03:31 UTC - Product execution system and lane roadmaps (PR #TBD)
+
+- **PR:** TBD (`codex/product-execution-roadmaps-2026-07-08`).
+- **Execution system:** Added `docs/roadmaps/2026-07-08-dcp-execution-system.md` with the shared finding-to-PR-to-tests-to-deploy-to-smoke loop.
+- **Lane roadmaps:** Added `docs/roadmaps/2026-07-08-dcp-lane-roadmaps.md` for Frontend, Backend, Inference, POT/PODS infrastructure, and LoRA.
+- **Verification gates:** Captured the lane-specific build, deploy, smoke, and production-evidence requirements that future agents should follow.
+
 ### 2026-07-07 21:03 UTC - Fireworks/Tinker roadmap + Pods/Inference gap audit (PR #729)
 
 - **PR:** [#729](https://github.com/dhnpmp-tech/dcp-platform/pull/729) (`codex/fireworks-tinker-roadmap-2026-07-08`).
