@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 09:17 UTC - `feat(inference): add prompt-cache measurement ledger - PR #755`
+
+**PR:** [#755](https://github.com/dhnpmp-tech/dcp-platform/pull/755) (`codex/prompt-cache-measurement-ledger-2026-07-08`).
+**Local timestamp:** 2026-07-08 13:17 +04.
+
+**What:** Twenty-second Fireworks/Tinker execution slice. Adds durable, hash-only prompt-cache measurement so repeated static prefixes can be reported as measured hits without changing billing.
+
+- **Ledger:** Added `prompt_cache_measurements` with renter id, cache key/hash, model id, session hash, status, counters, discount flags, request id, provider response id, and timestamp.
+- **Hit measurement:** `/v1/chat/completions` now checks prior cache-key measurements and can return `usage.prompt_cache.status: hit_measured_no_discount` for repeated prefixes.
+- **Recording:** Successful non-streaming and streaming chat completions record prompt-cache measurements best-effort after settlement.
+- **Privacy:** The ledger stores hashes and counters only; raw prompt/static-prefix text is not persisted.
+- **Billing safety:** Cached-input discounts remain disabled and `billable_input_tokens` still equals prompt tokens.
+- **Docs/tests:** Updated the prompt-cache/batch design order with targeted prompt-cache ledger and v1 metering coverage.
+- **Verified:** Targeted prompt-cache accounting and v1 metering Jest suites; `git diff --check`.
+
 ### 2026-07-08 09:08 UTC - `feat(inference): expose prompt-cache usage metadata - PR #754`
 
 **PR:** [#754](https://github.com/dhnpmp-tech/dcp-platform/pull/754) (`codex/prompt-cache-usage-fields-2026-07-08`).

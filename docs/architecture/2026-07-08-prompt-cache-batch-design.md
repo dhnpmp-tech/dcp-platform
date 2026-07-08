@@ -22,6 +22,8 @@ This slice does **not** claim:
    - explicit `static_prefix`, or leading `system` / `developer` messages
 3. Record only hashes and counters in durable storage. Do not persist raw prompt
    text inside accounting tables.
+   **Done in PR #755** with `prompt_cache_measurements`, a hash-only ledger of
+   cache keys, session hashes, counters, request ids, and discount flags.
 4. Add response usage fields only after compatibility checks:
    - `prompt_cache.status`
    - `prompt_cache.cache_key`
@@ -164,3 +166,7 @@ PR #754 wires prompt-cache measurement metadata into `/v1/chat/completions`
 usage blocks without changing billing. It accepts optional `static_prefix` or
 `prompt_cache.static_prefix` hints, hashes session scope, and keeps
 `discount_applied: false` with `billable_input_tokens === prompt_tokens`.
+PR #755 adds durable prompt-cache measurement rows and uses prior recorded cache
+keys to report `hit_measured_no_discount` on repeated prefixes. The ledger is
+best-effort from the v1 route, stores no raw prompt text, and still leaves
+cached-input discounts disabled.

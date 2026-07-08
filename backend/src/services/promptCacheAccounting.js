@@ -4,6 +4,8 @@ const crypto = require('crypto');
 
 const PROMPT_CACHE_ACCOUNTING_VERSION = 'dcp.prompt_cache.v1';
 const DEFAULT_CHARS_PER_TOKEN = 4;
+const MAX_MODEL_LENGTH = 200;
+const MAX_REQUEST_ID_LENGTH = 200;
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -203,10 +205,145 @@ function attachPromptCacheUsage(usage = {}, accounting) {
   };
 }
 
+function ensurePromptCacheAccountingSchema(db) {
+  const schemaDb = db && typeof db.exec === 'function'
+    ? db
+    : db && db._db && typeof db._db.exec === 'function'
+      ? db._db
+      : null;
+  if (!schemaDb) {
+    throw new TypeError('ensurePromptCacheAccountingSchema requires a better-sqlite3 db with exec(sql)');
+  }
+
+  schemaDb.exec(`
+    CREATE TABLE IF NOT EXISTS prompt_cache_measurements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      renter_id INTEGER NOT NULL,
+      cache_key TEXT NOT NULL,
+      cache_key_sha256 TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      session_id_hash TEXT,
+      status TEXT NOT NULL,
+      static_prefix_source TEXT NOT NULL,
+      static_prefix_message_count INTEGER NOT NULL DEFAULT 0,
+      static_prefix_tokens_estimate INTEGER NOT NULL DEFAULT 0,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+      billable_input_tokens INTEGER NOT NULL DEFAULT 0,
+      discount_applied INTEGER NOT NULL DEFAULT 0,
+      discount_bps INTEGER NOT NULL DEFAULT 0,
+      request_id TEXT,
+      provider_response_id TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_prompt_cache_measurements_key ON prompt_cache_measurements(renter_id, cache_key, created_at DESC)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_prompt_cache_measurements_model_session ON prompt_cache_measurements(renter_id, model_id, session_id_hash, created_at DESC)`);
+}
+
+function hasPromptCacheMeasurement(db, renterId, cacheKey) {
+  assertDb(db);
+  ensurePromptCacheAccountingSchema(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const key = normalizeCacheKey(cacheKey);
+  const row = db.prepare(`
+    SELECT 1
+      FROM prompt_cache_measurements
+     WHERE renter_id = ? AND cache_key = ?
+     LIMIT 1
+  `).get(ownerId, key);
+  return !!row;
+}
+
+function recordPromptCacheMeasurement(db, renterId, accounting, options = {}) {
+  assertDb(db);
+  ensurePromptCacheAccountingSchema(db);
+  if (!accounting || !accounting.eligible || !accounting.cache_key) {
+    return { recorded: false, reason: 'not_eligible' };
+  }
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO prompt_cache_measurements (
+      renter_id, cache_key, cache_key_sha256, model_id, session_id_hash, status,
+      static_prefix_source, static_prefix_message_count, static_prefix_tokens_estimate,
+      input_tokens, cached_input_tokens, billable_input_tokens, discount_applied,
+      discount_bps, request_id, provider_response_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    ownerId,
+    normalizeCacheKey(accounting.cache_key),
+    normalizeSha256(accounting.cache_key_sha256, 'cache_key_sha256'),
+    normalizeBoundedString(options.model || '', 'model', MAX_MODEL_LENGTH),
+    accounting.session_id_hash || null,
+    normalizeBoundedString(accounting.status || '', 'status', 80),
+    normalizeBoundedString(accounting.static_prefix_source || 'unknown', 'static_prefix_source', 80),
+    toNonNegativeInteger(accounting.static_prefix_message_count, 0),
+    toNonNegativeInteger(accounting.static_prefix_tokens_estimate, 0),
+    toNonNegativeInteger(accounting.input_tokens, 0),
+    toNonNegativeInteger(accounting.cached_input_tokens, 0),
+    toNonNegativeInteger(accounting.billable_input_tokens, 0),
+    accounting.discount_applied ? 1 : 0,
+    toNonNegativeInteger(accounting.discount_bps, 0),
+    options.requestId ? normalizeBoundedString(options.requestId, 'request_id', MAX_REQUEST_ID_LENGTH) : null,
+    options.providerResponseId ? normalizeBoundedString(options.providerResponseId, 'provider_response_id', MAX_REQUEST_ID_LENGTH) : null,
+    now,
+  );
+  return {
+    recorded: true,
+    cache_key: accounting.cache_key,
+    created_at: now,
+  };
+}
+
+function normalizePositiveInteger(value, fieldName) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new TypeError(`${fieldName} must be a positive integer`);
+  }
+  return n;
+}
+
+function normalizeBoundedString(value, fieldName, maxLength) {
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} is required`);
+  }
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength) {
+    throw new TypeError(`${fieldName} is invalid`);
+  }
+  return normalized;
+}
+
+function normalizeCacheKey(value) {
+  const key = normalizeBoundedString(value, 'cache_key', 80);
+  if (!/^pc_[a-f0-9]{40}$/.test(key)) {
+    throw new TypeError('cache_key is invalid');
+  }
+  return key;
+}
+
+function normalizeSha256(value, fieldName) {
+  const digest = normalizeBoundedString(value, fieldName, 64).toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(digest)) {
+    throw new TypeError(`${fieldName} must be a SHA-256 digest`);
+  }
+  return digest;
+}
+
+function assertDb(db) {
+  if (!db || typeof db.prepare !== 'function') {
+    throw new TypeError('prompt-cache accounting requires a db with prepare(sql)');
+  }
+}
+
 module.exports = {
   PROMPT_CACHE_ACCOUNTING_VERSION,
   computePromptCacheAccounting,
   attachPromptCacheUsage,
+  ensurePromptCacheAccountingSchema,
+  hasPromptCacheMeasurement,
+  recordPromptCacheMeasurement,
   __test: {
     stableStringify,
     normalizeContent,
