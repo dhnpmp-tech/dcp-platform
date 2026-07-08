@@ -41,6 +41,9 @@ what is live.
   adding a compact Prompt cache readiness panel beside router/model controls
   while keeping discounts, settlement, provider KV-cache control, and Tinker
   claims gated.
+- PR #806 made workspace pre-upload the first visible Fine-Tuning step and
+  added a `/renter/playground?surface=workspace` deep link into the persistent
+  workspace manager before LoRA validation or pod launch.
 - PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
   GPU Pods links away from `/containers`, and kept `/containers` as a
   compatibility URL without changing pod backend behavior.
@@ -92,6 +95,8 @@ what is live.
   - Pricing
 - Turn workspace pre-upload into the normal first step for pod/fine-tuning
   users.
+  **Product-facing Fine-Tuning -> Workspace deep link landed in PR #806; GPU
+  provider file-visibility proof remains the deployment evidence gate.**
 - Add template selection to pod launch:
   - PyTorch
   - LoRA SFT
@@ -419,6 +424,9 @@ template launch.
   shortfall fields, with `/renter/pods` showing the exact "Add X more" amount.
 - PR #774 added a CI-safe Nsight provider benchmark evidence contract guard so
   mock JSON/CSV reports are verified without being confused with GPU-host proof.
+- PR #806 added renter-facing workspace pre-upload polish from Fine-Tuning into
+  the shared Workspace/POD flow, making file staging the normal first action
+  before LoRA/QLoRA template launch.
 
 ### Now
 
@@ -448,6 +456,9 @@ template launch.
 - Build and verify fat image on a GPU provider host.
 - Add template-backed launch flow.
 - Add workspace pre-upload polish.
+  **Fine-Tuning now links directly into the persistent Workspace tab in PR
+  #806; the remaining proof is workspace upload -> launch pod -> files visible
+  in `/workspace` on a GPU provider host.**
 - Add Nsight Python benchmark MVP:
   - utilization
   - memory bandwidth

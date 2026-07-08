@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 20:07 UTC - `feat(frontend): make fine-tuning workspace pre-upload first-class - PR #806`
+
+**PR:** [#806](https://github.com/dhnpmp-tech/dcp-platform/pull/806) (`codex/fine-tuning-workspace-preupload-2026-07-08`).
+**Local timestamp:** 2026-07-09 00:07 +04.
+
+**What:** Seventieth Fireworks/Tinker execution slice. Makes workspace staging the normal first step before LoRA validation, pod launch, or adapter proof.
+
+- **Frontend:** `/renter/fine-tuning` now renders a Step zero workspace pre-upload rail ahead of the LoRA workflow gates.
+- **Workflow:** The rail sends renters to the persistent workspace file manager first, then to LoRA/QLoRA pod templates after dataset files are staged.
+- **Deep link:** `/renter/playground?surface=workspace` now opens the Workspace tab directly and keeps tab changes reflected in the URL.
+- **Safety:** No managed training, adapter serving, route traffic, billing change, or Tinker-compatibility claim was added; copy keeps GPU-host and serving-load proof gates explicit.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/renter/fine-tuning` and `/renter/playground?surface=workspace` on desktop/mobile with no horizontal overflow.
+
 ### 2026-07-08 19:57 UTC - `test(backend): add model catalog parity coverage - PR #804`
 
 **PR:** [#804](https://github.com/dhnpmp-tech/dcp-platform/pull/804) (`codex/model-catalog-parity-tests-2026-07-08`).

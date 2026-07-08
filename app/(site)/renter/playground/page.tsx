@@ -129,6 +129,7 @@ interface FeatureReadiness {
 type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
 type RouterPolicyState = 'loading' | 'ready' | 'error'
 type PromptCacheReadinessState = 'loading' | 'ready' | 'error'
+type PlaygroundSurface = 'playground' | 'workspace'
 
 interface RouterPolicy {
   id: string
@@ -337,7 +338,15 @@ export default function PlaygroundPage() {
   // The renter playground and the workspace file manager share this route.
   // The chat playground is the default; "Workspace" reveals the file manager
   // for the renter's persistent in-Kingdom volume (PR #678 backend).
-  const [surface, setSurface] = useState<'playground' | 'workspace'>('playground')
+  const [surface, setSurface] = useState<PlaygroundSurface>('playground')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const requestedSurface = new URLSearchParams(window.location.search).get('surface')
+    if (requestedSurface === 'workspace' || requestedSurface === 'playground') {
+      setSurface(requestedSurface)
+    }
+  }, [])
 
   // ── live renter shell ──
   const [renter, setRenter] = useState<RenterAccount | null>(null)
@@ -728,6 +737,18 @@ export default function PlaygroundPage() {
     }
   }, [])
 
+  function selectSurface(nextSurface: PlaygroundSurface): void {
+    setSurface(nextSurface)
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (nextSurface === 'workspace') {
+      url.searchParams.set('surface', 'workspace')
+    } else {
+      url.searchParams.delete('surface')
+    }
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }
+
   return (
     <div className="rt-app">
       {/* ── Sidebar (from renter-shell.js template) ── */}
@@ -870,7 +891,7 @@ export default function PlaygroundPage() {
               role="tab"
               aria-selected={surface === 'playground'}
               className={surface === 'playground' ? 'on' : ''}
-              onClick={() => setSurface('playground')}
+              onClick={() => selectSurface('playground')}
             >
               <Bi en="Playground" ar="الساحة" />
             </button>
@@ -878,7 +899,7 @@ export default function PlaygroundPage() {
               role="tab"
               aria-selected={surface === 'workspace'}
               className={surface === 'workspace' ? 'on' : ''}
-              onClick={() => setSurface('workspace')}
+              onClick={() => selectSurface('workspace')}
             >
               <Bi en="Workspace" ar="مساحة العمل" />
             </button>

@@ -218,6 +218,30 @@ const STAGES = [
   },
 ] as const
 
+const WORKSPACE_PREUPLOAD_STEPS = [
+  {
+    no: '00',
+    titleEn: 'Stage files',
+    titleAr: 'جهّز الملفات',
+    bodyEn: 'Upload JSONL datasets, notebooks, and adapters into the persistent /workspace volume before any training job is created.',
+    bodyAr: 'ارفع ملفات JSONL والدفاتر والمحولات إلى مساحة /workspace الدائمة قبل إنشاء أي مهمة تدريب.',
+  },
+  {
+    no: '01',
+    titleEn: 'Validate JSONL',
+    titleAr: 'تحقق من JSONL',
+    bodyEn: 'Run the validate-only endpoint for row counts, token estimates, checksum, and split facts without storing raw rows.',
+    bodyAr: 'شغّل واجهة التحقق فقط لحساب الصفوف والرموز والبصمة والتقسيم دون تخزين الصفوف الخام.',
+  },
+  {
+    no: '02',
+    titleEn: 'Launch LoRA pod',
+    titleAr: 'شغّل حاوية LoRA',
+    bodyEn: 'Open the LoRA or QLoRA pod template after the workspace is ready, then keep GPU-host proof visible before serving.',
+    bodyAr: 'افتح قالب حاوية LoRA أو QLoRA بعد جاهزية مساحة العمل، وأبق إثبات مضيف GPU واضحا قبل الخدمة.',
+  },
+] as const
+
 const API_SNIPPETS = [
   {
     id: 'readiness',
@@ -598,6 +622,45 @@ export default function RenterFineTuningPage() {
             <div className="ft-supported">
               <span><Bi en="Claim guards" ar="حراس الادعاءات" /></span>
               <code>{readinessClaims}</code>
+            </div>
+          </section>
+
+          <section className="ft-workspace-preupload" aria-labelledby="ft-workspace-preupload-title">
+            <div className="ft-workspace-copy">
+              <span className="pod-label">
+                <Bi en="Step zero" ar="الخطوة صفر" />
+              </span>
+              <h2 id="ft-workspace-preupload-title">
+                <Bi en="Pre-upload the workspace before fine-tuning" ar="ارفع مساحة العمل قبل الضبط الدقيق" />
+              </h2>
+              <p>
+                <Bi
+                  en="The normal DCP path is workspace first: stage files in the renter volume, validate the dataset contract, then launch a proof-gated LoRA pod. Managed training and adapter serving stay gated until GPU-host and load proof land."
+                  ar="المسار الطبيعي في DCP يبدأ بمساحة العمل: جهّز الملفات في حجم المستأجر، ثم تحقق من عقد البيانات، ثم شغّل حاوية LoRA المقيدة بالإثبات. يبقى التدريب المدار وخدمة المحولات مقيدين حتى يصل إثبات مضيف GPU وإثبات التحميل."
+                />
+              </p>
+              <div className="ft-workspace-actions">
+                <Link className="btn-pri" href="/renter/playground?surface=workspace">
+                  <Bi en="Open Workspace" ar="افتح مساحة العمل" />
+                </Link>
+                <Link className="btn-sec" href="/renter/pods">
+                  <Bi en="Open LoRA Pods" ar="افتح حاويات LoRA" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="ft-workspace-steps" aria-label={lang === 'ar' ? 'خطوات التحضير' : 'Workspace preparation steps'}>
+              {WORKSPACE_PREUPLOAD_STEPS.map((step) => (
+                <article key={step.no}>
+                  <span>{step.no}</span>
+                  <h3>
+                    <Bi en={step.titleEn} ar={step.titleAr} />
+                  </h3>
+                  <p>
+                    <Bi en={step.bodyEn} ar={step.bodyAr} />
+                  </p>
+                </article>
+              ))}
             </div>
           </section>
 
