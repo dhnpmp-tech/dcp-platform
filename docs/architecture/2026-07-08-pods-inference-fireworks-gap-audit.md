@@ -212,15 +212,19 @@ Current capabilities:
 - vLLM config scripts exist for several Arabic/open models.
 - Compatibility matrix exists for vLLM model/VRAM matching.
 - Benchmark scripts exist.
+- LoRA metadata foundations now exist for training jobs, model-card manifests,
+  adapter registry, deployment load proof, and the renter-authenticated
+  `GET /api/lora/readiness` product gate.
 
 Gaps:
 
-- LoRA templates are dry-run scaffolds, not a complete trainer product.
+- LoRA templates and APIs are still metadata/proof scaffolds, not a complete
+  public trainer product.
 - The standard pod image does not yet guarantee the full ML stack that Tareq
   needs without long `pip install` time.
-- There is no adapter artifact registry.
-- There is no adapter upload API.
-- There is no multi-LoRA deployment API.
+- Adapter artifact registry and deployment intent APIs exist, but they cannot
+  route traffic until artifact checksum proof and vLLM load proof are present.
+- There is no public multi-LoRA serving smoke.
 - There is no Tinker-compatible API surface.
 - There is no public claim-safe benchmark showing DCP fine-tuned model quality.
 
@@ -235,10 +239,10 @@ Gaps:
 | Prompt caching discount | Missing | High | Backend |
 | Batch inference | Missing as product | High | Backend |
 | Dedicated deployments | Partial through pods/vLLM | High | Backend |
-| LoRA training | Template only | High | Backend + pod image |
-| LoRA adapter registry | Missing | High | Backend |
-| Live-merge LoRA deployment | Missing | High | Backend |
-| Multi-LoRA deployment | Missing | High | Backend |
+| LoRA training | Metadata/readiness only, no public worker proof | High | Backend + pod image |
+| LoRA adapter registry | Metadata API foundation, no serving proof | High | Backend |
+| Live-merge LoRA deployment | Intent/load-proof contract, no traffic | High | Backend |
+| Multi-LoRA deployment | Intent/load-proof contract, no traffic | High | Backend |
 | Dataset management | Partial through workspace | Medium | Frontend + backend |
 | Evaluators | Benchmark primitives only | Medium | Backend |
 | Model routers | Routing primitives only | Medium | Backend |
@@ -256,9 +260,14 @@ Gaps:
 2. Add model capability/rate metadata tests for `/v1/models`.
 3. Design prompt-cache accounting without applying discounts yet.
 4. Design batch inference on top of existing job/billing primitives.
-5. Add adapter registry migration and tests.
-6. Add LoRA train job API with a fixed SFT recipe.
+5. Add adapter registry migration and tests. **Metadata foundation exists; keep
+   GPU-host artifact proof as the next gate.**
+6. Add LoRA train job API with a fixed SFT recipe. **Training metadata/logs,
+   model-card manifests, and readiness gates now exist; public worker execution
+   still requires GPU-host proof.**
 7. Add adapter deployment API for one base model on a controlled vLLM deployment.
+   **Deployment intent/load-proof contracts exist; vLLM serving smoke remains
+   required before routing.**
 
 ## Immediate Frontend Roadmap
 
@@ -299,9 +308,11 @@ Do not start with marketing pages alone. The safer order is:
    - Remaining gate: build and smoke `dcp-compute:lora` on a GPU provider host.
 3. Inference metadata/pricing tests.
 4. Batch and prompt-cache backend designs.
-5. Adapter registry.
-6. LoRA train job.
-7. Adapter deployment.
+5. Adapter registry. **Metadata foundation exists; artifact proof remains open.**
+6. LoRA train job. **Metadata/readiness foundation exists; GPU execution proof
+   remains open.**
+7. Adapter deployment. **Intent/load-proof contract exists; serving smoke
+   remains open.**
 8. Frontend dashboard.
 9. Public pages and launch content.
 

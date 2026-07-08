@@ -16,7 +16,7 @@ const {
   updateLoraTrainingJobStatus,
 } = require('../services/loraTrainingJobs');
 const { ensureAdapterRegistrySchema, getAdapter } = require('../services/adapterRegistry');
-const { createLoraRouter } = require('../routes/lora');
+const { LORA_READINESS_VERSION, buildLoraReadiness, createLoraRouter } = require('../routes/lora');
 
 function makeDb() {
   const raw = new Database(':memory:');
@@ -89,6 +89,58 @@ function wrapDb(raw) {
 }
 
 describe('LoRA training job foundation', () => {
+  test('builds a claim-safe LoRA readiness contract', () => {
+    const readiness = buildLoraReadiness(new Date('2026-07-08T15:45:00.000Z'));
+
+    expect(readiness).toMatchObject({
+      object: 'lora_readiness',
+      version: LORA_READINESS_VERSION,
+      generated_at: '2026-07-08T15:45:00.000Z',
+      current_mode: 'metadata_and_artifact_proof_only',
+      dataset_validation: {
+        status: 'available',
+        available: true,
+        supported_formats: ['chat_messages', 'prompt_completion'],
+      },
+      training_jobs: {
+        status: 'metadata_only',
+        api_available: true,
+        public_training_enabled: false,
+        worker_execution_enabled: false,
+        gpu_host_proof_required: true,
+        recipes: ['lora_sft', 'qlora_sft'],
+      },
+      model_cards: {
+        status: 'metadata_stub',
+        manifest_version: MODEL_CARD_MANIFEST_VERSION,
+        model_card_artifact_writer_enabled: false,
+      },
+      adapter_registry: {
+        status: 'metadata_registry',
+        api_available: true,
+        serving_enabled: false,
+        route_traffic: false,
+        checksum_required: true,
+      },
+      adapter_deployments: {
+        status: 'load_proof_required',
+        api_available: true,
+        modes: ['single_adapter_live_merge', 'multi_lora'],
+        serving_enabled: false,
+        route_traffic: false,
+        load_proof_required: true,
+      },
+      claim_guards: {
+        public_training_enabled: false,
+        public_serving_enabled: false,
+        route_traffic: false,
+        quality_claims: false,
+        tinker_compatible: false,
+        discounts_enabled: false,
+      },
+    });
+  });
+
   test('schema creation is idempotent and includes lifecycle columns', () => {
     const db = makeDb();
     expect(() => ensureLoraTrainingJobsSchema(db)).not.toThrow();
@@ -408,6 +460,25 @@ describe('LoRA training job foundation', () => {
   test('routes create, replay, list, read, and reject invalid dataset bodies', async () => {
     const db = makeDb();
     const app = buildApp(db);
+
+    const readiness = await request(app).get('/api/lora/readiness').expect(200);
+    expect(readiness.body).toMatchObject({
+      object: 'lora_readiness',
+      version: LORA_READINESS_VERSION,
+      current_mode: 'metadata_and_artifact_proof_only',
+      training_jobs: {
+        public_training_enabled: false,
+        worker_execution_enabled: false,
+      },
+      adapter_deployments: {
+        serving_enabled: false,
+        route_traffic: false,
+      },
+      claim_guards: {
+        tinker_compatible: false,
+        quality_claims: false,
+      },
+    });
 
     const created = await request(app)
       .post('/api/lora/training-jobs')

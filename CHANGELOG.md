@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 15:50 UTC - `feat(lora): publish readiness gates - PR #782`
+
+**PR:** [#782](https://github.com/dhnpmp-tech/dcp-platform/pull/782) (`codex/lora-readiness-contract-2026-07-08`).
+**Local timestamp:** 2026-07-08 19:50 +04.
+
+**What:** Forty-ninth Fireworks/Tinker execution slice. Publishes a renter-authenticated LoRA readiness contract so Fine-Tuning UI, docs, and agents can distinguish the shipped metadata foundation from future GPU training and adapter serving work.
+
+- **Readiness API:** Added `GET /api/lora/readiness` with dataset-validation, training-job, model-card, adapter-registry, adapter-deployment, and endpoint-map gates.
+- **Claim guard:** The contract explicitly keeps public training, public serving, routing, quality claims, Tinker compatibility, and discounts false until GPU-host artifact proof and vLLM load proof exist.
+- **LoRA handoff:** Exposes the current mode as `metadata_and_artifact_proof_only`, matching the existing training-job, model-card, adapter-registry, and deployment-load-proof foundations.
+- **OpenAPI:** Documented the renter-authenticated readiness endpoint and `LoraReadiness` schema in the platform API docs copies while leaving the vendored dcp-contracts file untouched.
+- **Verified:** Targeted LoRA/adapter Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 15:39 UTC - `feat(frontend): add live model catalog to pricing - PR #781`
 
 **PR:** [#781](https://github.com/dhnpmp-tech/dcp-platform/pull/781) (`codex/pricing-live-model-catalog-2026-07-08`).

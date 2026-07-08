@@ -525,6 +525,132 @@ components:
           format: date-time
           nullable: true
 
+    LoraReadiness:
+      type: object
+      description: Renter-authenticated readiness contract for LoRA/QLoRA fine-tuning, adapter registry, model-card, and adapter deployment gates. This contract is metadata-only and explicitly does not claim public training, serving, quality wins, Tinker compatibility, or discounts.
+      required: [object, version, current_mode, dataset_validation, training_jobs, model_cards, adapter_registry, adapter_deployments, claim_guards]
+      properties:
+        object:
+          type: string
+          enum: [lora_readiness]
+        version:
+          type: string
+          example: dcp.lora_readiness.v1
+        generated_at:
+          type: string
+          format: date-time
+        current_mode:
+          type: string
+          enum: [metadata_and_artifact_proof_only]
+        endpoints:
+          type: object
+          additionalProperties:
+            type: string
+        dataset_validation:
+          type: object
+          additionalProperties: true
+          properties:
+            status:
+              type: string
+              example: available
+            available:
+              type: boolean
+              example: true
+            supported_formats:
+              type: array
+              items:
+                type: string
+                enum: [chat_messages, prompt_completion]
+        training_jobs:
+          type: object
+          additionalProperties: true
+          properties:
+            status:
+              type: string
+              example: metadata_only
+            api_available:
+              type: boolean
+              example: true
+            public_training_enabled:
+              type: boolean
+              example: false
+            worker_execution_enabled:
+              type: boolean
+              example: false
+            gpu_host_proof_required:
+              type: boolean
+              example: true
+        model_cards:
+          type: object
+          additionalProperties: true
+          properties:
+            status:
+              type: string
+              example: metadata_stub
+            manifest_version:
+              type: string
+              example: dcp.lora_model_card_manifest.v1
+            model_card_artifact_writer_enabled:
+              type: boolean
+              example: false
+        adapter_registry:
+          type: object
+          additionalProperties: true
+          properties:
+            status:
+              type: string
+              example: metadata_registry
+            api_available:
+              type: boolean
+              example: true
+            serving_enabled:
+              type: boolean
+              example: false
+            route_traffic:
+              type: boolean
+              example: false
+        adapter_deployments:
+          type: object
+          additionalProperties: true
+          properties:
+            status:
+              type: string
+              example: load_proof_required
+            api_available:
+              type: boolean
+              example: true
+            serving_enabled:
+              type: boolean
+              example: false
+            route_traffic:
+              type: boolean
+              example: false
+            load_proof_required:
+              type: boolean
+              example: true
+        claim_guards:
+          type: object
+          additionalProperties: false
+          properties:
+            public_training_enabled:
+              type: boolean
+              example: false
+            public_serving_enabled:
+              type: boolean
+              example: false
+            route_traffic:
+              type: boolean
+              example: false
+            quality_claims:
+              type: boolean
+              example: false
+            tinker_compatible:
+              type: boolean
+              example: false
+            discounts_enabled:
+              type: boolean
+              example: false
+
     LoraTrainingJob:
       type: object
       description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
@@ -1421,6 +1547,26 @@ paths:
                   result: { $ref: '#/components/schemas/BatchInferenceResultManifest' }
         '404':
           description: Batch not found for this renter.
+
+  /api/lora/readiness:
+    get:
+      tags: [LoRA]
+      summary: Get LoRA product readiness gates
+      description: |
+        Returns the claim-safe LoRA/Fine-Tuning readiness contract for the
+        authenticated renter. The response describes dataset validation,
+        training-job metadata, model-card stubs, adapter registry, and adapter
+        deployment load-proof gates without enabling public training, serving,
+        routing, quality claims, discounts, or Tinker compatibility.
+      security:
+        - RenterApiKey: []
+      responses:
+        '200':
+          description: LoRA readiness contract.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoraReadiness'
 
   /api/lora/training-jobs:
     get:
