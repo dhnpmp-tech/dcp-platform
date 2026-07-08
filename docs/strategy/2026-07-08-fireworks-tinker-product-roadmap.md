@@ -235,6 +235,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #777 wired `/renter/batches` to that readiness contract so the batch
     console renders create/execution/download/settlement/discount gates from
     backend flags instead of static copy.
+  - PR #824 added `npm run proof:batch-inference-contract`, a CI-safe proof
+    packet for readiness, JSONL validation, idempotency, disabled worker
+    behavior, result checksum proof, line-ledger totals, and minimum-balance
+    settlement preflight before live provider execution or batch discounts.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency
@@ -421,6 +425,10 @@ Acceptance:
    #782; CI-safe adapter deployment lifecycle proof added in PR #822; real
    GPU-host artifact proof and vLLM serving smoke remain the gates before public
    LoRA serving claims.**
+8. **Batch lifecycle proof** - contract proof before live execution. **CI-safe
+   lifecycle proof added in PR #824; real provider execution, object-store
+   result writes, and discounted settlement smoke remain the gates before public
+   batch execution or discount claims.**
 
 ## Division of Work
 
