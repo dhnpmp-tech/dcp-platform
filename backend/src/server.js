@@ -227,10 +227,12 @@ app.use('/api/webhooks', express.raw({ type: 'application/json' }), (req, _res, 
 const LARGE_BODY_LIMIT = process.env.DCP_LARGE_BODY_LIMIT || '10mb';
 const GLOBAL_BODY_LIMIT = process.env.DCP_GLOBAL_BODY_LIMIT || '2mb';
 const BATCH_BODY_LIMIT = process.env.DCP_BATCH_BODY_LIMIT || '12mb';
+const LORA_BODY_LIMIT = process.env.DCP_LORA_BODY_LIMIT || '12mb';
 
 app.use('/api/providers/job-result', express.json({ limit: LARGE_BODY_LIMIT }));
 app.use('/api/providers/job-result', express.urlencoded({ extended: true, limit: LARGE_BODY_LIMIT }));
 app.use('/api/batches', express.json({ limit: BATCH_BODY_LIMIT }));
+app.use('/api/lora', express.json({ limit: LORA_BODY_LIMIT }));
 
 app.use(express.json({ limit: GLOBAL_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: GLOBAL_BODY_LIMIT }));
@@ -426,6 +428,7 @@ function tieredApiLimiter(req, res, next) {
 app.use('/api/providers', tieredApiLimiter);
 app.use('/api/jobs', tieredApiLimiter);
 app.use('/api/batches', tieredApiLimiter);
+app.use('/api/lora', tieredApiLimiter);
 app.use('/api/models', tieredApiLimiter);
 app.use('/api/templates', tieredApiLimiter);
 // Renter endpoints: 1000 req/min (authenticated) or 200 req/min (public) per IP (DCP-894)
@@ -712,6 +715,8 @@ const jobsRouter = require('./routes/jobs');
 app.use('/api/jobs', jobsRouter);
 const batchesRouter = require('./routes/batches');
 app.use('/api/batches', batchesRouter);
+const loraRouter = require('./routes/lora');
+app.use('/api/lora', loraRouter);
 // Interactive GPU pods (RunPod-style Jupyter + SSH) — same job rails, different template.
 const podsRouter = require('./routes/pods');
 app.use('/api/pods', podsRouter);

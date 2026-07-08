@@ -102,9 +102,15 @@ npm run templates:validate
 Before a public training route:
 
 1. Validate the dataset contract on uploaded workspace JSONL.
-2. Create a training job row with fixed recipe and idempotency key.
+2. Create a training job row with fixed recipe and idempotency key. **Done in
+   PR #744.**
 3. Launch only on a provider that passed the fat LoRA image GPU-host smoke.
 4. Write logs and an artifact manifest.
 5. Compute artifact SHA-256.
 6. Register the adapter in `adapter_registry` with `registered` or `ready`.
 7. Keep deployment separate until vLLM load proof exists.
+
+PR #744 adds `/api/lora/training-jobs` as a metadata foundation. It validates
+dataset JSONL and normalizes the recipe, but returns `training_enabled: false`
+until trainer-worker proof, artifact checksums, and adapter registration are
+wired.

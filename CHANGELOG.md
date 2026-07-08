@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 07:31 UTC - `feat(lora): add training job API foundation - PR #744`
+
+**PR:** [#744](https://github.com/dhnpmp-tech/dcp-platform/pull/744) (`codex/lora-training-jobs-foundation-2026-07-08`).
+**Local timestamp:** 2026-07-08 11:31 +04.
+
+**What:** Twelfth Fireworks/Tinker execution slice. Adds the managed LoRA/QLoRA SFT training-job metadata API foundation without launching GPU training or registering adapters prematurely.
+
+- **Schema:** Added idempotent `lora_training_jobs` bootstrap with training job id, renter id, recipe, base model, dataset storage/checksum/format/counts, output adapter reservation, normalized spec, dataset validation, lifecycle status, artifact fields, idempotency key, and timestamps.
+- **Service:** Added tenant-scoped create/list/read/update helpers that reuse the LoRA dataset validator and fixed training-spec normalizer from PR #737.
+- **API:** Added renter-authenticated `/api/lora/training-jobs` list/create and `/api/lora/training-jobs/{training_job_id}` detail routes. Creation returns `training_enabled: false` and `adapter_registered: false` until trainer-worker/artifact proof exists.
+- **Server/OpenAPI:** Mounted `/api/lora` with tiered rate limiting and route-specific JSON body limit; documented `LoraTrainingJob` and training-job routes.
+- **Docs/tests:** Updated the LoRA training/deploy runbook to mark the job-row/API step complete and added tests for schema, idempotency, tenant isolation, invalid dataset errors, route behavior, production DB wrapper compatibility, and artifact status updates.
+- **Verified:** Targeted LoRA training job and LoRA contract Jest suites; DB bootstrap table smoke; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 07:20 UTC - `feat(inference): add dormant batch worker scaffold - PR #743`
 
 **PR:** [#743](https://github.com/dhnpmp-tech/dcp-platform/pull/743) (`codex/batch-worker-stub-2026-07-08`).
