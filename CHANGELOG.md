@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 06:16 UTC - `feat(frontend): add fine-tuning console shell - PR #738`
+
+**PR:** [#738](https://github.com/dhnpmp-tech/dcp-platform/pull/738) (`codex/frontend-finetuning-shell-2026-07-08`).
+**Local timestamp:** 2026-07-08 10:16 +04.
+
+**What:** Seventh Fireworks/Tinker execution slice. Adds the first renter-facing Fine-Tuning console surface tied to the LoRA backend contracts from PRs #735-#737, without claiming managed training or adapter serving is live.
+
+- **Fine-Tuning route:** Added `/renter/fine-tuning` with the existing renter console shell, live adapter-registry fetches, adapter/base-model/ready counts, and an honest zero-traffic deployment state.
+- **Workflow gates:** Added a LoRA workflow view for dataset validation, LoRA/QLoRA job draft normalization, adapter registry, and deployment proof gating.
+- **Console IA:** Added Fine-Tuning to renter console navigation across dashboard, playground, keys, usage, pods, wallet, invoices, settings, and the shared Pods shell.
+- **Copy cleanup:** Removed the premature "batch" wording from the pod inference/serving workload preset until batch inference becomes a productized route.
+- **Responsive fix:** Added a route-local scroll-root override so the long Fine-Tuning console scrolls correctly on mobile after importing the legacy renter shell CSS.
+- **Verified:** `npm run build`; `git diff --check`; production-mode Playwright render of `/renter/fine-tuning` with mocked renter/adapters data at 1440x1100 and 390x1000, proving active nav state, adapter count rendering, no console errors, no blank page, no horizontal overflow, and working vertical scroll.
+
 ### 2026-07-08 05:52 UTC - `feat(lora): add training and deploy contracts - PR #737`
 
 **PR:** [#737](https://github.com/dhnpmp-tech/dcp-platform/pull/737) (`codex/lora-train-deploy-contracts-2026-07-08`).

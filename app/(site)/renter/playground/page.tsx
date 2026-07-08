@@ -35,6 +35,7 @@ const NAV: NavSection[] = [
       { k: 'keys', ic: '⚷', label: 'API keys', href: '/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', href: '/renter/usage' },
       { k: 'pods', ic: '▦', label: 'GPU Pods', labelAr: 'حاويات GPU', href: '/renter/pods' },
+      { k: 'fine', ic: 'FT', label: 'Fine-Tuning', labelAr: 'الضبط الدقيق', href: '/renter/fine-tuning' },
     ],
   },
   {
