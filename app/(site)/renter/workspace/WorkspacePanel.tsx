@@ -37,11 +37,21 @@ type FilesFetchState = 'idle' | 'loading' | 'ready' | 'error'
 interface WorkspacePanelProps {
   apiBase: string
   renterKey: string | null
+  /** Adjusts copy when the workspace manager is embedded inside the pod launch flow. */
+  context?: 'workspace' | 'pod-launch'
   /** Optional callback when the renter creates a volume (e.g. to refresh shell). */
   onVolumeRented?: (vol: WorkspaceVolume) => void
+  /** Optional callback whenever the current volume state is loaded/refreshed. */
+  onVolumeLoaded?: (vol: WorkspaceVolume | null) => void
 }
 
-export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: WorkspacePanelProps) {
+export default function WorkspacePanel({
+  apiBase,
+  renterKey,
+  context = 'workspace',
+  onVolumeRented,
+  onVolumeLoaded,
+}: WorkspacePanelProps) {
   const { lang } = useV2()
 
   const [volume, setVolume] = useState<WorkspaceVolume | null>(null)
@@ -72,6 +82,7 @@ export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: W
   const loadVolume = useCallback(async () => {
     if (!renterKey) {
       setVolumeState('idle')
+      onVolumeLoaded?.(null)
       return
     }
     setVolumeState('loading')
@@ -79,13 +90,14 @@ export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: W
     try {
       const data: VolumesMeResponse = await getVolume(apiBase, renterKey)
       setVolume(data.volume)
+      onVolumeLoaded?.(data.volume)
       setRentOptions(data.options || [])
       setVolumeState('ready')
     } catch (e) {
       setVolumeState('error')
       setVolumeError(e instanceof Error ? e.message : 'Failed to load volume.')
     }
-  }, [apiBase, renterKey])
+  }, [apiBase, renterKey, onVolumeLoaded])
 
   // ── load files ──────────────────────────────────────────────────────────────
   const loadFiles = useCallback(async () => {
@@ -133,6 +145,7 @@ export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: W
       setVolume(vol)
       setVolumeState('ready')
       onVolumeRented?.(vol)
+      onVolumeLoaded?.(vol)
       flash('ok', lang === 'ar' ? `تم تفعيل حجم ${vol.size_gb} غيغابايت` : `${vol.size_gb} GB volume ready`)
       setTimeout(loadFiles, 100)
     } catch (e) {
@@ -187,13 +200,24 @@ export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: W
       <div className="ws-hd">
         <div>
           <h3 id="ws-hd">
-            <Bi en="Workspace" ar="مساحة العمل" />
+            {context === 'pod-launch'
+              ? <Bi en="Workspace staging" ar="تجهيز مساحة العمل" />
+              : <Bi en="Workspace" ar="مساحة العمل" />}
           </h3>
           <p className="ws-sub">
-            <Bi
-              en="Files here persist across pods on your rented in-Kingdom volume."
-              ar="الملفات هنا تبقى عبر الحاويات على وحدة التخزين المستأجرة داخل المملكة."
-            />
+            {context === 'pod-launch'
+              ? (
+                  <Bi
+                    en="Datasets, notebooks, adapters, and checkpoints here reattach at /workspace on the next pod."
+                    ar="مجموعات البيانات والدفاتر والمحوّلات ونقاط الحفظ هنا تُعاد في /workspace عند الحاوية التالية."
+                  />
+                )
+              : (
+                  <Bi
+                    en="Files here persist across pods on your rented in-Kingdom volume."
+                    ar="الملفات هنا تبقى عبر الحاويات على وحدة التخزين المستأجرة داخل المملكة."
+                  />
+                )}
           </p>
         </div>
         <button
@@ -249,6 +273,7 @@ export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: W
           onAbort={upload.abort}
           onDiscardResumable={upload.discardResumable}
           onRetryPicker={() => fileInputRef.current?.click()}
+          context={context}
         />
       )}
 
@@ -273,7 +298,9 @@ export default function WorkspacePanel({ apiBase, renterKey, onVolumeRented }: W
           <div className="ws-empty">
             <span className="ws-empty-ic">∅</span>
             <p>
-              <Bi en="No files yet. Upload one above." ar="لا توجد ملفات بعد. ارفع واحداً بالأعلى." />
+              {context === 'pod-launch'
+                ? <Bi en="No staged files yet." ar="لا توجد ملفات مجهزة بعد." />
+                : <Bi en="No files yet. Upload one above." ar="لا توجد ملفات بعد. ارفع واحداً بالأعلى." />}
             </p>
           </div>
         )}
