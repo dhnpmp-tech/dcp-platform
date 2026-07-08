@@ -4,6 +4,8 @@ const Database = require('better-sqlite3');
 const express = require('express');
 const request = require('supertest');
 const {
+  BATCH_READINESS_CONTRACT_VERSION,
+  buildBatchInferenceReadiness,
   createBatchInferenceJob,
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
@@ -92,6 +94,85 @@ function wrapDb(raw) {
 }
 
 describe('batch inference job foundation', () => {
+  test('builds an honest batch readiness contract from current gates and config', () => {
+    const readiness = buildBatchInferenceReadiness({});
+
+    expect(readiness).toMatchObject({
+      object: 'batch_inference_readiness',
+      version: BATCH_READINESS_CONTRACT_VERSION,
+      current_mode: 'metadata_validation_only',
+      public_execution_enabled: false,
+      request_creation_enabled: true,
+      supported_urls: ['/v1/chat/completions', '/v1/complete'],
+      limits: {
+        max_requests: 1000,
+        max_bytes: 10 * 1024 * 1024,
+        completion_windows: ['24h'],
+      },
+      features: {
+        jsonl_validation: { status: 'available', enabled: true },
+        line_ledger: { status: 'available', enabled: true },
+        result_downloads: {
+          status: 'not_configured',
+          configured: false,
+          enabled_for_completed_results: false,
+        },
+        worker_execution: {
+          status: 'disabled',
+          env_flag_enabled: false,
+          public_enabled: false,
+        },
+        settlement: {
+          status: 'disabled',
+          env_flag_enabled: false,
+          public_enabled: false,
+        },
+        discounts: { status: 'not_enabled', enabled: false },
+        model_capability_flag: {
+          status: 'false_until_execution_and_settlement_proof',
+          enabled: false,
+        },
+      },
+      claims: {
+        batch_execution_live: false,
+        batch_discount_live: false,
+        model_batch_capability_live: false,
+        result_downloads_depend_on_completed_result_proof: true,
+      },
+    });
+    expect(readiness.features.result_downloads.missing_config).toEqual([
+      'BATCH_RESULTS_S3_BUCKET',
+      'BATCH_RESULTS_S3_ENDPOINT',
+      'BATCH_RESULTS_S3_KEY',
+      'BATCH_RESULTS_S3_SECRET',
+    ]);
+
+    const configured = buildBatchInferenceReadiness({
+      BATCH_RESULTS_S3_BUCKET: 'dcp-batch-results',
+      BATCH_RESULTS_S3_ENDPOINT: 'https://objects.example.test',
+      BATCH_RESULTS_S3_KEY: 'key',
+      BATCH_RESULTS_S3_SECRET: 'secret',
+      DCP_BATCH_WORKER_ENABLED: '1',
+      DCP_BATCH_SETTLEMENT_ENABLED: 'true',
+    });
+    expect(configured.features.result_downloads).toMatchObject({
+      status: 'configured_after_result_proof',
+      configured: true,
+      missing_config: [],
+      enabled_for_completed_results: true,
+    });
+    expect(configured.features.worker_execution).toMatchObject({
+      status: 'feature_flag_enabled_but_no_public_executor',
+      env_flag_enabled: true,
+      public_enabled: false,
+    });
+    expect(configured.features.settlement).toMatchObject({
+      status: 'feature_flag_enabled_but_public_execution_disabled',
+      env_flag_enabled: true,
+      public_enabled: false,
+    });
+  });
+
   test('schema creation is idempotent and includes lifecycle columns', () => {
     const db = makeDb();
     expect(() => ensureBatchInferenceJobSchema(db)).not.toThrow();
@@ -455,6 +536,19 @@ describe('batch inference job foundation', () => {
 
     const list = await request(app).get('/api/batches').expect(200);
     expect(list.body.data.map((batch) => batch.batch_id)).toEqual(['batch_route001']);
+
+    const readiness = await request(app).get('/api/batches/readiness').expect(200);
+    expect(readiness.body.readiness).toMatchObject({
+      version: BATCH_READINESS_CONTRACT_VERSION,
+      current_mode: 'metadata_validation_only',
+      public_execution_enabled: false,
+      supported_urls: ['/v1/chat/completions', '/v1/complete'],
+      features: {
+        jsonl_validation: { enabled: true },
+        worker_execution: { public_enabled: false },
+        discounts: { enabled: false },
+      },
+    });
 
     const detail = await request(app).get('/api/batches/batch_route001').expect(200);
     expect(detail.body.batch.batch_id).toBe('batch_route001');

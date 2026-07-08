@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 14:40 UTC - `feat(batch): publish batch inference readiness contract - PR #776`
+
+**PR:** [#776](https://github.com/dhnpmp-tech/dcp-platform/pull/776) (`codex/batch-readiness-contract-2026-07-08`).
+**Local timestamp:** 2026-07-08 18:40 +04.
+
+**What:** Forty-third Fireworks/Tinker execution slice. Adds a compact readiness contract for the gated batch inference product surface so UI and agents can distinguish validation-only metadata from live execution.
+
+- **Readiness API:** Added `GET /api/batches/readiness` before the dynamic batch-id route, returning supported JSONL URLs, limits, endpoint map, current mode, feature gates, claim guards, and next step.
+- **Config awareness:** Result-download readiness now reflects object-store signer configuration without exposing secrets; worker execution and settlement flags stay marked non-public even if env flags are set.
+- **Claim guard:** The contract explicitly keeps batch execution, batch discounts, and `/v1/models` batch capability false until live executor, billing, and result smoke proof exist.
+- **OpenAPI:** Documented the renter-authenticated readiness endpoint.
+- **Verified:** Targeted batch inference Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 14:31 UTC - `feat(lora): expose training model-card manifest stubs - PR #775`
 
 **PR:** [#775](https://github.com/dhnpmp-tech/dcp-platform/pull/775) (`codex/lora-model-card-manifest-2026-07-08`).

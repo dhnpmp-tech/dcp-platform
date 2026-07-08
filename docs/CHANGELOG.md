@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 14:40 UTC - Batch inference readiness contract (PR #776)
+
+- **PR:** [#776](https://github.com/dhnpmp-tech/dcp-platform/pull/776) (`codex/batch-readiness-contract-2026-07-08`).
+- **API:** Added `GET /api/batches/readiness` for supported endpoints, limits, feature gates, and claim guards.
+- **Safety:** Execution, settlement, discounts, and model batch capability remain explicitly non-public.
+- **OpenAPI:** Documented the renter-authenticated readiness endpoint.
+- **Verification:** Targeted batch inference Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 14:31 UTC - LoRA training model-card manifests (PR #775)
 
 - **PR:** [#775](https://github.com/dhnpmp-tech/dcp-platform/pull/775) (`codex/lora-model-card-manifest-2026-07-08`).

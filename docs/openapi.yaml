@@ -1339,6 +1339,61 @@ paths:
         '409':
           description: Batch id already exists.
 
+  /api/batches/readiness:
+    get:
+      tags: [Batches]
+      summary: Get batch inference readiness and gate status
+      description: |
+        Returns the current batch-inference product gates for the authenticated
+        renter. This endpoint is intended for product surfaces and agents that
+        need to distinguish validation-only batch metadata from live execution,
+        discounts, result-download configuration, and model capability flags.
+      security:
+        - RenterApiKey: []
+      responses:
+        '200':
+          description: Batch inference readiness contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  readiness:
+                    type: object
+                    required: [object, version, current_mode, public_execution_enabled, request_creation_enabled, supported_urls, limits, features, claims, next]
+                    properties:
+                      object:
+                        type: string
+                        example: batch_inference_readiness
+                      version:
+                        type: string
+                        example: dcp.batch_inference_readiness.v1
+                      current_mode:
+                        type: string
+                        example: metadata_validation_only
+                      public_execution_enabled:
+                        type: boolean
+                        example: false
+                      request_creation_enabled:
+                        type: boolean
+                        example: true
+                      supported_urls:
+                        type: array
+                        items: { type: string }
+                        example: [/v1/chat/completions, /v1/complete]
+                      limits:
+                        type: object
+                        additionalProperties: true
+                      features:
+                        type: object
+                        additionalProperties: true
+                      claims:
+                        type: object
+                        additionalProperties: true
+                      next:
+                        type: string
+                        example: connect_worker_to_live_v1_executor_after_gpu_billing_and_result_smoke
+
   /api/batches/{batch_id}:
     get:
       tags: [Batches]

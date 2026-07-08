@@ -166,7 +166,10 @@ schema can drift before the behavior exists.
 10. Run per-line billing through the existing inference settlement path.
     **Foundation done in PR #760** behind `DCP_BATCH_SETTLEMENT_ENABLED`, using
     `billingService.settleInferenceOnce` for injected worker line proof.
-11. Only then expose `capability_flags.batch = true` for models that can run it.
+11. Publish a compact readiness contract so UI and agents can render the gated
+    batch state without inferring it from scattered fields. **Done in PR #776**
+    via `GET /api/batches/readiness`.
+12. Only then expose `capability_flags.batch = true` for models that can run it.
 
 PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
 `capability_flags.batch = false` until steps 4-6 are complete.
@@ -214,3 +217,8 @@ provider and settlement metadata, and the dormant worker can call
 settlement is explicitly enabled. The helper preflights the full successful-line
 cost before debiting so insufficient balance fails without partial batch billing.
 Production batch execution and settlement remain disabled by default.
+PR #776 adds `GET /api/batches/readiness`, a renter-authenticated contract for
+batch product surfaces. It lists supported JSONL URLs, request limits, endpoint
+map, result-download configuration posture, worker/settlement gates, and claim
+guards. It does not enable execution, settlement, discounts, or public model
+batch capability flags.

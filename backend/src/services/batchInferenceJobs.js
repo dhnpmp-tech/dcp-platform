@@ -5,9 +5,11 @@ const {
   BatchInferenceContractError,
   MAX_BATCH_BYTES,
   MAX_BATCH_REQUESTS,
+  SUPPORTED_BATCH_URLS,
   checksumBatchRequest,
   parseBatchJsonl,
 } = require('./batchInferenceContract');
+const { getBatchResultDownloadConfig } = require('./batchResultDownloads');
 
 const BATCH_STATUSES = Object.freeze([
   'created',
@@ -47,6 +49,7 @@ const MAX_IDEMPOTENCY_KEY_LENGTH = 180;
 const MAX_SETTLEMENT_REQUEST_ID_LENGTH = 240;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
+const BATCH_READINESS_CONTRACT_VERSION = 'dcp.batch_inference_readiness.v1';
 
 class BatchInferenceJobError extends Error {
   constructor(message, { code = 'batch_inference_job_error', httpStatus = 400, details = undefined } = {}) {
@@ -315,6 +318,78 @@ function getBatchInferenceResultManifest(db, renterId, batchId) {
     updated_at: batch.updated_at,
     completed_at: batch.completed_at,
     expires_at: batch.expires_at,
+  };
+}
+
+function buildBatchInferenceReadiness(env = process.env) {
+  const workerFlagEnabled = parseEnvBoolean(env.DCP_BATCH_WORKER_ENABLED);
+  const settlementFlagEnabled = parseEnvBoolean(env.DCP_BATCH_SETTLEMENT_ENABLED);
+  const downloadConfig = getBatchResultDownloadConfig(env);
+
+  return {
+    object: 'batch_inference_readiness',
+    version: BATCH_READINESS_CONTRACT_VERSION,
+    current_mode: 'metadata_validation_only',
+    public_execution_enabled: false,
+    request_creation_enabled: true,
+    supported_urls: [...SUPPORTED_BATCH_URLS],
+    limits: {
+      max_requests: MAX_BATCH_REQUESTS,
+      max_bytes: MAX_BATCH_BYTES,
+      completion_windows: [...COMPLETION_WINDOWS],
+    },
+    endpoints: {
+      create: '/api/batches',
+      list: '/api/batches',
+      detail: '/api/batches/{batch_id}',
+      lines: '/api/batches/{batch_id}/lines',
+      results: '/api/batches/{batch_id}/results',
+    },
+    features: {
+      jsonl_validation: {
+        status: 'available',
+        enabled: true,
+      },
+      line_ledger: {
+        status: 'available',
+        enabled: true,
+      },
+      result_manifest: {
+        status: 'available_after_result_proof',
+        enabled: true,
+      },
+      result_downloads: {
+        status: downloadConfig.configured ? 'configured_after_result_proof' : 'not_configured',
+        configured: downloadConfig.configured,
+        missing_config: downloadConfig.missing,
+        enabled_for_completed_results: downloadConfig.configured,
+      },
+      worker_execution: {
+        status: workerFlagEnabled ? 'feature_flag_enabled_but_no_public_executor' : 'disabled',
+        env_flag_enabled: workerFlagEnabled,
+        public_enabled: false,
+      },
+      settlement: {
+        status: settlementFlagEnabled ? 'feature_flag_enabled_but_public_execution_disabled' : 'disabled',
+        env_flag_enabled: settlementFlagEnabled,
+        public_enabled: false,
+      },
+      discounts: {
+        status: 'not_enabled',
+        enabled: false,
+      },
+      model_capability_flag: {
+        status: 'false_until_execution_and_settlement_proof',
+        enabled: false,
+      },
+    },
+    claims: {
+      batch_execution_live: false,
+      batch_discount_live: false,
+      model_batch_capability_live: false,
+      result_downloads_depend_on_completed_result_proof: true,
+    },
+    next: 'connect_worker_to_live_v1_executor_after_gpu_billing_and_result_smoke',
   };
 }
 
@@ -934,6 +1009,11 @@ function computeExpiresAt(createdAtIso, completionWindow) {
   return null;
 }
 
+function parseEnvBoolean(value) {
+  if (value == null || value === '') return false;
+  return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+}
+
 function batchError(message, opts) {
   throw new BatchInferenceJobError(message, opts);
 }
@@ -962,7 +1042,9 @@ module.exports = {
   BATCH_LINE_STATUSES,
   BATCH_LINE_SETTLEMENT_STATUSES,
   COMPLETION_WINDOWS,
+  BATCH_READINESS_CONTRACT_VERSION,
   BatchInferenceJobError,
+  buildBatchInferenceReadiness,
   ensureBatchInferenceJobSchema,
   createBatchInferenceJob,
   getBatchInferenceJob,
@@ -984,6 +1066,7 @@ module.exports = {
     normalizeLineStatus,
     normalizeSettlementStatus,
     normalizeChecksum,
+    parseEnvBoolean,
     generateBatchId,
     mapBatchRow,
     mapBatchLineRow,
