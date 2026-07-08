@@ -199,6 +199,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #776 added a renter-authenticated batch readiness contract so product
     surfaces can show validation-only, result-download, worker, settlement,
     discount, and capability gates honestly.
+  - PR #777 wired `/renter/batches` to that readiness contract so the batch
+    console renders create/execution/download/settlement/discount gates from
+    backend flags instead of static copy.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency

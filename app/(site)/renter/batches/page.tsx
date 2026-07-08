@@ -83,6 +83,54 @@ interface ResultManifest {
   next: string
 }
 
+interface BatchReadinessFeature {
+  status: string
+  enabled?: boolean
+  configured?: boolean
+  enabled_for_completed_results?: boolean
+  public_enabled?: boolean
+  env_flag_enabled?: boolean
+  missing_config?: string[]
+}
+
+interface BatchReadiness {
+  object: 'batch_inference_readiness'
+  version: string
+  current_mode: string
+  public_execution_enabled: boolean
+  request_creation_enabled: boolean
+  supported_urls: string[]
+  limits: {
+    max_requests: number
+    max_bytes: number
+    completion_windows: string[]
+  }
+  endpoints: {
+    create: string
+    list: string
+    detail: string
+    lines: string
+    results: string
+  }
+  features: {
+    jsonl_validation: BatchReadinessFeature
+    line_ledger: BatchReadinessFeature
+    result_manifest: BatchReadinessFeature
+    result_downloads: BatchReadinessFeature
+    worker_execution: BatchReadinessFeature
+    settlement: BatchReadinessFeature
+    discounts: BatchReadinessFeature
+    model_capability_flag: BatchReadinessFeature
+  }
+  claims: {
+    batch_execution_live: boolean
+    batch_discount_live: boolean
+    model_batch_capability_live: boolean
+    result_downloads_depend_on_completed_result_proof: boolean
+  }
+  next: string
+}
+
 interface BatchListResponse {
   data?: BatchRecord[]
   error?: string
@@ -95,6 +143,11 @@ interface BatchLinesResponse {
 
 interface BatchResultResponse {
   result?: ResultManifest
+  error?: string
+}
+
+interface BatchReadinessResponse {
+  readiness?: BatchReadiness
   error?: string
 }
 
@@ -143,6 +196,22 @@ function statusTone(status: string): string {
   return 'queued'
 }
 
+function formatMode(value: string | null | undefined): string {
+  if (!value) return '-'
+  return value.replace(/_/g, ' ')
+}
+
+function gateText(value: boolean): string {
+  return value ? 'live' : 'gated'
+}
+
+function featureText(feature: BatchReadinessFeature | undefined, fallback = 'gated'): string {
+  if (!feature) return fallback
+  if (feature.public_enabled === true || feature.enabled === true) return 'available'
+  if (feature.configured === true) return formatMode(feature.status || 'configured')
+  return formatMode(feature.status || fallback)
+}
+
 async function readJson<T>(url: string, headers: HeadersInit): Promise<T> {
   const res = await fetch(url, { headers })
   const data = await res.json().catch(() => ({}))
@@ -160,6 +229,7 @@ export default function RenterBatchesPage() {
   const [renterName, setRenterName] = useState('DCP renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [batches, setBatches] = useState<BatchRecord[]>([])
+  const [readiness, setReadiness] = useState<BatchReadiness | null>(null)
   const [selectedBatchId, setSelectedBatchId] = useState('')
   const [lines, setLines] = useState<BatchLine[]>([])
   const [manifest, setManifest] = useState<ResultManifest | null>(null)
@@ -183,9 +253,10 @@ export default function RenterBatchesPage() {
     setError('')
     ;(async () => {
       try {
-        const [me, batchList] = await Promise.all([
+        const [me, batchList, readinessData] = await Promise.all([
           readJson<RenterMe>(`${base}/renters/me`, headers),
           readJson<BatchListResponse>(`${base}/batches?limit=25`, headers),
+          readJson<BatchReadinessResponse>(`${base}/batches/readiness`, headers),
         ])
         if (cancelled) return
         const renter = me.renter
@@ -193,6 +264,7 @@ export default function RenterBatchesPage() {
         setRenterName(renter?.organization || renter?.name || 'DCP renter')
         setRenterEmail(renter?.email || '')
         setBatches(nextBatches)
+        setReadiness(readinessData.readiness || null)
         setSelectedBatchId(nextBatches[0]?.batch_id || '')
         setLoadState('ready')
       } catch (err) {
@@ -273,6 +345,11 @@ export default function RenterBatchesPage() {
 
   async function submitBatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (readiness && !readiness.request_creation_enabled) {
+      setSubmitState('error')
+      setSubmitError('Batch creation is currently gated.')
+      return
+    }
     const key = getRenterKey()
     if (!key) {
       setLoadState('missing-key')
@@ -307,6 +384,17 @@ export default function RenterBatchesPage() {
   }
 
   const isLive = loadState === 'ready'
+  const requestCreationEnabled = readiness?.request_creation_enabled !== false
+  const publicExecutionEnabled = readiness?.public_execution_enabled === true
+  const resultDownloadsConfigured = readiness?.features.result_downloads.configured === true
+  const discountsEnabled = readiness?.features.discounts.enabled === true
+  const readinessMode = readiness?.current_mode || 'metadata_validation_only'
+  const supportedUrls = readiness?.supported_urls?.length
+    ? readiness.supported_urls.join(' · ')
+    : '/v1/chat/completions · /v1/complete'
+  const completionWindows = readiness?.limits.completion_windows?.length
+    ? readiness.limits.completion_windows.join(' · ')
+    : '24h'
 
   return (
     <div className="rt-app bt-page">
@@ -339,7 +427,12 @@ export default function RenterBatchesPage() {
           </h1>
           <div className="rt-h1-sub">
             <span><Bi en="JSONL validation" ar="تحقق JSONL" /></span>
-            <span><Bi en="Line ledger live · execution gated" ar="سجل الأسطر يعمل · التنفيذ مشروط" /></span>
+            <span>
+              <Bi
+                en={`Line ledger live · execution ${gateText(publicExecutionEnabled)}`}
+                ar={`سجل الأسطر يعمل · التنفيذ ${publicExecutionEnabled ? 'يعمل' : 'مشروط'}`}
+              />
+            </span>
           </div>
 
           {loadState === 'missing-key' && (
@@ -378,12 +471,54 @@ export default function RenterBatchesPage() {
                 <div className="kpi">
                   <span className="k"><Bi en="Result artifacts" ar="ملفات النتائج" /></span>
                   <span className="v">{formatNumber(totals.ready)}</span>
-                  <span className="d up"><Bi en="checksum gated" ar="مشروط بالبصمة" /></span>
+                  <span className={resultDownloadsConfigured ? 'd up' : 'd flat'}>
+                    <Bi en={resultDownloadsConfigured ? 'download signer configured' : 'checksum gated'} ar={resultDownloadsConfigured ? 'موقع التنزيل مضبوط' : 'مشروط بالبصمة'} />
+                  </span>
                 </div>
                 <div className="kpi">
                   <span className="k"><Bi en="Cost" ar="التكلفة" /></span>
                   <span className="v">{(totals.cost / 100).toFixed(2)}<span className="u">SAR</span></span>
-                  <span className="d flat"><Bi en="settlement gated" ar="التسوية مشروطة" /></span>
+                  <span className="d flat"><Bi en={discountsEnabled ? 'batch discount live' : 'batch discount gated'} ar={discountsEnabled ? 'خصم الدفعات يعمل' : 'خصم الدفعات مشروط'} /></span>
+                </div>
+              </section>
+
+              <section className="bt-readiness" aria-label="Batch readiness">
+                <div className="bt-section-head compact">
+                  <div>
+                    <span className="bt-eyebrow"><Bi en="Readiness" ar="الجاهزية" /></span>
+                    <h2>{formatMode(readinessMode)}</h2>
+                  </div>
+                  <span className="bt-contract mono">{readiness?.version || 'dcp.batch_inference_readiness.v1'}</span>
+                </div>
+                <div className="bt-readiness-grid">
+                  <div>
+                    <span><Bi en="Create" ar="الإنشاء" /></span>
+                    <b>{requestCreationEnabled ? 'available' : 'gated'}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Execute" ar="التنفيذ" /></span>
+                    <b>{gateText(publicExecutionEnabled)}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Downloads" ar="التنزيل" /></span>
+                    <b>{featureText(readiness?.features.result_downloads)}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Settlement" ar="التسوية" /></span>
+                    <b>{featureText(readiness?.features.settlement)}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Discounts" ar="الخصومات" /></span>
+                    <b>{discountsEnabled ? 'live' : 'not enabled'}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Window" ar="المدة" /></span>
+                    <b>{completionWindows}</b>
+                  </div>
+                </div>
+                <div className="bt-supported">
+                  <span><Bi en="Supported URLs" ar="المسارات المدعومة" /></span>
+                  <code>{supportedUrls}</code>
                 </div>
               </section>
 
@@ -457,8 +592,11 @@ export default function RenterBatchesPage() {
                       <textarea value={inputJsonl} onChange={(event) => setInputJsonl(event.target.value)} rows={11} spellCheck={false} />
                     </label>
                     {submitState === 'error' && <p className="bt-error">{submitError}</p>}
-                    <button className="btn-pri" type="submit" disabled={submitState === 'submitting'}>
-                      <Bi en={submitState === 'submitting' ? 'Validating' : 'Create batch'} ar={submitState === 'submitting' ? 'جار التحقق' : 'إنشاء دفعة'} />
+                    <button className="btn-pri" type="submit" disabled={submitState === 'submitting' || !requestCreationEnabled}>
+                      <Bi
+                        en={!requestCreationEnabled ? 'Creation gated' : submitState === 'submitting' ? 'Validating' : 'Create batch'}
+                        ar={!requestCreationEnabled ? 'الإنشاء مشروط' : submitState === 'submitting' ? 'جار التحقق' : 'إنشاء دفعة'}
+                      />
                     </button>
                   </form>
                 </aside>

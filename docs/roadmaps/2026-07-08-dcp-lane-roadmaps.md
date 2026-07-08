@@ -27,6 +27,9 @@ what is live.
 - PR #767 made `/renter/pods` render structured paid-credit/insufficient-credit
   launch failures with Add credit guidance, exact credit facts, and no
   vendor/on-demand internals exposed to renters.
+- PR #777 wired `/renter/batches` to `GET /api/batches/readiness`, adding a
+  compact readiness rail for mode, contract version, create/execution/download,
+  settlement, discount, window, and supported-URL gates.
 
 ### Now
 
@@ -81,6 +84,7 @@ what is live.
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
    **Started in PR #745.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
+   **Readiness gates from the backend contract added in PR #777.**
 
 ### Required Evidence
 
@@ -171,6 +175,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #776 added renter-authenticated batch readiness metadata so product
   surfaces can show validation-only, result-download, worker, settlement,
   discount, and capability gates without overclaiming execution.
+- PR #777 made the renter batch console consume that readiness metadata directly
+  so frontend copy no longer hardcodes the batch execution/download/discount
+  gates.
 - PR #766 tightened model capability metadata so explicit embedding/rerank/image
   entries are no longer advertised as chat/streaming capable across `/v1/models`,
   `/api/models`, and `/api/models/catalog`.
@@ -233,6 +240,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   **Readiness metadata now marks batch as API metadata only until execution,
   result artifacts, and discounted settlement are enabled. PR #776 adds
   `/api/batches/readiness` for the renter-facing batch gate contract.**
+  **PR #777 renders that contract in `/renter/batches` and keeps create,
+  execution, downloads, settlement, and discounts tied to backend flags.**
 - Router policies:
   - cheapest
   - lowest latency

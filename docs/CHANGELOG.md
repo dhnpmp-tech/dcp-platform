@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 14:56 UTC - Batch readiness gates in renter console (PR #777)
+
+- **PR:** [#777](https://github.com/dhnpmp-tech/dcp-platform/pull/777) (`codex/frontend-batch-readiness-2026-07-08`).
+- **Frontend:** `/renter/batches` now reads `GET /api/batches/readiness` with the existing renter auth headers.
+- **UI:** Added readiness mode, contract version, create/execution/download/settlement/discount gates, completion window, and supported JSONL URLs.
+- **Safety:** Execution and discounts remain visibly gated unless the backend contract marks them live; download configuration still keeps the result-proof gate.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render with no horizontal overflow.
+
 ### 2026-07-08 14:40 UTC - Batch inference readiness contract (PR #776)
 
 - **PR:** [#776](https://github.com/dhnpmp-tech/dcp-platform/pull/776) (`codex/batch-readiness-contract-2026-07-08`).
