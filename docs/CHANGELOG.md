@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 21:43 UTC - Adapter deployment contract proof (PR #822)
+### 2026-07-08 21:47 UTC - Adapter deployment contract proof (PR #822)
 
 - **PR:** [#822](https://github.com/dhnpmp-tech/dcp-platform/pull/822) (`codex/adapter-deployment-contract-proof-2026-07-09`).
 - **Proof command:** Added `npm run proof:adapter-deployment-contract` for the CI-safe adapter deployment lifecycle proof.
