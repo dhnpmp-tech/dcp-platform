@@ -2021,6 +2021,52 @@ paths:
         '404':
           description: Adapter not found for this renter.
 
+  /api/adapters/deployments:
+    get:
+      tags: [Adapters]
+      summary: List renter adapter deployment records
+      description: |
+        Returns deployment lifecycle records across all adapters owned by the
+        authenticated renter. These records describe deployment intent and proof
+        state; they do not guarantee inference routing unless `route_traffic`
+        is true.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: adapter_id
+          required: false
+          schema: { type: string }
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [pending, provisioning, running, degraded, stopped, failed]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Adapter deployment list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdapterDeployment' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+
   /api/adapters/{adapter_id}/deployments:
     get:
       tags: [Adapters]

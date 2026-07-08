@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 16:18 UTC - Aggregate adapter deployment list (PR #785)
+
+- **PR:** [#785](https://github.com/dhnpmp-tech/dcp-platform/pull/785) (`codex/adapter-deployments-list-2026-07-08`).
+- **API:** Added renter-authenticated `GET /api/adapters/deployments` for deployment lifecycle records across all renter adapters.
+- **Filters:** Supports `adapter_id`, `status`, `limit`, and `offset`.
+- **Safety:** The endpoint does not route traffic or attach load proof; it only reports each deployment row's existing `route_traffic` and proof state.
+- **Verification:** Targeted adapter deployment and registry Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 16:11 UTC - Fine-Tuning adapter deployment intents (PR #784)
 
 - **PR:** [#784](https://github.com/dhnpmp-tech/dcp-platform/pull/784) (`codex/frontend-adapter-deployments-2026-07-08`).

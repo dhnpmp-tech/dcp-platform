@@ -264,6 +264,8 @@ Goal: ship the first real train-here/deploy-here loop.
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
     the target model
+  - PR #785 added a renter-wide deployment lifecycle list endpoint so UI and
+    agents can inspect adapter deployment intents without per-adapter polling.
 - Add dashboard:
   - datasets
   - training jobs
