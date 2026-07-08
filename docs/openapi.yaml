@@ -6238,6 +6238,75 @@ paths:
   # Next.js rewrites /v1/* → backend /v1/* for external access.
   # ──────────────────────────────────────────────────────────────────────────────
 
+  /v1/router/policies:
+    get:
+      tags: [OpenAI-Compatible]
+      summary: List DCP inference routing policy readiness
+      description: |
+        Returns a read-only catalog of DCP inference routing policies. This
+        endpoint does not enable request-selectable routing yet; it describes
+        which Fireworks-style router policies are live, telemetry-only,
+        catalog-only, gated, or not enabled.
+      responses:
+        '200':
+          description: Read-only routing policy catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, default_policy, request_selectable, data]
+                properties:
+                  object:
+                    type: string
+                    example: list
+                  version:
+                    type: string
+                    example: dcp.inference_routing_policies.v1
+                  default_policy:
+                    type: string
+                    example: balanced
+                  request_policy_parameter:
+                    nullable: true
+                    description: Null until request-selectable routing policies are enabled.
+                    example: null
+                  request_selectable:
+                    type: boolean
+                    example: false
+                  generated_at:
+                    type: string
+                    format: date-time
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, label, status, available, request_selectable, current_behavior, signals, next]
+                      properties:
+                        id:
+                          type: string
+                          enum: [balanced, lowest_latency, cheapest, saudi_only, coding, arabic]
+                        label:
+                          type: string
+                        status:
+                          type: string
+                          enum: [available, telemetry_gate_only, catalog_only, gated, not_enabled]
+                        available:
+                          type: boolean
+                        default:
+                          type: boolean
+                        request_selectable:
+                          type: boolean
+                        current_behavior:
+                          type: string
+                        signals:
+                          type: array
+                          items:
+                            type: string
+                        runtime:
+                          type: object
+                          additionalProperties: true
+                        next:
+                          type: string
+
   /v1/models:
     get:
       tags: [vLLM]

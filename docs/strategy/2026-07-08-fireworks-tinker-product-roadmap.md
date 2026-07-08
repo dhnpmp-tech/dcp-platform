@@ -200,6 +200,8 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - Saudi-only
   - coding
   - Arabic
+  - PR #772 added a read-only `/v1/router/policies` readiness catalog for these
+    policies without making them request-selectable yet.
 - Publish honest benchmark pages before making quality claims.
 
 Acceptance:

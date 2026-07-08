@@ -181,6 +181,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `/api/models`, and `/api/models/catalog` so batch, prompt cache, LoRA, and
   dedicated-deployment rails can be shown as gated/measurement-only without
   flipping product-available booleans.
+- PR #772 added read-only `/v1/router/policies` readiness metadata for balanced,
+  lowest-latency, cheapest, Saudi-only, coding, and Arabic routing policies
+  without changing request routing behavior.
 
 ### Now
 
@@ -229,6 +232,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - Saudi-only
   - coding
   - Arabic
+  **Read-only policy discovery started in PR #772; request-selectable routing
+  remains gated until policy-specific routing tests and smoke paths exist.**
 
 ### Later
 
