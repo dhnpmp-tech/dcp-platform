@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 15:29 UTC - Playground live model metadata panel (PR #780)
+
+- **PR:** [#780](https://github.com/dhnpmp-tech/dcp-platform/pull/780) (`codex/frontend-playground-model-metadata-2026-07-08`).
+- **Frontend:** `/renter/playground` now preserves `/v1/models` context, max output, pricing, capabilities, feature readiness, and VRAM metadata in the model selector.
+- **UI:** Added a selected-model contract panel with SAR/1M input-output rates, capability chips, and prompt-cache/batch/LoRA/dedicated readiness gates.
+- **Safety:** Max tokens now clamp to backend `max_output_tokens`; advanced rails remain gated/measurement-only when the backend says they are not public.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render, no horizontal overflow, backend-driven slider max, and captured chat request with `routing_policy: "balanced"`.
+
 ### 2026-07-08 15:17 UTC - Playground router policy panel (PR #779)
 
 - **PR:** [#779](https://github.com/dhnpmp-tech/dcp-platform/pull/779) (`codex/frontend-router-policy-playground-2026-07-08`).
