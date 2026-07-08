@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 07:06 UTC - Batch inference API foundation (PR #741)
+
+- **PR:** [#741](https://github.com/dhnpmp-tech/dcp-platform/pull/741) (`codex/batch-inference-api-foundation-2026-07-08`).
+- **Backend:** Added `batch_inference_jobs` schema/bootstrap plus service helpers for tenant-scoped create/list/read, JSONL validation, checksum metadata, storage-key reservation, and idempotent create replay.
+- **API/OpenAPI:** Added renter-authenticated `/api/batches` list/create and `/api/batches/{batch_id}` detail routes. Creation returns `execution_enabled: false` until the worker/result/billing slice lands.
+- **Server:** Mounted `/api/batches` with tiered rate limiting and a route-specific JSON body parser for batch payloads.
+- **Verification:** `npm test -- --runTestsByPath src/__tests__/batchInferenceJobs.test.js src/__tests__/batchInferenceContract.test.js --runInBand`; DB bootstrap table smoke; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 06:48 UTC - Nsight provider benchmark MVP (PR #740)
 
 - **PR:** [#740](https://github.com/dhnpmp-tech/dcp-platform/pull/740) (`codex/pods-nsight-benchmark-mvp-2026-07-08`).

@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 07:06 UTC - `feat(inference): add batch API foundation - PR #741`
+
+**PR:** [#741](https://github.com/dhnpmp-tech/dcp-platform/pull/741) (`codex/batch-inference-api-foundation-2026-07-08`).
+**Local timestamp:** 2026-07-08 11:06 +04.
+
+**What:** Tenth Fireworks/Tinker execution slice. Turns the batch-inference JSONL contract from PR #736 into a renter-authenticated API metadata foundation without enabling execution, discounts, or model capability flags prematurely.
+
+- **Schema:** Added idempotent `batch_inference_jobs` bootstrap with batch id, renter id, input storage key, input checksum, normalized byte count, request count, completion window, lifecycle status, result key, counters, total cost, idempotency key, and timestamps.
+- **Service:** Added batch job creation/list/read helpers that reuse the tested JSONL contract, generate stable checksums/storage keys, preserve tenant boundaries, and replay existing rows for matching idempotency keys.
+- **API:** Added `/api/batches` list/create and `/api/batches/{batch_id}` detail routes behind renter auth. Creation returns `execution_enabled: false` and `results_available: false` until the worker/result/billing slice exists.
+- **Server:** Mounted `/api/batches` with authenticated/public tiered rate limiting and a route-specific JSON body limit for JSONL batch payloads.
+- **OpenAPI/docs:** Documented `BatchInferenceJob`, `/api/batches`, and the remaining worker/billing/result order. `/v1/models` batch capability remains false.
+- **Verified:** Targeted Jest coverage for batch job schema/service/routes plus existing batch JSONL contract; DB bootstrap table smoke; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 06:48 UTC - `feat(pods): add Nsight provider benchmark MVP - PR #740`
 
 **PR:** [#740](https://github.com/dhnpmp-tech/dcp-platform/pull/740) (`codex/pods-nsight-benchmark-mvp-2026-07-08`).
