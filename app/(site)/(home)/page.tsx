@@ -620,6 +620,7 @@ client = OpenAI(
               <li><Link href="/pods"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
               <li><Link href="/inference"><Bi en="Inference" ar="الاستدلال" /></Link></li>
               <li><Link href="/fine-tuning"><Bi en="Fine-Tuning" ar="الضبط الدقيق" /></Link></li>
+              <li><Link href="/batch"><Bi en="Batch" ar="الدُفعات" /></Link></li>
               <li><Link href="/agents"><Bi en="Agents" ar="الوكلاء" /></Link></li>
               <li><Link href="/pricing"><Bi en="Pricing" ar="الأسعار" /></Link></li>
               <li><Link href="/"><Bi en="Overview" ar="نظرة عامة" /></Link></li>

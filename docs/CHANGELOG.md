@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 17:28 UTC - Public Batch page (PR #791)
+
+- **PR:** [#791](https://github.com/dhnpmp-tech/dcp-platform/pull/791) (`codex/public-batch-page-2026-07-08`).
+- **Frontend:** Added `/batch` as the public Batch inference product page.
+- **Navigation:** Added Batch to shared site navigation, mobile menus, shared footer, home navigation, and home footer product links.
+- **Safety:** Worker execution, completed-result downloads, settlement, discounts, and model batch capability remain proof-gated.
+- **Verification:** `npm run build`; `git diff --check`; local production Playwright desktop/tablet/mobile render with loaded images, active Batch nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 17:16 UTC - Public Pods route (PR #790)
 
 - **PR:** [#790](https://github.com/dhnpmp-tech/dcp-platform/pull/790) (`codex/public-pods-route-2026-07-08`).

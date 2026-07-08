@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 17:28 UTC - `feat(frontend): add public Batch page - PR #791`
+
+**PR:** [#791](https://github.com/dhnpmp-tech/dcp-platform/pull/791) (`codex/public-batch-page-2026-07-08`).
+**Local timestamp:** 2026-07-08 21:28 +04.
+
+**What:** Fifty-eighth Fireworks/Tinker execution slice. Adds a public `/batch` product page that packages the shipped batch-inference readiness and metadata contract without claiming live execution or discounts.
+
+- **Public route:** Added `/batch` with JSONL validation, line-ledger, result-manifest, and discount-gate positioning.
+- **Product IA:** Added Batch to shared site navigation, mobile menus, shared footer, home navigation, and home footer product links.
+- **Claim guard:** The page states that worker execution, completed-result downloads, settlement, discounts, and model batch capability remain gated until proof exists.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/batch` on desktop/tablet/mobile with loaded images, active Batch nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 17:16 UTC - `feat(frontend): add public Pods route - PR #790`
 
 **PR:** [#790](https://github.com/dhnpmp-tech/dcp-platform/pull/790) (`codex/public-pods-route-2026-07-08`).
