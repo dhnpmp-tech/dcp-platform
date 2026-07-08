@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 17:05 UTC - `feat(frontend): add public Inference page - PR #789`
+
+**PR:** [#789](https://github.com/dhnpmp-tech/dcp-platform/pull/789) (`codex/public-inference-page-2026-07-08`).
+**Local timestamp:** 2026-07-08 21:05 +04.
+
+**What:** Fifty-sixth Fireworks/Tinker execution slice. Adds a public `/inference` product page so the Inference API has a product entry separate from the live marketplace.
+
+- **Public route:** Added `/inference` with product visuals, OpenAI-compatible API positioning, model-catalog metadata gates, SAR metering notes, and a Python client snippet.
+- **Product IA:** Retargeted shared "Inference" navigation and home Inference entry points from `/marketplace` to `/inference`; `/marketplace` remains the live capacity/catalog page.
+- **Claim guard:** Advanced prompt cache, batch discounts, LoRA serving, dedicated deployments, premium/cost/latency routing, and feature-readiness rails remain explicitly gated until implementation and evidence land.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/inference` on desktop/tablet/mobile with loaded images, active nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 16:57 UTC - `feat(frontend): add public Fine-Tuning page - PR #788`
 
 **PR:** [#788](https://github.com/dhnpmp-tech/dcp-platform/pull/788) (`codex/public-fine-tuning-page-2026-07-08`).

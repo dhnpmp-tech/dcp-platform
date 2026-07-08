@@ -296,6 +296,8 @@ Gaps:
      training, adapter, and deployment-intent contracts.
 4. Add Fireworks-style product pages, but only with shipped claims:
    - Inference
+     - PR #789 added `/inference` with shipped `/v1/models`, SAR metering, and
+       balanced-router gates while leaving advanced rails gated.
    - Pods
    - Fine-tuning
      - PR #788 added `/fine-tuning` with shipped LoRA contract gates and no

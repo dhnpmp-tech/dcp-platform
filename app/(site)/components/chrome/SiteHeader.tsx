@@ -25,7 +25,7 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
 const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة' },
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
-  { href: '/marketplace', en: 'Inference', ar: 'الاستدلال' },
+  { href: '/inference', en: 'Inference', ar: 'الاستدلال' },
   { href: '/fine-tuning', en: 'Fine-Tuning', ar: 'الضبط الدقيق' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
@@ -36,7 +36,7 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
 // ───────── mobile menu rows ─────────
 const MENU: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; sEn: string; sAr: string }> = [
   { href: '/', n: '01', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
-  { href: '/marketplace', n: '02', tEn: 'Marketplace', tAr: 'السوق', sEn: 'Live capacity · verified providers', sAr: 'سعة حية · مزوّدون متحققون' },
+  { href: '/inference', n: '02', tEn: 'Inference', tAr: 'الاستدلال', sEn: 'OpenAI-compatible · live catalog', sAr: 'متوافق مع OpenAI · كتالوج حي' },
   { href: '/fine-tuning', n: '03', tEn: 'Fine-Tuning', tAr: 'الضبط الدقيق', sEn: 'LoRA contracts · proof-gated serving', sAr: 'عقود LoRA · خدمة مقيدة بالإثبات' },
   { href: '/pricing', n: '04', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
   { href: '/containers', n: '05', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },

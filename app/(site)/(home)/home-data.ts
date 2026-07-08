@@ -37,7 +37,7 @@ export const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
 export const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boolean }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة', on: true },
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
-  { href: '/marketplace', en: 'Inference', ar: 'الاستدلال' },
+  { href: '/inference', en: 'Inference', ar: 'الاستدلال' },
   { href: '/fine-tuning', en: 'Fine-Tuning', ar: 'الضبط الدقيق' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },

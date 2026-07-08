@@ -30,6 +30,8 @@ what is live.
   deploy-intent creation.
 - PR #788 added the public `/fine-tuning` product page and wired Fine-Tuning
   into shared site navigation while keeping serving and trainer claims gated.
+- PR #789 added the public `/inference` product page and retargeted shared
+  Inference links while keeping advanced routing and feature rails gated.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -91,6 +93,7 @@ what is live.
   contracts while keeping trainer and serving proof gates explicit.**
 - Add product pages once backend gates exist:
   - `/inference`
+    **Added in PR #789 with shipped `/v1/models` and balanced-router gates.**
   - `/pods`
   - `/fine-tuning`
     **Added in PR #788 with proof-gated LoRA contract copy.**

@@ -309,6 +309,7 @@ Goal: make the product easy to understand and sell.
   - Pricing
 - Add English/Arabic pages:
   - `/inference`
+    **Added in PR #789 with live-catalog and balanced-router claim guards.**
   - `/pods`
   - `/fine-tuning`
     **Added in PR #788 with shipped LoRA contract gates and no public-serving
