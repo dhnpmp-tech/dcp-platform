@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 10:38 UTC - `feat(frontend): add catalog-backed pod launch templates - PR #761`
+
+**PR:** [#761](https://github.com/dhnpmp-tech/dcp-platform/pull/761) (`codex/pod-template-catalog-launch-2026-07-08`).
+**Local timestamp:** 2026-07-08 14:38 +04.
+
+**What:** Twenty-eighth Fireworks/Tinker execution slice. Turns pod launch templates into a first-class catalog-backed renter flow while keeping actual pod launch, prepaid billing, and provider invisibility unchanged.
+
+- **Frontend:** `/renter/pods` now presents catalog-backed launch paths for PyTorch, LoRA SFT, QLoRA SFT, vLLM, embeddings/rerank, and Arabic transcription.
+- **Catalog contract:** The page reads `GET /api/templates/catalog`, shows catalog health/version, disables template cards that are missing from a healthy backend catalog, and uses catalog VRAM metadata to set GPU filters.
+- **Launch flow:** The runtime rail now tracks the selected template explicitly; manual image/duration/workload edits clear template mode so edited launches are not mislabeled as catalog templates.
+- **Workspace story:** The existing workspace pre-upload step now feeds directly into the template -> GPU -> duration -> credit launch map from the audit order.
+- **Tests:** Added backend contract coverage proving the pod-launch template ids exist in `/api/templates/catalog` and that a missing template directory fails closed.
+- **Verified:** Targeted template Jest suite; `npm run build`; `git diff --check`.
+
 ### 2026-07-08 10:23 UTC - `feat(inference): add gated batch line settlement - PR #760`
 
 **PR:** [#760](https://github.com/dhnpmp-tech/dcp-platform/pull/760) (`codex/batch-line-settlement-2026-07-08`).

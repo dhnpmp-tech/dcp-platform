@@ -136,6 +136,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - Arabic RAG
   - embeddings/rerank
   - Whisper/Arabic transcription candidate
+  - PR #761 began this in `/renter/pods` by binding template cards to
+    `/api/templates/catalog` ids and using catalog VRAM metadata for GPU
+    filtering.
 - Add an Nsight Python provider benchmark runbook/MVP:
   - compute utilization
   - memory bandwidth
@@ -277,7 +280,7 @@ Acceptance:
 5. **Inference metadata/pricing audit** - model capability/rate metadata and
    consistency checks.
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
-   stronger launch flow.
+   stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment
    code second.
 
