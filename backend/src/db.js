@@ -940,6 +940,41 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS batch_inference_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id TEXT NOT NULL UNIQUE,
+    renter_id INTEGER NOT NULL,
+    input_storage_key TEXT NOT NULL,
+    input_checksum_sha256 TEXT NOT NULL,
+    input_normalized_bytes INTEGER NOT NULL DEFAULT 0,
+    request_count INTEGER NOT NULL,
+    completion_window TEXT NOT NULL DEFAULT '24h',
+    metadata_json TEXT,
+    result_storage_key TEXT,
+    status TEXT NOT NULL DEFAULT 'created'
+      CHECK(status IN ('created','queued','running','completed','failed','cancelled')),
+    completed_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    total_cost_halala INTEGER NOT NULL DEFAULT 0,
+    idempotency_key TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    expires_at TEXT,
+    FOREIGN KEY (renter_id) REFERENCES renters(id)
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_renter_created ON batch_inference_jobs(renter_id, created_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_renter_status ON batch_inference_jobs(renter_id, status, created_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_batch_jobs_checksum ON batch_inference_jobs(input_checksum_sha256)`);
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_batch_jobs_renter_idempotency
+    ON batch_inference_jobs(renter_id, idempotency_key)
+   WHERE idempotency_key IS NOT NULL
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS inference_stream_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     provider_id INTEGER NOT NULL,

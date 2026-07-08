@@ -128,9 +128,13 @@ schema can drift before the behavior exists.
 
 ## Next Implementation Slice
 
-1. Add `batch_inference_jobs` migration and service.
-2. Add `POST /api/batches` for metadata + JSONL contract validation.
-3. Add `GET /api/batches/:batch_id`.
+1. Add `batch_inference_jobs` migration and service. **Done in PR #741.**
+2. Add `POST /api/batches` for metadata + JSONL contract validation. **Done in
+   PR #741.**
+3. Add `GET /api/batches/:batch_id`. **Done in PR #741.**
 4. Add result artifact path and worker stub.
 5. Run per-line billing through the existing inference settlement path.
 6. Only then expose `capability_flags.batch = true` for models that can run it.
+
+PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
+`capability_flags.batch = false` until steps 4-6 are complete.

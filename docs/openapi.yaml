@@ -103,6 +103,8 @@ tags:
     description: Container registry — approved images, custom image requests, security scans
   - name: Adapters
     description: LoRA/QLoRA adapter artifact registry. Metadata only until deployment proof is implemented.
+  - name: Batches
+    description: Batch inference metadata and status records. Execution/billing worker is intentionally not enabled yet.
   - name: vLLM
     description: Managed vLLM inference — synchronous and streaming completions
   - name: System
@@ -237,6 +239,85 @@ components:
           format: date-time
           nullable: true
         stopped_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    BatchInferenceJob:
+      type: object
+      description: Batch inference metadata record for validated JSONL input. In this foundation slice, execution remains disabled until the worker/result/billing rail is implemented.
+      required: [batch_id, renter_id, status, input_storage_key, input_checksum_sha256, request_count, completion_window, execution_enabled, results_available, created_at, updated_at]
+      properties:
+        batch_id:
+          type: string
+          example: batch_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        status:
+          type: string
+          enum: [created, queued, running, completed, failed, cancelled]
+          example: created
+        input_storage_key:
+          type: string
+          description: Relative object key reserved for the normalized JSONL input artifact.
+          example: batch-inputs/renter-42/batch_8f4c2b9a18e34d220f7a9b12/input.jsonl
+        input_checksum_sha256:
+          type: string
+          description: SHA-256 digest of the normalized JSONL input.
+          example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        input_normalized_bytes:
+          type: integer
+          example: 264
+        request_count:
+          type: integer
+          example: 2
+        completion_window:
+          type: string
+          enum: [24h]
+          example: 24h
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+        result_storage_key:
+          type: string
+          nullable: true
+          example: batch-results/renter-42/batch_8f4c2b9a18e34d220f7a9b12/output.jsonl
+        completed_count:
+          type: integer
+          example: 0
+        failed_count:
+          type: integer
+          example: 0
+        total_cost_halala:
+          type: integer
+          example: 0
+        idempotency_key:
+          type: string
+          nullable: true
+          example: batch-create-2026-07-08
+        execution_enabled:
+          type: boolean
+          example: false
+        results_available:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
           type: string
           format: date-time
           nullable: true
@@ -794,6 +875,136 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: released }
+
+  /api/batches:
+    get:
+      tags: [Batches]
+      summary: List renter batch inference records
+      description: |
+        Returns validated batch-inference metadata records for the authenticated
+        renter. This foundation route does not execute inference, produce result
+        artifacts, apply batch discounts, or flip `/v1/models` batch capability
+        flags yet.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [created, queued, running, completed, failed, cancelled]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Batch record list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BatchInferenceJob' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+    post:
+      tags: [Batches]
+      summary: Validate JSONL and create a batch inference metadata record
+      description: |
+        Validates OpenAI-style JSONL lines for `/v1/chat/completions` and
+        `/v1/complete`, records checksum/count metadata, and returns a stable
+        batch id. Execution remains disabled until the worker/result/billing
+        slice lands.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 180
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input_jsonl]
+              properties:
+                batch_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: batch_8f4c2b9a18e34d220f7a9b12
+                input_jsonl:
+                  type: string
+                  description: Newline-delimited JSON batch requests.
+                  example: '{"custom_id":"req-1","method":"POST","url":"/v1/chat/completions","body":{"model":"qwen/qwen3-coder","messages":[{"role":"user","content":"hello"}]}}'
+                input_storage_key:
+                  type: string
+                  description: Optional relative object key reserved for the normalized input artifact.
+                completion_window:
+                  type: string
+                  enum: [24h]
+                  default: 24h
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Batch metadata record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch: { $ref: '#/components/schemas/BatchInferenceJob' }
+                  idempotent_replay:
+                    type: boolean
+                    example: false
+                  execution_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: batch_worker_and_result_artifact_not_enabled
+        '400':
+          description: Invalid batch JSONL or metadata.
+        '409':
+          description: Batch id already exists.
+
+  /api/batches/{batch_id}:
+    get:
+      tags: [Batches]
+      summary: Get one renter batch inference record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Batch detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch: { $ref: '#/components/schemas/BatchInferenceJob' }
+        '404':
+          description: Batch not found for this renter.
 
   /api/adapters:
     get:
