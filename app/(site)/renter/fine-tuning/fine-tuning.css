@@ -43,6 +43,96 @@ body {
   border-top: 1px solid var(--hair);
 }
 
+.ft-workspace-preupload {
+  margin-top: 34px;
+  border: 1px solid var(--hair);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--teal) 7%, transparent), transparent 58%),
+    var(--paper);
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.35fr);
+  min-width: 0;
+}
+
+.ft-workspace-copy {
+  min-width: 0;
+  padding: 24px;
+  border-inline-end: 1px solid var(--hair);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ft-workspace-copy h2 {
+  margin: 0;
+  max-width: 13ch;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.03;
+  overflow-wrap: anywhere;
+}
+
+.ft-workspace-copy p {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ft-workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.ft-workspace-steps {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ft-workspace-steps article {
+  min-width: 0;
+  min-height: 224px;
+  padding: 22px;
+  border-inline-end: 1px solid var(--hair);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ft-workspace-steps article:last-child {
+  border-inline-end: 0;
+}
+
+.ft-workspace-steps span {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+
+.ft-workspace-steps h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.ft-workspace-steps p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
 .ft-readiness .ft-section-head h2 {
   overflow-wrap: anywhere;
 }
@@ -561,6 +651,15 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .ft-workspace-preupload {
+    grid-template-columns: 1fr;
+  }
+
+  .ft-workspace-copy {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--hair);
+  }
+
   .ft-model-card-grid {
     grid-template-columns: 1fr;
   }
@@ -573,7 +672,8 @@ body {
 @media (max-width: 620px) {
   .ft-kpis,
   .ft-stage-grid,
-  .ft-readiness-grid {
+  .ft-readiness-grid,
+  .ft-workspace-steps {
     grid-template-columns: 1fr;
   }
 
@@ -588,6 +688,28 @@ body {
 
   .ft-stage {
     min-height: 188px;
+  }
+
+  .ft-workspace-copy h2 {
+    max-width: 100%;
+    font-size: 29px;
+  }
+
+  .ft-workspace-actions .btn-pri,
+  .ft-workspace-actions .btn-sec {
+    width: 100%;
+    text-align: center;
+  }
+
+  .ft-workspace-steps article,
+  .ft-workspace-steps article:last-child {
+    min-height: 0;
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--hair);
+  }
+
+  .ft-workspace-steps article:last-child {
+    border-bottom: 0;
   }
 
   .ft-readiness-grid div,

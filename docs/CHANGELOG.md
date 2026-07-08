@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 20:07 UTC - Fine-Tuning workspace pre-upload rail (PR #806)
+
+- **PR:** [#806](https://github.com/dhnpmp-tech/dcp-platform/pull/806) (`codex/fine-tuning-workspace-preupload-2026-07-08`).
+- **Frontend:** `/renter/fine-tuning` now starts the LoRA flow with an explicit workspace pre-upload rail.
+- **Workflow:** Renters can go directly to `/renter/playground?surface=workspace` for persistent file staging, then open LoRA/QLoRA pod templates after the dataset is ready.
+- **Deep link:** `/renter/playground?surface=workspace` now opens the Workspace tab directly and keeps tab selection reflected in the URL.
+- **Safety:** Managed training, adapter serving, route traffic, billing, and Tinker compatibility remain proof-gated.
+- **Verification:** `npm run build`; `git diff --check`; local production desktop/mobile render for Fine-Tuning and the Workspace deep link with no horizontal overflow.
+
 ### 2026-07-08 19:57 UTC - Model catalog parity coverage (PR #804)
 
 - **PR:** [#804](https://github.com/dhnpmp-tech/dcp-platform/pull/804) (`codex/model-catalog-parity-tests-2026-07-08`).

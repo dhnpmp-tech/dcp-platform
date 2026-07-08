@@ -129,6 +129,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
 - Verify fresh pod imports for the LoRA stack in under 5 seconds without pip
   installing.
 - Surface workspace pre-upload more clearly before pod launch.
+  - PR #806 made Fine-Tuning start with workspace pre-upload and added a
+    `/renter/playground?surface=workspace` deep link into the persistent
+    workspace manager before LoRA validation or pod launch.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -262,6 +265,9 @@ Goal: ship the first real train-here/deploy-here loop.
   - status
   - created/deployed timestamps
 - Add dataset upload flow using the existing workspace/file infrastructure.
+  - PR #806 made the workspace-first path visible from `/renter/fine-tuning`,
+    linking renters into the existing persistent Workspace panel before
+    validate-only dataset checks or LoRA/QLoRA pod templates.
 - Add managed LoRA SFT job API:
   - fixed recipe first
   - JSONL validation
