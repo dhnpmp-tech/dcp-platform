@@ -274,7 +274,8 @@ Acceptance:
 2. **Ops cleanup** - decide `ops/dcp-deploy-watch.sh`, Docker image CI, and
    `dcp-agent` reconciliation sequence.
 3. **Fat pod image plan** - Dockerfile/build path, package list, GPU-host
-   verification script, no product UI yet.
+   verification script, no product UI yet. **CI-safe contract gate started in
+   PR #762; GPU-host proof still required.**
 4. **Nsight provider benchmark MVP** - script/runbook and provider scorecard
    schema proposal.
 5. **Inference metadata/pricing audit** - model capability/rate metadata and

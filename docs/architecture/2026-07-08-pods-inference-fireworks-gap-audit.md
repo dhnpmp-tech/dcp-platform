@@ -279,6 +279,8 @@ Do not start with marketing pages alone. The safer order is:
 
 1. Ops/repo hardening.
 2. Fat pod image and template verification.
+   - PR #762 added the CI-safe pod image contract verifier.
+   - Remaining gate: build and smoke `dcp-compute:lora` on a GPU provider host.
 3. Inference metadata/pricing tests.
 4. Batch and prompt-cache backend designs.
 5. Adapter registry.

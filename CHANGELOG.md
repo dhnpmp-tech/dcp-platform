@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 10:55 UTC - `chore(pods): add pod image contract verifier - PR #762`
+
+**PR:** [#762](https://github.com/dhnpmp-tech/dcp-platform/pull/762) (`codex/pod-image-contracts-2026-07-08`).
+**Local timestamp:** 2026-07-08 14:55 +04.
+
+**What:** Twenty-ninth Fireworks/Tinker execution slice. Adds a CI-safe contract gate for the provider-local pod images behind the pod launch templates, especially the fat LoRA/QLoRA image.
+
+- **Manifest:** Added `backend/docker-templates/pod-image-contracts.json` for the pre-baked `pytorch`, `cuda`, `ubuntu`, `vllm`, and `lora` image aliases.
+- **Verifier:** Added `pod-images:verify-contracts`, which checks Dockerfile entrypoints, build-script targets, `/api/pods` alias wiring, LoRA requirements, examples, and provider smoke-script references without building Docker images.
+- **Test coverage:** Added a Jest wrapper so the pod image contract runs in backend test workflows.
+- **Runbook:** Documented CI-safe checks versus the GPU provider-host proof command for `dcp-compute:lora`.
+- **Verified:** `npm run pod-images:verify-contracts`; targeted pod image contract Jest suite; `git diff --check`.
+
 ### 2026-07-08 10:38 UTC - `feat(frontend): add catalog-backed pod launch templates - PR #761`
 
 **PR:** [#761](https://github.com/dhnpmp-tech/dcp-platform/pull/761) (`codex/pod-template-catalog-launch-2026-07-08`).

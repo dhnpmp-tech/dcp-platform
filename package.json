@@ -18,6 +18,7 @@
     "smoke:gpu-job": "node scripts/gpu-job-lifecycle-smoke.mjs",
     "proof:prefetch-top3-sla": "node scripts/run-prefetch-top3-sla-proof.mjs",
     "templates:validate": "npm --prefix backend run templates:validate",
+    "pod-images:verify-contracts": "npm --prefix backend run pod-images:verify-contracts",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui"
