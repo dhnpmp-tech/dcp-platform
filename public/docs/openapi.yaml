@@ -334,7 +334,7 @@ components:
 
     BatchInferenceResultManifest:
       type: object
-      description: Read-only result artifact manifest for one batch. It exposes proof metadata but does not yet issue a signed download URL.
+      description: Read-only result artifact manifest for one batch. It exposes proof metadata and can include a short-lived signed download URL when result object-store signing is configured.
       required: [batch_id, renter_id, status, results_available, download_enabled, next]
       properties:
         batch_id:
@@ -377,9 +377,28 @@ components:
         download_url:
           type: string
           nullable: true
+          description: Short-lived object-store download URL. Present only when results are complete, checksum proof exists, the storage key is scoped to the renter/batch, and batch result object-store signing is configured.
+        download_method:
+          type: string
+          nullable: true
+          enum: [GET]
+          example: GET
+        download_expires_in:
+          type: integer
+          nullable: true
+          description: Signed URL lifetime in seconds.
+          example: 900
+        download_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        download_configured:
+          type: boolean
+          nullable: true
+          description: False when result proof exists but `BATCH_RESULTS_S3_*` object-store signing is not configured.
         next:
           type: string
-          example: sign_result_download_url_after_object_store_bridge
+          example: configure_batch_result_object_store
         created_at:
           type: string
           format: date-time
@@ -1211,8 +1230,11 @@ paths:
       description: |
         Returns result artifact metadata for a batch. Results are considered
         available only after the batch is completed with both a result storage
-        key and SHA-256 checksum. This route does not yet issue signed download
-        URLs or enable batch discounts.
+        key and SHA-256 checksum. When `BATCH_RESULTS_S3_BUCKET` plus S3
+        endpoint/key/secret configuration is present, the route includes a
+        short-lived signed GET URL scoped to the completed result object.
+        This route does not enable production batch execution or batch
+        discounts by itself.
       security:
         - RenterApiKey: []
       parameters:

@@ -9,11 +9,13 @@ const {
   getBatchInferenceResultManifest,
   listBatchInferenceJobs,
 } = require('../services/batchInferenceJobs');
+const { signBatchResultDownload } = require('../services/batchResultDownloads');
 
 function createBatchesRouter(deps = {}) {
   const router = express.Router();
   const batchDb = deps.db || require('../db');
   const requireRenter = deps.requireRenter || require('./pods').requireRenter;
+  const resultDownloadSigner = deps.resultDownloadSigner || signBatchResultDownload;
   ensureBatchInferenceJobSchema(batchDb);
 
   router.get('/', requireRenter, (req, res) => {
@@ -71,7 +73,7 @@ function createBatchesRouter(deps = {}) {
     }
   });
 
-  router.get('/:batchId/results', requireRenter, (req, res) => {
+  router.get('/:batchId/results', requireRenter, async (req, res) => {
     try {
       const result = getBatchInferenceResultManifest(batchDb, req.renter.id, req.params.batchId);
       if (!result) {
@@ -80,7 +82,8 @@ function createBatchesRouter(deps = {}) {
           code: 'batch_not_found',
         });
       }
-      return res.json({ result });
+      const download = await resultDownloadSigner(result);
+      return res.json({ result: { ...result, ...download } });
     } catch (error) {
       return sendBatchError(res, error);
     }

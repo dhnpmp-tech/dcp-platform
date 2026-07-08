@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 09:29 UTC - `feat(inference): add batch result download signer - PR #756`
+
+**PR:** [#756](https://github.com/dhnpmp-tech/dcp-platform/pull/756) (`codex/batch-result-download-signer-2026-07-08`).
+**Local timestamp:** 2026-07-08 13:29 +04.
+
+**What:** Twenty-third Fireworks/Tinker execution slice. Converts batch result manifests from proof-only metadata into a guarded download contract for completed result artifacts.
+
+- **Signer:** Added an S3-compatible batch result download signer using `BATCH_RESULTS_S3_BUCKET` plus batch-result or workspace S3 endpoint/key/secret configuration.
+- **Safety gates:** Signed URLs are minted only for completed batches with checksum proof and result keys scoped to `batch-results/renter-{id}/{batch_id}/`.
+- **API:** `GET /api/batches/{batch_id}/results` can now include `download_url`, method, TTL, expiry, and configured-state metadata when signing is available.
+- **Product honesty:** Production batch execution, per-line billing, discounts, and `/v1/models` batch capability flags remain disabled until the executor/billing proof lands.
+- **Docs/tests:** Updated public OpenAPI copies and the prompt-cache/batch design order with targeted service and route coverage.
+- **Verified:** Targeted batch result download, batch job, and batch worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 09:17 UTC - `feat(inference): add prompt-cache measurement ledger - PR #755`
 
 **PR:** [#755](https://github.com/dhnpmp-tech/dcp-platform/pull/755) (`codex/prompt-cache-measurement-ledger-2026-07-08`).

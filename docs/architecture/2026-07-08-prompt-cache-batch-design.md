@@ -87,6 +87,8 @@ scheduler:
 5. Store result JSONL as `result_storage_key`.
    The batch is not considered result-available until the worker also records a
    `result_checksum_sha256` proof and normalized result byte count.
+   Completed result downloads are exposed only through scoped short-lived
+   signed URLs after the batch result object-store signer is configured.
 6. Billing policy:
    - no public discount in the first live route
    - per-line settlement uses existing inference metering
@@ -147,6 +149,7 @@ schema can drift before the behavior exists.
 5. Add result checksum/byte proof and a read-only result manifest route.
    **Done in PR #752** via `GET /api/batches/:batch_id/results`.
 6. Add signed object-store download URLs for completed result artifacts.
+   **Done in PR #756** with a disabled-until-configured S3-compatible signer.
 7. Run per-line billing through the existing inference settlement path.
 8. Only then expose `capability_flags.batch = true` for models that can run it.
 
@@ -170,3 +173,8 @@ PR #755 adds durable prompt-cache measurement rows and uses prior recorded cache
 keys to report `hit_measured_no_discount` on repeated prefixes. The ledger is
 best-effort from the v1 route, stores no raw prompt text, and still leaves
 cached-input discounts disabled.
+PR #756 adds the batch result download signer. Completed manifests can return a
+short-lived signed GET URL only when result proof exists, the key is scoped to
+`batch-results/renter-{id}/{batch_id}/`, and `BATCH_RESULTS_S3_BUCKET` plus
+S3-compatible endpoint/key/secret config are present. Production batch
+execution, discounts, and `/v1/models` batch capability flags remain gated.
