@@ -194,3 +194,8 @@ The dashboard still renders the same read-only deployment intent rows, but the
 initial load no longer polls each visible adapter's scoped deployment endpoint.
 Route traffic and load proof remain backend-owned row fields, and the UI still
 does not expose a deploy action.
+
+PR #787 replaces the Fine-Tuning contract preview with copyable API snippets for
+readiness, training jobs, adapter registry, aggregate deployment intents, and
+gated deploy-intent creation. The snippets are operational examples only; their
+notes keep GPU trainer proof, public adapter serving, and route traffic gated.

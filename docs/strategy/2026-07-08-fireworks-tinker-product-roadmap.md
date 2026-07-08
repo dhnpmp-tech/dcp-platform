@@ -269,6 +269,8 @@ Goal: ship the first real train-here/deploy-here loop.
   - PR #786 made the Fine-Tuning dashboard consume that aggregate endpoint,
     preserving read-only deploy intent visibility while removing per-adapter
     request fan-out.
+  - PR #787 added copyable API snippets for readiness, training jobs, adapters,
+    deployment intents, and gated deploy-intent creation.
 - Add dashboard:
   - datasets
   - training jobs
@@ -283,6 +285,8 @@ Goal: ship the first real train-here/deploy-here loop.
   - PR #786 moved that deployment ledger onto the aggregate deployment list,
     removing initial-load request fan-out while preserving the same route/load
     proof gates.
+  - PR #787 replaced the static contract preview with copyable curl snippets
+    that keep trainer proof, serving, and routing gates explicit.
 - Add `dcpconnect` only after adapters can actually deploy.
 
 Acceptance:

@@ -292,6 +292,8 @@ Gaps:
    - PR #786 switched those deployment rows to the aggregate deployment list, so
      the Fine-Tuning console uses one renter-wide request instead of one request
      per adapter.
+   - PR #787 added copyable Fine-Tuning API snippets for the shipped readiness,
+     training, adapter, and deployment-intent contracts.
 4. Add Fireworks-style product pages, but only with shipped claims:
    - Inference
    - Pods
