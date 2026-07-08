@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 09:29 UTC - Batch result download signer (PR #756)
+
+- **PR:** [#756](https://github.com/dhnpmp-tech/dcp-platform/pull/756) (`codex/batch-result-download-signer-2026-07-08`).
+- **Backend:** Added a guarded S3-compatible signer for completed batch result artifacts.
+- **Safety gate:** Result URLs are returned only when a batch is completed with checksum proof and the result key is scoped to that renter and batch.
+- **API:** `GET /api/batches/{batch_id}/results` now includes signed download metadata when `BATCH_RESULTS_S3_BUCKET` plus S3 endpoint/key/secret configuration is present.
+- **Contracts:** Updated public OpenAPI copies and the prompt-cache/batch design order while keeping batch execution, discounts, and model batch flags gated.
+- **Verification:** Targeted batch result download, batch job, and batch worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 09:17 UTC - Prompt-cache measurement ledger (PR #755)
 
 - **PR:** [#755](https://github.com/dhnpmp-tech/dcp-platform/pull/755) (`codex/prompt-cache-measurement-ledger-2026-07-08`).

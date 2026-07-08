@@ -59,11 +59,12 @@ function jsonl(lines = []) {
   return (lines.length ? lines : defaults).map((line) => JSON.stringify(line)).join('\n');
 }
 
-function buildApp(db) {
+function buildApp(db, extraDeps = {}) {
   const app = express();
   app.use(express.json({ limit: '12mb' }));
   app.use('/api/batches', createBatchesRouter({
     db,
+    ...extraDeps,
     requireRenter: (req, res, next) => {
       const renterId = Number(req.header('x-test-renter-id') || 1);
       if (renterId === 0) {
@@ -187,6 +188,61 @@ describe('batch inference job foundation', () => {
       download_enabled: false,
       next: 'sign_result_download_url_after_object_store_bridge',
     });
+  });
+
+  test('results route attaches a scoped signed download when signer is configured', async () => {
+    const db = makeDb();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_signed01',
+      input_jsonl: jsonl(),
+    });
+    updateBatchInferenceJobStatus(db, 1, 'batch_signed01', 'completed', {
+      result_storage_key: 'batch-results/renter-1/batch_signed01/output.jsonl',
+      result_checksum_sha256: 'd'.repeat(64),
+      result_normalized_bytes: 4096,
+      completed_count: 2,
+      failed_count: 0,
+      total_cost_halala: 11,
+    });
+
+    const signerCalls = [];
+    const app = buildApp(db, {
+      resultDownloadSigner: async (manifest) => {
+        signerCalls.push(manifest);
+        return {
+          download_enabled: true,
+          download_url: 'https://objects.example.test/dcp-batch-results/batch-results/renter-1/batch_signed01/output.jsonl?sig=test',
+          download_method: 'GET',
+          download_expires_in: 900,
+          download_expires_at: '2026-07-08T09:45:00.000Z',
+          download_configured: true,
+          next: 'download_batch_result_jsonl',
+        };
+      },
+    });
+
+    const res = await request(app)
+      .get('/api/batches/batch_signed01/results')
+      .expect(200);
+
+    expect(signerCalls).toHaveLength(1);
+    expect(signerCalls[0]).toMatchObject({
+      batch_id: 'batch_signed01',
+      renter_id: 1,
+      results_available: true,
+      result_checksum_sha256: 'd'.repeat(64),
+    });
+    expect(res.body.result).toMatchObject({
+      batch_id: 'batch_signed01',
+      results_available: true,
+      result_checksum_sha256: 'd'.repeat(64),
+      download_enabled: true,
+      download_method: 'GET',
+      download_expires_in: 900,
+      download_expires_at: '2026-07-08T09:45:00.000Z',
+      next: 'download_batch_result_jsonl',
+    });
+    expect(res.body.result.download_url).toContain('sig=test');
   });
 
   test('idempotency key replays the existing batch instead of inserting another row', () => {
