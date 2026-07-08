@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 20:48 UTC - `test(pods): add workspace-to-pod live proof runner - PR #812`
+
+**PR:** [#812](https://github.com/dhnpmp-tech/dcp-platform/pull/812) (`codex/workspace-pod-live-proof-runner-2026-07-08`).
+**Local timestamp:** 2026-07-09 00:48 +04.
+
+**What:** Seventy-third Fireworks/Tinker execution slice. Converts the remaining provider-host workspace acceptance gate into a repeatable live proof command.
+
+- **Live proof runner:** Added `npm run proof:workspace-pod`, an opt-in smoke that checks renter auth, active portable volume, presigned workspace upload, workspace listing, short pod launch, running pod status, and Jupyter Contents API visibility for the uploaded marker under `/workspace`.
+- **Safety gates:** The runner refuses to launch paid compute unless `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1` is set, redacts renter/Jupyter credentials in reports, stops the pod by default, and supports explicit keep-running/delete-marker/rent-volume switches.
+- **Evidence artifacts:** Successful or failed runs write JSON/Markdown proof reports under `docs/reports/reliability` for handoff and postmortem review.
+- **Regression guard:** Added a targeted Jest test that locks the runner to the full upload -> pod -> Jupyter visibility path without touching production.
+- **Acceptance state:** No runtime route, billing, workspace, daemon, or provider behavior changed. The live GPU-host run still needs production renter credentials, active volume, and launchable capacity to close the acceptance gate.
+- **Verified:** Runner syntax check; targeted workspace-pod live-proof Jest guard; workspace-pod contract Jest guard.
+
 ### 2026-07-08 20:38 UTC - `test(pods): add workspace-to-pod contract guard - PR #810`
 
 **PR:** [#810](https://github.com/dhnpmp-tech/dcp-platform/pull/810) (`codex/workspace-pod-contract-guard-2026-07-08`).

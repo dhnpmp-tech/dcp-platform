@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 20:48 UTC - Workspace-to-pod live proof runner (PR #812)
+
+- **PR:** [#812](https://github.com/dhnpmp-tech/dcp-platform/pull/812) (`codex/workspace-pod-live-proof-runner-2026-07-08`).
+- **Live proof:** Added `npm run proof:workspace-pod` for the production acceptance path: active workspace volume, presigned upload, workspace list, short pod launch, running status, and Jupyter Contents API visibility for the uploaded marker file.
+- **Safety:** The command requires `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1`, redacts credentials in generated reports, and stops the pod by default.
+- **Artifacts:** Writes JSON/Markdown evidence under `docs/reports/reliability`.
+- **Acceptance state:** The runner is ready; the real GPU-host proof still requires production renter credentials, active volume, and launchable capacity.
+- **Verification:** Runner syntax check; targeted live-proof Jest guard; workspace-pod contract Jest guard.
+
 ### 2026-07-08 20:38 UTC - Workspace-to-pod contract guard (PR #810)
 
 - **PR:** [#810](https://github.com/dhnpmp-tech/dcp-platform/pull/810) (`codex/workspace-pod-contract-guard-2026-07-08`).
