@@ -155,8 +155,10 @@ schema can drift before the behavior exists.
    **Done in PR #756** with a disabled-until-configured S3-compatible signer.
 7. Add per-line ledger rows for future execution and settlement proof.
    **Done in PR #757** with `GET /api/batches/:batch_id/lines`.
-8. Run per-line billing through the existing inference settlement path.
-9. Only then expose `capability_flags.batch = true` for models that can run it.
+8. Wire dormant worker support for per-line executor proof.
+   **Done in PR #758** with line proof application and aggregate derivation.
+9. Run per-line billing through the existing inference settlement path.
+10. Only then expose `capability_flags.batch = true` for models that can run it.
 
 PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
 `capability_flags.batch = false` until steps 4-6 are complete.
@@ -188,3 +190,9 @@ line-list route. The ledger stores custom id, endpoint, model, request checksum,
 status, usage, cost, response checksum, request id, provider response id, and
 error metadata without returning raw request bodies. Worker execution and
 settlement are still gated until the next billing slice.
+PR #758 teaches the dormant batch worker to consume optional `execution.lines`
+proof from an injected executor. When supplied, the worker validates one result
+per batch line, updates line statuses/usage/cost/error metadata, and derives
+batch completed/failed/cost counts from the line ledger before completing the
+batch. The worker remains disabled by default and still does not call the live
+v1 inference path or settle renter balances.

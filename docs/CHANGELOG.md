@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 09:48 UTC - Batch worker line proof (PR #758)
+
+- **PR:** [#758](https://github.com/dhnpmp-tech/dcp-platform/pull/758) (`codex/batch-worker-line-proof-2026-07-08`).
+- **Worker:** The dormant batch worker now accepts optional `execution.lines` from an injected executor and validates one result per batch line.
+- **Line ledger:** Worker execution can update line status, response checksum, usage, cost, request id, provider response id, and error metadata.
+- **Aggregation:** Batch completed/failed counts and total cost can be derived from line proof before completion.
+- **Product guardrails:** The worker remains disabled by default and does not call live `/v1`, settle balances, apply discounts, or advertise batch model flags.
+- **Verification:** Targeted batch job, batch contract, result download, and batch worker Jest suites; `git diff --check`.
+
 ### 2026-07-08 09:40 UTC - Batch line ledger (PR #757)
 
 - **PR:** [#757](https://github.com/dhnpmp-tech/dcp-platform/pull/757) (`codex/batch-line-ledger-2026-07-08`).

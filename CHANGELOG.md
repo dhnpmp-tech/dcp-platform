@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 09:48 UTC - `feat(inference): apply batch worker line proof - PR #758`
+
+**PR:** [#758](https://github.com/dhnpmp-tech/dcp-platform/pull/758) (`codex/batch-worker-line-proof-2026-07-08`).
+**Local timestamp:** 2026-07-08 13:48 +04.
+
+**What:** Twenty-fifth Fireworks/Tinker execution slice. Connects the dormant batch worker to the per-line ledger so injected executors can prove line-level outcomes before batch-level completion.
+
+- **Worker proof:** `runBatchInferenceWorkerOnce` now accepts optional `execution.lines` from an injected executor and validates one result per batch line.
+- **Line updates:** The worker updates line status, response checksum, usage, cost, request id, provider response id, and error metadata through the ledger helper.
+- **Aggregation:** Completed/failed counts and total batch cost can now be derived from line proof instead of executor-provided aggregate counters.
+- **Safety gates:** The worker remains disabled by default and still does not call live `/v1` inference, debit balances, apply discounts, or flip `/v1/models` batch flags.
+- **Docs/tests:** Updated the prompt-cache/batch design order and added worker coverage for mixed success/failure line proof and incomplete proof rejection.
+- **Verified:** Targeted batch job, batch contract, result download, and batch worker Jest suites; `git diff --check`.
+
 ### 2026-07-08 09:40 UTC - `feat(inference): add batch line ledger - PR #757`
 
 **PR:** [#757](https://github.com/dhnpmp-tech/dcp-platform/pull/757) (`codex/batch-line-ledger-2026-07-08`).
