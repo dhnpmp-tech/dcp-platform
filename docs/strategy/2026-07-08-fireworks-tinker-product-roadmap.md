@@ -223,6 +223,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #802 surfaces the same readiness contract in `/renter/playground` so
     renters see measurement-only prompt-cache state, hash-only storage, and
     gated cached-input economics while testing chat completions.
+  - PR #826 added `npm run proof:prompt-cache-contract`, a CI-safe proof
+    packet for measurement-only readiness, scoped/stable cache keys, hash-only
+    persistence, no-discount usage fields, non-eligible prompt handling, and
+    raw-prefix/image-URL privacy guards before live provider cache-hit or
+    discounted settlement proof.
 - Add batch inference design:
   - upload JSONL
   - async job
@@ -429,6 +434,10 @@ Acceptance:
    lifecycle proof added in PR #824; real provider execution, object-store
    result writes, and discounted settlement smoke remain the gates before public
    batch execution or discount claims.**
+9. **Prompt-cache lifecycle proof** - contract proof before discounts.
+   **CI-safe measurement proof added in PR #826; provider KV-cache proof and
+   discounted settlement smoke remain the gates before cached-input discount
+   claims.**
 
 ## Division of Work
 

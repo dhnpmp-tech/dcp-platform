@@ -323,6 +323,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   packet for batch readiness, JSONL validation, idempotent create replay,
   disabled worker behavior, result checksum proof, line-ledger totals, and
   minimum-balance settlement preflight.
+- PR #826 added `npm run proof:prompt-cache-contract`, a CI-safe proof packet
+  for measurement-only readiness, scoped/stable cache keys, hash-only
+  measurement persistence, no-discount usage fields, and non-eligible prompt
+  handling.
 
 ### Now
 
@@ -361,6 +365,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   control disabled until proof exists.**
   **Public Inference copy now points to that readiness contract in PR #801.**
   **The renter Playground now renders that readiness contract in PR #802.**
+  **PR #826 adds a repeatable local proof command for the prompt-cache
+  measurement contract; live provider cache-hit proof and discounted settlement
+  remain required before cached-input discount claims.**
 - Batch inference:
   - JSONL input
   - async job
@@ -670,7 +677,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 |---|---|---|
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
-| Inference | targeted v1/Anthropic/model tests; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
+| Inference | targeted v1/Anthropic/model tests; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
 | LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 
