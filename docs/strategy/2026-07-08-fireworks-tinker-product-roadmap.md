@@ -82,7 +82,7 @@ The parts to tighten:
 | Fireworks rail | DCP target | Current DCP state | Next action |
 |---|---|---|---|
 | Serverless text/vision inference | DCP Inference API | OpenAI `/v1`, Anthropic messages, model catalog, streaming, billing | Add per-model rate discipline, prompt-cache accounting, batch API, model capability metadata |
-| Dedicated deployments | DCP Dedicated Endpoints | Pods and vLLM serving exist, but productized dedicated endpoint control is incomplete | Add deployment records, endpoint lifecycle, quotas, and customer-facing status |
+| Dedicated deployments | DCP Dedicated Endpoints | Deployment intent/load-proof contracts and public page exist; route traffic is gated | Add endpoint lifecycle, quotas, customer-facing status, and serving smoke before traffic |
 | LoRA fine-tuning | DCP Fine-Tuning MVP | LoRA/QLoRA template scaffolds exist, no real adapter job product | Bake fat image, add dataset/upload/job flow, fixed SFT recipe |
 | LoRA deployment | Adapter registry + live merge/multi-LoRA | vLLM configs reference LoRA logs, but no adapter registry/API | Add adapter schema, upload API, deployment API, vLLM multi-LoRA acceptance test |
 | Batch inference | DCP Batch | Readiness/metadata contract and public page exist; execution and discounts are gated | Add async worker execution, result proof, and discounted settlement on existing job/billing primitives |
@@ -322,6 +322,8 @@ Goal: make the product easy to understand and sell.
     **Added in PR #791 with readiness/metadata gates and no execution or
     discount overclaim.**
   - `/dedicated-deployments`
+    **Added in PR #792 with deployment-intent/load-proof gates and no
+    route-traffic overclaim.**
 - Add GCC startup credits and case-study pipeline only after billing/product
   controls are clear.
 - Publish comparison content:

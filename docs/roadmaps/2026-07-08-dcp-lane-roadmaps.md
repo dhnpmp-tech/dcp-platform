@@ -38,6 +38,9 @@ what is live.
 - PR #791 added `/batch` as the public Batch inference product page, wired it
   into shared product IA, and kept execution, downloads, settlement, discounts,
   and model batch capability behind readiness/proof gates.
+- PR #792 added `/dedicated-deployments` as the public endpoint/adapters
+  deployment product page, wired Deployments into shared product IA, and kept
+  route traffic gated by matching serving load proof.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -106,6 +109,8 @@ what is live.
   - `/fine-tuning`
     **Added in PR #788 with proof-gated LoRA contract copy.**
   - `/dedicated-deployments`
+    **Added in PR #792 with deployment-intent and load-proof gates while route
+    traffic remains off until evidence matches.**
   - `/batch`
     **Added in PR #791 with shipped batch readiness/metadata gates and no
     execution or discount overclaim.**
@@ -413,6 +418,8 @@ template launch.
 ### Later
 
 - Dedicated long-running endpoints.
+  **Public packaging added in PR #792; backend route traffic remains gated by
+  serving load proof.**
 - Reserved capacity workflow.
 - Provider quality score visible to admins and eventually renters.
 - Autoscale policy for DCP-owned serving nodes.
@@ -491,6 +498,8 @@ DCP-hosted endpoint -> billed inference.
   does not offer a deploy action or route traffic without backend proof.**
   **PR #786 moves those intents onto the aggregate deployment list from PR #785,
   keeping the same proof gates with lower request fan-out.**
+  **PR #792 adds the public Dedicated Deployments page while keeping adapter
+  endpoint traffic gated by matching load proof.**
 
 ### Later
 

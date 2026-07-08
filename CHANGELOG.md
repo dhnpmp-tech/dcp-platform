@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 17:43 UTC - `feat(frontend): add public Dedicated Deployments page - PR #792`
+
+**PR:** [#792](https://github.com/dhnpmp-tech/dcp-platform/pull/792) (`codex/public-dedicated-deployments-page-2026-07-08`).
+**Local timestamp:** 2026-07-08 21:43 +04.
+
+**What:** Fifty-ninth Fireworks/Tinker execution slice. Adds a public `/dedicated-deployments` product page for the adapter-to-endpoint rail while keeping route traffic gated by serving load proof.
+
+- **Public route:** Added `/dedicated-deployments` with deployment intent, vLLM load-proof, route-traffic, and multi-LoRA gate positioning.
+- **Product IA:** Added Deployments to shared site navigation, mobile menus, shared footer, home navigation, and home footer product links.
+- **Claim guard:** The page states that deployment rows are planning/audit records until endpoint proof matches deployment id, adapter id, base model, mode, and artifact checksum.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/dedicated-deployments` on desktop/tablet/mobile with loaded images, active Deployments nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 17:28 UTC - `feat(frontend): add public Batch page - PR #791`
 
 **PR:** [#791](https://github.com/dhnpmp-tech/dcp-platform/pull/791) (`codex/public-batch-page-2026-07-08`).
