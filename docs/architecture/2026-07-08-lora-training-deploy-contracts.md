@@ -177,3 +177,9 @@ PR #783 wires `/renter/fine-tuning` to that readiness contract. The dashboard
 now renders current mode, dataset/job/model-card/registry/deployment gates,
 route traffic, and claim guards from `GET /api/lora/readiness` instead of
 duplicating static gate copy in the frontend.
+
+PR #784 adds read-only adapter deployment intent rows to `/renter/fine-tuning`.
+The page now fetches `GET /api/adapters/{adapter_id}/deployments` for visible
+adapters and displays mode, endpoint, lifecycle status, route traffic, and load
+proof state. It still does not expose a deploy action or claim serving until
+the backend row has matching load proof.

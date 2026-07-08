@@ -363,6 +363,10 @@ body {
   min-width: 980px;
 }
 
+.ft-deploy-table {
+  min-width: 900px;
+}
+
 .ft-table td {
   vertical-align: top;
 }

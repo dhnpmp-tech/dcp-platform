@@ -36,6 +36,28 @@ interface AdapterListResponse {
   error?: string
 }
 
+interface AdapterDeploymentRecord {
+  deployment_id: string
+  renter_id: number
+  adapter_id: string
+  base_model: string
+  mode: string
+  endpoint_id: string | null
+  status: string
+  route_traffic: boolean
+  serving_load_proof: Record<string, unknown> | null
+  failure_reason: string | null
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  stopped_at: string | null
+}
+
+interface AdapterDeploymentListResponse {
+  data?: AdapterDeploymentRecord[]
+  error?: string
+}
+
 interface LoraModelCardManifest {
   object: string
   schema_version: string
@@ -253,6 +275,7 @@ export default function RenterFineTuningPage() {
   const [renterName, setRenterName] = useState('DCP renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [adapters, setAdapters] = useState<AdapterRecord[]>([])
+  const [adapterDeployments, setAdapterDeployments] = useState<AdapterDeploymentRecord[]>([])
   const [trainingJobs, setTrainingJobs] = useState<TrainingJobRecord[]>([])
   const [readiness, setReadiness] = useState<LoraReadiness | null>(null)
 
@@ -300,12 +323,25 @@ export default function RenterFineTuningPage() {
         const adapterData = (await adaptersRes.json()) as AdapterListResponse
         const trainingJobData = (await trainingJobsRes.json()) as TrainingJobListResponse
         const readinessData = (await readinessRes.json()) as LoraReadiness
+        const adapterList = adapterData.data || []
+        const deploymentLists = await Promise.all(
+          adapterList.slice(0, 10).map(async (adapter) => {
+            const res = await fetch(`${base}/adapters/${encodeURIComponent(adapter.adapter_id)}/deployments`, { headers })
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}))
+              throw new Error(data.error || `Failed to load deployments for ${adapter.adapter_id}.`)
+            }
+            const data = (await res.json()) as AdapterDeploymentListResponse
+            return data.data || []
+          })
+        )
         if (cancelled) return
 
         const renter = me.renter
         setRenterName(renter?.organization || renter?.name || 'DCP renter')
         setRenterEmail(renter?.email || '')
-        setAdapters(adapterData.data || [])
+        setAdapters(adapterList)
+        setAdapterDeployments(deploymentLists.flat().sort((a, b) => b.created_at.localeCompare(a.created_at)))
         setTrainingJobs(trainingJobData.data || [])
         setReadiness(readinessData?.object === 'lora_readiness' ? readinessData : null)
         setLoadState('ready')
@@ -326,6 +362,7 @@ export default function RenterFineTuningPage() {
 
   const readyAdapters = adapters.filter((adapter) => adapter.status === 'ready' || adapter.status === 'deployed')
   const adapterRows = adapters.slice(0, 6)
+  const deploymentRows = adapterDeployments.slice(0, 6)
   const trainingJobRows = trainingJobs.slice(0, 6)
   const manifestRows = trainingJobs.filter((job) => job.model_card_manifest).slice(0, 4)
   const totalDatasetRows = trainingJobs.reduce((sum, job) => sum + (job.dataset_row_count || 0), 0)
@@ -439,13 +476,13 @@ export default function RenterFineTuningPage() {
             </div>
             <div className="kpi">
               <div className="k">
-                <Bi en="Ready adapters" ar="محولات جاهزة" />
+                <Bi en="Deployment intents" ar="نوايا النشر" />
               </div>
-              <div className="v">{loadState === 'ready' ? readyAdapters.length : 0}</div>
+              <div className="v">{loadState === 'ready' ? deploymentRows.length : 0}</div>
               <div className="d flat">
                 <Bi
-                  en={`Routes off · ${baseModels} bases`}
-                  ar={`المسارات متوقفة · ${baseModels} نماذج`}
+                  en={`Routes off · ${readyAdapters.length} ready adapters`}
+                  ar={`المسارات متوقفة · ${readyAdapters.length} محولات جاهزة`}
                 />
               </div>
             </div>
@@ -763,6 +800,83 @@ export default function RenterFineTuningPage() {
                       <Bi
                         en="Adapter records appear here only after a LoRA artifact is registered. Job rows above may exist before any adapter is deployable."
                         ar="تظهر سجلات المحولات هنا فقط بعد تسجيل أثر LoRA. قد توجد صفوف المهام أعلاه قبل أن يصبح أي محول قابلا للنشر."
+                      />
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="ft-ledger">
+                <div className="ft-section-head compact">
+                  <div>
+                    <span className="pod-label">
+                      <Bi en="Adapter deployments" ar="نشر المحولات" />
+                    </span>
+                    <h2>
+                      <Bi en="Deployment intents" ar="نوايا النشر" />
+                    </h2>
+                  </div>
+                </div>
+
+                {deploymentRows.length > 0 ? (
+                  <div className="ft-table-wrap">
+                    <table className="tbl ft-table ft-deploy-table">
+                      <thead>
+                        <tr>
+                          <th><Bi en="Deployment" ar="النشر" /></th>
+                          <th><Bi en="Adapter" ar="المحول" /></th>
+                          <th><Bi en="Mode" ar="النمط" /></th>
+                          <th><Bi en="Endpoint" ar="النقطة" /></th>
+                          <th><Bi en="Status" ar="الحالة" /></th>
+                          <th><Bi en="Traffic" ar="الحركة" /></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deploymentRows.map((deployment) => (
+                          <tr key={deployment.deployment_id}>
+                            <td>
+                              <span className="mono">{deployment.deployment_id}</span>
+                              <span className="ft-table-sub">{formatDate(deployment.created_at)}</span>
+                            </td>
+                            <td className="mono">{deployment.adapter_id}</td>
+                            <td className="mono">{deployment.mode}</td>
+                            <td className="mono">{deployment.endpoint_id || '-'}</td>
+                            <td>
+                              <span className={`stat ${statusTone(deployment.status)}`}>{deployment.status}</span>
+                              {deployment.failure_reason && (
+                                <span className="ft-table-sub">{deployment.failure_reason}</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="ft-gate-list">
+                                <span>
+                                  <Bi
+                                    en={deployment.route_traffic ? 'routes on' : 'routes off'}
+                                    ar={deployment.route_traffic ? 'المسارات تعمل' : 'المسارات متوقفة'}
+                                  />
+                                </span>
+                                <span>
+                                  <Bi
+                                    en={deployment.serving_load_proof ? 'load proof attached' : 'load proof pending'}
+                                    ar={deployment.serving_load_proof ? 'إثبات التحميل مرفق' : 'إثبات التحميل قيد الانتظار'}
+                                  />
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="ft-empty">
+                    <b>
+                      <Bi en="No deployment intents yet" ar="لا توجد نوايا نشر بعد" />
+                    </b>
+                    <span>
+                      <Bi
+                        en="Deployment records appear only after a ready adapter asks for a serving target. Route traffic stays off until matching vLLM load proof is attached."
+                        ar="تظهر سجلات النشر فقط بعد أن يطلب محول جاهز هدف خدمة. تبقى الحركة متوقفة حتى يرفق إثبات تحميل vLLM مطابق."
                       />
                     </span>
                   </div>
