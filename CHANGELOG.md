@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 04:14 UTC - `docs/ops: promote deploy watcher and capture dcp-agent drift order - PR #731`
+
+**PR:** [#731](https://github.com/dhnpmp-tech/dcp-platform/pull/731) (`codex/ops-repo-hardening-2026-07-08`).
+**Local timestamp:** 2026-07-08 08:14 +04.
+
+**What:** Started the execution-order ops hardening slice by moving the already-live deploy watcher into Git and documenting the remaining repo/process drift that must be reconciled with care.
+
+- **Ops:** Added `ops/dcp-deploy-watch.sh`, byte-identical to the VPS2 cron copy, so Vercel frontend deploy failures and backend health regressions are tracked from source control instead of living only on the server.
+- **Runbook:** Added `docs/architecture/2026-07-08-ops-repo-hardening.md` with local/GitHub/VPS parity at the start of the slice, the deploy watcher cron path, and the no-secrets runtime env-file boundary.
+- **dcp-agent:** Captured the local detached `dcp-agent` checkout and active gateway process, including the safe stop/fast-forward/restart order required before reconciling that separate repo.
+- **Ops overview:** Clarified that VPS cron jobs should prefer tracked scripts under `/root/dc1-platform/ops/`.
+
 ### 2026-07-08 03:31 UTC - `docs(roadmaps): add product execution system and lane roadmaps - PR #730`
 
 **PR:** [#730](https://github.com/dhnpmp-tech/dcp-platform/pull/730) (`codex/product-execution-roadmaps-2026-07-08`).

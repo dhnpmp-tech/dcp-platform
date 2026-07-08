@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 04:14 UTC - Ops repo hardening and dcp-agent drift order (PR #731)
+
+- **PR:** [#731](https://github.com/dhnpmp-tech/dcp-platform/pull/731) (`codex/ops-repo-hardening-2026-07-08`).
+- **Ops:** Promoted the already-live `ops/dcp-deploy-watch.sh` into Git so the VPS Vercel/backend deploy watcher is reproducible from the repository.
+- **Architecture note:** Added `docs/architecture/2026-07-08-ops-repo-hardening.md` with platform parity, cron mapping, watcher secret boundaries, and the safe dcp-agent reconciliation order.
+- **Follow-up:** Kept the active local `dcp-agent` gateway untouched and documented it as a controlled maintenance-window task.
+
 ### 2026-07-08 03:31 UTC - Product execution system and lane roadmaps (PR #730)
 
 - **PR:** [#730](https://github.com/dhnpmp-tech/dcp-platform/pull/730) (`codex/product-execution-roadmaps-2026-07-08`).
