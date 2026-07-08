@@ -1164,6 +1164,12 @@ const migrations = [
   "ALTER TABLE model_registry ADD COLUMN prewarm_class TEXT DEFAULT 'warm'",
   // OpenRouter model metadata compatibility — DCP-112
   'ALTER TABLE model_registry ADD COLUMN parameter_count TEXT',
+  // Per-1M input/output token rates — migration 011, kept inline so fresh
+  // installs expose the same billing metadata as upgraded production DBs.
+  'ALTER TABLE model_registry ADD COLUMN price_in_halala_per_1m_tok INTEGER',
+  'ALTER TABLE model_registry ADD COLUMN price_out_halala_per_1m_tok INTEGER',
+  'ALTER TABLE providers ADD COLUMN price_in_halala_per_1m_tok_override INTEGER',
+  'ALTER TABLE providers ADD COLUMN price_out_halala_per_1m_tok_override INTEGER',
   // Actual elapsed seconds for sub-minute billing accuracy — Sprint 25 Gap 3
   'ALTER TABLE jobs ADD COLUMN duration_seconds INTEGER',
   // Template-based job submission — Sprint 27
@@ -1256,6 +1262,47 @@ migrations.forEach(sql => {
     // Column already exists — safe to ignore
   }
 });
+
+try {
+  db.exec(`
+    UPDATE model_registry SET
+      price_in_halala_per_1m_tok = 8,
+      price_out_halala_per_1m_tok = 0
+    WHERE (LOWER(family) IN ('embedding', 'reranker')
+           OR LOWER(model_id) LIKE '%embed%'
+           OR LOWER(model_id) LIKE '%rerank%'
+           OR LOWER(model_id) LIKE '%bge%')
+      AND price_in_halala_per_1m_tok IS NULL;
+
+    UPDATE model_registry SET
+      price_in_halala_per_1m_tok = 30,
+      price_out_halala_per_1m_tok = 60
+    WHERE min_gpu_vram_gb IS NOT NULL
+      AND min_gpu_vram_gb <= 9
+      AND price_in_halala_per_1m_tok IS NULL;
+
+    UPDATE model_registry SET
+      price_in_halala_per_1m_tok = 80,
+      price_out_halala_per_1m_tok = 150
+    WHERE min_gpu_vram_gb IS NOT NULL
+      AND min_gpu_vram_gb > 9 AND min_gpu_vram_gb <= 30
+      AND price_in_halala_per_1m_tok IS NULL;
+
+    UPDATE model_registry SET
+      price_in_halala_per_1m_tok = 260,
+      price_out_halala_per_1m_tok = 940
+    WHERE min_gpu_vram_gb IS NOT NULL
+      AND min_gpu_vram_gb > 30
+      AND price_in_halala_per_1m_tok IS NULL;
+
+    UPDATE model_registry SET
+      price_in_halala_per_1m_tok = 30,
+      price_out_halala_per_1m_tok = 60
+    WHERE price_in_halala_per_1m_tok IS NULL;
+  `);
+} catch (_) {
+  // Older partial schemas can still boot; /v1/models falls back to cost_rates.
+}
 
 // ─── PROVIDER_ENGINES TABLE ─── (migration 015)
 // Multi-engine routing source of truth. One row per (provider_id, engine_type)

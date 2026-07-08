@@ -11,6 +11,7 @@ jest.mock('../db', () => mockDb);
 jest.mock('../middleware/rateLimiter', () => ({
   vllmCompleteLimiter: (req, res, next) => next(),
   vllmStreamLimiter: (req, res, next) => next(),
+  modelCatalogLimiter: (req, res, next) => next(),
 }));
 jest.mock('../services/openrouterSettlementService', () => ({
   recordOpenRouterUsage: jest.fn(),

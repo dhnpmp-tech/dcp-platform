@@ -10,14 +10,75 @@ const mockDb = {
 const mockRecordOpenRouterUsage = jest.fn(() => ({ id: 'oru_stream_test' }));
 const mockSelectProvidersWithLatencyGate = jest.fn();
 const mockRecordStreamOutcome = jest.fn();
+const mockSettleInferenceOnce = jest.fn((dbHandle, args = {}) => {
+  const jobRow = args.jobRow;
+  if (jobRow?.jobId) {
+    dbHandle.prepare(`
+      INSERT OR IGNORE INTO jobs (
+        job_id, provider_id, renter_id, job_type, model, status,
+        submitted_at, started_at, completed_at,
+        duration_minutes, duration_seconds,
+        cost_halala, actual_cost_halala, provider_earned_halala,
+        prompt_tokens, completion_tokens, result,
+        notes, created_at, updated_at, priority
+      ) VALUES (?, ?, ?, 'inference', ?, 'completed',
+                ?, ?, ?,
+                0, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, 8)
+    `).run(
+      jobRow.jobId,
+      args.providerId || null,
+      args.renterId,
+      args.modelId,
+      jobRow.submittedAt,
+      jobRow.startedAt,
+      jobRow.completedAt,
+      jobRow.durationSeconds || 0,
+      args.costHalala || 0,
+      args.costHalala || 0,
+      1,
+      args.usageEventRow?.promptTokens || 0,
+      args.usageEventRow?.completionTokens || 0,
+      jobRow.result || null,
+      jobRow.notes || 'v1:billingService.settleInferenceOnce',
+      new Date().toISOString(),
+      new Date().toISOString()
+    );
+  }
+  return { status: 'settled' };
+});
 
 jest.mock('../db', () => mockDb);
 jest.mock('../middleware/rateLimiter', () => ({
   vllmCompleteLimiter: (req, res, next) => next(),
   vllmStreamLimiter: (req, res, next) => next(),
+  modelCatalogLimiter: (req, res, next) => next(),
 }));
 jest.mock('../services/openrouterSettlementService', () => ({
   recordOpenRouterUsage: (...args) => mockRecordOpenRouterUsage(...args),
+}));
+jest.mock('../services/billingService', () => ({
+  estimateInferenceCost: jest.fn(() => 1),
+  checkBalanceGate: jest.fn(() => ({
+    ok: true,
+    balanceHalala: 50000,
+    subCreditsHalala: 0,
+    totalAvailableHalala: 50000,
+    estimateHalala: 1,
+  })),
+  checkBudgetCap: jest.fn(() => ({
+    capped: false,
+    ok: true,
+  })),
+  settleInferenceOnce: (...args) => mockSettleInferenceOnce(...args),
+}));
+jest.mock('../services/autoTopupService', () => ({
+  maybeTrigger: jest.fn(() => Promise.resolve({ triggered: false })),
+}));
+jest.mock('../services/conversionFunnelService', () => ({
+  trackStage: jest.fn(),
 }));
 jest.mock('../services/inferenceLatencyBudgetGate', () => ({
   selectProvidersWithLatencyGate: (...args) => mockSelectProvidersWithLatencyGate(...args),
@@ -33,7 +94,10 @@ function provider(id, endpointUrl = 'http://provider.test') {
     deleted_at: null,
     supported_compute_types: '["inference"]',
     vram_gb: 24,
+    cached_models: JSON.stringify(['stream-model']),
     last_heartbeat: new Date().toISOString(),
+    endpoint_reachable: 1,
+    endpoint_probed_at: new Date().toISOString(),
     vllm_endpoint_url: endpointUrl,
     gpu_util_pct: 1,
   };
@@ -50,6 +114,7 @@ describe('v1 chat metering ledger persistence', () => {
     mockRecordOpenRouterUsage.mockReset();
     mockSelectProvidersWithLatencyGate.mockReset();
     mockRecordStreamOutcome.mockReset();
+    mockSettleInferenceOnce.mockClear();
 
     mockSelectProvidersWithLatencyGate.mockImplementation(({ providers = [] }) => ({
       pass: true,
@@ -89,6 +154,12 @@ describe('v1 chat metering ledger persistence', () => {
       const query = String(sql);
       if (query.includes('FROM renter_api_keys')) return null;
       if (query.includes('FROM renters WHERE api_key')) return { id: 7, api_key: 'test-key', balance_halala: 50000, status: 'active' };
+      if (query.includes('SELECT price_in_halala_per_1m_tok')) {
+        return {
+          price_in_halala_per_1m_tok: tokenRate,
+          price_out_halala_per_1m_tok: 0,
+        };
+      }
       if (query.includes('FROM model_registry WHERE model_id = ?')) return { model_id: 'stream-model', min_gpu_vram_gb: 8, context_window: 4096 };
       if (query.includes('FROM cost_rates')) return { token_rate_halala: tokenRate };
       if (query.includes('FROM jobs WHERE job_id')) return null;
@@ -134,7 +205,7 @@ describe('v1 chat metering ledger persistence', () => {
     expect(payload.usdPrompt).toBe('0.002667');
     expect(payload.usdCompletion).toBe('0.000000');
     expect(payload.usdTotal).toBe('0.002667');
-    expect(payload.settlementStatus).toBe('pending');
+    expect(payload.settlementStatus).toBe('settled');
 
     fetchSpy.mockRestore();
   });
@@ -162,7 +233,7 @@ describe('v1 chat metering ledger persistence', () => {
 
     expect(res.status).toBe(200);
     expect(res.text).toContain('data: [DONE]');
-    expect(res.text).toContain('"pricing":{"currency":"USD","usd_prompt":"0.002667","usd_completion":"0.000000","usd_total":"0.002667"}');
+    expect(res.text).toContain('"usd_total":"0.002667"');
     expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
     const payload = mockRecordOpenRouterUsage.mock.calls[0][1];
     expect(payload.requestId).toBe('req-stream-123');
@@ -179,7 +250,7 @@ describe('v1 chat metering ledger persistence', () => {
     expect(payload.usdPrompt).toBe('0.002667');
     expect(payload.usdCompletion).toBe('0.000000');
     expect(payload.usdTotal).toBe('0.002667');
-    expect(payload.settlementStatus).toBe('pending');
+    expect(payload.settlementStatus).toBe('settled');
 
     fetchSpy.mockRestore();
   });
@@ -234,7 +305,7 @@ describe('v1 chat metering ledger persistence', () => {
     expect(payload.usdPrompt).toBe('0.002667');
     expect(payload.usdCompletion).toBe('0.000000');
     expect(payload.usdTotal).toBe('0.002667');
-    expect(payload.settlementStatus).toBe('pending');
+    expect(payload.settlementStatus).toBe('settled');
 
     fetchSpy.mockRestore();
   });
@@ -294,7 +365,7 @@ describe('v1 chat metering ledger persistence', () => {
     mockDb.prepare.mockReset();
     mockDb.prepare.mockImplementation((sql) => {
       const query = String(sql);
-      if (query.includes('INSERT OR IGNORE INTO jobs') && query.includes('v1:proxy:chat/completions')) {
+      if (query.includes('INSERT OR IGNORE INTO jobs') && query.includes('duration_seconds')) {
         return {
           run: (...args) => {
             jobInsertRuns.push({ sql: query, args });

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 04:30 UTC - Inference model rate and capability metadata (PR #732)
+
+- **PR:** [#732](https://github.com/dhnpmp-tech/dcp-platform/pull/732) (`codex/inference-model-metadata-2026-07-08`).
+- **API contract:** Updated `/v1/models` metadata so clients can read per-1M input/output token rates in SAR, halala, and USD, plus capability flags for streaming, tools, reasoning, LoRA, prompt cache, batch, and dedicated deployments.
+- **OpenAPI:** Refreshed the `/v1/models` schema from the old `models[]` shape to the actual OpenAI-compatible `{ object, data }` response.
+- **Verification:** Added route tests for model-registry pricing precedence and capability metadata.
+
 ### 2026-07-08 04:14 UTC - Ops repo hardening and dcp-agent drift order (PR #731)
 
 - **PR:** [#731](https://github.com/dhnpmp-tech/dcp-platform/pull/731) (`codex/ops-repo-hardening-2026-07-08`).
