@@ -28,6 +28,8 @@ what is live.
 - PR #787 replaced the static Fine-Tuning contract preview with copyable curl
   snippets for readiness, jobs, adapters, deployment intents, and gated
   deploy-intent creation.
+- PR #788 added the public `/fine-tuning` product page and wired Fine-Tuning
+  into shared site navigation while keeping serving and trainer claims gated.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -91,6 +93,7 @@ what is live.
   - `/inference`
   - `/pods`
   - `/fine-tuning`
+    **Added in PR #788 with proof-gated LoRA contract copy.**
   - `/dedicated-deployments`
   - `/batch`
 - Add benchmark pages for Arabic/customer-support tasks only after reproducible

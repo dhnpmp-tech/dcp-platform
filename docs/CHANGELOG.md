@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 16:57 UTC - Public Fine-Tuning page (PR #788)
+
+- **PR:** [#788](https://github.com/dhnpmp-tech/dcp-platform/pull/788) (`codex/public-fine-tuning-page-2026-07-08`).
+- **Frontend:** Added `/fine-tuning` as the public LoRA/Fine-Tuning product page.
+- **Navigation:** Added Fine-Tuning to shared site nav, mobile menus, shared footer, and home footer.
+- **Safety:** Public copy keeps managed training, adapter serving, Tinker compatibility, route traffic, and quality claims proof-gated.
+- **Verification:** `npm run build`; `git diff --check`; local production Playwright desktop/tablet/mobile render with loaded images, active nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 16:45 UTC - Fine-Tuning API snippets (PR #787)
 
 - **PR:** [#787](https://github.com/dhnpmp-tech/dcp-platform/pull/787) (`codex/frontend-fine-tuning-api-snippets-2026-07-08`).

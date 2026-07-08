@@ -26,6 +26,7 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة' },
   { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
   { href: '/marketplace', en: 'Inference', ar: 'الاستدلال' },
+  { href: '/fine-tuning', en: 'Fine-Tuning', ar: 'الضبط الدقيق' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
   { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
@@ -36,12 +37,13 @@ const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
 const MENU: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; sEn: string; sAr: string }> = [
   { href: '/', n: '01', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
   { href: '/marketplace', n: '02', tEn: 'Marketplace', tAr: 'السوق', sEn: 'Live capacity · verified providers', sAr: 'سعة حية · مزوّدون متحققون' },
-  { href: '/pricing', n: '03', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
-  { href: '/containers', n: '04', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
-  { href: '/agents', n: '05', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Zero-human onboarding · MCP', sAr: 'تهيئة بلا بشر · MCP' },
-  { href: '/docs', n: '06', tEn: 'Docs', tAr: 'التوثيق', sEn: 'OpenAI-compatible API', sAr: 'واجهة متوافقة مع OpenAI' },
-  { href: '/provider-setup', n: '07', tEn: 'Earn', tAr: 'اكسب', sEn: 'Earn Riyal from your GPU', sAr: 'اكسب ريالاً من معالجك' },
-  { href: '/support', n: '08', tEn: 'Support', tAr: 'الدعم', sEn: 'Talk to the team', sAr: 'تواصل مع الفريق' },
+  { href: '/fine-tuning', n: '03', tEn: 'Fine-Tuning', tAr: 'الضبط الدقيق', sEn: 'LoRA contracts · proof-gated serving', sAr: 'عقود LoRA · خدمة مقيدة بالإثبات' },
+  { href: '/pricing', n: '04', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
+  { href: '/containers', n: '05', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
+  { href: '/agents', n: '06', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Zero-human onboarding · MCP', sAr: 'تهيئة بلا بشر · MCP' },
+  { href: '/docs', n: '07', tEn: 'Docs', tAr: 'التوثيق', sEn: 'OpenAI-compatible API', sAr: 'واجهة متوافقة مع OpenAI' },
+  { href: '/provider-setup', n: '08', tEn: 'Earn', tAr: 'اكسب', sEn: 'Earn Riyal from your GPU', sAr: 'اكسب ريالاً من معالجك' },
+  { href: '/support', n: '09', tEn: 'Support', tAr: 'الدعم', sEn: 'Talk to the team', sAr: 'تواصل مع الفريق' },
 ]
 
 interface SiteHeaderProps {
