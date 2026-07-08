@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 20:48 UTC - Workspace-to-pod live proof runner (PR #812)
+### 2026-07-08 20:52 UTC - Workspace-to-pod live proof runner (PR #812)
 
 - **PR:** [#812](https://github.com/dhnpmp-tech/dcp-platform/pull/812) (`codex/workspace-pod-live-proof-runner-2026-07-08`).
 - **Live proof:** Added `npm run proof:workspace-pod` for the production acceptance path: active workspace volume, presigned upload, workspace list, short pod launch, running status, and Jupyter Contents API visibility for the uploaded marker file.
