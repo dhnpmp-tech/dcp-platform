@@ -437,6 +437,86 @@ body {
   min-height: 184px;
 }
 
+.ft-snippet-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ft-snippet {
+  min-width: 0;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  padding: 12px;
+}
+
+.ft-snippet-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ft-snippet-top div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.ft-snippet-top b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.ft-snippet-top span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ft-copy {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--paper) 88%, var(--line));
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ft-copy:hover {
+  border-color: color-mix(in oklab, var(--teal) 60%, var(--hair));
+  color: var(--teal);
+}
+
+.ft-snippet .ft-code {
+  margin-top: 10px;
+  min-height: 0;
+  max-height: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ft-snippet p {
+  margin: 9px 0 0;
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
 .ft-contract-note {
   margin-top: 12px;
   padding: 12px 0 0;

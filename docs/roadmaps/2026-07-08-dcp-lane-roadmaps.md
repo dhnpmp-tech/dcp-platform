@@ -25,6 +25,9 @@ what is live.
   load proof still shown as gated.
 - PR #786 switched that deployment ledger to `GET /api/adapters/deployments`,
   preserving the read-only UI while removing per-adapter request fan-out.
+- PR #787 replaced the static Fine-Tuning contract preview with copyable curl
+  snippets for readiness, jobs, adapters, deployment intents, and gated
+  deploy-intent creation.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -82,6 +85,8 @@ what is live.
   - adapters
   - deployments
   - curl/API snippet
+  **Curl/API snippets added in PR #787 for the shipped LoRA and adapter
+  contracts while keeping trainer and serving proof gates explicit.**
 - Add product pages once backend gates exist:
   - `/inference`
   - `/pods`
@@ -110,6 +115,7 @@ what is live.
    **Adapter deployment intent rows added in PR #784.**
    **Deployment intent loading moved to the aggregate deployment endpoint in
    PR #786.**
+   **Copyable API snippets added in PR #787.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
    **Readiness gates from the backend contract added in PR #777.**
 

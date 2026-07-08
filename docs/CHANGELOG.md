@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 16:45 UTC - Fine-Tuning API snippets (PR #787)
+
+- **PR:** [#787](https://github.com/dhnpmp-tech/dcp-platform/pull/787) (`codex/frontend-fine-tuning-api-snippets-2026-07-08`).
+- **Frontend:** Replaced the Fine-Tuning static contract list with copyable curl snippets for readiness, training jobs, adapters, deployment intents, and gated deploy-intent creation.
+- **Safety:** Snippet notes keep managed training, public adapter serving, and route traffic gated until trainer/load proof exists.
+- **Interaction:** Copy buttons show copied state and do not mutate backend state.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render with snippet visibility, copy-to-clipboard, and no horizontal overflow.
+
 ### 2026-07-08 16:29 UTC - Fine-Tuning aggregate adapter deployments (PR #786)
 
 - **PR:** [#786](https://github.com/dhnpmp-tech/dcp-platform/pull/786) (`codex/frontend-aggregate-deployments-2026-07-08`).

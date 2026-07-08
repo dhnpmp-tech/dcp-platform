@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 16:45 UTC - `feat(frontend): add Fine-Tuning API snippets - PR #787`
+
+**PR:** [#787](https://github.com/dhnpmp-tech/dcp-platform/pull/787) (`codex/frontend-fine-tuning-api-snippets-2026-07-08`).
+**Local timestamp:** 2026-07-08 20:45 +04.
+
+**What:** Fifty-fourth Fireworks/Tinker execution slice. Completes the Fine-Tuning dashboard's curl/API snippet gap with shipped-contract examples instead of static endpoint labels.
+
+- **Frontend contract:** Replaced the Fine-Tuning sidebar contract preview with copyable curl snippets for LoRA readiness, training jobs, adapter registry, aggregate deployment intents, and gated deploy-intent creation.
+- **Claim guard:** Snippet notes explicitly keep GPU trainer proof, public adapter serving, and deployment routing gated until backend proof exists.
+- **Interaction:** Added per-snippet copy feedback without changing any training, adapter, deployment, or routing API behavior.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render for `/renter/fine-tuning`, including snippet visibility, copy-to-clipboard, and no horizontal overflow.
+
 ### 2026-07-08 16:29 UTC - `feat(frontend): use aggregate adapter deployments - PR #786`
 
 **PR:** [#786](https://github.com/dhnpmp-tech/dcp-platform/pull/786) (`codex/frontend-aggregate-deployments-2026-07-08`).

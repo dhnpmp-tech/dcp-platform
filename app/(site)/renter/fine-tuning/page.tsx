@@ -217,18 +217,65 @@ const STAGES = [
   },
 ] as const
 
-const CONTRACT_LINES = [
-  'POST /api/lora/training-jobs',
-  'GET  /api/lora/training-jobs',
-  'POST /api/adapters',
-  'GET  /api/adapters',
-  'POST /api/adapters/{id}/deployments',
-  'model_card_manifest: reserved | metadata_stub',
-  'dataset_jsonl: chat_messages | prompt_completion',
-  'recipes: lora_sft | qlora_sft',
-  'training_enabled: false until trainer proof',
-  'serving_enabled: false until load proof',
-  'route_traffic: false until adapter_load_proof',
+const API_SNIPPETS = [
+  {
+    id: 'readiness',
+    titleEn: 'Read LoRA readiness',
+    titleAr: 'قراءة جاهزية LoRA',
+    meta: 'GET /api/lora/readiness',
+    noteEn: 'Shows training, registry, deployment, route, and claim gates.',
+    noteAr: 'يعرض بوابات التدريب والسجل والنشر والتوجيه والادعاءات.',
+    command:
+      'curl -s https://api.dcp.sa/api/lora/readiness \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
+    id: 'training-jobs',
+    titleEn: 'List training jobs',
+    titleAr: 'عرض مهام التدريب',
+    meta: 'GET /api/lora/training-jobs',
+    noteEn: 'Returns metadata rows and model-card manifests; GPU trainer proof is still gated.',
+    noteAr: 'يعيد صفوف البيانات وبيانات بطاقة النموذج؛ إثبات مدرب GPU ما زال مقيدا.',
+    command:
+      'curl -s https://api.dcp.sa/api/lora/training-jobs \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
+    id: 'adapters',
+    titleEn: 'List adapters',
+    titleAr: 'عرض المحولات',
+    meta: 'GET /api/adapters',
+    noteEn: 'Reads renter-owned adapter registry rows; registry writes do not route traffic.',
+    noteAr: 'يقرأ صفوف سجل المحولات الخاصة بالمستأجر؛ الكتابة في السجل لا توجه الحركة.',
+    command:
+      'curl -s https://api.dcp.sa/api/adapters \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
+    id: 'deployments',
+    titleEn: 'List deployment intents',
+    titleAr: 'عرض نوايا النشر',
+    meta: 'GET /api/adapters/deployments',
+    noteEn: 'Renter-wide deployment intent list. Route traffic remains off until load proof lands.',
+    noteAr: 'قائمة نوايا النشر حسب المستأجر. تبقى الحركة متوقفة حتى يصل إثبات التحميل.',
+    command:
+      'curl -s "https://api.dcp.sa/api/adapters/deployments?limit=25" \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
+    id: 'create-deploy-intent',
+    titleEn: 'Create a gated deploy intent',
+    titleAr: 'إنشاء نية نشر مقيدة',
+    meta: 'POST /api/adapters/{id}/deployments',
+    noteEn: 'Records intent only; serving stays disabled until matching vLLM load proof.',
+    noteAr: 'يسجل النية فقط؛ تبقى الخدمة معطلة حتى يطابق إثبات تحميل vLLM.',
+    command:
+      'curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments \\\n' +
+      '  -X POST \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY" \\\n' +
+      '  -H "Content-Type: application/json" \\\n' +
+      '  -d \'{"base_model":"Qwen/Qwen2.5-14B-Instruct-AWQ","mode":"single_adapter_live_merge"}\'',
+  },
 ]
 
 function shortChecksum(value: string): string {
@@ -278,6 +325,7 @@ export default function RenterFineTuningPage() {
   const [adapterDeployments, setAdapterDeployments] = useState<AdapterDeploymentRecord[]>([])
   const [trainingJobs, setTrainingJobs] = useState<TrainingJobRecord[]>([])
   const [readiness, setReadiness] = useState<LoraReadiness | null>(null)
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -374,6 +422,14 @@ export default function RenterFineTuningPage() {
     `Tinker ${gateLabel(claimGuards.tinker_compatible)}`,
     `discounts ${gateLabel(claimGuards.discounts_enabled)}`,
   ].join(' · ')
+
+  function copySnippet(id: string, command: string): void {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return
+    void navigator.clipboard.writeText(command).then(() => {
+      setCopiedSnippet(id)
+      window.setTimeout(() => setCopiedSnippet(null), 1800)
+    })
+  }
 
   return (
     <div className="rt-app ft-page">
@@ -882,15 +938,33 @@ export default function RenterFineTuningPage() {
 
             <aside className="ft-contract">
               <span className="pod-label">
-                <Bi en="API contract preview" ar="معاينة عقد API" />
+                <Bi en="API snippets" ar="أمثلة API" />
               </span>
-              <pre className="code ft-code" aria-label={lang === 'ar' ? 'معاينة عقد API' : 'API contract preview'}>
-                {CONTRACT_LINES.map((line) => line).join('\n')}
-              </pre>
+              <div className="ft-snippet-stack" aria-label={lang === 'ar' ? 'أمثلة API' : 'API snippets'}>
+                {API_SNIPPETS.map((snippet) => (
+                  <div className="ft-snippet" key={snippet.id}>
+                    <div className="ft-snippet-top">
+                      <div>
+                        <b>
+                          <Bi en={snippet.titleEn} ar={snippet.titleAr} />
+                        </b>
+                        <span>{snippet.meta}</span>
+                      </div>
+                      <button type="button" className="ft-copy" onClick={() => copySnippet(snippet.id, snippet.command)}>
+                        <Bi en={copiedSnippet === snippet.id ? 'Copied' : 'Copy'} ar={copiedSnippet === snippet.id ? 'تم النسخ' : 'نسخ'} />
+                      </button>
+                    </div>
+                    <pre className="code ft-code">{snippet.command}</pre>
+                    <p>
+                      <Bi en={snippet.noteEn} ar={snippet.noteAr} />
+                    </p>
+                  </div>
+                ))}
+              </div>
               <div className="ft-contract-note">
                 <Bi
-                  en="This is the current contract surface, not a managed training launch button. Deployment routing remains disabled until the serving proof lands."
-                  ar="هذه هي واجهة العقد الحالية وليست زر تشغيل تدريب مُدار. يبقى توجيه النشر معطلاً حتى يصل إثبات الخدمة."
+                  en="These snippets use the shipped contract surface. They do not prove managed training or public adapter serving; deployment routing stays disabled until serving proof lands."
+                  ar="تستخدم هذه الأمثلة واجهة العقد المشحونة. لا تثبت التدريب المُدار أو خدمة المحولات العامة؛ يبقى توجيه النشر معطلاً حتى يصل إثبات الخدمة."
                 />
               </div>
             </aside>
