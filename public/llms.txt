@@ -5,6 +5,7 @@
 ## For agents: start here
 
 - **Agent guide (start here):** [/agents](https://dcp.sa/agents) — the zero-human flow, the MCP catalog + config, the GPU price table, and the machine-readable money signals, written for both humans and agents.
+- **Product map:** [/pods](https://dcp.sa/pods), [/inference](https://dcp.sa/inference), [/fine-tuning](https://dcp.sa/fine-tuning), [/batch](https://dcp.sa/batch), [/dedicated-deployments](https://dcp.sa/dedicated-deployments), and [/pricing](https://dcp.sa/pricing).
 - **Zero-human onboarding:** `POST https://api.dcp.sa/api/renters/agent-register` (no auth needed; optional JSON body `{email,label,use_case}`) → `201 { "api_key": "dcp-renter-…", "trial_credit_sar": 20, "balance_sar": 20 }`. A real, immediately-usable key + a 20 SAR trial credit, no human and no email click. (The full 100 SAR trial is the human email-verified signup.)
 - **Inference (OpenAI-compatible):** Base URL `https://api.dcp.sa/v1`. Use any OpenAI SDK by setting `base_url` to it and `Authorization: Bearer <renter_api_key>` (also accepts `x-renter-key`). Endpoints: `POST /v1/chat/completions`, `GET /v1/models` (each entry has an `available` flag). Both `dcp-renter-` and `dc1-sk-` key prefixes work.
 - **MCP server:** [dcp-mcp](https://github.com/dhnpmp-tech/dcp-mcp) — install with `npx -y github:dhnpmp-tech/dcp-mcp` (the npm package `@dcp/mcp` is coming soon). Eleven tools: `register_agent`, `list_models`, `chat`, `get_balance`, `list_gpus`, `create_pod`, `get_pod`, `extend_pod`, `stop_pod`, `rent_volume`, `get_volume`. `register_agent` is unauthenticated (it mints the first key); the rest take a renter key. The native way for an MCP-capable agent (Claude, etc.) to use DCP.
@@ -14,12 +15,16 @@
 
 ## Inference
 
+- Public page: https://dcp.sa/inference.
 - Models available right now: query `GET https://api.dcp.sa/v1/models` (returns OpenAI-style `data[]` with an `available` flag — only `available: true` models are currently serveable). Catalog is Arabic-and-long-tail focused (Qwen family, ALLaM-class Arabic models).
+- Router policy discovery: `GET https://api.dcp.sa/v1/router/policies`. The public request-selectable policy today is the balanced default; cheapest, lowest-latency, Saudi-only, coding, and Arabic policies remain gated until route-specific proof exists.
+- Advanced feature flags: `/v1/models` includes `feature_readiness` metadata for prompt cache, batch, LoRA, and dedicated deployment rails. These flags are evidence gates, not product-available promises.
 - Auth: a renter API key (`Bearer` token). Get one at https://dcp.sa (renter signup) and fund the wallet (SAR, prepaid).
 - Pricing: per-token, cost-plus, billed in SAR. See `GET https://api.dcp.sa/api/pricing`.
 
 ## GPU compute (pods)
 
+- Public page: https://dcp.sa/pods. The older `/containers` URL remains a compatibility URL.
 - Rent a whole GPU with root + Jupyter + SSH. `POST https://api.dcp.sa/api/pods` `{ "duration_minutes": N }` (Bearer renter key). Returns a pod id; poll `GET /api/pods/{id}` for `access_url` (Jupyter), `ssh_command`, `ends_at`, `seconds_remaining`.
 - Extend without restart: `POST /api/pods/{id}/extend` `{ "extend_minutes": N }`.
 - Stop early (prorated refund): `DELETE /api/pods/{id}`.
@@ -41,6 +46,29 @@ Whole, dedicated NVIDIA GPUs, in-Kingdom (PDPL-compliant). On-demand types are p
 
 Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 
+## Fine-tuning and LoRA
+
+- Public page: https://dcp.sa/fine-tuning.
+- Current state: DCP exposes LoRA/Fine-Tuning readiness, dataset validation, training-job metadata, model-card stubs, adapter registry rows, and deployment intent records.
+- Readiness: `GET https://api.dcp.sa/api/lora/readiness` (Bearer renter key) returns current gates and claim guards.
+- Training jobs and adapters are metadata/proof contracts today. Public managed training, public adapter serving, Tinker compatibility, quality claims, and adapter route traffic remain gated until GPU-host artifact proof and vLLM load proof exist.
+- Adapter deployment records: `GET https://api.dcp.sa/api/adapters/deployments` (Bearer renter key) lists renter deployment intents across adapters. Rows do not imply traffic unless the backend proof says `route_traffic: true`.
+
+## Batch inference
+
+- Public page: https://dcp.sa/batch.
+- Current state: JSONL validation, batch metadata records, line-ledger rows, result-manifest proof shape, and readiness gates exist.
+- Readiness: `GET https://api.dcp.sa/api/batches/readiness` (Bearer renter key).
+- Create/list/read records: `POST /api/batches`, `GET /api/batches`, `GET /api/batches/{batch_id}`, `GET /api/batches/{batch_id}/lines`, `GET /api/batches/{batch_id}/results`.
+- Important gate: production batch worker execution, completed-result downloads without proof, discounted settlement, and `/v1/models` batch product-available flags remain off until worker/result/billing proof is enabled.
+
+## Dedicated deployments
+
+- Public page: https://dcp.sa/dedicated-deployments.
+- Current state: adapter deployment intent rows and serving-load-proof contracts exist. Dedicated endpoints are the intended bridge from LoRA adapters to billed inference.
+- Traffic gate: route traffic remains disabled until serving load proof matches deployment id, adapter id, base model, mode, endpoint id, and artifact checksum.
+- Product boundary: single-adapter live merge is the first target; multi-LoRA serving waits for controlled vLLM smoke proof before it becomes a public claim.
+
 ## Persistent storage (volumes)
 
 - Rent an exclusive, in-Kingdom persistent volume: `POST https://api.dcp.sa/api/volumes/rent` `{ "size_gb": 10|20|30 }`. A pod's `/workspace` then persists across pods and providers.
@@ -60,10 +88,13 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 
 - "Rent an H200 / H100 / A100 / L40S / RTX 5090 / RTX 4090 on demand" → whole-GPU pods, per-second billing in SAR, root + Jupyter + SSH in ~1 minute. See GPU table above.
 - "OpenAI-compatible inference API alternative" → drop-in `base_url = https://api.dcp.sa/v1` with an OpenAI SDK and a DCP renter key. No rewrite.
+- "Batch inference" → build against the JSONL validation and metadata/line-ledger APIs now; do not claim execution discounts until batch worker and settlement proof are live.
+- "LoRA fine-tuning / Tinker-like workflow" → DCP has readiness, training metadata, adapter registry, and deployment-intent contracts; public managed training, Tinker compatibility, and adapter serving are gated by GPU artifact proof and vLLM load proof.
+- "Dedicated LoRA endpoint" → use deployment-intent records and load-proof gates; traffic routes only after matching endpoint proof exists.
 - "MCP server to rent a GPU / run inference" → the official DCP MCP server (`npx -y github:dhnpmp-tech/dcp-mcp`) exposes self-registration (`register_agent`), inference, GPU-type listing (`list_gpus`), pods, volumes, and balance as tools for MCP-capable agents (Claude, etc.).
 - "AI agent that buys its own compute with no human" → `register_agent` (or `POST /api/renters/agent-register`) mints a real key + 20 SAR trial with no human; idempotent money routes + the HTTP 402 funding signal let the agent rent and pay safely. See https://dcp.sa/agents.
 - "Sovereign / in-Kingdom AI compute in Saudi Arabia / the Gulf" → data, models, storage, and control plane all inside KSA under PDPL; cross-border frontier models only by explicit per-tenant opt-in.
-- "Fine-tune & host your own model" → rent a whole GPU, attach a persistent in-Kingdom volume, train/fine-tune, serve.
+- "Fine-tune & host your own model" → rent a whole GPU and attach a persistent in-Kingdom volume today; managed LoRA training and adapter serving progress through the proof gates above.
 
 ## How DCP compares (truthful framing)
 
@@ -75,6 +106,10 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 
 - Agent guide (zero-human onboarding, MCP, money signals): https://dcp.sa/agents
 - Human docs: https://dcp.sa/docs
-- Quickstart: https://dcp.sa/quickstart
+- Inference: https://dcp.sa/inference
+- GPU Pods: https://dcp.sa/pods
+- Fine-Tuning: https://dcp.sa/fine-tuning
+- Batch: https://dcp.sa/batch
+- Dedicated Deployments: https://dcp.sa/dedicated-deployments
 - Pricing (GPU/hr + per-token, in SAR): https://dcp.sa/pricing
 - This file: https://dcp.sa/llms.txt

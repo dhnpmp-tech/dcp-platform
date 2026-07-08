@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 18:00 UTC - `docs(ai): update llms product rails - PR #794`
+
+**PR:** [#794](https://github.com/dhnpmp-tech/dcp-platform/pull/794) (`codex/llms-product-rails-2026-07-08`).
+**Local timestamp:** 2026-07-08 22:00 +04.
+
+**What:** Sixty-first Fireworks/Tinker execution slice. Updates `llms.txt` so agents and answer engines see the current product rails and proof gates.
+
+- **AI discovery:** Added product map links for Pods, Inference, Fine-Tuning, Batch, Dedicated Deployments, and Pricing.
+- **Claim guard:** Documented LoRA, Batch, and Dedicated Deployment gates so agents do not overstate public training, adapter serving, batch execution, discounts, Tinker compatibility, or route traffic.
+- **API pointers:** Added readiness/deployment endpoints for LoRA, Batch, and adapter deployment records.
+- **Verified:** `npm run build`; `git diff --check`; local production `/llms.txt` smoke for product route links and LoRA/Batch/Dedicated proof-gate language.
+
 ### 2026-07-08 17:52 UTC - `chore(frontend): publish product routes in sitemap - PR #793`
 
 **PR:** [#793](https://github.com/dhnpmp-tech/dcp-platform/pull/793) (`codex/public-product-sitemap-2026-07-08`).

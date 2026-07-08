@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 18:00 UTC - llms product rails (PR #794)
+
+- **PR:** [#794](https://github.com/dhnpmp-tech/dcp-platform/pull/794) (`codex/llms-product-rails-2026-07-08`).
+- **AI discovery:** Updated `llms.txt` with the current product map and public routes.
+- **Safety:** Added LoRA, Batch, and Dedicated Deployment proof gates to prevent agents from overclaiming public training, adapter serving, batch execution, discounts, Tinker compatibility, or route traffic.
+- **API pointers:** Added readiness/deployment endpoints for LoRA, Batch, and adapter deployment records.
+- **Verification:** `npm run build`; `git diff --check`; local production `/llms.txt` smoke for product route links and LoRA/Batch/Dedicated proof-gate language.
+
 ### 2026-07-08 17:52 UTC - Product routes in sitemap (PR #793)
 
 - **PR:** [#793](https://github.com/dhnpmp-tech/dcp-platform/pull/793) (`codex/public-product-sitemap-2026-07-08`).
