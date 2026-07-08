@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 21:28 UTC - LoRA pod image proof command (PR #820)
+### 2026-07-08 21:34 UTC - LoRA pod image proof command (PR #820)
 
 - **PR:** [#820](https://github.com/dhnpmp-tech/dcp-platform/pull/820) (`codex/lora-pod-image-proof-command-2026-07-09`).
 - **Proof command:** Added `npm run proof:lora-pod-image` for provider-host `dcp-compute:lora` import and offline SFT scaffold proof.
