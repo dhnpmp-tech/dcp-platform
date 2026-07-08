@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 12:41 UTC - Credit-first pod 402 backend copy (PR #768)
+
+- **PR:** [#768](https://github.com/dhnpmp-tech/dcp-platform/pull/768) (`codex/pod-credit-required-payload-copy-2026-07-08`).
+- **Shared 402s:** `paymentRequiredPayload` now defaults to available-credit / Add credit copy while preserving stable codes and SAR/halala fields.
+- **Pods:** Launch and extend insufficient-credit messages now use credit-first wording and still include exact available/required credit facts.
+- **OpenAPI:** Payment-required, pod extend, and volume 402 descriptions now reference account/prepaid credit rather than wallet balance.
+- **Verification:** Targeted 402 payload Jest suite; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 12:00 UTC - Pod launch credit-required guidance (PR #767)
 
 - **PR:** [#767](https://github.com/dhnpmp-tech/dcp-platform/pull/767) (`codex/pod-launch-credit-error-guidance-2026-07-08`).

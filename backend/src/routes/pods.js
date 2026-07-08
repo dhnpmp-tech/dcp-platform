@@ -167,6 +167,18 @@ function computePodQuoteHalala({ durationSeconds, ratePerGpuSecond, gpuCount }) 
   return Math.max(0, Math.ceil(durationSeconds * ratePerGpuSecond * gpuCount));
 }
 
+function sarAmount(halala) {
+  return (Math.max(0, Number(halala) || 0) / 100).toFixed(2);
+}
+
+function podCreditRequiredMessage({ availableHalala, requiredHalala, durationMinutes }) {
+  return `Insufficient credit for this pod. Available credit: ${sarAmount(availableHalala)} SAR, required credit: ${sarAmount(requiredHalala)} SAR for ${durationMinutes} minutes. Add credit and retry — unused prepaid time is refunded when you stop the pod early.`;
+}
+
+function podExtendCreditRequiredMessage({ availableHalala, requiredHalala, addMinutes }) {
+  return `Insufficient credit to extend this pod. Available credit: ${sarAmount(availableHalala)} SAR, required credit: ${sarAmount(requiredHalala)} SAR for ${addMinutes} more minutes. Add credit and retry.`;
+}
+
 // Pure settlement math for a renter-initiated stop. Charge is clamped at the
 // prepaid quote: stopping early refunds the difference; stopping late (clock
 // skew) never charges beyond what was debited.
@@ -847,10 +859,15 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       if (debit.changes !== 1) {
         const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, req.renter.id);
         const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
+        const message = podCreditRequiredMessage({
+          availableHalala: balanceHalala,
+          requiredHalala: quoteHalala,
+          durationMinutes,
+        });
         return res.status(402).json(paymentRequiredPayload({
           requiredHalala: quoteHalala,
           balanceHalala,
-          message: `Insufficient balance for this pod. Available: ${(balanceHalala / 100).toFixed(2)} SAR, required: ${(quoteHalala / 100).toFixed(2)} SAR for ${durationMinutes} minutes. Top up and retry — unused time is refunded when you stop the pod early.`,
+          message,
         }));
       }
     }
@@ -1319,14 +1336,19 @@ function extendPodCore(job, addMinutes, { actorLabel = 'renter' } = {}) {
     if (debit.changes !== 1) {
       const row = db.get(`SELECT balance_halala FROM renters WHERE id = ?`, job.renter_id);
       const balanceHalala = Math.max(0, Number(row?.balance_halala || 0));
+      const message = podExtendCreditRequiredMessage({
+        availableHalala: balanceHalala,
+        requiredHalala: addQuoteHalala,
+        addMinutes,
+      });
       return {
-        error: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes. Top up and retry.`,
+        error: message,
         code: 'INSUFFICIENT_BALANCE',
         httpStatus: 402,
         payload: paymentRequiredPayload({
           requiredHalala: addQuoteHalala,
           balanceHalala,
-          message: `Insufficient balance to extend. Available: ${(balanceHalala / 100).toFixed(2)} SAR, needed: ${(addQuoteHalala / 100).toFixed(2)} SAR for ${addMinutes} more minutes. Top up and retry.`,
+          message,
         }),
       };
     }

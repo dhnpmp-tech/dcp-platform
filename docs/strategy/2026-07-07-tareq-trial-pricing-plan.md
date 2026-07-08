@@ -195,7 +195,7 @@ Possible copy:
 - "Add credit to launch this GPU."
 - "Trial credit covers DCP and community GPUs. This GPU requires prepaid credit."
 
-Status as of PR #767:
+Status as of PR #768:
 
 - Dashboard, playground, usage, invoices, keys, settings, wallet sidebars, shared
   balance/spending cards, low-credit notifications, and insufficient-balance
@@ -208,6 +208,9 @@ Status as of PR #767:
   required credit, requested duration, and hourly rate facts when supplied.
 - The pod-launch block keeps vendor/on-demand internals hidden; renters see
   trial-credit coverage and Add credit guidance instead of supply-tier details.
+- Backend `PaymentRequiredError`, generic pod-launch 402, and pod-extend 402 copy
+  now also speak in available/required credit and Add credit terms while keeping
+  stable `insufficient_balance` machine codes and SAR/halala accounting fields.
 
 ## Open Questions Before Shipping
 
@@ -261,12 +264,14 @@ Status as of PR #767:
 - Keep vendor/on-demand internals hidden.
 - Add focused UI tests or static regressions for copy and API contract.
 
-Status as of PR #767:
+Status as of PR #768:
 
 - Credit-first renter copy started in PR #765 and structured pod-launch 402
   handling landed in PR #767.
 - Visual evidence exists for `/renter/pods` with a signed renter session and a
   mocked `on_demand_requires_prepaid_credit` response.
+- Backend 402 messages and OpenAPI examples were aligned with the same
+  credit-first language in PR #768.
 
 ### Slice 5 - Production Rollout
 

@@ -21,6 +21,13 @@ describe('paymentRequiredPayload — agent-readable 402 body', () => {
     expect(body.retryable).toBe(true);
   });
 
+  test('uses credit-first default copy', () => {
+    const body = paymentRequiredPayload({ requiredHalala: 5000, balanceHalala: 1200 });
+    expect(body.message).toContain('Available credit 12 SAR');
+    expect(body.message).toContain('Add credit and retry');
+    expect(body.message).not.toMatch(/wallet|top up/i);
+  });
+
   test('exposes both halala (OpenAPI) and SAR (agent) amounts', () => {
     const body = paymentRequiredPayload({ requiredHalala: 5000, balanceHalala: 1234 });
     expect(body.required_halala).toBe(5000);
@@ -46,7 +53,7 @@ describe('paymentRequiredPayload — agent-readable 402 body', () => {
   });
 
   test('uses a custom human message when provided', () => {
-    const msg = 'Insufficient balance for this pod. Top up and retry.';
+    const msg = 'Insufficient credit for this pod. Add credit and retry.';
     const body = paymentRequiredPayload({ requiredHalala: 700, balanceHalala: 50, message: msg });
     expect(body.message).toBe(msg);
   });

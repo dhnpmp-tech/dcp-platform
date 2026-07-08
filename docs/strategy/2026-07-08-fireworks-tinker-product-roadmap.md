@@ -152,6 +152,8 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #767 connected this paid-credit gate to `/renter/pods` with structured
     blocked-launch guidance and exact funding-gap facts, while keeping
     vendor/on-demand internals out of renter copy.
+  - PR #768 aligned the backend 402 and OpenAPI copy with the same credit-first
+    language without changing the stable machine-readable contract.
 
 Acceptance:
 

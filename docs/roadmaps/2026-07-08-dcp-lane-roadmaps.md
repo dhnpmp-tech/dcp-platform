@@ -97,6 +97,12 @@ what is live.
 Create stable primitives for metadata, batch jobs, prompt-cache accounting,
 adapter registry, and deployment lifecycle without breaking money/routing.
 
+### Progress
+
+- PR #768 aligned shared HTTP 402 payment-required copy, pod launch failures, pod
+  extend failures, and OpenAPI examples with the credit-first contract while
+  preserving stable machine-readable money/error fields.
+
 ### Now
 
 - Reconcile platform-adjacent drift:
@@ -247,6 +253,8 @@ template launch.
   availability.
 - PR #767 connected that backend gate to `/renter/pods` with structured
   credit-required guidance and funding-gap facts.
+- PR #768 aligned the backend 402 copy behind pod launch/extend and the OpenAPI
+  contract with the same credit-first language.
 
 ### Now
 
