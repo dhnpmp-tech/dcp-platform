@@ -8,8 +8,10 @@ const {
   ensureLoraTrainingJobsSchema,
   getLoraTrainingJob,
   listLoraTrainingJobs,
+  registerLoraTrainingJobAdapter,
   updateLoraTrainingJobStatus,
 } = require('../services/loraTrainingJobs');
+const { ensureAdapterRegistrySchema, getAdapter } = require('../services/adapterRegistry');
 const { createLoraRouter } = require('../routes/lora');
 
 function makeDb() {
@@ -30,6 +32,7 @@ function makeDb() {
     VALUES (1, 'Renter One', 'one@example.com', 'rk-one', 'active', ?),
            (2, 'Renter Two', 'two@example.com', 'rk-two', 'active', ?)
   `).run(new Date().toISOString(), new Date().toISOString());
+  ensureAdapterRegistrySchema(raw);
   ensureLoraTrainingJobsSchema(raw);
   return raw;
 }
@@ -187,6 +190,68 @@ describe('LoRA training job foundation', () => {
     });
   });
 
+  test('registers an adapter only after succeeded artifact proof exists', () => {
+    const db = makeDb();
+    createLoraTrainingJob(db, 1, trainingInput());
+
+    expect(() => registerLoraTrainingJobAdapter(db, 1, 'lora_job_alpha01')).toThrow(/must be succeeded/);
+
+    updateLoraTrainingJobStatus(db, 1, 'lora_job_alpha01', 'succeeded', {
+      artifact_storage_key: 'adapters/r1/support/adapter.safetensors',
+      artifact_checksum_sha256: 'b'.repeat(64),
+      model_card_storage_key: 'adapters/r1/support/model-card.json',
+    });
+
+    const registered = registerLoraTrainingJobAdapter(db, 1, 'lora_job_alpha01');
+    expect(registered).toMatchObject({
+      adapter_registered: true,
+      idempotent_replay: false,
+      serving_enabled: false,
+      next: 'create_adapter_deployment_after_vllm_load_proof',
+      job: {
+        training_job_id: 'lora_job_alpha01',
+        adapter_registered: true,
+      },
+      adapter: {
+        adapter_id: 'adpt_lorajob01',
+        status: 'ready',
+        base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+        storage_key: 'adapters/r1/support/adapter.safetensors',
+        checksum_sha256: 'b'.repeat(64),
+        rank: 16,
+        metadata: {
+          source: 'lora_training_job',
+          training_job_id: 'lora_job_alpha01',
+          recipe: 'qlora_sft',
+          safety: {
+            route_traffic: false,
+            serving_load_proof_required: true,
+            trainer_artifact_required: true,
+          },
+        },
+      },
+    });
+    expect(getLoraTrainingJob(db, 1, 'lora_job_alpha01').adapter_registered).toBe(true);
+    expect(listLoraTrainingJobs(db, 1).jobs[0].adapter_registered).toBe(true);
+    expect(getAdapter(db, 1, 'adpt_lorajob01')).toMatchObject({
+      adapter_id: 'adpt_lorajob01',
+      status: 'ready',
+    });
+
+    const replay = registerLoraTrainingJobAdapter(db, 1, 'lora_job_alpha01');
+    expect(replay.idempotent_replay).toBe(true);
+    expect(replay.adapter.adapter_id).toBe('adpt_lorajob01');
+  });
+
+  test('blocks adapter registration when succeeded job lacks artifact checksum proof', () => {
+    const db = makeDb();
+    createLoraTrainingJob(db, 1, trainingInput({ training_job_id: 'lora_job_noproof' }));
+    updateLoraTrainingJobStatus(db, 1, 'lora_job_noproof', 'succeeded');
+
+    expect(() => registerLoraTrainingJobAdapter(db, 1, 'lora_job_noproof')).toThrow(/missing adapter artifact proof/);
+    expect(getLoraTrainingJob(db, 1, 'lora_job_noproof').adapter_registered).toBe(false);
+  });
+
   test('rejects invalid dataset JSONL with contract details', () => {
     const db = makeDb();
     expect(() => createLoraTrainingJob(db, 1, trainingInput({
@@ -245,6 +310,54 @@ describe('LoRA training job foundation', () => {
       code: 'invalid_json',
       details: { line: 1 },
     });
+  });
+
+  test('route registers a succeeded training job artifact into adapter registry idempotently', async () => {
+    const db = makeDb();
+    const app = buildApp(db);
+    createLoraTrainingJob(db, 1, trainingInput({ training_job_id: 'lora_job_route_register' }));
+
+    const blocked = await request(app)
+      .post('/api/lora/training-jobs/lora_job_route_register/register-adapter')
+      .expect(409);
+    expect(blocked.body.code).toBe('training_job_not_succeeded');
+
+    updateLoraTrainingJobStatus(db, 1, 'lora_job_route_register', 'succeeded', {
+      artifact_storage_key: 'adapters/r1/support/adapter.safetensors',
+      artifact_checksum_sha256: 'c'.repeat(64),
+      model_card_storage_key: 'adapters/r1/support/model-card.json',
+    });
+
+    const registered = await request(app)
+      .post('/api/lora/training-jobs/lora_job_route_register/register-adapter')
+      .expect(201);
+    expect(registered.body).toMatchObject({
+      adapter_registered: true,
+      idempotent_replay: false,
+      serving_enabled: false,
+      adapter: {
+        adapter_id: 'adpt_lorajob01',
+        status: 'ready',
+      },
+      job: {
+        training_job_id: 'lora_job_route_register',
+        adapter_registered: true,
+      },
+    });
+
+    const replay = await request(app)
+      .post('/api/lora/training-jobs/lora_job_route_register/register-adapter')
+      .expect(200);
+    expect(replay.body).toMatchObject({
+      adapter_registered: true,
+      idempotent_replay: true,
+      adapter: {
+        adapter_id: 'adpt_lorajob01',
+      },
+    });
+
+    const detail = await request(app).get('/api/lora/training-jobs/lora_job_route_register').expect(200);
+    expect(detail.body.training_job.adapter_registered).toBe(true);
   });
 
   test('route factory accepts the production db wrapper shape', async () => {

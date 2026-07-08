@@ -86,6 +86,18 @@ describe('adapter registry schema and service', () => {
     ]));
   });
 
+  test('schema creation accepts the production db wrapper shape', () => {
+    const raw = new Database(':memory:');
+    const wrapper = {
+      prepare: (sql) => raw.prepare(sql),
+      _db: raw,
+    };
+
+    expect(() => ensureAdapterRegistrySchema(wrapper)).not.toThrow();
+    const columns = raw.prepare('PRAGMA table_info(adapter_registry)').all().map((row) => row.name);
+    expect(columns).toEqual(expect.arrayContaining(['adapter_id', 'renter_id', 'status']));
+  });
+
   test('registers, lists, and fetches adapter metadata for one renter', () => {
     const db = makeDb();
     const created = createAdapter(db, 1, adapterInput({ adapter_id: 'adpt_arabic01' }));

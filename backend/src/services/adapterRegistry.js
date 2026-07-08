@@ -31,11 +31,16 @@ class AdapterRegistryError extends Error {
 }
 
 function ensureAdapterRegistrySchema(db) {
-  if (!db || typeof db.exec !== 'function') {
+  const schemaDb = db && typeof db.exec === 'function'
+    ? db
+    : db && db._db && typeof db._db.exec === 'function'
+      ? db._db
+      : null;
+  if (!schemaDb) {
     throw new TypeError('ensureAdapterRegistrySchema requires a better-sqlite3 db with exec(sql)');
   }
 
-  db.exec(`
+  schemaDb.exec(`
     CREATE TABLE IF NOT EXISTS adapter_registry (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       adapter_id TEXT NOT NULL UNIQUE,
@@ -54,10 +59,10 @@ function ensureAdapterRegistrySchema(db) {
       FOREIGN KEY (renter_id) REFERENCES renters(id)
     )
   `);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_renter_created ON adapter_registry(renter_id, created_at DESC)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_renter_status ON adapter_registry(renter_id, status, created_at DESC)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_base_model ON adapter_registry(base_model, status)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_checksum ON adapter_registry(checksum_sha256)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_renter_created ON adapter_registry(renter_id, created_at DESC)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_renter_status ON adapter_registry(renter_id, status, created_at DESC)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_base_model ON adapter_registry(base_model, status)`);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_adapter_registry_checksum ON adapter_registry(checksum_sha256)`);
 }
 
 function registryError(message, opts) {

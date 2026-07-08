@@ -7,13 +7,16 @@ const {
   ensureLoraTrainingJobsSchema,
   getLoraTrainingJob,
   listLoraTrainingJobs,
+  registerLoraTrainingJobAdapter,
 } = require('../services/loraTrainingJobs');
+const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
 
 function createLoraRouter(deps = {}) {
   const router = express.Router();
   const loraDb = deps.db || require('../db');
   const requireRenter = deps.requireRenter || require('./pods').requireRenter;
   ensureLoraTrainingJobsSchema(loraDb);
+  ensureAdapterRegistrySchema(loraDb);
 
   router.get('/training-jobs', requireRenter, (req, res) => {
     try {
@@ -70,11 +73,28 @@ function createLoraRouter(deps = {}) {
     }
   });
 
+  router.post('/training-jobs/:trainingJobId/register-adapter', requireRenter, (req, res) => {
+    try {
+      const result = registerLoraTrainingJobAdapter(loraDb, req.renter.id, req.params.trainingJobId);
+      return res.status(result.idempotent_replay ? 200 : 201).json(result);
+    } catch (error) {
+      return sendLoraError(res, error);
+    }
+  });
+
   return router;
 }
 
 function sendLoraError(res, error) {
   if (error instanceof LoraTrainingJobError) {
+    const body = {
+      error: error.message,
+      code: error.code,
+    };
+    if (error.details) body.details = error.details;
+    return res.status(error.httpStatus || 400).json(body);
+  }
+  if (error instanceof AdapterRegistryError) {
     const body = {
       error: error.message,
       code: error.code,
