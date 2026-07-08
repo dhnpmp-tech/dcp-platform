@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 22:47 UTC - Router policy contract proof (PR #832)
+### 2026-07-08 22:54 UTC - Router policy contract proof (PR #832)
 
 - **PR:** [#832](https://github.com/dhnpmp-tech/dcp-platform/pull/832) (`codex/router-policy-contract-proof-2026-07-09`).
 - **Proof command:** Added `npm run proof:router-policy-contract` for the CI-safe router-policy readiness proof.

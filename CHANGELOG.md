@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 22:47 UTC - `test(inference): add router policy contract proof - PR #832`
+### 2026-07-08 22:54 UTC - `test(inference): add router policy contract proof - PR #832`
 
 **PR:** [#832](https://github.com/dhnpmp-tech/dcp-platform/pull/832) (`codex/router-policy-contract-proof-2026-07-09`).
-**Local timestamp:** 2026-07-09 02:47 +04.
+**Local timestamp:** 2026-07-09 02:54 +04.
 
 **What:** Eighty-third Fireworks/Tinker execution slice. Promotes the router-policy readiness/no-claim gates into a repeatable CI-safe proof command.
 
