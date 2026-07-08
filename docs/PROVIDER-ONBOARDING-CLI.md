@@ -250,6 +250,7 @@ Results are saved and can be submitted manually later.
 
 ### Depends On
 - **`scripts/provider-gpu-benchmark.mjs`** — GPU measurement script
+- **`scripts/provider-nsight-benchmark.py`** — provider-side Nsight/NVIDIA telemetry evidence script for admin scorecards
 - **DCP Backend APIs:**
   - `POST /api/providers/register` — Provider registration
   - `POST /api/providers/:id/benchmark` — Benchmark submission
