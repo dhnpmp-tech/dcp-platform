@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
-### 2026-07-08 05:45 UTC - Adapter registry foundation (PR #735)
+### 2026-07-08 05:39 UTC - Prompt-cache and batch foundations (PR #736)
+
+- **PR:** [#736](https://github.com/dhnpmp-tech/dcp-platform/pull/736) (`codex/prompt-cache-batch-design-2026-07-08`).
+- **Prompt cache:** Added a tested accounting helper for static-prefix/session cache keys, cached-token measurement, and no-discount billable-token behavior.
+- **Batch contract:** Added tested JSONL validation for future batch inference: supported endpoints, per-line bodies, unique `custom_id`, deterministic checksum, and count/byte limits.
+- **Design:** Added `docs/architecture/2026-07-08-prompt-cache-batch-design.md` with the implementation order for prompt-cache discounts and `/api/batches` on existing billing rails.
+
+### 2026-07-08 05:32 UTC - Adapter registry foundation (PR #735)
 
 - **PR:** [#735](https://github.com/dhnpmp-tech/dcp-platform/pull/735) (`codex/adapter-registry-foundation-2026-07-08`).
 - **LoRA backend:** Added the `adapter_registry` schema and service for renter-owned adapter artifact metadata: base model, storage key, checksum, rank, metadata, status, and deployed timestamp.
