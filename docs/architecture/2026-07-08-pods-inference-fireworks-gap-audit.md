@@ -289,6 +289,9 @@ Gaps:
    - PR #783 added the first backend-driven LoRA readiness rail to
      `/renter/fine-tuning`.
    - PR #784 added read-only adapter deployment intent rows to the same console.
+   - PR #786 switched those deployment rows to the aggregate deployment list, so
+     the Fine-Tuning console uses one renter-wide request instead of one request
+     per adapter.
 4. Add Fireworks-style product pages, but only with shipped claims:
    - Inference
    - Pods

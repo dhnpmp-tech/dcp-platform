@@ -23,6 +23,8 @@ what is live.
 - PR #784 added read-only adapter deployment intent rows to `/renter/fine-tuning`
   from `GET /api/adapters/{adapter_id}/deployments`, with route traffic and
   load proof still shown as gated.
+- PR #786 switched that deployment ledger to `GET /api/adapters/deployments`,
+  preserving the read-only UI while removing per-adapter request fan-out.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -106,6 +108,8 @@ what is live.
    **Model-card manifest cards added in PR #778.**
    **LoRA readiness gates added from the backend contract in PR #783.**
    **Adapter deployment intent rows added in PR #784.**
+   **Deployment intent loading moved to the aggregate deployment endpoint in
+   PR #786.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
    **Readiness gates from the backend contract added in PR #777.**
 
@@ -136,6 +140,8 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 - PR #785 added renter-wide `GET /api/adapters/deployments` so dashboards and
   agents can list deployment intent/proof rows across adapters without changing
   routing behavior.
+- PR #786 made `/renter/fine-tuning` consume that aggregate list, so the
+  frontend no longer needs one deployment request per visible adapter.
 
 ### Now
 
@@ -459,6 +465,8 @@ DCP-hosted endpoint -> billed inference.
   - endpoint only routes after adapter load proof
   **PR #784 renders deployment intents in `/renter/fine-tuning`; the UI still
   does not offer a deploy action or route traffic without backend proof.**
+  **PR #786 moves those intents onto the aggregate deployment list from PR #785,
+  keeping the same proof gates with lower request fan-out.**
 
 ### Later
 

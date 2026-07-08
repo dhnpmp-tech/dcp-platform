@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 16:29 UTC - `feat(frontend): use aggregate adapter deployments - PR #786`
+
+**PR:** [#786](https://github.com/dhnpmp-tech/dcp-platform/pull/786) (`codex/frontend-aggregate-deployments-2026-07-08`).
+**Local timestamp:** 2026-07-08 20:29 +04.
+
+**What:** Fifty-third Fireworks/Tinker execution slice. Moves the Fine-Tuning deployment ledger onto the renter-wide deployment list from PR #785 so the frontend no longer fans out one request per adapter.
+
+- **Frontend contract:** `/renter/fine-tuning` now fetches `GET /api/adapters/deployments` with the renter key alongside adapters, training jobs, and LoRA readiness.
+- **Request shape:** Removed per-adapter deployment polling from the initial page load while preserving the same read-only deployment intent table.
+- **Claim guard:** The page still exposes no deploy button or routing claim; route traffic and load proof remain driven entirely by backend deployment rows.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render proving the aggregate deployment endpoint is used, adapter-scoped deployment requests are not used, and no horizontal overflow appears.
+
 ### 2026-07-08 16:18 UTC - `feat(adapters): list renter deployment records - PR #785`
 
 **PR:** [#785](https://github.com/dhnpmp-tech/dcp-platform/pull/785) (`codex/adapter-deployments-list-2026-07-08`).

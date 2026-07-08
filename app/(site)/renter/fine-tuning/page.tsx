@@ -295,9 +295,10 @@ export default function RenterFineTuningPage() {
 
     ;(async () => {
       try {
-        const [meRes, adaptersRes, trainingJobsRes, readinessRes] = await Promise.all([
+        const [meRes, adaptersRes, deploymentsRes, trainingJobsRes, readinessRes] = await Promise.all([
           fetch(`${base}/renters/me`, { headers }),
           fetch(`${base}/adapters`, { headers }),
+          fetch(`${base}/adapters/deployments`, { headers }),
           fetch(`${base}/lora/training-jobs`, { headers }),
           fetch(`${base}/lora/readiness`, { headers }),
         ])
@@ -310,6 +311,10 @@ export default function RenterFineTuningPage() {
           const data = await adaptersRes.json().catch(() => ({}))
           throw new Error(data.error || 'Failed to load adapter registry.')
         }
+        if (!deploymentsRes.ok) {
+          const data = await deploymentsRes.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to load adapter deployments.')
+        }
         if (!trainingJobsRes.ok) {
           const data = await trainingJobsRes.json().catch(() => ({}))
           throw new Error(data.error || 'Failed to load LoRA training jobs.')
@@ -321,27 +326,18 @@ export default function RenterFineTuningPage() {
 
         const me = (await meRes.json()) as RenterMe
         const adapterData = (await adaptersRes.json()) as AdapterListResponse
+        const deploymentData = (await deploymentsRes.json()) as AdapterDeploymentListResponse
         const trainingJobData = (await trainingJobsRes.json()) as TrainingJobListResponse
         const readinessData = (await readinessRes.json()) as LoraReadiness
         const adapterList = adapterData.data || []
-        const deploymentLists = await Promise.all(
-          adapterList.slice(0, 10).map(async (adapter) => {
-            const res = await fetch(`${base}/adapters/${encodeURIComponent(adapter.adapter_id)}/deployments`, { headers })
-            if (!res.ok) {
-              const data = await res.json().catch(() => ({}))
-              throw new Error(data.error || `Failed to load deployments for ${adapter.adapter_id}.`)
-            }
-            const data = (await res.json()) as AdapterDeploymentListResponse
-            return data.data || []
-          })
-        )
+        const deploymentList = deploymentData.data || []
         if (cancelled) return
 
         const renter = me.renter
         setRenterName(renter?.organization || renter?.name || 'DCP renter')
         setRenterEmail(renter?.email || '')
         setAdapters(adapterList)
-        setAdapterDeployments(deploymentLists.flat().sort((a, b) => b.created_at.localeCompare(a.created_at)))
+        setAdapterDeployments(deploymentList)
         setTrainingJobs(trainingJobData.data || [])
         setReadiness(readinessData?.object === 'lora_readiness' ? readinessData : null)
         setLoadState('ready')
