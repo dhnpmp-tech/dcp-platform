@@ -149,6 +149,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - provider quality score input
 - Keep big GPU access behind paid credit; free/trial stays on DCP/community
   supply only.
+  - PR #767 connected this paid-credit gate to `/renter/pods` with structured
+    blocked-launch guidance and exact funding-gap facts, while keeping
+    vendor/on-demand internals out of renter copy.
 
 Acceptance:
 

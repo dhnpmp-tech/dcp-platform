@@ -276,6 +276,16 @@ interface LaunchState {
   customImage: string
   submitting: boolean
   error: string
+  creditError: LaunchCreditError | null
+}
+
+interface LaunchCreditError {
+  code: string
+  message: string
+  requiredSar?: number
+  availableSar?: number
+  rateSarPerHour?: number
+  durationMinutes?: number
 }
 
 interface PodsListResponse {
@@ -300,6 +310,10 @@ interface LaunchResponse {
   error?: string
   code?: string
   message?: string
+  required_sar?: number
+  balance_sar?: number
+  paid_available_sar?: number
+  rate_sar_per_hour?: number
 }
 
 // One-time credentials surfaced immediately after a successful launch.
@@ -390,14 +404,37 @@ function statusClass(status: string): string {
   return 'revoked'
 }
 
-function isFundingLaunchError(err: string): boolean {
-  return err === 'insufficient_balance' ||
+function optionalNumber(value: unknown): number | undefined {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : undefined
+}
+
+function buildLaunchCreditError(err: LaunchResponse, durationMinutes: number): LaunchCreditError {
+  const code = String(err.code || err.error || 'insufficient_balance')
+  const isPaidCreditGate = code === 'on_demand_requires_prepaid_credit'
+  return {
+    code,
+    message: isPaidCreditGate
+      ? 'This GPU requires paid credit.'
+      : 'Insufficient credit for this pod.',
+    requiredSar: optionalNumber(err.required_sar),
+    availableSar: optionalNumber(err.paid_available_sar ?? err.balance_sar),
+    rateSarPerHour: optionalNumber(err.rate_sar_per_hour),
+    durationMinutes,
+  }
+}
+
+function isFundingLaunchError(err: string, creditError?: LaunchCreditError | null): boolean {
+  return Boolean(creditError) ||
+    err === 'insufficient_balance' ||
     /^insufficient (balance|credit)/i.test(err) ||
     /^this gpu requires prepaid credit/i.test(err)
 }
 
-function keepFundingLaunchError(err: string): string {
-  return isFundingLaunchError(err) ? err : ''
+function keepFundingLaunchError(err: string, creditError?: LaunchCreditError | null): Pick<LaunchState, 'error' | 'creditError'> {
+  return isFundingLaunchError(err, creditError)
+    ? { error: err, creditError: creditError || null }
+    : { error: '', creditError: null }
 }
 
 // ── GPU-selector helpers ───────────────────────────────────────────────
@@ -538,6 +575,7 @@ export default function RenterPodsPage() {
     customImage: '',
     submitting: false,
     error: '',
+    creditError: null,
   })
 
   // ── GPU selector UI state ──────────────────────────────────────────────
@@ -685,17 +723,17 @@ export default function RenterPodsPage() {
 
     const token = launch.notebookToken.trim()
     if (token.length < MIN_TOKEN_LENGTH) {
-      setLaunch((l) => ({ ...l, error: `Notebook token must be at least ${MIN_TOKEN_LENGTH} characters.` }))
+      setLaunch((l) => ({ ...l, error: `Notebook token must be at least ${MIN_TOKEN_LENGTH} characters.`, creditError: null }))
       return
     }
 
     const image = resolveImage(launch)
     if (launch.imageChoice === CUSTOM_IMAGE_OPTION && !image) {
-      setLaunch((l) => ({ ...l, error: 'Enter a Docker image reference for a custom pod.' }))
+      setLaunch((l) => ({ ...l, error: 'Enter a Docker image reference for a custom pod.', creditError: null }))
       return
     }
 
-    setLaunch((l) => ({ ...l, submitting: true, error: '' }))
+    setLaunch((l) => ({ ...l, submitting: true, error: '', creditError: null }))
     try {
       const res = await fetch(`${getApiBase()}/pods?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
@@ -716,18 +754,13 @@ export default function RenterPodsPage() {
 
       if (res.status === 402) {
         const err = (await res.json().catch(() => ({}))) as LaunchResponse
-        const code = err.code || err.error
-        const message = err.message || (
-          code === 'on_demand_requires_prepaid_credit'
-            ? 'This GPU requires prepaid credit. Add credit and retry.'
-            : 'Insufficient credit. Add credit and retry.'
-        )
-        setLaunch((l) => ({ ...l, submitting: false, error: message }))
+        const creditError = buildLaunchCreditError(err, launch.durationMinutes)
+        setLaunch((l) => ({ ...l, submitting: false, error: creditError.message, creditError }))
         return
       }
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as LaunchResponse
-        setLaunch((l) => ({ ...l, submitting: false, error: err.error || 'Failed to launch pod.' }))
+        setLaunch((l) => ({ ...l, submitting: false, error: err.error || 'Failed to launch pod.', creditError: null }))
         return
       }
 
@@ -755,10 +788,11 @@ export default function RenterPodsPage() {
         customImage: launch.customImage,
         submitting: false,
         error: '',
+        creditError: null,
       })
       fetchPods(apiKey)
     } catch {
-      setLaunch((l) => ({ ...l, submitting: false, error: 'Network error. Please try again.' }))
+      setLaunch((l) => ({ ...l, submitting: false, error: 'Network error. Please try again.', creditError: null }))
     }
   }
 
@@ -827,20 +861,20 @@ export default function RenterPodsPage() {
   // Keep funding errors sticky; clear transient field errors as the renter edits.
   const onImageChoice = (v: string) => {
     setSelectedTemplateKey(null)
-    setLaunch((l) => ({ ...l, imageChoice: v, error: keepFundingLaunchError(l.error) }))
+    setLaunch((l) => ({ ...l, imageChoice: v, ...keepFundingLaunchError(l.error, l.creditError) }))
   }
   const onCustomImage = (v: string) => {
     setSelectedTemplateKey(null)
-    setLaunch((l) => ({ ...l, customImage: v, error: keepFundingLaunchError(l.error) }))
+    setLaunch((l) => ({ ...l, customImage: v, ...keepFundingLaunchError(l.error, l.creditError) }))
   }
   const onRegenerate = () =>
-    setLaunch((l) => ({ ...l, notebookToken: generateNotebookToken(), error: keepFundingLaunchError(l.error) }))
+    setLaunch((l) => ({ ...l, notebookToken: generateNotebookToken(), ...keepFundingLaunchError(l.error, l.creditError) }))
 
   const templateCatalogById = new Map(templateCatalog.map((item) => [item.id, item]))
 
   // ── GPU type selection + notify-me ─────────────────────────────────────
   const selectGpuType = useCallback((gpuModel: string) => {
-    setLaunch((l) => ({ ...l, gpuType: gpuModel, error: keepFundingLaunchError(l.error) }))
+    setLaunch((l) => ({ ...l, gpuType: gpuModel, ...keepFundingLaunchError(l.error, l.creditError) }))
   }, [])
 
   const toggleAvailFilter = (f: AvailFilter) =>
@@ -874,6 +908,7 @@ export default function RenterPodsPage() {
         ...l,
         ...(w.image ? { imageChoice: w.image } : {}),
         ...(w.durationMin ? { durationMinutes: w.durationMin } : {}),
+        ...keepFundingLaunchError(l.error, l.creditError),
       }))
     }
     const match = gpuTypes.find(
@@ -901,7 +936,7 @@ export default function RenterPodsPage() {
       ...l,
       imageChoice: template.image,
       durationMinutes: durationMinutes || l.durationMinutes,
-      error: keepFundingLaunchError(l.error),
+      ...keepFundingLaunchError(l.error, l.creditError),
     }))
   }
 
@@ -1663,20 +1698,44 @@ export default function RenterPodsPage() {
               </div>
             </div>
 
-            {isFundingLaunchError(launch.error) ? (
-              <div className="dash-state error" style={{ marginTop: '20px' }}>
+            {isFundingLaunchError(launch.error, launch.creditError) ? (
+              <div className="dash-state error pod-credit-state" style={{ marginTop: '20px' }}>
                 <b>
                   <Bi en="Credit required" ar="الرصيد مطلوب" />
                 </b>
                 <span>
-                  {launch.error === 'insufficient_balance'
-                    ? <Bi en="Add credit before launching this pod." ar="أضف رصيدًا قبل تشغيل هذه الحاوية." />
-                    : launch.error}
+                  {launch.creditError?.code === 'on_demand_requires_prepaid_credit'
+                    ? <Bi en="Trial credit covers DCP and community GPUs. Add paid credit to launch this GPU." ar="رصيد التجربة يغطي وحدات DCP والمجتمع. أضف رصيدًا مدفوعًا لتشغيل هذه البطاقة." />
+                    : <Bi en="Add credit before launching this pod." ar="أضف رصيدًا قبل تشغيل هذه الحاوية." />}
                   {' '}
                   <Link href="/renter/wallet">
                     <Bi en="Add credit" ar="إضافة رصيد" />
                   </Link>
                 </span>
+                {launch.creditError && (
+                  <div className="pod-credit-facts" aria-label="Credit requirement details">
+                    {launch.creditError.availableSar != null && (
+                      <span>
+                        <Bi en={`Available credit ${fmtSar(launch.creditError.availableSar)}`} ar={`الرصيد المتاح ${fmtSar(launch.creditError.availableSar)}`} />
+                      </span>
+                    )}
+                    {launch.creditError.requiredSar != null && (
+                      <span>
+                        <Bi en={`Required credit ${fmtSar(launch.creditError.requiredSar)}`} ar={`الرصيد المطلوب ${fmtSar(launch.creditError.requiredSar)}`} />
+                      </span>
+                    )}
+                    {launch.creditError.durationMinutes != null && (
+                      <span>
+                        <Bi en={`${launch.creditError.durationMinutes} min launch`} ar={`تشغيل ${launch.creditError.durationMinutes} دقيقة`} />
+                      </span>
+                    )}
+                    {launch.creditError.rateSarPerHour != null && (
+                      <span>
+                        <Bi en={`Rate ${fmtSar(launch.creditError.rateSarPerHour)}/hr`} ar={`السعر ${fmtSar(launch.creditError.rateSarPerHour)}/ساعة`} />
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             ) : launch.error ? (
               <div className="dash-state error" style={{ marginTop: '20px' }}>

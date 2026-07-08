@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 12:00 UTC - `feat(frontend): add pod launch credit-required guidance - PR #767`
+
+**PR:** [#767](https://github.com/dhnpmp-tech/dcp-platform/pull/767) (`codex/pod-launch-credit-error-guidance-2026-07-08`).
+**Local timestamp:** 2026-07-08 16:00 +04.
+
+**What:** Thirty-fourth Fireworks/Tinker execution slice. Completes the frontend half of Tareq's on-demand/paid-credit gate by making `/renter/pods` render structured HTTP 402 launch guidance instead of collapsing the backend policy response into a generic string.
+
+- **Structured 402s:** Pod launch now preserves `on_demand_requires_prepaid_credit` / `insufficient_balance` details, including available credit, required credit, requested duration, and hourly rate when the backend supplies them.
+- **Credit-first UX:** The blocked-launch panel now says "Credit required", sends renters to Add credit, and explains that trial credit covers DCP/community GPUs without exposing vendor or on-demand internals.
+- **Sticky remediation:** Funding errors remain visible while renters adjust template, GPU, image, token, or duration choices; transient validation/network errors still clear the structured credit state.
+- **Layout:** Added scoped credit-fact chips so the renter sees the exact funding gap without changing shared dashboard error styling.
+- **Verified:** `npm run build`; `git diff --check`; Playwright render smoke with signed renter session and mocked HTTP 402 launch response.
+
 ### 2026-07-08 11:38 UTC - `fix(inference): stop advertising non-chat models as chat-capable - PR #766`
 
 **PR:** [#766](https://github.com/dhnpmp-tech/dcp-platform/pull/766) (`codex/model-capability-contract-honesty-2026-07-08`).

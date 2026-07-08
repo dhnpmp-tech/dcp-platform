@@ -528,6 +528,32 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   gap: 9px;
 }
 
+.pod-credit-state {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pod-credit-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--mut);
+}
+
+.pod-credit-facts span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--err) 8%, var(--paper));
+}
+
 /* ════════════════════════════════════════════════════════════════════
    GPU PICKER — finalist editorial card grid
    Ported from dcp-pod-selector-FINAL.html, mapped onto the renter shell
