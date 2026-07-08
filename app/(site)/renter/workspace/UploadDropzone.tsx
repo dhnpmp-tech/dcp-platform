@@ -15,6 +15,7 @@ interface UploadDropzoneProps {
   state: UploadState
   fileInputRef: RefObject<HTMLInputElement | null>
   resumeInputRef: RefObject<HTMLInputElement | null>
+  context?: 'workspace' | 'pod-launch'
   dragOver: boolean
   onDrop: (e: DragEvent<HTMLDivElement>) => void
   onDragOver: (e: DragEvent<HTMLDivElement>) => void
@@ -31,6 +32,7 @@ export default function UploadDropzone({
   state,
   fileInputRef,
   resumeInputRef,
+  context = 'workspace',
   dragOver,
   onDrop,
   onDragOver,
@@ -86,13 +88,24 @@ export default function UploadDropzone({
           <div className="ws-drop-idle">
             <span className="ws-drop-ic">↑</span>
             <span>
-              <Bi en="Drop a file to upload" ar="أفلِت ملفاً للرفع" />
+              {context === 'pod-launch'
+                ? <Bi en="Drop dataset, notebook, or adapter" ar="أفلِت بيانات أو دفتر أو محوّل" />
+                : <Bi en="Drop a file to upload" ar="أفلِت ملفاً للرفع" />}
             </span>
             <span className="ws-drop-hint">
-              <Bi
-                en="Single PUT for < 5 MiB · resumable multipart above"
-                ar="رفع واحد أقل من 5 ميبي · متعدد الأجزاء قابل للاستئناف فوق ذلك"
-              />
+              {context === 'pod-launch'
+                ? (
+                    <Bi
+                      en="Saved to /workspace, then mounted into the pod when it starts"
+                      ar="تُحفظ في /workspace ثم تُربط بالحاوية عند تشغيلها"
+                    />
+                  )
+                : (
+                    <Bi
+                      en="Single PUT for < 5 MiB · resumable multipart above"
+                      ar="رفع واحد أقل من 5 ميبي · متعدد الأجزاء قابل للاستئناف فوق ذلك"
+                    />
+                  )}
             </span>
           </div>
         ) : (

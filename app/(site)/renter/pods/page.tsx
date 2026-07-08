@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
 import { displayGpuType } from '@/app/lib/useGpuTypes'
+import WorkspacePanel from '../workspace/WorkspacePanel'
+import type { WorkspaceVolume } from '../workspace/workspaceApi'
 import { PodSidebar, PodTopbar, initials } from './PodShell'
 import './pods.css'
 
@@ -32,14 +34,91 @@ const DURATION_OPTIONS: { minutes: number; label: string }[] = [
 // Friendly aliases map to pre-baked dcp-compute:<alias> images (sshd baked in →
 // fast start). "Custom…" lets the renter pass any valid Docker image reference,
 // which the daemon boots with sshd injected. PyTorch is the default.
-const IMAGE_PRESETS: { value: string; label: string; labelAr: string }[] = [
+interface ImagePreset {
+  value: string
+  label: string
+  labelAr: string
+}
+
+interface LaunchTemplate {
+  key: string
+  titleEn: string
+  titleAr: string
+  descEn: string
+  descAr: string
+  image: string
+  durationMin?: number
+  workloadKey?: string
+  disabled?: boolean
+  badgeEn?: string
+  badgeAr?: string
+}
+
+const IMAGE_PRESETS: ImagePreset[] = [
   { value: 'pytorch', label: 'PyTorch', labelAr: 'PyTorch' },
-  { value: 'vllm', label: 'vLLM', labelAr: 'vLLM' },
+  { value: 'vllm', label: 'vLLM serve', labelAr: 'vLLM للخدمة' },
   { value: 'cuda', label: 'CUDA base', labelAr: 'CUDA أساسي' },
-  { value: 'ubuntu', label: 'Ubuntu', labelAr: 'Ubuntu' },
+  { value: 'ubuntu', label: 'Ubuntu base', labelAr: 'Ubuntu أساسي' },
 ]
 const CUSTOM_IMAGE_OPTION = 'custom'
 const DEFAULT_IMAGE = 'pytorch'
+
+const LAUNCH_TEMPLATES: LaunchTemplate[] = [
+  {
+    key: 'notebook-pytorch',
+    titleEn: 'Notebook / PyTorch',
+    titleAr: 'دفتر / PyTorch',
+    descEn: 'CUDA-ready Python notebook with SSH for experiments and training scripts.',
+    descAr: 'دفتر Python جاهز لـ CUDA مع SSH للتجارب وسكربتات التدريب.',
+    image: 'pytorch',
+    durationMin: 60,
+    workloadKey: 'notebook',
+  },
+  {
+    key: 'serve-vllm',
+    titleEn: 'vLLM serve pod',
+    titleAr: 'حاوية خدمة vLLM',
+    descEn: 'Inference server experiments with Jupyter and SSH access.',
+    descAr: 'تجارب خدمة الاستدلال مع وصول Jupyter وSSH.',
+    image: 'vllm',
+    durationMin: 120,
+    workloadKey: 'infer',
+  },
+  {
+    key: 'sft-pytorch',
+    titleEn: 'SFT / QLoRA prep',
+    titleAr: 'تجهيز SFT / QLoRA',
+    descEn: 'Stage data in /workspace, then launch a PyTorch pod for adapter work.',
+    descAr: 'جهّز البيانات في /workspace ثم شغّل حاوية PyTorch لعمل المحوّلات.',
+    image: 'pytorch',
+    durationMin: 240,
+    workloadKey: 'finetune',
+    badgeEn: 'LoRA path',
+    badgeAr: 'مسار LoRA',
+  },
+  {
+    key: 'cuda-base',
+    titleEn: 'CUDA base',
+    titleAr: 'CUDA أساسي',
+    descEn: 'Bare CUDA runtime for custom installers and low-level GPU checks.',
+    descAr: 'بيئة CUDA أساسية للمثبتات المخصصة وفحوصات GPU المنخفضة.',
+    image: 'cuda',
+    durationMin: 60,
+  },
+  {
+    key: 'lora-verification',
+    titleEn: 'LoRA stack image',
+    titleAr: 'صورة LoRA',
+    descEn: 'Built in repo; GPU-host smoke verification is still the release gate.',
+    descAr: 'مبنية في المستودع؛ تحقق GPU-host ما زال بوابة الإطلاق.',
+    image: 'lora',
+    durationMin: 240,
+    workloadKey: 'finetune',
+    disabled: true,
+    badgeEn: 'Verification pending',
+    badgeAr: 'بانتظار التحقق',
+  },
+]
 
 const ACTIVE_POD_STATUSES = new Set(['queued', 'assigned', 'pulling', 'running', 'starting'])
 
@@ -80,12 +159,12 @@ interface Workload {
   durationMin?: number
 }
 const WORKLOADS: Workload[] = [
-  { key: 'finetune', titleEn: 'Fine-tune 7–13B', titleAr: 'ضبط 7–13B', descEn: 'LoRA / QLoRA on a small model', descAr: 'LoRA / QLoRA على نموذج صغير', floor: 24, prefer: 'rtx 4090' },
-  { key: 'infer', titleEn: 'Inference / serving', titleAr: 'الاستدلال / الخدمة', descEn: 'Run a model, batch or API', descAr: 'تشغيل نموذج، دفعات أو API', floor: 24, prefer: 'rtx 3090' },
-  { key: 'diffusion', titleEn: 'Image / video gen', titleAr: 'توليد الصور / الفيديو', descEn: 'SDXL, ComfyUI, video diffusion', descAr: 'SDXL وComfyUI وتوليد الفيديو', floor: 24, prefer: 'rtx 4090' },
-  { key: 'notebook', titleEn: 'Notebook / dev', titleAr: 'دفتر / تطوير', descEn: 'Prototyping, light experiments', descAr: 'نماذج أولية وتجارب خفيفة', floor: 8, prefer: 'rtx 3090' },
-  { key: 'largetrain', titleEn: 'Large training', titleAr: 'تدريب كبير', descEn: 'Full fine-tune, 30B+ models', descAr: 'ضبط كامل، نماذج 30B+', floor: 80, prefer: 'a100' },
-  { key: 'frontier', titleEn: 'Frontier-scale', titleAr: 'نطاق متقدم', descEn: '100B+, long-context training', descAr: '100B+ وسياق طويل', floor: 141, prefer: 'h200' },
+  { key: 'finetune', titleEn: 'Fine-tune 7–13B', titleAr: 'ضبط 7–13B', descEn: 'LoRA / QLoRA on a small model', descAr: 'LoRA / QLoRA على نموذج صغير', floor: 24, prefer: 'rtx 4090', image: 'pytorch', durationMin: 240 },
+  { key: 'infer', titleEn: 'Inference / serving', titleAr: 'الاستدلال / الخدمة', descEn: 'Run a model, batch or API', descAr: 'تشغيل نموذج، دفعات أو API', floor: 24, prefer: 'rtx 3090', image: 'vllm', durationMin: 120 },
+  { key: 'diffusion', titleEn: 'Image / video gen', titleAr: 'توليد الصور / الفيديو', descEn: 'SDXL, ComfyUI, video diffusion', descAr: 'SDXL وComfyUI وتوليد الفيديو', floor: 24, prefer: 'rtx 4090', image: 'cuda', durationMin: 120 },
+  { key: 'notebook', titleEn: 'Notebook / dev', titleAr: 'دفتر / تطوير', descEn: 'Prototyping, light experiments', descAr: 'نماذج أولية وتجارب خفيفة', floor: 8, prefer: 'rtx 3090', image: 'pytorch', durationMin: 60 },
+  { key: 'largetrain', titleEn: 'Large training', titleAr: 'تدريب كبير', descEn: 'Full fine-tune, 30B+ models', descAr: 'ضبط كامل، نماذج 30B+', floor: 80, prefer: 'a100', image: 'pytorch', durationMin: 480 },
+  { key: 'frontier', titleEn: 'Frontier-scale', titleAr: 'نطاق متقدم', descEn: '100B+, long-context training', descAr: '100B+ وسياق طويل', floor: 141, prefer: 'h200', image: 'pytorch', durationMin: 480 },
   { key: 'experiment', titleEn: 'Experiment server', titleAr: 'خادم تجريبي', descEn: 'vLLM test pod — auto-cleans on stop', descAr: 'حاوية vLLM تجريبية — تُنظَّف تلقائياً عند الإيقاف', floor: 24, prefer: 'rtx 3090', image: 'vllm', durationMin: 120 },
 ]
 
@@ -358,17 +437,14 @@ export default function RenterPodsPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [pods, setPods] = useState<Pod[]>([])
   const [providers, setProviders] = useState<AvailableProvider[]>([])
+  const [renterKey, setRenterKey] = useState<string | null>(null)
+  const [workspaceVolume, setWorkspaceVolume] = useState<WorkspaceVolume | null>(null)
   const [renterName, setRenterName] = useState('Renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
   const [extending, setExtending] = useState<Record<string, boolean>>({})
   const [extendMsg, setExtendMsg] = useState<Record<string, string>>({})
-  const [volume, setVolume] = useState<any>(null)
-  const [volOptions, setVolOptions] = useState<any[]>([])
-  const [volPool, setVolPool] = useState<{ available_gb?: number; ceiling_gb?: number } | null>(null)
-  const [volBusy, setVolBusy] = useState(false)
-  const [volMsg, setVolMsg] = useState('')
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
   const [launch, setLaunch] = useState<LaunchState>({
@@ -473,12 +549,15 @@ export default function RenterPodsPage() {
     if (typeof window === 'undefined') return
     const apiKey = getRenterKey()
     if (!apiKey) {
+      setRenterKey(null)
+      setWorkspaceVolume(null)
       setLoadState('missing-key')
       return
     }
+    setRenterKey(apiKey)
     let cancelled = false
     const tick = async () => {
-      await Promise.all([fetchPods(apiKey), fetchRenter(apiKey), fetchProviders(), fetchVolume(apiKey)])
+      await Promise.all([fetchPods(apiKey), fetchRenter(apiKey), fetchProviders()])
       if (!cancelled) setLoadState('ready')
     }
     tick()
@@ -625,47 +704,6 @@ export default function RenterPodsPage() {
     }
   }
 
-  const fetchVolume = useCallback(async (apiKey: string) => {
-    try {
-      const res = await fetch(`${getApiBase()}/volumes/me`, { headers: { 'x-renter-key': apiKey } })
-      if (!res.ok) return
-      const data = await res.json()
-      setVolume(data.volume || null)
-      setVolOptions(data.options || [])
-      setVolPool(data.pool || null)
-    } catch (_) { /* non-fatal */ }
-  }, [])
-
-  const rentVolume = async (sizeGb: number) => {
-    const apiKey = getRenterKey() || ''
-    if (!apiKey || volBusy) return
-    setVolBusy(true); setVolMsg('')
-    try {
-      const res = await fetch(`${getApiBase()}/volumes/rent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-renter-key': apiKey },
-        body: JSON.stringify({ size_gb: sizeGb }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok) { setVolMsg(`Rented ${sizeGb} GB · ${data.charged_sar} SAR/mo`); fetchVolume(apiKey) }
-      else setVolMsg(String((data && (data.error?.message || data.error)) || `Rent failed (${res.status})`).slice(0, 120))
-    } catch (_) { setVolMsg('Rent failed — try again') }
-    finally { setVolBusy(false) }
-  }
-
-  const releaseVolume = async () => {
-    const apiKey = getRenterKey() || ''
-    if (!apiKey || volBusy) return
-    if (typeof window !== 'undefined' && !window.confirm('Release your volume? Stored files will be deleted and billing stops.')) return
-    setVolBusy(true); setVolMsg('')
-    try {
-      const res = await fetch(`${getApiBase()}/volumes`, { method: 'DELETE', headers: { 'x-renter-key': apiKey } })
-      if (res.ok) { setVolMsg('Volume released'); fetchVolume(apiKey) }
-      else setVolMsg('Release failed')
-    } catch (_) { setVolMsg('Release failed') }
-    finally { setVolBusy(false) }
-  }
-
   // ── Copy helper ──────────────────────────────────────────────────────
   const copyText = (key: string, value: string) => {
     navigator.clipboard
@@ -728,6 +766,23 @@ export default function RenterPodsPage() {
     if (match) selectGpuType(match.gpu_model)
   }
 
+  const applyLaunchTemplate = (template: LaunchTemplate) => {
+    if (template.disabled) return
+    if (template.workloadKey) {
+      const workload = WORKLOADS.find((w) => w.key === template.workloadKey)
+      if (workload) {
+        setActiveWorkload(workload.key)
+        setMinVram(workload.floor)
+      }
+    }
+    setLaunch((l) => ({
+      ...l,
+      imageChoice: template.image,
+      durationMinutes: template.durationMin || l.durationMinutes,
+      error: keepFundingLaunchError(l.error),
+    }))
+  }
+
   // POST /api/pods/notify-me { gpu_type } — renter-authed waitlist for an
   // out-of-stock type. Prefills nothing (server uses the signed-in renter).
   const notifyMe = async (gpuModel: string) => {
@@ -778,6 +833,17 @@ export default function RenterPodsPage() {
 
   // The currently-selected type (if still in stock).
   const selectedType = launch.gpuType ? gpuTypes.find((g) => g.gpu_model === launch.gpuType) || null : null
+  const selectedImage = resolveImage(launch)
+  const selectedPreset = IMAGE_PRESETS.find((img) => img.value === launch.imageChoice)
+  const selectedImageLabel = isCustom
+    ? (selectedImage || (lang === 'ar' ? 'صورة مخصصة' : 'Custom image'))
+    : selectedPreset
+      ? (lang === 'ar' ? selectedPreset.labelAr : selectedPreset.label)
+      : selectedImage
+  const durationLabel = formatDuration(launch.durationMinutes)
+  const selectedQuoteSar = selectedType?.sar_per_hour != null
+    ? selectedType.sar_per_hour * (launch.durationMinutes / 60)
+    : null
 
   const isLive = loadState === 'ready'
 
@@ -863,53 +929,27 @@ export default function RenterPodsPage() {
             </div>
           </div>
 
-          {/* ── Persistent volume panel ──────────────────────── */}
-          <section className="panel vol-panel" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
+          {/* ── Workspace staging ────────────────────────────── */}
+          <div className="pod-stage" style={{ marginTop: '28px' }}>
+            <div className="pod-stage-hd">
+              <span className="pod-stage-no">01</span>
               <div>
-                <h3><Bi en="Persistent storage" ar="تخزين دائم" /></h3>
+                <h2><Bi en="Stage workspace files" ar="جهّز ملفات مساحة العمل" /></h2>
+                <p>
+                  <Bi
+                    en="Use the same /workspace volume that reattaches when a pod starts."
+                    ar="استخدم نفس وحدة /workspace التي تُعاد عند تشغيل الحاوية."
+                  />
+                </p>
               </div>
-              <span className="hint">
-                <Bi en="In-Kingdom · survives teardown · reattaches to every pod" ar="داخل المملكة · يبقى بعد الإيقاف · يُعاد ربطه بكل حاوية" />
-              </span>
             </div>
-            {volume ? (
-              <div className="vol-active">
-                <div className="vol-active-row">
-                  <span className="vol-size mono">{volume.size_gb} GB</span>
-                  <span className="vol-stat on">{volume.status}</span>
-                  <span className="vol-price">{volume.price_sar_per_month} SAR/mo</span>
-                  {typeof volume.used_pct === 'number' && (
-                    <span className="vol-used">{volume.used_gb} GB used ({volume.used_pct}%)</span>
-                  )}
-                  <button type="button" className="btn-sec danger vol-release" disabled={volBusy} onClick={releaseVolume}>
-                    <Bi en="Release" ar="إلغاء" />
-                  </button>
-                </div>
-                <p className="vol-note"><Bi en="Files in /workspace are saved here and restore automatically on your next pod — on any provider." ar="تُحفظ ملفات /workspace هنا وتُستعاد تلقائيًا في حاويتك التالية على أي مزوّد." /></p>
-              </div>
-            ) : (
-              <div className="vol-rent">
-                <p className="vol-note"><Bi en="Rent a volume so your work persists across pods. Without one, pods are temporary." ar="استأجر مساحة لتبقى أعمالك بين الحاويات. بدونها تكون الحاويات مؤقتة." /></p>
-                <div className="vol-options">
-                  {volOptions.map((o) => {
-                    const tooBig = volPool && typeof volPool.available_gb === 'number' && o.size_gb > volPool.available_gb
-                    return (
-                      <button key={o.size_gb} type="button" className="vol-opt" disabled={volBusy || !!tooBig} onClick={() => rentVolume(o.size_gb)}>
-                        <span className="vol-opt-gb">{o.size_gb} GB</span>
-                        <span className="vol-opt-price">{o.price_sar_per_month} SAR/mo</span>
-                        {tooBig ? <span className="vol-opt-full"><Bi en="pool full" ar="ممتلئ" /></span> : null}
-                      </button>
-                    )
-                  })}
-                </div>
-                {volPool && typeof volPool.available_gb === 'number' && (
-                  <span className="vol-pool"><Bi en={`${volPool.available_gb} GB available`} ar={`${volPool.available_gb} غيغابايت متاح`} /></span>
-                )}
-              </div>
-            )}
-            {volMsg && <span className="vol-msg">{volMsg}</span>}
-          </section>
+            <WorkspacePanel
+              apiBase={getApiBase()}
+              renterKey={renterKey}
+              context="pod-launch"
+              onVolumeLoaded={setWorkspaceVolume}
+            />
+          </div>
 
           {/* ── Launch panel ───────────────────────────────── */}
           <section className="panel pod-launch" style={{ marginTop: '28px' }}>
@@ -923,6 +963,89 @@ export default function RenterPodsPage() {
                 <Bi en="Jupyter notebook + SSH, torn down on duration" ar="دفتر Jupyter + SSH، تُغلق عند انتهاء المدة" />
               </span>
             </div>
+
+            <div className="pod-flow-rail" aria-label={lang === 'ar' ? 'خطة التشغيل' : 'Launch plan'}>
+              <div className={`pod-flow-item${workspaceVolume ? ' ok' : ''}`}>
+                <span className="pod-flow-no">01</span>
+                <span className="pod-flow-k"><Bi en="Workspace" ar="مساحة العمل" /></span>
+                <strong>
+                  {workspaceVolume
+                    ? `${workspaceVolume.size_gb} GB /workspace`
+                    : <Bi en="No volume yet" ar="لا توجد وحدة بعد" />}
+                </strong>
+              </div>
+              <div className={`pod-flow-item${selectedType ? ' ok' : ''}`}>
+                <span className="pod-flow-no">02</span>
+                <span className="pod-flow-k"><Bi en="GPU" ar="GPU" /></span>
+                <strong>
+                  {selectedType
+                    ? displayGpuType(selectedType.gpu_model)
+                    : <Bi en="Auto-pick" ar="اختيار تلقائي" />}
+                </strong>
+              </div>
+              <div className="pod-flow-item ok">
+                <span className="pod-flow-no">03</span>
+                <span className="pod-flow-k"><Bi en="Runtime" ar="بيئة التشغيل" /></span>
+                <strong>{selectedImageLabel} · {durationLabel}</strong>
+              </div>
+              <div className={`pod-flow-item${selectedQuoteSar != null ? ' ok' : ''}`}>
+                <span className="pod-flow-no">04</span>
+                <span className="pod-flow-k"><Bi en="Prepaid quote" ar="تقدير مسبق" /></span>
+                <strong>
+                  {selectedQuoteSar != null
+                    ? `~SAR ${fmtSar(selectedQuoteSar)}`
+                    : <Bi en="After GPU pick" ar="بعد اختيار GPU" />}
+                </strong>
+              </div>
+            </div>
+
+            <section className="pod-template-picker" aria-labelledby="pod-template-heading">
+              <div className="pod-template-hd">
+                <div>
+                  <span className="pod-label"><Bi en="Launch template" ar="قالب التشغيل" /></span>
+                  <h4 id="pod-template-heading">
+                    <Bi en="Choose the pod shape" ar="اختر شكل الحاوية" />
+                  </h4>
+                </div>
+                <span className="hint">
+                  <Bi en="Templates set image, duration, and workload filters" ar="القوالب تضبط الصورة والمدة وتصفية العمل" />
+                </span>
+              </div>
+              <div className="pod-template-grid">
+                {LAUNCH_TEMPLATES.map((template) => {
+                  const selected =
+                    !template.disabled &&
+                    !isCustom &&
+                    launch.imageChoice === template.image &&
+                    (!template.durationMin || launch.durationMinutes === template.durationMin)
+                  return (
+                    <button
+                      key={template.key}
+                      type="button"
+                      className={`pod-template-card${selected ? ' on' : ''}${template.disabled ? ' disabled' : ''}`}
+                      aria-pressed={selected}
+                      aria-disabled={template.disabled || undefined}
+                      disabled={template.disabled || !isLive}
+                      onClick={() => applyLaunchTemplate(template)}
+                    >
+                      {(template.badgeEn || template.disabled) && (
+                        <span className="pod-template-badge">
+                          {lang === 'ar'
+                            ? (template.badgeAr || 'قريباً')
+                            : (template.badgeEn || 'Coming next')}
+                        </span>
+                      )}
+                      <span className="pod-template-title">{lang === 'ar' ? template.titleAr : template.titleEn}</span>
+                      <span className="pod-template-desc">{lang === 'ar' ? template.descAr : template.descEn}</span>
+                      <span className="pod-template-meta">
+                        {template.image}
+                        {template.durationMin ? ` · ${formatDuration(template.durationMin)}` : ''}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
 
             {/* ── GPU picker: optional workload helper + toolbar + card grid ── */}
             <div className="gpu-picker">
@@ -1304,7 +1427,7 @@ export default function RenterPodsPage() {
               {/* Image */}
               <div className="pod-field pod-field-wide">
                 <label htmlFor="pod-image" className="pod-label">
-                  <Bi en="Image" ar="الصورة" />
+                  <Bi en="Image override" ar="تجاوز الصورة" />
                 </label>
                 <div className="pod-image-row">
                   <select
@@ -1337,8 +1460,8 @@ export default function RenterPodsPage() {
                 </div>
                 <p className="pod-help">
                   <Bi
-                    en="Presets start fast with SSH ready. Custom images boot any Docker reference with SSH injected automatically."
-                    ar="القوالب الجاهزة تبدأ بسرعة مع SSH. الصور المخصصة تشغّل أي مرجع Docker مع حقن SSH تلقائيًا."
+                    en="Template cards set this automatically. Use Custom only when you need an exact Docker reference; SSH is injected automatically."
+                    ar="تضبط بطاقات القوالب هذا تلقائيًا. استخدم مخصص فقط عند الحاجة إلى مرجع Docker محدد؛ يتم حقن SSH تلقائيًا."
                   />
                 </p>
               </div>

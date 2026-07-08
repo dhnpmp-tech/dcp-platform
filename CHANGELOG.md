@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 05:12 UTC - `feat(pods): polish workspace-to-pod launch flow - PR #734`
+
+**PR:** [#734](https://github.com/dhnpmp-tech/dcp-platform/pull/734) (`codex/workspace-pod-launch-polish-2026-07-08`).
+**Local timestamp:** 2026-07-08 09:12 +04.
+
+**What:** Third Pods/POTS execution slice from the Fireworks/Tinker roadmap. The renter GPU Pods page now connects persistent workspace staging to the launch flow and gives renters a clearer template-driven path from data upload to pod runtime selection.
+
+- **Workspace staging:** Embedded the real `WorkspacePanel` on `/renter/pods`, so renters can rent/inspect their persistent `/workspace` volume, upload datasets/notebooks/adapters, and see staged files before launching a GPU pod.
+- **Launch plan:** Added a compact plan rail that summarizes workspace state, selected GPU, runtime image/duration, and estimated prepaid quote as the renter configures the pod.
+- **Templates:** Added launch-template cards for Notebook/PyTorch, vLLM serving, SFT/QLoRA prep, and CUDA base. Workload presets now set matching image and duration defaults instead of only filtering GPUs.
+- **LoRA honesty gate:** Added a disabled "LoRA stack image" card marked verification pending, keeping the #733 image path visible without exposing a public LoRA launch promise before GPU-host smoke verification passes.
+- **Responsive polish:** Added mobile-safe layout styles for workspace staging, plan rail, and template cards, plus pod-launch-specific upload copy.
+- **Verified:** `git diff --check`; `npm run build` on locked Next 15.5.20 / React 19.2.7 deps; Playwright local visual flow with mocked pod/workspace/GPU API responses, including SFT template + RTX 4090 selection updating the plan to `20 GB /workspace | RTX 4090 | PyTorch · 4h | ~SAR 13.00`; mobile overflow probe returned no overflowing template, plan, button, file-row, or GPU-card labels.
+
 ### 2026-07-08 04:50 UTC - `feat(pods): add fat LoRA pod image verification path - PR #733`
 
 **PR:** [#733](https://github.com/dhnpmp-tech/dcp-platform/pull/733) (`codex/fat-pod-image-verification-2026-07-08`).

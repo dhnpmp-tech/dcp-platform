@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 05:12 UTC - Workspace-to-pod launch polish (PR #734)
+
+- **PR:** [#734](https://github.com/dhnpmp-tech/dcp-platform/pull/734) (`codex/workspace-pod-launch-polish-2026-07-08`).
+- **Pods UI:** Embedded the real workspace file manager into `/renter/pods`, then added a launch-plan rail for workspace, GPU, runtime, and prepaid quote.
+- **Templates:** Added Notebook/PyTorch, vLLM serve, SFT/QLoRA prep, CUDA base, and disabled LoRA-verification template cards; workload presets now update image and duration defaults.
+- **Verification:** `npm run build`; local Playwright visual smoke with mocked pod/workspace/GPU responses; desktop/mobile overflow probe clean.
+
 ### 2026-07-08 04:50 UTC - Fat LoRA pod image verification path (PR #733)
 
 - **PR:** [#733](https://github.com/dhnpmp-tech/dcp-platform/pull/733) (`codex/fat-pod-image-verification-2026-07-08`).
