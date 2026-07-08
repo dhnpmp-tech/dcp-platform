@@ -178,6 +178,15 @@ now renders current mode, dataset/job/model-card/registry/deployment gates,
 route traffic, and claim guards from `GET /api/lora/readiness` instead of
 duplicating static gate copy in the frontend.
 
+PR #840 adds `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run
+proof:lora-training-live-artifact`, an opt-in live proof runner for the next
+GPU-host artifact gate. In the current production state it authenticates as the
+deterministic smoke principal, checks `GET /api/lora/readiness`, records the
+worker execution and model-card artifact writer blockers, and exits blocked
+before training job creation, GPU work, artifact writes, adapter registration,
+or billing mutation. A future passing run must add training logs, adapter
+artifact checksum, and model-card manifest evidence from a real GPU host.
+
 PR #784 adds read-only adapter deployment intent rows to `/renter/fine-tuning`.
 The page now fetches `GET /api/adapters/{adapter_id}/deployments` for visible
 adapters and displays mode, endpoint, lifecycle status, route traffic, and load

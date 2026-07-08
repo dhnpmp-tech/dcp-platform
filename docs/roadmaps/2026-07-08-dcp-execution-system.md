@@ -153,6 +153,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
 | LoRA fat image provider-host imports | `npm run proof:lora-pod-image` | provider GPU host with Docker, NVIDIA Container Toolkit, and built `dcp-compute:lora` | Command available; blocked until run on a provider GPU host |
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
+| LoRA GPU training artifact proof | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` | provider GPU host or pod, approved dataset fixture, artifact storage key, training budget window | Command available; currently records readiness blockers and stops before training job creation |
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
@@ -184,8 +185,8 @@ before or with the feature change.
    - Gate: every remaining manual live acceptance step has a repo command,
      artifact path, and blocked/pass/fail status.
    - Current live commands: workspace-pod proof, LoRA pod-image provider-host
-     proof, Anthropic SSE proof, prompt-cache live settlement proof, and batch
-     live execution proof are available.
+     proof, Anthropic SSE proof, prompt-cache live settlement proof, batch live
+     execution proof, and LoRA live artifact proof are available.
    - Status packet: `npm run proof:live-acceptance-status` lists remaining
      live gates, missing acceptance runners, blocked inputs, and claim guards.
 3. **POT/PODS workspace and image hardening**
@@ -204,9 +205,10 @@ before or with the feature change.
      readiness contracts, settlement tests, result-artifact proof, and
      no-discount/no-execution claim guards until measured billing proof exists.
 6. **LoRA dataset, training, and artifact proof**
-   - Gate: `templates:validate`, `proof:lora-training-contract`, dataset
-     validate-only tests, fixed-recipe SFT worker proof, adapter artifact
-     checksum, and model-card manifest.
+   - Gate: `templates:validate`, `proof:lora-training-contract`,
+     `proof:lora-training-live-artifact`, dataset validate-only tests,
+     fixed-recipe SFT worker proof, adapter artifact checksum, and model-card
+     manifest.
    - Public wording remains "metadata/readiness" until GPU artifact proof runs.
 7. **Adapter deployment and dedicated endpoints**
    - Gate: `proof:adapter-deployment-contract`, deployment intent, vLLM adapter
