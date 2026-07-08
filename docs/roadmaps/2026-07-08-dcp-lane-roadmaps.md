@@ -377,6 +377,8 @@ template launch.
   credit-required guidance and funding-gap facts.
 - PR #768 aligned the backend 402 copy behind pod launch/extend and the OpenAPI
   contract with the same credit-first language.
+- PR #795 made on-demand pod 402s expose explicit minimum paid-credit and
+  shortfall fields, with `/renter/pods` showing the exact "Add X more" amount.
 - PR #774 added a CI-safe Nsight provider benchmark evidence contract guard so
   mock JSON/CSV reports are verified without being confused with GPU-host proof.
 
