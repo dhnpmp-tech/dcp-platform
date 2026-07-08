@@ -132,6 +132,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #806 made Fine-Tuning start with workspace pre-upload and added a
     `/renter/playground?surface=workspace` deep link into the persistent
     workspace manager before LoRA validation or pod launch.
+  - PR #810 added a CI-safe workspace-to-pod contract guard so task-spec S3
+    wiring, active-volume gating, and daemon restore/snapshot calls cannot drift
+    before provider-host proof is run.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -165,6 +168,8 @@ Acceptance:
 - One fresh 3090-class pod can run the LoRA training scaffold without a long pip
   install.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
+  - PR #810 verifies the code contract for this path in CI; the real
+    provider-host smoke is still required for acceptance.
 - Nsight benchmark can run on a provider node and emit a machine-readable report.
 
 ### Phase C - Inference Product Hardening (1 week)

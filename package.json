@@ -20,6 +20,7 @@
     "provider:nsight:verify": "npm --prefix backend run providers:nsight-contract",
     "templates:validate": "npm --prefix backend run templates:validate",
     "pod-images:verify-contracts": "npm --prefix backend run pod-images:verify-contracts",
+    "workspace-pods:verify-contracts": "npm --prefix backend run workspace-pods:verify-contracts",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui"
