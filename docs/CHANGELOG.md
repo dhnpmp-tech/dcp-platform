@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 20:34 UTC - Workspace-to-pod contract guard (PR #810)
+### 2026-07-08 20:38 UTC - Workspace-to-pod contract guard (PR #810)
 
 - **PR:** [#810](https://github.com/dhnpmp-tech/dcp-platform/pull/810) (`codex/workspace-pod-contract-guard-2026-07-08`).
 - **Verifier:** Added `workspace-pods:verify-contracts` for pod task-spec workspace fields, portable S3 wiring, renter-derived buckets, active-volume gating, and daemon restore/snapshot calls.
