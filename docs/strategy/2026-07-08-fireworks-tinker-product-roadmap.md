@@ -320,6 +320,10 @@ Goal: ship the first real train-here/deploy-here loop.
     the LoRA product gate in one place. It keeps public training, serving,
     routing, quality claims, Tinker compatibility, and discounts false until
     real GPU-host and serving-load proof exist.
+  - PR #828 added `npm run proof:lora-training-contract`, a CI-safe proof
+    packet for dataset validation, metadata-only/idempotent training jobs,
+    disabled worker behavior, artifact checksum requirements, model-card claim
+    guards, and non-serving adapter registration before GPU-host artifact proof.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -438,6 +442,9 @@ Acceptance:
    **CI-safe measurement proof added in PR #826; provider KV-cache proof and
    discounted settlement smoke remain the gates before cached-input discount
    claims.**
+10. **LoRA training lifecycle proof** - contract proof before GPU claims.
+    **CI-safe dataset/training/artifact proof added in PR #828; GPU-host
+    artifact proof remains the gate before public training claims.**
 
 ## Division of Work
 

@@ -14,6 +14,23 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 22:25 UTC - `test(lora): add LoRA training contract proof - PR #828`
+
+**PR:** [#828](https://github.com/dhnpmp-tech/dcp-platform/pull/828) (`codex/lora-training-contract-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 02:25 +04.
+
+**What:** Eighty-first Fireworks/Tinker execution slice. Promotes the LoRA dataset/training/artifact metadata gates into a repeatable CI-safe proof command.
+
+- **Proof command:** Added `npm run proof:lora-training-contract`, wired through the backend reliability script table to `backend/tests/lora-training-contract-proof.js`.
+- **Contract proof:** The runner uses an in-memory database and injected worker executor to prove dataset validation returns checksum/split/token facts, invalid rows are rejected, training job creation is metadata-only and idempotent, the default/no-executor worker cannot mutate jobs, and missing adapter artifact checksum fails the job.
+- **Artifact/model-card gate:** The proof verifies succeeded jobs require adapter artifact checksum proof before model-card manifest metadata appears, and the manifest keeps public training, serving, routing, quality, and Tinker claims false.
+- **Adapter registry gate:** The proof auto-registers an adapter only after checksum proof and verifies the registry row remains metadata-only, undeployed, and marked as requiring serving-load proof before traffic.
+- **Evidence artifacts:** The proof writes `dcp.lora_training_contract_proof.v1` JSON and Markdown reports under `docs/reports/reliability` by default, with latest symlike copies for handoff.
+- **Regression guard:** Added a targeted Jest test for the proof runner and report contract.
+- **Roadmaps:** Updated the execution system, lane roadmap, and Fireworks/Tinker strategy roadmap so LoRA training has a local proof gate before GPU-host artifact proof, vLLM load proof, and adapter billing smoke.
+- **Safety:** No GPU training, artifact write, adapter serving, route traffic, training billing, public training claim, or Tinker compatibility claim changed.
+- **Verified:** `npm run proof:lora-training-contract` with temp report output; targeted LoRA proof/job/worker Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:16 UTC - `test(inference): add prompt-cache contract proof - PR #826`
 
 **PR:** [#826](https://github.com/dhnpmp-tech/dcp-platform/pull/826) (`codex/prompt-cache-contract-proof-2026-07-09`).

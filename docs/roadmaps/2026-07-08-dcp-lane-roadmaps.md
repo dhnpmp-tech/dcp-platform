@@ -327,6 +327,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   for measurement-only readiness, scoped/stable cache keys, hash-only
   measurement persistence, no-discount usage fields, and non-eligible prompt
   handling.
+- PR #828 added `npm run proof:lora-training-contract`, a CI-safe proof packet
+  for LoRA dataset validation, metadata-only/idempotent training jobs, disabled
+  worker behavior, artifact checksum requirements, model-card claim guards, and
+  non-serving adapter registration.
 
 ### Now
 
@@ -597,6 +601,10 @@ DCP-hosted endpoint -> billed inference.
   made public.**
   **PR #783 renders that readiness contract in `/renter/fine-tuning`, replacing
   duplicated static gate copy with backend-driven mode and claim guards.**
+  **PR #828 adds `npm run proof:lora-training-contract`, a repeatable local
+  proof for dataset validation, training metadata, artifact checksum, model-card
+  manifest, and non-serving adapter registry behavior. GPU-host artifact proof
+  remains required before public training claims.**
 - Adapter deploy:
   - one adapter/live merge first
   - multi-LoRA second
@@ -658,7 +666,8 @@ DCP-hosted endpoint -> billed inference.
 8. Batch inference design.
 9. LoRA training job MVP.
    **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;
-   GPU-host artifact proof remains the gating evidence before public training.**
+   PR #828 adds a local contract proof command. GPU-host artifact proof remains
+   the gating evidence before public training.**
 10. Adapter deploy MVP.
    **Deployment intent/load-proof contracts are in place through PR #749 and
    surfaced by PR #782; vLLM serving smoke remains required before routing.**
@@ -679,7 +688,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
-| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
+| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 
 ## Weekly Cadence
 
