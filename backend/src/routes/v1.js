@@ -24,7 +24,12 @@ const {
   vllmStreamLimiter,
   modelCatalogLimiter,
 } = rateLimiterMiddleware;
-const { toCatalogContractCore, toTokenPricingContract, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
+const {
+  toCatalogContractCore,
+  toFeatureReadinessContract,
+  toTokenPricingContract,
+  toUsdStringFromHalala,
+} = require('../lib/model-catalog-contract');
 const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId, modelIdsMatch } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
@@ -972,6 +977,7 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         source: catalogRates.source,
       });
       const capabilityMetadata = buildCatalogCapabilityMetadata(contractCore);
+      const featureReadiness = toFeatureReadinessContract(capabilityMetadata);
       const endpoints = capabilityMetadata.chat_completions
         ? [{ url: endpointUrl, type: 'chat' }]
         : [];
@@ -1010,6 +1016,7 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         },
         capability_flags: capabilityMetadata,
         capabilities: capabilityMetadata,
+        feature_readiness: featureReadiness,
         architecture,
         endpoints,
         provider_priority: ['dcp'],

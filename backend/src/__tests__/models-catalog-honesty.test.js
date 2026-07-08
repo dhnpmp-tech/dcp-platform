@@ -210,6 +210,32 @@ describe('/api/models catalog honesty', () => {
         prompt_caching: false,
         batch: false,
       },
+      feature_readiness: {
+        version: 'dcp.model_feature_readiness.v1',
+        prompt_caching: {
+          status: 'not_applicable',
+          available: false,
+          usage_metadata: false,
+          billing_discount: false,
+        },
+        batch: {
+          status: 'not_applicable',
+          available: false,
+          api_available: false,
+          execution_enabled: false,
+        },
+        lora: {
+          status: 'not_applicable',
+          adapter_registry_api: false,
+          training_job_api: false,
+          serving_enabled: false,
+        },
+        dedicated_deployment: {
+          status: 'not_applicable',
+          api_available: false,
+          serving_enabled: false,
+        },
+      },
       modalities: ['text'],
       supported_features: ['embeddings'],
     });
@@ -260,6 +286,38 @@ describe('/api/models catalog honesty', () => {
       prompt_caching: false,
       lora: false,
     });
+    expect(response.body.models[0].feature_readiness).toMatchObject({
+      version: 'dcp.model_feature_readiness.v1',
+      prompt_caching: {
+        status: 'measurement_only',
+        available: false,
+        usage_metadata: true,
+        billing_discount: false,
+        settlement_enabled: false,
+      },
+      batch: {
+        status: 'api_metadata_only',
+        available: false,
+        api_available: true,
+        execution_enabled: false,
+        discount_enabled: false,
+      },
+      lora: {
+        status: 'metadata_only',
+        available: false,
+        adapter_registry_api: true,
+        training_job_api: true,
+        serving_enabled: false,
+      },
+      dedicated_deployment: {
+        status: 'gated',
+        available: false,
+        api_available: true,
+        serving_enabled: false,
+        route_traffic: false,
+      },
+    });
+    expect(response.body.models[0].feature_readiness).toEqual(legacyResponse.body[0].feature_readiness);
     expect(response.body.models[0].capabilities).toEqual(response.body.models[0].capability_flags);
   });
 

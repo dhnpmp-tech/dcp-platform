@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 13:53 UTC - `feat(inference): expose model feature readiness metadata - PR #771`
+
+**PR:** [#771](https://github.com/dhnpmp-tech/dcp-platform/pull/771) (`codex/model-feature-readiness-contract-2026-07-08`).
+**Local timestamp:** 2026-07-08 17:53 +04.
+
+**What:** Thirty-eighth Fireworks/Tinker execution slice. Adds a shared model feature-readiness contract so `/v1/models`, `/api/models`, and `/api/models/catalog` can explain advanced rails without falsely marking gated products as generally available.
+
+- **Shared contract:** Added `feature_readiness.version: dcp.model_feature_readiness.v1` with deterministic readiness objects for dedicated deployments, LoRA, prompt caching, and batch.
+- **Honest states:** Chat-capable models now expose prompt cache as `measurement_only`, batch as `api_metadata_only`, LoRA as `metadata_only`, and dedicated deployment as `gated`; embedding/non-chat models mark those rails `not_applicable`.
+- **Compatibility:** Existing `capability_flags` booleans remain product-available flags, so `batch`, `prompt_caching`, `lora`, and `dedicated_deployment` stay false until routing, discounts, or serving traffic are actually enabled.
+- **Route parity:** `/api/models`, `/api/models/catalog`, and `/v1/models` now emit the same readiness vocabulary.
+- **OpenAPI:** Documented the additive `feature_readiness` object for model-list consumers.
+- **Verified:** Targeted `/api/models` and `/v1/models` Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 12:59 UTC - `feat(inference): mirror prompt-cache accounting into usage pricing - PR #770`
 
 **PR:** [#770](https://github.com/dhnpmp-tech/dcp-platform/pull/770) (`codex/prompt-cache-accounting-observation-2026-07-08`).

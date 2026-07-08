@@ -177,6 +177,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - supports LoRA/dedicated deployment
   - PR #769 centralized SAR/USD/halala token-pricing serialization for
     `/api/models`, `/api/models/catalog`, and `/v1/models`.
+  - PR #771 added `feature_readiness` to the same model surfaces so advanced
+    rails are visible as gated/measurement-only states without overclaiming
+    public availability.
 - Add prompt-cache accounting design:
   - static prefix/session hash
   - cached input token estimate
@@ -292,7 +295,7 @@ Acceptance:
    schema proposal.
 5. **Inference metadata/pricing audit** - model capability/rate metadata and
    consistency checks. **Capability honesty for explicit non-chat models started
-   in PR #766.**
+   in PR #766; advanced feature readiness metadata added in PR #771.**
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment

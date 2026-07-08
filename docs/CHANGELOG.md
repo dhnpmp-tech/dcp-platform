@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 13:53 UTC - Model feature-readiness metadata (PR #771)
+
+- **PR:** [#771](https://github.com/dhnpmp-tech/dcp-platform/pull/771) (`codex/model-feature-readiness-contract-2026-07-08`).
+- **Model contract:** `/v1/models`, `/api/models`, and `/api/models/catalog` now include `feature_readiness` for dedicated deployments, LoRA, prompt caching, and batch.
+- **Honesty:** Product-available capability booleans remain false while readiness states explain what is `measurement_only`, `metadata_only`, `api_metadata_only`, `gated`, or `not_applicable`.
+- **OpenAPI:** Documented the additive readiness object for model-list consumers.
+- **Verification:** Targeted `/api/models` and `/v1/models` Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 12:59 UTC - Prompt-cache pricing observation (PR #770)
 
 - **PR:** [#770](https://github.com/dhnpmp-tech/dcp-platform/pull/770) (`codex/prompt-cache-accounting-observation-2026-07-08`).
