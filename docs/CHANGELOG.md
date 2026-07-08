@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 10:55 UTC - Pod image contract verifier (PR #762)
+
+- **PR:** [#762](https://github.com/dhnpmp-tech/dcp-platform/pull/762) (`codex/pod-image-contracts-2026-07-08`).
+- **Manifest:** Added `backend/docker-templates/pod-image-contracts.json` for the pre-baked `pytorch`, `cuda`, `ubuntu`, `vllm`, and `lora` image aliases.
+- **Verifier:** Added `pod-images:verify-contracts`, a CI-safe gate for Dockerfile entrypoints, build-script targets, `/api/pods` alias wiring, LoRA requirements, examples, and provider smoke-script references.
+- **Tests:** Added a targeted backend Jest wrapper for the pod image contract.
+- **Runbook:** Documented which checks are safe in CI and which `dcp-compute:lora` proof must run on a GPU provider host.
+- **Verification:** `npm run pod-images:verify-contracts`; targeted pod image contract Jest suite; `git diff --check`.
+
 ### 2026-07-08 10:38 UTC - Catalog-backed pod launch templates (PR #761)
 
 - **PR:** [#761](https://github.com/dhnpmp-tech/dcp-platform/pull/761) (`codex/pod-template-catalog-launch-2026-07-08`).

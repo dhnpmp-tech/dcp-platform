@@ -1,0 +1,74 @@
+{
+  "contract": "dcp.pod_image_contracts.v1",
+  "version": "2026-07-08",
+  "images": [
+    {
+      "alias": "pytorch",
+      "tag": "dcp-compute:pytorch",
+      "dockerfile": "dcp-pytorch.Dockerfile",
+      "bootstrap": false,
+      "ships_jupyter": true,
+      "description": "Default PyTorch/CUDA pod image with SSH and Jupyter."
+    },
+    {
+      "alias": "cuda",
+      "tag": "dcp-compute:cuda",
+      "dockerfile": "dcp-cuda.Dockerfile",
+      "bootstrap": false,
+      "ships_jupyter": false,
+      "description": "Blank CUDA runtime pod image with SSH."
+    },
+    {
+      "alias": "ubuntu",
+      "tag": "dcp-compute:ubuntu",
+      "dockerfile": "dcp-ubuntu.Dockerfile",
+      "bootstrap": false,
+      "ships_jupyter": false,
+      "description": "Blank Ubuntu pod image with SSH."
+    },
+    {
+      "alias": "vllm",
+      "tag": "dcp-compute:vllm",
+      "dockerfile": "dcp-vllm.Dockerfile",
+      "bootstrap": false,
+      "ships_jupyter": false,
+      "description": "vLLM serving stack image with SSH; does not auto-start a model server."
+    },
+    {
+      "alias": "lora",
+      "tag": "dcp-compute:lora",
+      "dockerfile": "dcp-lora.Dockerfile",
+      "bootstrap": false,
+      "ships_jupyter": true,
+      "description": "Fat LoRA/QLoRA/vLLM pod image with examples and provider-side smoke proof.",
+      "requirements": "requirements-lora.txt",
+      "examples": [
+        "examples/lora_stack_smoke.py",
+        "examples/lora_sft_scaffold.py"
+      ],
+      "smoke_script": "verify-lora-pod-image.sh",
+      "required_packages": [
+        "jupyterlab",
+        "transformers",
+        "peft",
+        "accelerate",
+        "datasets",
+        "bitsandbytes",
+        "trl",
+        "safetensors",
+        "vllm"
+      ],
+      "required_smoke_modules": [
+        "torch",
+        "transformers",
+        "peft",
+        "accelerate",
+        "datasets",
+        "bitsandbytes",
+        "safetensors",
+        "trl",
+        "vllm"
+      ]
+    }
+  ]
+}

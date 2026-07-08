@@ -221,6 +221,13 @@ Turn pods into a reliable fine-tuning and dedicated-compute product: fast
 images, durable workspace, honest billing, benchmarked providers, and clear
 template launch.
 
+### Progress
+
+- PR #761 started the workspace -> template -> GPU -> duration -> credit launch
+  map in the renter console.
+- PR #762 added a CI-safe provider pod image contract verifier for pre-baked
+  `dcp-compute:<alias>` images, including the fat `dcp-compute:lora` proof path.
+
 ### Now
 
 - Keep current pod primitives safe:
@@ -266,8 +273,8 @@ template launch.
 
 ### First PRs
 
-1. Fat pod image spec and verification script.
-2. Workspace-to-pod launch UX/API polish.
+1. Fat pod image spec and verification script. **Started in PR #762.**
+2. Workspace-to-pod launch UX/API polish. **Started in PR #761.**
 3. Nsight provider benchmark script/runbook.
 
 ### Required Evidence
@@ -348,7 +355,7 @@ DCP-hosted endpoint -> billed inference.
 
 1. Ops cleanup and repo parity.
 2. Inference metadata/rate consistency.
-3. Fat pod image spec and GPU-host verification.
+3. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
 4. Workspace-to-pod launch polish. **Started in PR #761.**
 5. Adapter registry schema.
 6. Prompt-cache accounting design.
