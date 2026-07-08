@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 20:56 UTC - Anthropic SSE live proof runner (PR #814)
+### 2026-07-08 21:02 UTC - Anthropic SSE live proof runner (PR #814)
 
 - **PR:** [#814](https://github.com/dhnpmp-tech/dcp-platform/pull/814) (`codex/anthropic-sse-live-proof-runner-2026-07-08`).
 - **Live proof:** Added `npm run proof:anthropic-sse` for the agent-path acceptance check: deterministic inference smoke principal, `POST /anthropic/v1/messages`, streaming response, and Anthropic SSE frame validation.
