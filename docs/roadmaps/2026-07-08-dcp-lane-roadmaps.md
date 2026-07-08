@@ -432,6 +432,10 @@ template launch.
 - PR #810 added a CI-safe workspace-to-pod contract guard across the workspace
   API, volume lookup, pod launch task spec, and provider daemon restore/snapshot
   calls. Real GPU-host file-visibility proof remains the acceptance gate.
+- PR #812 added an opt-in live proof runner for the real acceptance path:
+  portable workspace upload -> pod launch -> running Jupyter -> marker visible
+  under `/workspace`, with credential redaction, default pod cleanup, and
+  JSON/Markdown evidence output.
 
 ### Now
 
@@ -466,6 +470,9 @@ template launch.
   in `/workspace` on a GPU provider host.**
   **CI-safe contract guard for that path landed in PR #810; still requires a
   provider-host smoke to prove actual file visibility.**
+  **The live smoke runner landed in PR #812 as `npm run proof:workspace-pod`;
+  run it with `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1` once a funded renter key,
+  active volume, and launchable GPU capacity are available.**
 - Add Nsight Python benchmark MVP:
   - utilization
   - memory bandwidth
@@ -600,7 +607,7 @@ DCP-hosted endpoint -> billed inference.
 3. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
 4. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
    Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard
-   landed in PR #810.**
+   landed in PR #810; live proof runner landed in PR #812.**
 5. Adapter registry schema. **Schema/API foundation has landed; continue with
    GPU-host adapter proof and deployment smoke before public serving claims.**
 6. Prompt-cache accounting design.

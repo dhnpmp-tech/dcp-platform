@@ -135,6 +135,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #810 added a CI-safe workspace-to-pod contract guard so task-spec S3
     wiring, active-volume gating, and daemon restore/snapshot calls cannot drift
     before provider-host proof is run.
+  - PR #812 added `npm run proof:workspace-pod`, the opt-in live acceptance
+    runner for portable workspace upload -> pod launch -> Jupyter marker
+    visibility under `/workspace`, with default pod cleanup and JSON/Markdown
+    evidence reports.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -170,6 +174,9 @@ Acceptance:
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.
+  - PR #812 provides the live smoke command; acceptance closes only after it is
+    run successfully against a funded renter key, active volume, and live GPU
+    capacity.
 - Nsight benchmark can run on a provider node and emit a machine-readable report.
 
 ### Phase C - Inference Product Hardening (1 week)
