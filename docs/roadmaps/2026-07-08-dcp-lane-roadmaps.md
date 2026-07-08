@@ -173,6 +173,8 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   routing behavior.
 - PR #786 made `/renter/fine-tuning` consume that aggregate list, so the
   frontend no longer needs one deployment request per visible adapter.
+- PR #796 added renter-authenticated `POST /api/lora/datasets/validate` so
+  agents can validate LoRA SFT JSONL before creating a training job.
 
 ### Now
 
@@ -473,6 +475,9 @@ DCP-hosted endpoint -> billed inference.
   - token/size estimate
   - unsafe/empty row rejection
   - train/validation split metadata
+  **Validate-only API added in PR #796 via `POST /api/lora/datasets/validate`;
+  it returns checksum/split/token/size facts without creating a training job or
+  storing raw dataset rows.**
 - Adapter registry:
   - owner
   - base model

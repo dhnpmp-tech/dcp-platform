@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 18:43 UTC - LoRA dataset validate-only endpoint (PR #796)
+
+- **PR:** [#796](https://github.com/dhnpmp-tech/dcp-platform/pull/796) (`codex/lora-dataset-validate-endpoint-2026-07-08`).
+- **API:** Added renter-authenticated `POST /api/lora/datasets/validate` so agents can validate LoRA SFT JSONL before creating a training job.
+- **Contract:** The response returns dataset format, row counts, train/validation split, estimated tokens, normalized checksum, max row chars, and normalized byte size.
+- **Readiness/OpenAPI:** LoRA readiness now advertises the validate-only endpoint, and OpenAPI documents the request/response schema.
+- **Safety:** The route explicitly creates no training job, stores no raw dataset rows, starts no GPU work, registers no adapter, and makes no Tinker compatibility claim.
+- **Verification:** Targeted LoRA training job Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 18:11 UTC - Minimum paid-credit shortfall contract (PR #795)
 
 - **PR:** [#795](https://github.com/dhnpmp-tech/dcp-platform/pull/795) (`codex/pod-minimum-paid-credit-contract-2026-07-08`).
