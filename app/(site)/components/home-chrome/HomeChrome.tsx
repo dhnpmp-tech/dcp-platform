@@ -28,12 +28,13 @@ export function HomeChrome() {
     { href: '/pods', n: '01', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Whole-GPU rental · from 2.5 SAR/hr', sAr: 'إيجار معالجات كاملة · من ٢٫٥ ريال/س' },
     { href: '/inference', n: '02', tEn: 'Inference', tAr: 'الاستدلال', sEn: 'OpenAI-compatible · live catalog', sAr: 'متوافقة مع OpenAI · كتالوج حي' },
     { href: '/fine-tuning', n: '03', tEn: 'Fine-Tuning', tAr: 'الضبط الدقيق', sEn: 'LoRA contracts · proof-gated serving', sAr: 'عقود LoRA · خدمة مقيدة بالإثبات' },
-    { href: '/agents', n: '04', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Live at agents.dcp.sa · MCP', sAr: 'على agents.dcp.sa · MCP' },
-    { href: '/pricing', n: '05', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-second · per-token · SAR', sAr: 'بالثانية · بالرمز · بالريال' },
-    { href: '/docs', n: '06', tEn: 'Docs', tAr: 'التوثيق', sEn: 'API · CLI · SDKs', sAr: 'واجهة · سطر أوامر · مكتبات' },
-    { href: '/trust-center', n: '07', tEn: 'Trust center', tAr: 'مركز الثقة', sEn: 'PDPL · compliance · enterprise', sAr: 'نظام البيانات · امتثال · مؤسسات' },
-    { href: '/provider-setup', n: '08', tEn: 'Earn', tAr: 'اكسب', sEn: 'Register a GPU · paid in SAR', sAr: 'سجّل معالجاً · يُدفع بالريال' },
-    { href: '/', n: '09', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
+    { href: '/batch', n: '04', tEn: 'Batch', tAr: 'الدُفعات', sEn: 'JSONL validation · execution gated', sAr: 'تحقق JSONL · التشغيل مقيد' },
+    { href: '/agents', n: '05', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Live at agents.dcp.sa · MCP', sAr: 'على agents.dcp.sa · MCP' },
+    { href: '/pricing', n: '06', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-second · per-token · SAR', sAr: 'بالثانية · بالرمز · بالريال' },
+    { href: '/docs', n: '07', tEn: 'Docs', tAr: 'التوثيق', sEn: 'API · CLI · SDKs', sAr: 'واجهة · سطر أوامر · مكتبات' },
+    { href: '/trust-center', n: '08', tEn: 'Trust center', tAr: 'مركز الثقة', sEn: 'PDPL · compliance · enterprise', sAr: 'نظام البيانات · امتثال · مؤسسات' },
+    { href: '/provider-setup', n: '09', tEn: 'Earn', tAr: 'اكسب', sEn: 'Register a GPU · paid in SAR', sAr: 'سجّل معالجاً · يُدفع بالريال' },
+    { href: '/', n: '10', tEn: 'Overview', tAr: 'نظرة عامة', sEn: 'Sovereign Arabic AI runtime', sAr: 'بيئة تشغيل عربية سيادية' },
   ]
 
   return (

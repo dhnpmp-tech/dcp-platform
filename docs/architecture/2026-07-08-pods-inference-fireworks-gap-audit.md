@@ -237,7 +237,7 @@ Gaps:
 | Streaming | Live in `/v1` and Anthropic routes | Low | Backend + frontend smoke |
 | Per-model pricing | Partial | Medium | Backend |
 | Prompt caching discount | Missing | High | Backend |
-| Batch inference | Missing as product | High | Backend |
+| Batch inference | Metadata/readiness contract and public page; execution/discounts gated | High | Backend |
 | Dedicated deployments | Partial through pods/vLLM | High | Backend |
 | LoRA training | Metadata/readiness only, no public worker proof | High | Backend + pod image |
 | LoRA adapter registry | Metadata API foundation, no serving proof | High | Backend |
@@ -307,6 +307,8 @@ Gaps:
        public training/serving/Tinker overclaim.
    - Dedicated deployments
    - Batch, once backend design lands
+     - PR #791 added `/batch` with shipped readiness/metadata gates and no
+       execution, settlement, or discount overclaim.
 5. Add pricing transparency from backend metadata rather than duplicated copy.
    - PR #779 moved router-policy visibility in the Playground onto backend
      readiness metadata.

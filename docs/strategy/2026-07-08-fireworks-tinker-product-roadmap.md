@@ -85,7 +85,7 @@ The parts to tighten:
 | Dedicated deployments | DCP Dedicated Endpoints | Pods and vLLM serving exist, but productized dedicated endpoint control is incomplete | Add deployment records, endpoint lifecycle, quotas, and customer-facing status |
 | LoRA fine-tuning | DCP Fine-Tuning MVP | LoRA/QLoRA template scaffolds exist, no real adapter job product | Bake fat image, add dataset/upload/job flow, fixed SFT recipe |
 | LoRA deployment | Adapter registry + live merge/multi-LoRA | vLLM configs reference LoRA logs, but no adapter registry/API | Add adapter schema, upload API, deployment API, vLLM multi-LoRA acceptance test |
-| Batch inference | DCP Batch | Not a productized route | Add async batch job API using existing job/billing primitives |
+| Batch inference | DCP Batch | Readiness/metadata contract and public page exist; execution and discounts are gated | Add async worker execution, result proof, and discounted settlement on existing job/billing primitives |
 | Prompt caching | DCP cached input discount | Not tracked as product accounting | Add request hash/session cache measurement and billing fields before discounting |
 | Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist | Add customer-facing eval jobs and published Arabic task benchmarks |
 | Routers | DCP model/router selection | Basic provider routing and demand telemetry exist | Add policy-driven router objects and model fallback rules |
@@ -319,6 +319,8 @@ Goal: make the product easy to understand and sell.
   - `/models/allam`
   - `/models/qwen-arabic`
   - `/batch`
+    **Added in PR #791 with readiness/metadata gates and no execution or
+    discount overclaim.**
   - `/dedicated-deployments`
 - Add GCC startup credits and case-study pipeline only after billing/product
   controls are clear.

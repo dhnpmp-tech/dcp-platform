@@ -35,6 +35,9 @@ what is live.
 - PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
   GPU Pods links away from `/containers`, and kept `/containers` as a
   compatibility URL without changing pod backend behavior.
+- PR #791 added `/batch` as the public Batch inference product page, wired it
+  into shared product IA, and kept execution, downloads, settlement, discounts,
+  and model batch capability behind readiness/proof gates.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -104,6 +107,8 @@ what is live.
     **Added in PR #788 with proof-gated LoRA contract copy.**
   - `/dedicated-deployments`
   - `/batch`
+    **Added in PR #791 with shipped batch readiness/metadata gates and no
+    execution or discount overclaim.**
 - Add benchmark pages for Arabic/customer-support tasks only after reproducible
   benchmark artifacts exist.
 
@@ -304,6 +309,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `/api/batches/readiness` for the renter-facing batch gate contract.**
   **PR #777 renders that contract in `/renter/batches` and keeps create,
   execution, downloads, settlement, and discounts tied to backend flags.**
+  **PR #791 adds `/batch` as the public product page for the same readiness
+  contract while keeping execution and discounts gated.**
 - Router policies:
   - cheapest
   - lowest latency

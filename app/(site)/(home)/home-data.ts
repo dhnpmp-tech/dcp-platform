@@ -39,6 +39,7 @@ export const NAV: ReadonlyArray<{ href: string; en: string; ar: string; on?: boo
   { href: '/pods', en: 'GPU Pods', ar: 'حاويات GPU' },
   { href: '/inference', en: 'Inference', ar: 'الاستدلال' },
   { href: '/fine-tuning', en: 'Fine-Tuning', ar: 'الضبط الدقيق' },
+  { href: '/batch', en: 'Batch', ar: 'الدُفعات' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
   { href: '/pricing', en: 'Pricing', ar: 'الأسعار' },
   { href: '/provider-setup', en: 'Earn', ar: 'اكسب' },
