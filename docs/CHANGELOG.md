@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 22:35 UTC - Local roadmap proof suite (PR #830)
+### 2026-07-08 22:39 UTC - Local roadmap proof suite (PR #830)
 
 - **PR:** [#830](https://github.com/dhnpmp-tech/dcp-platform/pull/830) (`codex/local-roadmap-proof-suite-2026-07-09`).
 - **Proof command:** Added `npm run proof:local-roadmap` for the CI-safe roadmap gate suite.
