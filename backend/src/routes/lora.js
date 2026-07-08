@@ -6,6 +6,7 @@ const {
   createLoraTrainingJob,
   ensureLoraTrainingJobsSchema,
   getLoraTrainingJob,
+  listLoraTrainingJobLogs,
   listLoraTrainingJobs,
   registerLoraTrainingJobAdapter,
 } = require('../services/loraTrainingJobs');
@@ -68,6 +69,30 @@ function createLoraRouter(deps = {}) {
         });
       }
       return res.json({ training_job: job });
+    } catch (error) {
+      return sendLoraError(res, error);
+    }
+  });
+
+  router.get('/training-jobs/:trainingJobId/logs', requireRenter, (req, res) => {
+    try {
+      const result = listLoraTrainingJobLogs(loraDb, req.renter.id, req.params.trainingJobId, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+      });
+      if (!result) {
+        return res.status(404).json({
+          error: 'LoRA training job not found',
+          code: 'lora_training_job_not_found',
+        });
+      }
+      return res.json({
+        object: 'list',
+        data: result.logs,
+        count: result.logs.length,
+        limit: result.limit,
+        offset: result.offset,
+      });
     } catch (error) {
       return sendLoraError(res, error);
     }

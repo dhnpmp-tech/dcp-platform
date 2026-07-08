@@ -417,6 +417,38 @@ components:
           format: date-time
           nullable: true
 
+    LoraTrainingJobLog:
+      type: object
+      description: Tenant-scoped LoRA training lifecycle log. Logs are metadata only and do not imply that GPU training or adapter serving is enabled.
+      required: [id, training_job_id, renter_id, level, event, message, created_at]
+      properties:
+        id:
+          type: integer
+          example: 12
+        training_job_id:
+          type: string
+          example: lora_job_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+          example: info
+        event:
+          type: string
+          example: status_succeeded
+        message:
+          type: string
+          example: LoRA training worker recorded adapter artifact proof.
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+
     PaymentRequiredError:
       type: object
       description: Returned with HTTP 402 when prepaid credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to fund before retrying.
@@ -1243,6 +1275,52 @@ paths:
                 type: object
                 properties:
                   training_job: { $ref: '#/components/schemas/LoraTrainingJob' }
+        '404':
+          description: LoRA training job not found for this renter.
+
+  /api/lora/training-jobs/{training_job_id}/logs:
+    get:
+      tags: [LoRA]
+      summary: List renter-visible LoRA training job logs
+      description: |
+        Returns lifecycle metadata logs for one tenant-scoped LoRA training job.
+        The log ledger records creation and worker status transitions, but does
+        not claim that managed GPU training is enabled.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: training_job_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: LoRA training job logs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    example: list
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LoraTrainingJobLog' }
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         '404':
           description: LoRA training job not found for this renter.
 

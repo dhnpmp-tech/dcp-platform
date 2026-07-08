@@ -5,6 +5,7 @@ const {
   createLoraTrainingJob,
   ensureLoraTrainingJobsSchema,
   getLoraTrainingJob,
+  listLoraTrainingJobLogs,
 } = require('../services/loraTrainingJobs');
 const { ensureAdapterRegistrySchema, getAdapter } = require('../services/adapterRegistry');
 const {
@@ -132,6 +133,11 @@ describe('LoRA training worker scaffold', () => {
       model_card_storage_key: 'adapters/renter-2/adpt_worker002/model-card.json',
       adapter_registered: false,
     });
+    expect(listLoraTrainingJobLogs(db, 2, 'lora_job_execute1').logs.map((log) => log.event)).toEqual([
+      'created',
+      'status_running',
+      'status_succeeded',
+    ]);
   });
 
   test('can explicitly auto-register an adapter after artifact proof succeeds', async () => {
@@ -185,6 +191,15 @@ describe('LoRA training worker scaffold', () => {
     expect(getLoraTrainingJob(db, 1, 'lora_job_fail001')).toMatchObject({
       status: 'failed',
       failure_reason: 'trainer unavailable',
+    });
+    const logs = listLoraTrainingJobLogs(db, 1, 'lora_job_fail001').logs;
+    expect(logs.map((log) => log.event)).toEqual(['created', 'status_running', 'status_failed']);
+    expect(logs[2]).toMatchObject({
+      level: 'error',
+      metadata: {
+        status: 'failed',
+        failure_reason: 'trainer unavailable',
+      },
     });
   });
 });
