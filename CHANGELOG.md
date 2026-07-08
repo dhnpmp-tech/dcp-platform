@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 11:27 UTC - `feat(frontend): use credit-first renter funding copy - PR #765`
+
+**PR:** [#765](https://github.com/dhnpmp-tech/dcp-platform/pull/765) (`codex/renter-credit-language-2026-07-08`).
+**Local timestamp:** 2026-07-08 15:27 +04.
+
+**What:** Thirty-second Fireworks/Tinker execution slice. Advances Tareq's renter funding language by presenting account funding as "Credit" across the renter console while keeping SAR language where it belongs for payments, invoices, spend, and accounting.
+
+- **Renter shell:** Dashboard, playground, usage, invoices, keys, settings, and wallet sidebars now label the funding pool as credit instead of wallet/balance/SAR-first copy.
+- **Shared cards:** Balance and spending cards now say "Available Credit", "Credit", "Add Credit", and low-credit warnings without emoji markers.
+- **Top-up flow:** The funding modal now reads as an add-credit/payment request flow while preserving SAR amount selection and bank-transfer accounting language.
+- **Failure states:** Low-credit notifications and redeploy insufficient-balance CTAs now direct renters to add credit instead of topping up a wallet.
+- **Verified:** Visible copy scan for old renter funding language; `git diff --check`.
+
 ### 2026-07-08 11:15 UTC - `feat(pods): persist provider supply tiers - PR #764`
 
 **PR:** [#764](https://github.com/dhnpmp-tech/dcp-platform/pull/764) (`codex/provider-supply-tier-credit-policy-2026-07-08`).

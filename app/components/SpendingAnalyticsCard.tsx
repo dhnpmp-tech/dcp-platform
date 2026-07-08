@@ -45,7 +45,7 @@ export default function SpendingAnalyticsCard({
   return (
     <div className="card p-5 flex flex-col gap-5">
 
-      {/* Month spend + balance row */}
+      {/* Month spend + credit row */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs text-dc1-text-muted uppercase tracking-wide mb-1">This Month</p>
@@ -58,16 +58,16 @@ export default function SpendingAnalyticsCard({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-dc1-text-muted uppercase tracking-wide mb-1">Balance</p>
+          <p className="text-xs text-dc1-text-muted uppercase tracking-wide mb-1">Credit</p>
           <p className={`text-xl font-bold ${balanceColor}`}>
             {formatSAR(balanceHalala)}{' '}
-            <span className="text-sm font-medium">SAR</span>
+            <span className="text-sm font-medium">credit</span>
           </p>
           {isCritical && (
-            <p className="text-xs text-status-error mt-0.5">⚠ Critical — top up now</p>
+            <p className="text-xs text-status-error mt-0.5">Critical credit - add credit now</p>
           )}
           {isLow && !isCritical && (
-            <p className="text-xs text-status-warning mt-0.5">⚠ Low balance</p>
+            <p className="text-xs text-status-warning mt-0.5">Low credit</p>
           )}
         </div>
       </div>
@@ -116,12 +116,12 @@ export default function SpendingAnalyticsCard({
       <Link
         href="/renter/billing"
         className="btn btn-primary text-sm py-2 flex items-center justify-center gap-2 w-full"
-        aria-label="Top up wallet balance"
+        aria-label="Add account credit"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
-        Top Up Balance
+        Add Credit
       </Link>
     </div>
   )

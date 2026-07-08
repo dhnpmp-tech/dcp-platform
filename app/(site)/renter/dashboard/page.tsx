@@ -257,12 +257,12 @@ export default function RenterDashboardPage() {
 
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
             {balanceSar != null ? (
               <>
-                SAR {numFmt.format(Math.floor(balanceSar))}
+                <Bi en={`Credit ${numFmt.format(Math.floor(balanceSar))}`} ar={`رصيد ${numFmt.format(Math.floor(balanceSar))}`} />
                 <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
               </>
             ) : (
@@ -273,7 +273,7 @@ export default function RenterDashboardPage() {
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>{activeJobs.length > 0 ? `SAR ${heldSar.toFixed(2)}` : (lang === 'ar' ? 'لا يوجد' : 'n/a')}</b>
+            <b>{activeJobs.length > 0 ? <Bi en={`${heldSar.toFixed(2)} credit`} ar={`${heldSar.toFixed(2)} رصيد`} /> : (lang === 'ar' ? 'لا يوجد' : 'n/a')}</b>
           </div>
           <div className="row">
             <span>
@@ -282,7 +282,7 @@ export default function RenterDashboardPage() {
             <b>{activePodCount != null ? `${activePodCount} / ${MAX_ACTIVE_PODS}` : '—'}</b>
           </div>
           <Link className="topup" href="/renter/wallet#top-up">
-            <Bi en="+ Top up" ar="+ شحن الرصيد" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </Link>
         </div>
 
@@ -394,8 +394,8 @@ export default function RenterDashboardPage() {
               <Bi en={`${activeJobs.length} running now`} ar={`${activeJobs.length} قيد التشغيل الآن`} />
             </span>
             <span>
-              <Bi en="Balance" ar="الرصيد" />{' '}
-              <b>{balanceSar != null ? `SAR ${balanceSar.toFixed(2)}` : '—'}</b>
+              <Bi en="Credit" ar="الرصيد" />{' '}
+              <b>{balanceSar != null ? <Bi en={`${balanceSar.toFixed(2)} credit`} ar={`${balanceSar.toFixed(2)} رصيد`} /> : '—'}</b>
             </span>
             <span>
               <Bi en="Scoped keys live on the keys page" ar="المفاتيح محددة النطاق في صفحة المفاتيح" />
@@ -423,12 +423,12 @@ export default function RenterDashboardPage() {
           <div className="kpi-row" style={{ marginTop: 36 }}>
             <div className="kpi featured">
               <span className="k">
-                <Bi en="Balance" ar="الرصيد" />
+                <Bi en="Credit" ar="الرصيد" />
               </span>
               <span className="v">
                 {balanceSar != null ? (
                   <>
-                    SAR {numFmt.format(Math.floor(balanceSar))}
+                    <Bi en={`Credit ${numFmt.format(Math.floor(balanceSar))}`} ar={`رصيد ${numFmt.format(Math.floor(balanceSar))}`} />
                     <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
                   </>
                 ) : (
@@ -512,7 +512,7 @@ export default function RenterDashboardPage() {
                   <Bi en="▷ Open Playground" ar="▷ افتح البيئة التجريبية" />
                 </Link>
                 <Link className="btn-sec" href="/renter/wallet#top-up" style={{ textAlign: 'center' }}>
-                  <Bi en="₪ Top up balance" ar="₪ شحن الرصيد" />
+                  <Bi en="Add credit" ar="إضافة رصيد" />
                 </Link>
               </div>
               <div

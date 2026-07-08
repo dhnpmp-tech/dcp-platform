@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 11:27 UTC - Credit-first renter funding copy (PR #765)
+
+- **PR:** [#765](https://github.com/dhnpmp-tech/dcp-platform/pull/765) (`codex/renter-credit-language-2026-07-08`).
+- **Renter shell:** Dashboard, playground, usage, invoices, keys, settings, and wallet sidebars now use credit-first funding labels.
+- **Shared cards:** Balance/spending cards now say "Available Credit", "Credit", "Add Credit", and low-credit warnings without emoji markers.
+- **Top-up flow:** The modal now reads as add-credit/payment request copy while SAR stays visible for payment amount selection and transfer/accounting context.
+- **Failure states:** Low-credit notifications and redeploy insufficient-balance CTAs now send renters to add credit.
+- **Verification:** Visible copy scan for old renter funding language; `git diff --check`.
+
 ### 2026-07-08 11:15 UTC - Provider supply-tier credit policy (PR #764)
 
 - **PR:** [#764](https://github.com/dhnpmp-tech/dcp-platform/pull/764) (`codex/provider-supply-tier-credit-policy-2026-07-08`).

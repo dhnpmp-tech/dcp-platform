@@ -37,14 +37,14 @@ export default function BalanceCard({ balanceHalala, totalSpentHalala }: Balance
     <div className={`bg-dc1-surface-l1 border rounded-lg p-6 transition-all ${borderClass}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-dc1-text-secondary mb-1">Wallet Balance</p>
+          <p className="text-sm text-dc1-text-secondary mb-1">Available Credit</p>
           <p className={`text-3xl font-bold ${balanceColor}`}>
-            {formatSAR(balanceHalala)} <span className="text-lg font-semibold">SAR</span>
+            {formatSAR(balanceHalala)} <span className="text-lg font-semibold">credit</span>
           </p>
           <p className="text-sm text-dc1-text-muted mt-0.5">≈ ${formatUSD(balanceHalala)} USD</p>
           {isLow && (
             <p className={`text-xs mt-1.5 ${isCritical ? 'text-status-error' : 'text-status-warning'}`}>
-              {isCritical ? '⚠ Critical: balance very low' : '⚠ Balance running low — top up soon'}
+              {isCritical ? 'Critical: credit very low' : 'Credit running low - add credit soon'}
             </p>
           )}
         </div>
@@ -58,12 +58,12 @@ export default function BalanceCard({ balanceHalala, totalSpentHalala }: Balance
         <Link
           href="/renter/billing"
           className="btn btn-primary inline-flex items-center gap-2 text-sm py-2 px-4"
-          aria-label="Top up wallet balance"
+          aria-label="Add account credit"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Top Up
+          Add Credit
         </Link>
       </div>
     </div>

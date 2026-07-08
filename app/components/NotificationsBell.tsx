@@ -84,8 +84,8 @@ function describeNotification(n: NotificationItem): { title: string; meta: strin
       ? payload.balance_sar.toFixed(2)
       : ((Number(payload.balance_halala) || 0) / 100).toFixed(2)
     return {
-      title: 'Low balance',
-      meta: `${sar} SAR remaining`,
+      title: 'Low credit',
+      meta: `${sar} credit remaining`,
       href: '/renter/billing',
     }
   }

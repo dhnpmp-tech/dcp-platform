@@ -340,12 +340,12 @@ export default function RenterKeysPage() {
 
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
             {balanceSar != null ? (
               <>
-                SAR {numFmt.format(Math.floor(balanceSar))}
+                <Bi en={`Credit ${numFmt.format(Math.floor(balanceSar))}`} ar={`رصيد ${numFmt.format(Math.floor(balanceSar))}`} />
                 <span className="u">.{(balanceSar % 1).toFixed(2).slice(2)}</span>
               </>
             ) : (
@@ -365,7 +365,7 @@ export default function RenterKeysPage() {
             <b>{totalSpentSar != null ? `SAR ${totalSpentSar.toFixed(2)}` : '—'}</b>
           </div>
           <Link className="topup" href="/renter/wallet#top-up">
-            <Bi en="+ Top up" ar="+ شحن الرصيد" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </Link>
         </div>
 

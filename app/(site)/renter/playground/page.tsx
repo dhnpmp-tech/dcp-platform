@@ -41,7 +41,7 @@ const NAV: NavSection[] = [
   {
     sec: 'Spend',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', href: '/renter/wallet', bd: 'SAR' },
+      { k: 'wallet', ic: '₪', label: 'Credit', href: '/renter/wallet' },
       { k: 'invoices', ic: '≡', label: 'Invoices', href: '/renter/invoices' },
     ],
   },
@@ -455,7 +455,7 @@ export default function PlaygroundPage() {
     }
   }, [])
 
-  // ── real renter account + wallet balance ──
+  // ── real renter account + credit balance ──
   useEffect(() => {
     if (typeof window === 'undefined') return
     const key = getRenterKey()
@@ -508,25 +508,25 @@ export default function PlaygroundPage() {
         </div>
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR {fmtSar(balanceSar)}
+            <Bi en={`Credit ${fmtSar(balanceSar)}`} ar={`رصيد ${fmtSar(balanceSar)}`} />
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR {fmtSar(heldSar)}</b>
+            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
           </div>
           <div className="row">
             <span>
               <Bi en="Total spent" ar="إجمالي الإنفاق" />
             </span>
-            <b>SAR {fmtSar(totalSpentSar)}</b>
+            <b><Bi en={`${fmtSar(totalSpentSar)} credit`} ar={`${fmtSar(totalSpentSar)} رصيد`} /></b>
           </div>
           <Link className="topup" href="/renter/wallet">
-            <Bi en="+ Top up" ar="+ شحن" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </Link>
         </div>
         <nav className="rt-nav">

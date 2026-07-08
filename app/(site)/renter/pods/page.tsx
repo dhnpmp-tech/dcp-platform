@@ -1844,7 +1844,6 @@ export default function RenterPodsPage() {
                         return (
                           <div className={`pod-clock${ending ? ' warn' : ''}`}>
                             <span className="pod-clock-t">
-                              {ending ? '⚠ ' : ''}
                               <Bi en="Rental ends in" ar="ينتهي الإيجار خلال" /> <b>{formatCountdown(left)}</b>
                             </span>
                             <span className="pod-clock-sub">
