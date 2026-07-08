@@ -385,6 +385,9 @@ DCP-hosted endpoint -> billed inference.
   - logs
   - artifact output
   - model card stub
+  **Training job metadata/logs/artifact proof foundations have landed; PR #775
+  adds the model-card manifest stub while keeping public training and serving
+  disabled.**
 - Adapter deploy:
   - one adapter/live merge first
   - multi-LoRA second

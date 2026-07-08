@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 14:31 UTC - `feat(lora): expose training model-card manifest stubs - PR #775`
+
+**PR:** [#775](https://github.com/dhnpmp-tech/dcp-platform/pull/775) (`codex/lora-model-card-manifest-2026-07-08`).
+**Local timestamp:** 2026-07-08 18:31 +04.
+
+**What:** Forty-second Fireworks/Tinker execution slice. Adds a deterministic model-card manifest contract for LoRA training jobs without enabling public training, adapter serving, quality claims, or Tinker compatibility claims.
+
+- **Model-card manifest:** LoRA training jobs with a reserved `model_card_storage_key` now expose `model_card_manifest` with adapter, dataset, artifact-proof, training lifecycle, safety, and next-step metadata.
+- **Claim guard:** The manifest explicitly sets `public_training_enabled`, `serving_enabled`, `route_traffic`, `quality_claims`, and `tinker_compatible` to false.
+- **Frontend handoff:** Fine-tuning dashboards can now render a stable metadata card from the training-job API while waiting for GPU-host artifact proof and object-store model-card writing.
+- **OpenAPI:** Documented the additive `model_card_manifest` object on `LoraTrainingJob`.
+- **Verified:** Targeted LoRA training-job Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 14:21 UTC - `test(pods): guard Nsight provider benchmark evidence contract - PR #774`
 
 **PR:** [#774](https://github.com/dhnpmp-tech/dcp-platform/pull/774) (`codex/provider-nsight-contract-guard-2026-07-08`).
