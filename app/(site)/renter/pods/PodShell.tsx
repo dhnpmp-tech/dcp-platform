@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { Bi } from '@/app/(site)/lib/i18n'
 
 export const CURRENT_PAGE = 'pods'
-export type RenterConsolePage = 'dash' | 'pg' | 'keys' | 'usage' | 'pods' | 'fine' | 'wallet' | 'invoices' | 'settings' | 'docs'
+export type RenterConsolePage = 'dash' | 'pg' | 'keys' | 'usage' | 'pods' | 'fine' | 'batches' | 'wallet' | 'invoices' | 'settings' | 'docs'
 
 // Navigation — identical shape across the v2 renter console. The GPU Pods
 // item lives in the Build section (after Usage) and is mirrored into every
@@ -25,6 +25,7 @@ export const NAV = [
       { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/renter/usage' },
       { k: 'pods', ic: '▦', label: 'GPU Pods', labelAr: 'حاويات GPU', href: '/renter/pods' },
       { k: 'fine', ic: 'FT', label: 'Fine-Tuning', labelAr: 'الضبط الدقيق', href: '/renter/fine-tuning' },
+      { k: 'batches', ic: '▤', label: 'Batch', labelAr: 'الدُفعات', href: '/renter/batches' },
     ],
   },
   {
