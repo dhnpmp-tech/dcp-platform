@@ -4,11 +4,13 @@ const Database = require('better-sqlite3');
 const express = require('express');
 const request = require('supertest');
 const {
+  LORA_TRAINING_DATASET_LIMITS,
   MODEL_CARD_MANIFEST_VERSION,
   appendLoraTrainingJobLog,
   buildLoraModelCardManifest,
   createLoraTrainingJob,
   ensureLoraTrainingJobsSchema,
+  getLoraTrainingDatasetLimits,
   getLoraTrainingJob,
   listLoraTrainingJobLogs,
   listLoraTrainingJobs,
@@ -70,7 +72,7 @@ function trainingInput(overrides = {}) {
   };
 }
 
-function buildApp(db) {
+function buildApp(db, deps = {}) {
   const app = express();
   app.use(express.json({ limit: '12mb' }));
   app.use('/api/lora', createLoraRouter({
@@ -79,6 +81,7 @@ function buildApp(db) {
       req.renter = { id: Number(req.header('x-test-renter-id') || 1) };
       next();
     },
+    ...deps,
   }));
   return app;
 }
@@ -107,6 +110,7 @@ describe('LoRA training job foundation', () => {
         available: true,
         validate_only_endpoint: 'POST /api/lora/datasets/validate',
         supported_formats: ['chat_messages', 'prompt_completion'],
+        limits: LORA_TRAINING_DATASET_LIMITS,
       },
       training_jobs: {
         status: 'metadata_only',
@@ -478,6 +482,7 @@ describe('LoRA training job foundation', () => {
     expect(validation.body).toMatchObject({
       object: 'lora_dataset_validation',
       version: LORA_DATASET_VALIDATION_VERSION,
+      limits: LORA_TRAINING_DATASET_LIMITS,
       training_job_created: false,
       training_enabled: false,
       raw_dataset_persistence: false,
@@ -502,6 +507,69 @@ describe('LoRA training job foundation', () => {
     });
   });
 
+  test('routes validate-only and create training jobs share dataset limits', async () => {
+    const db = makeDb();
+    const limitDeps = { maxDatasetBytes: 1000, maxDatasetRows: 1 };
+    const app = buildApp(db, limitDeps);
+    const limits = getLoraTrainingDatasetLimits(limitDeps);
+
+    const readiness = await request(app).get('/api/lora/readiness').expect(200);
+    expect(readiness.body.dataset_validation.limits).toEqual(limits);
+
+    const validOneRow = await request(app)
+      .post('/api/lora/datasets/validate')
+      .send({
+        dataset_jsonl: JSON.stringify({ prompt: 'hello', completion: 'marhaba' }),
+      })
+      .expect(200);
+    expect(validOneRow.body.limits).toEqual(limits);
+    expect(validOneRow.body.validation.row_count).toBe(1);
+
+    const tooManyRows = await request(app)
+      .post('/api/lora/datasets/validate')
+      .send({ dataset_jsonl: datasetJsonl() })
+      .expect(400);
+    expect(tooManyRows.body).toMatchObject({
+      code: 'too_many_rows',
+      details: {
+        line: 2,
+        max_rows: 1,
+      },
+    });
+
+    const createTooManyRows = await request(app)
+      .post('/api/lora/training-jobs')
+      .send(trainingInput({
+        training_job_id: 'lora_job_limit01',
+        dataset_jsonl: datasetJsonl(),
+      }))
+      .expect(400);
+    expect(createTooManyRows.body).toMatchObject({
+      code: 'too_many_rows',
+      details: {
+        line: 2,
+        max_rows: 1,
+      },
+    });
+
+    const tooLarge = await request(app)
+      .post('/api/lora/datasets/validate')
+      .send({
+        dataset_jsonl: JSON.stringify({
+          prompt: 'x'.repeat(1200),
+          completion: 'marhaba',
+        }),
+      })
+      .expect(400);
+    expect(tooLarge.body).toMatchObject({
+      code: 'dataset_too_large',
+      details: {
+        max_bytes: 1000,
+      },
+    });
+    expect(listLoraTrainingJobs(db, 1).jobs).toEqual([]);
+  });
+
   test('routes create, replay, list, read, and reject invalid dataset bodies', async () => {
     const db = makeDb();
     const app = buildApp(db);
@@ -516,6 +584,7 @@ describe('LoRA training job foundation', () => {
       },
       dataset_validation: {
         validate_only_endpoint: 'POST /api/lora/datasets/validate',
+        limits: LORA_TRAINING_DATASET_LIMITS,
       },
       training_jobs: {
         public_training_enabled: false,

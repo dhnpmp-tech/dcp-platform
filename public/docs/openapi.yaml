@@ -556,11 +556,27 @@ components:
             available:
               type: boolean
               example: true
+            validate_only_endpoint:
+              type: string
+              example: POST /api/lora/datasets/validate
             supported_formats:
               type: array
               items:
                 type: string
                 enum: [chat_messages, prompt_completion]
+            limits:
+              type: object
+              additionalProperties: false
+              properties:
+                max_dataset_bytes:
+                  type: integer
+                  example: 12582912
+                max_dataset_rows:
+                  type: integer
+                  example: 100000
+                default_validation_split_pct:
+                  type: number
+                  example: 10
         training_jobs:
           type: object
           additionalProperties: true
@@ -651,6 +667,76 @@ components:
               type: boolean
               example: false
 
+    LoraDatasetValidation:
+      type: object
+      description: Validate-only LoRA/QLoRA SFT dataset contract. The route does not create a training job, persist raw dataset rows, launch GPU work, or register an adapter.
+      required: [object, version, limits, validation, training_job_created, training_enabled, raw_dataset_persistence, next]
+      properties:
+        object:
+          type: string
+          enum: [lora_dataset_validation]
+          example: lora_dataset_validation
+        version:
+          type: string
+          example: dcp.lora_dataset_validation.v1
+        limits:
+          type: object
+          additionalProperties: false
+          properties:
+            max_dataset_bytes:
+              type: integer
+              example: 12582912
+            max_dataset_rows:
+              type: integer
+              example: 100000
+            default_validation_split_pct:
+              type: number
+              example: 10
+        validation:
+          type: object
+          additionalProperties: true
+          properties:
+            format:
+              type: string
+              enum: [chat_messages, prompt_completion]
+              example: prompt_completion
+            row_count:
+              type: integer
+              example: 1200
+            train_rows:
+              type: integer
+              example: 1080
+            validation_rows:
+              type: integer
+              example: 120
+            validation_split_pct:
+              type: number
+              example: 10
+            estimated_tokens:
+              type: integer
+              example: 420000
+            max_row_chars:
+              type: integer
+              example: 900
+            checksum_sha256:
+              type: string
+              example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            normalized_bytes:
+              type: integer
+              example: 89000
+        training_job_created:
+          type: boolean
+          example: false
+        training_enabled:
+          type: boolean
+          example: false
+        raw_dataset_persistence:
+          type: boolean
+          example: false
+        next:
+          type: string
+          example: create_lora_training_job_after_dataset_review
+
     LoraTrainingJob:
       type: object
       description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
@@ -717,6 +803,34 @@ components:
         model_card_storage_key:
           type: string
           nullable: true
+        model_card_manifest:
+          type: object
+          nullable: true
+          description: Deterministic metadata-only model-card manifest for LoRA jobs that have a reserved or produced model-card storage key. It does not claim public training, serving, quality wins, or Tinker compatibility.
+          additionalProperties: true
+          properties:
+            object:
+              type: string
+              example: lora_model_card_manifest
+            schema_version:
+              type: string
+              example: dcp.lora_model_card_manifest.v1
+            status:
+              type: string
+              enum: [reserved, metadata_stub]
+              example: metadata_stub
+            storage_key:
+              type: string
+              example: adapters/r42/support-arabic/model-card.json
+            claims:
+              type: object
+              additionalProperties: false
+              properties:
+                public_training_enabled: { type: boolean, example: false }
+                serving_enabled: { type: boolean, example: false }
+                route_traffic: { type: boolean, example: false }
+                quality_claims: { type: boolean, example: false }
+                tinker_compatible: { type: boolean, example: false }
         failure_reason:
           type: string
           nullable: true
@@ -778,7 +892,7 @@ components:
 
     PaymentRequiredError:
       type: object
-      description: Returned with HTTP 402 when prepaid credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to fund before retrying.
+      description: Returned with HTTP 402 when account credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to add credit before retrying.
       required: [error]
       properties:
         error:
@@ -790,7 +904,7 @@ components:
           example: insufficient_balance
         message:
           type: string
-          example: Wallet balance is below the pre-flight estimate for this request.
+          example: Available credit is below the pre-flight estimate for this request. Add credit and retry.
         currency:
           type: string
           example: SAR
@@ -806,6 +920,26 @@ components:
         paid_available_halala:
           type: integer
           example: 1000
+        paid_available_sar:
+          type: number
+          example: 10
+        minimum_paid_credit_halala:
+          type: integer
+          description: Minimum paid credit required for this quote when trial/free credit is not eligible.
+          example: 1001
+        minimum_paid_credit_sar:
+          type: number
+          example: 10.01
+        credit_shortfall_halala:
+          type: integer
+          description: Additional paid credit needed before retrying this request.
+          example: 1
+        credit_shortfall_sar:
+          type: number
+          example: 0.01
+        credit_policy:
+          type: string
+          example: pod_on_demand_paid_credit_v1
         topup_url:
           type: string
           example: https://dcp.sa/renter/wallet
@@ -1255,7 +1389,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Pod' }
         '402':
-          description: Insufficient balance to cover the extension.
+          description: Insufficient account credit to cover the extension.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentRequiredError' }
@@ -1296,7 +1430,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Volume' }
         '402':
-          description: Insufficient prepaid balance.
+          description: Insufficient prepaid credit.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentRequiredError' }
@@ -1437,6 +1571,61 @@ paths:
         '409':
           description: Batch id already exists.
 
+  /api/batches/readiness:
+    get:
+      tags: [Batches]
+      summary: Get batch inference readiness and gate status
+      description: |
+        Returns the current batch-inference product gates for the authenticated
+        renter. This endpoint is intended for product surfaces and agents that
+        need to distinguish validation-only batch metadata from live execution,
+        discounts, result-download configuration, and model capability flags.
+      security:
+        - RenterApiKey: []
+      responses:
+        '200':
+          description: Batch inference readiness contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  readiness:
+                    type: object
+                    required: [object, version, current_mode, public_execution_enabled, request_creation_enabled, supported_urls, limits, features, claims, next]
+                    properties:
+                      object:
+                        type: string
+                        example: batch_inference_readiness
+                      version:
+                        type: string
+                        example: dcp.batch_inference_readiness.v1
+                      current_mode:
+                        type: string
+                        example: metadata_validation_only
+                      public_execution_enabled:
+                        type: boolean
+                        example: false
+                      request_creation_enabled:
+                        type: boolean
+                        example: true
+                      supported_urls:
+                        type: array
+                        items: { type: string }
+                        example: [/v1/chat/completions, /v1/complete]
+                      limits:
+                        type: object
+                        additionalProperties: true
+                      features:
+                        type: object
+                        additionalProperties: true
+                      claims:
+                        type: object
+                        additionalProperties: true
+                      next:
+                        type: string
+                        example: connect_worker_to_live_v1_executor_after_gpu_billing_and_result_smoke
+
   /api/batches/{batch_id}:
     get:
       tags: [Batches]
@@ -1567,6 +1756,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoraReadiness'
+
+  /api/lora/datasets/validate:
+    post:
+      tags: [LoRA]
+      summary: Validate LoRA SFT JSONL without creating a training job
+      description: |
+        Validates chat-message or prompt/completion JSONL and returns row counts,
+        train/validation split metadata, estimated tokens, normalized checksum,
+        and size facts. This validate-only route does not persist raw dataset
+        rows, create a training job, launch GPU training, register an adapter,
+        or claim Tinker compatibility.
+      security:
+        - RenterApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataset_jsonl]
+              properties:
+                dataset_jsonl:
+                  type: string
+                  description: JSONL dataset rows in chat_messages or prompt_completion format.
+                validation_split_pct:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                  default: 10
+      responses:
+        '200':
+          description: Dataset validation result. No training job is created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoraDatasetValidation'
+        '400':
+          description: Invalid dataset JSONL. Response includes a stable code and line number when available.
 
   /api/lora/training-jobs:
     get:
@@ -6430,6 +6657,75 @@ paths:
   # Next.js rewrites /v1/* → backend /v1/* for external access.
   # ──────────────────────────────────────────────────────────────────────────────
 
+  /v1/router/policies:
+    get:
+      tags: [OpenAI-Compatible]
+      summary: List DCP inference routing policy readiness
+      description: |
+        Returns a read-only catalog of DCP inference routing policies. This
+        endpoint does not enable request-selectable routing yet; it describes
+        which Fireworks-style router policies are live, telemetry-only,
+        catalog-only, gated, or not enabled.
+      responses:
+        '200':
+          description: Read-only routing policy catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, default_policy, request_selectable, data]
+                properties:
+                  object:
+                    type: string
+                    example: list
+                  version:
+                    type: string
+                    example: dcp.inference_routing_policies.v1
+                  default_policy:
+                    type: string
+                    example: balanced
+                  request_policy_parameter:
+                    nullable: true
+                    description: Null until request-selectable routing policies are enabled.
+                    example: null
+                  request_selectable:
+                    type: boolean
+                    example: false
+                  generated_at:
+                    type: string
+                    format: date-time
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, label, status, available, request_selectable, current_behavior, signals, next]
+                      properties:
+                        id:
+                          type: string
+                          enum: [balanced, lowest_latency, cheapest, saudi_only, coding, arabic]
+                        label:
+                          type: string
+                        status:
+                          type: string
+                          enum: [available, telemetry_gate_only, catalog_only, gated, not_enabled]
+                        available:
+                          type: boolean
+                        default:
+                          type: boolean
+                        request_selectable:
+                          type: boolean
+                        current_behavior:
+                          type: string
+                        signals:
+                          type: array
+                          items:
+                            type: string
+                        runtime:
+                          type: object
+                          additionalProperties: true
+                        next:
+                          type: string
+
   /v1/models:
     get:
       tags: [vLLM]
@@ -6544,16 +6840,123 @@ paths:
                               type: boolean
                             dedicated_deployment:
                               type: boolean
-                              description: False until dedicated deployments are productized.
+                              description: Product-available flag. False until dedicated deployments can route serving traffic.
                             lora:
                               type: boolean
-                              description: False until adapter deployment is productized.
+                              description: Product-available flag. False until adapter serving can route traffic.
                             prompt_caching:
                               type: boolean
-                              description: False until prompt-cache accounting is enabled.
+                              description: Product-available flag. False until prompt-cache discounts are enabled.
                             batch:
                               type: boolean
-                              description: False until batch inference is enabled.
+                              description: Product-available flag. False until batch execution and settlement are enabled.
+                        feature_readiness:
+                          type: object
+                          description: Additive readiness metadata for advanced Fireworks-style rails. Product-available booleans above remain false until the rail can route traffic or alter billing safely.
+                          properties:
+                            version:
+                              type: string
+                              example: dcp.model_feature_readiness.v1
+                            dedicated_deployment:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [gated, not_applicable]
+                                  example: gated
+                                available:
+                                  type: boolean
+                                  example: false
+                                api_available:
+                                  type: boolean
+                                  example: true
+                                serving_enabled:
+                                  type: boolean
+                                  example: false
+                                route_traffic:
+                                  type: boolean
+                                  example: false
+                                load_proof_required:
+                                  type: boolean
+                                  example: true
+                                next:
+                                  type: string
+                                  example: create_deployment_then_attach_vllm_load_proof
+                            lora:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [metadata_only, not_applicable]
+                                  example: metadata_only
+                                available:
+                                  type: boolean
+                                  example: false
+                                adapter_registry_api:
+                                  type: boolean
+                                  example: true
+                                training_job_api:
+                                  type: boolean
+                                  example: true
+                                serving_enabled:
+                                  type: boolean
+                                  example: false
+                                route_traffic:
+                                  type: boolean
+                                  example: false
+                                load_proof_required:
+                                  type: boolean
+                                  example: true
+                                next:
+                                  type: string
+                                  example: run_gpu_training_proof_then_enable_adapter_serving
+                            prompt_caching:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [measurement_only, not_applicable]
+                                  example: measurement_only
+                                available:
+                                  type: boolean
+                                  example: false
+                                usage_metadata:
+                                  type: boolean
+                                  example: true
+                                billing_discount:
+                                  type: boolean
+                                  example: false
+                                settlement_enabled:
+                                  type: boolean
+                                  example: false
+                                next:
+                                  type: string
+                                  example: validate_hit_measurement_before_discount
+                            batch:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [api_metadata_only, not_applicable]
+                                  example: api_metadata_only
+                                available:
+                                  type: boolean
+                                  example: false
+                                api_available:
+                                  type: boolean
+                                  example: true
+                                execution_enabled:
+                                  type: boolean
+                                  example: false
+                                result_downloads:
+                                  type: boolean
+                                  example: false
+                                discount_enabled:
+                                  type: boolean
+                                  example: false
+                                next:
+                                  type: string
+                                  example: enable_worker_result_artifact_and_settlement
 
   /v1/complete:
     post:
@@ -6625,6 +7028,14 @@ paths:
                   type: integer
                   nullable: true
                   description: Pin to a specific provider. Omit to auto-select.
+                routing_policy:
+                  type: string
+                  enum: [balanced]
+                  description: |
+                    Optional explicit router policy. Only `balanced` is
+                    accepted today and preserves current provider selection.
+                    Other policies listed by `/v1/router/policies` return a
+                    structured 400 until they become request-selectable.
       responses:
         '200':
           description: Completion result

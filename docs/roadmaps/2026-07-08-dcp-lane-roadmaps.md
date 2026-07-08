@@ -177,6 +177,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   frontend no longer needs one deployment request per visible adapter.
 - PR #796 added renter-authenticated `POST /api/lora/datasets/validate` so
   agents can validate LoRA SFT JSONL before creating a training job.
+- PR #798 aligned that validate-only route with the same 12 MB / 100,000-row
+  dataset limits used by training-job creation and exposed those limits through
+  readiness/OpenAPI.
 
 ### Now
 
@@ -201,6 +204,7 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   - status
   - created/deployed timestamps
 - Add dataset validator for LoRA SFT JSONL.
+  **Shipped in PR #796 and limit-parity hardened in PR #798.**
 - Add deployment record lifecycle:
   - pending
   - provisioning
@@ -482,6 +486,8 @@ DCP-hosted endpoint -> billed inference.
   storing raw dataset rows.**
   **Fine-Tuning console snippet added in PR #797 so renters and agents can copy
   the validate-before-create call from the product UI.**
+  **PR #798 makes validate-only use the same 12 MB / 100,000-row limits as
+  training-job creation and returns those limits in readiness/OpenAPI.**
 - Adapter registry:
   - owner
   - base model

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 19:00 UTC - LoRA dataset validation limit parity (PR #798)
+
+- **PR:** [#798](https://github.com/dhnpmp-tech/dcp-platform/pull/798) (`codex/lora-dataset-validate-limit-parity-2026-07-08`).
+- **Backend:** `POST /api/lora/datasets/validate` now shares the training-job dataset validator and limit options.
+- **Contract:** Validate-only responses and LoRA readiness now expose the accepted dataset limits: 12 MB, 100,000 rows, and 10% default validation split.
+- **Public OpenAPI:** Re-synced `public/docs/openapi.yaml` from `docs/openapi.yaml` so the deployed docs copy includes the current maintained spec.
+- **Safety:** The endpoint still creates no job, persists no raw rows, launches no GPU work, registers no adapter, and makes no Tinker-compatibility claim.
+- **Verification:** Targeted LoRA training job Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 18:49 UTC - Fine-Tuning dataset validation snippet (PR #797)
 
 - **PR:** [#797](https://github.com/dhnpmp-tech/dcp-platform/pull/797) (`codex/frontend-lora-dataset-validate-snippet-2026-07-08`).

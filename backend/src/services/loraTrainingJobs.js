@@ -28,6 +28,12 @@ const DEFAULT_LIMIT = 50;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 180;
 const DEFAULT_MAX_DATASET_BYTES = 12 * 1024 * 1024;
 const DEFAULT_MAX_DATASET_ROWS = 100000;
+const DEFAULT_VALIDATION_SPLIT_PCT = 10;
+const LORA_TRAINING_DATASET_LIMITS = Object.freeze({
+  max_dataset_bytes: DEFAULT_MAX_DATASET_BYTES,
+  max_dataset_rows: DEFAULT_MAX_DATASET_ROWS,
+  default_validation_split_pct: DEFAULT_VALIDATION_SPLIT_PCT,
+});
 const TRAINING_LOG_LEVELS = Object.freeze(['debug', 'info', 'warn', 'error']);
 const TRAINING_LOG_LEVEL_SET = new Set(TRAINING_LOG_LEVELS);
 const MODEL_CARD_MANIFEST_VERSION = 'dcp.lora_model_card_manifest.v1';
@@ -124,9 +130,9 @@ function createLoraTrainingJob(db, renterId, input = {}, options = {}) {
   let datasetValidation;
   let trainingSpec;
   try {
-    datasetValidation = validateLoraDatasetJsonl(input.dataset_jsonl, {
-      maxBytes: options.maxDatasetBytes || DEFAULT_MAX_DATASET_BYTES,
-      maxRows: options.maxDatasetRows || DEFAULT_MAX_DATASET_ROWS,
+    datasetValidation = validateLoraTrainingJobDataset(input.dataset_jsonl, {
+      maxDatasetBytes: options.maxDatasetBytes,
+      maxDatasetRows: options.maxDatasetRows,
       validationSplitPct: input.validation_split_pct,
     });
     trainingSpec = normalizeLoraTrainingSpec(input);
@@ -675,6 +681,22 @@ function buildLoraModelCardManifest(job) {
   };
 }
 
+function validateLoraTrainingJobDataset(datasetJsonl, options = {}) {
+  return validateLoraDatasetJsonl(datasetJsonl, {
+    maxBytes: resolveDatasetLimit(options.maxDatasetBytes, DEFAULT_MAX_DATASET_BYTES),
+    maxRows: resolveDatasetLimit(options.maxDatasetRows, DEFAULT_MAX_DATASET_ROWS),
+    validationSplitPct: options.validationSplitPct ?? DEFAULT_VALIDATION_SPLIT_PCT,
+  });
+}
+
+function getLoraTrainingDatasetLimits(options = {}) {
+  return {
+    max_dataset_bytes: resolveDatasetLimit(options.maxDatasetBytes, DEFAULT_MAX_DATASET_BYTES),
+    max_dataset_rows: resolveDatasetLimit(options.maxDatasetRows, DEFAULT_MAX_DATASET_ROWS),
+    default_validation_split_pct: DEFAULT_VALIDATION_SPLIT_PCT,
+  };
+}
+
 function assertExistingAdapterMatchesJob(adapter, job) {
   const mismatches = [];
   if (adapter.base_model !== job.base_model) mismatches.push('base_model');
@@ -856,6 +878,13 @@ function normalizeLimit(value) {
   return Math.min(limit, MAX_LIMIT);
 }
 
+function resolveDatasetLimit(value, fallback) {
+  if (value == null || value === '') return fallback;
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1) return fallback;
+  return limit;
+}
+
 function normalizeOffset(value) {
   if (value == null || value === '') return 0;
   const offset = Number(value);
@@ -906,17 +935,20 @@ module.exports = {
   TRAINING_JOB_STATUSES,
   TRAINING_LOG_LEVELS,
   MODEL_CARD_MANIFEST_VERSION,
+  LORA_TRAINING_DATASET_LIMITS,
   LoraTrainingJobError,
   buildLoraModelCardManifest,
   ensureLoraTrainingJobsSchema,
   appendLoraTrainingJobLog,
   createLoraTrainingJob,
+  getLoraTrainingDatasetLimits,
   getLoraTrainingJob,
   listLoraTrainingJobLogs,
   listLoraTrainingJobs,
   listCreatedLoraTrainingJobs,
   registerLoraTrainingJobAdapter,
   updateLoraTrainingJobStatus,
+  validateLoraTrainingJobDataset,
   __test: {
     normalizeTrainingJobId,
     normalizeOutputAdapterId,
@@ -927,7 +959,9 @@ module.exports = {
     generateTrainingJobId,
     generateOutputAdapterId,
     buildLoraModelCardManifest,
+    getLoraTrainingDatasetLimits,
     mapTrainingJobLogRow,
     mapTrainingJobRow,
+    resolveDatasetLimit,
   },
 };
