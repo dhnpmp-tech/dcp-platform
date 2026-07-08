@@ -11,13 +11,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '',
     '/docs',
     '/agents',
+    '/pods',
+    '/inference',
+    '/fine-tuning',
+    '/batch',
+    '/dedicated-deployments',
+    // Compatibility URL for older GPU Pods links. Keep lower-priority but
+    // discoverable while external references migrate to /pods.
     '/containers',
     '/architecture',
+    '/pricing',
     '/setup',
     '/provider-setup',
     '/renter/playground',
-    // /pricing was retired and folded into the home #pricing section; it now
-    // 308s to "/", so it must NOT be listed (advertising a redirecting URL).
     '/earn',
     '/support',
     '/status',
@@ -38,6 +44,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${BASE_URL}${route}`,
     lastModified: now,
     changeFrequency: route === '' ? 'daily' : 'weekly',
-    priority: route === '' ? 1 : 0.7,
+    priority: route === '' ? 1 : route === '/containers' ? 0.5 : 0.7,
   }))
 }

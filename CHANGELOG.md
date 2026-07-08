@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 17:52 UTC - `chore(frontend): publish product routes in sitemap - PR #793`
+
+**PR:** [#793](https://github.com/dhnpmp-tech/dcp-platform/pull/793) (`codex/public-product-sitemap-2026-07-08`).
+**Local timestamp:** 2026-07-08 21:52 +04.
+
+**What:** Sixtieth Fireworks/Tinker execution slice. Updates public route discovery after the product-page rollout.
+
+- **Sitemap:** Added `/pods`, `/inference`, `/fine-tuning`, `/batch`, `/dedicated-deployments`, and live `/pricing` to `sitemap.xml`.
+- **Compatibility:** Kept `/containers` in the sitemap as a lower-priority compatibility URL while public GPU Pods links migrate to `/pods`.
+- **Pricing CTA:** Retargeted the pricing-page GPU Pods CTA from `/containers` to `/pods`.
+- **Verified:** `npm run build`; `git diff --check`; local production smoke for `sitemap.xml` required routes/lower `/containers` priority and pricing-page `/pods` CTA with no horizontal overflow.
+
 ### 2026-07-08 17:43 UTC - `feat(frontend): add public Dedicated Deployments page - PR #792`
 
 **PR:** [#792](https://github.com/dhnpmp-tech/dcp-platform/pull/792) (`codex/public-dedicated-deployments-page-2026-07-08`).
