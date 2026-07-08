@@ -4930,9 +4930,10 @@ paths:
       tags: [vLLM]
       summary: List available vLLM models
       description: |
-        Returns the list of LLM models available for managed inference via
-        `/v1/complete` or `/v1/chat/completions`. These models are pre-loaded on DCP inference
-        nodes and do not require a separate job submission.
+        Returns the OpenAI-compatible model catalog for managed inference via
+        `/v1/chat/completions`. Each row includes current servability, provider
+        count, context length, capability flags, and DCP billing metadata in
+        halala/SAR/USD per 1M tokens.
 
         No authentication required.
       responses:
@@ -4943,7 +4944,10 @@ paths:
               schema:
                 type: object
                 properties:
-                  models:
+                  object:
+                    type: string
+                    example: list
+                  data:
                     type: array
                     items:
                       type: object
@@ -4957,15 +4961,94 @@ paths:
                         context_length:
                           type: integer
                           example: 32768
-                        max_tokens:
+                        max_output_tokens:
                           type: integer
                           example: 4096
-                        vram_required_gb:
+                        provider_count:
+                          type: integer
+                          example: 2
+                        max_vram_gb:
                           type: number
-                          example: 14
+                          example: 24
                         available:
                           type: boolean
                           description: True if a provider is currently serving this model
+                        status:
+                          type: string
+                          enum: [available, no_providers]
+                          example: available
+                        modalities:
+                          type: array
+                          items:
+                            type: string
+                          example: [text]
+                        pricing:
+                          type: object
+                          properties:
+                            prompt_tokens:
+                              type: string
+                              description: OpenAI/OpenRouter-compatible USD per prompt token.
+                              example: "0.000000"
+                            completion_tokens:
+                              type: string
+                              description: OpenAI/OpenRouter-compatible USD per completion token.
+                              example: "0.000000"
+                            usd_per_1m_input_tokens:
+                              type: string
+                              example: "0.213333"
+                            usd_per_1m_output_tokens:
+                              type: string
+                              example: "0.400000"
+                            sar_per_1m_input_tokens:
+                              type: string
+                              example: "0.8000"
+                            sar_per_1m_output_tokens:
+                              type: string
+                              example: "1.5000"
+                            halala_per_1m_input_tokens:
+                              type: integer
+                              example: 80
+                            halala_per_1m_output_tokens:
+                              type: integer
+                              example: 150
+                            billing_unit:
+                              type: string
+                              example: per_1m_tokens
+                            source:
+                              type: string
+                              enum: [model_registry, cost_rates]
+                              example: model_registry
+                        capability_flags:
+                          type: object
+                          properties:
+                            chat_completions:
+                              type: boolean
+                            streaming:
+                              type: boolean
+                            tool_calling:
+                              type: boolean
+                            reasoning:
+                              type: boolean
+                            code_generation:
+                              type: boolean
+                            embeddings:
+                              type: boolean
+                            image_generation:
+                              type: boolean
+                            multilingual:
+                              type: boolean
+                            dedicated_deployment:
+                              type: boolean
+                              description: False until dedicated deployments are productized.
+                            lora:
+                              type: boolean
+                              description: False until adapter deployment is productized.
+                            prompt_caching:
+                              type: boolean
+                              description: False until prompt-cache accounting is enabled.
+                            batch:
+                              type: boolean
+                              description: False until batch inference is enabled.
 
   /v1/complete:
     post:

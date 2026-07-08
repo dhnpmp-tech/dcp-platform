@@ -12,9 +12,25 @@ jest.mock('../db', () => mockDb);
 jest.mock('../middleware/rateLimiter', () => ({
   vllmCompleteLimiter: (req, res, next) => next(),
   vllmStreamLimiter: (req, res, next) => next(),
+  modelCatalogLimiter: (req, res, next) => next(),
 }));
 jest.mock('../services/openrouterSettlementService', () => ({
   recordOpenRouterUsage: (...args) => mockRecordOpenRouterUsage(...args),
+}));
+jest.mock('../services/billingService', () => ({
+  estimateInferenceCost: jest.fn(() => 1),
+  checkBalanceGate: jest.fn(() => ({
+    ok: true,
+    balanceHalala: 5000,
+    subCreditsHalala: 0,
+    totalAvailableHalala: 5000,
+    estimateHalala: 1,
+  })),
+  checkBudgetCap: jest.fn(() => ({
+    capped: false,
+    ok: true,
+  })),
+  settleInferenceOnce: jest.fn(() => ({ status: 'settled' })),
 }));
 
 describe('v1 models route', () => {
@@ -64,12 +80,18 @@ describe('v1 models route', () => {
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].id).toBe('fallback-model');
     expect(res.body.data[0]).toHaveProperty('parameter_count', null);
-    expect(res.body.data[0].pricing).toEqual({
+    expect(res.body.data[0].pricing).toMatchObject({
       prompt_tokens: expect.any(String),
       completion_tokens: expect.any(String),
       usd_per_minute: expect.any(String),
       usd_per_1m_input_tokens: expect.any(String),
       usd_per_1m_output_tokens: expect.any(String),
+      sar_per_1m_input_tokens: expect.any(String),
+      sar_per_1m_output_tokens: expect.any(String),
+      halala_per_1m_input_tokens: 2,
+      halala_per_1m_output_tokens: 2,
+      billing_unit: 'per_1m_tokens',
+      source: 'cost_rates',
     });
     expect(res.body.data[0].pricing.prompt_tokens).toMatch(/^\d+\.\d{6}$/);
     expect(res.body.data[0].pricing.completion_tokens).toMatch(/^\d+\.\d{6}$/);
@@ -87,7 +109,7 @@ describe('v1 models route', () => {
     ]);
     expect(res.body.data[0].provider_priority).toEqual(['dcp']);
     expect(typeof res.body.data[0].pricing.usd_per_minute).toBe('string');
-    expect(mockDb.all).toHaveBeenCalledTimes(3);
+    expect(mockDb.all).toHaveBeenCalledTimes(4);
   });
 
   test('fills safe defaults for legacy model_registry schemas', async () => {
@@ -117,18 +139,92 @@ describe('v1 models route', () => {
     expect(res.body.data[0].display_name).toBe('legacy-model');
     expect(res.body.data[0].context_window).toBe(4096);
     expect(res.body.data[0].parameter_count).toBeNull();
-    expect(res.body.data[0].pricing).toEqual({
+    expect(res.body.data[0].pricing).toMatchObject({
       prompt_tokens: expect.any(String),
       completion_tokens: expect.any(String),
       usd_per_minute: expect.any(String),
       usd_per_1m_input_tokens: expect.any(String),
       usd_per_1m_output_tokens: expect.any(String),
+      sar_per_1m_input_tokens: expect.any(String),
+      sar_per_1m_output_tokens: expect.any(String),
+      halala_per_1m_input_tokens: 1,
+      halala_per_1m_output_tokens: 1,
+      billing_unit: 'per_1m_tokens',
+      source: 'cost_rates',
     });
     expect(res.body.data[0].architecture).toEqual({
       tokenizer: 'dcp',
       instruct_type: 'instruct',
       modality: 'text',
     });
+  });
+
+  test('surfaces model_registry input/output rates and Fireworks-style capability metadata', async () => {
+    mockDb.all
+      .mockImplementationOnce(() => ([
+        { name: 'model_id' },
+        { name: 'display_name' },
+        { name: 'family' },
+        { name: 'context_window' },
+        { name: 'quantization' },
+        { name: 'vram_gb' },
+        { name: 'default_price_halala_per_min' },
+        { name: 'price_in_halala_per_1m_tok' },
+        { name: 'price_out_halala_per_1m_tok' },
+        { name: 'parameter_count' },
+        { name: 'min_gpu_vram_gb' },
+        { name: 'use_cases' },
+        { name: 'is_active' },
+      ]))
+      .mockImplementationOnce(() => ([
+        {
+          model_id: 'priced-model',
+          display_name: 'Priced Model',
+          family: 'qwen',
+          context_window: 32768,
+          quantization: 'int4',
+          vram_gb: 24,
+          default_price_halala_per_min: 15,
+          price_in_halala_per_1m_tok: 80,
+          price_out_halala_per_1m_tok: 150,
+          parameter_count: '7B',
+          min_gpu_vram_gb: 16,
+          use_cases: '["chat","reasoning","tool calling","arabic"]',
+        },
+      ]))
+      .mockImplementationOnce(() => ([
+        { model: 'priced-model', token_rate_halala: 999 },
+        { model: '__default__', token_rate_halala: 19 },
+      ]));
+
+    const res = await request(app).get('/v1/models');
+    const model = res.body.data[0];
+
+    expect(res.status).toBe(200);
+    expect(model.id).toBe('priced-model');
+    expect(model.context_length).toBe(32768);
+    expect(model.pricing).toMatchObject({
+      halala_per_1m_input_tokens: 80,
+      halala_per_1m_output_tokens: 150,
+      sar_per_1m_input_tokens: '0.8000',
+      sar_per_1m_output_tokens: '1.5000',
+      usd_per_1m_input_tokens: '0.213333',
+      usd_per_1m_output_tokens: '0.400000',
+      billing_unit: 'per_1m_tokens',
+      source: 'model_registry',
+    });
+    expect(model.capability_flags).toMatchObject({
+      chat_completions: true,
+      streaming: true,
+      tool_calling: true,
+      reasoning: true,
+      multilingual: true,
+      dedicated_deployment: false,
+      lora: false,
+      prompt_caching: false,
+      batch: false,
+    });
+    expect(model.capabilities).toEqual(model.capability_flags);
   });
 
   test('returns empty list when model_registry exists without model_id column', async () => {
@@ -177,6 +273,12 @@ describe('v1 models route', () => {
       usd_per_minute: expect.stringMatching(/^\d+\.\d{6}$/),
       usd_per_1m_input_tokens: expect.stringMatching(/^\d+\.\d{6}$/),
       usd_per_1m_output_tokens: expect.stringMatching(/^\d+\.\d{6}$/),
+      sar_per_1m_input_tokens: '0.1900',
+      sar_per_1m_output_tokens: '0.1900',
+      halala_per_1m_input_tokens: 19,
+      halala_per_1m_output_tokens: 19,
+      billing_unit: 'per_1m_tokens',
+      source: 'cost_rates',
     });
   });
 
@@ -264,7 +366,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 24,
+          cached_models: JSON.stringify(['legacy-chat-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test',
           gpu_util_pct: 10,
         }];
@@ -306,7 +411,7 @@ describe('v1 models route', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
     expect(mockDb.get.mock.calls.some(([sql]) => String(sql).includes('vram_gb AS min_gpu_vram_gb'))).toBe(true);
-    expect(res.body.usage.pricing).toEqual({
+    expect(res.body.usage.pricing).toMatchObject({
       currency: 'USD',
       usd_prompt: expect.any(String),
       usd_completion: expect.any(String),
@@ -342,7 +447,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 24,
+          cached_models: JSON.stringify(['requested-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test',
           gpu_util_pct: 5,
         }];
@@ -380,7 +488,7 @@ describe('v1 models route', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
     expect(mockDb.get.mock.calls.some(([sql]) => String(sql).includes('FROM model_registry WHERE model_id = ?'))).toBe(false);
-    expect(res.body.usage.pricing).toEqual({
+    expect(res.body.usage.pricing).toMatchObject({
       currency: 'USD',
       usd_prompt: expect.any(String),
       usd_completion: expect.any(String),
@@ -415,7 +523,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 12,
+          cached_models: JSON.stringify(['mistralai/Mistral-7B-Instruct-v0.2-AWQ']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test',
           gpu_util_pct: 2,
         }];
@@ -481,7 +592,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 12,
+          cached_models: JSON.stringify(['ALLaM-AI/ALLaM-7B-Instruct-preview']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test',
           gpu_util_pct: 2,
         }];
@@ -547,7 +661,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 24,
+          cached_models: JSON.stringify(['endpoint-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test/v1',
           gpu_util_pct: 2,
         }];
@@ -609,7 +726,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 24,
+          cached_models: JSON.stringify(['endpoint-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test/v1/chat/completions',
           gpu_util_pct: 2,
         }];
@@ -671,7 +791,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: null,
           vram_gb: 24,
+          cached_models: JSON.stringify(['legacy-compute-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test',
           gpu_util_pct: 1,
         }];
@@ -769,7 +892,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 24,
+          cached_models: JSON.stringify(['provider-down-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider.test',
         }];
       }
@@ -827,7 +953,10 @@ describe('v1 models route', () => {
           deleted_at: null,
           supported_compute_types: '["inference"]',
           vram_gb: 24,
+          cached_models: JSON.stringify(['provider-timeout-model']),
           last_heartbeat: new Date().toISOString(),
+          endpoint_reachable: 1,
+          endpoint_probed_at: new Date().toISOString(),
           vllm_endpoint_url: 'http://provider-timeout.test',
         }];
       }

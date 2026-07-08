@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 04:30 UTC - `feat(inference): expose per-model rate and capability metadata - PR #732`
+
+**PR:** [#732](https://github.com/dhnpmp-tech/dcp-platform/pull/732) (`codex/inference-model-metadata-2026-07-08`).
+**Local timestamp:** 2026-07-08 08:30 +04.
+
+**What:** First inference-product hardening slice from the Fireworks/Tinker roadmap. `/v1/models` now exposes billing-grade per-model rate metadata and honest capability flags that pricing pages, playgrounds, and CLI clients can consume consistently.
+
+- **Catalog pricing:** `/v1/models` now prefers `model_registry.price_in_halala_per_1m_tok` and `price_out_halala_per_1m_tok` over legacy `cost_rates`, while keeping OpenAI/OpenRouter-compatible `prompt_tokens` and `completion_tokens` fields.
+- **SAR/halala metadata:** Each model row now includes SAR and halala per-1M input/output token rates, `billing_unit`, and pricing `source`.
+- **Capability metadata:** Each model row now includes explicit flags for chat completions, streaming, tool calling, reasoning, code generation, embeddings, image generation, multilingual, dedicated deployments, LoRA, prompt caching, and batch. Not-yet-built product rails are exposed as `false`, not overclaimed.
+- **Fresh installs:** Inline DB boot migrations now add and seed the per-1M model rate columns so new installs do not silently fall back to legacy default pricing.
+- **Contract/tests:** Updated the OpenAPI `/v1/models` schema and added route tests proving model-registry input/output prices win over legacy defaults.
+
 ### 2026-07-08 04:14 UTC - `docs/ops: promote deploy watcher and capture dcp-agent drift order - PR #731`
 
 **PR:** [#731](https://github.com/dhnpmp-tech/dcp-platform/pull/731) (`codex/ops-repo-hardening-2026-07-08`).

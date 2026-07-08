@@ -559,6 +559,8 @@ function buildModelRegistryListQuery(columns) {
     columns.has('quantization') ? 'quantization' : "'unknown' AS quantization",
     columns.has('vram_gb') ? 'vram_gb' : '0 AS vram_gb',
     columns.has('default_price_halala_per_min') ? 'default_price_halala_per_min' : '0 AS default_price_halala_per_min',
+    columns.has('price_in_halala_per_1m_tok') ? 'price_in_halala_per_1m_tok' : 'NULL AS price_in_halala_per_1m_tok',
+    columns.has('price_out_halala_per_1m_tok') ? 'price_out_halala_per_1m_tok' : 'NULL AS price_out_halala_per_1m_tok',
     columns.has('parameter_count') ? 'parameter_count' : 'NULL AS parameter_count',
     columns.has('min_gpu_vram_gb')
       ? 'min_gpu_vram_gb'
@@ -613,6 +615,39 @@ function buildModelDescription(row, contractCore) {
   const useCases = Array.isArray(contractCore?.supported_features) ? contractCore.supported_features.join(', ') : 'chat.completions';
   const modelName = normalizeString(row?.display_name, { maxLen: 200 }) || normalizeString(row?.model_id, { maxLen: 200 }) || 'Model';
   return `${modelName} hosted by DCP for ${useCases}.`;
+}
+
+function resolveCatalogTokenRates(row, tokenRateByModel) {
+  const modelId = normalizeString(row?.model_id, { maxLen: 200 });
+  const legacyRate = tokenRateByModel.get(modelId) ?? tokenRateByModel.get('__default__') ?? DEFAULT_TOKEN_RATE_HALALA;
+  const inputRate = toFiniteInt(row?.price_in_halala_per_1m_tok, { min: 0, max: 100_000_000 });
+  const outputRate = toFiniteInt(row?.price_out_halala_per_1m_tok, { min: 0, max: 100_000_000 });
+  const hasRegistryRate = inputRate != null || outputRate != null;
+
+  return {
+    inputHalalaPer1m: inputRate ?? legacyRate,
+    outputHalalaPer1m: outputRate ?? legacyRate,
+    source: hasRegistryRate ? 'model_registry' : 'cost_rates',
+  };
+}
+
+function buildCatalogCapabilityMetadata(contractCore) {
+  const base = contractCore?.capability_flags || {};
+  const chatCompletions = Boolean(base.chat_completions);
+  return {
+    chat_completions: chatCompletions,
+    streaming: chatCompletions,
+    tool_calling: Boolean(base.tool_calling),
+    reasoning: Boolean(base.reasoning),
+    code_generation: Boolean(base.code_generation),
+    embeddings: Boolean(base.embeddings),
+    image_generation: Boolean(base.image_generation),
+    multilingual: Boolean(base.multilingual),
+    dedicated_deployment: false,
+    lora: false,
+    prompt_caching: false,
+    batch: false,
+  };
 }
 
 function resolveTokenizerFamily(row) {
@@ -922,8 +957,10 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         maxVramGb: Number(row.vram_gb || row.min_gpu_vram_gb || 0),
         created: nowSecs,
       });
-      const tokenRateHalala = tokenRateByModel.get(row.model_id) ?? tokenRateByModel.get('__default__') ?? DEFAULT_TOKEN_RATE_HALALA;
-      const usdPerToken = toUsdStringFromHalala(tokenRateHalala / TOKEN_RATE_BILLING_UNIT_TOKENS);
+      const catalogRates = resolveCatalogTokenRates(row, tokenRateByModel);
+      const usdPerInputToken = toUsdStringFromHalala(catalogRates.inputHalalaPer1m / TOKEN_RATE_BILLING_UNIT_TOKENS);
+      const usdPerOutputToken = toUsdStringFromHalala(catalogRates.outputHalalaPer1m / TOKEN_RATE_BILLING_UNIT_TOKENS);
+      const capabilityMetadata = buildCatalogCapabilityMetadata(contractCore);
       const architecture = {
         tokenizer: resolveTokenizerFamily(row),
         instruct_type: 'instruct',
@@ -954,12 +991,20 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         parent: null,
         description: buildModelDescription(row, contractCore),
         pricing: {
-          prompt_tokens: usdPerToken,
-          completion_tokens: usdPerToken,
+          prompt_tokens: usdPerInputToken,
+          completion_tokens: usdPerOutputToken,
           usd_per_minute: contractCore.pricing.usd_per_minute,
-          usd_per_1m_input_tokens: contractCore.pricing.usd_per_1m_input_tokens,
-          usd_per_1m_output_tokens: contractCore.pricing.usd_per_1m_output_tokens,
+          usd_per_1m_input_tokens: toUsdStringFromHalala(catalogRates.inputHalalaPer1m),
+          usd_per_1m_output_tokens: toUsdStringFromHalala(catalogRates.outputHalalaPer1m),
+          sar_per_1m_input_tokens: toSarStringFromHalala(catalogRates.inputHalalaPer1m),
+          sar_per_1m_output_tokens: toSarStringFromHalala(catalogRates.outputHalalaPer1m),
+          halala_per_1m_input_tokens: catalogRates.inputHalalaPer1m,
+          halala_per_1m_output_tokens: catalogRates.outputHalalaPer1m,
+          billing_unit: 'per_1m_tokens',
+          source: catalogRates.source,
         },
+        capability_flags: capabilityMetadata,
+        capabilities: capabilityMetadata,
         architecture,
         endpoints: [{ url: endpointUrl, type: 'chat' }],
         provider_priority: ['dcp'],

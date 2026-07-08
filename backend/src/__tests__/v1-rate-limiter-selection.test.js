@@ -9,6 +9,7 @@ jest.mock('../db', () => mockDb);
 jest.mock('../middleware/rateLimiter', () => ({
   vllmCompleteLimiter: (...args) => mockVllmCompleteLimiter(...args),
   vllmStreamLimiter: (...args) => mockVllmStreamLimiter(...args),
+  modelCatalogLimiter: (req, res, next) => next(),
 }));
 
 describe('v1 chat limiter selection', () => {
