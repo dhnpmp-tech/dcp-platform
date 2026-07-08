@@ -28,6 +28,8 @@ what is live.
 - PR #787 replaced the static Fine-Tuning contract preview with copyable curl
   snippets for readiness, jobs, adapters, deployment intents, and gated
   deploy-intent creation.
+- PR #797 added the validate-only LoRA dataset curl snippet to the Fine-Tuning
+  console after PR #796 shipped `POST /api/lora/datasets/validate`.
 - PR #788 added the public `/fine-tuning` product page and wired Fine-Tuning
   into shared site navigation while keeping serving and trainer claims gated.
 - PR #789 added the public `/inference` product page and retargeted shared
@@ -478,6 +480,8 @@ DCP-hosted endpoint -> billed inference.
   **Validate-only API added in PR #796 via `POST /api/lora/datasets/validate`;
   it returns checksum/split/token/size facts without creating a training job or
   storing raw dataset rows.**
+  **Fine-Tuning console snippet added in PR #797 so renters and agents can copy
+  the validate-before-create call from the product UI.**
 - Adapter registry:
   - owner
   - base model
