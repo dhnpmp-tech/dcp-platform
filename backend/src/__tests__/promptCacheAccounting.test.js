@@ -2,8 +2,10 @@
 
 const Database = require('better-sqlite3');
 const {
+  PROMPT_CACHE_ACCOUNTING_VERSION,
   computePromptCacheAccounting,
   attachPromptCacheUsage,
+  buildPromptCacheReadiness,
   ensurePromptCacheAccountingSchema,
   hasPromptCacheMeasurement,
   recordPromptCacheMeasurement,
@@ -11,6 +13,51 @@ const {
 } = require('../services/promptCacheAccounting');
 
 describe('prompt-cache accounting foundation', () => {
+  test('builds a measurement-only prompt-cache readiness contract', () => {
+    const readiness = buildPromptCacheReadiness(new Date('2026-07-08T19:20:00.000Z'));
+
+    expect(readiness).toMatchObject({
+      object: 'prompt_cache_readiness',
+      version: PROMPT_CACHE_ACCOUNTING_VERSION,
+      generated_at: '2026-07-08T19:20:00.000Z',
+      current_mode: 'measurement_only_no_discount',
+      status: 'available_measurement_only',
+      endpoints: {
+        readiness: 'GET /v1/prompt-cache/readiness',
+        chat_completions: 'POST /v1/chat/completions',
+      },
+      request_hints: {
+        static_prefix_fields: ['static_prefix', 'prompt_cache.static_prefix'],
+        session_fields: ['prompt_cache.session_id', 'session_id', 'user'],
+        supported_surfaces: ['/v1/chat/completions'],
+      },
+      measurement: {
+        hash_only: true,
+        stores_raw_prompt: false,
+        stores_static_prefix: false,
+        tracks_cache_key: true,
+        tracks_cached_input_tokens: true,
+        prior_hit_detection: true,
+      },
+      billing: {
+        discounts_enabled: false,
+        discount_bps: 0,
+        billable_input_tokens_discounted: false,
+        settlement_discount_enabled: false,
+      },
+      claims: {
+        prompt_cache_discount: false,
+        provider_kv_cache_control: false,
+        tinker_compatible: false,
+      },
+      next: 'enable_discount_only_after_provider_cache_hit_and_settlement_proof',
+    });
+    expect(readiness.response_fields).toEqual(expect.arrayContaining([
+      'usage.prompt_cache',
+      'usage.pricing.prompt_cache',
+    ]));
+  });
+
   test('builds a stable cache key from leading system/developer prefix messages', () => {
     const input = {
       model: 'qwen/qwen3-coder',

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 19:16 UTC - `feat(inference): add prompt-cache readiness contract - PR #800`
+
+**PR:** [#800](https://github.com/dhnpmp-tech/dcp-platform/pull/800) (`codex/prompt-cache-readiness-contract-2026-07-08`).
+**Local timestamp:** 2026-07-08 23:16 +04.
+
+**What:** Sixty-sixth Fireworks/Tinker execution slice. Adds a read-only prompt-cache readiness contract for the OpenAI-compatible inference API.
+
+- **API:** Added public `GET /v1/prompt-cache/readiness` beside router-policy readiness.
+- **Contract:** The response exposes supported prompt-cache hints, response usage fields, hash-only measurement state, and no-discount billing gates.
+- **Safety:** The contract explicitly says DCP does not yet apply prompt-cache discounts, alter settlement, store raw prompts/static prefixes, control provider KV caches, or claim Tinker compatibility.
+- **OpenAPI:** Documented `PromptCacheReadiness` and the new `/v1/prompt-cache/readiness` path, then synced `public/docs/openapi.yaml`.
+- **Verified:** Targeted prompt-cache and v1 route Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 19:06 UTC - `fix(lora): align dataset validation limits - PR #798`
 
 **PR:** [#798](https://github.com/dhnpmp-tech/dcp-platform/pull/798) (`codex/lora-dataset-validate-limit-parity-2026-07-08`).

@@ -41,6 +41,7 @@ const billingService = require('../services/billingService');
 const autoTopupService = require('../services/autoTopupService');
 const {
   attachPromptCacheUsage,
+  buildPromptCacheReadiness,
   computePromptCacheAccounting,
   hasPromptCacheMeasurement,
   recordPromptCacheMeasurement,
@@ -840,6 +841,11 @@ router.get('/coding/models', modelCatalogLimiter, (req, res) => {
 // ── GET /v1/router/policies — read-only routing policy catalog ─────────────
 router.get('/router/policies', modelCatalogLimiter, (_req, res) => {
   return res.json(buildInferenceRoutingPolicies());
+});
+
+// ── GET /v1/prompt-cache/readiness — read-only prompt-cache gate contract ──
+router.get('/prompt-cache/readiness', modelCatalogLimiter, (_req, res) => {
+  return res.json(buildPromptCacheReadiness());
 });
 
 // ── GET /v1/models — OpenAI-compatible model list ──────────────────────────

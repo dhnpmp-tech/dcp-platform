@@ -7,6 +7,53 @@ const DEFAULT_CHARS_PER_TOKEN = 4;
 const MAX_MODEL_LENGTH = 200;
 const MAX_REQUEST_ID_LENGTH = 200;
 
+function buildPromptCacheReadiness(now = new Date()) {
+  return {
+    object: 'prompt_cache_readiness',
+    version: PROMPT_CACHE_ACCOUNTING_VERSION,
+    generated_at: now.toISOString(),
+    current_mode: 'measurement_only_no_discount',
+    status: 'available_measurement_only',
+    endpoints: {
+      readiness: 'GET /v1/prompt-cache/readiness',
+      chat_completions: 'POST /v1/chat/completions',
+    },
+    request_hints: {
+      static_prefix_fields: ['static_prefix', 'prompt_cache.static_prefix'],
+      session_fields: ['prompt_cache.session_id', 'session_id', 'user'],
+      supported_surfaces: ['/v1/chat/completions'],
+    },
+    measurement: {
+      hash_only: true,
+      stores_raw_prompt: false,
+      stores_static_prefix: false,
+      tracks_cache_key: true,
+      tracks_cached_input_tokens: true,
+      prior_hit_detection: true,
+      non_streaming_supported: true,
+      streaming_supported: true,
+    },
+    billing: {
+      discounts_enabled: false,
+      discount_bps: 0,
+      billable_input_tokens_discounted: false,
+      settlement_discount_enabled: false,
+    },
+    response_fields: [
+      'usage.prompt_cache',
+      'usage.pricing.prompt_cache',
+      'usage.pricing.cached_input_tokens',
+      'usage.pricing.billable_input_tokens',
+    ],
+    claims: {
+      prompt_cache_discount: false,
+      provider_kv_cache_control: false,
+      tinker_compatible: false,
+    },
+    next: 'enable_discount_only_after_provider_cache_hit_and_settlement_proof',
+  };
+}
+
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
@@ -359,6 +406,7 @@ function assertDb(db) {
 
 module.exports = {
   PROMPT_CACHE_ACCOUNTING_VERSION,
+  buildPromptCacheReadiness,
   computePromptCacheAccounting,
   attachPromptCacheUsage,
   ensurePromptCacheAccountingSchema,
