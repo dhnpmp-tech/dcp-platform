@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 20:34 UTC - `test(pods): add workspace-to-pod contract guard - PR #810`
+
+**PR:** [#810](https://github.com/dhnpmp-tech/dcp-platform/pull/810) (`codex/workspace-pod-contract-guard-2026-07-08`).
+**Local timestamp:** 2026-07-09 00:34 +04.
+
+**What:** Seventy-second Fireworks/Tinker execution slice. Adds a CI-safe guard for the workspace upload -> pod launch -> `/workspace` restore/snapshot contract before real GPU-host proof.
+
+- **Verifier:** Added `workspace-pods:verify-contracts`, checking pod launch task specs, portable S3 workspace wiring, renter-derived workspace buckets, workspace API active-volume gating, and daemon restore/snapshot calls.
+- **Backend tests:** Added Jest coverage for the workspace-pod contract verifier.
+- **POTS evidence:** The guard proves the code path remains wired while the real provider-host smoke remains the acceptance gate for file visibility inside `/workspace`.
+- **Safety:** No pod launch, stop, billing, workspace upload, daemon runtime, or provider behavior changed.
+- **Verified:** `npm run workspace-pods:verify-contracts`; targeted workspace-pod Jest test; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 20:27 UTC - `fix(auth): preserve query strings in console auth redirects - PR #808`
 
 **PR:** [#808](https://github.com/dhnpmp-tech/dcp-platform/pull/808) (`codex/auth-redirect-preserve-query-2026-07-08`).

@@ -429,6 +429,9 @@ template launch.
 - PR #806 added renter-facing workspace pre-upload polish from Fine-Tuning into
   the shared Workspace/POD flow, making file staging the normal first action
   before LoRA/QLoRA template launch.
+- PR #810 added a CI-safe workspace-to-pod contract guard across the workspace
+  API, volume lookup, pod launch task spec, and provider daemon restore/snapshot
+  calls. Real GPU-host file-visibility proof remains the acceptance gate.
 
 ### Now
 
@@ -461,6 +464,8 @@ template launch.
   **Fine-Tuning now links directly into the persistent Workspace tab in PR
   #806; the remaining proof is workspace upload -> launch pod -> files visible
   in `/workspace` on a GPU provider host.**
+  **CI-safe contract guard for that path landed in PR #810; still requires a
+  provider-host smoke to prove actual file visibility.**
 - Add Nsight Python benchmark MVP:
   - utilization
   - memory bandwidth
@@ -593,7 +598,9 @@ DCP-hosted endpoint -> billed inference.
 1. Ops cleanup and repo parity. **Deploy-watch resolved; `dcp-agent` remains the open maintenance-window item.**
 2. Inference metadata/rate consistency.
 3. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
-4. Workspace-to-pod launch polish. **Started in PR #761.**
+4. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
+   Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard
+   landed in PR #810.**
 5. Adapter registry schema. **Schema/API foundation has landed; continue with
    GPU-host adapter proof and deployment smoke before public serving claims.**
 6. Prompt-cache accounting design.
