@@ -30,6 +30,11 @@ const CI_SAFE_GATES = Object.freeze([
     command: 'npm run provider:nsight:verify',
   },
   {
+    id: 'live_acceptance_status',
+    command: 'npm run proof:live-acceptance-status',
+    outputEnv: 'DCP_LIVE_ACCEPTANCE_STATUS_OUTPUT_DIR',
+  },
+  {
     id: 'router_policy_contract',
     command: 'npm run proof:router-policy-contract',
     outputEnv: 'DCP_ROUTER_POLICY_PROOF_OUTPUT_DIR',

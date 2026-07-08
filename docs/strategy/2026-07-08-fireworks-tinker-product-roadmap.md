@@ -457,6 +457,11 @@ Acceptance:
     lowest-latency, Saudi-only, coding, and Arabic policies remain non-selectable
     until route-ordering tests, billing/no-billing proofs, and live smoke
     evidence exist.**
+13. **Live acceptance status packet** - one blocked-gate ledger before more
+    product claims. **Added in PR #834 as
+    `npm run proof:live-acceptance-status`; it lists command-ready live gates,
+    missing acceptance runners, blocked inputs, artifact patterns, and claim
+    guards without treating any live capability as accepted.**
 
 ## Division of Work
 

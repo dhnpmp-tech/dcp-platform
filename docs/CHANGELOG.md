@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 23:03 UTC - Live acceptance gate status packet (PR #834)
+
+- **PR:** [#834](https://github.com/dhnpmp-tech/dcp-platform/pull/834) (`codex/live-acceptance-gate-status-2026-07-09`).
+- **Status command:** Added `npm run proof:live-acceptance-status` for a CI-safe blocked-gate ledger.
+- **Coverage:** Lists workspace-pod live launch, LoRA pod-image provider-host proof, Anthropic SSE live proof, prompt-cache live discount smoke, batch live execution/discount smoke, LoRA GPU artifact proof, adapter vLLM load/billing smoke, and `dcp-agent` reconciliation.
+- **Contract:** Each gate records command availability, blocked inputs, artifact pattern, verified behavior, next action, and `capability_claim_allowed: false`.
+- **Aggregate gate:** `npm run proof:local-roadmap` now includes the live acceptance status packet and reports 10 CI-safe gates.
+- **Safety:** No paid compute, billed inference, provider routing, artifact cleanup, billing, settlement, runtime route, frontend, or product-claim behavior changed.
+- **Verification:** `npm run proof:live-acceptance-status` with temp report output; targeted Jest suite; `npm run proof:local-roadmap` with temp report output; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:54 UTC - Router policy contract proof (PR #832)
 
 - **PR:** [#832](https://github.com/dhnpmp-tech/dcp-platform/pull/832) (`codex/router-policy-contract-proof-2026-07-09`).

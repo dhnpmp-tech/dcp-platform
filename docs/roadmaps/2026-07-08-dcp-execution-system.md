@@ -146,6 +146,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Audit gate | Command | Required external input | Current acceptance state |
 |---|---|---|---|
 | CI-safe local roadmap suite | `npm run proof:local-roadmap` | none | Runs all CI-safe gates below and reports excluded live gates |
+| Live acceptance gate status | `npm run proof:live-acceptance-status` | none | CI-safe status packet; reports blocked live gates and missing acceptance runners without marking capabilities passed |
 | Build/product route integrity | `npm run build` | none | Required for frontend/runtime PRs |
 | Workspace-to-pod wiring contract | `npm run workspace-pods:verify-contracts` | none | CI-safe gate available |
 | Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |
@@ -180,7 +181,10 @@ before or with the feature change.
 2. **Proof harnesses before claims**
    - Gate: every remaining manual live acceptance step has a repo command,
      artifact path, and blocked/pass/fail status.
-   - Current commands: workspace-pod proof and Anthropic SSE proof are available.
+   - Current live commands: workspace-pod proof, LoRA pod-image provider-host
+     proof, and Anthropic SSE proof are available.
+   - Status packet: `npm run proof:live-acceptance-status` lists remaining
+     live gates, missing acceptance runners, blocked inputs, and claim guards.
 3. **POT/PODS workspace and image hardening**
    - Gate: `workspace-pods:verify-contracts`, `proof:workspace-pod`,
      `pod-images:verify-contracts`, and `proof:lora-pod-image`.
