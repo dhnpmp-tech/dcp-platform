@@ -222,6 +222,23 @@ function listBatchInferenceJobs(db, renterId, options = {}) {
   };
 }
 
+function listCreatedBatchInferenceJobs(db, options = {}) {
+  assertDb(db);
+  const limit = normalizeLimit(options.limit);
+  const rows = db.prepare(`
+    SELECT batch_id, renter_id, input_storage_key, input_checksum_sha256,
+           input_normalized_bytes, request_count, completion_window, metadata_json,
+           result_storage_key, status, completed_count, failed_count,
+           total_cost_halala, idempotency_key, created_at, updated_at,
+           started_at, completed_at, expires_at
+      FROM batch_inference_jobs
+     WHERE status = 'created'
+     ORDER BY created_at ASC, id ASC
+     LIMIT ?
+  `).all(limit);
+  return rows.map(mapBatchRow);
+}
+
 function updateBatchInferenceJobStatus(db, renterId, batchId, status, options = {}) {
   assertDb(db);
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
@@ -485,6 +502,7 @@ module.exports = {
   createBatchInferenceJob,
   getBatchInferenceJob,
   listBatchInferenceJobs,
+  listCreatedBatchInferenceJobs,
   updateBatchInferenceJobStatus,
   __test: {
     normalizeBatchId,
