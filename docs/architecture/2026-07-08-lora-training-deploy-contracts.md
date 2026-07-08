@@ -172,3 +172,8 @@ and adapter deployment load-proof readiness in one response. The readiness
 contract keeps public training, public serving, routing, quality claims, Tinker
 compatibility, and discounts false until GPU-host artifact proof and vLLM load
 proof are available.
+
+PR #783 wires `/renter/fine-tuning` to that readiness contract. The dashboard
+now renders current mode, dataset/job/model-card/registry/deployment gates,
+route traffic, and claim guards from `GET /api/lora/readiness` instead of
+duplicating static gate copy in the frontend.

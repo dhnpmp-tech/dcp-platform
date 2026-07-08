@@ -17,6 +17,9 @@ what is live.
 - PR #745 added the Fine-Tuning training-jobs ledger to the renter console.
 - PR #778 added Fine-Tuning model-card manifest proof cards tied to the
   metadata-only `model_card_manifest` contract from LoRA training jobs.
+- PR #783 wired `/renter/fine-tuning` to `GET /api/lora/readiness`, adding a
+  backend-driven readiness rail for LoRA mode, training, model-card, registry,
+  deployment, route-traffic, and claim guards.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -98,6 +101,7 @@ what is live.
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
    **Started in PR #745.**
    **Model-card manifest cards added in PR #778.**
+   **LoRA readiness gates added from the backend contract in PR #783.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
    **Readiness gates from the backend contract added in PR #777.**
 
@@ -438,6 +442,8 @@ DCP-hosted endpoint -> billed inference.
   **PR #782 publishes `/api/lora/readiness` so the full LoRA product gate is
   readable by UI and agents before GPU training workers or adapter traffic are
   made public.**
+  **PR #783 renders that readiness contract in `/renter/fine-tuning`, replacing
+  duplicated static gate copy with backend-driven mode and claim guards.**
 - Adapter deploy:
   - one adapter/live merge first
   - multi-LoRA second

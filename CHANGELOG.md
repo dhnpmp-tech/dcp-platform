@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 16:02 UTC - `feat(frontend): render LoRA readiness gates - PR #783`
+
+**PR:** [#783](https://github.com/dhnpmp-tech/dcp-platform/pull/783) (`codex/frontend-lora-readiness-2026-07-08`).
+**Local timestamp:** 2026-07-08 20:02 +04.
+
+**What:** Fiftieth Fireworks/Tinker execution slice. Connects the renter Fine-Tuning console to the LoRA readiness contract from PR #782.
+
+- **Frontend contract:** `/renter/fine-tuning` now fetches `GET /api/lora/readiness` with the renter key alongside renter, adapter, and training-job state.
+- **Readiness rail:** Added a compact LoRA readiness panel for current mode, dataset validation, training jobs, model cards, adapter registry, adapter deployments, route traffic, and contract version.
+- **Claim guard:** Public training, serving, routing, quality, Tinker compatibility, and discounts are rendered from backend `claim_guards` instead of duplicated static copy.
+- **Responsive layout:** Added scoped desktop/tablet/mobile CSS for the readiness rail without changing existing training-job tables or model-card proof cards.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright render smoke for `/renter/fine-tuning` on desktop and mobile, including a `/api/lora/readiness` request and no horizontal overflow.
+
 ### 2026-07-08 15:50 UTC - `feat(lora): publish readiness gates - PR #782`
 
 **PR:** [#782](https://github.com/dhnpmp-tech/dcp-platform/pull/782) (`codex/lora-readiness-contract-2026-07-08`).

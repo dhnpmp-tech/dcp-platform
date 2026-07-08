@@ -113,6 +113,53 @@ interface TrainingJobListResponse {
   error?: string
 }
 
+interface LoraReadiness {
+  object: 'lora_readiness'
+  version: string
+  current_mode: string
+  dataset_validation?: {
+    status?: string
+    available?: boolean
+    supported_formats?: string[]
+  }
+  training_jobs?: {
+    status?: string
+    api_available?: boolean
+    public_training_enabled?: boolean
+    worker_execution_enabled?: boolean
+    gpu_host_proof_required?: boolean
+    recipes?: string[]
+  }
+  model_cards?: {
+    status?: string
+    api_available?: boolean
+    manifest_version?: string
+    model_card_artifact_writer_enabled?: boolean
+  }
+  adapter_registry?: {
+    status?: string
+    api_available?: boolean
+    serving_enabled?: boolean
+    route_traffic?: boolean
+  }
+  adapter_deployments?: {
+    status?: string
+    api_available?: boolean
+    serving_enabled?: boolean
+    route_traffic?: boolean
+    load_proof_required?: boolean
+    modes?: string[]
+  }
+  claim_guards?: {
+    public_training_enabled?: boolean
+    public_serving_enabled?: boolean
+    route_traffic?: boolean
+    quality_claims?: boolean
+    tinker_compatible?: boolean
+    discounts_enabled?: boolean
+  }
+}
+
 const STAGES = [
   {
     no: '01',
@@ -184,6 +231,20 @@ function statusTone(status: string): string {
   return 'queued'
 }
 
+function formatContractMode(value: string | undefined): string {
+  if (!value) return 'metadata and artifact proof only'
+  return value.replace(/_/g, ' ')
+}
+
+function readinessLabel(value: string | undefined): string {
+  if (!value) return 'gated'
+  return value.replace(/_/g, ' ')
+}
+
+function gateLabel(enabled: boolean | undefined): string {
+  return enabled ? 'live' : 'off'
+}
+
 export default function RenterFineTuningPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
@@ -193,6 +254,7 @@ export default function RenterFineTuningPage() {
   const [renterEmail, setRenterEmail] = useState('')
   const [adapters, setAdapters] = useState<AdapterRecord[]>([])
   const [trainingJobs, setTrainingJobs] = useState<TrainingJobRecord[]>([])
+  const [readiness, setReadiness] = useState<LoraReadiness | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -210,10 +272,11 @@ export default function RenterFineTuningPage() {
 
     ;(async () => {
       try {
-        const [meRes, adaptersRes, trainingJobsRes] = await Promise.all([
+        const [meRes, adaptersRes, trainingJobsRes, readinessRes] = await Promise.all([
           fetch(`${base}/renters/me`, { headers }),
           fetch(`${base}/adapters`, { headers }),
           fetch(`${base}/lora/training-jobs`, { headers }),
+          fetch(`${base}/lora/readiness`, { headers }),
         ])
 
         if (!meRes.ok) {
@@ -228,10 +291,15 @@ export default function RenterFineTuningPage() {
           const data = await trainingJobsRes.json().catch(() => ({}))
           throw new Error(data.error || 'Failed to load LoRA training jobs.')
         }
+        if (!readinessRes.ok) {
+          const data = await readinessRes.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to load LoRA readiness gates.')
+        }
 
         const me = (await meRes.json()) as RenterMe
         const adapterData = (await adaptersRes.json()) as AdapterListResponse
         const trainingJobData = (await trainingJobsRes.json()) as TrainingJobListResponse
+        const readinessData = (await readinessRes.json()) as LoraReadiness
         if (cancelled) return
 
         const renter = me.renter
@@ -239,6 +307,7 @@ export default function RenterFineTuningPage() {
         setRenterEmail(renter?.email || '')
         setAdapters(adapterData.data || [])
         setTrainingJobs(trainingJobData.data || [])
+        setReadiness(readinessData?.object === 'lora_readiness' ? readinessData : null)
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
@@ -262,6 +331,16 @@ export default function RenterFineTuningPage() {
   const totalDatasetRows = trainingJobs.reduce((sum, job) => sum + (job.dataset_row_count || 0), 0)
   const totalEstimatedTokens = trainingJobs.reduce((sum, job) => sum + (job.estimated_tokens || 0), 0)
   const isLive = loadState === 'ready'
+  const readinessMode = readiness?.current_mode || 'metadata_and_artifact_proof_only'
+  const claimGuards = readiness?.claim_guards || {}
+  const readinessClaims = [
+    `training ${gateLabel(claimGuards.public_training_enabled)}`,
+    `serving ${gateLabel(claimGuards.public_serving_enabled)}`,
+    `routes ${gateLabel(claimGuards.route_traffic)}`,
+    `quality ${gateLabel(claimGuards.quality_claims)}`,
+    `Tinker ${gateLabel(claimGuards.tinker_compatible)}`,
+    `discounts ${gateLabel(claimGuards.discounts_enabled)}`,
+  ].join(' · ')
 
   return (
     <div className="rt-app ft-page">
@@ -371,6 +450,50 @@ export default function RenterFineTuningPage() {
               </div>
             </div>
           </div>
+
+          <section className="ft-readiness" aria-label={lang === 'ar' ? 'جاهزية LoRA' : 'LoRA readiness'}>
+            <div className="ft-section-head compact">
+              <div>
+                <span className="pod-label">
+                  <Bi en="Readiness" ar="الجاهزية" />
+                </span>
+                <h2>{formatContractMode(readinessMode)}</h2>
+              </div>
+              <span className="ft-contract-id mono">{readiness?.version || 'dcp.lora_readiness.v1'}</span>
+            </div>
+
+            <div className="ft-readiness-grid">
+              <div>
+                <span><Bi en="Datasets" ar="البيانات" /></span>
+                <b>{readinessLabel(readiness?.dataset_validation?.status || (readiness?.dataset_validation?.available ? 'available' : undefined))}</b>
+              </div>
+              <div>
+                <span><Bi en="Jobs" ar="المهام" /></span>
+                <b>{readinessLabel(readiness?.training_jobs?.status)}</b>
+              </div>
+              <div>
+                <span><Bi en="Model cards" ar="بطاقات النماذج" /></span>
+                <b>{readinessLabel(readiness?.model_cards?.status)}</b>
+              </div>
+              <div>
+                <span><Bi en="Registry" ar="السجل" /></span>
+                <b>{readinessLabel(readiness?.adapter_registry?.status)}</b>
+              </div>
+              <div>
+                <span><Bi en="Deployments" ar="النشر" /></span>
+                <b>{readinessLabel(readiness?.adapter_deployments?.status)}</b>
+              </div>
+              <div>
+                <span><Bi en="Route traffic" ar="توجيه الحركة" /></span>
+                <b>{gateLabel(readiness?.adapter_deployments?.route_traffic)}</b>
+              </div>
+            </div>
+
+            <div className="ft-supported">
+              <span><Bi en="Claim guards" ar="حراس الادعاءات" /></span>
+              <code>{readinessClaims}</code>
+            </div>
+          </section>
 
           <section className="ft-section" aria-labelledby="ft-flow-title">
             <div className="ft-section-head">
