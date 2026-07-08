@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 19:00 UTC - `fix(lora): align dataset validation limits - PR #798`
+### 2026-07-08 19:06 UTC - `fix(lora): align dataset validation limits - PR #798`
 
 **PR:** [#798](https://github.com/dhnpmp-tech/dcp-platform/pull/798) (`codex/lora-dataset-validate-limit-parity-2026-07-08`).
-**Local timestamp:** 2026-07-08 23:00 +04.
+**Local timestamp:** 2026-07-08 23:06 +04.
 
 **What:** Sixty-fifth Fireworks/Tinker execution slice. Makes LoRA validate-only checks enforce the same dataset limits as training-job creation.
 
