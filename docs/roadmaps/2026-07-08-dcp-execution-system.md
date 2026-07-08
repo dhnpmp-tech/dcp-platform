@@ -160,6 +160,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
 | Batch inference lifecycle contract | `npm run proof:batch-inference-contract` | none | CI-safe gate available; live provider execution and discounted settlement smoke still blocked |
+| Batch live execution/discount smoke | `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` | funded smoke principal, object-store result path, live provider execution capacity, discount policy approval | Command available; currently records readiness blockers and stops before batch creation |
 | Adapter deployment lifecycle contract | `npm run proof:adapter-deployment-contract` | none | CI-safe gate available; live vLLM load and billing smoke still blocked |
 | API health | `curl -fsS https://api.dcp.sa/api/health` | production network | Required after every deploy |
 | Model catalog health | `curl -fsS https://api.dcp.sa/v1/models` | production network | Required after inference/model/catalog changes |
@@ -183,7 +184,8 @@ before or with the feature change.
    - Gate: every remaining manual live acceptance step has a repo command,
      artifact path, and blocked/pass/fail status.
    - Current live commands: workspace-pod proof, LoRA pod-image provider-host
-     proof, and Anthropic SSE proof are available.
+     proof, Anthropic SSE proof, prompt-cache live settlement proof, and batch
+     live execution proof are available.
    - Status packet: `npm run proof:live-acceptance-status` lists remaining
      live gates, missing acceptance runners, blocked inputs, and claim guards.
 3. **POT/PODS workspace and image hardening**
@@ -198,9 +200,9 @@ before or with the feature change.
    - Advanced claims stay gated until a funded live proof report exists.
 5. **Prompt-cache and batch economics**
    - Gate: `proof:prompt-cache-contract`, `proof:batch-inference-contract`,
-     `proof:prompt-cache-live-settlement`, readiness contracts, settlement
-     tests, result-artifact proof, and no-discount/no-execution claim guards
-     until measured billing proof exists.
+     `proof:prompt-cache-live-settlement`, `proof:batch-live-execution`,
+     readiness contracts, settlement tests, result-artifact proof, and
+     no-discount/no-execution claim guards until measured billing proof exists.
 6. **LoRA dataset, training, and artifact proof**
    - Gate: `templates:validate`, `proof:lora-training-contract`, dataset
      validate-only tests, fixed-recipe SFT worker proof, adapter artifact

@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 23:35 UTC - `test(inference): add batch live execution proof runner - PR #838`
+
+**PR:** [#838](https://github.com/dhnpmp-tech/dcp-platform/pull/838) (`codex/batch-live-proof-runner-2026-07-09`).
+**Local timestamp:** 2026-07-09 03:35 +04.
+
+**What:** Eighty-sixth Fireworks/Tinker execution slice. Promotes the batch live execution/discount gate from missing-runner status to an opt-in live readiness proof command.
+
+- **Live proof runner:** Added `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`, backed by `backend/tests/batch-live-execution-proof.js`.
+- **Default safety:** The runner refuses by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Readiness gate:** When explicitly allowed, it mints/reuses the deterministic smoke principal, checks renter-authenticated `GET /api/batches/readiness`, and records the exact blockers while current readiness keeps execution, result downloads, settlement, discounts, and model batch capability disabled.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now marks the batch live gate command-ready, moving the ledger to 5/8 command-ready and 3/8 missing live acceptance runners.
+- **Roadmaps:** Updated the local roadmap external gates so batch live execution has a stable opt-in command before live provider execution and discounted settlement are enabled.
+- **Safety:** No batch creation, provider execution, object-store write, result download, settlement, discount, model catalog, frontend, routing, billing, or public product claim behavior changed.
+- **Verified:** Default blocked run of `npm run proof:batch-live-execution` with temp report output; targeted batch live runner and live-gate status Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:27 UTC - `test(inference): add prompt-cache live settlement proof runner - PR #836`
 
 **PR:** [#836](https://github.com/dhnpmp-tech/dcp-platform/pull/836) (`codex/prompt-cache-live-proof-runner-2026-07-09`).

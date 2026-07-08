@@ -228,3 +228,11 @@ PR #777 connects `/renter/batches` to that readiness contract. The renter
 console now shows current mode, contract version, create/execution/download,
 settlement, discount, completion-window, and supported-URL gates from the API,
 and disables creation only when `request_creation_enabled` is false.
+PR #838 adds `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`,
+an opt-in live proof runner for the next batch gate. In the current production
+state it authenticates as the deterministic smoke principal, checks
+`GET /api/batches/readiness`, records the exact
+execution/download/settlement/discount blockers, and exits blocked before batch
+creation or billing mutation. A future passing run must add
+create/poll/download/settlement evidence before batch execution or discount
+claims can be enabled.
