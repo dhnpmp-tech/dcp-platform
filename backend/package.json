@@ -32,6 +32,7 @@
     "test:reliability:adapter-deployment-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/adapter-deployment-contract-proof.js",
     "test:reliability:batch-inference-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/batch-inference-contract-proof.js",
     "test:reliability:prompt-cache-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/prompt-cache-contract-proof.js",
+    "test:reliability:router-policy-contract-proof": "node tests/router-policy-contract-proof.js",
     "test": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest --runInBand --forceExit",
     "test:integration": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest tests/integration/ --runInBand",
     "test:openrouter:compliance": "NODE_ENV=test node tests/openrouter-compliance-harness.js",

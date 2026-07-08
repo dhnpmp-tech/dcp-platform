@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 22:47 UTC - `test(inference): add router policy contract proof - PR #832`
+
+**PR:** [#832](https://github.com/dhnpmp-tech/dcp-platform/pull/832) (`codex/router-policy-contract-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 02:47 +04.
+
+**What:** Eighty-third Fireworks/Tinker execution slice. Promotes the router-policy readiness/no-claim gates into a repeatable CI-safe proof command.
+
+- **Proof command:** Added `npm run proof:router-policy-contract`, backed by `backend/tests/router-policy-contract-proof.js`.
+- **Contract proof:** The runner verifies the read-only policy catalog shape, balanced as the only available default, env-gated latency/earned metadata, and explicit balanced no-op request resolution across supported request shapes.
+- **Fail-closed guard:** The proof verifies lowest-latency, cheapest, Saudi-only, coding, and Arabic policies return structured non-selectable failures, while unknown and invalid policy ids return explicit 400-class contract errors.
+- **No-claim guard:** The proof records that price-optimized routing, geography/residency routing, coding/Arabic classifier routing, billing/settlement changes, live latency ordering, and Tinker compatibility are not enabled by this slice.
+- **Aggregate gate:** `npm run proof:local-roadmap` now includes the router policy proof alongside the existing template, workspace, pod-image, Nsight, prompt-cache, batch, LoRA training, and adapter deployment gates.
+- **Roadmaps:** Updated the execution system, lane roadmap, and Fireworks/Tinker strategy roadmap so future router policies have a local contract proof before route-ordering tests, billing/no-billing proofs, and live smoke.
+- **Safety:** No production provider selection, routing order, billing, settlement, model catalog, inference execution, public product claim, or frontend behavior changed.
+- **Verified:** `npm run proof:router-policy-contract` with temp report output; targeted router proof/policy/v1 Jest suites; `npm run proof:local-roadmap` with temp report output; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:39 UTC - `test(ops): add local roadmap proof suite - PR #830`
 
 **PR:** [#830](https://github.com/dhnpmp-tech/dcp-platform/pull/830) (`codex/local-roadmap-proof-suite-2026-07-09`).

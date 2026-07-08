@@ -331,6 +331,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   for LoRA dataset validation, metadata-only/idempotent training jobs, disabled
   worker behavior, artifact checksum requirements, model-card claim guards, and
   non-serving adapter registration.
+- PR #832 added `npm run proof:router-policy-contract`, a CI-safe proof packet
+  for the router-policy catalog shape, env-gated readiness metadata, explicit
+  balanced no-op resolution, future-policy rejection, and no-claim guards for
+  cheapest, lowest-latency, Saudi-only, coding, and Arabic routing.
 
 ### Now
 
@@ -400,6 +404,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   Explicit balanced request validation started in PR #773.**
   **Playground visibility for the policy catalog landed in PR #779 while future
   policies remain display-only/gated.**
+  **PR #832 adds a repeatable local proof command for the router-policy
+  readiness contract; policy-specific route ordering, residency filters,
+  classifier routing, billing effects, and live smoke remain required before
+  future policies become selectable.**
 
 ### Later
 
@@ -654,6 +662,9 @@ DCP-hosted endpoint -> billed inference.
    both remain blocked, not accepted, until funded credentials and live provider
    capacity are available.**
 3. Inference metadata/rate consistency.
+   **Router-policy readiness proof added in PR #832 as
+   `npm run proof:router-policy-contract`; future policy selection remains
+   blocked until policy-specific routing tests and live smokes exist.**
 4. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
 5. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
    Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard
@@ -687,7 +698,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Cross-lane CI-safe suite | `npm run proof:local-roadmap` | Does not replace live gates; report lists blocked external proof inputs |
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
-| Inference | targeted v1/Anthropic/model tests; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
+| Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
 | LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 
