@@ -81,6 +81,8 @@ scheduler:
    - `usage`
    - `cost_halala`
 5. Store result JSONL as `result_storage_key`.
+   The batch is not considered result-available until the worker also records a
+   `result_checksum_sha256` proof and normalized result byte count.
 6. Billing policy:
    - no public discount in the first live route
    - per-line settlement uses existing inference metering
@@ -109,8 +111,13 @@ CREATE TABLE batch_inference_jobs (
   renter_id INTEGER NOT NULL,
   input_storage_key TEXT NOT NULL,
   input_checksum_sha256 TEXT NOT NULL,
+  input_normalized_bytes INTEGER NOT NULL DEFAULT 0,
+  completion_window TEXT NOT NULL DEFAULT '24h',
+  metadata_json TEXT,
   result_storage_key TEXT,
-  status TEXT NOT NULL DEFAULT 'queued',
+  result_checksum_sha256 TEXT,
+  result_normalized_bytes INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'created',
   request_count INTEGER NOT NULL,
   completed_count INTEGER NOT NULL DEFAULT 0,
   failed_count INTEGER NOT NULL DEFAULT 0,
@@ -133,11 +140,18 @@ schema can drift before the behavior exists.
    PR #741.**
 3. Add `GET /api/batches/:batch_id`. **Done in PR #741.**
 4. Add result artifact path and worker stub. **Done in PR #743.**
-5. Run per-line billing through the existing inference settlement path.
-6. Only then expose `capability_flags.batch = true` for models that can run it.
+5. Add result checksum/byte proof and a read-only result manifest route.
+   **Done in PR #752** via `GET /api/batches/:batch_id/results`.
+6. Add signed object-store download URLs for completed result artifacts.
+7. Run per-line billing through the existing inference settlement path.
+8. Only then expose `capability_flags.batch = true` for models that can run it.
 
 PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
 `capability_flags.batch = false` until steps 4-6 are complete.
 PR #743 adds a dormant worker scaffold and deterministic result-artifact key
 builder, but it does not run in production unless `DCP_BATCH_WORKER_ENABLED=1`
 and an executor is explicitly provided.
+PR #752 requires completed batch artifacts to include both `result_storage_key`
+and `result_checksum_sha256` before `results_available` becomes true. It adds a
+tenant-scoped result manifest route, but still does not issue signed download
+URLs, apply batch discounts, or enable public batch model capability flags.

@@ -94,6 +94,8 @@ describe('batch inference worker scaffold', () => {
       limit: 10,
       executor: async (batch) => ({
         result_storage_key: buildBatchResultStorageKey(batch),
+        result_checksum_sha256: 'c'.repeat(64),
+        result_normalized_bytes: 512,
         completed_count: batch.request_count,
         failed_count: 0,
         total_cost_halala: 12,
@@ -111,13 +113,44 @@ describe('batch inference worker scaffold', () => {
       batch_id: 'batch_execute1',
       status: 'completed',
       result_storage_key: 'batch-results/renter-2/batch_execute1/output.jsonl',
+      result_checksum_sha256: 'c'.repeat(64),
     });
     expect(getBatchInferenceJob(db, 2, 'batch_execute1')).toMatchObject({
       status: 'completed',
+      result_checksum_sha256: 'c'.repeat(64),
+      result_normalized_bytes: 512,
       completed_count: 1,
       failed_count: 0,
       total_cost_halala: 12,
       results_available: true,
+    });
+  });
+
+  test('marks a batch failed when completed result proof is missing', async () => {
+    const db = makeDb();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_noproof1',
+      input_jsonl: jsonl(),
+    });
+
+    const result = await runBatchInferenceWorkerOnce(db, {
+      enabled: true,
+      executor: async (batch) => ({
+        result_storage_key: buildBatchResultStorageKey(batch),
+      }),
+    });
+
+    expect(result.failed).toBe(1);
+    expect(result.batches[0]).toMatchObject({
+      batch_id: 'batch_noproof1',
+      status: 'failed',
+      error: 'result_checksum_sha256 must be a 64-character hex SHA-256 digest',
+    });
+    expect(getBatchInferenceJob(db, 1, 'batch_noproof1')).toMatchObject({
+      status: 'failed',
+      results_available: false,
+      result_storage_key: null,
+      result_checksum_sha256: null,
     });
   });
 

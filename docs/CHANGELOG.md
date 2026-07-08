@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 08:54 UTC - Batch result manifest proof (PR #752)
+
+- **PR:** [#752](https://github.com/dhnpmp-tech/dcp-platform/pull/752) (`codex/batch-result-manifest-2026-07-08`).
+- **Backend:** Added additive batch result checksum and normalized-byte metadata.
+- **Availability gate:** Batch records now report `results_available: true` only when completed with both a result storage key and SHA-256 checksum.
+- **API:** Added renter-authenticated `GET /api/batches/{batch_id}/results`, returning a read-only result manifest with proof metadata and no signed download URL yet.
+- **Worker:** The dormant batch worker now requires injected executors to return result checksum proof before completing a batch.
+- **Contracts:** Updated public OpenAPI copies and the prompt-cache/batch design order while keeping production execution, discounts, and batch model flags gated.
+- **Verification:** Targeted batch job and worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 08:42 UTC - LoRA training job log ledger (PR #751)
 
 - **PR:** [#751](https://github.com/dhnpmp-tech/dcp-platform/pull/751) (`codex/lora-training-logs-2026-07-08`).

@@ -286,6 +286,14 @@ components:
           type: string
           nullable: true
           example: batch-results/renter-42/batch_8f4c2b9a18e34d220f7a9b12/output.jsonl
+        result_checksum_sha256:
+          type: string
+          nullable: true
+          description: SHA-256 digest of the normalized result JSONL artifact. Required before results are considered available.
+          example: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        result_normalized_bytes:
+          type: integer
+          example: 2048
         completed_count:
           type: integer
           example: 0
@@ -315,6 +323,69 @@ components:
           type: string
           format: date-time
           nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    BatchInferenceResultManifest:
+      type: object
+      description: Read-only result artifact manifest for one batch. It exposes proof metadata but does not yet issue a signed download URL.
+      required: [batch_id, renter_id, status, results_available, download_enabled, next]
+      properties:
+        batch_id:
+          type: string
+          example: batch_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        status:
+          type: string
+          enum: [created, queued, running, completed, failed, cancelled]
+          example: completed
+        results_available:
+          type: boolean
+          description: True only when the batch is completed and has both a result storage key and SHA-256 checksum.
+          example: true
+        result_storage_key:
+          type: string
+          nullable: true
+          example: batch-results/renter-42/batch_8f4c2b9a18e34d220f7a9b12/output.jsonl
+        result_checksum_sha256:
+          type: string
+          nullable: true
+          example: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        result_normalized_bytes:
+          type: integer
+          example: 2048
+        completed_count:
+          type: integer
+          example: 2
+        failed_count:
+          type: integer
+          example: 0
+        total_cost_halala:
+          type: integer
+          example: 18
+        download_enabled:
+          type: boolean
+          example: false
+        download_url:
+          type: string
+          nullable: true
+        next:
+          type: string
+          example: sign_result_download_url_after_object_store_bridge
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
         completed_at:
           type: string
           format: date-time
@@ -1130,6 +1201,34 @@ paths:
                 type: object
                 properties:
                   batch: { $ref: '#/components/schemas/BatchInferenceJob' }
+        '404':
+          description: Batch not found for this renter.
+
+  /api/batches/{batch_id}/results:
+    get:
+      tags: [Batches]
+      summary: Get one renter batch result manifest
+      description: |
+        Returns result artifact metadata for a batch. Results are considered
+        available only after the batch is completed with both a result storage
+        key and SHA-256 checksum. This route does not yet issue signed download
+        URLs or enable batch discounts.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Batch result manifest.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: { $ref: '#/components/schemas/BatchInferenceResultManifest' }
         '404':
           description: Batch not found for this renter.
 
