@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 14:21 UTC - Nsight provider benchmark contract guard (PR #774)
+
+- **PR:** [#774](https://github.com/dhnpmp-tech/dcp-platform/pull/774) (`codex/provider-nsight-contract-guard-2026-07-08`).
+- **Evidence honesty:** Provider benchmark reports now expose `evidence_mode` and `mock_data` markers so mock CI output is not mistaken for GPU-host proof.
+- **Test:** Added a Jest contract guard that runs `scripts/provider-nsight-benchmark.py --mock` and validates JSON/CSV output.
+- **Command:** Added `npm run provider:nsight:verify` for the CI-safe proof path.
+- **Verification:** `npm run provider:nsight:verify`; Python byte-compile; `git diff --check`.
+
 ### 2026-07-08 14:11 UTC - Explicit router policy request validation (PR #773)
 
 - **PR:** [#773](https://github.com/dhnpmp-tech/dcp-platform/pull/773) (`codex/router-policy-request-validation-2026-07-08`).

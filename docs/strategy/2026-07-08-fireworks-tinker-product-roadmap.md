@@ -147,6 +147,8 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - thermals
   - CSV/plot output
   - provider quality score input
+  - PR #774 added a CI-safe mock contract guard for the provider benchmark
+    evidence shape; real GPU-host proof remains required before score ingestion.
 - Keep big GPU access behind paid credit; free/trial stays on DCP/community
   supply only.
   - PR #767 connected this paid-credit gate to `/renter/pods` with structured
@@ -297,7 +299,8 @@ Acceptance:
    verification script, no product UI yet. **CI-safe contract gate started in
    PR #762; GPU-host proof still required.**
 4. **Nsight provider benchmark MVP** - script/runbook and provider scorecard
-   schema proposal.
+   schema proposal. **Script/runbook landed in PR #740; mock evidence contract
+   guard landed in PR #774; GPU-host proof remains required.**
 5. **Inference metadata/pricing audit** - model capability/rate metadata and
    consistency checks. **Capability honesty for explicit non-chat models started
    in PR #766; advanced feature readiness metadata added in PR #771.**

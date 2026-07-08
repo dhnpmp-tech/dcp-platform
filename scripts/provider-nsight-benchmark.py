@@ -341,12 +341,19 @@ def summarize_samples(samples: list[dict[str, Any]], nsight_metrics: dict[str, f
     }
 
 
-def build_quality_score_input(samples: list[dict[str, Any]], summary: dict[str, Any], nsight_status: dict[str, Any]) -> dict[str, Any]:
+def build_quality_score_input(
+    samples: list[dict[str, Any]],
+    summary: dict[str, Any],
+    nsight_status: dict[str, Any],
+    evidence_mode: str,
+) -> dict[str, Any]:
     ncu_metrics = summary.get("nsight_metrics") or {}
     max_temperature = max_value([sample.get("temperature_c") for sample in samples])
     avg_gpu_util = avg([sample.get("utilization_gpu_pct") for sample in samples])
     return {
         "benchmark_ready": bool(samples),
+        "evidence_mode": evidence_mode,
+        "mock_data": evidence_mode == "mock",
         "sample_count": len(samples),
         "gpu_count": summary.get("gpu_count", 0),
         "avg_utilization_gpu_pct": avg_gpu_util,
@@ -414,6 +421,7 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     tools = which_tools()
     generated_at = utc_now()
+    evidence_mode = "mock" if args.mock else "provider_host"
     workload = args.workload or []
     nsight_profile: dict[str, Any] = {"mode": args.profile, "status": "skipped", "reason": "Profile mode is none."}
     workload_result: dict[str, Any] = {"provided": bool(workload), "exit_code": None, "started_at": None, "completed_at": None}
@@ -487,6 +495,7 @@ def main(argv: list[str]) -> int:
             "generated_at": generated_at,
             "label": args.label,
             "provider_id": args.provider_id,
+            "evidence_mode": evidence_mode,
             "status": "failed",
             "error": str(exc),
             "tool_availability": {name: bool(path) for name, path in tools.items()},
@@ -496,7 +505,7 @@ def main(argv: list[str]) -> int:
 
     nsight_metrics = (nsight_profile.get("metrics") if isinstance(nsight_profile.get("metrics"), dict) else {}) or {}
     summary = summarize_samples(samples, nsight_metrics)
-    quality_score_input = build_quality_score_input(samples, summary, nsight_profile)
+    quality_score_input = build_quality_score_input(samples, summary, nsight_profile, evidence_mode)
     status = "completed" if samples or args.allow_missing_gpu else "failed"
 
     report = {
@@ -504,6 +513,7 @@ def main(argv: list[str]) -> int:
         "generated_at": generated_at,
         "label": args.label,
         "provider_id": args.provider_id,
+        "evidence_mode": evidence_mode,
         "status": status,
         "host": {
             "hostname": platform.node(),
