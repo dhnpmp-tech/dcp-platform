@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 10:23 UTC - `feat(inference): add gated batch line settlement - PR #760`
+
+**PR:** [#760](https://github.com/dhnpmp-tech/dcp-platform/pull/760) (`codex/batch-line-settlement-2026-07-08`).
+**Local timestamp:** 2026-07-08 14:23 +04.
+
+**What:** Twenty-seventh Fireworks/Tinker execution slice. Adds the first guarded bridge from batch line proof to the existing atomic inference billing service without enabling public batch execution.
+
+- **Settlement metadata:** Batch line rows now track `provider_id`, `settlement_status`, settlement request id, settlement error metadata, and settlement timestamp.
+- **Billing bridge:** Added `batchInferenceSettlement`, which settles succeeded batch lines through `billingService.settleInferenceOnce` using stable `batch-line:{batch_id}:{custom_id}` request ids.
+- **Worker gate:** The dormant batch worker can apply settlement only when `settlementEnabled` or `DCP_BATCH_SETTLEMENT_ENABLED=1` is explicit; disabled production behavior is unchanged.
+- **Safety gate:** The helper preflights the full succeeded-line cost before any debit, so insufficient balance fails the batch settlement path without partial billing.
+- **Contracts/docs:** Updated public OpenAPI copies and the prompt-cache/batch design order with the new settlement fields and gating language.
+- **Verified:** Targeted batch job and batch worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 10:05 UTC - `feat(frontend): add renter batch console - PR #759`
 
 **PR:** [#759](https://github.com/dhnpmp-tech/dcp-platform/pull/759) (`codex/frontend-batch-console-2026-07-08`).

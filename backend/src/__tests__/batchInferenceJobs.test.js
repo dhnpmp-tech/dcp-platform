@@ -11,6 +11,7 @@ const {
   getBatchInferenceResultManifest,
   listBatchInferenceJobLines,
   listBatchInferenceJobs,
+  updateBatchInferenceJobLineSettlement,
   updateBatchInferenceJobLineStatus,
   updateBatchInferenceJobStatus,
 } = require('../services/batchInferenceJobs');
@@ -129,12 +130,18 @@ describe('batch inference job foundation', () => {
       'status',
       'status_code',
       'response_checksum_sha256',
+      'provider_id',
       'prompt_tokens',
       'completion_tokens',
       'total_tokens',
       'cost_halala',
       'request_id',
       'provider_response_id',
+      'settlement_status',
+      'settlement_request_id',
+      'settlement_error_code',
+      'settlement_error_message',
+      'settled_at',
     ]));
   });
 
@@ -342,6 +349,9 @@ describe('batch inference job foundation', () => {
         completion_tokens: 7,
       },
       cost_halala: 3,
+      provider_id: null,
+      settlement_status: 'unsettled',
+      settlement_request_id: null,
       request_id: 'batch_lines001:chat-1',
       provider_response_id: 'resp-123',
     });
@@ -366,6 +376,40 @@ describe('batch inference job foundation', () => {
       status: 'succeeded',
       cost_halala: 3,
     });
+  });
+
+  test('updates one batch line settlement receipt without touching request proof', () => {
+    const db = makeDb();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_settle1',
+      input_jsonl: jsonl(),
+    });
+    updateBatchInferenceJobLineStatus(db, 1, 'batch_settle1', 'chat-1', 'succeeded', {
+      status_code: 200,
+      response_checksum_sha256: 'e'.repeat(64),
+      provider_id: 7,
+      usage: { prompt_tokens: 20, completion_tokens: 7 },
+      cost_halala: 3,
+      request_id: 'batch_settle1:chat-1',
+    });
+
+    const settled = updateBatchInferenceJobLineSettlement(db, 1, 'batch_settle1', 'chat-1', 'settled', {
+      settlement_request_id: 'batch-line:batch_settle1:chat-1',
+      provider_id: 7,
+    });
+
+    expect(settled).toMatchObject({
+      custom_id: 'chat-1',
+      status: 'succeeded',
+      provider_id: 7,
+      cost_halala: 3,
+      request_id: 'batch_settle1:chat-1',
+      settlement_status: 'settled',
+      settlement_request_id: 'batch-line:batch_settle1:chat-1',
+      settlement_error_code: null,
+      settlement_error_message: null,
+    });
+    expect(settled.settled_at).toMatch(/T/);
   });
 
   test('rejects invalid JSONL with stable contract details', () => {

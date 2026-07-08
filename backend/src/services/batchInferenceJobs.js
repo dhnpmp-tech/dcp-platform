@@ -28,6 +28,15 @@ const BATCH_LINE_STATUSES = Object.freeze([
 ]);
 
 const BATCH_LINE_STATUS_SET = new Set(BATCH_LINE_STATUSES);
+const BATCH_LINE_SETTLEMENT_STATUSES = Object.freeze([
+  'unsettled',
+  'not_required',
+  'settled',
+  'already_settled',
+  'failed',
+]);
+
+const BATCH_LINE_SETTLEMENT_STATUS_SET = new Set(BATCH_LINE_SETTLEMENT_STATUSES);
 const COMPLETION_WINDOWS = Object.freeze(['24h']);
 const MAX_METADATA_BYTES = 8 * 1024;
 const MAX_STORAGE_KEY_LENGTH = 512;
@@ -35,6 +44,7 @@ const MAX_ERROR_CODE_LENGTH = 120;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_PROVIDER_RESPONSE_ID_LENGTH = 180;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 180;
+const MAX_SETTLEMENT_REQUEST_ID_LENGTH = 240;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
 
@@ -113,12 +123,19 @@ function ensureBatchInferenceJobSchema(db) {
       status_code INTEGER,
       response_checksum_sha256 TEXT,
       response_normalized_bytes INTEGER NOT NULL DEFAULT 0,
+      provider_id INTEGER,
       prompt_tokens INTEGER NOT NULL DEFAULT 0,
       completion_tokens INTEGER NOT NULL DEFAULT 0,
       total_tokens INTEGER NOT NULL DEFAULT 0,
       cost_halala INTEGER NOT NULL DEFAULT 0,
       request_id TEXT,
       provider_response_id TEXT,
+      settlement_status TEXT NOT NULL DEFAULT 'unsettled'
+        CHECK(settlement_status IN ('unsettled','not_required','settled','already_settled','failed')),
+      settlement_request_id TEXT,
+      settlement_error_code TEXT,
+      settlement_error_message TEXT,
+      settled_at TEXT,
       error_code TEXT,
       error_message TEXT,
       created_at TEXT NOT NULL,
@@ -138,6 +155,12 @@ function ensureBatchInferenceJobSchema(db) {
   `);
   schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_lines_batch_index ON batch_inference_job_lines(renter_id, batch_id, line_index)`);
   schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_batch_lines_batch_status ON batch_inference_job_lines(renter_id, batch_id, status)`);
+  ensureColumn(schemaDb, 'batch_inference_job_lines', 'provider_id', 'ALTER TABLE batch_inference_job_lines ADD COLUMN provider_id INTEGER');
+  ensureColumn(schemaDb, 'batch_inference_job_lines', 'settlement_status', "ALTER TABLE batch_inference_job_lines ADD COLUMN settlement_status TEXT NOT NULL DEFAULT 'unsettled'");
+  ensureColumn(schemaDb, 'batch_inference_job_lines', 'settlement_request_id', 'ALTER TABLE batch_inference_job_lines ADD COLUMN settlement_request_id TEXT');
+  ensureColumn(schemaDb, 'batch_inference_job_lines', 'settlement_error_code', 'ALTER TABLE batch_inference_job_lines ADD COLUMN settlement_error_code TEXT');
+  ensureColumn(schemaDb, 'batch_inference_job_lines', 'settlement_error_message', 'ALTER TABLE batch_inference_job_lines ADD COLUMN settlement_error_message TEXT');
+  ensureColumn(schemaDb, 'batch_inference_job_lines', 'settled_at', 'ALTER TABLE batch_inference_job_lines ADD COLUMN settled_at TEXT');
 }
 
 function createBatchInferenceJob(db, renterId, input = {}, options = {}) {
@@ -440,6 +463,7 @@ function updateBatchInferenceJobLineStatus(db, renterId, batchId, customId, stat
   const responseNormalizedBytes = options.response_normalized_bytes == null
     ? null
     : normalizeNonNegativeInteger(options.response_normalized_bytes, 'response_normalized_bytes');
+  const providerId = options.provider_id == null ? null : normalizePositiveInteger(options.provider_id, 'provider_id');
   const usage = normalizeLineUsage(options.usage || {});
   const costHalala = options.cost_halala == null ? null : normalizeNonNegativeInteger(options.cost_halala, 'cost_halala');
   const requestId = options.request_id == null ? null : normalizeBoundedString(options.request_id, 'request_id', MAX_IDEMPOTENCY_KEY_LENGTH);
@@ -457,6 +481,7 @@ function updateBatchInferenceJobLineStatus(db, renterId, batchId, customId, stat
            status_code = COALESCE(?, status_code),
            response_checksum_sha256 = COALESCE(?, response_checksum_sha256),
            response_normalized_bytes = CASE WHEN ? = 1 THEN ? ELSE response_normalized_bytes END,
+           provider_id = COALESCE(?, provider_id),
            prompt_tokens = CASE WHEN ? = 1 THEN ? ELSE prompt_tokens END,
            completion_tokens = CASE WHEN ? = 1 THEN ? ELSE completion_tokens END,
            total_tokens = CASE WHEN ? = 1 THEN ? ELSE total_tokens END,
@@ -474,6 +499,7 @@ function updateBatchInferenceJobLineStatus(db, renterId, batchId, customId, stat
     responseChecksum,
     responseNormalizedBytes == null ? 0 : 1,
     responseNormalizedBytes == null ? 0 : responseNormalizedBytes,
+    providerId,
     usage.present ? 1 : 0,
     usage.prompt_tokens,
     usage.present ? 1 : 0,
@@ -488,6 +514,52 @@ function updateBatchInferenceJobLineStatus(db, renterId, batchId, customId, stat
     errorMessage,
     now,
     completedAt,
+    ownerId,
+    id,
+    lineCustomId,
+  );
+  if (!result || result.changes === 0) return null;
+  return getBatchInferenceJobLine(db, ownerId, id, lineCustomId);
+}
+
+function updateBatchInferenceJobLineSettlement(db, renterId, batchId, customId, status, options = {}) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeBatchId(batchId);
+  const lineCustomId = normalizeCustomId(customId);
+  const nextStatus = normalizeSettlementStatus(status);
+  const now = new Date().toISOString();
+  const settlementRequestId = options.settlement_request_id == null
+    ? null
+    : normalizeBoundedString(options.settlement_request_id, 'settlement_request_id', MAX_SETTLEMENT_REQUEST_ID_LENGTH);
+  const providerId = options.provider_id == null ? null : normalizePositiveInteger(options.provider_id, 'provider_id');
+  const errorCode = options.error_code == null
+    ? null
+    : normalizeBoundedString(options.error_code, 'settlement_error_code', MAX_ERROR_CODE_LENGTH);
+  const errorMessage = options.error_message == null
+    ? null
+    : normalizeBoundedString(options.error_message, 'settlement_error_message', MAX_ERROR_MESSAGE_LENGTH);
+  const finalStatus = nextStatus !== 'unsettled';
+
+  const result = db.prepare(`
+    UPDATE batch_inference_job_lines
+       SET settlement_status = ?,
+           settlement_request_id = COALESCE(?, settlement_request_id),
+           provider_id = COALESCE(?, provider_id),
+           settlement_error_code = ?,
+           settlement_error_message = ?,
+           settled_at = CASE WHEN ? = 1 THEN ? ELSE settled_at END,
+           updated_at = ?
+     WHERE renter_id = ? AND batch_id = ? AND custom_id = ?
+  `).run(
+    nextStatus,
+    settlementRequestId,
+    providerId,
+    errorCode,
+    errorMessage,
+    finalStatus ? 1 : 0,
+    now,
+    now,
     ownerId,
     id,
     lineCustomId,
@@ -533,8 +605,10 @@ function selectBatchLineSql() {
   return `
     SELECT batch_id, renter_id, line_index, custom_id, method, url, model_id,
            request_checksum_sha256, status, status_code, response_checksum_sha256,
-           response_normalized_bytes, prompt_tokens, completion_tokens,
+           response_normalized_bytes, provider_id, prompt_tokens, completion_tokens,
            total_tokens, cost_halala, request_id, provider_response_id,
+           settlement_status, settlement_request_id, settlement_error_code,
+           settlement_error_message, settled_at,
            error_code, error_message, created_at, updated_at, completed_at
       FROM batch_inference_job_lines
   `;
@@ -592,6 +666,7 @@ function mapBatchLineRow(row) {
     status_code: row.status_code == null ? null : row.status_code,
     response_checksum_sha256: row.response_checksum_sha256 || null,
     response_normalized_bytes: row.response_normalized_bytes || 0,
+    provider_id: row.provider_id == null ? null : row.provider_id,
     usage: {
       prompt_tokens: row.prompt_tokens || 0,
       completion_tokens: row.completion_tokens || 0,
@@ -600,6 +675,11 @@ function mapBatchLineRow(row) {
     cost_halala: row.cost_halala || 0,
     request_id: row.request_id || null,
     provider_response_id: row.provider_response_id || null,
+    settlement_status: row.settlement_status || 'unsettled',
+    settlement_request_id: row.settlement_request_id || null,
+    settlement_error_code: row.settlement_error_code || null,
+    settlement_error_message: row.settlement_error_message || null,
+    settled_at: row.settled_at || null,
     error_code: row.error_code || null,
     error_message: row.error_message || null,
     created_at: row.created_at,
@@ -736,6 +816,17 @@ function normalizeLineStatus(value) {
   return status;
 }
 
+function normalizeSettlementStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  if (!BATCH_LINE_SETTLEMENT_STATUS_SET.has(status)) {
+    batchError('settlement_status is not a supported batch line settlement state', {
+      code: 'invalid_line_settlement_status',
+      details: { allowed: BATCH_LINE_SETTLEMENT_STATUSES },
+    });
+  }
+  return status;
+}
+
 function normalizeCustomId(value) {
   const customId = normalizeBoundedString(value, 'custom_id', 128);
   if (!/^[A-Za-z0-9_.:-]{1,128}$/.test(customId)) {
@@ -854,8 +945,12 @@ function assertDb(db) {
 }
 
 function ensureBatchColumn(db, columnName, alterSql) {
+  return ensureColumn(db, 'batch_inference_jobs', columnName, alterSql);
+}
+
+function ensureColumn(db, tableName, columnName, alterSql) {
   const columns = new Set(
-    db.prepare('PRAGMA table_info(batch_inference_jobs)').all().map((row) => String(row.name || ''))
+    db.prepare(`PRAGMA table_info(${tableName})`).all().map((row) => String(row.name || ''))
   );
   if (!columns.has(columnName)) {
     db.exec(alterSql);
@@ -865,6 +960,7 @@ function ensureBatchColumn(db, columnName, alterSql) {
 module.exports = {
   BATCH_STATUSES,
   BATCH_LINE_STATUSES,
+  BATCH_LINE_SETTLEMENT_STATUSES,
   COMPLETION_WINDOWS,
   BatchInferenceJobError,
   ensureBatchInferenceJobSchema,
@@ -876,6 +972,7 @@ module.exports = {
   listBatchInferenceJobs,
   listCreatedBatchInferenceJobs,
   updateBatchInferenceJobLineStatus,
+  updateBatchInferenceJobLineSettlement,
   updateBatchInferenceJobStatus,
   __test: {
     normalizeBatchId,
@@ -885,6 +982,7 @@ module.exports = {
     normalizeOptionalIdempotencyKey,
     normalizeStatus,
     normalizeLineStatus,
+    normalizeSettlementStatus,
     normalizeChecksum,
     generateBatchId,
     mapBatchRow,

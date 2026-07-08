@@ -7,6 +7,9 @@ const {
   updateBatchInferenceJobLineStatus,
   updateBatchInferenceJobStatus,
 } = require('../services/batchInferenceJobs');
+const {
+  settleBatchInferenceLines,
+} = require('../services/batchInferenceSettlement');
 
 const DEFAULT_LIMIT = 5;
 
@@ -16,6 +19,7 @@ function buildBatchResultStorageKey(batch) {
 
 async function runBatchInferenceWorkerOnce(db, options = {}) {
   const enabled = options.enabled === true || process.env.DCP_BATCH_WORKER_ENABLED === '1';
+  const settlementEnabled = options.settlementEnabled === true || process.env.DCP_BATCH_SETTLEMENT_ENABLED === '1';
   const limit = normalizeLimit(options.limit);
   const executor = options.executor;
 
@@ -64,6 +68,20 @@ async function runBatchInferenceWorkerOnce(db, options = {}) {
       const resultChecksum = requireSha256(execution?.result_checksum_sha256, 'result_checksum_sha256');
       const resultNormalizedBytes = normalizeNonNegativeInteger(execution?.result_normalized_bytes, 0);
       const lineSummary = applyExecutionLineProofs(db, batch, execution?.lines);
+      let settlementSummary = null;
+      if (settlementEnabled) {
+        if (!lineSummary) {
+          throw new Error('batch line settlement requires execution.lines proof');
+        }
+        const currentLines = listBatchInferenceJobLines(db, batch.renter_id, batch.batch_id, {
+          limit: Math.max(batch.request_count, 1),
+        });
+        settlementSummary = settleBatchInferenceLines(db, batch, currentLines ? currentLines.lines : [], {
+          providerId: options.providerId,
+          settleInferenceOnce: options.settleInferenceOnce,
+          checkBalanceGate: options.checkBalanceGate,
+        });
+      }
       const completed = updateBatchInferenceJobStatus(db, batch.renter_id, batch.batch_id, 'completed', {
         result_storage_key: resultStorageKey,
         result_checksum_sha256: resultChecksum,
@@ -85,6 +103,8 @@ async function runBatchInferenceWorkerOnce(db, options = {}) {
         result_storage_key: completed.result_storage_key,
         result_checksum_sha256: completed.result_checksum_sha256,
         line_proof_applied: Boolean(lineSummary),
+        settlement_applied: Boolean(settlementSummary),
+        settlement_summary: settlementSummary,
       });
     } catch (error) {
       const failed = updateBatchInferenceJobStatus(db, batch.renter_id, batch.batch_id, 'failed', {
@@ -178,6 +198,7 @@ function normalizeExecutionLine(line, expectedByCustomId, seen) {
     ? line.usage
     : undefined;
   const costHalala = normalizeNonNegativeInteger(line.cost_halala, 0);
+  const providerId = line.provider_id == null ? null : normalizeOptionalPositiveInteger(line.provider_id, 'provider_id');
   const errorCode = line.error_code || (status === 'failed' ? 'batch_line_failed' : null);
   const errorMessage = line.error_message || line.error || null;
 
@@ -189,6 +210,7 @@ function normalizeExecutionLine(line, expectedByCustomId, seen) {
       status_code: statusCode,
       response_checksum_sha256: line.response_checksum_sha256,
       response_normalized_bytes: line.response_normalized_bytes,
+      provider_id: providerId,
       usage,
       cost_halala: costHalala,
       request_id: line.request_id,
@@ -208,6 +230,14 @@ function normalizeLimit(value) {
 function normalizeNonNegativeInteger(value, fallback) {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0) return fallback;
+  return number;
+}
+
+function normalizeOptionalPositiveInteger(value, fieldName) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number <= 0) {
+    throw new Error(`${fieldName} must be a positive integer`);
+  }
   return number;
 }
 
@@ -236,6 +266,7 @@ module.exports = {
     normalizeExecutionLine,
     normalizeHttpStatus,
     normalizeNonNegativeInteger,
+    normalizeOptionalPositiveInteger,
     requireSha256,
   },
 };

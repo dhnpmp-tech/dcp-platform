@@ -416,7 +416,7 @@ components:
 
     BatchInferenceLine:
       type: object
-      description: Per-line batch inference ledger row. Raw prompt/request bodies are not returned; callers get custom id, endpoint, model, checksums, lifecycle, usage, and cost metadata.
+      description: Per-line batch inference ledger row. Raw prompt/request bodies are not returned; callers get custom id, endpoint, model, checksums, lifecycle, usage, cost, provider, and settlement metadata.
       required: [batch_id, renter_id, line_index, custom_id, method, url, model_id, request_checksum_sha256, status, usage, cost_halala, created_at, updated_at]
       properties:
         batch_id:
@@ -461,6 +461,11 @@ components:
         response_normalized_bytes:
           type: integer
           example: 0
+        provider_id:
+          type: integer
+          nullable: true
+          description: Provider credited for this line when settlement is enabled.
+          example: 42
         usage:
           type: object
           required: [prompt_tokens, completion_tokens, total_tokens]
@@ -483,6 +488,25 @@ components:
           example: batch_8f4c2b9a18e34d220f7a9b12:request-1
         provider_response_id:
           type: string
+          nullable: true
+        settlement_status:
+          type: string
+          enum: [unsettled, not_required, settled, already_settled, failed]
+          description: Billing settlement state for this line. Production batch settlement remains gated until the worker settlement flag is enabled.
+          example: unsettled
+        settlement_request_id:
+          type: string
+          nullable: true
+          example: batch-line:batch_8f4c2b9a18e34d220f7a9b12:request-1
+        settlement_error_code:
+          type: string
+          nullable: true
+        settlement_error_message:
+          type: string
+          nullable: true
+        settled_at:
+          type: string
+          format: date-time
           nullable: true
         error_code:
           type: string
