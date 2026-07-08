@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 19:38 UTC - Playground prompt-cache readiness panel (PR #802)
+### 2026-07-08 19:46 UTC - Playground prompt-cache readiness panel (PR #802)
 
 - **PR:** [#802](https://github.com/dhnpmp-tech/dcp-platform/pull/802) (`codex/renter-playground-prompt-cache-readiness-2026-07-08`).
 - **Frontend:** `/renter/playground` now reads `GET /v1/prompt-cache/readiness` and shows a Prompt cache readiness card beside router/model controls.
