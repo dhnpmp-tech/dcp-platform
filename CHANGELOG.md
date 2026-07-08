@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 10:05 UTC - `feat(frontend): add renter batch console - PR #759`
+
+**PR:** [#759](https://github.com/dhnpmp-tech/dcp-platform/pull/759) (`codex/frontend-batch-console-2026-07-08`).
+**Local timestamp:** 2026-07-08 14:05 +04.
+
+**What:** Twenty-sixth Fireworks/Tinker execution slice. Adds the first renter-facing batch inference console on top of the proof-backed batch APIs while keeping production execution and settlement visibly gated.
+
+- **Frontend:** Added `/renter/batches` inside the existing renter console shell with protected-session behavior, renter API-key reads, and Build-section navigation.
+- **Batch ledger:** The page reads `GET /api/batches`, lets renters inspect validation records, and summarizes batch/request/result-artifact/cost totals.
+- **Creation flow:** Added a JSONL form for validation-only `POST /api/batches` creation with idempotency headers and purpose metadata.
+- **Proof panels:** Selected batches load tenant-scoped line ledger rows and result-manifest proof through `GET /api/batches/{batch_id}/lines` and `GET /api/batches/{batch_id}/results`.
+- **Product honesty:** The page states that line ledger, result proof, execution, downloads, discounts, and settlement remain gated unless backend proof/configuration exists.
+- **Verified:** `npm run build`; production-mode Playwright desktop/mobile render with mocked renter, batch, line, and result APIs; `git diff --check`.
+
 ### 2026-07-08 09:48 UTC - `feat(inference): apply batch worker line proof - PR #758`
 
 **PR:** [#758](https://github.com/dhnpmp-tech/dcp-platform/pull/758) (`codex/batch-worker-line-proof-2026-07-08`).

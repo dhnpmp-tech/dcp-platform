@@ -12,6 +12,13 @@ be read with `docs/roadmaps/2026-07-08-dcp-execution-system.md`.
 Make DCP feel like a coherent Fireworks-style product while staying honest about
 what is live.
 
+### Progress
+
+- PR #745 added the Fine-Tuning training-jobs ledger to the renter console.
+- PR #759 added `/renter/batches`, the first renter-facing batch console for
+  validation records, line-ledger proof, and result-manifest proof. Execution,
+  discounts, settlement, downloads, and public model batch flags remain gated.
+
 ### Now
 
 - Add a product IA that is easy to scan:
@@ -61,6 +68,8 @@ what is live.
 1. Pod launch UX map: workspace -> template -> GPU -> duration -> credit check.
 2. Product IA copy cleanup without new claims.
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
+   **Started in PR #745.**
+4. Batch console shell tied to backend batch gates. **Started in PR #759.**
 
 ### Required Evidence
 

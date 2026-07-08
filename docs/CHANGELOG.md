@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 10:05 UTC - Renter batch console (PR #759)
+
+- **PR:** [#759](https://github.com/dhnpmp-tech/dcp-platform/pull/759) (`codex/frontend-batch-console-2026-07-08`).
+- **Frontend:** Added `/renter/batches` to the protected renter console and Build-section navigation.
+- **Batch ledger:** The console reads `GET /api/batches`, summarizes batch/request/result-artifact/cost totals, and lets renters select validation records.
+- **Creation flow:** Added validation-only JSONL batch creation through `POST /api/batches` with idempotency headers and purpose metadata.
+- **Proof panels:** Selected batches read line-ledger rows and result-manifest proof through the tenant-scoped batch detail APIs.
+- **Product guardrails:** Execution, result downloads, discounts, settlement, and `/v1/models` batch flags remain gated until backend proof/configuration lands.
+- **Verification:** `npm run build`; production-mode Playwright desktop/mobile render with mocked renter, batch, line, and result APIs; `git diff --check`.
+
 ### 2026-07-08 09:48 UTC - Batch worker line proof (PR #758)
 
 - **PR:** [#758](https://github.com/dhnpmp-tech/dcp-platform/pull/758) (`codex/batch-worker-line-proof-2026-07-08`).

@@ -101,6 +101,7 @@ Current code foundation:
 
 - `backend/src/services/batchInferenceContract.js`
 - `backend/src/__tests__/batchInferenceContract.test.js`
+- `app/(site)/renter/batches/page.tsx` for the gated renter batch console.
 
 Acceptance before public route:
 
@@ -157,8 +158,10 @@ schema can drift before the behavior exists.
    **Done in PR #757** with `GET /api/batches/:batch_id/lines`.
 8. Wire dormant worker support for per-line executor proof.
    **Done in PR #758** with line proof application and aggregate derivation.
-9. Run per-line billing through the existing inference settlement path.
-10. Only then expose `capability_flags.batch = true` for models that can run it.
+9. Expose a renter batch console tied to the gated batch APIs.
+   **Done in PR #759** via `/renter/batches`.
+10. Run per-line billing through the existing inference settlement path.
+11. Only then expose `capability_flags.batch = true` for models that can run it.
 
 PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
 `capability_flags.batch = false` until steps 4-6 are complete.
@@ -196,3 +199,7 @@ per batch line, updates line statuses/usage/cost/error metadata, and derives
 batch completed/failed/cost counts from the line ledger before completing the
 batch. The worker remains disabled by default and still does not call the live
 v1 inference path or settle renter balances.
+PR #759 exposes those gated records in the renter console at `/renter/batches`.
+The page can create validation-only batch records, read line-ledger rows, and
+show result-manifest proof, but it keeps execution, signed downloads, discounts,
+settlement, and public batch capability flags visibly gated.
