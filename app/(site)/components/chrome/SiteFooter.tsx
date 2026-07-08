@@ -39,6 +39,7 @@ export default function SiteFooter() {
             <li><Link href="/inference"><Bi en="Inference" ar="الاستدلال" /></Link></li>
             <li><Link href="/fine-tuning"><Bi en="Fine-Tuning" ar="الضبط الدقيق" /></Link></li>
             <li><Link href="/batch"><Bi en="Batch" ar="الدُفعات" /></Link></li>
+            <li><Link href="/dedicated-deployments"><Bi en="Deployments" ar="النشر" /></Link></li>
             <li><Link href="/agents"><Bi en="Agents" ar="الوكلاء" /></Link></li>
             <li><Link href="/architecture"><Bi en="Architecture" ar="البنية" /></Link></li>
             <li><Link href="/pricing"><Bi en="Pricing" ar="الأسعار" /></Link></li>

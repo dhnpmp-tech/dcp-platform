@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 17:43 UTC - Public Dedicated Deployments page (PR #792)
+
+- **PR:** [#792](https://github.com/dhnpmp-tech/dcp-platform/pull/792) (`codex/public-dedicated-deployments-page-2026-07-08`).
+- **Frontend:** Added `/dedicated-deployments` as the public endpoint/adapters deployment product page.
+- **Navigation:** Added Deployments to shared site navigation, mobile menus, shared footer, home navigation, and home footer product links.
+- **Safety:** Route traffic remains gated until serving load proof matches deployment id, adapter id, base model, mode, and artifact checksum.
+- **Verification:** `npm run build`; `git diff --check`; local production Playwright desktop/tablet/mobile render with loaded images, active Deployments nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 17:28 UTC - Public Batch page (PR #791)
 
 - **PR:** [#791](https://github.com/dhnpmp-tech/dcp-platform/pull/791) (`codex/public-batch-page-2026-07-08`).

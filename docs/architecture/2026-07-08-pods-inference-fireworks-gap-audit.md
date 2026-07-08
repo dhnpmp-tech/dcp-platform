@@ -238,7 +238,7 @@ Gaps:
 | Per-model pricing | Partial | Medium | Backend |
 | Prompt caching discount | Missing | High | Backend |
 | Batch inference | Metadata/readiness contract and public page; execution/discounts gated | High | Backend |
-| Dedicated deployments | Partial through pods/vLLM | High | Backend |
+| Dedicated deployments | Intent/load-proof contracts and public page; route traffic gated | High | Backend |
 | LoRA training | Metadata/readiness only, no public worker proof | High | Backend + pod image |
 | LoRA adapter registry | Metadata API foundation, no serving proof | High | Backend |
 | Live-merge LoRA deployment | Intent/load-proof contract, no traffic | High | Backend |
@@ -306,6 +306,9 @@ Gaps:
      - PR #788 added `/fine-tuning` with shipped LoRA contract gates and no
        public training/serving/Tinker overclaim.
    - Dedicated deployments
+     - PR #792 added `/dedicated-deployments` with deployment-intent and
+       load-proof gates while route traffic remains disabled until evidence
+       matches.
    - Batch, once backend design lands
      - PR #791 added `/batch` with shipped readiness/metadata gates and no
        execution, settlement, or discount overclaim.
