@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-### 2026-07-08 03:31 UTC - Product execution system and lane roadmaps (PR #TBD)
+### 2026-07-08 03:31 UTC - Product execution system and lane roadmaps (PR #730)
 
-- **PR:** TBD (`codex/product-execution-roadmaps-2026-07-08`).
+- **PR:** [#730](https://github.com/dhnpmp-tech/dcp-platform/pull/730) (`codex/product-execution-roadmaps-2026-07-08`).
 - **Execution system:** Added `docs/roadmaps/2026-07-08-dcp-execution-system.md` with the shared finding-to-PR-to-tests-to-deploy-to-smoke loop.
 - **Lane roadmaps:** Added `docs/roadmaps/2026-07-08-dcp-lane-roadmaps.md` for Frontend, Backend, Inference, POT/PODS infrastructure, and LoRA.
 - **Verification gates:** Captured the lane-specific build, deploy, smoke, and production-evidence requirements that future agents should follow.

@@ -14,9 +14,9 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 03:31 UTC - `docs(roadmaps): add product execution system and lane roadmaps - PR #TBD`
+### 2026-07-08 03:31 UTC - `docs(roadmaps): add product execution system and lane roadmaps - PR #730`
 
-**PR:** TBD (`codex/product-execution-roadmaps-2026-07-08`).
+**PR:** [#730](https://github.com/dhnpmp-tech/dcp-platform/pull/730) (`codex/product-execution-roadmaps-2026-07-08`).
 **Local timestamp:** 2026-07-08 07:31 +04.
 
 **What:** Turned the Fireworks/Tinker audit into an execution process with concrete build, test, deploy, smoke, and feedback gates for the product lanes Peter called out.
