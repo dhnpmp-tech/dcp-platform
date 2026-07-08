@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 20:23 UTC - Console auth redirect query preservation (PR #808)
+
+- **PR:** [#808](https://github.com/dhnpmp-tech/dcp-platform/pull/808) (`codex/auth-redirect-preserve-query-2026-07-08`).
+- **Middleware:** Gated console redirects to `/auth` now preserve the requested query string, keeping `/renter/playground?surface=workspace` intact through sign-in.
+- **Regression guard:** Added a static middleware test for pathname-plus-query redirects.
+- **Safety:** Session signing, role checks, API keys, billing, training, and serving behavior are unchanged.
+- **Verification:** Static middleware redirect test; `node --check`; `git diff --check`; production redirect smoke after deploy.
+
 ### 2026-07-08 20:17 UTC - Fine-Tuning workspace pre-upload rail (PR #806)
 
 - **PR:** [#806](https://github.com/dhnpmp-tech/dcp-platform/pull/806) (`codex/fine-tuning-workspace-preupload-2026-07-08`).
