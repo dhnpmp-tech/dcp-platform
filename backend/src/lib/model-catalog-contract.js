@@ -118,6 +118,49 @@ function createCapabilityFlags(supportedFeatures) {
   };
 }
 
+function toFeatureReadinessContract(capabilityFlags = {}) {
+  const chatCapable = Boolean(capabilityFlags.chat_completions);
+  return {
+    version: 'dcp.model_feature_readiness.v1',
+    dedicated_deployment: {
+      status: chatCapable ? 'gated' : 'not_applicable',
+      available: false,
+      api_available: chatCapable,
+      serving_enabled: false,
+      route_traffic: false,
+      load_proof_required: chatCapable,
+      next: chatCapable ? 'create_deployment_then_attach_vllm_load_proof' : 'chat_capable_model_required',
+    },
+    lora: {
+      status: chatCapable ? 'metadata_only' : 'not_applicable',
+      available: false,
+      adapter_registry_api: chatCapable,
+      training_job_api: chatCapable,
+      serving_enabled: false,
+      route_traffic: false,
+      load_proof_required: chatCapable,
+      next: chatCapable ? 'run_gpu_training_proof_then_enable_adapter_serving' : 'chat_capable_base_model_required',
+    },
+    prompt_caching: {
+      status: chatCapable ? 'measurement_only' : 'not_applicable',
+      available: false,
+      usage_metadata: chatCapable,
+      billing_discount: false,
+      settlement_enabled: false,
+      next: chatCapable ? 'validate_hit_measurement_before_discount' : 'chat_completions_required',
+    },
+    batch: {
+      status: chatCapable ? 'api_metadata_only' : 'not_applicable',
+      available: false,
+      api_available: chatCapable,
+      execution_enabled: false,
+      result_downloads: false,
+      discount_enabled: false,
+      next: chatCapable ? 'enable_worker_result_artifact_and_settlement' : 'chat_completions_required',
+    },
+  };
+}
+
 function toCatalogContractCore({ model, providerCount = 0, maxVramGb = 0, created = null, nameFallback = null }) {
   const modelId = String(model?.model_id || '').trim();
   const useCases = parseUseCases(model?.use_cases);
@@ -153,6 +196,7 @@ module.exports = {
   toUsdStringFromHalalaPerMinute,
   toSarStringFromHalala,
   toTokenPricingContract,
+  toFeatureReadinessContract,
   inferModalitiesFromUseCases,
   inferSupportedFeaturesFromUseCases,
   toCatalogContractCore,

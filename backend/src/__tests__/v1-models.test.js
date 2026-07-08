@@ -224,6 +224,37 @@ describe('v1 models route', () => {
       prompt_caching: false,
       batch: false,
     });
+    expect(model.feature_readiness).toMatchObject({
+      version: 'dcp.model_feature_readiness.v1',
+      dedicated_deployment: {
+        status: 'gated',
+        available: false,
+        api_available: true,
+        serving_enabled: false,
+        load_proof_required: true,
+      },
+      lora: {
+        status: 'metadata_only',
+        available: false,
+        adapter_registry_api: true,
+        training_job_api: true,
+        serving_enabled: false,
+      },
+      prompt_caching: {
+        status: 'measurement_only',
+        available: false,
+        usage_metadata: true,
+        billing_discount: false,
+        settlement_enabled: false,
+      },
+      batch: {
+        status: 'api_metadata_only',
+        available: false,
+        api_available: true,
+        execution_enabled: false,
+        discount_enabled: false,
+      },
+    });
     expect(model.capabilities).toEqual(model.capability_flags);
   });
 
@@ -285,6 +316,24 @@ describe('v1 models route', () => {
       reranking: false,
       image_generation: false,
       vision: false,
+    });
+    expect(model.feature_readiness).toMatchObject({
+      prompt_caching: {
+        status: 'not_applicable',
+        usage_metadata: false,
+      },
+      batch: {
+        status: 'not_applicable',
+        api_available: false,
+      },
+      lora: {
+        status: 'not_applicable',
+        adapter_registry_api: false,
+      },
+      dedicated_deployment: {
+        status: 'not_applicable',
+        api_available: false,
+      },
     });
     expect(model.capabilities).toEqual(model.capability_flags);
     expect(model.endpoints).toEqual([]);

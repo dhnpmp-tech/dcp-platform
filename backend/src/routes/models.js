@@ -7,7 +7,7 @@ const { publicEndpointLimiter, modelDeployLimiter, modelCatalogLimiter } = requi
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
 const { modelIdsMatch } = require('../lib/model-aliases');
-const { toCatalogContractCore, toTokenPricingContract } = require('../lib/model-catalog-contract');
+const { toCatalogContractCore, toFeatureReadinessContract, toTokenPricingContract } = require('../lib/model-catalog-contract');
 const { getEarnedRoutingState } = require('../services/providerVerification');
 
 const PROVIDER_FRESHNESS_MS = 10 * 60 * 1000;
@@ -629,6 +629,7 @@ function buildPublicCapabilityMetadata(model) {
     prompt_caching: false,
     batch: false,
   };
+  const featureReadiness = toFeatureReadinessContract(capabilityFlags);
 
   return {
     modalities: contractCore.modalities,
@@ -637,6 +638,7 @@ function buildPublicCapabilityMetadata(model) {
     provider_count: contractCore.provider_count,
     capability_flags: capabilityFlags,
     capabilities: capabilityFlags,
+    feature_readiness: featureReadiness,
     available: Number(model.availability?.providers_online || 0) > 0,
     status: model.availability?.status || (Number(model.availability?.providers_online || 0) > 0 ? 'available' : 'no_providers'),
   };
@@ -691,6 +693,7 @@ function toLegacyListItem(model, tokenRateMap) {
     provider_count: enriched.provider_count,
     capability_flags: enriched.capability_flags,
     capabilities: enriched.capabilities,
+    feature_readiness: enriched.feature_readiness,
     available: enriched.available,
   };
 }

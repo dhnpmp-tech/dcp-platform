@@ -177,6 +177,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #770 mirrored measured prompt-cache counters into `usage.pricing` for
   `/v1/chat/completions` responses while keeping discounts and settlement
   math disabled.
+- PR #771 added shared `feature_readiness` metadata to `/v1/models`,
+  `/api/models`, and `/api/models/catalog` so batch, prompt cache, LoRA, and
+  dedicated-deployment rails can be shown as gated/measurement-only without
+  flipping product-available booleans.
 
 ### Now
 
@@ -199,7 +203,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - Add route tests proving catalog/pricing consistency.
   **Capability honesty for non-chat model entries started in PR #766; token
   pricing contract parity started in PR #769; prompt-cache pricing observation
-  started in PR #770.**
+  started in PR #770; advanced feature readiness started in PR #771.**
 
 ### Next
 
@@ -217,6 +221,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - result artifact
   - discounted billing policy
   - idempotency key
+  **Readiness metadata now marks batch as API metadata only until execution,
+  result artifacts, and discounted settlement are enabled.**
 - Router policies:
   - cheapest
   - lowest latency

@@ -6352,16 +6352,123 @@ paths:
                               type: boolean
                             dedicated_deployment:
                               type: boolean
-                              description: False until dedicated deployments are productized.
+                              description: Product-available flag. False until dedicated deployments can route serving traffic.
                             lora:
                               type: boolean
-                              description: False until adapter deployment is productized.
+                              description: Product-available flag. False until adapter serving can route traffic.
                             prompt_caching:
                               type: boolean
-                              description: False until prompt-cache accounting is enabled.
+                              description: Product-available flag. False until prompt-cache discounts are enabled.
                             batch:
                               type: boolean
-                              description: False until batch inference is enabled.
+                              description: Product-available flag. False until batch execution and settlement are enabled.
+                        feature_readiness:
+                          type: object
+                          description: Additive readiness metadata for advanced Fireworks-style rails. Product-available booleans above remain false until the rail can route traffic or alter billing safely.
+                          properties:
+                            version:
+                              type: string
+                              example: dcp.model_feature_readiness.v1
+                            dedicated_deployment:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [gated, not_applicable]
+                                  example: gated
+                                available:
+                                  type: boolean
+                                  example: false
+                                api_available:
+                                  type: boolean
+                                  example: true
+                                serving_enabled:
+                                  type: boolean
+                                  example: false
+                                route_traffic:
+                                  type: boolean
+                                  example: false
+                                load_proof_required:
+                                  type: boolean
+                                  example: true
+                                next:
+                                  type: string
+                                  example: create_deployment_then_attach_vllm_load_proof
+                            lora:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [metadata_only, not_applicable]
+                                  example: metadata_only
+                                available:
+                                  type: boolean
+                                  example: false
+                                adapter_registry_api:
+                                  type: boolean
+                                  example: true
+                                training_job_api:
+                                  type: boolean
+                                  example: true
+                                serving_enabled:
+                                  type: boolean
+                                  example: false
+                                route_traffic:
+                                  type: boolean
+                                  example: false
+                                load_proof_required:
+                                  type: boolean
+                                  example: true
+                                next:
+                                  type: string
+                                  example: run_gpu_training_proof_then_enable_adapter_serving
+                            prompt_caching:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [measurement_only, not_applicable]
+                                  example: measurement_only
+                                available:
+                                  type: boolean
+                                  example: false
+                                usage_metadata:
+                                  type: boolean
+                                  example: true
+                                billing_discount:
+                                  type: boolean
+                                  example: false
+                                settlement_enabled:
+                                  type: boolean
+                                  example: false
+                                next:
+                                  type: string
+                                  example: validate_hit_measurement_before_discount
+                            batch:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                  enum: [api_metadata_only, not_applicable]
+                                  example: api_metadata_only
+                                available:
+                                  type: boolean
+                                  example: false
+                                api_available:
+                                  type: boolean
+                                  example: true
+                                execution_enabled:
+                                  type: boolean
+                                  example: false
+                                result_downloads:
+                                  type: boolean
+                                  example: false
+                                discount_enabled:
+                                  type: boolean
+                                  example: false
+                                next:
+                                  type: string
+                                  example: enable_worker_result_artifact_and_settlement
 
   /v1/complete:
     post:
