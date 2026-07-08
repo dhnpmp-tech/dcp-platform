@@ -230,6 +230,9 @@ template launch.
   map in the renter console.
 - PR #762 added a CI-safe provider pod image contract verifier for pre-baked
   `dcp-compute:<alias>` images, including the fat `dcp-compute:lora` proof path.
+- PR #764 made `providers.supply_tier` durable and hardened the on-demand
+  paid-credit gate so explicit `on_demand` commitments reduce paid credit
+  availability.
 
 ### Now
 
@@ -241,7 +244,8 @@ template launch.
   - unused-time refund
   - on-demand paid-credit gate
   - workspace tiers
-- Decide and commit/ignore/retire `ops/dcp-deploy-watch.sh`.
+- Keep renter-facing copy neutral: do not expose vendor/on-demand internals as
+  cloud-provider claims.
 - Write the fat image build spec:
   - PyTorch/CUDA
   - transformers
@@ -278,7 +282,9 @@ template launch.
 
 1. Fat pod image spec and verification script. **Started in PR #762.**
 2. Workspace-to-pod launch UX/API polish. **Started in PR #761.**
-3. Nsight provider benchmark script/runbook.
+3. Supply-tier and paid-credit pod policy. **Durable supply-tier schema
+   started in PR #764.**
+4. Nsight provider benchmark script/runbook.
 
 ### Required Evidence
 
