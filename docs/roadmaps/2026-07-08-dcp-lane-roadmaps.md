@@ -171,6 +171,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #766 tightened model capability metadata so explicit embedding/rerank/image
   entries are no longer advertised as chat/streaming capable across `/v1/models`,
   `/api/models`, and `/api/models/catalog`.
+- PR #769 centralized token-pricing serialization so `/api/models`,
+  `/api/models/catalog`, and `/v1/models` share SAR/USD/halala per-1M-token
+  metadata from one contract helper.
 
 ### Now
 
@@ -191,7 +194,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - dedicated deployment support
   - LoRA support
 - Add route tests proving catalog/pricing consistency.
-  **Capability honesty for non-chat model entries started in PR #766.**
+  **Capability honesty for non-chat model entries started in PR #766; token
+  pricing contract parity started in PR #769.**
 
 ### Next
 
@@ -223,7 +227,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 
 ### First PRs
 
-1. `/v1/models` capability metadata audit and tests. **Started in PR #766.**
+1. `/v1/models` capability/pricing metadata audit and tests.
+   **Started in PR #766; token-pricing parity added in PR #769.**
 2. Prompt-cache accounting design with test fixtures.
 3. Batch inference API design and schema, then implementation.
 

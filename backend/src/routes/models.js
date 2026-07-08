@@ -7,7 +7,7 @@ const { publicEndpointLimiter, modelDeployLimiter, modelCatalogLimiter } = requi
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
 const { modelIdsMatch } = require('../lib/model-aliases');
-const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
+const { toCatalogContractCore, toTokenPricingContract } = require('../lib/model-catalog-contract');
 const { getEarnedRoutingState } = require('../services/providerVerification');
 
 const PROVIDER_FRESHNESS_MS = 10 * 60 * 1000;
@@ -80,12 +80,6 @@ function toFixedNumber(value, digits = 2) {
   if (num === null) return null;
   const power = 10 ** digits;
   return Math.round(num * power) / power;
-}
-
-function toSarStringFromHalala(halalaValue) {
-  const halala = Number(halalaValue || 0);
-  if (!Number.isFinite(halala) || halala <= 0) return '0.0000';
-  return (halala / 100).toFixed(4);
 }
 
 function normalizeString(value, { maxLen = 500, trim = true } = {}) {
@@ -604,19 +598,12 @@ function resolvePublicTokenPricing(model, tokenRateMap) {
   const inputRate = registryInputRate ?? fallbackRate ?? registryOutputRate ?? 0;
   const outputRate = registryOutputRate ?? fallbackRate ?? registryInputRate ?? 0;
 
-  return {
-    prompt_tokens: toUsdStringFromHalala(inputRate / 1_000_000),
-    completion_tokens: toUsdStringFromHalala(outputRate / 1_000_000),
-    usd_per_1m_input_tokens: toUsdStringFromHalala(inputRate),
-    usd_per_1m_output_tokens: toUsdStringFromHalala(outputRate),
-    sar_per_1m_input_tokens: toSarStringFromHalala(inputRate),
-    sar_per_1m_output_tokens: toSarStringFromHalala(outputRate),
-    halala_per_1m_input_tokens: inputRate,
-    halala_per_1m_output_tokens: outputRate,
-    billing_unit: 'per_1m_tokens',
+  return toTokenPricingContract({
+    inputHalalaPer1m: inputRate,
+    outputHalalaPer1m: outputRate,
     source: hasRegistryRate ? 'model_registry' : (fallbackRate != null ? 'cost_rates' : 'unconfigured'),
-    model_class: ratePack.class,
-  };
+    modelClass: ratePack.class,
+  });
 }
 
 function buildPublicCapabilityMetadata(model) {

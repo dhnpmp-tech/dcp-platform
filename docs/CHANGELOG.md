@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 12:50 UTC - Shared inference token-pricing contract (PR #769)
+
+- **PR:** [#769](https://github.com/dhnpmp-tech/dcp-platform/pull/769) (`codex/model-pricing-metadata-contract-2026-07-08`).
+- **Shared contract:** `toTokenPricingContract` now serializes prompt/completion USD strings, SAR/halala per-1M-token fields, billing unit, source, and model class in one place.
+- **Route parity:** `/api/models`, `/api/models/catalog`, and `/v1/models` now use the same token-pricing shape.
+- **Tests:** Catalog tests assert `/api/models` and `/api/models/catalog` produce identical `token_pricing` for the same model.
+- **Verification:** Targeted `/api/models` and `/v1/models` Jest suites; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 12:41 UTC - Credit-first pod 402 backend copy (PR #768)
 
 - **PR:** [#768](https://github.com/dhnpmp-tech/dcp-platform/pull/768) (`codex/pod-credit-required-payload-copy-2026-07-08`).

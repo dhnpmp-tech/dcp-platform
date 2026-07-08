@@ -24,6 +24,35 @@ function toUsdStringFromHalala(halalaValue) {
   return usd.toFixed(6);
 }
 
+function toSarStringFromHalala(halalaValue) {
+  const halala = Number(halalaValue || 0);
+  if (!Number.isFinite(halala) || halala <= 0) return '0.0000';
+  return (halala / 100).toFixed(4);
+}
+
+function toTokenPricingContract({
+  inputHalalaPer1m,
+  outputHalalaPer1m,
+  source = 'unconfigured',
+  modelClass = null,
+} = {}) {
+  const inputRate = Math.max(0, Math.round(Number(inputHalalaPer1m) || 0));
+  const outputRate = Math.max(0, Math.round(Number(outputHalalaPer1m) || 0));
+  return {
+    prompt_tokens: toUsdStringFromHalala(inputRate / 1_000_000),
+    completion_tokens: toUsdStringFromHalala(outputRate / 1_000_000),
+    usd_per_1m_input_tokens: toUsdStringFromHalala(inputRate),
+    usd_per_1m_output_tokens: toUsdStringFromHalala(outputRate),
+    sar_per_1m_input_tokens: toSarStringFromHalala(inputRate),
+    sar_per_1m_output_tokens: toSarStringFromHalala(outputRate),
+    halala_per_1m_input_tokens: inputRate,
+    halala_per_1m_output_tokens: outputRate,
+    billing_unit: 'per_1m_tokens',
+    source,
+    model_class: modelClass,
+  };
+}
+
 function inferModalitiesFromUseCases(useCases) {
   const set = new Set(['text']);
   useCases.forEach((entry) => {
@@ -122,6 +151,8 @@ module.exports = {
   parseUseCases,
   toUsdStringFromHalala,
   toUsdStringFromHalalaPerMinute,
+  toSarStringFromHalala,
+  toTokenPricingContract,
   inferModalitiesFromUseCases,
   inferSupportedFeaturesFromUseCases,
   toCatalogContractCore,

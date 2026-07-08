@@ -175,6 +175,8 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - supports streaming
   - supports reasoning
   - supports LoRA/dedicated deployment
+  - PR #769 centralized SAR/USD/halala token-pricing serialization for
+    `/api/models`, `/api/models/catalog`, and `/v1/models`.
 - Add prompt-cache accounting design:
   - static prefix/session hash
   - cached input token estimate
