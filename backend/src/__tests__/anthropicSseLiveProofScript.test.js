@@ -40,7 +40,9 @@ describe('anthropic SSE live proof script', () => {
   });
 
   test('normalizes api base URLs and redacts scoped keys', () => {
-    expect(buildUrl('https://api.dcp.sa/api', '/anthropic/v1/messages')).toBe('https://api.dcp.sa/api/anthropic/v1/messages');
+    expect(buildUrl('https://api.dcp.sa/api', '/api/pods')).toBe('https://api.dcp.sa/api/pods');
+    expect(buildUrl('https://api.dcp.sa/api', '/anthropic/v1/messages')).toBe('https://api.dcp.sa/anthropic/v1/messages');
+    expect(buildUrl('https://api.dcp.sa/api', '/v1/models')).toBe('https://api.dcp.sa/v1/models');
     expect(buildUrl('https://dcp.sa', '/anthropic/v1/messages')).toBe('https://dcp.sa/anthropic/v1/messages');
     expect(redactSecret('dcp_test_1234567890')).toBe('dcp_test...7890');
   });
