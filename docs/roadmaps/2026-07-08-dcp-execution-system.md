@@ -155,6 +155,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
+| Router policy readiness contract | `npm run proof:router-policy-contract` | none | CI-safe gate available; policy-specific routing and live smoke remain blocked until tests/proof exist |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Batch inference lifecycle contract | `npm run proof:batch-inference-contract` | none | CI-safe gate available; live provider execution and discounted settlement smoke still blocked |
 | Adapter deployment lifecycle contract | `npm run proof:adapter-deployment-contract` | none | CI-safe gate available; live vLLM load and billing smoke still blocked |
@@ -187,7 +188,8 @@ before or with the feature change.
      file visibility and LoRA stack imports without long `pip install`.
 4. **Inference streaming and catalog hardening**
    - Gate: targeted v1/model catalog tests, `/v1/models` production smoke, and
-     `proof:anthropic-sse` for agent-path streaming.
+     `proof:router-policy-contract` plus `proof:anthropic-sse` for
+     agent-path streaming.
    - Advanced claims stay gated until a funded live proof report exists.
 5. **Prompt-cache and batch economics**
    - Gate: `proof:prompt-cache-contract`, `proof:batch-inference-contract`,

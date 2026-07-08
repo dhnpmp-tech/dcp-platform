@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-08 22:47 UTC - Router policy contract proof (PR #832)
+
+- **PR:** [#832](https://github.com/dhnpmp-tech/dcp-platform/pull/832) (`codex/router-policy-contract-proof-2026-07-09`).
+- **Proof command:** Added `npm run proof:router-policy-contract` for the CI-safe router-policy readiness proof.
+- **Contract:** The proof verifies read-only catalog shape, balanced default availability, env-gated readiness metadata, explicit balanced no-op request resolution, and fail-closed future policy rejection.
+- **Claims:** Cheapest, lowest-latency, Saudi-only, coding, and Arabic routing remain non-selectable; no price optimization, geography filter, classifier routing, billing mutation, live latency ordering, or Tinker compatibility claim is enabled.
+- **Aggregate gate:** `npm run proof:local-roadmap` now runs the router policy proof with the other CI-safe roadmap gates.
+- **Roadmaps:** Updated execution, lane, and Fireworks/Tinker roadmap docs so future router policies require route-ordering tests and live smoke before selection is enabled.
+- **Safety:** No provider selection, routing order, billing, settlement, model catalog, inference execution, public claim, or frontend behavior changed.
+- **Verification:** `npm run proof:router-policy-contract` with temp report output; targeted Jest suites; `npm run proof:local-roadmap` with temp report output; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:39 UTC - Local roadmap proof suite (PR #830)
 
 - **PR:** [#830](https://github.com/dhnpmp-tech/dcp-platform/pull/830) (`codex/local-roadmap-proof-suite-2026-07-09`).

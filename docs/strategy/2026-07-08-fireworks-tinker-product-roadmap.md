@@ -257,6 +257,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     structured 400.
   - PR #779 shows those router-policy readiness states in `/renter/playground`
     and sends `routing_policy=balanced` only for the available default.
+  - PR #832 added `npm run proof:router-policy-contract`, a CI-safe proof
+    packet for catalog shape, env-gated readiness, explicit balanced no-op
+    resolution, future-policy rejection, and no-claim guards before any
+    policy-specific routing behavior is enabled.
 - Surface model metadata in the Playground from `/v1/models`.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to
@@ -448,6 +452,11 @@ Acceptance:
 11. **Cross-lane local proof suite** - one CI-safe command before merge/deploy.
     **Added in PR #830 as `npm run proof:local-roadmap`; live GPU/provider
     proof commands remain separate blocked gates.**
+12. **Router policy lifecycle proof** - contract proof before policy-specific
+    route selection. **CI-safe readiness proof added in PR #832; cheapest,
+    lowest-latency, Saudi-only, coding, and Arabic policies remain non-selectable
+    until route-ordering tests, billing/no-billing proofs, and live smoke
+    evidence exist.**
 
 ## Division of Work
 

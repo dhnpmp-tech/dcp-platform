@@ -30,6 +30,11 @@ const CI_SAFE_GATES = Object.freeze([
     command: 'npm run provider:nsight:verify',
   },
   {
+    id: 'router_policy_contract',
+    command: 'npm run proof:router-policy-contract',
+    outputEnv: 'DCP_ROUTER_POLICY_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'prompt_cache_contract',
     command: 'npm run proof:prompt-cache-contract',
     outputEnv: 'DCP_PROMPT_CACHE_PROOF_OUTPUT_DIR',
