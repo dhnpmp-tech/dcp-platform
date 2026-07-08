@@ -25,7 +25,7 @@ const NAV = [
     sec: 'Spend',
     secAr: 'الإنفاق',
     items: [
-      { k: 'wallet', ic: '₪', label: 'Wallet', labelAr: 'المحفظة', href: '/renter/wallet', bd: 'SAR' },
+      { k: 'wallet', ic: '₪', label: 'Credit', labelAr: 'الرصيد', href: '/renter/wallet' },
       { k: 'invoices', ic: '≡', label: 'Invoices', labelAr: 'الفواتير', href: '/renter/invoices' },
     ],
   },
@@ -402,26 +402,26 @@ export default function RenterUsagePage() {
 
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR {balanceParts[0]}
+            <Bi en={`Credit ${balanceParts[0]}`} ar={`رصيد ${balanceParts[0]}`} />
             <span className="u">.{balanceParts[1] || '00'}</span>
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR {fmtSar(heldSar)}</b>
+            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
           </div>
           <div className="row">
             <span>
               <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
             </span>
-            <b>SAR {fmtSar(totalSpentSar, false)}</b>
+            <b><Bi en={`${fmtSar(totalSpentSar, false)} credit`} ar={`${fmtSar(totalSpentSar, false)} رصيد`} /></b>
           </div>
           <Link className="topup" href="/renter/wallet#top-up">
-            <Bi en="+ Top up" ar="+ شحن الرصيد" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </Link>
         </div>
 

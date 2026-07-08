@@ -297,7 +297,7 @@ export default function ChatWidget() {
       const errorAssistantMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: `⚠️ ${errorMessage}`,
+        content: `Warning: ${errorMessage}`,
         timestamp: Date.now(),
         error: true,
       }

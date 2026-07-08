@@ -195,6 +195,15 @@ Possible copy:
 - "Add credit to launch this GPU."
 - "Trial credit covers DCP and community GPUs. This GPU requires prepaid credit."
 
+Status as of PR #765:
+
+- Dashboard, playground, usage, invoices, keys, settings, wallet sidebars, shared
+  balance/spending cards, low-credit notifications, and insufficient-balance
+  redeploy CTAs now use credit-first funding language.
+- The add-credit modal reads as a payment-backed credit request flow.
+- SAR remains visible for top-up amounts, spend, invoices, payment transfer, and
+  accounting contexts.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully

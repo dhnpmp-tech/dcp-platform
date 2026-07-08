@@ -73,7 +73,7 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
       <div className="bg-dc1-surface-l1 border border-dc1-border rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-dc1-border">
           <h2 id="topup-modal-title" className="text-lg font-semibold text-dc1-text-primary">
-            {step === 'success' ? 'Top-Up Requested' : 'Top Up Wallet'}
+            {step === 'success' ? 'Credit Requested' : 'Add Credit'}
           </h2>
           <button onClick={onClose} className="text-dc1-text-muted hover:text-dc1-text-primary transition-colors p-1 rounded" aria-label="Close modal">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -83,8 +83,8 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
         {step === 'amount' && (
           <div className="p-6 space-y-5">
             <div className="bg-dc1-surface-l2 rounded-lg p-4">
-              <p className="text-xs text-dc1-text-muted mb-1">Current balance</p>
-              <p className="text-2xl font-bold text-dc1-amber">{formatSAR(currentBalanceHalala)} SAR</p>
+              <p className="text-xs text-dc1-text-muted mb-1">Current credit</p>
+              <p className="text-2xl font-bold text-dc1-amber">{formatSAR(currentBalanceHalala)} credit</p>
             </div>
             <div>
               <p className="text-sm text-dc1-text-secondary mb-3">Quick select</p>
@@ -129,9 +129,9 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
           <div className="p-6 space-y-5">
             <div className="space-y-0">
               {[
-                ['Top-up amount', `${parsedSAR.toFixed(2)} SAR`, 'font-semibold text-dc1-text-primary'],
+                ['Credit amount', `${parsedSAR.toFixed(2)} SAR`, 'font-semibold text-dc1-text-primary'],
                 ['Payment method', 'Bank Transfer', 'font-semibold text-dc1-text-primary'],
-                ['Current balance', `${formatSAR(currentBalanceHalala)} SAR`, 'text-dc1-text-secondary'],
+                ['Current credit', `${formatSAR(currentBalanceHalala)} credit`, 'text-dc1-text-secondary'],
               ].map(([label, value, cls]) => (
                 <div key={label} className="flex justify-between items-center py-3 border-b border-dc1-border">
                   <span className="text-sm text-dc1-text-secondary">{label}</span>
@@ -139,8 +139,8 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
                 </div>
               ))}
               <div className="flex justify-between items-center py-3">
-                <span className="text-sm font-semibold text-dc1-text-primary">Balance after top-up</span>
-                <span className="text-base font-bold text-dc1-amber">{formatSAR(newBalanceHalala)} SAR</span>
+                <span className="text-sm font-semibold text-dc1-text-primary">Credit after payment</span>
+                <span className="text-base font-bold text-dc1-amber">{formatSAR(newBalanceHalala)} credit</span>
               </div>
             </div>
             <div className="flex gap-3">
@@ -153,7 +153,7 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
                     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                     Processing...
                   </span>
-                ) : 'Confirm Top-Up'}
+                ) : 'Confirm Credit'}
               </button>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
               <div className="w-12 h-12 rounded-full bg-status-success/15 flex items-center justify-center mb-3">
                 <svg className="w-6 h-6 text-status-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               </div>
-              <h3 className="text-base font-semibold text-dc1-text-primary mb-1">Top-Up Request Received</h3>
+              <h3 className="text-base font-semibold text-dc1-text-primary mb-1">Credit Request Received</h3>
               {isValidAmount && <p className="text-sm text-dc1-text-secondary">{parsedSAR.toFixed(2)} SAR will be added after payment is confirmed.</p>}
             </div>
             <div className="bg-dc1-surface-l2 border border-dc1-border rounded-lg p-4 space-y-2">
@@ -188,7 +188,7 @@ export default function WalletTopUpModal({ currentBalanceHalala, onClose, onSucc
               <div className="w-12 h-12 rounded-full bg-status-error/15 flex items-center justify-center mb-3">
                 <svg className="w-6 h-6 text-status-error" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </div>
-              <h3 className="text-base font-semibold text-dc1-text-primary mb-1">Top-Up Failed</h3>
+              <h3 className="text-base font-semibold text-dc1-text-primary mb-1">Credit Request Failed</h3>
               <p className="text-sm text-dc1-text-secondary">{errorMsg}</p>
             </div>
             <div className="flex gap-3">

@@ -21,6 +21,9 @@ what is live.
 - PR #761 made `/renter/pods` template selection catalog-backed for PyTorch,
   LoRA SFT, QLoRA SFT, vLLM, embeddings/rerank, and Arabic transcription while
   keeping pod billing/launch semantics unchanged.
+- PR #765 made renter funding copy credit-first across the renter shell, shared
+  balance/spending cards, top-up modal, low-credit notifications, and
+  insufficient-balance CTAs while keeping SAR in payment/accounting contexts.
 
 ### Now
 
@@ -70,7 +73,8 @@ what is live.
 
 1. Pod launch UX map: workspace -> template -> GPU -> duration -> credit check.
    **Started in PR #761.**
-2. Product IA copy cleanup without new claims.
+2. Product IA copy cleanup without new claims. **Credit-first renter funding
+   language started in PR #765.**
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
    **Started in PR #745.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**

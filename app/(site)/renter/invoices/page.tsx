@@ -263,16 +263,16 @@ export default function RenterInvoicesPage() {
 
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR {fmtSar(balanceSar)}
+            <Bi en={`Credit ${fmtSar(balanceSar)}`} ar={`رصيد ${fmtSar(balanceSar)}`} />
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR {fmtSar(heldSar)}</b>
+            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
           </div>
           <div className="row">
             <span>
@@ -281,7 +281,7 @@ export default function RenterInvoicesPage() {
             <b>SAR {fmtSar(totalSpentSar)}</b>
           </div>
           <Link className="topup" href="/renter/wallet">
-            <Bi en="+ Top up" ar="+ شحن الرصيد" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </Link>
         </div>
 

@@ -469,7 +469,6 @@ function StepConfirmLaunch({
     return (
       <div className="space-y-5">
         <div className="text-center py-2">
-          <div className="text-4xl mb-3">❌</div>
           <h3 className="text-lg font-semibold text-dc1-text-primary">Deployment Failed</h3>
         </div>
         <div className="bg-status-error/10 border border-status-error/30 rounded-lg p-4">
@@ -485,7 +484,7 @@ function StepConfirmLaunch({
           </button>
           {isBalanceError ? (
             <Link href="/renter/billing" className="btn btn-primary px-4 py-2 text-sm" onClick={onClose}>
-              Top Up Wallet
+              Add Credit
             </Link>
           ) : (
             <button onClick={() => { setState('idle'); setError(null) }} className="btn btn-primary px-4 py-2 text-sm">

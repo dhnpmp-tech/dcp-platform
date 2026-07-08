@@ -740,7 +740,7 @@ export default function RenterWalletPage() {
                 <b>
                   <Bi en="Trigger threshold" ar="حد التفعيل" />
                 </b>
-                <Bi en="Refill below this balance" ar="إعادة الشحن عند انخفاض الرصيد عن" />
+                <Bi en="Refill below this credit level" ar="إعادة الشحن عند انخفاض الرصيد عن" />
               </div>
               <div className="ctl">
                 <input className="input" type="number" min="0" value={autoThresholdSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoThresholdSar(Number(event.target.value))} />

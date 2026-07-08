@@ -376,17 +376,17 @@ export default function RenterSettingsPage() {
 
         <div className="rt-wallet">
           <div className="k">
-            <Bi en="Balance" ar="الرصيد" />
+            <Bi en="Credit" ar="الرصيد" />
           </div>
           <div className="v">
-            SAR {balanceParts[0]}
+            <Bi en={`Credit ${balanceParts[0]}`} ar={`رصيد ${balanceParts[0]}`} />
             <span className="u">.{balanceParts[1] || '00'}</span>
           </div>
           <div className="row">
             <span>
               <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
             </span>
-            <b>SAR {fmtSar(heldSar)}</b>
+            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
           </div>
           <div className="row">
             <span>
@@ -395,7 +395,7 @@ export default function RenterSettingsPage() {
             <b>SAR {fmtSar(totalSpentSar, false)}</b>
           </div>
           <Link className="topup" href="/renter/wallet#top-up">
-            <Bi en="+ Top up" ar="+ شحن الرصيد" />
+            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
           </Link>
         </div>
 
@@ -569,13 +569,13 @@ export default function RenterSettingsPage() {
               <div className="panel-hd">
                 <div>
                   <h3>
-                    <Bi en="Wallet summary" ar="ملخص المحفظة" />
+                    <Bi en="Credit summary" ar="ملخص الرصيد" />
                   </h3>
                 </div>
               </div>
               <div className="facts">
-                <Fact label="Balance" value={`SAR ${fmtSar(balanceSar)}`} />
-                <Fact label="Held" value={`SAR ${fmtSar(heldSar)}`} />
+                <Fact label="Credit" value={`${fmtSar(balanceSar)} credit`} />
+                <Fact label="Held credit" value={`${fmtSar(heldSar)} credit`} />
                 <Fact label="Lifetime spend" value={`SAR ${fmtSar(totalSpentSar)}`} />
                 <Fact label="Total jobs" value={numFmt.format(totalJobs)} />
               </div>
