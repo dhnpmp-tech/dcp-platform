@@ -184,6 +184,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #772 added read-only `/v1/router/policies` readiness metadata for balanced,
   lowest-latency, cheapest, Saudi-only, coding, and Arabic routing policies
   without changing request routing behavior.
+- PR #773 made `routing_policy: "balanced"` an explicit accepted no-op for
+  `/v1/chat/completions` and rejects non-selectable future policies with a
+  structured 400 instead of silently ignoring them.
 
 ### Now
 
@@ -233,7 +236,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - coding
   - Arabic
   **Read-only policy discovery started in PR #772; request-selectable routing
-  remains gated until policy-specific routing tests and smoke paths exist.**
+  remains gated until policy-specific routing tests and smoke paths exist.
+  Explicit balanced request validation started in PR #773.**
 
 ### Later
 

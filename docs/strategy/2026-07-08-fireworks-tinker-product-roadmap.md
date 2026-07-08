@@ -202,6 +202,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - Arabic
   - PR #772 added a read-only `/v1/router/policies` readiness catalog for these
     policies without making them request-selectable yet.
+  - PR #773 accepts explicit `routing_policy: "balanced"` on
+    `/v1/chat/completions` and rejects non-selectable future policies with a
+    structured 400.
 - Publish honest benchmark pages before making quality claims.
 
 Acceptance:

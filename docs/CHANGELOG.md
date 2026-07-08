@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 14:11 UTC - Explicit router policy request validation (PR #773)
+
+- **PR:** [#773](https://github.com/dhnpmp-tech/dcp-platform/pull/773) (`codex/router-policy-request-validation-2026-07-08`).
+- **API:** `/v1/chat/completions` now accepts `routing_policy: "balanced"` as an explicit no-op and returns routing-policy response headers.
+- **Safety:** Non-selectable policies such as `cheapest` return a structured HTTP 400 instead of being silently ignored.
+- **OpenAPI:** Documented the balanced-only request field.
+- **Verification:** Routing-policy resolver tests; `/v1/chat/completions` balanced/rejection route tests; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 14:02 UTC - Router policy readiness catalog (PR #772)
 
 - **PR:** [#772](https://github.com/dhnpmp-tech/dcp-platform/pull/772) (`codex/router-policy-readiness-catalog-2026-07-08`).

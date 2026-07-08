@@ -4,6 +4,7 @@ const {
   ROUTING_POLICY_CONTRACT_VERSION,
   buildInferenceRoutingPolicies,
   normalizeEarnedMode,
+  resolveRequestedRoutingPolicy,
 } = require('../services/inferenceRoutingPolicies');
 
 describe('inference routing policy catalog', () => {
@@ -64,6 +65,37 @@ describe('inference routing policy catalog', () => {
     expect(contract.data.find((policy) => policy.id === 'lowest_latency')).toMatchObject({
       status: 'gated',
       current_behavior: 'latency gate disabled by environment',
+    });
+  });
+
+  test('allows explicit balanced policy and rejects staged policies', () => {
+    const allowed = resolveRequestedRoutingPolicy({ routing_policy: 'balanced' });
+    expect(allowed).toMatchObject({
+      ok: true,
+      explicit: true,
+      policy: {
+        id: 'balanced',
+        available: true,
+      },
+    });
+
+    const unavailable = resolveRequestedRoutingPolicy({ routing: { policy: 'cheapest' } });
+    expect(unavailable).toMatchObject({
+      ok: false,
+      httpStatus: 400,
+      code: 'routing_policy_not_selectable',
+      requested_policy: 'cheapest',
+      policy: {
+        id: 'cheapest',
+        status: 'not_enabled',
+      },
+    });
+
+    const unknown = resolveRequestedRoutingPolicy({ route_policy: 'moonshot' });
+    expect(unknown).toMatchObject({
+      ok: false,
+      code: 'unknown_routing_policy',
+      requested_policy: 'moonshot',
     });
   });
 });

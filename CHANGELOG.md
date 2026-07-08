@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 14:11 UTC - `feat(inference): validate explicit routing policy requests - PR #773`
+
+**PR:** [#773](https://github.com/dhnpmp-tech/dcp-platform/pull/773) (`codex/router-policy-request-validation-2026-07-08`).
+**Local timestamp:** 2026-07-08 18:11 +04.
+
+**What:** Fortieth Fireworks/Tinker execution slice. Turns the router-policy catalog into an enforceable request contract without changing provider selection.
+
+- **Explicit no-op:** `/v1/chat/completions` now accepts `routing_policy: "balanced"` and returns `x-dcp-routing-policy: balanced` / `x-dcp-routing-policy-explicit: true`.
+- **No silent overclaiming:** Non-selectable catalog policies such as `cheapest` now return a structured HTTP 400 instead of being silently ignored.
+- **Compatibility:** Requests without `routing_policy` keep existing balanced routing behavior and receive `x-dcp-routing-policy-explicit: false`.
+- **OpenAPI:** Documented the balanced-only `routing_policy` request field and the `/v1/router/policies` discovery path remains the source for future readiness.
+- **Verified:** Routing-policy resolver tests; `/v1/chat/completions` balanced/rejection route tests; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 14:02 UTC - `feat(inference): publish router policy readiness catalog - PR #772`
 
 **PR:** [#772](https://github.com/dhnpmp-tech/dcp-platform/pull/772) (`codex/router-policy-readiness-catalog-2026-07-08`).

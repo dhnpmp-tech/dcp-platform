@@ -6609,6 +6609,14 @@ paths:
                   type: integer
                   nullable: true
                   description: Pin to a specific provider. Omit to auto-select.
+                routing_policy:
+                  type: string
+                  enum: [balanced]
+                  description: |
+                    Optional explicit router policy. Only `balanced` is
+                    accepted today and preserves current provider selection.
+                    Other policies listed by `/v1/router/policies` return a
+                    structured 400 until they become request-selectable.
       responses:
         '200':
           description: Completion result
