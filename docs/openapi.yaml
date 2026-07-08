@@ -556,6 +556,9 @@ components:
             available:
               type: boolean
               example: true
+            validate_only_endpoint:
+              type: string
+              example: POST /api/lora/datasets/validate
             supported_formats:
               type: array
               items:
@@ -650,6 +653,63 @@ components:
             discounts_enabled:
               type: boolean
               example: false
+
+    LoraDatasetValidation:
+      type: object
+      description: Validate-only LoRA/QLoRA SFT dataset contract. The route does not create a training job, persist raw dataset rows, launch GPU work, or register an adapter.
+      required: [object, version, validation, training_job_created, training_enabled, raw_dataset_persistence, next]
+      properties:
+        object:
+          type: string
+          enum: [lora_dataset_validation]
+          example: lora_dataset_validation
+        version:
+          type: string
+          example: dcp.lora_dataset_validation.v1
+        validation:
+          type: object
+          additionalProperties: true
+          properties:
+            format:
+              type: string
+              enum: [chat_messages, prompt_completion]
+              example: prompt_completion
+            row_count:
+              type: integer
+              example: 1200
+            train_rows:
+              type: integer
+              example: 1080
+            validation_rows:
+              type: integer
+              example: 120
+            validation_split_pct:
+              type: number
+              example: 10
+            estimated_tokens:
+              type: integer
+              example: 420000
+            max_row_chars:
+              type: integer
+              example: 900
+            checksum_sha256:
+              type: string
+              example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            normalized_bytes:
+              type: integer
+              example: 89000
+        training_job_created:
+          type: boolean
+          example: false
+        training_enabled:
+          type: boolean
+          example: false
+        raw_dataset_persistence:
+          type: boolean
+          example: false
+        next:
+          type: string
+          example: create_lora_training_job_after_dataset_review
 
     LoraTrainingJob:
       type: object
@@ -1670,6 +1730,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoraReadiness'
+
+  /api/lora/datasets/validate:
+    post:
+      tags: [LoRA]
+      summary: Validate LoRA SFT JSONL without creating a training job
+      description: |
+        Validates chat-message or prompt/completion JSONL and returns row counts,
+        train/validation split metadata, estimated tokens, normalized checksum,
+        and size facts. This validate-only route does not persist raw dataset
+        rows, create a training job, launch GPU training, register an adapter,
+        or claim Tinker compatibility.
+      security:
+        - RenterApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataset_jsonl]
+              properties:
+                dataset_jsonl:
+                  type: string
+                  description: JSONL dataset rows in chat_messages or prompt_completion format.
+                validation_split_pct:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                  default: 10
+      responses:
+        '200':
+          description: Dataset validation result. No training job is created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoraDatasetValidation'
+        '400':
+          description: Invalid dataset JSONL. Response includes a stable code and line number when available.
 
   /api/lora/training-jobs:
     get:

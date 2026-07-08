@@ -16,7 +16,12 @@ const {
   updateLoraTrainingJobStatus,
 } = require('../services/loraTrainingJobs');
 const { ensureAdapterRegistrySchema, getAdapter } = require('../services/adapterRegistry');
-const { LORA_READINESS_VERSION, buildLoraReadiness, createLoraRouter } = require('../routes/lora');
+const {
+  LORA_DATASET_VALIDATION_VERSION,
+  LORA_READINESS_VERSION,
+  buildLoraReadiness,
+  createLoraRouter,
+} = require('../routes/lora');
 
 function makeDb() {
   const raw = new Database(':memory:');
@@ -100,6 +105,7 @@ describe('LoRA training job foundation', () => {
       dataset_validation: {
         status: 'available',
         available: true,
+        validate_only_endpoint: 'POST /api/lora/datasets/validate',
         supported_formats: ['chat_messages', 'prompt_completion'],
       },
       training_jobs: {
@@ -457,6 +463,45 @@ describe('LoRA training job foundation', () => {
     }))).toThrow(/valid JSON/);
   });
 
+  test('routes validate-only dataset checks without creating a training job', async () => {
+    const db = makeDb();
+    const app = buildApp(db);
+
+    const validation = await request(app)
+      .post('/api/lora/datasets/validate')
+      .send({
+        dataset_jsonl: datasetJsonl(),
+        validation_split_pct: 10,
+      })
+      .expect(200);
+
+    expect(validation.body).toMatchObject({
+      object: 'lora_dataset_validation',
+      version: LORA_DATASET_VALIDATION_VERSION,
+      training_job_created: false,
+      training_enabled: false,
+      raw_dataset_persistence: false,
+      next: 'create_lora_training_job_after_dataset_review',
+      validation: {
+        format: 'prompt_completion',
+        row_count: 2,
+        train_rows: 2,
+        validation_rows: 0,
+      },
+    });
+    expect(validation.body.validation.checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(listLoraTrainingJobs(db, 1).jobs).toEqual([]);
+
+    const invalid = await request(app)
+      .post('/api/lora/datasets/validate')
+      .send({ dataset_jsonl: '{"prompt":' })
+      .expect(400);
+    expect(invalid.body).toMatchObject({
+      code: 'invalid_json',
+      details: { line: 1 },
+    });
+  });
+
   test('routes create, replay, list, read, and reject invalid dataset bodies', async () => {
     const db = makeDb();
     const app = buildApp(db);
@@ -466,6 +511,12 @@ describe('LoRA training job foundation', () => {
       object: 'lora_readiness',
       version: LORA_READINESS_VERSION,
       current_mode: 'metadata_and_artifact_proof_only',
+      endpoints: {
+        validate_dataset: 'POST /api/lora/datasets/validate',
+      },
+      dataset_validation: {
+        validate_only_endpoint: 'POST /api/lora/datasets/validate',
+      },
       training_jobs: {
         public_training_enabled: false,
         worker_execution_enabled: false,

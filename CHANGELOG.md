@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 18:43 UTC - `feat(lora): add dataset validate-only endpoint - PR #796`
+
+**PR:** [#796](https://github.com/dhnpmp-tech/dcp-platform/pull/796) (`codex/lora-dataset-validate-endpoint-2026-07-08`).
+**Local timestamp:** 2026-07-08 22:43 +04.
+
+**What:** Sixty-third Fireworks/Tinker execution slice. Adds a validate-only LoRA dataset API before managed training execution is enabled.
+
+- **API:** Added renter-authenticated `POST /api/lora/datasets/validate` for chat-message or prompt/completion JSONL validation.
+- **Contract:** The endpoint returns row count, train/validation split, estimated tokens, normalized checksum, max row chars, normalized bytes, and explicit no-training/no-persistence flags.
+- **Readiness:** `GET /api/lora/readiness` now advertises the validate-only endpoint under LoRA dataset validation.
+- **Safety:** The route does not create a training job, persist raw dataset rows, launch GPU work, register an adapter, or claim Tinker compatibility.
+- **Verified:** Targeted LoRA training job Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 18:11 UTC - `feat(pods): expose minimum paid-credit shortfall - PR #795`
 
 **PR:** [#795](https://github.com/dhnpmp-tech/dcp-platform/pull/795) (`codex/pod-minimum-paid-credit-contract-2026-07-08`).

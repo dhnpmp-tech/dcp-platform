@@ -14,11 +14,14 @@ const {
 const {
   DATASET_FORMATS,
   DEPLOY_MODES,
+  LoraContractError,
   TRAINING_RECIPES,
+  validateLoraDatasetJsonl,
 } = require('../services/loraTrainingContract');
 const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
 
 const LORA_READINESS_VERSION = 'dcp.lora_readiness.v1';
+const LORA_DATASET_VALIDATION_VERSION = 'dcp.lora_dataset_validation.v1';
 
 function createLoraRouter(deps = {}) {
   const router = express.Router();
@@ -29,6 +32,26 @@ function createLoraRouter(deps = {}) {
 
   router.get('/readiness', requireRenter, (_req, res) => {
     return res.json(buildLoraReadiness());
+  });
+
+  router.post('/datasets/validate', requireRenter, (req, res) => {
+    try {
+      const body = req.body || {};
+      const validation = validateLoraDatasetJsonl(body.dataset_jsonl, {
+        validationSplitPct: body.validation_split_pct,
+      });
+      return res.json({
+        object: 'lora_dataset_validation',
+        version: LORA_DATASET_VALIDATION_VERSION,
+        validation,
+        training_job_created: false,
+        training_enabled: false,
+        raw_dataset_persistence: false,
+        next: 'create_lora_training_job_after_dataset_review',
+      });
+    } catch (error) {
+      return sendLoraError(res, error);
+    }
   });
 
   router.get('/training-jobs', requireRenter, (req, res) => {
@@ -130,6 +153,7 @@ function buildLoraReadiness(now = new Date()) {
     current_mode: 'metadata_and_artifact_proof_only',
     endpoints: {
       readiness: 'GET /api/lora/readiness',
+      validate_dataset: 'POST /api/lora/datasets/validate',
       create_training_job: 'POST /api/lora/training-jobs',
       list_training_jobs: 'GET /api/lora/training-jobs',
       training_job_logs: 'GET /api/lora/training-jobs/{training_job_id}/logs',
@@ -141,6 +165,7 @@ function buildLoraReadiness(now = new Date()) {
     dataset_validation: {
       status: 'available',
       available: true,
+      validate_only_endpoint: 'POST /api/lora/datasets/validate',
       supported_formats: Object.values(DATASET_FORMATS),
       validation_input: 'dataset_jsonl',
       checksum: 'sha256_normalized_jsonl',
@@ -193,6 +218,19 @@ function buildLoraReadiness(now = new Date()) {
 }
 
 function sendLoraError(res, error) {
+  if (error instanceof LoraContractError) {
+    const body = {
+      error: error.message,
+      code: error.code,
+    };
+    if (error.line != null || error.details) {
+      body.details = {
+        ...(error.line != null ? { line: error.line } : {}),
+        ...(error.details || {}),
+      };
+    }
+    return res.status(400).json(body);
+  }
   if (error instanceof LoraTrainingJobError) {
     const body = {
       error: error.message,
@@ -224,6 +262,7 @@ function loraRouter(req, res, next) {
 
 module.exports = loraRouter;
 module.exports.LORA_READINESS_VERSION = LORA_READINESS_VERSION;
+module.exports.LORA_DATASET_VALIDATION_VERSION = LORA_DATASET_VALIDATION_VERSION;
 module.exports.buildLoraReadiness = buildLoraReadiness;
 module.exports.createLoraRouter = createLoraRouter;
 module.exports.sendLoraError = sendLoraError;
