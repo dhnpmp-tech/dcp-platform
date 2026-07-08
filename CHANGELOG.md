@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 12:41 UTC - `fix(backend): use credit-first pod 402 copy - PR #768`
+
+**PR:** [#768](https://github.com/dhnpmp-tech/dcp-platform/pull/768) (`codex/pod-credit-required-payload-copy-2026-07-08`).
+**Local timestamp:** 2026-07-08 16:41 +04.
+
+**What:** Thirty-fifth Fireworks/Tinker execution slice. Aligns backend and OpenAPI HTTP 402 copy with the credit-first renter language shipped in PRs #765 and #767 while preserving stable machine-readable error codes and money fields.
+
+- **Shared 402 contract:** `paymentRequiredPayload` now defaults to "Available credit" / "Add credit" copy instead of wallet/top-up wording.
+- **Pod launch:** Generic insufficient-credit pod launches now return a credit-first message with available credit, required credit, duration, and early-stop refund guidance.
+- **Pod extend:** Extend failures now say insufficient credit and Add credit, while keeping `INSUFFICIENT_BALANCE` / HTTP 402 behavior unchanged.
+- **OpenAPI:** `PaymentRequiredError`, pod extend, and volume 402 descriptions now describe account/prepaid credit instead of wallet balance.
+- **Verified:** Targeted 402 payload Jest suite; `node --check` for touched backend files; `git diff --check`.
+
 ### 2026-07-08 12:00 UTC - `feat(frontend): add pod launch credit-required guidance - PR #767`
 
 **PR:** [#767](https://github.com/dhnpmp-tech/dcp-platform/pull/767) (`codex/pod-launch-credit-error-guidance-2026-07-08`).

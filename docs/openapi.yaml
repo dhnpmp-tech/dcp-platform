@@ -652,7 +652,7 @@ components:
 
     PaymentRequiredError:
       type: object
-      description: Returned with HTTP 402 when prepaid credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to fund before retrying.
+      description: Returned with HTTP 402 when account credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to add credit before retrying.
       required: [error]
       properties:
         error:
@@ -664,7 +664,7 @@ components:
           example: insufficient_balance
         message:
           type: string
-          example: Wallet balance is below the pre-flight estimate for this request.
+          example: Available credit is below the pre-flight estimate for this request. Add credit and retry.
         currency:
           type: string
           example: SAR
@@ -1129,7 +1129,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Pod' }
         '402':
-          description: Insufficient balance to cover the extension.
+          description: Insufficient account credit to cover the extension.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentRequiredError' }
@@ -1170,7 +1170,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Volume' }
         '402':
-          description: Insufficient prepaid balance.
+          description: Insufficient prepaid credit.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentRequiredError' }

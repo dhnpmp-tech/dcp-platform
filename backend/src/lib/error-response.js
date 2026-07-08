@@ -55,8 +55,8 @@ const TOPUP_URL = process.env.DCP_TOPUP_URL || 'https://dcp.sa/renter/wallet';
  * stable code string; the legacy nested object moves to `error_detail`.
  *
  * @param {object} args
- * @param {number} args.requiredHalala  Quote the wallet must cover, in halala.
- * @param {number} args.balanceHalala   Current wallet balance, in halala.
+ * @param {number} args.requiredHalala  Quote the account credit must cover, in halala.
+ * @param {number} args.balanceHalala   Current available credit, in halala.
  * @param {string} [args.message]       Human-readable, agent-facing explanation.
  * @param {string} [args.code]          Stable machine-readable error code.
  * @returns {object} 402 JSON body.
@@ -69,7 +69,7 @@ function paymentRequiredPayload({ requiredHalala, balanceHalala, message, code =
   const balanceSar = Number((balHalala / 100).toFixed(2));
   const humanMessage = typeof message === 'string' && message
     ? message
-    : `Wallet balance ${balanceSar} SAR is below the ${requiredSar} SAR estimate for this request. Top up and retry.`;
+    : `Available credit ${balanceSar} SAR is below the ${requiredSar} SAR estimate for this request. Add credit and retry.`;
 
   return {
     // Documented (OpenAPI) + machine-readable agent contract.
