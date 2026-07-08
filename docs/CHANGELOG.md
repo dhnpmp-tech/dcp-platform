@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 23:35 UTC - Batch live execution proof runner (PR #838)
+### 2026-07-08 23:43 UTC - Batch live execution proof runner (PR #838)
 
 - **PR:** [#838](https://github.com/dhnpmp-tech/dcp-platform/pull/838) (`codex/batch-live-proof-runner-2026-07-09`).
 - **Live proof command:** Added `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`.
