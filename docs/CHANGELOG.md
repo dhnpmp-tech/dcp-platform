@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 08:25 UTC - Adapter deployment load-proof route (PR #749)
+
+- **PR:** [#749](https://github.com/dhnpmp-tech/dcp-platform/pull/749) (`codex/lora-adapter-load-proof-route-2026-07-08`).
+- **Backend:** Added an admin/internal load-proof route for adapter deployments, scoped by renter id, adapter id, and deployment id before mutation.
+- **Traffic gate:** Matching vLLM proof moves a deployment to `running` with `route_traffic: true`; mismatched proof marks it `degraded` and keeps serving disabled.
+- **Contracts:** Updated public OpenAPI copies and the LoRA runbook to mark load-proof attachment as the only API path from deployment intent to routable adapter deployment.
+- **Verification:** Targeted adapter deployment lifecycle Jest suite; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 08:18 UTC - LoRA training artifact adapter registration (PR #748)
 
 - **PR:** [#748](https://github.com/dhnpmp-tech/dcp-platform/pull/748) (`codex/lora-training-artifact-register-2026-07-08`).

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 08:25 UTC - `feat(lora): add adapter deployment load-proof route - PR #749`
+
+**PR:** [#749](https://github.com/dhnpmp-tech/dcp-platform/pull/749) (`codex/lora-adapter-load-proof-route-2026-07-08`).
+**Local timestamp:** 2026-07-08 12:25 +04.
+
+**What:** Seventeenth Fireworks/Tinker execution slice. Exposes the proof gate that lets an adapter deployment become routable only after admin/internal vLLM load proof matches the adapter and base model.
+
+- **Admin proof route:** Added `POST /api/adapters/{adapter_id}/deployments/{deployment_id}/load-proof` behind admin auth. Renter deployment creation still cannot attach serving proof.
+- **Adapter scoping:** Added `attachAdapterDeploymentLoadProof`, which checks renter id, deployment id, and adapter id before mutating proof state.
+- **Traffic gate:** Matching proof moves the deployment to `running` with `route_traffic: true`; mismatched proof stores the proof, marks the deployment `degraded`, and keeps routing disabled.
+- **API contract:** Documented the admin/internal load-proof endpoint in the public OpenAPI copies and updated the LoRA runbook order.
+- **Verified:** Targeted adapter deployment lifecycle Jest suite; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 08:18 UTC - `feat(lora): register adapters from training artifacts - PR #748`
 
 **PR:** [#748](https://github.com/dhnpmp-tech/dcp-platform/pull/748) (`codex/lora-training-artifact-register-2026-07-08`).
