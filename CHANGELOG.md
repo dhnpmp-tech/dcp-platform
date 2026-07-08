@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 21:06 UTC - `fix(inference): point Anthropic SSE proof at API host - PR #816`
+### 2026-07-08 21:10 UTC - `fix(inference): point Anthropic SSE proof at API host - PR #816`
 
 **PR:** [#816](https://github.com/dhnpmp-tech/dcp-platform/pull/816) (`codex/fix-anthropic-proof-api-base-2026-07-08`).
-**Local timestamp:** 2026-07-09 01:06 +04.
+**Local timestamp:** 2026-07-09 01:10 +04.
 
 **What:** Seventy-fifth Fireworks/Tinker execution slice. Fixes the Anthropic SSE proof runner packaging after production smoke showed `dcp.sa/anthropic/...` is not the backend route host.
 
