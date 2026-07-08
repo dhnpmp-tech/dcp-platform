@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 22:25 UTC - LoRA training contract proof (PR #828)
+
+- **PR:** [#828](https://github.com/dhnpmp-tech/dcp-platform/pull/828) (`codex/lora-training-contract-proof-2026-07-09`).
+- **Proof command:** Added `npm run proof:lora-training-contract` for the CI-safe LoRA dataset/training/artifact proof.
+- **Contract:** The proof verifies dataset validation facts, invalid row rejection, metadata-only/idempotent job creation, disabled/no-executor worker behavior, artifact checksum requirement, model-card manifest claim guards, and non-serving adapter registration.
+- **Artifacts:** Writes `dcp.lora_training_contract_proof.v1` JSON and Markdown evidence under `docs/reports/reliability` by default.
+- **Roadmaps:** Updated execution, lane, and Fireworks/Tinker roadmap docs so LoRA training has a repeatable local gate before GPU-host artifact proof, vLLM load proof, and adapter billing smoke.
+- **Safety:** No GPU training, artifact write, adapter serving, route traffic, training billing, public training claim, or Tinker compatibility claim changed.
+- **Verification:** `npm run proof:lora-training-contract` with temp report output; targeted Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:16 UTC - Prompt-cache contract proof (PR #826)
 
 - **PR:** [#826](https://github.com/dhnpmp-tech/dcp-platform/pull/826) (`codex/prompt-cache-contract-proof-2026-07-09`).
