@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 15:05 UTC - `feat(frontend): show LoRA model-card manifests - PR #778`
+
+**PR:** [#778](https://github.com/dhnpmp-tech/dcp-platform/pull/778) (`codex/frontend-lora-model-card-2026-07-08`).
+**Local timestamp:** 2026-07-08 19:05 +04.
+
+**What:** Forty-fifth Fireworks/Tinker execution slice. Connects the renter Fine-Tuning console to the LoRA model-card manifest contract from PR #775 without enabling managed training, adapter serving, quality claims, or Tinker compatibility claims.
+
+- **Frontend contract:** `/renter/fine-tuning` now types and renders `model_card_manifest` from LoRA training-job responses.
+- **Proof cards:** Added read-only adapter proof cards for manifest status, adapter/base model, dataset row count and format, artifact proof status, storage key, contract version, and next step.
+- **Claim guard:** The card renders public training, serving, routing, quality, and Tinker guards from the manifest claims object; the default backend path keeps them false.
+- **Console metrics:** Replaced the previous zero-traffic KPI with model-card count plus ready-adapter count while still showing routes as off.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright render smoke for `/renter/fine-tuning` on desktop and mobile with a manifest payload and no horizontal overflow.
+
 ### 2026-07-08 14:56 UTC - `feat(frontend): render batch readiness gates - PR #777`
 
 **PR:** [#777](https://github.com/dhnpmp-tech/dcp-platform/pull/777) (`codex/frontend-batch-readiness-2026-07-08`).

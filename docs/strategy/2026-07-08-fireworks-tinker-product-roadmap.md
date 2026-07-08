@@ -245,6 +245,8 @@ Goal: ship the first real train-here/deploy-here loop.
   - PR #775 added a metadata-only model-card manifest on LoRA training jobs;
     public training, serving, quality claims, and Tinker compatibility remain
     disabled until GPU-host proof exists.
+  - PR #778 added Fine-Tuning console proof cards for those manifests, keeping
+    the UI metadata-only and rendering the false claim guards directly.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
