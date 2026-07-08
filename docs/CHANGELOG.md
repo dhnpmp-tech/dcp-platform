@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 21:43 UTC - Adapter deployment contract proof (PR #822)
+
+- **PR:** [#822](https://github.com/dhnpmp-tech/dcp-platform/pull/822) (`codex/adapter-deployment-contract-proof-2026-07-09`).
+- **Proof command:** Added `npm run proof:adapter-deployment-contract` for the CI-safe adapter deployment lifecycle proof.
+- **Contract:** The proof verifies public deployment intent stays non-routing, mismatched load proof stays degraded, and only matching adapter/base-model load proof allows route traffic.
+- **Artifacts:** Writes `dcp.adapter_deployment_contract_proof.v1` JSON and Markdown evidence under `docs/reports/reliability` by default.
+- **Roadmaps:** Updated execution, lane, and Fireworks/Tinker roadmap docs so adapter deploy MVP has a repeatable local gate before live vLLM load and billing smoke.
+- **Safety:** No production route behavior, billing, training, provider routing, adapter serving, or public traffic changed.
+- **Verification:** `npm run proof:adapter-deployment-contract` with temp report output; targeted Jest guard; package script parse; `git diff --check`.
+
 ### 2026-07-08 21:34 UTC - LoRA pod image proof command (PR #820)
 
 - **PR:** [#820](https://github.com/dhnpmp-tech/dcp-platform/pull/820) (`codex/lora-pod-image-proof-command-2026-07-09`).

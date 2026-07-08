@@ -593,6 +593,10 @@ DCP-hosted endpoint -> billed inference.
   keeping the same proof gates with lower request fan-out.**
   **PR #792 adds the public Dedicated Deployments page while keeping adapter
   endpoint traffic gated by matching load proof.**
+  **PR #822 adds `npm run proof:adapter-deployment-contract`, a CI-safe proof
+  packet for the adapter deployment lifecycle: public intent stays non-routing,
+  mismatched load proof stays degraded, and only matching adapter/base-model load
+  proof allows route traffic.**
 
 ### Later
 
@@ -607,12 +611,15 @@ DCP-hosted endpoint -> billed inference.
 2. Adapter registry schema and service tests.
 3. Dataset validator and training-job contract.
 4. Single-adapter deploy API.
+   **Deployment intent/load-proof APIs exist; PR #822 adds a repeatable
+   CI-safe lifecycle proof command before live vLLM load and billing smoke.**
 5. Multi-LoRA serving proof.
 
 ### Required Evidence
 
 - Template validation.
 - Adapter registry tests.
+- Adapter deployment contract proof.
 - GPU-host training artifact proof.
 - vLLM adapter load proof.
 - Inference billing proof for adapter endpoint.
@@ -642,6 +649,9 @@ DCP-hosted endpoint -> billed inference.
    **Deployment intent/load-proof contracts are in place through PR #749 and
    surfaced by PR #782; vLLM serving smoke remains required before routing.**
    **Renter-wide deployment listing added in PR #785.**
+   **CI-safe deployment lifecycle proof command added in PR #822 as
+   `npm run proof:adapter-deployment-contract`; real vLLM load and adapter
+   billing smoke remain required before public serving.**
 11. Fireworks-style product pages.
 
 ## Lane Proof Commands
@@ -655,7 +665,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
-| LoRA | `npm run templates:validate` plus adapter/training route tests | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
+| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 
 ## Weekly Cadence
 

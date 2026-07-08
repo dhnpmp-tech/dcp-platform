@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 21:43 UTC - `test(lora): add adapter deployment contract proof - PR #822`
+
+**PR:** [#822](https://github.com/dhnpmp-tech/dcp-platform/pull/822) (`codex/adapter-deployment-contract-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 01:43 +04.
+
+**What:** Seventy-eighth Fireworks/Tinker execution slice. Promotes the adapter deployment load-proof invariant into a repeatable CI-safe proof command.
+
+- **Proof command:** Added `npm run proof:adapter-deployment-contract`, wired through the backend reliability script table to `backend/tests/adapter-deployment-contract-proof.js`.
+- **Contract proof:** The runner uses an in-memory database to prove public deployment requests stay non-routing, mismatched load proof stays `degraded` with `route_traffic=false`, and only matching adapter/base-model load proof transitions a deployment to `running`.
+- **Evidence artifacts:** The proof writes `dcp.adapter_deployment_contract_proof.v1` JSON and Markdown reports under `docs/reports/reliability` by default, with latest symlike copies for handoff.
+- **Regression guard:** Added a targeted Jest test for the proof runner and report contract.
+- **Roadmaps:** Updated the execution system, lane roadmap, and Fireworks/Tinker strategy roadmap so adapter deploy MVP has a CI-safe contract proof before live vLLM load and adapter billing smoke.
+- **Safety:** No production route behavior, billing, training, provider routing, adapter serving, or public traffic changed. Real vLLM load proof and adapter endpoint billing smoke remain required before public serving claims.
+- **Verified:** `npm run proof:adapter-deployment-contract` with temp report output; targeted adapter deployment proof Jest suite; package script parse; `git diff --check`.
+
 ### 2026-07-08 21:34 UTC - `test(pods): add LoRA pod image proof command - PR #820`
 
 **PR:** [#820](https://github.com/dhnpmp-tech/dcp-platform/pull/820) (`codex/lora-pod-image-proof-command-2026-07-09`).
