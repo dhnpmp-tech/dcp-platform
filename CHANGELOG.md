@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 22:35 UTC - `test(ops): add local roadmap proof suite - PR #830`
+
+**PR:** [#830](https://github.com/dhnpmp-tech/dcp-platform/pull/830) (`codex/local-roadmap-proof-suite-2026-07-09`).
+**Local timestamp:** 2026-07-09 02:35 +04.
+
+**What:** Eighty-second Fireworks/Tinker execution slice. Adds one local command for the CI-safe audit roadmap proof gates.
+
+- **Proof command:** Added `npm run proof:local-roadmap`, backed by `scripts/run-local-roadmap-proof-suite.mjs`.
+- **Suite coverage:** Runs template validation, workspace-pod contracts, pod-image contracts, provider Nsight contract guard, prompt-cache contract proof, batch inference contract proof, LoRA training contract proof, and adapter deployment contract proof.
+- **Evidence artifacts:** Writes `dcp.local_roadmap_proof_suite.v1` JSON and Markdown reports plus per-gate logs under `docs/reports/reliability` by default, with temp-output support for CI/handoffs.
+- **Blocked gates:** The suite explicitly documents live/external gates it does not run: workspace-pod live launch, provider-host LoRA pod image proof, and Anthropic SSE live proof.
+- **Roadmaps:** Updated the execution system and lane roadmap so agents can run the CI-safe local gate set before PR merge/deploy while keeping live gates blocked until credentials/capacity exist.
+- **Safety:** No runtime route, billing, provider, pod, training, inference, deployment, or product-claim behavior changed.
+- **Verified:** `npm run proof:local-roadmap` with temp report output; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:29 UTC - `test(lora): add LoRA training contract proof - PR #828`
 
 **PR:** [#828](https://github.com/dhnpmp-tech/dcp-platform/pull/828) (`codex/lora-training-contract-proof-2026-07-09`).

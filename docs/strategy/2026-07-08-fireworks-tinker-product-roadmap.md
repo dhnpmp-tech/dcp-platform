@@ -445,6 +445,9 @@ Acceptance:
 10. **LoRA training lifecycle proof** - contract proof before GPU claims.
     **CI-safe dataset/training/artifact proof added in PR #828; GPU-host
     artifact proof remains the gate before public training claims.**
+11. **Cross-lane local proof suite** - one CI-safe command before merge/deploy.
+    **Added in PR #830 as `npm run proof:local-roadmap`; live GPU/provider
+    proof commands remain separate blocked gates.**
 
 ## Division of Work
 

@@ -136,10 +136,16 @@ curl -fsSI https://dcp.sa
 
 Behavior changes need lane-specific smoke evidence.
 
+Before merging a backend/inference/POT/LoRA proof slice, run
+`npm run proof:local-roadmap` when feasible. It does not replace live gates; it
+packages the CI-safe gates and explicitly reports the live proof commands that
+remain blocked by credentials, provider GPU hosts, or serving capacity.
+
 ### Current Proof Command Map
 
 | Audit gate | Command | Required external input | Current acceptance state |
 |---|---|---|---|
+| CI-safe local roadmap suite | `npm run proof:local-roadmap` | none | Runs all CI-safe gates below and reports excluded live gates |
 | Build/product route integrity | `npm run build` | none | Required for frontend/runtime PRs |
 | Workspace-to-pod wiring contract | `npm run workspace-pods:verify-contracts` | none | CI-safe gate available |
 | Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |

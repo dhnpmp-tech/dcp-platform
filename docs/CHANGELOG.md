@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 22:35 UTC - Local roadmap proof suite (PR #830)
+
+- **PR:** [#830](https://github.com/dhnpmp-tech/dcp-platform/pull/830) (`codex/local-roadmap-proof-suite-2026-07-09`).
+- **Proof command:** Added `npm run proof:local-roadmap` for the CI-safe roadmap gate suite.
+- **Coverage:** Runs template validation, workspace/pod contracts, pod-image contracts, provider Nsight contract guard, prompt-cache proof, batch proof, LoRA training proof, and adapter deployment proof.
+- **Artifacts:** Writes `dcp.local_roadmap_proof_suite.v1` JSON/Markdown reports plus per-gate logs under `docs/reports/reliability` by default.
+- **Blocked gates:** Documents live gates intentionally excluded from local CI: workspace-pod launch, provider-host LoRA image proof, and Anthropic SSE live proof.
+- **Safety:** No runtime route, billing, provider, pod, training, inference, deployment, or product-claim behavior changed.
+- **Verification:** `npm run proof:local-roadmap` with temp report output; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:29 UTC - LoRA training contract proof (PR #828)
 
 - **PR:** [#828](https://github.com/dhnpmp-tech/dcp-platform/pull/828) (`codex/lora-training-contract-proof-2026-07-09`).
