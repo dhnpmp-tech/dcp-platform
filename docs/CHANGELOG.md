@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 10:23 UTC - Gated batch line settlement (PR #760)
+
+- **PR:** [#760](https://github.com/dhnpmp-tech/dcp-platform/pull/760) (`codex/batch-line-settlement-2026-07-08`).
+- **Backend:** Added batch line settlement metadata for provider id, settlement state, stable settlement request id, error details, and settlement timestamp.
+- **Billing bridge:** Added a guarded helper that can call the existing `billingService.settleInferenceOnce` for succeeded line proof using idempotent batch-line request ids.
+- **Worker gate:** The dormant batch worker only settles lines when `settlementEnabled` or `DCP_BATCH_SETTLEMENT_ENABLED=1` is explicitly enabled.
+- **Safety:** The helper checks the full succeeded-line cost before debiting so insufficient balance fails without partial batch billing.
+- **Contracts:** Updated public OpenAPI copies and the prompt-cache/batch design order while keeping public batch execution, discounts, and model flags gated.
+- **Verification:** Targeted batch job and batch worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 10:05 UTC - Renter batch console (PR #759)
 
 - **PR:** [#759](https://github.com/dhnpmp-tech/dcp-platform/pull/759) (`codex/frontend-batch-console-2026-07-08`).

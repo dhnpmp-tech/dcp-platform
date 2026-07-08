@@ -21,6 +21,9 @@ function makeDb() {
       email TEXT NOT NULL UNIQUE,
       api_key TEXT NOT NULL UNIQUE,
       status TEXT DEFAULT 'active',
+      balance_halala INTEGER DEFAULT 0,
+      total_spent_halala INTEGER DEFAULT 0,
+      total_jobs INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT
     )
@@ -32,6 +35,91 @@ function makeDb() {
   `).run(new Date().toISOString(), new Date().toISOString());
   ensureBatchInferenceJobSchema(raw);
   return raw;
+}
+
+function ensureSettlementSchema(db) {
+  db.exec(`
+    CREATE TABLE providers (
+      id INTEGER PRIMARY KEY,
+      claimable_earnings_halala INTEGER DEFAULT 0,
+      total_earnings REAL DEFAULT 0,
+      total_earnings_halala INTEGER DEFAULT 0,
+      total_jobs INTEGER DEFAULT 0
+    );
+    INSERT INTO providers (id, claimable_earnings_halala, total_earnings, total_earnings_halala, total_jobs)
+    VALUES (7, 0, 0, 0, 0);
+
+    CREATE TABLE subscription_credits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subscription_id INTEGER,
+      renter_id INTEGER NOT NULL,
+      granted_at TEXT,
+      amount_halala INTEGER NOT NULL,
+      consumed_halala INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      source TEXT,
+      created_at TEXT
+    );
+
+    CREATE TABLE billing_attempts (
+      request_id TEXT PRIMARY KEY,
+      renter_id INTEGER NOT NULL,
+      provider_id INTEGER,
+      cost_halala INTEGER NOT NULL,
+      provider_earned_halala INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      error_code TEXT,
+      settled_at TEXT NOT NULL
+    );
+
+    CREATE TABLE usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      renter_id INTEGER NOT NULL,
+      provider_id INTEGER,
+      job_id TEXT,
+      model_id TEXT NOT NULL,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      prompt_cost_halala INTEGER NOT NULL DEFAULT 0,
+      completion_cost_halala INTEGER NOT NULL DEFAULT 0,
+      cost_halala INTEGER NOT NULL DEFAULT 0,
+      provider_payout_halala INTEGER NOT NULL DEFAULT 0,
+      dcp_take_halala INTEGER NOT NULL DEFAULT 0,
+      price_in_halala_per_1m_tok INTEGER,
+      price_out_halala_per_1m_tok INTEGER,
+      occurred_at TEXT NOT NULL,
+      request_id TEXT,
+      source TEXT,
+      settlement_status TEXT NOT NULL DEFAULT 'pending'
+    );
+    CREATE UNIQUE INDEX idx_usage_events_request_id
+      ON usage_events (request_id)
+      WHERE request_id IS NOT NULL;
+
+    CREATE TABLE jobs (
+      job_id TEXT PRIMARY KEY,
+      provider_id INTEGER,
+      renter_id INTEGER,
+      job_type TEXT,
+      model TEXT,
+      status TEXT,
+      submitted_at TEXT,
+      started_at TEXT,
+      completed_at TEXT,
+      duration_minutes INTEGER,
+      duration_seconds INTEGER,
+      cost_halala INTEGER,
+      actual_cost_halala INTEGER,
+      provider_earned_halala INTEGER,
+      prompt_tokens INTEGER,
+      completion_tokens INTEGER,
+      result TEXT,
+      notes TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      priority INTEGER
+    );
+  `);
 }
 
 function jsonl(customId = 'req-1') {
@@ -151,6 +239,7 @@ describe('batch inference worker scaffold', () => {
               completion_tokens: 5,
             },
             cost_halala: 4,
+            provider_id: 7,
             request_id: 'batch_linesok:ok-1',
             provider_response_id: 'resp-ok-1',
           },
@@ -192,8 +281,10 @@ describe('batch inference worker scaffold', () => {
         total_tokens: 17,
       },
       cost_halala: 4,
+      provider_id: 7,
       request_id: 'batch_linesok:ok-1',
       provider_response_id: 'resp-ok-1',
+      settlement_status: 'unsettled',
     });
     expect(getBatchInferenceJobLine(db, 1, 'batch_linesok', 'fail-1')).toMatchObject({
       status: 'failed',
@@ -242,6 +333,135 @@ describe('batch inference worker scaffold', () => {
     expect(getBatchInferenceJobLine(db, 1, 'batch_linesbad', 'line-a')).toMatchObject({
       status: 'pending',
     });
+  });
+
+  test('settles succeeded line proof through the billing service when settlement is enabled', async () => {
+    const db = makeDb();
+    ensureSettlementSchema(db);
+    db.prepare('UPDATE renters SET balance_halala = 100 WHERE id = 1').run();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_settleok',
+      input_jsonl: jsonl('bill-1'),
+    });
+
+    const result = await runBatchInferenceWorkerOnce(db, {
+      enabled: true,
+      settlementEnabled: true,
+      executor: async (batch) => ({
+        result_storage_key: buildBatchResultStorageKey(batch),
+        result_checksum_sha256: '8'.repeat(64),
+        result_normalized_bytes: 1024,
+        lines: [
+          {
+            custom_id: 'bill-1',
+            status_code: 200,
+            response_checksum_sha256: '9'.repeat(64),
+            response_normalized_bytes: 512,
+            provider_id: 7,
+            usage: {
+              prompt_tokens: 20,
+              completion_tokens: 10,
+            },
+            cost_halala: 9,
+            request_id: 'batch_settleok:bill-1',
+            provider_response_id: 'resp-bill-1',
+          },
+        ],
+      }),
+    });
+
+    expect(result).toMatchObject({
+      completed: 1,
+      failed: 0,
+    });
+    expect(result.batches[0]).toMatchObject({
+      batch_id: 'batch_settleok',
+      status: 'completed',
+      line_proof_applied: true,
+      settlement_applied: true,
+      settlement_summary: {
+        attempted: 1,
+        settled: 1,
+        total_cost_halala: 9,
+      },
+    });
+
+    expect(getBatchInferenceJobLine(db, 1, 'batch_settleok', 'bill-1')).toMatchObject({
+      status: 'succeeded',
+      provider_id: 7,
+      cost_halala: 9,
+      settlement_status: 'settled',
+      settlement_request_id: 'batch-line:batch_settleok:bill-1',
+    });
+    expect(db.prepare('SELECT balance_halala, total_spent_halala, total_jobs FROM renters WHERE id = 1').get()).toMatchObject({
+      balance_halala: 91,
+      total_spent_halala: 9,
+      total_jobs: 1,
+    });
+    expect(db.prepare('SELECT cost_halala, provider_earned_halala, status FROM billing_attempts WHERE request_id = ?').get('batch-line:batch_settleok:bill-1')).toMatchObject({
+      cost_halala: 9,
+      provider_earned_halala: 6,
+      status: 'settled',
+    });
+    expect(db.prepare('SELECT source, settlement_status, cost_halala FROM usage_events WHERE request_id = ?').get('batch-line:batch_settleok:bill-1')).toMatchObject({
+      source: 'batch/inference',
+      settlement_status: 'settled',
+      cost_halala: 9,
+    });
+  });
+
+  test('fails before debiting when settlement preflight cannot cover all succeeded lines', async () => {
+    const db = makeDb();
+    ensureSettlementSchema(db);
+    db.prepare('UPDATE renters SET balance_halala = 5 WHERE id = 1').run();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_shortbal',
+      input_jsonl: jsonl('bill-1'),
+    });
+
+    const result = await runBatchInferenceWorkerOnce(db, {
+      enabled: true,
+      settlementEnabled: true,
+      executor: async (batch) => ({
+        result_storage_key: buildBatchResultStorageKey(batch),
+        result_checksum_sha256: '7'.repeat(64),
+        result_normalized_bytes: 1024,
+        lines: [
+          {
+            custom_id: 'bill-1',
+            status_code: 200,
+            response_checksum_sha256: '6'.repeat(64),
+            provider_id: 7,
+            usage: {
+              prompt_tokens: 20,
+              completion_tokens: 10,
+            },
+            cost_halala: 9,
+          },
+        ],
+      }),
+    });
+
+    expect(result).toMatchObject({
+      completed: 0,
+      failed: 1,
+    });
+    expect(result.batches[0]).toMatchObject({
+      batch_id: 'batch_shortbal',
+      status: 'failed',
+      error: 'batch line settlement preflight failed: insufficient balance',
+    });
+    expect(getBatchInferenceJobLine(db, 1, 'batch_shortbal', 'bill-1')).toMatchObject({
+      status: 'succeeded',
+      settlement_status: 'failed',
+      settlement_error_code: 'insufficient_balance',
+    });
+    expect(db.prepare('SELECT balance_halala, total_spent_halala, total_jobs FROM renters WHERE id = 1').get()).toMatchObject({
+      balance_halala: 5,
+      total_spent_halala: 0,
+      total_jobs: 0,
+    });
+    expect(db.prepare('SELECT COUNT(*) AS c FROM billing_attempts').get().c).toBe(0);
   });
 
   test('marks a batch failed when completed result proof is missing', async () => {

@@ -161,6 +161,8 @@ schema can drift before the behavior exists.
 9. Expose a renter batch console tied to the gated batch APIs.
    **Done in PR #759** via `/renter/batches`.
 10. Run per-line billing through the existing inference settlement path.
+    **Foundation done in PR #760** behind `DCP_BATCH_SETTLEMENT_ENABLED`, using
+    `billingService.settleInferenceOnce` for injected worker line proof.
 11. Only then expose `capability_flags.batch = true` for models that can run it.
 
 PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
@@ -203,3 +205,9 @@ PR #759 exposes those gated records in the renter console at `/renter/batches`.
 The page can create validation-only batch records, read line-ledger rows, and
 show result-manifest proof, but it keeps execution, signed downloads, discounts,
 settlement, and public batch capability flags visibly gated.
+PR #760 adds the first per-line settlement bridge. Batch line rows now include
+provider and settlement metadata, and the dormant worker can call
+`billingService.settleInferenceOnce` for succeeded line proof only when
+settlement is explicitly enabled. The helper preflights the full successful-line
+cost before debiting so insufficient balance fails without partial batch billing.
+Production batch execution and settlement remain disabled by default.

@@ -141,6 +141,13 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 Make DCP Inference a serious API product: priced, streamed, routed, cached,
 batchable, observable, and compatible with OpenAI/Anthropic clients.
 
+### Progress
+
+- PRs #741, #743, #752, #756, #757, and #758 built the gated batch job,
+  result-proof, download-signing, line-ledger, and worker line-proof foundation.
+- PR #760 added the disabled-by-default bridge from succeeded batch line proof
+  to the existing atomic inference settlement service.
+
 ### Now
 
 - Preserve existing strengths:
