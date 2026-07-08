@@ -57,6 +57,8 @@ function ensureBatchInferenceJobSchema(db) {
       completion_window TEXT NOT NULL DEFAULT '24h',
       metadata_json TEXT,
       result_storage_key TEXT,
+      result_checksum_sha256 TEXT,
+      result_normalized_bytes INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'created'
         CHECK(status IN ('created','queued','running','completed','failed','cancelled')),
       completed_count INTEGER NOT NULL DEFAULT 0,
@@ -79,6 +81,8 @@ function ensureBatchInferenceJobSchema(db) {
       ON batch_inference_jobs(renter_id, idempotency_key)
      WHERE idempotency_key IS NOT NULL
   `);
+  ensureBatchColumn(schemaDb, 'result_checksum_sha256', 'ALTER TABLE batch_inference_jobs ADD COLUMN result_checksum_sha256 TEXT');
+  ensureBatchColumn(schemaDb, 'result_normalized_bytes', 'ALTER TABLE batch_inference_jobs ADD COLUMN result_normalized_bytes INTEGER NOT NULL DEFAULT 0');
 }
 
 function createBatchInferenceJob(db, renterId, input = {}, options = {}) {
@@ -129,9 +133,10 @@ function createBatchInferenceJob(db, renterId, input = {}, options = {}) {
       INSERT INTO batch_inference_jobs (
         batch_id, renter_id, input_storage_key, input_checksum_sha256,
         input_normalized_bytes, request_count, completion_window, metadata_json,
-        result_storage_key, status, completed_count, failed_count, total_cost_halala,
-        idempotency_key, created_at, updated_at, started_at, completed_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'created', 0, 0, 0, ?, ?, ?, NULL, NULL, ?)
+        result_storage_key, result_checksum_sha256, result_normalized_bytes, status,
+        completed_count, failed_count, total_cost_halala, idempotency_key,
+        created_at, updated_at, started_at, completed_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, 'created', 0, 0, 0, ?, ?, ?, NULL, NULL, ?)
     `).run(
       batchId,
       ownerId,
@@ -179,15 +184,36 @@ function getBatchInferenceJob(db, renterId, batchId) {
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
   const id = normalizeBatchId(batchId);
   const row = db.prepare(`
-    SELECT batch_id, renter_id, input_storage_key, input_checksum_sha256,
-           input_normalized_bytes, request_count, completion_window, metadata_json,
-           result_storage_key, status, completed_count, failed_count,
-           total_cost_halala, idempotency_key, created_at, updated_at,
-           started_at, completed_at, expires_at
-      FROM batch_inference_jobs
+    ${selectBatchSql()}
      WHERE renter_id = ? AND batch_id = ?
   `).get(ownerId, id);
   return mapBatchRow(row);
+}
+
+function getBatchInferenceResultManifest(db, renterId, batchId) {
+  const batch = getBatchInferenceJob(db, renterId, batchId);
+  if (!batch) return null;
+  return {
+    batch_id: batch.batch_id,
+    renter_id: batch.renter_id,
+    status: batch.status,
+    results_available: batch.results_available,
+    result_storage_key: batch.result_storage_key,
+    result_checksum_sha256: batch.result_checksum_sha256,
+    result_normalized_bytes: batch.result_normalized_bytes,
+    completed_count: batch.completed_count,
+    failed_count: batch.failed_count,
+    total_cost_halala: batch.total_cost_halala,
+    download_enabled: false,
+    download_url: null,
+    next: batch.results_available
+      ? 'sign_result_download_url_after_object_store_bridge'
+      : 'wait_for_completed_batch_result_key_and_checksum',
+    created_at: batch.created_at,
+    updated_at: batch.updated_at,
+    completed_at: batch.completed_at,
+    expires_at: batch.expires_at,
+  };
 }
 
 function listBatchInferenceJobs(db, renterId, options = {}) {
@@ -204,12 +230,7 @@ function listBatchInferenceJobs(db, renterId, options = {}) {
   params.push(limit, offset);
 
   const rows = db.prepare(`
-    SELECT batch_id, renter_id, input_storage_key, input_checksum_sha256,
-           input_normalized_bytes, request_count, completion_window, metadata_json,
-           result_storage_key, status, completed_count, failed_count,
-           total_cost_halala, idempotency_key, created_at, updated_at,
-           started_at, completed_at, expires_at
-      FROM batch_inference_jobs
+    ${selectBatchSql()}
      WHERE ${where.join(' AND ')}
      ORDER BY created_at DESC, id DESC
      LIMIT ? OFFSET ?
@@ -226,12 +247,7 @@ function listCreatedBatchInferenceJobs(db, options = {}) {
   assertDb(db);
   const limit = normalizeLimit(options.limit);
   const rows = db.prepare(`
-    SELECT batch_id, renter_id, input_storage_key, input_checksum_sha256,
-           input_normalized_bytes, request_count, completion_window, metadata_json,
-           result_storage_key, status, completed_count, failed_count,
-           total_cost_halala, idempotency_key, created_at, updated_at,
-           started_at, completed_at, expires_at
-      FROM batch_inference_jobs
+    ${selectBatchSql()}
      WHERE status = 'created'
      ORDER BY created_at ASC, id ASC
      LIMIT ?
@@ -250,6 +266,24 @@ function updateBatchInferenceJobStatus(db, renterId, batchId, status, options = 
   const resultStorageKey = options.result_storage_key == null
     ? null
     : normalizeStorageKey(options.result_storage_key, 'result_storage_key');
+  const resultChecksum = options.result_checksum_sha256 == null
+    ? null
+    : normalizeChecksum(options.result_checksum_sha256, 'result_checksum_sha256');
+  const resultNormalizedBytes = options.result_normalized_bytes == null
+    ? null
+    : normalizeNonNegativeInteger(options.result_normalized_bytes, 'result_normalized_bytes');
+  if (nextStatus === 'completed') {
+    if (!resultStorageKey || !resultChecksum) {
+      batchError('completed batch results require result storage and SHA-256 proof', {
+        code: 'batch_result_proof_missing',
+        httpStatus: 409,
+        details: {
+          required: ['result_storage_key', 'result_checksum_sha256'],
+        },
+      });
+    }
+  }
+
   const completedCount = normalizeNonNegativeInteger(options.completed_count ?? 0, 'completed_count');
   const failedCount = normalizeNonNegativeInteger(options.failed_count ?? 0, 'failed_count');
   const totalCostHalala = normalizeNonNegativeInteger(options.total_cost_halala ?? 0, 'total_cost_halala');
@@ -258,6 +292,8 @@ function updateBatchInferenceJobStatus(db, renterId, batchId, status, options = 
     UPDATE batch_inference_jobs
        SET status = ?,
            result_storage_key = COALESCE(?, result_storage_key),
+           result_checksum_sha256 = COALESCE(?, result_checksum_sha256),
+           result_normalized_bytes = CASE WHEN ? = 1 THEN ? ELSE result_normalized_bytes END,
            completed_count = CASE WHEN ? = 1 THEN ? ELSE completed_count END,
            failed_count = CASE WHEN ? = 1 THEN ? ELSE failed_count END,
            total_cost_halala = CASE WHEN ? = 1 THEN ? ELSE total_cost_halala END,
@@ -268,6 +304,9 @@ function updateBatchInferenceJobStatus(db, renterId, batchId, status, options = 
   `).run(
     nextStatus,
     resultStorageKey,
+    resultChecksum,
+    resultNormalizedBytes == null ? 0 : 1,
+    resultNormalizedBytes == null ? 0 : resultNormalizedBytes,
     completedAt ? 1 : 0,
     completedCount,
     completedAt ? 1 : 0,
@@ -287,15 +326,22 @@ function updateBatchInferenceJobStatus(db, renterId, batchId, status, options = 
 function getBatchByIdempotencyKey(db, renterId, idempotencyKey) {
   if (!idempotencyKey) return null;
   const row = db.prepare(`
-    SELECT batch_id, renter_id, input_storage_key, input_checksum_sha256,
-           input_normalized_bytes, request_count, completion_window, metadata_json,
-           result_storage_key, status, completed_count, failed_count,
-           total_cost_halala, idempotency_key, created_at, updated_at,
-           started_at, completed_at, expires_at
-      FROM batch_inference_jobs
+    ${selectBatchSql()}
      WHERE renter_id = ? AND idempotency_key = ?
   `).get(renterId, idempotencyKey);
   return mapBatchRow(row);
+}
+
+function selectBatchSql() {
+  return `
+    SELECT batch_id, renter_id, input_storage_key, input_checksum_sha256,
+           input_normalized_bytes, request_count, completion_window, metadata_json,
+           result_storage_key, result_checksum_sha256, result_normalized_bytes,
+           status, completed_count, failed_count, total_cost_halala,
+           idempotency_key, created_at, updated_at, started_at, completed_at,
+           expires_at
+      FROM batch_inference_jobs
+  `;
 }
 
 function mapBatchRow(row) {
@@ -319,12 +365,14 @@ function mapBatchRow(row) {
     completion_window: row.completion_window,
     metadata,
     result_storage_key: row.result_storage_key || null,
+    result_checksum_sha256: row.result_checksum_sha256 || null,
+    result_normalized_bytes: row.result_normalized_bytes || 0,
     completed_count: row.completed_count,
     failed_count: row.failed_count,
     total_cost_halala: row.total_cost_halala,
     idempotency_key: row.idempotency_key || null,
     execution_enabled: false,
-    results_available: Boolean(row.result_storage_key && row.status === 'completed'),
+    results_available: Boolean(row.result_storage_key && row.result_checksum_sha256 && row.status === 'completed'),
     created_at: row.created_at,
     updated_at: row.updated_at,
     started_at: row.started_at || null,
@@ -377,6 +425,17 @@ function normalizeStorageKey(value, fieldName) {
     });
   }
   return key;
+}
+
+function normalizeChecksum(value, fieldName) {
+  const checksum = normalizeBoundedString(value, fieldName, 64).toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(checksum)) {
+    batchError(`${fieldName} must be a 64-character hex SHA-256 digest`, {
+      code: 'invalid_checksum',
+      details: { field: fieldName },
+    });
+  }
+  return checksum;
 }
 
 function normalizeCompletionWindow(value) {
@@ -450,6 +509,23 @@ function normalizePositiveInteger(value, fieldName) {
   return n;
 }
 
+function normalizeBoundedString(value, fieldName, maxLength) {
+  if (typeof value !== 'string') {
+    batchError(`${fieldName} is required`, {
+      code: 'missing_required_field',
+      details: { field: fieldName },
+    });
+  }
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maxLength) {
+    batchError(`${fieldName} is invalid`, {
+      code: 'invalid_string',
+      details: { field: fieldName, max_length: maxLength },
+    });
+  }
+  return normalized;
+}
+
 function normalizeNonNegativeInteger(value, fieldName) {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0) {
@@ -494,6 +570,15 @@ function assertDb(db) {
   }
 }
 
+function ensureBatchColumn(db, columnName, alterSql) {
+  const columns = new Set(
+    db.prepare('PRAGMA table_info(batch_inference_jobs)').all().map((row) => String(row.name || ''))
+  );
+  if (!columns.has(columnName)) {
+    db.exec(alterSql);
+  }
+}
+
 module.exports = {
   BATCH_STATUSES,
   COMPLETION_WINDOWS,
@@ -501,6 +586,7 @@ module.exports = {
   ensureBatchInferenceJobSchema,
   createBatchInferenceJob,
   getBatchInferenceJob,
+  getBatchInferenceResultManifest,
   listBatchInferenceJobs,
   listCreatedBatchInferenceJobs,
   updateBatchInferenceJobStatus,
@@ -511,6 +597,7 @@ module.exports = {
     normalizeMetadata,
     normalizeOptionalIdempotencyKey,
     normalizeStatus,
+    normalizeChecksum,
     generateBatchId,
     mapBatchRow,
   },

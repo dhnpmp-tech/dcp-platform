@@ -7,7 +7,9 @@ const {
   createBatchInferenceJob,
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
+  getBatchInferenceResultManifest,
   listBatchInferenceJobs,
+  updateBatchInferenceJobStatus,
 } = require('../services/batchInferenceJobs');
 const { createBatchesRouter } = require('../routes/batches');
 
@@ -107,6 +109,8 @@ describe('batch inference job foundation', () => {
       'created_at',
       'updated_at',
       'expires_at',
+      'result_checksum_sha256',
+      'result_normalized_bytes',
     ]));
   });
 
@@ -132,12 +136,57 @@ describe('batch inference job foundation', () => {
       execution_enabled: false,
       results_available: false,
       idempotency_key: 'batch-key-1',
+      result_checksum_sha256: null,
+      result_normalized_bytes: 0,
     });
     expect(result.batch.input_checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(result.batch.input_storage_key).toBe('batch-inputs/renter-1/batch_alpha001/input.jsonl');
 
     expect(getBatchInferenceJob(db, 1, 'batch_alpha001')).toMatchObject({ batch_id: 'batch_alpha001' });
     expect(listBatchInferenceJobs(db, 1).batches.map((batch) => batch.batch_id)).toEqual(['batch_alpha001']);
+    expect(getBatchInferenceResultManifest(db, 1, 'batch_alpha001')).toMatchObject({
+      batch_id: 'batch_alpha001',
+      results_available: false,
+      download_enabled: false,
+      next: 'wait_for_completed_batch_result_key_and_checksum',
+    });
+  });
+
+  test('requires result checksum proof before marking a completed batch available', () => {
+    const db = makeDb();
+    createBatchInferenceJob(db, 1, {
+      batch_id: 'batch_result01',
+      input_jsonl: jsonl(),
+    });
+
+    expect(() => updateBatchInferenceJobStatus(db, 1, 'batch_result01', 'completed', {
+      result_storage_key: 'batch-results/renter-1/batch_result01/output.jsonl',
+      completed_count: 2,
+    })).toThrow(/SHA-256 proof/);
+
+    const completed = updateBatchInferenceJobStatus(db, 1, 'batch_result01', 'completed', {
+      result_storage_key: 'batch-results/renter-1/batch_result01/output.jsonl',
+      result_checksum_sha256: 'b'.repeat(64),
+      result_normalized_bytes: 2048,
+      completed_count: 2,
+      failed_count: 0,
+      total_cost_halala: 18,
+    });
+    expect(completed).toMatchObject({
+      status: 'completed',
+      results_available: true,
+      result_storage_key: 'batch-results/renter-1/batch_result01/output.jsonl',
+      result_checksum_sha256: 'b'.repeat(64),
+      result_normalized_bytes: 2048,
+    });
+    expect(getBatchInferenceResultManifest(db, 1, 'batch_result01')).toMatchObject({
+      batch_id: 'batch_result01',
+      results_available: true,
+      result_checksum_sha256: 'b'.repeat(64),
+      result_normalized_bytes: 2048,
+      download_enabled: false,
+      next: 'sign_result_download_url_after_object_store_bridge',
+    });
   });
 
   test('idempotency key replays the existing batch instead of inserting another row', () => {
@@ -222,8 +271,21 @@ describe('batch inference job foundation', () => {
     const detail = await request(app).get('/api/batches/batch_route001').expect(200);
     expect(detail.body.batch.batch_id).toBe('batch_route001');
 
+    const results = await request(app).get('/api/batches/batch_route001/results').expect(200);
+    expect(results.body.result).toMatchObject({
+      batch_id: 'batch_route001',
+      results_available: false,
+      download_enabled: false,
+      next: 'wait_for_completed_batch_result_key_and_checksum',
+    });
+
     await request(app)
       .get('/api/batches/batch_route001')
+      .set('x-test-renter-id', '2')
+      .expect(404);
+
+    await request(app)
+      .get('/api/batches/batch_route001/results')
       .set('x-test-renter-id', '2')
       .expect(404);
 

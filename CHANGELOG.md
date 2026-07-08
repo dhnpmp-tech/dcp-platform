@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 08:54 UTC - `feat(inference): add batch result manifest proof - PR #752`
+
+**PR:** [#752](https://github.com/dhnpmp-tech/dcp-platform/pull/752) (`codex/batch-result-manifest-2026-07-08`).
+**Local timestamp:** 2026-07-08 12:54 +04.
+
+**What:** Twentieth Fireworks/Tinker execution slice. Strengthens the batch-inference result artifact contract before batch execution, discounts, or public model capability flags are enabled.
+
+- **Result proof:** Added additive batch result checksum and normalized-byte metadata. A batch is `results_available: true` only when completed with both `result_storage_key` and `result_checksum_sha256`.
+- **API:** Added renter-authenticated `GET /api/batches/{batch_id}/results`, returning a read-only result manifest with availability, proof metadata, counts, cost, and next step.
+- **Worker contract:** The dormant batch worker now requires injected executors to return a SHA-256 result digest before completing a batch; missing proof fails the batch instead of marking unverifiable output available.
+- **Schema safety:** Existing batch tables are upgraded idempotently with the new result proof columns.
+- **Product honesty:** This does not issue signed result downloads, apply batch discounts, run production batch execution, or flip `/v1/models` batch capability flags.
+- **Docs/tests:** Updated public OpenAPI copies and the prompt-cache/batch design order with targeted batch service/route/worker coverage.
+- **Verified:** Targeted batch job and worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 08:42 UTC - `feat(lora): add training job log ledger - PR #751`
 
 **PR:** [#751](https://github.com/dhnpmp-tech/dcp-platform/pull/751) (`codex/lora-training-logs-2026-07-08`).
