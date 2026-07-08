@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 16:02 UTC - Fine-Tuning LoRA readiness rail (PR #783)
+
+- **PR:** [#783](https://github.com/dhnpmp-tech/dcp-platform/pull/783) (`codex/frontend-lora-readiness-2026-07-08`).
+- **Frontend:** `/renter/fine-tuning` now reads `GET /api/lora/readiness` with the renter key.
+- **UI:** Added a readiness rail for LoRA mode, dataset validation, training jobs, model cards, adapter registry, deployments, route traffic, and contract version.
+- **Safety:** Public training, serving, routing, quality, Tinker compatibility, and discounts render from backend claim guards and remain off in the current contract.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render with no horizontal overflow and a verified readiness request.
+
 ### 2026-07-08 15:50 UTC - LoRA readiness gates (PR #782)
 
 - **PR:** [#782](https://github.com/dhnpmp-tech/dcp-platform/pull/782) (`codex/lora-readiness-contract-2026-07-08`).

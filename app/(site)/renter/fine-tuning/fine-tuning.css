@@ -37,6 +37,76 @@ body {
   border-top: 1px solid var(--hair);
 }
 
+.ft-readiness {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--hair);
+}
+
+.ft-readiness .ft-section-head h2 {
+  overflow-wrap: anywhere;
+}
+
+.ft-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1px solid var(--hair);
+  background: var(--paper);
+}
+
+.ft-readiness-grid div {
+  min-width: 0;
+  min-height: 96px;
+  padding: 14px 14px 12px;
+  border-inline-end: 1px solid var(--hair);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.ft-readiness-grid div:last-child {
+  border-inline-end: 0;
+}
+
+.ft-readiness-grid span,
+.ft-supported span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.ft-readiness-grid b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ft-supported {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--hair);
+  border-top: 0;
+  background: color-mix(in oklab, var(--paper) 84%, var(--line));
+  padding: 12px 14px;
+}
+
+.ft-supported code {
+  min-width: 0;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 .ft-model-cards {
   margin-top: 34px;
   padding-top: 24px;
@@ -391,6 +461,18 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .ft-readiness-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ft-readiness-grid div:nth-child(3n) {
+    border-inline-end: 0;
+  }
+
+  .ft-readiness-grid div:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--hair);
+  }
+
   .ft-grid {
     grid-template-columns: 1fr;
   }
@@ -406,7 +488,8 @@ body {
 
 @media (max-width: 620px) {
   .ft-kpis,
-  .ft-stage-grid {
+  .ft-stage-grid,
+  .ft-readiness-grid {
     grid-template-columns: 1fr;
   }
 
@@ -421,6 +504,20 @@ body {
 
   .ft-stage {
     min-height: 188px;
+  }
+
+  .ft-readiness-grid div,
+  .ft-readiness-grid div:nth-child(3n) {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--hair);
+  }
+
+  .ft-readiness-grid div:last-child {
+    border-bottom: 0;
+  }
+
+  .ft-supported {
+    grid-template-columns: 1fr;
   }
 
   .ft-section-head {
