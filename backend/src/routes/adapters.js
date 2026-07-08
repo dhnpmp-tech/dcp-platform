@@ -7,6 +7,13 @@ const {
   getAdapter,
   listAdapters,
 } = require('../services/adapterRegistry');
+const {
+  AdapterDeploymentError,
+  createAdapterDeployment,
+  getAdapterDeployment,
+  listAdapterDeployments,
+  toRouteError,
+} = require('../services/adapterDeploymentLifecycle');
 
 const PUBLIC_CREATE_STATUSES = new Set(['registered', 'validating', 'ready']);
 
@@ -83,11 +90,76 @@ function createAdaptersRouter(deps = {}) {
     }
   });
 
+  router.get('/:adapterId/deployments', requireRenter, (req, res) => {
+    try {
+      const adapter = getAdapter(registryDb, req.renter.id, req.params.adapterId);
+      if (!adapter) {
+        return res.status(404).json({
+          error: 'Adapter not found',
+          code: 'adapter_not_found',
+        });
+      }
+      const result = listAdapterDeployments(registryDb, req.renter.id, req.params.adapterId, {
+        status: req.query.status,
+        limit: req.query.limit,
+        offset: req.query.offset,
+      });
+      return res.json({
+        object: 'list',
+        data: result.deployments,
+        count: result.deployments.length,
+        limit: result.limit,
+        offset: result.offset,
+      });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.post('/:adapterId/deployments', requireRenter, (req, res) => {
+    try {
+      const deployment = createAdapterDeployment(registryDb, req.renter.id, {
+        ...(req.body || {}),
+        adapter_id: req.params.adapterId,
+      });
+      return res.status(201).json({
+        deployment,
+        serving_enabled: false,
+        next: 'attach_serving_load_proof_internal',
+      });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.get('/:adapterId/deployments/:deploymentId', requireRenter, (req, res) => {
+    try {
+      const deployment = getAdapterDeployment(registryDb, req.renter.id, req.params.deploymentId);
+      if (!deployment || deployment.adapter_id !== req.params.adapterId) {
+        return res.status(404).json({
+          error: 'Deployment not found',
+          code: 'deployment_not_found',
+        });
+      }
+      return res.json({ deployment });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
   return router;
 }
 
 function sendAdapterError(res, error) {
   if (error instanceof AdapterRegistryError) {
+    const body = {
+      error: error.message,
+      code: error.code,
+    };
+    if (error.details) body.details = error.details;
+    return res.status(error.httpStatus || 400).json(body);
+  }
+  if (error instanceof AdapterDeploymentError) {
     const body = {
       error: error.message,
       code: error.code,

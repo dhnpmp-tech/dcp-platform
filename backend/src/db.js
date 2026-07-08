@@ -3,6 +3,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
 const { ensureAdapterRegistrySchema } = require('./services/adapterRegistry');
+const { ensureAdapterDeploymentSchema } = require('./services/adapterDeploymentLifecycle');
 
 // PROV-9: deterministic sha256hex used both to backfill api_key_hash here and
 // (mirrored as hashProviderApiKey) in routes/providers.js. Keep the two in lockstep.
@@ -1504,6 +1505,7 @@ db.exec(`
 // adapter is deployed or serving; serving traffic must wait for a later
 // deployment record plus backend load proof.
 ensureAdapterRegistrySchema(db);
+ensureAdapterDeploymentSchema(db);
 
 // ─── CREDIT GRANTS TABLE ───
 // Immutable audit trail for admin-issued renter credits.
