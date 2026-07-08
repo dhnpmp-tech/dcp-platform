@@ -67,6 +67,22 @@ Every product improvement follows the same loop:
 
 ## Common Build and Deploy Gates
 
+### Gate Status Semantics
+
+Every roadmap item must end in one of these states:
+
+- **Passed:** the acceptance command ran and produced evidence.
+- **Blocked:** the command exists, but a required external input is absent
+  (funded renter key, live GPU capacity, active portable volume, provider-host
+  shell, maintenance window, or production credential). Record the missing
+  input and do not count the product capability as live.
+- **Failed:** the command ran and exposed a defect. The next PR must be a fix,
+  rollback, or smaller reproducer before adding new product claims.
+- **Deferred:** the item is not next in the audit order and has no active PR.
+
+Blocked live proofs are acceptable only when the repo contains the repeatable
+command and the roadmap names the exact missing external input.
+
 ### Pre-PR Gate
 
 Run before every PR:
@@ -119,6 +135,65 @@ curl -fsSI https://dcp.sa
 ```
 
 Behavior changes need lane-specific smoke evidence.
+
+### Current Proof Command Map
+
+| Audit gate | Command | Required external input | Current acceptance state |
+|---|---|---|---|
+| Build/product route integrity | `npm run build` | none | Required for frontend/runtime PRs |
+| Workspace-to-pod wiring contract | `npm run workspace-pods:verify-contracts` | none | CI-safe gate available |
+| Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |
+| Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
+| Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
+| Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
+| Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
+| API health | `curl -fsS https://api.dcp.sa/api/health` | production network | Required after every deploy |
+| Model catalog health | `curl -fsS https://api.dcp.sa/v1/models` | production network | Required after inference/model/catalog changes |
+| Anthropic route host sanity | `curl -sS -o /tmp/dcp-anthropic-unauth.json -w '%{http_code}\n' -X POST https://api.dcp.sa/anthropic/v1/messages -H 'content-type: application/json' -d '{}'` | production network; no secret required | Expected unauthenticated result is HTTP 401 |
+
+Live proof commands must not print or commit secrets. Their JSON/Markdown
+reports belong under `docs/reports/reliability` only when the run is intentional
+and useful for handoff.
+
+## Audit Technical Order of Operations
+
+This is the current no-skips order derived from the Fireworks/Tinker gap audit.
+Each item should become one or more narrow PRs, with the proof command promoted
+before or with the feature change.
+
+1. **Repo parity and deploy hygiene**
+   - Gate: local `main`, `origin/main`, `origin/security/staged-rollouts`, and
+     VPS2 `security/staged-rollouts` point to the same commit after each merge.
+   - Open item: reconcile `dcp-agent` in a controlled maintenance window.
+2. **Proof harnesses before claims**
+   - Gate: every remaining manual live acceptance step has a repo command,
+     artifact path, and blocked/pass/fail status.
+   - Current commands: workspace-pod proof and Anthropic SSE proof are available.
+3. **POT/PODS workspace and image hardening**
+   - Gate: `workspace-pods:verify-contracts`, `proof:workspace-pod`,
+     `pod-images:verify-contracts`, and provider-host fat-image imports.
+   - Acceptance does not close until a GPU provider host proves `/workspace`
+     file visibility and LoRA stack imports without long `pip install`.
+4. **Inference streaming and catalog hardening**
+   - Gate: targeted v1/model catalog tests, `/v1/models` production smoke, and
+     `proof:anthropic-sse` for agent-path streaming.
+   - Advanced claims stay gated until a funded live proof report exists.
+5. **Prompt-cache and batch economics**
+   - Gate: readiness contracts, settlement tests, result-artifact proof, and
+     no-discount/no-execution claim guards until measured billing proof exists.
+6. **LoRA dataset, training, and artifact proof**
+   - Gate: `templates:validate`, dataset validate-only tests, fixed-recipe SFT
+     worker proof, adapter artifact checksum, and model-card manifest.
+   - Public wording remains "metadata/readiness" until GPU artifact proof runs.
+7. **Adapter deployment and dedicated endpoints**
+   - Gate: deployment intent, vLLM adapter load proof, endpoint smoke, and
+     inference billing proof for adapter traffic.
+   - Route traffic remains disabled until proof matches deployment id, adapter
+     id, base model, mode, and artifact checksum.
+8. **Product packaging**
+   - Gate: public pages, renter dashboards, pricing, playground, docs, and
+     `llms.txt` all derive from or link to shipped contracts.
+   - Product copy must say "coming next" for every gate that is blocked.
 
 ## Lane Gates
 
@@ -209,6 +284,16 @@ For behavior changes, run one real low-cost inference request using an approved
 smoke renter key and record the request id or response status in the PR/deploy
 handoff. Do not paste secrets.
 
+Anthropic-compatible behavior changes also require:
+
+```bash
+DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse
+```
+
+If the funded smoke principal or compatible vLLM provider capacity is missing,
+mark the gate **Blocked** with the missing input and keep any product claim
+behind an explicit proof gate.
+
 ### POT/PODS Infrastructure
 
 Use when changing interactive pods, workspace, volumes, burst/on-demand launch,
@@ -250,6 +335,10 @@ GPU/image smoke:
 - Must be verified on a provider GPU host, not only on laptop/VPS.
 - Fat image gate: a fresh pod imports `torch`, `transformers`, `peft`,
   `accelerate`, `datasets`, and `bitsandbytes` without a long pip install.
+- Workspace gate: run
+  `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` with a funded
+  renter key, active portable volume, and launchable GPU capacity. If any input
+  is missing, record the gate as **Blocked** rather than accepted.
 
 ### LoRA
 

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 21:16 UTC - Audit proof-gate execution order (PR #818)
+
+- **PR:** [#818](https://github.com/dhnpmp-tech/dcp-platform/pull/818) (`codex/audit-execution-proof-gates-2026-07-08`).
+- **Process:** Added formal Passed/Blocked/Failed/Deferred gate semantics to the audit execution system.
+- **Proof commands:** Documented the exact live and CI-safe commands for workspace-pod proof, Anthropic SSE proof, pod image contracts, Nsight contracts, template validation, health, model catalog, and route-host sanity.
+- **Roadmaps:** Updated the cross-lane priority order and lane proof table so frontend, backend, inference, POT/PODS, and LoRA work follow the same build/deploy/smoke loop.
+- **Safety:** Docs/process only; no runtime behavior changed.
+- **Verification:** `git diff --check`; Markdown command/link review.
+
 ### 2026-07-08 21:10 UTC - Anthropic SSE proof API host fix (PR #816)
 
 - **PR:** [#816](https://github.com/dhnpmp-tech/dcp-platform/pull/816) (`codex/fix-anthropic-proof-api-base-2026-07-08`).
