@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 23:03 UTC - Live acceptance gate status packet (PR #834)
+### 2026-07-08 23:08 UTC - Live acceptance gate status packet (PR #834)
 
 - **PR:** [#834](https://github.com/dhnpmp-tech/dcp-platform/pull/834) (`codex/live-acceptance-gate-status-2026-07-09`).
 - **Status command:** Added `npm run proof:live-acceptance-status` for a CI-safe blocked-gate ledger.
