@@ -242,7 +242,8 @@ Gaps:
 
 1. Reconcile the remaining platform-adjacent repo drift:
    - `dcp-agent` local checkout is stale/detached.
-   - `ops/dcp-deploy-watch.sh` is untracked locally but installed on VPS cron.
+   - `ops/dcp-deploy-watch.sh` is already tracked and byte-identical to the VPS2
+     cron copy as of the 2026-07-08 11:03 UTC refresh.
 2. Add model capability/rate metadata tests for `/v1/models`.
 3. Design prompt-cache accounting without applying discounts yet.
 4. Design batch inference on top of existing job/billing primitives.

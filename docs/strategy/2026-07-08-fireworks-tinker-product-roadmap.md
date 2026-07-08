@@ -99,8 +99,8 @@ The parts to tighten:
 Goal: make sure the platform base is safe before product expansion.
 
 - Reconcile local `dcp-agent`; it is the main remaining local/GitHub drift item.
-- Decide whether `ops/dcp-deploy-watch.sh` is promoted to Git, ignored, or
-  retired.
+- `ops/dcp-deploy-watch.sh` is already promoted to Git and byte-identical to the
+  VPS2 cron copy as of the 2026-07-08 11:03 UTC refresh.
 - Triage the Docker worker image CI failures.
 - Run the H9 dependency/security maintenance window.
 - Scrub public docs for credential-shaped examples.
@@ -272,7 +272,9 @@ Acceptance:
 
 1. **Roadmap and gap audit** - this document plus the current-state audit.
 2. **Ops cleanup** - decide `ops/dcp-deploy-watch.sh`, Docker image CI, and
-   `dcp-agent` reconciliation sequence.
+   `dcp-agent` reconciliation sequence. **Deploy-watch resolved in PR #731;
+   pod-image contract CI started in PR #762; `dcp-agent` still needs the
+   controlled maintenance window.**
 3. **Fat pod image plan** - Dockerfile/build path, package list, GPU-host
    verification script, no product UI yet. **CI-safe contract gate started in
    PR #762; GPU-host proof still required.**
