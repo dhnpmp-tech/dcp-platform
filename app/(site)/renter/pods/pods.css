@@ -365,9 +365,40 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   letter-spacing: -.01em;
   color: var(--ink);
 }
+.pod-template-contract {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 9px 11px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  line-height: 1.35;
+}
+.pod-template-contract.ready {
+  border-color: color-mix(in oklab, var(--teal) 45%, var(--hair));
+  background: color-mix(in oklab, var(--teal) 5%, var(--bg-2));
+}
+.pod-template-contract.error {
+  border-color: color-mix(in oklab, var(--orange) 45%, var(--hair));
+}
+.pod-template-contract-k {
+  text-transform: uppercase;
+}
+.pod-template-contract strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: 500;
+}
 .pod-template-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 @media (max-width: 1160px) { .pod-template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -375,7 +406,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 @media (max-width: 500px) { .pod-template-grid { grid-template-columns: 1fr; } }
 .pod-template-card {
   position: relative;
-  min-height: 162px;
+  min-height: 184px;
   border: 1px solid var(--hair);
   background: var(--paper);
   color: var(--ink);

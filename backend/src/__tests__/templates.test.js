@@ -185,6 +185,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.DISABLE_RATE_LIMIT;
   delete process.env.INSTANT_TIER_MANIFEST_PATH;
+  delete process.env.DCP_TEMPLATES_DIR;
   if (manifestPath && fs.existsSync(manifestPath)) fs.unlinkSync(manifestPath);
   try { global.__testDb.close(); } catch {}
 });
@@ -246,6 +247,51 @@ describe('GET /api/templates', () => {
     expect(res.body.approved_images).toContain('docker.io/dc1/instant-allam-7b-instruct@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     expect(res.body.approved_images).toContain('docker.io/dc1/instant-falcon-h1-arabic-7b@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
     expect(res.body.approved_images).toContain('docker.io/dc1/instant-jais-13b-chat@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc');
+  });
+});
+
+describe('GET /api/templates/catalog', () => {
+  it('returns the pod-launch product templates required by the renter console', async () => {
+    const res = await request(app).get('/api/templates/catalog');
+    expect(res.status).toBe(200);
+    expect(res.body.contract).toBe('dcp.template_catalog.v1');
+    expect(res.body.version).toBe('2026-04-02');
+    expect(Array.isArray(res.body.templates)).toBe(true);
+    expect(res.body.count).toBe(res.body.templates.length);
+
+    const byId = new Map(res.body.templates.map((template) => [template.id, template]));
+    const requiredIds = [
+      'pytorch-single-gpu',
+      'lora-finetune',
+      'qlora-finetune',
+      'vllm-serve',
+      'arabic-embeddings',
+      'arabic-reranker',
+      'whisper-large-v3',
+    ];
+
+    for (const id of requiredIds) {
+      const template = byId.get(id);
+      expect(template).toBeTruthy();
+      expect(typeof template.model_name).toBe('string');
+      expect(template.model_name.length).toBeGreaterThan(0);
+      expect(template.min_vram_gb).toBeGreaterThan(0);
+      expect(template.deploy_defaults).toEqual(expect.objectContaining({
+        duration_minutes: expect.any(Number),
+        pricing_class: expect.any(String),
+        job_type: expect.any(String),
+      }));
+      expect(template.deploy_defaults.duration_minutes).toBeGreaterThan(0);
+    }
+  });
+
+  it('fails closed when the configured template directory is missing', async () => {
+    process.env.DCP_TEMPLATES_DIR = path.join(os.tmpdir(), `dcp-missing-templates-${Date.now()}`);
+    const res = await request(app).get('/api/templates/catalog');
+    expect(res.status).toBe(500);
+    expect(res.body.contract).toBe('dcp.template_catalog.v1');
+    expect(res.body.error).toMatch(/validation failed/i);
+    expect(res.body.details.join('\n')).toMatch(/Template directory not found/i);
   });
 });
 

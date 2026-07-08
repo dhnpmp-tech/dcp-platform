@@ -18,6 +18,9 @@ what is live.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
+- PR #761 made `/renter/pods` template selection catalog-backed for PyTorch,
+  LoRA SFT, QLoRA SFT, vLLM, embeddings/rerank, and Arabic transcription while
+  keeping pod billing/launch semantics unchanged.
 
 ### Now
 
@@ -66,6 +69,7 @@ what is live.
 ### First PRs
 
 1. Pod launch UX map: workspace -> template -> GPU -> duration -> credit check.
+   **Started in PR #761.**
 2. Product IA copy cleanup without new claims.
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
    **Started in PR #745.**
@@ -345,7 +349,7 @@ DCP-hosted endpoint -> billed inference.
 1. Ops cleanup and repo parity.
 2. Inference metadata/rate consistency.
 3. Fat pod image spec and GPU-host verification.
-4. Workspace-to-pod launch polish.
+4. Workspace-to-pod launch polish. **Started in PR #761.**
 5. Adapter registry schema.
 6. Prompt-cache accounting design.
 7. Batch inference design.

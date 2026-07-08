@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 10:38 UTC - Catalog-backed pod launch templates (PR #761)
+
+- **PR:** [#761](https://github.com/dhnpmp-tech/dcp-platform/pull/761) (`codex/pod-template-catalog-launch-2026-07-08`).
+- **Frontend:** `/renter/pods` now has catalog-backed template cards for PyTorch, LoRA SFT, QLoRA SFT, vLLM, embeddings/rerank, and Arabic transcription.
+- **Catalog guard:** The page reads `GET /api/templates/catalog`, shows catalog health/version, disables missing catalog templates when the backend catalog is healthy, and applies catalog VRAM floors to GPU filtering.
+- **Launch flow:** Template selection is tracked explicitly; manual image, duration, or workload changes clear template mode so the launch rail stays honest.
+- **Workspace path:** The existing workspace pre-upload step now leads into the audit's workspace -> template -> GPU -> duration -> credit launch map.
+- **Backend tests:** Added catalog contract coverage for the pod-launch template ids and for fail-closed behavior when the template directory is missing.
+- **Verification:** Targeted template Jest suite; `npm run build`; `git diff --check`.
+
 ### 2026-07-08 10:23 UTC - Gated batch line settlement (PR #760)
 
 - **PR:** [#760](https://github.com/dhnpmp-tech/dcp-platform/pull/760) (`codex/batch-line-settlement-2026-07-08`).

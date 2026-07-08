@@ -92,9 +92,12 @@ Current capabilities:
 
 Gaps:
 
-- Template choice is not a first-class launch step.
-- The "upload data before pod launch" workflow exists technically but is not
-  framed as the standard fine-tuning path.
+- Template choice became a first-class launch step in PR #761, backed by
+  `/api/templates/catalog` for PyTorch, LoRA SFT, QLoRA SFT, vLLM,
+  embeddings/rerank, and Arabic transcription.
+- The "upload data before pod launch" workflow is now framed as step 01 in the
+  pod launch map, but GPU-host proof is still needed to verify uploaded files
+  inside a fresh pod.
 - There is no datasets/training/adapters dashboard.
 - There is no customer-facing provider benchmark/quality score yet.
 - There is no Nsight benchmark result surfaced to users or admins.

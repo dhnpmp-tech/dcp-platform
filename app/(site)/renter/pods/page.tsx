@@ -42,17 +42,45 @@ interface ImagePreset {
 
 interface LaunchTemplate {
   key: string
+  catalogIds?: string[]
   titleEn: string
   titleAr: string
   descEn: string
   descAr: string
   image: string
   durationMin?: number
+  minVramGb?: number
   workloadKey?: string
   disabled?: boolean
   badgeEn?: string
   badgeAr?: string
 }
+
+interface TemplateCatalogItem {
+  id: string
+  model_name: string
+  min_vram_gb: number
+  tier_hint?: {
+    tier?: string
+    notes?: string
+  }
+  deploy_defaults?: {
+    duration_minutes?: number
+    pricing_class?: string
+    job_type?: string
+    params?: Record<string, unknown>
+  }
+}
+
+interface TemplateCatalogResponse {
+  contract?: string
+  version?: string
+  templates?: TemplateCatalogItem[]
+  count?: number
+  error?: string
+}
+
+type TemplateCatalogStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 const IMAGE_PRESETS: ImagePreset[] = [
   { value: 'pytorch', label: 'PyTorch', labelAr: 'PyTorch' },
@@ -65,7 +93,8 @@ const DEFAULT_IMAGE = 'pytorch'
 
 const LAUNCH_TEMPLATES: LaunchTemplate[] = [
   {
-    key: 'notebook-pytorch',
+    key: 'pytorch-notebook',
+    catalogIds: ['pytorch-single-gpu'],
     titleEn: 'Notebook / PyTorch',
     titleAr: 'دفتر / PyTorch',
     descEn: 'CUDA-ready Python notebook with SSH for experiments and training scripts.',
@@ -75,7 +104,36 @@ const LAUNCH_TEMPLATES: LaunchTemplate[] = [
     workloadKey: 'notebook',
   },
   {
+    key: 'lora-sft',
+    catalogIds: ['lora-finetune'],
+    titleEn: 'LoRA SFT prep',
+    titleAr: 'تجهيز LoRA SFT',
+    descEn: 'Stage a dataset, open a PyTorch pod, and run the adapter dry-run path.',
+    descAr: 'جهّز مجموعة بيانات، افتح حاوية PyTorch، وشغّل مسار تجربة المحوّل.',
+    image: 'pytorch',
+    durationMin: 240,
+    minVramGb: 16,
+    workloadKey: 'finetune',
+    badgeEn: 'Dataset path',
+    badgeAr: 'مسار البيانات',
+  },
+  {
+    key: 'qlora-sft',
+    catalogIds: ['qlora-finetune'],
+    titleEn: 'QLoRA SFT prep',
+    titleAr: 'تجهيز QLoRA SFT',
+    descEn: 'Memory-aware adapter prep for 4-bit fine-tuning experiments.',
+    descAr: 'تجهيز محوّلات بذاكرة أقل لتجارب الضبط 4-bit.',
+    image: 'pytorch',
+    durationMin: 240,
+    minVramGb: 12,
+    workloadKey: 'finetune',
+    badgeEn: '4-bit path',
+    badgeAr: 'مسار 4-bit',
+  },
+  {
     key: 'serve-vllm',
+    catalogIds: ['vllm-serve'],
     titleEn: 'vLLM serve pod',
     titleAr: 'حاوية خدمة vLLM',
     descEn: 'Inference server experiments with Jupyter and SSH access.',
@@ -85,38 +143,32 @@ const LAUNCH_TEMPLATES: LaunchTemplate[] = [
     workloadKey: 'infer',
   },
   {
-    key: 'sft-pytorch',
-    titleEn: 'SFT / QLoRA prep',
-    titleAr: 'تجهيز SFT / QLoRA',
-    descEn: 'Stage data in /workspace, then launch a PyTorch pod for adapter work.',
-    descAr: 'جهّز البيانات في /workspace ثم شغّل حاوية PyTorch لعمل المحوّلات.',
+    key: 'arabic-rag',
+    catalogIds: ['arabic-embeddings', 'arabic-reranker'],
+    titleEn: 'Embeddings / rerank',
+    titleAr: 'التضمين / إعادة الترتيب',
+    descEn: 'Arabic retrieval prep for embedding and reranker service experiments.',
+    descAr: 'تجهيز استرجاع عربي لتجارب خدمات التضمين وإعادة الترتيب.',
+    image: 'vllm',
+    durationMin: 120,
+    minVramGb: 8,
+    workloadKey: 'infer',
+    badgeEn: 'RAG path',
+    badgeAr: 'مسار RAG',
+  },
+  {
+    key: 'arabic-transcription',
+    catalogIds: ['whisper-large-v3'],
+    titleEn: 'Arabic transcription',
+    titleAr: 'تفريغ صوت عربي',
+    descEn: 'Whisper Large-v3 candidate pod for Arabic and multilingual audio tests.',
+    descAr: 'حاوية مرشحة لـ Whisper Large-v3 لاختبارات الصوت العربية ومتعددة اللغات.',
     image: 'pytorch',
-    durationMin: 240,
-    workloadKey: 'finetune',
-    badgeEn: 'LoRA path',
-    badgeAr: 'مسار LoRA',
-  },
-  {
-    key: 'cuda-base',
-    titleEn: 'CUDA base',
-    titleAr: 'CUDA أساسي',
-    descEn: 'Bare CUDA runtime for custom installers and low-level GPU checks.',
-    descAr: 'بيئة CUDA أساسية للمثبتات المخصصة وفحوصات GPU المنخفضة.',
-    image: 'cuda',
     durationMin: 60,
-  },
-  {
-    key: 'lora-verification',
-    titleEn: 'LoRA stack image',
-    titleAr: 'صورة LoRA',
-    descEn: 'Built in repo; GPU-host smoke verification is still the release gate.',
-    descAr: 'مبنية في المستودع؛ تحقق GPU-host ما زال بوابة الإطلاق.',
-    image: 'lora',
-    durationMin: 240,
-    workloadKey: 'finetune',
-    disabled: true,
-    badgeEn: 'Verification pending',
-    badgeAr: 'بانتظار التحقق',
+    minVramGb: 8,
+    workloadKey: 'notebook',
+    badgeEn: 'Audio path',
+    badgeAr: 'مسار الصوت',
   },
 ]
 
@@ -289,6 +341,32 @@ function formatDuration(minutes?: number | null): string {
   return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`
 }
 
+function catalogIdsFor(template: LaunchTemplate): string[] {
+  return Array.isArray(template.catalogIds) ? template.catalogIds.filter(Boolean) : []
+}
+
+function catalogItemsFor(template: LaunchTemplate, catalogById: Map<string, TemplateCatalogItem>): TemplateCatalogItem[] {
+  return catalogIdsFor(template)
+    .map((id) => catalogById.get(id))
+    .filter((item): item is TemplateCatalogItem => !!item)
+}
+
+function catalogMinVram(template: LaunchTemplate, catalogItems: TemplateCatalogItem[]): number | undefined {
+  const fromCatalog = catalogItems
+    .map((item) => Number(item.min_vram_gb))
+    .filter((value) => Number.isFinite(value) && value > 0)
+  if (fromCatalog.length > 0) return Math.max(...fromCatalog)
+  return template.minVramGb
+}
+
+function catalogDuration(template: LaunchTemplate, catalogItems: TemplateCatalogItem[]): number | undefined {
+  if (template.durationMin) return template.durationMin
+  const firstDuration = catalogItems
+    .map((item) => Number(item.deploy_defaults?.duration_minutes))
+    .find((value) => Number.isFinite(value) && value > 0)
+  return firstDuration
+}
+
 function formatSubmitted(pod: Pod): string {
   const iso = pod.submitted_at || pod.created_at
   if (!iso) return ''
@@ -441,6 +519,11 @@ export default function RenterPodsPage() {
   const [workspaceVolume, setWorkspaceVolume] = useState<WorkspaceVolume | null>(null)
   const [renterName, setRenterName] = useState('Renter')
   const [renterEmail, setRenterEmail] = useState('')
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<string | null>('pytorch-notebook')
+  const [templateCatalogStatus, setTemplateCatalogStatus] = useState<TemplateCatalogStatus>('idle')
+  const [templateCatalogVersion, setTemplateCatalogVersion] = useState('')
+  const [templateCatalog, setTemplateCatalog] = useState<TemplateCatalogItem[]>([])
+  const [templateCatalogError, setTemplateCatalogError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
   const [extending, setExtending] = useState<Record<string, boolean>>({})
@@ -544,7 +627,31 @@ export default function RenterPodsPage() {
     }
   }, [])
 
+  const fetchTemplateCatalog = useCallback(async () => {
+    setTemplateCatalogStatus('loading')
+    setTemplateCatalogError('')
+    try {
+      const res = await fetch(`${getApiBase()}/templates/catalog`, { cache: 'no-store' })
+      const data = (await res.json().catch(() => ({}))) as TemplateCatalogResponse
+      if (!res.ok) {
+        throw new Error(data.error || `Template catalog failed (${res.status})`)
+      }
+      setTemplateCatalog(Array.isArray(data.templates) ? data.templates : [])
+      setTemplateCatalogVersion(data.version || '')
+      setTemplateCatalogStatus('ready')
+    } catch (err) {
+      setTemplateCatalog([])
+      setTemplateCatalogVersion('')
+      setTemplateCatalogError(err instanceof Error ? err.message : 'Template catalog unavailable')
+      setTemplateCatalogStatus('error')
+    }
+  }, [])
+
   // ── Auth gate + polling loop ─────────────────────────────────────────
+  useEffect(() => {
+    fetchTemplateCatalog()
+  }, [fetchTemplateCatalog])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const apiKey = getRenterKey()
@@ -718,10 +825,18 @@ export default function RenterPodsPage() {
   }
 
   // Keep funding errors sticky; clear transient field errors as the renter edits.
-  const onImageChoice = (v: string) => setLaunch((l) => ({ ...l, imageChoice: v, error: keepFundingLaunchError(l.error) }))
-  const onCustomImage = (v: string) => setLaunch((l) => ({ ...l, customImage: v, error: keepFundingLaunchError(l.error) }))
+  const onImageChoice = (v: string) => {
+    setSelectedTemplateKey(null)
+    setLaunch((l) => ({ ...l, imageChoice: v, error: keepFundingLaunchError(l.error) }))
+  }
+  const onCustomImage = (v: string) => {
+    setSelectedTemplateKey(null)
+    setLaunch((l) => ({ ...l, customImage: v, error: keepFundingLaunchError(l.error) }))
+  }
   const onRegenerate = () =>
     setLaunch((l) => ({ ...l, notebookToken: generateNotebookToken(), error: keepFundingLaunchError(l.error) }))
+
+  const templateCatalogById = new Map(templateCatalog.map((item) => [item.id, item]))
 
   // ── GPU type selection + notify-me ─────────────────────────────────────
   const selectGpuType = useCallback((gpuModel: string) => {
@@ -751,6 +866,7 @@ export default function RenterPodsPage() {
   // Apply a workload preset: set the VRAM floor and select its preferred type if
   // that type is live, else leave selection unchanged.
   const applyWorkload = (w: Workload) => {
+    setSelectedTemplateKey(null)
     setActiveWorkload(w.key)
     setMinVram(w.floor)
     if (w.image || w.durationMin) {
@@ -768,17 +884,23 @@ export default function RenterPodsPage() {
 
   const applyLaunchTemplate = (template: LaunchTemplate) => {
     if (template.disabled) return
+    const catalogItems = catalogItemsFor(template, templateCatalogById)
+    const minVram = catalogMinVram(template, catalogItems)
+    const durationMinutes = catalogDuration(template, catalogItems)
     if (template.workloadKey) {
       const workload = WORKLOADS.find((w) => w.key === template.workloadKey)
       if (workload) {
         setActiveWorkload(workload.key)
-        setMinVram(workload.floor)
+        setMinVram(minVram || workload.floor)
       }
+    } else if (minVram) {
+      setMinVram(minVram)
     }
+    setSelectedTemplateKey(template.key)
     setLaunch((l) => ({
       ...l,
       imageChoice: template.image,
-      durationMinutes: template.durationMin || l.durationMinutes,
+      durationMinutes: durationMinutes || l.durationMinutes,
       error: keepFundingLaunchError(l.error),
     }))
   }
@@ -833,6 +955,9 @@ export default function RenterPodsPage() {
 
   // The currently-selected type (if still in stock).
   const selectedType = launch.gpuType ? gpuTypes.find((g) => g.gpu_model === launch.gpuType) || null : null
+  const selectedLaunchTemplate = selectedTemplateKey
+    ? LAUNCH_TEMPLATES.find((template) => template.key === selectedTemplateKey) || null
+    : null
   const selectedImage = resolveImage(launch)
   const selectedPreset = IMAGE_PRESETS.find((img) => img.value === launch.imageChoice)
   const selectedImageLabel = isCustom
@@ -840,6 +965,9 @@ export default function RenterPodsPage() {
     : selectedPreset
       ? (lang === 'ar' ? selectedPreset.labelAr : selectedPreset.label)
       : selectedImage
+  const selectedRuntimeLabel = selectedLaunchTemplate
+    ? (lang === 'ar' ? selectedLaunchTemplate.titleAr : selectedLaunchTemplate.titleEn)
+    : selectedImageLabel
   const durationLabel = formatDuration(launch.durationMinutes)
   const selectedQuoteSar = selectedType?.sar_per_hour != null
     ? selectedType.sar_per_hour * (launch.durationMinutes / 60)
@@ -986,7 +1114,7 @@ export default function RenterPodsPage() {
               <div className="pod-flow-item ok">
                 <span className="pod-flow-no">03</span>
                 <span className="pod-flow-k"><Bi en="Runtime" ar="بيئة التشغيل" /></span>
-                <strong>{selectedImageLabel} · {durationLabel}</strong>
+                <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
               </div>
               <div className={`pod-flow-item${selectedQuoteSar != null ? ' ok' : ''}`}>
                 <span className="pod-flow-no">04</span>
@@ -1008,38 +1136,68 @@ export default function RenterPodsPage() {
                   </h4>
                 </div>
                 <span className="hint">
-                  <Bi en="Templates set image, duration, and workload filters" ar="القوالب تضبط الصورة والمدة وتصفية العمل" />
+                  <Bi en="Backed by /api/templates/catalog where available" ar="مدعومة عبر /api/templates/catalog عند التوفر" />
                 </span>
+              </div>
+              <div className={`pod-template-contract ${templateCatalogStatus}`}>
+                <span className="pod-template-contract-k">
+                  <Bi en="Backend catalog" ar="كتالوج الخلفية" />
+                </span>
+                <strong>
+                  {templateCatalogStatus === 'ready'
+                    ? `${templateCatalog.length} templates${templateCatalogVersion ? ` · ${templateCatalogVersion}` : ''}`
+                    : templateCatalogStatus === 'loading'
+                      ? (lang === 'ar' ? 'جارٍ الفحص' : 'Checking')
+                      : templateCatalogStatus === 'error'
+                        ? (templateCatalogError || (lang === 'ar' ? 'غير متاح' : 'Unavailable'))
+                        : (lang === 'ar' ? 'بانتظار الفحص' : 'Pending')}
+                </strong>
               </div>
               <div className="pod-template-grid">
                 {LAUNCH_TEMPLATES.map((template) => {
-                  const selected =
-                    !template.disabled &&
-                    !isCustom &&
-                    launch.imageChoice === template.image &&
-                    (!template.durationMin || launch.durationMinutes === template.durationMin)
+                  const catalogIds = catalogIdsFor(template)
+                  const catalogItems = catalogItemsFor(template, templateCatalogById)
+                  const catalogMissing =
+                    templateCatalogStatus === 'ready' &&
+                    catalogIds.length > 0 &&
+                    catalogItems.length !== catalogIds.length
+                  const disabled = template.disabled || catalogMissing
+                  const selected = !disabled && selectedTemplateKey === template.key
+                  const minVram = catalogMinVram(template, catalogItems)
+                  const duration = catalogDuration(template, catalogItems)
+                  const catalogBadge =
+                    catalogItems.length === catalogIds.length && catalogIds.length > 0
+                      ? (lang === 'ar' ? 'موثق' : 'Catalog verified')
+                      : templateCatalogStatus === 'loading'
+                        ? (lang === 'ar' ? 'فحص الكتالوج' : 'Checking catalog')
+                        : templateCatalogStatus === 'error'
+                          ? (lang === 'ar' ? 'كتالوج غير متاح' : 'Catalog offline')
+                          : catalogMissing
+                            ? (lang === 'ar' ? 'مفقود من الكتالوج' : 'Missing catalog')
+                            : ''
                   return (
                     <button
                       key={template.key}
                       type="button"
-                      className={`pod-template-card${selected ? ' on' : ''}${template.disabled ? ' disabled' : ''}`}
+                      className={`pod-template-card${selected ? ' on' : ''}${disabled ? ' disabled' : ''}`}
                       aria-pressed={selected}
-                      aria-disabled={template.disabled || undefined}
-                      disabled={template.disabled || !isLive}
+                      aria-disabled={disabled || undefined}
+                      disabled={disabled || !isLive}
                       onClick={() => applyLaunchTemplate(template)}
                     >
-                      {(template.badgeEn || template.disabled) && (
+                      {(catalogBadge || template.badgeEn || disabled) && (
                         <span className="pod-template-badge">
-                          {lang === 'ar'
+                          {catalogBadge || (lang === 'ar'
                             ? (template.badgeAr || 'قريباً')
-                            : (template.badgeEn || 'Coming next')}
+                            : (template.badgeEn || 'Coming next'))}
                         </span>
                       )}
                       <span className="pod-template-title">{lang === 'ar' ? template.titleAr : template.titleEn}</span>
                       <span className="pod-template-desc">{lang === 'ar' ? template.descAr : template.descEn}</span>
                       <span className="pod-template-meta">
                         {template.image}
-                        {template.durationMin ? ` · ${formatDuration(template.durationMin)}` : ''}
+                        {duration ? ` · ${formatDuration(duration)}` : ''}
+                        {minVram ? ` · ≥ ${minVram} GB` : ''}
                       </span>
                     </button>
                   )
@@ -1404,7 +1562,10 @@ export default function RenterPodsPage() {
                   id="pod-duration"
                   className="select"
                   value={launch.durationMinutes}
-                  onChange={(e) => setLaunch((l) => ({ ...l, durationMinutes: Number(e.target.value) }))}
+                  onChange={(e) => {
+                    setSelectedTemplateKey(null)
+                    setLaunch((l) => ({ ...l, durationMinutes: Number(e.target.value) }))
+                  }}
                   disabled={!isLive}
                 >
                   {DURATION_OPTIONS.map((d) => (
