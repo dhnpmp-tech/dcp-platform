@@ -1558,6 +1558,81 @@ paths:
         '404':
           description: Deployment not found for this renter and adapter.
 
+  /api/adapters/{adapter_id}/deployments/{deployment_id}/load-proof:
+    post:
+      tags: [Adapters]
+      summary: Attach admin-verified adapter serving load proof
+      description: |
+        Admin/internal endpoint for attaching vLLM adapter load proof to a
+        deployment record. `route_traffic` only becomes true when the proof
+        shows `loaded: true` with the same adapter id and base model. Renter
+        deployment creation cannot call this step.
+      security:
+        - AdminToken: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: deployment_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [renter_id, serving_load_proof]
+              properties:
+                renter_id:
+                  type: integer
+                  example: 42
+                serving_load_proof:
+                  type: object
+                  required: [loaded, adapter_id, base_model]
+                  properties:
+                    loaded:
+                      type: boolean
+                      example: true
+                    adapter_id:
+                      type: string
+                      example: adpt_8f4c2b9a18e34d220f7a9b12
+                    base_model:
+                      type: string
+                      example: meta-llama/Llama-3.1-8B-Instruct
+                    loaded_at:
+                      type: string
+                      format: date-time
+                    provider_id:
+                      type: string
+                      example: provider-12
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Load proof stored; traffic is enabled only if proof matched.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+                  serving_enabled:
+                    type: boolean
+                    example: true
+                  next:
+                    type: string
+                    example: route_traffic_allowed_by_load_proof
+        '400':
+          description: Missing or invalid serving_load_proof object.
+        '401':
+          description: Admin token required.
+        '404':
+          description: Deployment not found for this renter and adapter.
+        '409':
+          description: Deployment is stopped and cannot accept load proof.
+
   # ─── Providers ──────────────────────────────────────────────────────────────
 
   /api/providers/register:

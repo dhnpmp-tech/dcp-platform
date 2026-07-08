@@ -10,6 +10,7 @@ const {
 const {
   ensureAdapterDeploymentSchema,
   createAdapterDeployment,
+  attachAdapterDeploymentLoadProof,
   attachDeploymentLoadProof,
   listAdapterDeployments,
   getAdapterDeployment,
@@ -63,6 +64,12 @@ function buildApp(db) {
     db,
     requireRenter: (req, _res, next) => {
       req.renter = { id: Number(req.header('x-test-renter-id') || 1) };
+      next();
+    },
+    requireAdmin: (req, res, next) => {
+      if (req.header('x-admin-token') !== 'admin-test-token') {
+        return res.status(401).json({ error: 'Admin token required' });
+      }
       next();
     },
   }));
@@ -186,6 +193,27 @@ describe('adapter deployment lifecycle service', () => {
     });
     expect(verified.started_at).toEqual(expect.any(String));
   });
+
+  test('adapter-scoped load proof wrapper refuses to mutate a different adapter deployment', () => {
+    const db = makeDb();
+    createAdapter(db, 1, adapterInput());
+    createAdapterDeployment(db, 1, {
+      deployment_id: 'adpl_scoped01',
+      adapter_id: 'adpt_deployready',
+    });
+
+    expect(() => attachAdapterDeploymentLoadProof(db, 1, 'adpt_wrong0001', 'adpl_scoped01', {
+      loaded: true,
+      adapter_id: 'adpt_wrong0001',
+      base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+    })).toThrow(/not found/);
+
+    expect(getAdapterDeployment(db, 1, 'adpl_scoped01')).toMatchObject({
+      status: 'pending',
+      route_traffic: false,
+      serving_load_proof: null,
+    });
+  });
 });
 
 describe('/api/adapters/:adapterId/deployments route', () => {
@@ -255,5 +283,86 @@ describe('/api/adapters/:adapterId/deployments route', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('adapter_not_ready');
+  });
+
+  test('admin-only load proof route gates traffic on matching proof', async () => {
+    const db = makeDb();
+    const app = buildApp(db);
+    createAdapter(db, 1, adapterInput());
+    createAdapterDeployment(db, 1, {
+      deployment_id: 'adpl_routeproof1',
+      adapter_id: 'adpt_deployready',
+      endpoint_id: 'arabic-support-prod',
+    });
+
+    const unauth = await request(app)
+      .post('/api/adapters/adpt_deployready/deployments/adpl_routeproof1/load-proof')
+      .send({
+        renter_id: 1,
+        serving_load_proof: {
+          loaded: true,
+          adapter_id: 'adpt_deployready',
+          base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+        },
+      });
+    expect(unauth.status).toBe(401);
+
+    const invalid = await request(app)
+      .post('/api/adapters/adpt_deployready/deployments/adpl_routeproof1/load-proof')
+      .set('x-admin-token', 'admin-test-token')
+      .send({ renter_id: 1 });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.code).toBe('invalid_load_proof');
+
+    const mismatched = await request(app)
+      .post('/api/adapters/adpt_deployready/deployments/adpl_routeproof1/load-proof')
+      .set('x-admin-token', 'admin-test-token')
+      .send({
+        renter_id: 1,
+        serving_load_proof: {
+          loaded: true,
+          adapter_id: 'adpt_other001',
+          base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+          loaded_at: '2026-07-08T08:30:00.000Z',
+        },
+      });
+    expect(mismatched.status).toBe(200);
+    expect(mismatched.body).toMatchObject({
+      serving_enabled: false,
+      next: 'retry_vllm_load_proof_before_routing',
+      deployment: {
+        status: 'degraded',
+        route_traffic: false,
+        failure_reason: 'serving_load_proof_mismatch',
+      },
+    });
+
+    const verified = await request(app)
+      .post('/api/adapters/adpt_deployready/deployments/adpl_routeproof1/load-proof')
+      .set('x-admin-token', 'admin-test-token')
+      .send({
+        renter_id: 1,
+        serving_load_proof: {
+          loaded: true,
+          adapter_id: 'adpt_deployready',
+          base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+          loaded_at: '2026-07-08T08:31:00.000Z',
+        },
+      });
+    expect(verified.status).toBe(200);
+    expect(verified.body).toMatchObject({
+      serving_enabled: true,
+      next: 'route_traffic_allowed_by_load_proof',
+      deployment: {
+        status: 'running',
+        route_traffic: true,
+        failure_reason: null,
+        serving_load_proof: {
+          loaded: true,
+          adapter_id: 'adpt_deployready',
+          base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+        },
+      },
+    });
   });
 });

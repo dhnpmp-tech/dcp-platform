@@ -111,7 +111,10 @@ Before a public training route:
    **Done in PR #748** via `POST
    /api/lora/training-jobs/{training_job_id}/register-adapter`, which only
    accepts succeeded jobs with artifact storage and SHA-256 proof.
-7. Keep deployment separate until vLLM load proof exists.
+7. Keep deployment separate until vLLM load proof exists. **Proof attachment is
+   wired in PR #749** via admin/internal `POST
+   /api/adapters/{adapter_id}/deployments/{deployment_id}/load-proof`; it only
+   flips `route_traffic` when the load proof matches adapter id and base model.
 
 PR #744 adds `/api/lora/training-jobs` as a metadata foundation. It validates
 dataset JSONL and normalizes the recipe, but returns `training_enabled: false`
@@ -122,3 +125,8 @@ PR #748 connects the succeeded-job artifact proof to the adapter registry. It
 does **not** start training, deploy adapters, or route inference traffic. It
 only creates/replays the adapter metadata row and keeps
 `serving_enabled: false` until the deployment/load-proof slice exists.
+
+PR #749 exposes the deployment load-proof attachment path behind admin auth.
+Renter deployment creation remains an intent record; the proof route is the only
+API route that can move a deployment to `running` with `route_traffic: true`,
+and mismatched proof degrades the deployment instead of routing traffic.

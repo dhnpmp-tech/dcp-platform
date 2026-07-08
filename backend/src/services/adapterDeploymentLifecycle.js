@@ -196,6 +196,25 @@ function attachDeploymentLoadProof(db, renterId, deploymentId, servingLoadProof)
   return getAdapterDeployment(db, ownerId, id);
 }
 
+function attachAdapterDeploymentLoadProof(db, renterId, adapterId, deploymentId, servingLoadProof) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const expectedAdapterId = normalizeAdapterId(adapterId);
+  const id = normalizeDeploymentId(deploymentId);
+  const deployment = getAdapterDeployment(db, ownerId, id);
+  if (!deployment || deployment.adapter_id !== expectedAdapterId) {
+    deploymentError('Deployment not found for this renter and adapter', {
+      code: 'deployment_not_found',
+      httpStatus: 404,
+      details: {
+        deployment_id: id,
+        adapter_id: expectedAdapterId,
+      },
+    });
+  }
+  return attachDeploymentLoadProof(db, ownerId, id, servingLoadProof);
+}
+
 function updateDeploymentStatus(db, renterId, deploymentId, status, options = {}) {
   assertDb(db);
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
@@ -426,6 +445,7 @@ module.exports = {
   ensureAdapterDeploymentSchema,
   createAdapterDeployment,
   attachDeploymentLoadProof,
+  attachAdapterDeploymentLoadProof,
   updateDeploymentStatus,
   listAdapterDeployments,
   getAdapterDeployment,

@@ -9,11 +9,13 @@ const {
 } = require('../services/adapterRegistry');
 const {
   AdapterDeploymentError,
+  attachAdapterDeploymentLoadProof,
   createAdapterDeployment,
   getAdapterDeployment,
   listAdapterDeployments,
   toRouteError,
 } = require('../services/adapterDeploymentLifecycle');
+const { requireAdminAuth } = require('../middleware/auth');
 
 const PUBLIC_CREATE_STATUSES = new Set(['registered', 'validating', 'ready']);
 
@@ -21,6 +23,7 @@ function createAdaptersRouter(deps = {}) {
   const router = express.Router();
   const registryDb = deps.db || require('../db');
   const requireRenter = deps.requireRenter || require('./pods').requireRenter;
+  const requireAdmin = deps.requireAdmin || requireAdminAuth;
 
   router.get('/', requireRenter, (req, res) => {
     try {
@@ -142,6 +145,35 @@ function createAdaptersRouter(deps = {}) {
         });
       }
       return res.json({ deployment });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.post('/:adapterId/deployments/:deploymentId/load-proof', requireAdmin, (req, res) => {
+    try {
+      const body = req.body || {};
+      const servingLoadProof = body.serving_load_proof;
+      if (!servingLoadProof || typeof servingLoadProof !== 'object' || Array.isArray(servingLoadProof)) {
+        return res.status(400).json({
+          error: 'serving_load_proof object is required',
+          code: 'invalid_load_proof',
+        });
+      }
+      const deployment = attachAdapterDeploymentLoadProof(
+        registryDb,
+        body.renter_id,
+        req.params.adapterId,
+        req.params.deploymentId,
+        servingLoadProof
+      );
+      return res.json({
+        deployment,
+        serving_enabled: deployment.route_traffic === true,
+        next: deployment.route_traffic
+          ? 'route_traffic_allowed_by_load_proof'
+          : 'retry_vllm_load_proof_before_routing',
+      });
     } catch (error) {
       return sendAdapterError(res, toRouteError(error));
     }
