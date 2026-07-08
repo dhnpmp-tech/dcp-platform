@@ -657,10 +657,14 @@ DCP-hosted endpoint -> billed inference.
 ## Cross-Lane Priority Order
 
 1. Ops cleanup and repo parity. **Deploy-watch resolved; `dcp-agent` remains the open maintenance-window item.**
-2. Proof harnesses before product claims. **`npm run proof:workspace-pod` and
-   `npm run proof:anthropic-sse` now exist for the two live acceptance paths;
-   both remain blocked, not accepted, until funded credentials and live provider
+2. Proof harnesses before product claims. **`npm run proof:workspace-pod`,
+   `npm run proof:lora-pod-image`, and `npm run proof:anthropic-sse` now exist
+   for the current command-ready live acceptance paths; they remain blocked,
+   not accepted, until funded credentials, provider GPU hosts, and live provider
    capacity are available.**
+   **PR #834 adds `npm run proof:live-acceptance-status`, a CI-safe status
+   packet that keeps blocked live gates, missing acceptance runners, required
+   inputs, and claim guards visible in one JSON/Markdown artifact.**
 3. Inference metadata/rate consistency.
    **Router-policy readiness proof added in PR #832 as
    `npm run proof:router-policy-contract`; future policy selection remains
@@ -695,7 +699,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 
 | Lane | Mandatory local gate | Live/prod gate |
 |---|---|---|
-| Cross-lane CI-safe suite | `npm run proof:local-roadmap` | Does not replace live gates; report lists blocked external proof inputs |
+| Cross-lane CI-safe suite | `npm run proof:local-roadmap`; `npm run proof:live-acceptance-status` | Does not replace live gates; report lists blocked external proof inputs and missing live acceptance runners |
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |

@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 23:03 UTC - `test(ops): add live acceptance gate status packet - PR #834`
+
+**PR:** [#834](https://github.com/dhnpmp-tech/dcp-platform/pull/834) (`codex/live-acceptance-gate-status-2026-07-09`).
+**Local timestamp:** 2026-07-09 03:03 +04.
+
+**What:** Eighty-fourth Fireworks/Tinker execution slice. Adds one CI-safe status artifact for the live acceptance gates that remain blocked or still need dedicated live proof runners.
+
+- **Status command:** Added `npm run proof:live-acceptance-status`, backed by `scripts/run-live-acceptance-gate-status.js`.
+- **Gate ledger:** The report lists workspace-pod live launch, LoRA pod-image provider-host proof, Anthropic SSE live proof, prompt-cache live discount smoke, batch live execution/discount smoke, LoRA GPU artifact proof, adapter vLLM load/billing smoke, and `dcp-agent` reconciliation.
+- **Blocked-state clarity:** Each gate records command availability, blocked inputs, artifact pattern, verified behavior, next action, and `capability_claim_allowed: false`.
+- **Aggregate gate:** `npm run proof:local-roadmap` now runs the live acceptance status packet, expanding the CI-safe suite to 10 gates.
+- **Roadmaps:** Updated the execution system, lane roadmap, and Fireworks/Tinker strategy roadmap so blocked live gates and missing acceptance runners stay visible in handoff.
+- **Safety:** No paid compute, billed inference, provider routing, artifact cleanup, billing, settlement, runtime route, frontend, or product-claim behavior changed.
+- **Verified:** `npm run proof:live-acceptance-status` with temp report output; targeted live-gate status Jest suite; `npm run proof:local-roadmap` with temp report output; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 22:54 UTC - `test(inference): add router policy contract proof - PR #832`
 
 **PR:** [#832](https://github.com/dhnpmp-tech/dcp-platform/pull/832) (`codex/router-policy-contract-proof-2026-07-09`).
