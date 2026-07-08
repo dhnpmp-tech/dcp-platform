@@ -43,6 +43,8 @@ what is live.
   route traffic gated by matching serving load proof.
 - PR #793 added the new public product routes to `sitemap.xml` and retargeted
   the pricing GPU Pods CTA to `/pods`.
+- PR #794 updated `llms.txt` so agents and answer engines see the current
+  product map plus LoRA, Batch, and Dedicated Deployment proof gates.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
