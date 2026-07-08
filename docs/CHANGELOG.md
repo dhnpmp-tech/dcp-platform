@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-07-08 07:13 UTC - Batch route DB wrapper fix (PR #742)
+
+- **PR:** [#742](https://github.com/dhnpmp-tech/dcp-platform/pull/742) (`codex/batch-route-wrapper-fix-2026-07-08`).
+- **Backend:** Fixed `/api/batches` route initialization so schema ensure accepts the production `backend/src/db.js` wrapper shape as well as raw `better-sqlite3` DBs.
+- **Verification:** Added wrapper-shape regression coverage to the batch route test suite and confirmed production unauth `/api/batches` returns renter-auth 401 after deploy.
+
 ### 2026-07-08 07:06 UTC - Batch inference API foundation (PR #741)
 
 - **PR:** [#741](https://github.com/dhnpmp-tech/dcp-platform/pull/741) (`codex/batch-inference-api-foundation-2026-07-08`).

@@ -74,6 +74,16 @@ function buildApp(db) {
   return app;
 }
 
+function wrapDb(raw) {
+  return {
+    run: (sql, ...params) => raw.prepare(sql).run(...params),
+    get: (sql, ...params) => raw.prepare(sql).get(...params),
+    all: (sql, ...params) => raw.prepare(sql).all(...params),
+    prepare: (sql) => raw.prepare(sql),
+    _db: raw,
+  };
+}
+
 describe('batch inference job foundation', () => {
   test('schema creation is idempotent and includes lifecycle columns', () => {
     const db = makeDb();
@@ -227,6 +237,24 @@ describe('batch inference job foundation', () => {
     expect(invalid.body).toMatchObject({
       code: 'invalid_json',
       details: { line: 1 },
+    });
+  });
+
+  test('route factory accepts the production db wrapper shape', async () => {
+    const db = makeDb();
+    const app = buildApp(wrapDb(db));
+
+    const res = await request(app)
+      .post('/api/batches')
+      .send({
+        batch_id: 'batch_wrapper1',
+        input_jsonl: jsonl(),
+      })
+      .expect(201);
+
+    expect(res.body.batch).toMatchObject({
+      batch_id: 'batch_wrapper1',
+      execution_enabled: false,
     });
   });
 });

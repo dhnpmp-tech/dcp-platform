@@ -14,6 +14,17 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 07:13 UTC - `fix(inference): accept production DB wrapper in batch route - PR #742`
+
+**PR:** [#742](https://github.com/dhnpmp-tech/dcp-platform/pull/742) (`codex/batch-route-wrapper-fix-2026-07-08`).
+**Local timestamp:** 2026-07-08 11:13 +04.
+
+**What:** Production smoke follow-up for PR #741. Fixes `/api/batches` route initialization against the production DB wrapper shape used by `backend/src/db.js`.
+
+- **Fix:** Updated `ensureBatchInferenceJobSchema` to accept either a raw `better-sqlite3` database with `.exec()` or the repository DB wrapper with `._db.exec()`.
+- **Regression coverage:** Added a route-factory test that mounts `/api/batches` with the production-style wrapper and verifies batch creation succeeds.
+- **Verified:** Targeted batch Jest suite; production `/api/batches` unauth smoke after deploy returns renter-auth 401 instead of 500.
+
 ### 2026-07-08 07:06 UTC - `feat(inference): add batch API foundation - PR #741`
 
 **PR:** [#741](https://github.com/dhnpmp-tech/dcp-platform/pull/741) (`codex/batch-inference-api-foundation-2026-07-08`).
