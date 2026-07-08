@@ -142,6 +142,7 @@ interface LoraReadiness {
   dataset_validation?: {
     status?: string
     available?: boolean
+    validate_only_endpoint?: string
     supported_formats?: string[]
   }
   training_jobs?: {
@@ -228,6 +229,22 @@ const API_SNIPPETS = [
     command:
       'curl -s https://api.dcp.sa/api/lora/readiness \\\n' +
       '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
+    id: 'validate-dataset',
+    titleEn: 'Validate dataset JSONL',
+    titleAr: 'تحقق من JSONL البيانات',
+    meta: 'POST /api/lora/datasets/validate',
+    noteEn: 'Returns checksum, split, token, and size facts without creating a training job or storing raw rows.',
+    noteAr: 'يعيد البصمة والتقسيم والرموز والحجم دون إنشاء مهمة تدريب أو تخزين الصفوف الخام.',
+    command:
+      'curl -s https://api.dcp.sa/api/lora/datasets/validate \\\n' +
+      '  -X POST \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY" \\\n' +
+      '  -H "Content-Type: application/json" \\\n' +
+      "  --data-binary @- <<'JSON'\n" +
+      '{"dataset_jsonl":"{\\"prompt\\":\\"Translate hello\\",\\"completion\\":\\"marhaba\\"}\\n{\\"prompt\\":\\"Translate thanks\\",\\"completion\\":\\"shukran\\"}","validation_split_pct":10}\n' +
+      'JSON',
   },
   {
     id: 'training-jobs',

@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 18:49 UTC - `feat(frontend): add LoRA dataset validation snippet - PR #797`
+
+**PR:** [#797](https://github.com/dhnpmp-tech/dcp-platform/pull/797) (`codex/frontend-lora-dataset-validate-snippet-2026-07-08`).
+**Local timestamp:** 2026-07-08 22:49 +04.
+
+**What:** Sixty-fourth Fireworks/Tinker execution slice. Exposes the new validate-only LoRA dataset API in the renter Fine-Tuning console.
+
+- **Frontend:** Added a copyable `POST /api/lora/datasets/validate` curl snippet to `/renter/fine-tuning`.
+- **Contract copy:** The snippet shows JSONL validation before job creation and says it returns checksum/split/token/size facts without creating a training job or storing raw rows.
+- **Safety:** No training, adapter registration, deployment routing, or Tinker-compatibility claim was added.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/renter/fine-tuning` on desktop/mobile with the new snippet visible and no horizontal overflow.
+
 ### 2026-07-08 18:43 UTC - `feat(lora): add dataset validate-only endpoint - PR #796`
 
 **PR:** [#796](https://github.com/dhnpmp-tech/dcp-platform/pull/796) (`codex/lora-dataset-validate-endpoint-2026-07-08`).

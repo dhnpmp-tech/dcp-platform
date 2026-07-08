@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 18:49 UTC - Fine-Tuning dataset validation snippet (PR #797)
+
+- **PR:** [#797](https://github.com/dhnpmp-tech/dcp-platform/pull/797) (`codex/frontend-lora-dataset-validate-snippet-2026-07-08`).
+- **Frontend:** `/renter/fine-tuning` now includes a copyable `POST /api/lora/datasets/validate` snippet.
+- **Contract copy:** The snippet shows validate-before-create usage and keeps the no-training/no-raw-persistence guard visible.
+- **Safety:** No managed training, adapter registration, deployment routing, or Tinker-compatibility claim was added.
+- **Verification:** `npm run build`; `git diff --check`; local production desktop/mobile Playwright render with the new snippet and no horizontal overflow.
+
 ### 2026-07-08 18:43 UTC - LoRA dataset validate-only endpoint (PR #796)
 
 - **PR:** [#796](https://github.com/dhnpmp-tech/dcp-platform/pull/796) (`codex/lora-dataset-validate-endpoint-2026-07-08`).
