@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 20:07 UTC - Fine-Tuning workspace pre-upload rail (PR #806)
+### 2026-07-08 20:17 UTC - Fine-Tuning workspace pre-upload rail (PR #806)
 
 - **PR:** [#806](https://github.com/dhnpmp-tech/dcp-platform/pull/806) (`codex/fine-tuning-workspace-preupload-2026-07-08`).
 - **Frontend:** `/renter/fine-tuning` now starts the LoRA flow with an explicit workspace pre-upload rail.
