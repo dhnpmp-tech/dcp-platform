@@ -69,3 +69,34 @@ This dcp-agent reconciliation is intentionally documented here instead of perfor
 2. Add the deploy watcher to any future production bootstrap/runbook so a fresh VPS restore includes it.
 3. Reconcile the local `dcp-agent` checkout in a controlled gateway window.
 4. Continue the Fireworks/Tinker execution order with inference metadata and rate consistency.
+
+## Refresh - 2026-07-08 11:03 UTC / 15:03 +04
+
+Platform parity was rechecked after PR #762:
+
+| Surface | State |
+| --- | --- |
+| Local checkout | `main` at `5d20c0c91170bbe047b3e8e1cfccf23aa49dee4f` |
+| GitHub `origin/main` | `5d20c0c91170bbe047b3e8e1cfccf23aa49dee4f` |
+| GitHub `origin/security/staged-rollouts` | `5d20c0c91170bbe047b3e8e1cfccf23aa49dee4f` |
+| VPS2 `/root/dc1-platform` | `5d20c0c91170bbe047b3e8e1cfccf23aa49dee4f` |
+
+Deploy watcher status:
+
+- `ops/dcp-deploy-watch.sh` is tracked in this repository.
+- The local tracked file and VPS2 `/root/dc1-platform/ops/dcp-deploy-watch.sh`
+  are byte-identical.
+- VPS2 cron still runs it every 3 minutes:
+  `*/3 * * * * /root/dc1-platform/ops/dcp-deploy-watch.sh >> /var/log/dcp-deploy-watch.log 2>&1`.
+
+Remaining ops drift:
+
+- `/Users/pp/DC1-Platform/dcp-agent` is still detached at
+  `faf4cf9fff924a17290c2248c71362b6e21385bf`.
+- `origin/main` for `DCP-SA/dcp-agent` is still
+  `cfb8f29143fcd59493a23861e2c6bac4a1d0c187`.
+- Local gateway process PID `1731` is still running
+  `/Users/pp/DC1-Platform/dcp-agent/.venv/bin/python -m hermes_cli.main gateway run --replace`.
+
+Do not treat deploy-watch as an open reconciliation item anymore. The open ops
+item is only the controlled `dcp-agent` maintenance window described above.

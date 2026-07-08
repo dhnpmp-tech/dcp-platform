@@ -93,7 +93,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 
 - Reconcile platform-adjacent drift:
   - `dcp-agent` local checkout remains stale/detached.
-  - `ops/dcp-deploy-watch.sh` remains untracked locally but installed on VPS.
+  - `ops/dcp-deploy-watch.sh` is no longer drift: PR #731 promoted it into Git
+    and the 2026-07-08 11:03 UTC refresh confirmed the tracked file is
+    byte-identical to the VPS2 cron copy.
 - Add model capability/rate metadata tests.
 - Add backend design doc for prompt-cache accounting.
 - Add backend design doc for batch inference on existing job/billing rails.
@@ -128,6 +130,7 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 ### First PRs
 
 1. Ops cleanup PR for `dcp-agent` and deploy-watch decision.
+   **Deploy-watch resolved in PR #731; `dcp-agent` remains a maintenance-window task.**
 2. Inference metadata/rate consistency tests.
 3. Adapter registry schema with tests, no serving behavior yet.
 
@@ -353,7 +356,7 @@ DCP-hosted endpoint -> billed inference.
 
 ## Cross-Lane Priority Order
 
-1. Ops cleanup and repo parity.
+1. Ops cleanup and repo parity. **Deploy-watch resolved; `dcp-agent` remains the open maintenance-window item.**
 2. Inference metadata/rate consistency.
 3. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
 4. Workspace-to-pod launch polish. **Started in PR #761.**

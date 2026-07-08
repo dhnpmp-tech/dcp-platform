@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 11:05 UTC - `docs(ops): refresh repo hardening status - PR #763`
+
+**PR:** [#763](https://github.com/dhnpmp-tech/dcp-platform/pull/763) (`codex/ops-hardening-status-refresh-2026-07-08`).
+**Local timestamp:** 2026-07-08 15:05 +04.
+
+**What:** Thirtieth Fireworks/Tinker execution slice. Refreshes the ops/repo-hardening audit state so future agents do not treat the already-promoted deploy watcher as unresolved drift.
+
+- **Deploy watcher:** Confirmed `ops/dcp-deploy-watch.sh` is tracked, byte-identical to the VPS2 cron copy, and still scheduled every 3 minutes on VPS2.
+- **Platform parity:** Recorded local, `origin/main`, `origin/security/staged-rollouts`, and VPS2 parity at `5d20c0c91170bbe047b3e8e1cfccf23aa49dee4f`.
+- **dcp-agent:** Reconfirmed the only remaining platform-adjacent ops drift is the separate local `dcp-agent` checkout, still detached at `faf4cf9fff924a17290c2248c71362b6e21385bf` with gateway PID `1731` running.
+- **Roadmaps:** Updated the Fireworks/Tinker roadmap, lane roadmap, and gap audit to mark deploy-watch resolved and leave `dcp-agent` as a controlled maintenance-window task.
+- **Verified:** `git diff --check`.
+
 ### 2026-07-08 10:55 UTC - `chore(pods): add pod image contract verifier - PR #762`
 
 **PR:** [#762](https://github.com/dhnpmp-tech/dcp-platform/pull/762) (`codex/pod-image-contracts-2026-07-08`).
