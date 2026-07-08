@@ -108,9 +108,17 @@ Before a public training route:
 4. Write logs and an artifact manifest.
 5. Compute artifact SHA-256.
 6. Register the adapter in `adapter_registry` with `registered` or `ready`.
+   **Done in PR #748** via `POST
+   /api/lora/training-jobs/{training_job_id}/register-adapter`, which only
+   accepts succeeded jobs with artifact storage and SHA-256 proof.
 7. Keep deployment separate until vLLM load proof exists.
 
 PR #744 adds `/api/lora/training-jobs` as a metadata foundation. It validates
 dataset JSONL and normalizes the recipe, but returns `training_enabled: false`
 until trainer-worker proof, artifact checksums, and adapter registration are
 wired.
+
+PR #748 connects the succeeded-job artifact proof to the adapter registry. It
+does **not** start training, deploy adapters, or route inference traffic. It
+only creates/replays the adapter metadata row and keeps
+`serving_enabled: false` until the deployment/load-proof slice exists.

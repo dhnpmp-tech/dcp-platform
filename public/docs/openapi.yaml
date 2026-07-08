@@ -101,6 +101,12 @@ tags:
     description: Docker compute templates — available job types and approved image whitelist
   - name: Containers
     description: Container registry — approved images, custom image requests, security scans
+  - name: Adapters
+    description: LoRA/QLoRA adapter artifact registry. Metadata only until deployment proof is implemented.
+  - name: Batches
+    description: Batch inference metadata and status records. Execution/billing worker is intentionally not enabled yet.
+  - name: LoRA
+    description: LoRA/QLoRA training job metadata. GPU execution remains disabled until trainer-worker proof exists.
   - name: vLLM
     description: Managed vLLM inference — synchronous and streaming completions
   - name: System
@@ -133,13 +139,295 @@ components:
           type: string
           example: Missing required fields
 
+    Adapter:
+      type: object
+      description: LoRA/QLoRA adapter artifact metadata owned by one renter. A row does not imply that the adapter is deployed or serving traffic.
+      required: [adapter_id, renter_id, name, base_model, storage_key, checksum_sha256, status, created_at, updated_at]
+      properties:
+        adapter_id:
+          type: string
+          example: adpt_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        name:
+          type: string
+          example: Arabic support adapter
+        base_model:
+          type: string
+          example: meta-llama/Llama-3.1-8B-Instruct
+        storage_key:
+          type: string
+          description: Relative workspace/object-storage key for the adapter artifact.
+          example: adapters/r42/arabic-support/adapter.safetensors
+        checksum_sha256:
+          type: string
+          description: SHA-256 digest of the adapter artifact.
+          example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        rank:
+          type: integer
+          nullable: true
+          example: 16
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example:
+            recipe: qlora-sft
+            train_rows: 1200
+        status:
+          type: string
+          enum: [registered, validating, ready, deploying, deployed, failed, archived]
+          example: registered
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deployed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AdapterDeployment:
+      type: object
+      description: Adapter deployment lifecycle record. Public creation records intent only; inference traffic stays disabled until a backend serving load proof matches the adapter and base model.
+      required: [deployment_id, renter_id, adapter_id, base_model, mode, status, route_traffic, created_at, updated_at]
+      properties:
+        deployment_id:
+          type: string
+          example: adpl_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        adapter_id:
+          type: string
+          example: adpt_8f4c2b9a18e34d220f7a9b12
+        base_model:
+          type: string
+          example: meta-llama/Llama-3.1-8B-Instruct
+        mode:
+          type: string
+          enum: [single_adapter_live_merge, multi_lora]
+          example: single_adapter_live_merge
+        endpoint_id:
+          type: string
+          nullable: true
+          example: arabic-support-prod
+        status:
+          type: string
+          enum: [pending, provisioning, running, degraded, stopped, failed]
+          example: pending
+        route_traffic:
+          type: boolean
+          example: false
+        serving_load_proof:
+          type: object
+          nullable: true
+          additionalProperties: true
+        failure_reason:
+          type: string
+          nullable: true
+          example: serving_load_proof_mismatch
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        stopped_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    BatchInferenceJob:
+      type: object
+      description: Batch inference metadata record for validated JSONL input. In this foundation slice, execution remains disabled until the worker/result/billing rail is implemented.
+      required: [batch_id, renter_id, status, input_storage_key, input_checksum_sha256, request_count, completion_window, execution_enabled, results_available, created_at, updated_at]
+      properties:
+        batch_id:
+          type: string
+          example: batch_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        status:
+          type: string
+          enum: [created, queued, running, completed, failed, cancelled]
+          example: created
+        input_storage_key:
+          type: string
+          description: Relative object key reserved for the normalized JSONL input artifact.
+          example: batch-inputs/renter-42/batch_8f4c2b9a18e34d220f7a9b12/input.jsonl
+        input_checksum_sha256:
+          type: string
+          description: SHA-256 digest of the normalized JSONL input.
+          example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        input_normalized_bytes:
+          type: integer
+          example: 264
+        request_count:
+          type: integer
+          example: 2
+        completion_window:
+          type: string
+          enum: [24h]
+          example: 24h
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+        result_storage_key:
+          type: string
+          nullable: true
+          example: batch-results/renter-42/batch_8f4c2b9a18e34d220f7a9b12/output.jsonl
+        completed_count:
+          type: integer
+          example: 0
+        failed_count:
+          type: integer
+          example: 0
+        total_cost_halala:
+          type: integer
+          example: 0
+        idempotency_key:
+          type: string
+          nullable: true
+          example: batch-create-2026-07-08
+        execution_enabled:
+          type: boolean
+          example: false
+        results_available:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    LoraTrainingJob:
+      type: object
+      description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
+      required: [training_job_id, renter_id, recipe, base_model, dataset_storage_key, dataset_checksum_sha256, dataset_format, dataset_row_count, output_adapter_name, output_adapter_id, status, training_enabled, adapter_registered, created_at, updated_at]
+      properties:
+        training_job_id:
+          type: string
+          example: lora_job_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        recipe:
+          type: string
+          enum: [lora_sft, qlora_sft]
+          example: qlora_sft
+        base_model:
+          type: string
+          example: meta-llama/Llama-3.1-8B-Instruct
+        dataset_storage_key:
+          type: string
+          example: datasets/r42/support.jsonl
+        dataset_checksum_sha256:
+          type: string
+          example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        dataset_format:
+          type: string
+          enum: [chat_messages, prompt_completion]
+          example: prompt_completion
+        dataset_row_count:
+          type: integer
+          example: 1200
+        train_rows:
+          type: integer
+          example: 1080
+        validation_rows:
+          type: integer
+          example: 120
+        estimated_tokens:
+          type: integer
+          example: 420000
+        output_adapter_name:
+          type: string
+          example: support-arabic
+        output_adapter_id:
+          type: string
+          example: adpt_8f4c2b9a18e34d220f7a9b12
+        training_spec:
+          type: object
+          additionalProperties: true
+        dataset_validation:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [created, queued, running, succeeded, failed, cancelled]
+          example: created
+        artifact_storage_key:
+          type: string
+          nullable: true
+          example: adapters/r42/support-arabic/adapter.safetensors
+        artifact_checksum_sha256:
+          type: string
+          nullable: true
+        model_card_storage_key:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        idempotency_key:
+          type: string
+          nullable: true
+        training_enabled:
+          type: boolean
+          example: false
+        adapter_registered:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
     PaymentRequiredError:
       type: object
-      description: Returned with HTTP 402 when the prepaid wallet cannot cover the pre-flight estimate. Lets an agent know how and where to fund before retrying.
+      description: Returned with HTTP 402 when prepaid credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to fund before retrying.
       required: [error]
       properties:
         error:
           type: string
+          example: insufficient_balance
+        code:
+          type: string
+          description: Stable machine-readable reason. `on_demand_requires_prepaid_credit` means trial/free credit cannot be used for this GPU.
           example: insufficient_balance
         message:
           type: string
@@ -153,6 +441,12 @@ components:
         balance_halala:
           type: integer
           example: 1200
+        paid_credit_required:
+          type: boolean
+          example: true
+        paid_available_halala:
+          type: integer
+          example: 1000
         topup_url:
           type: string
           example: https://dcp.sa/renter/wallet
@@ -501,7 +795,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Pod' }
         '402':
-          description: Insufficient prepaid balance to cover the pre-flight estimate.
+          description: Insufficient prepaid credit to cover the pre-flight estimate, or paid credit required for an on-demand GPU.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaymentRequiredError' }
@@ -676,6 +970,593 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: released }
+
+  /api/batches:
+    get:
+      tags: [Batches]
+      summary: List renter batch inference records
+      description: |
+        Returns validated batch-inference metadata records for the authenticated
+        renter. This foundation route does not execute inference, produce result
+        artifacts, apply batch discounts, or flip `/v1/models` batch capability
+        flags yet.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [created, queued, running, completed, failed, cancelled]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Batch record list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BatchInferenceJob' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+    post:
+      tags: [Batches]
+      summary: Validate JSONL and create a batch inference metadata record
+      description: |
+        Validates OpenAI-style JSONL lines for `/v1/chat/completions` and
+        `/v1/complete`, records checksum/count metadata, and returns a stable
+        batch id. Execution remains disabled until the worker/result/billing
+        slice lands.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 180
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input_jsonl]
+              properties:
+                batch_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: batch_8f4c2b9a18e34d220f7a9b12
+                input_jsonl:
+                  type: string
+                  description: Newline-delimited JSON batch requests.
+                  example: '{"custom_id":"req-1","method":"POST","url":"/v1/chat/completions","body":{"model":"qwen/qwen3-coder","messages":[{"role":"user","content":"hello"}]}}'
+                input_storage_key:
+                  type: string
+                  description: Optional relative object key reserved for the normalized input artifact.
+                completion_window:
+                  type: string
+                  enum: [24h]
+                  default: 24h
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Batch metadata record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch: { $ref: '#/components/schemas/BatchInferenceJob' }
+                  idempotent_replay:
+                    type: boolean
+                    example: false
+                  execution_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: batch_worker_and_result_artifact_not_enabled
+        '400':
+          description: Invalid batch JSONL or metadata.
+        '409':
+          description: Batch id already exists.
+
+  /api/batches/{batch_id}:
+    get:
+      tags: [Batches]
+      summary: Get one renter batch inference record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Batch detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch: { $ref: '#/components/schemas/BatchInferenceJob' }
+        '404':
+          description: Batch not found for this renter.
+
+  /api/lora/training-jobs:
+    get:
+      tags: [LoRA]
+      summary: List renter LoRA training job records
+      description: |
+        Returns LoRA/QLoRA SFT training metadata records for the authenticated
+        renter. These records are validated job intents; GPU execution and
+        adapter registration are not enabled until trainer-worker proof lands.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [created, queued, running, succeeded, failed, cancelled]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: LoRA training job list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LoraTrainingJob' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+    post:
+      tags: [LoRA]
+      summary: Validate a dataset and create a LoRA training job record
+      description: |
+        Validates LoRA SFT JSONL, normalizes a fixed LoRA/QLoRA recipe, and
+        records a training job intent. This does not start GPU training, write
+        artifacts, or register an adapter.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 180
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_model, dataset_storage_key, dataset_jsonl, output_adapter_name]
+              properties:
+                training_job_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: lora_job_8f4c2b9a18e34d220f7a9b12
+                recipe:
+                  type: string
+                  enum: [lora_sft, qlora_sft, lora-sft, qlora-sft]
+                  default: qlora_sft
+                base_model:
+                  type: string
+                  maxLength: 160
+                  example: meta-llama/Llama-3.1-8B-Instruct
+                dataset_storage_key:
+                  type: string
+                  maxLength: 512
+                  example: datasets/r42/support.jsonl
+                dataset_jsonl:
+                  type: string
+                  description: JSONL dataset rows in chat_messages or prompt_completion format.
+                output_adapter_name:
+                  type: string
+                  maxLength: 80
+                  example: support-arabic
+                output_adapter_id:
+                  type: string
+                  description: Optional reserved adapter id. The adapter is not registered until artifact proof exists.
+                  example: adpt_8f4c2b9a18e34d220f7a9b12
+                validation_split_pct:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                  default: 10
+                hyperparameters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: LoRA training job metadata record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  training_job: { $ref: '#/components/schemas/LoraTrainingJob' }
+                  idempotent_replay:
+                    type: boolean
+                    example: false
+                  training_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: launch_lora_trainer_worker_after_gpu_host_proof
+        '400':
+          description: Invalid dataset or LoRA training metadata.
+        '409':
+          description: Training job id already exists.
+
+  /api/lora/training-jobs/{training_job_id}:
+    get:
+      tags: [LoRA]
+      summary: Get one renter LoRA training job record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: training_job_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: LoRA training job detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  training_job: { $ref: '#/components/schemas/LoraTrainingJob' }
+        '404':
+          description: LoRA training job not found for this renter.
+
+  /api/lora/training-jobs/{training_job_id}/register-adapter:
+    post:
+      tags: [LoRA]
+      summary: Register an adapter from a succeeded LoRA training artifact
+      description: |
+        Creates or replays the adapter registry row for a succeeded LoRA/QLoRA
+        training job after artifact storage and SHA-256 proof exist. This does
+        not deploy the adapter, create an endpoint, or route inference traffic.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: training_job_id
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Adapter metadata registered from the training artifact.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job: { $ref: '#/components/schemas/LoraTrainingJob' }
+                  adapter: { $ref: '#/components/schemas/Adapter' }
+                  adapter_registered:
+                    type: boolean
+                    example: true
+                  idempotent_replay:
+                    type: boolean
+                    example: false
+                  serving_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: create_adapter_deployment_after_vllm_load_proof
+        '200':
+          description: Existing matching adapter returned for an idempotent replay.
+        '404':
+          description: LoRA training job not found for this renter.
+        '409':
+          description: Training job is not succeeded, lacks artifact proof, or conflicts with an existing adapter.
+
+  /api/adapters:
+    get:
+      tags: [Adapters]
+      summary: List renter-owned adapter artifacts
+      description: |
+        Returns LoRA/QLoRA adapter artifact metadata for the authenticated
+        renter. This registry is metadata only: it does not deploy adapters or
+        route inference traffic until a later deployment/load-proof API exists.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [registered, validating, ready, deploying, deployed, failed, archived]
+        - in: query
+          name: base_model
+          required: false
+          schema: { type: string }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Adapter list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Adapter' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+    post:
+      tags: [Adapters]
+      summary: Register adapter artifact metadata
+      description: |
+        Registers an already-produced LoRA/QLoRA adapter artifact under the
+        authenticated renter. The endpoint intentionally does not deploy the
+        adapter or mark it as serving; public creation only accepts
+        `registered`, `validating`, or `ready` as initial states.
+      security:
+        - RenterApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, base_model, storage_key, checksum_sha256]
+              properties:
+                adapter_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: adpt_8f4c2b9a18e34d220f7a9b12
+                name:
+                  type: string
+                  maxLength: 80
+                  example: Arabic support adapter
+                base_model:
+                  type: string
+                  maxLength: 160
+                  example: meta-llama/Llama-3.1-8B-Instruct
+                storage_key:
+                  type: string
+                  maxLength: 512
+                  example: adapters/r42/arabic-support/adapter.safetensors
+                checksum_sha256:
+                  type: string
+                  pattern: '^[a-fA-F0-9]{64}$'
+                rank:
+                  type: integer
+                  minimum: 1
+                  maximum: 1024
+                metadata:
+                  type: object
+                  additionalProperties: true
+                status:
+                  type: string
+                  enum: [registered, validating, ready]
+                  default: registered
+      responses:
+        '201':
+          description: Adapter metadata registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapter: { $ref: '#/components/schemas/Adapter' }
+                  deployment_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: validate_adapter_or_create_lora_training_job
+        '400':
+          description: Invalid adapter metadata.
+        '409':
+          description: Adapter id already exists.
+
+  /api/adapters/{adapter_id}:
+    get:
+      tags: [Adapters]
+      summary: Get one renter-owned adapter artifact
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Adapter detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapter: { $ref: '#/components/schemas/Adapter' }
+        '404':
+          description: Adapter not found for this renter.
+
+  /api/adapters/{adapter_id}/deployments:
+    get:
+      tags: [Adapters]
+      summary: List deployment records for one adapter
+      description: |
+        Returns renter-owned deployment lifecycle records for a registered
+        adapter. These records describe deployment intent and proof state; they
+        do not guarantee inference routing unless `route_traffic` is true.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [pending, provisioning, running, degraded, stopped, failed]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Adapter deployment list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdapterDeployment' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+        '404':
+          description: Adapter not found for this renter.
+    post:
+      tags: [Adapters]
+      summary: Request an adapter deployment record
+      description: |
+        Creates a pending deployment lifecycle record for a ready adapter. This
+        endpoint is intentionally not a traffic switch: public requests cannot
+        attach serving proof and always return `serving_enabled: false` until an
+        internal load-proof step validates the adapter on a serving endpoint.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deployment_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: adpl_8f4c2b9a18e34d220f7a9b12
+                mode:
+                  type: string
+                  enum: [single_adapter_live_merge, multi_lora]
+                  default: single_adapter_live_merge
+                base_model:
+                  type: string
+                  description: Must match the registered adapter base model when provided.
+                  example: meta-llama/Llama-3.1-8B-Instruct
+                endpoint_id:
+                  type: string
+                  maxLength: 120
+                  example: arabic-support-prod
+      responses:
+        '201':
+          description: Pending deployment record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+                  serving_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: attach_serving_load_proof_internal
+        '400':
+          description: Invalid deployment request.
+        '404':
+          description: Adapter not found for this renter.
+        '409':
+          description: Adapter is not ready for deployment request.
+
+  /api/adapters/{adapter_id}/deployments/{deployment_id}:
+    get:
+      tags: [Adapters]
+      summary: Get one adapter deployment record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: deployment_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Adapter deployment detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+        '404':
+          description: Deployment not found for this renter and adapter.
 
   # ─── Providers ──────────────────────────────────────────────────────────────
 
@@ -4920,9 +5801,10 @@ paths:
       tags: [vLLM]
       summary: List available vLLM models
       description: |
-        Returns the list of LLM models available for managed inference via
-        `/v1/complete` or `/v1/chat/completions`. These models are pre-loaded on DCP inference
-        nodes and do not require a separate job submission.
+        Returns the OpenAI-compatible model catalog for managed inference via
+        `/v1/chat/completions`. Each row includes current servability, provider
+        count, context length, capability flags, and DCP billing metadata in
+        halala/SAR/USD per 1M tokens.
 
         No authentication required.
       responses:
@@ -4933,7 +5815,10 @@ paths:
               schema:
                 type: object
                 properties:
-                  models:
+                  object:
+                    type: string
+                    example: list
+                  data:
                     type: array
                     items:
                       type: object
@@ -4947,15 +5832,94 @@ paths:
                         context_length:
                           type: integer
                           example: 32768
-                        max_tokens:
+                        max_output_tokens:
                           type: integer
                           example: 4096
-                        vram_required_gb:
+                        provider_count:
+                          type: integer
+                          example: 2
+                        max_vram_gb:
                           type: number
-                          example: 14
+                          example: 24
                         available:
                           type: boolean
                           description: True if a provider is currently serving this model
+                        status:
+                          type: string
+                          enum: [available, no_providers]
+                          example: available
+                        modalities:
+                          type: array
+                          items:
+                            type: string
+                          example: [text]
+                        pricing:
+                          type: object
+                          properties:
+                            prompt_tokens:
+                              type: string
+                              description: OpenAI/OpenRouter-compatible USD per prompt token.
+                              example: "0.000000"
+                            completion_tokens:
+                              type: string
+                              description: OpenAI/OpenRouter-compatible USD per completion token.
+                              example: "0.000000"
+                            usd_per_1m_input_tokens:
+                              type: string
+                              example: "0.213333"
+                            usd_per_1m_output_tokens:
+                              type: string
+                              example: "0.400000"
+                            sar_per_1m_input_tokens:
+                              type: string
+                              example: "0.8000"
+                            sar_per_1m_output_tokens:
+                              type: string
+                              example: "1.5000"
+                            halala_per_1m_input_tokens:
+                              type: integer
+                              example: 80
+                            halala_per_1m_output_tokens:
+                              type: integer
+                              example: 150
+                            billing_unit:
+                              type: string
+                              example: per_1m_tokens
+                            source:
+                              type: string
+                              enum: [model_registry, cost_rates]
+                              example: model_registry
+                        capability_flags:
+                          type: object
+                          properties:
+                            chat_completions:
+                              type: boolean
+                            streaming:
+                              type: boolean
+                            tool_calling:
+                              type: boolean
+                            reasoning:
+                              type: boolean
+                            code_generation:
+                              type: boolean
+                            embeddings:
+                              type: boolean
+                            image_generation:
+                              type: boolean
+                            multilingual:
+                              type: boolean
+                            dedicated_deployment:
+                              type: boolean
+                              description: False until dedicated deployments are productized.
+                            lora:
+                              type: boolean
+                              description: False until adapter deployment is productized.
+                            prompt_caching:
+                              type: boolean
+                              description: False until prompt-cache accounting is enabled.
+                            batch:
+                              type: boolean
+                              description: False until batch inference is enabled.
 
   /v1/complete:
     post:

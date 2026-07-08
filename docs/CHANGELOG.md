@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 08:18 UTC - LoRA training artifact adapter registration (PR #748)
+
+- **PR:** [#748](https://github.com/dhnpmp-tech/dcp-platform/pull/748) (`codex/lora-training-artifact-register-2026-07-08`).
+- **Backend:** Added `registerLoraTrainingJobAdapter`, which creates/replays an adapter registry row only for succeeded LoRA training jobs with artifact storage and SHA-256 proof.
+- **API:** Added renter-authenticated `POST /api/lora/training-jobs/{training_job_id}/register-adapter`, returning `serving_enabled: false` until adapter deployment and vLLM load proof exist.
+- **Read model:** LoRA training job list/detail responses now compute `adapter_registered` from the adapter registry.
+- **Contracts:** Updated public OpenAPI copies and the LoRA runbook order to mark artifact-to-adapter registration complete while trainer execution and serving remain gated.
+- **Verification:** Targeted LoRA training job, adapter registry, and adapter deployment Jest suites; `git diff --check`; OpenAPI YAML parse.
+
 ### 2026-07-08 08:04 UTC - LoRA/vLLM template validation dry-run gates (PR #747)
 
 - **PR:** [#747](https://github.com/dhnpmp-tech/dcp-platform/pull/747) (`codex/lora-template-validation-dry-run-2026-07-08`).

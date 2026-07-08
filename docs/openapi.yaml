@@ -1246,6 +1246,50 @@ paths:
         '404':
           description: LoRA training job not found for this renter.
 
+  /api/lora/training-jobs/{training_job_id}/register-adapter:
+    post:
+      tags: [LoRA]
+      summary: Register an adapter from a succeeded LoRA training artifact
+      description: |
+        Creates or replays the adapter registry row for a succeeded LoRA/QLoRA
+        training job after artifact storage and SHA-256 proof exist. This does
+        not deploy the adapter, create an endpoint, or route inference traffic.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: training_job_id
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Adapter metadata registered from the training artifact.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job: { $ref: '#/components/schemas/LoraTrainingJob' }
+                  adapter: { $ref: '#/components/schemas/Adapter' }
+                  adapter_registered:
+                    type: boolean
+                    example: true
+                  idempotent_replay:
+                    type: boolean
+                    example: false
+                  serving_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: create_adapter_deployment_after_vllm_load_proof
+        '200':
+          description: Existing matching adapter returned for an idempotent replay.
+        '404':
+          description: LoRA training job not found for this renter.
+        '409':
+          description: Training job is not succeeded, lacks artifact proof, or conflicts with an existing adapter.
+
   /api/adapters:
     get:
       tags: [Adapters]

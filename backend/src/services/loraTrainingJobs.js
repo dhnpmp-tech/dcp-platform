@@ -6,6 +6,12 @@ const {
   normalizeLoraTrainingSpec,
   validateLoraDatasetJsonl,
 } = require('./loraTrainingContract');
+const {
+  AdapterRegistryError,
+  createAdapter,
+  ensureAdapterRegistrySchema,
+  getAdapter,
+} = require('./adapterRegistry');
 
 const TRAINING_JOB_STATUSES = Object.freeze([
   'created',
@@ -207,7 +213,7 @@ function getLoraTrainingJob(db, renterId, trainingJobId) {
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
   const id = normalizeTrainingJobId(trainingJobId);
   const row = db.prepare(`${selectTrainingJobSql()} WHERE renter_id = ? AND training_job_id = ?`).get(ownerId, id);
-  return mapTrainingJobRow(row);
+  return decorateJobWithAdapterStatus(db, mapTrainingJobRow(row));
 }
 
 function listLoraTrainingJobs(db, renterId, options = {}) {
@@ -229,7 +235,7 @@ function listLoraTrainingJobs(db, renterId, options = {}) {
      LIMIT ? OFFSET ?
   `).all(...params);
   return {
-    jobs: rows.map(mapTrainingJobRow),
+    jobs: rows.map((row) => decorateJobWithAdapterStatus(db, mapTrainingJobRow(row))),
     limit,
     offset,
   };
@@ -283,6 +289,93 @@ function updateLoraTrainingJobStatus(db, renterId, trainingJobId, status, option
   return getLoraTrainingJob(db, ownerId, id);
 }
 
+function registerLoraTrainingJobAdapter(db, renterId, trainingJobId, options = {}) {
+  assertDb(db);
+  ensureAdapterRegistrySchema(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeTrainingJobId(trainingJobId);
+  const job = getLoraTrainingJob(db, ownerId, id);
+  if (!job) {
+    trainingJobError('LoRA training job not found', {
+      code: 'lora_training_job_not_found',
+      httpStatus: 404,
+      details: { training_job_id: id },
+    });
+  }
+  if (job.status !== 'succeeded') {
+    trainingJobError('LoRA training job must be succeeded before adapter registration', {
+      code: 'training_job_not_succeeded',
+      httpStatus: 409,
+      details: {
+        training_job_id: id,
+        status: job.status,
+      },
+    });
+  }
+  if (!job.artifact_storage_key || !job.artifact_checksum_sha256) {
+    trainingJobError('LoRA training job is missing adapter artifact proof', {
+      code: 'adapter_artifact_proof_missing',
+      httpStatus: 409,
+      details: {
+        training_job_id: id,
+        requires: ['artifact_storage_key', 'artifact_checksum_sha256'],
+      },
+    });
+  }
+
+  const existingAdapter = getAdapter(db, ownerId, job.output_adapter_id);
+  if (existingAdapter) {
+    assertExistingAdapterMatchesJob(existingAdapter, job);
+    return {
+      job: markJobAdapterRegistered(job),
+      adapter: existingAdapter,
+      adapter_registered: true,
+      idempotent_replay: true,
+      serving_enabled: false,
+      next: 'create_adapter_deployment_after_vllm_load_proof',
+    };
+  }
+
+  let adapter;
+  try {
+    adapter = createAdapter(db, ownerId, {
+      adapter_id: job.output_adapter_id,
+      name: job.output_adapter_name,
+      base_model: job.base_model,
+      storage_key: job.artifact_storage_key,
+      checksum_sha256: job.artifact_checksum_sha256,
+      rank: job.training_spec?.hyperparameters?.rank,
+      status: options.status || 'ready',
+      metadata: buildAdapterMetadataFromTrainingJob(job),
+    });
+  } catch (error) {
+    if (error instanceof AdapterRegistryError && error.code === 'adapter_exists') {
+      const replayed = getAdapter(db, ownerId, job.output_adapter_id);
+      if (replayed) {
+        assertExistingAdapterMatchesJob(replayed, job);
+        return {
+          job: markJobAdapterRegistered(job),
+          adapter: replayed,
+          adapter_registered: true,
+          idempotent_replay: true,
+          serving_enabled: false,
+          next: 'create_adapter_deployment_after_vllm_load_proof',
+        };
+      }
+    }
+    throw error;
+  }
+
+  return {
+    job: markJobAdapterRegistered(getLoraTrainingJob(db, ownerId, id)),
+    adapter,
+    adapter_registered: true,
+    idempotent_replay: false,
+    serving_enabled: false,
+    next: 'create_adapter_deployment_after_vllm_load_proof',
+  };
+}
+
 function getTrainingJobByIdempotencyKey(db, renterId, idempotencyKey) {
   if (!idempotencyKey) return null;
   const row = db.prepare(`${selectTrainingJobSql()} WHERE renter_id = ? AND idempotency_key = ?`).get(renterId, idempotencyKey);
@@ -332,6 +425,78 @@ function mapTrainingJobRow(row) {
     started_at: row.started_at || null,
     completed_at: row.completed_at || null,
   };
+}
+
+function decorateJobWithAdapterStatus(db, job) {
+  if (!job) return null;
+  return {
+    ...job,
+    adapter_registered: adapterExistsForJob(db, job),
+  };
+}
+
+function adapterExistsForJob(db, job) {
+  if (!job || !job.output_adapter_id) return false;
+  try {
+    const row = db.prepare(`
+      SELECT 1
+        FROM adapter_registry
+       WHERE renter_id = ? AND adapter_id = ?
+       LIMIT 1
+    `).get(job.renter_id, job.output_adapter_id);
+    return !!row;
+  } catch (_) {
+    return false;
+  }
+}
+
+function markJobAdapterRegistered(job) {
+  if (!job) return null;
+  return {
+    ...job,
+    adapter_registered: true,
+  };
+}
+
+function buildAdapterMetadataFromTrainingJob(job) {
+  return {
+    source: 'lora_training_job',
+    training_job_id: job.training_job_id,
+    recipe: job.recipe,
+    dataset: {
+      storage_key: job.dataset_storage_key,
+      checksum_sha256: job.dataset_checksum_sha256,
+      format: job.dataset_format,
+      row_count: job.dataset_row_count,
+      train_rows: job.train_rows,
+      validation_rows: job.validation_rows,
+      estimated_tokens: job.estimated_tokens,
+    },
+    model_card_storage_key: job.model_card_storage_key,
+    safety: {
+      trainer_artifact_required: true,
+      serving_load_proof_required: true,
+      route_traffic: false,
+    },
+  };
+}
+
+function assertExistingAdapterMatchesJob(adapter, job) {
+  const mismatches = [];
+  if (adapter.base_model !== job.base_model) mismatches.push('base_model');
+  if (adapter.storage_key !== job.artifact_storage_key) mismatches.push('storage_key');
+  if (adapter.checksum_sha256 !== job.artifact_checksum_sha256) mismatches.push('checksum_sha256');
+  if (mismatches.length > 0) {
+    trainingJobError('Existing adapter does not match LoRA training artifact proof', {
+      code: 'adapter_registration_conflict',
+      httpStatus: 409,
+      details: {
+        adapter_id: adapter.adapter_id,
+        training_job_id: job.training_job_id,
+        mismatches,
+      },
+    });
+  }
 }
 
 function normalizeTrainingJobId(value) {
@@ -490,6 +655,7 @@ module.exports = {
   createLoraTrainingJob,
   getLoraTrainingJob,
   listLoraTrainingJobs,
+  registerLoraTrainingJobAdapter,
   updateLoraTrainingJobStatus,
   __test: {
     normalizeTrainingJobId,

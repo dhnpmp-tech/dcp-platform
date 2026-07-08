@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 08:18 UTC - `feat(lora): register adapters from training artifacts - PR #748`
+
+**PR:** [#748](https://github.com/dhnpmp-tech/dcp-platform/pull/748) (`codex/lora-training-artifact-register-2026-07-08`).
+**Local timestamp:** 2026-07-08 12:18 +04.
+
+**What:** Sixteenth Fireworks/Tinker execution slice. Bridges succeeded LoRA training-job artifact proof into the adapter registry without enabling trainer execution or adapter serving.
+
+- **Artifact bridge:** Added `registerLoraTrainingJobAdapter`, which only registers an adapter when a LoRA job is `succeeded` and has artifact storage plus SHA-256 proof.
+- **Idempotency:** Re-registering a matching artifact returns the existing adapter as an idempotent replay; conflicting existing adapter metadata is rejected.
+- **API:** Added renter-authenticated `POST /api/lora/training-jobs/{training_job_id}/register-adapter`, returning `serving_enabled: false` and the next vLLM load-proof step.
+- **Read model:** LoRA training job list/detail responses now compute `adapter_registered` from the adapter registry table.
+- **DB wrapper hardening:** Adapter registry schema ensure now accepts the production DB wrapper shape used by route factories.
+- **Docs/OpenAPI:** Documented the register-adapter endpoint in the public OpenAPI copies and updated the LoRA runbook order.
+- **Verified:** Targeted LoRA training job, adapter registry, and adapter deployment Jest suites; `git diff --check`; OpenAPI YAML parse.
+
 ### 2026-07-08 08:04 UTC - `chore(lora): wire template validation dry-run gates - PR #747`
 
 **PR:** [#747](https://github.com/dhnpmp-tech/dcp-platform/pull/747) (`codex/lora-template-validation-dry-run-2026-07-08`).
