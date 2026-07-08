@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 19:38 UTC - `feat(frontend): show prompt-cache readiness in renter Playground - PR #802`
+### 2026-07-08 19:46 UTC - `feat(frontend): show prompt-cache readiness in renter Playground - PR #802`
 
 **PR:** [#802](https://github.com/dhnpmp-tech/dcp-platform/pull/802) (`codex/renter-playground-prompt-cache-readiness-2026-07-08`).
-**Local timestamp:** 2026-07-08 23:38 +04.
+**Local timestamp:** 2026-07-08 23:46 +04.
 
 **What:** Sixty-eighth Fireworks/Tinker execution slice. Brings the prompt-cache readiness contract into the renter Playground alongside router and model metadata.
 
