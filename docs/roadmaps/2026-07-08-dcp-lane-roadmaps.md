@@ -32,6 +32,9 @@ what is live.
   into shared site navigation while keeping serving and trainer claims gated.
 - PR #789 added the public `/inference` product page and retargeted shared
   Inference links while keeping advanced routing and feature rails gated.
+- PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
+  GPU Pods links away from `/containers`, and kept `/containers` as a
+  compatibility URL without changing pod backend behavior.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -95,6 +98,8 @@ what is live.
   - `/inference`
     **Added in PR #789 with shipped `/v1/models` and balanced-router gates.**
   - `/pods`
+    **Added in PR #790 as the public GPU Pods route while `/containers` remains
+    a compatibility URL.**
   - `/fine-tuning`
     **Added in PR #788 with proof-gated LoRA contract copy.**
   - `/dedicated-deployments`

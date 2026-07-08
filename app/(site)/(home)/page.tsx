@@ -59,7 +59,7 @@ export default function V2HomePage() {
               </p>
 
               <div className="door-grid">
-                <Link className="door" href="/containers">
+                <Link className="door" href="/pods">
                   <span className="door-k">
                     <Bi en="Product 01 · compute" ar="المنتج ٠١ · حوسبة" />
                   </span>
@@ -166,7 +166,7 @@ export default function V2HomePage() {
 201 { "access_url": "https://…/jupyter", "ssh_command": "ssh …" }`}
               </pre>
               <div className="pshow-ctas">
-                <Link className="btn primary" href="/containers">
+                <Link className="btn primary" href="/pods">
                   <Bi en="Launch a pod →" ar="شغّل حاوية ←" />
                 </Link>
                 <Link className="btn ghost" href="/pricing">
@@ -617,7 +617,7 @@ client = OpenAI(
           <div>
             <h4><Bi en="Product" ar="المنتج" /></h4>
             <ul>
-              <li><Link href="/containers"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
+              <li><Link href="/pods"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
               <li><Link href="/inference"><Bi en="Inference" ar="الاستدلال" /></Link></li>
               <li><Link href="/fine-tuning"><Bi en="Fine-Tuning" ar="الضبط الدقيق" /></Link></li>
               <li><Link href="/agents"><Bi en="Agents" ar="الوكلاء" /></Link></li>

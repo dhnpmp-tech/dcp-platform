@@ -151,7 +151,7 @@ export default function FineTuningProductPage() {
               </p>
               <div style={{ marginTop: 22, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <Link className="btn primary" href="/renter/fine-tuning"><Bi en="Open console" ar="افتح اللوحة" /></Link>
-                <Link className="btn ghost" href="/containers"><Bi en="Rent a GPU pod" ar="استأجر حاوية GPU" /></Link>
+                <Link className="btn ghost" href="/pods"><Bi en="Rent a GPU pod" ar="استأجر حاوية GPU" /></Link>
               </div>
             </div>
             <div className="capacity-gates" aria-label="Fine-tuning gates">

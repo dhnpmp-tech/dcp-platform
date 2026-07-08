@@ -37,7 +37,7 @@ export default function ContainersPage() {
 
   return (
     <>
-      <SiteHeader active="/containers" />
+      <SiteHeader active="/pods" />
 
       {/* ─── Hero ─── */}
       <section className="hero" style={{ borderTop: 0, padding: 0 }}>

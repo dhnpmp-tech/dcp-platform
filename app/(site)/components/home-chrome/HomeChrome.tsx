@@ -25,7 +25,7 @@ export function HomeChrome() {
   }, [menuOpen])
 
   const menuLinks: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; sEn: string; sAr: string }> = [
-    { href: '/containers', n: '01', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Whole-GPU rental · from 2.5 SAR/hr', sAr: 'إيجار معالجات كاملة · من ٢٫٥ ريال/س' },
+    { href: '/pods', n: '01', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Whole-GPU rental · from 2.5 SAR/hr', sAr: 'إيجار معالجات كاملة · من ٢٫٥ ريال/س' },
     { href: '/inference', n: '02', tEn: 'Inference', tAr: 'الاستدلال', sEn: 'OpenAI-compatible · live catalog', sAr: 'متوافقة مع OpenAI · كتالوج حي' },
     { href: '/fine-tuning', n: '03', tEn: 'Fine-Tuning', tAr: 'الضبط الدقيق', sEn: 'LoRA contracts · proof-gated serving', sAr: 'عقود LoRA · خدمة مقيدة بالإثبات' },
     { href: '/agents', n: '04', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Live at agents.dcp.sa · MCP', sAr: 'على agents.dcp.sa · MCP' },

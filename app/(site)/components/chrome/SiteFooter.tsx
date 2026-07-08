@@ -35,7 +35,7 @@ export default function SiteFooter() {
           <h4><Bi en="Product" ar="المنتج" /></h4>
           <ul>
             <li><Link href="/"><Bi en="Overview" ar="نظرة عامة" /></Link></li>
-            <li><Link href="/containers"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
+            <li><Link href="/pods"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
             <li><Link href="/inference"><Bi en="Inference" ar="الاستدلال" /></Link></li>
             <li><Link href="/fine-tuning"><Bi en="Fine-Tuning" ar="الضبط الدقيق" /></Link></li>
             <li><Link href="/agents"><Bi en="Agents" ar="الوكلاء" /></Link></li>
