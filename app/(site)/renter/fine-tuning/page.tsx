@@ -36,6 +36,53 @@ interface AdapterListResponse {
   error?: string
 }
 
+interface LoraModelCardManifest {
+  object: string
+  schema_version: string
+  status: string
+  storage_key: string
+  adapter: {
+    adapter_id: string
+    name: string
+    base_model: string
+    recipe: string
+  }
+  dataset: {
+    storage_key: string
+    checksum_sha256: string
+    format: string
+    row_count: number
+    train_rows: number
+    validation_rows: number
+    estimated_tokens: number
+  }
+  artifact: {
+    storage_key: string | null
+    checksum_sha256: string | null
+    proof_status: string
+  }
+  training: {
+    training_job_id: string
+    status: string
+    started_at: string | null
+    completed_at: string | null
+  }
+  claims: {
+    public_training_enabled: boolean
+    serving_enabled: boolean
+    route_traffic: boolean
+    quality_claims: boolean
+    tinker_compatible: boolean
+  }
+  safety: {
+    raw_dataset_not_embedded: boolean
+    gpu_host_proof_required: boolean
+    serving_load_proof_required: boolean
+    public_claim: string
+  }
+  next: string
+}
+
 interface TrainingJobRecord {
   training_job_id: string
   recipe: string
@@ -51,6 +98,9 @@ interface TrainingJobRecord {
   output_adapter_id: string
   status: string
   artifact_storage_key: string | null
+  artifact_checksum_sha256: string | null
+  model_card_storage_key: string | null
+  model_card_manifest: LoraModelCardManifest | null
   failure_reason: string | null
   training_enabled: boolean
   adapter_registered: boolean
@@ -104,9 +154,11 @@ const CONTRACT_LINES = [
   'POST /api/adapters',
   'GET  /api/adapters',
   'POST /api/adapters/{id}/deployments',
+  'model_card_manifest: reserved | metadata_stub',
   'dataset_jsonl: chat_messages | prompt_completion',
   'recipes: lora_sft | qlora_sft',
   'training_enabled: false until trainer proof',
+  'serving_enabled: false until load proof',
   'route_traffic: false until adapter_load_proof',
 ]
 
@@ -206,6 +258,7 @@ export default function RenterFineTuningPage() {
   const readyAdapters = adapters.filter((adapter) => adapter.status === 'ready' || adapter.status === 'deployed')
   const adapterRows = adapters.slice(0, 6)
   const trainingJobRows = trainingJobs.slice(0, 6)
+  const manifestRows = trainingJobs.filter((job) => job.model_card_manifest).slice(0, 4)
   const totalDatasetRows = trainingJobs.reduce((sum, job) => sum + (job.dataset_row_count || 0), 0)
   const totalEstimatedTokens = trainingJobs.reduce((sum, job) => sum + (job.estimated_tokens || 0), 0)
   const isLive = loadState === 'ready'
@@ -298,22 +351,22 @@ export default function RenterFineTuningPage() {
             </div>
             <div className="kpi">
               <div className="k">
-                <Bi en="Ready adapters" ar="محولات جاهزة" />
+                <Bi en="Model cards" ar="بطاقات النماذج" />
               </div>
-              <div className="v">{loadState === 'ready' ? readyAdapters.length : 0}</div>
+              <div className="v">{loadState === 'ready' ? manifestRows.length : 0}</div>
               <div className="d up">
-                <Bi en="Still requires deploy proof" ar="ما زالت تتطلب إثبات نشر" />
+                <Bi en="Metadata only" ar="بيانات وصفية فقط" />
               </div>
             </div>
             <div className="kpi">
               <div className="k">
-                <Bi en="Traffic routes" ar="مسارات الحركة" />
+                <Bi en="Ready adapters" ar="محولات جاهزة" />
               </div>
-              <div className="v">0</div>
+              <div className="v">{loadState === 'ready' ? readyAdapters.length : 0}</div>
               <div className="d flat">
                 <Bi
-                  en={`Off until load proof · ${baseModels} bases`}
-                  ar={`متوقفة حتى إثبات التحميل · ${baseModels} نماذج`}
+                  en={`Routes off · ${baseModels} bases`}
+                  ar={`المسارات متوقفة · ${baseModels} نماذج`}
                 />
               </div>
             </div>
@@ -355,6 +408,80 @@ export default function RenterFineTuningPage() {
                 </article>
               ))}
             </div>
+          </section>
+
+          <section className="ft-model-cards" aria-labelledby="ft-model-card-title">
+            <div className="ft-section-head compact">
+              <div>
+                <span className="pod-label">
+                  <Bi en="Model-card manifest" ar="بيان بطاقة النموذج" />
+                </span>
+                <h2 id="ft-model-card-title">
+                  <Bi en="Adapter proof cards" ar="بطاقات إثبات المحولات" />
+                </h2>
+              </div>
+              <span className="ft-contract-id mono">dcp.lora_model_card_manifest.v1</span>
+            </div>
+
+            {manifestRows.length > 0 ? (
+              <div className="ft-model-card-grid">
+                {manifestRows.map((job) => {
+                  const manifest = job.model_card_manifest as LoraModelCardManifest
+                  return (
+                    <article className="ft-model-card" key={job.training_job_id}>
+                      <div className="ft-model-card-top">
+                        <div>
+                          <span className="ft-table-sub mono">{manifest.adapter.adapter_id}</span>
+                          <h3>{manifest.adapter.name}</h3>
+                        </div>
+                        <span className={`stat ${statusTone(job.status)}`}>{manifest.status}</span>
+                      </div>
+
+                      <dl className="ft-model-card-facts">
+                        <div>
+                          <dt><Bi en="Base" ar="الأساس" /></dt>
+                          <dd>{manifest.adapter.base_model}</dd>
+                        </div>
+                        <div>
+                          <dt><Bi en="Dataset" ar="البيانات" /></dt>
+                          <dd>{formatNumber(manifest.dataset.row_count)} rows · {manifest.dataset.format}</dd>
+                        </div>
+                        <div>
+                          <dt><Bi en="Artifact" ar="الأثر" /></dt>
+                          <dd>{manifest.artifact.proof_status}</dd>
+                        </div>
+                        <div>
+                          <dt><Bi en="Card key" ar="مفتاح البطاقة" /></dt>
+                          <dd>{manifest.storage_key}</dd>
+                        </div>
+                      </dl>
+
+                      <div className="ft-claim-strip" aria-label={lang === 'ar' ? 'حراس الادعاءات' : 'Claim guards'}>
+                        <span><Bi en={manifest.claims.public_training_enabled ? 'training on' : 'training off'} ar={manifest.claims.public_training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'} /></span>
+                        <span><Bi en={manifest.claims.serving_enabled ? 'serving on' : 'serving off'} ar={manifest.claims.serving_enabled ? 'الخدمة تعمل' : 'الخدمة متوقفة'} /></span>
+                        <span><Bi en={manifest.claims.route_traffic ? 'routes on' : 'routes off'} ar={manifest.claims.route_traffic ? 'المسارات تعمل' : 'المسارات متوقفة'} /></span>
+                        <span><Bi en={manifest.claims.quality_claims ? 'quality claimed' : 'no quality claim'} ar={manifest.claims.quality_claims ? 'ادعاء جودة' : 'لا ادعاء جودة'} /></span>
+                        <span><Bi en={manifest.claims.tinker_compatible ? 'Tinker compatible' : 'Tinker not claimed'} ar={manifest.claims.tinker_compatible ? 'متوافق مع Tinker' : 'لا ادعاء Tinker'} /></span>
+                      </div>
+
+                      <p className="ft-next mono">{manifest.next}</p>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="ft-empty">
+                <b>
+                  <Bi en="No model-card manifests yet" ar="لا توجد بيانات بطاقات نماذج بعد" />
+                </b>
+                <span>
+                  <Bi
+                    en="Manifest cards appear after a LoRA job reserves or records a model-card storage key."
+                    ar="تظهر بطاقات البيان بعد أن تحجز أو تسجل مهمة LoRA مفتاح تخزين بطاقة النموذج."
+                  />
+                </span>
+              </div>
+            )}
           </section>
 
           <section className="ft-grid" aria-label={lang === 'ar' ? 'حالة السجل والعقود' : 'Registry and contract state'}>
@@ -427,6 +554,12 @@ export default function RenterFineTuningPage() {
                                   <Bi
                                     en={job.adapter_registered ? 'adapter registered' : 'adapter pending'}
                                     ar={job.adapter_registered ? 'المحول مسجل' : 'المحول قيد الانتظار'}
+                                  />
+                                </span>
+                                <span>
+                                  <Bi
+                                    en={job.model_card_manifest ? 'model card manifest' : 'model card pending'}
+                                    ar={job.model_card_manifest ? 'بيان بطاقة النموذج' : 'بطاقة النموذج قيد الانتظار'}
                                   />
                                 </span>
                               </span>

@@ -15,6 +15,8 @@ what is live.
 ### Progress
 
 - PR #745 added the Fine-Tuning training-jobs ledger to the renter console.
+- PR #778 added Fine-Tuning model-card manifest proof cards tied to the
+  metadata-only `model_card_manifest` contract from LoRA training jobs.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -83,6 +85,7 @@ what is live.
    language started in PR #765.**
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
    **Started in PR #745.**
+   **Model-card manifest cards added in PR #778.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
    **Readiness gates from the backend contract added in PR #777.**
 
@@ -401,6 +404,9 @@ DCP-hosted endpoint -> billed inference.
   **Training job metadata/logs/artifact proof foundations have landed; PR #775
   adds the model-card manifest stub while keeping public training and serving
   disabled.**
+  **PR #778 renders those manifests in `/renter/fine-tuning` as metadata-only
+  proof cards with public training, serving, routing, quality, and Tinker guards
+  still false.**
 - Adapter deploy:
   - one adapter/live merge first
   - multi-LoRA second

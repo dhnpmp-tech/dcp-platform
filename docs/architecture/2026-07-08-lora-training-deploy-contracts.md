@@ -115,6 +115,8 @@ Before a public training route:
    `model_card_manifest` field on LoRA training-job responses. It is metadata
    only and explicitly carries no public training, serving, quality, or
    Tinker-compatibility claims.
+   **Fine-Tuning manifest rendering is added in PR #778** via read-only
+   `/renter/fine-tuning` proof cards that render those claim guards directly.
 5. Compute artifact SHA-256.
 6. Register the adapter in `adapter_registry` with `registered` or `ready`.
    **Done in PR #748** via `POST
@@ -158,3 +160,7 @@ the future model-card artifact writer and fine-tuning dashboard. It keeps raw
 dataset content out of API responses and explicitly marks public training,
 serving, routing, quality claims, and Tinker compatibility as false until
 GPU-host and serving-load proof exist.
+PR #778 wires the fine-tuning dashboard to that manifest. The UI now shows
+manifest status, adapter/base, dataset rows, artifact proof, storage key,
+contract version, and next step, while rendering public training, serving,
+routing, quality, and Tinker guards from the manifest claims object.

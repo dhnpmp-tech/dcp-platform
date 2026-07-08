@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 15:05 UTC - Fine-Tuning model-card manifest cards (PR #778)
+
+- **PR:** [#778](https://github.com/dhnpmp-tech/dcp-platform/pull/778) (`codex/frontend-lora-model-card-2026-07-08`).
+- **Frontend:** `/renter/fine-tuning` now renders `model_card_manifest` from LoRA training-job responses.
+- **UI:** Added adapter proof cards with manifest status, adapter/base, dataset rows/format, artifact proof status, storage key, contract version, and next step.
+- **Safety:** Public training, serving, routing, quality, and Tinker guards are rendered from manifest claims and remain false in the current backend contract.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render with no horizontal overflow.
+
 ### 2026-07-08 14:56 UTC - Batch readiness gates in renter console (PR #777)
 
 - **PR:** [#777](https://github.com/dhnpmp-tech/dcp-platform/pull/777) (`codex/frontend-batch-readiness-2026-07-08`).
