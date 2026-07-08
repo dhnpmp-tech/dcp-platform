@@ -21,8 +21,8 @@ describe('live acceptance gate status script', () => {
     expect(report.summary).toMatchObject({
       total: LIVE_ACCEPTANCE_GATES.length,
       blocked: LIVE_ACCEPTANCE_GATES.length,
-      command_available: 4,
-      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 4,
+      command_available: 5,
+      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 5,
       capability_claim_allowed: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
@@ -59,8 +59,14 @@ describe('live acceptance gate status script', () => {
       capability_claim_allowed: false,
       blocked_on: expect.arrayContaining(['provider cache-hit evidence', 'settlement discount policy approval']),
     });
+    expect(report.gates.find((gate) => gate.id === 'batch_live_execution_discount_smoke')).toMatchObject({
+      acceptance_state: 'blocked',
+      acceptance_command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+      command_available: true,
+      capability_claim_allowed: false,
+      blocked_on: expect.arrayContaining(['object-store result path', 'discount policy approval']),
+    });
     for (const id of [
-      'batch_live_execution_discount_smoke',
       'lora_gpu_training_artifact_proof',
       'adapter_vllm_load_billing_smoke',
     ]) {

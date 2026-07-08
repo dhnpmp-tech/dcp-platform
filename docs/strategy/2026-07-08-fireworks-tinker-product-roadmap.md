@@ -249,6 +249,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     packet for readiness, JSONL validation, idempotency, disabled worker
     behavior, result checksum proof, line-ledger totals, and minimum-balance
     settlement preflight before live provider execution or batch discounts.
+  - PR #838 added `npm run proof:batch-live-execution`, an opt-in live
+    readiness proof runner that refuses by default, checks
+    renter-authenticated `GET /api/batches/readiness` only when explicitly
+    allowed, records execution/download/settlement/discount blockers, and stops
+    before creating a batch until the full live flow is ready.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency
@@ -472,6 +477,11 @@ Acceptance:
     `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;
     cached-input discounts, provider KV-cache control, and settlement discounts
     remain gated until that command passes with funded/provider/policy evidence.**
+15. **Batch live execution runner** - opt-in live readiness proof before batch
+    execution and discounted settlement claims. **Added in PR #838 as
+    `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`;
+    batch creation/execution/download/settlement remain gated until readiness
+    and the runner prove the full live flow.**
 
 ## Division of Work
 

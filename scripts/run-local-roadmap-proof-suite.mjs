@@ -82,6 +82,11 @@ const EXTERNAL_GATES = Object.freeze([
     command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
     blocked_on: ['provider cache-hit evidence', 'funded smoke principal', 'settlement discount policy approval'],
   },
+  {
+    id: 'batch_live_execution',
+    command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+    blocked_on: ['funded smoke principal', 'object-store result path', 'live provider execution capacity', 'discount policy approval'],
+  },
 ]);
 
 function toStamp(date = new Date()) {

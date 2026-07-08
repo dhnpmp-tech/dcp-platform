@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 23:35 UTC - Batch live execution proof runner (PR #838)
+
+- **PR:** [#838](https://github.com/dhnpmp-tech/dcp-platform/pull/838) (`codex/batch-live-proof-runner-2026-07-09`).
+- **Live proof command:** Added `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`.
+- **Default safety:** The runner refuses by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Contract:** When explicitly allowed, it checks renter-authenticated batch readiness with the deterministic smoke principal and records blockers for execution, result downloads, settlement, discounts, and model batch capability.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now reports batch live execution as command-ready, moving the live ledger to 5/8 command-ready and 3/8 missing acceptance runners.
+- **Safety:** No batch creation, provider execution, object-store write, result download, settlement, discount, model catalog, frontend, routing, billing, or public claim behavior changed.
+- **Verification:** Default blocked proof run; targeted Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:27 UTC - Prompt-cache live settlement proof runner (PR #836)
 
 - **PR:** [#836](https://github.com/dhnpmp-tech/dcp-platform/pull/836) (`codex/prompt-cache-live-proof-runner-2026-07-09`).
