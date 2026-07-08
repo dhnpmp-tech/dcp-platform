@@ -34,6 +34,9 @@ what is live.
   into shared site navigation while keeping serving and trainer claims gated.
 - PR #789 added the public `/inference` product page and retargeted shared
   Inference links while keeping advanced routing and feature rails gated.
+- PR #801 updated `/inference` to surface `GET /v1/prompt-cache/readiness` as
+  the prompt-cache measurement source while keeping cached-input discounts,
+  settlement discounts, and provider KV-cache control gated.
 - PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
   GPU Pods links away from `/containers`, and kept `/containers` as a
   compatibility URL without changing pod backend behavior.
@@ -284,6 +287,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #800 added public `GET /v1/prompt-cache/readiness` so agents and product
   surfaces can see hash-only prompt-cache measurement, usage response fields,
   and no-discount billing gates without changing inference settlement.
+- PR #801 surfaced that readiness contract on `/inference`, separating shipped
+  measurement from still-gated cache economics in public product copy.
 
 ### Now
 
@@ -320,6 +325,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   **Read-only readiness landed in PR #800 via
   `GET /v1/prompt-cache/readiness`, keeping discounts and provider KV-cache
   control disabled until proof exists.**
+  **Public Inference copy now points to that readiness contract in PR #801.**
 - Batch inference:
   - JSONL input
   - async job
