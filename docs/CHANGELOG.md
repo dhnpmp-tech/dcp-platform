@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 23:17 UTC - Prompt-cache live settlement proof runner (PR #836)
+### 2026-07-08 23:27 UTC - Prompt-cache live settlement proof runner (PR #836)
 
 - **PR:** [#836](https://github.com/dhnpmp-tech/dcp-platform/pull/836) (`codex/prompt-cache-live-proof-runner-2026-07-09`).
 - **Live proof command:** Added `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`.

@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 23:17 UTC - `test(inference): add prompt-cache live settlement proof runner - PR #836`
+### 2026-07-08 23:27 UTC - `test(inference): add prompt-cache live settlement proof runner - PR #836`
 
 **PR:** [#836](https://github.com/dhnpmp-tech/dcp-platform/pull/836) (`codex/prompt-cache-live-proof-runner-2026-07-09`).
-**Local timestamp:** 2026-07-09 03:17 +04.
+**Local timestamp:** 2026-07-09 03:27 +04.
 
 **What:** Eighty-fifth Fireworks/Tinker execution slice. Promotes the prompt-cache live provider/settlement gate from missing-runner status to an opt-in live proof command.
 
