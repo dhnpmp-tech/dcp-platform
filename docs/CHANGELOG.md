@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 22:25 UTC - LoRA training contract proof (PR #828)
+### 2026-07-08 22:29 UTC - LoRA training contract proof (PR #828)
 
 - **PR:** [#828](https://github.com/dhnpmp-tech/dcp-platform/pull/828) (`codex/lora-training-contract-proof-2026-07-09`).
 - **Proof command:** Added `npm run proof:lora-training-contract` for the CI-safe LoRA dataset/training/artifact proof.
