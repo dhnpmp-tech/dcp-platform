@@ -46,6 +46,8 @@ function modelRow(overrides = {}) {
     use_cases: JSON.stringify(['embed']),
     min_gpu_vram_gb: 4,
     default_price_halala_per_min: 2,
+    price_in_halala_per_1m_tok: 8,
+    price_out_halala_per_1m_tok: 0,
     is_active: 1,
     updated_at: '2026-06-03T00:00:00.000Z',
     benchmark_suite: null,
@@ -90,12 +92,19 @@ function providerRow(overrides = {}) {
   };
 }
 
-function mockCatalog({ providers = [providerRow()] } = {}) {
+function mockCatalog({
+  providers = [providerRow()],
+  modelOverrides = {},
+  costRates = [
+    { model: 'BAAI/bge-m3', token_rate_halala: 999, model_class: 'embedding' },
+    { model: '__default__', token_rate_halala: 19, model_class: 'default' },
+  ],
+} = {}) {
   mockDb.all.mockImplementation((sql) => {
     const query = String(sql);
-    if (query.includes('FROM model_registry')) return [modelRow()];
+    if (query.includes('FROM model_registry')) return [modelRow(modelOverrides)];
     if (query.includes('FROM providers')) return providers;
-    if (query.includes('FROM cost_rates')) return [];
+    if (query.includes('FROM cost_rates')) return costRates;
     return [];
   });
 }
@@ -165,6 +174,102 @@ describe('/api/models catalog honesty', () => {
       model_id: 'BAAI/bge-m3',
       providers_online: 1,
       status: 'available',
+    });
+  });
+
+  test('adds token pricing and proof-gated capability metadata to legacy model list', async () => {
+    mockCatalog({
+      providers: [providerRow({ cached_models: JSON.stringify(['bge-m3']) })],
+    });
+
+    const response = await request(buildApp()).get('/api/models');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0]).toMatchObject({
+      model_id: 'BAAI/bge-m3',
+      provider_count: 1,
+      available: true,
+      token_pricing: {
+        halala_per_1m_input_tokens: 8,
+        halala_per_1m_output_tokens: 0,
+        sar_per_1m_input_tokens: '0.0800',
+        sar_per_1m_output_tokens: '0.0000',
+        billing_unit: 'per_1m_tokens',
+        source: 'model_registry',
+        model_class: 'embedding',
+      },
+      capability_flags: {
+        chat_completions: true,
+        streaming: true,
+        embeddings: true,
+        dedicated_deployment: false,
+        lora: false,
+        prompt_caching: false,
+        batch: false,
+      },
+      modalities: ['text'],
+      supported_features: ['chat.completions', 'embeddings'],
+    });
+    expect(response.body[0].capabilities).toEqual(response.body[0].capability_flags);
+  });
+
+  test('adds the same token and capability contract to managed catalog feed', async () => {
+    mockCatalog({
+      providers: [providerRow({ cached_models: JSON.stringify(['bge-m3']) })],
+      modelOverrides: {
+        use_cases: JSON.stringify(['chat', 'reasoning', 'tool calling', 'arabic']),
+        price_in_halala_per_1m_tok: 80,
+        price_out_halala_per_1m_tok: 150,
+      },
+    });
+
+    const response = await request(buildApp()).get('/api/models/catalog');
+
+    expect(response.status).toBe(200);
+    expect(response.body.total_models).toBe(1);
+    expect(response.body.models[0].pricing.token_pricing).toMatchObject({
+      halala_per_1m_input_tokens: 80,
+      halala_per_1m_output_tokens: 150,
+      sar_per_1m_input_tokens: '0.8000',
+      sar_per_1m_output_tokens: '1.5000',
+      source: 'model_registry',
+    });
+    expect(response.body.models[0].capability_flags).toMatchObject({
+      chat_completions: true,
+      streaming: true,
+      reasoning: true,
+      tool_calling: true,
+      multilingual: true,
+      batch: false,
+      prompt_caching: false,
+      lora: false,
+    });
+    expect(response.body.models[0].capabilities).toEqual(response.body.models[0].capability_flags);
+  });
+
+  test('falls back to active cost_rates for token pricing when registry token rates are absent', async () => {
+    mockCatalog({
+      providers: [providerRow({ cached_models: JSON.stringify(['bge-m3']) })],
+      modelOverrides: {
+        price_in_halala_per_1m_tok: null,
+        price_out_halala_per_1m_tok: null,
+      },
+      costRates: [
+        { model: '__default__', token_rate_halala: 42, model_class: 'default' },
+      ],
+    });
+
+    const response = await request(buildApp()).get('/api/models');
+
+    expect(response.status).toBe(200);
+    expect(response.body[0].token_pricing).toMatchObject({
+      halala_per_1m_input_tokens: 42,
+      halala_per_1m_output_tokens: 42,
+      sar_per_1m_input_tokens: '0.4200',
+      sar_per_1m_output_tokens: '0.4200',
+      source: 'cost_rates',
+      model_class: 'default',
     });
   });
 

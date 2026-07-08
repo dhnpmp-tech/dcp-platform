@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 07:57 UTC - `feat(inference): add API model catalog contract metadata - PR #746`
+
+**PR:** [#746](https://github.com/dhnpmp-tech/dcp-platform/pull/746) (`codex/api-models-contract-parity-2026-07-08`).
+**Local timestamp:** 2026-07-08 11:57 +04.
+
+**What:** Fourteenth Fireworks/Tinker execution slice. Adds `/api/models` contract metadata so frontend/product pages can read model token pricing and capability flags from backend data instead of guessing from VRAM or duplicated copy.
+
+- **Catalog contract:** Added token-pricing metadata to `/api/models`, `/api/models/catalog`, and `/api/models/{model_id}` with prompt/completion USD-per-token strings, SAR/halala per 1M token rates, billing unit, source, and model class.
+- **Rate precedence:** Uses `model_registry.price_in_halala_per_1m_tok` / `price_out_halala_per_1m_tok` when configured and falls back to active `cost_rates` when registry token rates are absent.
+- **Capability metadata:** Added `/v1/models`-style `capability_flags`, `capabilities`, `modalities`, `supported_features`, `max_output_tokens`, `provider_count`, and `available` fields to model catalog responses.
+- **Honesty gates:** Keeps `dedicated_deployment`, `lora`, `prompt_caching`, and `batch` false until the backend proof/billing slices are complete.
+- **Tests:** Extended model catalog honesty tests for registry-token precedence, cost-rate fallback, managed catalog parity, and proof-gated capability flags.
+- **Verified:** Targeted model catalog and `/v1/models` Jest suites; `git diff --check`.
+
 ### 2026-07-08 07:42 UTC - `feat(frontend): wire fine-tuning console to LoRA training jobs - PR #745`
 
 **PR:** [#745](https://github.com/dhnpmp-tech/dcp-platform/pull/745) (`codex/frontend-finetuning-training-jobs-2026-07-08`).
