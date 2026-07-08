@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 04:50 UTC - Fat LoRA pod image verification path (PR #733)
+
+- **PR:** [#733](https://github.com/dhnpmp-tech/dcp-platform/pull/733) (`codex/fat-pod-image-verification-2026-07-08`).
+- **Pods:** Added a provider-local `dcp-compute:lora` image Dockerfile, build target, pod alias, and `/workspace/examples` seed behavior for LoRA/QLoRA/vLLM work.
+- **Verification:** Added a GPU-host smoke script that imports the LoRA stack, checks CUDA visibility, and runs an offline LoRA SFT scaffold without launch-time pip installs.
+- **Runbook:** Added `docs/architecture/2026-07-08-fat-pod-image-verification.md` with build, acceptance, and rollback instructions.
+
 ### 2026-07-08 04:30 UTC - Inference model rate and capability metadata (PR #732)
 
 - **PR:** [#732](https://github.com/dhnpmp-tech/dcp-platform/pull/732) (`codex/inference-model-metadata-2026-07-08`).

@@ -1,0 +1,16 @@
+jupyterlab
+transformers>=4.43,<5
+peft>=0.11,<1
+accelerate>=0.33,<1
+datasets>=2.20,<4
+bitsandbytes>=0.43,<1
+trl>=0.9,<1
+safetensors
+sentencepiece
+protobuf
+einops
+scipy
+scikit-learn
+tensorboard
+hf-transfer
+vllm>=0.5,<1
