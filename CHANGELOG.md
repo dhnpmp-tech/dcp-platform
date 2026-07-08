@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 08:04 UTC - `chore(lora): wire template validation dry-run gates - PR #747`
+
+**PR:** [#747](https://github.com/dhnpmp-tech/dcp-platform/pull/747) (`codex/lora-template-validation-dry-run-2026-07-08`).
+**Local timestamp:** 2026-07-08 12:04 +04.
+
+**What:** Fifteenth Fireworks/Tinker execution slice. Hardens the LoRA/QLoRA/vLLM template gate so agents and CI can run the roadmap’s template validation command before any GPU-host training proof is claimed.
+
+- **Root command:** Added `npm run templates:validate`, delegating to the existing backend deploy-template validator.
+- **CI reproducibility:** Reconciled `backend/package-lock.json` with the current backend dependency manifest so `npm --prefix backend ci` can install cleanly before validation.
+- **LoRA dry-run gates:** Validator now requires `lora-finetune` and `qlora-finetune` templates to preserve `DC1_RESULT_JSON` dry-run scaffolds, `custom_container` example inputs, matching output template ids, non-empty base model, and explicit `ready_for_*` status output.
+- **vLLM serving gate:** Validator now checks the `vllm-serve` example contract remains a `vllm_serve` input with an endpoint output, running status, and OpenAI-compatible `/v1` base URL.
+- **Product honesty:** This does not enable managed LoRA training or adapter serving; it strengthens the pre-GPU proof gate for the existing templates.
+- **Verified:** `npm --prefix backend ci`; `npm run templates:validate`; `npm --prefix backend run templates:validate`; `git diff --check`.
+
 ### 2026-07-08 07:57 UTC - `feat(inference): add API model catalog contract metadata - PR #746`
 
 **PR:** [#746](https://github.com/dhnpmp-tech/dcp-platform/pull/746) (`codex/api-models-contract-parity-2026-07-08`).

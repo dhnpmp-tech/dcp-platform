@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 08:04 UTC - LoRA/vLLM template validation dry-run gates (PR #747)
+
+- **PR:** [#747](https://github.com/dhnpmp-tech/dcp-platform/pull/747) (`codex/lora-template-validation-dry-run-2026-07-08`).
+- **Tooling:** Added root-level `npm run templates:validate`, delegating to the backend deploy-template validator.
+- **CI:** Reconciled `backend/package-lock.json` with the backend manifest so `npm --prefix backend ci` succeeds before validation.
+- **LoRA gates:** The validator now requires `lora-finetune` and `qlora-finetune` templates to keep `DC1_RESULT_JSON` dry-run scaffolds, `custom_container` example inputs, matching output template ids, non-empty base model metadata, and explicit `ready_for_*` statuses.
+- **vLLM gate:** The validator now checks the `vllm-serve` example contract remains a `vllm_serve` input with a running endpoint output and OpenAI-compatible `/v1` base URL.
+- **Product guardrails:** This strengthens the template proof gate without enabling managed LoRA training or adapter traffic routing.
+- **Verification:** `npm --prefix backend ci`; `npm run templates:validate`; `npm --prefix backend run templates:validate`; `git diff --check`.
+
 ### 2026-07-08 07:57 UTC - API model catalog contract metadata (PR #746)
 
 - **PR:** [#746](https://github.com/dhnpmp-tech/dcp-platform/pull/746) (`codex/api-models-contract-parity-2026-07-08`).

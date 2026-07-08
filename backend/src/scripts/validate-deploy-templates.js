@@ -17,6 +17,8 @@ const REQUIRED_DEPLOY_TEMPLATE_IDS = [
   'python-scientific-compute'
 ];
 
+const LORA_DRY_RUN_TEMPLATE_IDS = new Set(['lora-finetune', 'qlora-finetune']);
+
 const CACHE_POLICIES = new Set(['hot', 'warm', 'cold']);
 const REQUIRED_FIELDS = [
   'id',
@@ -142,6 +144,64 @@ function validateDeployTemplate(template, filename, errors) {
   }
 }
 
+function validateLoraDryRunTemplate(template, filename, errors) {
+  const script = template.params && template.params.script;
+  if (typeof script !== 'string' || !script.includes('DC1_RESULT_JSON')) {
+    fail(`${filename}: LoRA template params.script must emit DC1_RESULT_JSON for dry-run proof`, errors);
+  }
+  if (typeof script === 'string' && !script.includes('ready_for_')) {
+    fail(`${filename}: LoRA template params.script must report an explicit ready_for_* status`, errors);
+  }
+
+  const input = template.example_io && template.example_io.input;
+  const inputScript = input && input.params && input.params.script;
+  const output = template.example_io && template.example_io.output;
+  if (!isObject(input) || input.job_type !== 'custom_container') {
+    fail(`${filename}: LoRA dry-run example_io.input.job_type must be custom_container`, errors);
+  }
+  if (typeof inputScript !== 'string' || !inputScript.includes('DC1_RESULT_JSON')) {
+    fail(`${filename}: LoRA dry-run example_io.input.params.script must emit DC1_RESULT_JSON`, errors);
+  }
+  if (!isObject(output) || output.template !== template.id) {
+    fail(`${filename}: LoRA dry-run example_io.output.template must match template id`, errors);
+  }
+  if (!isObject(output) || typeof output.status !== 'string' || !output.status.startsWith('ready_for_')) {
+    fail(`${filename}: LoRA dry-run example_io.output.status must be a ready_for_* string`, errors);
+  }
+  if (!isObject(output) || typeof output.base_model !== 'string' || output.base_model.trim().length === 0) {
+    fail(`${filename}: LoRA dry-run example_io.output.base_model must be a non-empty string`, errors);
+  }
+}
+
+function validateVllmDryRunTemplate(template, filename, errors) {
+  const input = template.example_io && template.example_io.input;
+  const output = template.example_io && template.example_io.output;
+  if (!isObject(input) || input.job_type !== 'vllm_serve') {
+    fail(`${filename}: vLLM example_io.input.job_type must be vllm_serve`, errors);
+  }
+  if (!isObject(input?.params) || typeof input.params.model !== 'string' || input.params.model.trim().length === 0) {
+    fail(`${filename}: vLLM example_io.input.params.model must be a non-empty string`, errors);
+  }
+  if (!isObject(output) || output.type !== 'endpoint') {
+    fail(`${filename}: vLLM example_io.output.type must be endpoint`, errors);
+  }
+  if (!isObject(output) || output.status !== 'running') {
+    fail(`${filename}: vLLM example_io.output.status must be running`, errors);
+  }
+  if (!isObject(output) || typeof output.openai_base_url !== 'string' || !output.openai_base_url.endsWith('/v1')) {
+    fail(`${filename}: vLLM example_io.output.openai_base_url must end with /v1`, errors);
+  }
+}
+
+function validateDryRunContracts(template, filename, errors) {
+  if (LORA_DRY_RUN_TEMPLATE_IDS.has(template.id)) {
+    validateLoraDryRunTemplate(template, filename, errors);
+  }
+  if (template.id === 'vllm-serve') {
+    validateVllmDryRunTemplate(template, filename, errors);
+  }
+}
+
 function main() {
   const errors = [];
 
@@ -200,6 +260,7 @@ function main() {
     const templateFile = idToFile.get(requiredId);
     const template = templates.find((entry) => entry.id === requiredId);
     validateDeployTemplate(template, templateFile, errors);
+    validateDryRunContracts(template, templateFile, errors);
   }
 
   if (errors.length > 0) {
