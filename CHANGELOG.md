@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 21:16 UTC - `docs(roadmap): codify audit proof gates - PR #818`
+
+**PR:** [#818](https://github.com/dhnpmp-tech/dcp-platform/pull/818) (`codex/audit-execution-proof-gates-2026-07-08`).
+**Local timestamp:** 2026-07-09 01:16 +04.
+
+**What:** Seventy-sixth Fireworks/Tinker execution slice. Turns the audit-derived roadmap into an explicit build/deploy/smoke/proof order so future agents can continue without guessing acceptance states.
+
+- **Gate semantics:** Added Passed/Blocked/Failed/Deferred definitions so missing funded credentials, live GPU capacity, or provider-host access are tracked as blocked acceptance gates rather than silently treated as complete.
+- **Proof command map:** Documented the exact commands for build integrity, workspace-to-pod contracts, live workspace-pod proof, pod image contracts, Nsight evidence contracts, template validation, Anthropic SSE proof, production health, model catalog smoke, and Anthropic route-host sanity.
+- **Technical order:** Added the no-skips audit order: repo parity, proof harnesses, POT/PODS hardening, inference streaming/catalog hardening, prompt-cache/batch economics, LoRA artifact proof, adapter deployment, and product packaging.
+- **Lane alignment:** Updated the lane roadmaps with proof-first priority and a lane proof command table covering frontend, backend, inference, POT/PODS, and LoRA.
+- **Safety:** Documentation/process only. No runtime routes, billing, deployment, training, inference, credentials, or provider behavior changed.
+- **Verified:** `git diff --check`; Markdown command/link review.
+
 ### 2026-07-08 21:10 UTC - `fix(inference): point Anthropic SSE proof at API host - PR #816`
 
 **PR:** [#816](https://github.com/dhnpmp-tech/dcp-platform/pull/816) (`codex/fix-anthropic-proof-api-base-2026-07-08`).

@@ -614,25 +614,42 @@ DCP-hosted endpoint -> billed inference.
 ## Cross-Lane Priority Order
 
 1. Ops cleanup and repo parity. **Deploy-watch resolved; `dcp-agent` remains the open maintenance-window item.**
-2. Inference metadata/rate consistency.
-3. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
-4. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
+2. Proof harnesses before product claims. **`npm run proof:workspace-pod` and
+   `npm run proof:anthropic-sse` now exist for the two live acceptance paths;
+   both remain blocked, not accepted, until funded credentials and live provider
+   capacity are available.**
+3. Inference metadata/rate consistency.
+4. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
+5. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
    Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard
    landed in PR #810; live proof runner landed in PR #812.**
-5. Adapter registry schema. **Schema/API foundation has landed; continue with
+6. Adapter registry schema. **Schema/API foundation has landed; continue with
    GPU-host adapter proof and deployment smoke before public serving claims.**
-6. Prompt-cache accounting design.
+7. Prompt-cache accounting design.
    **Readiness contract added in PR #800; settlement discounts and provider
    cache-control proof remain gated.**
-7. Batch inference design.
-8. LoRA training job MVP.
+8. Batch inference design.
+9. LoRA training job MVP.
    **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;
    GPU-host artifact proof remains the gating evidence before public training.**
-9. Adapter deploy MVP.
+10. Adapter deploy MVP.
    **Deployment intent/load-proof contracts are in place through PR #749 and
    surfaced by PR #782; vLLM serving smoke remains required before routing.**
    **Renter-wide deployment listing added in PR #785.**
-10. Fireworks-style product pages.
+11. Fireworks-style product pages.
+
+## Lane Proof Commands
+
+Use this table with the execution-system gate semantics. A missing live
+credential or unavailable provider is **Blocked**, not **Passed**.
+
+| Lane | Mandatory local gate | Live/prod gate |
+|---|---|---|
+| Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
+| Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
+| Inference | targeted v1/Anthropic/model tests | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
+| POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; provider-host image imports for fat image work |
+| LoRA | `npm run templates:validate` plus adapter/training route tests | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 
 ## Weekly Cadence
 
