@@ -153,6 +153,12 @@ body {
   align-items: start;
 }
 
+.ft-ledger-stack {
+  display: grid;
+  gap: 30px;
+  min-width: 0;
+}
+
 .ft-ledger,
 .ft-contract {
   border-top: 1px solid var(--hair);
@@ -169,6 +175,10 @@ body {
   min-width: 820px;
 }
 
+.ft-training-table {
+  min-width: 980px;
+}
+
 .ft-table td {
   vertical-align: top;
 }
@@ -180,6 +190,26 @@ body {
   font-size: 10.5px;
   letter-spacing: .03em;
   color: var(--mut);
+}
+
+.ft-gate-list {
+  display: grid;
+  gap: 6px;
+  min-width: 132px;
+}
+
+.ft-gate-list span {
+  width: max-content;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid var(--hair);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: .04em;
+  color: var(--mut);
+  background: color-mix(in oklab, var(--paper) 90%, var(--line));
+  white-space: nowrap;
 }
 
 .ft-empty {

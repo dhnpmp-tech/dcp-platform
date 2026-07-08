@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 07:42 UTC - `feat(frontend): wire fine-tuning console to LoRA training jobs - PR #745`
+
+**PR:** [#745](https://github.com/dhnpmp-tech/dcp-platform/pull/745) (`codex/frontend-finetuning-training-jobs-2026-07-08`).
+**Local timestamp:** 2026-07-08 11:42 +04.
+
+**What:** Thirteenth Fireworks/Tinker execution slice. Connects the renter Fine-Tuning console to the LoRA training-job API foundation from PR #744 while keeping trainer execution and adapter routing visibly proof-gated.
+
+- **Frontend data flow:** `/renter/fine-tuning` now fetches renter account state, adapter registry rows, and `/api/lora/training-jobs` together behind the renter key.
+- **Training ledger:** Added a LoRA training jobs table with job id, output adapter reservation, dataset row/split/checksum metadata, base model, recipe, lifecycle status, and explicit trainer/adapter gates.
+- **Console metrics:** Reworked the Fine-Tuning KPIs around training jobs, dataset rows, estimated tokens, ready adapters, and zero traffic routes until serving proof lands.
+- **Contract preview:** Updated the on-page API contract to include training-job list/create and adapter deployment intent routes, with `training_enabled: false` and `route_traffic: false` gates.
+- **UX guardrails:** Split the console ledger into training jobs first and adapter registry second, preserving responsive scroll behavior and honest empty states for both layers.
+- **Verified:** `npm run build`; `git diff --check`; production-mode Playwright render of `/renter/fine-tuning` with mocked renter/adapters/training-jobs data on desktop and mobile.
+
 ### 2026-07-08 07:31 UTC - `feat(lora): add training job API foundation - PR #744`
 
 **PR:** [#744](https://github.com/dhnpmp-tech/dcp-platform/pull/744) (`codex/lora-training-jobs-foundation-2026-07-08`).

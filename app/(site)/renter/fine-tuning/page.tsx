@@ -36,6 +36,33 @@ interface AdapterListResponse {
   error?: string
 }
 
+interface TrainingJobRecord {
+  training_job_id: string
+  recipe: string
+  base_model: string
+  dataset_storage_key: string
+  dataset_checksum_sha256: string
+  dataset_format: string
+  dataset_row_count: number
+  train_rows: number
+  validation_rows: number
+  estimated_tokens: number
+  output_adapter_name: string
+  output_adapter_id: string
+  status: string
+  artifact_storage_key: string | null
+  failure_reason: string | null
+  training_enabled: boolean
+  adapter_registered: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface TrainingJobListResponse {
+  data?: TrainingJobRecord[]
+  error?: string
+}
+
 const STAGES = [
   {
     no: '01',
@@ -48,10 +75,10 @@ const STAGES = [
   {
     no: '02',
     status: 'ready',
-    titleEn: 'LoRA job draft',
-    titleAr: 'مسودة مهمة LoRA',
-    bodyEn: 'Fixed LoRA and QLoRA SFT recipes are normalized before any GPU work is allowed.',
-    bodyAr: 'وصفات LoRA وQLoRA SFT ثابتة وتتم تسويتها قبل السماح بأي عمل GPU.',
+    titleEn: 'Training job API',
+    titleAr: 'واجهة مهام التدريب',
+    bodyEn: 'Renter-scoped LoRA job rows are live with fixed recipes, dataset counts, checksums, and adapter reservations.',
+    bodyAr: 'صفوف مهام LoRA حسب المستأجر تعمل مع وصفات ثابتة وعدّ البيانات والبصمات وحجز المحولات.',
   },
   {
     no: '03',
@@ -72,10 +99,14 @@ const STAGES = [
 ] as const
 
 const CONTRACT_LINES = [
+  'POST /api/lora/training-jobs',
+  'GET  /api/lora/training-jobs',
   'POST /api/adapters',
   'GET  /api/adapters',
+  'POST /api/adapters/{id}/deployments',
   'dataset_jsonl: chat_messages | prompt_completion',
   'recipes: lora_sft | qlora_sft',
+  'training_enabled: false until trainer proof',
   'route_traffic: false until adapter_load_proof',
 ]
 
@@ -90,6 +121,17 @@ function formatDate(value: string): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 }
 
+function formatNumber(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '0'
+  return new Intl.NumberFormat('en-US').format(value)
+}
+
+function statusTone(status: string): string {
+  if (status === 'failed' || status === 'cancelled') return 'failed'
+  if (status === 'succeeded' || status === 'ready' || status === 'deployed') return 'settled'
+  return 'queued'
+}
+
 export default function RenterFineTuningPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
@@ -98,6 +140,7 @@ export default function RenterFineTuningPage() {
   const [renterName, setRenterName] = useState('DCP renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [adapters, setAdapters] = useState<AdapterRecord[]>([])
+  const [trainingJobs, setTrainingJobs] = useState<TrainingJobRecord[]>([])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -115,9 +158,10 @@ export default function RenterFineTuningPage() {
 
     ;(async () => {
       try {
-        const [meRes, adaptersRes] = await Promise.all([
+        const [meRes, adaptersRes, trainingJobsRes] = await Promise.all([
           fetch(`${base}/renters/me`, { headers }),
           fetch(`${base}/adapters`, { headers }),
+          fetch(`${base}/lora/training-jobs`, { headers }),
         ])
 
         if (!meRes.ok) {
@@ -128,15 +172,21 @@ export default function RenterFineTuningPage() {
           const data = await adaptersRes.json().catch(() => ({}))
           throw new Error(data.error || 'Failed to load adapter registry.')
         }
+        if (!trainingJobsRes.ok) {
+          const data = await trainingJobsRes.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to load LoRA training jobs.')
+        }
 
         const me = (await meRes.json()) as RenterMe
         const adapterData = (await adaptersRes.json()) as AdapterListResponse
+        const trainingJobData = (await trainingJobsRes.json()) as TrainingJobListResponse
         if (cancelled) return
 
         const renter = me.renter
         setRenterName(renter?.organization || renter?.name || 'DCP renter')
         setRenterEmail(renter?.email || '')
         setAdapters(adapterData.data || [])
+        setTrainingJobs(trainingJobData.data || [])
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
@@ -155,6 +205,9 @@ export default function RenterFineTuningPage() {
 
   const readyAdapters = adapters.filter((adapter) => adapter.status === 'ready' || adapter.status === 'deployed')
   const adapterRows = adapters.slice(0, 6)
+  const trainingJobRows = trainingJobs.slice(0, 6)
+  const totalDatasetRows = trainingJobs.reduce((sum, job) => sum + (job.dataset_row_count || 0), 0)
+  const totalEstimatedTokens = trainingJobs.reduce((sum, job) => sum + (job.estimated_tokens || 0), 0)
   const isLive = loadState === 'ready'
 
   return (
@@ -224,20 +277,23 @@ export default function RenterFineTuningPage() {
           <div className="ft-kpis" aria-label={lang === 'ar' ? 'مؤشرات الضبط الدقيق' : 'Fine-tuning indicators'}>
             <div className="kpi featured">
               <div className="k">
-                <Bi en="Adapters" ar="المحولات" />
+                <Bi en="Training jobs" ar="مهام التدريب" />
               </div>
-              <div className="v">{loadState === 'ready' ? adapters.length : 0}</div>
+              <div className="v">{loadState === 'ready' ? trainingJobs.length : 0}</div>
               <div className="d flat">
-                <Bi en="Registry metadata only" ar="بيانات سجل فقط" />
+                <Bi en="Trainer proof still gated" ar="إثبات التدريب ما زال مشروطا" />
               </div>
             </div>
             <div className="kpi">
               <div className="k">
-                <Bi en="Base models" ar="النماذج الأساسية" />
+                <Bi en="Dataset rows" ar="صفوف البيانات" />
               </div>
-              <div className="v">{loadState === 'ready' ? baseModels : 0}</div>
+              <div className="v">{loadState === 'ready' ? formatNumber(totalDatasetRows) : 0}</div>
               <div className="d flat">
-                <Bi en="From registered adapters" ar="من المحولات المسجلة" />
+                <Bi
+                  en={loadState === 'ready' ? `${formatNumber(totalEstimatedTokens)} est. tokens` : '0 est. tokens'}
+                  ar={loadState === 'ready' ? `${formatNumber(totalEstimatedTokens)} رمز تقديري` : '0 رمز تقديري'}
+                />
               </div>
             </div>
             <div className="kpi">
@@ -255,7 +311,10 @@ export default function RenterFineTuningPage() {
               </div>
               <div className="v">0</div>
               <div className="d flat">
-                <Bi en="Off until load proof" ar="متوقفة حتى إثبات التحميل" />
+                <Bi
+                  en={`Off until load proof · ${baseModels} bases`}
+                  ar={`متوقفة حتى إثبات التحميل · ${baseModels} نماذج`}
+                />
               </div>
             </div>
           </div>
@@ -299,66 +358,160 @@ export default function RenterFineTuningPage() {
           </section>
 
           <section className="ft-grid" aria-label={lang === 'ar' ? 'حالة السجل والعقود' : 'Registry and contract state'}>
-            <div className="ft-ledger">
-              <div className="ft-section-head compact">
-                <div>
-                  <span className="pod-label">
-                    <Bi en="Adapter registry" ar="سجل المحولات" />
-                  </span>
-                  <h2>
-                    <Bi en="Latest adapters" ar="آخر المحولات" />
-                  </h2>
+            <div className="ft-ledger-stack">
+              <div className="ft-ledger">
+                <div className="ft-section-head compact">
+                  <div>
+                    <span className="pod-label">
+                      <Bi en="Training queue" ar="قائمة التدريب" />
+                    </span>
+                    <h2>
+                      <Bi en="LoRA training jobs" ar="مهام تدريب LoRA" />
+                    </h2>
+                  </div>
                 </div>
+
+                {trainingJobRows.length > 0 ? (
+                  <div className="ft-table-wrap">
+                    <table className="tbl ft-table ft-training-table">
+                      <thead>
+                        <tr>
+                          <th><Bi en="Job" ar="المهمة" /></th>
+                          <th><Bi en="Dataset" ar="البيانات" /></th>
+                          <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
+                          <th><Bi en="Recipe" ar="الوصفة" /></th>
+                          <th><Bi en="Status" ar="الحالة" /></th>
+                          <th><Bi en="Gates" ar="البوابات" /></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trainingJobRows.map((job) => (
+                          <tr key={job.training_job_id}>
+                            <td>
+                              <span className="mono">{job.training_job_id}</span>
+                              <span className="ft-table-sub">{job.output_adapter_name}</span>
+                              <span className="ft-table-sub mono">{job.output_adapter_id}</span>
+                            </td>
+                            <td>
+                              <span>
+                                <Bi
+                                  en={`${formatNumber(job.dataset_row_count)} rows`}
+                                  ar={`${formatNumber(job.dataset_row_count)} صف`}
+                                />
+                              </span>
+                              <span className="ft-table-sub">
+                                <Bi
+                                  en={`${job.dataset_format} · train ${formatNumber(job.train_rows)} · val ${formatNumber(job.validation_rows)}`}
+                                  ar={`${job.dataset_format} · تدريب ${formatNumber(job.train_rows)} · تحقق ${formatNumber(job.validation_rows)}`}
+                                />
+                              </span>
+                              <span className="ft-table-sub mono">{shortChecksum(job.dataset_checksum_sha256)}</span>
+                            </td>
+                            <td className="mono">{job.base_model}</td>
+                            <td className="mono">{job.recipe}</td>
+                            <td>
+                              <span className={`stat ${statusTone(job.status)}`}>
+                                {job.status}
+                              </span>
+                              <span className="ft-table-sub">{formatDate(job.created_at)}</span>
+                            </td>
+                            <td>
+                              <span className="ft-gate-list">
+                                <span>
+                                  <Bi
+                                    en={job.training_enabled ? 'trainer on' : 'trainer off'}
+                                    ar={job.training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'}
+                                  />
+                                </span>
+                                <span>
+                                  <Bi
+                                    en={job.adapter_registered ? 'adapter registered' : 'adapter pending'}
+                                    ar={job.adapter_registered ? 'المحول مسجل' : 'المحول قيد الانتظار'}
+                                  />
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="ft-empty">
+                    <b>
+                      <Bi en="No training jobs recorded yet" ar="لا توجد مهام تدريب مسجلة بعد" />
+                    </b>
+                    <span>
+                      <Bi
+                        en="The job API is live for validated LoRA metadata. GPU trainer execution stays blocked until host proof and artifact registration are wired."
+                        ar="واجهة المهام تعمل لبيانات LoRA المحققة. تنفيذ تدريب GPU يبقى متوقفا حتى ربط إثبات المضيف وتسجيل الأثر."
+                      />
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {adapterRows.length > 0 ? (
-                <div className="ft-table-wrap">
-                  <table className="tbl ft-table">
-                    <thead>
-                      <tr>
-                        <th><Bi en="Adapter" ar="المحول" /></th>
-                        <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
-                        <th><Bi en="Rank" ar="الرتبة" /></th>
-                        <th><Bi en="Status" ar="الحالة" /></th>
-                        <th><Bi en="Checksum" ar="البصمة" /></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adapterRows.map((adapter) => (
-                        <tr key={adapter.adapter_id}>
-                          <td>
-                            <span className="mono">{adapter.adapter_id}</span>
-                            <span className="ft-table-sub">{adapter.name}</span>
-                          </td>
-                          <td className="mono">{adapter.base_model}</td>
-                          <td className="mono">{adapter.rank ?? '-'}</td>
-                          <td>
-                            <span className={`stat ${adapter.status === 'failed' ? 'failed' : adapter.status === 'ready' || adapter.status === 'deployed' ? 'settled' : 'queued'}`}>
-                              {adapter.status}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="mono">{shortChecksum(adapter.checksum_sha256)}</span>
-                            <span className="ft-table-sub">{formatDate(adapter.created_at)}</span>
-                          </td>
+              <div className="ft-ledger">
+                <div className="ft-section-head compact">
+                  <div>
+                    <span className="pod-label">
+                      <Bi en="Adapter registry" ar="سجل المحولات" />
+                    </span>
+                    <h2>
+                      <Bi en="Latest adapters" ar="آخر المحولات" />
+                    </h2>
+                  </div>
+                </div>
+
+                {adapterRows.length > 0 ? (
+                  <div className="ft-table-wrap">
+                    <table className="tbl ft-table">
+                      <thead>
+                        <tr>
+                          <th><Bi en="Adapter" ar="المحول" /></th>
+                          <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
+                          <th><Bi en="Rank" ar="الرتبة" /></th>
+                          <th><Bi en="Status" ar="الحالة" /></th>
+                          <th><Bi en="Checksum" ar="البصمة" /></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="ft-empty">
-                  <b>
-                    <Bi en="No adapters registered yet" ar="لا توجد محولات مسجلة بعد" />
-                  </b>
-                  <span>
-                    <Bi
-                      en="Use the GPU Pods flow for datasets and training work. Registry records appear here after an adapter artifact is registered."
-                      ar="استخدم مسار حاويات GPU للبيانات والتدريب. تظهر سجلات المحولات هنا بعد تسجيل أثر المحول."
-                    />
-                  </span>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {adapterRows.map((adapter) => (
+                          <tr key={adapter.adapter_id}>
+                            <td>
+                              <span className="mono">{adapter.adapter_id}</span>
+                              <span className="ft-table-sub">{adapter.name}</span>
+                            </td>
+                            <td className="mono">{adapter.base_model}</td>
+                            <td className="mono">{adapter.rank ?? '-'}</td>
+                            <td>
+                              <span className={`stat ${statusTone(adapter.status)}`}>
+                                {adapter.status}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="mono">{shortChecksum(adapter.checksum_sha256)}</span>
+                              <span className="ft-table-sub">{formatDate(adapter.created_at)}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="ft-empty">
+                    <b>
+                      <Bi en="No adapters registered yet" ar="لا توجد محولات مسجلة بعد" />
+                    </b>
+                    <span>
+                      <Bi
+                        en="Adapter records appear here only after a LoRA artifact is registered. Job rows above may exist before any adapter is deployable."
+                        ar="تظهر سجلات المحولات هنا فقط بعد تسجيل أثر LoRA. قد توجد صفوف المهام أعلاه قبل أن يصبح أي محول قابلا للنشر."
+                      />
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <aside className="ft-contract">
