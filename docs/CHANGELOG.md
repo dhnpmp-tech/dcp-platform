@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 19:53 UTC - Model catalog parity coverage (PR #804)
+### 2026-07-08 19:57 UTC - Model catalog parity coverage (PR #804)
 
 - **PR:** [#804](https://github.com/dhnpmp-tech/dcp-platform/pull/804) (`codex/model-catalog-parity-tests-2026-07-08`).
 - **Backend tests:** Added cross-surface parity coverage for `/v1/models`, `/api/models`, and `/api/models/catalog`.
