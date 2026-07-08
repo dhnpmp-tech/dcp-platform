@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 20:56 UTC - Anthropic SSE live proof runner (PR #814)
+
+- **PR:** [#814](https://github.com/dhnpmp-tech/dcp-platform/pull/814) (`codex/anthropic-sse-live-proof-runner-2026-07-08`).
+- **Live proof:** Added `npm run proof:anthropic-sse` for the agent-path acceptance check: deterministic inference smoke principal, `POST /anthropic/v1/messages`, streaming response, and Anthropic SSE frame validation.
+- **Safety:** The command requires `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1` before making a billed inference request and redacts scoped key hints in reports.
+- **Artifacts:** Writes JSON/Markdown/log evidence under `docs/reports/reliability`.
+- **Acceptance state:** The runner is ready; real proof still requires funded smoke-principal balance and compatible vLLM provider capacity.
+- **Verification:** Runner syntax check; targeted Anthropic SSE proof Jest guard.
+
 ### 2026-07-08 20:52 UTC - Workspace-to-pod live proof runner (PR #812)
 
 - **PR:** [#812](https://github.com/dhnpmp-tech/dcp-platform/pull/812) (`codex/workspace-pod-live-proof-runner-2026-07-08`).
