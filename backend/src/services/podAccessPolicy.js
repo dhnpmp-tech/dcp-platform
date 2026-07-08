@@ -30,9 +30,10 @@ function getDcpOwnedProviderIds() {
 }
 
 function getProviderSupplyTier(provider) {
+  if (Number(provider?.is_burst) === 1) return SUPPLY_TIERS.ON_DEMAND;
+
   const explicit = normalizeSupplyTier(provider?.supply_tier);
   if (explicit) return explicit;
-  if (Number(provider?.is_burst) === 1) return SUPPLY_TIERS.ON_DEMAND;
 
   const providerId = Number.parseInt(provider?.id, 10);
   if (Number.isFinite(providerId) && getDcpOwnedProviderIds().has(providerId)) {
@@ -71,8 +72,8 @@ function getPaidFundingHalala(db, renterId) {
 }
 
 function getOnDemandCommittedHalala(db, renterId) {
-  const row = db.prepare(
-    `SELECT COALESCE(SUM(
+  const committedSql = (predicate) => `
+    SELECT COALESCE(SUM(
               CASE
                 WHEN j.status IN ('pending','queued','assigned','pulling','running')
                   THEN COALESCE(j.cost_halala, 0)
@@ -85,8 +86,17 @@ function getOnDemandCommittedHalala(db, renterId) {
        JOIN providers p ON p.id = j.provider_id
       WHERE j.renter_id = ?
         AND j.job_type = 'interactive_pod'
-        AND COALESCE(p.is_burst, 0) = 1`
-  ).get(renterId);
+        AND (${predicate})`;
+  let row;
+  try {
+    row = db.prepare(committedSql(
+      "COALESCE(p.is_burst, 0) = 1 OR lower(COALESCE(NULLIF(trim(p.supply_tier), ''), '')) = 'on_demand'"
+    )).get(renterId);
+  } catch (error) {
+    const message = String(error?.message || error || '');
+    if (!message.includes('supply_tier')) throw error;
+    row = db.prepare(committedSql('COALESCE(p.is_burst, 0) = 1')).get(renterId);
+  }
   return toHalala(row?.on_demand_committed_halala);
 }
 

@@ -58,6 +58,10 @@ db.exec(`
     approval_status TEXT DEFAULT 'pending',
     approved_at TEXT,
     rejected_reason TEXT,
+    is_burst INTEGER DEFAULT 0,
+    burst_gpu_type_id TEXT,
+    stock_available INTEGER DEFAULT 0,
+    supply_tier TEXT DEFAULT 'provider',
     api_key TEXT,
     notes TEXT,
     wallet_address TEXT,
@@ -1038,6 +1042,10 @@ const migrations = [
   'ALTER TABLE providers ADD COLUMN reliability_score INTEGER DEFAULT 0',
   'ALTER TABLE providers ADD COLUMN rotated_at TEXT',
   'ALTER TABLE providers ADD COLUMN cost_per_gpu_second_halala REAL DEFAULT NULL',
+  'ALTER TABLE providers ADD COLUMN is_burst INTEGER DEFAULT 0',
+  'ALTER TABLE providers ADD COLUMN burst_gpu_type_id TEXT',
+  'ALTER TABLE providers ADD COLUMN stock_available INTEGER DEFAULT 0',
+  "ALTER TABLE providers ADD COLUMN supply_tier TEXT DEFAULT 'provider'",
   // jobs columns (for existing DBs that had the old narrow schema)
   'ALTER TABLE jobs ADD COLUMN job_type TEXT',
   'ALTER TABLE jobs ADD COLUMN model TEXT',
@@ -1300,6 +1308,42 @@ migrations.forEach(sql => {
     // Column already exists — safe to ignore
   }
 });
+
+try {
+  db.prepare(`
+    UPDATE providers
+       SET supply_tier = 'on_demand'
+     WHERE COALESCE(is_burst, 0) = 1
+       AND COALESCE(NULLIF(TRIM(supply_tier), ''), 'provider') != 'on_demand'
+  `).run();
+} catch (_) {}
+try {
+  db.prepare(`
+    UPDATE providers
+       SET supply_tier = 'provider'
+     WHERE COALESCE(is_burst, 0) = 0
+       AND (
+         supply_tier IS NULL
+         OR TRIM(supply_tier) = ''
+         OR LOWER(TRIM(supply_tier)) NOT IN ('dcp_owned', 'provider', 'on_demand')
+       )
+  `).run();
+} catch (_) {}
+try {
+  const dcpOwnedProviderIds = String(process.env.DCP_OWNED_PROVIDER_IDS || '')
+    .split(',')
+    .map((entry) => Number.parseInt(entry.trim(), 10))
+    .filter((entry) => Number.isFinite(entry) && entry > 0);
+  if (dcpOwnedProviderIds.length > 0) {
+    const placeholders = dcpOwnedProviderIds.map(() => '?').join(',');
+    db.prepare(`
+      UPDATE providers
+         SET supply_tier = 'dcp_owned'
+       WHERE COALESCE(is_burst, 0) = 0
+         AND id IN (${placeholders})
+    `).run(...dcpOwnedProviderIds);
+  }
+} catch (_) {}
 
 try {
   db.exec(`

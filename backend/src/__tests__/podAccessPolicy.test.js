@@ -27,7 +27,8 @@ function makeDb() {
     );
     CREATE TABLE providers (
       id INTEGER PRIMARY KEY,
-      is_burst INTEGER DEFAULT 0
+      is_burst INTEGER DEFAULT 0,
+      supply_tier TEXT
     );
     CREATE TABLE jobs (
       id INTEGER PRIMARY KEY,
@@ -57,6 +58,10 @@ describe('podAccessPolicy supply tiers', () => {
 
   test('explicit supply_tier wins over derived fallback', () => {
     expect(getProviderSupplyTier({ is_burst: 0, supply_tier: 'dcp_owned' })).toBe(SUPPLY_TIERS.DCP_OWNED);
+  });
+
+  test('burst flag cannot be downgraded by an explicit non-on-demand tier', () => {
+    expect(getProviderSupplyTier({ is_burst: 1, supply_tier: 'provider' })).toBe(SUPPLY_TIERS.ON_DEMAND);
   });
 });
 
@@ -94,6 +99,20 @@ describe('podAccessPolicy paid credit accounting', () => {
     expect(state.paid_funding_halala).toBe(1500);
     expect(state.on_demand_committed_halala).toBe(600);
     expect(state.paid_available_halala).toBe(900);
+    db.close();
+  });
+
+  test('explicit on-demand supply tier counts as an on-demand commitment', () => {
+    const db = makeDb();
+    db.prepare('INSERT INTO renters (id, balance_halala, trial_grant_halala) VALUES (1, 4000, 2000)').run();
+    db.prepare("INSERT INTO payments (renter_id, amount_halala, status) VALUES (1, 2000, 'paid')").run();
+    db.prepare("INSERT INTO providers (id, is_burst, supply_tier) VALUES (20, 0, 'on_demand')").run();
+    db.prepare("INSERT INTO jobs (renter_id, provider_id, job_type, status, cost_halala) VALUES (1, 20, 'interactive_pod', 'running', 750)").run();
+
+    const state = getRenterPaidCreditState(db, { id: 1, balance_halala: 4000 });
+    expect(state.paid_funding_halala).toBe(2000);
+    expect(state.on_demand_committed_halala).toBe(750);
+    expect(state.paid_available_halala).toBe(1250);
     db.close();
   });
 });

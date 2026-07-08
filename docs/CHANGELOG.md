@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 11:15 UTC - Provider supply-tier credit policy (PR #764)
+
+- **PR:** [#764](https://github.com/dhnpmp-tech/dcp-platform/pull/764) (`codex/provider-supply-tier-credit-policy-2026-07-08`).
+- **Schema:** Added durable `providers.supply_tier` classification for `dcp_owned`, `provider`, and `on_demand` supply.
+- **Backfill:** Burst rows become `on_demand`, native rows default to `provider`, and `DCP_OWNED_PROVIDER_IDS` can mark reviewed DCP-operated rows.
+- **Credit policy:** On-demand paid-credit commitments now include explicit `supply_tier='on_demand'` rows as well as legacy `is_burst=1` rows.
+- **Safety:** `is_burst=1` still wins over an unsafe explicit tier, preventing accidental trial-credit access to externally brokered capacity.
+- **Verification:** Targeted pod access policy Jest suite; `git diff --check`.
+
 ### 2026-07-08 11:05 UTC - Ops repo hardening status refresh (PR #763)
 
 - **PR:** [#763](https://github.com/dhnpmp-tech/dcp-platform/pull/763) (`codex/ops-hardening-status-refresh-2026-07-08`).

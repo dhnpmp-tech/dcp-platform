@@ -85,6 +85,15 @@ Preferred durable version:
   - `dcp_owned` for known DCP-operated nodes
   - `provider` for community/native provider machines
 
+Status as of PR #764:
+
+- `providers.supply_tier` is added to fresh and upgraded SQLite schemas.
+- `on_demand` is backfilled for `is_burst=1` rows.
+- native rows default to `provider`.
+- `DCP_OWNED_PROVIDER_IDS` can mark reviewed DCP-operated native rows.
+- `is_burst=1` still wins over a bad explicit tier so on-demand capacity cannot
+  accidentally bypass paid-credit checks.
+
 Short-term fallback if migration risk is too high:
 
 - Centralize `getProviderSupplyTier(provider)` in backend code.
@@ -121,6 +130,14 @@ If avoiding broader ledger work in the first slice:
 - Use historical top-ups or payment records as the "has paid credit" signal.
 - Keep a clear TODO to replace it with ledger-derived paid available credit.
 
+Status as of PR #764:
+
+- the backend gate uses paid/refunded payment history as the paid-credit signal.
+- existing on-demand pod commitments are subtracted from paid credit available.
+- explicit `supply_tier='on_demand'` commitments now count, not just legacy
+  `is_burst=1` commitments.
+- lifetime trial-seconds accounting remains a future product/schema slice.
+
 ### 3. Gate Pod Launch in One Backend Place
 
 Policy should run after provider/GPU resolution and before debit/job creation:
@@ -138,6 +155,14 @@ Policy should run after provider/GPU resolution and before debit/job creation:
 Keep existing prepaid debit/refund mechanics. The new policy should decide whether
 a launch is allowed and which credit bucket pays for it; it should not reimplement
 pod settlement.
+
+Status as of PR #764:
+
+- `POST /api/pods` already calls the centralized policy after provider
+  resolution and before prepaid debit/job creation.
+- on-demand failures return structured HTTP 402 with
+  `on_demand_requires_prepaid_credit`.
+- launch, stop, failure-refund, and extend billing mechanics remain unchanged.
 
 ### 4. Treat the SAR 10 Rule as a Product Gate
 

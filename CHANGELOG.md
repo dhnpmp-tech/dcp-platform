@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 11:15 UTC - `feat(pods): persist provider supply tiers - PR #764`
+
+**PR:** [#764](https://github.com/dhnpmp-tech/dcp-platform/pull/764) (`codex/provider-supply-tier-credit-policy-2026-07-08`).
+**Local timestamp:** 2026-07-08 15:15 +04.
+
+**What:** Thirty-first Fireworks/Tinker execution slice. Advances Tareq's minimum-balance/on-demand policy by making provider supply tier a durable backend field instead of only an `is_burst` derivation.
+
+- **Schema:** Added `providers.supply_tier` plus fresh-schema burst fields for deterministic `dcp_owned` / `provider` / `on_demand` classification.
+- **Backfill:** Marks burst rows as `on_demand`, defaults native rows to `provider`, and honors `DCP_OWNED_PROVIDER_IDS` for reviewed DCP-operated capacity.
+- **Credit policy:** Paid-credit commitments now count explicit `supply_tier='on_demand'` pods as well as legacy `is_burst=1` pods.
+- **Safety:** `is_burst=1` cannot be downgraded by a bad explicit tier, so externally brokered capacity still requires paid credit.
+- **Verified:** Targeted pod access policy Jest suite; `git diff --check`.
+
 ### 2026-07-08 11:05 UTC - `docs(ops): refresh repo hardening status - PR #763`
 
 **PR:** [#763](https://github.com/dhnpmp-tech/dcp-platform/pull/763) (`codex/ops-hardening-status-refresh-2026-07-08`).
