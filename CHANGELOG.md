@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 14:02 UTC - `feat(inference): publish router policy readiness catalog - PR #772`
+
+**PR:** [#772](https://github.com/dhnpmp-tech/dcp-platform/pull/772) (`codex/router-policy-readiness-catalog-2026-07-08`).
+**Local timestamp:** 2026-07-08 18:02 +04.
+
+**What:** Thirty-ninth Fireworks/Tinker execution slice. Adds the first customer-facing router policy contract without changing live provider selection.
+
+- **Read-only catalog:** Added `GET /v1/router/policies` with `balanced`, `lowest_latency`, `cheapest`, `saudi_only`, `coding`, and `arabic` policy readiness.
+- **Honest routing states:** `balanced` is marked available with existing earned-state, reachability, latency/stream-health, and GPU-utilization signals; future policies are marked telemetry-only, catalog-only, gated, or not enabled.
+- **No routing mutation:** The endpoint is explicitly not request-selectable and does not introduce a `routing_policy` request parameter yet.
+- **OpenAPI:** Documented the router policy catalog response and readiness vocabulary.
+- **Verified:** Routing-policy unit tests; `/v1/router/policies` route test; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 13:53 UTC - `feat(inference): expose model feature readiness metadata - PR #771`
 
 **PR:** [#771](https://github.com/dhnpmp-tech/dcp-platform/pull/771) (`codex/model-feature-readiness-contract-2026-07-08`).

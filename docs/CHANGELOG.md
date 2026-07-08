@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 14:02 UTC - Router policy readiness catalog (PR #772)
+
+- **PR:** [#772](https://github.com/dhnpmp-tech/dcp-platform/pull/772) (`codex/router-policy-readiness-catalog-2026-07-08`).
+- **API:** Added read-only `GET /v1/router/policies` for balanced, lowest-latency, cheapest, Saudi-only, coding, and Arabic routing policy readiness.
+- **Safety:** The catalog is not request-selectable yet and does not change provider routing behavior.
+- **OpenAPI:** Documented the router policy readiness response.
+- **Verification:** Routing-policy unit tests; `/v1/router/policies` route test; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 13:53 UTC - Model feature-readiness metadata (PR #771)
 
 - **PR:** [#771](https://github.com/dhnpmp-tech/dcp-platform/pull/771) (`codex/model-feature-readiness-contract-2026-07-08`).

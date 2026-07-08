@@ -50,6 +50,7 @@ const {
   recordStreamOutcome,
   resolveProviderTier,
 } = require('../services/inferenceLatencyBudgetGate');
+const { buildInferenceRoutingPolicies } = require('../services/inferenceRoutingPolicies');
 const { getEarnedRoutingState } = require('../services/providerVerification');
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { classifyRequest } = require('../lib/request-classifier');
@@ -831,6 +832,11 @@ router.get('/coding/models', modelCatalogLimiter, (req, res) => {
     console.error('[v1] coding/models error:', error.message);
     return res.status(500).json({ error: 'Failed to load coding models' });
   }
+});
+
+// ── GET /v1/router/policies — read-only routing policy catalog ─────────────
+router.get('/router/policies', modelCatalogLimiter, (_req, res) => {
+  return res.json(buildInferenceRoutingPolicies());
 });
 
 // ── GET /v1/models — OpenAI-compatible model list ──────────────────────────

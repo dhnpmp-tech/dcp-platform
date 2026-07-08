@@ -48,6 +48,40 @@ describe('v1 models route', () => {
     app.use('/v1', router);
   });
 
+  test('returns read-only router policy catalog without changing routing behavior', async () => {
+    const res = await request(app).get('/v1/router/policies');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      object: 'list',
+      version: 'dcp.inference_routing_policies.v1',
+      default_policy: 'balanced',
+      request_policy_parameter: null,
+      request_selectable: false,
+    });
+    expect(res.body.generated_at).toEqual(expect.any(String));
+    expect(res.body.data.map((policy) => policy.id)).toEqual([
+      'balanced',
+      'lowest_latency',
+      'cheapest',
+      'saudi_only',
+      'coding',
+      'arabic',
+    ]);
+    expect(res.body.data.find((policy) => policy.id === 'balanced')).toMatchObject({
+      status: 'available',
+      available: true,
+      request_selectable: false,
+      signals: expect.arrayContaining(['earned_state', 'latency_gate', 'gpu_utilization']),
+    });
+    expect(res.body.data.find((policy) => policy.id === 'cheapest')).toMatchObject({
+      status: 'not_enabled',
+      available: false,
+      request_selectable: false,
+    });
+    expect(mockDb.all).not.toHaveBeenCalled();
+  });
+
   test('returns model list when parameter_count column is missing', async () => {
     mockDb.all
       .mockImplementationOnce(() => ([
