@@ -1,8 +1,12 @@
 'use strict';
 
+const Database = require('better-sqlite3');
 const {
   computePromptCacheAccounting,
   attachPromptCacheUsage,
+  ensurePromptCacheAccountingSchema,
+  hasPromptCacheMeasurement,
+  recordPromptCacheMeasurement,
   __test,
 } = require('../services/promptCacheAccounting');
 
@@ -129,5 +133,52 @@ describe('prompt-cache accounting foundation', () => {
         discount_bps: 0,
       },
     });
+  });
+
+  test('records hash-only measurements and detects future hits without discounting', () => {
+    const db = new Database(':memory:');
+    ensurePromptCacheAccountingSchema(db);
+
+    const miss = computePromptCacheAccounting({
+      model: 'qwen',
+      staticPrefix: 'Shared prefix',
+      sessionId: 'session-a',
+      promptTokens: 100,
+    });
+    expect(hasPromptCacheMeasurement(db, 1, miss.cache_key)).toBe(false);
+
+    const recorded = recordPromptCacheMeasurement(db, 1, miss, {
+      model: 'qwen',
+      requestId: 'req-1',
+      providerResponseId: 'chatcmpl-1',
+    });
+    expect(recorded).toMatchObject({
+      recorded: true,
+      cache_key: miss.cache_key,
+    });
+    expect(hasPromptCacheMeasurement(db, 1, miss.cache_key)).toBe(true);
+
+    const hit = computePromptCacheAccounting({
+      model: 'qwen',
+      staticPrefix: 'Shared prefix',
+      sessionId: 'session-a',
+      promptTokens: 100,
+      priorCacheKeys: new Set([miss.cache_key]),
+    });
+    expect(hit).toMatchObject({
+      status: 'hit_measured_no_discount',
+      billable_input_tokens: 100,
+      discount_applied: false,
+    });
+
+    const row = db.prepare('SELECT * FROM prompt_cache_measurements WHERE cache_key = ?').get(miss.cache_key);
+    expect(row).toMatchObject({
+      renter_id: 1,
+      model_id: 'qwen',
+      request_id: 'req-1',
+      discount_applied: 0,
+      discount_bps: 0,
+    });
+    expect(JSON.stringify(row)).not.toContain('Shared prefix');
   });
 });

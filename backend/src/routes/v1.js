@@ -37,6 +37,8 @@ const autoTopupService = require('../services/autoTopupService');
 const {
   attachPromptCacheUsage,
   computePromptCacheAccounting,
+  hasPromptCacheMeasurement,
+  recordPromptCacheMeasurement,
 } = require('../services/promptCacheAccounting');
 const {
   selectProvidersWithLatencyGate,
@@ -1695,8 +1697,8 @@ function resolvePromptCacheSessionId(body = {}) {
   return normalizeString(candidate, { maxLen: 200, trim: true }) || undefined;
 }
 
-function buildPromptCacheUsage(rawUsage, context = {}) {
-  const accounting = computePromptCacheAccounting({
+function buildPromptCacheUsageResult(rawUsage, context = {}) {
+  const baseInput = {
     model: context.model,
     messages: context.messages,
     prompt: context.prompt,
@@ -1704,8 +1706,37 @@ function buildPromptCacheUsage(rawUsage, context = {}) {
     sessionId: context.sessionId,
     promptTokens: rawUsage?.prompt_tokens ?? context.promptTokens,
     usage: rawUsage,
-  });
-  return attachPromptCacheUsage(rawUsage, accounting);
+  };
+  let accounting = computePromptCacheAccounting(baseInput);
+  if (accounting.cache_key && context.db && context.renterId) {
+    try {
+      if (hasPromptCacheMeasurement(context.db, context.renterId, accounting.cache_key)) {
+        accounting = computePromptCacheAccounting({
+          ...baseInput,
+          priorCacheKeys: new Set([accounting.cache_key]),
+        });
+      }
+    } catch (error) {
+      console.warn('[v1/chat/completions] prompt-cache prior lookup skipped:', error?.message || error);
+    }
+  }
+  return {
+    usage: attachPromptCacheUsage(rawUsage, accounting),
+    accounting,
+  };
+}
+
+function recordPromptCacheUsageMeasurement(context = {}, accounting, providerResponseId = null) {
+  if (!accounting || !accounting.eligible || !accounting.cache_key) return;
+  try {
+    recordPromptCacheMeasurement(context.db, context.renterId, accounting, {
+      model: context.model,
+      requestId: context.requestId,
+      providerResponseId,
+    });
+  } catch (error) {
+    console.warn('[v1/chat/completions] prompt-cache measurement record skipped:', error?.message || error);
+  }
 }
 
 function v1ChatRateLimiter(req, res, next) {
@@ -2502,13 +2533,24 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
     const mergedPrompt = estimatePromptFromMessages(messages);
     const promptTokens = approximateTokenCount(mergedPrompt);
     const promptCacheContext = {
+      db,
+      renterId: req.renter.id,
       model: modelReq.model_id,
       messages,
       promptTokens,
       staticPrefix: resolvePromptCacheStaticPrefix(req.body || {}),
       sessionId: resolvePromptCacheSessionId(req.body || {}),
+      requestId: meteringRequestId,
     };
-    const withPromptCacheUsage = (usage) => buildPromptCacheUsage(usage, promptCacheContext);
+    let lastPromptCacheAccounting = null;
+    const withPromptCacheUsage = (usage) => {
+      const result = buildPromptCacheUsageResult(usage, promptCacheContext);
+      lastPromptCacheAccounting = result.accounting;
+      return result.usage;
+    };
+    const recordPromptCacheMeasurementOnce = (providerResponseId = null) => {
+      recordPromptCacheUsageMeasurement(promptCacheContext, lastPromptCacheAccounting, providerResponseId);
+    };
     const durationMinutes = Math.max(1, Math.ceil(maxTokens / 350));
     const estimatedCostHalala = Math.max(1, Math.round(durationMinutes * modelReq.fallback_rate_halala_per_min));
 
@@ -3174,6 +3216,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           finishReason: resultBody?.choices?.[0]?.finish_reason || null,
           jobMeta: proxyJobMeta,
         });
+        recordPromptCacheMeasurementOnce(normalizeString(resultBody?.id, { maxLen: 200 }));
         inferenceTracker.trackComplete(meteringRequestId, {
           promptTokens: usageForResponse.prompt_tokens || 0,
           completionTokens: usageForResponse.completion_tokens || 0,
@@ -3417,6 +3460,7 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
             finishReason: streamFinishReason,
             jobMeta: streamJobMeta,
           });
+          recordPromptCacheMeasurementOnce(providerResponseId);
           inferenceTracker.trackComplete(meteringRequestId, {
             promptTokens: finalUsage?.prompt_tokens || promptTokens,
             completionTokens: finalUsage?.completion_tokens || approximateTokenCount(completionText),
