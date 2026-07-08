@@ -77,7 +77,7 @@ export default function V2HomePage() {
                   </span>
                   <span className="door-a">→</span>
                 </Link>
-                <Link className="door" href="/renter/playground">
+                <Link className="door" href="/inference">
                   <span className="door-k">
                     <Bi en="Product 02 · inference" ar="المنتج ٠٢ · استدلال" />
                   </span>
@@ -618,7 +618,7 @@ client = OpenAI(
             <h4><Bi en="Product" ar="المنتج" /></h4>
             <ul>
               <li><Link href="/containers"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
-              <li><Link href="/marketplace"><Bi en="Inference" ar="الاستدلال" /></Link></li>
+              <li><Link href="/inference"><Bi en="Inference" ar="الاستدلال" /></Link></li>
               <li><Link href="/fine-tuning"><Bi en="Fine-Tuning" ar="الضبط الدقيق" /></Link></li>
               <li><Link href="/agents"><Bi en="Agents" ar="الوكلاء" /></Link></li>
               <li><Link href="/pricing"><Bi en="Pricing" ar="الأسعار" /></Link></li>

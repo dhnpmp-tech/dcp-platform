@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 17:05 UTC - Public Inference page (PR #789)
+
+- **PR:** [#789](https://github.com/dhnpmp-tech/dcp-platform/pull/789) (`codex/public-inference-page-2026-07-08`).
+- **Frontend:** Added `/inference` as the public Inference API product page.
+- **Navigation:** Retargeted shared Inference links and home Inference entry points from `/marketplace` to `/inference`; `/marketplace` remains the live capacity/catalog page.
+- **Safety:** Advanced prompt cache, batch discounts, LoRA serving, dedicated deployments, and non-balanced routing policies remain gated.
+- **Verification:** `npm run build`; `git diff --check`; local production Playwright desktop/tablet/mobile render with loaded images, active nav, home link, and no horizontal overflow.
+
 ### 2026-07-08 16:57 UTC - Public Fine-Tuning page (PR #788)
 
 - **PR:** [#788](https://github.com/dhnpmp-tech/dcp-platform/pull/788) (`codex/public-fine-tuning-page-2026-07-08`).
