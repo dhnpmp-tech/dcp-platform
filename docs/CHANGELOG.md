@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 19:00 UTC - LoRA dataset validation limit parity (PR #798)
+### 2026-07-08 19:06 UTC - LoRA dataset validation limit parity (PR #798)
 
 - **PR:** [#798](https://github.com/dhnpmp-tech/dcp-platform/pull/798) (`codex/lora-dataset-validate-limit-parity-2026-07-08`).
 - **Backend:** `POST /api/lora/datasets/validate` now shares the training-job dataset validator and limit options.
