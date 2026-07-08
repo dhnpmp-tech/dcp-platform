@@ -200,16 +200,18 @@ describe('/api/models catalog honesty', () => {
         model_class: 'embedding',
       },
       capability_flags: {
-        chat_completions: true,
-        streaming: true,
+        chat_completions: false,
+        streaming: false,
         embeddings: true,
+        reranking: false,
+        vision: false,
         dedicated_deployment: false,
         lora: false,
         prompt_caching: false,
         batch: false,
       },
       modalities: ['text'],
-      supported_features: ['chat.completions', 'embeddings'],
+      supported_features: ['embeddings'],
     });
     expect(response.body[0].capabilities).toEqual(response.body[0].capability_flags);
   });

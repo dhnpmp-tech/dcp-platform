@@ -647,7 +647,9 @@ function buildCatalogCapabilityMetadata(contractCore) {
     reasoning: Boolean(base.reasoning),
     code_generation: Boolean(base.code_generation),
     embeddings: Boolean(base.embeddings),
+    reranking: Boolean(base.reranking),
     image_generation: Boolean(base.image_generation),
+    vision: Boolean(base.vision),
     multilingual: Boolean(base.multilingual),
     dedicated_deployment: false,
     lora: false,
@@ -967,6 +969,9 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
       const usdPerInputToken = toUsdStringFromHalala(catalogRates.inputHalalaPer1m / TOKEN_RATE_BILLING_UNIT_TOKENS);
       const usdPerOutputToken = toUsdStringFromHalala(catalogRates.outputHalalaPer1m / TOKEN_RATE_BILLING_UNIT_TOKENS);
       const capabilityMetadata = buildCatalogCapabilityMetadata(contractCore);
+      const endpoints = capabilityMetadata.chat_completions
+        ? [{ url: endpointUrl, type: 'chat' }]
+        : [];
       const architecture = {
         tokenizer: resolveTokenizerFamily(row),
         instruct_type: 'instruct',
@@ -1012,7 +1017,7 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         capability_flags: capabilityMetadata,
         capabilities: capabilityMetadata,
         architecture,
-        endpoints: [{ url: endpointUrl, type: 'chat' }],
+        endpoints,
         provider_priority: ['dcp'],
         // Legacy aliases kept for existing clients while catalog parity migrates.
         display_name: contractCore.name,

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 11:38 UTC - `fix(inference): stop advertising non-chat models as chat-capable - PR #766`
+
+**PR:** [#766](https://github.com/dhnpmp-tech/dcp-platform/pull/766) (`codex/model-capability-contract-honesty-2026-07-08`).
+**Local timestamp:** 2026-07-08 15:38 +04.
+
+**What:** Thirty-third Fireworks/Tinker execution slice. Tightens the model capability contract so `/v1/models`, `/api/models`, and `/api/models/catalog` do not overstate explicit embedding/rerank/image entries as chat/streaming capable.
+
+- **Capability contract:** `model-catalog-contract` now infers chat, embeddings, reranking, image generation, vision, multilingual, reasoning, code, and tool support from explicit use cases instead of defaulting every model to chat.
+- **API honesty:** `/v1/models` now omits chat endpoints for explicit non-chat models when no compatible `/v1` route exists.
+- **Compatibility:** Legacy rows with missing/empty use-case metadata still default to chat completion support.
+- **Route parity:** `/api/models` and `/api/models/catalog` now expose the same `reranking` and `vision` capability flags as `/v1/models`.
+- **Verified:** Targeted `/v1/models` and model-catalog honesty Jest suites; route/helper `node --check`.
+
 ### 2026-07-08 11:27 UTC - `feat(frontend): use credit-first renter funding copy - PR #765`
 
 **PR:** [#765](https://github.com/dhnpmp-tech/dcp-platform/pull/765) (`codex/renter-credit-language-2026-07-08`).

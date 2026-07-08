@@ -281,7 +281,8 @@ Acceptance:
 4. **Nsight provider benchmark MVP** - script/runbook and provider scorecard
    schema proposal.
 5. **Inference metadata/pricing audit** - model capability/rate metadata and
-   consistency checks.
+   consistency checks. **Capability honesty for explicit non-chat models started
+   in PR #766.**
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment
