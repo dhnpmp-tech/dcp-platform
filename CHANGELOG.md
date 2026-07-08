@@ -14,10 +14,23 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 05:45 UTC - `feat(lora): add adapter registry foundation - PR #735`
+### 2026-07-08 05:39 UTC - `docs(inference): add prompt-cache and batch foundations - PR #736`
+
+**PR:** [#736](https://github.com/dhnpmp-tech/dcp-platform/pull/736) (`codex/prompt-cache-batch-design-2026-07-08`).
+**Local timestamp:** 2026-07-08 09:39 +04.
+
+**What:** Fifth Fireworks/Tinker execution slice. Adds backend contract foundations for prompt-cache accounting and batch inference without turning on discounts or exposing a public batch product prematurely.
+
+- **Prompt cache:** Added a pure accounting helper that builds stable static-prefix/session cache keys, estimates cached input tokens, and keeps billable input tokens unchanged until measurement is trusted.
+- **Batch contract:** Added a JSONL batch request validator for future `/api/batches` work, including deterministic checksums, duplicate `custom_id` rejection, endpoint/body validation, and size/count limits.
+- **Design doc:** Added the technical order of operations for prompt-cache discounts and batch inference implementation on existing job/billing rails.
+- **Honesty gate:** Kept `/v1/models` batch and prompt-cache capability flags false; this slice is measurement/design only.
+- **Verified:** Targeted Jest coverage for prompt-cache accounting and batch JSONL contract behavior.
+
+### 2026-07-08 05:32 UTC - `feat(lora): add adapter registry foundation - PR #735`
 
 **PR:** [#735](https://github.com/dhnpmp-tech/dcp-platform/pull/735) (`codex/adapter-registry-foundation-2026-07-08`).
-**Local timestamp:** 2026-07-08 09:45 +04.
+**Local timestamp:** 2026-07-08 09:32 +04.
 
 **What:** Fourth Fireworks/Tinker execution slice. Adds the backend adapter registry foundation required before managed LoRA training or adapter deployment can be honestly exposed.
 
