@@ -7,6 +7,7 @@
 // single source of truth — so the page and the JSON-LD can never drift.
 
 import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, BiX, useV2 } from '@/app/(site)/lib/i18n'
 import { PRICING_FAQ } from '@/app/lib/structured-data'
@@ -53,8 +54,136 @@ const SUBS: ReadonlyArray<{ nameEn: string; nameAr: string; sar: number; pctEn: 
   },
 ]
 
+type LiveCatalogState = 'loading' | 'ready' | 'empty' | 'error'
+
+interface LiveCatalogModelRaw {
+  id?: string
+  model_id?: string
+  name?: string
+  display_name?: string
+  available?: boolean
+  status?: string
+  provider_count?: number
+  context_length?: number
+  context_window?: number
+  max_output_tokens?: number
+  max_vram_gb?: number
+  pricing?: {
+    sar_per_1m_input_tokens?: string | number
+    sar_per_1m_output_tokens?: string | number
+    source?: string
+  }
+  capability_flags?: {
+    streaming?: boolean
+    reasoning?: boolean
+    tool_calling?: boolean
+    code_generation?: boolean
+    multilingual?: boolean
+  }
+  capabilities?: LiveCatalogModelRaw['capability_flags']
+}
+
+interface LiveCatalogModel {
+  id: string
+  name: string
+  status: string
+  providerCount: number
+  contextLength?: number
+  maxOutputTokens?: number
+  maxVramGb?: number
+  inputSarPer1m?: string | number
+  outputSarPer1m?: string | number
+  pricingSource?: string
+  featureLabels: string[]
+}
+
+function formatCompactNumber(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return '-'
+  return value.toLocaleString('en-US')
+}
+
+function formatSarPerMillion(value: string | number | null | undefined): string {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  return `SAR ${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+}
+
+function formatStatus(value: string | null | undefined): string {
+  if (!value) return '-'
+  return value.replace(/_/g, ' ')
+}
+
+function featureLabelsFor(model: LiveCatalogModelRaw): string[] {
+  const flags = model.capability_flags || model.capabilities || {}
+  return [
+    flags.streaming ? 'Streaming' : null,
+    flags.tool_calling ? 'Tools' : null,
+    flags.reasoning ? 'Reasoning' : null,
+    flags.code_generation ? 'Code' : null,
+    flags.multilingual ? 'Multilingual' : null,
+  ].filter(Boolean) as string[]
+}
+
+function mapLiveCatalogModels(raw: LiveCatalogModelRaw[]): LiveCatalogModel[] {
+  return raw
+    .filter((model) => Number(model.provider_count || 0) > 0)
+    .map((model) => {
+      const contextLength = Number(model.context_length ?? model.context_window)
+      const maxOutputTokens = Number(model.max_output_tokens)
+      const maxVramGb = Number(model.max_vram_gb)
+      return {
+        id: model.id || model.model_id || '',
+        name: model.name || model.display_name || model.id || model.model_id || '',
+        status: model.status || (model.available ? 'available' : 'unknown'),
+        providerCount: Number(model.provider_count || 0),
+        contextLength: Number.isFinite(contextLength) ? contextLength : undefined,
+        maxOutputTokens: Number.isFinite(maxOutputTokens) ? maxOutputTokens : undefined,
+        maxVramGb: Number.isFinite(maxVramGb) ? maxVramGb : undefined,
+        inputSarPer1m: model.pricing?.sar_per_1m_input_tokens,
+        outputSarPer1m: model.pricing?.sar_per_1m_output_tokens,
+        pricingSource: model.pricing?.source,
+        featureLabels: featureLabelsFor(model),
+      }
+    })
+    .filter((model) => model.id)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export default function PricingPage() {
   const { toggle, lang } = useV2()
+  const [liveState, setLiveState] = useState<LiveCatalogState>('loading')
+  const [liveModels, setLiveModels] = useState<LiveCatalogModel[]>([])
+  const visibleLiveModels = useMemo(() => liveModels.slice(0, 12), [liveModels])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        setLiveState('loading')
+        const res = await fetch('/v1/models', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`Catalog request failed: ${res.status}`)
+        const data: unknown = await res.json()
+        const raw = (() => {
+          if (Array.isArray(data)) return data as LiveCatalogModelRaw[]
+          const obj = data as { data?: unknown; models?: unknown }
+          if (Array.isArray(obj.data)) return obj.data as LiveCatalogModelRaw[]
+          if (Array.isArray(obj.models)) return obj.models as LiveCatalogModelRaw[]
+          return []
+        })()
+        const mapped = mapLiveCatalogModels(raw)
+        if (cancelled) return
+        setLiveModels(mapped)
+        setLiveState(mapped.length > 0 ? 'ready' : 'empty')
+      } catch {
+        if (cancelled) return
+        setLiveModels([])
+        setLiveState('error')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <>
@@ -150,6 +279,62 @@ export default function PricingPage() {
           <p style={{ color: 'var(--mut)', fontSize: 13, marginTop: 12, fontFamily: 'var(--mono)' }}>
             <Bi en="Each chat-completion response also returns per-call usage pricing in USD and SAR." ar="كل استجابة محادثة تعرض أيضاً سعر الاستخدام بالدولار والريال." />
           </p>
+
+          <div className="mp-live pricing-live-catalog" style={{ marginTop: 24 }}>
+            <div className="mp-live-head">
+              <span><Bi en="Live API catalog — from /v1/models" ar="كتالوج الواجهة المباشر — من /v1/models" /></span>
+              <span><Bi en={liveState === 'ready' ? `${liveModels.length} serveable models` : 'checking live catalog'} ar={liveState === 'ready' ? `${liveModels.length} نموذجاً قابلاً للخدمة` : 'جارٍ فحص الكتالوج المباشر'} /></span>
+            </div>
+            <div className="mp-rows">
+              <div className="mp-row mp-row-head" aria-hidden="true">
+                <span><Bi en="Model" ar="النموذج" /></span>
+                <span><Bi en="Context" ar="السياق" /></span>
+                <span><Bi en="Input / 1M" ar="الإدخال / 1M" /></span>
+                <span><Bi en="Output / 1M" ar="الإخراج / 1M" /></span>
+              </div>
+              {liveState === 'loading' && (
+                <div className="mp-empty">
+                  <span><Bi en="Loading live model pricing..." ar="تحميل تسعير النماذج المباشر..." /></span>
+                </div>
+              )}
+              {liveState === 'error' && (
+                <div className="mp-empty">
+                  <span><Bi en="Live model pricing is temporarily unavailable." ar="تسعير النماذج المباشر غير متاح مؤقتاً." /></span>
+                  <Link href="/renter/playground"><Bi en="Open playground" ar="افتح ساحة التجربة" /></Link>
+                </div>
+              )}
+              {liveState === 'empty' && (
+                <div className="mp-empty">
+                  <span><Bi en="No serveable models are advertised right now." ar="لا توجد نماذج قابلة للخدمة معلنة حالياً." /></span>
+                </div>
+              )}
+              {liveState === 'ready' && visibleLiveModels.map((model) => (
+                <div className="mp-row pricing-live-row" key={model.id}>
+                  <span className="mp-model">
+                    <b>{model.name}</b>
+                    <i>{model.id} · {formatStatus(model.status)} · {model.providerCount} live · {model.pricingSource || 'catalog'}</i>
+                    {model.featureLabels.length > 0 && (
+                      <span className="pricing-chip-row">
+                        {model.featureLabels.map((feature) => <em key={feature}>{feature}</em>)}
+                      </span>
+                    )}
+                  </span>
+                  <span>
+                    {formatCompactNumber(model.contextLength)} tok
+                    <i>{model.maxOutputTokens ? `${formatCompactNumber(model.maxOutputTokens)} max out` : 'max out n/a'}</i>
+                  </span>
+                  <span>{formatSarPerMillion(model.inputSarPer1m)}</span>
+                  <span>{formatSarPerMillion(model.outputSarPer1m)}</span>
+                </div>
+              ))}
+            </div>
+            {liveState === 'ready' && liveModels.length > visibleLiveModels.length && (
+              <div className="mp-empty pricing-live-foot">
+                <span><Bi en={`Showing ${visibleLiveModels.length} of ${liveModels.length} serveable models.`} ar={`عرض ${visibleLiveModels.length} من ${liveModels.length} نموذجاً قابلاً للخدمة.`} /></span>
+                <Link href="/renter/playground"><Bi en="Open playground" ar="افتح ساحة التجربة" /></Link>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

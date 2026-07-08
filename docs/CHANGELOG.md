@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 15:39 UTC - Live model catalog on pricing page (PR #781)
+
+- **PR:** [#781](https://github.com/dhnpmp-tech/dcp-platform/pull/781) (`codex/pricing-live-model-catalog-2026-07-08`).
+- **Frontend:** `/pricing` now reads `GET /v1/models` and renders serveable models with context, max output, pricing source, SAR input/output rates, provider count, and capability chips.
+- **Safety:** Models with `provider_count=0` are filtered out of the live pricing table.
+- **Layout:** Added scoped desktop/mobile CSS for the live catalog without changing the existing static model-class guide.
+- **Verification:** `npm run build`; `git diff --check`; mocked Playwright desktop/mobile render, no horizontal overflow, and non-serveable model guard.
+
 ### 2026-07-08 15:29 UTC - Playground live model metadata panel (PR #780)
 
 - **PR:** [#780](https://github.com/dhnpmp-tech/dcp-platform/pull/780) (`codex/frontend-playground-model-metadata-2026-07-08`).

@@ -38,6 +38,8 @@ what is live.
 - PR #780 made `/renter/playground` render selected-model context, max output,
   SAR token rates, capability flags, feature readiness, and backend-driven
   max-token limits from `/v1/models`.
+- PR #781 added a live `/v1/models` serveable-model pricing table to `/pricing`
+  with context, SAR input/output rates, provider count, and capability chips.
 
 ### Now
 
@@ -62,6 +64,7 @@ what is live.
   **Router-policy readiness now comes from `/v1/router/policies` in PR #779.**
   **Selected-model pricing, capabilities, and feature readiness now come from
   `/v1/models` in PR #780.**
+  **Public pricing now shows serveable-model rows from `/v1/models` in PR #781.**
 
 ### Next
 
@@ -214,6 +217,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   only for the currently available default.
 - PR #780 made the renter Playground consume `/v1/models` pricing, capability,
   context, max-output, and feature-readiness metadata for the selected model.
+- PR #781 made public `/pricing` consume `/v1/models` for a serveable-model
+  pricing catalog while hiding models with zero live providers.
 
 ### Now
 
@@ -284,6 +289,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
    **Started in PR #766; token-pricing parity added in PR #769.**
    **Playground router-policy visibility added in PR #779.**
    **Selected-model metadata visibility added in PR #780.**
+   **Public pricing visibility added in PR #781.**
 2. Prompt-cache accounting design with test fixtures.
 3. Batch inference API design and schema, then implementation.
 

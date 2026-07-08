@@ -174,6 +174,9 @@ Current capabilities:
   capability flags, feature readiness, and max-token limits from `/v1/models`.
 - Playground can stream responses.
 - Pricing page/model rate card exists.
+- Pricing page now includes a live `/v1/models` table for serveable models with
+  context, SAR input/output rates, pricing source, provider count, and
+  capability chips.
 - Live capacity component reads health and model catalog.
 - Public demo chat streams from backend path.
 - Model docs/cards exist in English and Arabic.
@@ -283,6 +286,8 @@ Gaps:
      readiness metadata.
    - PR #780 moved selected-model Playground pricing, capability, and feature
      gates onto `/v1/models` metadata.
+   - PR #781 moved public pricing visibility for serveable models onto
+     `/v1/models` metadata.
 
 ## Technical Order of Operations
 

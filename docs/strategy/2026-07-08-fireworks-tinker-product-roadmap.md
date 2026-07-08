@@ -219,6 +219,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to
     `/renter/playground`.
+- Surface serveable-model pricing on public `/pricing` from `/v1/models`.
+  - PR #781 added a live catalog table for models with live providers, context,
+    SAR input/output rates, pricing source, and capability chips.
 - Publish honest benchmark pages before making quality claims.
 
 Acceptance:
@@ -322,7 +325,8 @@ Acceptance:
    consistency checks. **Capability honesty for explicit non-chat models started
    in PR #766; advanced feature readiness metadata added in PR #771; router
    policy visibility reached the Playground in PR #779; selected-model pricing
-   and readiness visibility reached the Playground in PR #780.**
+   and readiness visibility reached the Playground in PR #780; public pricing
+   visibility reached `/pricing` in PR #781.**
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment
