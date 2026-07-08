@@ -4,9 +4,11 @@ const Database = require('better-sqlite3');
 const express = require('express');
 const request = require('supertest');
 const {
+  appendLoraTrainingJobLog,
   createLoraTrainingJob,
   ensureLoraTrainingJobsSchema,
   getLoraTrainingJob,
+  listLoraTrainingJobLogs,
   listLoraTrainingJobs,
   registerLoraTrainingJobAdapter,
   updateLoraTrainingJobStatus,
@@ -111,6 +113,16 @@ describe('LoRA training job foundation', () => {
       'created_at',
       'updated_at',
     ]));
+    const logColumns = db.prepare('PRAGMA table_info(lora_training_job_logs)').all().map((row) => row.name);
+    expect(logColumns).toEqual(expect.arrayContaining([
+      'training_job_id',
+      'renter_id',
+      'level',
+      'event',
+      'message',
+      'metadata_json',
+      'created_at',
+    ]));
   });
 
   test('creates, lists, and reads a validated LoRA training job without enabling training', () => {
@@ -140,6 +152,19 @@ describe('LoRA training job foundation', () => {
 
     expect(getLoraTrainingJob(db, 1, 'lora_job_alpha01')).toMatchObject({ training_job_id: 'lora_job_alpha01' });
     expect(listLoraTrainingJobs(db, 1).jobs.map((job) => job.training_job_id)).toEqual(['lora_job_alpha01']);
+    expect(listLoraTrainingJobLogs(db, 1, 'lora_job_alpha01').logs).toEqual([
+      expect.objectContaining({
+        training_job_id: 'lora_job_alpha01',
+        renter_id: 1,
+        level: 'info',
+        event: 'created',
+        metadata: expect.objectContaining({
+          training_enabled: false,
+          recipe: 'qlora_sft',
+          dataset_rows: 2,
+        }),
+      }),
+    ]);
   });
 
   test('idempotency key replays the existing job instead of inserting another row', () => {
@@ -188,6 +213,39 @@ describe('LoRA training job foundation', () => {
       model_card_storage_key: 'adapters/r1/support/model-card.json',
       adapter_registered: false,
     });
+    expect(listLoraTrainingJobLogs(db, 1, 'lora_job_alpha01').logs.map((log) => log.event)).toEqual([
+      'created',
+      'status_succeeded',
+    ]);
+  });
+
+  test('appends and lists tenant-scoped training logs', () => {
+    const db = makeDb();
+    createLoraTrainingJob(db, 1, trainingInput());
+
+    const log = appendLoraTrainingJobLog(db, 1, 'lora_job_alpha01', {
+      level: 'warn',
+      event: 'dataset_recheck',
+      message: 'Dataset checksum was rechecked before GPU execution.',
+      metadata: { checksum_sha256: 'f'.repeat(64) },
+    });
+
+    expect(log).toMatchObject({
+      training_job_id: 'lora_job_alpha01',
+      renter_id: 1,
+      level: 'warn',
+      event: 'dataset_recheck',
+      metadata: { checksum_sha256: 'f'.repeat(64) },
+    });
+    expect(listLoraTrainingJobLogs(db, 1, 'lora_job_alpha01').logs.map((row) => row.event)).toEqual([
+      'created',
+      'dataset_recheck',
+    ]);
+    expect(listLoraTrainingJobLogs(db, 2, 'lora_job_alpha01')).toBeNull();
+    expect(() => appendLoraTrainingJobLog(db, 2, 'lora_job_alpha01', {
+      event: 'bad_owner',
+      message: 'should not write',
+    })).toThrow(/not found/);
   });
 
   test('registers an adapter only after succeeded artifact proof exists', () => {
@@ -294,8 +352,26 @@ describe('LoRA training job foundation', () => {
     const detail = await request(app).get('/api/lora/training-jobs/lora_job_route1').expect(200);
     expect(detail.body.training_job.training_job_id).toBe('lora_job_route1');
 
+    const logs = await request(app).get('/api/lora/training-jobs/lora_job_route1/logs').expect(200);
+    expect(logs.body).toMatchObject({
+      object: 'list',
+      count: 1,
+      data: [
+        {
+          training_job_id: 'lora_job_route1',
+          level: 'info',
+          event: 'created',
+        },
+      ],
+    });
+
     await request(app)
       .get('/api/lora/training-jobs/lora_job_route1')
+      .set('x-test-renter-id', '2')
+      .expect(404);
+
+    await request(app)
+      .get('/api/lora/training-jobs/lora_job_route1/logs')
       .set('x-test-renter-id', '2')
       .expect(404);
 

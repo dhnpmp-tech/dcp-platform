@@ -108,6 +108,9 @@ Before a public training route:
    **Worker scaffold is done in PR #750**, but it stays disabled until an
    executor backed by GPU-host proof is configured.
 4. Write logs and an artifact manifest.
+   **Lifecycle log ledger is added in PR #751** via
+   `GET /api/lora/training-jobs/{training_job_id}/logs`, which is
+   tenant-scoped and records job creation plus worker status transitions.
 5. Compute artifact SHA-256.
 6. Register the adapter in `adapter_registry` with `registered` or `ready`.
    **Done in PR #748** via `POST
@@ -138,3 +141,9 @@ runner. With an injected executor it can move `created -> running -> succeeded`
 and write artifact/model-card metadata, or mark a job failed. Without
 `DCP_LORA_TRAINING_WORKER_ENABLED=1` and a real executor it does not mutate
 jobs, so managed training is still not publicly live.
+
+PR #751 adds tenant-scoped LoRA training logs. Job creation and worker-driven
+status transitions now write immutable metadata rows, and renters can read them
+through `GET /api/lora/training-jobs/{training_job_id}/logs`. This makes the
+future trainer path observable without enabling GPU execution or adapter
+traffic.

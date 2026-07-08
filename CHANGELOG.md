@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 08:42 UTC - `feat(lora): add training job log ledger - PR #751`
+
+**PR:** [#751](https://github.com/dhnpmp-tech/dcp-platform/pull/751) (`codex/lora-training-logs-2026-07-08`).
+**Local timestamp:** 2026-07-08 12:42 +04.
+
+**What:** Nineteenth Fireworks/Tinker execution slice. Adds an observable, tenant-scoped LoRA training log ledger so the managed trainer path has customer-visible lifecycle metadata before real GPU execution is enabled.
+
+- **Log schema:** Added `lora_training_job_logs` with renter id, training job id, level, event, message, metadata JSON, and timestamp.
+- **Lifecycle events:** Training job creation and explicit status transitions now append immutable metadata logs, including artifact proof fields on success and failure reason on failure.
+- **API:** Added renter-authenticated `GET /api/lora/training-jobs/{training_job_id}/logs`, preserving tenant isolation and returning list pagination metadata.
+- **Worker observability:** The disabled LoRA worker scaffold now leaves a tested event trail for `created -> running -> succeeded/failed` paths when an injected executor is used.
+- **Product honesty:** This does not enable managed GPU training, public adapter serving, or Tinker compatibility; it makes the future trainer path auditable.
+- **Docs/tests:** Updated public OpenAPI copies and the LoRA runbook, with targeted service/route/worker coverage.
+- **Verified:** Targeted LoRA training job and worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 08:32 UTC - `feat(lora): add dormant training worker scaffold - PR #750`
 
 **PR:** [#750](https://github.com/dhnpmp-tech/dcp-platform/pull/750) (`codex/lora-training-worker-scaffold-2026-07-08`).

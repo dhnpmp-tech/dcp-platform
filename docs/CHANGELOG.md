@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 08:42 UTC - LoRA training job log ledger (PR #751)
+
+- **PR:** [#751](https://github.com/dhnpmp-tech/dcp-platform/pull/751) (`codex/lora-training-logs-2026-07-08`).
+- **Backend:** Added tenant-scoped `lora_training_job_logs` rows for LoRA training job lifecycle events.
+- **Lifecycle:** Job creation and status transitions now append immutable logs with level, event, message, timestamp, and bounded metadata.
+- **API:** Added renter-authenticated `GET /api/lora/training-jobs/{training_job_id}/logs` with pagination metadata and renter isolation.
+- **Worker:** The disabled LoRA worker scaffold now produces a tested event trail for running, succeeded, and failed execution paths when an injected executor is used.
+- **Contracts:** Updated public OpenAPI copies and the LoRA runbook while keeping managed GPU training and adapter serving gated.
+- **Verification:** Targeted LoRA training job and worker Jest suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 08:32 UTC - Dormant LoRA training worker scaffold (PR #750)
 
 - **PR:** [#750](https://github.com/dhnpmp-tech/dcp-platform/pull/750) (`codex/lora-training-worker-scaffold-2026-07-08`).

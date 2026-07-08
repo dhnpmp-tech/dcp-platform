@@ -28,6 +28,8 @@ const DEFAULT_LIMIT = 50;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 180;
 const DEFAULT_MAX_DATASET_BYTES = 12 * 1024 * 1024;
 const DEFAULT_MAX_DATASET_ROWS = 100000;
+const TRAINING_LOG_LEVELS = Object.freeze(['debug', 'info', 'warn', 'error']);
+const TRAINING_LOG_LEVEL_SET = new Set(TRAINING_LOG_LEVELS);
 
 class LoraTrainingJobError extends Error {
   constructor(message, { code = 'lora_training_job_error', httpStatus = 400, details = undefined } = {}) {
@@ -89,6 +91,22 @@ function ensureLoraTrainingJobsSchema(db) {
       ON lora_training_jobs(renter_id, idempotency_key)
      WHERE idempotency_key IS NOT NULL
   `);
+  schemaDb.exec(`
+    CREATE TABLE IF NOT EXISTS lora_training_job_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      training_job_id TEXT NOT NULL,
+      renter_id INTEGER NOT NULL,
+      level TEXT NOT NULL DEFAULT 'info'
+        CHECK(level IN ('debug','info','warn','error')),
+      event TEXT NOT NULL,
+      message TEXT NOT NULL,
+      metadata_json TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (training_job_id) REFERENCES lora_training_jobs(training_job_id),
+      FOREIGN KEY (renter_id) REFERENCES renters(id)
+    )
+  `);
+  schemaDb.exec(`CREATE INDEX IF NOT EXISTS idx_lora_training_job_logs_job_created ON lora_training_job_logs(renter_id, training_job_id, created_at ASC, id ASC)`);
 }
 
 function createLoraTrainingJob(db, renterId, input = {}, options = {}) {
@@ -202,6 +220,19 @@ function createLoraTrainingJob(db, renterId, input = {}, options = {}) {
     throw error;
   }
 
+  appendLoraTrainingJobLog(db, ownerId, trainingJobId, {
+    level: 'info',
+    event: 'created',
+    message: 'LoRA training job metadata created; GPU training remains disabled until worker proof is enabled.',
+    metadata: {
+      training_enabled: false,
+      recipe: row.recipe,
+      base_model: row.base_model,
+      dataset_rows: row.dataset_row_count,
+      estimated_tokens: row.estimated_tokens,
+    },
+  });
+
   return {
     job: getLoraTrainingJob(db, ownerId, trainingJobId),
     idempotent_replay: false,
@@ -298,7 +329,68 @@ function updateLoraTrainingJobStatus(db, renterId, trainingJobId, status, option
     id,
   );
   if (!result || result.changes === 0) return null;
+  const logMetadata = buildStatusLogMetadata(nextStatus, {
+    artifact_storage_key: artifactStorageKey,
+    artifact_checksum_sha256: artifactChecksum,
+    model_card_storage_key: modelCardStorageKey,
+    failure_reason: failureReason,
+  });
+  appendLoraTrainingJobLog(db, ownerId, id, {
+    level: nextStatus === 'failed' ? 'error' : 'info',
+    event: `status_${nextStatus}`,
+    message: buildStatusLogMessage(nextStatus, logMetadata),
+    metadata: logMetadata,
+  });
   return getLoraTrainingJob(db, ownerId, id);
+}
+
+function appendLoraTrainingJobLog(db, renterId, trainingJobId, input = {}) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeTrainingJobId(trainingJobId);
+  assertTrainingJobBelongsToRenter(db, ownerId, id);
+  const level = normalizeLogLevel(input.level);
+  const event = normalizeLogEvent(input.event);
+  const message = normalizeBoundedString(input.message, 'message', 600);
+  const metadata = normalizeLogMetadata(input.metadata);
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO lora_training_job_logs (
+      training_job_id, renter_id, level, event, message, metadata_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, ownerId, level, event, message, metadata, now);
+
+  return {
+    training_job_id: id,
+    renter_id: ownerId,
+    level,
+    event,
+    message,
+    metadata: metadata ? safeJson(metadata) : null,
+    created_at: now,
+  };
+}
+
+function listLoraTrainingJobLogs(db, renterId, trainingJobId, options = {}) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const id = normalizeTrainingJobId(trainingJobId);
+  if (!trainingJobBelongsToRenter(db, ownerId, id)) return null;
+  const limit = normalizeLimit(options.limit);
+  const offset = normalizeOffset(options.offset);
+  const rows = db.prepare(`
+    SELECT id, training_job_id, renter_id, level, event, message, metadata_json, created_at
+      FROM lora_training_job_logs
+     WHERE renter_id = ? AND training_job_id = ?
+     ORDER BY created_at ASC, id ASC
+     LIMIT ? OFFSET ?
+  `).all(ownerId, id, limit, offset);
+  return {
+    logs: rows.map(mapTrainingJobLogRow),
+    limit,
+    offset,
+  };
 }
 
 function registerLoraTrainingJobAdapter(db, renterId, trainingJobId, options = {}) {
@@ -470,6 +562,39 @@ function markJobAdapterRegistered(job) {
   };
 }
 
+function buildStatusLogMessage(status, metadata = {}) {
+  if (status === 'running') return 'LoRA training worker marked the job running.';
+  if (status === 'succeeded' && metadata.artifact_storage_key) return 'LoRA training worker recorded adapter artifact proof.';
+  if (status === 'succeeded') return 'LoRA training job was marked succeeded without adapter artifact proof.';
+  if (status === 'failed') return 'LoRA training worker marked the job failed.';
+  if (status === 'cancelled') return 'LoRA training job was cancelled.';
+  if (status === 'queued') return 'LoRA training job was queued for execution.';
+  return `LoRA training job status changed to ${status}.`;
+}
+
+function buildStatusLogMetadata(status, values) {
+  const metadata = { status };
+  if (values.artifact_storage_key) metadata.artifact_storage_key = values.artifact_storage_key;
+  if (values.artifact_checksum_sha256) metadata.artifact_checksum_sha256 = values.artifact_checksum_sha256;
+  if (values.model_card_storage_key) metadata.model_card_storage_key = values.model_card_storage_key;
+  if (values.failure_reason) metadata.failure_reason = values.failure_reason;
+  return metadata;
+}
+
+function mapTrainingJobLogRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    training_job_id: row.training_job_id,
+    renter_id: row.renter_id,
+    level: row.level,
+    event: row.event,
+    message: row.message,
+    metadata: safeJson(row.metadata_json),
+    created_at: row.created_at,
+  };
+}
+
 function buildAdapterMetadataFromTrainingJob(job) {
   return {
     source: 'lora_training_job',
@@ -599,6 +724,46 @@ function normalizeStatus(value) {
   return status;
 }
 
+function normalizeLogLevel(value) {
+  const level = String(value || 'info').trim().toLowerCase();
+  if (!TRAINING_LOG_LEVEL_SET.has(level)) {
+    trainingJobError('log level is not supported', {
+      code: 'invalid_log_level',
+      details: { allowed: TRAINING_LOG_LEVELS },
+    });
+  }
+  return level;
+}
+
+function normalizeLogEvent(value) {
+  const event = normalizeBoundedString(value, 'event', 80).toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(event)) {
+    trainingJobError('log event must be lowercase URL-safe text', {
+      code: 'invalid_log_event',
+      details: { field: 'event' },
+    });
+  }
+  return event;
+}
+
+function normalizeLogMetadata(value) {
+  if (value == null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    trainingJobError('log metadata must be an object', {
+      code: 'invalid_log_metadata',
+      details: { field: 'metadata' },
+    });
+  }
+  const json = JSON.stringify(value);
+  if (json.length > 4096) {
+    trainingJobError('log metadata is too large', {
+      code: 'invalid_log_metadata',
+      details: { max_bytes: 4096 },
+    });
+  }
+  return json;
+}
+
 function normalizePositiveInteger(value, fieldName) {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
@@ -650,6 +815,26 @@ function safeJson(value) {
   }
 }
 
+function assertTrainingJobBelongsToRenter(db, renterId, trainingJobId) {
+  if (!trainingJobBelongsToRenter(db, renterId, trainingJobId)) {
+    trainingJobError('LoRA training job not found', {
+      code: 'lora_training_job_not_found',
+      httpStatus: 404,
+      details: { training_job_id: trainingJobId },
+    });
+  }
+}
+
+function trainingJobBelongsToRenter(db, renterId, trainingJobId) {
+  const row = db.prepare(`
+    SELECT 1
+      FROM lora_training_jobs
+     WHERE renter_id = ? AND training_job_id = ?
+     LIMIT 1
+  `).get(renterId, trainingJobId);
+  return !!row;
+}
+
 function trainingJobError(message, opts) {
   throw new LoraTrainingJobError(message, opts);
 }
@@ -662,10 +847,13 @@ function assertDb(db) {
 
 module.exports = {
   TRAINING_JOB_STATUSES,
+  TRAINING_LOG_LEVELS,
   LoraTrainingJobError,
   ensureLoraTrainingJobsSchema,
+  appendLoraTrainingJobLog,
   createLoraTrainingJob,
   getLoraTrainingJob,
+  listLoraTrainingJobLogs,
   listLoraTrainingJobs,
   listCreatedLoraTrainingJobs,
   registerLoraTrainingJobAdapter,
@@ -675,8 +863,11 @@ module.exports = {
     normalizeOutputAdapterId,
     normalizeStorageKey,
     normalizeStatus,
+    normalizeLogEvent,
+    normalizeLogLevel,
     generateTrainingJobId,
     generateOutputAdapterId,
+    mapTrainingJobLogRow,
     mapTrainingJobRow,
   },
 };
