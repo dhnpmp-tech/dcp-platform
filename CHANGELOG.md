@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 09:01 UTC - `chore(inference): add batch worker smoke script - PR #753`
+
+**PR:** [#753](https://github.com/dhnpmp-tech/dcp-platform/pull/753) (`codex/batch-worker-npm-script-2026-07-08`).
+**Local timestamp:** 2026-07-08 13:01 +04.
+
+**What:** Follow-up from the PR #752 production smoke. Adds the missing npm wrapper for the dormant batch worker so deploy handoffs can run a stable command instead of a raw node path.
+
+- **Script:** Added `npm --prefix backend run worker:batch-inference:once -- --limit 1`, matching the existing LoRA worker smoke style.
+- **Process:** Updated the batch design/runbook notes so future agents use the npm script during batch-worker verification.
+- **Product honesty:** This does not enable production batch execution; disabled mode remains a no-op unless `DCP_BATCH_WORKER_ENABLED=1` and an executor are configured.
+- **Verified:** Disabled batch worker npm smoke; `git diff --check`.
+
 ### 2026-07-08 08:54 UTC - `feat(inference): add batch result manifest proof - PR #752`
 
 **PR:** [#752](https://github.com/dhnpmp-tech/dcp-platform/pull/752) (`codex/batch-result-manifest-2026-07-08`).

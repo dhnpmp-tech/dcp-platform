@@ -21,6 +21,7 @@
     "gate:openrouter-reliability": "NODE_ENV=test node src/scripts/run-openrouter-reliability-gate.js",
     "certify:openrouter:train": "NODE_ENV=test node src/scripts/run-openrouter-certification-train.js",
     "gate:openrouter-reliability:raw": "NODE_ENV=test node tests/openrouter-compliance-harness.js",
+    "worker:batch-inference:once": "node src/scripts/run-batch-inference-worker-once.js",
     "worker:lora-training:once": "node src/scripts/run-lora-training-worker-once.js",
     "templates:validate": "node src/scripts/validate-deploy-templates.js",
     "test": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest --runInBand --forceExit",
