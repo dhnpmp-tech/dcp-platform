@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 22:12 UTC - `test(inference): add prompt-cache contract proof - PR #826`
+### 2026-07-08 22:16 UTC - `test(inference): add prompt-cache contract proof - PR #826`
 
 **PR:** [#826](https://github.com/dhnpmp-tech/dcp-platform/pull/826) (`codex/prompt-cache-contract-proof-2026-07-09`).
-**Local timestamp:** 2026-07-09 02:12 +04.
+**Local timestamp:** 2026-07-09 02:16 +04.
 
 **What:** Eightieth Fireworks/Tinker execution slice. Promotes prompt-cache measurement gates into a repeatable CI-safe proof command.
 
