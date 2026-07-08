@@ -29,6 +29,8 @@ This slice does **not** claim:
    - `prompt_cache.billable_input_tokens`
    - `prompt_cache.discount_applied`
    - `prompt_cache.discount_bps`
+   **Done in PR #754** for `/v1/chat/completions`; fields are attached to
+   non-streaming responses and final/synthetic streaming usage chunks.
 5. Keep `billable_input_tokens === prompt_tokens` until hit measurement is
    reliable across restarts and provider failover.
 6. Only after measurement is trusted, add per-model cached-input rates and
@@ -158,3 +160,7 @@ URLs, apply batch discounts, or enable public batch model capability flags.
 PR #753 adds the convenience smoke command
 `npm --prefix backend run worker:batch-inference:once -- --limit 1`, matching
 the LoRA worker check and avoiding raw node-path drift during deploy handoffs.
+PR #754 wires prompt-cache measurement metadata into `/v1/chat/completions`
+usage blocks without changing billing. It accepts optional `static_prefix` or
+`prompt_cache.static_prefix` hints, hashes session scope, and keeps
+`discount_applied: false` with `billable_input_tokens === prompt_tokens`.

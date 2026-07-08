@@ -6220,6 +6220,25 @@ paths:
                   items:
                     type: string
                   description: Stop sequences
+                static_prefix:
+                  description: Optional static prompt prefix used only for prompt-cache measurement. No discount is applied in this phase.
+                  oneOf:
+                    - type: string
+                    - type: object
+                    - type: array
+                prompt_cache:
+                  type: object
+                  description: Optional prompt-cache measurement hints. These fields do not reduce billing yet.
+                  properties:
+                    static_prefix:
+                      description: Explicit static prefix to hash for prompt-cache accounting.
+                      oneOf:
+                        - type: string
+                        - type: object
+                        - type: array
+                    session_id:
+                      type: string
+                      description: Optional session scope for the prompt-cache key. Stored only as a hash in usage metadata.
                 provider_id:
                   type: integer
                   nullable: true
@@ -6258,6 +6277,36 @@ paths:
                         type: integer
                       total_tokens:
                         type: integer
+                      prompt_cache:
+                        type: object
+                        description: Prompt-cache measurement metadata. Billing is unchanged until cached-input rates and settlement tests land.
+                        properties:
+                          version:
+                            type: string
+                            example: dcp.prompt_cache.v1
+                          status:
+                            type: string
+                            enum: [miss_measured, hit_measured_no_discount, no_static_prefix, legacy_prompt_prefix_unset]
+                            example: miss_measured
+                          eligible:
+                            type: boolean
+                            example: true
+                          cache_key:
+                            type: string
+                            nullable: true
+                            example: pc_0123456789abcdef0123456789abcdef01234567
+                          cached_input_tokens:
+                            type: integer
+                            example: 0
+                          billable_input_tokens:
+                            type: integer
+                            example: 120
+                          discount_applied:
+                            type: boolean
+                            example: false
+                          discount_bps:
+                            type: integer
+                            example: 0
                   cost_halala:
                     type: integer
                   latency_ms:
