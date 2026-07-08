@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 21:28 UTC - `test(pods): add LoRA pod image proof command - PR #820`
+
+**PR:** [#820](https://github.com/dhnpmp-tech/dcp-platform/pull/820) (`codex/lora-pod-image-proof-command-2026-07-09`).
+**Local timestamp:** 2026-07-09 01:28 +04.
+
+**What:** Seventy-seventh Fireworks/Tinker execution slice. Makes the fat LoRA pod image provider-host gate a first-class proof command with handoff artifacts.
+
+- **Proof command:** Added `npm run proof:lora-pod-image`, wired through the backend reliability script table to `backend/docker-templates/verify-lora-pod-image.sh`.
+- **Evidence artifacts:** The provider-host smoke now writes `dcp.lora_pod_image_proof.v1` JSON and Markdown reports under `docs/reports/reliability` by default, capturing image, host, import budget, GPU requirement, LoRA stack-smoke payload, and offline SFT scaffold payload.
+- **Contract guard:** Extended the CI-safe pod image verifier and Jest coverage so the LoRA image smoke script must keep report output, `DC1_RESULT_JSON` parsing, import-budget, and GPU-requirement gates wired.
+- **Roadmaps:** Updated the execution system, lane roadmap, fat-image architecture note, pod-image README, and Fireworks/Tinker strategy roadmap to point at the new command while keeping GPU-host acceptance blocked until a real provider run passes.
+- **Safety:** No pod launch, billing, workspace, training, adapter serving, provider routing, or product-claim behavior changed.
+- **Verified:** Pod image contract verifier; targeted pod image contract Jest suite; package script parse; shell syntax check; `git diff --check`.
+
 ### 2026-07-08 21:20 UTC - `docs(roadmap): codify audit proof gates - PR #818`
 
 **PR:** [#818](https://github.com/dhnpmp-tech/dcp-platform/pull/818) (`codex/audit-execution-proof-gates-2026-07-08`).

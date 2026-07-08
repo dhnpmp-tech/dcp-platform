@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 21:28 UTC - LoRA pod image proof command (PR #820)
+
+- **PR:** [#820](https://github.com/dhnpmp-tech/dcp-platform/pull/820) (`codex/lora-pod-image-proof-command-2026-07-09`).
+- **Proof command:** Added `npm run proof:lora-pod-image` for provider-host `dcp-compute:lora` import and offline SFT scaffold proof.
+- **Artifacts:** The proof writes `dcp.lora_pod_image_proof.v1` JSON and Markdown reports under `docs/reports/reliability` by default.
+- **Contract:** CI-safe verifier and Jest coverage now require the LoRA smoke script to keep report output, `DC1_RESULT_JSON`, import-budget, and GPU gates wired.
+- **Roadmaps:** Updated the audit execution system, lane roadmap, fat-image architecture note, pod-image README, and Fireworks/Tinker strategy roadmap with the new proof path.
+- **Safety:** No runtime pod, billing, workspace, training, serving, or routing behavior changed.
+- **Verification:** Pod image contract verifier; targeted pod image contract Jest suite; package script parse; shell syntax check; `git diff --check`.
+
 ### 2026-07-08 21:20 UTC - Audit proof-gate execution order (PR #818)
 
 - **PR:** [#818](https://github.com/dhnpmp-tech/dcp-platform/pull/818) (`codex/audit-execution-proof-gates-2026-07-08`).

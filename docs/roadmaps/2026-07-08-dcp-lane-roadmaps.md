@@ -447,6 +447,9 @@ template launch.
   portable workspace upload -> pod launch -> running Jupyter -> marker visible
   under `/workspace`, with credential redaction, default pod cleanup, and
   JSON/Markdown evidence output.
+- PR #820 added `npm run proof:lora-pod-image`, the provider-host proof command
+  for `dcp-compute:lora` imports and offline SFT scaffold readiness, with
+  JSON/Markdown evidence output.
 
 ### Now
 
@@ -474,6 +477,9 @@ template launch.
 ### Next
 
 - Build and verify fat image on a GPU provider host.
+  **Provider-host proof command added in PR #820 as
+  `npm run proof:lora-pod-image`; acceptance still requires running it on a GPU
+  provider host after `dcp-compute:lora` is built.**
 - Add template-backed launch flow.
 - Add workspace pre-upload polish.
   **Fine-Tuning now links directly into the persistent Workspace tab in PR
@@ -506,7 +512,7 @@ template launch.
 
 ### First PRs
 
-1. Fat pod image spec and verification script. **Started in PR #762.**
+1. Fat pod image spec and verification script. **Started in PR #762; provider-host proof command/report added in PR #820.**
 2. Workspace-to-pod launch UX/API polish. **Started in PR #761.**
 3. Supply-tier and paid-credit pod policy. **Durable supply-tier schema
    started in PR #764; renter-facing credit gate guidance added in PR #767.**
@@ -648,7 +654,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
-| POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; provider-host image imports for fat image work |
+| POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
 | LoRA | `npm run templates:validate` plus adapter/training route tests | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 
 ## Weekly Cadence
