@@ -32,6 +32,9 @@ what is live.
 - PR #777 wired `/renter/batches` to `GET /api/batches/readiness`, adding a
   compact readiness rail for mode, contract version, create/execution/download,
   settlement, discount, window, and supported-URL gates.
+- PR #779 wired `/renter/playground` to `GET /v1/router/policies`, showing the
+  available balanced default plus future policy gates and sending
+  `routing_policy=balanced` only when the backend marks it available.
 
 ### Now
 
@@ -53,6 +56,7 @@ what is live.
   - Arabic transcription candidate
 - Tighten playground/pricing so model rate and capability copy comes from
   backend metadata where possible.
+  **Router-policy readiness now comes from `/v1/router/policies` in PR #779.**
 
 ### Next
 
@@ -200,6 +204,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #773 made `routing_policy: "balanced"` an explicit accepted no-op for
   `/v1/chat/completions` and rejects non-selectable future policies with a
   structured 400 instead of silently ignoring them.
+- PR #779 made the renter Playground consume the router-policy catalog, display
+  balanced/future policy readiness, and send explicit `routing_policy=balanced`
+  only for the currently available default.
 
 ### Now
 
@@ -254,6 +261,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   **Read-only policy discovery started in PR #772; request-selectable routing
   remains gated until policy-specific routing tests and smoke paths exist.
   Explicit balanced request validation started in PR #773.**
+  **Playground visibility for the policy catalog landed in PR #779 while future
+  policies remain display-only/gated.**
 
 ### Later
 
@@ -266,6 +275,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 
 1. `/v1/models` capability/pricing metadata audit and tests.
    **Started in PR #766; token-pricing parity added in PR #769.**
+   **Playground router-policy visibility added in PR #779.**
 2. Prompt-cache accounting design with test fixtures.
 3. Batch inference API design and schema, then implementation.
 

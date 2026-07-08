@@ -255,6 +255,68 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .knob .label b { color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .knob input[type=range] { width: 100%; accent-color: var(--rt-accent); }
 
+.router-panel { display: grid; gap: 12px; }
+.route-default {
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--teal) 6%, var(--paper));
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+.route-default span,
+.route-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.route-default b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+.route-default em {
+  color: var(--rt-accent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+}
+.route-policy-list { display: grid; gap: 6px; }
+.route-policy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+}
+.route-policy.on { border-color: color-mix(in oklab, var(--teal) 58%, var(--hair)); }
+.route-policy.gated { opacity: .72; }
+.route-policy span {
+  min-width: 0;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+.route-policy b {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.route-note {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .chat { background: var(--paper); border: 1px solid var(--hair); display: flex; flex-direction: column; min-height: 520px; }
 .chat-hd { padding: 14px 18px; border-bottom: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: center; }
 .chat-hd .nm { font-family: var(--serif); font-size: 22px; letter-spacing: -.01em; color: var(--ink); }

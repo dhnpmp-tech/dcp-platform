@@ -167,6 +167,9 @@ Primary files:
 Current capabilities:
 
 - Playground pulls live `/v1/models`.
+- Playground now pulls live `/v1/router/policies`, displays balanced/future
+  policy readiness, and sends explicit `routing_policy=balanced` when balanced
+  is the available default.
 - Playground can stream responses.
 - Pricing page/model rate card exists.
 - Live capacity component reads health and model catalog.
@@ -175,8 +178,9 @@ Current capabilities:
 
 Gaps:
 
-- Pricing/capability metadata is not yet strong enough to power a Fireworks-like
-  model catalog by itself.
+- Pricing/capability metadata is stronger after the model pricing, feature
+  readiness, and router-policy slices, but pricing pages still need to consume
+  those contracts more fully.
 - Prompt cache and batch discounts are not exposed because they are not built.
 - Dedicated deployment and adapter deployment have no UI.
 - Evaluator/benchmark jobs are not self-serve.
@@ -273,6 +277,8 @@ Gaps:
    - Dedicated deployments
    - Batch, once backend design lands
 5. Add pricing transparency from backend metadata rather than duplicated copy.
+   - PR #779 moved router-policy visibility in the Playground onto backend
+     readiness metadata.
 
 ## Technical Order of Operations
 
