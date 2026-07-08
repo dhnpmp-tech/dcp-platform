@@ -188,3 +188,9 @@ PR #785 adds renter-wide `GET /api/adapters/deployments` for deployment
 lifecycle records across all adapters. It is a read-only contract for dashboards
 and agents; it does not route traffic, attach load proof, or change any
 deployment lifecycle state.
+
+PR #786 moves `/renter/fine-tuning` onto that aggregate deployment contract.
+The dashboard still renders the same read-only deployment intent rows, but the
+initial load no longer polls each visible adapter's scoped deployment endpoint.
+Route traffic and load proof remain backend-owned row fields, and the UI still
+does not expose a deploy action.

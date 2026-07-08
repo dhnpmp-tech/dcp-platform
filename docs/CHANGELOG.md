@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 16:29 UTC - Fine-Tuning aggregate adapter deployments (PR #786)
+
+- **PR:** [#786](https://github.com/dhnpmp-tech/dcp-platform/pull/786) (`codex/frontend-aggregate-deployments-2026-07-08`).
+- **Frontend:** `/renter/fine-tuning` now reads `GET /api/adapters/deployments` instead of polling deployment rows per visible adapter.
+- **UI:** The read-only deployment intent ledger remains unchanged for users while the initial load uses the aggregate backend contract from PR #785.
+- **Safety:** No deploy action, routing mutation, or load-proof claim was added; deployment rows continue to render backend `route_traffic` and proof state.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render with aggregate deployment request, no adapter-scoped deployment request, and no horizontal overflow.
+
 ### 2026-07-08 16:18 UTC - Aggregate adapter deployment list (PR #785)
 
 - **PR:** [#785](https://github.com/dhnpmp-tech/dcp-platform/pull/785) (`codex/adapter-deployments-list-2026-07-08`).

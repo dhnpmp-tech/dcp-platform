@@ -266,6 +266,9 @@ Goal: ship the first real train-here/deploy-here loop.
     the target model
   - PR #785 added a renter-wide deployment lifecycle list endpoint so UI and
     agents can inspect adapter deployment intents without per-adapter polling.
+  - PR #786 made the Fine-Tuning dashboard consume that aggregate endpoint,
+    preserving read-only deploy intent visibility while removing per-adapter
+    request fan-out.
 - Add dashboard:
   - datasets
   - training jobs
@@ -277,6 +280,9 @@ Goal: ship the first real train-here/deploy-here loop.
     public training or adapter traffic is enabled.
   - PR #784 added read-only adapter deployment intent rows, making the deploy
     lifecycle visible without adding a deploy button or routing claim.
+  - PR #786 moved that deployment ledger onto the aggregate deployment list,
+    removing initial-load request fan-out while preserving the same route/load
+    proof gates.
 - Add `dcpconnect` only after adapters can actually deploy.
 
 Acceptance:
