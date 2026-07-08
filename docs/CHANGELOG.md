@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 07:42 UTC - Fine-Tuning console training jobs ledger (PR #745)
+
+- **PR:** [#745](https://github.com/dhnpmp-tech/dcp-platform/pull/745) (`codex/frontend-finetuning-training-jobs-2026-07-08`).
+- **Frontend:** Wired `/renter/fine-tuning` to read `/api/lora/training-jobs` alongside renter account and adapter registry state.
+- **Console:** Added a LoRA training-jobs ledger with dataset counts/splits/checksums, recipe, base model, output adapter reservation, lifecycle status, and trainer/adapter proof gates.
+- **Product guardrails:** Updated KPIs and contract preview so managed trainer execution, adapter registration, and traffic routing remain visibly disabled until the proof-backed backend slices land.
+- **Verification:** `npm run build`; `git diff --check`; production-mode Playwright desktop/mobile render with mocked renter, adapters, and training jobs.
+
 ### 2026-07-08 07:31 UTC - LoRA training job API foundation (PR #744)
 
 - **PR:** [#744](https://github.com/dhnpmp-tech/dcp-platform/pull/744) (`codex/lora-training-jobs-foundation-2026-07-08`).
