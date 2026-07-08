@@ -24,7 +24,7 @@ const MARQUEE: ReadonlyArray<{ en: string; ar: string }> = [
 // ───────── primary nav — product-first, identical to the home topbar ─────────
 const NAV: ReadonlyArray<{ href: string; en: string; ar: string }> = [
   { href: '/', en: 'Overview', ar: 'نظرة عامة' },
-  { href: '/containers', en: 'GPU Pods', ar: 'حاويات GPU' },
+  { href: '/pods', en: 'GPU Pods', ar: 'حاويات GPU' },
   { href: '/inference', en: 'Inference', ar: 'الاستدلال' },
   { href: '/fine-tuning', en: 'Fine-Tuning', ar: 'الضبط الدقيق' },
   { href: '/agents', en: 'Agents', ar: 'الوكلاء' },
@@ -39,7 +39,7 @@ const MENU: ReadonlyArray<{ href: string; n: string; tEn: string; tAr: string; s
   { href: '/inference', n: '02', tEn: 'Inference', tAr: 'الاستدلال', sEn: 'OpenAI-compatible · live catalog', sAr: 'متوافق مع OpenAI · كتالوج حي' },
   { href: '/fine-tuning', n: '03', tEn: 'Fine-Tuning', tAr: 'الضبط الدقيق', sEn: 'LoRA contracts · proof-gated serving', sAr: 'عقود LoRA · خدمة مقيدة بالإثبات' },
   { href: '/pricing', n: '04', tEn: 'Pricing', tAr: 'الأسعار', sEn: 'Per-million-token · SAR', sAr: 'لكل مليون رمز · بالريال' },
-  { href: '/containers', n: '05', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
+  { href: '/pods', n: '05', tEn: 'GPU Pods', tAr: 'حاويات GPU', sEn: 'Rent a whole GPU on demand', sAr: 'استأجر معالجاً كاملاً عند الطلب' },
   { href: '/agents', n: '06', tEn: 'Agents', tAr: 'الوكلاء', sEn: 'Zero-human onboarding · MCP', sAr: 'تهيئة بلا بشر · MCP' },
   { href: '/docs', n: '07', tEn: 'Docs', tAr: 'التوثيق', sEn: 'OpenAI-compatible API', sAr: 'واجهة متوافقة مع OpenAI' },
   { href: '/provider-setup', n: '08', tEn: 'Earn', tAr: 'اكسب', sEn: 'Earn Riyal from your GPU', sAr: 'اكسب ريالاً من معالجك' },

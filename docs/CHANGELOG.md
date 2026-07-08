@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 17:16 UTC - Public Pods route (PR #790)
+
+- **PR:** [#790](https://github.com/dhnpmp-tech/dcp-platform/pull/790) (`codex/public-pods-route-2026-07-08`).
+- **Frontend:** Added `/pods` as the public GPU Pods product route by reusing the existing GPU Pods page surface.
+- **Navigation:** Retargeted shared GPU Pods navigation, home entry points, footer links, and Fine-Tuning CTA links from `/containers` to `/pods`.
+- **Compatibility:** `/containers` remains renderable for existing links; no pod launch, billing, workspace, or backend behavior changed.
+- **Verification:** `npm run build`; `git diff --check`; local production Playwright desktop/tablet/mobile render with loaded images, active nav, home link, no horizontal overflow, and `/containers` compatibility render.
+
 ### 2026-07-08 17:05 UTC - Public Inference page (PR #789)
 
 - **PR:** [#789](https://github.com/dhnpmp-tech/dcp-platform/pull/789) (`codex/public-inference-page-2026-07-08`).

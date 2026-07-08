@@ -299,6 +299,9 @@ Gaps:
      - PR #789 added `/inference` with shipped `/v1/models`, SAR metering, and
        balanced-router gates while leaving advanced rails gated.
    - Pods
+     - PR #790 added `/pods` as the public GPU Pods route, retargeted shared
+       GPU Pods links from `/containers`, and kept `/containers` as a
+       compatibility URL without pod backend changes.
    - Fine-tuning
      - PR #788 added `/fine-tuning` with shipped LoRA contract gates and no
        public training/serving/Tinker overclaim.

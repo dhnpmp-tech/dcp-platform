@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 17:16 UTC - `feat(frontend): add public Pods route - PR #790`
+
+**PR:** [#790](https://github.com/dhnpmp-tech/dcp-platform/pull/790) (`codex/public-pods-route-2026-07-08`).
+**Local timestamp:** 2026-07-08 21:16 +04.
+
+**What:** Fifty-seventh Fireworks/Tinker execution slice. Adds `/pods` as the public GPU Pods product route while keeping the existing `/containers` compatibility URL alive.
+
+- **Public route:** Added `/pods` by reusing the existing GPU Pods product surface, including Jupyter, root SSH, GPU availability, template, and workspace positioning.
+- **Product IA:** Retargeted shared GPU Pods navigation, home entry points, footer links, and Fine-Tuning CTA links from `/containers` to `/pods`.
+- **Compatibility:** `/containers` remains renderable for existing links; no pod launch, billing, workspace, or backend behavior changed.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/pods` on desktop/tablet/mobile with loaded images, active nav, home link, no horizontal overflow, and `/containers` compatibility render.
+
 ### 2026-07-08 17:05 UTC - `feat(frontend): add public Inference page - PR #789`
 
 **PR:** [#789](https://github.com/dhnpmp-tech/dcp-platform/pull/789) (`codex/public-inference-page-2026-07-08`).

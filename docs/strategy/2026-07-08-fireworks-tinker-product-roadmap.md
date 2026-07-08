@@ -311,6 +311,8 @@ Goal: make the product easy to understand and sell.
   - `/inference`
     **Added in PR #789 with live-catalog and balanced-router claim guards.**
   - `/pods`
+    **Added in PR #790 as the public GPU Pods product route while keeping
+    `/containers` renderable for existing links.**
   - `/fine-tuning`
     **Added in PR #788 with shipped LoRA contract gates and no public-serving
     overclaim.**
