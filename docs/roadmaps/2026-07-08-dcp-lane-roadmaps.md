@@ -316,6 +316,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   agent-compatible inference path. It validates `POST /anthropic/v1/messages`
   streaming headers and message lifecycle frames, writes redacted proof
   artifacts, and stays gated behind `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1`.
+- PR #816 corrected that runner to default to `https://api.dcp.sa` and to
+  normalize `/api`, `/anthropic`, and `/v1` paths correctly for backend API
+  hosts.
 
 ### Now
 
@@ -405,7 +408,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - Anthropic SSE smoke for agent path when touched.
   **Live proof runner landed in PR #814 as `npm run proof:anthropic-sse`; run
   it with `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1` when a funded smoke principal and
-  compatible vLLM provider capacity are available.**
+  compatible vLLM provider capacity are available. PR #816 points the runner at
+  the correct `api.dcp.sa` route host.**
 - One real low-cost inference smoke after production deploy.
 
 ## Lane 4 - POT/PODS Infrastructure Roadmap

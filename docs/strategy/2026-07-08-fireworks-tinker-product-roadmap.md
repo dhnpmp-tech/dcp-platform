@@ -259,6 +259,8 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `POST /anthropic/v1/messages` with `stream: true`, `text/event-stream`
     preservation, Anthropic message lifecycle frames, and redacted
     JSON/Markdown/log evidence output.
+  - PR #816 corrected the runner default to `https://api.dcp.sa` and hardened
+    `/api`/`/anthropic`/`/v1` base URL normalization.
 - Publish honest benchmark pages before making quality claims.
 
 Acceptance:
@@ -268,7 +270,7 @@ Acceptance:
 - Streaming is verified for `/v1/chat/completions` and `/anthropic/v1/messages`.
   - PR #814 provides the Anthropic SSE proof command; acceptance closes only
     after a funded smoke principal and compatible vLLM provider capacity produce
-    a passing live report.
+    a passing live report. PR #816 points that command at the correct API host.
 - Batch/prompt-cache PRs have backend designs and acceptance tests before code.
 
 ### Phase D - LoRA/Tinker MVP (2-3 weeks)

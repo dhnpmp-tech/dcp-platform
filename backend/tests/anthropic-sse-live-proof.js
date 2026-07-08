@@ -20,7 +20,7 @@ function redactSecret(secret) {
 }
 
 function normalizeBaseUrl(baseUrl) {
-  return String(baseUrl || process.env.DCP_API_BASE_URL || process.env.DCP_BASE_URL || process.env.DCP_API_BASE || 'https://dcp.sa')
+  return String(baseUrl || process.env.DCP_API_BASE_URL || process.env.DCP_BASE_URL || process.env.DCP_API_BASE || 'https://api.dcp.sa')
     .replace(/\/+$/, '');
 }
 
@@ -29,6 +29,9 @@ function buildUrl(baseUrl, route) {
   const cleanRoute = route.startsWith('/') ? route : `/${route}`;
   if (normalized.endsWith('/api') && cleanRoute.startsWith('/api/')) {
     return `${normalized}${cleanRoute.slice(4)}`;
+  }
+  if (normalized.endsWith('/api') && (cleanRoute.startsWith('/anthropic/') || cleanRoute.startsWith('/v1/'))) {
+    return `${normalized.slice(0, -4)}${cleanRoute}`;
   }
   return `${normalized}${cleanRoute}`;
 }
