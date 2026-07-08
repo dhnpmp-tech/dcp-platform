@@ -88,6 +88,10 @@ function parseBatchJsonl(input, options = {}) {
   };
 }
 
+function checksumBatchRequest(request) {
+  return crypto.createHash('sha256').update(stableStringify(request)).digest('hex');
+}
+
 function normalizeBatchRequest(value, lineNumber) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new BatchInferenceContractError('Batch line must be an object', { code: 'invalid_line', line: lineNumber });
@@ -164,6 +168,7 @@ module.exports = {
   MAX_BATCH_REQUESTS,
   MAX_BATCH_BYTES,
   BatchInferenceContractError,
+  checksumBatchRequest,
   parseBatchJsonl,
   __test: {
     stableStringify,
