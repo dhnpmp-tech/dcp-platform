@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 16:18 UTC - `feat(adapters): list renter deployment records - PR #785`
+
+**PR:** [#785](https://github.com/dhnpmp-tech/dcp-platform/pull/785) (`codex/adapter-deployments-list-2026-07-08`).
+**Local timestamp:** 2026-07-08 20:18 +04.
+
+**What:** Fifty-second Fireworks/Tinker execution slice. Adds a renter-wide adapter deployment list so dashboards and agents can read deployment intent state without one request per adapter.
+
+- **Backend contract:** Added `GET /api/adapters/deployments` before the dynamic adapter route, returning renter-owned deployment lifecycle records across adapters.
+- **Filters:** Supports optional `adapter_id`, `status`, `limit`, and `offset` while reusing the existing deployment status and pagination normalization.
+- **Safety:** The response remains metadata/proof state only; routing is still represented solely by each row's `route_traffic` flag.
+- **OpenAPI:** Documented the renter-authenticated aggregate deployment list in the platform API docs copies.
+- **Verified:** Targeted adapter deployment and adapter registry Jest suites; backend route/service `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 16:11 UTC - `feat(frontend): show adapter deployment intents - PR #784`
 
 **PR:** [#784](https://github.com/dhnpmp-tech/dcp-platform/pull/784) (`codex/frontend-adapter-deployments-2026-07-08`).

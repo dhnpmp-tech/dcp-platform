@@ -12,6 +12,7 @@ const {
   attachAdapterDeploymentLoadProof,
   createAdapterDeployment,
   getAdapterDeployment,
+  listAllAdapterDeployments,
   listAdapterDeployments,
   toRouteError,
 } = require('../services/adapterDeploymentLifecycle');
@@ -42,6 +43,26 @@ function createAdaptersRouter(deps = {}) {
       });
     } catch (error) {
       return sendAdapterError(res, error);
+    }
+  });
+
+  router.get('/deployments', requireRenter, (req, res) => {
+    try {
+      const result = listAllAdapterDeployments(registryDb, req.renter.id, {
+        adapter_id: req.query.adapter_id,
+        status: req.query.status,
+        limit: req.query.limit,
+        offset: req.query.offset,
+      });
+      return res.json({
+        object: 'list',
+        data: result.deployments,
+        count: result.deployments.length,
+        limit: result.limit,
+        offset: result.offset,
+      });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
     }
   });
 

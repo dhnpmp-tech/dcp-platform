@@ -268,6 +268,40 @@ function listAdapterDeployments(db, renterId, adapterId, options = {}) {
   };
 }
 
+function listAllAdapterDeployments(db, renterId, options = {}) {
+  assertDb(db);
+  const ownerId = normalizePositiveInteger(renterId, 'renter_id');
+  const params = [ownerId];
+  const where = ['renter_id = ?'];
+  if (options.adapter_id) {
+    where.push('adapter_id = ?');
+    params.push(normalizeAdapterId(options.adapter_id));
+  }
+  if (options.status) {
+    where.push('status = ?');
+    params.push(normalizeStatus(options.status));
+  }
+  const limit = normalizeLimit(options.limit);
+  const offset = normalizeOffset(options.offset);
+  params.push(limit, offset);
+
+  const rows = db.prepare(`
+    SELECT deployment_id, renter_id, adapter_id, base_model, mode, endpoint_id,
+           status, route_traffic, serving_load_proof_json, failure_reason,
+           created_at, updated_at, started_at, stopped_at
+      FROM adapter_deployments
+     WHERE ${where.join(' AND ')}
+     ORDER BY created_at DESC, id DESC
+     LIMIT ? OFFSET ?
+  `).all(...params);
+
+  return {
+    deployments: rows.map(mapDeploymentRow),
+    limit,
+    offset,
+  };
+}
+
 function getAdapterDeployment(db, renterId, deploymentId) {
   assertDb(db);
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
@@ -448,6 +482,7 @@ module.exports = {
   attachAdapterDeploymentLoadProof,
   updateDeploymentStatus,
   listAdapterDeployments,
+  listAllAdapterDeployments,
   getAdapterDeployment,
   toRouteError,
   __test: {

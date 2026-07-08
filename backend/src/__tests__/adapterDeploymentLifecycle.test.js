@@ -12,6 +12,7 @@ const {
   createAdapterDeployment,
   attachAdapterDeploymentLoadProof,
   attachDeploymentLoadProof,
+  listAllAdapterDeployments,
   listAdapterDeployments,
   getAdapterDeployment,
 } = require('../services/adapterDeploymentLifecycle');
@@ -126,6 +127,42 @@ describe('adapter deployment lifecycle service', () => {
       failure_reason: null,
     });
     expect(listAdapterDeployments(db, 1, 'adpt_deployready').deployments.map((row) => row.deployment_id)).toEqual(['adpl_ready001']);
+  });
+
+  test('lists all renter deployment records with adapter and status filters', () => {
+    const db = makeDb();
+    createAdapter(db, 1, adapterInput());
+    createAdapter(db, 1, adapterInput({
+      adapter_id: 'adpt_secondready',
+      storage_key: 'adapters/r1/second/adapter.safetensors',
+      checksum_sha256: 'd'.repeat(64),
+    }));
+    createAdapter(db, 2, adapterInput({
+      adapter_id: 'adpt_otherready',
+      storage_key: 'adapters/r2/other/adapter.safetensors',
+      checksum_sha256: 'e'.repeat(64),
+    }));
+    createAdapterDeployment(db, 1, {
+      deployment_id: 'adpl_ready001',
+      adapter_id: 'adpt_deployready',
+    });
+    createAdapterDeployment(db, 1, {
+      deployment_id: 'adpl_ready002',
+      adapter_id: 'adpt_secondready',
+    });
+    createAdapterDeployment(db, 2, {
+      deployment_id: 'adpl_hidden01',
+      adapter_id: 'adpt_otherready',
+    });
+
+    expect(listAllAdapterDeployments(db, 1).deployments.map((row) => row.deployment_id)).toEqual([
+      'adpl_ready002',
+      'adpl_ready001',
+    ]);
+    expect(listAllAdapterDeployments(db, 1, { adapter_id: 'adpt_deployready' }).deployments.map((row) => row.deployment_id)).toEqual([
+      'adpl_ready001',
+    ]);
+    expect(listAllAdapterDeployments(db, 1, { status: 'pending' }).deployments).toHaveLength(2);
   });
 
   test('requires adapter ownership and ready status before deployment request', () => {
@@ -258,6 +295,19 @@ describe('/api/adapters/:adapterId/deployments route', () => {
     expect(listed.status).toBe(200);
     expect(listed.body.object).toBe('list');
     expect(listed.body.data.map((row) => row.deployment_id)).toEqual(['adpl_route001']);
+
+    const allListed = await request(app)
+      .get('/api/adapters/deployments')
+      .set('x-test-renter-id', '1');
+    expect(allListed.status).toBe(200);
+    expect(allListed.body.object).toBe('list');
+    expect(allListed.body.data.map((row) => row.deployment_id)).toEqual(['adpl_route001']);
+
+    const filtered = await request(app)
+      .get('/api/adapters/deployments?adapter_id=adpt_deployready')
+      .set('x-test-renter-id', '1');
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.data.map((row) => row.deployment_id)).toEqual(['adpl_route001']);
 
     const read = await request(app)
       .get('/api/adapters/adpt_deployready/deployments/adpl_route001')

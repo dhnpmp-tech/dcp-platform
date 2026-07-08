@@ -268,6 +268,8 @@ Gaps:
 7. Add adapter deployment API for one base model on a controlled vLLM deployment.
    **Deployment intent/load-proof contracts exist; vLLM serving smoke remains
    required before routing.**
+   **PR #785 adds the renter-wide deployment list endpoint for dashboards and
+   agents.**
 
 ## Immediate Frontend Roadmap
 
@@ -314,8 +316,8 @@ Do not start with marketing pages alone. The safer order is:
 5. Adapter registry. **Metadata foundation exists; artifact proof remains open.**
 6. LoRA train job. **Metadata/readiness foundation exists; GPU execution proof
    remains open.**
-7. Adapter deployment. **Intent/load-proof contract exists; serving smoke
-   remains open.**
+7. Adapter deployment. **Intent/load-proof contract and renter-wide list exist;
+   serving smoke remains open.**
 8. Frontend dashboard.
 9. Public pages and launch content.
 

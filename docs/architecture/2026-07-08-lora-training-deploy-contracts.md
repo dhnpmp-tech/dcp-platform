@@ -183,3 +183,8 @@ The page now fetches `GET /api/adapters/{adapter_id}/deployments` for visible
 adapters and displays mode, endpoint, lifecycle status, route traffic, and load
 proof state. It still does not expose a deploy action or claim serving until
 the backend row has matching load proof.
+
+PR #785 adds renter-wide `GET /api/adapters/deployments` for deployment
+lifecycle records across all adapters. It is a read-only contract for dashboards
+and agents; it does not route traffic, attach load proof, or change any
+deployment lifecycle state.

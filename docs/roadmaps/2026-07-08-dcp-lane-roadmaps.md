@@ -133,6 +133,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   frontend, docs, and agents can consume one LoRA readiness contract while
   public training, serving, routing, quality claims, Tinker compatibility, and
   discounts remain false.
+- PR #785 added renter-wide `GET /api/adapters/deployments` so dashboards and
+  agents can list deployment intent/proof rows across adapters without changing
+  routing behavior.
 
 ### Now
 
@@ -164,6 +167,8 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   - degraded
   - stopped
   - failed
+  **Adapter-scoped deployment records exist, and PR #785 adds the renter-wide
+  list endpoint for dashboard/agent consumption.**
 
 ### Later
 
@@ -494,6 +499,7 @@ DCP-hosted endpoint -> billed inference.
 9. Adapter deploy MVP.
    **Deployment intent/load-proof contracts are in place through PR #749 and
    surfaced by PR #782; vLLM serving smoke remains required before routing.**
+   **Renter-wide deployment listing added in PR #785.**
 10. Fireworks-style product pages.
 
 ## Weekly Cadence
