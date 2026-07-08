@@ -168,6 +168,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   result-proof, download-signing, line-ledger, and worker line-proof foundation.
 - PR #760 added the disabled-by-default bridge from succeeded batch line proof
   to the existing atomic inference settlement service.
+- PR #776 added renter-authenticated batch readiness metadata so product
+  surfaces can show validation-only, result-download, worker, settlement,
+  discount, and capability gates without overclaiming execution.
 - PR #766 tightened model capability metadata so explicit embedding/rerank/image
   entries are no longer advertised as chat/streaming capable across `/v1/models`,
   `/api/models`, and `/api/models/catalog`.
@@ -228,7 +231,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - discounted billing policy
   - idempotency key
   **Readiness metadata now marks batch as API metadata only until execution,
-  result artifacts, and discounted settlement are enabled.**
+  result artifacts, and discounted settlement are enabled. PR #776 adds
+  `/api/batches/readiness` for the renter-facing batch gate contract.**
 - Router policies:
   - cheapest
   - lowest latency

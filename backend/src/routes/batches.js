@@ -3,6 +3,7 @@
 const express = require('express');
 const {
   BatchInferenceJobError,
+  buildBatchInferenceReadiness,
   createBatchInferenceJob,
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
@@ -54,6 +55,14 @@ function createBatchesRouter(deps = {}) {
         execution_enabled: false,
         next: 'batch_worker_and_result_artifact_not_enabled',
       });
+    } catch (error) {
+      return sendBatchError(res, error);
+    }
+  });
+
+  router.get('/readiness', requireRenter, (_req, res) => {
+    try {
+      return res.json({ readiness: buildBatchInferenceReadiness(process.env) });
     } catch (error) {
       return sendBatchError(res, error);
     }

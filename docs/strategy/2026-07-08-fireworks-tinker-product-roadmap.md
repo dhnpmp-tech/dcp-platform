@@ -196,6 +196,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - discounted billing policy
   - result download
   - retry/idempotency
+  - PR #776 added a renter-authenticated batch readiness contract so product
+    surfaces can show validation-only, result-download, worker, settlement,
+    discount, and capability gates honestly.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency
