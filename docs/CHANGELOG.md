@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 19:53 UTC - Model catalog parity coverage (PR #804)
+
+- **PR:** [#804](https://github.com/dhnpmp-tech/dcp-platform/pull/804) (`codex/model-catalog-parity-tests-2026-07-08`).
+- **Backend tests:** Added cross-surface parity coverage for `/v1/models`, `/api/models`, and `/api/models/catalog`.
+- **Contract:** Token pricing, provider count, availability, modalities, max output, capability flags, `capabilities`, and `feature_readiness` now have one shared regression guard.
+- **Safety:** No production route behavior changed.
+- **Verification:** Targeted Jest suites for v1 models, model catalog honesty, and model catalog parity; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 19:46 UTC - Playground prompt-cache readiness panel (PR #802)
 
 - **PR:** [#802](https://github.com/dhnpmp-tech/dcp-platform/pull/802) (`codex/renter-playground-prompt-cache-readiness-2026-07-08`).

@@ -182,6 +182,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #771 added `feature_readiness` to the same model surfaces so advanced
     rails are visible as gated/measurement-only states without overclaiming
     public availability.
+  - PR #804 added cross-surface Jest parity coverage for `/v1/models`,
+    `/api/models`, and `/api/models/catalog`, locking token pricing,
+    provider-count, availability, capability, and readiness fields together.
 - Add prompt-cache accounting design:
   - static prefix/session hash
   - cached input token estimate
@@ -370,7 +373,8 @@ Acceptance:
    in PR #766; advanced feature readiness metadata added in PR #771; router
    policy visibility reached the Playground in PR #779; selected-model pricing
    and readiness visibility reached the Playground in PR #780; public pricing
-   visibility reached `/pricing` in PR #781.**
+   visibility reached `/pricing` in PR #781; cross-surface catalog parity guard
+   added in PR #804.**
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment
