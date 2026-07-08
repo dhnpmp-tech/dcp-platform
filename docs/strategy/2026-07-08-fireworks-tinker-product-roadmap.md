@@ -193,6 +193,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #800 adds `GET /v1/prompt-cache/readiness` so clients can inspect
     measurement-only status, hash-only storage, response fields, and no-discount
     gates before relying on cache economics.
+  - PR #801 surfaces that readiness contract on `/inference` while keeping
+    cached-input discounts, settlement discounts, and provider KV-cache control
+    explicitly gated in public copy.
 - Add batch inference design:
   - upload JSONL
   - async job

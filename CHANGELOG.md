@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 19:24 UTC - `feat(frontend): surface prompt-cache readiness on Inference page - PR #801`
+
+**PR:** [#801](https://github.com/dhnpmp-tech/dcp-platform/pull/801) (`codex/public-inference-prompt-cache-readiness-2026-07-08`).
+**Local timestamp:** 2026-07-08 23:24 +04.
+
+**What:** Sixty-seventh Fireworks/Tinker execution slice. Packages the prompt-cache readiness contract on the public Inference product page.
+
+- **Public route:** `/inference` now lists prompt-cache measurement as a shipped readiness source pointing to `GET /v1/prompt-cache/readiness`.
+- **Claim guard:** Page copy now separates hash-only prompt-cache measurement from cached-input discounts, settlement discounts, and provider KV-cache control.
+- **Product gates:** Added a dedicated prompt-cache gate card while keeping batch, LoRA serving, and dedicated deployments proof-gated.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/inference` on desktop/mobile with the prompt-cache readiness copy visible and no horizontal overflow.
+
 ### 2026-07-08 19:16 UTC - `feat(inference): add prompt-cache readiness contract - PR #800`
 
 **PR:** [#800](https://github.com/dhnpmp-tech/dcp-platform/pull/800) (`codex/prompt-cache-readiness-contract-2026-07-08`).

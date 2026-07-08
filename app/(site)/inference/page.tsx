@@ -35,6 +35,13 @@ const CAPABILITIES = [
     en: 'The shipped router policy is the balanced default; premium/latency/cost policies stay gated until measured.',
     ar: 'سياسة التوجيه المشحونة هي الافتراضي المتوازن؛ تبقى سياسات الجودة/الكمون/التكلفة مقيدة حتى تقاس.',
   },
+  {
+    k: 'prompt_cache_readiness',
+    tEn: 'Prompt-cache measurement',
+    tAr: 'قياس التخزين المؤقت',
+    en: 'Static-prefix and session hints are exposed as hash-only measurements; cached-input discounts stay off until settlement proof exists.',
+    ar: 'تظهر تلميحات البادئة الثابتة والجلسة كقياسات بصمات فقط؛ تبقى خصومات الإدخال المخزن متوقفة حتى يوجد إثبات تسوية.',
+  },
 ] as const
 
 const CHAT_SNIPPET = `from openai import OpenAI
@@ -50,6 +57,12 @@ response = client.chat.completions.create(
 )
 
 print(response.choices[0].message.content)`
+
+function capabilitySource(key: string): string {
+  if (key === 'balanced_routing') return '/v1/router/policies'
+  if (key === 'prompt_cache_readiness') return '/v1/prompt-cache/readiness'
+  return '/v1/models'
+}
 
 export default function InferenceProductPage() {
   return (
@@ -98,7 +111,7 @@ export default function InferenceProductPage() {
                 <p><Bi en={capability.en} ar={capability.ar} /></p>
                 <div className="meta">
                   <span><Bi en="Source" ar="المصدر" /></span>
-                  <b dir="ltr">{capability.k === 'balanced_routing' ? '/v1/router/policies' : '/v1/models'}</b>
+                  <b dir="ltr">{capabilitySource(capability.k)}</b>
                 </div>
               </article>
             ))}
@@ -136,7 +149,8 @@ export default function InferenceProductPage() {
               </p>
               <pre className="term" dir="ltr" aria-label="OpenAI-compatible DCP inference example">{CHAT_SNIPPET}</pre>
               <ul className="pshow-list">
-                <li><Bi en="Advanced prompt-cache, batch discounts, LoRA serving, and dedicated deployments remain explicit feature gates." ar="التخزين المؤقت المتقدم والخصومات الدفعية وخدمة LoRA والنشرات المخصصة تبقى بوابات ميزات صريحة." /></li>
+                <li><Bi en="Prompt-cache measurement is visible at /v1/prompt-cache/readiness; discounts remain gated until settlement proof exists." ar="قياس التخزين المؤقت ظاهر في /v1/prompt-cache/readiness؛ تبقى الخصومات مقيدة حتى يوجد إثبات التسوية." /></li>
+                <li><Bi en="Batch discounts, LoRA serving, and dedicated deployments remain explicit feature gates." ar="تبقى خصومات الدُفعات وخدمة LoRA والنشرات المخصصة بوابات ميزات صريحة." /></li>
                 <li><Bi en="Provider counts are not inflated by stale heartbeat-only machines." ar="لا تضخم أعداد المزوّدين بأجهزة نبض اتصال قديمة فقط." /></li>
                 <li><Bi en="Pricing and context are rendered from backend metadata where possible." ar="تعرض الأسعار والسياق من بيانات الخلفية حيثما أمكن." /></li>
               </ul>
@@ -175,6 +189,11 @@ export default function InferenceProductPage() {
               </div>
               <div className="capacity-gate">
                 <span className="gate-n">03</span>
+                <span className="gate-k">/v1/prompt-cache/readiness</span>
+                <p><Bi en="Prompt-cache rows are hash-only measurements; cached-input discounts and provider KV-cache control are still off." ar="صفوف التخزين المؤقت قياسات بصمات فقط؛ تبقى خصومات الإدخال المخزن والتحكم في ذاكرة المزود متوقفة." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">04</span>
                 <span className="gate-k">feature_readiness</span>
                 <p><Bi en="Batch, prompt cache, LoRA, and dedicated deployment flags stay off until implementation and proof land." ar="تبقى أعلام الدُفعات والتخزين المؤقت وLoRA والنشر المخصص متوقفة حتى يصل التنفيذ والإثبات." /></p>
               </div>

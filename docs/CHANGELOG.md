@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 19:24 UTC - Inference prompt-cache readiness copy (PR #801)
+
+- **PR:** [#801](https://github.com/dhnpmp-tech/dcp-platform/pull/801) (`codex/public-inference-prompt-cache-readiness-2026-07-08`).
+- **Frontend:** `/inference` now shows prompt-cache measurement as a readiness-backed product capability.
+- **Source:** The page points to `GET /v1/prompt-cache/readiness` beside `/v1/models` and `/v1/router/policies`.
+- **Safety:** Cached-input discounts, settlement discounts, provider KV-cache control, batch discounts, LoRA serving, and dedicated deployments remain proof-gated.
+- **Verification:** `npm run build`; `git diff --check`; local production desktop/mobile render with prompt-cache readiness copy visible and no horizontal overflow.
+
 ### 2026-07-08 19:16 UTC - Prompt-cache readiness contract (PR #800)
 
 - **PR:** [#800](https://github.com/dhnpmp-tech/dcp-platform/pull/800) (`codex/prompt-cache-readiness-contract-2026-07-08`).
