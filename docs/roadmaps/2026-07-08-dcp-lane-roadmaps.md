@@ -20,6 +20,9 @@ what is live.
 - PR #783 wired `/renter/fine-tuning` to `GET /api/lora/readiness`, adding a
   backend-driven readiness rail for LoRA mode, training, model-card, registry,
   deployment, route-traffic, and claim guards.
+- PR #784 added read-only adapter deployment intent rows to `/renter/fine-tuning`
+  from `GET /api/adapters/{adapter_id}/deployments`, with route traffic and
+  load proof still shown as gated.
 - PR #759 added `/renter/batches`, the first renter-facing batch console for
   validation records, line-ledger proof, and result-manifest proof. Execution,
   discounts, settlement, downloads, and public model batch flags remain gated.
@@ -102,6 +105,7 @@ what is live.
    **Started in PR #745.**
    **Model-card manifest cards added in PR #778.**
    **LoRA readiness gates added from the backend contract in PR #783.**
+   **Adapter deployment intent rows added in PR #784.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
    **Readiness gates from the backend contract added in PR #777.**
 
@@ -448,6 +452,8 @@ DCP-hosted endpoint -> billed inference.
   - one adapter/live merge first
   - multi-LoRA second
   - endpoint only routes after adapter load proof
+  **PR #784 renders deployment intents in `/renter/fine-tuning`; the UI still
+  does not offer a deploy action or route traffic without backend proof.**
 
 ### Later
 

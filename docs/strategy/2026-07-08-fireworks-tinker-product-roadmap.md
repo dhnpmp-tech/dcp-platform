@@ -273,6 +273,8 @@ Goal: ship the first real train-here/deploy-here loop.
   - PR #783 made `/renter/fine-tuning` consume the LoRA readiness contract, so
     the dashboard now shows backend-driven readiness and claim guards before
     public training or adapter traffic is enabled.
+  - PR #784 added read-only adapter deployment intent rows, making the deploy
+    lifecycle visible without adding a deploy button or routing claim.
 - Add `dcpconnect` only after adapters can actually deploy.
 
 Acceptance:

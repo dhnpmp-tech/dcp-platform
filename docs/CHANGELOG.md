@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 16:11 UTC - Fine-Tuning adapter deployment intents (PR #784)
+
+- **PR:** [#784](https://github.com/dhnpmp-tech/dcp-platform/pull/784) (`codex/frontend-adapter-deployments-2026-07-08`).
+- **Frontend:** `/renter/fine-tuning` now reads `GET /api/adapters/{adapter_id}/deployments` for visible adapters.
+- **UI:** Added a read-only deployment intent ledger with deployment id, adapter id, mode, endpoint id, status, route traffic, load-proof state, and failure reason.
+- **Safety:** No deploy button or routing claim was added; route traffic remains displayed as off unless backend load proof says otherwise.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render with adapter-deployment calls and no horizontal overflow.
+
 ### 2026-07-08 16:02 UTC - Fine-Tuning LoRA readiness rail (PR #783)
 
 - **PR:** [#783](https://github.com/dhnpmp-tech/dcp-platform/pull/783) (`codex/frontend-lora-readiness-2026-07-08`).

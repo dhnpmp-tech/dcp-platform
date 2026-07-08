@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 16:11 UTC - `feat(frontend): show adapter deployment intents - PR #784`
+
+**PR:** [#784](https://github.com/dhnpmp-tech/dcp-platform/pull/784) (`codex/frontend-adapter-deployments-2026-07-08`).
+**Local timestamp:** 2026-07-08 20:11 +04.
+
+**What:** Fifty-first Fireworks/Tinker execution slice. Extends the renter Fine-Tuning console from training jobs and adapter registry rows into read-only adapter deployment intent visibility.
+
+- **Frontend contract:** `/renter/fine-tuning` now fetches `GET /api/adapters/{adapter_id}/deployments` for the first adapter set.
+- **Deployment ledger:** Added a read-only table for deployment id, adapter id, mode, endpoint id, lifecycle status, route-traffic state, load-proof state, and failure reason.
+- **Claim guard:** The UI still exposes no deploy action and shows routes/load proof as gated unless the backend deployment row says otherwise.
+- **KPI update:** The fourth KPI now counts deployment intents and keeps ready-adapter context in the sublabel.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright render smoke for `/renter/fine-tuning` on desktop and mobile, including adapter-deployment endpoint calls and no horizontal overflow.
+
 ### 2026-07-08 16:02 UTC - `feat(frontend): render LoRA readiness gates - PR #783`
 
 **PR:** [#783](https://github.com/dhnpmp-tech/dcp-platform/pull/783) (`codex/frontend-lora-readiness-2026-07-08`).

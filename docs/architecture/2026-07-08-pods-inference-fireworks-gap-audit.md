@@ -286,6 +286,7 @@ Gaps:
    - deployments
    - PR #783 added the first backend-driven LoRA readiness rail to
      `/renter/fine-tuning`.
+   - PR #784 added read-only adapter deployment intent rows to the same console.
 4. Add Fireworks-style product pages, but only with shipped claims:
    - Inference
    - Pods
