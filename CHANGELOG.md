@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 20:56 UTC - `test(inference): add Anthropic SSE live proof runner - PR #814`
+
+**PR:** [#814](https://github.com/dhnpmp-tech/dcp-platform/pull/814) (`codex/anthropic-sse-live-proof-runner-2026-07-08`).
+**Local timestamp:** 2026-07-09 00:56 +04.
+
+**What:** Seventy-fourth Fireworks/Tinker execution slice. Adds a repeatable Anthropic Messages SSE proof path for agent-compatible inference.
+
+- **Live proof runner:** Added `npm run proof:anthropic-sse`, a gated smoke that mints/reuses the deterministic inference smoke principal, calls `POST /anthropic/v1/messages` with `stream: true`, and validates `text/event-stream` plus Anthropic `message_start`/`message_stop` frames.
+- **Safety gates:** The runner refuses to make a billed inference request unless `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1` is set and redacts scoped key hints in generated reports.
+- **Evidence artifacts:** Successful or failed runs write JSON/Markdown/log proof artifacts under `docs/reports/reliability`.
+- **Regression guard:** Added a targeted Jest test for SSE-frame detection, base URL handling, credential redaction, and route/header coverage.
+- **Acceptance state:** No Anthropic route, billing, provider routing, or runtime behavior changed. The real live proof still requires a funded smoke principal and compatible vLLM provider capacity.
+- **Verified:** Runner syntax check; targeted Anthropic SSE proof Jest guard.
+
 ### 2026-07-08 20:52 UTC - `test(pods): add workspace-to-pod live proof runner - PR #812`
 
 **PR:** [#812](https://github.com/dhnpmp-tech/dcp-platform/pull/812) (`codex/workspace-pod-live-proof-runner-2026-07-08`).

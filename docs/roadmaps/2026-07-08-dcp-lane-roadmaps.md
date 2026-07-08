@@ -312,6 +312,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #804 added a backend parity guard across `/v1/models`, `/api/models`, and
   `/api/models/catalog` for pricing/capability/readiness fields consumed by
   Playground, Pricing, and public Inference surfaces.
+- PR #814 added an opt-in Anthropic Messages SSE live proof runner for the
+  agent-compatible inference path. It validates `POST /anthropic/v1/messages`
+  streaming headers and message lifecycle frames, writes redacted proof
+  artifacts, and stays gated behind `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1`.
 
 ### Now
 
@@ -399,6 +403,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - Targeted v1/Anthropic/backend tests.
 - Streaming smoke for `/v1/chat/completions`.
 - Anthropic SSE smoke for agent path when touched.
+  **Live proof runner landed in PR #814 as `npm run proof:anthropic-sse`; run
+  it with `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1` when a funded smoke principal and
+  compatible vLLM provider capacity are available.**
 - One real low-cost inference smoke after production deploy.
 
 ## Lane 4 - POT/PODS Infrastructure Roadmap
