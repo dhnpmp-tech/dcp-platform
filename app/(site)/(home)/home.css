@@ -724,6 +724,57 @@
     .mp-row { grid-template-columns: minmax(0,1.6fr) .7fr .9fr; }
     .mp-row > span:nth-child(3) { display:none; }
   }
+  .pricing-live-catalog .mp-row {
+    grid-template-columns: minmax(0,2.1fr) .8fr 1fr 1fr;
+  }
+  .pricing-live-catalog .mp-row > span:nth-child(3) { display:block; }
+  .pricing-live-catalog .mp-row > span {
+    min-width:0;
+    overflow-wrap:anywhere;
+  }
+  .pricing-live-catalog .mp-row > span:not(.mp-model) {
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ink);
+  }
+  .pricing-live-catalog .mp-row > span:not(.mp-model) i {
+    display:block;
+    margin-top:3px;
+    font-style:normal;
+    font-size:10px;
+    color:var(--mut);
+  }
+  .pricing-chip-row {
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+    margin-top:7px;
+  }
+  .pricing-chip-row em {
+    border:1px solid color-mix(in oklab, var(--teal) 45%, var(--hair));
+    background: color-mix(in oklab, var(--teal) 6%, var(--paper));
+    color:var(--ink);
+    font-family:var(--mono);
+    font-style:normal;
+    font-size:9.5px;
+    letter-spacing:.04em;
+    padding:4px 6px;
+  }
+  .pricing-live-foot {
+    border-top:1px solid var(--hair);
+  }
+  @media (max-width: 760px) {
+    .pricing-live-catalog .mp-row {
+      grid-template-columns: 1fr 1fr;
+      gap:10px 14px;
+    }
+    .pricing-live-catalog .mp-row-head {
+      display:none;
+    }
+    .pricing-live-catalog .mp-row > span:nth-child(3) {
+      display:block;
+    }
+  }
 
   .capacity-truth {
     display:grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);

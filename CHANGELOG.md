@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 15:39 UTC - `feat(frontend): add live model catalog to pricing - PR #781`
+
+**PR:** [#781](https://github.com/dhnpmp-tech/dcp-platform/pull/781) (`codex/pricing-live-model-catalog-2026-07-08`).
+**Local timestamp:** 2026-07-08 19:39 +04.
+
+**What:** Forty-eighth Fireworks/Tinker execution slice. Moves the public pricing page closer to the live inference contract by adding a serveable-model rate table from `/v1/models`.
+
+- **Frontend contract:** `/pricing` now fetches `GET /v1/models` and maps serveable models with provider count, context, max output, pricing source, SAR input/output rates, and capability chips.
+- **Pricing surface:** Added a live API catalog block below the model-class guide while keeping the existing class-rate guide for coarse pricing context.
+- **Claim guard:** Models with `provider_count=0` are filtered out of the live pricing table, so the page does not advertise prices for currently unservable models.
+- **Responsive layout:** Added scoped pricing-table CSS so the live catalog renders cleanly on desktop and mobile without affecting other model/capacity tables.
+- **Verified:** `npm run build`; `git diff --check`; mocked Playwright render smoke for `/pricing` on desktop and mobile, including no horizontal overflow and a guard that non-serveable models stay hidden.
+
 ### 2026-07-08 15:29 UTC - `feat(frontend): show live model metadata in playground - PR #780`
 
 **PR:** [#780](https://github.com/dhnpmp-tech/dcp-platform/pull/780) (`codex/frontend-playground-model-metadata-2026-07-08`).
