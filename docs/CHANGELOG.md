@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 20:23 UTC - Console auth redirect query preservation (PR #808)
+### 2026-07-08 20:27 UTC - Console auth redirect query preservation (PR #808)
 
 - **PR:** [#808](https://github.com/dhnpmp-tech/dcp-platform/pull/808) (`codex/auth-redirect-preserve-query-2026-07-08`).
 - **Middleware:** Gated console redirects to `/auth` now preserve the requested query string, keeping `/renter/playground?surface=workspace` intact through sign-in.

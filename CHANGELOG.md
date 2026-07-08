@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 20:23 UTC - `fix(auth): preserve query strings in console auth redirects - PR #808`
+### 2026-07-08 20:27 UTC - `fix(auth): preserve query strings in console auth redirects - PR #808`
 
 **PR:** [#808](https://github.com/dhnpmp-tech/dcp-platform/pull/808) (`codex/auth-redirect-preserve-query-2026-07-08`).
-**Local timestamp:** 2026-07-09 00:23 +04.
+**Local timestamp:** 2026-07-09 00:27 +04.
 
 **What:** Seventy-first Fireworks/Tinker execution slice. Hardens deep links into gated console routes after the workspace pre-upload rollout.
 
