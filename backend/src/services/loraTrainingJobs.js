@@ -241,6 +241,18 @@ function listLoraTrainingJobs(db, renterId, options = {}) {
   };
 }
 
+function listCreatedLoraTrainingJobs(db, options = {}) {
+  assertDb(db);
+  const limit = normalizeLimit(options.limit);
+  const rows = db.prepare(`
+    ${selectTrainingJobSql()}
+     WHERE status = 'created'
+     ORDER BY created_at ASC, id ASC
+     LIMIT ?
+  `).all(limit);
+  return rows.map((row) => decorateJobWithAdapterStatus(db, mapTrainingJobRow(row)));
+}
+
 function updateLoraTrainingJobStatus(db, renterId, trainingJobId, status, options = {}) {
   assertDb(db);
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
@@ -655,6 +667,7 @@ module.exports = {
   createLoraTrainingJob,
   getLoraTrainingJob,
   listLoraTrainingJobs,
+  listCreatedLoraTrainingJobs,
   registerLoraTrainingJobAdapter,
   updateLoraTrainingJobStatus,
   __test: {

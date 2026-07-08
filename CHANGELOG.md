@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 08:32 UTC - `feat(lora): add dormant training worker scaffold - PR #750`
+
+**PR:** [#750](https://github.com/dhnpmp-tech/dcp-platform/pull/750) (`codex/lora-training-worker-scaffold-2026-07-08`).
+**Local timestamp:** 2026-07-08 12:32 +04.
+
+**What:** Eighteenth Fireworks/Tinker execution slice. Adds a disabled-by-default LoRA trainer worker scaffold so the training-job lifecycle has a tested execution slot before any real GPU training is enabled.
+
+- **Worker scaffold:** Added `runLoraTrainingWorkerOnce`, which scans `created` LoRA training jobs only when explicitly enabled and an executor is provided.
+- **Artifact contract:** Added deterministic adapter/model-card storage-key builders and checksum-required artifact completion.
+- **Lifecycle:** Injected execution can mark jobs `running -> succeeded` with artifact metadata, optionally register the adapter, or mark jobs `failed` with a bounded reason.
+- **CLI:** Added `backend/src/scripts/run-lora-training-worker-once.js` and `npm --prefix backend run worker:lora-training:once`; disabled mode reports no mutation.
+- **Product honesty:** This does not run GPU training by itself and remains disabled unless `DCP_LORA_TRAINING_WORKER_ENABLED=1` plus a real executor are configured.
+- **Docs/tests:** Updated the LoRA runbook and added worker coverage for disabled/no-executor/success/auto-register/failure paths.
+- **Verified:** Targeted LoRA worker and training-job Jest suites; disabled CLI smoke; `git diff --check`.
+
 ### 2026-07-08 08:25 UTC - `feat(lora): add adapter deployment load-proof route - PR #749`
 
 **PR:** [#749](https://github.com/dhnpmp-tech/dcp-platform/pull/749) (`codex/lora-adapter-load-proof-route-2026-07-08`).

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 08:32 UTC - Dormant LoRA training worker scaffold (PR #750)
+
+- **PR:** [#750](https://github.com/dhnpmp-tech/dcp-platform/pull/750) (`codex/lora-training-worker-scaffold-2026-07-08`).
+- **Backend:** Added a disabled-by-default LoRA training worker that can process `created` training jobs only when explicitly enabled and given an executor.
+- **Artifacts:** Added deterministic adapter/model-card storage-key builders and checksum-required artifact completion before a job can succeed.
+- **Lifecycle:** Worker execution can mark jobs `running`, `succeeded`, or `failed`; optional auto-registration uses the existing artifact-to-adapter bridge.
+- **CLI:** Added `backend/src/scripts/run-lora-training-worker-once.js` and `worker:lora-training:once` for disabled-mode/manual proof runs.
+- **Verification:** Targeted LoRA worker and training-job Jest suites; disabled CLI smoke; `git diff --check`.
+
 ### 2026-07-08 08:25 UTC - Adapter deployment load-proof route (PR #749)
 
 - **PR:** [#749](https://github.com/dhnpmp-tech/dcp-platform/pull/749) (`codex/lora-adapter-load-proof-route-2026-07-08`).

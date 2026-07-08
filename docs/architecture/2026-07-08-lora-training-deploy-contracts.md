@@ -105,6 +105,8 @@ Before a public training route:
 2. Create a training job row with fixed recipe and idempotency key. **Done in
    PR #744.**
 3. Launch only on a provider that passed the fat LoRA image GPU-host smoke.
+   **Worker scaffold is done in PR #750**, but it stays disabled until an
+   executor backed by GPU-host proof is configured.
 4. Write logs and an artifact manifest.
 5. Compute artifact SHA-256.
 6. Register the adapter in `adapter_registry` with `registered` or `ready`.
@@ -130,3 +132,9 @@ PR #749 exposes the deployment load-proof attachment path behind admin auth.
 Renter deployment creation remains an intent record; the proof route is the only
 API route that can move a deployment to `running` with `route_traffic: true`,
 and mismatched proof degrades the deployment instead of routing traffic.
+
+PR #750 adds the disabled-by-default LoRA training worker scaffold and CLI
+runner. With an injected executor it can move `created -> running -> succeeded`
+and write artifact/model-card metadata, or mark a job failed. Without
+`DCP_LORA_TRAINING_WORKER_ENABLED=1` and a real executor it does not mutate
+jobs, so managed training is still not publicly live.
