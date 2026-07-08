@@ -77,6 +77,11 @@ const EXTERNAL_GATES = Object.freeze([
     command: 'DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse',
     blocked_on: ['funded inference smoke principal', 'compatible vLLM provider capacity'],
   },
+  {
+    id: 'prompt_cache_live_settlement',
+    command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+    blocked_on: ['provider cache-hit evidence', 'funded smoke principal', 'settlement discount policy approval'],
+  },
 ]);
 
 function toStamp(date = new Date()) {

@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 23:17 UTC - `test(inference): add prompt-cache live settlement proof runner - PR #836`
+
+**PR:** [#836](https://github.com/dhnpmp-tech/dcp-platform/pull/836) (`codex/prompt-cache-live-proof-runner-2026-07-09`).
+**Local timestamp:** 2026-07-09 03:17 +04.
+
+**What:** Eighty-fifth Fireworks/Tinker execution slice. Promotes the prompt-cache live provider/settlement gate from missing-runner status to an opt-in live proof command.
+
+- **Live proof runner:** Added `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`, backed by `backend/tests/prompt-cache-live-settlement-proof.js`.
+- **Default safety:** The runner refuses to make billed inference requests unless explicitly allowed, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Live contract:** When allowed, the runner checks `GET /v1/prompt-cache/readiness`, mints/reuses the deterministic smoke principal, sends two `/v1/chat/completions` requests with the same static prefix/session, and requires miss -> `hit_measured_no_discount` evidence.
+- **No-discount guard:** Passing evidence must keep prompt-cache discounts, provider KV-cache control, settlement discounts, billing/settlement mutation claims, and Tinker compatibility false.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now marks the prompt-cache live gate command-ready, moving the ledger to 4/8 command-ready and 4/8 missing live acceptance runners.
+- **Roadmaps:** Updated execution, lane, and Fireworks/Tinker roadmap docs with the new live command and blocked funded/provider/policy inputs.
+- **Safety:** No production prompt-cache discount, provider KV-cache control, billing, settlement, routing, model catalog, frontend, or public claim behavior changed.
+- **Verified:** Default blocked run of `npm run proof:prompt-cache-live-settlement` with temp report output; targeted prompt-cache live runner and live-gate status Jest suites; `npm run proof:live-acceptance-status`; `npm run proof:local-roadmap`; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:08 UTC - `test(ops): add live acceptance gate status packet - PR #834`
 
 **PR:** [#834](https://github.com/dhnpmp-tech/dcp-platform/pull/834) (`codex/live-acceptance-gate-status-2026-07-09`).
