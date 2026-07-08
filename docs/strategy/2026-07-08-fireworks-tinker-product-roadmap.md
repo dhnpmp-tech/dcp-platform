@@ -128,6 +128,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - example scripts under `/workspace/examples`
 - Verify fresh pod imports for the LoRA stack in under 5 seconds without pip
   installing.
+  - PR #820 added `npm run proof:lora-pod-image`, a provider-host proof command
+    that runs the `dcp-compute:lora` stack import smoke and offline SFT scaffold
+    and writes JSON/Markdown evidence for handoff.
 - Surface workspace pre-upload more clearly before pod launch.
   - PR #806 made Fine-Tuning start with workspace pre-upload and added a
     `/renter/playground?surface=workspace` deep link into the persistent
@@ -171,6 +174,9 @@ Acceptance:
 
 - One fresh 3090-class pod can run the LoRA training scaffold without a long pip
   install.
+  - PR #820 provides the proof command/report path; the gate closes only after
+    the command passes on a real GPU provider host with `dcp-compute:lora`
+    built locally.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.
@@ -392,7 +398,8 @@ Acceptance:
    controlled maintenance window.**
 3. **Fat pod image plan** - Dockerfile/build path, package list, GPU-host
    verification script, no product UI yet. **CI-safe contract gate started in
-   PR #762; GPU-host proof still required.**
+   PR #762; provider-host proof command/report added in PR #820; GPU-host proof
+   still required.**
 4. **Nsight provider benchmark MVP** - script/runbook and provider scorecard
    schema proposal. **Script/runbook landed in PR #740; mock evidence contract
    guard landed in PR #774; GPU-host proof remains required.**

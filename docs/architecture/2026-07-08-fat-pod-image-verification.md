@@ -59,7 +59,14 @@ The default build script can still build all pre-baked pod images:
 
 ## Provider Verification
 
-Run:
+Run from the provider-host checkout:
+
+```bash
+cd /root/dc1-platform
+npm run proof:lora-pod-image
+```
+
+Equivalent direct script:
 
 ```bash
 cd /root/dc1-platform/backend/docker-templates
@@ -77,6 +84,14 @@ Acceptance gate:
 - The container reports CUDA visibility.
 - The offline LoRA SFT scaffold emits `DC1_RESULT_JSON` without downloading a
   model or dataset.
+- The proof writes JSON and Markdown evidence under
+  `docs/reports/reliability` unless `DCP_LORA_IMAGE_PROOF_REPORT_DIR` points at
+  an alternate handoff directory.
+
+The report contract is `dcp.lora_pod_image_proof.v1`. It records the image,
+host, import budget, GPU requirement, stack-smoke result, and offline scaffold
+result. A passing report still does not claim managed training, adapter serving,
+route traffic, benchmark quality, or Tinker compatibility are live.
 
 ## Workspace Examples
 

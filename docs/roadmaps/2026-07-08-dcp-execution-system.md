@@ -144,6 +144,7 @@ Behavior changes need lane-specific smoke evidence.
 | Workspace-to-pod wiring contract | `npm run workspace-pods:verify-contracts` | none | CI-safe gate available |
 | Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |
 | Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
+| LoRA fat image provider-host imports | `npm run proof:lora-pod-image` | provider GPU host with Docker, NVIDIA Container Toolkit, and built `dcp-compute:lora` | Command available; blocked until run on a provider GPU host |
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
@@ -171,7 +172,7 @@ before or with the feature change.
    - Current commands: workspace-pod proof and Anthropic SSE proof are available.
 3. **POT/PODS workspace and image hardening**
    - Gate: `workspace-pods:verify-contracts`, `proof:workspace-pod`,
-     `pod-images:verify-contracts`, and provider-host fat-image imports.
+     `pod-images:verify-contracts`, and `proof:lora-pod-image`.
    - Acceptance does not close until a GPU provider host proves `/workspace`
      file visibility and LoRA stack imports without long `pip install`.
 4. **Inference streaming and catalog hardening**
@@ -335,6 +336,9 @@ GPU/image smoke:
 - Must be verified on a provider GPU host, not only on laptop/VPS.
 - Fat image gate: a fresh pod imports `torch`, `transformers`, `peft`,
   `accelerate`, `datasets`, and `bitsandbytes` without a long pip install.
+- LoRA fat-image proof: run `npm run proof:lora-pod-image` on a GPU provider
+  host after building `dcp-compute:lora`; archive the generated JSON/Markdown
+  evidence from `docs/reports/reliability`.
 - Workspace gate: run
   `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` with a funded
   renter key, active portable volume, and launchable GPU capacity. If any input

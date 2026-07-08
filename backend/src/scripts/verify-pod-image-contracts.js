@@ -125,6 +125,10 @@ function verifyImageContract(image, shared, errors) {
       }
       assertIncludes(smoke, '--require-gpu', errors, `${context} smoke script`);
       assertIncludes(smoke, 'MAX_IMPORT_SECONDS', errors, `${context} smoke script`);
+      assertIncludes(smoke, 'dcp.lora_pod_image_proof.v1', errors, `${context} smoke script`);
+      assertIncludes(smoke, 'DCP_LORA_IMAGE_PROOF_REPORT_DIR', errors, `${context} smoke script`);
+      assertIncludes(smoke, 'DC1_RESULT_JSON', errors, `${context} smoke script`);
+      assertIncludes(smoke, 'docs/reports/reliability', errors, `${context} smoke script`);
     }
   }
 

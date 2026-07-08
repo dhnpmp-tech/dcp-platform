@@ -37,8 +37,18 @@ Run this only on a GPU provider host with Docker and NVIDIA Container Toolkit:
 ```bash
 cd /root/dc1-platform/backend/docker-templates
 DCP_POD_IMAGE_TARGETS=lora ./build-pod-images.sh
-./verify-lora-pod-image.sh
+./verify-lora-pod-image.sh dcp-compute:lora
+```
+
+From the repository root, the same proof can be run as:
+
+```bash
+npm run proof:lora-pod-image
 ```
 
 The product gate for the LoRA pod image is a fresh GPU container importing the
 LoRA stack quickly without pip installing during pod launch.
+
+The proof writes JSON and Markdown evidence under `docs/reports/reliability`
+by default. Override `DCP_LORA_IMAGE_PROOF_REPORT_DIR` only when a provider host
+needs to write reports outside the checkout.

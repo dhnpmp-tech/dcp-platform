@@ -27,6 +27,7 @@
     "templates:validate": "node src/scripts/validate-deploy-templates.js",
     "pod-images:verify-contracts": "node src/scripts/verify-pod-image-contracts.js",
     "workspace-pods:verify-contracts": "node src/scripts/verify-workspace-pod-contracts.js",
+    "test:reliability:lora-pod-image-proof": "bash docker-templates/verify-lora-pod-image.sh",
     "test": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest --runInBand --forceExit",
     "test:integration": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest tests/integration/ --runInBand",
     "test:openrouter:compliance": "NODE_ENV=test node tests/openrouter-compliance-harness.js",
