@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 07:31 UTC - LoRA training job API foundation (PR #744)
+
+- **PR:** [#744](https://github.com/dhnpmp-tech/dcp-platform/pull/744) (`codex/lora-training-jobs-foundation-2026-07-08`).
+- **Backend:** Added `lora_training_jobs` schema/bootstrap and service helpers for dataset JSONL validation, fixed LoRA/QLoRA recipe normalization, tenant-scoped create/list/read, idempotent create replay, and artifact status metadata.
+- **API/OpenAPI:** Added renter-authenticated `/api/lora/training-jobs` list/create and `/api/lora/training-jobs/{training_job_id}` detail routes. Creation returns `training_enabled: false` until trainer-worker/artifact proof lands.
+- **Verification:** Added LoRA training job tests for schema, route behavior, idempotency, tenant isolation, invalid dataset errors, wrapper DB compatibility, and artifact status updates.
+
 ### 2026-07-08 07:20 UTC - Dormant batch worker scaffold (PR #743)
 
 - **PR:** [#743](https://github.com/dhnpmp-tech/dcp-platform/pull/743) (`codex/batch-worker-stub-2026-07-08`).

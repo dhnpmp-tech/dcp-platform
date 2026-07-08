@@ -105,6 +105,8 @@ tags:
     description: LoRA/QLoRA adapter artifact registry. Metadata only until deployment proof is implemented.
   - name: Batches
     description: Batch inference metadata and status records. Execution/billing worker is intentionally not enabled yet.
+  - name: LoRA
+    description: LoRA/QLoRA training job metadata. GPU execution remains disabled until trainer-worker proof exists.
   - name: vLLM
     description: Managed vLLM inference — synchronous and streaming completions
   - name: System
@@ -318,6 +320,99 @@ components:
           format: date-time
           nullable: true
         expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    LoraTrainingJob:
+      type: object
+      description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
+      required: [training_job_id, renter_id, recipe, base_model, dataset_storage_key, dataset_checksum_sha256, dataset_format, dataset_row_count, output_adapter_name, output_adapter_id, status, training_enabled, adapter_registered, created_at, updated_at]
+      properties:
+        training_job_id:
+          type: string
+          example: lora_job_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        recipe:
+          type: string
+          enum: [lora_sft, qlora_sft]
+          example: qlora_sft
+        base_model:
+          type: string
+          example: meta-llama/Llama-3.1-8B-Instruct
+        dataset_storage_key:
+          type: string
+          example: datasets/r42/support.jsonl
+        dataset_checksum_sha256:
+          type: string
+          example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        dataset_format:
+          type: string
+          enum: [chat_messages, prompt_completion]
+          example: prompt_completion
+        dataset_row_count:
+          type: integer
+          example: 1200
+        train_rows:
+          type: integer
+          example: 1080
+        validation_rows:
+          type: integer
+          example: 120
+        estimated_tokens:
+          type: integer
+          example: 420000
+        output_adapter_name:
+          type: string
+          example: support-arabic
+        output_adapter_id:
+          type: string
+          example: adpt_8f4c2b9a18e34d220f7a9b12
+        training_spec:
+          type: object
+          additionalProperties: true
+        dataset_validation:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [created, queued, running, succeeded, failed, cancelled]
+          example: created
+        artifact_storage_key:
+          type: string
+          nullable: true
+          example: adapters/r42/support-arabic/adapter.safetensors
+        artifact_checksum_sha256:
+          type: string
+          nullable: true
+        model_card_storage_key:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        idempotency_key:
+          type: string
+          nullable: true
+        training_enabled:
+          type: boolean
+          example: false
+        adapter_registered:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
           type: string
           format: date-time
           nullable: true
@@ -1005,6 +1100,151 @@ paths:
                   batch: { $ref: '#/components/schemas/BatchInferenceJob' }
         '404':
           description: Batch not found for this renter.
+
+  /api/lora/training-jobs:
+    get:
+      tags: [LoRA]
+      summary: List renter LoRA training job records
+      description: |
+        Returns LoRA/QLoRA SFT training metadata records for the authenticated
+        renter. These records are validated job intents; GPU execution and
+        adapter registration are not enabled until trainer-worker proof lands.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [created, queued, running, succeeded, failed, cancelled]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: LoRA training job list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LoraTrainingJob' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+    post:
+      tags: [LoRA]
+      summary: Validate a dataset and create a LoRA training job record
+      description: |
+        Validates LoRA SFT JSONL, normalizes a fixed LoRA/QLoRA recipe, and
+        records a training job intent. This does not start GPU training, write
+        artifacts, or register an adapter.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+            maxLength: 180
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_model, dataset_storage_key, dataset_jsonl, output_adapter_name]
+              properties:
+                training_job_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: lora_job_8f4c2b9a18e34d220f7a9b12
+                recipe:
+                  type: string
+                  enum: [lora_sft, qlora_sft, lora-sft, qlora-sft]
+                  default: qlora_sft
+                base_model:
+                  type: string
+                  maxLength: 160
+                  example: meta-llama/Llama-3.1-8B-Instruct
+                dataset_storage_key:
+                  type: string
+                  maxLength: 512
+                  example: datasets/r42/support.jsonl
+                dataset_jsonl:
+                  type: string
+                  description: JSONL dataset rows in chat_messages or prompt_completion format.
+                output_adapter_name:
+                  type: string
+                  maxLength: 80
+                  example: support-arabic
+                output_adapter_id:
+                  type: string
+                  description: Optional reserved adapter id. The adapter is not registered until artifact proof exists.
+                  example: adpt_8f4c2b9a18e34d220f7a9b12
+                validation_split_pct:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                  default: 10
+                hyperparameters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: LoRA training job metadata record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  training_job: { $ref: '#/components/schemas/LoraTrainingJob' }
+                  idempotent_replay:
+                    type: boolean
+                    example: false
+                  training_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: launch_lora_trainer_worker_after_gpu_host_proof
+        '400':
+          description: Invalid dataset or LoRA training metadata.
+        '409':
+          description: Training job id already exists.
+
+  /api/lora/training-jobs/{training_job_id}:
+    get:
+      tags: [LoRA]
+      summary: Get one renter LoRA training job record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: training_job_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: LoRA training job detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  training_job: { $ref: '#/components/schemas/LoraTrainingJob' }
+        '404':
+          description: LoRA training job not found for this renter.
 
   /api/adapters:
     get:
