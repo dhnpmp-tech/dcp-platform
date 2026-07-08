@@ -24,7 +24,7 @@ const {
   vllmStreamLimiter,
   modelCatalogLimiter,
 } = rateLimiterMiddleware;
-const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
+const { toCatalogContractCore, toTokenPricingContract, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
 const { deduplicateModelAliases, DASH_TO_CANONICAL, getCanonicalModelId, modelIdsMatch } = require('../lib/model-aliases');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
 const inferenceTracker = require('../services/inferenceTracker');
@@ -966,8 +966,11 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         created: nowSecs,
       });
       const catalogRates = resolveCatalogTokenRates(row, tokenRateByModel);
-      const usdPerInputToken = toUsdStringFromHalala(catalogRates.inputHalalaPer1m / TOKEN_RATE_BILLING_UNIT_TOKENS);
-      const usdPerOutputToken = toUsdStringFromHalala(catalogRates.outputHalalaPer1m / TOKEN_RATE_BILLING_UNIT_TOKENS);
+      const tokenPricing = toTokenPricingContract({
+        inputHalalaPer1m: catalogRates.inputHalalaPer1m,
+        outputHalalaPer1m: catalogRates.outputHalalaPer1m,
+        source: catalogRates.source,
+      });
       const capabilityMetadata = buildCatalogCapabilityMetadata(contractCore);
       const endpoints = capabilityMetadata.chat_completions
         ? [{ url: endpointUrl, type: 'chat' }]
@@ -1002,17 +1005,8 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         parent: null,
         description: buildModelDescription(row, contractCore),
         pricing: {
-          prompt_tokens: usdPerInputToken,
-          completion_tokens: usdPerOutputToken,
+          ...tokenPricing,
           usd_per_minute: contractCore.pricing.usd_per_minute,
-          usd_per_1m_input_tokens: toUsdStringFromHalala(catalogRates.inputHalalaPer1m),
-          usd_per_1m_output_tokens: toUsdStringFromHalala(catalogRates.outputHalalaPer1m),
-          sar_per_1m_input_tokens: toSarStringFromHalala(catalogRates.inputHalalaPer1m),
-          sar_per_1m_output_tokens: toSarStringFromHalala(catalogRates.outputHalalaPer1m),
-          halala_per_1m_input_tokens: catalogRates.inputHalalaPer1m,
-          halala_per_1m_output_tokens: catalogRates.outputHalalaPer1m,
-          billing_unit: 'per_1m_tokens',
-          source: catalogRates.source,
         },
         capability_flags: capabilityMetadata,
         capabilities: capabilityMetadata,

@@ -226,10 +226,22 @@ describe('/api/models catalog honesty', () => {
       },
     });
 
+    const legacyResponse = await request(buildApp()).get('/api/models');
     const response = await request(buildApp()).get('/api/models/catalog');
 
+    expect(legacyResponse.status).toBe(200);
     expect(response.status).toBe(200);
     expect(response.body.total_models).toBe(1);
+    expect(legacyResponse.body[0].token_pricing).toMatchObject({
+      prompt_tokens: '0.000000',
+      completion_tokens: '0.000000',
+      halala_per_1m_input_tokens: 80,
+      halala_per_1m_output_tokens: 150,
+      sar_per_1m_input_tokens: '0.8000',
+      sar_per_1m_output_tokens: '1.5000',
+      source: 'model_registry',
+      model_class: 'embedding',
+    });
     expect(response.body.models[0].pricing.token_pricing).toMatchObject({
       halala_per_1m_input_tokens: 80,
       halala_per_1m_output_tokens: 150,
@@ -237,6 +249,7 @@ describe('/api/models catalog honesty', () => {
       sar_per_1m_output_tokens: '1.5000',
       source: 'model_registry',
     });
+    expect(response.body.models[0].pricing.token_pricing).toEqual(legacyResponse.body[0].token_pricing);
     expect(response.body.models[0].capability_flags).toMatchObject({
       chat_completions: true,
       streaming: true,

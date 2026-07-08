@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 12:50 UTC - `refactor(inference): share token-pricing metadata contract - PR #769`
+
+**PR:** [#769](https://github.com/dhnpmp-tech/dcp-platform/pull/769) (`codex/model-pricing-metadata-contract-2026-07-08`).
+**Local timestamp:** 2026-07-08 16:50 +04.
+
+**What:** Thirty-sixth Fireworks/Tinker execution slice. Reduces pricing drift across `/api/models`, `/api/models/catalog`, and `/v1/models` by moving token-pricing serialization into the shared model catalog contract.
+
+- **Shared contract:** Added `toTokenPricingContract` with prompt/completion USD micro-price strings, SAR per 1M token strings, halala per 1M token integers, billing unit, source, and model class.
+- **Route parity:** `/api/models` and `/v1/models` now build token-pricing metadata from the same helper rather than duplicating SAR/USD/halala serialization.
+- **Catalog proof:** Model catalog tests now assert that `/api/models` and `/api/models/catalog` emit byte-equivalent `token_pricing` payloads for the same model.
+- **Compatibility:** Existing machine-readable fields and pricing values are preserved; this is a contract centralization and regression-test slice.
+- **Verified:** Targeted `/api/models` and `/v1/models` Jest suites; backend `node --check`; `git diff --check`.
+
 ### 2026-07-08 12:41 UTC - `fix(backend): use credit-first pod 402 copy - PR #768`
 
 **PR:** [#768](https://github.com/dhnpmp-tech/dcp-platform/pull/768) (`codex/pod-credit-required-payload-copy-2026-07-08`).
