@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 07:57 UTC - API model catalog contract metadata (PR #746)
+
+- **PR:** [#746](https://github.com/dhnpmp-tech/dcp-platform/pull/746) (`codex/api-models-contract-parity-2026-07-08`).
+- **Backend:** Added additive token-pricing and capability metadata to `/api/models`, `/api/models/catalog`, and `/api/models/{model_id}`.
+- **Pricing:** Model catalog responses now expose registry-token rates when present and cost-rate fallback metadata when registry rates are absent.
+- **Capability gates:** Added `/v1/models`-style capability flags while keeping `dedicated_deployment`, `lora`, `prompt_caching`, and `batch` false until the proof-backed slices land.
+- **Verification:** Extended catalog honesty tests and ran targeted model catalog plus `/v1/models` suites.
+
 ### 2026-07-08 07:42 UTC - Fine-Tuning console training jobs ledger (PR #745)
 
 - **PR:** [#745](https://github.com/dhnpmp-tech/dcp-platform/pull/745) (`codex/frontend-finetuning-training-jobs-2026-07-08`).

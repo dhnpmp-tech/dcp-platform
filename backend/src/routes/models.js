@@ -7,6 +7,7 @@ const { publicEndpointLimiter, modelDeployLimiter, modelCatalogLimiter } = requi
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { GPU_RATE_TABLE, SAR_USD_RATE } = require('../config/pricing');
 const { modelIdsMatch } = require('../lib/model-aliases');
+const { toCatalogContractCore, toUsdStringFromHalala } = require('../lib/model-catalog-contract');
 const { getEarnedRoutingState } = require('../services/providerVerification');
 
 const PROVIDER_FRESHNESS_MS = 10 * 60 * 1000;
@@ -69,11 +70,22 @@ function toInt(value, { min = null, max = null } = {}) {
   return num;
 }
 
+function toOptionalInt(value, options = {}) {
+  if (value === null || value === undefined || value === '') return null;
+  return toInt(value, options);
+}
+
 function toFixedNumber(value, digits = 2) {
   const num = toNumber(value);
   if (num === null) return null;
   const power = 10 ** digits;
   return Math.round(num * power) / power;
+}
+
+function toSarStringFromHalala(halalaValue) {
+  const halala = Number(halalaValue || 0);
+  if (!Number.isFinite(halala) || halala <= 0) return '0.0000';
+  return (halala / 100).toFixed(4);
 }
 
 function normalizeString(value, { maxLen = 500, trim = true } = {}) {
@@ -359,6 +371,8 @@ function getModelRows() {
        m.use_cases,
        m.min_gpu_vram_gb,
        m.default_price_halala_per_min,
+       m.price_in_halala_per_1m_tok,
+       m.price_out_halala_per_1m_tok,
        m.is_active,
        m.updated_at,
        b.benchmark_suite,
@@ -480,6 +494,8 @@ function buildModelPayload(row, freshProviders, portfolioIndex) {
     context_window: toInt(row.context_window, { min: 1, max: 10 * 1024 * 1024 }) || 4096,
     use_cases: useCases,
     min_gpu_vram_gb: minVramGb,
+    price_in_halala_per_1m_tok: toOptionalInt(row.price_in_halala_per_1m_tok, { min: 0, max: 100_000_000 }),
+    price_out_halala_per_1m_tok: toOptionalInt(row.price_out_halala_per_1m_tok, { min: 0, max: 100_000_000 }),
     benchmark,
     availability: {
       providers_online: capableFreshProviders.length,
@@ -577,10 +593,85 @@ function loadTokenRateMap() {
   }
 }
 
+function resolvePublicTokenPricing(model, tokenRateMap) {
+  const ratePack = tokenRateMap?.get(model.model_id)
+    || tokenRateMap?.get('__default__')
+    || { rate: null, class: null };
+  const fallbackRate = toOptionalInt(ratePack.rate, { min: 0, max: 100_000_000 });
+  const registryInputRate = toOptionalInt(model.price_in_halala_per_1m_tok, { min: 0, max: 100_000_000 });
+  const registryOutputRate = toOptionalInt(model.price_out_halala_per_1m_tok, { min: 0, max: 100_000_000 });
+  const hasRegistryRate = registryInputRate != null || registryOutputRate != null;
+  const inputRate = registryInputRate ?? fallbackRate ?? registryOutputRate ?? 0;
+  const outputRate = registryOutputRate ?? fallbackRate ?? registryInputRate ?? 0;
+
+  return {
+    prompt_tokens: toUsdStringFromHalala(inputRate / 1_000_000),
+    completion_tokens: toUsdStringFromHalala(outputRate / 1_000_000),
+    usd_per_1m_input_tokens: toUsdStringFromHalala(inputRate),
+    usd_per_1m_output_tokens: toUsdStringFromHalala(outputRate),
+    sar_per_1m_input_tokens: toSarStringFromHalala(inputRate),
+    sar_per_1m_output_tokens: toSarStringFromHalala(outputRate),
+    halala_per_1m_input_tokens: inputRate,
+    halala_per_1m_output_tokens: outputRate,
+    billing_unit: 'per_1m_tokens',
+    source: hasRegistryRate ? 'model_registry' : (fallbackRate != null ? 'cost_rates' : 'unconfigured'),
+    model_class: ratePack.class,
+  };
+}
+
+function buildPublicCapabilityMetadata(model) {
+  const contractCore = toCatalogContractCore({
+    model,
+    providerCount: Number(model.availability?.providers_online || 0),
+    maxVramGb: Number(model.vram_gb || model.min_gpu_vram_gb || 0),
+  });
+  const base = contractCore.capability_flags || {};
+  const capabilityFlags = {
+    chat_completions: Boolean(base.chat_completions),
+    streaming: Boolean(base.chat_completions),
+    tool_calling: Boolean(base.tool_calling),
+    reasoning: Boolean(base.reasoning),
+    code_generation: Boolean(base.code_generation),
+    embeddings: Boolean(base.embeddings),
+    image_generation: Boolean(base.image_generation),
+    multilingual: Boolean(base.multilingual),
+    dedicated_deployment: false,
+    lora: false,
+    prompt_caching: false,
+    batch: false,
+  };
+
+  return {
+    modalities: contractCore.modalities,
+    supported_features: contractCore.supported_features,
+    max_output_tokens: contractCore.max_output_tokens,
+    provider_count: contractCore.provider_count,
+    capability_flags: capabilityFlags,
+    capabilities: capabilityFlags,
+    available: Number(model.availability?.providers_online || 0) > 0,
+    status: model.availability?.status || (Number(model.availability?.providers_online || 0) > 0 ? 'available' : 'no_providers'),
+  };
+}
+
+function withPublicContractMetadata(model, tokenRateMap) {
+  const tokenPricing = resolvePublicTokenPricing(model, tokenRateMap);
+  const capabilityMetadata = buildPublicCapabilityMetadata(model);
+  return {
+    ...model,
+    ...capabilityMetadata,
+    pricing: {
+      ...model.pricing,
+      token_pricing: tokenPricing,
+    },
+    token_pricing: tokenPricing,
+  };
+}
+
 function toLegacyListItem(model, tokenRateMap) {
   const ratePack = tokenRateMap?.get(model.model_id)
     || tokenRateMap?.get('__default__')
     || { rate: null, class: null };
+  const enriched = withPublicContractMetadata(model, tokenRateMap);
   return {
     model_id: model.model_id,
     display_name: model.display_name,
@@ -604,6 +695,14 @@ function toLegacyListItem(model, tokenRateMap) {
     // these over VRAM-heuristic tier inference.
     token_rate_halala: ratePack.rate,
     model_class: ratePack.class,
+    token_pricing: enriched.token_pricing,
+    modalities: enriched.modalities,
+    supported_features: enriched.supported_features,
+    max_output_tokens: enriched.max_output_tokens,
+    provider_count: enriched.provider_count,
+    capability_flags: enriched.capability_flags,
+    capabilities: enriched.capabilities,
+    available: enriched.available,
   };
 }
 
@@ -867,7 +966,9 @@ router.get('/cards', publicEndpointLimiter, (req, res) => {
 router.get('/catalog', publicEndpointLimiter, (req, res) => {
   try {
     const all = getCatalogModels();
-    const models = applyQueryFilters(all, req.query || {});
+    const tokenRateMap = loadTokenRateMap();
+    const models = applyQueryFilters(all, req.query || {})
+      .map((model) => withPublicContractMetadata(model, tokenRateMap));
     return res.json({
       generated_at: new Date().toISOString(),
       total_models: models.length,
@@ -1152,7 +1253,7 @@ router.get(/^\/([a-zA-Z0-9._/-]+)$/, publicEndpointLimiter, (req, res) => {
     const model = modelId ? getModelById(modelId) : null;
     if (!model) return res.status(404).json({ error: 'Model not found or inactive' });
 
-    return res.json(model);
+    return res.json(withPublicContractMetadata(model, loadTokenRateMap()));
   } catch (error) {
     console.error('Model detail error:', error);
     return res.status(500).json({ error: 'Failed to fetch model details' });
