@@ -60,6 +60,15 @@ interface ModelOption {
   id: string
   name: string
   price?: string
+  providerCount: number
+  contextLength?: number
+  maxOutputTokens?: number
+  pricing?: ModelPricing
+  capabilityFlags?: ModelCapabilityFlags
+  featureReadiness?: FeatureReadiness
+  modalities?: string[]
+  maxVramGb?: number
+  status?: string
 }
 
 // Shape returned by the OpenAI-compatible /v1/models endpoint (subset).
@@ -69,6 +78,52 @@ interface CatalogModelRaw {
   name?: string
   display_name?: string
   provider_count?: number
+  context_length?: number
+  context_window?: number
+  max_output_tokens?: number
+  pricing?: ModelPricing
+  capability_flags?: ModelCapabilityFlags
+  capabilities?: ModelCapabilityFlags
+  feature_readiness?: FeatureReadiness
+  modalities?: string[]
+  max_vram_gb?: number
+  status?: string
+  available?: boolean
+}
+
+interface ModelPricing {
+  sar_per_1m_input_tokens?: string | number
+  sar_per_1m_output_tokens?: string | number
+  halala_per_1m_input_tokens?: number
+  halala_per_1m_output_tokens?: number
+  billing_unit?: string
+  source?: string
+}
+
+interface ModelCapabilityFlags {
+  chat_completions?: boolean
+  streaming?: boolean
+  tool_calling?: boolean
+  reasoning?: boolean
+  code_generation?: boolean
+  embeddings?: boolean
+  reranking?: boolean
+  image_generation?: boolean
+  vision?: boolean
+  multilingual?: boolean
+}
+
+interface FeatureReadinessItem {
+  status?: string
+  available?: boolean
+}
+
+interface FeatureReadiness {
+  version?: string
+  dedicated_deployment?: FeatureReadinessItem
+  lora?: FeatureReadinessItem
+  prompt_caching?: FeatureReadinessItem
+  batch?: FeatureReadinessItem
 }
 
 type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
@@ -189,7 +244,23 @@ function fmtSar(sar: number | null | undefined): string {
   return typeof sar === 'number' && Number.isFinite(sar) ? sarFmt.format(sar) : '—'
 }
 
+function formatCompactNumber(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return '-'
+  return value.toLocaleString('en-US')
+}
+
+function formatSarPerMillion(value: string | number | null | undefined): string {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  return `SAR ${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
+}
+
 function formatPolicyStatus(value: string | null | undefined): string {
+  if (!value) return '-'
+  return value.replace(/_/g, ' ')
+}
+
+function formatContractStatus(value: string | null | undefined): string {
   if (!value) return '-'
   return value.replace(/_/g, ' ')
 }
@@ -253,10 +324,39 @@ export default function PlaygroundPage() {
   const topP = (topPRaw / 100).toFixed(1)
   const maxTokensLabel = maxTokens.toLocaleString('en-US')
 
-  const selectedModelName = useMemo(
-    () => models.find((m) => m.id === model)?.name ?? model,
+  const selectedModel = useMemo(
+    () => models.find((m) => m.id === model) || null,
     [models, model],
   )
+  const selectedModelName = selectedModel?.name ?? model
+  const maxTokenLimit = selectedModel?.maxOutputTokens && selectedModel.maxOutputTokens > 0
+    ? Math.max(MAX_TOKEN_STEP, selectedModel.maxOutputTokens)
+    : 4096
+  const selectedCapabilities = useMemo(() => {
+    const flags = selectedModel?.capabilityFlags || {}
+    return [
+      ['chat_completions', 'Chat'],
+      ['streaming', 'Streaming'],
+      ['tool_calling', 'Tools'],
+      ['reasoning', 'Reasoning'],
+      ['code_generation', 'Code'],
+      ['multilingual', 'Multilingual'],
+      ['vision', 'Vision'],
+      ['embeddings', 'Embeddings'],
+      ['reranking', 'Rerank'],
+    ]
+      .filter(([key]) => Boolean(flags[key as keyof ModelCapabilityFlags]))
+      .map(([, label]) => label)
+  }, [selectedModel])
+  const selectedFeatureGates = useMemo(() => {
+    const readiness = selectedModel?.featureReadiness || {}
+    return [
+      ['Prompt cache', readiness.prompt_caching],
+      ['Batch', readiness.batch],
+      ['LoRA', readiness.lora],
+      ['Dedicated', readiness.dedicated_deployment],
+    ] as [string, FeatureReadinessItem | undefined][]
+  }, [selectedModel])
   const defaultRouterPolicy = useMemo(() => {
     const policies = routerPolicies?.data || []
     return policies.find((policy) => policy.id === routerPolicies?.default_policy)
@@ -281,6 +381,10 @@ export default function PlaygroundPage() {
   const apiLive = catalogState === 'ready' && accountState === 'ready'
   const apiConnecting = catalogState === 'loading' || accountState === 'loading'
   const apiPillColor = apiLive ? 'var(--rt-accent)' : 'var(--mut)'
+
+  useEffect(() => {
+    setMaxTokens((current) => Math.min(current, maxTokenLimit))
+  }, [maxTokenLimit])
 
   function updateAssistantMessage(id: string, patch: Partial<ChatMessage>) {
     setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)))
@@ -471,11 +575,26 @@ export default function PlaygroundPage() {
         })()
         const mapped: ModelOption[] = raw
           .filter((m) => (m.provider_count ?? 0) > 0)
-          .map((m) => ({
-            id: m.id || m.model_id || '',
-            name: m.name || m.display_name || m.id || m.model_id || '',
-            price: `${m.provider_count} live`,
-          }))
+          .map((m) => {
+            const providerCount = Number(m.provider_count || 0)
+            const contextLength = Number(m.context_length ?? m.context_window)
+            const maxOutputTokens = Number(m.max_output_tokens)
+            const maxVramGb = Number(m.max_vram_gb)
+            return {
+              id: m.id || m.model_id || '',
+              name: m.name || m.display_name || m.id || m.model_id || '',
+              price: `${providerCount} live`,
+              providerCount,
+              contextLength: Number.isFinite(contextLength) ? contextLength : undefined,
+              maxOutputTokens: Number.isFinite(maxOutputTokens) ? maxOutputTokens : undefined,
+              pricing: m.pricing,
+              capabilityFlags: m.capability_flags || m.capabilities,
+              featureReadiness: m.feature_readiness,
+              modalities: Array.isArray(m.modalities) ? m.modalities : [],
+              maxVramGb: Number.isFinite(maxVramGb) ? maxVramGb : undefined,
+              status: m.status || (m.available ? 'available' : undefined),
+            }
+          })
           .filter((m) => m.id !== '')
           .sort((a, b) => a.name.localeCompare(b.name))
         if (cancelled) return
@@ -747,6 +866,63 @@ export default function PlaygroundPage() {
                     </label>
                   ))}
                 </div>
+                {selectedModel && (
+                  <div className="model-contract">
+                    <div className="model-contract-head">
+                      <span><Bi en="Selected contract" ar="عقد النموذج المحدد" /></span>
+                      <b>{formatContractStatus(selectedModel.status || 'available')}</b>
+                    </div>
+                    <div className="model-facts">
+                      <div>
+                        <span><Bi en="Context" ar="السياق" /></span>
+                        <b>{formatCompactNumber(selectedModel.contextLength)} tok</b>
+                      </div>
+                      <div>
+                        <span><Bi en="Max output" ar="أقصى إخراج" /></span>
+                        <b>{formatCompactNumber(selectedModel.maxOutputTokens)} tok</b>
+                      </div>
+                      <div>
+                        <span><Bi en="Providers" ar="المزودون" /></span>
+                        <b>{selectedModel.providerCount}</b>
+                      </div>
+                      <div>
+                        <span><Bi en="Max VRAM" ar="أقصى VRAM" /></span>
+                        <b>{selectedModel.maxVramGb ? `${selectedModel.maxVramGb} GB` : '-'}</b>
+                      </div>
+                    </div>
+                    <div className="model-rates">
+                      <div>
+                        <span><Bi en="Input / 1M" ar="الإدخال / 1M" /></span>
+                        <b>{formatSarPerMillion(selectedModel.pricing?.sar_per_1m_input_tokens)}</b>
+                      </div>
+                      <div>
+                        <span><Bi en="Output / 1M" ar="الإخراج / 1M" /></span>
+                        <b>{formatSarPerMillion(selectedModel.pricing?.sar_per_1m_output_tokens)}</b>
+                      </div>
+                    </div>
+                    {selectedCapabilities.length > 0 && (
+                      <div className="model-cap-list">
+                        {selectedCapabilities.map((capability) => (
+                          <span key={capability}>{capability}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="model-feature-list">
+                      {selectedFeatureGates.map(([label, gate]) => (
+                        <div key={label} className={gate?.available ? 'ready' : 'gated'}>
+                          <span>{label}</span>
+                          <b>{formatContractStatus(gate?.status)}</b>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="model-contract-note mono">
+                      <Bi
+                        en={`pricing source: ${selectedModel.pricing?.source || 'catalog'}`}
+                        ar={`مصدر التسعير: ${selectedModel.pricing?.source || 'catalog'}`}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="panel">
@@ -778,7 +954,7 @@ export default function PlaygroundPage() {
                   <input
                     type="range"
                     min={128}
-                    max={4096}
+                    max={maxTokenLimit}
                     step={MAX_TOKEN_STEP}
                     value={maxTokens}
                     onChange={(e) => setMaxTokens(Number(e.target.value))}

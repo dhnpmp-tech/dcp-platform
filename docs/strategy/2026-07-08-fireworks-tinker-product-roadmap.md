@@ -215,6 +215,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     structured 400.
   - PR #779 shows those router-policy readiness states in `/renter/playground`
     and sends `routing_policy=balanced` only for the available default.
+- Surface model metadata in the Playground from `/v1/models`.
+  - PR #780 added selected-model context, max output, SAR token rates,
+    capability chips, and advanced feature readiness gates to
+    `/renter/playground`.
 - Publish honest benchmark pages before making quality claims.
 
 Acceptance:
@@ -317,7 +321,8 @@ Acceptance:
 5. **Inference metadata/pricing audit** - model capability/rate metadata and
    consistency checks. **Capability honesty for explicit non-chat models started
    in PR #766; advanced feature readiness metadata added in PR #771; router
-   policy visibility reached the Playground in PR #779.**
+   policy visibility reached the Playground in PR #779; selected-model pricing
+   and readiness visibility reached the Playground in PR #780.**
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment

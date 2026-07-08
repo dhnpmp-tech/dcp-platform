@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 15:29 UTC - `feat(frontend): show live model metadata in playground - PR #780`
+
+**PR:** [#780](https://github.com/dhnpmp-tech/dcp-platform/pull/780) (`codex/frontend-playground-model-metadata-2026-07-08`).
+**Local timestamp:** 2026-07-08 19:29 +04.
+
+**What:** Forty-seventh Fireworks/Tinker execution slice. Makes the renter Playground consume the richer `/v1/models` contract from PRs #766/#769/#771 instead of showing only a live-provider count.
+
+- **Frontend contract:** Playground model options now preserve provider count, context length, max output tokens, token pricing, capability flags, feature readiness, and max VRAM from `/v1/models`.
+- **Model metadata panel:** The selected model now shows live contract status, context, max output, providers, max VRAM, SAR input/output rates per 1M tokens, capability chips, and advanced feature readiness.
+- **Request guard:** The max-tokens slider now clamps to the selected model's backend `max_output_tokens` instead of always using a static 4096 ceiling.
+- **Claim guard:** Prompt cache, batch, LoRA, and dedicated deployment states are rendered from backend readiness and stay visibly gated/measurement-only when not public.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright render smoke for `/renter/playground` on desktop and mobile, including no horizontal overflow, backend-driven slider max, and captured chat request body with `routing_policy: "balanced"`.
+
 ### 2026-07-08 15:17 UTC - `feat(frontend): show router policies in playground - PR #779`
 
 **PR:** [#779](https://github.com/dhnpmp-tech/dcp-platform/pull/779) (`codex/frontend-router-policy-playground-2026-07-08`).

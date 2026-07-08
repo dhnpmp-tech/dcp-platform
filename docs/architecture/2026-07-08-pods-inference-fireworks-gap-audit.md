@@ -170,6 +170,8 @@ Current capabilities:
 - Playground now pulls live `/v1/router/policies`, displays balanced/future
   policy readiness, and sends explicit `routing_policy=balanced` when balanced
   is the available default.
+- Playground now renders selected-model context, max output, SAR token rates,
+  capability flags, feature readiness, and max-token limits from `/v1/models`.
 - Playground can stream responses.
 - Pricing page/model rate card exists.
 - Live capacity component reads health and model catalog.
@@ -279,6 +281,8 @@ Gaps:
 5. Add pricing transparency from backend metadata rather than duplicated copy.
    - PR #779 moved router-policy visibility in the Playground onto backend
      readiness metadata.
+   - PR #780 moved selected-model Playground pricing, capability, and feature
+     gates onto `/v1/models` metadata.
 
 ## Technical Order of Operations
 

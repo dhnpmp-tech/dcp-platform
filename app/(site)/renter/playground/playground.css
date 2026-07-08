@@ -250,6 +250,120 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .model-pick .dot { width: 12px; height: 12px; border-radius: 50%; background: transparent; border: 1px solid var(--mut); }
 .model-pick .nm { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
 .model-pick .price { font-family: var(--mono); font-size: 10.5px; color: var(--mut); letter-spacing: .04em; }
+.model-contract {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+  display: grid;
+  gap: 12px;
+}
+.model-contract-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.model-contract-head b {
+  color: var(--rt-accent);
+  font-size: 10px;
+  font-weight: 500;
+}
+.model-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+}
+.model-facts div,
+.model-rates div {
+  min-width: 0;
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+}
+.model-facts div:nth-child(odd) { border-inline-end: 1px solid var(--hair); }
+.model-facts div:nth-child(-n+2) { border-bottom: 1px solid var(--hair); }
+.model-facts span,
+.model-rates span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.model-facts b,
+.model-rates b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.model-rates {
+  display: grid;
+  gap: 6px;
+}
+.model-rates div {
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--teal) 5%, var(--paper));
+}
+.model-cap-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.model-cap-list span {
+  border: 1px solid color-mix(in oklab, var(--teal) 46%, var(--hair));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--teal) 6%, var(--paper));
+  padding: 5px 7px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .05em;
+}
+.model-feature-list {
+  display: grid;
+  gap: 6px;
+}
+.model-feature-list div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+}
+.model-feature-list div.ready {
+  border-color: color-mix(in oklab, var(--teal) 55%, var(--hair));
+}
+.model-feature-list div.gated {
+  opacity: .74;
+}
+.model-feature-list span,
+.model-feature-list b,
+.model-contract-note {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  overflow-wrap: anywhere;
+}
+.model-feature-list span { color: var(--ink-2); }
+.model-feature-list b {
+  color: var(--mut);
+  font-weight: 500;
+  text-align: end;
+}
+.model-contract-note {
+  color: var(--mut);
+  line-height: 1.45;
+  text-transform: uppercase;
+}
 .knob { margin-top: 12px; }
 .knob .label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; color: var(--mut); letter-spacing: .04em; margin-bottom: 6px; text-transform: uppercase; }
 .knob .label b { color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; }

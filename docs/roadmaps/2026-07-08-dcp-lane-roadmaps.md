@@ -35,6 +35,9 @@ what is live.
 - PR #779 wired `/renter/playground` to `GET /v1/router/policies`, showing the
   available balanced default plus future policy gates and sending
   `routing_policy=balanced` only when the backend marks it available.
+- PR #780 made `/renter/playground` render selected-model context, max output,
+  SAR token rates, capability flags, feature readiness, and backend-driven
+  max-token limits from `/v1/models`.
 
 ### Now
 
@@ -57,6 +60,8 @@ what is live.
 - Tighten playground/pricing so model rate and capability copy comes from
   backend metadata where possible.
   **Router-policy readiness now comes from `/v1/router/policies` in PR #779.**
+  **Selected-model pricing, capabilities, and feature readiness now come from
+  `/v1/models` in PR #780.**
 
 ### Next
 
@@ -207,6 +212,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #779 made the renter Playground consume the router-policy catalog, display
   balanced/future policy readiness, and send explicit `routing_policy=balanced`
   only for the currently available default.
+- PR #780 made the renter Playground consume `/v1/models` pricing, capability,
+  context, max-output, and feature-readiness metadata for the selected model.
 
 ### Now
 
@@ -276,6 +283,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 1. `/v1/models` capability/pricing metadata audit and tests.
    **Started in PR #766; token-pricing parity added in PR #769.**
    **Playground router-policy visibility added in PR #779.**
+   **Selected-model metadata visibility added in PR #780.**
 2. Prompt-cache accounting design with test fixtures.
 3. Batch inference API design and schema, then implementation.
 
