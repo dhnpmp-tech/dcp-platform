@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-08 22:00 UTC - Batch inference contract proof (PR #824)
+
+- **PR:** [#824](https://github.com/dhnpmp-tech/dcp-platform/pull/824) (`codex/batch-inference-contract-proof-2026-07-09`).
+- **Proof command:** Added `npm run proof:batch-inference-contract` for the CI-safe batch inference lifecycle proof.
+- **Contract:** The proof verifies readiness remains validation-only, invalid JSONL is rejected, idempotency replays existing batches, the default worker is non-mutating, result checksums gate completed results, and line proof derives batch totals.
+- **Minimum balance:** Includes an insufficient-balance settlement preflight proving no billing call or renter debit happens before the gate passes.
+- **Artifacts:** Writes `dcp.batch_inference_contract_proof.v1` JSON and Markdown evidence under `docs/reports/reliability` by default.
+- **Roadmaps:** Updated execution, lane, and Fireworks/Tinker roadmap docs so batch execution and discount claims have a repeatable local gate before live provider execution and discounted settlement smoke.
+- **Safety:** No production batch execution, object-store write, billing mutation, model capability flag, discount, provider routing, or public product claim changed.
+- **Verification:** `npm run proof:batch-inference-contract` with temp report output; targeted Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 21:47 UTC - Adapter deployment contract proof (PR #822)
 
 - **PR:** [#822](https://github.com/dhnpmp-tech/dcp-platform/pull/822) (`codex/adapter-deployment-contract-proof-2026-07-09`).

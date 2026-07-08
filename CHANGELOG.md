@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 22:00 UTC - `test(inference): add batch inference contract proof - PR #824`
+
+**PR:** [#824](https://github.com/dhnpmp-tech/dcp-platform/pull/824) (`codex/batch-inference-contract-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 02:00 +04.
+
+**What:** Seventy-ninth Fireworks/Tinker execution slice. Promotes the batch inference readiness/job/worker/settlement gates into one repeatable CI-safe proof command.
+
+- **Proof command:** Added `npm run proof:batch-inference-contract`, wired through the backend reliability script table to `backend/tests/batch-inference-contract-proof.js`.
+- **Contract proof:** The runner uses an in-memory database and injected executor to prove readiness stays validation-only, invalid JSONL is rejected, idempotency replays an existing batch, the default worker does not mutate jobs, result checksums gate completed results, and line proof drives success/failure/cost totals.
+- **Minimum balance:** The proof includes a settlement preflight scenario where insufficient renter balance fails the batch line before any billing call or renter debit.
+- **Evidence artifacts:** The proof writes `dcp.batch_inference_contract_proof.v1` JSON and Markdown reports under `docs/reports/reliability` by default, with latest symlike copies for handoff.
+- **Regression guard:** Added a targeted Jest test for the proof runner and report contract.
+- **Roadmaps:** Updated the execution system, lane roadmap, and Fireworks/Tinker strategy roadmap so batch execution/discount claims have a CI-safe local gate before live provider execution and real discounted settlement smoke.
+- **Safety:** No production batch execution, object-store write, billing mutation, model capability flag, discount, provider routing, or public product claim changed.
+- **Verified:** `npm run proof:batch-inference-contract` with temp report output; targeted batch proof/job/worker Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 21:47 UTC - `test(lora): add adapter deployment contract proof - PR #822`
 
 **PR:** [#822](https://github.com/dhnpmp-tech/dcp-platform/pull/822) (`codex/adapter-deployment-contract-proof-2026-07-09`).
