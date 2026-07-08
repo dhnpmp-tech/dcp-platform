@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { Bi } from '@/app/(site)/lib/i18n'
 
 export const CURRENT_PAGE = 'pods'
+export type RenterConsolePage = 'dash' | 'pg' | 'keys' | 'usage' | 'pods' | 'fine' | 'wallet' | 'invoices' | 'settings' | 'docs'
 
 // Navigation — identical shape across the v2 renter console. The GPU Pods
 // item lives in the Build section (after Usage) and is mirrored into every
@@ -23,6 +24,7 @@ export const NAV = [
       { k: 'keys', ic: '⚷', label: 'API keys', labelAr: 'مفاتيح API', href: '/renter/keys' },
       { k: 'usage', ic: '△', label: 'Usage', labelAr: 'الاستخدام', href: '/renter/usage' },
       { k: 'pods', ic: '▦', label: 'GPU Pods', labelAr: 'حاويات GPU', href: '/renter/pods' },
+      { k: 'fine', ic: 'FT', label: 'Fine-Tuning', labelAr: 'الضبط الدقيق', href: '/renter/fine-tuning' },
     ],
   },
   {
@@ -52,11 +54,12 @@ interface SidebarProps {
   navOpen: boolean
   renterName: string
   renterEmail: string
+  currentPage?: RenterConsolePage
 }
 
-export function PodSidebar({ navOpen, renterName, renterEmail }: SidebarProps) {
+export function PodSidebar({ navOpen, renterName, renterEmail, currentPage = CURRENT_PAGE }: SidebarProps) {
   return (
-    <aside className={`rt-sb${navOpen ? ' on' : ''}`} id="rt-sb" data-page="pods">
+    <aside className={`rt-sb${navOpen ? ' on' : ''}`} id="rt-sb" data-page={currentPage}>
       <div className="rt-sb-brand">
         <span className="wm">
           DCP<i>∞</i>
@@ -83,7 +86,7 @@ export function PodSidebar({ navOpen, renterName, renterEmail }: SidebarProps) {
               <Bi en={s.sec} ar={s.secAr} />
             </div>
             {s.items.map((it) => {
-              const active = it.k === CURRENT_PAGE
+              const active = it.k === currentPage
               return (
                 <Link key={it.k} href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined} className={active ? 'on' : ''} aria-current={active ? 'page' : undefined}>
                   <span className="ic">{it.ic}</span>
@@ -118,11 +121,21 @@ interface TopbarProps {
   lang: 'en' | 'ar'
   onToggleLang: () => void
   onToggleNav: () => void
+  pageLabelEn?: string
+  pageLabelAr?: string
 }
 
-export function PodTopbar({ renterName, isLive, lang, onToggleLang, onToggleNav }: TopbarProps) {
+export function PodTopbar({
+  renterName,
+  isLive,
+  lang,
+  onToggleLang,
+  onToggleNav,
+  pageLabelEn = 'GPU Pods',
+  pageLabelAr = 'حاويات GPU',
+}: TopbarProps) {
   return (
-    <header className="rt-tb" id="rt-tb" data-crumb="GPU Pods">
+    <header className="rt-tb" id="rt-tb" data-crumb={pageLabelEn}>
       <button className="mb-toggle" id="mb-toggle" aria-label="Menu" type="button" onClick={onToggleNav}>
         ☰
       </button>
@@ -130,7 +143,7 @@ export function PodTopbar({ renterName, isLive, lang, onToggleLang, onToggleNav 
         <span>{renterName}</span>
         <span className="sep">/</span>
         <span className="cur">
-          <Bi en="GPU Pods" ar="حاويات GPU" />
+          <Bi en={pageLabelEn} ar={pageLabelAr} />
         </span>
       </div>
       <span className="pill">

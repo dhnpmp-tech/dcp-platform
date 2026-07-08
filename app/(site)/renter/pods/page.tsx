@@ -160,7 +160,7 @@ interface Workload {
 }
 const WORKLOADS: Workload[] = [
   { key: 'finetune', titleEn: 'Fine-tune 7–13B', titleAr: 'ضبط 7–13B', descEn: 'LoRA / QLoRA on a small model', descAr: 'LoRA / QLoRA على نموذج صغير', floor: 24, prefer: 'rtx 4090', image: 'pytorch', durationMin: 240 },
-  { key: 'infer', titleEn: 'Inference / serving', titleAr: 'الاستدلال / الخدمة', descEn: 'Run a model, batch or API', descAr: 'تشغيل نموذج، دفعات أو API', floor: 24, prefer: 'rtx 3090', image: 'vllm', durationMin: 120 },
+  { key: 'infer', titleEn: 'Inference / serving', titleAr: 'الاستدلال / الخدمة', descEn: 'Run a model or API server', descAr: 'تشغيل نموذج أو خادم API', floor: 24, prefer: 'rtx 3090', image: 'vllm', durationMin: 120 },
   { key: 'diffusion', titleEn: 'Image / video gen', titleAr: 'توليد الصور / الفيديو', descEn: 'SDXL, ComfyUI, video diffusion', descAr: 'SDXL وComfyUI وتوليد الفيديو', floor: 24, prefer: 'rtx 4090', image: 'cuda', durationMin: 120 },
   { key: 'notebook', titleEn: 'Notebook / dev', titleAr: 'دفتر / تطوير', descEn: 'Prototyping, light experiments', descAr: 'نماذج أولية وتجارب خفيفة', floor: 8, prefer: 'rtx 3090', image: 'pytorch', durationMin: 60 },
   { key: 'largetrain', titleEn: 'Large training', titleAr: 'تدريب كبير', descEn: 'Full fine-tune, 30B+ models', descAr: 'ضبط كامل، نماذج 30B+', floor: 80, prefer: 'a100', image: 'pytorch', durationMin: 480 },

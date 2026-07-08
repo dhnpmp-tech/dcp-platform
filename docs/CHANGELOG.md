@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 06:16 UTC - Fine-Tuning console shell (PR #738)
+
+- **PR:** [#738](https://github.com/dhnpmp-tech/dcp-platform/pull/738) (`codex/frontend-finetuning-shell-2026-07-08`).
+- **Frontend:** Added `/renter/fine-tuning` with live adapter-registry reads, LoRA workflow gates, and an honest deployment-proof state that keeps traffic routes at zero until serving proof exists.
+- **Console IA:** Added Fine-Tuning to renter console navigation and cleaned the pod inference workload copy so batch is not described as a live pod preset.
+- **Verification:** `npm run build`; `git diff --check`; production-mode Playwright checks for desktop and mobile render, active nav state, adapter-count rendering, no console errors, no blank page, no horizontal overflow, and working vertical scroll.
+
 ### 2026-07-08 05:52 UTC - LoRA training and deploy contracts (PR #737)
 
 - **PR:** [#737](https://github.com/dhnpmp-tech/dcp-platform/pull/737) (`codex/lora-train-deploy-contracts-2026-07-08`).
