@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 22:00 UTC - Batch inference contract proof (PR #824)
+### 2026-07-08 22:05 UTC - Batch inference contract proof (PR #824)
 
 - **PR:** [#824](https://github.com/dhnpmp-tech/dcp-platform/pull/824) (`codex/batch-inference-contract-proof-2026-07-09`).
 - **Proof command:** Added `npm run proof:batch-inference-contract` for the CI-safe batch inference lifecycle proof.
