@@ -737,6 +737,82 @@ components:
           type: string
           example: create_lora_training_job_after_dataset_review
 
+    PromptCacheReadiness:
+      type: object
+      description: Read-only prompt-cache readiness contract for OpenAI-compatible inference. Measurement is available, but cache discounts and provider KV-cache control remain disabled until settlement and provider-hit proof exist.
+      required: [object, version, current_mode, status, measurement, billing, claims, next]
+      properties:
+        object:
+          type: string
+          enum: [prompt_cache_readiness]
+          example: prompt_cache_readiness
+        version:
+          type: string
+          example: dcp.prompt_cache.v1
+        generated_at:
+          type: string
+          format: date-time
+        current_mode:
+          type: string
+          enum: [measurement_only_no_discount]
+        status:
+          type: string
+          enum: [available_measurement_only]
+        endpoints:
+          type: object
+          additionalProperties:
+            type: string
+        request_hints:
+          type: object
+          additionalProperties: true
+          properties:
+            static_prefix_fields:
+              type: array
+              items: { type: string }
+              example: [static_prefix, prompt_cache.static_prefix]
+            session_fields:
+              type: array
+              items: { type: string }
+              example: [prompt_cache.session_id, session_id, user]
+            supported_surfaces:
+              type: array
+              items: { type: string }
+              example: [/v1/chat/completions]
+        measurement:
+          type: object
+          additionalProperties: false
+          properties:
+            hash_only: { type: boolean, example: true }
+            stores_raw_prompt: { type: boolean, example: false }
+            stores_static_prefix: { type: boolean, example: false }
+            tracks_cache_key: { type: boolean, example: true }
+            tracks_cached_input_tokens: { type: boolean, example: true }
+            prior_hit_detection: { type: boolean, example: true }
+            non_streaming_supported: { type: boolean, example: true }
+            streaming_supported: { type: boolean, example: true }
+        billing:
+          type: object
+          additionalProperties: false
+          properties:
+            discounts_enabled: { type: boolean, example: false }
+            discount_bps: { type: integer, example: 0 }
+            billable_input_tokens_discounted: { type: boolean, example: false }
+            settlement_discount_enabled: { type: boolean, example: false }
+        response_fields:
+          type: array
+          items: { type: string }
+          example: [usage.prompt_cache, usage.pricing.prompt_cache, usage.pricing.cached_input_tokens, usage.pricing.billable_input_tokens]
+        claims:
+          type: object
+          additionalProperties: false
+          properties:
+            prompt_cache_discount: { type: boolean, example: false }
+            provider_kv_cache_control: { type: boolean, example: false }
+            tinker_compatible: { type: boolean, example: false }
+        next:
+          type: string
+          example: enable_discount_only_after_provider_cache_hit_and_settlement_proof
+
     LoraTrainingJob:
       type: object
       description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
@@ -6725,6 +6801,23 @@ paths:
                           additionalProperties: true
                         next:
                           type: string
+
+  /v1/prompt-cache/readiness:
+    get:
+      tags: [OpenAI-Compatible]
+      summary: Get DCP prompt-cache readiness
+      description: |
+        Returns the prompt-cache measurement gate for OpenAI-compatible
+        inference. The contract is read-only and explicitly distinguishes
+        hash-only cached-prefix measurement from future cache discounts or
+        provider KV-cache control.
+      responses:
+        '200':
+          description: Prompt-cache readiness contract.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptCacheReadiness'
 
   /v1/models:
     get:

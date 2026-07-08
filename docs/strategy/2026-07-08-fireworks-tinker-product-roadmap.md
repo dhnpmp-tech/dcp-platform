@@ -86,7 +86,7 @@ The parts to tighten:
 | LoRA fine-tuning | DCP Fine-Tuning MVP | LoRA/QLoRA template scaffolds exist, no real adapter job product | Bake fat image, add dataset/upload/job flow, fixed SFT recipe |
 | LoRA deployment | Adapter registry + live merge/multi-LoRA | vLLM configs reference LoRA logs, but no adapter registry/API | Add adapter schema, upload API, deployment API, vLLM multi-LoRA acceptance test |
 | Batch inference | DCP Batch | Readiness/metadata contract and public page exist; execution and discounts are gated | Add async worker execution, result proof, and discounted settlement on existing job/billing primitives |
-| Prompt caching | DCP cached input discount | Not tracked as product accounting | Add request hash/session cache measurement and billing fields before discounting |
+| Prompt caching | DCP cached input discount | Hash-only measurement, usage fields, and readiness contract exist; discounts are gated | Add settlement proof and provider cache-hit evidence before discounting |
 | Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist | Add customer-facing eval jobs and published Arabic task benchmarks |
 | Routers | DCP model/router selection | Basic provider routing and demand telemetry exist | Add policy-driven router objects and model fallback rules |
 | Quotas/usage export | Renter/admin controls | Partial billing/usage data exists | Add API-key budgets, export, and team usage pages |
@@ -190,6 +190,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #770 mirrors measured prompt-cache counters into `usage.pricing` so
     pricing/playground clients can display cache observations without changing
     billing.
+  - PR #800 adds `GET /v1/prompt-cache/readiness` so clients can inspect
+    measurement-only status, hash-only storage, response fields, and no-discount
+    gates before relying on cache economics.
 - Add batch inference design:
   - upload JSONL
   - async job

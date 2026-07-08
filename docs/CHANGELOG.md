@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 19:16 UTC - Prompt-cache readiness contract (PR #800)
+
+- **PR:** [#800](https://github.com/dhnpmp-tech/dcp-platform/pull/800) (`codex/prompt-cache-readiness-contract-2026-07-08`).
+- **API:** Added public `GET /v1/prompt-cache/readiness` for prompt-cache measurement gates.
+- **Contract:** Response fields now describe static-prefix/session hints, hash-only measurement, usage/pricing response fields, and no-discount billing state.
+- **Safety:** Prompt-cache discounts, settlement discounts, raw prompt/static-prefix storage, provider KV-cache control, and Tinker compatibility all remain false.
+- **Verification:** Targeted prompt-cache and v1 route Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 19:06 UTC - LoRA dataset validation limit parity (PR #798)
 
 - **PR:** [#798](https://github.com/dhnpmp-tech/dcp-platform/pull/798) (`codex/lora-dataset-validate-limit-parity-2026-07-08`).

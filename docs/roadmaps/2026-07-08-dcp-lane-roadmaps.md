@@ -281,6 +281,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   context, max-output, and feature-readiness metadata for the selected model.
 - PR #781 made public `/pricing` consume `/v1/models` for a serveable-model
   pricing catalog while hiding models with zero live providers.
+- PR #800 added public `GET /v1/prompt-cache/readiness` so agents and product
+  surfaces can see hash-only prompt-cache measurement, usage response fields,
+  and no-discount billing gates without changing inference settlement.
 
 ### Now
 
@@ -314,6 +317,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - no discount until measurement is reliable
   **Ledger and response fields landed in PRs #754/#755; pricing observation
   metadata landed in PR #770 without settlement discounts.**
+  **Read-only readiness landed in PR #800 via
+  `GET /v1/prompt-cache/readiness`, keeping discounts and provider KV-cache
+  control disabled until proof exists.**
 - Batch inference:
   - JSONL input
   - async job
@@ -554,6 +560,8 @@ DCP-hosted endpoint -> billed inference.
 5. Adapter registry schema. **Schema/API foundation has landed; continue with
    GPU-host adapter proof and deployment smoke before public serving claims.**
 6. Prompt-cache accounting design.
+   **Readiness contract added in PR #800; settlement discounts and provider
+   cache-control proof remain gated.**
 7. Batch inference design.
 8. LoRA training job MVP.
    **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;

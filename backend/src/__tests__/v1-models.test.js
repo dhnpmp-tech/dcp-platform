@@ -82,6 +82,47 @@ describe('v1 models route', () => {
     expect(mockDb.all).not.toHaveBeenCalled();
   });
 
+  test('returns read-only prompt-cache readiness without changing billing behavior', async () => {
+    const res = await request(app).get('/v1/prompt-cache/readiness');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      object: 'prompt_cache_readiness',
+      version: 'dcp.prompt_cache.v1',
+      current_mode: 'measurement_only_no_discount',
+      status: 'available_measurement_only',
+      endpoints: {
+        readiness: 'GET /v1/prompt-cache/readiness',
+        chat_completions: 'POST /v1/chat/completions',
+      },
+      measurement: {
+        hash_only: true,
+        stores_raw_prompt: false,
+        stores_static_prefix: false,
+        tracks_cached_input_tokens: true,
+      },
+      billing: {
+        discounts_enabled: false,
+        discount_bps: 0,
+        billable_input_tokens_discounted: false,
+        settlement_discount_enabled: false,
+      },
+      claims: {
+        prompt_cache_discount: false,
+        provider_kv_cache_control: false,
+        tinker_compatible: false,
+      },
+      next: 'enable_discount_only_after_provider_cache_hit_and_settlement_proof',
+    });
+    expect(res.body.generated_at).toEqual(expect.any(String));
+    expect(res.body.response_fields).toEqual(expect.arrayContaining([
+      'usage.prompt_cache',
+      'usage.pricing.prompt_cache',
+    ]));
+    expect(mockDb.all).not.toHaveBeenCalled();
+    expect(mockDb.get).not.toHaveBeenCalled();
+  });
+
   test('returns model list when parameter_count column is missing', async () => {
     mockDb.all
       .mockImplementationOnce(() => ([
