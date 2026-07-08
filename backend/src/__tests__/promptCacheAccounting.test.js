@@ -119,6 +119,10 @@ describe('prompt-cache accounting foundation', () => {
       prompt_tokens: 25,
       completion_tokens: 5,
       total_tokens: 30,
+      pricing: {
+        currency: 'USD',
+        usd_total: '0.000025',
+      },
     }, accounting);
 
     expect(usage).toMatchObject({
@@ -131,6 +135,21 @@ describe('prompt-cache accounting foundation', () => {
         billable_input_tokens: 25,
         discount_applied: false,
         discount_bps: 0,
+      },
+      pricing: {
+        currency: 'USD',
+        usd_total: '0.000025',
+        cached_input_tokens: 0,
+        billable_input_tokens: 25,
+        prompt_cache_discount_applied: false,
+        prompt_cache_discount_bps: 0,
+        prompt_cache: {
+          eligible: true,
+          cached_input_tokens: 0,
+          billable_input_tokens: 25,
+          discount_applied: false,
+          discount_bps: 0,
+        },
       },
     });
   });

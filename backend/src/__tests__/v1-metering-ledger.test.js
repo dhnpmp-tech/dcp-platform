@@ -202,6 +202,21 @@ describe('v1 chat metering ledger persistence', () => {
       discount_applied: false,
       discount_bps: 0,
     });
+    expect(res.body.usage.pricing).toMatchObject({
+      currency: 'USD',
+      cached_input_tokens: 0,
+      billable_input_tokens: 9,
+      prompt_cache_discount_applied: false,
+      prompt_cache_discount_bps: 0,
+      prompt_cache: {
+        eligible: true,
+        status: 'miss_measured',
+        cached_input_tokens: 0,
+        billable_input_tokens: 9,
+        discount_applied: false,
+        discount_bps: 0,
+      },
+    });
     expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
     const payload = mockRecordOpenRouterUsage.mock.calls[0][1];
     expect(payload.requestId).toBe('req-primary-123');
