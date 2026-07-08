@@ -164,3 +164,11 @@ PR #778 wires the fine-tuning dashboard to that manifest. The UI now shows
 manifest status, adapter/base, dataset rows, artifact proof, storage key,
 contract version, and next step, while rendering public training, serving,
 routing, quality, and Tinker guards from the manifest claims object.
+
+PR #782 adds the renter-authenticated `GET /api/lora/readiness` product gate.
+It summarizes the current LoRA mode as `metadata_and_artifact_proof_only` and
+exposes dataset validation, training jobs, model-card stubs, adapter registry,
+and adapter deployment load-proof readiness in one response. The readiness
+contract keeps public training, public serving, routing, quality claims, Tinker
+compatibility, and discounts false until GPU-host artifact proof and vLLM load
+proof are available.

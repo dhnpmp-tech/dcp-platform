@@ -121,6 +121,10 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 - PR #768 aligned shared HTTP 402 payment-required copy, pod launch failures, pod
   extend failures, and OpenAPI examples with the credit-first contract while
   preserving stable machine-readable money/error fields.
+- PR #782 added renter-authenticated `GET /api/lora/readiness` so backend,
+  frontend, docs, and agents can consume one LoRA readiness contract while
+  public training, serving, routing, quality claims, Tinker compatibility, and
+  discounts remain false.
 
 ### Now
 
@@ -431,6 +435,9 @@ DCP-hosted endpoint -> billed inference.
   **PR #778 renders those manifests in `/renter/fine-tuning` as metadata-only
   proof cards with public training, serving, routing, quality, and Tinker guards
   still false.**
+  **PR #782 publishes `/api/lora/readiness` so the full LoRA product gate is
+  readable by UI and agents before GPU training workers or adapter traffic are
+  made public.**
 - Adapter deploy:
   - one adapter/live merge first
   - multi-LoRA second
@@ -470,7 +477,11 @@ DCP-hosted endpoint -> billed inference.
 6. Prompt-cache accounting design.
 7. Batch inference design.
 8. LoRA training job MVP.
+   **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;
+   GPU-host artifact proof remains the gating evidence before public training.**
 9. Adapter deploy MVP.
+   **Deployment intent/load-proof contracts are in place through PR #749 and
+   surfaced by PR #782; vLLM serving smoke remains required before routing.**
 10. Fireworks-style product pages.
 
 ## Weekly Cadence

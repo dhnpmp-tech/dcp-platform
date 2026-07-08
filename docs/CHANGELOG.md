@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 15:50 UTC - LoRA readiness gates (PR #782)
+
+- **PR:** [#782](https://github.com/dhnpmp-tech/dcp-platform/pull/782) (`codex/lora-readiness-contract-2026-07-08`).
+- **API:** Added renter-authenticated `GET /api/lora/readiness` for the current LoRA/Fine-Tuning readiness contract.
+- **Safety:** Dataset validation, training-job metadata, model-card stubs, adapter registry, and adapter deployment load-proof are exposed as gates; public training, serving, routing, quality claims, Tinker compatibility, and discounts remain false.
+- **OpenAPI:** Added `LoraReadiness` plus the readiness endpoint to the platform OpenAPI docs copies; the vendored dcp-contracts copy stays untouched.
+- **Verification:** Targeted LoRA/adapter Jest suites; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 15:39 UTC - Live model catalog on pricing page (PR #781)
 
 - **PR:** [#781](https://github.com/dhnpmp-tech/dcp-platform/pull/781) (`codex/pricing-live-model-catalog-2026-07-08`).

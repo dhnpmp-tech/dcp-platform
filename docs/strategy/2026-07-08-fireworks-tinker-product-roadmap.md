@@ -256,6 +256,10 @@ Goal: ship the first real train-here/deploy-here loop.
     disabled until GPU-host proof exists.
   - PR #778 added Fine-Tuning console proof cards for those manifests, keeping
     the UI metadata-only and rendering the false claim guards directly.
+  - PR #782 added `GET /api/lora/readiness` so UI, docs, and agents can consume
+    the LoRA product gate in one place. It keeps public training, serving,
+    routing, quality claims, Tinker compatibility, and discounts false until
+    real GPU-host and serving-load proof exist.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -330,7 +334,9 @@ Acceptance:
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment
-   code second.
+   code second. **Metadata and readiness foundations are in place through PR
+   #782; real GPU-host artifact proof and vLLM serving smoke remain the gates
+   before public LoRA serving claims.**
 
 ## Division of Work
 
