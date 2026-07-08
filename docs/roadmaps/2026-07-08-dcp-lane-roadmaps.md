@@ -158,6 +158,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   result-proof, download-signing, line-ledger, and worker line-proof foundation.
 - PR #760 added the disabled-by-default bridge from succeeded batch line proof
   to the existing atomic inference settlement service.
+- PR #766 tightened model capability metadata so explicit embedding/rerank/image
+  entries are no longer advertised as chat/streaming capable across `/v1/models`,
+  `/api/models`, and `/api/models/catalog`.
 
 ### Now
 
@@ -178,6 +181,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   - dedicated deployment support
   - LoRA support
 - Add route tests proving catalog/pricing consistency.
+  **Capability honesty for non-chat model entries started in PR #766.**
 
 ### Next
 
@@ -209,7 +213,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 
 ### First PRs
 
-1. `/v1/models` capability metadata audit and tests.
+1. `/v1/models` capability metadata audit and tests. **Started in PR #766.**
 2. Prompt-cache accounting design with test fixtures.
 3. Batch inference API design and schema, then implementation.
 

@@ -227,6 +227,69 @@ describe('v1 models route', () => {
     expect(model.capabilities).toEqual(model.capability_flags);
   });
 
+  test('does not advertise chat endpoints for explicit embedding-only models', async () => {
+    mockDb.all
+      .mockImplementationOnce(() => ([
+        { name: 'model_id' },
+        { name: 'display_name' },
+        { name: 'family' },
+        { name: 'context_window' },
+        { name: 'quantization' },
+        { name: 'vram_gb' },
+        { name: 'default_price_halala_per_min' },
+        { name: 'price_in_halala_per_1m_tok' },
+        { name: 'price_out_halala_per_1m_tok' },
+        { name: 'parameter_count' },
+        { name: 'min_gpu_vram_gb' },
+        { name: 'use_cases' },
+        { name: 'is_active' },
+      ]))
+      .mockImplementationOnce(() => ([
+        {
+          model_id: 'BAAI/bge-m3',
+          display_name: 'BGE M3 Embeddings',
+          family: 'embedding',
+          context_window: 8192,
+          quantization: 'fp16',
+          vram_gb: 8,
+          default_price_halala_per_min: 12,
+          price_in_halala_per_1m_tok: 5,
+          price_out_halala_per_1m_tok: 0,
+          parameter_count: null,
+          min_gpu_vram_gb: 8,
+          use_cases: '["embedding","rag","retrieval"]',
+        },
+      ]))
+      .mockImplementationOnce(() => ([
+        { model: 'BAAI/bge-m3', token_rate_halala: 999 },
+        { model: '__default__', token_rate_halala: 19 },
+      ]));
+
+    const res = await request(app).get('/v1/models');
+    const model = res.body.data[0];
+
+    expect(res.status).toBe(200);
+    expect(model.id).toBe('BAAI/bge-m3');
+    expect(model.pricing).toMatchObject({
+      halala_per_1m_input_tokens: 5,
+      halala_per_1m_output_tokens: 0,
+      sar_per_1m_input_tokens: '0.0500',
+      sar_per_1m_output_tokens: '0.0000',
+      source: 'model_registry',
+    });
+    expect(model.supported_features).toEqual(['embeddings']);
+    expect(model.capability_flags).toMatchObject({
+      chat_completions: false,
+      streaming: false,
+      embeddings: true,
+      reranking: false,
+      image_generation: false,
+      vision: false,
+    });
+    expect(model.capabilities).toEqual(model.capability_flags);
+    expect(model.endpoints).toEqual([]);
+  });
+
   test('returns empty list when model_registry exists without model_id column', async () => {
     mockDb.all.mockImplementationOnce(() => ([
       { name: 'display_name' },

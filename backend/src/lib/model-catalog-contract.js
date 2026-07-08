@@ -27,22 +27,50 @@ function toUsdStringFromHalala(halalaValue) {
 function inferModalitiesFromUseCases(useCases) {
   const set = new Set(['text']);
   useCases.forEach((entry) => {
-    if (entry.includes('image')) set.add('image');
+    if (entry.includes('image') || entry.includes('vision') || entry.includes('multimodal')) set.add('image');
     if (entry.includes('audio') || entry.includes('speech') || entry.includes('voice')) set.add('audio');
   });
   return Array.from(set).sort();
 }
 
+function hasUseCase(useCases, needles) {
+  return useCases.some((entry) => needles.some((needle) => entry.includes(needle)));
+}
+
 function inferSupportedFeaturesFromUseCases(useCases) {
-  const featureSet = new Set(['chat.completions']);
-  useCases.forEach((entry) => {
-    if (entry.includes('reason')) featureSet.add('reasoning');
-    if (entry.includes('code')) featureSet.add('code_generation');
-    if (entry.includes('tool')) featureSet.add('tool_calling');
-    if (entry.includes('embed')) featureSet.add('embeddings');
-    if (entry.includes('image')) featureSet.add('image_generation');
-    if (entry.includes('arabic') || entry.includes('translation')) featureSet.add('multilingual');
-  });
+  const featureSet = new Set();
+  const hasExplicitUseCases = useCases.length > 0;
+  const chatCapable = !hasExplicitUseCases || hasUseCase(useCases, [
+    'chat',
+    'instruct',
+    'completion',
+    'assistant',
+    'reason',
+    'code',
+    'coding',
+    'tool',
+    'translation',
+    'classification',
+    'enterprise',
+    'llm',
+    'language',
+  ]);
+  const imageGeneration = hasUseCase(useCases, [
+    'image-generation',
+    'image_generation',
+    'text-to-image',
+    'diffusion',
+  ]);
+
+  if (chatCapable) featureSet.add('chat.completions');
+  if (hasUseCase(useCases, ['reason'])) featureSet.add('reasoning');
+  if (hasUseCase(useCases, ['code', 'coding'])) featureSet.add('code_generation');
+  if (hasUseCase(useCases, ['tool'])) featureSet.add('tool_calling');
+  if (hasUseCase(useCases, ['embed', 'rag', 'retriev'])) featureSet.add('embeddings');
+  if (hasUseCase(useCases, ['rerank', 'ranking', 'search'])) featureSet.add('reranking');
+  if (imageGeneration) featureSet.add('image_generation');
+  if (hasUseCase(useCases, ['vision', 'multimodal'])) featureSet.add('vision');
+  if (hasUseCase(useCases, ['arabic', 'translation', 'multilingual'])) featureSet.add('multilingual');
   return Array.from(featureSet).sort();
 }
 
@@ -54,7 +82,9 @@ function createCapabilityFlags(supportedFeatures) {
     code_generation: set.has('code_generation'),
     tool_calling: set.has('tool_calling'),
     embeddings: set.has('embeddings'),
+    reranking: set.has('reranking'),
     image_generation: set.has('image_generation'),
+    vision: set.has('vision'),
     multilingual: set.has('multilingual'),
   };
 }

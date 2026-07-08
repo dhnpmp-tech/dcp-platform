@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 11:38 UTC - Non-chat model capability honesty (PR #766)
+
+- **PR:** [#766](https://github.com/dhnpmp-tech/dcp-platform/pull/766) (`codex/model-capability-contract-honesty-2026-07-08`).
+- **Capability contract:** Explicit embedding/rerank/image use cases no longer inherit chat/streaming capability by default.
+- **`/v1/models`:** Explicit non-chat models no longer advertise a chat endpoint when no compatible `/v1` route exists.
+- **Route parity:** `/api/models`, `/api/models/catalog`, and `/v1/models` now share `reranking` and `vision` flags alongside the existing capability metadata.
+- **Compatibility:** Legacy rows with missing/empty use-case metadata still default to chat completion support.
+- **Verification:** Targeted `/v1/models` and model-catalog honesty Jest suites; route/helper `node --check`.
+
 ### 2026-07-08 11:27 UTC - Credit-first renter funding copy (PR #765)
 
 - **PR:** [#765](https://github.com/dhnpmp-tech/dcp-platform/pull/765) (`codex/renter-credit-language-2026-07-08`).
