@@ -169,7 +169,9 @@ schema can drift before the behavior exists.
 11. Publish a compact readiness contract so UI and agents can render the gated
     batch state without inferring it from scattered fields. **Done in PR #776**
     via `GET /api/batches/readiness`.
-12. Only then expose `capability_flags.batch = true` for models that can run it.
+12. Render that readiness contract in the renter batch console. **Done in PR
+    #777** with a contract-backed readiness rail on `/renter/batches`.
+13. Only then expose `capability_flags.batch = true` for models that can run it.
 
 PR #741 deliberately leaves `execution_enabled: false` and keeps `/v1/models`
 `capability_flags.batch = false` until steps 4-6 are complete.
@@ -222,3 +224,7 @@ batch product surfaces. It lists supported JSONL URLs, request limits, endpoint
 map, result-download configuration posture, worker/settlement gates, and claim
 guards. It does not enable execution, settlement, discounts, or public model
 batch capability flags.
+PR #777 connects `/renter/batches` to that readiness contract. The renter
+console now shows current mode, contract version, create/execution/download,
+settlement, discount, completion-window, and supported-URL gates from the API,
+and disables creation only when `request_creation_enabled` is false.

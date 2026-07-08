@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 14:56 UTC - `feat(frontend): render batch readiness gates - PR #777`
+
+**PR:** [#777](https://github.com/dhnpmp-tech/dcp-platform/pull/777) (`codex/frontend-batch-readiness-2026-07-08`).
+**Local timestamp:** 2026-07-08 18:56 +04.
+
+**What:** Forty-fourth Fireworks/Tinker execution slice. Wires the renter batch console to the new batch readiness contract so the UI derives product gates from the backend instead of hardcoded copy.
+
+- **Frontend contract:** `/renter/batches` now fetches `GET /api/batches/readiness` alongside renter and batch data.
+- **Readiness rail:** Added a compact console rail for current mode, create, execution, downloads, settlement, discounts, completion window, contract version, and supported JSONL URLs.
+- **Claim guard:** Batch execution and discounts continue to render as gated/not enabled unless the backend readiness contract says otherwise; configured downloads still show the result-proof gate.
+- **Create gate:** The create button and submit handler now honor `request_creation_enabled` from the readiness response.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright render smoke for `/renter/batches` on desktop and mobile with no horizontal overflow.
+
 ### 2026-07-08 14:40 UTC - `feat(batch): publish batch inference readiness contract - PR #776`
 
 **PR:** [#776](https://github.com/dhnpmp-tech/dcp-platform/pull/776) (`codex/batch-readiness-contract-2026-07-08`).
