@@ -14,10 +14,10 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### 2026-07-08 20:07 UTC - `feat(frontend): make fine-tuning workspace pre-upload first-class - PR #806`
+### 2026-07-08 20:17 UTC - `feat(frontend): make fine-tuning workspace pre-upload first-class - PR #806`
 
 **PR:** [#806](https://github.com/dhnpmp-tech/dcp-platform/pull/806) (`codex/fine-tuning-workspace-preupload-2026-07-08`).
-**Local timestamp:** 2026-07-09 00:07 +04.
+**Local timestamp:** 2026-07-09 00:17 +04.
 
 **What:** Seventieth Fireworks/Tinker execution slice. Makes workspace staging the normal first step before LoRA validation, pod launch, or adapter proof.
 
