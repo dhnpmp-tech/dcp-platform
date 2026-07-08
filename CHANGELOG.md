@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 14:21 UTC - `test(pods): guard Nsight provider benchmark evidence contract - PR #774`
+
+**PR:** [#774](https://github.com/dhnpmp-tech/dcp-platform/pull/774) (`codex/provider-nsight-contract-guard-2026-07-08`).
+**Local timestamp:** 2026-07-08 18:21 +04.
+
+**What:** Forty-first Fireworks/Tinker execution slice. Hardens the Pods/POTS provider benchmark MVP so future agents can prove the evidence contract without a GPU host.
+
+- **Evidence honesty:** `scripts/provider-nsight-benchmark.py` now marks top-level reports and provider-score inputs with `evidence_mode` plus `mock_data` so CI mock output cannot be confused with provider-host proof.
+- **Contract guard:** Added a Jest test that runs the real Python CLI in `--mock` mode and verifies JSON schema, score-input fields, Nsight mock metrics, sample count, and CSV headers.
+- **Verification command:** Added `npm run provider:nsight:verify` as the CI-safe proof command for this lane.
+- **Roadmaps:** Marked the Nsight provider benchmark MVP as having a contract guard while GPU-host proof remains a separate required evidence item.
+- **Verified:** `npm run provider:nsight:verify`; Python byte-compile for the script; `git diff --check`.
+
 ### 2026-07-08 14:11 UTC - `feat(inference): validate explicit routing policy requests - PR #773`
 
 **PR:** [#773](https://github.com/dhnpmp-tech/dcp-platform/pull/773) (`codex/router-policy-request-validation-2026-07-08`).

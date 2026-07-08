@@ -1,7 +1,7 @@
 # Nsight Provider Benchmark MVP
 
 Date: 2026-07-08
-PR: #740
+PR: #740; contract guard updated in PR #774
 Scope: Pods/POTS infrastructure, provider quality score evidence
 
 ## Purpose
@@ -111,12 +111,23 @@ python3 scripts/provider-nsight-benchmark.py \
 Mock output must never be used for provider activation, payouts, routing, or
 quality-score updates.
 
+PR #774 added `evidence_mode: "mock"` and
+`provider_quality_score_input.mock_data: true` to mock reports so future
+ingestion can reject CI evidence deterministically. The CI-safe contract command
+is:
+
+```bash
+npm run provider:nsight:verify
+```
+
 ## Output Contract
 
 The JSON report has schema version
 `2026-07-08.provider-nsight-benchmark.v1` and includes:
 
 - `tool_availability`: detected `nvidia-smi`, `ncu`, and `nsys`.
+- `evidence_mode`: `provider_host` for real provider-host runs, `mock` for CI
+  shape validation.
 - `samples`: raw per-GPU, per-sample telemetry.
 - `summary`: per-GPU averages/max values and missing metric names.
 - `nsight_profile`: workload profiler status and raw report paths.
@@ -125,7 +136,9 @@ The JSON report has schema version
 Quality-score ingestion should ignore rows unless:
 
 - `status` is `completed`.
+- `evidence_mode` is `provider_host`.
 - `provider_quality_score_input.benchmark_ready` is true.
+- `provider_quality_score_input.mock_data` is false.
 - The run was captured on an approved provider host.
 - The output artifact is attached to an admin-reviewed provider activation or
   recurring provider-health workflow.
@@ -149,6 +162,7 @@ add ingestion safely in this order:
 
 - Script compiles with Python.
 - Mock mode writes valid JSON and CSV.
+- Mock mode is explicitly marked as non-production evidence.
 - JSON includes explicit quality-score input fields.
 - CSV includes one row per telemetry sample.
 - Changelogs record the PR number, date, timestamp, and shipped details.

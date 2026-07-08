@@ -281,6 +281,8 @@ template launch.
   credit-required guidance and funding-gap facts.
 - PR #768 aligned the backend 402 copy behind pod launch/extend and the OpenAPI
   contract with the same credit-first language.
+- PR #774 added a CI-safe Nsight provider benchmark evidence contract guard so
+  mock JSON/CSV reports are verified without being confused with GPU-host proof.
 
 ### Now
 
@@ -318,6 +320,8 @@ template launch.
   - thermals
   - CSV output
   - provider quality score input
+  **Provider-side script/runbook landed in PR #740; CI-safe mock contract guard
+  landed in PR #774. GPU-host proof is still required before score ingestion.**
 
 ### Later
 
@@ -332,7 +336,8 @@ template launch.
 2. Workspace-to-pod launch UX/API polish. **Started in PR #761.**
 3. Supply-tier and paid-credit pod policy. **Durable supply-tier schema
    started in PR #764; renter-facing credit gate guidance added in PR #767.**
-4. Nsight provider benchmark script/runbook.
+4. Nsight provider benchmark script/runbook. **Script/runbook landed in PR #740;
+   mock contract guard landed in PR #774; GPU-host proof remains open.**
 
 ### Required Evidence
 
@@ -414,7 +419,8 @@ DCP-hosted endpoint -> billed inference.
 2. Inference metadata/rate consistency.
 3. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
 4. Workspace-to-pod launch polish. **Started in PR #761.**
-5. Adapter registry schema.
+5. Adapter registry schema. **Schema/API foundation has landed; continue with
+   GPU-host adapter proof and deployment smoke before public serving claims.**
 6. Prompt-cache accounting design.
 7. Batch inference design.
 8. LoRA training job MVP.

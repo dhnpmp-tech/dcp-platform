@@ -17,6 +17,7 @@
     "release:train": "node scripts/release-train.mjs",
     "smoke:gpu-job": "node scripts/gpu-job-lifecycle-smoke.mjs",
     "proof:prefetch-top3-sla": "node scripts/run-prefetch-top3-sla-proof.mjs",
+    "provider:nsight:verify": "npm --prefix backend run providers:nsight-contract",
     "templates:validate": "npm --prefix backend run templates:validate",
     "pod-images:verify-contracts": "npm --prefix backend run pod-images:verify-contracts",
     "test:e2e": "playwright test",
