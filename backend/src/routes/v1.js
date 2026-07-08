@@ -50,7 +50,10 @@ const {
   recordStreamOutcome,
   resolveProviderTier,
 } = require('../services/inferenceLatencyBudgetGate');
-const { buildInferenceRoutingPolicies } = require('../services/inferenceRoutingPolicies');
+const {
+  buildInferenceRoutingPolicies,
+  resolveRequestedRoutingPolicy,
+} = require('../services/inferenceRoutingPolicies');
 const { getEarnedRoutingState } = require('../services/providerVerification');
 const { looksLikeProviderKey } = require('../middleware/auth');
 const { classifyRequest } = require('../lib/request-classifier');
@@ -2357,6 +2360,29 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       (isThinkingCapableModel(model) ? DEFAULT_MAX_TOKENS_THINKING : DEFAULT_MAX_TOKENS);
     const temperature = toFiniteNumber(req.body?.temperature, { min: 0, max: 2 }) ?? 0.7;
     const wantsStream = !!req.body?.stream;
+    const routingPolicyResult = resolveRequestedRoutingPolicy(req.body || {});
+    if (!routingPolicyResult.ok) {
+      return sendV1Error(res, {
+        status: routingPolicyResult.httpStatus || 400,
+        type: 'invalid_request_error',
+        code: routingPolicyResult.code,
+        message: routingPolicyResult.message,
+        retryable: false,
+        details: {
+          requested_policy: routingPolicyResult.requested_policy,
+          default_policy: routingPolicyResult.contract.default_policy,
+          request_selectable: routingPolicyResult.contract.request_selectable,
+          supported_policies: routingPolicyResult.contract.data.map((policy) => ({
+            id: policy.id,
+            status: policy.status,
+            available: policy.available,
+            request_selectable: policy.request_selectable,
+          })),
+        },
+      });
+    }
+    res.setHeader('x-dcp-routing-policy', routingPolicyResult.policy.id);
+    res.setHeader('x-dcp-routing-policy-explicit', routingPolicyResult.explicit ? 'true' : 'false');
 
     // ── Request classification (Mesh-LLM router.rs port) — telemetry only ──
     const classification = classifyRequest(messages, req.body?.tools);

@@ -543,6 +543,7 @@ describe('v1 models route', () => {
       .set('Authorization', 'Bearer test-key')
       .send({
         model: 'legacy-chat-model',
+        routing_policy: 'balanced',
         messages: [{ role: 'user', content: 'hello' }],
         max_tokens: 64,
       });
@@ -554,6 +555,8 @@ describe('v1 models route', () => {
     expect(res.headers['x-dcp-provider-endpoint-host']).toBe('provider.test');
     expect(res.headers['x-dcp-requested-model-id']).toBe('legacy-chat-model');
     expect(res.headers['x-dcp-routed-model-id']).toBe('legacy-chat-model');
+    expect(res.headers['x-dcp-routing-policy']).toBe('balanced');
+    expect(res.headers['x-dcp-routing-policy-explicit']).toBe('true');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
     expect(mockDb.get.mock.calls.some(([sql]) => String(sql).includes('vram_gb AS min_gpu_vram_gb'))).toBe(true);
@@ -566,6 +569,45 @@ describe('v1 models route', () => {
     expect(typeof res.body.usage.pricing.usd_total).toBe('string');
 
     fetchSpy.mockRestore();
+  });
+
+  test('chat completions rejects unavailable routing policies before provider selection', async () => {
+    mockDb.get.mockImplementation((sql) => {
+      const query = String(sql);
+      if (query.includes('FROM renter_api_keys')) return null;
+      if (query.includes('FROM renters WHERE api_key')) {
+        return { id: 7, api_key: 'test-key', balance_halala: 5000, status: 'active' };
+      }
+      return null;
+    });
+
+    const res = await request(app)
+      .post('/v1/chat/completions')
+      .set('Authorization', 'Bearer test-key')
+      .send({
+        model: 'legacy-chat-model',
+        routing_policy: 'cheapest',
+        messages: [{ role: 'user', content: 'hello' }],
+        max_tokens: 64,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatchObject({
+      type: 'invalid_request_error',
+      code: 'routing_policy_not_selectable',
+      status: 400,
+      retryable: false,
+      details: {
+        requested_policy: 'cheapest',
+        default_policy: 'balanced',
+        request_selectable: false,
+      },
+    });
+    expect(res.body.error.details.supported_policies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'balanced', available: true, request_selectable: false }),
+      expect.objectContaining({ id: 'cheapest', available: false, request_selectable: false }),
+    ]));
+    expect(mockDb.all).not.toHaveBeenCalled();
   });
 
   test('chat completions falls back to requested model when model_registry table is missing', async () => {

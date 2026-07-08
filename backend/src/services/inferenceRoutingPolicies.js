@@ -106,8 +106,86 @@ function buildInferenceRoutingPolicies(env = process.env) {
   };
 }
 
+function normalizeRequestedRoutingPolicy(value) {
+  if (value == null || value === '') return null;
+  const normalized = String(value).trim().toLowerCase().replace(/-/g, '_');
+  if (!/^[a-z][a-z0-9_]{1,63}$/.test(normalized)) return 'invalid';
+  return normalized;
+}
+
+function extractRequestedRoutingPolicy(body = {}) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  if (Object.prototype.hasOwnProperty.call(body, 'routing_policy')) {
+    return normalizeRequestedRoutingPolicy(body.routing_policy);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'route_policy')) {
+    return normalizeRequestedRoutingPolicy(body.route_policy);
+  }
+  const routing = body.routing;
+  if (routing && typeof routing === 'object' && !Array.isArray(routing)
+    && Object.prototype.hasOwnProperty.call(routing, 'policy')) {
+    return normalizeRequestedRoutingPolicy(routing.policy);
+  }
+  return null;
+}
+
+function resolveRequestedRoutingPolicy(body = {}, env = process.env) {
+  const contract = buildInferenceRoutingPolicies(env);
+  const requested = extractRequestedRoutingPolicy(body);
+  const defaultPolicy = contract.data.find((policy) => policy.id === contract.default_policy);
+  if (requested == null) {
+    return {
+      ok: true,
+      explicit: false,
+      policy: defaultPolicy,
+      contract,
+    };
+  }
+  if (requested === 'invalid') {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: 'invalid_routing_policy',
+      message: 'routing_policy must be a lowercase policy id such as balanced',
+      requested_policy: null,
+      contract,
+    };
+  }
+  const policy = contract.data.find((entry) => entry.id === requested);
+  if (!policy) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: 'unknown_routing_policy',
+      message: `Unknown routing_policy '${requested}'`,
+      requested_policy: requested,
+      contract,
+    };
+  }
+  if (policy.id !== contract.default_policy || policy.request_selectable !== false || policy.available !== true) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: 'routing_policy_not_selectable',
+      message: `routing_policy '${policy.id}' is not request-selectable yet`,
+      requested_policy: policy.id,
+      policy,
+      contract,
+    };
+  }
+  return {
+    ok: true,
+    explicit: true,
+    policy,
+    contract,
+  };
+}
+
 module.exports = {
   ROUTING_POLICY_CONTRACT_VERSION,
   buildInferenceRoutingPolicies,
+  extractRequestedRoutingPolicy,
   normalizeEarnedMode,
+  normalizeRequestedRoutingPolicy,
+  resolveRequestedRoutingPolicy,
 };
