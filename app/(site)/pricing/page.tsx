@@ -372,7 +372,7 @@ export default function PricingPage() {
             />
           </p>
           <div className="ctas" style={{ marginTop: 20 }}>
-            <Link className="btn primary" href="/containers">
+            <Link className="btn primary" href="/pods">
               <Bi en="See GPU pods →" ar="راجع الحاويات ←" />
             </Link>
             <Link className="btn ghost" href="/marketplace">
