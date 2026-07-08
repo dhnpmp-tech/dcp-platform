@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 12:00 UTC - Pod launch credit-required guidance (PR #767)
+
+- **PR:** [#767](https://github.com/dhnpmp-tech/dcp-platform/pull/767) (`codex/pod-launch-credit-error-guidance-2026-07-08`).
+- **Structured 402s:** `/renter/pods` now keeps backend credit-gate details for paid-credit and insufficient-credit launch failures.
+- **Renter copy:** The blocked-launch panel says "Credit required", routes to Add credit, and explains trial credit coverage without exposing vendor/on-demand internals.
+- **Credit facts:** The UI shows available credit, required credit, requested duration, and hourly rate when present in the backend response.
+- **Interaction:** Funding errors stay visible while launch settings are adjusted; transient validation errors still clear normally.
+- **Verification:** `npm run build`; `git diff --check`; Playwright render smoke with signed renter session and mocked HTTP 402 launch response.
+
 ### 2026-07-08 11:38 UTC - Non-chat model capability honesty (PR #766)
 
 - **PR:** [#766](https://github.com/dhnpmp-tech/dcp-platform/pull/766) (`codex/model-capability-contract-honesty-2026-07-08`).

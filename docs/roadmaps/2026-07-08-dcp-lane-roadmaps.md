@@ -24,6 +24,9 @@ what is live.
 - PR #765 made renter funding copy credit-first across the renter shell, shared
   balance/spending cards, top-up modal, low-credit notifications, and
   insufficient-balance CTAs while keeping SAR in payment/accounting contexts.
+- PR #767 made `/renter/pods` render structured paid-credit/insufficient-credit
+  launch failures with Add credit guidance, exact credit facts, and no
+  vendor/on-demand internals exposed to renters.
 
 ### Now
 
@@ -72,7 +75,7 @@ what is live.
 ### First PRs
 
 1. Pod launch UX map: workspace -> template -> GPU -> duration -> credit check.
-   **Started in PR #761.**
+   **Started in PR #761; structured credit-check guidance added in PR #767.**
 2. Product IA copy cleanup without new claims. **Credit-first renter funding
    language started in PR #765.**
 3. Fine-Tuning dashboard shell with "coming next" states tied to backend gates.
@@ -83,6 +86,7 @@ what is live.
 
 - Next.js build.
 - Browser screenshots for touched routes.
+- Mocked blocked-launch render for pod credit gates.
 - Mobile viewport check.
 - Copy review against live capability.
 
@@ -241,6 +245,8 @@ template launch.
 - PR #764 made `providers.supply_tier` durable and hardened the on-demand
   paid-credit gate so explicit `on_demand` commitments reduce paid credit
   availability.
+- PR #767 connected that backend gate to `/renter/pods` with structured
+  credit-required guidance and funding-gap facts.
 
 ### Now
 
@@ -291,7 +297,7 @@ template launch.
 1. Fat pod image spec and verification script. **Started in PR #762.**
 2. Workspace-to-pod launch UX/API polish. **Started in PR #761.**
 3. Supply-tier and paid-credit pod policy. **Durable supply-tier schema
-   started in PR #764.**
+   started in PR #764; renter-facing credit gate guidance added in PR #767.**
 4. Nsight provider benchmark script/runbook.
 
 ### Required Evidence

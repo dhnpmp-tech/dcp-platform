@@ -195,7 +195,7 @@ Possible copy:
 - "Add credit to launch this GPU."
 - "Trial credit covers DCP and community GPUs. This GPU requires prepaid credit."
 
-Status as of PR #765:
+Status as of PR #767:
 
 - Dashboard, playground, usage, invoices, keys, settings, wallet sidebars, shared
   balance/spending cards, low-credit notifications, and insufficient-balance
@@ -203,6 +203,11 @@ Status as of PR #765:
 - The add-credit modal reads as a payment-backed credit request flow.
 - SAR remains visible for top-up amounts, spend, invoices, payment transfer, and
   accounting contexts.
+- `/renter/pods` now handles the structured HTTP 402 launch response from the
+  backend gate and renders "Credit required" guidance with available credit,
+  required credit, requested duration, and hourly rate facts when supplied.
+- The pod-launch block keeps vendor/on-demand internals hidden; renters see
+  trial-credit coverage and Add credit guidance instead of supply-tier details.
 
 ## Open Questions Before Shipping
 
@@ -255,6 +260,13 @@ Status as of PR #765:
 - Update pod launch error handling for the new 402 codes.
 - Keep vendor/on-demand internals hidden.
 - Add focused UI tests or static regressions for copy and API contract.
+
+Status as of PR #767:
+
+- Credit-first renter copy started in PR #765 and structured pod-launch 402
+  handling landed in PR #767.
+- Visual evidence exists for `/renter/pods` with a signed renter session and a
+  mocked `on_demand_requires_prepaid_credit` response.
 
 ### Slice 5 - Production Rollout
 
