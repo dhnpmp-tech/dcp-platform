@@ -27,6 +27,7 @@
     "proof:adapter-deployment-contract": "npm --prefix backend run test:reliability:adapter-deployment-contract-proof",
     "proof:batch-inference-contract": "npm --prefix backend run test:reliability:batch-inference-contract-proof",
     "proof:prompt-cache-contract": "npm --prefix backend run test:reliability:prompt-cache-contract-proof",
+    "proof:prompt-cache-live-settlement": "npm --prefix backend run test:reliability:prompt-cache-live-settlement-proof",
     "proof:router-policy-contract": "npm --prefix backend run test:reliability:router-policy-contract-proof",
     "workspace-pods:verify-contracts": "npm --prefix backend run workspace-pods:verify-contracts",
     "proof:workspace-pod": "npm --prefix backend run test:reliability:workspace-pod-proof",

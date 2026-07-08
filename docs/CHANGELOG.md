@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 23:17 UTC - Prompt-cache live settlement proof runner (PR #836)
+
+- **PR:** [#836](https://github.com/dhnpmp-tech/dcp-platform/pull/836) (`codex/prompt-cache-live-proof-runner-2026-07-09`).
+- **Live proof command:** Added `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`.
+- **Default safety:** The runner refuses billed inference by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Contract:** When explicitly allowed, it checks prompt-cache readiness, uses the deterministic smoke principal, sends two matching static-prefix/session chat requests, and requires miss -> `hit_measured_no_discount` evidence with discounts still false.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now reports prompt-cache as command-ready, moving the live ledger to 4/8 command-ready and 4/8 missing acceptance runners.
+- **Safety:** No prompt-cache discount, provider KV-cache control, billing, settlement, routing, model catalog, frontend, or public claim behavior changed.
+- **Verification:** Default blocked proof run; targeted Jest suites; `npm run proof:live-acceptance-status`; `npm run proof:local-roadmap`; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:08 UTC - Live acceptance gate status packet (PR #834)
 
 - **PR:** [#834](https://github.com/dhnpmp-tech/dcp-platform/pull/834) (`codex/live-acceptance-gate-status-2026-07-09`).

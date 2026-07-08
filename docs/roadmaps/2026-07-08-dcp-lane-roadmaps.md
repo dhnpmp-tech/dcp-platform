@@ -327,6 +327,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   for measurement-only readiness, scoped/stable cache keys, hash-only
   measurement persistence, no-discount usage fields, and non-eligible prompt
   handling.
+- PR #836 added `npm run proof:prompt-cache-live-settlement`, an opt-in live
+  proof runner that refuses billed traffic by default, verifies readiness,
+  sends two prompt-cache measurement requests only when explicitly allowed, and
+  requires a measured hit with discount/settlement flags still false.
 - PR #828 added `npm run proof:lora-training-contract`, a CI-safe proof packet
   for LoRA dataset validation, metadata-only/idempotent training jobs, disabled
   worker behavior, artifact checksum requirements, model-card claim guards, and
@@ -376,6 +380,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   **PR #826 adds a repeatable local proof command for the prompt-cache
   measurement contract; live provider cache-hit proof and discounted settlement
   remain required before cached-input discount claims.**
+  **PR #836 adds the opt-in live proof runner for that next gate. It remains
+  blocked until a funded smoke principal, provider cache-hit evidence, and
+  discount/settlement policy approval exist.**
 - Batch inference:
   - JSONL input
   - async job
@@ -678,6 +685,8 @@ DCP-hosted endpoint -> billed inference.
 7. Prompt-cache accounting design.
    **Readiness contract added in PR #800; settlement discounts and provider
    cache-control proof remain gated.**
+   **Opt-in live prompt-cache settlement runner added in PR #836; it is
+   command-ready but blocked until funded/provider/policy inputs exist.**
 8. Batch inference design.
 9. LoRA training job MVP.
    **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;
@@ -702,7 +711,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Cross-lane CI-safe suite | `npm run proof:local-roadmap`; `npm run proof:live-acceptance-status` | Does not replace live gates; report lists blocked external proof inputs and missing live acceptance runners |
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
-| Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched |
+| Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched; `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` before cached-input discount claims |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
 | LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
 

@@ -228,6 +228,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     persistence, no-discount usage fields, non-eligible prompt handling, and
     raw-prefix/image-URL privacy guards before live provider cache-hit or
     discounted settlement proof.
+  - PR #836 added `npm run proof:prompt-cache-live-settlement`, an opt-in live
+    runner for the next gate: readiness check, deterministic smoke principal,
+    two measured prompt-cache requests, measured-hit evidence, and no-discount
+    settlement guards. It remains blocked until funded/provider/policy inputs
+    exist.
 - Add batch inference design:
   - upload JSONL
   - async job
@@ -462,6 +467,11 @@ Acceptance:
     `npm run proof:live-acceptance-status`; it lists command-ready live gates,
     missing acceptance runners, blocked inputs, artifact patterns, and claim
     guards without treating any live capability as accepted.**
+14. **Prompt-cache live settlement runner** - opt-in live proof before cached
+    input discounts. **Added in PR #836 as
+    `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;
+    cached-input discounts, provider KV-cache control, and settlement discounts
+    remain gated until that command passes with funded/provider/policy evidence.**
 
 ## Division of Work
 
