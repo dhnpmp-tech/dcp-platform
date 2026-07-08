@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 05:52 UTC - LoRA training and deploy contracts (PR #737)
+
+- **PR:** [#737](https://github.com/dhnpmp-tech/dcp-platform/pull/737) (`codex/lora-train-deploy-contracts-2026-07-08`).
+- **Dataset validation:** Added tested JSONL validation for LoRA SFT chat and prompt/completion rows, including unsafe/empty row rejection, token estimates, checksums, and split metadata.
+- **Training/deploy contracts:** Added fixed LoRA/QLoRA training draft normalization and adapter deployment gating that only routes after serving load proof matches.
+- **Runbook:** Added `docs/architecture/2026-07-08-lora-training-deploy-contracts.md` with the order from dataset upload to adapter registry to vLLM load proof.
+
 ### 2026-07-08 05:39 UTC - Prompt-cache and batch foundations (PR #736)
 
 - **PR:** [#736](https://github.com/dhnpmp-tech/dcp-platform/pull/736) (`codex/prompt-cache-batch-design-2026-07-08`).

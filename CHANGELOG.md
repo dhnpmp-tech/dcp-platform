@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 05:52 UTC - `feat(lora): add training and deploy contracts - PR #737`
+
+**PR:** [#737](https://github.com/dhnpmp-tech/dcp-platform/pull/737) (`codex/lora-train-deploy-contracts-2026-07-08`).
+**Local timestamp:** 2026-07-08 09:52 +04.
+
+**What:** Sixth Fireworks/Tinker execution slice. Adds the backend validation contracts required before DCP can safely expose managed LoRA SFT jobs or adapter deployment.
+
+- **Dataset validation:** Added SFT JSONL validation for chat-message and prompt/completion rows, with unsafe/empty row rejection, token/size estimates, deterministic checksum, and train/validation split metadata.
+- **Training contract:** Added fixed LoRA/QLoRA SFT draft normalization with safe dataset storage keys, bounded hyperparameters, adapter artifact output metadata, and GPU-host proof requirements.
+- **Deploy contract:** Added adapter deployment normalization that keeps `route_traffic: false` until serving load proof matches the adapter id and base model.
+- **Runbook:** Documented the train-here/deploy-here order from dataset upload through adapter registry and vLLM load proof, without claiming managed training or serving is live.
+- **Verified:** Added LoRA contract Jest coverage and kept deploy template validation in the required gate for this slice.
+
 ### 2026-07-08 05:39 UTC - `docs(inference): add prompt-cache and batch foundations - PR #736`
 
 **PR:** [#736](https://github.com/dhnpmp-tech/dcp-platform/pull/736) (`codex/prompt-cache-batch-design-2026-07-08`).
