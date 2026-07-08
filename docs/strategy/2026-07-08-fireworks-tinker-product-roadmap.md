@@ -322,6 +322,10 @@ Goal: ship the first real train-here/deploy-here loop.
     request fan-out.
   - PR #787 added copyable API snippets for readiness, training jobs, adapters,
     deployment intents, and gated deploy-intent creation.
+  - PR #822 added `npm run proof:adapter-deployment-contract`, the CI-safe
+    adapter deployment proof packet that verifies deployment intent stays
+    non-routing, mismatched load proof stays degraded, and only matching
+    adapter/base-model load proof allows route traffic.
 - Add dashboard:
   - datasets
   - training jobs
@@ -414,8 +418,9 @@ Acceptance:
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment
    code second. **Metadata and readiness foundations are in place through PR
-   #782; real GPU-host artifact proof and vLLM serving smoke remain the gates
-   before public LoRA serving claims.**
+   #782; CI-safe adapter deployment lifecycle proof added in PR #822; real
+   GPU-host artifact proof and vLLM serving smoke remain the gates before public
+   LoRA serving claims.**
 
 ## Division of Work
 

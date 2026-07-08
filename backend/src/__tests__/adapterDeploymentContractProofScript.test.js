@@ -1,0 +1,49 @@
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const {
+  CONTRACT,
+  runAdapterDeploymentContractProof,
+} = require('../../tests/adapter-deployment-contract-proof');
+
+describe('adapter deployment contract proof script', () => {
+  test('writes a CI-safe proof report for non-routing until load proof', () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adapter-deployment-proof-'));
+    const report = runAdapterDeploymentContractProof({ outputDir });
+
+    expect(report.verdict).toBe('PASS');
+    expect(report.contract).toBe(CONTRACT);
+    expect(report.claims).toMatchObject({
+      routes_production_traffic: false,
+      verifies_real_vllm_load: false,
+      bills_adapter_inference: false,
+    });
+    expect(report.deployments.pending_public_request).toMatchObject({
+      status: 'pending',
+      route_traffic: false,
+      serving_load_proof: null,
+    });
+    expect(report.deployments.mismatched_load_proof).toMatchObject({
+      status: 'degraded',
+      route_traffic: false,
+      failure_reason: 'serving_load_proof_mismatch',
+    });
+    expect(report.deployments.matching_load_proof).toMatchObject({
+      status: 'running',
+      route_traffic: true,
+      failure_reason: null,
+      serving_load_proof: {
+        adapter_id: 'adpt_contractproof',
+        base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+      },
+    });
+    expect(report.invariants.map((item) => item.name)).toEqual([
+      'public deployment request cannot attach load proof',
+      'mismatched load proof cannot route traffic',
+      'matching load proof is required before route traffic',
+      'renter deployment list exposes verified running record',
+    ]);
+    expect(fs.existsSync(path.join(outputDir, 'adapter-deployment-contract-proof-latest.json'))).toBe(true);
+    expect(fs.existsSync(path.join(outputDir, 'adapter-deployment-contract-proof-latest.md'))).toBe(true);
+  });
+});

@@ -148,6 +148,7 @@ Behavior changes need lane-specific smoke evidence.
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
+| Adapter deployment lifecycle contract | `npm run proof:adapter-deployment-contract` | none | CI-safe gate available; live vLLM load and billing smoke still blocked |
 | API health | `curl -fsS https://api.dcp.sa/api/health` | production network | Required after every deploy |
 | Model catalog health | `curl -fsS https://api.dcp.sa/v1/models` | production network | Required after inference/model/catalog changes |
 | Anthropic route host sanity | `curl -sS -o /tmp/dcp-anthropic-unauth.json -w '%{http_code}\n' -X POST https://api.dcp.sa/anthropic/v1/messages -H 'content-type: application/json' -d '{}'` | production network; no secret required | Expected unauthenticated result is HTTP 401 |
@@ -187,8 +188,9 @@ before or with the feature change.
      worker proof, adapter artifact checksum, and model-card manifest.
    - Public wording remains "metadata/readiness" until GPU artifact proof runs.
 7. **Adapter deployment and dedicated endpoints**
-   - Gate: deployment intent, vLLM adapter load proof, endpoint smoke, and
-     inference billing proof for adapter traffic.
+   - Gate: `proof:adapter-deployment-contract`, deployment intent, vLLM adapter
+     load proof, endpoint smoke, and inference billing proof for adapter
+     traffic.
    - Route traffic remains disabled until proof matches deployment id, adapter
      id, base model, mode, and artifact checksum.
 8. **Product packaging**
@@ -367,6 +369,10 @@ Required gates:
   status.
 - Adapter deployment cannot route traffic until the serving backend confirms it
   loaded the adapter.
+- CI-safe deploy lifecycle proof: run
+  `npm run proof:adapter-deployment-contract` to verify public deployment
+  requests stay non-routing, mismatched load proof stays degraded, and only
+  matching adapter/base-model load proof allows route traffic.
 - Public copy says what is live now and what is coming next.
 
 Production smoke:
