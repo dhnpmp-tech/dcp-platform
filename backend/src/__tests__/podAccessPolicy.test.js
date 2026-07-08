@@ -150,6 +150,9 @@ describe('evaluatePodLaunchCreditPolicy', () => {
     expect(result.status).toBe(402);
     expect(result.payload.code).toBe('on_demand_requires_prepaid_credit');
     expect(result.payload.paid_available_halala).toBe(0);
+    expect(result.payload.minimum_paid_credit_halala).toBe(900);
+    expect(result.payload.credit_shortfall_halala).toBe(900);
+    expect(result.payload.credit_policy).toBe('pod_on_demand_paid_credit_v1');
     db.close();
   });
 
@@ -179,6 +182,10 @@ describe('evaluatePodLaunchCreditPolicy', () => {
     expect(blocked.allowed).toBe(false);
     expect(blocked.payload.required_halala).toBe(1001);
     expect(blocked.payload.paid_available_halala).toBe(1000);
+    expect(blocked.payload.minimum_paid_credit_halala).toBe(1001);
+    expect(blocked.payload.minimum_paid_credit_sar).toBe(10.01);
+    expect(blocked.payload.credit_shortfall_halala).toBe(1);
+    expect(blocked.payload.credit_shortfall_sar).toBe(0.01);
     db.close();
   });
 
@@ -200,6 +207,8 @@ describe('evaluatePodLaunchCreditPolicy', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.payload.paid_available_halala).toBe(400);
+    expect(result.payload.minimum_paid_credit_halala).toBe(500);
+    expect(result.payload.credit_shortfall_halala).toBe(100);
     db.close();
   });
 });

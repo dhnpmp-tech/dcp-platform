@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 18:11 UTC - Minimum paid-credit shortfall contract (PR #795)
+
+- **PR:** [#795](https://github.com/dhnpmp-tech/dcp-platform/pull/795) (`codex/pod-minimum-paid-credit-contract-2026-07-08`).
+- **Backend:** On-demand pod 402 responses now expose `minimum_paid_credit_halala`, `minimum_paid_credit_sar`, `credit_shortfall_halala`, `credit_shortfall_sar`, and `credit_policy`.
+- **Frontend:** `/renter/pods` renders the backend-provided "Add X more" shortfall chip beside available/required credit facts.
+- **Safety:** The renter UI still describes trial-credit coverage and Add credit guidance without exposing supply-tier, vendor, provider, or machine internals.
+- **Verification:** Targeted pod policy Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`; `npm run build`.
+
 ### 2026-07-08 18:00 UTC - llms product rails (PR #794)
 
 - **PR:** [#794](https://github.com/dhnpmp-tech/dcp-platform/pull/794) (`codex/llms-product-rails-2026-07-08`).

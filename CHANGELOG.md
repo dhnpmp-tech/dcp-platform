@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 18:11 UTC - `feat(pods): expose minimum paid-credit shortfall - PR #795`
+
+**PR:** [#795](https://github.com/dhnpmp-tech/dcp-platform/pull/795) (`codex/pod-minimum-paid-credit-contract-2026-07-08`).
+**Local timestamp:** 2026-07-08 22:11 +04.
+
+**What:** Sixty-second Fireworks/Tinker execution slice. Makes Tareq's on-demand paid-credit gate more actionable without changing billing economics.
+
+- **Backend contract:** On-demand pod 402 responses now include `minimum_paid_credit_*`, `credit_shortfall_*`, and `credit_policy` fields alongside the existing required/available credit facts.
+- **SAR 10 edge:** Tests now prove that 10 SAR paid credit allows a 10 SAR on-demand quote while 10.01 SAR returns a 0.01 SAR shortfall.
+- **Renter UI:** `/renter/pods` shows the exact "Add X more" fact from the backend response while keeping vendor/on-demand internals hidden.
+- **OpenAPI:** Documented the additive paid-credit shortfall fields on `PaymentRequiredError`.
+- **Verified:** Targeted pod access policy Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`; `npm run build`.
+
 ### 2026-07-08 18:00 UTC - `docs(ai): update llms product rails - PR #794`
 
 **PR:** [#794](https://github.com/dhnpmp-tech/dcp-platform/pull/794) (`codex/llms-product-rails-2026-07-08`).

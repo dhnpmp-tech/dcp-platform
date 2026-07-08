@@ -122,6 +122,7 @@ function getRenterPaidCreditState(db, renter) {
 function buildOnDemandRequiresPaidCreditPayload({ quoteHalala, creditState, durationMinutes, ratePerGpuSecond }) {
   const paidAvailable = toHalala(creditState?.paid_available_halala);
   const required = toHalala(quoteHalala);
+  const shortfall = Math.max(0, required - paidAvailable);
   const sarPerHour = Number.isFinite(Number(ratePerGpuSecond))
     ? Number((Number(ratePerGpuSecond) * 3600 / 100).toFixed(2))
     : null;
@@ -144,6 +145,11 @@ function buildOnDemandRequiresPaidCreditPayload({ quoteHalala, creditState, dura
     paid_credit_required: true,
     paid_available_halala: paidAvailable,
     paid_available_sar: Number((paidAvailable / 100).toFixed(2)),
+    minimum_paid_credit_halala: required,
+    minimum_paid_credit_sar: Number((required / 100).toFixed(2)),
+    credit_shortfall_halala: shortfall,
+    credit_shortfall_sar: Number((shortfall / 100).toFixed(2)),
+    credit_policy: 'pod_on_demand_paid_credit_v1',
     ...(sarPerHour != null ? { rate_sar_per_hour: sarPerHour } : {}),
   };
 }

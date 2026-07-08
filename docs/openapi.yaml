@@ -834,6 +834,26 @@ components:
         paid_available_halala:
           type: integer
           example: 1000
+        paid_available_sar:
+          type: number
+          example: 10
+        minimum_paid_credit_halala:
+          type: integer
+          description: Minimum paid credit required for this quote when trial/free credit is not eligible.
+          example: 1001
+        minimum_paid_credit_sar:
+          type: number
+          example: 10.01
+        credit_shortfall_halala:
+          type: integer
+          description: Additional paid credit needed before retrying this request.
+          example: 1
+        credit_shortfall_sar:
+          type: number
+          example: 0.01
+        credit_policy:
+          type: string
+          example: pod_on_demand_paid_credit_v1
         topup_url:
           type: string
           example: https://dcp.sa/renter/wallet

@@ -284,6 +284,8 @@ interface LaunchCreditError {
   message: string
   requiredSar?: number
   availableSar?: number
+  minimumPaidCreditSar?: number
+  creditShortfallSar?: number
   rateSarPerHour?: number
   durationMinutes?: number
 }
@@ -313,6 +315,8 @@ interface LaunchResponse {
   required_sar?: number
   balance_sar?: number
   paid_available_sar?: number
+  minimum_paid_credit_sar?: number
+  credit_shortfall_sar?: number
   rate_sar_per_hour?: number
 }
 
@@ -419,6 +423,8 @@ function buildLaunchCreditError(err: LaunchResponse, durationMinutes: number): L
       : 'Insufficient credit for this pod.',
     requiredSar: optionalNumber(err.required_sar),
     availableSar: optionalNumber(err.paid_available_sar ?? err.balance_sar),
+    minimumPaidCreditSar: optionalNumber(err.minimum_paid_credit_sar),
+    creditShortfallSar: optionalNumber(err.credit_shortfall_sar),
     rateSarPerHour: optionalNumber(err.rate_sar_per_hour),
     durationMinutes,
   }
@@ -1722,6 +1728,16 @@ export default function RenterPodsPage() {
                     {launch.creditError.requiredSar != null && (
                       <span>
                         <Bi en={`Required credit ${fmtSar(launch.creditError.requiredSar)}`} ar={`الرصيد المطلوب ${fmtSar(launch.creditError.requiredSar)}`} />
+                      </span>
+                    )}
+                    {launch.creditError.creditShortfallSar != null && launch.creditError.creditShortfallSar > 0 && (
+                      <span className="strong">
+                        <Bi en={`Add ${fmtSar(launch.creditError.creditShortfallSar)} more`} ar={`أضف ${fmtSar(launch.creditError.creditShortfallSar)} إضافية`} />
+                      </span>
+                    )}
+                    {launch.creditError.minimumPaidCreditSar != null && launch.creditError.minimumPaidCreditSar !== launch.creditError.requiredSar && (
+                      <span>
+                        <Bi en={`Minimum paid credit ${fmtSar(launch.creditError.minimumPaidCreditSar)}`} ar={`الحد الأدنى للرصيد المدفوع ${fmtSar(launch.creditError.minimumPaidCreditSar)}`} />
                       </span>
                     )}
                     {launch.creditError.durationMinutes != null && (
