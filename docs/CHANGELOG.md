@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 14:31 UTC - LoRA training model-card manifests (PR #775)
+
+- **PR:** [#775](https://github.com/dhnpmp-tech/dcp-platform/pull/775) (`codex/lora-model-card-manifest-2026-07-08`).
+- **API:** LoRA training jobs now include `model_card_manifest` when a model-card storage key is reserved or produced.
+- **Honesty:** The manifest explicitly marks public training, serving, routing, quality claims, and Tinker compatibility as false.
+- **OpenAPI:** Documented the additive manifest object on `LoraTrainingJob`.
+- **Verification:** Targeted LoRA training-job Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 14:21 UTC - Nsight provider benchmark contract guard (PR #774)
 
 - **PR:** [#774](https://github.com/dhnpmp-tech/dcp-platform/pull/774) (`codex/provider-nsight-contract-guard-2026-07-08`).

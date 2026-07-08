@@ -111,6 +111,10 @@ Before a public training route:
    **Lifecycle log ledger is added in PR #751** via
    `GET /api/lora/training-jobs/{training_job_id}/logs`, which is
    tenant-scoped and records job creation plus worker status transitions.
+   **Model-card manifest projection is added in PR #775** via the additive
+   `model_card_manifest` field on LoRA training-job responses. It is metadata
+   only and explicitly carries no public training, serving, quality, or
+   Tinker-compatibility claims.
 5. Compute artifact SHA-256.
 6. Register the adapter in `adapter_registry` with `registered` or `ready`.
    **Done in PR #748** via `POST
@@ -147,3 +151,10 @@ status transitions now write immutable metadata rows, and renters can read them
 through `GET /api/lora/training-jobs/{training_job_id}/logs`. This makes the
 future trainer path observable without enabling GPU execution or adapter
 traffic.
+
+PR #775 adds `model_card_manifest` to LoRA training jobs when a
+`model_card_storage_key` is present. The manifest is deterministic metadata for
+the future model-card artifact writer and fine-tuning dashboard. It keeps raw
+dataset content out of API responses and explicitly marks public training,
+serving, routing, quality claims, and Tinker compatibility as false until
+GPU-host and serving-load proof exist.

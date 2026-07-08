@@ -4,7 +4,9 @@ const Database = require('better-sqlite3');
 const express = require('express');
 const request = require('supertest');
 const {
+  MODEL_CARD_MANIFEST_VERSION,
   appendLoraTrainingJobLog,
+  buildLoraModelCardManifest,
   createLoraTrainingJob,
   ensureLoraTrainingJobsSchema,
   getLoraTrainingJob,
@@ -149,6 +151,7 @@ describe('LoRA training job foundation', () => {
     });
     expect(result.job.dataset_checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(result.job.training_spec.hyperparameters.rank).toBe(16);
+    expect(result.job.model_card_manifest).toBeNull();
 
     expect(getLoraTrainingJob(db, 1, 'lora_job_alpha01')).toMatchObject({ training_job_id: 'lora_job_alpha01' });
     expect(listLoraTrainingJobs(db, 1).jobs.map((job) => job.training_job_id)).toEqual(['lora_job_alpha01']);
@@ -212,6 +215,43 @@ describe('LoRA training job foundation', () => {
       artifact_checksum_sha256: 'a'.repeat(64),
       model_card_storage_key: 'adapters/r1/support/model-card.json',
       adapter_registered: false,
+      model_card_manifest: {
+        object: 'lora_model_card_manifest',
+        schema_version: MODEL_CARD_MANIFEST_VERSION,
+        status: 'metadata_stub',
+        storage_key: 'adapters/r1/support/model-card.json',
+        adapter: {
+          adapter_id: 'adpt_lorajob01',
+          name: 'support-arabic',
+          base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+          recipe: 'qlora_sft',
+        },
+        dataset: {
+          storage_key: 'datasets/r1/support.jsonl',
+          format: 'prompt_completion',
+          row_count: 2,
+          train_rows: 2,
+          validation_rows: 0,
+        },
+        artifact: {
+          storage_key: 'adapters/r1/support/adapter.safetensors',
+          checksum_sha256: 'a'.repeat(64),
+          proof_status: 'checksum_recorded',
+        },
+        claims: {
+          public_training_enabled: false,
+          serving_enabled: false,
+          route_traffic: false,
+          quality_claims: false,
+          tinker_compatible: false,
+        },
+        safety: {
+          raw_dataset_not_embedded: true,
+          gpu_host_proof_required: true,
+          serving_load_proof_required: true,
+        },
+        next: 'write_model_card_artifact_after_gpu_host_training_proof',
+      },
     });
     expect(listLoraTrainingJobLogs(db, 1, 'lora_job_alpha01').logs.map((log) => log.event)).toEqual([
       'created',
@@ -299,6 +339,53 @@ describe('LoRA training job foundation', () => {
     const replay = registerLoraTrainingJobAdapter(db, 1, 'lora_job_alpha01');
     expect(replay.idempotent_replay).toBe(true);
     expect(replay.adapter.adapter_id).toBe('adpt_lorajob01');
+  });
+
+  test('builds reserved model-card manifests when storage is reserved before artifact proof', () => {
+    const manifest = buildLoraModelCardManifest({
+      training_job_id: 'lora_job_manifest1',
+      renter_id: 1,
+      recipe: 'lora_sft',
+      base_model: 'Qwen/Qwen2.5-7B-Instruct',
+      dataset_storage_key: 'datasets/r1/manifest.jsonl',
+      dataset_checksum_sha256: 'f'.repeat(64),
+      dataset_format: 'chat_messages',
+      dataset_row_count: 12,
+      train_rows: 10,
+      validation_rows: 2,
+      estimated_tokens: 1800,
+      output_adapter_name: 'manifest-adapter',
+      output_adapter_id: 'adpt_manifest1',
+      status: 'running',
+      artifact_storage_key: null,
+      artifact_checksum_sha256: null,
+      model_card_storage_key: 'adapters/r1/manifest/model-card.json',
+      started_at: '2026-07-08T14:30:00.000Z',
+      completed_at: null,
+    });
+
+    expect(manifest).toMatchObject({
+      schema_version: MODEL_CARD_MANIFEST_VERSION,
+      status: 'reserved',
+      storage_key: 'adapters/r1/manifest/model-card.json',
+      artifact: {
+        storage_key: null,
+        checksum_sha256: null,
+        proof_status: 'missing_artifact_proof',
+      },
+      training: {
+        training_job_id: 'lora_job_manifest1',
+        status: 'running',
+      },
+      claims: {
+        public_training_enabled: false,
+        serving_enabled: false,
+        route_traffic: false,
+        quality_claims: false,
+        tinker_compatible: false,
+      },
+      next: 'wait_for_adapter_artifact_checksum',
+    });
   });
 
   test('blocks adapter registration when succeeded job lacks artifact checksum proof', () => {
@@ -434,6 +521,14 @@ describe('LoRA training job foundation', () => {
 
     const detail = await request(app).get('/api/lora/training-jobs/lora_job_route_register').expect(200);
     expect(detail.body.training_job.adapter_registered).toBe(true);
+    expect(detail.body.training_job.model_card_manifest).toMatchObject({
+      schema_version: MODEL_CARD_MANIFEST_VERSION,
+      status: 'metadata_stub',
+      claims: {
+        serving_enabled: false,
+        quality_claims: false,
+      },
+    });
   });
 
   test('route factory accepts the production db wrapper shape', async () => {

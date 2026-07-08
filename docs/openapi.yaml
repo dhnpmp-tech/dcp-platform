@@ -591,6 +591,34 @@ components:
         model_card_storage_key:
           type: string
           nullable: true
+        model_card_manifest:
+          type: object
+          nullable: true
+          description: Deterministic metadata-only model-card manifest for LoRA jobs that have a reserved or produced model-card storage key. It does not claim public training, serving, quality wins, or Tinker compatibility.
+          additionalProperties: true
+          properties:
+            object:
+              type: string
+              example: lora_model_card_manifest
+            schema_version:
+              type: string
+              example: dcp.lora_model_card_manifest.v1
+            status:
+              type: string
+              enum: [reserved, metadata_stub]
+              example: metadata_stub
+            storage_key:
+              type: string
+              example: adapters/r42/support-arabic/model-card.json
+            claims:
+              type: object
+              additionalProperties: false
+              properties:
+                public_training_enabled: { type: boolean, example: false }
+                serving_enabled: { type: boolean, example: false }
+                route_traffic: { type: boolean, example: false }
+                quality_claims: { type: boolean, example: false }
+                tinker_compatible: { type: boolean, example: false }
         failure_reason:
           type: string
           nullable: true

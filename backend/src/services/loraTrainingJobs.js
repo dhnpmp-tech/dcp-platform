@@ -30,6 +30,7 @@ const DEFAULT_MAX_DATASET_BYTES = 12 * 1024 * 1024;
 const DEFAULT_MAX_DATASET_ROWS = 100000;
 const TRAINING_LOG_LEVELS = Object.freeze(['debug', 'info', 'warn', 'error']);
 const TRAINING_LOG_LEVEL_SET = new Set(TRAINING_LOG_LEVELS);
+const MODEL_CARD_MANIFEST_VERSION = 'dcp.lora_model_card_manifest.v1';
 
 class LoraTrainingJobError extends Error {
   constructor(message, { code = 'lora_training_job_error', httpStatus = 400, details = undefined } = {}) {
@@ -500,7 +501,7 @@ function selectTrainingJobSql() {
 
 function mapTrainingJobRow(row) {
   if (!row) return null;
-  return {
+  const job = {
     training_job_id: row.training_job_id,
     renter_id: row.renter_id,
     recipe: row.recipe,
@@ -529,6 +530,8 @@ function mapTrainingJobRow(row) {
     started_at: row.started_at || null,
     completed_at: row.completed_at || null,
   };
+  job.model_card_manifest = buildLoraModelCardManifest(job);
+  return job;
 }
 
 function decorateJobWithAdapterStatus(db, job) {
@@ -615,6 +618,60 @@ function buildAdapterMetadataFromTrainingJob(job) {
       serving_load_proof_required: true,
       route_traffic: false,
     },
+  };
+}
+
+function buildLoraModelCardManifest(job) {
+  if (!job || !job.model_card_storage_key) return null;
+  const artifactProofRecorded = Boolean(job.artifact_storage_key && job.artifact_checksum_sha256);
+  const succeededWithProof = job.status === 'succeeded' && artifactProofRecorded;
+  return {
+    object: 'lora_model_card_manifest',
+    schema_version: MODEL_CARD_MANIFEST_VERSION,
+    status: succeededWithProof ? 'metadata_stub' : 'reserved',
+    storage_key: job.model_card_storage_key,
+    adapter: {
+      adapter_id: job.output_adapter_id,
+      name: job.output_adapter_name,
+      base_model: job.base_model,
+      recipe: job.recipe,
+    },
+    dataset: {
+      storage_key: job.dataset_storage_key,
+      checksum_sha256: job.dataset_checksum_sha256,
+      format: job.dataset_format,
+      row_count: job.dataset_row_count,
+      train_rows: job.train_rows,
+      validation_rows: job.validation_rows,
+      estimated_tokens: job.estimated_tokens,
+    },
+    artifact: {
+      storage_key: job.artifact_storage_key || null,
+      checksum_sha256: job.artifact_checksum_sha256 || null,
+      proof_status: artifactProofRecorded ? 'checksum_recorded' : 'missing_artifact_proof',
+    },
+    training: {
+      training_job_id: job.training_job_id,
+      status: job.status,
+      started_at: job.started_at,
+      completed_at: job.completed_at,
+    },
+    claims: {
+      public_training_enabled: false,
+      serving_enabled: false,
+      route_traffic: false,
+      quality_claims: false,
+      tinker_compatible: false,
+    },
+    safety: {
+      raw_dataset_not_embedded: true,
+      gpu_host_proof_required: true,
+      serving_load_proof_required: true,
+      public_claim: 'LoRA SFT MVP metadata only until GPU-host artifact and serving proof are reviewed.',
+    },
+    next: succeededWithProof
+      ? 'write_model_card_artifact_after_gpu_host_training_proof'
+      : 'wait_for_adapter_artifact_checksum',
   };
 }
 
@@ -848,7 +905,9 @@ function assertDb(db) {
 module.exports = {
   TRAINING_JOB_STATUSES,
   TRAINING_LOG_LEVELS,
+  MODEL_CARD_MANIFEST_VERSION,
   LoraTrainingJobError,
+  buildLoraModelCardManifest,
   ensureLoraTrainingJobsSchema,
   appendLoraTrainingJobLog,
   createLoraTrainingJob,
@@ -867,6 +926,7 @@ module.exports = {
     normalizeLogLevel,
     generateTrainingJobId,
     generateOutputAdapterId,
+    buildLoraModelCardManifest,
     mapTrainingJobLogRow,
     mapTrainingJobRow,
   },
