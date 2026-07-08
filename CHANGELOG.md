@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 06:48 UTC - `feat(pods): add Nsight provider benchmark MVP - PR #740`
+
+**PR:** [#740](https://github.com/dhnpmp-tech/dcp-platform/pull/740) (`codex/pods-nsight-benchmark-mvp-2026-07-08`).
+**Local timestamp:** 2026-07-08 10:48 +04.
+
+**What:** Ninth Fireworks/Tinker execution slice. Adds the provider-side GPU telemetry evidence path needed before DCP can build admin-reviewed provider quality scorecards.
+
+- **Benchmark script:** Added `scripts/provider-nsight-benchmark.py`, a Python provider-side evidence collector that emits JSON reports and optional CSV telemetry from `nvidia-smi`.
+- **Nsight hooks:** Added optional workload profiling modes for Nsight Compute (`ncu`) and Nsight Systems (`nsys`). Occupancy, cache-hit, and memory-bandwidth utilization fields are populated only when Nsight Compute captures a workload; otherwise they are explicit missing metrics.
+- **Quality input:** Added normalized `provider_quality_score_input` fields for future admin/backend ingestion, including utilization, memory, thermals, power, sustained-load signal, Nsight profile status, and missing metric names.
+- **Runbook:** Documented baseline telemetry, Nsight workload modes, CI mock mode, output contract, and the safe backend ingestion order without exposing provider internals to renters.
+- **Provider docs:** Linked the new evidence script from the provider onboarding integration points so the existing JS benchmark is not mistaken for the final quality-score path.
+- **Verified:** Python compile check; mock JSON/CSV generation and schema checks; `git diff --check`.
+
 ### 2026-07-08 06:34 UTC - `feat(lora): add adapter deployment lifecycle records - PR #739`
 
 **PR:** [#739](https://github.com/dhnpmp-tech/dcp-platform/pull/739) (`codex/lora-deployment-lifecycle-2026-07-08`).

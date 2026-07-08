@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-08 06:48 UTC - Nsight provider benchmark MVP (PR #740)
+
+- **PR:** [#740](https://github.com/dhnpmp-tech/dcp-platform/pull/740) (`codex/pods-nsight-benchmark-mvp-2026-07-08`).
+- **Provider tooling:** Added `scripts/provider-nsight-benchmark.py` for provider-side JSON/CSV GPU telemetry evidence from `nvidia-smi`.
+- **Nsight path:** Added optional `ncu` and `nsys` workload profiling modes, with occupancy/cache/memory-bandwidth fields populated only from real Nsight Compute output and otherwise reported as missing metrics.
+- **Scorecard contract:** Added normalized `provider_quality_score_input` fields for future admin/backend ingestion without changing routing, billing, or renter-visible provider internals.
+- **Runbook/docs:** Added `docs/architecture/2026-07-08-nsight-provider-benchmark-mvp.md` and linked the new script from provider onboarding docs.
+- **Verification:** Python compile check; mock JSON/CSV generation and schema checks; `git diff --check`.
+
 ### 2026-07-08 06:34 UTC - Adapter deployment lifecycle records (PR #739)
 
 - **PR:** [#739](https://github.com/dhnpmp-tech/dcp-platform/pull/739) (`codex/lora-deployment-lifecycle-2026-07-08`).
