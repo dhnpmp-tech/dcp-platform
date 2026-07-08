@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 23:48 UTC - `test(lora): add live training artifact proof runner - PR #840`
+
+**PR:** [#840](https://github.com/dhnpmp-tech/dcp-platform/pull/840) (`codex/lora-live-artifact-proof-runner-2026-07-09`).
+**Local timestamp:** 2026-07-09 03:48 +04.
+
+**What:** Eighty-seventh Fireworks/Tinker execution slice. Promotes the LoRA GPU training artifact gate from missing-runner status to an opt-in live readiness proof command.
+
+- **Live proof runner:** Added `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`, backed by `backend/tests/lora-training-live-artifact-proof.js`.
+- **Default safety:** The runner refuses by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Readiness gate:** When explicitly allowed, it mints/reuses the deterministic smoke principal, checks renter-authenticated `GET /api/lora/readiness`, and records the exact blockers while current readiness keeps GPU worker execution and model-card artifact writing disabled.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now marks the LoRA GPU artifact gate command-ready, moving the ledger to 6/8 command-ready and 2/8 missing live acceptance runners.
+- **Roadmaps:** Updated the local roadmap external gates and Fireworks/Tinker roadmap docs so GPU-host LoRA training artifact proof has a stable opt-in command before public training or Tinker claims.
+- **Safety:** No training job creation, GPU execution, adapter artifact write, model-card write, adapter registration, serving, route traffic, billing, discount, frontend, or public product claim behavior changed.
+- **Verified:** Default blocked run of `npm run proof:lora-training-live-artifact` with temp report output; targeted LoRA live runner and live-gate status Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:43 UTC - `test(inference): add batch live execution proof runner - PR #838`
 
 **PR:** [#838](https://github.com/dhnpmp-tech/dcp-platform/pull/838) (`codex/batch-live-proof-runner-2026-07-09`).

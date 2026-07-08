@@ -624,6 +624,10 @@ DCP-hosted endpoint -> billed inference.
   proof for dataset validation, training metadata, artifact checksum, model-card
   manifest, and non-serving adapter registry behavior. GPU-host artifact proof
   remains required before public training claims.**
+  **PR #840 adds `npm run proof:lora-training-live-artifact`, an opt-in live
+  readiness runner for the GPU-host artifact gate. It records the current
+  worker/model-card artifact blockers and stops before job creation until a
+  provider-host training window exists.**
 - Adapter deploy:
   - one adapter/live merge first
   - multi-LoRA second
@@ -701,6 +705,9 @@ DCP-hosted endpoint -> billed inference.
    **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;
    PR #828 adds a local contract proof command. GPU-host artifact proof remains
    the gating evidence before public training.**
+   **PR #840 adds
+   `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`
+   as the blocked live artifact runner before public training claims.**
 10. Adapter deploy MVP.
    **Deployment intent/load-proof contracts are in place through PR #749 and
    surfaced by PR #782; vLLM serving smoke remains required before routing.**
@@ -722,7 +729,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched; `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` before cached-input discount claims; `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` before batch execution/discount claims |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
-| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | GPU-host adapter artifact proof, vLLM adapter load proof, and adapter endpoint billing smoke |
+| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` for GPU-host artifact proof; vLLM adapter load proof and adapter endpoint billing smoke remain blocked |
 
 ## Weekly Cadence
 

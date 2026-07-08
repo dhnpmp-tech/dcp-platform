@@ -24,6 +24,7 @@
     "pod-images:verify-contracts": "npm --prefix backend run pod-images:verify-contracts",
     "proof:lora-pod-image": "npm --prefix backend run test:reliability:lora-pod-image-proof",
     "proof:lora-training-contract": "npm --prefix backend run test:reliability:lora-training-contract-proof",
+    "proof:lora-training-live-artifact": "npm --prefix backend run test:reliability:lora-training-live-artifact-proof",
     "proof:adapter-deployment-contract": "npm --prefix backend run test:reliability:adapter-deployment-contract-proof",
     "proof:batch-inference-contract": "npm --prefix backend run test:reliability:batch-inference-contract-proof",
     "proof:batch-live-execution": "npm --prefix backend run test:reliability:batch-live-execution-proof",

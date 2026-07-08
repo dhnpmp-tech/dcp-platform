@@ -87,6 +87,11 @@ const EXTERNAL_GATES = Object.freeze([
     command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
     blocked_on: ['funded smoke principal', 'object-store result path', 'live provider execution capacity', 'discount policy approval'],
   },
+  {
+    id: 'lora_training_live_artifact',
+    command: 'DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact',
+    blocked_on: ['provider GPU host or pod', 'approved dataset fixture', 'artifact storage key', 'training budget window'],
+  },
 ]);
 
 function toStamp(date = new Date()) {

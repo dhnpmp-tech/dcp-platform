@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-08 23:48 UTC - LoRA live training artifact proof runner (PR #840)
+
+- **PR:** [#840](https://github.com/dhnpmp-tech/dcp-platform/pull/840) (`codex/lora-live-artifact-proof-runner-2026-07-09`).
+- **Live proof command:** Added `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`.
+- **Default safety:** The runner refuses by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Contract:** When explicitly allowed, it checks renter-authenticated LoRA readiness with the deterministic smoke principal and records blockers for GPU worker execution and model-card artifact writing.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now reports LoRA GPU artifact proof as command-ready, moving the live ledger to 6/8 command-ready and 2/8 missing acceptance runners.
+- **Safety:** No training job creation, GPU execution, adapter artifact write, model-card write, adapter registration, serving, route traffic, billing, discount, frontend, or public claim behavior changed.
+- **Verification:** Default blocked proof run; targeted Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:43 UTC - Batch live execution proof runner (PR #838)
 
 - **PR:** [#838](https://github.com/dhnpmp-tech/dcp-platform/pull/838) (`codex/batch-live-proof-runner-2026-07-09`).

@@ -21,8 +21,8 @@ describe('live acceptance gate status script', () => {
     expect(report.summary).toMatchObject({
       total: LIVE_ACCEPTANCE_GATES.length,
       blocked: LIVE_ACCEPTANCE_GATES.length,
-      command_available: 5,
-      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 5,
+      command_available: 6,
+      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 6,
       capability_claim_allowed: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
@@ -66,8 +66,14 @@ describe('live acceptance gate status script', () => {
       capability_claim_allowed: false,
       blocked_on: expect.arrayContaining(['object-store result path', 'discount policy approval']),
     });
+    expect(report.gates.find((gate) => gate.id === 'lora_gpu_training_artifact_proof')).toMatchObject({
+      acceptance_state: 'blocked',
+      acceptance_command: 'DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact',
+      command_available: true,
+      capability_claim_allowed: false,
+      blocked_on: expect.arrayContaining(['provider GPU host or pod', 'training budget window']),
+    });
     for (const id of [
-      'lora_gpu_training_artifact_proof',
       'adapter_vllm_load_billing_smoke',
     ]) {
       expect(report.gates.find((gate) => gate.id === id)).toMatchObject({

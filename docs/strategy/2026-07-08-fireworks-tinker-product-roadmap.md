@@ -338,6 +338,11 @@ Goal: ship the first real train-here/deploy-here loop.
     packet for dataset validation, metadata-only/idempotent training jobs,
     disabled worker behavior, artifact checksum requirements, model-card claim
     guards, and non-serving adapter registration before GPU-host artifact proof.
+  - PR #840 added `npm run proof:lora-training-live-artifact`, an opt-in live
+    readiness runner for the GPU-host artifact gate. It refuses by default,
+    checks renter-authenticated `GET /api/lora/readiness` only when explicitly
+    allowed, records worker/model-card artifact blockers, and stops before job
+    creation until a GPU training window exists.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -482,6 +487,11 @@ Acceptance:
     `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`;
     batch creation/execution/download/settlement remain gated until readiness
     and the runner prove the full live flow.**
+16. **LoRA live artifact runner** - opt-in live readiness proof before GPU
+    training artifact claims. **Added in PR #840 as
+    `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`;
+    training job creation, GPU execution, artifact/model-card writes, and
+    Tinker claims remain gated until a provider-host proof run exists.**
 
 ## Division of Work
 
