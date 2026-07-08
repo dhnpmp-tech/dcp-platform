@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 15:17 UTC - Playground router policy panel (PR #779)
+
+- **PR:** [#779](https://github.com/dhnpmp-tech/dcp-platform/pull/779) (`codex/frontend-router-policy-playground-2026-07-08`).
+- **Frontend:** `/renter/playground` now reads `GET /v1/router/policies` and shows the router-policy readiness catalog.
+- **UI:** Added a routing panel with the available balanced default, future policy statuses, and a compact explicit-policy note.
+- **Safety:** Chat requests send `routing_policy: "balanced"` only when balanced is the available backend default; future policies remain display-only/gated.
+- **Verification:** `npm run build`; `git diff --check`; mocked authenticated Playwright desktop/mobile render plus captured chat request body with `routing_policy: "balanced"`.
+
 ### 2026-07-08 15:05 UTC - Fine-Tuning model-card manifest cards (PR #778)
 
 - **PR:** [#778](https://github.com/dhnpmp-tech/dcp-platform/pull/778) (`codex/frontend-lora-model-card-2026-07-08`).

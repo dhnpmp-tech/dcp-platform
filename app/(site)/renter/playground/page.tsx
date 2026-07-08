@@ -72,6 +72,29 @@ interface CatalogModelRaw {
 }
 
 type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
+type RouterPolicyState = 'loading' | 'ready' | 'error'
+
+interface RouterPolicy {
+  id: string
+  label: string
+  status: string
+  available: boolean
+  default?: boolean
+  request_selectable: boolean
+  current_behavior?: string
+  signals?: string[]
+  next?: string
+}
+
+interface RouterPoliciesResponse {
+  object?: string
+  version?: string
+  default_policy?: string
+  request_policy_parameter?: string | null
+  request_selectable?: boolean
+  generated_at?: string
+  data?: RouterPolicy[]
+}
 
 interface RenterAccount {
   name?: string
@@ -166,6 +189,11 @@ function fmtSar(sar: number | null | undefined): string {
   return typeof sar === 'number' && Number.isFinite(sar) ? sarFmt.format(sar) : '—'
 }
 
+function formatPolicyStatus(value: string | null | undefined): string {
+  if (!value) return '-'
+  return value.replace(/_/g, ' ')
+}
+
 function initials(name?: string, email?: string): string {
   const source = (name || email || 'DCP').trim()
   return source.charAt(0).toUpperCase()
@@ -188,6 +216,8 @@ export default function PlaygroundPage() {
   const [models, setModels] = useState<ModelOption[]>([])
   const [model, setModel] = useState('')
   const [catalogState, setCatalogState] = useState<CatalogState>('loading')
+  const [routerPolicyState, setRouterPolicyState] = useState<RouterPolicyState>('loading')
+  const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
   const [tempRaw, setTempRaw] = useState(7) // 0..20 -> /10
   const [maxTokens, setMaxTokens] = useState(1024)
   const [topPRaw, setTopPRaw] = useState(100) // 0..100 -> /100
@@ -227,6 +257,14 @@ export default function PlaygroundPage() {
     () => models.find((m) => m.id === model)?.name ?? model,
     [models, model],
   )
+  const defaultRouterPolicy = useMemo(() => {
+    const policies = routerPolicies?.data || []
+    return policies.find((policy) => policy.id === routerPolicies?.default_policy)
+      || policies.find((policy) => policy.default)
+      || policies.find((policy) => policy.id === 'balanced')
+      || null
+  }, [routerPolicies])
+  const shouldSendBalancedPolicy = defaultRouterPolicy?.id === 'balanced' && defaultRouterPolicy.available === true
 
   const accountName = renter?.organization || renter?.name || renter?.email || 'Renter account'
   const accountSub = renter?.email ||
@@ -311,6 +349,7 @@ export default function PlaygroundPage() {
           top_p: Number(topP),
           stream,
           enable_thinking: showReasoning,
+          ...(shouldSendBalancedPolicy ? { routing_policy: 'balanced' } : {}),
         }),
       })
 
@@ -448,6 +487,29 @@ export default function PlaygroundPage() {
         setModels([])
         setModel('')
         setCatalogState('error')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ── read-only routing policy catalog ──
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        setRouterPolicyState('loading')
+        const res = await fetch('/v1/router/policies', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`Router policy request failed: ${res.status}`)
+        const data = (await res.json()) as RouterPoliciesResponse
+        if (cancelled) return
+        setRouterPolicies(data)
+        setRouterPolicyState('ready')
+      } catch {
+        if (cancelled) return
+        setRouterPolicies(null)
+        setRouterPolicyState('error')
       }
     })()
     return () => {
@@ -759,6 +821,48 @@ export default function PlaygroundPage() {
                     <Bi en="Show reasoning" ar="إظهار الاستدلال" />
                   </span>
                 </label>
+              </div>
+
+              <div className="panel router-panel">
+                <h4>
+                  <Bi en="Routing" ar="التوجيه" />
+                </h4>
+                {routerPolicyState === 'loading' && (
+                  <div className="pg-empty">
+                    <Bi en="Loading router policy catalog..." ar="تحميل كتالوج سياسات التوجيه..." />
+                  </div>
+                )}
+                {routerPolicyState === 'error' && (
+                  <div className="pg-error" role="alert">
+                    <Bi en="Could not load router policy readiness." ar="تعذر تحميل جاهزية سياسات التوجيه." />
+                  </div>
+                )}
+                {routerPolicyState === 'ready' && (
+                  <>
+                    <div className="route-default">
+                      <span><Bi en="Default" ar="الافتراضي" /></span>
+                      <b>{defaultRouterPolicy?.label || 'Balanced'}</b>
+                      <em>{formatPolicyStatus(defaultRouterPolicy?.status)}</em>
+                    </div>
+                    <div className="route-policy-list">
+                      {(routerPolicies?.data || []).map((policy) => (
+                        <div
+                          key={policy.id}
+                          className={`route-policy${policy.id === defaultRouterPolicy?.id ? ' on' : ''}${policy.available ? '' : ' gated'}`}
+                        >
+                          <span>{policy.label}</span>
+                          <b>{formatPolicyStatus(policy.status)}</b>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="route-note mono">
+                      <Bi
+                        en={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'read-only routing catalog'}
+                        ar={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'كتالوج توجيه للقراءة فقط'}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

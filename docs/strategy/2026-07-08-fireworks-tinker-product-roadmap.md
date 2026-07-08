@@ -213,6 +213,8 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #773 accepts explicit `routing_policy: "balanced"` on
     `/v1/chat/completions` and rejects non-selectable future policies with a
     structured 400.
+  - PR #779 shows those router-policy readiness states in `/renter/playground`
+    and sends `routing_policy=balanced` only for the available default.
 - Publish honest benchmark pages before making quality claims.
 
 Acceptance:
@@ -314,7 +316,8 @@ Acceptance:
    guard landed in PR #774; GPU-host proof remains required.**
 5. **Inference metadata/pricing audit** - model capability/rate metadata and
    consistency checks. **Capability honesty for explicit non-chat models started
-   in PR #766; advanced feature readiness metadata added in PR #771.**
+   in PR #766; advanced feature readiness metadata added in PR #771; router
+   policy visibility reached the Playground in PR #779.**
 6. **Workspace-to-pod launch polish** - pre-upload, template selection, and
    stronger launch flow. **Started in PR #761.**
 7. **Adapter registry schema/API design** - migrations/tests first, deployment

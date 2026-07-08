@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 15:17 UTC - `feat(frontend): show router policies in playground - PR #779`
+
+**PR:** [#779](https://github.com/dhnpmp-tech/dcp-platform/pull/779) (`codex/frontend-router-policy-playground-2026-07-08`).
+**Local timestamp:** 2026-07-08 19:17 +04.
+
+**What:** Forty-sixth Fireworks/Tinker execution slice. Connects the renter Playground to the router-policy readiness contract from PRs #772/#773 without enabling future routing policies or changing balanced routing behavior.
+
+- **Frontend contract:** `/renter/playground` now fetches `GET /v1/router/policies` and renders the live router-policy catalog.
+- **Routing panel:** Added default-policy, readiness-status, and future-policy gate display for balanced, latency, cheapest, Saudi-only, coding, and Arabic policies.
+- **Explicit default:** Playground chat requests now send `routing_policy: "balanced"` only when the backend marks balanced as the available default policy.
+- **Claim guard:** Future policies stay display-only/gated; the UI does not offer selection for non-selectable policies.
+- **Verified:** `npm run build`; `git diff --check`; mocked authenticated Playwright render smoke for `/renter/playground` on desktop and mobile, including captured request body with `routing_policy: "balanced"` and no horizontal overflow.
+
 ### 2026-07-08 15:05 UTC - `feat(frontend): show LoRA model-card manifests - PR #778`
 
 **PR:** [#778](https://github.com/dhnpmp-tech/dcp-platform/pull/778) (`codex/frontend-lora-model-card-2026-07-08`).
