@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 06:34 UTC - Adapter deployment lifecycle records (PR #739)
+
+- **PR:** [#739](https://github.com/dhnpmp-tech/dcp-platform/pull/739) (`codex/lora-deployment-lifecycle-2026-07-08`).
+- **Backend:** Added the `adapter_deployments` schema and lifecycle service for pending/provisioning/running/degraded/stopped/failed adapter deployment records, with proof-gated route traffic.
+- **API/OpenAPI:** Added renter-authenticated adapter deployment list/create/detail routes and documented that public creation is an intent record with `serving_enabled: false`, not a traffic switch.
+- **Verification:** `npm test -- --runTestsByPath src/__tests__/adapterDeploymentLifecycle.test.js src/__tests__/adapterRegistry.test.js src/__tests__/loraTrainingContract.test.js`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 06:16 UTC - Fine-Tuning console shell (PR #738)
 
 - **PR:** [#738](https://github.com/dhnpmp-tech/dcp-platform/pull/738) (`codex/frontend-finetuning-shell-2026-07-08`).

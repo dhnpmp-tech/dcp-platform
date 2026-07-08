@@ -186,6 +186,61 @@ components:
           format: date-time
           nullable: true
 
+    AdapterDeployment:
+      type: object
+      description: Adapter deployment lifecycle record. Public creation records intent only; inference traffic stays disabled until a backend serving load proof matches the adapter and base model.
+      required: [deployment_id, renter_id, adapter_id, base_model, mode, status, route_traffic, created_at, updated_at]
+      properties:
+        deployment_id:
+          type: string
+          example: adpl_8f4c2b9a18e34d220f7a9b12
+        renter_id:
+          type: integer
+          example: 42
+        adapter_id:
+          type: string
+          example: adpt_8f4c2b9a18e34d220f7a9b12
+        base_model:
+          type: string
+          example: meta-llama/Llama-3.1-8B-Instruct
+        mode:
+          type: string
+          enum: [single_adapter_live_merge, multi_lora]
+          example: single_adapter_live_merge
+        endpoint_id:
+          type: string
+          nullable: true
+          example: arabic-support-prod
+        status:
+          type: string
+          enum: [pending, provisioning, running, degraded, stopped, failed]
+          example: pending
+        route_traffic:
+          type: boolean
+          example: false
+        serving_load_proof:
+          type: object
+          nullable: true
+          additionalProperties: true
+        failure_reason:
+          type: string
+          nullable: true
+          example: serving_load_proof_mismatch
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        stopped_at:
+          type: string
+          format: date-time
+          nullable: true
+
     PaymentRequiredError:
       type: object
       description: Returned with HTTP 402 when prepaid credit cannot cover the pre-flight estimate or when a GPU requires paid credit instead of trial credit. Lets an agent know how and where to fund before retrying.
@@ -874,6 +929,139 @@ paths:
                   adapter: { $ref: '#/components/schemas/Adapter' }
         '404':
           description: Adapter not found for this renter.
+
+  /api/adapters/{adapter_id}/deployments:
+    get:
+      tags: [Adapters]
+      summary: List deployment records for one adapter
+      description: |
+        Returns renter-owned deployment lifecycle records for a registered
+        adapter. These records describe deployment intent and proof state; they
+        do not guarantee inference routing unless `route_traffic` is true.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [pending, provisioning, running, degraded, stopped, failed]
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: offset
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Adapter deployment list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object: { type: string, example: list }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdapterDeployment' }
+                  count: { type: integer, example: 1 }
+                  limit: { type: integer, example: 50 }
+                  offset: { type: integer, example: 0 }
+        '404':
+          description: Adapter not found for this renter.
+    post:
+      tags: [Adapters]
+      summary: Request an adapter deployment record
+      description: |
+        Creates a pending deployment lifecycle record for a ready adapter. This
+        endpoint is intentionally not a traffic switch: public requests cannot
+        attach serving proof and always return `serving_enabled: false` until an
+        internal load-proof step validates the adapter on a serving endpoint.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deployment_id:
+                  type: string
+                  description: Optional client-stable id. Generated when omitted.
+                  example: adpl_8f4c2b9a18e34d220f7a9b12
+                mode:
+                  type: string
+                  enum: [single_adapter_live_merge, multi_lora]
+                  default: single_adapter_live_merge
+                base_model:
+                  type: string
+                  description: Must match the registered adapter base model when provided.
+                  example: meta-llama/Llama-3.1-8B-Instruct
+                endpoint_id:
+                  type: string
+                  maxLength: 120
+                  example: arabic-support-prod
+      responses:
+        '201':
+          description: Pending deployment record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+                  serving_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: attach_serving_load_proof_internal
+        '400':
+          description: Invalid deployment request.
+        '404':
+          description: Adapter not found for this renter.
+        '409':
+          description: Adapter is not ready for deployment request.
+
+  /api/adapters/{adapter_id}/deployments/{deployment_id}:
+    get:
+      tags: [Adapters]
+      summary: Get one adapter deployment record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: deployment_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Adapter deployment detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+        '404':
+          description: Deployment not found for this renter and adapter.
 
   # ─── Providers ──────────────────────────────────────────────────────────────
 

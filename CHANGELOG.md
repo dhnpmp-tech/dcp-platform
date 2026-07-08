@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 06:34 UTC - `feat(lora): add adapter deployment lifecycle records - PR #739`
+
+**PR:** [#739](https://github.com/dhnpmp-tech/dcp-platform/pull/739) (`codex/lora-deployment-lifecycle-2026-07-08`).
+**Local timestamp:** 2026-07-08 10:34 +04.
+
+**What:** Eighth Fireworks/Tinker execution slice. Adds the backend deployment lifecycle primitive needed before DCP can safely expose adapter serving controls.
+
+- **Schema:** Added an idempotent `adapter_deployments` table with deployment id, renter id, adapter id, base model, mode, endpoint id, lifecycle status, route-traffic gate, serving load proof, failure reason, and lifecycle timestamps.
+- **Service:** Added deployment lifecycle helpers for pending deployment creation, tenant-scoped list/read, status updates, and load-proof attachment. Matching proof is the only path to `running` with `route_traffic: true`; mismatched proof becomes `degraded`.
+- **API:** Added renter-authenticated `/api/adapters/{adapter_id}/deployments` list/create and `/api/adapters/{adapter_id}/deployments/{deployment_id}` detail endpoints. Public creation requires a ready adapter and always returns `serving_enabled: false`.
+- **OpenAPI:** Documented `AdapterDeployment` and the new deployment-record routes, explicitly marking public deployment requests as intent records, not a traffic switch.
+- **Verified:** Adapter deployment lifecycle Jest coverage plus existing adapter registry and LoRA contract suites; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 06:16 UTC - `feat(frontend): add fine-tuning console shell - PR #738`
 
 **PR:** [#738](https://github.com/dhnpmp-tech/dcp-platform/pull/738) (`codex/frontend-finetuning-shell-2026-07-08`).
