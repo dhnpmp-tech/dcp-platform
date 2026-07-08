@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 03:31 UTC - `docs(roadmaps): add product execution system and lane roadmaps - PR #730`
+
+**PR:** [#730](https://github.com/dhnpmp-tech/dcp-platform/pull/730) (`codex/product-execution-roadmaps-2026-07-08`).
+**Local timestamp:** 2026-07-08 07:31 +04.
+
+**What:** Turned the Fireworks/Tinker audit into an execution process with concrete build, test, deploy, smoke, and feedback gates for the product lanes Peter called out.
+
+- **Execution system:** Added `docs/roadmaps/2026-07-08-dcp-execution-system.md` with the shared loop from finding to PR to tests to deploy to production smoke to next improvement.
+- **Lane roadmaps:** Added `docs/roadmaps/2026-07-08-dcp-lane-roadmaps.md` for Frontend, Backend, Inference, POT/PODS infrastructure, and LoRA.
+- **Gates:** Captured lane-specific checks for Next.js/frontend, backend/Jest, inference streaming and billing, pod launch/stop/refund, GPU-host image verification, and LoRA adapter proof.
+- **Cadence:** Added the weekly and daily operating rhythm so future agents can keep improving DCP without rediscovering process or shipping unverified claims.
+
 ### 2026-07-07 21:03 UTC - `docs(strategy): Fireworks/Tinker roadmap + Pods/Inference gap audit - PR #729`
 
 **PR:** [#729](https://github.com/dhnpmp-tech/dcp-platform/pull/729) (`codex/fireworks-tinker-roadmap-2026-07-08`).
