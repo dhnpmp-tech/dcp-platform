@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-08 21:06 UTC - Anthropic SSE proof API host fix (PR #816)
+### 2026-07-08 21:10 UTC - Anthropic SSE proof API host fix (PR #816)
 
 - **PR:** [#816](https://github.com/dhnpmp-tech/dcp-platform/pull/816) (`codex/fix-anthropic-proof-api-base-2026-07-08`).
 - **Runner default:** `npm run proof:anthropic-sse` now defaults to `https://api.dcp.sa`, matching the live Anthropic backend route host.
