@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-08 19:38 UTC - Playground prompt-cache readiness panel (PR #802)
+
+- **PR:** [#802](https://github.com/dhnpmp-tech/dcp-platform/pull/802) (`codex/renter-playground-prompt-cache-readiness-2026-07-08`).
+- **Frontend:** `/renter/playground` now reads `GET /v1/prompt-cache/readiness` and shows a Prompt cache readiness card beside router/model controls.
+- **Contract:** The card renders measurement-only mode, contract version, hash-only measurement, raw-prompt storage, cached-input discount, and provider KV-cache-control gates.
+- **Safety:** No billing discount, settlement mutation, provider cache-control claim, Tinker compatibility claim, or chat request behavior was added.
+- **Verification:** `npm run build`; `git diff --check`; local production desktop/mobile render with prompt-cache readiness visible and no horizontal overflow.
+
 ### 2026-07-08 19:24 UTC - Inference prompt-cache readiness copy (PR #801)
 
 - **PR:** [#801](https://github.com/dhnpmp-tech/dcp-platform/pull/801) (`codex/public-inference-prompt-cache-readiness-2026-07-08`).

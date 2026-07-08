@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 19:38 UTC - `feat(frontend): show prompt-cache readiness in renter Playground - PR #802`
+
+**PR:** [#802](https://github.com/dhnpmp-tech/dcp-platform/pull/802) (`codex/renter-playground-prompt-cache-readiness-2026-07-08`).
+**Local timestamp:** 2026-07-08 23:38 +04.
+
+**What:** Sixty-eighth Fireworks/Tinker execution slice. Brings the prompt-cache readiness contract into the renter Playground alongside router and model metadata.
+
+- **Frontend:** `/renter/playground` now fetches `GET /v1/prompt-cache/readiness` without renter authentication and renders a compact Prompt cache contract panel in the left rail.
+- **Contract visibility:** The panel shows the current measurement-only mode, contract version, hash-only measurement, raw-prompt storage state, cached-input discount gate, and provider KV-cache-control gate.
+- **Safety:** No billing discount, settlement change, provider cache-control claim, Tinker compatibility claim, or chat request behavior was added.
+- **Verified:** `npm run build`; `git diff --check`; local production Playwright render for `/renter/playground` on desktop/mobile with the prompt-cache readiness panel visible and no horizontal overflow.
+
 ### 2026-07-08 19:24 UTC - `feat(frontend): surface prompt-cache readiness on Inference page - PR #801`
 
 **PR:** [#801](https://github.com/dhnpmp-tech/dcp-platform/pull/801) (`codex/public-inference-prompt-cache-readiness-2026-07-08`).

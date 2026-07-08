@@ -196,6 +196,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #801 surfaces that readiness contract on `/inference` while keeping
     cached-input discounts, settlement discounts, and provider KV-cache control
     explicitly gated in public copy.
+  - PR #802 surfaces the same readiness contract in `/renter/playground` so
+    renters see measurement-only prompt-cache state, hash-only storage, and
+    gated cached-input economics while testing chat completions.
 - Add batch inference design:
   - upload JSONL
   - async job
@@ -225,6 +228,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to
     `/renter/playground`.
+- Surface prompt-cache readiness in the Playground from
+  `/v1/prompt-cache/readiness`.
+  - PR #802 added a read-only Prompt cache panel with mode/version,
+    hash-only measurement, raw-prompt storage state, cached-input discount
+    gates, and provider KV-cache-control gates.
 - Surface serveable-model pricing on public `/pricing` from `/v1/models`.
   - PR #781 added a live catalog table for models with live providers, context,
     SAR input/output rates, pricing source, and capability chips.

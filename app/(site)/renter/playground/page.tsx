@@ -128,6 +128,7 @@ interface FeatureReadiness {
 
 type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
 type RouterPolicyState = 'loading' | 'ready' | 'error'
+type PromptCacheReadinessState = 'loading' | 'ready' | 'error'
 
 interface RouterPolicy {
   id: string
@@ -149,6 +150,34 @@ interface RouterPoliciesResponse {
   request_selectable?: boolean
   generated_at?: string
   data?: RouterPolicy[]
+}
+
+interface PromptCacheReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  status?: string
+  measurement?: {
+    hash_only?: boolean
+    stores_raw_prompt?: boolean
+    stores_static_prefix?: boolean
+    tracks_cached_input_tokens?: boolean
+    streaming_supported?: boolean
+    non_streaming_supported?: boolean
+  }
+  billing?: {
+    discounts_enabled?: boolean
+    discount_bps?: number
+    settlement_discount_enabled?: boolean
+    billable_input_tokens_discounted?: boolean
+  }
+  claims?: {
+    prompt_cache_discount?: boolean
+    provider_kv_cache_control?: boolean
+    tinker_compatible?: boolean
+  }
+  response_fields?: string[]
+  next?: string
 }
 
 interface RenterAccount {
@@ -265,6 +294,10 @@ function formatContractStatus(value: string | null | undefined): string {
   return value.replace(/_/g, ' ')
 }
 
+function formatGate(value: boolean | null | undefined, enabledLabel = 'on', disabledLabel = 'off'): string {
+  return value === true ? enabledLabel : disabledLabel
+}
+
 function initials(name?: string, email?: string): string {
   const source = (name || email || 'DCP').trim()
   return source.charAt(0).toUpperCase()
@@ -289,6 +322,8 @@ export default function PlaygroundPage() {
   const [catalogState, setCatalogState] = useState<CatalogState>('loading')
   const [routerPolicyState, setRouterPolicyState] = useState<RouterPolicyState>('loading')
   const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
+  const [promptCacheState, setPromptCacheState] = useState<PromptCacheReadinessState>('loading')
+  const [promptCacheReadiness, setPromptCacheReadiness] = useState<PromptCacheReadiness | null>(null)
   const [tempRaw, setTempRaw] = useState(7) // 0..20 -> /10
   const [maxTokens, setMaxTokens] = useState(1024)
   const [topPRaw, setTopPRaw] = useState(100) // 0..100 -> /100
@@ -365,6 +400,9 @@ export default function PlaygroundPage() {
       || null
   }, [routerPolicies])
   const shouldSendBalancedPolicy = defaultRouterPolicy?.id === 'balanced' && defaultRouterPolicy.available === true
+  const promptCacheMeasurement = promptCacheReadiness?.measurement
+  const promptCacheBilling = promptCacheReadiness?.billing
+  const promptCacheClaims = promptCacheReadiness?.claims
 
   const accountName = renter?.organization || renter?.name || renter?.email || 'Renter account'
   const accountSub = renter?.email ||
@@ -629,6 +667,29 @@ export default function PlaygroundPage() {
         if (cancelled) return
         setRouterPolicies(null)
         setRouterPolicyState('error')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ── read-only prompt-cache readiness catalog ──
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        setPromptCacheState('loading')
+        const res = await fetch('/v1/prompt-cache/readiness', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`Prompt-cache readiness request failed: ${res.status}`)
+        const data = (await res.json()) as PromptCacheReadiness
+        if (cancelled) return
+        setPromptCacheReadiness(data?.object === 'prompt_cache_readiness' ? data : null)
+        setPromptCacheState('ready')
+      } catch {
+        if (cancelled) return
+        setPromptCacheReadiness(null)
+        setPromptCacheState('error')
       }
     })()
     return () => {
@@ -1036,6 +1097,52 @@ export default function PlaygroundPage() {
                         en={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'read-only routing catalog'}
                         ar={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'كتالوج توجيه للقراءة فقط'}
                       />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="panel router-panel prompt-cache-panel">
+                <h4>
+                  <Bi en="Prompt cache" ar="التخزين المؤقت" />
+                </h4>
+                {promptCacheState === 'loading' && (
+                  <div className="pg-empty">
+                    <Bi en="Loading prompt-cache readiness..." ar="تحميل جاهزية التخزين المؤقت..." />
+                  </div>
+                )}
+                {promptCacheState === 'error' && (
+                  <div className="pg-error" role="alert">
+                    <Bi en="Could not load prompt-cache readiness." ar="تعذر تحميل جاهزية التخزين المؤقت." />
+                  </div>
+                )}
+                {promptCacheState === 'ready' && (
+                  <>
+                    <div className="route-default">
+                      <span><Bi en="Current mode" ar="الوضع الحالي" /></span>
+                      <b>{formatContractStatus(promptCacheReadiness?.current_mode || promptCacheReadiness?.status)}</b>
+                      <em>{promptCacheReadiness?.version || 'dcp.prompt_cache.v1'}</em>
+                    </div>
+                    <div className="route-policy-list">
+                      <div className={`route-policy${promptCacheMeasurement?.hash_only ? ' on' : ' gated'}`}>
+                        <span><Bi en="Hash-only measurement" ar="قياس بالهاش فقط" /></span>
+                        <b>{formatGate(promptCacheMeasurement?.hash_only)}</b>
+                      </div>
+                      <div className={`route-policy${promptCacheMeasurement?.stores_raw_prompt ? ' gated' : ' on'}`}>
+                        <span><Bi en="Raw prompt storage" ar="تخزين الطلب الخام" /></span>
+                        <b>{formatGate(promptCacheMeasurement?.stores_raw_prompt)}</b>
+                      </div>
+                      <div className={`route-policy${promptCacheBilling?.discounts_enabled ? ' on' : ' gated'}`}>
+                        <span><Bi en="Cached-input discounts" ar="خصومات الإدخال المخزن" /></span>
+                        <b>{formatGate(promptCacheBilling?.discounts_enabled, 'enabled', 'gated')}</b>
+                      </div>
+                      <div className={`route-policy${promptCacheClaims?.provider_kv_cache_control ? ' on' : ' gated'}`}>
+                        <span><Bi en="Provider KV cache control" ar="تحكم KV لدى المزود" /></span>
+                        <b>{formatGate(promptCacheClaims?.provider_kv_cache_control)}</b>
+                      </div>
+                    </div>
+                    <div className="route-note mono">
+                      <Bi en="/v1/prompt-cache/readiness" ar="/v1/prompt-cache/readiness" />
                     </div>
                   </>
                 )}

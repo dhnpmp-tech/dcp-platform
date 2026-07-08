@@ -37,6 +37,10 @@ what is live.
 - PR #801 updated `/inference` to surface `GET /v1/prompt-cache/readiness` as
   the prompt-cache measurement source while keeping cached-input discounts,
   settlement discounts, and provider KV-cache control gated.
+- PR #802 wired `/renter/playground` to `GET /v1/prompt-cache/readiness`,
+  adding a compact Prompt cache readiness panel beside router/model controls
+  while keeping discounts, settlement, provider KV-cache control, and Tinker
+  claims gated.
 - PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
   GPU Pods links away from `/containers`, and kept `/containers` as a
   compatibility URL without changing pod backend behavior.
@@ -71,6 +75,9 @@ what is live.
 - PR #780 made `/renter/playground` render selected-model context, max output,
   SAR token rates, capability flags, feature readiness, and backend-driven
   max-token limits from `/v1/models`.
+- PR #802 made the renter Playground consume `/v1/prompt-cache/readiness` so
+  users see hash-only prompt-cache measurement, no raw-prompt storage, and
+  gated cached-input economics from the same contract as public `/inference`.
 - PR #781 added a live `/v1/models` serveable-model pricing table to `/pricing`
   with context, SAR input/output rates, provider count, and capability chips.
 
@@ -326,6 +333,7 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `GET /v1/prompt-cache/readiness`, keeping discounts and provider KV-cache
   control disabled until proof exists.**
   **Public Inference copy now points to that readiness contract in PR #801.**
+  **The renter Playground now renders that readiness contract in PR #802.**
 - Batch inference:
   - JSONL input
   - async job
