@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-08 19:00 UTC - `fix(lora): align dataset validation limits - PR #798`
+
+**PR:** [#798](https://github.com/dhnpmp-tech/dcp-platform/pull/798) (`codex/lora-dataset-validate-limit-parity-2026-07-08`).
+**Local timestamp:** 2026-07-08 23:00 +04.
+
+**What:** Sixty-fifth Fireworks/Tinker execution slice. Makes LoRA validate-only checks enforce the same dataset limits as training-job creation.
+
+- **Backend contract:** `POST /api/lora/datasets/validate` now uses the training-job dataset validator, matching the existing 12 MB / 100,000-row job-creation limits.
+- **Readiness:** `GET /api/lora/readiness` now exposes dataset validation limits so agents know the current accepted size envelope before submit.
+- **Response shape:** Validate-only responses include a `limits` object with max bytes, max rows, and default validation split.
+- **Public OpenAPI:** Re-synced `public/docs/openapi.yaml` from the maintained spec so deployed docs include current LoRA validation, batch, model-card, and credit-contract additions.
+- **Parity tests:** Route tests prove validate-only and create-job reject over-limit datasets with the same machine-readable error codes.
+- **Verified:** Targeted LoRA training job Jest suite; backend `node --check`; OpenAPI YAML parse; `git diff --check`.
+
 ### 2026-07-08 18:49 UTC - `feat(frontend): add LoRA dataset validation snippet - PR #797`
 
 **PR:** [#797](https://github.com/dhnpmp-tech/dcp-platform/pull/797) (`codex/frontend-lora-dataset-validate-snippet-2026-07-08`).

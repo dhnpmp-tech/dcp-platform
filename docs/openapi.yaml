@@ -564,6 +564,19 @@ components:
               items:
                 type: string
                 enum: [chat_messages, prompt_completion]
+            limits:
+              type: object
+              additionalProperties: false
+              properties:
+                max_dataset_bytes:
+                  type: integer
+                  example: 12582912
+                max_dataset_rows:
+                  type: integer
+                  example: 100000
+                default_validation_split_pct:
+                  type: number
+                  example: 10
         training_jobs:
           type: object
           additionalProperties: true
@@ -657,7 +670,7 @@ components:
     LoraDatasetValidation:
       type: object
       description: Validate-only LoRA/QLoRA SFT dataset contract. The route does not create a training job, persist raw dataset rows, launch GPU work, or register an adapter.
-      required: [object, version, validation, training_job_created, training_enabled, raw_dataset_persistence, next]
+      required: [object, version, limits, validation, training_job_created, training_enabled, raw_dataset_persistence, next]
       properties:
         object:
           type: string
@@ -666,6 +679,19 @@ components:
         version:
           type: string
           example: dcp.lora_dataset_validation.v1
+        limits:
+          type: object
+          additionalProperties: false
+          properties:
+            max_dataset_bytes:
+              type: integer
+              example: 12582912
+            max_dataset_rows:
+              type: integer
+              example: 100000
+            default_validation_split_pct:
+              type: number
+              example: 10
         validation:
           type: object
           additionalProperties: true

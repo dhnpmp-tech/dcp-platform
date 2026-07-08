@@ -6,17 +6,18 @@ const {
   MODEL_CARD_MANIFEST_VERSION,
   createLoraTrainingJob,
   ensureLoraTrainingJobsSchema,
+  getLoraTrainingDatasetLimits,
   getLoraTrainingJob,
   listLoraTrainingJobLogs,
   listLoraTrainingJobs,
   registerLoraTrainingJobAdapter,
+  validateLoraTrainingJobDataset,
 } = require('../services/loraTrainingJobs');
 const {
   DATASET_FORMATS,
   DEPLOY_MODES,
   LoraContractError,
   TRAINING_RECIPES,
-  validateLoraDatasetJsonl,
 } = require('../services/loraTrainingContract');
 const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
 
@@ -27,22 +28,28 @@ function createLoraRouter(deps = {}) {
   const router = express.Router();
   const loraDb = deps.db || require('../db');
   const requireRenter = deps.requireRenter || require('./pods').requireRenter;
+  const datasetLimitOptions = {
+    maxDatasetBytes: deps.maxDatasetBytes,
+    maxDatasetRows: deps.maxDatasetRows,
+  };
   ensureLoraTrainingJobsSchema(loraDb);
   ensureAdapterRegistrySchema(loraDb);
 
   router.get('/readiness', requireRenter, (_req, res) => {
-    return res.json(buildLoraReadiness());
+    return res.json(buildLoraReadiness(new Date(), datasetLimitOptions));
   });
 
   router.post('/datasets/validate', requireRenter, (req, res) => {
     try {
       const body = req.body || {};
-      const validation = validateLoraDatasetJsonl(body.dataset_jsonl, {
+      const validation = validateLoraTrainingJobDataset(body.dataset_jsonl, {
+        ...datasetLimitOptions,
         validationSplitPct: body.validation_split_pct,
       });
       return res.json({
         object: 'lora_dataset_validation',
         version: LORA_DATASET_VALIDATION_VERSION,
+        limits: getLoraTrainingDatasetLimits(datasetLimitOptions),
         validation,
         training_job_created: false,
         training_enabled: false,
@@ -81,6 +88,7 @@ function createLoraRouter(deps = {}) {
         req.body || {},
         {
           idempotencyKey: req.header('idempotency-key'),
+          ...datasetLimitOptions,
         }
       );
       return res.status(idempotentReplay ? 200 : 201).json({
@@ -145,7 +153,7 @@ function createLoraRouter(deps = {}) {
   return router;
 }
 
-function buildLoraReadiness(now = new Date()) {
+function buildLoraReadiness(now = new Date(), options = {}) {
   return {
     object: 'lora_readiness',
     version: LORA_READINESS_VERSION,
@@ -169,6 +177,7 @@ function buildLoraReadiness(now = new Date()) {
       supported_formats: Object.values(DATASET_FORMATS),
       validation_input: 'dataset_jsonl',
       checksum: 'sha256_normalized_jsonl',
+      limits: getLoraTrainingDatasetLimits(options),
       raw_dataset_persistence: false,
       raw_dataset_not_embedded: true,
     },
