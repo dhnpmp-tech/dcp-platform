@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-07-08 09:01 UTC - Batch worker npm smoke script (PR #753)
+
+- **PR:** [#753](https://github.com/dhnpmp-tech/dcp-platform/pull/753) (`codex/batch-worker-npm-script-2026-07-08`).
+- **Tooling:** Added `worker:batch-inference:once` to the backend npm scripts for stable disabled-mode batch worker smoke checks.
+- **Runbook:** Updated the prompt-cache/batch design notes with the npm command used during deploy handoffs.
+- **Verification:** Disabled batch worker npm smoke; `git diff --check`.
+
 ### 2026-07-08 08:54 UTC - Batch result manifest proof (PR #752)
 
 - **PR:** [#752](https://github.com/dhnpmp-tech/dcp-platform/pull/752) (`codex/batch-result-manifest-2026-07-08`).

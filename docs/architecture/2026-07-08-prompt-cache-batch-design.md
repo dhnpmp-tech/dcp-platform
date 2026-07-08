@@ -155,3 +155,6 @@ PR #752 requires completed batch artifacts to include both `result_storage_key`
 and `result_checksum_sha256` before `results_available` becomes true. It adds a
 tenant-scoped result manifest route, but still does not issue signed download
 URLs, apply batch discounts, or enable public batch model capability flags.
+PR #753 adds the convenience smoke command
+`npm --prefix backend run worker:batch-inference:once -- --limit 1`, matching
+the LoRA worker check and avoiding raw node-path drift during deploy handoffs.
