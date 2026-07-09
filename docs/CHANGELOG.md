@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 20:50 UTC - Usage account controls packet (PR #917)
+
+- **PR:** [#917](https://github.com/dhnpmp-tech/dcp-platform/pull/917) (`codex/usage-account-controls-packet-2026-07-10`).
+- **Timestamp:** 2026-07-09 20:50 UTC / 2026-07-10 00:50 +04.
+- **Usage UX:** `/renter/usage` now has an Account controls packet that answers trial mode, trial tag state, trial capacity route, high-demand paid-credit gate, usage export, per-key caps, inference preflight, and read-only safety in one place.
+- **Trial clarity:** The page consumes the existing pod trial-routing readiness contract as a non-blocking read and falls back to conservative copy if that contract is unavailable.
+- **Export polish:** CSV export now has downloading/ready/error UI state while keeping the renter key in the `x-renter-key` header.
+- **Regression:** Extended the focused Usage Playwright regression for the account-controls packet and header-auth CSV export.
+- **Safety:** Frontend/read-only UX change; no trial-accounting mutation, provider routing change, pod launch change, usage mutation, budget mutation, billing change, inference dispatch, balance mutation, key-secret exposure, minimum-balance enforcement change, vendor/provider exposure, or team-member rollup claim was added.
+- **Verification:** Focused `/renter/usage` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 20:34 UTC - Workspace folder-first large manifests (PR #916)
 
 - **PR:** [#916](https://github.com/dhnpmp-tech/dcp-platform/pull/916) (`codex/workspace-folder-first-large-manifest-2026-07-10`).

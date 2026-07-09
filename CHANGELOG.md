@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 20:50 UTC - `feat(usage): add account controls packet - PR #917`
+
+**PR:** [#917](https://github.com/dhnpmp-tech/dcp-platform/pull/917) (`codex/usage-account-controls-packet-2026-07-10`).
+**Local timestamp:** 2026-07-10 00:50 +04.
+
+**What:** Tareq trial/account clarity follow-up. Adds a compact account-controls packet to `/renter/usage` so founders and renters can see trial handling, usage export, scoped-key budget controls, and minimum-balance gates outside the pod launch flow.
+
+- **Trial clarity:** `/renter/usage` now reads the existing pod trial-routing readiness contract without blocking page load and states whether explicit trial tags are live, which credit provenance is used, where trial credit routes, and why high-demand GPUs require paid credit.
+- **Account controls:** Added one scan-friendly packet covering trial mode, trial tag, trial route, high-demand paid-credit gate, header-auth CSV export, per-key budget caps, inference estimate preflight, and read-only safety state.
+- **Export UX:** The CSV export button now shows downloading/ready/error state while continuing to fetch with `x-renter-key` headers instead of exposing the renter key in a URL.
+- **Regression:** Extended the focused `/renter/usage` Playwright regression for the account-controls packet and header-auth CSV download path.
+- **Safety:** Frontend/read-only UX change; no trial-accounting mutation, provider routing change, pod launch change, usage mutation, budget mutation, billing change, inference dispatch, balance mutation, key-secret exposure, minimum-balance enforcement change, vendor/provider exposure, or team-member rollup claim was added.
+- **Verification:** Focused `/renter/usage` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 20:34 UTC - `feat(workspace): keep large manifests folder-first - PR #916`
 
 **PR:** [#916](https://github.com/dhnpmp-tech/dcp-platform/pull/916) (`codex/workspace-folder-first-large-manifest-2026-07-10`).
