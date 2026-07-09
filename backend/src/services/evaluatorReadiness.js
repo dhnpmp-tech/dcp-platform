@@ -1,5 +1,7 @@
 'use strict';
 
+const { EVALUATOR_JOB_SCHEMA_VERSION } = require('./evaluatorJobSchema');
+
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
 function buildEvaluatorReadiness(now = new Date()) {
@@ -10,19 +12,27 @@ function buildEvaluatorReadiness(now = new Date()) {
     current_mode: 'readiness_contract_only',
     endpoints: {
       readiness: 'GET /api/evals/readiness',
+      job_schema: 'GET /api/evals/jobs/schema',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
       product_page: 'GET /benchmarks',
     },
     features: {
+      eval_job_schema: {
+        status: 'schema_contract_only',
+        available: true,
+        version: EVALUATOR_JOB_SCHEMA_VERSION,
+        schema_endpoint: 'GET /api/evals/jobs/schema',
+        creates_jobs: false,
+        runs_worker: false,
+      },
       eval_job_api: {
-        status: 'coming_next',
+        status: 'schema_ready_create_blocked',
         available: false,
         create_endpoint: null,
         list_endpoint: null,
         result_endpoint: null,
         required_before_enablement: [
-          'renter-scoped eval job schema',
           'idempotent create/list/read endpoints',
           'dataset checksum and redacted sample metadata',
           'worker disabled-by-default guard',

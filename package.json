@@ -35,6 +35,7 @@
     "proof:prompt-cache-live-settlement": "npm --prefix backend run test:reliability:prompt-cache-live-settlement-proof",
     "proof:router-policy-contract": "npm --prefix backend run test:reliability:router-policy-contract-proof",
     "proof:evaluator-readiness-contract": "npm --prefix backend run test:reliability:evaluator-readiness-contract-proof",
+    "proof:evaluator-job-schema-contract": "npm --prefix backend run test:reliability:evaluator-job-schema-contract-proof",
     "proof:minimum-balance-readiness": "npm --prefix backend run test:reliability:minimum-balance-readiness-contract-proof",
     "workspace-pods:verify-contracts": "npm --prefix backend run workspace-pods:verify-contracts",
     "proof:workspace-pod": "npm --prefix backend run test:reliability:workspace-pod-proof",

@@ -30,12 +30,19 @@ describe('evaluator readiness contract proof script', () => {
       current_mode: 'readiness_contract_only',
       endpoints: {
         readiness: 'GET /api/evals/readiness',
+        job_schema: 'GET /api/evals/jobs/schema',
         benchmark_readiness: 'GET /api/models/benchmarks/readiness',
         product_page: 'GET /benchmarks',
       },
       features: {
+        eval_job_schema: {
+          status: 'schema_contract_only',
+          available: true,
+          schema_endpoint: 'GET /api/evals/jobs/schema',
+          creates_jobs: false,
+        },
         eval_job_api: {
-          status: 'coming_next',
+          status: 'schema_ready_create_blocked',
           available: false,
           create_endpoint: null,
           list_endpoint: null,
@@ -61,8 +68,9 @@ describe('evaluator readiness contract proof script', () => {
       },
     });
     expect(report.invariants.map((item) => item.name)).toEqual([
-      'readiness contract is public, versioned, and linked to benchmark surfaces',
-      'evaluator job API remains unavailable until schema and worker proof exist',
+      'readiness contract is public, versioned, and linked to benchmark/schema surfaces',
+      'evaluator job schema is visible while create/list/result APIs remain unavailable',
+      'evaluator job API remains unavailable until worker and artifact proof exist',
       'dataset, baseline, report, and billing gates stay closed',
       'public benchmark and quality claims remain false',
       'proof itself performs no runtime or money mutation',

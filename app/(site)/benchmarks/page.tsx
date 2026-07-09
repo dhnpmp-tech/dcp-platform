@@ -50,17 +50,19 @@ const BENCHMARK_GATES = [
   },
   {
     k: 'customer_evaluator_jobs',
-    tEn: 'Customer eval jobs next',
-    tAr: 'مهام تقييم العملاء لاحقاً',
-    en: 'Renter-scoped eval jobs, result artifacts, redacted reports, and billing policy are the next build step.',
-    ar: 'مهام تقييم حسب المستأجر وآثار النتائج والتقارير المنقحة وسياسة الفوترة هي خطوة البناء التالية.',
-    source: '/api/evals/readiness',
+    tEn: 'Eval job schema ready',
+    tAr: 'مخطط مهام التقييم جاهز',
+    en: 'The read-only schema now defines renter-scoped eval jobs, datasets, metrics, artifacts, and billing guards; create/list/result endpoints remain off.',
+    ar: 'يعرّف المخطط للقراءة فقط مهام التقييم حسب المستأجر والبيانات والمقاييس والآثار وحراس الفوترة؛ وتبقى نقاط الإنشاء والقائمة والنتائج متوقفة.',
+    source: '/api/evals/jobs/schema',
   },
 ] as const
 
 const BENCHMARK_SNIPPET = `curl -s https://api.dcp.sa/api/models/benchmarks/readiness
 
 curl -s https://api.dcp.sa/api/evals/readiness
+
+curl -s https://api.dcp.sa/api/evals/jobs/schema
 
 curl -s https://api.dcp.sa/api/models/benchmarks
 
@@ -204,7 +206,7 @@ export default function BenchmarksProductPage() {
               <ul className="pshow-list">
                 <li><Bi en="Seeded benchmark profile rows never become public numbers without live provider measurement." ar="صفوف ملفات القياس المزروعة لا تصبح أرقاماً عامة دون قياس مزوّد حي." /></li>
                 <li><Bi en="Arabic task comparisons need approved datasets, harness version, baseline policy, and artifact checksum." ar="تحتاج مقارنات المهام العربية بيانات معتمدة وإصدار منهجية وسياسة أساس وبصمة أثر." /></li>
-                <li><Bi en="Customer eval jobs are the next product layer after the readiness contract." ar="مهام تقييم العملاء هي طبقة المنتج التالية بعد عقد الجاهزية." /></li>
+                <li><Bi en="The eval-job schema contract is visible now; create/list/result APIs, workers, billing, reports, and rankings remain blocked." ar="عقد مخطط مهام التقييم ظاهر الآن؛ وتبقى واجهات الإنشاء والقائمة والنتائج والعمال والفوترة والتقارير والترتيبات مقيدة." /></li>
               </ul>
             </div>
           </div>

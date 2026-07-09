@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 02:58 UTC - `test(evals): add evaluator job schema proof - PR #856`
+
+**PR:** [#856](https://github.com/dhnpmp-tech/dcp-platform/pull/856) (`codex/evaluator-job-schema-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 06:58 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Turns customer eval jobs from "next" into a public schema contract while keeping all job, worker, billing, and claim behavior disabled.
+
+- **Backend readiness:** Added public `GET /api/evals/jobs/schema` and linked it from `GET /api/evals/readiness`.
+- **Proof command:** Added `npm run proof:evaluator-job-schema-contract` and included it in `npm run proof:local-roadmap`, raising the local suite to 14 CI-safe gates.
+- **Public surface:** `/benchmarks`, `llms.txt`, and OpenAPI now point to the schema contract for dataset checksums, candidate/baseline models, metrics, result manifests, scoring harness gates, and billing guards.
+- **Safety:** No eval job creation, list/result endpoint, dataset storage, worker execution, model comparison, billing, settlement, public report, ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted evaluator readiness/schema Jest suites; evaluator job schema proof; evaluator readiness proof; TypeScript; Next build; local roadmap proof now passing 14/14 gates; `git diff --check`.
+
 ### 2026-07-09 02:40 UTC - `feat(billing): add minimum-balance readiness contract - PR #855`
 
 **PR:** [#855](https://github.com/dhnpmp-tech/dcp-platform/pull/855) (`codex/minimum-balance-readiness-contract-2026-07-09`).

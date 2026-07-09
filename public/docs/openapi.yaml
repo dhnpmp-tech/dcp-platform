@@ -3841,6 +3841,117 @@ paths:
                       enables_discount: { type: boolean, example: false }
                       changes_enforcement: { type: boolean, example: false }
 
+  /api/evals/readiness:
+    get:
+      tags: [Benchmarks]
+      summary: Get evaluator readiness and claim gates
+      description: |
+        Returns the public evaluator readiness contract. It links to benchmark
+        readiness and the evaluator job schema while keeping evaluator job
+        create/list/result APIs, workers, billing, reports, rankings, and
+        Arabic-quality claims disabled.
+      responses:
+        '200':
+          description: Evaluator readiness contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, features, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_readiness]
+                  version:
+                    type: string
+                    example: dcp.evaluator_readiness.v1
+                  current_mode:
+                    type: string
+                    enum: [readiness_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  features:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      eval_jobs_live: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
+                      customer_case_study_allowed: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      frontier_model_comparison_allowed: { type: boolean, example: false }
+                      raw_customer_dataset_published: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
+
+  /api/evals/jobs/schema:
+    get:
+      tags: [Benchmarks]
+      summary: Get the evaluator job schema contract
+      description: |
+        Returns a public, read-only contract for future renter-scoped evaluator
+        job records: dataset checksum policy, candidate/baseline model fields,
+        supported metrics, result-manifest requirements, scoring harness gates,
+        and billing guards. This route does not create evaluator jobs, store
+        customer datasets, run workers, mutate billing, publish reports, or
+        enable quality claims.
+      responses:
+        '200':
+          description: Evaluator job schema contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, request_schema, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_job_schema_contract]
+                  version:
+                    type: string
+                    example: dcp.evaluator_job_schema.v1
+                  current_mode:
+                    type: string
+                    enum: [schema_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  request_schema:
+                    type: object
+                    additionalProperties: true
+                  artifact_policy:
+                    type: object
+                    additionalProperties: true
+                  scoring_harness:
+                    type: object
+                    additionalProperties: true
+                  billing_policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      bills_eval_jobs: { type: boolean, example: false }
+                      minimum_balance_endpoint: { type: string, example: GET /api/renters/me/minimum-balances }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      create_endpoint_live: { type: boolean, example: false }
+                      list_endpoint_live: { type: boolean, example: false }
+                      result_endpoint_live: { type: boolean, example: false }
+                      worker_enabled: { type: boolean, example: false }
+                      stores_raw_customer_dataset: { type: boolean, example: false }
+                      publishes_raw_customer_dataset: { type: boolean, example: false }
+                      runs_model_comparisons: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
+                      public_report_allowed: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      frontier_model_comparison_allowed: { type: boolean, example: false }
+
   /api/renters/topup:
     post:
       tags: [Renters]

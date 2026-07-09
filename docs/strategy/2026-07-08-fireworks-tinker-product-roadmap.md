@@ -301,6 +301,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `npm run proof:evaluator-readiness-contract` so customer evaluator jobs,
     datasets, public reports, rankings, comparisons, and billing have a
     repeatable false-claim gate before implementation.
+  - PR #856 adds `GET /api/evals/jobs/schema` and
+    `npm run proof:evaluator-job-schema-contract` so renter-scoped eval job
+    records, dataset checksums, metrics, result manifests, harness gates, and
+    billing guards are explicit before create/list/result APIs exist.
 
 Acceptance:
 
@@ -549,6 +553,12 @@ Acceptance:
     `npm run proof:evaluator-readiness-contract`; eval jobs, datasets, public
     reports, rankings, frontier comparisons, and billing remain blocked until
     schema, worker, artifact, baseline, and money policy proof exists.**
+21. **Evaluator job schema contract proof** - metadata-only customer eval job
+    record before create/list/read APIs. **Started in PR #856 with
+    `GET /api/evals/jobs/schema` and
+    `npm run proof:evaluator-job-schema-contract`; workers, dataset storage,
+    model comparisons, billing, public reports, rankings, and Arabic-quality
+    claims remain blocked.**
 
 ## Division of Work
 

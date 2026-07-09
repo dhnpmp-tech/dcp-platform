@@ -3,6 +3,7 @@
 const express = require('express');
 const { publicEndpointLimiter } = require('../middleware/rateLimiter');
 const { buildEvaluatorReadiness } = require('../services/evaluatorReadiness');
+const { buildEvaluatorJobSchema } = require('../services/evaluatorJobSchema');
 
 function createEvalsRouter() {
   const router = express.Router();
@@ -15,6 +16,18 @@ function createEvalsRouter() {
       return res.status(500).json({
         error: 'Failed to fetch evaluator readiness',
         code: 'evaluator_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/jobs/schema', publicEndpointLimiter, (_req, res) => {
+    try {
+      return res.json(buildEvaluatorJobSchema(new Date()));
+    } catch (error) {
+      console.error('[evals] job schema error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch evaluator job schema',
+        code: 'evaluator_job_schema_internal_error',
       });
     }
   });

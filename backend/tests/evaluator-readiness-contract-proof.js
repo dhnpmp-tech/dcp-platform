@@ -122,17 +122,32 @@ function runEvaluatorReadinessContractProof(options = {}) {
     report.readiness = readiness;
 
     record(
-      'readiness contract is public, versioned, and linked to benchmark surfaces',
+      'readiness contract is public, versioned, and linked to benchmark/schema surfaces',
       readiness.object === 'evaluator_readiness'
         && readiness.version === EVALUATOR_READINESS_VERSION
         && readiness.endpoints.readiness === 'GET /api/evals/readiness'
+        && readiness.endpoints.job_schema === 'GET /api/evals/jobs/schema'
         && readiness.endpoints.benchmark_readiness === 'GET /api/models/benchmarks/readiness'
         && readiness.endpoints.product_page === 'GET /benchmarks',
       'The evaluator readiness contract is discoverable without implying job execution.',
     );
 
     record(
-      'evaluator job API remains unavailable until schema and worker proof exist',
+      'evaluator job schema is visible while create/list/result APIs remain unavailable',
+      readiness.features.eval_job_schema.available === true
+        && readiness.features.eval_job_schema.schema_endpoint === 'GET /api/evals/jobs/schema'
+        && readiness.features.eval_job_schema.creates_jobs === false
+        && readiness.features.eval_job_schema.runs_worker === false
+        && readiness.features.eval_job_api.status === 'schema_ready_create_blocked'
+        && readiness.features.eval_job_api.available === false
+        && readiness.features.eval_job_api.create_endpoint === null
+        && readiness.features.eval_job_api.list_endpoint === null
+        && readiness.features.eval_job_api.result_endpoint === null,
+      'The schema contract is live, but no public create/list/result evaluator job endpoints are exposed.',
+    );
+
+    record(
+      'evaluator job API remains unavailable until worker and artifact proof exist',
       readiness.features.eval_job_api.available === false
         && readiness.features.eval_job_api.create_endpoint === null
         && readiness.features.eval_job_api.list_endpoint === null
