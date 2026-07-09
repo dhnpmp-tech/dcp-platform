@@ -42,6 +42,7 @@
     "proof:prompt-cache-contract": "npm --prefix backend run test:reliability:prompt-cache-contract-proof",
     "proof:prompt-cache-live-settlement": "npm --prefix backend run test:reliability:prompt-cache-live-settlement-proof",
     "proof:router-policy-contract": "npm --prefix backend run test:reliability:router-policy-contract-proof",
+    "proof:model-catalog-parity": "npm --prefix backend run test:reliability:model-catalog-parity-proof",
     "proof:evaluator-readiness-contract": "npm --prefix backend run test:reliability:evaluator-readiness-contract-proof",
     "proof:evaluator-job-schema-contract": "npm --prefix backend run test:reliability:evaluator-job-schema-contract-proof",
     "proof:evaluator-job-metadata-contract": "npm --prefix backend run test:reliability:evaluator-job-metadata-contract-proof",

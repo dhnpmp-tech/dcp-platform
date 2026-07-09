@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 10:44 UTC - Model catalog parity proof (PR #881)
+
+- **PR:** [#881](https://github.com/dhnpmp-tech/dcp-platform/pull/881) (`codex/model-catalog-parity-proof-2026-07-09`).
+- **Proof:** Added `npm run proof:model-catalog-parity`, backed by `backend/tests/model-catalog-parity-proof.js`, which runs the deterministic mocked route parity test and writes JSON/Markdown proof artifacts.
+- **Local roadmap:** Added the proof to `npm run proof:local-roadmap`, moving the CI-safe suite to 33 gates.
+- **Coverage:** The proof covers token pricing/source parity, provider count and availability, capability flags/capabilities mirrors, advanced feature readiness, modalities, and max-output metadata across `/v1/models`, `/api/models`, and `/api/models/catalog`.
+- **Safety:** Test/proof only; no model catalog semantics, provider selection, request routing, pricing, billing, settlement, prompt-cache, batch, LoRA, or deployment behavior changed.
+- **Verification:** Package JSON parse; `npm run proof:model-catalog-parity`; targeted Jest for parity proof and route parity; `npm run proof:local-roadmap` now passing 33/33 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 10:31 UTC - Public inference model catalog metadata (PR #880)
 
 - **PR:** [#880](https://github.com/dhnpmp-tech/dcp-platform/pull/880) (`codex/inference-model-catalog-live-rail-2026-07-09`).
