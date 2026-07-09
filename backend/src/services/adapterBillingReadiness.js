@@ -13,6 +13,7 @@ function buildAdapterBillingReadiness(now = new Date()) {
       endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
       usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       settlement_readiness: 'GET /api/adapters/settlement/readiness',
+      billing_approval_readiness: 'GET /api/adapters/billing/approval/readiness',
       artifact_policy_readiness: 'GET /api/adapters/artifacts/readiness',
       lora_readiness: 'GET /api/lora/readiness',
       minimum_balance_readiness: 'GET /api/renters/me/minimum-balances',
@@ -76,6 +77,12 @@ function buildAdapterBillingReadiness(now = new Date()) {
         provider_split_live: false,
         platform_split_live: false,
         notes: 'Adapter traffic must carry deployment and adapter attribution before provider settlement or payout can be enabled.',
+      },
+      founder_approval: {
+        status: 'policy_pending',
+        readiness_endpoint: 'GET /api/adapters/billing/approval/readiness',
+        approval_live: false,
+        notes: 'Founder billing approval must cite load proof, endpoint smoke, usage attribution, settlement, minimum-balance, local-roadmap, and production-smoke evidence before adapter billing enablement.',
       },
       usage_attribution: {
         status: 'contract_pending',

@@ -8,6 +8,7 @@ const {
   listAdapters,
 } = require('../services/adapterRegistry');
 const { buildAdapterArtifactPolicyReadiness } = require('../services/adapterArtifactPolicy');
+const { buildAdapterBillingApprovalReadiness } = require('../services/adapterBillingApprovalReadiness');
 const { buildAdapterBillingReadiness } = require('../services/adapterBillingReadiness');
 const {
   buildAdapterEndpointSmokeDisabledResponse,
@@ -95,6 +96,18 @@ function createAdaptersRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch adapter billing readiness',
         code: 'adapter_billing_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/billing/approval/readiness', (_req, res) => {
+    try {
+      return res.json(buildAdapterBillingApprovalReadiness(new Date()));
+    } catch (error) {
+      console.error('[adapters] billing approval readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch adapter billing approval readiness',
+        code: 'adapter_billing_approval_readiness_internal_error',
       });
     }
   });

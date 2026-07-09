@@ -434,6 +434,11 @@ Goal: ship the first real train-here/deploy-here loop.
     approval prerequisites while payouts, invoices, balances, adapter billing,
     route changes, raw prompt/response exposure, and Tinker claims stay
     disabled.
+  - PR #874 adds `GET /api/adapters/billing/approval/readiness` and
+    `npm run proof:adapter-billing-approval`; it defines evidence-packet hash,
+    local-roadmap proof, production smoke, and founder signoff prerequisites
+    while approval mutation, adapter billing, invoices, payouts, balances, raw
+    prompt/response exposure, and Tinker claims stay disabled.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -657,7 +662,13 @@ Acceptance:
     reconcile to usage cost, attribution must match the proof, and payout,
     invoice, balance, route, raw-payload, billing, and Tinker claims remain
     disabled.**
-22. **Adapter billing readiness** - CI-safe money-policy gate before billed
+22. **Adapter billing approval readiness** - CI-safe founder-approval gate
+    before adapter endpoint traffic can become billable. **Added in PR #874 as
+    `npm run proof:adapter-billing-approval`; evidence hash, local-roadmap
+    proof, production smoke, and signoff must be explicit while approval
+    mutation, billing, invoices, payouts, balance, route, raw-payload, and
+    Tinker claims remain disabled.**
+23. **Adapter billing readiness** - CI-safe money-policy gate before billed
     adapter endpoint claims. **Added in PR #868 as
     `npm run proof:adapter-billing-readiness`; usage writes, invoices, provider
     payouts, minimum-balance enforcement changes, and adapter billing claims
