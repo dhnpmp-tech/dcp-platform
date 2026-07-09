@@ -85,6 +85,10 @@ what is live.
   gated cached-input economics from the same contract as public `/inference`.
 - PR #781 added a live `/v1/models` serveable-model pricing table to `/pricing`
   with context, SAR input/output rates, provider count, and capability chips.
+- PR #852 added `/benchmarks` and
+  `GET /api/models/benchmarks/readiness`, making Benchmarks/Evals a visible
+  product rail while Arabic-quality claims, case studies, rankings, and
+  frontier comparisons remain gated by reproducible artifacts.
 
 ### Now
 
@@ -139,6 +143,9 @@ what is live.
     execution or discount overclaim.**
 - Add benchmark pages for Arabic/customer-support tasks only after reproducible
   benchmark artifacts exist.
+  **The public `/benchmarks` readiness rail starts in PR #852; it exposes
+  model benchmark metadata and claim guards without publishing Arabic-quality
+  or frontier-comparison claims.**
 
 ### Later
 
@@ -437,6 +444,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 ### Later
 
 - Evaluators and public benchmark runs.
+  **Benchmarks/Evals public readiness rail starts in PR #852; customer eval
+  jobs and public Arabic task reports still require reproducible artifacts.**
 - Metrics export.
 - Customer-facing latency/throughput dashboards.
 - Multimodal/audio model surfaces.

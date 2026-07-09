@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 01:50 UTC - `feat(benchmarks): add readiness rail - PR #852`
+
+**PR:** [#852](https://github.com/dhnpmp-tech/dcp-platform/pull/852) (`codex/benchmark-readiness-page-2026-07-09`).
+**Local timestamp:** 2026-07-09 05:50 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds a claim-safe Benchmarks/Evals product rail before public quality claims.
+
+- **Backend readiness:** Added `GET /api/models/benchmarks/readiness`, summarizing live measured benchmark rows, live latency/quality/cost counts, evaluator-job gates, and explicit public-claim guards.
+- **Public page:** Added `/benchmarks`, tied to the readiness contract and copy that keeps Arabic-quality claims, case studies, rankings, and frontier comparisons gated until reproducible artifacts exist.
+- **Discovery:** Wired Benchmarks into shared site navigation, footer, sitemap, and `llms.txt` so humans and agents see it alongside Inference, Pods, Fine-Tuning, Batch, and Deployments.
+- **Safety:** No benchmark ingestion, model catalog availability, billing, provider routing, inference execution, settlement, pod, LoRA, adapter, or public quality-claim behavior changed.
+- **Verified:** Syntax/whitespace checks; targeted model benchmark/catalog Jest suites; TypeScript; Next build; backend-context endpoint smoke; local roadmap proof.
+
 ### 2026-07-09 00:35 UTC - `fix(ops): read dcp-agent VPS inventory locally on VPS - PR #846`
 
 **PR:** [#846](https://github.com/dhnpmp-tech/dcp-platform/pull/846) (`codex/dcp-agent-vps-local-inventory-2026-07-09`).
