@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 13:42 UTC - Pod workspace, trial, and GPU request UX (PR #890)
+
+- **PR:** [#890](https://github.com/dhnpmp-tech/dcp-platform/pull/890) (`codex/pods-workspace-gpu-trial-ux-2026-07-09`).
+- **Frontend:** `/renter/pods` now makes Stage 2 a visible compute decision with an auto-pick/fixed-GPU segmented control and repeats the final GPU request in the launch review.
+- **Trial policy clarity:** The pods launch flow now states whether trial handling is explicit-tag based or credit-provenance based beside the backend trial/high-demand capacity copy.
+- **Stage clarity:** The launch plan labels Stage 1, Stage 2, Stage 3, and Launch consistently so large workspaces do not make the renter lose track of where compute selection starts.
+- **Regression:** Updated the focused `/renter/pods` Playwright test for the Stage 2 decision panel, request-mode control, trial-account wording, and launch review.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; Playwright visual smoke of the Stage 2 decision and launch review panels; TypeScript/Next build; `git diff --check`.
+
 ### 2026-07-09 13:24 UTC - Pod infrastructure proof readiness and launch UX (PR #889)
 
 - **PR:** [#889](https://github.com/dhnpmp-tech/dcp-platform/pull/889) (`codex/pods-infrastructure-proof-readiness-2026-07-09`).

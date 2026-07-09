@@ -163,6 +163,11 @@ what is live.
   `GET /api/pods/trial-routing/readiness` and `/renter/pods`, showing the
   CI-safe workspace contract plus blocked workspace-live and LoRA pod-image
   provider-host proof commands before any fine-tuning-ready pod claim.
+- PR #890 tightens the `/renter/pods` launch UX around Tareq's latest
+  feedback: Stage 2 is now a visible compute decision with auto-pick/fixed-GPU
+  mode controls, final launch review repeats the GPU request, and trial
+  handling is explicit-tag vs credit-provenance copy from the backend readiness
+  packet.
 
 ### Now
 

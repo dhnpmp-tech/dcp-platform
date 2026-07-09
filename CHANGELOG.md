@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 13:42 UTC - `feat(pods): sharpen workspace, trial, and GPU request UX - PR #890`
+
+**PR:** [#890](https://github.com/dhnpmp-tech/dcp-platform/pull/890) (`codex/pods-workspace-gpu-trial-ux-2026-07-09`).
+**Local timestamp:** 2026-07-09 17:42 +04.
+
+**What:** Tareq pods/workspace feedback follow-up. Makes the launch flow answer the three operator questions directly: where the staged workspace ends, whether the account is trial-tagged, and what GPU request will be sent.
+
+- **Stage clarity:** The launch plan now names Stage 1, Stage 2, Stage 3, and Launch instead of mixing numbered flow items with stage headers.
+- **GPU request clarity:** Stage 2 now has an explicit auto-pick/fixed-GPU mode control, keeps auto-pick selected until a GPU card is chosen, and shows the final GPU request again in the launch review.
+- **Trial routing clarity:** `/renter/pods` now states whether trial handling is explicit-tag based or credit-provenance based, alongside trial-capacity and high-demand paid-credit copy from the backend readiness packet.
+- **Workspace continuity:** The existing compact Stage 1 workspace checkpoint and folder-first disclosure remain the path for large workspaces, with the launch review preserving the workspace state near the launch action.
+- **Regression:** Updated the focused `/renter/pods` Playwright regression for the new Stage 2 decision panel, trial-account wording, request-mode segmented control, and final launch review.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; Playwright visual smoke of the Stage 2 decision and launch review panels; TypeScript/Next build; `git diff --check`.
+
 ### 2026-07-09 13:24 UTC - `feat(pods): surface infrastructure proof readiness and launch UX - PR #889`
 
 **PR:** [#889](https://github.com/dhnpmp-tech/dcp-platform/pull/889) (`codex/pods-infrastructure-proof-readiness-2026-07-09`).

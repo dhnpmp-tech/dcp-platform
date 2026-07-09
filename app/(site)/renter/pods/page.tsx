@@ -1101,6 +1101,11 @@ export default function RenterPodsPage() {
   const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: DCP/community capacity'
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
   const explicitTrialTagLive = trialRouting?.account_classification?.explicit_trial_account_tag_live === true
+  const trialAccountModeLabel = explicitTrialTagLive ? 'Trial accounts: explicit tag' : 'Trial accounts: credit provenance'
+  const gpuRequestModeLabel = selectedType ? 'Fixed GPU request' : 'Auto-pick request'
+  const launchGpuLine = selectedType
+    ? `Launch will request ${displayGpuType(selectedType.gpu_model)}.`
+    : 'Launch will auto-pick an available GPU type.'
   const workspacePodContractStatus = trialRouting?.infrastructure_proofs?.workspace_pod_contract?.status
   const workspaceLiveStatus = trialRouting?.infrastructure_proofs?.workspace_live_acceptance?.status
   const loraPodImageStatus = trialRouting?.infrastructure_proofs?.lora_pod_image_provider_host?.status
@@ -1266,7 +1271,7 @@ export default function RenterPodsPage() {
 
             <div className="pod-flow-rail" aria-label={lang === 'ar' ? 'خطة التشغيل' : 'Launch plan'}>
               <div className={`pod-flow-item${workspaceVolume ? ' ok' : ''}`}>
-                <span className="pod-flow-no">01</span>
+                <span className="pod-flow-no">Stage 1</span>
                 <span className="pod-flow-k"><Bi en="Workspace" ar="مساحة العمل" /></span>
                 <strong>
                   {workspaceVolume
@@ -1275,7 +1280,7 @@ export default function RenterPodsPage() {
                 </strong>
               </div>
               <div className={`pod-flow-item${selectedType ? ' ok' : ''}`}>
-                <span className="pod-flow-no">02</span>
+                <span className="pod-flow-no">Stage 2</span>
                 <span className="pod-flow-k"><Bi en="GPU" ar="GPU" /></span>
                 <strong>
                   {selectedType
@@ -1284,12 +1289,12 @@ export default function RenterPodsPage() {
                 </strong>
               </div>
               <div className="pod-flow-item ok">
-                <span className="pod-flow-no">03</span>
+                <span className="pod-flow-no">Stage 3</span>
                 <span className="pod-flow-k"><Bi en="Runtime" ar="بيئة التشغيل" /></span>
                 <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
               </div>
               <div className={`pod-flow-item${selectedQuoteSar != null ? ' ok' : ''}`}>
-                <span className="pod-flow-no">04</span>
+                <span className="pod-flow-no">Launch</span>
                 <span className="pod-flow-k"><Bi en="Prepaid quote" ar="تقدير مسبق" /></span>
                 <strong>
                   {selectedQuoteSar != null
@@ -1315,13 +1320,13 @@ export default function RenterPodsPage() {
             <div className="pod-compute-summary" aria-live="polite">
               <div className="pod-compute-main">
                 <span className="pod-compute-k">
-                  <Bi en="Launch GPU request" ar="طلب GPU للتشغيل" />
+                  <Bi en="Stage 2 decision" ar="قرار المرحلة 2" />
                 </span>
                 {selectedType ? (
                   <>
                     <strong>{displayGpuType(selectedType.gpu_model)}</strong>
                     <span>
-                      <Bi en="Fixed GPU type requested" ar="نوع GPU محدد في الطلب" /> · {selectedType.vram_gb} GB VRAM
+                      <Bi en={launchGpuLine} ar="سيتم طلب نوع GPU المحدد عند التشغيل." /> {selectedType.vram_gb} GB VRAM
                       {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
                     </span>
                   </>
@@ -1330,18 +1335,36 @@ export default function RenterPodsPage() {
                     <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
                     <span>
                       <Bi
-                        en={gpuRequestDetail}
+                        en={`${launchGpuLine} ${gpuRequestDetail}`}
                         ar="لم يتم تحديد نوع GPU؛ التصفية أدناه للتصفح فقط."
                       />
                     </span>
                   </>
                 )}
+                <div className="pod-request-toggle" role="group" aria-label={lang === 'ar' ? 'وضع طلب GPU' : 'GPU request mode'}>
+                  <button
+                    type="button"
+                    className={!selectedType ? 'on' : ''}
+                    aria-pressed={!selectedType}
+                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+                  >
+                    <Bi en="Auto-pick" ar="اختيار تلقائي" />
+                  </button>
+                  <button
+                    type="button"
+                    className={selectedType ? 'on' : ''}
+                    aria-pressed={!!selectedType}
+                    onClick={() => document.getElementById('gpu-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  >
+                    <Bi en="Fixed GPU" ar="GPU محدد" />
+                  </button>
+                </div>
               </div>
               <div className="pod-compute-facts">
                 <span className={selectedType ? 'pod-request-state fixed' : 'pod-request-state auto'}>
                   {selectedType
-                    ? <Bi en="Request mode: fixed GPU" ar="وضع الطلب: GPU محدد" />
-                    : <Bi en="Request mode: auto-pick" ar="وضع الطلب: اختيار تلقائي" />}
+                    ? <Bi en={`Request mode: ${gpuRequestModeLabel}`} ar="وضع الطلب: GPU محدد" />
+                    : <Bi en={`Request mode: ${gpuRequestModeLabel}`} ar="وضع الطلب: اختيار تلقائي" />}
                 </span>
                 <span className={`pod-policy-state ${trialRoutingStatus === 'loading' ? 'loading' : trialRoutingSynced ? 'ready' : 'fallback'}`}>
                   {trialRoutingStatus === 'loading'
@@ -1372,9 +1395,7 @@ export default function RenterPodsPage() {
                   <Bi en={highDemandCapacityCopy} ar="السعة عالية الطلب: رصيد مدفوع" />
                 </span>
                 <span>
-                  {explicitTrialTagLive
-                    ? <Bi en="Trial tag: explicit" ar="وسم التجربة: صريح" />
-                    : <Bi en="Trial tag: credit provenance" ar="وسم التجربة: حسب مصدر الرصيد" />}
+                  <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
                 </span>
                 {selectedType && (
                   <button
@@ -1727,7 +1748,7 @@ export default function RenterPodsPage() {
               </p>
 
               {/* ONE radiogroup spanning all bands (a11y: native radio semantics) */}
-              <div className="gpu-results" role="radiogroup" aria-label={lang === 'ar' ? 'نوع المعالج' : 'GPU type'}>
+              <div id="gpu-results" className="gpu-results" role="radiogroup" aria-label={lang === 'ar' ? 'نوع المعالج' : 'GPU type'}>
                 {!isLive ? (
                   <p className="gpu-empty">
                     <Bi en="Loading GPU types…" ar="جارٍ تحميل أنواع المعالجات…" />
@@ -2101,6 +2122,29 @@ export default function RenterPodsPage() {
                 <span>{launch.error}</span>
               </div>
             ) : null}
+
+            <div className="pod-launch-review" aria-label={lang === 'ar' ? 'مراجعة التشغيل' : 'Launch review'}>
+              <span>
+                <b><Bi en="Stage 1" ar="المرحلة 1" /></b>
+                {workspaceVolume
+                  ? `${workspaceVolume.size_gb} GB /workspace`
+                  : <Bi en="No workspace volume" ar="لا توجد وحدة مساحة عمل" />}
+              </span>
+              <span>
+                <b><Bi en="Stage 2" ar="المرحلة 2" /></b>
+                {selectedType
+                  ? displayGpuType(selectedType.gpu_model)
+                  : <Bi en="Auto-pick GPU" ar="اختيار GPU تلقائي" />}
+              </span>
+              <span>
+                <b><Bi en="Stage 3" ar="المرحلة 3" /></b>
+                {selectedRuntimeLabel} · {durationLabel}
+              </span>
+              <span>
+                <b><Bi en="Credit route" ar="مسار الرصيد" /></b>
+                <Bi en={explicitTrialTagLive ? 'Trial tag active' : 'Trial via credit provenance'} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب مصدر الرصيد'} />
+              </span>
+            </div>
 
             <div className="action-row">
               <button
