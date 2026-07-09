@@ -64,6 +64,62 @@ function getModelNameFromTemplate(template) {
   return typeof template?.name === 'string' ? template.name.trim() : '';
 }
 
+function sanitizeWorkflowContract(template) {
+  const contract = template && template.workflow_contract;
+  if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {
+    return null;
+  }
+
+  const sanitized = {
+    version: typeof contract.version === 'string' ? contract.version.trim() : '',
+    mode: typeof contract.mode === 'string' ? contract.mode.trim() : '',
+    workspace_mount: typeof contract.workspace_mount === 'string' ? contract.workspace_mount.trim() : '',
+  };
+
+  if (contract.dataset && typeof contract.dataset === 'object' && !Array.isArray(contract.dataset)) {
+    sanitized.dataset = {
+      required: contract.dataset.required === true,
+      env_var: typeof contract.dataset.env_var === 'string' ? contract.dataset.env_var.trim() : '',
+      default_path: typeof contract.dataset.default_path === 'string' ? contract.dataset.default_path.trim() : '',
+      validation_endpoint: typeof contract.dataset.validation_endpoint === 'string' ? contract.dataset.validation_endpoint.trim() : '',
+      raw_rows_stored: contract.dataset.raw_rows_stored === true,
+    };
+  }
+
+  if (contract.adapter_artifact && typeof contract.adapter_artifact === 'object' && !Array.isArray(contract.adapter_artifact)) {
+    sanitized.adapter_artifact = {
+      output_dir: typeof contract.adapter_artifact.output_dir === 'string' ? contract.adapter_artifact.output_dir.trim() : '',
+      required_files: Array.isArray(contract.adapter_artifact.required_files)
+        ? contract.adapter_artifact.required_files.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim())
+        : [],
+      checksum_required: contract.adapter_artifact.checksum_required === true,
+    };
+  }
+
+  if (contract.endpoint && typeof contract.endpoint === 'object' && !Array.isArray(contract.endpoint)) {
+    sanitized.endpoint = {
+      scope: typeof contract.endpoint.scope === 'string' ? contract.endpoint.scope.trim() : '',
+      openai_base_url: typeof contract.endpoint.openai_base_url === 'string' ? contract.endpoint.openai_base_url.trim() : '',
+      public_route_enabled: contract.endpoint.public_route_enabled === true,
+      adapter_load_proof_required: contract.endpoint.adapter_load_proof_required === true,
+    };
+  }
+
+  if (contract.claim_guards && typeof contract.claim_guards === 'object' && !Array.isArray(contract.claim_guards)) {
+    sanitized.claim_guards = Object.fromEntries(
+      Object.entries(contract.claim_guards)
+        .filter(([, value]) => typeof value === 'boolean')
+        .map(([key, value]) => [key, value])
+    );
+  }
+
+  if (typeof contract.next_proof === 'string' && contract.next_proof.trim()) {
+    sanitized.next_proof = contract.next_proof.trim();
+  }
+
+  return sanitized.version && sanitized.mode && sanitized.workspace_mount ? sanitized : null;
+}
+
 function readTemplateCatalogContract() {
   const templatesDir = getTemplatesDir();
   if (!fs.existsSync(templatesDir)) {
@@ -123,6 +179,7 @@ function readTemplateCatalogContract() {
 
     if (errors.some((msg) => msg.startsWith(`${file}:`))) continue;
 
+    const workflowContract = sanitizeWorkflowContract(parsed);
     templates.push({
       id: parsed.id.trim(),
       model_name: modelName,
@@ -141,6 +198,7 @@ function readTemplateCatalogContract() {
         job_type: parsed.job_type.trim(),
         params: parsed.params,
       },
+      ...(workflowContract ? { workflow_contract: workflowContract } : {}),
       sort_order: Number.isFinite(parsed.sort_order) ? Number(parsed.sort_order) : 99,
     });
   }

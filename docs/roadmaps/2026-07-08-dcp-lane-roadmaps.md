@@ -731,6 +731,11 @@ DCP-hosted endpoint -> billed inference.
   - `docker-templates/lora-finetune.json`
   - `docker-templates/qlora-finetune.json`
   - `docker-templates/vllm-serve.json`
+  **PR #883 adds explicit `workflow_contract` metadata and
+  `npm run proof:template-workflow-contract` so LoRA/QLoRA templates declare
+  dataset validation plus adapter artifact checksum expectations, vLLM declares
+  pod-local OpenAI compatibility, and all three stay blocked on GPU-host proof
+  before managed training, public routing, billing, or provider/vendor claims.**
 
 ### Next
 
@@ -832,6 +837,9 @@ DCP-hosted endpoint -> billed inference.
 ### First PRs
 
 1. LoRA template validation and dry-run improvements.
+   **PR #883 adds workflow contracts to LoRA, QLoRA, and vLLM templates, exposes
+   them through `/api/templates/catalog`, and adds the CI-safe
+   `npm run proof:template-workflow-contract` gate to the local roadmap suite.**
 2. Adapter registry schema and service tests.
 3. Dataset validator and training-job contract.
 4. Single-adapter deploy API.

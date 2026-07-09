@@ -18,6 +18,11 @@ const CI_SAFE_GATES = Object.freeze([
     command: 'npm run templates:validate',
   },
   {
+    id: 'template_workflow_contract',
+    command: 'npm run proof:template-workflow-contract',
+    outputEnv: 'DCP_TEMPLATE_WORKFLOW_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'workspace_pod_contracts',
     command: 'npm run workspace-pods:verify-contracts',
   },

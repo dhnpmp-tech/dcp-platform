@@ -35,6 +35,27 @@ Response includes only stable fields needed by renter marketplace deploy rails:
           "model": "meta-llama/Meta-Llama-3-8B-Instruct",
           "max_tokens": 512
         }
+      },
+      "workflow_contract": {
+        "version": "dcp.template_workflow.v1",
+        "mode": "pod_local_openai_compatible",
+        "workspace_mount": "/workspace",
+        "endpoint": {
+          "scope": "pod_local",
+          "openai_base_url": "http://127.0.0.1:8000/v1",
+          "public_route_enabled": false,
+          "adapter_load_proof_required": true
+        },
+        "claim_guards": {
+          "catalog_launches_pod": false,
+          "catalog_mutates_balance": false,
+          "managed_training_enabled": false,
+          "public_endpoint_route_enabled": false,
+          "adapter_billing_enabled": false,
+          "exposes_provider_or_vendor": false,
+          "requires_gpu_host_proof": true
+        },
+        "next_proof": "DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load"
       }
     }
   ],
@@ -54,6 +75,18 @@ Every template JSON file must parse and include:
 - `min_vram_gb` (positive number)
 - `params` (object)
 - model derivation source (`params.model` or `env_vars.MODEL_ID.default`)
+
+LoRA, QLoRA, and vLLM templates also expose `workflow_contract` metadata. The
+contract is descriptive and read-only: the catalog cannot launch pods, mutate
+balances, enable managed training, expose public endpoint routing, bill
+adapters, or expose provider/vendor routing. Those templates must keep
+`requires_gpu_host_proof: true` until the matching opt-in live proof succeeds.
+
+Required workflow-contract modes:
+
+- `lora-finetune`: `lora_dry_run`
+- `qlora-finetune`: `qlora_dry_run`
+- `vllm-serve`: `pod_local_openai_compatible`
 
 If any file fails validation, the endpoint fails closed with `500` and explicit per-file errors.
 

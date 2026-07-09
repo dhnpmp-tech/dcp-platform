@@ -7,13 +7,15 @@
   "env_vars": [
     { "key": "DOCKER_IMAGE", "label": "Docker Image", "default": "dc1/llm-worker:latest", "required": true },
     { "key": "BASE_MODEL", "label": "Base Model", "default": "meta-llama/Meta-Llama-3-8B-Instruct", "required": true },
+    { "key": "DATASET_PATH", "label": "Dataset JSONL Path", "default": "/workspace/datasets/train.jsonl", "required": true },
     { "key": "QUANT_BITS", "label": "Quantization Bits", "default": "4", "required": false },
+    { "key": "OUTPUT_ADAPTER_DIR", "label": "Adapter Output Directory", "default": "/workspace/adapters/qlora-finetune", "required": false },
     { "key": "MODEL_CACHE_DIR", "label": "Model Cache Dir", "default": "/opt/dcp/model-cache", "required": false },
     { "key": "CACHE_POLICY", "label": "Cache Policy", "default": "warm", "required": false }
   ],
   "params": {
     "image_override": "dc1/llm-worker:latest",
-    "script": "import json, os, torch\n\nbase_model = os.getenv('BASE_MODEL', 'meta-llama/Meta-Llama-3-8B-Instruct')\nquant_bits = int(os.getenv('QUANT_BITS', '4'))\ndevice = 'cuda' if torch.cuda.is_available() else 'cpu'\nmem_gb = 0.0\nif torch.cuda.is_available():\n    mem_gb = round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2)\n\nprint('DC1_RESULT_JSON:' + json.dumps({\n  'template': 'qlora-finetune',\n  'base_model': base_model,\n  'quant_bits': quant_bits,\n  'device': device,\n  'gpu_mem_gb': mem_gb,\n  'status': 'ready_for_quantized_training'\n}))\n"
+    "script": "import json, os, torch\n\nbase_model = os.getenv('BASE_MODEL', 'meta-llama/Meta-Llama-3-8B-Instruct')\ndataset_path = os.getenv('DATASET_PATH', '/workspace/datasets/train.jsonl')\noutput_adapter_dir = os.getenv('OUTPUT_ADAPTER_DIR', '/workspace/adapters/qlora-finetune')\nquant_bits = int(os.getenv('QUANT_BITS', '4'))\ndevice = 'cuda' if torch.cuda.is_available() else 'cpu'\nmem_gb = 0.0\nif torch.cuda.is_available():\n    mem_gb = round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2)\n\nprint('DC1_RESULT_JSON:' + json.dumps({\n  'template': 'qlora-finetune',\n  'base_model': base_model,\n  'dataset_path': dataset_path,\n  'quant_bits': quant_bits,\n  'output_adapter_dir': output_adapter_dir,\n  'device': device,\n  'gpu_mem_gb': mem_gb,\n  'status': 'ready_for_quantized_training'\n}))\n"
   },
   "model_cache": {
     "mount_path": "/opt/dcp/model-cache",
@@ -26,18 +28,49 @@
       "duration_minutes": 45,
       "params": {
         "image_override": "dc1/llm-worker:latest",
-        "script": "import json\nprint('DC1_RESULT_JSON:' + json.dumps({'template':'qlora-finetune','base_model':'meta-llama/Meta-Llama-3-8B-Instruct','quant_bits':4,'status':'ready_for_quantized_training'}))\n"
+        "script": "import json\nprint('DC1_RESULT_JSON:' + json.dumps({'template':'qlora-finetune','base_model':'meta-llama/Meta-Llama-3-8B-Instruct','dataset_path':'/workspace/datasets/train.jsonl','quant_bits':4,'output_adapter_dir':'/workspace/adapters/qlora-finetune','status':'ready_for_quantized_training'}))\n"
       }
     },
     "output": {
       "template": "qlora-finetune",
       "base_model": "meta-llama/Meta-Llama-3-8B-Instruct",
+      "dataset_path": "/workspace/datasets/train.jsonl",
       "quant_bits": 4,
+      "output_adapter_dir": "/workspace/adapters/qlora-finetune",
       "status": "ready_for_quantized_training"
     }
   },
+  "workflow_contract": {
+    "version": "dcp.template_workflow.v1",
+    "mode": "qlora_dry_run",
+    "workspace_mount": "/workspace",
+    "dataset": {
+      "required": true,
+      "env_var": "DATASET_PATH",
+      "default_path": "/workspace/datasets/train.jsonl",
+      "validation_endpoint": "POST /api/lora/datasets/validate",
+      "raw_rows_stored": false
+    },
+    "adapter_artifact": {
+      "output_dir": "/workspace/adapters/qlora-finetune",
+      "required_files": ["adapter.safetensors", "model-card.json"],
+      "checksum_required": true
+    },
+    "claim_guards": {
+      "catalog_launches_pod": false,
+      "catalog_mutates_balance": false,
+      "managed_training_enabled": false,
+      "public_endpoint_route_enabled": false,
+      "adapter_billing_enabled": false,
+      "exposes_provider_or_vendor": false,
+      "requires_gpu_host_proof": true
+    },
+    "next_proof": "DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact"
+  },
   "min_vram_gb": 12,
   "estimated_price_sar_per_hour": 13.0,
+  "default_duration_minutes": 240,
+  "default_pricing_class": "standard",
   "tags": ["qlora", "fine-tuning", "quantization", "llm", "deploy-template"],
   "sort_order": 10,
   "icon": "🧠",

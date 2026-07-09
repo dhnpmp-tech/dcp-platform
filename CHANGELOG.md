@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 11:38 UTC - `test(templates): add workflow contract proof - PR #883`
+
+**PR:** [#883](https://github.com/dhnpmp-tech/dcp-platform/pull/883) (`codex/template-workflow-contract-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 15:38 +04.
+
+**What:** LoRA/POT/inference roadmap slice. Makes template workflow metadata explicit for LoRA, QLoRA, and vLLM without claiming managed training, public routing, billing, or GPU-host execution.
+
+- **Template contracts:** Added `workflow_contract` metadata to `lora-finetune`, `qlora-finetune`, and `vllm-serve`, including workspace mount, dataset validation, adapter artifact checksum expectations, pod-local vLLM endpoint scope, and the next opt-in live proof command.
+- **Catalog exposure:** `/api/templates/catalog` now sanitizes and exposes workflow contracts for templates that declare them.
+- **Proof command:** Added `npm run proof:template-workflow-contract`, backed by a CI-safe proof packet that runs deploy-template validation, route exposure coverage, contract invariants, and read-only claim guards.
+- **Local roadmap:** Added the proof to `npm run proof:local-roadmap`, moving the CI-safe suite to 34 gates.
+- **Safety:** Contract/proof only; no pod launch, training-job creation, dataset row storage, adapter artifact upload, public endpoint routing, balance mutation, usage recording, adapter billing, provider/vendor exposure, or GPU-host execution was enabled.
+- **Verification:** Template JSON parse; deploy-template validation; template workflow proof; focused template catalog Jest coverage; local roadmap proof now passing 34/34 gates; `git diff --check`.
+
 ### 2026-07-09 11:08 UTC - `feat(pods): add stage navigation and explicit VRAM filters - PR #882`
 
 **PR:** [#882](https://github.com/dhnpmp-tech/dcp-platform/pull/882) (`codex/pods-stage-navigation-vram-filter-2026-07-09`).

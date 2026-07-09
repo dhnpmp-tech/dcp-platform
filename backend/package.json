@@ -25,6 +25,7 @@
     "worker:batch-inference:once": "node src/scripts/run-batch-inference-worker-once.js",
     "worker:lora-training:once": "node src/scripts/run-lora-training-worker-once.js",
     "templates:validate": "node src/scripts/validate-deploy-templates.js",
+    "test:reliability:template-workflow-contract-proof": "node tests/template-workflow-contract-proof.js",
     "pod-images:verify-contracts": "node src/scripts/verify-pod-image-contracts.js",
     "workspace-pods:verify-contracts": "node src/scripts/verify-workspace-pod-contracts.js",
     "test:reliability:lora-pod-image-proof": "bash docker-templates/verify-lora-pod-image.sh",

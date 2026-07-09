@@ -285,6 +285,66 @@ describe('GET /api/templates/catalog', () => {
     }
   });
 
+  it('exposes workflow contracts for LoRA dry-runs and pod-local vLLM serving', async () => {
+    const res = await request(app).get('/api/templates/catalog');
+    expect(res.status).toBe(200);
+
+    const byId = new Map(res.body.templates.map((template) => [template.id, template]));
+    for (const id of ['lora-finetune', 'qlora-finetune']) {
+      const template = byId.get(id);
+      expect(template.workflow_contract).toEqual(expect.objectContaining({
+        version: 'dcp.template_workflow.v1',
+        mode: id === 'qlora-finetune' ? 'qlora_dry_run' : 'lora_dry_run',
+        workspace_mount: '/workspace',
+        dataset: expect.objectContaining({
+          required: true,
+          env_var: 'DATASET_PATH',
+          default_path: '/workspace/datasets/train.jsonl',
+          validation_endpoint: 'POST /api/lora/datasets/validate',
+          raw_rows_stored: false,
+        }),
+        adapter_artifact: expect.objectContaining({
+          checksum_required: true,
+        }),
+        claim_guards: expect.objectContaining({
+          catalog_launches_pod: false,
+          catalog_mutates_balance: false,
+          managed_training_enabled: false,
+          public_endpoint_route_enabled: false,
+          adapter_billing_enabled: false,
+          exposes_provider_or_vendor: false,
+          requires_gpu_host_proof: true,
+        }),
+      }));
+      expect(template.workflow_contract.adapter_artifact.output_dir).toMatch(/^\/workspace\/adapters\//);
+      expect(template.workflow_contract.adapter_artifact.required_files).toEqual(
+        expect.arrayContaining(['adapter.safetensors', 'model-card.json']),
+      );
+    }
+
+    const vllm = byId.get('vllm-serve');
+    expect(vllm.workflow_contract).toEqual(expect.objectContaining({
+      version: 'dcp.template_workflow.v1',
+      mode: 'pod_local_openai_compatible',
+      workspace_mount: '/workspace',
+      endpoint: expect.objectContaining({
+        scope: 'pod_local',
+        openai_base_url: expect.stringMatching(/\/v1$/),
+        public_route_enabled: false,
+        adapter_load_proof_required: true,
+      }),
+      claim_guards: expect.objectContaining({
+        catalog_launches_pod: false,
+        catalog_mutates_balance: false,
+        managed_training_enabled: false,
+        public_endpoint_route_enabled: false,
+        adapter_billing_enabled: false,
+        exposes_provider_or_vendor: false,
+        requires_gpu_host_proof: true,
+      }),
+    }));
+  });
+
   it('fails closed when the configured template directory is missing', async () => {
     process.env.DCP_TEMPLATES_DIR = path.join(os.tmpdir(), `dcp-missing-templates-${Date.now()}`);
     const res = await request(app).get('/api/templates/catalog');
