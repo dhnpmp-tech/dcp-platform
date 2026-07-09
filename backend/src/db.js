@@ -2450,6 +2450,8 @@ db.exec(`
     provider_response_id TEXT,
     job_id             TEXT,
     request_path       TEXT,
+    renter_api_key_id  TEXT,
+    renter_key_type    TEXT,
     renter_id          INTEGER NOT NULL,
     provider_id        INTEGER,
     model              TEXT NOT NULL,
@@ -2475,6 +2477,8 @@ try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN request_id TEXT
 try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN provider_response_id TEXT').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN job_id TEXT').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN request_path TEXT').run(); } catch (_) {}
+try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN renter_api_key_id TEXT').run(); } catch (_) {}
+try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN renter_key_type TEXT').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN prompt_cost_halala INTEGER NOT NULL DEFAULT 0').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN completion_cost_halala INTEGER NOT NULL DEFAULT 0').run(); } catch (_) {}
 try { db.prepare('ALTER TABLE openrouter_usage_ledger ADD COLUMN token_rate_halala INTEGER').run(); } catch (_) {}
@@ -2485,6 +2489,7 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_or_usage_pending ON openrouter_usage_led
 db.exec(`CREATE INDEX IF NOT EXISTS idx_or_usage_settlement ON openrouter_usage_ledger(settlement_id, created_at DESC)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_or_usage_renter ON openrouter_usage_ledger(renter_id, created_at DESC)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_or_usage_job ON openrouter_usage_ledger(job_id, created_at DESC)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_or_usage_renter_key ON openrouter_usage_ledger(renter_id, renter_api_key_id, created_at DESC)`);
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_or_usage_request_id ON openrouter_usage_ledger(request_id) WHERE request_id IS NOT NULL`);
 
 db.exec(`

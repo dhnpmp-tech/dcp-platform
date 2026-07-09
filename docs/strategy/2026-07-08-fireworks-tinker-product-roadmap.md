@@ -510,8 +510,10 @@ Acceptance:
 18. **Renter quotas and usage export** - Fireworks-style account controls before
     team budgets. **Started in PR #848 with billing-scoped
     `/api/renters/me/usage/export`, `/api/renters/me/budget-status`, and
-    renter-console budget visibility; per-key spend attribution and per-key
-    budget enforcement remain blocked until usage rows store the scoped key id.**
+    renter-console budget visibility. PR #849 adds scoped-key attribution to
+    `/v1` and `/api/vllm` usage rows, usage exports, budget status, and the API
+    Keys table; per-key budget enforcement remains gated until the next debit
+    guard and 402 contract prove key-level caps without breaking account caps.**
 
 ## Division of Work
 

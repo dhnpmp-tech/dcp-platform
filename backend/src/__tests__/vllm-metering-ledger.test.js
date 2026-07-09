@@ -104,6 +104,59 @@ describe('vllm usage ledger persistence', () => {
     expect(payload.totalTokens).toBe(17);
     expect(payload.tokenRateHalala).toBe(2);
     expect(payload.costHalala).toBe(34);
+    expect(payload.renterApiKeyId).toBeNull();
+    expect(payload.renterKeyType).toBe('master_key');
+
+    fetchSpy.mockRestore();
+  });
+
+  test('persists scoped key attribution on /api/vllm/chat/completions request', async () => {
+    wireBaselineDbMocks();
+    mockDb.get.mockImplementation((sql) => {
+      const query = String(sql);
+      if (query.includes('FROM renter_api_keys')) {
+        return {
+          id: 'vllm-scoped-key-1',
+          renter_id: 31,
+          scopes: JSON.stringify(['inference']),
+          expires_at: null,
+          revoked_at: null,
+          r_id: 31,
+          api_key: 'renter-key',
+          balance_halala: 50000,
+          status: 'active',
+        };
+      }
+      if (query.includes('FROM model_registry')) {
+        return { model_id: 'meta-llama/Meta-Llama-3-8B-Instruct', display_name: 'Llama', min_gpu_vram_gb: 8, default_price_halala_per_min: 20 };
+      }
+      if (query.includes('FROM cost_rates')) return { token_rate_halala: 2 };
+      return null;
+    });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: 'scoped response' } }],
+        usage: { prompt_tokens: 9, completion_tokens: 4, total_tokens: 13 },
+      }),
+    });
+
+    const res = await request(app)
+      .post('/api/vllm/chat/completions')
+      .set('x-renter-key', 'scoped-vllm-key')
+      .set('Idempotency-Key', 'vllm-scoped-req-1')
+      .send({
+        model: 'meta-llama/Meta-Llama-3-8B-Instruct',
+        messages: [{ role: 'user', content: 'hello scoped vllm' }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
+    const payload = mockRecordOpenRouterUsage.mock.calls[0][1];
+    expect(payload.requestId).toBe('vllm-scoped-req-1');
+    expect(payload.renterId).toBe(31);
+    expect(payload.renterApiKeyId).toBe('vllm-scoped-key-1');
+    expect(payload.renterKeyType).toBe('scoped_key');
 
     fetchSpy.mockRestore();
   });

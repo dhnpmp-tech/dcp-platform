@@ -134,6 +134,11 @@ function requireRenter(req, res, next) {
     req.renter = { id: scopedKey.r_id, api_key: scopedKey.api_key, balance_halala: scopedKey.balance_halala, status: scopedKey.status };
     req.renterKey = key;
     req.renterKeyScopes = scopes;
+    req.renterAuth = {
+      key_type: 'scoped_key',
+      renter_api_key_id: scopedKey.id,
+      scopes,
+    };
     return next();
   }
 
@@ -148,6 +153,11 @@ function requireRenter(req, res, next) {
   req.renter = renter;
   req.renterKey = key;
   req.renterKeyScopes = ['admin'];
+  req.renterAuth = {
+    key_type: 'master_key',
+    renter_api_key_id: null,
+    scopes: ['admin'],
+  };
   return next();
 }
 
@@ -892,6 +902,8 @@ async function submitAndAwait(req) {
         providerResponseId: normalizeString(providerResponseId, { maxLen: 200 }),
         jobId,
         requestPath: normalizeString(req.path || req.originalUrl || '/api/vllm/complete', { maxLen: 160 }),
+        renterApiKeyId: req.renterAuth?.renter_api_key_id || null,
+        renterKeyType: req.renterAuth?.key_type || 'master_key',
         tokenRateHalala,
         renterId: req.renter.id,
         providerId: providerForUsage?.id || assignedProvider.id || null,

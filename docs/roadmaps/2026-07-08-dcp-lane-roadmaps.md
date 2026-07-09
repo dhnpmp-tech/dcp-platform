@@ -144,7 +144,8 @@ what is live.
 
 - Team/workspace usage exports.
   **Renter-scoped v1 usage CSV/JSON export started in PR #848; team/member
-  rollups remain gated on scoped-key attribution.**
+  rollups remain gated until PR #849 scoped-key spend attribution is promoted
+  into team/member rollup views.**
 - Enterprise quota and routing policy UI.
 - Case-study pages and GCC startup credits flow.
 
@@ -246,10 +247,12 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 ### Later
 
 - Quotas and usage export.
-  **Account v1 cap status and usage export started in PR #848.**
+  **Account v1 cap status and usage export started in PR #848; scoped-key
+  attribution starts in PR #849 across `/v1`, `/api/vllm`, exports, and the API
+  Keys table.**
 - Team-level API key budgets.
-  **Per-key budget enforcement is still blocked until usage ledger rows carry
-  scoped key attribution.**
+  **Per-key budget enforcement is still blocked until the next debit guard and
+  402 contract prove key-level caps on top of PR #849 attribution.**
 - Evaluator job records.
 - Router policy objects.
 

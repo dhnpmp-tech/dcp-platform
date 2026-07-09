@@ -72,6 +72,10 @@ interface ApiKey {
   last_used_at?: string | null
   created_at?: string | null
   revoked?: boolean
+  spend_attribution_available?: boolean
+  requests_30d?: number
+  spend_30d_halala?: number
+  spend_30d_sar?: number
 }
 
 interface KeysResponse {
@@ -110,8 +114,7 @@ interface CreateKeyResponse extends ApiKey {
   key?: string
 }
 
-// Format an ISO timestamp into a short, locale-aware date string. The list
-// endpoint doesn't return per-key 30d spend, so that column keeps its em-dash.
+// Format an ISO timestamp into a short, locale-aware date string.
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const t = Date.parse(iso)
@@ -156,6 +159,9 @@ function toRow(k: ApiKey): KeyRow {
   const created = fmtDate(k.created_at)
   const lastUsed = k.last_used_at ? fmtDate(k.last_used_at) : 'Never'
   const lastUsedAr = k.last_used_at ? fmtDate(k.last_used_at) : 'لم يُستخدم'
+  const spendSar = typeof k.spend_30d_sar === 'number'
+    ? k.spend_30d_sar
+    : halToSar(Number(k.spend_30d_halala || 0))
   return {
     id: k.id,
     name,
@@ -165,7 +171,7 @@ function toRow(k: ApiKey): KeyRow {
     createdAr: created,
     lastUsed,
     lastUsedAr,
-    spend: '—',
+    spend: k.spend_attribution_available ? fmtSar(spendSar) : '—',
     status: revoked ? 'revoked' : 'active',
     statusLabel: revoked ? 'Revoked' : 'Active',
     statusLabelAr: revoked ? 'ملغى' : 'نشط',

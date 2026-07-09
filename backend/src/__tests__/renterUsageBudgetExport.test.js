@@ -76,6 +76,8 @@ function buildDb() {
       provider_response_id TEXT,
       job_id TEXT,
       request_path TEXT,
+      renter_api_key_id TEXT,
+      renter_key_type TEXT,
       renter_id INTEGER NOT NULL,
       provider_id INTEGER,
       model TEXT NOT NULL,
@@ -152,16 +154,19 @@ function seedAccount(db) {
   ).run(isoDaysAgo(8));
   db.prepare(
     `INSERT INTO openrouter_usage_ledger
-     (id, request_id, provider_response_id, job_id, request_path, renter_id, provider_id, model, source,
+     (id, request_id, provider_response_id, job_id, request_path, renter_api_key_id, renter_key_type,
+      renter_id, provider_id, model, source,
       prompt_tokens, completion_tokens, total_tokens, prompt_cost_halala, completion_cost_halala,
       token_rate_halala, cost_halala, currency, settlement_status, settlement_id, created_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'v1', ?, ?, ?, ?, ?, ?, ?, 'SAR', ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'v1', ?, ?, ?, ?, ?, ?, ?, 'SAR', ?, ?, ?)`
   ).run(
     'usage-new',
     'req-new',
     'provider-resp-new',
     'job-v1-new',
     '/v1/chat/completions',
+    'key-inference',
+    'scoped_key',
     44,
     'ALLaM-AI/ALLaM-7B-Instruct-preview',
     120,
@@ -211,8 +216,9 @@ describe('renter usage export and budget status', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/csv/);
     expect(res.headers['content-disposition']).toContain('dcp-v1-usage-30d.csv');
-    expect(res.text.split('\r\n')[0]).toContain('created_at,request_id,model,source');
+    expect(res.text.split('\r\n')[0]).toContain('created_at,request_id,renter_api_key_id,renter_key_type,model,source');
     expect(res.text).toContain('"req-new"');
+    expect(res.text).toContain('"key-inference"');
     expect(res.text).toContain('"ALLaM-AI/ALLaM-7B-Instruct-preview"');
     expect(res.text).not.toContain('req-old');
   });
@@ -235,13 +241,15 @@ describe('renter usage export and budget status', () => {
         total_cost_sar: 3,
       },
       claims: {
-        per_key_spend_attribution_live: false,
+        per_key_spend_attribution_live: true,
         prompt_cache_discount_applied: false,
       },
     });
     expect(res.body.rows).toHaveLength(1);
     expect(res.body.rows[0]).toMatchObject({
       request_id: 'req-new',
+      renter_api_key_id: 'key-inference',
+      renter_key_type: 'scoped_key',
       cost_halala: 300,
       cost_sar: 3,
       settlement_status: 'settled',
@@ -296,15 +304,39 @@ describe('renter usage export and budget status', () => {
         active: 2,
         billing: 1,
         inference: 1,
-        per_key_spend_available: false,
+        attributed_requests_30d: 1,
+        attributed_spend_30d_halala: 300,
+        per_key_spend_available: true,
         per_key_budgets_available: false,
       },
       claims: {
         v1_account_spend_cap_gate_live: true,
         workspace_usage_export_live: true,
-        per_key_spend_attribution_live: false,
+        per_key_spend_attribution_live: true,
         per_key_budgets_enforced: false,
       },
+    });
+  });
+
+  test('lists scoped keys with attributed 30d spend and request counts', async () => {
+    const res = await request(buildApp())
+      .get('/api/renters/me/keys')
+      .set('x-renter-key', 'master-key');
+
+    expect(res.status).toBe(200);
+    const inferenceKey = res.body.keys.find((key) => key.id === 'key-inference');
+    const billingKey = res.body.keys.find((key) => key.id === 'key-billing');
+    expect(inferenceKey).toMatchObject({
+      spend_attribution_available: true,
+      requests_30d: 1,
+      spend_30d_halala: 300,
+      spend_30d_sar: 3,
+    });
+    expect(billingKey).toMatchObject({
+      spend_attribution_available: true,
+      requests_30d: 0,
+      spend_30d_halala: 0,
+      spend_30d_sar: 0,
     });
   });
 });
