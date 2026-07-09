@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 18:16 UTC - Team usage readiness proof gate (PR #907)
+
+- **PR:** [#907](https://github.com/dhnpmp-tech/dcp-platform/pull/907) (`codex/team-usage-readiness-proof-2026-07-09`).
+- **Timestamp:** 2026-07-09 18:16 UTC / 2026-07-09 22:16 +04.
+- **Shared contract:** Moved `team_usage_readiness` construction into `backend/src/services/teamUsageReadiness.js` so routes and proof scripts use the same builder.
+- **Proof command:** Added `npm run proof:team-usage-readiness`, with JSON/Markdown artifacts proving scoped-key controls are live while member rollups and member budgets remain gated.
+- **Roadmap suite:** Added the `team_usage_readiness_contract` gate to `npm run proof:local-roadmap`.
+- **Docs:** Updated the execution-system proof command map.
+- **Safety:** Proof/refactor only; no API response semantics, usage mutation, budget mutation, billing change, inference dispatch, key secret exposure, team-member creation, member-rollup claim, or enforcement change.
+- **Verification:** Team usage readiness proof; targeted renter usage/budget Jest suite; local roadmap proof; `git diff --check`.
+
 ### 2026-07-09 18:04 UTC - Usage scoped-key team readiness rail (PR #906)
 
 - **PR:** [#906](https://github.com/dhnpmp-tech/dcp-platform/pull/906) (`codex/usage-team-readiness-rail-2026-07-09`).

@@ -115,6 +115,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_MINIMUM_BALANCE_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'team_usage_readiness_contract',
+    command: 'npm run proof:team-usage-readiness',
+    outputEnv: 'DCP_TEAM_USAGE_READINESS_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'pod_trial_routing_readiness',
     command: 'npm run proof:pod-trial-routing-readiness',
     outputEnv: 'DCP_POD_TRIAL_ROUTING_PROOF_OUTPUT_DIR',

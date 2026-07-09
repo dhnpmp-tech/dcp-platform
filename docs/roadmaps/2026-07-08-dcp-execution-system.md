@@ -153,6 +153,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
 | Pod image readiness contract | `npm run proof:pod-image-readiness` | none | CI-safe readiness packet for `/api/pods/images/readiness`; provider-host LoRA image proof remains blocked |
 | Pod minimum-balance readiness | `npm run proof:minimum-balance-readiness` | none | CI-safe readiness packet for `/api/renters/me/minimum-balances`; `/renter/pods` displays quote/paid-credit gates read-only before launch |
+| Team usage readiness | `npm run proof:team-usage-readiness` | none | CI-safe readiness packet for scoped-key team/workspace usage controls; team-member rollups and member budgets remain gated behind org-member identity |
 | LoRA fat image provider-host imports | `npm run proof:lora-pod-image` | provider GPU host with Docker, NVIDIA Container Toolkit, and built `dcp-compute:lora` | Command available; blocked until run on a provider GPU host |
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
 | Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |

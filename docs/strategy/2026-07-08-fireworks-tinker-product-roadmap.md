@@ -798,7 +798,9 @@ Acceptance:
     blockers without changing enforcement. PR #906 promotes the team/workspace
     boundary into `team_usage_readiness` on budget-status and usage-by-key, and
     surfaces the same scoped-key-live/member-rollup-gated state in the Usage
-    console without creating team members or changing enforcement.**
+    console without creating team members or changing enforcement. PR #907 adds
+    `npm run proof:team-usage-readiness` and includes it in the local roadmap
+    suite so this team/workspace boundary is now CI-safe proofed.**
 21. **Benchmarks/Evals readiness rail** - Fireworks-style evidence surface before
     customer-facing quality claims. **Started in PR #852 with
     `GET /api/models/benchmarks/readiness`, public `/benchmarks`, sitemap/nav
