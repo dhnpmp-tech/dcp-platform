@@ -10,6 +10,7 @@ function buildAdapterBillingReadiness(now = new Date()) {
     current_mode: 'billing_policy_contract_only',
     endpoints: {
       billing_readiness: 'GET /api/adapters/billing/readiness',
+      endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
       usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       artifact_policy_readiness: 'GET /api/adapters/artifacts/readiness',
       lora_readiness: 'GET /api/lora/readiness',
@@ -79,6 +80,12 @@ function buildAdapterBillingReadiness(now = new Date()) {
         readiness_endpoint: 'GET /api/adapters/usage/attribution/readiness',
         usage_writes_live: false,
         notes: 'Adapter usage rows must carry deployment, adapter, endpoint, checksum, provider, request, token, cost, scoped-key, and pending-settlement fields before billing can be enabled.',
+      },
+      endpoint_smoke: {
+        status: 'contract_pending',
+        readiness_endpoint: 'GET /api/adapters/endpoints/smoke/readiness',
+        smoke_recording_live: false,
+        notes: 'Adapter endpoint smoke must prove strict load proof, funded principal, deterministic request, response hash, latency, token usage, and adapter trace before usage or billing claims.',
       },
     },
     denial_codes: [

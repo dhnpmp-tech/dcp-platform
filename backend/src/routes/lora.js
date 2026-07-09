@@ -23,6 +23,7 @@ const {
 const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
 const { ADAPTER_ARTIFACT_POLICY_VERSION } = require('../services/adapterArtifactPolicy');
 const { ADAPTER_BILLING_READINESS_VERSION } = require('../services/adapterBillingReadiness');
+const { ADAPTER_ENDPOINT_SMOKE_READINESS_VERSION } = require('../services/adapterEndpointSmokeReadiness');
 const { ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION } = require('../services/adapterUsageAttributionReadiness');
 
 const LORA_READINESS_VERSION = 'dcp.lora_readiness.v1';
@@ -171,6 +172,7 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       training_job_logs: 'GET /api/lora/training-jobs/{training_job_id}/logs',
       register_adapter: 'POST /api/lora/training-jobs/{training_job_id}/register-adapter',
       adapter_artifact_policy: 'GET /api/adapters/artifacts/readiness',
+      adapter_endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
       adapter_usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
       adapter_registry: 'GET/POST /api/adapters',
@@ -212,6 +214,8 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       artifact_policy_endpoint: 'GET /api/adapters/artifacts/readiness',
       billing_readiness_version: ADAPTER_BILLING_READINESS_VERSION,
       billing_readiness_endpoint: 'GET /api/adapters/billing/readiness',
+      endpoint_smoke_readiness_version: ADAPTER_ENDPOINT_SMOKE_READINESS_VERSION,
+      endpoint_smoke_readiness_endpoint: 'GET /api/adapters/endpoints/smoke/readiness',
       usage_attribution_readiness_version: ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION,
       usage_attribution_readiness_endpoint: 'GET /api/adapters/usage/attribution/readiness',
       artifact_upload_endpoint_enabled: false,

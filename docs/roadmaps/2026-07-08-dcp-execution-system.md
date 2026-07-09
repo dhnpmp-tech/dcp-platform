@@ -155,6 +155,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
 | Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |
 | Adapter artifact policy | `npm run proof:adapter-artifact-policy` | none | CI-safe gate available; validates renter/adapter-scoped adapter/model-card keys and checksums while artifact upload, object-store writes, serving, routing, billing, and Tinker claims remain disabled |
+| Adapter endpoint smoke readiness | `npm run proof:adapter-endpoint-smoke` | none | CI-safe gate available; validates strict load proof, funded principal, deterministic request, response hash, latency, token totals, and adapter trace while smoke recording, route traffic, usage writes, billing, invoices, payouts, and Tinker claims remain disabled |
 | Adapter usage attribution readiness | `npm run proof:adapter-usage-attribution` | none | CI-safe gate available; validates future adapter usage rows for deployment, adapter, endpoint, checksum, provider, request, scoped-key, token, cost, and pending-settlement fields while usage writes, billing, invoices, payouts, route changes, and Tinker claims remain disabled |
 | Adapter billing readiness | `npm run proof:adapter-billing-readiness` | none | CI-safe gate available; adapter billing, usage writes, invoices, provider payouts, route changes, and Tinker claims remain disabled until strict load proof, endpoint smoke, funded principal, minimum-balance policy, attribution, settlement, and founder approval exist |
 | LoRA GPU training artifact proof | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` | provider GPU host or pod, approved dataset fixture, artifact storage key, training budget window | Command available; currently records readiness blockers and stops before training job creation |
@@ -234,8 +235,9 @@ before or with the feature change.
 7. **Adapter deployment and dedicated endpoints**
    - Gate: `proof:adapter-deployment-contract`,
      `proof:adapter-vllm-live-load`, deployment intent, vLLM adapter load
-    proof, endpoint smoke, `proof:adapter-billing-readiness`, and inference
-    billing proof for adapter traffic.
+     proof, `proof:adapter-endpoint-smoke`,
+     `proof:adapter-usage-attribution`, `proof:adapter-billing-readiness`, and
+     inference billing proof for adapter traffic.
    - Route traffic remains disabled until proof matches deployment id, adapter
      id, base model, mode, and artifact checksum.
 8. **Product packaging**
@@ -493,6 +495,10 @@ Required gates:
   `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`
   to verify readiness before any live adapter load, endpoint smoke, or adapter
   billing claim.
+- Adapter endpoint smoke readiness: run
+  `npm run proof:adapter-endpoint-smoke` before any endpoint-smoke recording,
+  adapter route traffic, usage ledger write, billed dedicated-endpoint claim,
+  or raw prompt/response evidence handling.
 - Adapter usage attribution readiness: run
   `npm run proof:adapter-usage-attribution` before any adapter usage ledger
   write or billed dedicated-endpoint claim.
