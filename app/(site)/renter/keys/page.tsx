@@ -87,6 +87,23 @@ interface RenterMe {
   }
 }
 
+interface BudgetStatusResponse {
+  v1_inference?: {
+    monthly_spend_cap_halala?: number
+    monthly_spend_cap_unlimited?: boolean
+    remaining_cap_halala?: number | null
+  }
+  api_keys?: {
+    active?: number
+    billing?: number
+    inference?: number
+    per_key_budgets_available?: boolean
+  }
+  claims?: {
+    per_key_budgets_enforced?: boolean
+  }
+}
+
 type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
 
 interface CreateKeyResponse extends ApiKey {
@@ -157,7 +174,9 @@ function toRow(k: ApiKey): KeyRow {
 }
 
 const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+const sarFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const halToSar = (h: number) => h / 100
+const fmtSar = (value: number | null) => (typeof value === 'number' && Number.isFinite(value) ? sarFmt.format(value) : '—')
 
 export default function RenterKeysPage() {
   const { lang, toggle } = useV2()
@@ -170,6 +189,10 @@ export default function RenterKeysPage() {
   const [workspaceName, setWorkspaceName] = useState('')
   const [balanceSar, setBalanceSar] = useState<number | null>(null)
   const [totalSpentSar, setTotalSpentSar] = useState<number | null>(null)
+  const [monthlyCapSar, setMonthlyCapSar] = useState<number | null>(null)
+  const [remainingCapSar, setRemainingCapSar] = useState<number | null>(null)
+  const [accountCapUnlimited, setAccountCapUnlimited] = useState(true)
+  const [perKeyBudgetsEnforced, setPerKeyBudgetsEnforced] = useState(false)
   const [showNewCard, setShowNewCard] = useState(false)
   const [newLabel, setNewLabel] = useState('production-server')
   const [newScopes, setNewScopes] = useState<string[]>(['inference'])
@@ -205,9 +228,10 @@ export default function RenterKeysPage() {
     try {
       const base = getApiBase()
       const headers = { 'x-renter-key': key }
-      const [meRes, res] = await Promise.all([
+      const [meRes, res, budgetRes] = await Promise.all([
         fetch(`${base}/renters/me`, { headers }),
         fetch(`${base}/renters/me/keys`, { headers }),
+        fetch(`${base}/renters/me/budget-status?period=30d`, { headers }),
       ])
       if (meRes.ok) {
         const me = (await meRes.json().catch(() => ({}))) as RenterMe
@@ -216,6 +240,15 @@ export default function RenterKeysPage() {
         setWorkspaceName(renter?.organization || '')
         setBalanceSar(typeof renter?.balance_halala === 'number' ? halToSar(renter.balance_halala) : null)
         setTotalSpentSar(typeof renter?.total_spent_halala === 'number' ? halToSar(renter.total_spent_halala) : null)
+      }
+      if (budgetRes.ok) {
+        const budget = (await budgetRes.json().catch(() => ({}))) as BudgetStatusResponse
+        const capHalala = budget.v1_inference?.monthly_spend_cap_halala
+        const remainingHalala = budget.v1_inference?.remaining_cap_halala
+        setAccountCapUnlimited(Boolean(budget.v1_inference?.monthly_spend_cap_unlimited))
+        setMonthlyCapSar(typeof capHalala === 'number' ? halToSar(capHalala) : null)
+        setRemainingCapSar(typeof remainingHalala === 'number' ? halToSar(remainingHalala) : null)
+        setPerKeyBudgetsEnforced(Boolean(budget.claims?.per_key_budgets_enforced))
       }
       const data: KeysResponse & { error?: string } = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Failed to load API keys.')
@@ -515,6 +548,29 @@ export default function RenterKeysPage() {
               {error}
             </div>
           )}
+
+          <div className="key-budget-grid">
+            <div>
+              <span className="k">
+                <Bi en="Account v1 cap" ar="حد v1 للحساب" />
+              </span>
+              <b>{accountCapUnlimited ? <Bi en="Unlimited" ar="غير محدود" /> : `SAR ${fmtSar(monthlyCapSar)}`}</b>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Remaining" ar="المتبقي" />
+              </span>
+              <b>{remainingCapSar == null ? '—' : `SAR ${fmtSar(remainingCapSar)}`}</b>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Key-level caps" ar="حدود المفاتيح" />
+              </span>
+              <b>
+                {perKeyBudgetsEnforced ? <Bi en="Enforced" ar="مفعلة" /> : <Bi en="Gated" ar="مقيّدة" />}
+              </b>
+            </div>
+          </div>
 
           {/* New key */}
           <div

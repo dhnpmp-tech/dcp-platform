@@ -89,7 +89,7 @@ The parts to tighten:
 | Prompt caching | DCP cached input discount | Hash-only measurement, usage fields, and readiness contract exist; discounts are gated | Add settlement proof and provider cache-hit evidence before discounting |
 | Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist | Add customer-facing eval jobs and published Arabic task benchmarks |
 | Routers | DCP model/router selection | Basic provider routing and demand telemetry exist | Add policy-driven router objects and model fallback rules |
-| Quotas/usage export | Renter/admin controls | Partial billing/usage data exists | Add API-key budgets, export, and team usage pages |
+| Quotas/usage export | Renter/admin controls | Account v1 cap status and scoped usage export exist; per-key budgets are gated | Add scoped-key attribution, per-key budget enforcement, and team usage pages |
 | CLI/connectors | `dcp` / `dcpconnect` | `dcp` launcher exists for Claude Code path | Extend to Codex/Cursor/OpenCode configs after Anthropic/OpenAI paths are stable |
 
 ## Roadmap
@@ -507,6 +507,11 @@ Acceptance:
     adapter creation, deployment creation, load-proof mutation, endpoint smoke,
     route traffic, and billing remain gated until a real adapter/vLLM/funded
     proof window exists.**
+18. **Renter quotas and usage export** - Fireworks-style account controls before
+    team budgets. **Started in PR #848 with billing-scoped
+    `/api/renters/me/usage/export`, `/api/renters/me/budget-status`, and
+    renter-console budget visibility; per-key spend attribution and per-key
+    budget enforcement remain blocked until usage rows store the scoped key id.**
 
 ## Division of Work
 
