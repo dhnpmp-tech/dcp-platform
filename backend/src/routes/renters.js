@@ -2870,6 +2870,53 @@ function summarizeScopedKeys(renterId, cutoff) {
   return counts;
 }
 
+function buildTeamUsageReadiness(keyCounts, rollup = null) {
+  const attributedSpendHalala = Number(keyCounts.attributed_spend_30d_halala || 0);
+  const rollupRequests = Number(rollup?.totals?.requests || 0);
+  const rollupSpendHalala = Number(rollup?.totals?.spend_halala || 0);
+  return {
+    object: 'team_usage_readiness',
+    version: 'dcp.team_usage_readiness.v1',
+    current_mode: 'scoped_key_controls_only',
+    summary: 'Scoped-key attribution and per-key caps are live; true team-member rollups require org member identity before they can be claimed.',
+    live_controls: {
+      account_v1_spend_cap: true,
+      workspace_usage_export: true,
+      scoped_key_spend_attribution: Boolean(keyCounts.per_key_spend_available),
+      scoped_key_budget_caps: Boolean(keyCounts.per_key_budgets_available),
+    },
+    gated_controls: {
+      team_member_rollups: true,
+      team_member_budget_enforcement: true,
+      org_member_identity_required: true,
+    },
+    counts: {
+      active_keys: Number(keyCounts.active || 0),
+      budgeted_keys: Number(keyCounts.budgeted || 0),
+      attributed_requests_30d: Number(keyCounts.attributed_requests_30d || rollupRequests || 0),
+      attributed_spend_30d_halala: attributedSpendHalala || rollupSpendHalala,
+      attributed_spend_30d_sar: sarFromHalala(attributedSpendHalala || rollupSpendHalala),
+      rollup_rows: Number(rollup?.rows?.length || keyCounts.total || 0),
+      unattributed_requests_30d: Number(rollup?.unattributed?.requests || 0),
+    },
+    endpoints: {
+      usage_export: 'GET /api/renters/me/usage/export',
+      budget_status: 'GET /api/renters/me/budget-status',
+      usage_by_key: 'GET /api/renters/me/usage/by-key',
+    },
+    next_step: 'Add org member identity, then promote scoped-key rollups into member/team rollups.',
+    claim_guards: {
+      creates_team_members: false,
+      mutates_usage: false,
+      mutates_budgets: false,
+      changes_billing: false,
+      dispatches_inference: false,
+      exposes_key_secret: false,
+      claims_team_member_rollups_live: false,
+    },
+  };
+}
+
 function buildRenterBudgetStatus(authCtx, periodInfo) {
   const renter = db.get(
     `SELECT id, organization, balance_halala, total_spent_halala, total_jobs,
@@ -2954,6 +3001,7 @@ function buildRenterBudgetStatus(authCtx, periodInfo) {
     api_keys: {
       ...keyCounts,
     },
+    team_usage_readiness: buildTeamUsageReadiness(keyCounts),
     claims: {
       v1_account_spend_cap_gate_live: true,
       workspace_usage_export_live: true,
@@ -3142,6 +3190,7 @@ router.get('/me/usage/by-key', (req, res) => {
 
     const periodInfo = normalizeRenterUsagePeriod(req.query.period);
     const rollup = queryRenterUsageByKey(auth.authCtx.renter.id, periodInfo.cutoff);
+    const keyCounts = summarizeScopedKeys(auth.authCtx.renter.id, periodInfo.cutoff);
     return res.json({
       object: 'renter_usage_by_key',
       version: 'dcp.renter_usage_by_key.v1',
@@ -3156,9 +3205,10 @@ router.get('/me/usage/by-key', (req, res) => {
         org_id: auth.authCtx.orgId || deriveOrgId(auth.authCtx.renter),
       },
       ...rollup,
+      team_usage_readiness: buildTeamUsageReadiness(keyCounts, rollup),
       claims: {
-        per_key_spend_attribution_live: openrouterUsageHasColumn('renter_api_key_id'),
-        per_key_budgets_enforced: renterApiKeysHasColumn('monthly_spend_cap_halala'),
+        per_key_spend_attribution_live: keyCounts.per_key_spend_available,
+        per_key_budgets_enforced: keyCounts.per_key_budgets_available,
         team_member_rollups_live: false,
       },
     });

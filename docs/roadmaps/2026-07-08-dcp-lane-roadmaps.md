@@ -283,7 +283,10 @@ what is live.
 - Team/workspace usage exports.
   **Renter-scoped v1 usage CSV/JSON export started in PR #848; team/member
   rollups start in PR #851 with scoped-key usage tables; true team-member
-  identities remain the next layer.**
+  identities remain the next layer. PR #906 adds the explicit
+  `team_usage_readiness` contract plus Usage-console rail so scoped-key controls
+  are visible as the current team/workspace proxy while member rollups stay
+  gated.**
 - Enterprise quota and routing policy UI.
 - Case-study pages and GCC startup credits flow.
 
@@ -391,7 +394,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 - Team-level API key budgets.
   **Per-key budget enforcement starts in PR #850 with default-unlimited scoped
   key caps, management APIs, and pre-dispatch 402s; PR #851 adds scoped-key
-  operator rollups for the Usage console.**
+  operator rollups for the Usage console. PR #906 adds a read-only team
+  readiness rail that keeps true member budgets gated behind org-member
+  identity.**
 - Minimum-balance policy visibility.
   **PR #855 adds billing-scoped `/api/renters/me/minimum-balances`,
   `npm run proof:minimum-balance-readiness`, and a renter Usage page strip for

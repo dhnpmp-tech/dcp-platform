@@ -164,6 +164,43 @@ interface UsageByKeyRow {
   cap_utilization_pct?: number | null
 }
 
+interface TeamUsageReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  summary?: string
+  live_controls?: {
+    account_v1_spend_cap?: boolean
+    workspace_usage_export?: boolean
+    scoped_key_spend_attribution?: boolean
+    scoped_key_budget_caps?: boolean
+  }
+  gated_controls?: {
+    team_member_rollups?: boolean
+    team_member_budget_enforcement?: boolean
+    org_member_identity_required?: boolean
+  }
+  counts?: {
+    active_keys?: number
+    budgeted_keys?: number
+    attributed_requests_30d?: number
+    attributed_spend_30d_halala?: number
+    attributed_spend_30d_sar?: number
+    rollup_rows?: number
+    unattributed_requests_30d?: number
+  }
+  next_step?: string
+  claim_guards?: {
+    creates_team_members?: boolean
+    mutates_usage?: boolean
+    mutates_budgets?: boolean
+    changes_billing?: boolean
+    dispatches_inference?: boolean
+    exposes_key_secret?: boolean
+    claims_team_member_rollups_live?: boolean
+  }
+}
+
 interface UsageByKeyResponse {
   rows?: UsageByKeyRow[]
   unattributed?: {
@@ -177,6 +214,7 @@ interface UsageByKeyResponse {
     per_key_budgets_enforced?: boolean
     team_member_rollups_live?: boolean
   }
+  team_usage_readiness?: TeamUsageReadiness
 }
 
 interface BudgetStatusResponse {
@@ -202,6 +240,7 @@ interface BudgetStatusResponse {
     workspace_usage_export_live?: boolean
     per_key_budgets_enforced?: boolean
   }
+  team_usage_readiness?: TeamUsageReadiness
 }
 
 interface MinimumBalanceReadinessResponse {
@@ -473,6 +512,26 @@ export default function RenterUsagePage() {
     minRails.adapter_deployments,
     minRails.evaluators,
   ].filter((rail) => rail && rail.enforcement_live === false).length
+  const teamUsageReadiness = usageByKey?.team_usage_readiness || budgetStatus?.team_usage_readiness || null
+  const teamLive = teamUsageReadiness?.live_controls || {}
+  const teamGated = teamUsageReadiness?.gated_controls || {}
+  const teamCounts = teamUsageReadiness?.counts || {}
+  const teamReadinessMode = teamUsageReadiness?.current_mode === 'scoped_key_controls_only'
+    ? 'Scoped-key controls'
+    : 'Checking controls'
+  const teamSpendSar =
+    typeof teamCounts.attributed_spend_30d_sar === 'number'
+      ? teamCounts.attributed_spend_30d_sar
+      : halalaToSar(teamCounts.attributed_spend_30d_halala)
+  const teamGuardClean = teamUsageReadiness?.claim_guards
+    ? teamUsageReadiness.claim_guards.creates_team_members === false &&
+      teamUsageReadiness.claim_guards.mutates_usage === false &&
+      teamUsageReadiness.claim_guards.mutates_budgets === false &&
+      teamUsageReadiness.claim_guards.changes_billing === false &&
+      teamUsageReadiness.claim_guards.dispatches_inference === false &&
+      teamUsageReadiness.claim_guards.exposes_key_secret === false &&
+      teamUsageReadiness.claim_guards.claims_team_member_rollups_live === false
+    : false
 
   const modelRows = useMemo(() => {
     const byModel = new Map<string, number>()
@@ -756,6 +815,65 @@ export default function RenterUsagePage() {
               <b><Bi en={minimumBalances?.claim_guards?.changes_enforcement ? 'Mutating' : 'No change'} ar={minimumBalances?.claim_guards?.changes_enforcement ? 'يغير' : 'لا تغيير'} /></b>
             </div>
           </div>
+
+          <section className="team-readiness" aria-label={lang === 'ar' ? 'جاهزية استخدام الفريق' : 'Team usage readiness'}>
+            <div className="team-readiness-copy">
+              <span className="team-readiness-k">
+                <Bi en="Team usage readiness" ar="جاهزية استخدام الفريق" />
+              </span>
+              <strong>
+                <Bi en={teamReadinessMode} ar="ضوابط المفاتيح المحددة" />
+              </strong>
+              <span>
+                <Bi
+                  en={teamUsageReadiness?.summary || 'Scoped-key attribution is the current team proxy; team-member rollups stay gated.'}
+                  ar="تجميع المفاتيح المحددة هو البديل الحالي للفريق؛ تجميع الأعضاء ما زال مقيداً."
+                />
+              </span>
+            </div>
+            <div className="team-readiness-grid">
+              <span className={teamLive.workspace_usage_export ? 'ready' : 'checking'}>
+                <b><Bi en="Usage export" ar="تصدير الاستخدام" /></b>
+                <Bi en={teamLive.workspace_usage_export ? 'Live' : 'Checking'} ar={teamLive.workspace_usage_export ? 'مفعل' : 'قيد الفحص'} />
+              </span>
+              <span className={teamLive.scoped_key_spend_attribution ? 'ready' : 'checking'}>
+                <b><Bi en="Scoped-key spend" ar="إنفاق المفتاح" /></b>
+                <Bi en={teamLive.scoped_key_spend_attribution ? 'Attributed' : 'Gated'} ar={teamLive.scoped_key_spend_attribution ? 'منسوب' : 'مقيد'} />
+              </span>
+              <span className={teamLive.scoped_key_budget_caps ? 'ready' : 'checking'}>
+                <b><Bi en="Per-key caps" ar="حدود كل مفتاح" /></b>
+                <Bi en={teamLive.scoped_key_budget_caps ? 'Enforced' : 'Gated'} ar={teamLive.scoped_key_budget_caps ? 'مفعلة' : 'مقيدة'} />
+              </span>
+              <span className={teamGated.team_member_rollups ? 'blocked' : 'ready'}>
+                <b><Bi en="Member rollups" ar="تجميع الأعضاء" /></b>
+                <Bi en={teamGated.team_member_rollups ? 'Gated' : 'Live'} ar={teamGated.team_member_rollups ? 'مقيد' : 'مفعل'} />
+              </span>
+              <span>
+                <b><Bi en="Active keys" ar="مفاتيح نشطة" /></b>
+                {numFmt.format(teamCounts.active_keys || scopedActiveKeys)}
+              </span>
+              <span>
+                <b><Bi en="Budgeted keys" ar="مفاتيح بحدود" /></b>
+                {numFmt.format(teamCounts.budgeted_keys || 0)}
+              </span>
+              <span>
+                <b><Bi en="Attributed requests" ar="طلبات منسوبة" /></b>
+                {numFmt.format(teamCounts.attributed_requests_30d || 0)}
+              </span>
+              <span>
+                <b><Bi en="Attributed spend" ar="إنفاق منسوب" /></b>
+                SAR {fmtSar(teamSpendSar)}
+              </span>
+            </div>
+            <div className="team-readiness-foot">
+              <span className={teamGuardClean ? 'ready' : 'checking'}>
+                <Bi en={teamGuardClean ? 'Read-only: no team, usage, billing, or inference mutation' : 'Readiness contract checking'} ar={teamGuardClean ? 'قراءة فقط: لا تغيير للفريق أو الاستخدام أو الفوترة أو الاستدلال' : 'عقد الجاهزية قيد الفحص'} />
+              </span>
+              <span>
+                <Bi en={teamUsageReadiness?.next_step || 'Next: org member identity before member rollups.'} ar="التالي: هوية أعضاء المؤسسة قبل تجميع الأعضاء." />
+              </span>
+            </div>
+          </section>
 
           <div className="kpi-row" style={{ marginTop: 36 }}>
             <div className="kpi featured">

@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 18:04 UTC - `feat(usage): surface scoped-key team readiness - PR #906`
+
+**PR:** [#906](https://github.com/dhnpmp-tech/dcp-platform/pull/906) (`codex/usage-team-readiness-rail-2026-07-09`).
+**Local timestamp:** 2026-07-09 22:04 +04.
+
+**What:** Fireworks/Tinker usage-controls slice. Makes the current team-usage boundary inspectable from both the backend contract and renter Usage console without claiming true team-member rollups are live.
+
+- **Backend contract:** Added `team_usage_readiness` to `GET /api/renters/me/budget-status` and `GET /api/renters/me/usage/by-key`, including live scoped-key controls, gated team-member controls, counts, next step, endpoints, and read-only claim guards.
+- **Usage UX:** `/renter/usage` now shows a compact Team usage readiness rail with usage export, scoped-key attribution, per-key cap enforcement, member-rollup gate, active/budgeted key counts, attributed requests/spend, and read-only guard state.
+- **Honesty:** The rail explicitly keeps true team-member rollups and team-member budget enforcement gated until org-member identity exists; scoped keys remain the current team/workspace proxy.
+- **Regression:** Added backend assertions for the readiness packet and a mocked Playwright regression for the Usage rail and scoped-key table state.
+- **Safety:** Read-only contract/UI change; no team-member creation, usage mutation, key secret exposure, budget mutation, billing change, inference dispatch, account cap change, scoped-key cap enforcement change, settlement, prompt-cache discount, batch execution, LoRA training, adapter deployment, provider selection, or Tinker claim changed.
+- **Verification:** Targeted renter usage/budget Jest suite; focused `/renter/usage` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 17:37 UTC - `feat(models): add catalog-aware ALLaM and Qwen pages - PR #905`
 
 **PR:** [#905](https://github.com/dhnpmp-tech/dcp-platform/pull/905) (`codex/model-pages-allam-qwen-readiness-2026-07-09`).
