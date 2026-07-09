@@ -542,6 +542,10 @@ Goal: ship the first real train-here/deploy-here loop.
     request fan-out.
   - PR #787 added copyable API snippets for readiness, training jobs, adapters,
     deployment intents, and gated deploy-intent creation.
+  - PR #913 adds the dataset-ledger piece of the dashboard from existing
+    training-job metadata, showing storage keys, checksums, splits, token
+    estimates, latest job state, raw-row persistence disabled, and GPU worker
+    off without claiming training execution or raw dataset storage.
   - PR #822 added `npm run proof:adapter-deployment-contract`, the CI-safe
     adapter deployment proof packet that verifies deployment intent stays
     non-routing, mismatched load proof stays degraded, and only matching

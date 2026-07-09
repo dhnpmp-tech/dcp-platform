@@ -45,7 +45,38 @@ async function mockFineTuningApis(page: Page) {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ object: 'list', data: [], count: 0, limit: 50, offset: 0 }),
+        body: JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              training_job_id: 'lora_job_dataset_001',
+              recipe: 'lora_sft',
+              base_model: 'Qwen/Qwen2.5-7B-Instruct',
+              dataset_storage_key: 'datasets/support/train.jsonl',
+              dataset_checksum_sha256: 'a'.repeat(64),
+              dataset_format: 'jsonl_prompt_completion',
+              dataset_row_count: 1280,
+              train_rows: 1152,
+              validation_rows: 128,
+              estimated_tokens: 184320,
+              output_adapter_name: 'support-arabic-lora',
+              output_adapter_id: 'adpt_support_arabic',
+              status: 'queued',
+              artifact_storage_key: null,
+              artifact_checksum_sha256: null,
+              model_card_storage_key: null,
+              model_card_manifest: null,
+              failure_reason: null,
+              training_enabled: false,
+              adapter_registered: false,
+              created_at: '2026-07-09T12:00:00Z',
+              updated_at: '2026-07-09T12:00:00Z',
+            },
+          ],
+          count: 1,
+          limit: 50,
+          offset: 0,
+        }),
       });
     }
 
@@ -174,6 +205,24 @@ test('renter Fine-Tuning readiness shows registry proof status', async ({ page, 
   await expect(creditPreflight).toContainText('Blocked billing rails');
   await expect(creditPreflight).toContainText('5');
   await expect(creditPreflight).toContainText('Read-only: no enforcement change');
+  const datasetPolicy = page.getByLabel('LoRA dataset policy');
+  await expect(datasetPolicy).toContainText('Validation');
+  await expect(datasetPolicy).toContainText('available');
+  await expect(datasetPolicy).toContainText('Raw rows');
+  await expect(datasetPolicy).toContainText('not persisted');
+  await expect(datasetPolicy).toContainText('Training job');
+  await expect(datasetPolicy).toContainText('metadata only');
+  await expect(datasetPolicy).toContainText('GPU worker');
+  await expect(datasetPolicy).toContainText('off');
+  await expect(page.getByText('Validated datasets')).toBeVisible();
+  const datasetTable = page.locator('.ft-dataset-table');
+  await expect(datasetTable).toContainText('datasets/support/train.jsonl');
+  await expect(datasetTable).toContainText('1,280 rows');
+  await expect(datasetTable).toContainText('jsonl_prompt_completion · train 1,152 · val 128');
+  await expect(datasetTable).toContainText('184,320');
+  await expect(datasetTable).toContainText('Qwen/Qwen2.5-7B-Instruct');
+  await expect(datasetTable).toContainText('raw rows not stored');
+  await expect(datasetTable).toContainText('trainer off');
   await expect(page.locator('.ft-supported')).toContainText('training off');
   await expect(page.locator('.ft-supported')).toContainText('routes off');
 });

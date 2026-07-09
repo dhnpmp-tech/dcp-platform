@@ -136,6 +136,24 @@ interface TrainingJobListResponse {
   error?: string
 }
 
+interface DatasetLedgerRow {
+  id: string
+  storage_key: string
+  checksum_sha256: string
+  format: string
+  row_count: number
+  train_rows: number
+  validation_rows: number
+  estimated_tokens: number
+  job_count: number
+  latest_status: string
+  latest_created_at: string
+  base_models: string[]
+  recipes: string[]
+  raw_dataset_persistence: false
+  training_enabled: boolean
+}
+
 interface LoraReadiness {
   object: 'lora_readiness'
   version: string
@@ -495,6 +513,52 @@ function gateLabel(enabled: boolean | undefined): string {
   return enabled ? 'live' : 'off'
 }
 
+function buildDatasetLedgerRows(jobs: TrainingJobRecord[]): DatasetLedgerRow[] {
+  const rows = new Map<string, DatasetLedgerRow>()
+
+  for (const job of jobs) {
+    const id = job.dataset_checksum_sha256 || job.dataset_storage_key || job.training_job_id
+    const existing = rows.get(id)
+    if (existing) {
+      existing.job_count += 1
+      existing.row_count = Math.max(existing.row_count, job.dataset_row_count || 0)
+      existing.train_rows = Math.max(existing.train_rows, job.train_rows || 0)
+      existing.validation_rows = Math.max(existing.validation_rows, job.validation_rows || 0)
+      existing.estimated_tokens = Math.max(existing.estimated_tokens, job.estimated_tokens || 0)
+      existing.training_enabled = existing.training_enabled || job.training_enabled
+      if (job.base_model && !existing.base_models.includes(job.base_model)) existing.base_models.push(job.base_model)
+      if (job.recipe && !existing.recipes.includes(job.recipe)) existing.recipes.push(job.recipe)
+      if (new Date(job.created_at).getTime() > new Date(existing.latest_created_at).getTime()) {
+        existing.latest_status = job.status
+        existing.latest_created_at = job.created_at
+      }
+      continue
+    }
+
+    rows.set(id, {
+      id,
+      storage_key: job.dataset_storage_key,
+      checksum_sha256: job.dataset_checksum_sha256,
+      format: job.dataset_format,
+      row_count: job.dataset_row_count || 0,
+      train_rows: job.train_rows || 0,
+      validation_rows: job.validation_rows || 0,
+      estimated_tokens: job.estimated_tokens || 0,
+      job_count: 1,
+      latest_status: job.status,
+      latest_created_at: job.created_at,
+      base_models: job.base_model ? [job.base_model] : [],
+      recipes: job.recipe ? [job.recipe] : [],
+      raw_dataset_persistence: false,
+      training_enabled: job.training_enabled,
+    })
+  }
+
+  return Array.from(rows.values()).sort((a, b) => (
+    new Date(b.latest_created_at).getTime() - new Date(a.latest_created_at).getTime()
+  ))
+}
+
 export default function RenterFineTuningPage() {
   const { lang, toggle } = useV2()
   const [navOpen, setNavOpen] = useState(false)
@@ -606,6 +670,7 @@ export default function RenterFineTuningPage() {
   const adapterRows = adapters.slice(0, 6)
   const deploymentRows = adapterDeployments.slice(0, 6)
   const trainingJobRows = trainingJobs.slice(0, 6)
+  const datasetLedgerRows = buildDatasetLedgerRows(trainingJobs).slice(0, 6)
   const manifestRows = trainingJobs.filter((job) => job.model_card_manifest).slice(0, 4)
   const totalDatasetRows = trainingJobs.reduce((sum, job) => sum + (job.dataset_row_count || 0), 0)
   const totalEstimatedTokens = trainingJobs.reduce((sum, job) => sum + (job.estimated_tokens || 0), 0)
@@ -1001,6 +1066,112 @@ export default function RenterFineTuningPage() {
 
           <section className="ft-grid" aria-label={lang === 'ar' ? 'حالة السجل والعقود' : 'Registry and contract state'}>
             <div className="ft-ledger-stack">
+              <div className="ft-ledger">
+                <div className="ft-section-head compact">
+                  <div>
+                    <span className="pod-label">
+                      <Bi en="Dataset ledger" ar="سجل البيانات" />
+                    </span>
+                    <h2>
+                      <Bi en="Validated datasets" ar="البيانات المتحقق منها" />
+                    </h2>
+                  </div>
+                  <span className="ft-contract-id mono">POST /api/lora/datasets/validate</span>
+                </div>
+
+                <div className="ft-dataset-policy" aria-label={lang === 'ar' ? 'سياسة بيانات LoRA' : 'LoRA dataset policy'}>
+                  <div>
+                    <span><Bi en="Validation" ar="التحقق" /></span>
+                    <b>{readinessLabel(readiness?.dataset_validation?.status || (readiness?.dataset_validation?.available ? 'available' : undefined))}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Raw rows" ar="الصفوف الخام" /></span>
+                    <b><Bi en="not persisted" ar="لا تُخزن" /></b>
+                  </div>
+                  <div>
+                    <span><Bi en="Training job" ar="مهمة التدريب" /></span>
+                    <b><Bi en="metadata only" ar="بيانات وصفية فقط" /></b>
+                  </div>
+                  <div>
+                    <span><Bi en="GPU worker" ar="عامل GPU" /></span>
+                    <b>{gateLabel(readiness?.training_jobs?.worker_execution_enabled)}</b>
+                  </div>
+                </div>
+
+                {datasetLedgerRows.length > 0 ? (
+                  <div className="ft-table-wrap">
+                    <table className="tbl ft-table ft-dataset-table">
+                      <thead>
+                        <tr>
+                          <th><Bi en="Dataset" ar="البيانات" /></th>
+                          <th><Bi en="Rows" ar="الصفوف" /></th>
+                          <th><Bi en="Tokens" ar="الرموز" /></th>
+                          <th><Bi en="Models" ar="النماذج" /></th>
+                          <th><Bi en="Jobs" ar="المهام" /></th>
+                          <th><Bi en="Guards" ar="الحراس" /></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {datasetLedgerRows.map((dataset) => (
+                          <tr key={dataset.id}>
+                            <td>
+                              <span className="mono">{dataset.storage_key}</span>
+                              <span className="ft-table-sub mono">{shortChecksum(dataset.checksum_sha256)}</span>
+                            </td>
+                            <td>
+                              <span>
+                                <Bi en={`${formatNumber(dataset.row_count)} rows`} ar={`${formatNumber(dataset.row_count)} صف`} />
+                              </span>
+                              <span className="ft-table-sub">
+                                <Bi
+                                  en={`${dataset.format} · train ${formatNumber(dataset.train_rows)} · val ${formatNumber(dataset.validation_rows)}`}
+                                  ar={`${dataset.format} · تدريب ${formatNumber(dataset.train_rows)} · تحقق ${formatNumber(dataset.validation_rows)}`}
+                                />
+                              </span>
+                            </td>
+                            <td className="mono">{formatNumber(dataset.estimated_tokens)}</td>
+                            <td>
+                              <span className="mono">{dataset.base_models[0] || '-'}</span>
+                              {dataset.base_models.length > 1 && (
+                                <span className="ft-table-sub">+{dataset.base_models.length - 1} more</span>
+                              )}
+                              <span className="ft-table-sub mono">{dataset.recipes.join(' · ') || '-'}</span>
+                            </td>
+                            <td>
+                              <span>{dataset.job_count}</span>
+                              <span className="ft-table-sub">{dataset.latest_status} · {formatDate(dataset.latest_created_at)}</span>
+                            </td>
+                            <td>
+                              <span className="ft-gate-list">
+                                <span><Bi en="raw rows not stored" ar="الصفوف الخام لا تُخزن" /></span>
+                                <span>
+                                  <Bi
+                                    en={dataset.training_enabled ? 'trainer on' : 'trainer off'}
+                                    ar={dataset.training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'}
+                                  />
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="ft-empty">
+                    <b>
+                      <Bi en="No dataset ledger rows yet" ar="لا توجد صفوف بيانات بعد" />
+                    </b>
+                    <span>
+                      <Bi
+                        en="Validate-only checks return checksum, split, row, and token facts. Ledger rows appear after a metadata training job references the dataset; raw rows are not persisted here."
+                        ar="تعيد فحوصات التحقق فقط البصمة والتقسيم والصفوف والرموز. تظهر صفوف السجل بعد أن تشير مهمة تدريب وصفية إلى البيانات؛ لا تُخزن الصفوف الخام هنا."
+                      />
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className="ft-ledger">
                 <div className="ft-section-head compact">
                   <div>

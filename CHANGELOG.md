@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 19:42 UTC - `feat(fine-tuning): surface dataset ledger in renter console - PR #913`
+
+**PR:** [#913](https://github.com/dhnpmp-tech/dcp-platform/pull/913) (`codex/fine-tuning-dataset-ledger-2026-07-09-v2`).
+**Local timestamp:** 2026-07-09 23:42 +04.
+
+**What:** LoRA/Tinker dashboard follow-up. Makes the `/renter/fine-tuning` dashboard's datasets rail explicit by deriving a read-only dataset ledger from existing LoRA training-job metadata.
+
+- **Dataset ledger:** Added a validated-datasets section to the renter Fine-Tuning console with dataset storage key, checksum, row count, train/validation split, estimated tokens, base model, recipe, job count, and latest job status.
+- **Dataset policy:** Added a compact policy strip showing validate-only status, raw-row persistence disabled, metadata-only training jobs, and GPU worker gate state.
+- **Honesty:** The ledger is derived from training-job metadata only; it does not claim raw dataset storage, GPU training execution, adapter artifact writing, serving, route traffic, billing, discounts, or Tinker compatibility.
+- **Regression:** Extended the focused Fine-Tuning Playwright regression with a mocked metadata training job and assertions for dataset policy, dataset ledger rows, raw-row guard copy, and trainer-off state.
+- **Safety:** Frontend/read-only UX change; no LoRA validation semantics, training-job creation, raw dataset persistence, worker execution, adapter registration, deployment, route traffic, billing, balance mutation, provider selection, prompt-cache discount, batch execution, or Tinker claim changed.
+- **Verification:** Focused Fine-Tuning Playwright regression; TypeScript; LoRA training contract proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:33 UTC - `feat(pods): make stage navigation and launch GPU state unmistakable - PR #912`
 
 **PR:** [#912](https://github.com/dhnpmp-tech/dcp-platform/pull/912) (`codex/pods-stage-navigation-gpu-clarity-2026-07-09`).

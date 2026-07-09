@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 19:42 UTC - Fine-Tuning dataset ledger (PR #913)
+
+- **PR:** [#913](https://github.com/dhnpmp-tech/dcp-platform/pull/913) (`codex/fine-tuning-dataset-ledger-2026-07-09-v2`).
+- **Timestamp:** 2026-07-09 19:42 UTC / 2026-07-09 23:42 +04.
+- **Dataset ledger:** `/renter/fine-tuning` now shows validated dataset rows derived from existing LoRA training-job metadata: storage key, checksum, row count, split, estimated tokens, model, recipe, job count, and latest status.
+- **Dataset policy:** Added a compact policy strip for validate-only status, raw-row persistence disabled, metadata-only training jobs, and GPU worker gate state.
+- **Honesty:** The ledger does not claim raw dataset storage, GPU training execution, artifact writing, adapter serving, route traffic, billing, discounts, or Tinker compatibility.
+- **Regression:** Extended the focused Fine-Tuning Playwright regression with a mocked metadata job and assertions for the dataset ledger and guard copy.
+- **Safety:** Frontend/read-only UX change; no LoRA validation semantics, training-job creation, raw dataset persistence, worker execution, adapter registration, deployment, route traffic, billing, balance mutation, provider selection, prompt-cache discount, batch execution, or Tinker claim changed.
+- **Verification:** Focused Fine-Tuning Playwright regression; TypeScript; LoRA training contract proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:33 UTC - Pods stage navigation and launch GPU state clarity (PR #912)
 
 - **PR:** [#912](https://github.com/dhnpmp-tech/dcp-platform/pull/912) (`codex/pods-stage-navigation-gpu-clarity-2026-07-09`).
