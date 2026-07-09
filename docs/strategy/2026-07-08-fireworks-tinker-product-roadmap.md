@@ -551,6 +551,10 @@ Goal: ship the first real train-here/deploy-here loop.
     be stopped by the renter, and the UI repeats that serving still requires
     internal vLLM load proof, endpoint smoke, and billing approval before
     route traffic or usage writes are allowed.
+  - PR #915 carries that loop to the public `/fine-tuning` page with
+    create-intent and stop-intent snippets plus a four-stage proof path:
+    metadata contracts, non-serving intent control, GPU artifact proof, and
+    adapter load proof.
   - PR #822 added `npm run proof:adapter-deployment-contract`, the CI-safe
     adapter deployment proof packet that verifies deployment intent stays
     non-routing, mismatched load proof stays degraded, and only matching

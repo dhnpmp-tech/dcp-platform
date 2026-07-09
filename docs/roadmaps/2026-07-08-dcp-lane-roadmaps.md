@@ -1096,6 +1096,10 @@ DCP-hosted endpoint -> billed inference.
    adapter deployment proof now verifies stop clears `route_traffic` without
    granting renter load-proof privileges.**
 11. Fireworks-style product pages.
+   **PR #915 updates the public `/fine-tuning` page so the shipped
+   create/stop deployment intent loop is visible before login, including
+   create-intent and stop-intent snippets and separate metadata, intent-control,
+   GPU artifact proof, and adapter load-proof stages.**
 
 ## Lane Proof Commands
 

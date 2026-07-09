@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 20:10 UTC - Public Fine-Tuning deployment intent loop (PR #915)
+
+- **PR:** [#915](https://github.com/dhnpmp-tech/dcp-platform/pull/915) (`codex/public-fine-tuning-deploy-loop-2026-07-09`).
+- **Timestamp:** 2026-07-09 20:10 UTC / 2026-07-10 00:10 +04.
+- **Public product page:** `/fine-tuning` now explains the shipped create/stop deployment intent loop: ready adapters can create proof-gated intent rows and renters can stop stale intents, while load proof and serving remain backend-owned.
+- **API snippets:** Added create-intent and stop-intent curl examples beside LoRA readiness, deployment, endpoint-smoke, usage-attribution, settlement, and billing readiness snippets.
+- **Product boundary:** The public proof path now separates metadata contracts, non-serving intent control, GPU artifact proof, and adapter load proof.
+- **Regression:** Extended the focused Fine-Tuning Playwright regression for the public create/stop loop and routes-off guard.
+- **Safety:** Frontend/static product copy only; no API behavior, deployment mutation, load-proof acceptance, adapter serving, route traffic, endpoint smoke recording, usage write, billing, balance mutation, training execution, prompt-cache discount, batch execution, or Tinker claim changed.
+- **Verification:** Focused Fine-Tuning Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:57 UTC - Fine-Tuning adapter deployment intent management (PR #914)
 
 - **PR:** [#914](https://github.com/dhnpmp-tech/dcp-platform/pull/914) (`codex/adapter-deployment-intent-management-2026-07-09`).
