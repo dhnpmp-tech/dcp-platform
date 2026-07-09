@@ -46,12 +46,23 @@ describe('adapter deployment contract proof script', () => {
         artifact_checksum_sha256: 'a'.repeat(64),
       },
     });
+    expect(report.deployments.renter_stopped_intent).toMatchObject({
+      status: 'stopped',
+      route_traffic: false,
+      failure_reason: null,
+      stopped_at: expect.any(String),
+      serving_load_proof: {
+        deployment_id: 'adpl_contract01',
+        adapter_id: 'adpt_contractproof',
+      },
+    });
     expect(report.invariants.map((item) => item.name)).toEqual([
       'public deployment request cannot attach load proof',
       'mismatched load proof cannot route traffic',
       'artifact checksum mismatch cannot route traffic',
       'matching load proof is required before route traffic',
       'renter deployment list exposes verified running record',
+      'renter stop disables route traffic without load-proof privileges',
     ]);
     expect(fs.existsSync(path.join(outputDir, 'adapter-deployment-contract-proof-latest.json'))).toBe(true);
     expect(fs.existsSync(path.join(outputDir, 'adapter-deployment-contract-proof-latest.md'))).toBe(true);

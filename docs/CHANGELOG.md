@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 19:57 UTC - Fine-Tuning adapter deployment intent management (PR #914)
+
+- **PR:** [#914](https://github.com/dhnpmp-tech/dcp-platform/pull/914) (`codex/adapter-deployment-intent-management-2026-07-09`).
+- **Timestamp:** 2026-07-09 19:57 UTC / 2026-07-09 23:57 +04.
+- **Backend lifecycle:** Added renter-scoped `POST /api/adapters/{adapter_id}/deployments/{deployment_id}/stop` so renters can stop their own adapter deployment intent rows while `serving_enabled` remains false.
+- **Proof gate:** Extended `npm run proof:adapter-deployment-contract` to include renter stop semantics after matching load proof: stopped deployments clear `route_traffic` and do not grant renters load-proof privileges.
+- **Fine-Tuning UX:** `/renter/fine-tuning` now has an Adapter serving path planner with ready-adapter count, active intents, route state, load-proof state, create-gated-intent action, stop-intent action, and the strict proof path from intent to load proof to endpoint smoke to billing approval.
+- **OpenAPI:** Documented the new stop route beside adapter deployment intent and load-proof routes.
+- **Regression:** Extended adapter deployment lifecycle Jest coverage and the focused Fine-Tuning Playwright regression for create/stop intent behavior.
+- **Safety:** No renter-supplied vLLM load proof, adapter serving, route traffic, endpoint smoke recording, usage write, billing, invoice, payout, balance mutation, training execution, prompt-cache discount, batch execution, provider selection, or Tinker claim was enabled.
+- **Verification:** Adapter deployment lifecycle Jest test; adapter deployment contract proof script test; focused Fine-Tuning Playwright regression; TypeScript; adapter deployment contract proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:42 UTC - Fine-Tuning dataset ledger (PR #913)
 
 - **PR:** [#913](https://github.com/dhnpmp-tech/dcp-platform/pull/913) (`codex/fine-tuning-dataset-ledger-2026-07-09-v2`).

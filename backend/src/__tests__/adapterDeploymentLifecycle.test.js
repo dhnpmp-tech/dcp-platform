@@ -15,6 +15,7 @@ const {
   listAllAdapterDeployments,
   listAdapterDeployments,
   getAdapterDeployment,
+  updateDeploymentStatus,
 } = require('../services/adapterDeploymentLifecycle');
 const { createAdaptersRouter } = require('../routes/adapters');
 
@@ -280,6 +281,37 @@ describe('adapter deployment lifecycle service', () => {
       serving_load_proof: null,
     });
   });
+
+  test('renter stop clears route traffic and records stopped_at', () => {
+    const db = makeDb();
+    createAdapter(db, 1, adapterInput());
+    createAdapterDeployment(db, 1, {
+      deployment_id: 'adpl_stop001',
+      adapter_id: 'adpt_deployready',
+      endpoint_id: 'arabic-support-prod',
+    });
+    const running = attachDeploymentLoadProof(db, 1, 'adpl_stop001', {
+      loaded: true,
+      deployment_id: 'adpl_stop001',
+      adapter_id: 'adpt_deployready',
+      base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+      mode: 'single_adapter_live_merge',
+      endpoint_id: 'arabic-support-prod',
+      artifact_checksum_sha256: 'c'.repeat(64),
+      loaded_at: '2026-07-08T08:31:00.000Z',
+    });
+    expect(running).toMatchObject({ status: 'running', route_traffic: true });
+
+    const stopped = updateDeploymentStatus(db, 1, 'adpl_stop001', 'stopped');
+
+    expect(stopped).toMatchObject({
+      status: 'stopped',
+      route_traffic: false,
+      failure_reason: null,
+      adapter_id: 'adpt_deployready',
+    });
+    expect(stopped.stopped_at).toEqual(expect.any(String));
+  });
 });
 
 describe('/api/adapters/:adapterId/deployments route', () => {
@@ -455,5 +487,59 @@ describe('/api/adapters/:adapterId/deployments route', () => {
         },
       },
     });
+  });
+
+  test('renter can stop their deployment intent without load-proof privileges', async () => {
+    const db = makeDb();
+    const app = buildApp(db);
+    createAdapter(db, 1, adapterInput());
+    createAdapter(db, 2, adapterInput({
+      adapter_id: 'adpt_hiddenready',
+      storage_key: 'adapters/r2/hidden/adapter.safetensors',
+      checksum_sha256: 'e'.repeat(64),
+    }));
+    createAdapterDeployment(db, 1, {
+      deployment_id: 'adpl_renterstop',
+      adapter_id: 'adpt_deployready',
+      endpoint_id: 'arabic-support-prod',
+    });
+    attachDeploymentLoadProof(db, 1, 'adpl_renterstop', {
+      loaded: true,
+      deployment_id: 'adpl_renterstop',
+      adapter_id: 'adpt_deployready',
+      base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+      mode: 'single_adapter_live_merge',
+      endpoint_id: 'arabic-support-prod',
+      artifact_checksum_sha256: 'c'.repeat(64),
+      loaded_at: '2026-07-08T08:31:00.000Z',
+    });
+    createAdapterDeployment(db, 2, {
+      deployment_id: 'adpl_hiddenstop',
+      adapter_id: 'adpt_hiddenready',
+    });
+
+    const stopped = await request(app)
+      .post('/api/adapters/adpt_deployready/deployments/adpl_renterstop/stop')
+      .set('x-test-renter-id', '1');
+
+    expect(stopped.status).toBe(200);
+    expect(stopped.body).toMatchObject({
+      serving_enabled: false,
+      next: 'deployment_stopped_by_renter',
+      deployment: {
+        deployment_id: 'adpl_renterstop',
+        adapter_id: 'adpt_deployready',
+        status: 'stopped',
+        route_traffic: false,
+        failure_reason: null,
+      },
+    });
+    expect(stopped.body.deployment.stopped_at).toEqual(expect.any(String));
+
+    const hidden = await request(app)
+      .post('/api/adapters/adpt_hiddenready/deployments/adpl_hiddenstop/stop')
+      .set('x-test-renter-id', '1');
+    expect(hidden.status).toBe(404);
+    expect(hidden.body.code).toBe('deployment_not_found');
   });
 });
