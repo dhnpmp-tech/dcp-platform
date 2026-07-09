@@ -6,6 +6,7 @@ const path = require('path');
 const {
   CONTRACT,
   LIVE_ACCEPTANCE_GATES,
+  buildLiveAcceptanceGateStatus,
   runLiveAcceptanceGateStatus,
   validateReport,
 } = require('../../../scripts/run-live-acceptance-gate-status');
@@ -146,6 +147,35 @@ describe('live acceptance gate status script', () => {
     expect(markdown).toContain('latest_evidence_found: 1/8');
     expect(markdown).toContain('local_agent_detached_head');
     expect(markdown).toContain('active_local_gateway_process');
+  });
+
+  test('builds a read-only status packet without writing artifacts', () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-readonly-output-'));
+    const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-readonly-evidence-'));
+    fs.writeFileSync(path.join(evidenceDir, 'workspace-pod-live-proof-latest.json'), JSON.stringify({
+      generated_at: '2026-07-09T18:54:00.000Z',
+      verdict: 'BLOCKED',
+      blocked_on: ['funded_renter_key', 'launchable_gpu_capacity'],
+    }, null, 2));
+
+    const report = buildLiveAcceptanceGateStatus({
+      evidenceDir,
+      outputDir,
+      generatedAt: '2026-07-09T18:55:00.000Z',
+    });
+    const workspaceGate = report.gates.find((gate) => gate.id === 'workspace_pod_live_launch');
+
+    expect(report.verdict).toBe('PASS');
+    expect(report.generated_at).toBe('2026-07-09T18:55:00.000Z');
+    expect(report.artifacts).toEqual({});
+    expect(report.summary.latest_evidence_found).toBe(1);
+    expect(workspaceGate.latest_evidence).toMatchObject({
+      found: true,
+      verdict: 'BLOCKED',
+      generated_at: '2026-07-09T18:54:00.000Z',
+      blockers: expect.arrayContaining(['funded_renter_key', 'launchable_gpu_capacity']),
+    });
+    expect(fs.readdirSync(outputDir)).toEqual([]);
   });
 
   test('fails validation if a blocked gate would allow product claims', () => {

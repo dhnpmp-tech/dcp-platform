@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 18:54 UTC - `feat(admin): surface live acceptance gates in v2 admin - PR #910`
+
+**PR:** [#910](https://github.com/dhnpmp-tech/dcp-platform/pull/910) (`codex/live-acceptance-admin-panel-2026-07-09`).
+**Local timestamp:** 2026-07-09 22:54 +04.
+
+**What:** Ops/admin hardening follow-up for the Fireworks/Tinker execution order. Moves the CI-safe live-acceptance gate packet from script-only evidence into the guarded v2 admin command center so operators can see blocked live proof gates before changing product claims.
+
+- **Read-only builder:** Split the live-acceptance script into a read-only `buildLiveAcceptanceGateStatus()` builder and the existing report-writing runner, so routes can render the packet without generating report churn.
+- **Backend endpoint:** Added guarded `GET /api/admin/live-acceptance-gates`, returning the `dcp.live_acceptance_gate_status.v1` packet with latest proof evidence, blocked inputs, commands, validation state, and claim guards.
+- **Admin visibility:** Added a v2 admin "Live acceptance gates" panel and rail shortcut showing blocked gates, available commands, latest evidence count, claim-allowed count, contract validation, blockers, and acceptance commands.
+- **Regression:** Added read-only builder coverage, admin route coverage, and frontend static checks for the new panel and route wiring.
+- **Safety:** Read-only ops/admin visibility change; no paid compute, workload launch, provider routing, billing, balance, trial-accounting, adapter serving, prompt-cache discount, batch execution, pod launch, or capability-claim unlock was added.
+- **Verification:** Live-acceptance Jest test; admin live-acceptance route integration test; admin live-acceptance static test; TypeScript; live-acceptance proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 18:42 UTC - `feat(pods): add Stage 2 fast path for launch UX - PR #909`
 
 **PR:** [#909](https://github.com/dhnpmp-tech/dcp-platform/pull/909) (`codex/pods-stage2-fast-path-2026-07-09`).

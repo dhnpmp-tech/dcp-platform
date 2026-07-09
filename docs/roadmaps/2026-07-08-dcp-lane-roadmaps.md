@@ -1026,7 +1026,9 @@ DCP-hosted endpoint -> billed inference.
    inputs, and claim guards visible in one JSON/Markdown artifact. PR #908
    adds latest-proof ingestion so the same packet can show current dcp-agent
    reconciliation blockers and other matching live-gate evidence without
-   enabling any blocked capability.**
+   enabling any blocked capability. PR #910 exposes the same packet through
+   guarded `GET /api/admin/live-acceptance-gates` and the v2 admin Live
+   acceptance gates panel, without running paid compute or unlocking claims.**
 3. Inference metadata/rate consistency.
    **Router-policy readiness proof added in PR #832 as
    `npm run proof:router-policy-contract`; future policy selection remains
