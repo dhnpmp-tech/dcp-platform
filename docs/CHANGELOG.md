@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 21:09 UTC - Prompt-cache settlement readiness contract (PR #918)
+
+- **PR:** [#918](https://github.com/dhnpmp-tech/dcp-platform/pull/918) (`codex/prompt-cache-settlement-readiness-2026-07-10`).
+- **Timestamp:** 2026-07-09 21:09 UTC / 2026-07-10 01:09 +04.
+- **Backend API:** Added public `GET /v1/prompt-cache/settlement/readiness` for the settlement-policy gate behind future cached-input discounts.
+- **Readiness linkage:** `GET /v1/prompt-cache/readiness` now links to the settlement-readiness endpoint so measurement and future settlement gates are discoverable together.
+- **Proof gate:** Added `npm run proof:prompt-cache-settlement-readiness` and included it in `npm run proof:local-roadmap`, covering provider cache-hit evidence, funded smoke principal, usage attribution, policy approval, founder approval, and discount-math reconciliation.
+- **OpenAPI:** Documented the new settlement readiness route and schema.
+- **Safety:** Read-only backend contract and proof only; no cached-input discount, settlement mutation, provider payout, invoice, balance mutation, usage write, provider KV-cache control, inference dispatch, raw prompt storage, route traffic, or Tinker compatibility claim was enabled.
+- **Verification:** Focused backend Jest coverage; prompt-cache settlement readiness proof; local roadmap proof; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 20:50 UTC - Usage account controls packet (PR #917)
 
 - **PR:** [#917](https://github.com/dhnpmp-tech/dcp-platform/pull/917) (`codex/usage-account-controls-packet-2026-07-10`).

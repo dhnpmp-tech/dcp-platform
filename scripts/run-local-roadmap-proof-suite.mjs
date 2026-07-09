@@ -130,6 +130,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_PROMPT_CACHE_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'prompt_cache_settlement_readiness',
+    command: 'npm run proof:prompt-cache-settlement-readiness',
+    outputEnv: 'DCP_PROMPT_CACHE_SETTLEMENT_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'batch_inference_contract',
     command: 'npm run proof:batch-inference-contract',
     outputEnv: 'DCP_BATCH_INFERENCE_PROOF_OUTPUT_DIR',

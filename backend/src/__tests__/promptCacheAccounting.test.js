@@ -24,6 +24,7 @@ describe('prompt-cache accounting foundation', () => {
       status: 'available_measurement_only',
       endpoints: {
         readiness: 'GET /v1/prompt-cache/readiness',
+        settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
         chat_completions: 'POST /v1/chat/completions',
       },
       request_hints: {

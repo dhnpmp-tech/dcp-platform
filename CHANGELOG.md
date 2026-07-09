@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 21:09 UTC - `feat(prompt-cache): add settlement readiness contract - PR #918`
+
+**PR:** [#918](https://github.com/dhnpmp-tech/dcp-platform/pull/918) (`codex/prompt-cache-settlement-readiness-2026-07-10`).
+**Local timestamp:** 2026-07-10 01:09 +04.
+
+**What:** Inference roadmap hardening follow-up. Adds a public, read-only prompt-cache settlement readiness contract so the team can prove the exact evidence needed before cached-input discounts or settlement mutations are ever enabled.
+
+- **Backend API:** Added `GET /v1/prompt-cache/settlement/readiness`, a policy-only readiness packet for provider cache-hit evidence, funded smoke principal, usage attribution, founder approval, and discount-math reconciliation.
+- **Prompt-cache link:** The existing `GET /v1/prompt-cache/readiness` endpoint now points to the settlement-readiness endpoint beside chat completions.
+- **Proof gate:** Added `npm run proof:prompt-cache-settlement-readiness` and wired it into `npm run proof:local-roadmap`, proving that complete evidence remains non-discountable while policy is disabled, missing provider-hit evidence blocks future discounts, and discount math must reconcile.
+- **OpenAPI:** Documented the new settlement readiness route and schema.
+- **Safety:** Read-only backend contract and proof only; no cached-input discount, settlement mutation, provider payout, invoice, balance mutation, usage write, provider KV-cache control, inference dispatch, raw prompt storage, route traffic, or Tinker compatibility claim was enabled.
+- **Verification:** Focused backend Jest coverage; prompt-cache settlement readiness proof; local roadmap proof; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 20:50 UTC - `feat(usage): add account controls packet - PR #917`
 
 **PR:** [#917](https://github.com/dhnpmp-tech/dcp-platform/pull/917) (`codex/usage-account-controls-packet-2026-07-10`).

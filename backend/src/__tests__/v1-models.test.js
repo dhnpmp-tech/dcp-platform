@@ -97,6 +97,7 @@ describe('v1 models route', () => {
       status: 'available_measurement_only',
       endpoints: {
         readiness: 'GET /v1/prompt-cache/readiness',
+        settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
         chat_completions: 'POST /v1/chat/completions',
       },
       measurement: {
@@ -129,6 +130,51 @@ describe('v1 models route', () => {
     expect(res.body.response_fields).toEqual(expect.arrayContaining([
       'usage.prompt_cache',
       'usage.pricing.prompt_cache',
+    ]));
+    expect(mockDb.all).not.toHaveBeenCalled();
+    expect(mockDb.get).not.toHaveBeenCalled();
+  });
+
+  test('returns prompt-cache settlement readiness without enabling discounts', async () => {
+    const res = await request(app).get('/v1/prompt-cache/settlement/readiness');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      object: 'prompt_cache_settlement_readiness',
+      version: 'dcp.prompt_cache_settlement_readiness.v1',
+      current_mode: 'settlement_policy_contract_only',
+      endpoints: {
+        settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
+        prompt_cache_readiness: 'GET /v1/prompt-cache/readiness',
+        live_settlement_proof: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+      },
+      policy: {
+        cached_input_discounts_enabled: false,
+        provider_kv_cache_control_enabled: false,
+        settlement_discounts_enabled: false,
+        settlement_mutations_enabled: false,
+        provider_cache_hit_evidence: {
+          status: 'blocked_external',
+          required: true,
+        },
+      },
+      claim_guards: {
+        readiness_contract_live: true,
+        cached_input_discounts_enabled: false,
+        provider_kv_cache_control_enabled: false,
+        settlement_discounts_enabled: false,
+        settlement_mutations_enabled: false,
+        mutates_balance: false,
+        records_usage_event: false,
+        dispatches_inference: false,
+        stores_raw_prompt: false,
+      },
+    });
+    expect(res.body.generated_at).toEqual(expect.any(String));
+    expect(res.body.denial_codes).toEqual(expect.arrayContaining([
+      'prompt_cache_discount_disabled',
+      'prompt_cache_provider_hit_required',
+      'prompt_cache_discount_math_mismatch',
     ]));
     expect(mockDb.all).not.toHaveBeenCalled();
     expect(mockDb.get).not.toHaveBeenCalled();
