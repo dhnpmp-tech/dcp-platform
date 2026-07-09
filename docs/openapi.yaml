@@ -637,6 +637,24 @@ components:
             billing_readiness_endpoint:
               type: string
               example: GET /api/adapters/billing/readiness
+            registry_contract_proof:
+              type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  example: ci_safe
+                command:
+                  type: string
+                  example: npm run proof:adapter-registry-contract
+                local_roadmap_gate:
+                  type: string
+                  example: adapter_registry_contract
+                verifies:
+                  type: array
+                  items:
+                    type: string
+                  example: [schema_idempotency, tenant_isolation, storage_key_and_checksum_guards, metadata_only_registration, no_public_deploy_shortcut]
             artifact_upload_endpoint_enabled:
               type: boolean
               example: false

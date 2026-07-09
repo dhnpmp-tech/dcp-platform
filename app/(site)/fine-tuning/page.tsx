@@ -25,8 +25,8 @@ const GATES = [
     k: 'adapter_registry',
     tEn: 'Adapter registry',
     tAr: 'سجل المحولات',
-    en: 'Adapters can be registered with base model, storage key, checksum, rank, and status.',
-    ar: 'يمكن تسجيل المحولات مع النموذج الأساسي ومفتاح التخزين والبصمة والرتبة والحالة.',
+    en: 'Adapters can be registered with base model, storage key, checksum, rank, and status; the registry contract proof is now part of the local roadmap suite.',
+    ar: 'يمكن تسجيل المحولات مع النموذج الأساسي ومفتاح التخزين والبصمة والرتبة والحالة؛ أصبح إثبات عقد السجل جزءا من مجموعة خارطة الطريق المحلية.',
   },
   {
     k: 'artifact_policy',
@@ -77,6 +77,11 @@ const SNIPPET = `curl -s https://api.dcp.sa/api/lora/readiness \\
 
 curl -s https://api.dcp.sa/api/lora/readiness \\
   -H "Authorization: Bearer $DCP_RENTER_KEY" | jq '.tinker_loop'
+
+curl -s https://api.dcp.sa/api/lora/readiness \\
+  -H "Authorization: Bearer $DCP_RENTER_KEY" | jq '.adapter_registry.registry_contract_proof'
+
+npm run proof:adapter-registry-contract
 
 curl -s https://api.dcp.sa/api/adapters/artifacts/readiness
 

@@ -152,6 +152,10 @@ describe('adapter artifact policy', () => {
     expect(readiness.adapter_registry).toMatchObject({
       artifact_policy_version: ADAPTER_ARTIFACT_POLICY_VERSION,
       artifact_policy_endpoint: 'GET /api/adapters/artifacts/readiness',
+      registry_contract_proof: {
+        status: 'ci_safe',
+        command: 'npm run proof:adapter-registry-contract',
+      },
       artifact_upload_endpoint_enabled: false,
       artifact_storage_write_enabled: false,
       model_card_required: true,

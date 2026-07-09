@@ -128,6 +128,11 @@ describe('LoRA training job foundation', () => {
       adapter_registry: {
         status: 'metadata_registry',
         api_available: true,
+        registry_contract_proof: {
+          status: 'ci_safe',
+          command: 'npm run proof:adapter-registry-contract',
+          local_roadmap_gate: 'adapter_registry_contract',
+        },
         serving_enabled: false,
         route_traffic: false,
         checksum_required: true,
@@ -645,6 +650,12 @@ describe('LoRA training job foundation', () => {
       training_jobs: {
         public_training_enabled: false,
         worker_execution_enabled: false,
+      },
+      adapter_registry: {
+        registry_contract_proof: {
+          status: 'ci_safe',
+          command: 'npm run proof:adapter-registry-contract',
+        },
       },
       adapter_deployments: {
         serving_enabled: false,

@@ -218,6 +218,18 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       endpoint_smoke_readiness_endpoint: 'GET /api/adapters/endpoints/smoke/readiness',
       usage_attribution_readiness_version: ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION,
       usage_attribution_readiness_endpoint: 'GET /api/adapters/usage/attribution/readiness',
+      registry_contract_proof: {
+        status: 'ci_safe',
+        command: 'npm run proof:adapter-registry-contract',
+        local_roadmap_gate: 'adapter_registry_contract',
+        verifies: [
+          'schema_idempotency',
+          'tenant_isolation',
+          'storage_key_and_checksum_guards',
+          'metadata_only_registration',
+          'no_public_deploy_shortcut',
+        ],
+      },
       artifact_upload_endpoint_enabled: false,
       artifact_storage_write_enabled: false,
       model_card_required: true,
