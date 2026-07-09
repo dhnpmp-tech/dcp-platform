@@ -294,6 +294,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `/renter/batches`, making batch settlement status, paid available credit,
     v1 monthly cap remaining, and blocked future billing rails visible before
     execution or discount claims.
+  - PR #900 adds the account-scoped minimum-balance readiness to
+    `/renter/fine-tuning`, making LoRA training mode, adapter deployment mode,
+    paid available credit, blocked billing rails, and the read-only
+    no-enforcement-change guard visible before managed training or adapter
+    serving claims.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency
@@ -567,6 +572,10 @@ Goal: ship the first real train-here/deploy-here loop.
     proof gates.
   - PR #787 replaced the static contract preview with copyable curl snippets
     that keep trainer proof, serving, and routing gates explicit.
+  - PR #900 adds a Fine-Tuning credit preflight strip from
+    `GET /api/renters/me/minimum-balances`, keeping managed LoRA training,
+    adapter deployment billing, paid-credit availability, blocked billing
+    rails, and no-enforcement-change status visible in the same dashboard.
 - Add `dcpconnect` only after adapters can actually deploy.
 
 Acceptance:

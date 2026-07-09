@@ -91,6 +91,37 @@ async function mockFineTuningApis(page: Page) {
       });
     }
 
+    if (path === '/api/renters/me/minimum-balances') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'minimum_balance_readiness',
+          version: 'dcp.minimum_balance_readiness.v1',
+          current_mode: 'read_only_policy_contract',
+          account: {
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+            v1_remaining_cap_halala: 14000,
+            v1_remaining_cap_sar: 140,
+          },
+          rails: {
+            batch_inference: { status: 'contract_only', enforcement_live: false },
+            prompt_cache_discount: { status: 'measurement_only', enforcement_live: false },
+            lora_training: { status: 'metadata_and_artifact_proof_only', enforcement_live: false },
+            adapter_deployments: { status: 'load_and_billing_policy_required', enforcement_live: false },
+            evaluators: { status: 'readiness_contract_only', enforcement_live: false },
+          },
+          claim_guards: {
+            mutates_balance: false,
+            creates_lora_training_job: false,
+            creates_adapter_deployment: false,
+            changes_enforcement: false,
+          },
+        }),
+      });
+    }
+
     return route.fulfill({
       status: 404,
       contentType: 'application/json',
@@ -132,6 +163,17 @@ test('renter Fine-Tuning readiness shows registry proof status', async ({ page, 
   await expect(readinessGrid).toContainText('metadata registry · ci safe');
   await expect(readinessGrid).toContainText('Deployments');
   await expect(readinessGrid).toContainText('load proof required · ci safe');
+  const creditPreflight = page.getByLabel('Fine-tuning credit preflight');
+  await expect(creditPreflight).toContainText('minimum balance synced');
+  await expect(creditPreflight).toContainText('LoRA training');
+  await expect(creditPreflight).toContainText('metadata and artifact proof only');
+  await expect(creditPreflight).toContainText('Adapter deployments');
+  await expect(creditPreflight).toContainText('load and billing policy required');
+  await expect(creditPreflight).toContainText('Paid available');
+  await expect(creditPreflight).toContainText('SAR 38.00');
+  await expect(creditPreflight).toContainText('Blocked billing rails');
+  await expect(creditPreflight).toContainText('5');
+  await expect(creditPreflight).toContainText('Read-only: no enforcement change');
   await expect(page.locator('.ft-supported')).toContainText('training off');
   await expect(page.locator('.ft-supported')).toContainText('routes off');
 });
