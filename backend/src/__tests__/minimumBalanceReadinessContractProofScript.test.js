@@ -50,7 +50,7 @@ describe('minimum balance readiness contract proof script', () => {
           enforcement_live: false,
         },
         adapter_deployments: {
-          status: 'load_proof_required',
+          status: 'load_and_billing_policy_required',
           enforcement_live: false,
         },
         evaluators: {

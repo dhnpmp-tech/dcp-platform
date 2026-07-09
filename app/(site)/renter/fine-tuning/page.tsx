@@ -304,6 +304,15 @@ const API_SNIPPETS = [
       '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
   },
   {
+    id: 'adapter-billing',
+    titleEn: 'Check billing gate',
+    titleAr: 'فحص بوابة الفوترة',
+    meta: 'GET /api/adapters/billing/readiness',
+    noteEn: 'Public read-only billing policy; usage writes, invoices, payouts, and route changes remain disabled.',
+    noteAr: 'سياسة فوترة عامة للقراءة فقط؛ تبقى صفوف الاستخدام والفواتير والمدفوعات وتغيير المسارات معطلة.',
+    command: 'curl -s https://api.dcp.sa/api/adapters/billing/readiness',
+  },
+  {
     id: 'create-deploy-intent',
     titleEn: 'Create a gated deploy intent',
     titleAr: 'إنشاء نية نشر مقيدة',

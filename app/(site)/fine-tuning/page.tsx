@@ -43,6 +43,13 @@ const GATES = [
     ar: 'صفوف النشر مرئية، لكن حركة التوجيه تبقى متوقفة حتى يوجد إثبات تحميل vLLM مطابق.',
   },
   {
+    k: 'billing_readiness',
+    tEn: 'Adapter billing readiness',
+    tAr: 'جاهزية فوترة المحولات',
+    en: 'Billing is a disabled policy contract until endpoint smoke, funded-principal, attribution, and settlement proof exist.',
+    ar: 'الفوترة عقد سياسة معطل حتى يوجد إثبات دخان النقطة والرصيد الممول والنسب والتسوية.',
+  },
+  {
     k: 'tinker_loop',
     tEn: 'Tinker-style loop gates',
     tAr: 'بوابات حلقة بأسلوب Tinker',
@@ -58,6 +65,8 @@ curl -s https://api.dcp.sa/api/lora/readiness \\
   -H "Authorization: Bearer $DCP_RENTER_KEY" | jq '.tinker_loop'
 
 curl -s https://api.dcp.sa/api/adapters/artifacts/readiness
+
+curl -s https://api.dcp.sa/api/adapters/billing/readiness
 
 curl -s "https://api.dcp.sa/api/adapters/deployments?limit=25" \\
   -H "Authorization: Bearer $DCP_RENTER_KEY"`
@@ -84,7 +93,7 @@ export default function FineTuningProductPage() {
           </h1>
           <p className="lead" style={{ maxWidth: 720, color: 'var(--ink-2)' }}>
             <Bi
-              en="DCP now exposes the LoRA product contract: dataset validation, training-job metadata, model-card stubs, adapter registry rows, and deployment intents. Public managed training and adapter route traffic remain gated until GPU-host artifact proof and vLLM load proof exist."
+              en="DCP now exposes the LoRA product contract: dataset validation, training-job metadata, model-card stubs, adapter registry rows, deployment intents, and adapter billing readiness. Public managed training, route traffic, and adapter billing remain gated until GPU-host artifact proof, vLLM load proof, endpoint smoke, and money-policy proof exist."
               ar="يعرض DCP الآن عقد منتج LoRA: تحقق البيانات، وبيانات مهام التدريب، وقوالب بطاقات النماذج، وسجل المحولات، ونوايا النشر. يبقى التدريب المُدار العام وحركة محولات النشر مقيدين حتى يوجد إثبات أثر على مضيف GPU وإثبات تحميل vLLM."
             />
           </p>
@@ -110,8 +119,8 @@ export default function FineTuningProductPage() {
                 <div className="meta">
                   <span><Bi en="Status" ar="الحالة" /></span>
                   <b><Bi
-                    en={gate.k === 'deployment_intents' ? 'visible · routes off' : gate.k === 'tinker_loop' ? 'contract-only · disabled' : 'contract live'}
-                    ar={gate.k === 'deployment_intents' ? 'مرئي · المسارات متوقفة' : gate.k === 'tinker_loop' ? 'عقد فقط · معطل' : 'العقد يعمل'}
+                    en={gate.k === 'deployment_intents' ? 'visible · routes off' : gate.k === 'billing_readiness' || gate.k === 'tinker_loop' ? 'contract-only · disabled' : 'contract live'}
+                    ar={gate.k === 'deployment_intents' ? 'مرئي · المسارات متوقفة' : gate.k === 'billing_readiness' || gate.k === 'tinker_loop' ? 'عقد فقط · معطل' : 'العقد يعمل'}
                   /></b>
                 </div>
               </article>
@@ -152,6 +161,7 @@ export default function FineTuningProductPage() {
               <ul className="pshow-list">
                 <li><Bi en="No public Tinker compatibility claim; low-level loop primitives are contract-only until GPU proof exists." ar="لا ادعاء توافق عام مع Tinker؛ بدائيات الحلقة منخفضة المستوى عقد فقط حتى يوجد إثبات GPU." /></li>
                 <li><Bi en="No adapter route traffic until vLLM load proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum." ar="لا حركة لمحولات النشر حتى يطابق إثبات تحميل vLLM معرف النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
+                <li><Bi en="No adapter billing until endpoint smoke, funded principal, usage attribution, and settlement policy are approved." ar="لا فوترة للمحولات حتى اعتماد دخان النقطة والرصيد الممول ونسب الاستخدام وسياسة التسوية." /></li>
                 <li><Bi en="No quality claims until reproducible benchmark artifacts exist." ar="لا ادعاءات جودة حتى توجد آثار قياس قابلة للتكرار." /></li>
               </ul>
             </div>
@@ -167,7 +177,7 @@ export default function FineTuningProductPage() {
               <h3><Bi en="What we are selling now is the path, not an inflated promise." ar="ما نبيعه الآن هو المسار، وليس وعداً متضخماً." /></h3>
               <p>
                 <Bi
-                  en="For today: prepare datasets, inspect training metadata, register adapter artifacts, and create proof-gated deployment intents. Next: run LoRA SFT on controlled 3090/4090/5090-class pods, attach artifact proof, load adapters into vLLM, and route traffic through billed inference only after evidence exists."
+                  en="For today: prepare datasets, inspect training metadata, register adapter artifacts, create proof-gated deployment intents, and inspect disabled adapter billing policy. Next: run LoRA SFT on controlled 3090/4090/5090-class pods, attach artifact proof, load adapters into vLLM, smoke the endpoint, and route billed inference only after money evidence exists."
                   ar="اليوم: جهّز البيانات، وافحص بيانات التدريب، وسجل آثار المحولات، وأنشئ نوايا نشر مقيدة بالإثبات. التالي: تشغيل LoRA SFT على حاويات 3090/4090/5090 مضبوطة، وإرفاق إثبات الأثر، وتحميل المحولات في vLLM، وتوجيه الحركة عبر الاستدلال المفوتر فقط بعد وجود الدليل."
                 />
               </p>

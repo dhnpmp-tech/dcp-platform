@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 06:52 UTC - Adapter billing readiness proof (PR #868)
+
+- **PR:** [#868](https://github.com/dhnpmp-tech/dcp-platform/pull/868) (`codex/adapter-billing-readiness-policy-2026-07-09`).
+- **Backend:** Added public `GET /api/adapters/billing/readiness` and a pure adapter billing policy evaluator for strict load proof, endpoint smoke, funded principal, minimum-balance policy, usage attribution, settlement policy, and founder approval prerequisites.
+- **Proof:** Added `npm run proof:adapter-billing-readiness` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 25 CI-safe gates.
+- **Docs/contracts:** Linked LoRA readiness, adapter artifact readiness, minimum-balance readiness, OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs to the disabled adapter billing policy.
+- **Safety:** Readiness/policy only; no adapter dispatch, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, minimum-balance enforcement change, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; targeted adapter-billing/artifact/LoRA/minimum-balance Jest suites; adapter billing readiness proof; adapter artifact policy proof; minimum-balance readiness proof; local roadmap proof now passing 25/25 gates; OpenAPI YAML parse; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 06:23 UTC - Strict adapter load-proof matching (PR #867)
 
 - **PR:** [#867](https://github.com/dhnpmp-tech/dcp-platform/pull/867) (`codex/adapter-load-proof-strict-match-2026-07-09`).
