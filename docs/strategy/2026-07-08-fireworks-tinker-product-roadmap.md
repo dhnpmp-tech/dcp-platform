@@ -174,6 +174,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #924 adds a compact Stage 1 folder navigator for `/renter/pods`, with a
     folder map, open-one-folder action, and Stage 2 handoff so large workspaces
     stay summary-first without hiding the path to the actual GPU decision.
+  - PR #925 turns the whole Stage 1 workspace area into an accordion after
+    staged files load, so the detailed workspace manager is not visible before
+    Stage 2 unless the renter expands it.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -250,6 +253,9 @@ Acceptance:
   - PR #924 adds the folder navigator and selected-GPU marker on top of that
     summary-first path, preserving trial routing and minimum-balance policy as
     read-only contract-backed copy.
+  - PR #925 keeps those contracts read-only and adds a pre-filter GPU
+    source-of-truth callout: launch GPU comes only from Auto-pick or an
+    explicitly selected card, not the VRAM/workload/search controls.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.

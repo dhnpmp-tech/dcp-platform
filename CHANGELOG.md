@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 23:02 UTC - `feat(pods): collapse Stage 1 and anchor GPU selection - PR #925`
+
+**PR:** [#925](https://github.com/dhnpmp-tech/dcp-platform/pull/925) (`codex/workspace-launch-ux-tareq-2026-07-10`).
+**Local timestamp:** 2026-07-10 03:02 +04.
+
+**What:** Tareq workspace/pods UX follow-up. Makes the Stage 1 workspace section a true collapsible checkpoint and makes Stage 2 the unmistakable source of truth for the actual launch GPU.
+
+- **Stage 1 accordion:** `/renter/pods` now keeps the detailed workspace manager collapsed once staged files are loaded, while a compact checkpoint shows volume size, staged-file count, folder count, an expand action, and a direct Stage 2 skip.
+- **Stage naming:** Stage 1 now explicitly says "workspace files, collapsible" and Stage 2 now leads with "actual launch GPU and template" so the flow reads Stage 1 / Stage 2 / Stage 3 consistently.
+- **GPU source of truth:** Added a visible pre-filter callout stating that only Auto-pick or a card marked "Selected launch GPU" changes the final request; VRAM chips, workload guide, search, and sort are browse-only helpers.
+- **Trial answer:** Existing contract-backed trial handling remains unchanged and visible: no separate live trial-account tag unless the backend reports one, grant-credit provenance drives trial handling, trial credit routes to native/community GPUs, and high-demand GPUs require paid credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the collapsed Stage 1 checkpoint, expand path, Stage 2 source-of-truth copy, trial copy, and selected GPU state.
+- **Safety:** Frontend-only UX behavior change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression.
+
 ### 2026-07-09 22:42 UTC - `feat(pods): add workspace stage navigator - PR #924`
 
 **PR:** [#924](https://github.com/dhnpmp-tech/dcp-platform/pull/924) (`codex/workspace-stage-navigator-2026-07-10`).
