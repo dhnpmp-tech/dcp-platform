@@ -628,6 +628,10 @@ Goal: make the product easy to understand and sell.
     overclaim.**
   - `/models/allam`
   - `/models/qwen-arabic`
+    **Added in PR #905 as catalog-aware model-family pages backed by
+    `/v1/models` and `/api/models/benchmarks/readiness`, keeping ALLaM
+    catalog-only when provider_count is zero and Qwen live rows separate from
+    Arabic-quality claims.**
   - `/batch`
     **Added in PR #791 with readiness/metadata gates and no execution or
     discount overclaim.**
