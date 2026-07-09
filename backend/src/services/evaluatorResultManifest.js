@@ -39,6 +39,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
     current_mode: 'schema_and_checksum_contract_only',
     endpoints: {
       result_manifest_schema: 'GET /api/evals/results/schema',
+      result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       worker_readiness: 'GET /api/evals/worker/readiness',
       evaluator_readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',
@@ -80,7 +81,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
       bills_eval_jobs: false,
     },
     next_actions: [
-      'Add a result writer dry-run that produces this manifest in temporary storage.',
+      'Run the result writer dry-run from a queued worker fixture before production writes.',
       'Add signed result download smoke only after artifact storage policy is approved.',
       'Keep public reports gated until human review and baseline policy proof exist.',
     ],

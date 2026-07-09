@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 03:58 UTC - Evaluator result-writer dry-run proof (PR #860)
+
+- **PR:** [#860](https://github.com/dhnpmp-tech/dcp-platform/pull/860) (`codex/evaluator-result-writer-dry-run-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/results/writer/readiness` and a CI-safe dry-run writer that builds a result manifest from eval metadata, hashes canonical summary JSON, validates the manifest, and writes only the manifest JSON to temporary proof storage.
+- **Proof:** Added `npm run proof:evaluator-result-writer-dry-run` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 18 CI-safe gates.
+- **Docs/contracts:** Linked evaluator readiness, worker gate, result manifest schema, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs to the dry-run writer readiness.
+- **Safety:** Dry-run proof only; no production artifact write, result endpoint, eval job status mutation, worker queue dispatch, raw dataset/prompt storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator result-writer/result-manifest/worker-gate/metadata/readiness/schema Jest suites; evaluator result-writer dry-run proof; evaluator result-manifest proof; evaluator worker-gate proof; evaluator metadata proof; evaluator readiness proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 18/18 gates; `git diff --check`.
+
 ### 2026-07-09 03:46 UTC - Evaluator result manifest checksum contract (PR #859)
 
 - **PR:** [#859](https://github.com/dhnpmp-tech/dcp-platform/pull/859) (`codex/evaluator-result-manifest-contract-2026-07-09`).

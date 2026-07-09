@@ -164,6 +164,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Evaluator metadata job contract | `npm run proof:evaluator-job-metadata-contract` | none | CI-safe gate available; renter-scoped draft metadata records only, no dataset storage, worker, result artifact, billing, report, ranking, or quality-claim mutation |
 | Evaluator worker gate contract | `npm run proof:evaluator-worker-gate-contract` | none | CI-safe gate available; worker, queue dispatch, result writer, billing hook, reports, rankings, and quality claims remain disabled |
 | Evaluator result manifest contract | `npm run proof:evaluator-result-manifest-contract` | none | CI-safe gate available; validates required checksums and raw-data guards while result endpoints and artifact writes remain disabled |
+| Evaluator result-writer dry run | `npm run proof:evaluator-result-writer-dry-run` | none | CI-safe gate available; writes validated manifest JSON to temporary proof storage only, with production artifacts and result endpoint disabled |
 | Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
@@ -261,6 +262,12 @@ before or with the feature change.
      proof:evaluator-result-manifest-contract`; required checksums and raw-data
      guards are validated while result endpoints, artifact writes, public
      reports, rankings, and billing remain disabled.
+   - Evaluator result-writer dry run starts in PR #860 with
+     `GET /api/evals/results/writer/readiness` and `npm run
+     proof:evaluator-result-writer-dry-run`; the proof writes a validated
+     manifest to temporary storage only while production artifacts, result
+     downloads, worker queue dispatch, billing, reports, and rankings stay
+     disabled.
    - Minimum-balance policy starts in PR #855 with
      `GET /api/renters/me/minimum-balances` and `npm run
      proof:minimum-balance-readiness`; payment/workload/enforcement mutation

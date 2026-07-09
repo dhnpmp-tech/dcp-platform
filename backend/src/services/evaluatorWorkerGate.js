@@ -13,6 +13,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       evaluator_readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',
       result_manifest_schema: 'GET /api/evals/results/schema',
+      result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       metadata_jobs: 'POST/GET /api/evals/jobs',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
     },
@@ -42,6 +43,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
     result_policy: {
       endpoint_live: false,
       schema_endpoint: 'GET /api/evals/results/schema',
+      writer_readiness_endpoint: 'GET /api/evals/results/writer/readiness',
       manifest_required_before_enablement: true,
       manifest_required_fields: [
         'eval_job_id',

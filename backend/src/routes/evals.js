@@ -6,6 +6,7 @@ const { buildEvaluatorReadiness } = require('../services/evaluatorReadiness');
 const { buildEvaluatorJobSchema } = require('../services/evaluatorJobSchema');
 const { buildEvaluatorWorkerGate } = require('../services/evaluatorWorkerGate');
 const { buildEvaluatorResultManifestContract } = require('../services/evaluatorResultManifest');
+const { buildEvaluatorResultWriterDryRunReadiness } = require('../services/evaluatorResultWriterDryRun');
 const {
   EvaluatorJobError,
   createEvaluatorJob,
@@ -64,6 +65,18 @@ function createEvalsRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch evaluator result manifest schema',
         code: 'evaluator_result_manifest_schema_internal_error',
+      });
+    }
+  });
+
+  router.get('/results/writer/readiness', publicEndpointLimiter, (_req, res) => {
+    try {
+      return res.json(buildEvaluatorResultWriterDryRunReadiness(new Date()));
+    } catch (error) {
+      console.error('[evals] result writer readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch evaluator result writer readiness',
+        code: 'evaluator_result_writer_readiness_internal_error',
       });
     }
   });

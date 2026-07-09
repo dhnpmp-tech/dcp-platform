@@ -68,6 +68,8 @@ curl -s https://api.dcp.sa/api/evals/worker/readiness
 
 curl -s https://api.dcp.sa/api/evals/results/schema
 
+curl -s https://api.dcp.sa/api/evals/results/writer/readiness
+
 curl -s -H "Authorization: Bearer $DCP_RENTER_KEY" https://api.dcp.sa/api/evals/jobs
 
 curl -s https://api.dcp.sa/api/models/benchmarks
@@ -215,6 +217,7 @@ export default function BenchmarksProductPage() {
                 <li><Bi en="Eval job create/list/read endpoints are live for metadata records; workers, result APIs, billing, reports, and rankings remain blocked." ar="واجهات إنشاء وقراءة وقائمة مهام التقييم حية لسجلات البيانات فقط؛ وتبقى العمال وواجهات النتائج والفوترة والتقارير والترتيبات مقيدة." /></li>
                 <li><Bi en="The worker readiness contract proves queue dispatch, result writing, and billing hooks stay disabled before eval execution." ar="يثبت عقد جاهزية العامل أن إرسال الطابور وكتابة النتائج وخطافات الفوترة تبقى متوقفة قبل تنفيذ التقييم." /></li>
                 <li><Bi en="The result manifest schema defines checksum proof for future artifacts while result download APIs remain off." ar="يعرّف مخطط بيان النتائج إثبات البصمة للآثار المستقبلية بينما تبقى واجهات تنزيل النتائج متوقفة." /></li>
+                <li><Bi en="The writer dry-run can create a validated manifest in temporary proof storage without production artifact writes." ar="يمكن للتشغيل الجاف للكاتب إنشاء بيان نتائج متحقق في تخزين إثبات مؤقت دون كتابة آثار إنتاجية." /></li>
               </ul>
             </div>
           </div>

@@ -3,6 +3,7 @@
 const { EVALUATOR_JOB_SCHEMA_VERSION } = require('./evaluatorJobSchema');
 const { EVALUATOR_WORKER_GATE_VERSION } = require('./evaluatorWorkerGate');
 const { EVALUATOR_RESULT_MANIFEST_VERSION } = require('./evaluatorResultManifest');
+const { EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION } = require('./evaluatorResultWriterDryRun');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -17,6 +18,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       job_schema: 'GET /api/evals/jobs/schema',
       worker_readiness: 'GET /api/evals/worker/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',
+      result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
       product_page: 'GET /benchmarks',
@@ -75,6 +77,22 @@ function buildEvaluatorReadiness(now = new Date()) {
           'human review policy for public reports',
         ],
       },
+      eval_result_writer: {
+        status: 'dry_run_temp_artifact_only',
+        available: true,
+        version: EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION,
+        readiness_endpoint: 'GET /api/evals/results/writer/readiness',
+        production_writer_enabled: false,
+        result_endpoint_live: false,
+        artifact_store_enabled: false,
+        signed_downloads_enabled: false,
+        required_before_enablement: [
+          'worker dry-run queue fixture',
+          'approved tenant artifact storage path',
+          'result endpoint authorization policy',
+          'signed download smoke proof',
+        ],
+      },
       dataset_artifacts: {
         status: 'gated_storage_policy',
         available: false,
@@ -125,6 +143,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       eval_job_metadata_api_live: true,
       eval_worker_live: false,
       eval_result_manifest_schema_live: true,
+      eval_result_writer_dry_run_live: true,
       arabic_quality_claim_allowed: false,
       customer_case_study_allowed: false,
       model_ranking_allowed: false,

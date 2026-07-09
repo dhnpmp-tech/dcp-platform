@@ -318,6 +318,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `npm run proof:evaluator-result-manifest-contract`; it validates required
     result checksums and raw-data guards before any result endpoint or public
     report can become live.
+  - PR #860 adds `GET /api/evals/results/writer/readiness` and
+    `npm run proof:evaluator-result-writer-dry-run`; it writes a validated
+    manifest to temporary proof storage only and keeps production artifacts,
+    result downloads, billing, and reports disabled.
 
 Acceptance:
 
