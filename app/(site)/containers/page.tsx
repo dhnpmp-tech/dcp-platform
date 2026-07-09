@@ -12,9 +12,96 @@ import GpuAvailability from '@/app/(site)/components/gpu-availability/GpuAvailab
 import '../(home)/home.css'
 import '../docs/docs.css'
 
+type ReadinessStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+interface PodImageReadinessResponse {
+  object?: string
+  version?: string
+  current_mode?: string
+  contract_check?: {
+    status?: string
+    command?: string
+    local_roadmap_gate?: string
+    image_count?: number
+  }
+  lora_image?: {
+    alias?: string
+    tag?: string
+    required_packages?: string[]
+    required_smoke_modules?: string[]
+  } | null
+  provider_host_acceptance?: {
+    status?: string
+    command?: string
+    live_acceptance_gate?: string
+    blocked_on?: string[]
+  }
+  build_plan?: {
+    build_command?: string
+    repo_verify_command?: string
+  }
+  claim_guards?: {
+    claims_lora_pod_image_gpu_ready?: boolean
+    claims_fine_tuning_ready_pods?: boolean
+    launches_pod?: boolean
+    mutates_balance?: boolean
+    changes_billing?: boolean
+  }
+}
+
+interface PodTrialRoutingReadinessResponse {
+  object?: string
+  version?: string
+  current_mode?: string
+  account_classification?: {
+    explicit_trial_account_tag_live?: boolean
+    trial_credit_source?: string
+  }
+  routing_policy?: {
+    trial_capacity_copy?: string
+    high_demand_capacity_copy?: string
+    provider_visibility?: {
+      exposes_provider_id_to_renter?: boolean
+      exposes_vendor_to_renter?: boolean
+      exposes_supply_tier_to_renter?: boolean
+      renter_selects_gpu_type_not_machine?: boolean
+    }
+  }
+  infrastructure_proofs?: {
+    workspace_pod_contract?: {
+      status?: string
+      command?: string
+    }
+    workspace_live_acceptance?: {
+      status?: string
+      command?: string
+      blocked_on?: string[]
+    }
+    lora_pod_image_provider_host?: {
+      status?: string
+      command?: string
+      blocked_on?: string[]
+    }
+  }
+  claim_guards?: {
+    changes_provider_selection?: boolean
+    changes_billing?: boolean
+    changes_trial_accounting?: boolean
+    launches_pod?: boolean
+    mutates_balance?: boolean
+    exposes_vendor_or_provider?: boolean
+    claims_workspace_live_acceptance?: boolean
+    claims_lora_pod_image_gpu_ready?: boolean
+    claims_fine_tuning_ready_pods?: boolean
+  }
+}
+
 export default function ContainersPage() {
   const { toggle, lang } = useV2()
   const [live, setLive] = useState<{ online: number; serving: number } | null>(null)
+  const [podReadinessStatus, setPodReadinessStatus] = useState<ReadinessStatus>('idle')
+  const [podImageReadiness, setPodImageReadiness] = useState<PodImageReadinessResponse | null>(null)
+  const [podTrialRouting, setPodTrialRouting] = useState<PodTrialRoutingReadinessResponse | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -34,6 +121,59 @@ export default function ContainersPage() {
     const id = window.setInterval(load, 60_000)
     return () => { alive = false; window.clearInterval(id) }
   }, [])
+
+  useEffect(() => {
+    let alive = true
+
+    const load = async () => {
+      setPodReadinessStatus('loading')
+      try {
+        const [imageRes, trialRes] = await Promise.all([
+          fetch('/api/pods/images/readiness', { cache: 'no-store' }),
+          fetch('/api/pods/trial-routing/readiness', { cache: 'no-store' }),
+        ])
+        if (!alive) return
+
+        if (imageRes.ok) {
+          setPodImageReadiness(await imageRes.json())
+        }
+        if (trialRes.ok) {
+          setPodTrialRouting(await trialRes.json())
+        }
+        setPodReadinessStatus(imageRes.ok || trialRes.ok ? 'ready' : 'error')
+      } catch {
+        if (alive) setPodReadinessStatus('error')
+      }
+    }
+
+    load()
+    return () => { alive = false }
+  }, [])
+
+  const imageContractStatus = podImageReadiness?.contract_check?.status || 'checking'
+  const imageCount = podImageReadiness?.contract_check?.image_count || 0
+  const loraImageTag = podImageReadiness?.lora_image?.tag || 'dcp-compute:lora'
+  const loraImageCommand = podImageReadiness?.provider_host_acceptance?.command || 'npm run proof:lora-pod-image'
+  const loraImageStatus = podImageReadiness?.provider_host_acceptance?.status || 'blocked_external'
+  const workspaceContractStatus = podTrialRouting?.infrastructure_proofs?.workspace_pod_contract?.status || 'checking'
+  const workspaceLiveCommand = podTrialRouting?.infrastructure_proofs?.workspace_live_acceptance?.command || 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod'
+  const workspaceLiveStatus = podTrialRouting?.infrastructure_proofs?.workspace_live_acceptance?.status || 'blocked_external'
+  const explicitTrialTagLive = podTrialRouting?.account_classification?.explicit_trial_account_tag_live === true
+  const trialAccountCopy = explicitTrialTagLive
+    ? 'Trial-account tag live'
+    : 'Trial accounts use grant-credit provenance'
+  const trialCapacityCopy = podTrialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit covers DCP/community capacity.'
+  const highDemandCapacityCopy = podTrialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity requires paid credit.'
+  const noProviderExposure = podTrialRouting?.routing_policy?.provider_visibility?.exposes_provider_id_to_renter === false &&
+    podTrialRouting?.routing_policy?.provider_visibility?.exposes_vendor_to_renter === false &&
+    podTrialRouting?.routing_policy?.provider_visibility?.exposes_supply_tier_to_renter === false
+  const podClaimGuardsSynced = podImageReadiness?.claim_guards?.claims_lora_pod_image_gpu_ready === false &&
+    podImageReadiness?.claim_guards?.claims_fine_tuning_ready_pods === false &&
+    podImageReadiness?.claim_guards?.launches_pod === false &&
+    podImageReadiness?.claim_guards?.mutates_balance === false &&
+    podTrialRouting?.claim_guards?.claims_workspace_live_acceptance === false &&
+    podTrialRouting?.claim_guards?.changes_trial_accounting === false &&
+    podTrialRouting?.claim_guards?.exposes_vendor_or_provider === false
 
   return (
     <>
@@ -80,6 +220,99 @@ export default function ContainersPage() {
             <span><Bi en="Type + VRAM · spun up on click" ar="النوع + الذاكرة · تُشغَّل عند النقر" /></span>
           </div>
           <GpuAvailability variant="marketplace" />
+        </div>
+      </section>
+
+      {/* ─── § 00 Readiness gates ─── */}
+      <section id="readiness">
+        <div className="wrap">
+          <div className="section-meta">
+            <span className="idx"><Bi en="§ 00 · Proof-backed readiness" ar="§ ٠٠ · جاهزية مدعومة بالإثبات" /></span>
+            <span>
+              {podReadinessStatus === 'ready'
+                ? <Bi en="Live contracts · public read-only" ar="عقود حية · قراءة عامة فقط" />
+                : podReadinessStatus === 'loading'
+                  ? <Bi en="Checking pod readiness…" ar="جارٍ فحص جاهزية الحاويات…" />
+                  : <Bi en="Readiness falls back to guarded copy" ar="الجاهزية تعود إلى نص محمي" />}
+            </span>
+          </div>
+          <div className="capacity-truth" aria-label={lang === 'ar' ? 'جاهزية الحاويات العامة' : 'Public pod readiness'}>
+            <div className="capacity-copy">
+              <span className="truth-label"><Bi en="What is ready vs coming next" ar="ما هو جاهز وما القادم" /></span>
+              <h3>
+                <Bi
+                  en="Pod images and trial routing are contract-backed. LoRA GPU-host acceptance is still coming next."
+                  ar="صور الحاويات ومسار التجربة مدعومان بعقود. قبول LoRA على مضيف GPU لا يزال قادماً."
+                />
+              </h3>
+              <p>
+                <Bi
+                  en={`${podImageReadiness?.version || 'dcp.pod_image_readiness.v1'} and ${podTrialRouting?.version || 'dcp.pod_trial_routing_readiness.v1'} are public read-only readiness packets. They do not launch pods, mutate billing, change trial accounting, expose provider identity, or claim fine-tuning-ready pod images before provider-host proof.`}
+                  ar="عقود الجاهزية العامة للقراءة فقط. لا تشغّل حاويات ولا تغيّر الفوترة أو حسابات التجربة ولا تكشف هوية المزوّد ولا تدّعي جاهزية صور الضبط قبل إثبات مضيف GPU."
+                />
+              </p>
+              <div className="callout" style={{ marginTop: 18 }}>
+                <p>
+                  <Bi
+                    en="API sources: GET /api/pods/images/readiness and GET /api/pods/trial-routing/readiness."
+                    ar="مصادر الواجهة: GET /api/pods/images/readiness و GET /api/pods/trial-routing/readiness."
+                  />
+                </p>
+              </div>
+            </div>
+            <div className="capacity-gates">
+              <div className="capacity-gate">
+                <span className="gate-n">01</span>
+                <span className="gate-k">image_contract</span>
+                <p>
+                  <Bi
+                    en={`${imageContractStatus === 'ci_safe' ? 'CI-safe' : imageContractStatus} pod image contract${imageCount ? ` · ${imageCount} aliases` : ''}. ${podImageReadiness?.contract_check?.command || 'npm run pod-images:verify-contracts'}.`}
+                    ar="عقد صور الحاويات آمن في CI ويُفحص بأمر المستودع."
+                  />
+                </p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">02</span>
+                <span className="gate-k">lora_image_coming_next</span>
+                <p>
+                  <Bi
+                    en={`${loraImageTag}: ${loraImageStatus}. Coming next: run ${loraImageCommand} on a provider GPU host before claiming fine-tuning-ready pods.`}
+                    ar="صورة LoRA تنتظر إثبات مضيف GPU قبل ادعاء جاهزية حاويات الضبط."
+                  />
+                </p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">03</span>
+                <span className="gate-k">workspace_live_gate</span>
+                <p>
+                  <Bi
+                    en={`Workspace contract: ${workspaceContractStatus}. Live file visibility: ${workspaceLiveStatus}; ${workspaceLiveCommand}.`}
+                    ar="عقد مساحة العمل جاهز في CI؛ إثبات الملفات الحي ينتظر نافذة GPU ممولة."
+                  />
+                </p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">04</span>
+                <span className="gate-k">trial_and_paid_credit</span>
+                <p>
+                  <Bi
+                    en={`${trialAccountCopy}. ${trialCapacityCopy} ${highDemandCapacityCopy}`}
+                    ar="حسابات التجربة تعتمد على مصدر رصيد المنحة؛ السعة عالية الطلب تحتاج رصيداً مدفوعاً."
+                  />
+                </p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">05</span>
+                <span className="gate-k">claim_guards</span>
+                <p>
+                  <Bi
+                    en={`${podClaimGuardsSynced ? 'False-claim guards synced' : 'False-claim guards checking'} · ${noProviderExposure ? 'no provider identity exposed' : 'provider visibility checking'}.`}
+                    ar="حراس الادعاءات متزامنون ولا تُعرض هوية المزوّد للمستأجر."
+                  />
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
