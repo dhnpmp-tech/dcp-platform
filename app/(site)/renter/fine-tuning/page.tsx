@@ -9,6 +9,7 @@ import '../pods/pods.css'
 import './fine-tuning.css'
 
 type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+type MinimumBalanceStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 interface RenterMe {
   renter?: {
@@ -192,6 +193,46 @@ interface LoraReadiness {
     quality_claims?: boolean
     tinker_compatible?: boolean
     discounts_enabled?: boolean
+  }
+}
+
+interface MinimumBalanceReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  account?: {
+    paid_available_halala?: number
+    paid_available_sar?: number
+    v1_remaining_cap_halala?: number | null
+    v1_remaining_cap_sar?: number | null
+  }
+  rails?: {
+    prompt_cache_discount?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    batch_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    lora_training?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    adapter_deployments?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    evaluators?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+  }
+  claim_guards?: {
+    mutates_balance?: boolean
+    creates_lora_training_job?: boolean
+    creates_adapter_deployment?: boolean
+    changes_enforcement?: boolean
   }
 }
 
@@ -425,6 +466,15 @@ function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat('en-US').format(value)
 }
 
+function sarFromHalala(value: number | null | undefined): number {
+  return Number((Number(value || 0) / 100).toFixed(2))
+}
+
+function formatSar(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '0.00'
+  return value.toFixed(2)
+}
+
 function statusTone(status: string): string {
   if (status === 'failed' || status === 'cancelled') return 'failed'
   if (status === 'succeeded' || status === 'ready' || status === 'deployed') return 'settled'
@@ -456,6 +506,8 @@ export default function RenterFineTuningPage() {
   const [adapterDeployments, setAdapterDeployments] = useState<AdapterDeploymentRecord[]>([])
   const [trainingJobs, setTrainingJobs] = useState<TrainingJobRecord[]>([])
   const [readiness, setReadiness] = useState<LoraReadiness | null>(null)
+  const [minimumBalance, setMinimumBalance] = useState<MinimumBalanceReadiness | null>(null)
+  const [minimumBalanceStatus, setMinimumBalanceStatus] = useState<MinimumBalanceStatus>('idle')
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
 
   useEffect(() => {
@@ -463,6 +515,8 @@ export default function RenterFineTuningPage() {
     const key = getRenterKey()
     if (!key) {
       setLoadState('missing-key')
+      setMinimumBalance(null)
+      setMinimumBalanceStatus('idle')
       return
     }
 
@@ -470,16 +524,25 @@ export default function RenterFineTuningPage() {
     const headers = { 'x-renter-key': key }
     let cancelled = false
     setLoadState('loading')
+    setMinimumBalanceStatus('loading')
     setError('')
 
     ;(async () => {
       try {
-        const [meRes, adaptersRes, deploymentsRes, trainingJobsRes, readinessRes] = await Promise.all([
+        const minimumBalancePromise = fetch(`${base}/renters/me/minimum-balances`, { headers })
+          .then(async (res) => {
+            if (!res.ok) return null
+            return (await res.json()) as MinimumBalanceReadiness
+          })
+          .catch(() => null)
+
+        const [meRes, adaptersRes, deploymentsRes, trainingJobsRes, readinessRes, minimumBalanceData] = await Promise.all([
           fetch(`${base}/renters/me`, { headers }),
           fetch(`${base}/adapters`, { headers }),
           fetch(`${base}/adapters/deployments`, { headers }),
           fetch(`${base}/lora/training-jobs`, { headers }),
           fetch(`${base}/lora/readiness`, { headers }),
+          minimumBalancePromise,
         ])
 
         if (!meRes.ok) {
@@ -519,9 +582,13 @@ export default function RenterFineTuningPage() {
         setAdapterDeployments(deploymentList)
         setTrainingJobs(trainingJobData.data || [])
         setReadiness(readinessData?.object === 'lora_readiness' ? readinessData : null)
+        setMinimumBalance(minimumBalanceData?.object === 'minimum_balance_readiness' ? minimumBalanceData : null)
+        setMinimumBalanceStatus(minimumBalanceData?.object === 'minimum_balance_readiness' ? 'ready' : 'error')
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
+        setMinimumBalance(null)
+        setMinimumBalanceStatus('error')
         setLoadState('error')
         setError(err instanceof Error ? err.message : 'Failed to load fine-tuning state.')
       }
@@ -547,6 +614,24 @@ export default function RenterFineTuningPage() {
   const claimGuards = readiness?.claim_guards || {}
   const registryProofStatus = readiness?.adapter_registry?.registry_contract_proof?.status
   const deploymentProofStatus = readiness?.adapter_deployments?.deployment_contract_proof?.status
+  const loraMinimumRail = minimumBalance?.rails?.lora_training
+  const adapterMinimumRail = minimumBalance?.rails?.adapter_deployments
+  const paidAvailableSar = typeof minimumBalance?.account?.paid_available_sar === 'number'
+    ? minimumBalance.account.paid_available_sar
+    : sarFromHalala(minimumBalance?.account?.paid_available_halala)
+  const minimumBalanceSynced = minimumBalanceStatus === 'ready'
+    && minimumBalance?.current_mode === 'read_only_policy_contract'
+    && minimumBalance?.claim_guards?.mutates_balance === false
+    && minimumBalance?.claim_guards?.creates_lora_training_job === false
+    && minimumBalance?.claim_guards?.creates_adapter_deployment === false
+    && minimumBalance?.claim_guards?.changes_enforcement === false
+  const blockedFutureBillingRails = [
+    minimumBalance?.rails?.prompt_cache_discount,
+    minimumBalance?.rails?.batch_inference,
+    minimumBalance?.rails?.lora_training,
+    minimumBalance?.rails?.adapter_deployments,
+    minimumBalance?.rails?.evaluators,
+  ].filter((rail) => rail?.enforcement_live === false).length
   const readinessClaims = [
     `training ${gateLabel(claimGuards.public_training_enabled)}`,
     `serving ${gateLabel(claimGuards.public_serving_enabled)}`,
@@ -714,6 +799,46 @@ export default function RenterFineTuningPage() {
               <div>
                 <span><Bi en="Route traffic" ar="توجيه الحركة" /></span>
                 <b>{gateLabel(readiness?.adapter_deployments?.route_traffic)}</b>
+              </div>
+            </div>
+
+            <div className="ft-credit-preflight" aria-label={lang === 'ar' ? 'فحص رصيد الضبط الدقيق' : 'Fine-tuning credit preflight'}>
+              <div className="ft-credit-copy">
+                <span><Bi en="Credit preflight" ar="فحص الرصيد" /></span>
+                <b>{minimumBalanceSynced ? 'minimum balance synced' : minimumBalanceStatus === 'loading' ? 'checking policy' : 'fallback policy'}</b>
+                <p>
+                  <Bi
+                    en="Managed LoRA training and adapter serving stay read-only until their billing and proof rails are approved."
+                    ar="يبقى تدريب LoRA المدار وخدمة المحولات للقراءة فقط حتى تعتمد مسارات الفوترة والإثبات."
+                  />
+                </p>
+              </div>
+              <div className="ft-credit-facts">
+                <div>
+                  <span><Bi en="LoRA training" ar="تدريب LoRA" /></span>
+                  <b>{readinessLabel(loraMinimumRail?.status || 'metadata_and_artifact_proof_only')}</b>
+                </div>
+                <div>
+                  <span><Bi en="Adapter deployments" ar="نشر المحولات" /></span>
+                  <b>{readinessLabel(adapterMinimumRail?.status || 'load_and_billing_policy_required')}</b>
+                </div>
+                <div>
+                  <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
+                  <b>SAR {formatSar(paidAvailableSar)}</b>
+                </div>
+                <div>
+                  <span><Bi en="Blocked billing rails" ar="مسارات فوترة مقيدة" /></span>
+                  <b>{blockedFutureBillingRails}</b>
+                </div>
+                <div>
+                  <span><Bi en="Enforcement" ar="التنفيذ" /></span>
+                  <b>
+                    <Bi
+                      en={minimumBalance?.claim_guards?.changes_enforcement ? 'change pending' : 'Read-only: no enforcement change'}
+                      ar={minimumBalance?.claim_guards?.changes_enforcement ? 'تغيير معلق' : 'قراءة فقط: لا تغيير في التنفيذ'}
+                    />
+                  </b>
+                </div>
               </div>
             </div>
 

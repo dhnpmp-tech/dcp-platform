@@ -30,6 +30,11 @@ what is live.
   deploy-intent creation.
 - PR #797 added the validate-only LoRA dataset curl snippet to the Fine-Tuning
   console after PR #796 shipped `POST /api/lora/datasets/validate`.
+- PR #900 adds `GET /api/renters/me/minimum-balances` to
+  `/renter/fine-tuning`, showing minimum-balance sync state, LoRA training
+  mode, adapter deployment mode, paid available SAR, blocked billing rails, and
+  the read-only no-enforcement-change guard before managed training or adapter
+  serving claims.
 - PR #788 added the public `/fine-tuning` product page and wired Fine-Tuning
   into shared site navigation while keeping serving and trainer claims gated.
 - PR #789 added the public `/inference` product page and retargeted shared

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 16:26 UTC - Fine-Tuning LoRA credit preflight gates (PR #900)
+
+- **PR:** [#900](https://github.com/dhnpmp-tech/dcp-platform/pull/900) (`codex/fine-tuning-minimum-balance-preflight-2026-07-09`).
+- **Timestamp:** 2026-07-09 16:26 UTC / 2026-07-09 20:26 +04.
+- **Fine-Tuning UX:** `/renter/fine-tuning` now consumes `GET /api/renters/me/minimum-balances` and shows a compact credit preflight strip inside the LoRA readiness section.
+- **Credit clarity:** The strip shows minimum-balance sync state, LoRA training mode, adapter deployment mode, paid available SAR, blocked billing rails, and the read-only no-enforcement-change guard.
+- **Regression:** Extended the focused `/renter/fine-tuning` Playwright regression for the readiness packet, LoRA training gate, adapter deployment gate, paid-available credit, blocked billing rails, and read-only enforcement copy.
+- **Safety:** Frontend/read-only visibility change; no LoRA job creation change, GPU trainer execution, dataset storage change, adapter artifact write, adapter deployment, endpoint routing, pricing calculation, billing, balance mutation, inference dispatch, prompt-cache discount, batch execution, eval job, provider selection, or Tinker claim was added.
+- **Verification:** TypeScript; focused `/renter/fine-tuning` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 16:06 UTC - Pods unified launch checklist (PR #899)
 
 - **PR:** [#899](https://github.com/dhnpmp-tech/dcp-platform/pull/899) (`codex/pods-launch-checklist-tareq-ux-2026-07-09`).
