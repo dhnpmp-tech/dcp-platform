@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 17:37 UTC - `feat(models): add catalog-aware ALLaM and Qwen pages - PR #905`
+
+**PR:** [#905](https://github.com/dhnpmp-tech/dcp-platform/pull/905) (`codex/model-pages-allam-qwen-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 21:37 +04.
+
+**What:** Fireworks/Tinker packaging slice. Ships the roadmap-listed `/models/allam` and `/models/qwen-arabic` public pages as honest model-family surfaces backed by live catalog and benchmark-readiness contracts.
+
+- **Model pages:** Added bilingual ALLaM and Qwen-family pages with real visual treatment, developer snippets, evidence-source cards, and links into Playground, Pricing, Inference, and Benchmarks.
+- **Catalog discipline:** Both pages read `GET /v1/models`, separate serveable rows from catalog-only rows, and avoid availability claims when matching rows have `provider_count=0`.
+- **Claim guard:** Both pages read `GET /api/models/benchmarks/readiness` and keep Arabic-quality claims, rankings, case studies, and frontier comparisons gated until reproducible artifacts exist.
+- **Advanced readiness:** The pages surface the matching model row's prompt-cache, Batch API, LoRA, and Dedicated Deployment readiness states without enabling discounts, execution, serving, or route traffic.
+- **Discovery:** Added the model pages to the sitemap, shared footer, AI-discovery `llms.txt`, and static site-index guard.
+- **Regression:** Added a mocked Playwright regression for ALLaM catalog-only state, Qwen live-row state, advanced readiness, and benchmark claim guards.
+- **Safety:** Frontend/read-only visibility change; no model catalog semantics, provider selection, request routing, pricing calculation, billing, settlement, prompt-cache discount, batch execution, LoRA training, adapter deployment, benchmark result, quality claim, or Tinker claim changed.
+- **Verification:** TypeScript; focused model-pages Playwright regression; site-index static check; model-catalog parity proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 17:24 UTC - `feat(pricing): surface live model feature readiness gates - PR #904`
 
 **PR:** [#904](https://github.com/dhnpmp-tech/dcp-platform/pull/904) (`codex/pricing-model-readiness-gates-2026-07-09-v2`).

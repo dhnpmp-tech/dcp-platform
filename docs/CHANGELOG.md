@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 17:37 UTC - Catalog-aware ALLaM and Qwen model pages (PR #905)
+
+- **PR:** [#905](https://github.com/dhnpmp-tech/dcp-platform/pull/905) (`codex/model-pages-allam-qwen-readiness-2026-07-09`).
+- **Timestamp:** 2026-07-09 17:37 UTC / 2026-07-09 21:37 +04.
+- **Public pages:** Added `/models/allam` and `/models/qwen-arabic` as bilingual model-family pages backed by live catalog and benchmark-readiness contracts.
+- **Catalog discipline:** The pages read `GET /v1/models`, show matching rows, separate serveable rows from catalog-only rows, and avoid live availability claims when `provider_count=0`.
+- **Claim guard:** The pages read `GET /api/models/benchmarks/readiness` and keep Arabic quality claims, rankings, case studies, and frontier comparisons gated until reproducible artifacts exist.
+- **Discovery:** Added both routes to sitemap, shared footer, `llms.txt`, and the site-index static guard.
+- **Regression:** Added a mocked Playwright regression for ALLaM catalog-only state, Qwen live rows, advanced readiness, and benchmark claim guards.
+- **Safety:** Frontend/read-only visibility change; no model catalog semantics, provider selection, request routing, pricing calculation, billing, settlement, prompt-cache discount, batch execution, LoRA training, adapter deployment, benchmark result, quality claim, or Tinker claim changed.
+- **Verification:** TypeScript; focused model-pages Playwright regression; site-index static check; model-catalog parity proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 17:24 UTC - Pricing live model feature-readiness gates (PR #904)
 
 - **PR:** [#904](https://github.com/dhnpmp-tech/dcp-platform/pull/904) (`codex/pricing-model-readiness-gates-2026-07-09-v2`).

@@ -5,9 +5,10 @@
 ## For agents: start here
 
 - **Agent guide (start here):** [/agents](https://dcp.sa/agents) — the zero-human flow, the MCP catalog + config, the GPU price table, and the machine-readable money signals, written for both humans and agents.
-- **Product map:** [/pods](https://dcp.sa/pods), [/inference](https://dcp.sa/inference), [/fine-tuning](https://dcp.sa/fine-tuning), [/batch](https://dcp.sa/batch), [/dedicated-deployments](https://dcp.sa/dedicated-deployments), [/benchmarks](https://dcp.sa/benchmarks), and [/pricing](https://dcp.sa/pricing).
+- **Product map:** [/pods](https://dcp.sa/pods), [/inference](https://dcp.sa/inference), [/fine-tuning](https://dcp.sa/fine-tuning), [/batch](https://dcp.sa/batch), [/dedicated-deployments](https://dcp.sa/dedicated-deployments), [/benchmarks](https://dcp.sa/benchmarks), [/models/allam](https://dcp.sa/models/allam), [/models/qwen-arabic](https://dcp.sa/models/qwen-arabic), and [/pricing](https://dcp.sa/pricing).
 - **Zero-human onboarding:** `POST https://api.dcp.sa/api/renters/agent-register` (no auth needed; optional JSON body `{email,label,use_case}`) → `201 { "api_key": "dcp-renter-…", "trial_credit_sar": 20, "balance_sar": 20 }`. A real, immediately-usable key + a 20 SAR trial credit, no human and no email click. (The full 100 SAR trial is the human email-verified signup.)
 - **Inference (OpenAI-compatible):** Base URL `https://api.dcp.sa/v1`. Use any OpenAI SDK by setting `base_url` to it and `Authorization: Bearer <renter_api_key>` (also accepts `x-renter-key`). Endpoints: `POST /v1/chat/completions`, `GET /v1/models` (each entry has an `available` flag). Both `dcp-renter-` and `dc1-sk-` key prefixes work.
+- **Model pages:** `/models/allam` and `/models/qwen-arabic` are public, catalog-aware product pages. They read `GET /v1/models` for provider-backed availability and `GET /api/models/benchmarks/readiness` for Arabic-quality claim guards. ALLaM may be catalog-only when `provider_count=0`; Qwen-family rows are serveable only when `/v1/models` says `provider_count>0`.
 - **MCP server:** [dcp-mcp](https://github.com/dhnpmp-tech/dcp-mcp) — install with `npx -y github:dhnpmp-tech/dcp-mcp` (the npm package `@dcp/mcp` is coming soon). Eleven tools: `register_agent`, `list_models`, `chat`, `get_balance`, `list_gpus`, `create_pod`, `get_pod`, `extend_pod`, `stop_pod`, `rent_volume`, `get_volume`. `register_agent` is unauthenticated (it mints the first key); the rest take a renter key. The native way for an MCP-capable agent (Claude, etc.) to use DCP.
 - **Safe money:** money routes (`POST /api/pods`, `POST /api/pods/{id}/extend`, `POST /api/volumes/rent`) accept an `Idempotency-Key` header (a retry with the same key returns the SAME pod/charge), and return a machine-readable `HTTP 402 { code:"insufficient_balance", required_sar, balance_sar, currency:"SAR", topup_url, retryable:true }` (creating no pod) when the wallet is short.
 - **Minimum-balance policy:** `GET https://api.dcp.sa/api/renters/me/minimum-balances` (Bearer billing/admin renter key) returns a read-only contract for v1 estimate preflight, on-demand paid-credit gates, volume quotes, and blocked future billing rails. It does not create payments, launch pods, dispatch inference, enable discounts, or change 402 enforcement.
@@ -138,6 +139,8 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Agent guide (zero-human onboarding, MCP, money signals): https://dcp.sa/agents
 - Human docs: https://dcp.sa/docs
 - Inference: https://dcp.sa/inference
+- ALLaM model page: https://dcp.sa/models/allam
+- Qwen Arabic model page: https://dcp.sa/models/qwen-arabic
 - GPU Pods: https://dcp.sa/pods
 - Fine-Tuning: https://dcp.sa/fine-tuning
 - Batch: https://dcp.sa/batch

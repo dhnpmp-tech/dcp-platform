@@ -111,6 +111,10 @@ what is live.
   `GET /api/models/benchmarks/readiness`, making Benchmarks/Evals a visible
   product rail while Arabic-quality claims, case studies, rankings, and
   frontier comparisons remain gated by reproducible artifacts.
+- PR #905 adds `/models/allam` and `/models/qwen-arabic` as catalog-aware
+  model-family pages backed by `/v1/models` and benchmark readiness, separating
+  serveable rows from catalog-only rows while keeping Arabic quality claims
+  gated until reproducible evidence exists.
 - PR #853 added `GET /api/evals/readiness` and
   `npm run proof:evaluator-readiness-contract`, making customer evaluator-job
   gates command-ready while eval jobs, datasets, reports, rankings, and billing

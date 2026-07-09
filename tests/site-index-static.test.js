@@ -23,6 +23,8 @@ assert(robots.includes('Sitemap: https://dcp.sa/sitemap.xml'), 'robots.txt shoul
   '/setup',
   '/provider-setup',
   '/pricing',
+  '/models/allam',
+  '/models/qwen-arabic',
   '/status',
 ].forEach((route) => {
   assert(sitemap.includes(`'${route}'`), `sitemap should include ${route}`);

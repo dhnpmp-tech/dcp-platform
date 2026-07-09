@@ -17,6 +17,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/batch',
     '/dedicated-deployments',
     '/benchmarks',
+    '/models/allam',
+    '/models/qwen-arabic',
     // Compatibility URL for older GPU Pods links. Keep lower-priority but
     // discoverable while external references migrate to /pods.
     '/containers',
