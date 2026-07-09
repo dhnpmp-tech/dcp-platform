@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 18:04 UTC - Usage scoped-key team readiness rail (PR #906)
+
+- **PR:** [#906](https://github.com/dhnpmp-tech/dcp-platform/pull/906) (`codex/usage-team-readiness-rail-2026-07-09`).
+- **Timestamp:** 2026-07-09 18:04 UTC / 2026-07-09 22:04 +04.
+- **Backend:** Added `team_usage_readiness` to budget-status and usage-by-key responses, covering live scoped-key controls, gated team-member controls, counts, endpoints, next step, and read-only claim guards.
+- **Usage UX:** `/renter/usage` now shows Team usage readiness with usage export, scoped-key attribution, per-key caps, member-rollup gate, active/budgeted keys, attributed requests/spend, and no-mutation guard state.
+- **Honesty:** Team-member rollups and member budgets remain explicitly gated behind org-member identity; scoped keys remain the current team/workspace proxy.
+- **Regression:** Added backend assertions and a mocked `/renter/usage` Playwright regression for the readiness rail and scoped-key table.
+- **Safety:** Read-only contract/UI change; no team-member creation, usage mutation, key secret exposure, budget mutation, billing change, inference dispatch, account cap change, scoped-key cap enforcement change, settlement, prompt-cache discount, batch execution, LoRA training, adapter deployment, provider selection, or Tinker claim changed.
+- **Verification:** Targeted renter usage/budget Jest suite; focused `/renter/usage` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 17:37 UTC - Catalog-aware ALLaM and Qwen model pages (PR #905)
 
 - **PR:** [#905](https://github.com/dhnpmp-tech/dcp-platform/pull/905) (`codex/model-pages-allam-qwen-readiness-2026-07-09`).

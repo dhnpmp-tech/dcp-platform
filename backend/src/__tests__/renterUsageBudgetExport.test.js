@@ -341,6 +341,38 @@ describe('renter usage export and budget status', () => {
         per_key_spend_available: true,
         per_key_budgets_available: true,
       },
+      team_usage_readiness: {
+        object: 'team_usage_readiness',
+        version: 'dcp.team_usage_readiness.v1',
+        current_mode: 'scoped_key_controls_only',
+        live_controls: {
+          account_v1_spend_cap: true,
+          workspace_usage_export: true,
+          scoped_key_spend_attribution: true,
+          scoped_key_budget_caps: true,
+        },
+        gated_controls: {
+          team_member_rollups: true,
+          team_member_budget_enforcement: true,
+          org_member_identity_required: true,
+        },
+        counts: {
+          active_keys: 2,
+          budgeted_keys: 1,
+          attributed_requests_30d: 1,
+          attributed_spend_30d_halala: 300,
+          attributed_spend_30d_sar: 3,
+        },
+        claim_guards: {
+          creates_team_members: false,
+          mutates_usage: false,
+          mutates_budgets: false,
+          changes_billing: false,
+          dispatches_inference: false,
+          exposes_key_secret: false,
+          claims_team_member_rollups_live: false,
+        },
+      },
       claims: {
         v1_account_spend_cap_gate_live: true,
         workspace_usage_export_live: true,
@@ -461,6 +493,36 @@ describe('renter usage export and budget status', () => {
         per_key_spend_attribution_live: true,
         per_key_budgets_enforced: true,
         team_member_rollups_live: false,
+      },
+      team_usage_readiness: {
+        object: 'team_usage_readiness',
+        current_mode: 'scoped_key_controls_only',
+        live_controls: {
+          workspace_usage_export: true,
+          scoped_key_spend_attribution: true,
+          scoped_key_budget_caps: true,
+        },
+        gated_controls: {
+          team_member_rollups: true,
+          team_member_budget_enforcement: true,
+        },
+        counts: {
+          active_keys: 2,
+          budgeted_keys: 1,
+          attributed_requests_30d: 1,
+          attributed_spend_30d_halala: 300,
+          rollup_rows: 2,
+          unattributed_requests_30d: 0,
+        },
+        claim_guards: {
+          creates_team_members: false,
+          mutates_usage: false,
+          mutates_budgets: false,
+          changes_billing: false,
+          dispatches_inference: false,
+          exposes_key_secret: false,
+          claims_team_member_rollups_live: false,
+        },
       },
     });
     const inferenceKey = res.body.rows.find((row) => row.id === 'key-inference');
