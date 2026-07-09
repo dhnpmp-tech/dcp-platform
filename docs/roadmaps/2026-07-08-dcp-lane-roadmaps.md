@@ -58,6 +58,11 @@ what is live.
 - PR #790 added `/pods` as the public GPU Pods product route, retargeted shared
   GPU Pods links away from `/containers`, and kept `/containers` as a
   compatibility URL without changing pod backend behavior.
+- PR #922 makes public `/pods` consume `GET /api/pods/images/readiness` and
+  `GET /api/pods/trial-routing/readiness`, showing image-contract state,
+  provider-host LoRA image blockers, workspace live-proof blockers,
+  trial-credit routing, paid-credit high-demand gates, and false-claim guards
+  before login.
 - PR #791 added `/batch` as the public Batch inference product page, wired it
   into shared product IA, and kept execution, downloads, settlement, discounts,
   and model batch capability behind readiness/proof gates.
@@ -279,6 +284,9 @@ what is live.
   - `/pods`
     **Added in PR #790 as the public GPU Pods route while `/containers` remains
     a compatibility URL.**
+    **PR #922 makes the public page contract-backed with pod image and
+    trial-routing readiness, while LoRA image acceptance and workspace live
+    file visibility stay labeled as blocked proof gates.**
   - `/fine-tuning`
     **Added in PR #788 with proof-gated LoRA contract copy.**
   - `/dedicated-deployments`
@@ -756,6 +764,10 @@ template launch.
   `npm run proof:pod-image-readiness`, a CI-safe readiness packet that keeps the
   LoRA pod image contract, build/verify commands, provider-host blockers, and
   false-claim guards visible before the GPU-host proof can pass.
+- PR #922 carries those image/trial/workspace readiness packets to public
+  `/pods`, keeping contract-ready image aliases visible while marking LoRA
+  image GPU-host acceptance and workspace live file visibility as coming-next
+  proof gates.
 - PR #889 makes those workspace and LoRA pod-image proof gates visible from the
   pod readiness contract and renter launch UI while keeping live acceptance
   blocked until provider/funded inputs exist.

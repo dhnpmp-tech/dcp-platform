@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 22:11 UTC - Public Pods readiness gates (PR #922)
+
+- **PR:** #922 (`codex/public-pods-readiness-2026-07-10`).
+- **Timestamp:** 2026-07-09 22:11 UTC / 2026-07-10 02:11 +04.
+- **Public Pods readiness:** `/pods` now consumes `GET /api/pods/images/readiness` and `GET /api/pods/trial-routing/readiness`, exposing the live read-only pod image and trial-routing contract versions before login.
+- **Blocked gates:** The page shows the CI-safe image contract while keeping LoRA/fine-tuning pod image acceptance and workspace live file visibility marked as provider-host/live-proof gates.
+- **Trial clarity:** Public Pods now states that trial handling uses grant-credit provenance, trial credit covers DCP/community capacity, and high-demand GPUs require paid credit.
+- **Regression:** Added focused public `/pods` Playwright coverage for readiness contracts, provider-host blockers, trial routing, and provider-identity false-claim guards.
+- **Safety:** Frontend/read-only UX change; no pod launch behavior, image build, Docker execution, provider selection, billing, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or fine-tuning-ready claim was enabled.
+- **Verification:** Focused public `/pods` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:49 UTC - Pod workload GPU selection clarity (PR #921)
 
 - **PR:** [#921](https://github.com/dhnpmp-tech/dcp-platform/pull/921) (`codex/pods-workload-gpu-selection-clarity-2026-07-10`).

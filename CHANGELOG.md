@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 22:11 UTC - `feat(pods): publish public readiness gates - PR #922`
+
+**PR:** #922 (`codex/public-pods-readiness-2026-07-10`).
+**Local timestamp:** 2026-07-10 02:11 +04.
+
+**What:** Product packaging follow-up for the Fireworks/Tinker Pods/POTS roadmap. Makes the public `/pods` page consume the shipped pod image and trial-routing readiness contracts so visitors see the same honest gates before logging in.
+
+- **Public Pods readiness:** `/pods` now reads `GET /api/pods/images/readiness` and `GET /api/pods/trial-routing/readiness`, showing contract versions, CI-safe image contract status, image-alias count, LoRA image tag, and API source links.
+- **Blocked gates:** The public page now states that LoRA/fine-tuning pod image acceptance is still provider-host-blocked, and names `npm run proof:lora-pod-image` plus the workspace live proof command before any fine-tuning-ready claim.
+- **Trial clarity:** Public Pods now repeats the backend trial-routing answer: no separate trial-account tag is live, trial credit uses grant-credit provenance and DCP/community capacity, and high-demand GPUs require paid credit.
+- **Safety:** Frontend/read-only public UX change; no pod launch behavior, pod image build, Docker execution, provider selection, billing, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or fine-tuning-ready claim was enabled.
+- **Regression:** Added a focused public `/pods` Playwright regression proving the page renders both readiness contracts, blocked provider-host gates, trial-credit routing, and provider-identity false-claim guards.
+- **Verification:** Focused public `/pods` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:49 UTC - `feat(pods): prevent silent workload GPU pinning - PR #921`
 
 **PR:** [#921](https://github.com/dhnpmp-tech/dcp-platform/pull/921) (`codex/pods-workload-gpu-selection-clarity-2026-07-10`).

@@ -233,6 +233,11 @@ Acceptance:
     `GET /api/pods/images/readiness` and adds it to the local roadmap suite,
     keeping the LoRA image in a contract-ready/provider-host-blocked state until
     `npm run proof:lora-pod-image` passes on a GPU host.
+  - PR #922 surfaces the same pod image and trial-routing readiness packets on
+    public `/pods`, so visitors see contract-ready image aliases, blocked LoRA
+    provider-host acceptance, blocked workspace live proof, trial-credit
+    routing, paid-credit high-demand gates, and false-claim guards before
+    logging in.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.
@@ -671,6 +676,9 @@ Goal: make the product easy to understand and sell.
   - `/pods`
     **Added in PR #790 as the public GPU Pods product route while keeping
     `/containers` renderable for existing links.**
+    **PR #922 makes `/pods` consume pod image and trial-routing readiness
+    directly, with "coming next" copy for provider-host LoRA image proof and
+    workspace live file visibility.**
   - `/fine-tuning`
     **Added in PR #788 with shipped LoRA contract gates and no public-serving
     overclaim.**
