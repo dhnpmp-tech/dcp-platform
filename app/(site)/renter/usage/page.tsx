@@ -148,6 +148,31 @@ interface UsageResponse {
   }
 }
 
+interface BudgetStatusResponse {
+  v1_inference?: {
+    requests?: number
+    spend_halala?: number
+    monthly_spend_cap_halala?: number
+    monthly_spend_cap_unlimited?: boolean
+    remaining_cap_halala?: number | null
+    cap_utilization_pct?: number | null
+  }
+  quota?: {
+    daily_jobs_limit?: number
+    monthly_spend_limit_halala?: number
+  }
+  api_keys?: {
+    active?: number
+    billing?: number
+    inference?: number
+    per_key_budgets_available?: boolean
+  }
+  claims?: {
+    workspace_usage_export_live?: boolean
+    per_key_budgets_enforced?: boolean
+  }
+}
+
 interface BreakdownRow {
   name: string
   pct: number
@@ -237,7 +262,7 @@ async function downloadUsageCsv(period: Period): Promise<void> {
   const key = getRenterKey()
   if (!key) return
   const base = getApiBase()
-  const res = await fetch(`${base}/renters/me/jobs/export?format=csv&period=${period}`, {
+  const res = await fetch(`${base}/renters/me/usage/export?format=csv&period=${period}`, {
     headers: { 'x-renter-key': key },
     cache: 'no-store',
   })
@@ -269,6 +294,7 @@ export default function RenterUsagePage() {
   const [jobs, setJobs] = useState<JobRecord[]>([])
   const [usage, setUsage] = useState<UsageRecord[]>([])
   const [usageTotals, setUsageTotals] = useState<UsageResponse['totals'] | null>(null)
+  const [budgetStatus, setBudgetStatus] = useState<BudgetStatusResponse | null>(null)
   // C1 phase-2: CSV export uses downloadUsageCsv (x-renter-key header) instead of an <a href="?key=">.
 
   useEffect(() => {
@@ -287,12 +313,13 @@ export default function RenterUsagePage() {
       try {
         setLoadState('loading')
         setError('')
-        const [me, balanceData, analyticsData, jobsData, usageData] = await Promise.all([
+        const [me, balanceData, analyticsData, jobsData, usageData, budgetData] = await Promise.all([
           readJson<RenterMeResponse>(`${base}/renters/me`, headers),
           readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
           readJson<AnalyticsResponse>(`${base}/renters/me/analytics?period=${period}`, headers, true),
           readJson<JobsResponse>(`${base}/renters/me/jobs?page=0&limit=50&period=${period}`, headers, true),
           readJson<UsageResponse>(`${base}/renters/me/usage?limit=50&offset=0&period=${period}`, headers, true),
+          readJson<BudgetStatusResponse>(`${base}/renters/me/budget-status?period=${period}`, headers, true),
         ])
         if (cancelled) return
         setRenter(me?.renter || null)
@@ -301,6 +328,7 @@ export default function RenterUsagePage() {
         setJobs(jobsData?.jobs || [])
         setUsage(usageData?.usage || [])
         setUsageTotals(usageData?.totals || me?.v1_usage_summary || null)
+        setBudgetStatus(budgetData || null)
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
@@ -347,6 +375,15 @@ export default function RenterUsagePage() {
   const successRate = allStatusJobs > 0 ? Math.round((completedJobs / allStatusJobs) * 100) : null
   const avgDuration = typeof analytics?.avg_duration_minutes === 'number' ? `${analytics.avg_duration_minutes} min` : '—'
   const balanceParts = fmtSar(balanceSar).split('.')
+  const accountCapUnlimited = budgetStatus?.v1_inference?.monthly_spend_cap_unlimited ?? true
+  const accountCapSar = halalaToSar(budgetStatus?.v1_inference?.monthly_spend_cap_halala)
+  const remainingCapSar =
+    typeof budgetStatus?.v1_inference?.remaining_cap_halala === 'number'
+      ? halalaToSar(budgetStatus.v1_inference.remaining_cap_halala)
+      : null
+  const capUtilization = budgetStatus?.v1_inference?.cap_utilization_pct
+  const scopedActiveKeys = budgetStatus?.api_keys?.active || 0
+  const billingKeys = budgetStatus?.api_keys?.billing || 0
 
   const modelRows = useMemo(() => {
     const byModel = new Map<string, number>()
@@ -556,6 +593,38 @@ export default function RenterUsagePage() {
               <span>{error}</span>
             </div>
           )}
+
+          <div className="budget-strip">
+            <div>
+              <span className="k">
+                <Bi en="Monthly v1 cap" ar="حد v1 الشهري" />
+              </span>
+              <b>
+                {accountCapUnlimited ? <Bi en="Unlimited" ar="غير محدود" /> : `SAR ${fmtSar(accountCapSar)}`}
+              </b>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Remaining" ar="المتبقي" />
+              </span>
+              <b>{remainingCapSar == null ? '—' : `SAR ${fmtSar(remainingCapSar)}`}</b>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Cap used" ar="استخدام الحد" />
+              </span>
+              <b>{typeof capUtilization === 'number' ? `${capUtilization}%` : '—'}</b>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Scoped keys" ar="المفاتيح المحددة" />
+              </span>
+              <b>{numFmt.format(scopedActiveKeys)}</b>
+              <span className="sub">
+                <Bi en={`${numFmt.format(billingKeys)} billing`} ar={`${numFmt.format(billingKeys)} للفوترة`} />
+              </span>
+            </div>
+          </div>
 
           <div className="kpi-row" style={{ marginTop: 36 }}>
             <div className="kpi featured">

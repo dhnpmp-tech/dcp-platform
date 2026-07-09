@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 00:43 UTC - Renter usage export and budget status (PR #848)
+
+- **PR:** [#848](https://github.com/dhnpmp-tech/dcp-platform/pull/848) (`codex/renter-usage-budget-export-2026-07-09`).
+- **Backend:** Added `GET /api/renters/me/usage/export` for scoped JSON/CSV v1 usage ledger export and `GET /api/renters/me/budget-status` for account spend cap, renter quota, scoped-key count, and claim-state reporting.
+- **Frontend:** The renter Usage CSV button now exports inference ledger rows instead of the jobs CSV, and Usage/API Keys show the account-wide v1 cap and remaining budget from the live backend packet.
+- **Honesty:** Per-key spend attribution and per-key budget enforcement remain explicitly false until usage rows are keyed to the scoped API key that created them.
+- **Safety:** No billing settlement, cap mutation, key creation/revocation, prompt-cache discount, router selection, inference execution, pod launch, or public product claim behavior changed.
+- **Verification:** Targeted Jest suite; `node --check`; package script parse; TypeScript/Next verification; `git diff --check`.
+
 ### 2026-07-09 00:35 UTC - dcp-agent VPS-local inventory fix (PR #846)
 
 - **PR:** [#846](https://github.com/dhnpmp-tech/dcp-platform/pull/846) (`codex/dcp-agent-vps-local-inventory-2026-07-09`).

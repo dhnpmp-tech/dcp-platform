@@ -2420,6 +2420,272 @@ function resolveRenterIdByKey(key) {
   return linked ? linked.id : null;
 }
 
+const RENTER_USAGE_PERIODS = new Map([
+  ['7d', 7],
+  ['30d', 30],
+  ['90d', 90],
+]);
+const USAGE_EXPORT_MAX_ROWS = 5000;
+
+function normalizeRenterUsagePeriod(rawPeriod) {
+  const period = RENTER_USAGE_PERIODS.has(String(rawPeriod || '')) ? String(rawPeriod) : '30d';
+  const days = RENTER_USAGE_PERIODS.get(period);
+  return {
+    period,
+    days,
+    cutoff: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
+  };
+}
+
+function normalizeUsageExportLimit(rawLimit) {
+  const parsed = Number.parseInt(String(rawLimit || ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return USAGE_EXPORT_MAX_ROWS;
+  return Math.min(parsed, USAGE_EXPORT_MAX_ROWS);
+}
+
+function readRenterKeyFromRequest(req) {
+  return req.headers['x-renter-key'] || req.query.key || getBearerToken(req);
+}
+
+function requireRenterBillingRead(req) {
+  const rawKey = readRenterKeyFromRequest(req);
+  if (!rawKey) {
+    return {
+      error: {
+        status: 401,
+        body: { error: 'API key required. Use Authorization: Bearer <key> or x-renter-key.' },
+      },
+    };
+  }
+  const authCtx = getRenterAuthContext(rawKey);
+  if (!authCtx) {
+    return { error: { status: 403, body: { error: 'Invalid or inactive API key' } } };
+  }
+  if (!hasReadScope(authCtx, ['billing'])) {
+    return {
+      error: {
+        status: 403,
+        body: { error: 'This API key does not have permission to read usage or budget data. Use your master key or a key with the billing or admin scope.' },
+      },
+    };
+  }
+  return { authCtx };
+}
+
+function sarFromHalala(halala) {
+  return Number((Number(halala || 0) / 100).toFixed(2));
+}
+
+function queryRenterUsageRows(renterId, cutoff, limit) {
+  return db.all(
+    `SELECT id, request_id, provider_response_id, job_id, request_path, model, source,
+            prompt_tokens, completion_tokens, total_tokens,
+            prompt_cost_halala, completion_cost_halala, token_rate_halala,
+            cost_halala, currency, created_at, provider_id, usd_prompt,
+            usd_completion, usd_total, settlement_status, settlement_id
+     FROM openrouter_usage_ledger
+     WHERE renter_id = ? AND created_at >= ?
+     ORDER BY created_at DESC
+     LIMIT ?`,
+    renterId, cutoff, limit
+  );
+}
+
+function queryRenterUsageTotals(renterId, cutoff) {
+  return db.get(
+    `SELECT COUNT(*) AS total_requests,
+            COALESCE(SUM(prompt_tokens), 0) AS total_prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) AS total_completion_tokens,
+            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            COALESCE(SUM(prompt_cost_halala), 0) AS total_prompt_cost_halala,
+            COALESCE(SUM(completion_cost_halala), 0) AS total_completion_cost_halala,
+            COALESCE(SUM(cost_halala), 0) AS total_cost_halala
+     FROM openrouter_usage_ledger
+     WHERE renter_id = ? AND created_at >= ?`,
+    renterId, cutoff
+  ) || {};
+}
+
+function serializeUsageExportRows(rows) {
+  return rows.map((row) => ({
+    id: row.id,
+    request_id: row.request_id || null,
+    provider_response_id: row.provider_response_id || null,
+    job_id: row.job_id || null,
+    request_path: row.request_path || null,
+    model: row.model,
+    source: row.source || 'v1',
+    prompt_tokens: row.prompt_tokens || 0,
+    completion_tokens: row.completion_tokens || 0,
+    total_tokens: row.total_tokens || 0,
+    prompt_cost_halala: row.prompt_cost_halala || 0,
+    completion_cost_halala: row.completion_cost_halala || 0,
+    token_rate_halala: row.token_rate_halala ?? null,
+    cost_halala: row.cost_halala || 0,
+    cost_sar: sarFromHalala(row.cost_halala),
+    currency: row.currency || 'SAR',
+    created_at: row.created_at,
+    provider_id: row.provider_id ?? null,
+    usd_prompt: row.usd_prompt ?? null,
+    usd_completion: row.usd_completion ?? null,
+    usd_total: row.usd_total ?? null,
+    settlement_status: row.settlement_status || 'pending',
+    settlement_id: row.settlement_id || null,
+  }));
+}
+
+function usageExportCsv(rows) {
+  const headers = [
+    'created_at',
+    'request_id',
+    'model',
+    'source',
+    'prompt_tokens',
+    'completion_tokens',
+    'total_tokens',
+    'prompt_cost_halala',
+    'completion_cost_halala',
+    'cost_halala',
+    'cost_sar',
+    'currency',
+    'settlement_status',
+    'provider_id',
+    'request_path',
+    'job_id',
+  ];
+  const lines = rows.map((row) => headers.map((key) => csvField(row[key])).join(','));
+  return [headers.join(','), ...lines].join('\r\n') + '\r\n';
+}
+
+function summarizeScopedKeys(renterId) {
+  const keys = db.all(
+    `SELECT scopes, revoked_at
+     FROM renter_api_keys
+     WHERE renter_id = ?`,
+    renterId
+  );
+  const counts = {
+    total: keys.length,
+    active: 0,
+    revoked: 0,
+    admin: 0,
+    inference: 0,
+    billing: 0,
+    compute: 0,
+  };
+  for (const key of keys) {
+    const revoked = Boolean(key.revoked_at);
+    if (revoked) {
+      counts.revoked += 1;
+      continue;
+    }
+    counts.active += 1;
+    const scopes = parseScopes(key.scopes);
+    if (scopes.includes('admin')) counts.admin += 1;
+    if (scopes.includes('inference')) counts.inference += 1;
+    if (scopes.includes('billing')) counts.billing += 1;
+    if (scopes.includes('compute')) counts.compute += 1;
+  }
+  return counts;
+}
+
+function buildRenterBudgetStatus(authCtx, periodInfo) {
+  const renter = db.get(
+    `SELECT id, organization, balance_halala, total_spent_halala, total_jobs,
+            monthly_spend_cap_halala
+     FROM renters
+     WHERE id = ? AND status = 'active'`,
+    authCtx.renter.id
+  );
+  if (!renter) return null;
+
+  const usageTotals = queryRenterUsageTotals(renter.id, periodInfo.cutoff);
+  const jobTotals = db.get(
+    `SELECT COUNT(*) AS total_jobs,
+            COALESCE(SUM(COALESCE(br.gross_cost_halala, j.actual_cost_halala, j.cost_halala, 0)), 0) AS total_cost_halala
+     FROM jobs j
+     LEFT JOIN billing_records br ON br.job_id = j.job_id
+     WHERE j.renter_id = ?
+       AND COALESCE(j.created_at, j.submitted_at) >= ?
+       AND j.status = 'completed'`,
+    renter.id, periodInfo.cutoff
+  ) || {};
+  const quota = db.get(
+    `SELECT daily_jobs_limit, monthly_spend_limit_halala, created_at, updated_at
+     FROM renter_quota
+     WHERE renter_id = ?`,
+    renter.id
+  );
+  const keyCounts = summarizeScopedKeys(renter.id);
+  const v1CapHalala = Number(renter.monthly_spend_cap_halala || 0);
+  const v1SpendHalala = Number(usageTotals.total_cost_halala || 0);
+  const v1RemainingHalala = v1CapHalala > 0 ? Math.max(v1CapHalala - v1SpendHalala, 0) : null;
+  const v1UtilizationPct = v1CapHalala > 0
+    ? Math.min(100, Math.round((v1SpendHalala / v1CapHalala) * 10000) / 100)
+    : null;
+
+  return {
+    object: 'renter_budget_status',
+    version: 'dcp.renter_budget_status.v1',
+    generated_at: new Date().toISOString(),
+    period: periodInfo.period,
+    window: {
+      days: periodInfo.days,
+      cutoff: periodInfo.cutoff,
+    },
+    renter: {
+      id: renter.id,
+      org_id: authCtx.orgId || deriveOrgId(renter),
+      organization: renter.organization || null,
+      balance_halala: renter.balance_halala || 0,
+      balance_sar: sarFromHalala(renter.balance_halala),
+      lifetime_spent_halala: renter.total_spent_halala || 0,
+      lifetime_spent_sar: sarFromHalala(renter.total_spent_halala),
+      lifetime_jobs: renter.total_jobs || 0,
+    },
+    v1_inference: {
+      requests: Number(usageTotals.total_requests || 0),
+      prompt_tokens: Number(usageTotals.total_prompt_tokens || 0),
+      completion_tokens: Number(usageTotals.total_completion_tokens || 0),
+      total_tokens: Number(usageTotals.total_tokens || 0),
+      spend_halala: v1SpendHalala,
+      spend_sar: sarFromHalala(v1SpendHalala),
+      monthly_spend_cap_halala: v1CapHalala,
+      monthly_spend_cap_sar: sarFromHalala(v1CapHalala),
+      monthly_spend_cap_unlimited: v1CapHalala === 0,
+      remaining_cap_halala: v1RemainingHalala,
+      remaining_cap_sar: v1RemainingHalala == null ? null : sarFromHalala(v1RemainingHalala),
+      cap_utilization_pct: v1UtilizationPct,
+    },
+    jobs: {
+      completed: Number(jobTotals.total_jobs || 0),
+      spend_halala: Number(jobTotals.total_cost_halala || 0),
+      spend_sar: sarFromHalala(jobTotals.total_cost_halala),
+    },
+    quota: {
+      source: quota ? 'renter_quota' : 'defaults',
+      daily_jobs_limit: Number(quota?.daily_jobs_limit || 100),
+      monthly_spend_limit_halala: Number(quota?.monthly_spend_limit_halala || 10000),
+      monthly_spend_limit_sar: sarFromHalala(quota?.monthly_spend_limit_halala || 10000),
+      created_at: quota?.created_at || null,
+      updated_at: quota?.updated_at || null,
+    },
+    api_keys: {
+      ...keyCounts,
+      per_key_spend_available: false,
+      per_key_budgets_available: false,
+    },
+    claims: {
+      v1_account_spend_cap_gate_live: true,
+      workspace_usage_export_live: true,
+      per_key_spend_attribution_live: false,
+      per_key_budgets_enforced: false,
+      team_member_budgets_enforced: false,
+      prompt_cache_discount_applied: false,
+    },
+  };
+}
+
 // GET /api/renters/me/templates?key=
 router.get('/me/templates', (req, res) => {
   try {
@@ -2530,6 +2796,74 @@ router.get('/me/live', (req, res) => {
   } catch (error) {
     console.error('Live dashboard error:', error);
     res.status(500).json({ error: 'Failed to fetch live dashboard' });
+  }
+});
+
+// ============================================================================
+// GET /api/renters/me/budget-status — Fireworks-style usage/budget state
+// ============================================================================
+router.get('/me/budget-status', (req, res) => {
+  try {
+    const auth = requireRenterBillingRead(req);
+    if (auth.error) return res.status(auth.error.status).json(auth.error.body);
+
+    const periodInfo = normalizeRenterUsagePeriod(req.query.period);
+    const status = buildRenterBudgetStatus(auth.authCtx, periodInfo);
+    if (!status) return res.status(404).json({ error: 'Renter not found' });
+    return res.json(status);
+  } catch (error) {
+    console.error('Renter budget status error:', error);
+    return res.status(500).json({ error: 'Failed to fetch budget status' });
+  }
+});
+
+// ============================================================================
+// GET /api/renters/me/usage/export — v1 usage export as JSON or CSV
+// ============================================================================
+router.get('/me/usage/export', (req, res) => {
+  try {
+    const auth = requireRenterBillingRead(req);
+    if (auth.error) return res.status(auth.error.status).json(auth.error.body);
+
+    const periodInfo = normalizeRenterUsagePeriod(req.query.period);
+    const limit = normalizeUsageExportLimit(req.query.limit);
+    const format = String(req.query.format || 'csv').toLowerCase() === 'json' ? 'json' : 'csv';
+    const rows = serializeUsageExportRows(queryRenterUsageRows(auth.authCtx.renter.id, periodInfo.cutoff, limit));
+    const totals = queryRenterUsageTotals(auth.authCtx.renter.id, periodInfo.cutoff);
+    const payload = {
+      object: 'renter_usage_export',
+      version: 'dcp.renter_usage_export.v1',
+      generated_at: new Date().toISOString(),
+      period: periodInfo.period,
+      window: {
+        days: periodInfo.days,
+        cutoff: periodInfo.cutoff,
+      },
+      renter: {
+        id: auth.authCtx.renter.id,
+        org_id: auth.authCtx.orgId || deriveOrgId(auth.authCtx.renter),
+      },
+      totals: {
+        ...totals,
+        total_cost_sar: sarFromHalala(totals.total_cost_halala),
+      },
+      rows,
+      limit,
+      truncated: rows.length >= limit,
+      claims: {
+        per_key_spend_attribution_live: false,
+        prompt_cache_discount_applied: false,
+      },
+    };
+
+    if (format === 'json') return res.json(payload);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=dcp-v1-usage-${periodInfo.period}.csv`);
+    return res.send(usageExportCsv(rows));
+  } catch (error) {
+    console.error('Renter usage export error:', error);
+    return res.status(500).json({ error: 'Usage export failed' });
   }
 });
 

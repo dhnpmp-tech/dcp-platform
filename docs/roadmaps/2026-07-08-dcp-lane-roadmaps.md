@@ -143,6 +143,8 @@ what is live.
 ### Later
 
 - Team/workspace usage exports.
+  **Renter-scoped v1 usage CSV/JSON export started in PR #848; team/member
+  rollups remain gated on scoped-key attribution.**
 - Enterprise quota and routing policy UI.
 - Case-study pages and GCC startup credits flow.
 
@@ -244,7 +246,10 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 ### Later
 
 - Quotas and usage export.
+  **Account v1 cap status and usage export started in PR #848.**
 - Team-level API key budgets.
+  **Per-key budget enforcement is still blocked until usage ledger rows carry
+  scoped key attribution.**
 - Evaluator job records.
 - Router policy objects.
 
