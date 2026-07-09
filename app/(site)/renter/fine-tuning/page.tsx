@@ -321,6 +321,20 @@ const API_SNIPPETS = [
     command: 'curl -s https://api.dcp.sa/api/adapters/endpoints/smoke/readiness',
   },
   {
+    id: 'adapter-endpoint-smoke-submit',
+    titleEn: 'Submit disabled smoke evidence',
+    titleAr: 'إرسال دليل دخان معطل',
+    meta: 'POST /api/adapters/{id}/deployments/{id}/endpoint-smoke',
+    noteEn: 'Renter-scoped validation contract only; it returns 409, records nothing, and never exposes raw prompt or response content.',
+    noteAr: 'عقد تحقق حسب المستأجر فقط؛ يعيد 409 ولا يسجل شيئا ولا يكشف نص الطلب أو الاستجابة الخام.',
+    command:
+      'curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/endpoint-smoke \\\n' +
+      '  -X POST \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY" \\\n' +
+      '  -H "Content-Type: application/json" \\\n' +
+      '  -d \'{"funded_smoke_principal":true,"smoke_result":{"request_id":"req_smoke_001"}}\'',
+  },
+  {
     id: 'adapter-usage-attribution',
     titleEn: 'Check usage attribution gate',
     titleAr: 'فحص بوابة نسب الاستخدام',

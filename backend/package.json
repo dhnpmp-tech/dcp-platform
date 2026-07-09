@@ -33,6 +33,7 @@
     "test:reliability:lora-training-live-artifact-proof": "node tests/lora-training-live-artifact-proof.js",
     "test:reliability:adapter-artifact-policy-proof": "node tests/adapter-artifact-policy-proof.js",
     "test:reliability:adapter-endpoint-smoke-readiness-proof": "node tests/adapter-endpoint-smoke-readiness-proof.js",
+    "test:reliability:adapter-endpoint-smoke-submission-disabled-proof": "node tests/adapter-endpoint-smoke-submission-disabled-proof.js",
     "test:reliability:adapter-usage-attribution-readiness-proof": "node tests/adapter-usage-attribution-readiness-proof.js",
     "test:reliability:adapter-billing-readiness-proof": "node tests/adapter-billing-readiness-proof.js",
     "test:reliability:adapter-deployment-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/adapter-deployment-contract-proof.js",

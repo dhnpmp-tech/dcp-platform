@@ -9,7 +9,10 @@ const {
 } = require('../services/adapterRegistry');
 const { buildAdapterArtifactPolicyReadiness } = require('../services/adapterArtifactPolicy');
 const { buildAdapterBillingReadiness } = require('../services/adapterBillingReadiness');
-const { buildAdapterEndpointSmokeReadiness } = require('../services/adapterEndpointSmokeReadiness');
+const {
+  buildAdapterEndpointSmokeDisabledResponse,
+  buildAdapterEndpointSmokeReadiness,
+} = require('../services/adapterEndpointSmokeReadiness');
 const { buildAdapterUsageAttributionReadiness } = require('../services/adapterUsageAttributionReadiness');
 const {
   AdapterDeploymentError,
@@ -218,6 +221,33 @@ function createAdaptersRouter(deps = {}) {
         });
       }
       return res.json({ deployment });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.post('/:adapterId/deployments/:deploymentId/endpoint-smoke', requireRenter, (req, res) => {
+    try {
+      const deployment = getAdapterDeployment(registryDb, req.renter.id, req.params.deploymentId);
+      if (!deployment || deployment.adapter_id !== req.params.adapterId) {
+        return res.status(404).json({
+          error: 'Deployment not found',
+          code: 'deployment_not_found',
+        });
+      }
+      const body = req.body || {};
+      const smokeResult = body.smoke_result;
+      if (!smokeResult || typeof smokeResult !== 'object' || Array.isArray(smokeResult)) {
+        return res.status(400).json({
+          error: 'smoke_result object is required',
+          code: 'invalid_endpoint_smoke_result',
+        });
+      }
+      return res.status(409).json(buildAdapterEndpointSmokeDisabledResponse({
+        deployment,
+        smoke_result: smokeResult,
+        funded_smoke_principal: body.funded_smoke_principal === true,
+      }, new Date()));
     } catch (error) {
       return sendAdapterError(res, toRouteError(error));
     }

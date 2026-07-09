@@ -1,6 +1,7 @@
 'use strict';
 
 const ADAPTER_ENDPOINT_SMOKE_READINESS_VERSION = 'dcp.adapter_endpoint_smoke_readiness.v1';
+const ADAPTER_ENDPOINT_SMOKE_SUBMISSION_DISABLED_VERSION = 'dcp.adapter_endpoint_smoke_submission_disabled.v1';
 
 function buildAdapterEndpointSmokeReadiness(now = new Date()) {
   return {
@@ -10,6 +11,7 @@ function buildAdapterEndpointSmokeReadiness(now = new Date()) {
     current_mode: 'endpoint_smoke_contract_only',
     endpoints: {
       endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
+      endpoint_smoke_submission: 'POST /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke',
       usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
       adapter_deployments: 'GET/POST /api/adapters/{adapter_id}/deployments',
@@ -18,6 +20,7 @@ function buildAdapterEndpointSmokeReadiness(now = new Date()) {
     },
     policy: {
       readiness_available: true,
+      disabled_submission_endpoint_available: true,
       endpoint_smoke_recording_enabled: false,
       adapter_endpoint_routing_enabled: false,
       adapter_billing_enabled: false,
@@ -60,6 +63,7 @@ function buildAdapterEndpointSmokeReadiness(now = new Date()) {
     ],
     claim_guards: {
       readiness_contract_live: true,
+      disabled_submission_endpoint_live: true,
       endpoint_smoke_recording_enabled: false,
       dispatches_inference: false,
       records_smoke_result: false,
@@ -76,8 +80,65 @@ function buildAdapterEndpointSmokeReadiness(now = new Date()) {
     },
     next_actions: [
       'Run strict adapter load proof against the target vLLM endpoint.',
-      'Send a deterministic funded smoke request and record only hashed prompt/response evidence plus token, latency, provider, and adapter trace fields.',
+      'Submit deterministic funded smoke evidence to the disabled smoke endpoint, then enable recording only after review.',
       'Keep route traffic, usage writes, and billing disabled until smoke, usage attribution, settlement, minimum-balance, and founder-approval gates pass.',
+    ],
+  };
+}
+
+function buildAdapterEndpointSmokeDisabledResponse(input = {}, now = new Date()) {
+  const deployment = input.deployment || {};
+  const evaluation = evaluateAdapterEndpointSmoke({
+    deployment,
+    smoke_result: input.smoke_result || {},
+    funded_smoke_principal: input.funded_smoke_principal === true,
+  });
+
+  return {
+    object: 'adapter_endpoint_smoke_submission_disabled',
+    version: ADAPTER_ENDPOINT_SMOKE_SUBMISSION_DISABLED_VERSION,
+    generated_at: now.toISOString(),
+    renter_id: Number.isInteger(deployment.renter_id) ? deployment.renter_id : null,
+    deployment_id: deployment.deployment_id || null,
+    adapter_id: deployment.adapter_id || null,
+    endpoint_id: deployment.endpoint_id || null,
+    base_model: deployment.base_model || null,
+    endpoint_smoke_submission_live: false,
+    endpoint_smoke_recording_enabled: false,
+    recorded: false,
+    would_record_if_enabled: evaluation.would_pass_if_enabled,
+    denial_code: evaluation.denial_code_while_disabled,
+    message: 'Adapter endpoint smoke recording is disabled until strict load proof, funded principal, deterministic smoke, usage attribution, settlement, minimum-balance, and founder approval gates pass.',
+    evaluation,
+    endpoints: {
+      disabled_submission_endpoint: 'POST /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke',
+      endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
+      usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
+      adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
+    },
+    claim_guards: {
+      renter_auth_required: true,
+      renter_owner_scope_enforced: true,
+      disabled_submission_endpoint_live: true,
+      endpoint_smoke_submission_live: false,
+      endpoint_smoke_recording_enabled: false,
+      records_smoke_result: false,
+      dispatches_inference: false,
+      attaches_load_proof: false,
+      routes_adapter_traffic: false,
+      records_usage_event: false,
+      mutates_balance: false,
+      creates_invoice: false,
+      settles_provider_payout: false,
+      exposes_raw_prompt: false,
+      exposes_raw_response: false,
+      enables_adapter_billing: false,
+      claims_tinker_compatibility: false,
+    },
+    next_actions: [
+      'Use this disabled route to validate future smoke evidence shape only.',
+      'Do not persist smoke evidence or rely on it for billing until endpoint smoke recording is explicitly enabled.',
+      'Keep raw prompts and raw responses out of this contract; only hashed evidence belongs in future recorded smoke rows.',
     ],
   };
 }
@@ -210,6 +271,8 @@ function isSha256(value) {
 
 module.exports = {
   ADAPTER_ENDPOINT_SMOKE_READINESS_VERSION,
+  ADAPTER_ENDPOINT_SMOKE_SUBMISSION_DISABLED_VERSION,
   buildAdapterEndpointSmokeReadiness,
+  buildAdapterEndpointSmokeDisabledResponse,
   evaluateAdapterEndpointSmoke,
 };
