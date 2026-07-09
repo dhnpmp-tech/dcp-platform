@@ -4,6 +4,7 @@ const express = require('express');
 const {
   BatchInferenceJobError,
   buildBatchInferenceReadiness,
+  buildPublicBatchInferenceReadiness,
   createBatchInferenceJob,
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
@@ -19,6 +20,14 @@ function createBatchesRouter(deps = {}) {
   const requireRenter = deps.requireRenter || require('./pods').requireRenter;
   const resultDownloadSigner = deps.resultDownloadSigner || signBatchResultDownload;
   ensureBatchInferenceJobSchema(batchDb);
+
+  router.get('/public/readiness', (_req, res) => {
+    try {
+      return res.json({ readiness: buildPublicBatchInferenceReadiness(process.env) });
+    } catch (error) {
+      return sendBatchError(res, error);
+    }
+  });
 
   router.get('/', requireRenter, (req, res) => {
     try {

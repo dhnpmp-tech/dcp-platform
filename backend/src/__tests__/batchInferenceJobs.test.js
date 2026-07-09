@@ -6,6 +6,7 @@ const request = require('supertest');
 const {
   BATCH_READINESS_CONTRACT_VERSION,
   buildBatchInferenceReadiness,
+  buildPublicBatchInferenceReadiness,
   createBatchInferenceJob,
   ensureBatchInferenceJobSchema,
   getBatchInferenceJob,
@@ -190,6 +191,50 @@ describe('batch inference job foundation', () => {
       env_flag_enabled: true,
       public_enabled: false,
     });
+  });
+
+  test('builds a public batch readiness view without internal config names', () => {
+    const readiness = buildPublicBatchInferenceReadiness({});
+
+    expect(readiness).toMatchObject({
+      object: 'batch_inference_readiness',
+      version: BATCH_READINESS_CONTRACT_VERSION,
+      public_view: true,
+      current_mode: 'metadata_validation_only',
+      public_execution_enabled: false,
+      request_creation_enabled: true,
+      features: {
+        result_downloads: {
+          status: 'not_configured',
+          configured: false,
+          enabled_for_completed_results: false,
+        },
+        worker_execution: {
+          status: 'disabled',
+          public_enabled: false,
+        },
+        settlement: {
+          status: 'disabled',
+          public_enabled: false,
+        },
+        discounts: { status: 'not_enabled', enabled: false },
+      },
+      live_acceptance: {
+        execution_discount_smoke: {
+          status: 'blocked_external',
+          live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        },
+      },
+      claims: {
+        batch_execution_live: false,
+        batch_discount_live: false,
+        model_batch_capability_live: false,
+      },
+    });
+    expect(readiness.features.result_downloads).not.toHaveProperty('missing_config');
+    expect(readiness.features.worker_execution).not.toHaveProperty('env_flag_enabled');
+    expect(readiness.features.settlement).not.toHaveProperty('env_flag_enabled');
+    expect(JSON.stringify(readiness)).not.toContain('BATCH_RESULTS_S3_SECRET');
   });
 
   test('schema creation is idempotent and includes lifecycle columns', () => {
@@ -575,6 +620,30 @@ describe('batch inference job foundation', () => {
         },
       },
     });
+
+    const publicReadiness = await request(app)
+      .get('/api/batches/public/readiness')
+      .set('x-test-renter-id', '0')
+      .expect(200);
+    expect(publicReadiness.body.readiness).toMatchObject({
+      object: 'batch_inference_readiness',
+      version: BATCH_READINESS_CONTRACT_VERSION,
+      public_view: true,
+      public_execution_enabled: false,
+      request_creation_enabled: true,
+      live_acceptance: {
+        execution_discount_smoke: {
+          status: 'blocked_external',
+          live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        },
+      },
+      claims: {
+        batch_execution_live: false,
+        batch_discount_live: false,
+      },
+    });
+    expect(JSON.stringify(publicReadiness.body)).not.toContain('missing_config');
+    expect(JSON.stringify(publicReadiness.body)).not.toContain('env_flag_enabled');
 
     const detail = await request(app).get('/api/batches/batch_route001').expect(200);
     expect(detail.body.batch.batch_id).toBe('batch_route001');

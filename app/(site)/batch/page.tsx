@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, BiX } from '@/app/(site)/lib/i18n'
@@ -56,7 +57,99 @@ curl -s https://api.dcp.sa/api/batches \\
     "input_jsonl": "{\"custom_id\":\"ticket-001\",\"method\":\"POST\",\"url\":\"/v1/chat/completions\",\"body\":{\"model\":\"qwen/qwen3-coder\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify this ticket.\"}]}}"
   }'`
 
+type ReadinessState = 'loading' | 'ready' | 'error'
+
+interface BatchReadinessFeature {
+  status?: string
+  enabled?: boolean
+  configured?: boolean
+  enabled_for_completed_results?: boolean
+  public_enabled?: boolean
+}
+
+interface BatchLiveGate {
+  status?: string
+  command?: string
+  live_acceptance_gate?: string
+  blocked_on?: string[]
+  verifies?: string[]
+}
+
+interface PublicBatchReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  public_view?: boolean
+  public_execution_enabled?: boolean
+  request_creation_enabled?: boolean
+  supported_urls?: string[]
+  limits?: {
+    completion_windows?: string[]
+  }
+  features?: {
+    jsonl_validation?: BatchReadinessFeature
+    line_ledger?: BatchReadinessFeature
+    result_downloads?: BatchReadinessFeature
+    worker_execution?: BatchReadinessFeature
+    settlement?: BatchReadinessFeature
+    discounts?: BatchReadinessFeature
+    model_capability_flag?: BatchReadinessFeature
+  }
+  live_acceptance?: {
+    execution_discount_smoke?: BatchLiveGate
+  }
+  claims?: {
+    batch_execution_live?: boolean
+    batch_discount_live?: boolean
+    model_batch_capability_live?: boolean
+  }
+}
+
+function formatMode(value?: string | null): string {
+  return String(value || 'gated').replace(/_/g, ' ')
+}
+
+function featureStatus(feature?: BatchReadinessFeature, fallback = 'gated'): string {
+  if (!feature) return fallback
+  if (feature.public_enabled || feature.enabled) return 'available'
+  if (feature.configured) return formatMode(feature.status || 'configured')
+  return formatMode(feature.status || fallback)
+}
+
 export default function BatchProductPage() {
+  const [readinessState, setReadinessState] = useState<ReadinessState>('loading')
+  const [readiness, setReadiness] = useState<PublicBatchReadiness | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadPublicReadiness() {
+      setReadinessState('loading')
+      try {
+        const res = await fetch('/api/batches/public/readiness', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`batch public readiness failed: ${res.status}`)
+        const data = (await res.json()) as { readiness?: PublicBatchReadiness }
+        if (!cancelled) {
+          setReadiness(data.readiness?.object === 'batch_inference_readiness' ? data.readiness : null)
+          setReadinessState('ready')
+        }
+      } catch {
+        if (!cancelled) {
+          setReadiness(null)
+          setReadinessState('error')
+        }
+      }
+    }
+    loadPublicReadiness()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const liveGate = readiness?.live_acceptance?.execution_discount_smoke || null
+  const publicExecutionLive = readiness?.public_execution_enabled === true
+  const discountsLive = readiness?.claims?.batch_discount_live === true || readiness?.features?.discounts?.enabled === true
+  const createLive = readiness?.request_creation_enabled !== false
+
   return (
     <>
       <SiteHeader active="/batch" />
@@ -107,6 +200,75 @@ export default function BatchProductPage() {
                 </div>
               </article>
             ))}
+          </div>
+          <div className="inference-prompt-cache-live" aria-live="polite" aria-label="Public batch readiness">
+            <div className="prompt-cache-live-head">
+              <span><Bi en="Live Batch readiness" ar="جاهزية الدُفعات الحية" /></span>
+              <b dir="ltr">{readiness?.version || 'dcp.batch_inference_readiness.v1'}</b>
+            </div>
+            {readinessState === 'loading' && (
+              <p className="prompt-cache-live-empty">
+                <Bi en="Loading batch readiness..." ar="تحميل جاهزية الدُفعات..." />
+              </p>
+            )}
+            {readinessState === 'error' && (
+              <p className="prompt-cache-live-empty">
+                <Bi en="Batch readiness is temporarily unavailable; execution and discounts remain gated." ar="جاهزية الدُفعات غير متاحة مؤقتاً؛ يبقى التشغيل والخصم مقيدين." />
+              </p>
+            )}
+            {readinessState === 'ready' && (
+              <>
+                <div className="prompt-cache-live-metrics">
+                  <span>
+                    <em><Bi en="Mode" ar="الوضع" /></em>
+                    <strong>{formatMode(readiness?.current_mode || 'metadata_validation_only')}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Create" ar="الإنشاء" /></em>
+                    <strong>{createLive ? 'available' : 'gated'}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Execute" ar="التشغيل" /></em>
+                    <strong>{publicExecutionLive ? 'live' : 'gated'}</strong>
+                  </span>
+                </div>
+                <div className="prompt-cache-live-list">
+                  <span className={readiness?.features?.jsonl_validation?.enabled ? 'available' : 'gated'}>
+                    <b><Bi en="JSONL validation" ar="تحقق JSONL" /></b>
+                    <em>{featureStatus(readiness?.features?.jsonl_validation)}</em>
+                  </span>
+                  <span className={readiness?.features?.line_ledger?.enabled ? 'available' : 'gated'}>
+                    <b><Bi en="Line ledger" ar="سجل الأسطر" /></b>
+                    <em>{featureStatus(readiness?.features?.line_ledger)}</em>
+                  </span>
+                  <span className="gated">
+                    <b><Bi en="Worker execution" ar="تشغيل العامل" /></b>
+                    <em>{featureStatus(readiness?.features?.worker_execution)}</em>
+                  </span>
+                  <span className="gated">
+                    <b><Bi en="Result downloads" ar="تنزيل النتائج" /></b>
+                    <em>{featureStatus(readiness?.features?.result_downloads)}</em>
+                  </span>
+                  <span className="gated">
+                    <b><Bi en="Settlement" ar="التسوية" /></b>
+                    <em>{featureStatus(readiness?.features?.settlement)}</em>
+                  </span>
+                  <span className={discountsLive ? 'available' : 'gated'}>
+                    <b><Bi en="Batch discounts" ar="خصومات الدُفعات" /></b>
+                    <em>{discountsLive ? 'live' : featureStatus(readiness?.features?.discounts)}</em>
+                  </span>
+                  {liveGate?.blocked_on?.slice(0, 3).map((blocker) => (
+                    <span key={blocker} className="gated">
+                      <b>{blocker}</b>
+                      <em>blocker</em>
+                    </span>
+                  ))}
+                </div>
+                <p className="prompt-cache-live-note" dir="ltr">
+                  GET /api/batches/public/readiness · {liveGate?.command || 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution'}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </section>

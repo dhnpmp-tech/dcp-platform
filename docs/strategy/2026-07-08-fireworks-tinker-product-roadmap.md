@@ -337,6 +337,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `/renter/batches`, making batch settlement status, paid available credit,
     v1 monthly cap remaining, and blocked future billing rails visible before
     execution or discount claims.
+  - PR #920 adds public `GET /api/batches/public/readiness` and wires `/batch`
+    to a sanitized live readiness panel, so execution, downloads, settlement,
+    discounts, blockers, and the live proof command are visible without renter
+    auth, renter data, or internal config names.
   - PR #900 adds the account-scoped minimum-balance readiness to
     `/renter/fine-tuning`, making LoRA training mode, adapter deployment mode,
     paid available credit, blocked billing rails, and the read-only

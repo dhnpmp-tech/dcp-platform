@@ -2105,6 +2105,65 @@ paths:
                         type: string
                         example: connect_worker_to_live_v1_executor_after_gpu_billing_and_result_smoke
 
+  /api/batches/public/readiness:
+    get:
+      tags: [Batches]
+      summary: Get public batch inference readiness
+      description: |
+        Returns a sanitized read-only batch readiness contract for public
+        product pages. It omits internal missing configuration names and
+        feature-flag internals while preserving execution, download,
+        settlement, discount, and live-acceptance gates.
+      responses:
+        '200':
+          description: Public batch inference readiness contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  readiness:
+                    type: object
+                    required: [object, version, public_view, current_mode, public_execution_enabled, request_creation_enabled, supported_urls, limits, features, live_acceptance, claims, next]
+                    properties:
+                      object:
+                        type: string
+                        example: batch_inference_readiness
+                      version:
+                        type: string
+                        example: dcp.batch_inference_readiness.v1
+                      public_view:
+                        type: boolean
+                        example: true
+                      current_mode:
+                        type: string
+                        example: metadata_validation_only
+                      public_execution_enabled:
+                        type: boolean
+                        example: false
+                      request_creation_enabled:
+                        type: boolean
+                        example: true
+                      supported_urls:
+                        type: array
+                        items: { type: string }
+                        example: [/v1/chat/completions, /v1/complete]
+                      limits:
+                        type: object
+                        additionalProperties: true
+                      features:
+                        type: object
+                        additionalProperties: true
+                      live_acceptance:
+                        type: object
+                        additionalProperties: true
+                      claims:
+                        type: object
+                        additionalProperties: true
+                      next:
+                        type: string
+                        example: connect_worker_to_live_v1_executor_after_gpu_billing_and_result_smoke
+
   /api/batches/{batch_id}:
     get:
       tags: [Batches]
