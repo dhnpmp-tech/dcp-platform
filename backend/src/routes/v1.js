@@ -2739,6 +2739,28 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
       });
     }
 
+    const keyBudgetGate = billingService.checkScopedKeyBudgetCap(db._db || db, {
+      renterId: req.renter.id,
+      renterApiKeyId: req.renterAuth?.renter_api_key_id || null,
+      estimateHalala,
+    });
+    if (keyBudgetGate.capped && !keyBudgetGate.ok) {
+      return sendV1Error(res, {
+        status: 402,
+        type: 'key_budget_cap_exceeded',
+        code: 'key_budget_cap_exceeded',
+        message: `Scoped API key monthly budget cap reached. Cap: ${(keyBudgetGate.capHalala / 100).toFixed(2)} SAR, spent this month: ${(keyBudgetGate.spentThisMonthHalala / 100).toFixed(2)} SAR, estimated cost: ${(keyBudgetGate.estimateHalala / 100).toFixed(2)} SAR. Raise or remove the key cap before retrying.`,
+        retryable: false,
+        meta: {
+          monthly_key_cap_sar: Number((keyBudgetGate.capHalala / 100).toFixed(2)),
+          key_spent_this_month_sar: Number((keyBudgetGate.spentThisMonthHalala / 100).toFixed(2)),
+          key_remaining_sar: Number((keyBudgetGate.remainingHalala / 100).toFixed(2)),
+          estimate_sar: Number((keyBudgetGate.estimateHalala / 100).toFixed(2)),
+          renter_api_key_id: req.renterAuth?.renter_api_key_id || null,
+        },
+      });
+    }
+
     let usagePersisted = false;
     const dbHandle = db._db || db;
     const transactionFactory = typeof dbHandle?.transaction === 'function'

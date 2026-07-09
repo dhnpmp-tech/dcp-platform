@@ -147,6 +147,96 @@ function checkBudgetCap(db, renterId, estimateHalala) {
 }
 
 /**
+ * Optional monthly spend-cap gate for scoped renter API keys.
+ *
+ * Defaults to unlimited. Master keys have no key-level cap because they are the
+ * account root and remain covered by checkBudgetCap(). This mirrors
+ * checkBudgetCap(): current calendar-month ledger sum, fail-open on query
+ * errors, and no blocking unless the scoped key has an explicit positive cap.
+ */
+function checkScopedKeyBudgetCap(db, { renterId, renterApiKeyId, estimateHalala } = {}) {
+  const est = Math.max(0, Math.ceil(Number(estimateHalala) || 0));
+  const cleanKeyId = typeof renterApiKeyId === 'string' ? renterApiKeyId.trim() : '';
+  if (!cleanKeyId) {
+    return {
+      scoped: false,
+      capped: false,
+      ok: true,
+      capHalala: 0,
+      spentThisMonthHalala: 0,
+      remainingHalala: null,
+      estimateHalala: est,
+    };
+  }
+
+  let cap = 0;
+  try {
+    const row = db.prepare(
+      `SELECT monthly_spend_cap_halala AS cap
+       FROM renter_api_keys
+       WHERE id = ? AND renter_id = ? AND revoked_at IS NULL`
+    ).get(cleanKeyId, renterId);
+    cap = Math.max(0, Math.trunc(Number(row && row.cap) || 0));
+  } catch (_) {
+    return {
+      scoped: true,
+      capped: false,
+      ok: true,
+      capHalala: 0,
+      spentThisMonthHalala: 0,
+      remainingHalala: null,
+      estimateHalala: est,
+      failOpen: true,
+    };
+  }
+
+  if (cap <= 0) {
+    return {
+      scoped: true,
+      capped: false,
+      ok: true,
+      capHalala: 0,
+      spentThisMonthHalala: 0,
+      remainingHalala: null,
+      estimateHalala: est,
+    };
+  }
+
+  let spent = 0;
+  try {
+    const row = db.prepare(
+      `SELECT COALESCE(SUM(cost_halala), 0) AS spent
+       FROM openrouter_usage_ledger
+       WHERE renter_id = ?
+         AND renter_api_key_id = ?
+         AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')`
+    ).get(renterId, cleanKeyId);
+    spent = Math.max(0, Math.trunc(Number(row && row.spent) || 0));
+  } catch (_) {
+    return {
+      scoped: true,
+      capped: true,
+      ok: true,
+      capHalala: cap,
+      spentThisMonthHalala: 0,
+      remainingHalala: cap,
+      estimateHalala: est,
+      failOpen: true,
+    };
+  }
+
+  return {
+    scoped: true,
+    capped: true,
+    ok: (spent + est) <= cap,
+    capHalala: cap,
+    spentThisMonthHalala: spent,
+    remainingHalala: Math.max(0, cap - spent),
+    estimateHalala: est,
+  };
+}
+
+/**
  * Estimate the cost of an inference request in halala.
  *
  * Strategy:
@@ -371,6 +461,7 @@ module.exports = {
   InsufficientBalanceError,
   checkBalanceGate,
   checkBudgetCap,
+  checkScopedKeyBudgetCap,
   estimateInferenceCost,
   getEffectiveBalance,
   settleInferenceOnce,

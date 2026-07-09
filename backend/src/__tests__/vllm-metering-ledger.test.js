@@ -10,6 +10,11 @@ const mockDb = {
   },
 };
 const mockRecordOpenRouterUsage = jest.fn(() => ({ id: 'oru_vllm_test' }));
+const mockCheckScopedKeyBudgetCap = jest.fn(() => ({
+  scoped: false,
+  capped: false,
+  ok: true,
+}));
 
 jest.mock('../db', () => mockDb);
 jest.mock('../middleware/rateLimiter', () => ({
@@ -18,6 +23,9 @@ jest.mock('../middleware/rateLimiter', () => ({
 }));
 jest.mock('../services/openrouterSettlementService', () => ({
   recordOpenRouterUsage: (...args) => mockRecordOpenRouterUsage(...args),
+}));
+jest.mock('../services/billingService', () => ({
+  checkScopedKeyBudgetCap: (...args) => mockCheckScopedKeyBudgetCap(...args),
 }));
 
 describe('vllm usage ledger persistence', () => {
@@ -32,6 +40,11 @@ describe('vllm usage ledger persistence', () => {
     mockDb.prepare.mockReset().mockReturnValue({ run: runMock });
     mockDb._db.transaction = jest.fn((fn) => fn);
     mockRecordOpenRouterUsage.mockReset();
+    mockCheckScopedKeyBudgetCap.mockReset().mockReturnValue({
+      scoped: false,
+      capped: false,
+      ok: true,
+    });
 
     const router = require('../routes/vllm');
     app = express();
@@ -157,6 +170,60 @@ describe('vllm usage ledger persistence', () => {
     expect(payload.renterId).toBe(31);
     expect(payload.renterApiKeyId).toBe('vllm-scoped-key-1');
     expect(payload.renterKeyType).toBe('scoped_key');
+
+    fetchSpy.mockRestore();
+  });
+
+  test('rejects scoped key usage before provider dispatch when key budget cap is exceeded', async () => {
+    wireBaselineDbMocks();
+    mockDb.get.mockImplementation((sql) => {
+      const query = String(sql);
+      if (query.includes('FROM renter_api_keys')) {
+        return {
+          id: 'vllm-scoped-key-capped',
+          renter_id: 31,
+          scopes: JSON.stringify(['inference']),
+          expires_at: null,
+          revoked_at: null,
+          r_id: 31,
+          api_key: 'renter-key',
+          balance_halala: 50000,
+          status: 'active',
+        };
+      }
+      if (query.includes('FROM model_registry')) {
+        return { model_id: 'meta-llama/Meta-Llama-3-8B-Instruct', display_name: 'Llama', min_gpu_vram_gb: 8, default_price_halala_per_min: 20 };
+      }
+      if (query.includes('FROM cost_rates')) return { token_rate_halala: 2 };
+      return null;
+    });
+    mockCheckScopedKeyBudgetCap.mockReturnValue({
+      scoped: true,
+      capped: true,
+      ok: false,
+      capHalala: 100,
+      spentThisMonthHalala: 100,
+      remainingHalala: 0,
+      estimateHalala: 20,
+    });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [] }),
+    });
+
+    const res = await request(app)
+      .post('/api/vllm/chat/completions')
+      .set('x-renter-key', 'scoped-vllm-key')
+      .set('Idempotency-Key', 'vllm-key-cap-1')
+      .send({
+        model: 'meta-llama/Meta-Llama-3-8B-Instruct',
+        messages: [{ role: 'user', content: 'should not dispatch' }],
+      });
+
+    expect(res.status).toBe(402);
+    expect(res.body.code).toBe('key_budget_cap_exceeded');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockRecordOpenRouterUsage).not.toHaveBeenCalled();
 
     fetchSpy.mockRestore();
   });

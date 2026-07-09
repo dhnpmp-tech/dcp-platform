@@ -251,8 +251,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   attribution starts in PR #849 across `/v1`, `/api/vllm`, exports, and the API
   Keys table.**
 - Team-level API key budgets.
-  **Per-key budget enforcement is still blocked until the next debit guard and
-  402 contract prove key-level caps on top of PR #849 attribution.**
+  **Per-key budget enforcement starts in PR #850 with default-unlimited scoped
+  key caps, management APIs, and pre-dispatch 402s; team/member rollups remain
+  the next layer.**
 - Evaluator job records.
 - Router policy objects.
 

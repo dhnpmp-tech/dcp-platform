@@ -10,6 +10,11 @@ const mockDb = {
 const mockRecordOpenRouterUsage = jest.fn(() => ({ id: 'oru_stream_test' }));
 const mockSelectProvidersWithLatencyGate = jest.fn();
 const mockRecordStreamOutcome = jest.fn();
+const mockCheckScopedKeyBudgetCap = jest.fn(() => ({
+  scoped: false,
+  capped: false,
+  ok: true,
+}));
 const mockSettleInferenceOnce = jest.fn((dbHandle, args = {}) => {
   const jobRow = args.jobRow;
   if (jobRow?.jobId) {
@@ -72,6 +77,7 @@ jest.mock('../services/billingService', () => ({
     capped: false,
     ok: true,
   })),
+  checkScopedKeyBudgetCap: (...args) => mockCheckScopedKeyBudgetCap(...args),
   settleInferenceOnce: (...args) => mockSettleInferenceOnce(...args),
 }));
 jest.mock('../services/autoTopupService', () => ({
@@ -114,6 +120,11 @@ describe('v1 chat metering ledger persistence', () => {
     mockRecordOpenRouterUsage.mockReset();
     mockSelectProvidersWithLatencyGate.mockReset();
     mockRecordStreamOutcome.mockReset();
+    mockCheckScopedKeyBudgetCap.mockReset().mockReturnValue({
+      scoped: false,
+      capped: false,
+      ok: true,
+    });
     mockSettleInferenceOnce.mockClear();
 
     mockSelectProvidersWithLatencyGate.mockImplementation(({ providers = [] }) => ({
@@ -506,6 +517,68 @@ describe('v1 chat metering ledger persistence', () => {
     expect(payload.renterId).toBe(7);
     expect(payload.renterApiKeyId).toBe('scoped-key-1');
     expect(payload.renterKeyType).toBe('scoped_key');
+
+    fetchSpy.mockRestore();
+  });
+
+  test('rejects scoped key usage before provider dispatch when key budget cap is exceeded', async () => {
+    wireBaselineDbMocks();
+    mockDb.get.mockImplementation((sql) => {
+      const query = String(sql);
+      if (query.includes('FROM renter_api_keys')) {
+        return {
+          id: 'scoped-key-capped',
+          renter_id: 7,
+          scopes: JSON.stringify(['inference']),
+          expires_at: null,
+          revoked_at: null,
+          r_id: 7,
+          api_key: 'test-key',
+          balance_halala: 50000,
+          status: 'active',
+        };
+      }
+      if (query.includes('SELECT price_in_halala_per_1m_tok')) {
+        return {
+          price_in_halala_per_1m_tok: 2,
+          price_out_halala_per_1m_tok: 0,
+        };
+      }
+      if (query.includes('FROM model_registry WHERE model_id = ?')) {
+        return { model_id: 'stream-model', min_gpu_vram_gb: 8, context_window: 4096 };
+      }
+      if (query.includes('FROM cost_rates')) return { token_rate_halala: 2 };
+      if (query.includes('FROM jobs WHERE job_id')) return null;
+      return null;
+    });
+    mockCheckScopedKeyBudgetCap.mockReturnValue({
+      scoped: true,
+      capped: true,
+      ok: false,
+      capHalala: 100,
+      spentThisMonthHalala: 100,
+      remainingHalala: 0,
+      estimateHalala: 1,
+    });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [] }),
+    });
+
+    const res = await request(app)
+      .post('/v1/chat/completions')
+      .set('Authorization', 'Bearer scoped-live-key')
+      .set('Idempotency-Key', 'req-key-cap-123')
+      .send({
+        model: 'stream-model',
+        stream: false,
+        messages: [{ role: 'user', content: 'should not dispatch' }],
+      });
+
+    expect(res.status).toBe(402);
+    expect(res.body.error.code).toBe('key_budget_cap_exceeded');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockRecordOpenRouterUsage).not.toHaveBeenCalled();
 
     fetchSpy.mockRestore();
   });

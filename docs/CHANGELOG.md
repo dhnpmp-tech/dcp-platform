@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 01:27 UTC - Per-key budget enforcement (PR #850)
+
+- **PR:** [#850](https://github.com/dhnpmp-tech/dcp-platform/pull/850) (`codex/per-key-budget-enforcement-2026-07-09`).
+- **Backend:** Added `renter_api_keys.monthly_spend_cap_halala` with default-unlimited migration and `billingService.checkScopedKeyBudgetCap` for current-month scoped-key spend checks.
+- **Inference:** `/v1/chat/completions` and `/api/vllm/chat/completions` now return `402 key_budget_cap_exceeded` before provider dispatch when a scoped key has an explicit monthly cap and the estimate would exceed it.
+- **Renter APIs:** Scoped key creation can set an optional monthly cap, `PUT /api/renters/me/keys/:keyId/budget` updates/removes caps, `/api/renters/me/keys` returns cap metadata, and budget status marks per-key budgets enforced.
+- **Frontend:** The renter API Keys table now shows each key's monthly cap beside its 30-day spend.
+- **Safety:** Existing scoped keys remain unlimited until a cap is explicitly set; no settlement math, account cap, master-key behavior, balance debit, key secret exposure, provider routing, model catalog, prompt-cache discount, or public product claim behavior changed.
+- **Verification:** Targeted Jest suites, syntax checks, TypeScript/Next verification, local roadmap proof, and production smoke after deploy.
+
 ### 2026-07-09 01:02 UTC - Scoped key usage attribution (PR #849)
 
 - **PR:** [#849](https://github.com/dhnpmp-tech/dcp-platform/pull/849) (`codex/scoped-key-usage-attribution-2026-07-09`).

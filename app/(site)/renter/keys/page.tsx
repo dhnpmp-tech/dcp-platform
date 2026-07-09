@@ -55,6 +55,9 @@ interface KeyRow {
   lastUsed: string
   lastUsedAr: string
   spend: string
+  cap: string
+  capAr: string
+  capHasSarUnit: boolean
   status: 'active' | 'revoked'
   statusLabel: string
   statusLabelAr: string
@@ -76,6 +79,9 @@ interface ApiKey {
   requests_30d?: number
   spend_30d_halala?: number
   spend_30d_sar?: number
+  monthly_spend_cap_halala?: number
+  monthly_spend_cap_sar?: number
+  monthly_spend_cap_unlimited?: boolean
 }
 
 interface KeysResponse {
@@ -162,6 +168,9 @@ function toRow(k: ApiKey): KeyRow {
   const spendSar = typeof k.spend_30d_sar === 'number'
     ? k.spend_30d_sar
     : halToSar(Number(k.spend_30d_halala || 0))
+  const capHalala = Number(k.monthly_spend_cap_halala || 0)
+  const capUnlimited = k.monthly_spend_cap_unlimited !== false && capHalala <= 0
+  const capSar = typeof k.monthly_spend_cap_sar === 'number' ? k.monthly_spend_cap_sar : halToSar(capHalala)
   return {
     id: k.id,
     name,
@@ -172,6 +181,9 @@ function toRow(k: ApiKey): KeyRow {
     lastUsed,
     lastUsedAr,
     spend: k.spend_attribution_available ? fmtSar(spendSar) : '—',
+    cap: capUnlimited ? 'Unlimited' : fmtSar(capSar),
+    capAr: capUnlimited ? 'غير محدود' : fmtSar(capSar),
+    capHasSarUnit: !capUnlimited,
     status: revoked ? 'revoked' : 'active',
     statusLabel: revoked ? 'Revoked' : 'Active',
     statusLabelAr: revoked ? 'ملغى' : 'نشط',
@@ -677,6 +689,9 @@ export default function RenterKeysPage() {
                   <th style={{ textAlign: 'end' }}>
                     <Bi en="Spend · 30d" ar="الإنفاق · ٣٠ يوم" />
                   </th>
+                  <th style={{ textAlign: 'end' }}>
+                    <Bi en="Monthly cap" ar="الحد الشهري" />
+                  </th>
                   <th>
                     <Bi en="Status" ar="الحالة" />
                   </th>
@@ -686,7 +701,7 @@ export default function RenterKeysPage() {
               <tbody>
                 {loadState === 'loading' && (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <span className="mut">
                         <Bi en="Loading keys…" ar="جارٍ تحميل المفاتيح…" />
                       </span>
@@ -695,7 +710,7 @@ export default function RenterKeysPage() {
                 )}
                 {loadState === 'ready' && rows.length === 0 && (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <span className="mut">
                         <Bi en="No scoped keys yet. Create one to use outside the master renter key." ar="لا توجد مفاتيح محددة النطاق بعد. أنشئ مفتاحاً لاستخدامه بدلاً من مفتاح المستأجر الرئيسي." />
                       </span>
@@ -727,6 +742,12 @@ export default function RenterKeysPage() {
                       <span className="sar">
                         {row.spend}
                         <span className="u">SAR</span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className="sar">
+                        <Bi en={row.cap} ar={row.capAr} />
+                        {row.capHasSarUnit && <span className="u">SAR</span>}
                       </span>
                     </td>
                     <td>
