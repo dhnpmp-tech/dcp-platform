@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 01:36 UTC - Scoped key usage rollups (PR #851)
+
+- **PR:** [#851](https://github.com/dhnpmp-tech/dcp-platform/pull/851) (`codex/scoped-key-usage-rollups-2026-07-09`).
+- **Backend:** Added `GET /api/renters/me/usage/by-key` for billing-readable scoped-key usage rollups, including keyed requests/tokens/spend, monthly cap metadata, and an unattributed legacy/master-key bucket.
+- **Frontend:** The renter Usage page now shows an API key usage table for the selected period before the raw job and v1 ledgers.
+- **Roadmap:** Moves team/workspace usage exports from raw ledger export toward scoped-key operator rollups while keeping true team-member rollups explicitly false.
+- **Safety:** Read-only endpoint and display-only UI; no billing settlement, cap mutation, inference execution, provider routing, key secret exposure, prompt-cache discount, account cap, per-key cap enforcement, or public claim behavior changed.
+- **Verification:** Targeted Jest suite, syntax checks, TypeScript/Next verification, local roadmap proof, and production smoke after deploy.
+
 ### 2026-07-09 01:27 UTC - Per-key budget enforcement (PR #850)
 
 - **PR:** [#850](https://github.com/dhnpmp-tech/dcp-platform/pull/850) (`codex/per-key-budget-enforcement-2026-07-09`).

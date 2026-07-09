@@ -148,6 +148,37 @@ interface UsageResponse {
   }
 }
 
+interface UsageByKeyRow {
+  id: string
+  label?: string | null
+  scopes?: string[]
+  org_role?: string | null
+  revoked?: boolean
+  requests?: number
+  total_tokens?: number
+  spend_halala?: number
+  spend_sar?: number
+  monthly_spend_cap_halala?: number
+  monthly_spend_cap_sar?: number
+  monthly_spend_cap_unlimited?: boolean
+  cap_utilization_pct?: number | null
+}
+
+interface UsageByKeyResponse {
+  rows?: UsageByKeyRow[]
+  unattributed?: {
+    requests?: number
+    total_tokens?: number
+    spend_halala?: number
+    spend_sar?: number
+  }
+  claims?: {
+    per_key_spend_attribution_live?: boolean
+    per_key_budgets_enforced?: boolean
+    team_member_rollups_live?: boolean
+  }
+}
+
 interface BudgetStatusResponse {
   v1_inference?: {
     requests?: number
@@ -294,6 +325,7 @@ export default function RenterUsagePage() {
   const [jobs, setJobs] = useState<JobRecord[]>([])
   const [usage, setUsage] = useState<UsageRecord[]>([])
   const [usageTotals, setUsageTotals] = useState<UsageResponse['totals'] | null>(null)
+  const [usageByKey, setUsageByKey] = useState<UsageByKeyResponse | null>(null)
   const [budgetStatus, setBudgetStatus] = useState<BudgetStatusResponse | null>(null)
   // C1 phase-2: CSV export uses downloadUsageCsv (x-renter-key header) instead of an <a href="?key=">.
 
@@ -313,12 +345,13 @@ export default function RenterUsagePage() {
       try {
         setLoadState('loading')
         setError('')
-        const [me, balanceData, analyticsData, jobsData, usageData, budgetData] = await Promise.all([
+        const [me, balanceData, analyticsData, jobsData, usageData, usageByKeyData, budgetData] = await Promise.all([
           readJson<RenterMeResponse>(`${base}/renters/me`, headers),
           readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
           readJson<AnalyticsResponse>(`${base}/renters/me/analytics?period=${period}`, headers, true),
           readJson<JobsResponse>(`${base}/renters/me/jobs?page=0&limit=50&period=${period}`, headers, true),
           readJson<UsageResponse>(`${base}/renters/me/usage?limit=50&offset=0&period=${period}`, headers, true),
+          readJson<UsageByKeyResponse>(`${base}/renters/me/usage/by-key?period=${period}`, headers, true),
           readJson<BudgetStatusResponse>(`${base}/renters/me/budget-status?period=${period}`, headers, true),
         ])
         if (cancelled) return
@@ -328,6 +361,7 @@ export default function RenterUsagePage() {
         setJobs(jobsData?.jobs || [])
         setUsage(usageData?.usage || [])
         setUsageTotals(usageData?.totals || me?.v1_usage_summary || null)
+        setUsageByKey(usageByKeyData || null)
         setBudgetStatus(budgetData || null)
         setLoadState('ready')
       } catch (err) {
@@ -384,6 +418,8 @@ export default function RenterUsagePage() {
   const capUtilization = budgetStatus?.v1_inference?.cap_utilization_pct
   const scopedActiveKeys = budgetStatus?.api_keys?.active || 0
   const billingKeys = budgetStatus?.api_keys?.billing || 0
+  const keyUsageRows = usageByKey?.rows || []
+  const unattributedUsage = usageByKey?.unattributed || null
 
   const modelRows = useMemo(() => {
     const byModel = new Map<string, number>()
@@ -688,6 +724,123 @@ export default function RenterUsagePage() {
               </div>
               <BreakdownRows rows={sourceRows} empty="No source spend recorded yet." />
             </div>
+          </div>
+
+          <div className="panel" style={{ marginTop: 28 }}>
+            <div className="panel-hd">
+              <div>
+                <h3>
+                  <Bi en="API key usage" ar="استخدام مفاتيح API" />
+                </h3>
+              </div>
+              <span className="mut">
+                <Bi en={usageByKey?.claims?.team_member_rollups_live ? 'Team rollups live' : 'Scoped-key rollup'} ar={usageByKey?.claims?.team_member_rollups_live ? 'تجميع الفريق مفعل' : 'تجميع حسب المفتاح'} />
+              </span>
+            </div>
+            <table className="tbl jobs-tbl">
+              <thead>
+                <tr>
+                  <th>
+                    <Bi en="Key" ar="المفتاح" />
+                  </th>
+                  <th>
+                    <Bi en="Scope" ar="النطاق" />
+                  </th>
+                  <th style={{ textAlign: 'end' }}>
+                    <Bi en="Requests" ar="الطلبات" />
+                  </th>
+                  <th style={{ textAlign: 'end' }}>
+                    <Bi en="Tokens" ar="الرموز" />
+                  </th>
+                  <th style={{ textAlign: 'end' }}>SAR</th>
+                  <th style={{ textAlign: 'end' }}>
+                    <Bi en="Monthly cap" ar="الحد الشهري" />
+                  </th>
+                  <th>
+                    <Bi en="Status" ar="الحالة" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {keyUsageRows.length === 0 && (!unattributedUsage || !unattributedUsage.requests) ? (
+                  <tr className="empty-row">
+                    <td colSpan={7}>
+                      <Bi en="No scoped-key usage has been recorded for this period." ar="لم يتم تسجيل استخدام حسب المفاتيح في هذه الفترة." />
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {keyUsageRows.map((row) => {
+                      const capSar = typeof row.monthly_spend_cap_sar === 'number'
+                        ? row.monthly_spend_cap_sar
+                        : halalaToSar(row.monthly_spend_cap_halala)
+                      const unlimited = row.monthly_spend_cap_unlimited !== false && !row.monthly_spend_cap_halala
+                      const scope = Array.isArray(row.scopes) && row.scopes.length ? row.scopes.join(' · ') : '—'
+                      const status = row.revoked ? 'revoked' : 'active'
+                      return (
+                        <tr key={row.id}>
+                          <td>
+                            <span className="mono">{row.label || row.id}</span>
+                          </td>
+                          <td>
+                            <span className="mono">{scope}</span>
+                          </td>
+                          <td>
+                            <span className="mono" style={{ textAlign: 'end', display: 'block' }}>{numFmt.format(row.requests || 0)}</span>
+                          </td>
+                          <td>
+                            <span className="mono" style={{ textAlign: 'end', display: 'block' }}>{numFmt.format(row.total_tokens || 0)}</span>
+                          </td>
+                          <td>
+                            <span className="sar">
+                              {fmtSar(typeof row.spend_sar === 'number' ? row.spend_sar : halalaToSar(row.spend_halala))}
+                              <span className="u">SAR</span>
+                            </span>
+                          </td>
+                          <td>
+                            <span className="sar">
+                              {unlimited ? <Bi en="Unlimited" ar="غير محدود" /> : fmtSar(capSar)}
+                              {!unlimited && <span className="u">SAR</span>}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`stat ${status}`}>{status}</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {unattributedUsage && (unattributedUsage.requests || 0) > 0 && (
+                      <tr>
+                        <td>
+                          <span className="mono">unattributed</span>
+                        </td>
+                        <td>
+                          <span className="mono">master / legacy</span>
+                        </td>
+                        <td>
+                          <span className="mono" style={{ textAlign: 'end', display: 'block' }}>{numFmt.format(unattributedUsage.requests || 0)}</span>
+                        </td>
+                        <td>
+                          <span className="mono" style={{ textAlign: 'end', display: 'block' }}>{numFmt.format(unattributedUsage.total_tokens || 0)}</span>
+                        </td>
+                        <td>
+                          <span className="sar">
+                            {fmtSar(typeof unattributedUsage.spend_sar === 'number' ? unattributedUsage.spend_sar : halalaToSar(unattributedUsage.spend_halala))}
+                            <span className="u">SAR</span>
+                          </span>
+                        </td>
+                        <td>
+                          <span className="mut">—</span>
+                        </td>
+                        <td>
+                          <span className="stat settled">recorded</span>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )}
+              </tbody>
+            </table>
           </div>
 
           <div className="panel" style={{ marginTop: 28 }}>

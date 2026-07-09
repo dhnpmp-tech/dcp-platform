@@ -144,8 +144,8 @@ what is live.
 
 - Team/workspace usage exports.
   **Renter-scoped v1 usage CSV/JSON export started in PR #848; team/member
-  rollups remain gated until PR #849 scoped-key spend attribution is promoted
-  into team/member rollup views.**
+  rollups start in PR #851 with scoped-key usage tables; true team-member
+  identities remain the next layer.**
 - Enterprise quota and routing policy UI.
 - Case-study pages and GCC startup credits flow.
 
@@ -252,8 +252,8 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   Keys table.**
 - Team-level API key budgets.
   **Per-key budget enforcement starts in PR #850 with default-unlimited scoped
-  key caps, management APIs, and pre-dispatch 402s; team/member rollups remain
-  the next layer.**
+  key caps, management APIs, and pre-dispatch 402s; PR #851 adds scoped-key
+  operator rollups for the Usage console.**
 - Evaluator job records.
 - Router policy objects.
 

@@ -2724,6 +2724,96 @@ function getScopedKeyUsageMap(renterId, cutoff) {
   return { available, usageByKey };
 }
 
+function queryRenterUsageByKey(renterId, cutoff) {
+  const keyBudgetExpr = renterApiKeysHasColumn('monthly_spend_cap_halala')
+    ? 'k.monthly_spend_cap_halala'
+    : '0 AS monthly_spend_cap_halala';
+  const rows = db.all(
+    `WITH keyed_usage AS (
+       SELECT renter_api_key_id AS key_id,
+              COUNT(*) AS requests,
+              COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+              COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+              COALESCE(SUM(total_tokens), 0) AS total_tokens,
+              COALESCE(SUM(cost_halala), 0) AS spend_halala
+       FROM openrouter_usage_ledger
+       WHERE renter_id = ?
+         AND created_at >= ?
+         AND renter_api_key_id IS NOT NULL
+       GROUP BY renter_api_key_id
+     )
+     SELECT k.id, k.label, k.scopes, k.org_id, k.org_role, k.revoked_at,
+            ${keyBudgetExpr},
+            COALESCE(u.requests, 0) AS requests,
+            COALESCE(u.prompt_tokens, 0) AS prompt_tokens,
+            COALESCE(u.completion_tokens, 0) AS completion_tokens,
+            COALESCE(u.total_tokens, 0) AS total_tokens,
+            COALESCE(u.spend_halala, 0) AS spend_halala
+     FROM renter_api_keys k
+     LEFT JOIN keyed_usage u ON u.key_id = k.id
+     WHERE k.renter_id = ?
+     ORDER BY spend_halala DESC, requests DESC, k.created_at DESC
+     LIMIT 100`,
+    renterId, cutoff, renterId
+  ).map((row) => {
+    const capHalala = Number(row.monthly_spend_cap_halala || 0);
+    const spendHalala = Number(row.spend_halala || 0);
+    return {
+      id: row.id,
+      label: row.label || null,
+      scopes: parseScopes(row.scopes),
+      org_id: row.org_id || null,
+      org_role: row.org_role || 'member',
+      revoked: Boolean(row.revoked_at),
+      requests: Number(row.requests || 0),
+      prompt_tokens: Number(row.prompt_tokens || 0),
+      completion_tokens: Number(row.completion_tokens || 0),
+      total_tokens: Number(row.total_tokens || 0),
+      spend_halala: spendHalala,
+      spend_sar: sarFromHalala(spendHalala),
+      monthly_spend_cap_halala: capHalala,
+      monthly_spend_cap_sar: sarFromHalala(capHalala),
+      monthly_spend_cap_unlimited: capHalala === 0,
+      cap_utilization_pct: capHalala > 0
+        ? Math.min(100, Math.round((spendHalala / capHalala) * 10000) / 100)
+        : null,
+    };
+  });
+
+  const unattributed = db.get(
+    `SELECT COUNT(*) AS requests,
+            COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+            COALESCE(SUM(total_tokens), 0) AS total_tokens,
+            COALESCE(SUM(cost_halala), 0) AS spend_halala
+     FROM openrouter_usage_ledger
+     WHERE renter_id = ?
+       AND created_at >= ?
+       AND renter_api_key_id IS NULL`,
+    renterId, cutoff
+  ) || {};
+  const unattributedSpendHalala = Number(unattributed.spend_halala || 0);
+  const keyedSpendHalala = rows.reduce((sum, row) => sum + row.spend_halala, 0);
+  const keyedRequests = rows.reduce((sum, row) => sum + row.requests, 0);
+  return {
+    rows,
+    unattributed: {
+      requests: Number(unattributed.requests || 0),
+      prompt_tokens: Number(unattributed.prompt_tokens || 0),
+      completion_tokens: Number(unattributed.completion_tokens || 0),
+      total_tokens: Number(unattributed.total_tokens || 0),
+      spend_halala: unattributedSpendHalala,
+      spend_sar: sarFromHalala(unattributedSpendHalala),
+    },
+    totals: {
+      keys: rows.length,
+      requests: keyedRequests + Number(unattributed.requests || 0),
+      spend_halala: keyedSpendHalala + unattributedSpendHalala,
+      spend_sar: sarFromHalala(keyedSpendHalala + unattributedSpendHalala),
+    },
+  };
+}
+
 function summarizeScopedKeys(renterId, cutoff) {
   const hasKeyBudgetColumn = renterApiKeysHasColumn('monthly_spend_cap_halala');
   const keys = db.all(
@@ -2999,6 +3089,42 @@ router.get('/me/budget-status', (req, res) => {
   } catch (error) {
     console.error('Renter budget status error:', error);
     return res.status(500).json({ error: 'Failed to fetch budget status' });
+  }
+});
+
+// ============================================================================
+// GET /api/renters/me/usage/by-key — scoped key usage rollup
+// ============================================================================
+router.get('/me/usage/by-key', (req, res) => {
+  try {
+    const auth = requireRenterBillingRead(req);
+    if (auth.error) return res.status(auth.error.status).json(auth.error.body);
+
+    const periodInfo = normalizeRenterUsagePeriod(req.query.period);
+    const rollup = queryRenterUsageByKey(auth.authCtx.renter.id, periodInfo.cutoff);
+    return res.json({
+      object: 'renter_usage_by_key',
+      version: 'dcp.renter_usage_by_key.v1',
+      generated_at: new Date().toISOString(),
+      period: periodInfo.period,
+      window: {
+        days: periodInfo.days,
+        cutoff: periodInfo.cutoff,
+      },
+      renter: {
+        id: auth.authCtx.renter.id,
+        org_id: auth.authCtx.orgId || deriveOrgId(auth.authCtx.renter),
+      },
+      ...rollup,
+      claims: {
+        per_key_spend_attribution_live: openrouterUsageHasColumn('renter_api_key_id'),
+        per_key_budgets_enforced: renterApiKeysHasColumn('monthly_spend_cap_halala'),
+        team_member_rollups_live: false,
+      },
+    });
+  } catch (error) {
+    console.error('Renter usage by key error:', error);
+    return res.status(500).json({ error: 'Failed to fetch key usage rollup' });
   }
 });
 

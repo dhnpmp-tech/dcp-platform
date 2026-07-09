@@ -514,7 +514,9 @@ Acceptance:
     `/v1` and `/api/vllm` usage rows, usage exports, budget status, and the API
     Keys table. PR #850 adds default-unlimited scoped-key monthly caps,
     management APIs, API Keys cap visibility, and pre-dispatch 402 enforcement
-    for capped scoped keys without changing account caps or master-key behavior.**
+    for capped scoped keys without changing account caps or master-key behavior.
+    PR #851 adds scoped-key usage rollups for the Usage console while true
+    team-member rollups remain gated.**
 
 ## Division of Work
 
