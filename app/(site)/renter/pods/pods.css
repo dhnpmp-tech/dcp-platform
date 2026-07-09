@@ -252,6 +252,9 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 /* ── Stage jump rail ────────────────────────────────────── */
 .pod-stage-nav {
+  position: sticky;
+  top: 70px;
+  z-index: 19;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
@@ -263,7 +266,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   min-width: 0;
   padding: 13px 15px;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(76px, auto) 1fr;
   gap: 4px 10px;
   align-items: baseline;
   border-inline-end: 1px solid var(--hair);
@@ -320,7 +323,10 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   color: var(--mut);
 }
 @media (max-width: 860px) {
-  .pod-stage-nav { grid-template-columns: 1fr; }
+  .pod-stage-nav {
+    position: static;
+    grid-template-columns: 1fr;
+  }
   .pod-stage-nav a {
     border-inline-end: 0;
     border-bottom: 1px solid var(--hair);
@@ -421,6 +427,11 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 /* ── Launch panel ───────────────────────────────────────── */
 .pod-stage { display: flex; flex-direction: column; gap: 14px; }
+#pod-stage-1,
+#pod-stage-2,
+#pod-stage-3 {
+  scroll-margin-top: 150px;
+}
 .pod-stage-hd {
   display: grid;
   grid-template-columns: 72px 1fr;
@@ -428,7 +439,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   align-items: start;
 }
 .pod-stage-no {
-  min-width: 68px;
+  min-width: 92px;
   padding: 0 8px;
   height: 38px;
   display: grid;
@@ -1494,6 +1505,105 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
+}
+
+.gpu-picker-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 15px 16px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 46%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 7%, var(--bg-2));
+  box-shadow: inset 3px 0 0 var(--rt-accent);
+  scroll-margin-top: 170px;
+}
+.gpu-picker-status.fixed {
+  background: color-mix(in oklab, var(--teal) 9%, var(--bg-2));
+}
+.gpu-picker-status-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gpu-picker-status-copy span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.gpu-picker-status-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.gpu-picker-status-copy em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.gpu-picker-status-facts {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gpu-picker-status-facts code,
+.gpu-picker-status-facts span,
+.gpu-picker-status-facts a {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-decoration: none;
+  border-radius: 2px;
+}
+.gpu-picker-status-facts code {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.gpu-picker-status-facts span {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair));
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink));
+  background: color-mix(in oklab, var(--orange) 8%, var(--paper));
+  text-transform: uppercase;
+}
+.gpu-picker-status-facts a {
+  color: var(--rt-accent);
+  border-color: var(--rt-accent);
+  text-transform: uppercase;
+}
+.gpu-picker-status-facts a:hover,
+.gpu-picker-status-facts a:focus-visible {
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  outline: none;
+}
+@media (max-width: 860px) {
+  .gpu-picker-status {
+    grid-template-columns: 1fr;
+  }
+  .gpu-picker-status-facts {
+    justify-content: flex-start;
+  }
 }
 
 /* ── Guided assist (optional, collapsed by default) ───────── */

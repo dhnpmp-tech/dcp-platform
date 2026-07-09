@@ -224,6 +224,10 @@ what is live.
   makes the stage rail name Stage 2 as the actual launch GPU, labels VRAM chips
   as browse filters only, and changes the launch CTA to distinguish auto-picked
   versus fixed-GPU pod launches.
+- PR #912 turns that feedback into stronger launch signage: the `/renter/pods`
+  rail now says Stage 1/2/3 of 3, stays sticky on desktop, keeps Stage 1
+  explicitly collapsible, and adds a GPU-picker status panel showing the exact
+  auto-pick or fixed-GPU `gpu_type` request before the browse filters.
 
 ### Now
 
@@ -749,6 +753,10 @@ template launch.
   large workspace faster: users can jump to Stage 2 from the top fast path,
   Stage 1 remains visibly collapsible, and the UI repeats that VRAM filters do
   not select the actual launch GPU.
+- PR #912 keeps that read-only contract and makes the selected launch state
+  harder to miss: Stage labels are consistently "of 3", the stage rail remains
+  visible on desktop, and the GPU browser starts with the auto-pick/fixed-GPU
+  request payload before users touch templates, VRAM chips, search, or sort.
 
 ### Now
 

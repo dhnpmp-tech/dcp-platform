@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 19:33 UTC - Pods stage navigation and launch GPU state clarity (PR #912)
+
+- **PR:** [#912](https://github.com/dhnpmp-tech/dcp-platform/pull/912) (`codex/pods-stage-navigation-gpu-clarity-2026-07-09`).
+- **Timestamp:** 2026-07-09 19:33 UTC / 2026-07-09 23:33 +04.
+- **Stage navigation:** `/renter/pods` now labels the launch flow as Stage 1/2/3 of 3 and keeps the desktop stage rail sticky so Stage 2 remains reachable while scanning a large workspace.
+- **Workspace UX:** The fast path now states that Stage 1 is collapsible and that renters can skip file-by-file review when the folder summary is enough.
+- **GPU clarity:** The GPU picker now starts with a selected-launch-state panel showing whether the request is auto-pick or a pinned GPU plus the exact `gpu_type` payload state.
+- **Filter clarity:** The new picker panel repeats that templates, VRAM chips, search, and sort organize visible cards only; they do not select the launch GPU.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for stage labels, collapsible workspace copy, and auto-pick/fixed-GPU picker state.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:14 UTC - Pods workspace skip path and launch GPU request preview (PR #911)
 
 - **PR:** [#911](https://github.com/dhnpmp-tech/dcp-platform/pull/911) (`codex/pods-stage2-request-preview-2026-07-09`).

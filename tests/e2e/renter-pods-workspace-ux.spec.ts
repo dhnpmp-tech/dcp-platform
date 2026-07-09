@@ -231,15 +231,19 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await page.goto('/renter/pods');
 
   await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toBeVisible();
-  await expect(page.locator('#pod-stage-1 .pod-stage-no')).toHaveText('Stage 1');
-  await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2');
-  await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3');
+  await expect(page.locator('#pod-stage-1 .pod-stage-no')).toHaveText('Stage 1 of 3');
+  await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2 of 3');
+  await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3 of 3');
+  await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toContainText('Stage 1 of 3');
+  await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toContainText('Stage 2 of 3');
+  await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toContainText('Stage 3 of 3');
   await expect(page.locator('.pod-stage-nav').getByRole('link', { name: /Stage 2.*Actual launch GPU.*Auto-pick/ })).toBeVisible();
   const fastPath = page.getByLabel('Fast path to Stage 2');
   await expect(fastPath).toContainText('Main decision');
-  await expect(fastPath).toContainText('Go straight to Stage 2');
+  await expect(fastPath).toContainText('Go straight to Stage 2 of 3');
   await expect(fastPath).toContainText('Auto-pick is active; no fixed GPU is selected.');
-  await expect(fastPath).toContainText('Workspace can stay collapsed');
+  await expect(fastPath).toContainText('Workspace is collapsible');
+  await expect(fastPath).toContainText('Skip file-by-file review when the folder summary looks right.');
   await expect(fastPath).toContainText('No trial-account tag live');
   await expect(fastPath.getByRole('link', { name: /Go straight to Stage 2/ })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 file tree');
@@ -378,6 +382,13 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Pod proof gates')).toContainText('LoRA image: GPU-host proof');
 
   const gpuSelectionStrip = page.locator('.gpu-selection-strip');
+  const gpuPickerStatus = page.getByLabel('GPU picker selected launch state');
+  await expect(gpuPickerStatus).toContainText('Actual launch request');
+  await expect(gpuPickerStatus).toContainText('Selected for launch: Auto-pick');
+  await expect(gpuPickerStatus).toContainText('No card is pinned yet');
+  await expect(gpuPickerStatus).toContainText('VRAM chips are filters only');
+  await expect(gpuPickerStatus).toContainText('gpu_type omitted');
+  await expect(gpuPickerStatus.getByRole('link', { name: 'Choose a GPU card' })).toBeVisible();
   await expect(gpuSelectionStrip).toContainText('Stage 2 selected launch GPU');
   await expect(gpuSelectionStrip).toContainText('Auto-pick: no fixed GPU');
   await expect(gpuSelectionStrip).toContainText('Request: auto-pick');
@@ -417,6 +428,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(launchChecklist).toContainText('RTX 4090');
   await expect(launchChecklist).toContainText('Fixed launch request · 24 GB · SAR 12.00/hr');
   await expect(page.getByLabel('Launch review')).toContainText('RTX 4090');
+  await expect(gpuPickerStatus).toContainText('Selected for launch: RTX 4090');
+  await expect(gpuPickerStatus).toContainText('Changing templates, VRAM chips, search, or sort will not replace the pinned GPU card.');
+  await expect(gpuPickerStatus).toContainText('gpu_type = RTX 4090');
   await expect(gpuSelectionStrip).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');
   await expect(gpuSelectionStrip).toContainText('Mode: fixed GPU selected');
