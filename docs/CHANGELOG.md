@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 17:24 UTC - Pricing live model feature-readiness gates (PR #904)
+
+- **PR:** [#904](https://github.com/dhnpmp-tech/dcp-platform/pull/904) (`codex/pricing-model-readiness-gates-2026-07-09-v2`).
+- **Timestamp:** 2026-07-09 17:24 UTC / 2026-07-09 21:24 +04.
+- **Pricing UX:** `/pricing` now aggregates `/v1/models.feature_readiness` for prompt cache, Batch API, LoRA, and Dedicated Deployments beside live SAR/M token rates.
+- **Readiness clarity:** The rail shows contract version, serveable-model coverage, gated/available state, and the next proof action before advanced economics, execution, serving, or dedicated route traffic can be claimed.
+- **Catalog discipline:** Zero-provider catalog rows stay out of both the live rate table and the readiness coverage counts.
+- **Regression:** Added a focused mocked `/pricing` Playwright regression for serveable model rows, hidden zero-provider rows, and advanced readiness gate copy.
+- **Safety:** Frontend/read-only visibility change; no model catalog semantics, provider selection, request routing, pricing calculation, billing, settlement, prompt-cache discount, batch execution, LoRA training, adapter deployment, dedicated deployment traffic, or Tinker claim changed.
+- **Verification:** TypeScript; focused `/pricing` Playwright regression; model-catalog parity proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 17:13 UTC - Pods large-workspace and GPU decision scan polish (PR #903)
 
 - **PR:** [#903](https://github.com/dhnpmp-tech/dcp-platform/pull/903) (`codex/pods-workspace-tareq-feedback-2026-07-09`).

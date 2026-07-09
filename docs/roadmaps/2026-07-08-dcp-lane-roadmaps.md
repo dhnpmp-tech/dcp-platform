@@ -103,6 +103,10 @@ what is live.
   blocked future billing rails before a user sends inference traffic.
 - PR #781 added a live `/v1/models` serveable-model pricing table to `/pricing`
   with context, SAR input/output rates, provider count, and capability chips.
+- PR #904 makes `/pricing` aggregate `/v1/models.feature_readiness` for prompt
+  cache, Batch API, LoRA, and Dedicated Deployments, keeping advanced
+  economics, execution, serving, and route traffic gated while exposing the
+  next proof action beside live SAR rates.
 - PR #852 added `/benchmarks` and
   `GET /api/models/benchmarks/readiness`, making Benchmarks/Evals a visible
   product rail while Arabic-quality claims, case studies, rankings, and
