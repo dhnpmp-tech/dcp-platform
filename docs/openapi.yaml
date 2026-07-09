@@ -528,7 +528,7 @@ components:
     LoraReadiness:
       type: object
       description: Renter-authenticated readiness contract for LoRA/QLoRA fine-tuning, adapter registry, model-card, and adapter deployment gates. This contract is metadata-only and explicitly does not claim public training, serving, quality wins, Tinker compatibility, or discounts.
-      required: [object, version, current_mode, dataset_validation, training_jobs, model_cards, adapter_registry, adapter_deployments, claim_guards]
+      required: [object, version, current_mode, dataset_validation, training_jobs, model_cards, adapter_registry, adapter_deployments, tinker_loop, claim_guards]
       properties:
         object:
           type: string
@@ -644,6 +644,55 @@ components:
             load_proof_required:
               type: boolean
               example: true
+        tinker_loop:
+          type: object
+          additionalProperties: true
+          description: Disabled Tinker-style local-loop readiness gates. These fields do not claim Tinker API compatibility.
+          properties:
+            status:
+              type: string
+              example: contract_only
+            available:
+              type: boolean
+              example: false
+            api_available:
+              type: boolean
+              example: false
+            compatibility_claim_allowed:
+              type: boolean
+              example: false
+            tinker_api_compatible:
+              type: boolean
+              example: false
+            primitives:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: not_enabled
+                  available:
+                    type: boolean
+                    example: false
+                  endpoint:
+                    type: string
+                    nullable: true
+                    example: null
+                  mutates_training_state:
+                    type: boolean
+                    example: false
+            safety:
+              type: object
+              additionalProperties: false
+              properties:
+                runs_remote_gpu_loop: { type: boolean, example: false }
+                creates_training_job: { type: boolean, example: false }
+                writes_adapter_weights: { type: boolean, example: false }
+                persists_raw_dataset: { type: boolean, example: false }
+                exposes_low_level_gradients: { type: boolean, example: false }
+                bills_training_steps: { type: boolean, example: false }
+                claims_tinker_compatibility: { type: boolean, example: false }
         claim_guards:
           type: object
           additionalProperties: false
@@ -661,6 +710,12 @@ components:
               type: boolean
               example: false
             tinker_compatible:
+              type: boolean
+              example: false
+            tinker_style_loop_enabled:
+              type: boolean
+              example: false
+            tinker_low_level_api_enabled:
               type: boolean
               example: false
             discounts_enabled:

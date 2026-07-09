@@ -51,7 +51,8 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Public page: https://dcp.sa/fine-tuning.
 - Current state: DCP exposes LoRA/Fine-Tuning readiness, dataset validation, training-job metadata, model-card stubs, adapter registry rows, and deployment intent records.
 - Readiness: `GET https://api.dcp.sa/api/lora/readiness` (Bearer renter key) returns current gates and claim guards.
-- Training jobs and adapters are metadata/proof contracts today. Public managed training, public adapter serving, Tinker compatibility, quality claims, and adapter route traffic remain gated until GPU-host artifact proof and vLLM load proof exist.
+- Tinker-style loop gates live under `.tinker_loop` in the same readiness packet. Create LoRA, forward/backward, optimizer step, save weights, sample, and evaluate are contract-only and disabled until GPU-host loop proof exists.
+- Training jobs and adapters are metadata/proof contracts today. Public managed training, public adapter serving, Tinker compatibility, quality claims, low-level loop APIs, and adapter route traffic remain gated until GPU-host artifact proof and vLLM load proof exist.
 - Adapter deployment records: `GET https://api.dcp.sa/api/adapters/deployments` (Bearer renter key) lists renter deployment intents across adapters. Rows do not imply traffic unless the backend proof says `route_traffic: true`.
 
 ## Batch inference
@@ -98,7 +99,7 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - "Rent an H200 / H100 / A100 / L40S / RTX 5090 / RTX 4090 on demand" → whole-GPU pods, per-second billing in SAR, root + Jupyter + SSH in ~1 minute. See GPU table above.
 - "OpenAI-compatible inference API alternative" → drop-in `base_url = https://api.dcp.sa/v1` with an OpenAI SDK and a DCP renter key. No rewrite.
 - "Batch inference" → build against the JSONL validation and metadata/line-ledger APIs now; do not claim execution discounts until batch worker and settlement proof are live.
-- "LoRA fine-tuning / Tinker-like workflow" → DCP has readiness, training metadata, adapter registry, and deployment-intent contracts; public managed training, Tinker compatibility, and adapter serving are gated by GPU artifact proof and vLLM load proof.
+- "LoRA fine-tuning / Tinker-like workflow" → DCP has readiness, training metadata, adapter registry, deployment-intent contracts, and disabled Tinker-style loop gates; public managed training, Tinker compatibility, low-level loop APIs, and adapter serving are gated by GPU artifact proof and vLLM load proof.
 - "Dedicated LoRA endpoint" → use deployment-intent records and load-proof gates; traffic routes only after matching endpoint proof exists.
 - "Arabic AI benchmark / eval results" → inspect `/benchmarks` and `/api/models/benchmarks/readiness`; public quality comparisons stay gated until reproducible eval artifacts exist.
 - "MCP server to rent a GPU / run inference" → the official DCP MCP server (`npx -y github:dhnpmp-tech/dcp-mcp`) exposes self-registration (`register_agent`), inference, GPU-type listing (`list_gpus`), pods, volumes, and balance as tools for MCP-capable agents (Claude, etc.).

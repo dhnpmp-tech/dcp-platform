@@ -153,6 +153,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
 | LoRA fat image provider-host imports | `npm run proof:lora-pod-image` | provider GPU host with Docker, NVIDIA Container Toolkit, and built `dcp-compute:lora` | Command available; blocked until run on a provider GPU host |
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
+| Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |
 | LoRA GPU training artifact proof | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` | provider GPU host or pod, approved dataset fixture, artifact storage key, training budget window | Command available; currently records readiness blockers and stops before training job creation |
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
@@ -211,9 +212,10 @@ before or with the feature change.
      no-discount/no-execution claim guards until measured billing proof exists.
 6. **LoRA dataset, training, and artifact proof**
    - Gate: `templates:validate`, `proof:lora-training-contract`,
-     `proof:lora-training-live-artifact`, dataset validate-only tests,
-     fixed-recipe SFT worker proof, adapter artifact checksum, and model-card
-     manifest.
+     `proof:tinker-loop-readiness`, `proof:lora-training-live-artifact`,
+     dataset validate-only tests, fixed-recipe SFT worker proof, adapter
+     artifact checksum, model-card manifest, and disabled Tinker-style loop
+     primitive guards.
    - Public wording remains "metadata/readiness" until GPU artifact proof runs.
 7. **Adapter deployment and dedicated endpoints**
    - Gate: `proof:adapter-deployment-contract`,

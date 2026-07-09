@@ -9,6 +9,14 @@ const DATASET_FORMATS = Object.freeze({
 
 const TRAINING_RECIPES = Object.freeze(['lora_sft', 'qlora_sft']);
 const DEPLOY_MODES = Object.freeze(['single_adapter_live_merge', 'multi_lora']);
+const TINKER_LOOP_PRIMITIVES = Object.freeze([
+  'create_lora',
+  'forward_backward',
+  'optimizer_step',
+  'save_weights',
+  'sample',
+  'evaluate',
+]);
 const DEFAULT_MAX_DATASET_BYTES = 50 * 1024 * 1024;
 const DEFAULT_MAX_DATASET_ROWS = 100000;
 const DEFAULT_CHARS_PER_TOKEN = 4;
@@ -223,6 +231,56 @@ function normalizeAdapterDeploySpec(input = {}) {
   };
 }
 
+function buildTinkerLoopReadiness() {
+  const primitiveEntries = TINKER_LOOP_PRIMITIVES.map((primitive) => [primitive, {
+    status: 'not_enabled',
+    available: false,
+    endpoint: null,
+    mutates_training_state: false,
+    requires_before_enablement: primitiveRequirements(primitive),
+  }]);
+
+  return {
+    status: 'contract_only',
+    available: false,
+    api_available: false,
+    compatibility_claim_allowed: false,
+    tinker_api_compatible: false,
+    primitives: Object.fromEntries(primitiveEntries),
+    required_before_enablement: [
+      'renter-scoped loop session schema',
+      'approved dataset/artifact storage policy',
+      'GPU-host executor proof for forward/backward/optimizer/save',
+      'adapter checkpoint checksum and model-card manifest',
+      'billing or no-billing policy for training steps',
+      'adapter registry link and vLLM load-proof handoff',
+    ],
+    safety: {
+      runs_remote_gpu_loop: false,
+      creates_training_job: false,
+      writes_adapter_weights: false,
+      persists_raw_dataset: false,
+      exposes_low_level_gradients: false,
+      bills_training_steps: false,
+      claims_tinker_compatibility: false,
+    },
+    next: 'prove_fixed_recipe_lora_sft_artifacts_before_low_level_tinker_loop_api',
+  };
+}
+
+function primitiveRequirements(primitive) {
+  const common = ['renter auth', 'dataset/artifact checksum policy', 'GPU-host proof'];
+  const byPrimitive = {
+    create_lora: ['adapter session schema', 'base model support matrix'],
+    forward_backward: ['deterministic batch input contract', 'gradient boundary policy'],
+    optimizer_step: ['optimizer state checkpoint policy', 'training budget guard'],
+    save_weights: ['adapter artifact storage key', 'sha256 checksum proof'],
+    sample: ['served base model or trainer-side sampling proof', 'redacted sample artifact'],
+    evaluate: ['approved eval dataset checksum', 'scoring harness version'],
+  };
+  return [...common, ...(byPrimitive[primitive] || [])];
+}
+
 function normalizeHyperparameters(input, recipe) {
   const rankDefault = recipe === 'qlora_sft' ? 16 : 8;
   const rank = normalizeInt(input.rank ?? rankDefault, 'rank', 1, 1024);
@@ -379,10 +437,12 @@ module.exports = {
   DATASET_FORMATS,
   TRAINING_RECIPES,
   DEPLOY_MODES,
+  TINKER_LOOP_PRIMITIVES,
   LoraContractError,
   validateLoraDatasetJsonl,
   normalizeLoraTrainingSpec,
   normalizeAdapterDeploySpec,
+  buildTinkerLoopReadiness,
   __test: {
     normalizeDatasetRow,
     normalizeStorageKey,

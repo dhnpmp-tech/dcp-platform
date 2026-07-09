@@ -18,6 +18,7 @@ const {
   DEPLOY_MODES,
   LoraContractError,
   TRAINING_RECIPES,
+  buildTinkerLoopReadiness,
 } = require('../services/loraTrainingContract');
 const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
 
@@ -215,12 +216,15 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       load_proof_required: true,
       next: 'attach_vllm_adapter_load_proof_before_any_routing',
     },
+    tinker_loop: buildTinkerLoopReadiness(),
     claim_guards: {
       public_training_enabled: false,
       public_serving_enabled: false,
       route_traffic: false,
       quality_claims: false,
       tinker_compatible: false,
+      tinker_style_loop_enabled: false,
+      tinker_low_level_api_enabled: false,
       discounts_enabled: false,
     },
   };

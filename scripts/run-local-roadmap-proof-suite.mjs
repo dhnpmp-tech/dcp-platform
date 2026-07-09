@@ -60,6 +60,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_LORA_TRAINING_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'tinker_loop_readiness_contract',
+    command: 'npm run proof:tinker-loop-readiness',
+    outputEnv: 'DCP_TINKER_LOOP_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'adapter_deployment_contract',
     command: 'npm run proof:adapter-deployment-contract',
     outputEnv: 'DCP_ADAPTER_DEPLOYMENT_PROOF_OUTPUT_DIR',

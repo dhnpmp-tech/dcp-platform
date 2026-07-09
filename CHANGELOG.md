@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 02:24 UTC - `test(lora): add Tinker loop readiness proof - PR #854`
+
+**PR:** [#854](https://github.com/dhnpmp-tech/dcp-platform/pull/854) (`codex/tinker-loop-readiness-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 06:24 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Makes the desired Tinker-style LoRA local-loop primitives visible as disabled readiness gates before any compatibility claim or GPU mutation.
+
+- **Backend readiness:** Extended renter-authenticated `GET /api/lora/readiness` with `tinker_loop` gates for create-LoRA, forward/backward, optimizer-step, save-weights, sample, and evaluate.
+- **Proof command:** Added `npm run proof:tinker-loop-readiness` and included it in `npm run proof:local-roadmap`, raising the local suite to 12 CI-safe gates.
+- **Public surface:** Updated `/fine-tuning`, `llms.txt`, and OpenAPI so product copy and agents point at the contract while saying low-level loop APIs remain disabled.
+- **Safety:** No Tinker API compatibility claim, training session creation, GPU loop execution, adapter weight write, raw dataset persistence, adapter serving, route traffic, billing, settlement, or quality-claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted LoRA/Tinker Jest suites; Tinker loop readiness proof; TypeScript; Next build; local roadmap proof now passing 12/12 gates.
+
 ### 2026-07-09 02:05 UTC - `test(evals): add evaluator readiness proof - PR #853`
 
 **PR:** [#853](https://github.com/dhnpmp-tech/dcp-platform/pull/853) (`codex/evaluator-readiness-contract-2026-07-09`).
