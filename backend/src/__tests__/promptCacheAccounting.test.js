@@ -45,6 +45,13 @@ describe('prompt-cache accounting foundation', () => {
         billable_input_tokens_discounted: false,
         settlement_discount_enabled: false,
       },
+      live_acceptance: {
+        provider_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+          live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+        },
+      },
       claims: {
         prompt_cache_discount: false,
         provider_kv_cache_control: false,
@@ -55,6 +62,16 @@ describe('prompt-cache accounting foundation', () => {
     expect(readiness.response_fields).toEqual(expect.arrayContaining([
       'usage.prompt_cache',
       'usage.pricing.prompt_cache',
+    ]));
+    expect(readiness.live_acceptance.provider_discount_smoke.blocked_on).toEqual(expect.arrayContaining([
+      'funded smoke principal',
+      'provider cache-hit evidence',
+      'settlement discount policy approval',
+    ]));
+    expect(readiness.live_acceptance.provider_discount_smoke.verifies).toEqual(expect.arrayContaining([
+      'live hit metadata',
+      'no discount while disabled',
+      'settlement discount policy remains disabled',
     ]));
   });
 

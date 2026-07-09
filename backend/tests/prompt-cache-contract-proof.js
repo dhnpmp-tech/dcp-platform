@@ -177,6 +177,7 @@ function runPromptCacheContractProof(options = {}) {
       stores_static_prefix: readiness.measurement.stores_static_prefix,
       discounts_enabled: readiness.billing.discounts_enabled,
       settlement_discount_enabled: readiness.billing.settlement_discount_enabled,
+      live_acceptance: readiness.live_acceptance,
       claims: readiness.claims,
     };
     record(
@@ -191,6 +192,15 @@ function runPromptCacheContractProof(options = {}) {
         && readiness.claims.provider_kv_cache_control === false
         && readiness.claims.tinker_compatible === false,
       'Readiness exposes measured prompt-cache metadata without discount, provider KV-cache, or Tinker claims.',
+    );
+    record(
+      'readiness names the blocked live provider discount smoke gate',
+      readiness.live_acceptance?.provider_discount_smoke?.status === 'blocked_external'
+        && readiness.live_acceptance.provider_discount_smoke.command === 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement'
+        && readiness.live_acceptance.provider_discount_smoke.live_acceptance_gate === 'prompt_cache_provider_discount_smoke'
+        && readiness.live_acceptance.provider_discount_smoke.blocked_on.includes('provider cache-hit evidence')
+        && readiness.live_acceptance.provider_discount_smoke.verifies.includes('settlement discount policy remains disabled'),
+      'The opt-in live proof command is discoverable while discounts and provider KV-cache control remain gated.',
     );
 
     const miss = computePromptCacheAccounting({

@@ -262,6 +262,7 @@ async function runBatchInferenceContractProof(options = {}) {
       settlement_public_enabled: readiness.features.settlement.public_enabled,
       discounts_enabled: readiness.features.discounts.enabled,
       model_batch_capability_live: readiness.claims.model_batch_capability_live,
+      live_acceptance: readiness.live_acceptance,
     };
     record(
       'readiness keeps public execution and discounts gated',
@@ -271,6 +272,15 @@ async function runBatchInferenceContractProof(options = {}) {
         && readiness.claims.batch_discount_live === false
         && readiness.claims.model_batch_capability_live === false,
       'Batch readiness remains validation-only until live execution, settlement, and discount proof exist.',
+    );
+    record(
+      'readiness names the blocked batch live execution and discount smoke gate',
+      readiness.live_acceptance?.execution_discount_smoke?.status === 'blocked_external'
+        && readiness.live_acceptance.execution_discount_smoke.command === 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution'
+        && readiness.live_acceptance.execution_discount_smoke.live_acceptance_gate === 'batch_live_execution_discount_smoke'
+        && readiness.live_acceptance.execution_discount_smoke.blocked_on.includes('live provider execution capacity')
+        && readiness.live_acceptance.execution_discount_smoke.verifies.includes('discount remains disabled until approved'),
+      'The opt-in live proof command is discoverable while public execution, settlement, downloads, discounts, and model flags remain gated.',
     );
 
     let invalidRejected = false;

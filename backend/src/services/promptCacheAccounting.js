@@ -39,6 +39,23 @@ function buildPromptCacheReadiness(now = new Date()) {
       billable_input_tokens_discounted: false,
       settlement_discount_enabled: false,
     },
+    live_acceptance: {
+      provider_discount_smoke: {
+        status: 'blocked_external',
+        command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+        live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+        blocked_on: [
+          'funded smoke principal',
+          'provider cache-hit evidence',
+          'settlement discount policy approval',
+        ],
+        verifies: [
+          'live hit metadata',
+          'no discount while disabled',
+          'settlement discount policy remains disabled',
+        ],
+      },
+    },
     response_fields: [
       'usage.prompt_cache',
       'usage.pricing.prompt_cache',

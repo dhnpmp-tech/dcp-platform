@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 14:30 UTC - `feat(inference): expose prompt-cache and batch live proof gates - PR #892`
+
+**PR:** [#892](https://github.com/dhnpmp-tech/dcp-platform/pull/892) (`codex/inference-batch-live-proof-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 18:30 +04.
+
+**What:** Fireworks/Tinker inference roadmap slice. Makes the blocked live acceptance gates visible in prompt-cache and batch readiness contracts, proofs, OpenAPI, and product surfaces without enabling discounts or execution.
+
+- **Prompt-cache readiness:** `GET /v1/prompt-cache/readiness` now names the blocked `prompt_cache_provider_discount_smoke` live gate, the exact opt-in proof command, blockers, and verified no-discount evidence expectations.
+- **Batch readiness:** `GET /api/batches/readiness` now names the blocked `batch_live_execution_discount_smoke` gate, the exact opt-in proof command, blockers, and result/download/discount verification expectations.
+- **Product surfaces:** Public `/inference`, public `/batch`, and renter `/renter/batches` now surface the blocked live proof gates from readiness metadata so users see what evidence is still missing before prompt-cache discounts or batch execution claims.
+- **Proofs/contracts:** Prompt-cache and batch contract proof packets now include the live-acceptance metadata, and public OpenAPI copies document both readiness gate blocks.
+- **Safety:** Read-only contract/UI/docs/proof change; no prompt-cache discount, provider KV-cache control, batch execution, result object write/download, settlement, billing, model batch flag, route selection, provider routing, or balance mutation was enabled.
+- **Verification:** OpenAPI YAML parse; targeted prompt-cache/batch/v1 Jest suites; prompt-cache contract proof; batch inference contract proof; focused `/inference` and `/renter/batches` Playwright regressions; TypeScript; local roadmap proof suite passing 35/35 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 14:09 UTC - `feat(pods): polish workspace folders, trial policy, and GPU request UX - PR #891`
 
 **PR:** [#891](https://github.com/dhnpmp-tech/dcp-platform/pull/891) (`codex/pods-workspace-trial-gpu-polish-2026-07-09`).

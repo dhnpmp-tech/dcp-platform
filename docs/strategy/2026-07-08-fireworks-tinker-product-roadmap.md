@@ -264,6 +264,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     renter-authenticated `GET /api/batches/readiness` only when explicitly
     allowed, records execution/download/settlement/discount blockers, and stops
     before creating a batch until the full live flow is ready.
+  - PR #892 surfaces the prompt-cache and batch live acceptance gates through
+    readiness contracts, OpenAPI, public `/inference`, public `/batch`, renter
+    `/renter/batches`, and the CI-safe proof packets so missing live evidence is
+    visible before Fireworks-style cache discount or batch execution claims.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency
@@ -652,12 +656,15 @@ Acceptance:
     input discounts. **Added in PR #836 as
     `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;
     cached-input discounts, provider KV-cache control, and settlement discounts
-    remain gated until that command passes with funded/provider/policy evidence.**
+    remain gated until that command passes with funded/provider/policy evidence.
+    PR #892 exposes this gate as `prompt_cache_provider_discount_smoke` in
+    readiness and product UI.**
 15. **Batch live execution runner** - opt-in live readiness proof before batch
     execution and discounted settlement claims. **Added in PR #838 as
     `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`;
     batch creation/execution/download/settlement remain gated until readiness
-    and the runner prove the full live flow.**
+    and the runner prove the full live flow. PR #892 exposes this gate as
+    `batch_live_execution_discount_smoke` in readiness and product UI.**
 16. **LoRA live artifact runner** - opt-in live readiness proof before GPU
     training artifact claims. **Added in PR #840 as
     `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`;

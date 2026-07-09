@@ -35,6 +35,13 @@ const BATCH_GATES = [
     en: 'Batch discounts and settlement stay off until worker execution and billing proof are enabled.',
     ar: 'تبقى خصومات الدُفعات والتسوية متوقفة حتى يتم تفعيل إثبات تشغيل العامل والفوترة.',
   },
+  {
+    k: 'live_acceptance',
+    tEn: 'Live proof gate',
+    tAr: 'بوابة الإثبات الحي',
+    en: 'The next opt-in proof is DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution; execution and discounts stay disabled until it passes with result and settlement evidence.',
+    ar: 'الإثبات التالي هو DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution؛ يبقى التشغيل والخصم معطلين حتى ينجح مع أدلة النتائج والتسوية.',
+  },
 ] as const
 
 const BATCH_SNIPPET = `curl -s https://api.dcp.sa/api/batches/readiness \\
@@ -96,7 +103,7 @@ export default function BatchProductPage() {
                 <p><Bi en={gate.en} ar={gate.ar} /></p>
                 <div className="meta">
                   <span><Bi en="Source" ar="المصدر" /></span>
-                  <b dir="ltr">{gate.k === 'discounts' ? 'claim guard' : '/api/batches/readiness'}</b>
+                  <b dir="ltr">{gate.k === 'discounts' ? 'claim guard' : gate.k === 'live_acceptance' ? 'live_acceptance.execution_discount_smoke' : '/api/batches/readiness'}</b>
                 </div>
               </article>
             ))}

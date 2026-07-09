@@ -23,6 +23,40 @@ test('public inference page renders live router policy readiness', async ({ page
     }),
   }));
 
+  await page.route('**/v1/prompt-cache/readiness', async (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      object: 'prompt_cache_readiness',
+      version: 'dcp.prompt_cache.v1',
+      current_mode: 'measurement_only_no_discount',
+      status: 'available_measurement_only',
+      measurement: {
+        hash_only: true,
+        stores_raw_prompt: false,
+        stores_static_prefix: false,
+      },
+      billing: {
+        discounts_enabled: false,
+        settlement_discount_enabled: false,
+      },
+      claims: {
+        prompt_cache_discount: false,
+        provider_kv_cache_control: false,
+        tinker_compatible: false,
+      },
+      live_acceptance: {
+        provider_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+          live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+          blocked_on: ['funded smoke principal', 'provider cache-hit evidence', 'settlement discount policy approval'],
+          verifies: ['live hit metadata', 'no discount while disabled', 'settlement discount policy remains disabled'],
+        },
+      },
+    }),
+  }));
+
   await page.route('**/v1/router/policies', async (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -72,4 +106,7 @@ test('public inference page renders live router policy readiness', async ({ page
   await expect(policyRail).toContainText('Lowest latency');
   await expect(policyRail).toContainText('telemetry gate only');
   await expect(policyRail).toContainText('not selectable');
+  const promptCacheRail = page.locator('.inference-prompt-cache-live');
+  await expect(promptCacheRail).toContainText('Prompt-cache live proof');
+  await expect(promptCacheRail).toContainText('prompt_cache_provider_discount_smoke');
 });

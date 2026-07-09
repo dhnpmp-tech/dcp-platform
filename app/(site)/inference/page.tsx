@@ -61,6 +61,7 @@ print(response.choices[0].message.content)`
 
 type RouterPolicyState = 'loading' | 'ready' | 'error'
 type ModelCatalogState = 'loading' | 'ready' | 'error'
+type PromptCacheState = 'loading' | 'ready' | 'error'
 
 interface RouterPolicy {
   id: string
@@ -107,6 +108,38 @@ interface ModelCatalogResponse {
   data?: InferenceModel[]
 }
 
+interface LiveAcceptanceGate {
+  status?: string
+  command?: string
+  live_acceptance_gate?: string
+  blocked_on?: string[]
+  verifies?: string[]
+}
+
+interface PromptCacheReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  status?: string
+  measurement?: {
+    hash_only?: boolean
+    stores_raw_prompt?: boolean
+    stores_static_prefix?: boolean
+  }
+  billing?: {
+    discounts_enabled?: boolean
+    settlement_discount_enabled?: boolean
+  }
+  claims?: {
+    prompt_cache_discount?: boolean
+    provider_kv_cache_control?: boolean
+    tinker_compatible?: boolean
+  }
+  live_acceptance?: {
+    provider_discount_smoke?: LiveAcceptanceGate
+  }
+}
+
 function capabilitySource(key: string): string {
   if (key === 'balanced_routing') return '/v1/router/policies'
   if (key === 'prompt_cache_readiness') return '/v1/prompt-cache/readiness'
@@ -146,6 +179,8 @@ export default function InferenceProductPage() {
   const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
   const [modelCatalogState, setModelCatalogState] = useState<ModelCatalogState>('loading')
   const [modelCatalog, setModelCatalog] = useState<ModelCatalogResponse | null>(null)
+  const [promptCacheState, setPromptCacheState] = useState<PromptCacheState>('loading')
+  const [promptCacheReadiness, setPromptCacheReadiness] = useState<PromptCacheReadiness | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -197,6 +232,31 @@ export default function InferenceProductPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    async function loadPromptCacheReadiness() {
+      setPromptCacheState('loading')
+      try {
+        const res = await fetch('/v1/prompt-cache/readiness', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`prompt cache readiness failed: ${res.status}`)
+        const data = (await res.json()) as PromptCacheReadiness
+        if (!cancelled) {
+          setPromptCacheReadiness(data)
+          setPromptCacheState('ready')
+        }
+      } catch {
+        if (!cancelled) {
+          setPromptCacheReadiness(null)
+          setPromptCacheState('error')
+        }
+      }
+    }
+    loadPromptCacheReadiness()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const policies = useMemo(() => routerPolicies?.data || [], [routerPolicies])
   const defaultPolicy = useMemo(() => {
     return policies.find((policy) => policy.id === routerPolicies?.default_policy)
@@ -217,6 +277,10 @@ export default function InferenceProductPage() {
   const availableCatalogModels = catalogModels.filter((model) => model.available).length
   const providerBackedModels = catalogModels.filter((model) => (model.provider_count || 0) > 0).length
   const maxContextTokens = catalogModels.reduce((max, model) => Math.max(max, modelContext(model)), 0)
+  const promptCacheGate = promptCacheReadiness?.live_acceptance?.provider_discount_smoke || null
+  const promptCacheMode = promptCacheReadiness?.current_mode || 'measurement_only_no_discount'
+  const promptCacheDiscountsEnabled = promptCacheReadiness?.billing?.discounts_enabled === true
+  const promptCacheHashOnly = promptCacheReadiness?.measurement?.hash_only === true
 
   return (
     <>
@@ -333,6 +397,69 @@ export default function InferenceProductPage() {
                 </div>
               </article>
             ))}
+          </div>
+          <div className="inference-prompt-cache-live" aria-live="polite">
+            <div className="prompt-cache-live-head">
+              <span><Bi en="Prompt-cache live proof" ar="إثبات التخزين المؤقت الحي" /></span>
+              <b dir="ltr">{promptCacheReadiness?.version || 'dcp.prompt_cache.v1'}</b>
+            </div>
+            {promptCacheState === 'loading' && (
+              <p className="prompt-cache-live-empty">
+                <Bi en="Loading prompt-cache readiness..." ar="تحميل جاهزية التخزين المؤقت..." />
+              </p>
+            )}
+            {promptCacheState === 'error' && (
+              <p className="prompt-cache-live-empty">
+                <Bi en="Prompt-cache readiness is temporarily unavailable; discounts remain gated." ar="جاهزية التخزين المؤقت غير متاحة مؤقتاً؛ تبقى الخصومات مقيدة." />
+              </p>
+            )}
+            {promptCacheState === 'ready' && (
+              <>
+                <div className="prompt-cache-live-metrics">
+                  <span>
+                    <em><Bi en="Mode" ar="الوضع" /></em>
+                    <strong>{formatPolicyStatus(promptCacheMode)}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Live gate" ar="بوابة حية" /></em>
+                    <strong>{formatPolicyStatus(promptCacheGate?.status || 'blocked_external')}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Discounts" ar="الخصومات" /></em>
+                    <strong>{promptCacheDiscountsEnabled ? 'live' : 'gated'}</strong>
+                  </span>
+                </div>
+                <div className="prompt-cache-live-list">
+                  <span className={promptCacheHashOnly ? 'available' : 'gated'}>
+                    <b><Bi en="Hash-only measurement" ar="قياس بصمة فقط" /></b>
+                    <em>{promptCacheHashOnly ? 'active' : 'checking'}</em>
+                  </span>
+                  <span className="gated">
+                    <b><Bi en="Provider KV-cache control" ar="تحكم KV للمزوّد" /></b>
+                    <em>{promptCacheReadiness?.claims?.provider_kv_cache_control ? 'live' : 'gated'}</em>
+                  </span>
+                  <span className="gated">
+                    <b><Bi en="Settlement discount" ar="خصم التسوية" /></b>
+                    <em>{promptCacheReadiness?.billing?.settlement_discount_enabled ? 'live' : 'gated'}</em>
+                  </span>
+                  {promptCacheGate?.live_acceptance_gate && (
+                    <span className="gated">
+                      <b>{promptCacheGate.live_acceptance_gate}</b>
+                      <em>gate</em>
+                    </span>
+                  )}
+                  {promptCacheGate?.blocked_on?.slice(0, 3).map((blocker) => (
+                    <span key={blocker} className="gated">
+                      <b>{blocker}</b>
+                      <em>blocker</em>
+                    </span>
+                  ))}
+                </div>
+                <p className="prompt-cache-live-note" dir="ltr">
+                  {promptCacheGate?.command || 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement'}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </section>

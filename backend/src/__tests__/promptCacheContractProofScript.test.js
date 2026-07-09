@@ -29,6 +29,13 @@ describe('prompt cache contract proof script', () => {
       stores_static_prefix: false,
       discounts_enabled: false,
       settlement_discount_enabled: false,
+      live_acceptance: {
+        provider_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+          live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+        },
+      },
       claims: {
         prompt_cache_discount: false,
         provider_kv_cache_control: false,
@@ -93,6 +100,7 @@ describe('prompt cache contract proof script', () => {
     expect(JSON.stringify(report.non_eligible.normalized_image_content)).not.toContain('private.png');
     expect(report.invariants.map((item) => item.name)).toEqual([
       'readiness is measurement-only with discounts and provider cache control gated',
+      'readiness names the blocked live provider discount smoke gate',
       'cache key is stable for equivalent prefixes and scoped by session and model',
       'hash-only measurement detects future hits without storing raw prefix',
       'usage fields expose cached input counters without changing token totals or pricing discount',

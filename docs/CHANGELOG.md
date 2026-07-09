@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 14:30 UTC - Prompt-cache and batch live proof gates (PR #892)
+
+- **PR:** [#892](https://github.com/dhnpmp-tech/dcp-platform/pull/892) (`codex/inference-batch-live-proof-readiness-2026-07-09`).
+- **Prompt-cache readiness:** `GET /v1/prompt-cache/readiness` now exposes the blocked `prompt_cache_provider_discount_smoke` gate, opt-in proof command, blockers, and no-discount verification expectations.
+- **Batch readiness:** `GET /api/batches/readiness` now exposes the blocked `batch_live_execution_discount_smoke` gate, opt-in proof command, blockers, and result/download/discount verification expectations.
+- **Frontend:** Public `/inference`, public `/batch`, and renter `/renter/batches` now show those live proof gates from readiness data so users see the evidence still required before cache discounts or batch execution are claimed.
+- **Docs/contracts:** Public OpenAPI copies and the prompt-cache/batch proof packets now carry the live-acceptance metadata.
+- **Safety:** Read-only contract/UI/docs/proof change; no prompt-cache discount, provider KV-cache control, batch execution, result object write/download, settlement, billing, model batch flag, route selection, provider routing, or balance mutation was enabled.
+- **Verification:** OpenAPI YAML parse; targeted prompt-cache/batch/v1 Jest suites; prompt-cache contract proof; batch inference contract proof; focused `/inference` and `/renter/batches` Playwright regressions; TypeScript; local roadmap proof suite passing 35/35 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 14:09 UTC - Pod workspace folders, trial policy, and GPU request polish (PR #891)
 
 - **PR:** [#891](https://github.com/dhnpmp-tech/dcp-platform/pull/891) (`codex/pods-workspace-trial-gpu-polish-2026-07-09`).
