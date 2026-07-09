@@ -1314,6 +1314,20 @@ export default function RenterPodsPage() {
   const creditChecklistDetail = minimumBalanceSynced
     ? `Paid available SAR ${fmtSar(paidAvailableSar)} · high-demand requires paid credit.`
     : 'Launch still uses backend credit enforcement.'
+  const workspaceFastPathLabel = workspaceVolume
+    ? workspaceFiles.length > 0
+      ? `${workspaceFiles.length} files staged; file tree can stay collapsed.`
+      : `${workspaceVolume.size_gb} GB /workspace ready; no files staged.`
+    : 'Create a workspace volume, then continue to Stage 2.'
+  const stage2FastPathLabel = selectedType
+    ? `Fixed launch GPU: ${displayGpuType(selectedType.gpu_model)}.`
+    : 'Auto-pick is active; no fixed GPU is selected.'
+  const stage2FastPathDetail = selectedType
+    ? 'The final launch request includes this GPU type.'
+    : 'Templates and VRAM filters only narrow the cards; pick a card to pin the launch GPU.'
+  const launchButtonLabel = selectedType
+    ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
+    : 'Launch auto-picked GPU pod'
 
   const isLive = loadState === 'ready'
 
@@ -1411,9 +1425,9 @@ export default function RenterPodsPage() {
                   : <Bi en="Create volume" ar="أنشئ وحدة" />}
               </em>
             </a>
-            <a href="#pod-stage-2" className={selectedType || launch.gpuType === '' ? 'ok' : ''}>
+            <a href="#pod-stage-2" className={`primary${selectedType || launch.gpuType === '' ? ' ok' : ''}`}>
               <span>Stage 2</span>
-              <strong><Bi en="Template + actual GPU" ar="القالب + GPU الفعلي" /></strong>
+              <strong><Bi en="Actual launch GPU" ar="GPU التشغيل الفعلي" /></strong>
               <em>
                 {selectedType
                   ? displayGpuType(selectedType.gpu_model)
@@ -1426,6 +1440,24 @@ export default function RenterPodsPage() {
               <em>{selectedRuntimeLabel} · {durationLabel}</em>
             </a>
           </nav>
+
+          <div className="pod-fast-path" aria-label={lang === 'ar' ? 'الانتقال السريع للمرحلة 2' : 'Fast path to Stage 2'}>
+            <a href="#pod-stage-2" className="pod-fast-card primary">
+              <span><Bi en="Main decision" ar="القرار الرئيسي" /></span>
+              <strong><Bi en="Go straight to Stage 2" ar="اذهب مباشرة للمرحلة 2" /></strong>
+              <em><Bi en={stage2FastPathLabel} ar={selectedType ? 'تم تحديد GPU للتشغيل.' : 'الاختيار التلقائي نشط؛ لا يوجد GPU محدد.'} /> <Bi en={stage2FastPathDetail} ar="القوالب وتصفية الذاكرة للتصفح فقط؛ اختر بطاقة لتثبيت GPU التشغيل." /></em>
+            </a>
+            <a href="#pod-stage-1" className="pod-fast-card">
+              <span>Stage 1</span>
+              <strong><Bi en="Workspace can stay collapsed" ar="يمكن طي مساحة العمل" /></strong>
+              <em><Bi en={workspaceFastPathLabel} ar={workspaceVolume ? 'تبقى شجرة الملفات مطوية؛ افتح مجلداً واحداً فقط عند الحاجة.' : 'أنشئ وحدة مساحة عمل ثم تابع للمرحلة 2.'} /></em>
+            </a>
+            <div className="pod-fast-card policy">
+              <span><Bi en="Trial answer" ar="إجابة التجربة" /></span>
+              <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></strong>
+              <em><Bi en={`${trialHandlingAnswerLabel}; ${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يذهب إلى سعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
+            </div>
+          </div>
 
           {/* ── Workspace staging ────────────────────────────── */}
           <div className="pod-stage" id="pod-stage-1" style={{ marginTop: '28px' }}>
@@ -2084,6 +2116,12 @@ export default function RenterPodsPage() {
                         </button>
                       ))}
                     </div>
+                    <p className="gpu-filter-disclaimer">
+                      <Bi
+                        en="This is only a browse filter. The launch GPU remains Auto-pick until you choose Use as launch GPU on a card."
+                        ar="هذه تصفية تصفح فقط. يبقى GPU التشغيل على الاختيار التلقائي حتى تختار بطاقة."
+                      />
+                    </p>
                   </div>
                   <div className="gpu-ctl">
                     <label htmlFor="gpu-sort">
@@ -2548,7 +2586,7 @@ export default function RenterPodsPage() {
                 {launch.submitting ? (
                   <Bi en="Launching…" ar="جارٍ التشغيل…" />
                 ) : (
-                  <Bi en="Launch GPU pod" ar="تشغيل حاوية GPU" />
+                  <Bi en={launchButtonLabel} ar={selectedType ? 'تشغيل حاوية GPU المحددة' : 'تشغيل حاوية GPU بالاختيار التلقائي'} />
                 )}
               </button>
               {noLaunchable && isLive && (
