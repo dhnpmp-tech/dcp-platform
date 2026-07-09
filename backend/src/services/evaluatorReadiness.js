@@ -1,6 +1,7 @@
 'use strict';
 
 const { EVALUATOR_JOB_SCHEMA_VERSION } = require('./evaluatorJobSchema');
+const { EVALUATOR_WORKER_GATE_VERSION } = require('./evaluatorWorkerGate');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -13,6 +14,7 @@ function buildEvaluatorReadiness(now = new Date()) {
     endpoints: {
       readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',
+      worker_readiness: 'GET /api/evals/worker/readiness',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
       product_page: 'GET /benchmarks',
@@ -38,6 +40,22 @@ function buildEvaluatorReadiness(now = new Date()) {
           'dataset checksum and redacted sample metadata',
           'worker disabled-by-default guard',
           'result artifact checksum proof',
+        ],
+      },
+      eval_worker: {
+        status: 'disabled_by_default_contract',
+        available: false,
+        version: EVALUATOR_WORKER_GATE_VERSION,
+        readiness_endpoint: 'GET /api/evals/worker/readiness',
+        worker_enabled: false,
+        queue_dispatch_enabled: false,
+        result_writer_enabled: false,
+        billing_hook_enabled: false,
+        required_before_enablement: [
+          'worker dry-run proof',
+          'result manifest checksum proof',
+          'tenant artifact storage policy',
+          'minimum-balance and refund policy proof',
         ],
       },
       dataset_artifacts: {
@@ -88,6 +106,7 @@ function buildEvaluatorReadiness(now = new Date()) {
     claim_guards: {
       eval_jobs_live: false,
       eval_job_metadata_api_live: true,
+      eval_worker_live: false,
       arabic_quality_claim_allowed: false,
       customer_case_study_allowed: false,
       model_ranking_allowed: false,

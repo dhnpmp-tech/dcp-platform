@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 03:35 UTC - `test(evals): add evaluator worker gate proof - PR #858`
+
+**PR:** [#858](https://github.com/dhnpmp-tech/dcp-platform/pull/858) (`codex/evaluator-worker-gate-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 07:35 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds an explicit disabled-by-default worker gate so metadata eval jobs are not mistaken for executable customer evals.
+
+- **Backend readiness:** Added public `GET /api/evals/worker/readiness` for queue dispatch, worker execution, result writer, billing hook, and report/ranking/quality-claim gates.
+- **Proof command:** Added `npm run proof:evaluator-worker-gate-contract` and included it in `npm run proof:local-roadmap`, raising the suite to 16 CI-safe gates.
+- **Public surface:** `/benchmarks`, `llms.txt`, OpenAPI, evaluator readiness/schema, and roadmap docs now point to the worker gate.
+- **Safety:** No evaluator job status mutation, queue dispatch, worker execution, result manifest write, raw dataset storage, billing, settlement, report, ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted evaluator worker-gate/metadata/readiness/schema Jest suites; evaluator worker-gate proof; evaluator metadata proof; evaluator schema proof; evaluator readiness proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 16/16 gates; `git diff --check`.
+
 ### 2026-07-09 03:15 UTC - `feat(evals): add metadata-only evaluator jobs - PR #857`
 
 **PR:** [#857](https://github.com/dhnpmp-tech/dcp-platform/pull/857) (`codex/evaluator-job-metadata-records-2026-07-09`).

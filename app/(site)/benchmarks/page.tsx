@@ -64,6 +64,8 @@ curl -s https://api.dcp.sa/api/evals/readiness
 
 curl -s https://api.dcp.sa/api/evals/jobs/schema
 
+curl -s https://api.dcp.sa/api/evals/worker/readiness
+
 curl -s -H "Authorization: Bearer $DCP_RENTER_KEY" https://api.dcp.sa/api/evals/jobs
 
 curl -s https://api.dcp.sa/api/models/benchmarks
@@ -209,6 +211,7 @@ export default function BenchmarksProductPage() {
                 <li><Bi en="Seeded benchmark profile rows never become public numbers without live provider measurement." ar="صفوف ملفات القياس المزروعة لا تصبح أرقاماً عامة دون قياس مزوّد حي." /></li>
                 <li><Bi en="Arabic task comparisons need approved datasets, harness version, baseline policy, and artifact checksum." ar="تحتاج مقارنات المهام العربية بيانات معتمدة وإصدار منهجية وسياسة أساس وبصمة أثر." /></li>
                 <li><Bi en="Eval job create/list/read endpoints are live for metadata records; workers, result APIs, billing, reports, and rankings remain blocked." ar="واجهات إنشاء وقراءة وقائمة مهام التقييم حية لسجلات البيانات فقط؛ وتبقى العمال وواجهات النتائج والفوترة والتقارير والترتيبات مقيدة." /></li>
+                <li><Bi en="The worker readiness contract proves queue dispatch, result writing, and billing hooks stay disabled before eval execution." ar="يثبت عقد جاهزية العامل أن إرسال الطابور وكتابة النتائج وخطافات الفوترة تبقى متوقفة قبل تنفيذ التقييم." /></li>
               </ul>
             </div>
           </div>

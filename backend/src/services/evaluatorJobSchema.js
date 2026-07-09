@@ -127,6 +127,7 @@ function buildEvaluatorJobSchema(now = new Date()) {
       max_examples_hard_limit: 10000,
       worker_enabled: false,
       worker_enablement_gate: 'disabled_by_default_live_proof',
+      worker_gate_endpoint: 'GET /api/evals/worker/readiness',
     },
     billing_policy: {
       bills_eval_jobs: false,

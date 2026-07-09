@@ -310,6 +310,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `npm run proof:evaluator-job-metadata-contract`; it stores draft eval
     intent only and keeps dataset storage, workers, result artifacts, billing,
     reports, rankings, and quality claims blocked.
+  - PR #858 adds `GET /api/evals/worker/readiness` and
+    `npm run proof:evaluator-worker-gate-contract`; it makes the queue
+    dispatcher, worker, result writer, and billing hook explicitly disabled
+    before result-manifest proof.
 
 Acceptance:
 
