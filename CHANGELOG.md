@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 20:34 UTC - `feat(workspace): keep large manifests folder-first - PR #916`
+
+**PR:** [#916](https://github.com/dhnpmp-tech/dcp-platform/pull/916) (`codex/workspace-folder-first-large-manifest-2026-07-10`).
+**Local timestamp:** 2026-07-10 00:34 +04.
+
+**What:** POTS workspace UX follow-up from Tareq's file-volume feedback. Extends the folder-first large-workspace behavior from the pod launch Stage 1 card into the shared workspace manager used by `/renter/playground?surface=workspace`.
+
+- **Workspace UX:** Large manifests now open as a folder-first summary in the shared `WorkspacePanel`, showing file count, folder/group count, total bytes, and per-folder count/size chips before any file rows are expanded.
+- **File overload fix:** Renters can search folders/files or open exactly one folder from the collapsed summary instead of scanning every staged file before moving into pod launch or LoRA prep.
+- **Pod continuity:** The existing `/renter/pods` Stage 1 flow keeps its compact Stage 1 card and now shares the richer folder-first summary copy when the full manager is opened.
+- **Regression:** Extended the focused workspace/pods Playwright regression with a `/renter/playground?surface=workspace` scenario for large manifests plus updated pod-launch assertions.
+- **Safety:** Frontend/read-only UX change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression; TypeScript; workspace pod contract proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 20:10 UTC - `feat(fine-tuning): publish deployment intent control loop - PR #915`
 
 **PR:** [#915](https://github.com/dhnpmp-tech/dcp-platform/pull/915) (`codex/public-fine-tuning-deploy-loop-2026-07-09`).
