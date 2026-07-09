@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 02:40 UTC - Minimum-balance readiness contract (PR #855)
+
+- **PR:** [#855](https://github.com/dhnpmp-tech/dcp-platform/pull/855) (`codex/minimum-balance-readiness-contract-2026-07-09`).
+- **Backend:** Added billing-scoped `GET /api/renters/me/minimum-balances`, a read-only contract for v1 estimate preflight, scoped-key caps, provider/on-demand pod credit gates, volume quotes, batch, prompt-cache discounts, LoRA training, adapter deployments, and evaluator billing gates.
+- **Proof:** Added `npm run proof:minimum-balance-readiness` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 13 CI-safe gates.
+- **Frontend/docs:** The renter Usage page now shows minimum-balance gates, paid credit available for on-demand pods, and blocked future billing rails; `llms.txt` and OpenAPI document the contract for agents.
+- **Safety:** Read-only route and display-only UI; no payment creation, balance mutation, pod launch, inference dispatch, batch creation, LoRA training job, adapter deployment, eval job, discount, settlement, or enforcement behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted renter usage/minimum-balance Jest suites; direct minimum-balance readiness proof; TypeScript; Next build; local roadmap proof now passing 13/13 gates; `git diff --check`.
+
 ### 2026-07-09 02:24 UTC - Tinker loop readiness contract proof (PR #854)
 
 - **PR:** [#854](https://github.com/dhnpmp-tech/dcp-platform/pull/854) (`codex/tinker-loop-readiness-contract-2026-07-09`).

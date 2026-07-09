@@ -204,6 +204,48 @@ interface BudgetStatusResponse {
   }
 }
 
+interface MinimumBalanceReadinessResponse {
+  account?: {
+    balance_halala?: number
+    paid_available_halala?: number
+    paid_available_sar?: number
+    v1_remaining_cap_halala?: number | null
+  }
+  rails?: {
+    v1_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    gpu_pods_on_demand_supply?: {
+      status?: string
+      paid_available_halala?: number
+      enforcement_live?: boolean
+    }
+    batch_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    lora_training?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    adapter_deployments?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    evaluators?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+  }
+  claim_guards?: {
+    changes_enforcement?: boolean
+    mutates_balance?: boolean
+    creates_pod?: boolean
+    dispatches_inference?: boolean
+  }
+}
+
 interface BreakdownRow {
   name: string
   pct: number
@@ -327,6 +369,7 @@ export default function RenterUsagePage() {
   const [usageTotals, setUsageTotals] = useState<UsageResponse['totals'] | null>(null)
   const [usageByKey, setUsageByKey] = useState<UsageByKeyResponse | null>(null)
   const [budgetStatus, setBudgetStatus] = useState<BudgetStatusResponse | null>(null)
+  const [minimumBalances, setMinimumBalances] = useState<MinimumBalanceReadinessResponse | null>(null)
   // C1 phase-2: CSV export uses downloadUsageCsv (x-renter-key header) instead of an <a href="?key=">.
 
   useEffect(() => {
@@ -345,7 +388,7 @@ export default function RenterUsagePage() {
       try {
         setLoadState('loading')
         setError('')
-        const [me, balanceData, analyticsData, jobsData, usageData, usageByKeyData, budgetData] = await Promise.all([
+        const [me, balanceData, analyticsData, jobsData, usageData, usageByKeyData, budgetData, minimumBalanceData] = await Promise.all([
           readJson<RenterMeResponse>(`${base}/renters/me`, headers),
           readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
           readJson<AnalyticsResponse>(`${base}/renters/me/analytics?period=${period}`, headers, true),
@@ -353,6 +396,7 @@ export default function RenterUsagePage() {
           readJson<UsageResponse>(`${base}/renters/me/usage?limit=50&offset=0&period=${period}`, headers, true),
           readJson<UsageByKeyResponse>(`${base}/renters/me/usage/by-key?period=${period}`, headers, true),
           readJson<BudgetStatusResponse>(`${base}/renters/me/budget-status?period=${period}`, headers, true),
+          readJson<MinimumBalanceReadinessResponse>(`${base}/renters/me/minimum-balances?period=${period}`, headers, true),
         ])
         if (cancelled) return
         setRenter(me?.renter || null)
@@ -363,6 +407,7 @@ export default function RenterUsagePage() {
         setUsageTotals(usageData?.totals || me?.v1_usage_summary || null)
         setUsageByKey(usageByKeyData || null)
         setBudgetStatus(budgetData || null)
+        setMinimumBalances(minimumBalanceData || null)
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
@@ -420,6 +465,14 @@ export default function RenterUsagePage() {
   const billingKeys = budgetStatus?.api_keys?.billing || 0
   const keyUsageRows = usageByKey?.rows || []
   const unattributedUsage = usageByKey?.unattributed || null
+  const paidAvailableSar = halalaToSar(minimumBalances?.account?.paid_available_halala)
+  const minRails = minimumBalances?.rails || {}
+  const futureBalanceRails = [
+    minRails.batch_inference,
+    minRails.lora_training,
+    minRails.adapter_deployments,
+    minRails.evaluators,
+  ].filter((rail) => rail && rail.enforcement_live === false).length
 
   const modelRows = useMemo(() => {
     const byModel = new Map<string, number>()
@@ -659,6 +712,48 @@ export default function RenterUsagePage() {
               <span className="sub">
                 <Bi en={`${numFmt.format(billingKeys)} billing`} ar={`${numFmt.format(billingKeys)} للفوترة`} />
               </span>
+            </div>
+          </div>
+
+          <div className="budget-strip" style={{ marginTop: 18 }}>
+            <div>
+              <span className="k">
+                <Bi en="Minimum gates" ar="بوابات الحد الأدنى" />
+              </span>
+              <b><Bi en="Read-only" ar="قراءة فقط" /></b>
+              <span className="sub">
+                <Bi en="policy contract" ar="عقد السياسة" />
+              </span>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="v1 inference" ar="استدلال v1" />
+              </span>
+              <b><Bi en={minRails.v1_inference?.enforcement_live ? 'Estimate preflight' : '—'} ar={minRails.v1_inference?.enforcement_live ? 'فحص تقديري مسبق' : '—'} /></b>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="On-demand pods" ar="حاويات عند الطلب" />
+              </span>
+              <b>SAR {fmtSar(paidAvailableSar)}</b>
+              <span className="sub">
+                <Bi en="paid credit available" ar="رصيد مدفوع متاح" />
+              </span>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Future rails" ar="المسارات القادمة" />
+              </span>
+              <b>{futureBalanceRails}</b>
+              <span className="sub">
+                <Bi en="billing gates blocked" ar="بوابات الفوترة مقيدة" />
+              </span>
+            </div>
+            <div>
+              <span className="k">
+                <Bi en="Contract" ar="العقد" />
+              </span>
+              <b><Bi en={minimumBalances?.claim_guards?.changes_enforcement ? 'Mutating' : 'No change'} ar={minimumBalances?.claim_guards?.changes_enforcement ? 'يغير' : 'لا تغيير'} /></b>
             </div>
           </div>
 

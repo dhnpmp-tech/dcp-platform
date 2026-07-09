@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 02:40 UTC - `feat(billing): add minimum-balance readiness contract - PR #855`
+
+**PR:** [#855](https://github.com/dhnpmp-tech/dcp-platform/pull/855) (`codex/minimum-balance-readiness-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 06:40 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Turns Tareq's minimum-balance concern into one read-only policy packet for renters, UI, and agents.
+
+- **Backend readiness:** Added billing-scoped `GET /api/renters/me/minimum-balances` for current balance, paid available credit, on-demand commitments, v1 cap remaining, and per-rail minimum-balance policy.
+- **Proof command:** Added `npm run proof:minimum-balance-readiness` and included it in `npm run proof:local-roadmap`, raising the local suite to 13 CI-safe gates.
+- **Renter surface:** The Usage page now shows v1 estimate preflight, on-demand paid credit available, blocked future billing rails, and whether the contract changes enforcement.
+- **Safety:** No payment creation, balance mutation, pod launch, inference dispatch, batch creation, LoRA training job, adapter deployment, eval job, discount, settlement, or enforcement behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted renter usage/minimum-balance Jest suites; direct minimum-balance readiness proof; TypeScript; Next build; local roadmap proof now passing 13/13 gates; `git diff --check`.
+
 ### 2026-07-09 02:24 UTC - `test(lora): add Tinker loop readiness proof - PR #854`
 
 **PR:** [#854](https://github.com/dhnpmp-tech/dcp-platform/pull/854) (`codex/tinker-loop-readiness-contract-2026-07-09`).
