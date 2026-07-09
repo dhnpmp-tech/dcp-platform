@@ -447,6 +447,47 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   background: var(--rt-accent);
   color: #0a0b1a;
 }
+.pod-decision-lane {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 10px;
+  border: 1px solid color-mix(in oklab, var(--teal) 30%, var(--hair));
+  background: var(--hair);
+}
+.pod-decision-lane span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  overflow-wrap: anywhere;
+}
+.pod-decision-lane b {
+  color: var(--mut);
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.pod-decision-lane span.fixed,
+.pod-decision-lane span.auto {
+  background: color-mix(in oklab, var(--rt-accent) 8%, var(--paper));
+  color: var(--ink);
+}
+.pod-decision-lane span.fixed b,
+.pod-decision-lane span.auto b {
+  color: var(--rt-accent);
+}
+@media (max-width: 680px) {
+  .pod-decision-lane { grid-template-columns: 1fr; }
+}
 .pod-compute-facts {
   min-width: 0;
   display: flex;

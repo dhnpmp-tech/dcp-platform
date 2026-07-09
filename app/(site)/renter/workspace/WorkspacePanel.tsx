@@ -362,6 +362,11 @@ export default function WorkspacePanel({
             </span>
           </div>
           <div className="ws-stage-compact-actions">
+            {nextStageHref && (
+              <a href={nextStageHref}>
+                <Bi en="Continue to Stage 2" ar="تابع للمرحلة 2" />
+              </a>
+            )}
             {fileGroups.length > 0 && (
               <button
                 type="button"
@@ -377,11 +382,6 @@ export default function WorkspacePanel({
             <button type="button" onClick={() => setStageDetailsOpen(true)}>
               <Bi en="Manage files" ar="إدارة الملفات" />
             </button>
-            {nextStageHref && (
-              <a href={nextStageHref}>
-                <Bi en="Continue to Stage 2" ar="تابع للمرحلة 2" />
-              </a>
-            )}
           </div>
           {fileGroups.length > 0 && (
             <div className="ws-stage-folders" aria-label={lang === 'ar' ? 'مجلدات مساحة العمل' : 'Workspace folders'}>
@@ -398,6 +398,7 @@ export default function WorkspacePanel({
                 >
                   <span>{group.label}</span>
                   <b>{group.files.length}</b>
+                  <small>{humanBytes(group.totalBytes)}</small>
                 </button>
               ))}
               {fileGroups.length > 4 && (
@@ -423,7 +424,7 @@ export default function WorkspacePanel({
                   <Bi en="Open one folder, keep Stage 1 collapsed" ar="افتح مجلداً واحداً وأبقِ المرحلة 1 مطوية" />
                 </strong>
                 <span>
-                  <Bi en="Use this when the workspace has many files." ar="استخدم هذا عندما تحتوي مساحة العمل على ملفات كثيرة." />
+                  <Bi en="Folders stay grouped while the manifest is closed." ar="تبقى المجلدات مجمعة عندما يكون البيان مغلقًا." />
                 </span>
               </div>
               <div className="ws-stage-folder-index-grid">
@@ -440,6 +441,7 @@ export default function WorkspacePanel({
                   >
                     <span>{group.label}</span>
                     <b>{group.files.length}</b>
+                    <small>{humanBytes(group.totalBytes)}</small>
                   </button>
                 ))}
               </div>

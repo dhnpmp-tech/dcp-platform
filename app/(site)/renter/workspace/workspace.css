@@ -207,10 +207,11 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   padding-top: 12px;
   border-top: 1px solid color-mix(in oklab, var(--teal) 26%, var(--hair));
 }
-.ws-stage-folders button,
-.ws-stage-folders span {
+.ws-stage-folders > button,
+.ws-stage-folders > span {
   min-height: 30px;
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) auto auto;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -222,12 +223,12 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   letter-spacing: .04em;
   border-radius: 2px;
 }
-.ws-stage-folders button {
+.ws-stage-folders > button {
   cursor: pointer;
   text-align: start;
 }
-.ws-stage-folders button:hover,
-.ws-stage-folders button:focus-visible {
+.ws-stage-folders > button:hover,
+.ws-stage-folders > button:focus-visible {
   border-color: var(--teal);
   color: var(--teal);
   background: color-mix(in oklab, var(--teal) 7%, var(--paper));
@@ -236,6 +237,17 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
 .ws-stage-folders b {
   color: var(--teal);
   font-weight: 500;
+}
+.ws-stage-folders button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-stage-folders small {
+  color: var(--mut);
+  font-size: 10px;
+  letter-spacing: .04em;
 }
 .ws-stage-folder-index {
   grid-column: 1 / -1;
@@ -278,7 +290,7 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   min-width: 0;
   min-height: 38px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
@@ -308,6 +320,12 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
 .ws-stage-folder-index-grid b {
   color: var(--teal);
   font-weight: 500;
+}
+.ws-stage-folder-index-grid small {
+  color: var(--mut);
+  font-size: 10px;
+  letter-spacing: .04em;
+  white-space: nowrap;
 }
 @media (max-width: 680px) {
   .ws-stage-compact {

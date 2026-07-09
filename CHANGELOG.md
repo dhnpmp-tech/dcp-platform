@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 15:23 UTC - `feat(pods): sharpen Tareq workspace and GPU launch UX - PR #895`
+
+**PR:** [#895](https://github.com/dhnpmp-tech/dcp-platform/pull/895) (`codex/pods-tareq-workspace-gpu-ux-2026-07-09`).
+**Local timestamp:** 2026-07-09 19:23 +04.
+
+**What:** Tareq workspace/pods feedback follow-up. Makes Stage 1 faster to pass, Stage 2 clearer about the actual launch GPU, and trial-account handling explicit in the launch flow.
+
+- **Workspace organization:** Stage 1 now puts the continue-to-Stage-2 action first, keeps the workspace manifest closed by default, and shows grouped folder chips with file counts and sizes so large workspaces do not become a scroll wall.
+- **Folder drilldown:** The Stage 1 folder index now keeps folders grouped while the manifest is closed and shows per-folder size/count metadata before opening a single folder.
+- **Stage clarity:** Stage labels now name the outcome directly: workspace files, template plus GPU decision, and runtime plus launch.
+- **GPU request clarity:** Stage 2 now has a compact decision summary for template, browse filter, and actual GPU. The final GPU request rail moved above templates/GPU browsing, and GPU cards now say "Use as launch GPU" instead of a generic select action.
+- **Trial routing clarity:** The launch flow now states the current policy directly: no separate live trial-account tag, grant-credit provenance decides the trial path, trial/free balance routes to native/community capacity, and high-demand GPUs require paid credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for folder grouping/sizes, Stage 2 decision wording, browse-filter separation, launch-GPU CTA copy, trial-route answers, and launch review credit route.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; Next build; `git diff --check`.
+
 ### 2026-07-09 15:03 UTC - `feat(pods): add pod image readiness contract - PR #894`
 
 **PR:** [#894](https://github.com/dhnpmp-tech/dcp-platform/pull/894) (`codex/pods-image-readiness-contract-2026-07-09`).
