@@ -164,6 +164,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Batch live execution/discount smoke | `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` | funded smoke principal, object-store result path, live provider execution capacity, discount policy approval | Command available; currently records readiness blockers and stops before batch creation |
 | Adapter deployment lifecycle contract | `npm run proof:adapter-deployment-contract` | none | CI-safe gate available; live vLLM load and billing smoke still blocked |
 | Adapter vLLM load/billing smoke | `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load` | real adapter artifact checksum, vLLM host with LoRA enabled, dedicated endpoint capacity, funded smoke principal | Command available; currently records readiness blockers and stops before adapter/deployment/load-proof mutation |
+| dcp-agent reconciliation status | `DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation` | controlled maintenance window, installer artifact decision, owner approval for production artifact cleanup | Command available; read-only inventory packet only |
 | API health | `curl -fsS https://api.dcp.sa/api/health` | production network | Required after every deploy |
 | Model catalog health | `curl -fsS https://api.dcp.sa/v1/models` | production network | Required after inference/model/catalog changes |
 | Anthropic route host sanity | `curl -sS -o /tmp/dcp-anthropic-unauth.json -w '%{http_code}\n' -X POST https://api.dcp.sa/anthropic/v1/messages -H 'content-type: application/json' -d '{}'` | production network; no secret required | Expected unauthenticated result is HTTP 401 |
@@ -181,14 +182,15 @@ before or with the feature change.
 1. **Repo parity and deploy hygiene**
    - Gate: local `main`, `origin/main`, `origin/security/staged-rollouts`, and
      VPS2 `security/staged-rollouts` point to the same commit after each merge.
-   - Open item: reconcile `dcp-agent` in a controlled maintenance window.
+   - Open item: run `proof:dcp-agent-reconciliation`, then reconcile
+     `dcp-agent` in a controlled maintenance window.
 2. **Proof harnesses before claims**
    - Gate: every remaining manual live acceptance step has a repo command,
      artifact path, and blocked/pass/fail status.
    - Current live commands: workspace-pod proof, LoRA pod-image provider-host
      proof, Anthropic SSE proof, prompt-cache live settlement proof, batch live
      execution proof, LoRA live artifact proof, and adapter vLLM live load proof
-     are available.
+     are available; dcp-agent has a read-only reconciliation packet.
    - Status packet: `npm run proof:live-acceptance-status` lists remaining
      live gates, missing acceptance runners, blocked inputs, and claim guards.
 3. **POT/PODS workspace and image hardening**

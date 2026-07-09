@@ -63,6 +63,14 @@ Do not blindly `git pull` that checkout while the gateway is running from it. Th
 
 This dcp-agent reconciliation is intentionally documented here instead of performed as a side effect of a platform-docs PR, because it touches a live local gateway process outside the platform repo.
 
+PR #844 adds `DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run
+proof:dcp-agent-reconciliation`, a read-only status packet for this exact
+maintenance item. It records the platform head, local `dcp-agent` checkout,
+active gateway process, local served tarball, optional VPS artifact inventory,
+and safe maintenance order without stopping the gateway, changing the separate
+repo, rebuilding or deleting artifacts, restarting services, or changing the
+self-update manifest.
+
 ## Follow-up order
 
 1. Keep `ops/dcp-deploy-watch.sh` tracked and deployed with the platform repo.

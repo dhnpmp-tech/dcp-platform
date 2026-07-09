@@ -21,8 +21,8 @@ describe('live acceptance gate status script', () => {
     expect(report.summary).toMatchObject({
       total: LIVE_ACCEPTANCE_GATES.length,
       blocked: LIVE_ACCEPTANCE_GATES.length,
-      command_available: 7,
-      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 7,
+      command_available: 8,
+      missing_acceptance_command: 0,
       capability_claim_allowed: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
@@ -82,8 +82,8 @@ describe('live acceptance gate status script', () => {
     });
     expect(report.gates.find((gate) => gate.id === 'dcp_agent_reconciliation')).toMatchObject({
       acceptance_state: 'blocked_maintenance_window',
-      acceptance_command: null,
-      command_available: false,
+      acceptance_command: 'DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation',
+      command_available: true,
       capability_claim_allowed: false,
       blocked_on: expect.arrayContaining(['controlled maintenance window']),
     });

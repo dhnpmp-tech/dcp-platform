@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 00:22 UTC - dcp-agent reconciliation status packet (PR #844)
+
+- **PR:** [#844](https://github.com/dhnpmp-tech/dcp-platform/pull/844) (`codex/dcp-agent-reconciliation-status-2026-07-09`).
+- **Status command:** Added `DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation`.
+- **Read-only contract:** The command inventories platform head, local `dcp-agent` checkout, active gateway process, local served tarball, and optional VPS artifact state without stopping processes, changing the separate repo, rebuilding tarballs, deleting production artifacts, restarting services, or changing manifests.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now reports 8/8 gates command-ready and 0 missing acceptance commands while keeping `dcp-agent` blocked on the controlled maintenance window.
+- **Safety:** No gateway process, installer artifact, production file, self-update manifest, runtime service, frontend, billing, inference, pod, or product claim behavior changed.
+- **Verification:** Default status packet run; targeted Jest suites; live-gate status; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-09 00:13 UTC - Adapter vLLM live load proof runner (PR #842)
 
 - **PR:** [#842](https://github.com/dhnpmp-tech/dcp-platform/pull/842) (`codex/adapter-vllm-live-load-proof-runner-2026-07-09`).
