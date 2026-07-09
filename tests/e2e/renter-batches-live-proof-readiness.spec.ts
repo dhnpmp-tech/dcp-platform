@@ -98,6 +98,39 @@ async function mockBatchApis(page: Page) {
       });
     }
 
+    if (path === '/api/renters/me/minimum-balances') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'minimum_balance_readiness',
+          version: 'dcp.minimum_balance_readiness.v1',
+          current_mode: 'read_only_policy_contract',
+          account: {
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+            v1_remaining_cap_halala: 14000,
+            v1_remaining_cap_sar: 140,
+          },
+          rails: {
+            batch_inference: { status: 'contract_only', enforcement_live: false },
+            v1_inference: { status: 'live_estimate_preflight', enforcement_live: true },
+            prompt_cache_discount: { status: 'measurement_only', enforcement_live: false },
+            lora_training: { status: 'metadata_and_artifact_proof_only', enforcement_live: false },
+            adapter_deployments: { status: 'load_and_billing_policy_required', enforcement_live: false },
+            evaluators: { status: 'readiness_contract_only', enforcement_live: false },
+          },
+          claim_guards: {
+            mutates_balance: false,
+            dispatches_inference: false,
+            creates_batch: false,
+            enables_discount: false,
+            changes_enforcement: false,
+          },
+        }),
+      });
+    }
+
     return route.fulfill({
       status: 404,
       contentType: 'application/json',
@@ -126,6 +159,16 @@ test('renter batch console renders live proof gate from readiness contract', asy
   await expect(page.getByLabel('Batch readiness')).toContainText('metadata validation only');
   await expect(page.getByLabel('Batch readiness')).toContainText('Execute');
   await expect(page.getByLabel('Batch readiness')).toContainText('gated');
+  const creditGate = page.getByLabel('Batch credit preflight');
+  await expect(creditGate).toContainText('minimum balance synced');
+  await expect(creditGate).toContainText('Batch settlement');
+  await expect(creditGate).toContainText('contract only');
+  await expect(creditGate).toContainText('Paid available');
+  await expect(creditGate).toContainText('SAR 38.00');
+  await expect(creditGate).toContainText('v1 cap remaining');
+  await expect(creditGate).toContainText('SAR 140.00');
+  await expect(creditGate).toContainText('Blocked billing rails');
+  await expect(creditGate).toContainText('5');
   const liveGate = page.getByLabel('Batch live proof gate');
   await expect(liveGate).toContainText('batch live execution discount smoke');
   await expect(liveGate).toContainText('DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution');

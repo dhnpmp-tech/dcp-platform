@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 15:59 UTC - `feat(batches): surface batch credit preflight gates - PR #898`
+
+**PR:** [#898](https://github.com/dhnpmp-tech/dcp-platform/pull/898) (`codex/batches-minimum-balance-preflight-2026-07-09`).
+**Local timestamp:** 2026-07-09 19:59 +04.
+
+**What:** Batch inference roadmap follow-up. Makes the account-scoped minimum-balance readiness contract visible inside the renter Batch console before users rely on batch execution or discount claims.
+
+- **Batch UX:** `/renter/batches` now fetches `GET /api/renters/me/minimum-balances` beside batch readiness and shows a compact Batch credit preflight strip before the live-proof gate.
+- **Credit clarity:** The strip shows minimum-balance sync state, batch settlement status, paid available SAR, v1 monthly cap remaining, and the count of still-blocked billing rails.
+- **Safety:** Frontend/read-only visibility change; no batch creation change, worker execution, result download enablement, settlement, discount, pricing calculation, billing, balance mutation, inference dispatch, LoRA training, adapter deployment, eval job, provider selection, or Tinker claim was added.
+- **Regression:** Extended the focused `/renter/batches` Playwright regression for the minimum-balance readiness packet, batch settlement gate, paid-available credit, v1 cap, and blocked billing rails.
+- **Verification:** TypeScript; focused `/renter/batches` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:49 UTC - `feat(playground): surface inference credit preflight gates - PR #897`
 
 **PR:** [#897](https://github.com/dhnpmp-tech/dcp-platform/pull/897) (`codex/playground-minimum-balance-preflight-2026-07-09`).
