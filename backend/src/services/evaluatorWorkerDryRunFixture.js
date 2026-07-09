@@ -52,7 +52,7 @@ function buildEvaluatorWorkerDryRunFixtureContract(now = new Date()) {
       arabic_quality_claim_allowed: false,
     },
     next_actions: [
-      'Attach an approved tenant artifact storage policy before production result writes.',
+      'Enforce the approved tenant artifact storage policy before production result writes.',
       'Add signed result download smoke only after artifact checksums and auth policy are approved.',
       'Keep queue dispatch disabled until this fixture is replaced by a real worker dry-run with rollback evidence.',
     ],

@@ -45,6 +45,7 @@
     "test:reliability:evaluator-result-manifest-contract-proof": "node tests/evaluator-result-manifest-contract-proof.js",
     "test:reliability:evaluator-result-writer-dry-run-proof": "node tests/evaluator-result-writer-dry-run-proof.js",
     "test:reliability:evaluator-worker-dry-run-fixture-proof": "node tests/evaluator-worker-dry-run-fixture-proof.js",
+    "test:reliability:evaluator-artifact-storage-policy-proof": "node tests/evaluator-artifact-storage-policy-proof.js",
     "test:reliability:minimum-balance-readiness-contract-proof": "node tests/minimum-balance-readiness-contract-proof.js",
     "test": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest --runInBand --forceExit",
     "test:integration": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest tests/integration/ --runInBand",

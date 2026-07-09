@@ -67,6 +67,7 @@ describe('evaluator result writer dry run', () => {
       current_mode: 'dry_run_temp_artifact_only',
       endpoints: {
         writer_readiness: 'GET /api/evals/results/writer/readiness',
+        artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
         result_manifest_schema: 'GET /api/evals/results/schema',
       },
       writer: {
@@ -74,6 +75,7 @@ describe('evaluator result writer dry run', () => {
         production_writer_enabled: false,
         result_endpoint_live: false,
         artifact_store_enabled: false,
+        artifact_storage_policy_endpoint: 'GET /api/evals/results/artifacts/readiness',
         signed_downloads_enabled: false,
         writes_temp_manifest_only: true,
       },
@@ -162,7 +164,9 @@ describe('evaluator result writer dry run', () => {
       bills_eval_jobs: false,
     });
     expect(workerGate.result_policy.writer_readiness_endpoint).toBe('GET /api/evals/results/writer/readiness');
+    expect(workerGate.result_policy.artifact_storage_readiness_endpoint).toBe('GET /api/evals/results/artifacts/readiness');
     expect(resultManifestContract.endpoints.result_writer_readiness).toBe('GET /api/evals/results/writer/readiness');
+    expect(resultManifestContract.endpoints.artifact_storage_readiness).toBe('GET /api/evals/results/artifacts/readiness');
   });
 
   test('exposes result writer readiness through a public read-only route', async () => {
@@ -178,6 +182,7 @@ describe('evaluator result writer dry run', () => {
         dry_run_available: true,
         production_writer_enabled: false,
         result_endpoint_live: false,
+        artifact_storage_policy_endpoint: 'GET /api/evals/results/artifacts/readiness',
       },
       claim_guards: {
         writes_temp_artifact: true,

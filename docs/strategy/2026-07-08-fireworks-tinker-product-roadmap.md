@@ -326,6 +326,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     a draft eval queue item, invokes the dry-run writer, and keeps job status,
     real queue dispatch, worker execution, production artifacts, result
     downloads, billing, reports, rankings, and quality claims disabled.
+  - PR #862 adds `GET /api/evals/results/artifacts/readiness` and
+    `npm run proof:evaluator-artifact-storage-policy`; it defines
+    renter/job-scoped future result manifest object keys and checksum guards
+    while object-store writes, signed downloads, result endpoints, billing,
+    reports, rankings, and quality claims remain disabled.
 
 Acceptance:
 

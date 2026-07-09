@@ -71,7 +71,7 @@ describe('evaluator readiness contract proof script', () => {
     expect(report.invariants.map((item) => item.name)).toEqual([
       'readiness contract is public, versioned, and linked to benchmark/schema surfaces',
       'evaluator job metadata API is visible while worker/result APIs remain unavailable',
-      'evaluator result and worker APIs remain unavailable until artifact proof exists',
+      'evaluator result and worker execution remain unavailable while artifact policy is read-only',
       'dataset, baseline, report, and billing gates stay closed',
       'public benchmark and quality claims remain false',
       'proof itself performs no runtime or money mutation',

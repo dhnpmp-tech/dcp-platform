@@ -148,10 +148,13 @@ function runEvaluatorReadinessContractProof(options = {}) {
     );
 
     record(
-      'evaluator result and worker APIs remain unavailable until artifact proof exists',
+      'evaluator result and worker execution remain unavailable while artifact policy is read-only',
       readiness.features.eval_job_api.result_endpoint === null
-        && readiness.features.eval_job_api.required_before_enablement.includes('worker disabled-by-default guard'),
-      'Metadata endpoints are live, but no result artifact or worker endpoint is exposed by this readiness slice.',
+        && readiness.features.eval_job_api.required_before_enablement.includes('worker disabled-by-default guard')
+        && readiness.features.eval_result_artifact_storage.available === true
+        && readiness.features.eval_result_artifact_storage.production_writes_enabled === false
+        && readiness.features.eval_result_artifact_storage.signed_downloads_enabled === false,
+      'Metadata and policy endpoints are live, but result downloads, artifact writes, and worker execution remain disabled.',
     );
 
     record(

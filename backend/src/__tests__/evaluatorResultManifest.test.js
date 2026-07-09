@@ -52,6 +52,7 @@ describe('evaluator result manifest contract', () => {
       current_mode: 'schema_and_checksum_contract_only',
       endpoints: {
         result_manifest_schema: 'GET /api/evals/results/schema',
+        artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
         future_result_manifest: 'GET /api/evals/jobs/:id/results',
       },
       checksum_policy: {
@@ -106,6 +107,7 @@ describe('evaluator result manifest contract', () => {
     const workerGate = buildEvaluatorWorkerGate(new Date('2026-07-09T03:55:00.000Z'));
 
     expect(readiness.endpoints.result_manifest_schema).toBe('GET /api/evals/results/schema');
+    expect(readiness.endpoints.result_artifact_storage_readiness).toBe('GET /api/evals/results/artifacts/readiness');
     expect(readiness.features.eval_result_manifest).toMatchObject({
       status: 'schema_and_checksum_contract_only',
       available: true,
@@ -123,6 +125,7 @@ describe('evaluator result manifest contract', () => {
     expect(workerGate.result_policy).toMatchObject({
       endpoint_live: false,
       schema_endpoint: 'GET /api/evals/results/schema',
+      artifact_storage_readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
     });
   });
 
@@ -137,6 +140,7 @@ describe('evaluator result manifest contract', () => {
       current_mode: 'schema_and_checksum_contract_only',
       endpoints: {
         result_manifest_schema: 'GET /api/evals/results/schema',
+        artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       },
       claim_guards: {
         result_endpoint_live: false,

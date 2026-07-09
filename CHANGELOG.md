@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 04:37 UTC - `test(evals): add artifact storage policy proof - PR #862`
+
+**PR:** [#862](https://github.com/dhnpmp-tech/dcp-platform/pull/862) (`codex/evaluator-artifact-storage-policy-2026-07-09`).
+**Local timestamp:** 2026-07-09 08:37 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Defines the renter/job-scoped result artifact storage policy before any evaluator production object-store write, result download, or signed URL exists.
+
+- **Backend contract:** Added public `GET /api/evals/results/artifacts/readiness` plus a pure validator for `eval-results/renter-{renter_id}/{eval_job_id}/result-manifest.json`, SHA-256 checksums, content type, and path-safety guards.
+- **Proof command:** Added `npm run proof:evaluator-artifact-storage-policy` and included it in `npm run proof:local-roadmap`, raising the suite to 20 CI-safe gates.
+- **Public surface:** Evaluator readiness, worker gate, result manifest schema, result-writer readiness, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs now link to the policy endpoint.
+- **Safety:** Policy/readiness only; no object-store configuration, production artifact write, signed download, result endpoint, raw dataset/prompt storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted evaluator artifact-policy/worker-fixture/worker-gate/result-writer/result-manifest/metadata/readiness/schema Jest suites; evaluator artifact-storage policy proof; evaluator worker-fixture proof; evaluator result-writer proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 20/20 gates; `git diff --check`.
+
 ### 2026-07-09 04:17 UTC - `test(evals): add worker dry-run fixture proof - PR #861`
 
 **PR:** [#861](https://github.com/dhnpmp-tech/dcp-platform/pull/861) (`codex/evaluator-worker-dry-run-fixture-2026-07-09`).

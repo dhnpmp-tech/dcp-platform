@@ -53,6 +53,7 @@ describe('evaluator worker gate contract', () => {
       },
       result_policy: {
         endpoint_live: false,
+        artifact_storage_readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
         manifest_required_before_enablement: true,
         signed_downloads_enabled: false,
       },
@@ -83,6 +84,7 @@ describe('evaluator worker gate contract', () => {
     const schema = buildEvaluatorJobSchema(new Date('2026-07-09T03:45:00.000Z'));
 
     expect(readiness.endpoints.worker_readiness).toBe('GET /api/evals/worker/readiness');
+    expect(readiness.endpoints.result_artifact_storage_readiness).toBe('GET /api/evals/results/artifacts/readiness');
     expect(readiness.features.eval_worker).toMatchObject({
       status: 'disabled_by_default_contract',
       available: false,
