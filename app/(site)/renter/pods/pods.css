@@ -482,6 +482,107 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   .pod-stage-no { width: max-content; min-width: 0; }
 }
 
+.pod-stage-accordion {
+  border: 1px solid var(--hair);
+  background: var(--paper);
+}
+.pod-stage-accordion.closed {
+  border-color: color-mix(in oklab, var(--rt-accent) 30%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 4%, var(--paper));
+}
+.pod-stage-accordion-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--hair);
+  box-shadow: inset 3px 0 0 var(--rt-accent);
+}
+.pod-stage-accordion.closed .pod-stage-accordion-summary {
+  border-bottom: 0;
+}
+.pod-stage-accordion-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pod-stage-accordion-copy span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-stage-accordion-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.pod-stage-accordion-copy em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.pod-stage-accordion-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.pod-stage-accordion-facts span,
+.pod-stage-accordion-facts a,
+.pod-stage-accordion-facts button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 2px;
+}
+.pod-stage-accordion-facts a {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 8%, var(--paper));
+}
+.pod-stage-accordion-facts button {
+  cursor: pointer;
+}
+.pod-stage-accordion-facts a:hover,
+.pod-stage-accordion-facts a:focus-visible,
+.pod-stage-accordion-facts button:hover,
+.pod-stage-accordion-facts button:focus-visible {
+  border-color: var(--rt-accent);
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  outline: none;
+}
+@media (max-width: 860px) {
+  .pod-stage-accordion-summary {
+    grid-template-columns: 1fr;
+  }
+  .pod-stage-accordion-facts {
+    justify-content: flex-start;
+  }
+}
+
 .pod-launch .panel-hd .hint { align-self: center; }
 
 .pod-compute-summary {
@@ -1682,6 +1783,48 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .gpu-reco .why { color: var(--ink-2); font-size: 13px; line-height: 1.55; margin: 6px 0 0; }
 
 /* ── Toolbar ──────────────────────────────────────────────── */
+.gpu-filter-callout {
+  display: grid;
+  grid-template-columns: auto minmax(0, .58fr) minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: baseline;
+  margin-bottom: 14px;
+  padding: 12px 13px;
+  border: 1px solid color-mix(in oklab, var(--orange) 46%, var(--hair));
+  background: color-mix(in oklab, var(--orange) 6%, var(--paper));
+  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--orange) 82%, var(--ink));
+}
+.gpu-filter-callout-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--orange) 84%, var(--ink));
+  white-space: nowrap;
+}
+.gpu-filter-callout strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.gpu-filter-callout em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+@media (max-width: 820px) {
+  .gpu-filter-callout {
+    grid-template-columns: 1fr;
+  }
+}
 .gpu-selection-strip {
   position: relative;
   display: grid;

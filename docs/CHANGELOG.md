@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 23:02 UTC - Pod Stage 1 accordion and GPU source-of-truth callout (PR #925)
+
+- **PR:** [#925](https://github.com/dhnpmp-tech/dcp-platform/pull/925) (`codex/workspace-launch-ux-tareq-2026-07-10`).
+- **Timestamp:** 2026-07-09 23:02 UTC / 2026-07-10 03:02 +04.
+- **Stage 1 accordion:** `/renter/pods` now collapses the detailed workspace manager once staged files are loaded and keeps a compact checkpoint visible with volume, staged-file count, folder count, expand, and Stage 2 skip actions.
+- **Stage naming:** Stage 1 is labeled as collapsible workspace files, while Stage 2 leads with the actual launch GPU before templates.
+- **GPU clarity:** Added a pre-filter source-of-truth callout: the launch GPU changes only via Auto-pick or a card marked "Selected launch GPU"; VRAM chips, workload guide, search, and sort only change the visible list.
+- **Trial answer:** Contract-backed trial handling remains unchanged: no separate live trial-account tag unless reported by backend, trial handling uses grant-credit provenance, trial credit routes to native/community GPUs, and high-demand GPUs require paid credit.
+- **Regression:** Extended focused `/renter/pods` Playwright coverage for the collapsed Stage 1 checkpoint, expand path, Stage 2 source-of-truth copy, trial copy, and selected GPU state.
+- **Safety:** Frontend-only UX behavior change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression.
+
 ### 2026-07-09 22:42 UTC - Pod workspace stage navigator (PR #924)
 
 - **PR:** [#924](https://github.com/dhnpmp-tech/dcp-platform/pull/924) (`codex/workspace-stage-navigator-2026-07-10`).

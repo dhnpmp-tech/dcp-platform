@@ -242,6 +242,11 @@ what is live.
   actions sit above the folder chips, the on-demand folder index is
   busiest-first, and the VRAM filter copy follows the actual launch state rather
   than always saying Auto-pick.
+- PR #925 turns the Stage 1 workspace section into a true accordion once staged
+  files are loaded, keeping a compact checkpoint and Stage 2 skip visible while
+  hiding the detailed workspace manager by default. It also adds a GPU
+  source-of-truth callout before filters, clarifying that only Auto-pick or a
+  card marked "Selected launch GPU" changes the final request.
 
 ### Now
 
@@ -808,6 +813,10 @@ template launch.
   renters can open the busiest folder, keep the rest collapsed, or continue to
   Stage 2, while VRAM filters now repeat whether launch is Auto-pick or a fixed
   GPU.
+- PR #925 adds the outer Stage 1 accordion and Stage 2 GPU source-of-truth
+  callout, so large workspaces no longer leave the detailed file manager visible
+  before the compute decision and VRAM/search controls cannot be mistaken for
+  the actual GPU selection.
 
 ### Now
 

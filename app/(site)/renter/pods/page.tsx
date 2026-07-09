@@ -679,6 +679,7 @@ export default function RenterPodsPage() {
   const [renterKey, setRenterKey] = useState<string | null>(null)
   const [workspaceVolume, setWorkspaceVolume] = useState<WorkspaceVolume | null>(null)
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([])
+  const [workspaceStageOpen, setWorkspaceStageOpen] = useState(false)
   const [renterName, setRenterName] = useState('Renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string | null>('pytorch-notebook')
@@ -1314,9 +1315,23 @@ export default function RenterPodsPage() {
     : 'Create a persistent workspace before launching.'
   const workspaceStageModeLabel = workspaceVolume
     ? workspaceFiles.length > 4
-      ? 'Folder tree opens first'
+      ? 'Accordion collapsed by default'
       : 'Compact workspace checkpoint'
     : 'Volume required'
+  const workspaceStageBodyOpen = workspaceStageOpen || workspaceFiles.length === 0
+  const workspaceStageHeadline = workspaceVolume
+    ? workspaceFiles.length > 0
+      ? `Stage 1 ready: ${workspaceFiles.length} files grouped in ${workspaceFolderCount} folders`
+      : `${workspaceVolume.size_gb} GB /workspace ready for uploads`
+    : 'Create /workspace volume'
+  const workspaceStageDetail = workspaceVolume
+    ? workspaceFiles.length > 0
+      ? 'Collapsed by default. Expand only if you need to upload, delete, or inspect a folder.'
+      : 'Open Stage 1 to upload datasets, notebooks, adapters, or checkpoints.'
+    : 'Rent a persistent workspace volume before launching a pod.'
+  const workspaceStageToggleLabel = workspaceStageBodyOpen
+    ? 'Collapse Stage 1 workspace'
+    : 'Expand Stage 1 workspace'
   const gpuChecklistLabel = selectedType ? displayGpuType(selectedType.gpu_model) : 'Auto-pick · no fixed GPU'
   const gpuChecklistDetail = selectedType
     ? `Fixed launch request · ${selectedType.vram_gb} GB${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
@@ -1493,23 +1508,58 @@ export default function RenterPodsPage() {
             <div className="pod-stage-hd">
               <span className="pod-stage-no">Stage 1 of 3</span>
               <div>
-                <h2><Bi en="Stage 1: workspace files" ar="المرحلة 1: ملفات مساحة العمل" /></h2>
+                <h2><Bi en="Stage 1: workspace files, collapsible" ar="المرحلة 1: ملفات مساحة العمل، قابلة للطي" /></h2>
                 <p>
                   <Bi
-                    en="Use the same /workspace volume that reattaches when a pod starts."
+                    en="Use the same /workspace volume that reattaches when a pod starts; expand only when the summary needs inspection."
                     ar="استخدم نفس وحدة /workspace التي تُعاد عند تشغيل الحاوية."
                   />
                 </p>
               </div>
             </div>
-            <WorkspacePanel
-              apiBase={getApiBase()}
-              renterKey={renterKey}
-              context="pod-launch"
-              nextStageHref="#pod-stage-2"
-              onVolumeLoaded={setWorkspaceVolume}
-              onFilesLoaded={setWorkspaceFiles}
-            />
+            <div className={`pod-stage-accordion ${workspaceStageBodyOpen ? 'open' : 'closed'}`} aria-label={lang === 'ar' ? 'نقطة تحقق مساحة العمل للمرحلة 1' : 'Stage 1 workspace checkpoint'}>
+              <div className="pod-stage-accordion-summary">
+                <div className="pod-stage-accordion-copy">
+                  <span>
+                    <Bi en={workspaceStageBodyOpen ? 'Workspace details open' : 'Workspace details collapsed'} ar={workspaceStageBodyOpen ? 'تفاصيل مساحة العمل مفتوحة' : 'تفاصيل مساحة العمل مطوية'} />
+                  </span>
+                  <strong><Bi en={workspaceStageHeadline} ar={workspaceVolume ? 'مساحة العمل جاهزة' : 'أنشئ وحدة مساحة عمل'} /></strong>
+                  <em><Bi en={workspaceStageDetail} ar={workspaceFiles.length > 0 ? 'تبقى التفاصيل مطوية؛ افتحها فقط عند الحاجة.' : 'افتح المرحلة 1 لإضافة الملفات.'} /></em>
+                </div>
+                <div className="pod-stage-accordion-facts">
+                  <span>
+                    <Bi en={workspaceVolume ? `${workspaceVolume.size_gb} GB /workspace` : 'No workspace volume'} ar={workspaceVolume ? `${workspaceVolume.size_gb} غ.ب /workspace` : 'لا توجد وحدة مساحة عمل'} />
+                  </span>
+                  <span>
+                    <Bi en={`${workspaceFiles.length} staged files`} ar={`${workspaceFiles.length} ملفات مجهزة`} />
+                  </span>
+                  <span>
+                    <Bi en={`${workspaceFolderCount} folders`} ar={`${workspaceFolderCount} مجلدات`} />
+                  </span>
+                  <a href="#pod-stage-2">
+                    <Bi en="Skip to Stage 2" ar="انتقل للمرحلة 2" />
+                  </a>
+                  <button
+                    type="button"
+                    aria-expanded={workspaceStageBodyOpen}
+                    aria-controls="pod-stage-1-workspace-panel"
+                    onClick={() => setWorkspaceStageOpen((value) => !value)}
+                  >
+                    <Bi en={workspaceStageToggleLabel} ar={workspaceStageBodyOpen ? 'اطوِ مساحة العمل' : 'افتح مساحة العمل'} />
+                  </button>
+                </div>
+              </div>
+              <div id="pod-stage-1-workspace-panel" hidden={!workspaceStageBodyOpen}>
+                <WorkspacePanel
+                  apiBase={getApiBase()}
+                  renterKey={renterKey}
+                  context="pod-launch"
+                  nextStageHref="#pod-stage-2"
+                  onVolumeLoaded={setWorkspaceVolume}
+                  onFilesLoaded={setWorkspaceFiles}
+                />
+              </div>
+            </div>
           </div>
 
           {/* ── Launch panel ───────────────────────────────── */}
@@ -1608,10 +1658,10 @@ export default function RenterPodsPage() {
             <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
               <span className="pod-stage-no">Stage 2 of 3</span>
               <div>
-                <h2><Bi en="Stage 2: template and actual GPU" ar="المرحلة 2: القالب و GPU الفعلي" /></h2>
+                <h2><Bi en="Stage 2: actual launch GPU and template" ar="المرحلة 2: GPU التشغيل الفعلي والقالب" /></h2>
                 <p>
                   <Bi
-                    en="Pick a workload template, then pin a GPU card or leave the actual launch request on auto-pick."
+                    en="The launch GPU is the Auto-pick toggle or the selected card. Templates, VRAM, search, and sort stay browse-only helpers."
                     ar="اختر قالب العمل، ثم حدد معالج GPU بوضوح أو اترك التشغيل على الاختيار التلقائي."
                   />
                 </p>
@@ -2143,6 +2193,18 @@ export default function RenterPodsPage() {
                   </div>
                 )}
               </section>
+
+              <div className="gpu-filter-callout" aria-label={lang === 'ar' ? 'مصدر اختيار GPU' : 'GPU selection source of truth'}>
+                <span className="gpu-filter-callout-k">
+                  <Bi en="Before filtering" ar="قبل التصفية" />
+                </span>
+                <strong>
+                  <Bi en="The launch GPU is only Auto-pick or a card marked Selected launch GPU." ar="GPU التشغيل هو الاختيار التلقائي أو بطاقة محددة فقط." />
+                </strong>
+                <em>
+                  <Bi en="VRAM chips, workload guide, search, and sort change the list you see. They do not change the final request until you pick a GPU card." ar="شرائح الذاكرة ودليل العمل والبحث والترتيب تغيّر القائمة فقط ولا تغيّر طلب التشغيل حتى تختار بطاقة." />
+                </em>
+              </div>
 
               {/* Quiet toolbar: search + min-VRAM + sort + availability chips */}
               <div className="gpu-toolbar">

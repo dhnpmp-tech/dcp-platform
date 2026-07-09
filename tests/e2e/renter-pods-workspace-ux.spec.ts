@@ -350,6 +350,21 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(fastPath).toContainText('Skip file-by-file review when the folder summary looks right.');
   await expect(fastPath).toContainText('No trial-account tag live');
   await expect(fastPath.getByRole('link', { name: /Go straight to Stage 2/ })).toBeVisible();
+
+  const stage1Checkpoint = page.getByLabel('Stage 1 workspace checkpoint');
+  await expect(stage1Checkpoint).toContainText('Workspace details collapsed');
+  await expect(stage1Checkpoint).toContainText('Stage 1 ready: 5 files grouped in 3 folders');
+  await expect(stage1Checkpoint).toContainText('Collapsed by default');
+  await expect(stage1Checkpoint).toContainText('20 GB /workspace');
+  await expect(stage1Checkpoint).toContainText('5 staged files');
+  await expect(stage1Checkpoint).toContainText('3 folders');
+  await expect(stage1Checkpoint.getByRole('link', { name: 'Skip to Stage 2' })).toBeVisible();
+  await expect(stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' })).toBeVisible();
+  await expect(page.getByText('Stage 1 manifest')).toBeHidden();
+  await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
+
+  await stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' }).click();
+  await expect(stage1Checkpoint).toContainText('Workspace details open');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 folder summary');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
@@ -404,7 +419,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   const stageControlMap = page.getByLabel('What each stage controls');
   await expect(stageControlMap).toContainText('Stage 1');
   await expect(stageControlMap).toContainText('Workspace tree');
-  await expect(stageControlMap).toContainText('Folder tree opens first');
+  await expect(stageControlMap).toContainText('Accordion collapsed by default');
   await expect(stageControlMap).toContainText('Stage 2');
   await expect(stageControlMap).toContainText('Actual launch GPU');
   await expect(stageControlMap).toContainText('Auto-pick is still active');
@@ -415,7 +430,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page).toHaveURL(/#pod-stage-2$/);
   await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
   await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Manage files' }).click();
-  await expect(page.getByText('Staged files')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Staged files' })).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeVisible();
   await expect(page.locator('.ws-launch-manifest')).toContainText('5 files · 4 groups');
   await expect(page.getByText('Review folders')).toBeVisible();
@@ -473,6 +488,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Trial source: grant balance');
   await expect(computeSummary.getByRole('button', { name: 'Auto-pick', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(computeSummary.getByRole('button', { name: 'Fixed GPU', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByLabel('GPU selection source of truth')).toContainText('Before filtering');
+  await expect(page.getByLabel('GPU selection source of truth')).toContainText('The launch GPU is only Auto-pick or a card marked Selected launch GPU');
+  await expect(page.getByLabel('GPU selection source of truth')).toContainText('VRAM chips, workload guide, search, and sort change the list you see');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial accounts use grant-credit provenance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial tag is live.');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Backend policy: synced');
