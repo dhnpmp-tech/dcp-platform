@@ -238,6 +238,16 @@ Status as of PR #876:
   mutation, balance mutation, trial-accounting mutation, provider selection
   changes, or vendor/provider/supply-tier exposure.
 
+Status as of PR #877:
+
+- `/renter/pods` consumes the same readiness contract in Stage 2 and shows a
+  compact synced/fallback state beside the selected GPU summary.
+- The renter UI still shows only customer-safe policy copy: trial credit covers
+  native/community capacity, high-demand capacity requires paid credit, and
+  launch remains controlled by backend gates.
+- The UI does not expose the internal trial-account tag status, provider id,
+  vendor, or supply-tier values.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully

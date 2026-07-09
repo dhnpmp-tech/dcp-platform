@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 10:00 UTC - `feat(pods): sync launch credit policy from backend - PR #877`
+
+**PR:** [#877](https://github.com/dhnpmp-tech/dcp-platform/pull/877) (`codex/pods-trial-routing-ui-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 14:00 +04.
+
+**What:** Tareq feedback follow-up for `/renter/pods`. The compute summary now reads the pod trial-routing readiness contract instead of relying only on static copy.
+
+- **Frontend contract sync:** `/renter/pods` fetches `GET /api/pods/trial-routing/readiness` and renders a compact "Credit policy: synced" chip when the backend contract confirms no launch, billing, balance, trial-accounting, provider, vendor, or supply-tier exposure changes.
+- **Fallback UX:** If the readiness endpoint is temporarily unavailable, the launch screen keeps the built-in renter-safe policy copy and states that backend gates still control launch.
+- **Regression:** The focused Playwright test now mocks the readiness endpoint with distinct policy copy, proving the UI is consuming the backend contract.
+- **Safety:** UI/read-only fetch only; no pod launch body change, provider selection change, billing change, balance mutation, trial-accounting mutation, payment creation, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused Playwright browser regression for `/renter/pods`; Next build; `git diff --check`.
+
 ### 2026-07-09 09:47 UTC - `test(pods): add trial routing readiness proof - PR #876`
 
 **PR:** [#876](https://github.com/dhnpmp-tech/dcp-platform/pull/876) (`codex/pod-trial-routing-readiness-2026-07-09`).

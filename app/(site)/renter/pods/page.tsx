@@ -298,6 +298,28 @@ interface AvailableProvidersResponse {
   providers?: Array<Record<string, unknown>>
 }
 
+interface PodTrialRoutingReadinessResponse {
+  object?: string
+  version?: string
+  routing_policy?: {
+    trial_capacity_copy?: string
+    high_demand_capacity_copy?: string
+    provider_visibility?: {
+      exposes_provider_id_to_renter?: boolean
+      exposes_vendor_to_renter?: boolean
+      exposes_supply_tier_to_renter?: boolean
+    }
+  }
+  claim_guards?: {
+    launches_pod?: boolean
+    mutates_balance?: boolean
+    changes_billing?: boolean
+    changes_trial_accounting?: boolean
+    exposes_vendor_or_provider?: boolean
+  }
+  error?: string
+}
+
 interface RenterMeResponse {
   renter?: { name?: string; email?: string; organization?: string }
 }
@@ -328,6 +350,7 @@ interface LaunchReveal {
 }
 
 type LoadState = 'loading' | 'ready' | 'missing-key'
+type TrialRoutingStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function generateNotebookToken(): string {
@@ -567,6 +590,9 @@ export default function RenterPodsPage() {
   const [templateCatalogVersion, setTemplateCatalogVersion] = useState('')
   const [templateCatalog, setTemplateCatalog] = useState<TemplateCatalogItem[]>([])
   const [templateCatalogError, setTemplateCatalogError] = useState('')
+  const [trialRoutingStatus, setTrialRoutingStatus] = useState<TrialRoutingStatus>('idle')
+  const [trialRouting, setTrialRouting] = useState<PodTrialRoutingReadinessResponse | null>(null)
+  const [trialRoutingError, setTrialRoutingError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
   const [extending, setExtending] = useState<Record<string, boolean>>({})
@@ -691,10 +717,29 @@ export default function RenterPodsPage() {
     }
   }, [])
 
+  const fetchTrialRoutingReadiness = useCallback(async () => {
+    setTrialRoutingStatus('loading')
+    setTrialRoutingError('')
+    try {
+      const res = await fetch(`${getApiBase()}/pods/trial-routing/readiness`, { cache: 'no-store' })
+      const data = (await res.json().catch(() => ({}))) as PodTrialRoutingReadinessResponse
+      if (!res.ok) {
+        throw new Error(data.error || `Trial routing policy failed (${res.status})`)
+      }
+      setTrialRouting(data)
+      setTrialRoutingStatus('ready')
+    } catch (err) {
+      setTrialRouting(null)
+      setTrialRoutingError(err instanceof Error ? err.message : 'Trial routing policy unavailable')
+      setTrialRoutingStatus('error')
+    }
+  }, [])
+
   // ── Auth gate + polling loop ─────────────────────────────────────────
   useEffect(() => {
     fetchTemplateCatalog()
-  }, [fetchTemplateCatalog])
+    fetchTrialRoutingReadiness()
+  }, [fetchTemplateCatalog, fetchTrialRoutingReadiness])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1013,6 +1058,18 @@ export default function RenterPodsPage() {
   const selectedQuoteSar = selectedType?.sar_per_hour != null
     ? selectedType.sar_per_hour * (launch.durationMinutes / 60)
     : null
+  const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: DCP/community capacity'
+  const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
+  const trialRoutingSynced = trialRoutingStatus === 'ready' &&
+    trialRouting?.object === 'pod_trial_routing_readiness' &&
+    trialRouting?.claim_guards?.launches_pod === false &&
+    trialRouting?.claim_guards?.mutates_balance === false &&
+    trialRouting?.claim_guards?.changes_billing === false &&
+    trialRouting?.claim_guards?.changes_trial_accounting === false &&
+    trialRouting?.claim_guards?.exposes_vendor_or_provider === false &&
+    trialRouting?.routing_policy?.provider_visibility?.exposes_provider_id_to_renter === false &&
+    trialRouting?.routing_policy?.provider_visibility?.exposes_vendor_to_renter === false &&
+    trialRouting?.routing_policy?.provider_visibility?.exposes_supply_tier_to_renter === false
 
   const isLive = loadState === 'ready'
 
@@ -1207,6 +1264,13 @@ export default function RenterPodsPage() {
                 )}
               </div>
               <div className="pod-compute-facts">
+                <span className={`pod-policy-state ${trialRoutingStatus === 'loading' ? 'loading' : trialRoutingSynced ? 'ready' : 'fallback'}`}>
+                  {trialRoutingStatus === 'loading'
+                    ? <Bi en="Credit policy: checking" ar="سياسة الرصيد: جار التحقق" />
+                    : trialRoutingSynced
+                      ? <Bi en="Credit policy: synced" ar="سياسة الرصيد: متزامنة" />
+                      : <Bi en="Credit policy: built-in fallback" ar="سياسة الرصيد: نسخة احتياطية" />}
+                </span>
                 {minVram > 0 && (
                   <span>
                     <Bi en={`Filter: ≥ ${minVram} GB`} ar={`التصفية: ≥ ${minVram} غ.ب`} />
@@ -1218,10 +1282,10 @@ export default function RenterPodsPage() {
                   </span>
                 )}
                 <span>
-                  <Bi en="Trial credit: DCP/community capacity" ar="رصيد التجربة: سعة DCP والمجتمع" />
+                  <Bi en={trialCapacityCopy} ar="رصيد التجربة: سعة DCP والمجتمع" />
                 </span>
                 <span>
-                  <Bi en="High-demand capacity: paid credit" ar="السعة عالية الطلب: رصيد مدفوع" />
+                  <Bi en={highDemandCapacityCopy} ar="السعة عالية الطلب: رصيد مدفوع" />
                 </span>
                 {selectedType && (
                   <button
@@ -1231,6 +1295,11 @@ export default function RenterPodsPage() {
                   >
                     <Bi en="Use auto-pick" ar="استخدم الاختيار التلقائي" />
                   </button>
+                )}
+                {trialRoutingStatus === 'error' && trialRoutingError && (
+                  <span className="pod-policy-note">
+                    <Bi en="Launch still uses backend gates." ar="التشغيل لا يزال يستخدم بوابات الخادم." />
+                  </span>
                 )}
               </div>
             </div>
