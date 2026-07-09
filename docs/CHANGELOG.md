@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 05:41 UTC - Evaluator signed-download policy proof (PR #865)
+
+- **PR:** [#865](https://github.com/dhnpmp-tech/dcp-platform/pull/865) (`codex/evaluator-signed-download-policy-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/results/downloads/readiness` and a pure evaluator signed-download policy validator for owner access, result availability, artifact policy, checksum, JSON content type, and 60-900 second expiry requirements.
+- **Proof:** Added `npm run proof:evaluator-signed-download-policy` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 23 CI-safe gates.
+- **Docs/contracts:** Linked evaluator readiness, worker gate, result writer, result access policy, artifact storage policy, disabled result endpoint, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs to the signed-download policy endpoint.
+- **Safety:** Policy contract only; no signed URL generation, object-store bucket exposure, artifact storage key exposure, live result endpoint, worker start, eval-job status mutation, object-store write, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted signed-download/access-policy/disabled-result/artifact-policy/worker-gate/result-writer/result-manifest/readiness Jest suites; evaluator signed-download proof; evaluator disabled-result proof; evaluator result-access proof; evaluator artifact-storage proof; evaluator worker-fixture proof; evaluator result-writer proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 23/23 gates; `git diff --check`.
+
 ### 2026-07-09 05:24 UTC - Disabled evaluator result endpoint proof (PR #864)
 
 - **PR:** [#864](https://github.com/dhnpmp-tech/dcp-platform/pull/864) (`codex/evaluator-result-endpoint-disabled-2026-07-09`).

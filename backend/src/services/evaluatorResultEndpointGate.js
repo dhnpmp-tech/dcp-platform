@@ -25,6 +25,7 @@ function buildEvaluatorResultEndpointDisabledResponse(evalJob = {}, now = new Da
     message: 'Evaluator result downloads are disabled until worker, artifact, access, and signed-download proofs are complete.',
     endpoints: {
       result_endpoint: 'GET /api/evals/jobs/:id/results',
+      signed_download_readiness: 'GET /api/evals/results/downloads/readiness',
       result_access_readiness: 'GET /api/evals/results/access/readiness',
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',

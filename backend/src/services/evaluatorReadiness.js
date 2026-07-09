@@ -7,6 +7,7 @@ const { EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION } = require('./evaluatorResultWr
 const { EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION } = require('./evaluatorWorkerDryRunFixture');
 const { EVALUATOR_ARTIFACT_STORAGE_POLICY_VERSION } = require('./evaluatorArtifactStoragePolicy');
 const { EVALUATOR_RESULT_ACCESS_POLICY_VERSION } = require('./evaluatorResultAccessPolicy');
+const { EVALUATOR_SIGNED_DOWNLOAD_POLICY_VERSION } = require('./evaluatorSignedDownloadPolicy');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -24,6 +25,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       result_artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_access_readiness: 'GET /api/evals/results/access/readiness',
+      signed_download_readiness: 'GET /api/evals/results/downloads/readiness',
       disabled_result_endpoint: 'GET /api/evals/jobs/:id/results',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
@@ -140,6 +142,22 @@ function buildEvaluatorReadiness(now = new Date()) {
           'result endpoint audit log',
         ],
       },
+      eval_signed_download_policy: {
+        status: 'signed_download_policy_contract_only',
+        available: true,
+        version: EVALUATOR_SIGNED_DOWNLOAD_POLICY_VERSION,
+        readiness_endpoint: 'GET /api/evals/results/downloads/readiness',
+        signed_downloads_enabled: false,
+        result_endpoint_live: false,
+        exposes_signed_url: false,
+        exposes_artifact_storage_key: false,
+        required_before_enablement: [
+          'production object-store configuration',
+          'signed download smoke proof',
+          'result endpoint audit log',
+          'retention and deletion policy',
+        ],
+      },
       dataset_artifacts: {
         status: 'gated_storage_policy',
         available: false,
@@ -194,6 +212,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       eval_result_writer_dry_run_live: true,
       eval_result_artifact_storage_policy_live: true,
       eval_result_access_policy_live: true,
+      eval_signed_download_policy_live: true,
       arabic_quality_claim_allowed: false,
       customer_case_study_allowed: false,
       model_ranking_allowed: false,

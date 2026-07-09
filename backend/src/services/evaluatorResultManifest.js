@@ -42,6 +42,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_access_readiness: 'GET /api/evals/results/access/readiness',
+      signed_download_readiness: 'GET /api/evals/results/downloads/readiness',
       worker_readiness: 'GET /api/evals/worker/readiness',
       evaluator_readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',

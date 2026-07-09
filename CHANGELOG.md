@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 05:41 UTC - `test(evals): add signed download policy proof - PR #865`
+
+**PR:** [#865](https://github.com/dhnpmp-tech/dcp-platform/pull/865) (`codex/evaluator-signed-download-policy-2026-07-09`).
+**Local timestamp:** 2026-07-09 09:41 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Defines the signed-download policy prerequisites for evaluator results while keeping signed URLs, object-store keys, and live result downloads disabled.
+
+- **Backend contract:** Added public `GET /api/evals/results/downloads/readiness` plus a pure signed-download policy validator for renter access, result availability, artifact storage policy, checksum, JSON content type, and 60-900 second expiry requirements.
+- **Proof command:** Added `npm run proof:evaluator-signed-download-policy` and included it in `npm run proof:local-roadmap`, raising the suite to 23 CI-safe gates.
+- **Public surface:** Evaluator readiness, worker gate, result writer, result access policy, artifact storage policy, disabled result endpoint, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs now link to the signed-download policy.
+- **Safety:** Policy/readiness only; no signed URL generation, object-store bucket exposure, artifact storage key exposure, live result endpoint, worker start, eval-job status mutation, object-store write, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted signed-download/access-policy/disabled-result/artifact-policy/worker-gate/result-writer/result-manifest/readiness Jest suites; evaluator signed-download proof; evaluator disabled-result proof; evaluator result-access proof; evaluator artifact-storage proof; evaluator worker-fixture proof; evaluator result-writer proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 23/23 gates; `git diff --check`.
+
 ### 2026-07-09 05:24 UTC - `test(evals): add disabled result endpoint proof - PR #864`
 
 **PR:** [#864](https://github.com/dhnpmp-tech/dcp-platform/pull/864) (`codex/evaluator-result-endpoint-disabled-2026-07-09`).

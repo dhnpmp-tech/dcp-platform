@@ -22,6 +22,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_access_readiness: 'GET /api/evals/results/access/readiness',
+      signed_download_readiness: 'GET /api/evals/results/downloads/readiness',
       metadata_jobs: 'POST/GET /api/evals/jobs',
       disabled_result_endpoint: 'GET /api/evals/jobs/:id/results',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
@@ -59,6 +60,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       writer_readiness_endpoint: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
       result_access_readiness_endpoint: 'GET /api/evals/results/access/readiness',
+      signed_download_readiness_endpoint: 'GET /api/evals/results/downloads/readiness',
       dry_run_fixture_command: dryRunFixture.command,
       manifest_required_before_enablement: true,
       manifest_required_fields: [

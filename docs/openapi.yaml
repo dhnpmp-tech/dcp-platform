@@ -4175,6 +4175,80 @@ paths:
                       model_ranking_allowed: { type: boolean, example: false }
                       arabic_quality_claim_allowed: { type: boolean, example: false }
 
+  /api/evals/results/downloads/readiness:
+    get:
+      tags: [Benchmarks]
+      summary: Get evaluator signed download policy readiness
+      description: |
+        Returns a public, read-only policy contract for future evaluator result
+        signed downloads. It defines result-access, artifact, checksum, content
+        type, and expiry requirements while signed URL generation, object-store
+        configuration, live result endpoints, billing, reports, rankings, and
+        Arabic-quality claims remain disabled.
+      responses:
+        '200':
+          description: Evaluator signed download policy readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, signing_policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_signed_download_policy_readiness]
+                  version:
+                    type: string
+                    example: dcp.evaluator_signed_download_policy.v1
+                  current_mode:
+                    type: string
+                    enum: [signed_download_policy_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  signing_policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      policy_available: { type: boolean, example: true }
+                      signed_downloads_enabled: { type: boolean, example: false }
+                      result_endpoint_live: { type: boolean, example: false }
+                      requires_result_access_policy: { type: boolean, example: true }
+                      requires_artifact_policy: { type: boolean, example: true }
+                      requires_checksum: { type: boolean, example: true }
+                      requires_content_type: { type: string, example: application/json }
+                      min_expiry_seconds: { type: integer, example: 60 }
+                      max_expiry_seconds: { type: integer, example: 900 }
+                      default_expiry_seconds: { type: integer, example: 300 }
+                      exposes_object_store_bucket: { type: boolean, example: false }
+                      exposes_storage_key: { type: boolean, example: false }
+                      exposes_signed_url: { type: boolean, example: false }
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      policy_contract_live: { type: boolean, example: true }
+                      signed_downloads_enabled: { type: boolean, example: false }
+                      result_endpoint_live: { type: boolean, example: false }
+                      disabled_result_endpoint_live: { type: boolean, example: true }
+                      signs_download_url: { type: boolean, example: false }
+                      exposes_signed_url: { type: boolean, example: false }
+                      exposes_object_store_bucket: { type: boolean, example: false }
+                      exposes_artifact_storage_key: { type: boolean, example: false }
+                      writes_production_artifact: { type: boolean, example: false }
+                      mutates_eval_job_status: { type: boolean, example: false }
+                      queues_eval_job: { type: boolean, example: false }
+                      starts_worker: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
+                      settles_eval_jobs: { type: boolean, example: false }
+                      publishes_public_report: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
+
   /api/evals/results/schema:
     get:
       tags: [Benchmarks]

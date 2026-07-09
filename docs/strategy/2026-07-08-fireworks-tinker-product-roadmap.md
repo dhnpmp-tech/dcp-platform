@@ -340,6 +340,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     result route owner-scoped while returning only a disabled contract with no
     manifest, artifact key, signed URL, billing, report, ranking, or quality
     claim exposure.
+  - PR #865 adds `GET /api/evals/results/downloads/readiness` and
+    `npm run proof:evaluator-signed-download-policy`; it defines owner access,
+    artifact policy, checksum, content type, and 60-900 second expiry
+    requirements while signed URLs, object-store keys, live result endpoints,
+    billing, reports, rankings, and quality claims remain disabled.
 
 Acceptance:
 
