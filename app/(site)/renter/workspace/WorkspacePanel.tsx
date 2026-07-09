@@ -121,7 +121,6 @@ export default function WorkspacePanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
   const initializedFolderFirstGroupsRef = useRef(false)
-  const autoOpenedCompactIndexRef = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
   const visibleFileGroups = useMemo(() => {
@@ -150,15 +149,15 @@ export default function WorkspacePanel({
   )
   const isLargeWorkspaceManifest = files.length > LARGE_WORKSPACE_FILE_THRESHOLD || fileGroups.length > LARGE_WORKSPACE_GROUP_THRESHOLD
   const shouldUseFolderFirstManifest = context === 'pod-launch' || isLargeWorkspaceManifest
-  const shouldAutoOpenCompactTree = context === 'pod-launch' && isLargeWorkspaceManifest
+  const isLargePodLaunchWorkspace = context === 'pod-launch' && isLargeWorkspaceManifest
   const compactFileGroups = useMemo(() => {
-    if (!shouldAutoOpenCompactTree) return fileGroups
+    if (!isLargePodLaunchWorkspace) return fileGroups
     return [...fileGroups].sort((a, b) => {
       if (a.id === '__root__') return 1
       if (b.id === '__root__') return -1
       return b.files.length - a.files.length || b.totalBytes - a.totalBytes || a.label.localeCompare(b.label)
     })
-  }, [fileGroups, shouldAutoOpenCompactTree])
+  }, [fileGroups, isLargePodLaunchWorkspace])
   const uploadBusy = upload.state.status !== 'idle' &&
     upload.state.status !== 'completed' &&
     upload.state.status !== 'aborted'
@@ -251,14 +250,6 @@ export default function WorkspacePanel({
     }
     initializedFolderFirstGroupsRef.current = true
   }, [fileGroups, filesState, shouldUseFolderFirstManifest])
-
-  // Large workspaces should reveal a folder tree, not a long manifest. The tree
-  // is compact and searchable; the actual file rows stay closed until requested.
-  useEffect(() => {
-    if (!showCompactStage || !shouldAutoOpenCompactTree || autoOpenedCompactIndexRef.current) return
-    setCompactFolderIndexOpen(true)
-    autoOpenedCompactIndexRef.current = true
-  }, [showCompactStage, shouldAutoOpenCompactTree])
 
   // ── rent a volume ───────────────────────────────────────────────────────────
   async function handleRent() {
@@ -405,8 +396,8 @@ export default function WorkspacePanel({
         <div className="ws-stage-compact" aria-label={lang === 'ar' ? 'ملخص المرحلة 1' : 'Stage 1 workspace summary'}>
           <div className="ws-stage-compact-main">
             <span className="ws-stage-compact-k">
-              {shouldAutoOpenCompactTree
-                ? <Bi en="Stage 1 file tree" ar="شجرة ملفات المرحلة 1" />
+              {isLargePodLaunchWorkspace
+                ? <Bi en="Stage 1 folder summary" ar="ملخص مجلدات المرحلة 1" />
                 : <Bi en="Stage 1 ready" ar="المرحلة 1 جاهزة" />}
             </span>
             <strong>
@@ -418,14 +409,14 @@ export default function WorkspacePanel({
               <Bi en="groups" ar="مجموعات" />
             </span>
             <span className="ws-stage-tree-status">
-              {shouldAutoOpenCompactTree
-                ? <Bi en="Large workspace: folder tree opens first; full manifest stays collapsed." ar="مساحة عمل كبيرة: تظهر شجرة المجلدات أولاً ويبقى البيان الكامل مطوياً." />
+              {isLargePodLaunchWorkspace
+                ? <Bi en="Large workspace: folder index stays collapsed until you open it." ar="مساحة عمل كبيرة: يبقى فهرس المجلدات مطوياً حتى تفتحه." />
                 : <Bi en="Compact checkpoint; open folders only when needed." ar="نقطة تحقق مختصرة؛ افتح المجلدات عند الحاجة فقط." />}
             </span>
             {nextStageHref && (
               <span className="ws-stage-skip-note">
                 <Bi
-                  en="No need to scroll every file. Stage 2 launches with the whole /workspace volume attached."
+                  en="No need to scroll every file. Open the folder index only if you need to inspect; Stage 2 launches with the whole /workspace volume attached."
                   ar="لا تحتاج للمرور على كل ملف. المرحلة 2 تشغّل الحاوية مع وحدة /workspace كاملة."
                 />
               </span>

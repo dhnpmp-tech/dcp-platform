@@ -238,6 +238,9 @@ Acceptance:
     provider-host acceptance, blocked workspace live proof, trial-credit
     routing, paid-credit high-demand gates, and false-claim guards before
     logging in.
+  - PR #923 keeps large `/renter/pods` workspaces summary-first by default:
+    the searchable folder index opens only when requested, while the Stage 2
+    shortcut remains visible for the actual GPU launch decision.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.

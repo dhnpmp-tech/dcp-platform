@@ -350,20 +350,23 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(fastPath).toContainText('Skip file-by-file review when the folder summary looks right.');
   await expect(fastPath).toContainText('No trial-account tag live');
   await expect(fastPath.getByRole('link', { name: /Go straight to Stage 2/ })).toBeVisible();
-  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 file tree');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 folder summary');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('datasets/');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('1.95 KiB');
-  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Large workspace: folder tree opens first');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Large workspace: folder index stays collapsed until you open it');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('No need to scroll every file');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Open the folder index only if you need to inspect');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 2 launches with the whole /workspace volume attached');
-  await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Hide folders' })).toBeVisible();
+  await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Manage files' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Continue to Stage 2' })).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeHidden();
   await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
+  await expect(page.getByLabel('Stage 1 folder index')).toBeHidden();
 
+  await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' }).click();
   await expect(page.getByLabel('Stage 1 folder index')).toContainText('Folder tree, not a file wall');
   await expect(page.getByLabel('Stage 1 folder index')).toContainText('Open one folder, search by file name, or continue to Stage 2 with the manifest closed.');
   await expect(page.getByLabel('Stage 1 folder index').getByRole('link', { name: 'Go to Stage 2' })).toBeVisible();

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 22:25 UTC - `feat(pods): keep Stage 1 folder index on demand - PR #923`
+
+**PR:** [#923](https://github.com/dhnpmp-tech/dcp-platform/pull/923) (`codex/pods-stage1-folder-index-on-demand-2026-07-10`).
+**Local timestamp:** 2026-07-10 02:25 +04.
+
+**What:** Tareq workspace/pods UX follow-up. Tightens the Stage 1 large-workspace path so renters are not dropped into a folder index before reaching the actual Stage 2 GPU decision.
+
+- **Stage 1 collapse:** Large pod-launch workspaces now show a compact folder summary by default, with the searchable folder index staying collapsed until the renter opens it.
+- **Stage 2 path:** The Stage 1 summary keeps the direct "Continue to Stage 2" action visible, repeats that the full `/workspace` volume attaches at launch, and tells users to open the folder index only when they need to inspect.
+- **Regression:** Updated the focused `/renter/pods` Playwright regression to prove the folder index is hidden by default, opens via "Browse folders", and still supports folder search and the Stage 2 shortcut.
+- **Safety:** Frontend-only UX behavior change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 22:11 UTC - `feat(pods): publish public readiness gates - PR #922`
 
 **PR:** #922 (`codex/public-pods-readiness-2026-07-10`).

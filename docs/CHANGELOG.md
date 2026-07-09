@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 22:25 UTC - Pod Stage 1 folder index on demand (PR #923)
+
+- **PR:** [#923](https://github.com/dhnpmp-tech/dcp-platform/pull/923) (`codex/pods-stage1-folder-index-on-demand-2026-07-10`).
+- **Timestamp:** 2026-07-09 22:25 UTC / 2026-07-10 02:25 +04.
+- **Stage 1 collapse:** Large `/renter/pods` workspaces now show a compact folder summary by default while keeping the searchable folder index closed until the renter chooses "Browse folders".
+- **Stage 2 path:** The summary keeps "Continue to Stage 2" visible and states that Stage 2 launches with the whole `/workspace` volume attached, so renters can skip file-by-file inspection when the folder summary looks right.
+- **Regression:** Updated focused `/renter/pods` Playwright coverage for hidden-by-default folder index, explicit "Browse folders" expansion, folder search, and the Stage 2 shortcut.
+- **Safety:** Frontend-only UX behavior change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 22:11 UTC - Public Pods readiness gates (PR #922)
 
 - **PR:** #922 (`codex/public-pods-readiness-2026-07-10`).
