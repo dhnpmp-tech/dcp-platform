@@ -795,6 +795,10 @@ template launch.
   harder to miss: Stage labels are consistently "of 3", the stage rail remains
   visible on desktop, and the GPU browser starts with the auto-pick/fixed-GPU
   request payload before users touch templates, VRAM chips, search, or sort.
+- PR #923 keeps the same launch/workspace semantics but makes Stage 1 lighter
+  for large workspaces: the compact folder summary stays visible, the searchable
+  folder index opens only on demand, and the direct Stage 2 path remains the
+  primary route to the actual GPU decision.
 
 ### Now
 
