@@ -60,6 +60,11 @@ what is live.
 - PR #792 added `/dedicated-deployments` as the public endpoint/adapters
   deployment product page, wired Deployments into shared product IA, and kept
   route traffic gated by matching serving load proof.
+- PR #901 makes `/dedicated-deployments` consume the adapter artifact,
+  endpoint-smoke, usage-attribution, settlement, founder-approval, and billing
+  readiness packets directly, showing contracts-live count, traffic blockers,
+  billing blockers, contract mode/version, and strict vLLM load-proof next
+  action without enabling adapter traffic.
 - PR #793 added the new public product routes to `sitemap.xml` and retargeted
   the pricing GPU Pods CTA to `/pods`.
 - PR #794 updated `llms.txt` so agents and answer engines see the current

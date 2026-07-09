@@ -520,6 +520,11 @@ Goal: ship the first real train-here/deploy-here loop.
     OpenAPI, and the public/renter Fine-Tuning surfaces so the lifecycle proof
     is visible before any vLLM load, route traffic, usage/billing, or GPU-host
     execution claim.
+  - PR #901 makes the public `/dedicated-deployments` page consume the adapter
+    artifact, endpoint-smoke, usage-attribution, settlement, founder-approval,
+    and billing readiness packets directly, showing contract mode/version,
+    traffic blockers, billing blockers, and the strict vLLM load-proof next
+    action before any route-traffic or billing claim.
   - PR #867 tightened the load-proof gate so route traffic also requires the
     deployment id, mode, endpoint id, and adapter artifact checksum to match the
     deployment row and registered adapter.
@@ -613,6 +618,8 @@ Goal: make the product easy to understand and sell.
   - `/dedicated-deployments`
     **Added in PR #792 with deployment-intent/load-proof gates and no
     route-traffic overclaim.**
+    **PR #901 wires the page to the live adapter readiness packets so public
+    deployment copy comes from the same proof contracts as the backend gates.**
   - `/benchmarks`
     **Started in PR #852 with a readiness rail tied to
     `GET /api/models/benchmarks/readiness`; public quality claims, case studies,
