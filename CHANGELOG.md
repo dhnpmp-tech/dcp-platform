@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 19:14 UTC - `feat(pods): clarify workspace skip path and launch GPU request - PR #911`
+
+**PR:** [#911](https://github.com/dhnpmp-tech/dcp-platform/pull/911) (`codex/pods-stage2-request-preview-2026-07-09`).
+**Local timestamp:** 2026-07-09 23:14 +04.
+
+**What:** Tareq workspace/pods follow-up. Makes it clearer that large Stage 1 workspaces do not need file-by-file review before Stage 2, and makes the exact launch GPU request visible beside the Stage 2 controls.
+
+- **Workspace skip path:** The embedded `/renter/pods` workspace checkpoint now states that users do not need to scroll every staged file because Stage 2 launches with the whole `/workspace` volume attached.
+- **Folder organization:** Large-workspace compact chips now prioritize the busiest/largest folders first, keeping the scan path useful when many folders are staged.
+- **GPU request preview:** Stage 2 now shows a "What DCP will send" preview: `gpu_type` is omitted for auto-pick and names the pinned GPU when a card is selected.
+- **Selection strip clarity:** The actual launch GPU strip repeats the request preview so users can see whether the final launch request is auto-pick or fixed GPU without reading the full card grid.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the skip-file-review cue and the auto-pick/fixed-GPU launch request preview.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 18:54 UTC - `feat(admin): surface live acceptance gates in v2 admin - PR #910`
 
 **PR:** [#910](https://github.com/dhnpmp-tech/dcp-platform/pull/910) (`codex/live-acceptance-admin-panel-2026-07-09`).
