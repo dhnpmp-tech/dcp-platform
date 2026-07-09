@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### 2026-07-09 00:05 UTC - Adapter vLLM live load proof runner (PR #842)
+### 2026-07-09 00:13 UTC - Adapter vLLM live load proof runner (PR #842)
 
 - **PR:** [#842](https://github.com/dhnpmp-tech/dcp-platform/pull/842) (`codex/adapter-vllm-live-load-proof-runner-2026-07-09`).
 - **Live proof command:** Added `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`.
