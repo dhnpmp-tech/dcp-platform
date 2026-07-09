@@ -73,6 +73,12 @@ curl -s https://api.dcp.sa/api/adapters/adpt_support_arabic/deployments \\
 
 curl -s https://api.dcp.sa/api/adapters/endpoints/smoke/readiness
 
+curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/endpoint-smoke \\
+  -X POST \\
+  -H "Authorization: Bearer $DCP_RENTER_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"funded_smoke_principal":true,"smoke_result":{"request_id":"req_smoke_001"}}'
+
 curl -s https://api.dcp.sa/api/adapters/usage/attribution/readiness
 
 curl -s https://api.dcp.sa/api/adapters/billing/readiness`
@@ -156,7 +162,7 @@ export default function DedicatedDeploymentsProductPage() {
               </h2>
               <p>
                 <Bi
-                  en="The deployed endpoint becomes real only when the backend receives matching load proof from the serving layer for the deployment id, adapter id, base model, mode, endpoint id, and checksum. Endpoint smoke then has to prove a funded deterministic request, response hash, latency, token totals, and adapter trace. Until then, deployment rows are planning and audit records, not public route promises."
+                  en="The deployed endpoint becomes real only when the backend receives matching load proof from the serving layer for the deployment id, adapter id, base model, mode, endpoint id, and checksum. Endpoint smoke then has to prove a funded deterministic request, response hash, latency, token totals, and adapter trace. The POST route is live only as a disabled validation contract that returns 409 and records nothing. Until then, deployment rows are planning and audit records, not public route promises."
                   ar="تصبح نقطة النهاية المنشورة حقيقية فقط عندما تستقبل الخلفية إثبات تحميل مطابقاً من طبقة الخدمة. حتى ذلك الحين، صفوف النشر سجلات تخطيط وتدقيق، وليست وعود توجيه عامة."
                 />
               </p>

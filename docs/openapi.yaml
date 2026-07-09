@@ -2308,6 +2308,7 @@ paths:
                     additionalProperties: true
                     properties:
                       readiness_available: { type: boolean, example: true }
+                      disabled_submission_endpoint_available: { type: boolean, example: true }
                       endpoint_smoke_recording_enabled: { type: boolean, example: false }
                       adapter_endpoint_routing_enabled: { type: boolean, example: false }
                       adapter_billing_enabled: { type: boolean, example: false }
@@ -2329,6 +2330,7 @@ paths:
                     additionalProperties: false
                     properties:
                       readiness_contract_live: { type: boolean, example: true }
+                      disabled_submission_endpoint_live: { type: boolean, example: true }
                       endpoint_smoke_recording_enabled: { type: boolean, example: false }
                       dispatches_inference: { type: boolean, example: false }
                       records_smoke_result: { type: boolean, example: false }
@@ -2793,6 +2795,128 @@ paths:
                 type: object
                 properties:
                   deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+        '404':
+          description: Deployment not found for this renter and adapter.
+
+  /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke:
+    post:
+      tags: [Adapters]
+      summary: Submit disabled adapter endpoint smoke evidence
+      description: |
+        Renter-scoped disabled contract for future deterministic endpoint smoke
+        evidence. The route validates ownership and the future `smoke_result`
+        envelope, evaluates strict load proof, funded principal, request
+        attribution, response hash, latency, token totals, and adapter trace,
+        then returns HTTP 409 while smoke recording remains disabled. It does
+        not dispatch inference, record smoke results, attach load proof, route
+        traffic, write usage rows, mutate balances, create invoices, settle
+        payouts, expose raw prompts/responses, enable adapter billing, or claim
+        Tinker compatibility.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: deployment_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [smoke_result]
+              properties:
+                funded_smoke_principal:
+                  type: boolean
+                  example: true
+                smoke_result:
+                  type: object
+                  required: [renter_id, deployment_id, adapter_id, endpoint_id, base_model, artifact_checksum_sha256, provider_id, request_id, status_code, latency_ms, response_checksum_sha256, prompt_tokens, completion_tokens, total_tokens, finish_reason, adapter_trace]
+                  properties:
+                    renter_id: { type: integer, example: 42 }
+                    deployment_id: { type: string, example: adpl_8f4c2b9a18e34d220f7a9b12 }
+                    adapter_id: { type: string, example: adpt_8f4c2b9a18e34d220f7a9b12 }
+                    endpoint_id: { type: string, example: arabic-support-prod }
+                    base_model: { type: string, example: meta-llama/Llama-3.1-8B-Instruct }
+                    artifact_checksum_sha256:
+                      type: string
+                      pattern: '^[a-f0-9]{64}$'
+                      example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    provider_id: { type: string, example: provider-12 }
+                    request_id: { type: string, example: req_endpoint_smoke_001 }
+                    status_code: { type: integer, minimum: 100, maximum: 599, example: 200 }
+                    latency_ms: { type: integer, minimum: 0, maximum: 60000, example: 875 }
+                    response_checksum_sha256:
+                      type: string
+                      pattern: '^[a-f0-9]{64}$'
+                      example: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                    prompt_tokens: { type: integer, minimum: 0, example: 28 }
+                    completion_tokens: { type: integer, minimum: 0, example: 12 }
+                    total_tokens: { type: integer, minimum: 0, example: 40 }
+                    finish_reason: { type: string, example: stop }
+                    adapter_trace:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        routed_through_adapter: { type: boolean, example: true }
+                        deployment_id: { type: string, example: adpl_8f4c2b9a18e34d220f7a9b12 }
+                        adapter_id: { type: string, example: adpt_8f4c2b9a18e34d220f7a9b12 }
+                        endpoint_id: { type: string, example: arabic-support-prod }
+                        artifact_checksum_sha256:
+                          type: string
+                          pattern: '^[a-f0-9]{64}$'
+      responses:
+        '409':
+          description: Endpoint smoke recording is disabled; no smoke evidence was recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, endpoint_smoke_submission_live, endpoint_smoke_recording_enabled, recorded, denial_code, evaluation, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_endpoint_smoke_submission_disabled]
+                  version:
+                    type: string
+                    example: dcp.adapter_endpoint_smoke_submission_disabled.v1
+                  endpoint_smoke_submission_live: { type: boolean, example: false }
+                  endpoint_smoke_recording_enabled: { type: boolean, example: false }
+                  recorded: { type: boolean, example: false }
+                  would_record_if_enabled: { type: boolean, example: true }
+                  denial_code:
+                    type: string
+                    example: adapter_endpoint_smoke_disabled
+                  evaluation:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      renter_auth_required: { type: boolean, example: true }
+                      renter_owner_scope_enforced: { type: boolean, example: true }
+                      disabled_submission_endpoint_live: { type: boolean, example: true }
+                      endpoint_smoke_submission_live: { type: boolean, example: false }
+                      records_smoke_result: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      records_usage_event: { type: boolean, example: false }
+                      mutates_balance: { type: boolean, example: false }
+                      creates_invoice: { type: boolean, example: false }
+                      settles_provider_payout: { type: boolean, example: false }
+                      exposes_raw_prompt: { type: boolean, example: false }
+                      exposes_raw_response: { type: boolean, example: false }
+                      enables_adapter_billing: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
+        '400':
+          description: smoke_result object is missing or malformed.
+        '401':
+          description: Renter API key required.
         '404':
           description: Deployment not found for this renter and adapter.
 

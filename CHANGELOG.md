@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 08:12 UTC - `test(lora): add disabled endpoint smoke submission proof - PR #871`
+
+**PR:** [#871](https://github.com/dhnpmp-tech/dcp-platform/pull/871) (`codex/adapter-endpoint-smoke-submission-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 12:12 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds the disabled renter-scoped endpoint-smoke POST contract needed before live smoke recording can be safely enabled.
+
+- **Backend contract:** Added disabled `POST /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke`, returning a 409 no-record contract that evaluates strict load proof, funded principal, request attribution, response hash, latency, token totals, and adapter trace.
+- **Proof command:** Added `npm run proof:adapter-endpoint-smoke-submission` and included it in `npm run proof:local-roadmap`, raising the suite to 28 CI-safe gates.
+- **Public surface:** OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs now describe the disabled endpoint-smoke submission route.
+- **Safety:** Disabled contract only; no adapter dispatch, smoke recording, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, raw prompt/response exposure, adapter billing, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted endpoint-smoke submission/readiness/deployment Jest suites; endpoint-smoke submission proof; endpoint-smoke readiness proof; local roadmap proof now passing 28/28 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 07:57 UTC - `test(lora): add adapter endpoint smoke readiness proof - PR #870`
 
 **PR:** [#870](https://github.com/dhnpmp-tech/dcp-platform/pull/870) (`codex/adapter-endpoint-smoke-readiness-2026-07-09`).
