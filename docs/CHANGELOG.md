@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 03:35 UTC - Evaluator worker gate contract (PR #858)
+
+- **PR:** [#858](https://github.com/dhnpmp-tech/dcp-platform/pull/858) (`codex/evaluator-worker-gate-contract-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/worker/readiness`, a disabled-by-default evaluator worker gate for queue dispatch, worker execution, result writing, billing hooks, and report/ranking/quality-claim guards.
+- **Proof:** Added `npm run proof:evaluator-worker-gate-contract` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 16 CI-safe gates.
+- **Docs/contracts:** Linked evaluator readiness/schema, `/benchmarks`, `llms.txt`, OpenAPI, and roadmaps to the worker gate so metadata job records cannot be confused with executable eval jobs.
+- **Safety:** Worker gate only; no evaluator job status mutation, queue dispatch, worker start, result manifest write, raw dataset storage, billing, settlement, public report, ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator worker-gate/metadata/readiness/schema Jest suites; evaluator worker-gate proof; evaluator metadata proof; evaluator schema proof; evaluator readiness proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 16/16 gates; `git diff --check`.
+
 ### 2026-07-09 03:15 UTC - Evaluator metadata job records (PR #857)
 
 - **PR:** [#857](https://github.com/dhnpmp-tech/dcp-platform/pull/857) (`codex/evaluator-job-metadata-records-2026-07-09`).

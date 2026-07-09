@@ -3882,12 +3882,74 @@ paths:
                     properties:
                       eval_jobs_live: { type: boolean, example: false }
                       eval_job_metadata_api_live: { type: boolean, example: true }
+                      eval_worker_live: { type: boolean, example: false }
                       arabic_quality_claim_allowed: { type: boolean, example: false }
                       customer_case_study_allowed: { type: boolean, example: false }
                       model_ranking_allowed: { type: boolean, example: false }
                       frontier_model_comparison_allowed: { type: boolean, example: false }
                       raw_customer_dataset_published: { type: boolean, example: false }
                       bills_eval_jobs: { type: boolean, example: false }
+
+  /api/evals/worker/readiness:
+    get:
+      tags: [Benchmarks]
+      summary: Get evaluator worker readiness and disabled-by-default gates
+      description: |
+        Returns a public, read-only worker gate for evaluator jobs. Metadata job
+        records may exist, but queue dispatch, worker execution, result writing,
+        billing hooks, reports, rankings, and Arabic-quality claims remain
+        disabled until future worker, result-manifest, artifact, and billing
+        proofs pass.
+      responses:
+        '200':
+          description: Evaluator worker gate contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, worker, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_worker_gate]
+                  version:
+                    type: string
+                    example: dcp.evaluator_worker_gate.v1
+                  current_mode:
+                    type: string
+                    enum: [worker_disabled_by_default]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  worker:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      enabled: { type: boolean, example: false }
+                      queue_dispatch_enabled: { type: boolean, example: false }
+                      result_writer_enabled: { type: boolean, example: false }
+                      billing_hook_enabled: { type: boolean, example: false }
+                  job_status_policy:
+                    type: object
+                    additionalProperties: true
+                  result_policy:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      mutates_eval_job_status: { type: boolean, example: false }
+                      queues_eval_job: { type: boolean, example: false }
+                      starts_worker: { type: boolean, example: false }
+                      writes_result_manifest: { type: boolean, example: false }
+                      stores_raw_customer_dataset: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
+                      settles_eval_jobs: { type: boolean, example: false }
+                      publishes_public_report: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
 
   /api/evals/jobs/schema:
     get:

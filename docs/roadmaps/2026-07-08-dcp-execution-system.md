@@ -162,6 +162,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Evaluator readiness contract | `npm run proof:evaluator-readiness-contract` | none | CI-safe gate available; metadata create/list/read is live, but workers, result artifacts, public reports, rankings, and billing remain blocked |
 | Evaluator job schema contract | `npm run proof:evaluator-job-schema-contract` | none | CI-safe gate available; schema/readiness plus metadata endpoint guards, no worker, billing, report, ranking, or quality-claim mutation |
 | Evaluator metadata job contract | `npm run proof:evaluator-job-metadata-contract` | none | CI-safe gate available; renter-scoped draft metadata records only, no dataset storage, worker, result artifact, billing, report, ranking, or quality-claim mutation |
+| Evaluator worker gate contract | `npm run proof:evaluator-worker-gate-contract` | none | CI-safe gate available; worker, queue dispatch, result writer, billing hook, reports, rankings, and quality claims remain disabled |
 | Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
@@ -249,6 +250,11 @@ before or with the feature change.
      proof:evaluator-job-metadata-contract`; records are draft metadata only
      and still do not run workers, store datasets, produce results, mutate
      billing, publish reports, rank models, or permit quality claims.
+   - Evaluator worker gate starts in PR #858 with
+     `GET /api/evals/worker/readiness` and `npm run
+     proof:evaluator-worker-gate-contract`; queue dispatch, worker execution,
+     result writing, billing hooks, reports, rankings, and quality claims
+     remain disabled until result-manifest and worker dry-run proof lands.
    - Minimum-balance policy starts in PR #855 with
      `GET /api/renters/me/minimum-balances` and `npm run
      proof:minimum-balance-readiness`; payment/workload/enforcement mutation
