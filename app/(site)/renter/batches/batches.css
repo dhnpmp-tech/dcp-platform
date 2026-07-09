@@ -82,6 +82,46 @@ body {
   overflow-wrap: anywhere;
 }
 
+.bt-credit-preflight {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 32%, var(--hair));
+  border-top: 0;
+  background: color-mix(in oklab, var(--rt-accent) 5%, var(--paper));
+}
+
+.bt-credit-preflight div {
+  min-width: 0;
+  min-height: 82px;
+  padding: 13px 14px 12px;
+  border-inline-end: 1px solid color-mix(in oklab, var(--rt-accent) 24%, var(--hair));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bt-credit-preflight div:last-child {
+  border-inline-end: 0;
+}
+
+.bt-credit-preflight span {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.bt-credit-preflight b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .bt-supported {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
@@ -466,12 +506,24 @@ body {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .bt-credit-preflight {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .bt-readiness-grid div:nth-child(3n) {
+    border-inline-end: 0;
+  }
+
+  .bt-credit-preflight div:nth-child(3n) {
     border-inline-end: 0;
   }
 
   .bt-readiness-grid div:nth-child(-n + 3) {
     border-bottom: 1px solid var(--hair);
+  }
+
+  .bt-credit-preflight div:nth-child(-n + 3) {
+    border-bottom: 1px solid color-mix(in oklab, var(--rt-accent) 24%, var(--hair));
   }
 }
 
@@ -497,12 +549,25 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .bt-credit-preflight {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .bt-readiness-grid div,
   .bt-readiness-grid div:nth-child(3n) {
     border-inline-end: 1px solid var(--hair);
   }
 
+  .bt-credit-preflight div,
+  .bt-credit-preflight div:nth-child(3n) {
+    border-inline-end: 1px solid color-mix(in oklab, var(--rt-accent) 24%, var(--hair));
+  }
+
   .bt-readiness-grid div:nth-child(2n) {
+    border-inline-end: 0;
+  }
+
+  .bt-credit-preflight div:nth-child(2n) {
     border-inline-end: 0;
   }
 
@@ -510,8 +575,16 @@ body {
     border-bottom: 1px solid var(--hair);
   }
 
+  .bt-credit-preflight div:nth-child(-n + 4) {
+    border-bottom: 1px solid color-mix(in oklab, var(--rt-accent) 24%, var(--hair));
+  }
+
   .bt-readiness-grid div:nth-child(5),
   .bt-readiness-grid div:nth-child(6) {
+    border-bottom: 0;
+  }
+
+  .bt-credit-preflight div:nth-child(5) {
     border-bottom: 0;
   }
 

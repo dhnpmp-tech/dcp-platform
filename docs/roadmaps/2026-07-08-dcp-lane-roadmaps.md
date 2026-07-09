@@ -74,6 +74,10 @@ what is live.
 - PR #777 wired `/renter/batches` to `GET /api/batches/readiness`, adding a
   compact readiness rail for mode, contract version, create/execution/download,
   settlement, discount, window, and supported-URL gates.
+- PR #898 adds `GET /api/renters/me/minimum-balances` to `/renter/batches`,
+  showing minimum-balance sync state, batch settlement status, paid available
+  SAR, v1 monthly cap remaining, and blocked billing rails before the batch
+  live-proof gate.
 - PR #779 wired `/renter/playground` to `GET /v1/router/policies`, showing the
   available balanced default plus future policy gates and sending
   `routing_policy=balanced` only when the backend marks it available.
@@ -466,6 +470,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `GET /api/batches/readiness`, public `/batch`, renter `/renter/batches`,
   OpenAPI, and the batch proof packet while execution, downloads, settlement,
   discounts, and model batch flags remain gated.
+- PR #898 surfaces the account-scoped minimum-balance readiness packet in
+  `/renter/batches`, so batch creation/readiness now sits beside batch
+  settlement status, paid-available credit, v1 monthly-cap remaining, and
+  blocked future billing rails before any execution or discount claim.
 - PR #828 added `npm run proof:lora-training-contract`, a CI-safe proof packet
   for LoRA dataset validation, metadata-only/idempotent training jobs, disabled
   worker behavior, artifact checksum requirements, model-card claim guards, and

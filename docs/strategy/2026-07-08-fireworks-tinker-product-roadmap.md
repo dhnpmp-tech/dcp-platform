@@ -284,6 +284,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `/renter/playground`, making v1 estimate preflight, paid available credit,
     monthly cap remaining, prompt-cache discount status, and blocked future
     billing rails visible before users send live inference traffic.
+  - PR #898 adds the account-scoped minimum-balance readiness to
+    `/renter/batches`, making batch settlement status, paid available credit,
+    v1 monthly cap remaining, and blocked future billing rails visible before
+    execution or discount claims.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency

@@ -162,6 +162,51 @@ interface BatchReadinessResponse {
   error?: string
 }
 
+interface MinimumBalanceReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  account?: {
+    paid_available_halala?: number
+    paid_available_sar?: number
+    v1_remaining_cap_halala?: number | null
+    v1_remaining_cap_sar?: number | null
+  }
+  rails?: {
+    batch_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    v1_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    prompt_cache_discount?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    lora_training?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    adapter_deployments?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    evaluators?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+  }
+  claim_guards?: {
+    mutates_balance?: boolean
+    dispatches_inference?: boolean
+    creates_batch?: boolean
+    enables_discount?: boolean
+    changes_enforcement?: boolean
+  }
+}
+
 const SAMPLE_JSONL = [
   JSON.stringify({
     custom_id: 'support-001',
@@ -198,6 +243,15 @@ function formatDate(value: string | null | undefined): string {
 function formatNumber(value: number | null | undefined): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '0'
   return new Intl.NumberFormat('en-US').format(value)
+}
+
+function formatSar(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '0.00'
+  return value.toFixed(2)
+}
+
+function sarFromHalala(value: number | null | undefined): number {
+  return Number((Number(value || 0) / 100).toFixed(2))
 }
 
 function statusTone(status: string): string {
@@ -241,6 +295,8 @@ export default function RenterBatchesPage() {
   const [renterEmail, setRenterEmail] = useState('')
   const [batches, setBatches] = useState<BatchRecord[]>([])
   const [readiness, setReadiness] = useState<BatchReadiness | null>(null)
+  const [minimumBalance, setMinimumBalance] = useState<MinimumBalanceReadiness | null>(null)
+  const [minimumBalanceStatus, setMinimumBalanceStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [selectedBatchId, setSelectedBatchId] = useState('')
   const [lines, setLines] = useState<BatchLine[]>([])
   const [manifest, setManifest] = useState<ResultManifest | null>(null)
@@ -261,13 +317,19 @@ export default function RenterBatchesPage() {
     let cancelled = false
 
     setLoadState('loading')
+    setMinimumBalanceStatus('loading')
     setError('')
     ;(async () => {
       try {
-        const [me, batchList, readinessData] = await Promise.all([
+        const minimumBalancePromise = readJson<MinimumBalanceReadiness>(
+          `${base}/renters/me/minimum-balances`,
+          headers,
+        ).catch(() => null)
+        const [me, batchList, readinessData, minimumBalanceData] = await Promise.all([
           readJson<RenterMe>(`${base}/renters/me`, headers),
           readJson<BatchListResponse>(`${base}/batches?limit=25`, headers),
           readJson<BatchReadinessResponse>(`${base}/batches/readiness`, headers),
+          minimumBalancePromise,
         ])
         if (cancelled) return
         const renter = me.renter
@@ -276,10 +338,14 @@ export default function RenterBatchesPage() {
         setRenterEmail(renter?.email || '')
         setBatches(nextBatches)
         setReadiness(readinessData.readiness || null)
+        setMinimumBalance(minimumBalanceData?.object === 'minimum_balance_readiness' ? minimumBalanceData : null)
+        setMinimumBalanceStatus(minimumBalanceData?.object === 'minimum_balance_readiness' ? 'ready' : 'error')
         setSelectedBatchId(nextBatches[0]?.batch_id || '')
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
+        setMinimumBalance(null)
+        setMinimumBalanceStatus('error')
         setLoadState('error')
         setError(err instanceof Error ? err.message : 'Batch console could not be loaded.')
       }
@@ -401,6 +467,27 @@ export default function RenterBatchesPage() {
   const discountsEnabled = readiness?.features.discounts.enabled === true
   const readinessMode = readiness?.current_mode || 'metadata_validation_only'
   const batchLiveGate = readiness?.live_acceptance?.execution_discount_smoke || null
+  const batchMinimumRail = minimumBalance?.rails?.batch_inference
+  const paidAvailableSar = typeof minimumBalance?.account?.paid_available_sar === 'number'
+    ? minimumBalance.account.paid_available_sar
+    : sarFromHalala(minimumBalance?.account?.paid_available_halala)
+  const v1RemainingCapSar = typeof minimumBalance?.account?.v1_remaining_cap_sar === 'number'
+    ? minimumBalance.account.v1_remaining_cap_sar
+    : typeof minimumBalance?.account?.v1_remaining_cap_halala === 'number'
+      ? sarFromHalala(minimumBalance.account.v1_remaining_cap_halala)
+      : null
+  const minimumBalanceSynced = minimumBalanceStatus === 'ready'
+    && minimumBalance?.current_mode === 'read_only_policy_contract'
+    && minimumBalance?.claim_guards?.mutates_balance === false
+    && minimumBalance?.claim_guards?.creates_batch === false
+    && minimumBalance?.claim_guards?.changes_enforcement === false
+  const blockedFutureBillingRails = [
+    minimumBalance?.rails?.batch_inference,
+    minimumBalance?.rails?.prompt_cache_discount,
+    minimumBalance?.rails?.lora_training,
+    minimumBalance?.rails?.adapter_deployments,
+    minimumBalance?.rails?.evaluators,
+  ].filter((rail) => rail?.enforcement_live === false).length
   const supportedUrls = readiness?.supported_urls?.length
     ? readiness.supported_urls.join(' · ')
     : '/v1/chat/completions · /v1/complete'
@@ -526,6 +613,28 @@ export default function RenterBatchesPage() {
                   <div>
                     <span><Bi en="Window" ar="المدة" /></span>
                     <b>{completionWindows}</b>
+                  </div>
+                </div>
+                <div className="bt-credit-preflight" aria-label={lang === 'ar' ? 'فحص رصيد الدُفعات' : 'Batch credit preflight'}>
+                  <div>
+                    <span><Bi en="Credit preflight" ar="فحص الرصيد" /></span>
+                    <b>{minimumBalanceSynced ? 'minimum balance synced' : minimumBalanceStatus === 'loading' ? 'checking policy' : 'fallback policy'}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Batch settlement" ar="تسوية الدُفعات" /></span>
+                    <b>{formatMode(batchMinimumRail?.status || 'contract_only')}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
+                    <b>SAR {formatSar(paidAvailableSar)}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="v1 cap remaining" ar="المتبقي من حد v1" /></span>
+                    <b>{typeof v1RemainingCapSar === 'number' ? `SAR ${formatSar(v1RemainingCapSar)}` : 'unlimited'}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Blocked billing rails" ar="مسارات فوترة مقيدة" /></span>
+                    <b>{blockedFutureBillingRails}</b>
                   </div>
                 </div>
                 {batchLiveGate && (
