@@ -93,6 +93,8 @@ curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/e
 
 curl -s https://api.dcp.sa/api/adapters/usage/attribution/readiness
 
+curl -s https://api.dcp.sa/api/adapters/settlement/readiness
+
 curl -s https://api.dcp.sa/api/adapters/billing/readiness
 
 curl -s "https://api.dcp.sa/api/adapters/deployments?limit=25" \\
@@ -188,7 +190,7 @@ export default function FineTuningProductPage() {
               <ul className="pshow-list">
                 <li><Bi en="No public Tinker compatibility claim; low-level loop primitives are contract-only until GPU proof exists." ar="لا ادعاء توافق عام مع Tinker؛ بدائيات الحلقة منخفضة المستوى عقد فقط حتى يوجد إثبات GPU." /></li>
                 <li><Bi en="No adapter route traffic until vLLM load proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum." ar="لا حركة لمحولات النشر حتى يطابق إثبات تحميل vLLM معرف النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
-                <li><Bi en="The endpoint-smoke GET returns renter-scoped no-record status, and the POST exists only as a disabled validation contract; it returns 409 and records nothing until response hash, latency, token totals, adapter trace, funded principal, usage attribution, and settlement policy pass." ar="تعيد طريقة GET لحالة دخان النقطة حالة بلا تسجيل حسب المستأجر، وتبقى طريقة POST عقد تحقق معطلا يعيد 409 ولا يسجل شيئا حتى اعتماد دليل الاستجابة والرصيد ونسب الاستخدام وسياسة التسوية." /></li>
+                <li><Bi en="The endpoint-smoke GET returns renter-scoped no-record status, and the POST exists only as a disabled validation contract; it returns 409 and records nothing until response hash, latency, token totals, adapter trace, funded principal, usage attribution, settlement policy, and founder approval pass." ar="تعيد طريقة GET لحالة دخان النقطة حالة بلا تسجيل حسب المستأجر، وتبقى طريقة POST عقد تحقق معطلا يعيد 409 ولا يسجل شيئا حتى اعتماد دليل الاستجابة والرصيد ونسب الاستخدام وسياسة التسوية وموافقة المؤسسين." /></li>
                 <li><Bi en="No quality claims until reproducible benchmark artifacts exist." ar="لا ادعاءات جودة حتى توجد آثار قياس قابلة للتكرار." /></li>
               </ul>
             </div>

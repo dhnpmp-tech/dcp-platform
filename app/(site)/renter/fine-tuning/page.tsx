@@ -355,6 +355,15 @@ const API_SNIPPETS = [
     command: 'curl -s https://api.dcp.sa/api/adapters/usage/attribution/readiness',
   },
   {
+    id: 'adapter-settlement',
+    titleEn: 'Check settlement gate',
+    titleAr: 'فحص بوابة التسوية',
+    meta: 'GET /api/adapters/settlement/readiness',
+    noteEn: 'Public read-only settlement policy; provider payouts, platform splits, invoices, balance mutations, and adapter billing remain disabled.',
+    noteAr: 'سياسة تسوية عامة للقراءة فقط؛ تبقى مدفوعات المزود ونسب المنصة والفواتير وتغييرات الرصيد وفوترة المحولات معطلة.',
+    command: 'curl -s https://api.dcp.sa/api/adapters/settlement/readiness',
+  },
+  {
     id: 'adapter-billing',
     titleEn: 'Check billing gate',
     titleAr: 'فحص بوابة الفوترة',

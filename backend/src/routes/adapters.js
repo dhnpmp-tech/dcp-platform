@@ -14,6 +14,7 @@ const {
   buildAdapterEndpointSmokeReadiness,
   buildAdapterEndpointSmokeStatusDisabledResponse,
 } = require('../services/adapterEndpointSmokeReadiness');
+const { buildAdapterSettlementReadiness } = require('../services/adapterSettlementReadiness');
 const { buildAdapterUsageAttributionReadiness } = require('../services/adapterUsageAttributionReadiness');
 const {
   AdapterDeploymentError,
@@ -94,6 +95,18 @@ function createAdaptersRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch adapter billing readiness',
         code: 'adapter_billing_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/settlement/readiness', (_req, res) => {
+    try {
+      return res.json(buildAdapterSettlementReadiness(new Date()));
+    } catch (error) {
+      console.error('[adapters] settlement readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch adapter settlement readiness',
+        code: 'adapter_settlement_readiness_internal_error',
       });
     }
   });

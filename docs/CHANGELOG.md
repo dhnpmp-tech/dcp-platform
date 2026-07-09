@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 08:48 UTC - Adapter settlement readiness proof (PR #873)
+
+- **PR:** [#873](https://github.com/dhnpmp-tech/dcp-platform/pull/873) (`codex/adapter-settlement-readiness-policy-2026-07-09`).
+- **Backend:** Added public `GET /api/adapters/settlement/readiness` plus a pure adapter settlement evaluator for strict load proof, endpoint smoke, adapter usage attribution, minimum-balance policy, split-policy approval, founder approval, and provider/platform share reconciliation.
+- **Proof:** Added `npm run proof:adapter-settlement-readiness` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 30 CI-safe gates.
+- **Docs/contracts:** Updated adapter billing readiness, OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs with the settlement gate.
+- **Safety:** Readiness/policy only; no adapter dispatch, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, platform revenue split, minimum-balance enforcement change, adapter billing, raw prompt/response exposure, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted adapter settlement/billing/usage/endpoint-smoke Jest suites; adapter settlement proof; adapter billing readiness proof; local roadmap proof now passing 30/30 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 08:32 UTC - Disabled endpoint smoke status proof (PR #872)
 
 - **PR:** [#872](https://github.com/dhnpmp-tech/dcp-platform/pull/872) (`codex/adapter-endpoint-smoke-status-contract-2026-07-09`).

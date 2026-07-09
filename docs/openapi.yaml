@@ -2412,6 +2412,82 @@ paths:
                       enables_adapter_billing: { type: boolean, example: false }
                       claims_tinker_compatibility: { type: boolean, example: false }
 
+  /api/adapters/settlement/readiness:
+    get:
+      tags: [Adapters]
+      summary: Get adapter settlement readiness
+      description: |
+        Returns a public, read-only policy contract for future provider/platform
+        settlement on billed adapter endpoint traffic. It defines strict
+        load-proof, endpoint-smoke, adapter usage-attribution,
+        minimum-balance, split-policy, and founder-approval prerequisites while
+        settlement mutations, provider payouts, invoices, balance changes,
+        route changes, raw prompt/response exposure, and Tinker compatibility
+        remain disabled.
+      responses:
+        '200':
+          description: Adapter settlement readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_settlement_readiness]
+                  version:
+                    type: string
+                    example: dcp.adapter_settlement_readiness.v1
+                  current_mode:
+                    type: string
+                    enum: [settlement_policy_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      readiness_available: { type: boolean, example: true }
+                      adapter_settlement_enabled: { type: boolean, example: false }
+                      provider_payouts_enabled: { type: boolean, example: false }
+                      platform_revenue_split_enabled: { type: boolean, example: false }
+                      settlement_mutations_enabled: { type: boolean, example: false }
+                      required_before_settlement:
+                        type: array
+                        items: { type: string }
+                        example: [strict_load_proof_match, endpoint_smoke_passed, usage_ledger_adapter_attribution, minimum_balance_policy_approved, settlement_split_policy_approved, founder_settlement_approval]
+                      required_settlement_fields:
+                        type: array
+                        items: { type: string }
+                        example: [renter_id, deployment_id, adapter_id, endpoint_id, base_model, artifact_checksum_sha256, provider_id, request_id, renter_api_key_id, renter_key_type, prompt_tokens, completion_tokens, total_tokens, cost_halala, provider_share_halala, platform_share_halala, settlement_status]
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      readiness_contract_live: { type: boolean, example: true }
+                      adapter_settlement_enabled: { type: boolean, example: false }
+                      provider_payouts_enabled: { type: boolean, example: false }
+                      platform_revenue_split_enabled: { type: boolean, example: false }
+                      dispatches_inference: { type: boolean, example: false }
+                      attaches_load_proof: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      records_usage_event: { type: boolean, example: false }
+                      mutates_balance: { type: boolean, example: false }
+                      creates_invoice: { type: boolean, example: false }
+                      settles_provider_payout: { type: boolean, example: false }
+                      changes_budget_cap: { type: boolean, example: false }
+                      changes_minimum_balance_enforcement: { type: boolean, example: false }
+                      exposes_raw_prompt: { type: boolean, example: false }
+                      exposes_raw_response: { type: boolean, example: false }
+                      enables_adapter_billing: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
+
   /api/adapters/billing/readiness:
     get:
       tags: [Adapters]

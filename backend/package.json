@@ -36,6 +36,7 @@
     "test:reliability:adapter-endpoint-smoke-status-disabled-proof": "node tests/adapter-endpoint-smoke-status-disabled-proof.js",
     "test:reliability:adapter-endpoint-smoke-submission-disabled-proof": "node tests/adapter-endpoint-smoke-submission-disabled-proof.js",
     "test:reliability:adapter-usage-attribution-readiness-proof": "node tests/adapter-usage-attribution-readiness-proof.js",
+    "test:reliability:adapter-settlement-readiness-proof": "node tests/adapter-settlement-readiness-proof.js",
     "test:reliability:adapter-billing-readiness-proof": "node tests/adapter-billing-readiness-proof.js",
     "test:reliability:adapter-deployment-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/adapter-deployment-contract-proof.js",
     "test:reliability:adapter-vllm-live-load-proof": "node tests/adapter-vllm-live-load-proof.js",

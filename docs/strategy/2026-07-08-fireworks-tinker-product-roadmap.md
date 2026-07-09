@@ -428,6 +428,12 @@ Goal: ship the first real train-here/deploy-here loop.
     and `npm run proof:adapter-endpoint-smoke-status`; it lets dashboards and
     agents poll no-record smoke status while keeping smoke recording, routing,
     usage, billing, raw prompt/response exposure, and Tinker claims disabled.
+  - PR #873 adds `GET /api/adapters/settlement/readiness` and
+    `npm run proof:adapter-settlement-readiness`; it defines provider/platform
+    split, pending-settlement, usage-attribution, minimum-balance, and founder
+    approval prerequisites while payouts, invoices, balances, adapter billing,
+    route changes, raw prompt/response exposure, and Tinker claims stay
+    disabled.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -474,6 +480,11 @@ Goal: ship the first real train-here/deploy-here loop.
     reports no recorded smoke and strict load-proof readiness without recording
     smoke, writing usage, routing traffic, billing, or exposing raw prompts and
     responses.
+  - PR #873 added the CI-safe adapter settlement readiness gate before adapter
+    usage can become billable or payable; provider/platform share math,
+    pending-settlement state, minimum-balance policy, usage attribution, and
+    founder approval must be explicit before payout, invoice, balance, or billed
+    endpoint claims.
 - Add dashboard:
   - datasets
   - training jobs
@@ -640,7 +651,13 @@ Acceptance:
     GET route returns no recorded smoke, exposes strict load-proof readiness,
     writes no usage, routes no traffic, bills nothing, and exposes no raw
     prompt/response content.**
-21. **Adapter billing readiness** - CI-safe money-policy gate before billed
+21. **Adapter settlement readiness** - CI-safe settlement-policy gate before
+    adapter endpoint traffic can become payable. **Added in PR #873 as
+    `npm run proof:adapter-settlement-readiness`; provider/platform shares must
+    reconcile to usage cost, attribution must match the proof, and payout,
+    invoice, balance, route, raw-payload, billing, and Tinker claims remain
+    disabled.**
+22. **Adapter billing readiness** - CI-safe money-policy gate before billed
     adapter endpoint claims. **Added in PR #868 as
     `npm run proof:adapter-billing-readiness`; usage writes, invoices, provider
     payouts, minimum-balance enforcement changes, and adapter billing claims
