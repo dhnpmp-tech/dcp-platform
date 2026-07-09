@@ -25,8 +25,8 @@ const DEPLOYMENT_GATES = [
     k: 'route_traffic',
     tEn: 'Route traffic gate',
     tAr: 'بوابة توجيه الحركة',
-    en: 'Traffic stays off until the backend records matching load proof for the intended endpoint.',
-    ar: 'تبقى الحركة متوقفة حتى تسجل الخلفية إثبات تحميل مطابقاً للنقطة المقصودة.',
+    en: 'Traffic stays off until the backend records matching proof for the deployment, endpoint, and artifact.',
+    ar: 'تبقى الحركة متوقفة حتى تسجل الخلفية إثباتا مطابقا للنشر والنقطة والأثر.',
   },
   {
     k: 'multi_lora',
@@ -129,14 +129,14 @@ export default function DedicatedDeploymentsProductPage() {
               </h2>
               <p>
                 <Bi
-                  en="The deployed endpoint becomes real only when the backend receives matching load proof from the serving layer. Until then, deployment rows are planning and audit records, not public route promises."
+                  en="The deployed endpoint becomes real only when the backend receives matching load proof from the serving layer for the deployment id, adapter id, base model, mode, endpoint id, and checksum. Until then, deployment rows are planning and audit records, not public route promises."
                   ar="تصبح نقطة النهاية المنشورة حقيقية فقط عندما تستقبل الخلفية إثبات تحميل مطابقاً من طبقة الخدمة. حتى ذلك الحين، صفوف النشر سجلات تخطيط وتدقيق، وليست وعود توجيه عامة."
                 />
               </p>
               <pre className="term" dir="ltr" aria-label="Dedicated deployment API snippets">{DEPLOY_SNIPPET}</pre>
               <ul className="pshow-list">
                 <li><Bi en="Single-adapter live merge is first; multi-LoRA waits for controlled vLLM smoke." ar="دمج محول واحد أولاً؛ وينتظر تعدد LoRA دخان vLLM مضبوطاً." /></li>
-                <li><Bi en="Route traffic remains false until adapter and base model proof match." ar="تبقى حركة التوجيه غير مفعلة حتى يتطابق إثبات المحول والنموذج الأساسي." /></li>
+                <li><Bi en="Route traffic remains false until deployment, adapter, base model, mode, endpoint, and checksum proof match." ar="تبقى حركة التوجيه غير مفعلة حتى يتطابق إثبات النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
                 <li><Bi en="Billed inference starts only after the endpoint is proven and observable." ar="يبدأ الاستدلال المفوتر فقط بعد إثبات النقطة وجعلها قابلة للمراقبة." /></li>
               </ul>
             </div>
@@ -170,7 +170,7 @@ export default function DedicatedDeploymentsProductPage() {
               <div className="capacity-gate">
                 <span className="gate-n">02</span>
                 <span className="gate-k">serving_load_proof</span>
-                <p><Bi en="The endpoint reports matching base model, adapter id, and checksum." ar="تبلّغ النقطة عن نموذج أساسي ومحول وبصمة مطابقة." /></p>
+                <p><Bi en="The endpoint reports matching deployment id, adapter id, base model, mode, endpoint id, and checksum." ar="تبلّغ النقطة عن معرف نشر ومحول ونموذج أساسي ووضع ونقطة وبصمة مطابقة." /></p>
               </div>
               <div className="capacity-gate">
                 <span className="gate-n">03</span>

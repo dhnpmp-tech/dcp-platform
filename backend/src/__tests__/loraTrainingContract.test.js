@@ -172,29 +172,70 @@ describe('LoRA training and deployment contracts', () => {
     });
 
     const mismatch = normalizeAdapterDeploySpec({
+      deployment_id: 'adpl_support01',
       adapter_id: 'adpt_support01',
       base_model: 'qwen/qwen3-coder',
+      endpoint_id: 'support-endpoint',
+      artifact_checksum_sha256: 'b'.repeat(64),
       serving_load_proof: {
         loaded: true,
         adapter_id: 'adpt_other001',
         base_model: 'qwen/qwen3-coder',
+        deployment_id: 'adpl_support01',
+        mode: 'single_adapter_live_merge',
+        endpoint_id: 'support-endpoint',
+        artifact_checksum_sha256: 'b'.repeat(64),
       },
     });
     expect(mismatch.route_traffic).toBe(false);
 
-    const loaded = normalizeAdapterDeploySpec({
+    const partialProof = normalizeAdapterDeploySpec({
+      deployment_id: 'adpl_support01',
       adapter_id: 'adpt_support01',
       base_model: 'qwen/qwen3-coder',
+      endpoint_id: 'support-endpoint',
+      artifact_checksum_sha256: 'b'.repeat(64),
       serving_load_proof: {
         loaded: true,
         adapter_id: 'adpt_support01',
         base_model: 'qwen/qwen3-coder',
+        loaded_at: '2026-07-08T05:49:00.000Z',
+      },
+    });
+    expect(partialProof.route_traffic).toBe(false);
+
+    const loaded = normalizeAdapterDeploySpec({
+      deployment_id: 'adpl_support01',
+      adapter_id: 'adpt_support01',
+      base_model: 'qwen/qwen3-coder',
+      endpoint_id: 'support-endpoint',
+      artifact_checksum_sha256: 'b'.repeat(64),
+      serving_load_proof: {
+        loaded: true,
+        deployment_id: 'adpl_support01',
+        adapter_id: 'adpt_support01',
+        base_model: 'qwen/qwen3-coder',
+        mode: 'single_adapter_live_merge',
+        endpoint_id: 'support-endpoint',
+        artifact_checksum_sha256: 'b'.repeat(64),
         loaded_at: '2026-07-08T05:50:00.000Z',
       },
     });
     expect(loaded).toMatchObject({
       status: 'loaded_verified',
       route_traffic: true,
+      deployment_id: 'adpl_support01',
+      endpoint_id: 'support-endpoint',
+      artifact_checksum_sha256: 'b'.repeat(64),
+      serving_load_proof: {
+        loaded: true,
+        deployment_id: 'adpl_support01',
+        adapter_id: 'adpt_support01',
+        base_model: 'qwen/qwen3-coder',
+        mode: 'single_adapter_live_merge',
+        endpoint_id: 'support-endpoint',
+        artifact_checksum_sha256: 'b'.repeat(64),
+      },
     });
   });
 });

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 06:23 UTC - Strict adapter load-proof matching (PR #867)
+
+- **PR:** [#867](https://github.com/dhnpmp-tech/dcp-platform/pull/867) (`codex/adapter-load-proof-strict-match-2026-07-09`).
+- **Backend:** Adapter deployment routing now requires matching deployment id, adapter id, base model, mode, recorded endpoint id, and adapter artifact checksum before `route_traffic=true`.
+- **Proof:** Strengthened `npm run proof:adapter-deployment-contract` with checksum-mismatch coverage and full matching-proof evidence.
+- **Docs/contracts:** Updated OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning copy, `llms.txt`, and roadmap docs with the stricter gate.
+- **Safety:** Contract tightening only; no deploy action, serving mutation access, adapter serving, route traffic, billing, GPU training, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax checks; targeted LoRA/deployment/artifact-policy Jest suites; adapter deployment contract proof; adapter artifact policy proof; local roadmap proof still passing 24/24 gates; OpenAPI YAML parse; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 06:03 UTC - Adapter artifact policy proof (PR #866)
 
 - **PR:** [#866](https://github.com/dhnpmp-tech/dcp-platform/pull/866) (`codex/adapter-artifact-policy-2026-07-09`).

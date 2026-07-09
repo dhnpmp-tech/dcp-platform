@@ -192,7 +192,7 @@ components:
 
     AdapterDeployment:
       type: object
-      description: Adapter deployment lifecycle record. Public creation records intent only; inference traffic stays disabled until a backend serving load proof matches the adapter and base model.
+      description: Adapter deployment lifecycle record. Public creation records intent only; inference traffic stays disabled until a backend serving load proof matches deployment id, adapter id, base model, mode, recorded endpoint id, and adapter artifact checksum.
       required: [deployment_id, renter_id, adapter_id, base_model, mode, status, route_traffic, created_at, updated_at]
       properties:
         deployment_id:
@@ -2570,8 +2570,9 @@ paths:
       description: |
         Admin/internal endpoint for attaching vLLM adapter load proof to a
         deployment record. `route_traffic` only becomes true when the proof
-        shows `loaded: true` with the same adapter id and base model. Renter
-        deployment creation cannot call this step.
+        shows `loaded: true` with the same deployment id, adapter id, base
+        model, mode, any recorded endpoint id, and adapter artifact checksum.
+        Renter deployment creation cannot call this step.
       security:
         - AdminToken: []
       parameters:
@@ -2596,17 +2597,32 @@ paths:
                   example: 42
                 serving_load_proof:
                   type: object
-                  required: [loaded, adapter_id, base_model]
+                  required: [loaded, deployment_id, adapter_id, base_model, mode, artifact_checksum_sha256]
                   properties:
                     loaded:
                       type: boolean
                       example: true
+                    deployment_id:
+                      type: string
+                      example: adpl_8f4c2b9a18e34d220f7a9b12
                     adapter_id:
                       type: string
                       example: adpt_8f4c2b9a18e34d220f7a9b12
                     base_model:
                       type: string
                       example: meta-llama/Llama-3.1-8B-Instruct
+                    mode:
+                      type: string
+                      enum: [single_adapter_live_merge, multi_lora]
+                      example: single_adapter_live_merge
+                    endpoint_id:
+                      type: string
+                      description: Required to match when the deployment records an endpoint id.
+                      example: arabic-support-prod
+                    artifact_checksum_sha256:
+                      type: string
+                      pattern: '^[a-f0-9]{64}$'
+                      example: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                     loaded_at:
                       type: string
                       format: date-time

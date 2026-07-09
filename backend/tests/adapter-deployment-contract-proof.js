@@ -76,8 +76,13 @@ function summarizeDeployment(deployment) {
     serving_load_proof: deployment.serving_load_proof
       ? {
           loaded: deployment.serving_load_proof.loaded,
+          deployment_id: deployment.serving_load_proof.deployment_id || null,
           adapter_id: deployment.serving_load_proof.adapter_id,
           base_model: deployment.serving_load_proof.base_model,
+          mode: deployment.serving_load_proof.mode || null,
+          endpoint_id: deployment.serving_load_proof.endpoint_id || null,
+          artifact_checksum_sha256: deployment.serving_load_proof.artifact_checksum_sha256 || null,
+          loaded_at: deployment.serving_load_proof.loaded_at || null,
           provider_id: deployment.serving_load_proof.provider_id || null,
         }
       : null,
@@ -198,8 +203,12 @@ function runAdapterDeploymentContractProof(options = {}) {
       endpoint_id: 'adapter-proof-endpoint',
       serving_load_proof: {
         loaded: true,
+        deployment_id: 'adpl_contract01',
         adapter_id: adapter.adapter_id,
         base_model: adapter.base_model,
+        mode: 'single_adapter_live_merge',
+        endpoint_id: 'adapter-proof-endpoint',
+        artifact_checksum_sha256: adapter.checksum_sha256,
         provider_id: 'spoofed-public-proof',
       },
     });
@@ -212,8 +221,12 @@ function runAdapterDeploymentContractProof(options = {}) {
 
     const mismatched = attachDeploymentLoadProof(db, 1, pending.deployment_id, {
       loaded: true,
+      deployment_id: pending.deployment_id,
       adapter_id: 'adpt_otherproof',
       base_model: adapter.base_model,
+      mode: pending.mode,
+      endpoint_id: pending.endpoint_id,
+      artifact_checksum_sha256: adapter.checksum_sha256,
       loaded_at: '2026-07-09T00:00:00.000Z',
       provider_id: 'provider-contract-proof',
     });
@@ -226,10 +239,34 @@ function runAdapterDeploymentContractProof(options = {}) {
       'Mismatched adapter id degraded the deployment and left route_traffic=false.',
     );
 
-    const verified = attachDeploymentLoadProof(db, 1, pending.deployment_id, {
+    const checksumMismatch = attachDeploymentLoadProof(db, 1, pending.deployment_id, {
       loaded: true,
+      deployment_id: pending.deployment_id,
       adapter_id: adapter.adapter_id,
       base_model: adapter.base_model,
+      mode: pending.mode,
+      endpoint_id: pending.endpoint_id,
+      artifact_checksum_sha256: 'e'.repeat(64),
+      loaded_at: '2026-07-09T00:00:30.000Z',
+      provider_id: 'provider-contract-proof',
+    });
+    report.deployments.checksum_mismatch_load_proof = summarizeDeployment(checksumMismatch);
+    record(
+      'artifact checksum mismatch cannot route traffic',
+      checksumMismatch.status === 'degraded'
+        && checksumMismatch.route_traffic === false
+        && checksumMismatch.failure_reason === 'serving_load_proof_mismatch',
+      'Mismatched adapter artifact checksum degraded the deployment and left route_traffic=false.',
+    );
+
+    const verified = attachDeploymentLoadProof(db, 1, pending.deployment_id, {
+      loaded: true,
+      deployment_id: pending.deployment_id,
+      adapter_id: adapter.adapter_id,
+      base_model: adapter.base_model,
+      mode: pending.mode,
+      endpoint_id: pending.endpoint_id,
+      artifact_checksum_sha256: adapter.checksum_sha256,
       loaded_at: '2026-07-09T00:01:00.000Z',
       provider_id: 'provider-contract-proof',
     });
@@ -240,9 +277,13 @@ function runAdapterDeploymentContractProof(options = {}) {
         && verified.route_traffic === true
         && verified.failure_reason === null
         && verified.serving_load_proof
+        && verified.serving_load_proof.deployment_id === pending.deployment_id
         && verified.serving_load_proof.adapter_id === adapter.adapter_id
-        && verified.serving_load_proof.base_model === adapter.base_model,
-      'Only matching adapter/base_model load proof transitioned the record to running.',
+        && verified.serving_load_proof.base_model === adapter.base_model
+        && verified.serving_load_proof.mode === pending.mode
+        && verified.serving_load_proof.endpoint_id === pending.endpoint_id
+        && verified.serving_load_proof.artifact_checksum_sha256 === adapter.checksum_sha256,
+      'Only matching deployment/adapter/base_model/mode/endpoint/checksum load proof transitioned the record to running.',
     );
 
     const listed = listAllAdapterDeployments(db, 1, {

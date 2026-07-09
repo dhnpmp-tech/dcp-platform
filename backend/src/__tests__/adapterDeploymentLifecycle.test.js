@@ -200,6 +200,10 @@ describe('adapter deployment lifecycle service', () => {
       loaded: true,
       adapter_id: 'adpt_secondready',
       base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+      deployment_id: 'adpl_proof001',
+      mode: 'single_adapter_live_merge',
+      endpoint_id: 'arabic-support-prod',
+      artifact_checksum_sha256: 'c'.repeat(64),
       loaded_at: '2026-07-08T06:30:00.000Z',
       provider_id: 'provider-1',
     });
@@ -209,10 +213,31 @@ describe('adapter deployment lifecycle service', () => {
       failure_reason: 'serving_load_proof_mismatch',
     });
 
+    const wrongChecksum = attachDeploymentLoadProof(db, 1, 'adpl_proof001', {
+      loaded: true,
+      adapter_id: 'adpt_deployready',
+      base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+      deployment_id: 'adpl_proof001',
+      mode: 'single_adapter_live_merge',
+      endpoint_id: 'arabic-support-prod',
+      artifact_checksum_sha256: 'f'.repeat(64),
+      loaded_at: '2026-07-08T06:30:30.000Z',
+      provider_id: 'provider-1',
+    });
+    expect(wrongChecksum).toMatchObject({
+      status: 'degraded',
+      route_traffic: false,
+      failure_reason: 'serving_load_proof_mismatch',
+    });
+
     const verified = attachDeploymentLoadProof(db, 1, 'adpl_proof001', {
       loaded: true,
       adapter_id: 'adpt_deployready',
       base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+      deployment_id: 'adpl_proof001',
+      mode: 'single_adapter_live_merge',
+      endpoint_id: 'arabic-support-prod',
+      artifact_checksum_sha256: 'c'.repeat(64),
       loaded_at: '2026-07-08T06:31:00.000Z',
       provider_id: 'provider-1',
     });
@@ -224,6 +249,10 @@ describe('adapter deployment lifecycle service', () => {
         loaded: true,
         adapter_id: 'adpt_deployready',
         base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+        deployment_id: 'adpl_proof001',
+        mode: 'single_adapter_live_merge',
+        endpoint_id: 'arabic-support-prod',
+        artifact_checksum_sha256: 'c'.repeat(64),
         loaded_at: '2026-07-08T06:31:00.000Z',
         provider_id: 'provider-1',
       },
@@ -371,8 +400,12 @@ describe('/api/adapters/:adapterId/deployments route', () => {
         renter_id: 1,
         serving_load_proof: {
           loaded: true,
+          deployment_id: 'adpl_routeproof1',
           adapter_id: 'adpt_other001',
           base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+          mode: 'single_adapter_live_merge',
+          endpoint_id: 'arabic-support-prod',
+          artifact_checksum_sha256: 'c'.repeat(64),
           loaded_at: '2026-07-08T08:30:00.000Z',
         },
       });
@@ -394,8 +427,12 @@ describe('/api/adapters/:adapterId/deployments route', () => {
         renter_id: 1,
         serving_load_proof: {
           loaded: true,
+          deployment_id: 'adpl_routeproof1',
           adapter_id: 'adpt_deployready',
           base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+          mode: 'single_adapter_live_merge',
+          endpoint_id: 'arabic-support-prod',
+          artifact_checksum_sha256: 'c'.repeat(64),
           loaded_at: '2026-07-08T08:31:00.000Z',
         },
       });
@@ -409,8 +446,12 @@ describe('/api/adapters/:adapterId/deployments route', () => {
         failure_reason: null,
         serving_load_proof: {
           loaded: true,
+          deployment_id: 'adpl_routeproof1',
           adapter_id: 'adpt_deployready',
           base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+          mode: 'single_adapter_live_merge',
+          endpoint_id: 'arabic-support-prod',
+          artifact_checksum_sha256: 'c'.repeat(64),
         },
       },
     });
