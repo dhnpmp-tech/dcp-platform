@@ -92,7 +92,7 @@ async function mockPodsApis(page: Page) {
       });
     }
 
-    if (path === '/api/workspace/volumes/me') {
+    if (path === '/api/volumes/me') {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -150,14 +150,19 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
 
   await page.goto('/renter/pods');
 
-  await expect(page.getByText('Stage 1')).toBeVisible();
-  await expect(page.getByText('Stage 2')).toBeVisible();
-  await expect(page.getByText('Stage 3')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toBeVisible();
+  await expect(page.locator('#pod-stage-1').getByText('Stage 1')).toBeVisible();
+  await expect(page.locator('#pod-stage-2').getByText('Stage 2')).toBeVisible();
+  await expect(page.locator('#pod-stage-3').getByText('Stage 3')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU.*Auto-pick/ })).toBeVisible();
   await expect(page.getByText('Staged files')).toBeVisible();
   await expect(page.getByText('datasets/ · 2')).toBeVisible();
   await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
   await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
 
+  await page.getByRole('link', { name: 'Go to Stage 2' }).click();
+  await expect(page).toHaveURL(/#pod-stage-2$/);
+  await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
   await page.getByRole('button', { name: 'Show' }).click();
   await expect(page.getByText('datasets/train.jsonl')).toBeVisible();
   await expect(page.getByRole('button', { name: /datasets\/.*2/ })).toBeVisible();
@@ -172,6 +177,14 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   const gpuSelectionStrip = page.locator('.gpu-selection-strip');
   await expect(gpuSelectionStrip).toContainText('GPU selection');
   await expect(gpuSelectionStrip).toContainText('Auto-pick at launch');
+  await expect(gpuSelectionStrip).toContainText('Any VRAM');
+  await expect(gpuSelectionStrip).toContainText('2 shown');
+  await expect(page.getByText('VRAM filter')).toBeVisible();
+  await page.getByRole('button', { name: '80 GB+', exact: true }).click();
+  await expect(gpuSelectionStrip).toContainText('Filter 80 GB+');
+  await expect(gpuSelectionStrip).toContainText('1 shown');
+  await expect(computeSummary).toContainText('Auto-pick at launch');
+  await gpuSelectionStrip.getByRole('button', { name: 'Clear filters' }).click();
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
 

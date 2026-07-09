@@ -220,8 +220,9 @@ const WORKLOADS: Workload[] = [
   { key: 'experiment', titleEn: 'Experiment server', titleAr: 'خادم تجريبي', descEn: 'vLLM test pod — auto-cleans on stop', descAr: 'حاوية vLLM تجريبية — تُنظَّف تلقائياً عند الإيقاف', floor: 24, prefer: 'rtx 3090', image: 'vllm', durationMin: 120 },
 ]
 
-// VRAM slider stops (GB). The slider snaps to the nearest stop.
-const VRAM_STOPS = [0, 8, 12, 16, 24, 32, 48, 80, 94, 141, 180]
+// Explicit VRAM filter stops (GB). Kept as chips so renters do not mistake the
+// filter for the selected GPU type.
+const VRAM_FILTER_OPTIONS = [0, 8, 12, 16, 24, 32, 48, 80, 141, 180]
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Pod {
@@ -489,15 +490,6 @@ function fmtUsd(sar: number): string {
 function isValuePick(gpuModel: string): boolean {
   const m = gpuModel.toLowerCase()
   return VALUE_PICK_MATCHES.some((needle) => m.includes(needle))
-}
-
-// Snap an arbitrary slider value to the nearest defined VRAM stop.
-function snapVram(value: number): number {
-  let best = VRAM_STOPS[0]
-  for (const stop of VRAM_STOPS) {
-    if (Math.abs(stop - value) < Math.abs(best - value)) best = stop
-  }
-  return best
 }
 
 // Dedupe the (repeating) provider rows down to distinct GPU TYPES by gpu_model.
@@ -1162,8 +1154,34 @@ export default function RenterPodsPage() {
             </div>
           </div>
 
+          <nav className="pod-stage-nav" aria-label={lang === 'ar' ? 'مراحل تشغيل الحاوية' : 'Pod launch stages'}>
+            <a href="#pod-stage-1" className={workspaceVolume ? 'ok' : ''}>
+              <span>Stage 1</span>
+              <strong><Bi en="Workspace" ar="مساحة العمل" /></strong>
+              <em>
+                {workspaceVolume
+                  ? `${workspaceVolume.size_gb} GB`
+                  : <Bi en="Create volume" ar="أنشئ وحدة" />}
+              </em>
+            </a>
+            <a href="#pod-stage-2" className={selectedType || launch.gpuType === '' ? 'ok' : ''}>
+              <span>Stage 2</span>
+              <strong><Bi en="Template + GPU" ar="القالب + GPU" /></strong>
+              <em>
+                {selectedType
+                  ? displayGpuType(selectedType.gpu_model)
+                  : <Bi en="Auto-pick" ar="اختيار تلقائي" />}
+              </em>
+            </a>
+            <a href="#pod-stage-3" className="ok">
+              <span>Stage 3</span>
+              <strong><Bi en="Runtime + launch" ar="البيئة + التشغيل" /></strong>
+              <em>{selectedRuntimeLabel} · {durationLabel}</em>
+            </a>
+          </nav>
+
           {/* ── Workspace staging ────────────────────────────── */}
-          <div className="pod-stage" style={{ marginTop: '28px' }}>
+          <div className="pod-stage" id="pod-stage-1" style={{ marginTop: '28px' }}>
             <div className="pod-stage-hd">
               <span className="pod-stage-no">Stage 1</span>
               <div>
@@ -1180,6 +1198,7 @@ export default function RenterPodsPage() {
               apiBase={getApiBase()}
               renterKey={renterKey}
               context="pod-launch"
+              nextStageHref="#pod-stage-2"
               onVolumeLoaded={setWorkspaceVolume}
             />
           </div>
@@ -1232,7 +1251,7 @@ export default function RenterPodsPage() {
               </div>
             </div>
 
-            <div className="pod-stage-hd pod-stage-hd--compact">
+            <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
               <span className="pod-stage-no">Stage 2</span>
               <div>
                 <h2><Bi en="Choose template and GPU" ar="اختر القالب ومعالج GPU" /></h2>
@@ -1475,7 +1494,7 @@ export default function RenterPodsPage() {
                 <div className="gpu-selection-actions">
                   <span className="gpu-selection-chip">
                     {minVram > 0
-                      ? <Bi en={`Min VRAM ${minVram} GB`} ar={`أدنى ذاكرة ${minVram} غ.ب`} />
+                      ? <Bi en={`Filter ${minVram} GB+`} ar={`تصفية ${minVram} غ.ب+`} />
                       : <Bi en="Any VRAM" ar="أي ذاكرة" />}
                   </span>
                   <span className="gpu-selection-chip">
@@ -1522,25 +1541,25 @@ export default function RenterPodsPage() {
                     />
                   </div>
                   <div className="gpu-ctl gpu-vram">
-                    <div className="rng-head">
-                      <label htmlFor="vram-range">
-                        <Bi en="Min VRAM" ar="أدنى ذاكرة" />
-                      </label>
-                      <output htmlFor="vram-range">
-                        {minVram === 0 ? <Bi en="Any" ar="أي" /> : `≥ ${minVram} GB`}
-                      </output>
+                    <label id="gpu-vram-filter-label">
+                      <Bi en="VRAM filter" ar="تصفية الذاكرة" />
+                    </label>
+                    <div className="gpu-vram-options" role="group" aria-labelledby="gpu-vram-filter-label">
+                      {VRAM_FILTER_OPTIONS.map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className="gpu-vram-chip"
+                          aria-pressed={minVram === value}
+                          onClick={() => setMinVram(value)}
+                          disabled={!isLive}
+                        >
+                          {value === 0
+                            ? <Bi en="Any" ar="أي" />
+                            : <Bi en={`${value} GB+`} ar={`${value} غ.ب+`} />}
+                        </button>
+                      ))}
                     </div>
-                    <input
-                      id="vram-range"
-                      type="range"
-                      min={0}
-                      max={180}
-                      step={1}
-                      value={minVram}
-                      onChange={(e) => setMinVram(snapVram(Number(e.target.value)))}
-                      aria-valuetext={minVram === 0 ? (lang === 'ar' ? 'أي ذاكرة' : 'Any VRAM') : `${minVram} GB`}
-                      disabled={!isLive}
-                    />
                   </div>
                   <div className="gpu-ctl">
                     <label htmlFor="gpu-sort">
@@ -1792,7 +1811,7 @@ export default function RenterPodsPage() {
               </div>
             </div>
 
-            <div className="pod-stage-hd pod-stage-hd--compact pod-stage-hd--runtime">
+            <div className="pod-stage-hd pod-stage-hd--compact pod-stage-hd--runtime" id="pod-stage-3">
               <span className="pod-stage-no">Stage 3</span>
               <div>
                 <h2><Bi en="Confirm runtime and launch" ar="أكد بيئة التشغيل وشغّل" /></h2>

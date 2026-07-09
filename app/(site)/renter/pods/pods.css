@@ -250,6 +250,77 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   .pod-kpis .kpi:last-child { border-bottom: 0; }
 }
 
+/* ── Stage jump rail ────────────────────────────────────── */
+.pod-stage-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 18px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+}
+.pod-stage-nav a {
+  min-width: 0;
+  padding: 13px 15px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: baseline;
+  border-inline-end: 1px solid var(--hair);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background .14s, border-color .14s;
+}
+.pod-stage-nav a:last-child { border-inline-end: 0; }
+.pod-stage-nav a:hover,
+.pod-stage-nav a:focus-visible {
+  background: color-mix(in oklab, var(--teal) 6%, var(--paper));
+  outline: none;
+}
+.pod-stage-nav a.ok span {
+  color: var(--rt-accent);
+}
+.pod-stage-nav span {
+  grid-row: 1 / span 2;
+  align-self: start;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--mut);
+  white-space: nowrap;
+}
+.pod-stage-nav strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.pod-stage-nav em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--mut);
+}
+@media (max-width: 860px) {
+  .pod-stage-nav { grid-template-columns: 1fr; }
+  .pod-stage-nav a {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .pod-stage-nav a:last-child { border-bottom: 0; }
+}
+
 /* ── Launch panel ───────────────────────────────────────── */
 .pod-stage { display: flex; flex-direction: column; gap: 14px; }
 .pod-stage-hd {
@@ -814,24 +885,38 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .gpu-search input:focus { outline: none; }
 .gpu-search:focus-within { border-color: var(--rt-accent); }
 .gpu-search .mag { color: var(--mut); font-family: var(--mono); font-size: 13px; }
-.gpu-vram { min-width: 230px; }
-.gpu-vram .rng-head {
-  display: flex; justify-content: space-between;
-  font-family: var(--mono); font-size: 11px; color: var(--ink-2); margin-bottom: 6px;
+.gpu-vram { min-width: 310px; }
+.gpu-vram-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 560px;
 }
-.gpu-vram output { color: var(--rt-accent); }
-.gpu-vram input[type=range] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 2px;
-  background: var(--hair); cursor: pointer;
+.gpu-vram-chip {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
 }
-.gpu-vram input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 16px; height: 16px; background: var(--rt-accent);
-  border: 0; border-radius: 0; cursor: pointer;
+.gpu-vram-chip:hover:not(:disabled),
+.gpu-vram-chip:focus-visible {
+  border-color: var(--ink-2);
+  color: var(--ink);
+  outline: none;
 }
-.gpu-vram input[type=range]::-moz-range-thumb {
-  width: 16px; height: 16px; background: var(--rt-accent); border: 0; border-radius: 0;
+.gpu-vram-chip[aria-pressed="true"] {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--teal) 8%, transparent);
 }
-.gpu-vram input[type=range]:focus-visible { outline: 2px solid var(--rt-accent); outline-offset: 6px; }
+.gpu-vram-chip:disabled { opacity: .5; cursor: not-allowed; }
 select.gpu-sort {
   background: var(--bg-2); border: 1px solid var(--hair); color: var(--ink);
   font-family: var(--mono); font-size: 12px; padding: 10px 12px; cursor: pointer; border-radius: 2px;

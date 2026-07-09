@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 11:08 UTC - Pod stage navigation and explicit VRAM filters (PR #882)
+
+- **PR:** [#882](https://github.com/dhnpmp-tech/dcp-platform/pull/882) (`codex/pods-stage-navigation-vram-filter-2026-07-09`).
+- **Frontend:** `/renter/pods` now shows a three-step stage navigation rail above the launch flow, with anchors for workspace, template/GPU, and runtime/launch.
+- **Workspace UX:** The embedded workspace panel exposes Stage 2 jump actions in pod-launch context, keeping large staged-file workspaces from becoming a mandatory scroll path before compute selection.
+- **GPU controls:** The min-VRAM slider is replaced with explicit VRAM filter chips, and the selection strip now labels the value as a filter so renters can distinguish filtering from the selected GPU type.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to cover stage navigation, collapsed workspace groups, Stage 2 jumping, VRAM chip filtering, and selected GPU confirmation.
+- **Safety:** Frontend-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused Playwright browser regression for `/renter/pods`; Next build; `git diff --check`.
+
 ### 2026-07-09 10:44 UTC - Model catalog parity proof (PR #881)
 
 - **PR:** [#881](https://github.com/dhnpmp-tech/dcp-platform/pull/881) (`codex/model-catalog-parity-proof-2026-07-09`).

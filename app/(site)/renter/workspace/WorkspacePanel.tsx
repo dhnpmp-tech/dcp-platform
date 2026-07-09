@@ -74,6 +74,8 @@ interface WorkspacePanelProps {
   renterKey: string | null
   /** Adjusts copy when the workspace manager is embedded inside the pod launch flow. */
   context?: 'workspace' | 'pod-launch'
+  /** Optional in-page jump for launch flows with many staged files. */
+  nextStageHref?: string
   /** Optional callback when the renter creates a volume (e.g. to refresh shell). */
   onVolumeRented?: (vol: WorkspaceVolume) => void
   /** Optional callback whenever the current volume state is loaded/refreshed. */
@@ -84,6 +86,7 @@ export default function WorkspacePanel({
   apiBase,
   renterKey,
   context = 'workspace',
+  nextStageHref,
   onVolumeRented,
   onVolumeLoaded,
 }: WorkspacePanelProps) {
@@ -267,17 +270,24 @@ export default function WorkspacePanel({
                 )}
           </p>
         </div>
-        <button
-          className="ws-refresh"
-          onClick={() => {
-            loadVolume()
-            loadFiles()
-          }}
-          disabled={filesState === 'loading'}
-          aria-label={lang === 'ar' ? 'تحديث' : 'Refresh'}
-        >
-          ↻
-        </button>
+        <div className="ws-hd-actions">
+          {context === 'pod-launch' && nextStageHref && (
+            <a className="ws-stage-link" href={nextStageHref}>
+              <Bi en="Stage 2" ar="المرحلة 2" />
+            </a>
+          )}
+          <button
+            className="ws-refresh"
+            onClick={() => {
+              loadVolume()
+              loadFiles()
+            }}
+            disabled={filesState === 'loading'}
+            aria-label={lang === 'ar' ? 'تحديث' : 'Refresh'}
+          >
+            ↻
+          </button>
+        </div>
       </div>
 
       {/* ── volume usage / rent CTA ── */}
@@ -339,17 +349,26 @@ export default function WorkspacePanel({
               </span>
             )}
           </div>
-          {files.length > 0 && (
-            <button
-              type="button"
-              className="ws-files-toggle"
-              aria-expanded={!filesCollapsed}
-              onClick={() => setFilesCollapsed((value) => !value)}
-            >
-              {filesCollapsed
-                ? <Bi en="Show" ar="إظهار" />
-                : <Bi en="Collapse" ar="طي" />}
-            </button>
+          {(files.length > 0 || (context === 'pod-launch' && nextStageHref)) && (
+            <div className="ws-files-actions">
+              {context === 'pod-launch' && nextStageHref && (
+                <a className="ws-files-next" href={nextStageHref}>
+                  <Bi en="Go to Stage 2" ar="انتقل للمرحلة 2" />
+                </a>
+              )}
+              {files.length > 0 && (
+                <button
+                  type="button"
+                  className="ws-files-toggle"
+                  aria-expanded={!filesCollapsed}
+                  onClick={() => setFilesCollapsed((value) => !value)}
+                >
+                  {filesCollapsed
+                    ? <Bi en="Show" ar="إظهار" />
+                    : <Bi en="Collapse" ar="طي" />}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
