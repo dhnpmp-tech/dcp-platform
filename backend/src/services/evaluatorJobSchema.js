@@ -119,6 +119,7 @@ function buildEvaluatorJobSchema(now = new Date()) {
       ],
       raw_prompt_or_completion_publication_allowed: false,
       public_report_requires_human_review: true,
+      manifest_schema_endpoint: 'GET /api/evals/results/schema',
     },
     scoring_harness: {
       version_required: true,

@@ -2,6 +2,7 @@
 
 const { EVALUATOR_JOB_SCHEMA_VERSION } = require('./evaluatorJobSchema');
 const { EVALUATOR_WORKER_GATE_VERSION } = require('./evaluatorWorkerGate');
+const { EVALUATOR_RESULT_MANIFEST_VERSION } = require('./evaluatorResultManifest');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -15,6 +16,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',
       worker_readiness: 'GET /api/evals/worker/readiness',
+      result_manifest_schema: 'GET /api/evals/results/schema',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
       product_page: 'GET /benchmarks',
@@ -56,6 +58,21 @@ function buildEvaluatorReadiness(now = new Date()) {
           'result manifest checksum proof',
           'tenant artifact storage policy',
           'minimum-balance and refund policy proof',
+        ],
+      },
+      eval_result_manifest: {
+        status: 'schema_and_checksum_contract_only',
+        available: true,
+        version: EVALUATOR_RESULT_MANIFEST_VERSION,
+        schema_endpoint: 'GET /api/evals/results/schema',
+        result_endpoint_live: false,
+        writes_result_manifest: false,
+        signed_downloads_enabled: false,
+        required_before_enablement: [
+          'worker dry-run manifest artifact',
+          'summary checksum proof',
+          'tenant artifact storage approval',
+          'human review policy for public reports',
         ],
       },
       dataset_artifacts: {
@@ -107,6 +124,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       eval_jobs_live: false,
       eval_job_metadata_api_live: true,
       eval_worker_live: false,
+      eval_result_manifest_schema_live: true,
       arabic_quality_claim_allowed: false,
       customer_case_study_allowed: false,
       model_ranking_allowed: false,

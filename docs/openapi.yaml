@@ -3883,6 +3883,7 @@ paths:
                       eval_jobs_live: { type: boolean, example: false }
                       eval_job_metadata_api_live: { type: boolean, example: true }
                       eval_worker_live: { type: boolean, example: false }
+                      eval_result_manifest_schema_live: { type: boolean, example: true }
                       arabic_quality_claim_allowed: { type: boolean, example: false }
                       customer_case_study_allowed: { type: boolean, example: false }
                       model_ranking_allowed: { type: boolean, example: false }
@@ -3950,6 +3951,60 @@ paths:
                       publishes_public_report: { type: boolean, example: false }
                       model_ranking_allowed: { type: boolean, example: false }
                       arabic_quality_claim_allowed: { type: boolean, example: false }
+
+  /api/evals/results/schema:
+    get:
+      tags: [Benchmarks]
+      summary: Get evaluator result manifest schema and checksum policy
+      description: |
+        Returns a public, read-only contract for future evaluator result
+        manifests. It defines required checksums and publication guards while
+        result endpoints, artifact writes, billing, reports, rankings, and
+        Arabic-quality claims remain disabled.
+      responses:
+        '200':
+          description: Evaluator result manifest contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, required_fields, checksum_policy, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_result_manifest_contract]
+                  version:
+                    type: string
+                    example: dcp.evaluator_result_manifest.v1
+                  current_mode:
+                    type: string
+                    enum: [schema_and_checksum_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  required_fields:
+                    type: array
+                    items: { type: string }
+                  checksum_policy:
+                    type: object
+                    additionalProperties: true
+                  publication_policy:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      result_endpoint_live: { type: boolean, example: false }
+                      validates_manifest_only: { type: boolean, example: true }
+                      writes_result_manifest: { type: boolean, example: false }
+                      stores_raw_customer_dataset: { type: boolean, example: false }
+                      publishes_raw_customer_dataset: { type: boolean, example: false }
+                      publishes_public_report: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
 
   /api/evals/jobs/schema:
     get:

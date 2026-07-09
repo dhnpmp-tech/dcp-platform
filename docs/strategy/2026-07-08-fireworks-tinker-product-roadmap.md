@@ -314,6 +314,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `npm run proof:evaluator-worker-gate-contract`; it makes the queue
     dispatcher, worker, result writer, and billing hook explicitly disabled
     before result-manifest proof.
+  - PR #859 adds `GET /api/evals/results/schema` and
+    `npm run proof:evaluator-result-manifest-contract`; it validates required
+    result checksums and raw-data guards before any result endpoint or public
+    report can become live.
 
 Acceptance:
 

@@ -5,6 +5,7 @@ const { publicEndpointLimiter } = require('../middleware/rateLimiter');
 const { buildEvaluatorReadiness } = require('../services/evaluatorReadiness');
 const { buildEvaluatorJobSchema } = require('../services/evaluatorJobSchema');
 const { buildEvaluatorWorkerGate } = require('../services/evaluatorWorkerGate');
+const { buildEvaluatorResultManifestContract } = require('../services/evaluatorResultManifest');
 const {
   EvaluatorJobError,
   createEvaluatorJob,
@@ -51,6 +52,18 @@ function createEvalsRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch evaluator worker readiness',
         code: 'evaluator_worker_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/results/schema', publicEndpointLimiter, (_req, res) => {
+    try {
+      return res.json(buildEvaluatorResultManifestContract(new Date()));
+    } catch (error) {
+      console.error('[evals] result manifest schema error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch evaluator result manifest schema',
+        code: 'evaluator_result_manifest_schema_internal_error',
       });
     }
   });
