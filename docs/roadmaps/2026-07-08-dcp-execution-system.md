@@ -159,8 +159,9 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
 | Router policy readiness contract | `npm run proof:router-policy-contract` | none | CI-safe gate available; policy-specific routing and live smoke remain blocked until tests/proof exist |
-| Evaluator readiness contract | `npm run proof:evaluator-readiness-contract` | none | CI-safe gate available; evaluator jobs, datasets, public reports, rankings, and billing remain blocked |
-| Evaluator job schema contract | `npm run proof:evaluator-job-schema-contract` | none | CI-safe gate available; schema/readiness only, no eval job, worker, billing, report, ranking, or quality-claim mutation |
+| Evaluator readiness contract | `npm run proof:evaluator-readiness-contract` | none | CI-safe gate available; metadata create/list/read is live, but workers, result artifacts, public reports, rankings, and billing remain blocked |
+| Evaluator job schema contract | `npm run proof:evaluator-job-schema-contract` | none | CI-safe gate available; schema/readiness plus metadata endpoint guards, no worker, billing, report, ranking, or quality-claim mutation |
+| Evaluator metadata job contract | `npm run proof:evaluator-job-metadata-contract` | none | CI-safe gate available; renter-scoped draft metadata records only, no dataset storage, worker, result artifact, billing, report, ranking, or quality-claim mutation |
 | Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
@@ -235,13 +236,19 @@ before or with the feature change.
      reproducible artifacts exist.
    - Evaluator job gates start in PR #853 with
      `GET /api/evals/readiness` and `npm run
-     proof:evaluator-readiness-contract`; customer eval jobs remain blocked
-     until schema, worker, artifact, baseline, and billing policy proof exists.
+     proof:evaluator-readiness-contract`; customer eval execution remains
+     blocked until worker, artifact, baseline, and billing policy proof exists.
    - Evaluator job schema starts in PR #856 with
      `GET /api/evals/jobs/schema` and `npm run
-     proof:evaluator-job-schema-contract`; create/list/result APIs, worker
-     execution, dataset storage, billing, reports, rankings, and quality claims
-     remain blocked.
+     proof:evaluator-job-schema-contract`; worker execution, dataset storage,
+     result artifacts, billing, reports, rankings, and quality claims remain
+     blocked.
+   - Evaluator metadata job records start in PR #857 with
+     renter-authenticated `POST/GET /api/evals/jobs`,
+     `GET /api/evals/jobs/:id`, and `npm run
+     proof:evaluator-job-metadata-contract`; records are draft metadata only
+     and still do not run workers, store datasets, produce results, mutate
+     billing, publish reports, rank models, or permit quality claims.
    - Minimum-balance policy starts in PR #855 with
      `GET /api/renters/me/minimum-balances` and `npm run
      proof:minimum-balance-readiness`; payment/workload/enforcement mutation

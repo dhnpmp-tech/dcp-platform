@@ -31,9 +31,10 @@ describe('evaluator job schema contract proof script', () => {
       current_mode: 'schema_contract_only',
       endpoints: {
         schema: 'GET /api/evals/jobs/schema',
-        future_create: 'POST /api/evals/jobs',
-        future_list: 'GET /api/evals/jobs',
-        future_result: 'GET /api/evals/jobs/:id',
+        create_metadata: 'POST /api/evals/jobs',
+        list_metadata: 'GET /api/evals/jobs',
+        read_metadata: 'GET /api/evals/jobs/:id',
+        future_result_manifest: 'GET /api/evals/jobs/:id/results',
       },
       request_schema: {
         required: expect.arrayContaining([
@@ -55,7 +56,10 @@ describe('evaluator job schema contract proof script', () => {
         bills_eval_jobs: false,
       },
       claim_guards: {
-        create_endpoint_live: false,
+        create_endpoint_live: true,
+        list_endpoint_live: true,
+        read_endpoint_live: true,
+        metadata_only: true,
         worker_enabled: false,
         bills_eval_jobs: false,
         public_report_allowed: false,
@@ -67,17 +71,19 @@ describe('evaluator job schema contract proof script', () => {
       schema_endpoint: 'GET /api/evals/jobs/schema',
       schema_feature: {
         available: true,
-        creates_jobs: false,
+        creates_metadata_only: true,
       },
       eval_job_api: {
-        available: false,
-        create_endpoint: null,
+        available: true,
+        create_endpoint: 'POST /api/evals/jobs',
+        read_endpoint: 'GET /api/evals/jobs/:id',
+        result_endpoint: null,
       },
     });
     expect(report.invariants.map((item) => item.name)).toEqual([
       'schema contract is public, versioned, and linked from readiness',
       'request schema has tenant-safe dataset and scoring requirements',
-      'future endpoints remain non-live while schema is present',
+      'metadata endpoints are live while worker result endpoint remains non-live',
       'worker, billing, reports, and quality claims remain blocked',
       'proof performs no runtime or money mutation',
     ]);

@@ -3847,9 +3847,10 @@ paths:
       summary: Get evaluator readiness and claim gates
       description: |
         Returns the public evaluator readiness contract. It links to benchmark
-        readiness and the evaluator job schema while keeping evaluator job
-        create/list/result APIs, workers, billing, reports, rankings, and
-        Arabic-quality claims disabled.
+        readiness and the evaluator job schema while exposing metadata-only
+        evaluator job create/list/read endpoints and keeping workers, result
+        artifacts, billing, reports, rankings, and Arabic-quality claims
+        disabled.
       responses:
         '200':
           description: Evaluator readiness contract.
@@ -3880,6 +3881,7 @@ paths:
                     additionalProperties: false
                     properties:
                       eval_jobs_live: { type: boolean, example: false }
+                      eval_job_metadata_api_live: { type: boolean, example: true }
                       arabic_quality_claim_allowed: { type: boolean, example: false }
                       customer_case_study_allowed: { type: boolean, example: false }
                       model_ranking_allowed: { type: boolean, example: false }
@@ -3892,12 +3894,12 @@ paths:
       tags: [Benchmarks]
       summary: Get the evaluator job schema contract
       description: |
-        Returns a public, read-only contract for future renter-scoped evaluator
-        job records: dataset checksum policy, candidate/baseline model fields,
+        Returns a public, read-only contract for renter-scoped evaluator job
+        records: dataset checksum policy, candidate/baseline model fields,
         supported metrics, result-manifest requirements, scoring harness gates,
-        and billing guards. This route does not create evaluator jobs, store
-        customer datasets, run workers, mutate billing, publish reports, or
-        enable quality claims.
+        and billing guards. Metadata create/list/read endpoints may store draft
+        intent records, but this route does not store customer datasets, run
+        workers, mutate billing, publish reports, or enable quality claims.
       responses:
         '200':
           description: Evaluator job schema contract.
@@ -3939,8 +3941,10 @@ paths:
                     type: object
                     additionalProperties: false
                     properties:
-                      create_endpoint_live: { type: boolean, example: false }
-                      list_endpoint_live: { type: boolean, example: false }
+                      create_endpoint_live: { type: boolean, example: true }
+                      list_endpoint_live: { type: boolean, example: true }
+                      read_endpoint_live: { type: boolean, example: true }
+                      metadata_only: { type: boolean, example: true }
                       result_endpoint_live: { type: boolean, example: false }
                       worker_enabled: { type: boolean, example: false }
                       stores_raw_customer_dataset: { type: boolean, example: false }
@@ -3951,6 +3955,150 @@ paths:
                       arabic_quality_claim_allowed: { type: boolean, example: false }
                       model_ranking_allowed: { type: boolean, example: false }
                       frontier_model_comparison_allowed: { type: boolean, example: false }
+
+  /api/evals/jobs:
+    get:
+      tags: [Benchmarks]
+      summary: List metadata-only evaluator jobs
+      description: |
+        Lists renter-scoped evaluator job records. These records capture eval
+        intent only; workers, result artifacts, billing, reports, rankings, and
+        Arabic-quality claims remain disabled.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, blocked, queued, running, succeeded, failed, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Metadata-only evaluator job list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, data, count, worker_enabled, billing_enabled]
+                properties:
+                  object: { type: string, enum: [list] }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count: { type: integer }
+                  worker_enabled: { type: boolean, example: false }
+                  billing_enabled: { type: boolean, example: false }
+    post:
+      tags: [Benchmarks]
+      summary: Create a metadata-only evaluator job record
+      description: |
+        Creates a renter-scoped evaluator job record in `draft` status. The
+        route validates dataset SHA-256, task, metrics, candidate model, and
+        optional baselines/budget metadata, then stops before any worker,
+        dataset storage, billing, report, ranking, or public claim behavior.
+        Use `Idempotency-Key` to safely retry.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema:
+            type: string
+            maxLength: 180
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, task, dataset, candidate_model, metrics]
+              properties:
+                eval_job_id:
+                  type: string
+                  example: evaljob_customer_001
+                name: { type: string, maxLength: 120 }
+                task:
+                  type: string
+                  enum: [arabic_qa, arabic_summarization, arabic_safety, retrieval_groundedness, tool_calling, latency_cost]
+                dataset:
+                  type: object
+                  required: [ref, sha256, format, example_count]
+                  properties:
+                    ref: { type: string }
+                    sha256: { type: string, minLength: 64, maxLength: 64 }
+                    format: { type: string, enum: [jsonl] }
+                    example_count: { type: integer, minimum: 1 }
+                candidate_model: { type: string }
+                baseline_models:
+                  type: array
+                  items: { type: string }
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                    enum: [exact_match, f1, semantic_similarity, arabic_safety, groundedness, p50_latency_ms, p95_latency_ms, token_cost_halala]
+                max_examples: { type: integer, default: 100, maximum: 10000 }
+                cost_budget_halala: { type: integer, default: 0 }
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Evaluator job metadata record created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [eval_job, idempotent_replay, worker_enabled, billing_enabled]
+                properties:
+                  eval_job:
+                    type: object
+                    additionalProperties: true
+                  idempotent_replay: { type: boolean }
+                  worker_enabled: { type: boolean, example: false }
+                  billing_enabled: { type: boolean, example: false }
+
+  /api/evals/jobs/{evalJobId}:
+    get:
+      tags: [Benchmarks]
+      summary: Read a metadata-only evaluator job record
+      security:
+        - RenterApiKey: []
+      parameters:
+        - name: evalJobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evaluator job metadata record.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [eval_job, worker_enabled, billing_enabled]
+                properties:
+                  eval_job:
+                    type: object
+                    additionalProperties: true
+                  worker_enabled: { type: boolean, example: false }
+                  billing_enabled: { type: boolean, example: false }
+        '404':
+          description: Evaluator job not found for this renter.
 
   /api/renters/topup:
     post:

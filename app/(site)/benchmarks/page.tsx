@@ -50,11 +50,11 @@ const BENCHMARK_GATES = [
   },
   {
     k: 'customer_evaluator_jobs',
-    tEn: 'Eval job schema ready',
-    tAr: 'مخطط مهام التقييم جاهز',
-    en: 'The read-only schema now defines renter-scoped eval jobs, datasets, metrics, artifacts, and billing guards; create/list/result endpoints remain off.',
-    ar: 'يعرّف المخطط للقراءة فقط مهام التقييم حسب المستأجر والبيانات والمقاييس والآثار وحراس الفوترة؛ وتبقى نقاط الإنشاء والقائمة والنتائج متوقفة.',
-    source: '/api/evals/jobs/schema',
+    tEn: 'Eval job metadata records',
+    tAr: 'سجلات بيانات مهام التقييم',
+    en: 'Renter-scoped create/list/read endpoints now store draft eval metadata with dataset checksums and metrics; workers, results, billing, reports, and rankings remain off.',
+    ar: 'تخزن واجهات الإنشاء والقائمة والقراءة حسب المستأجر الآن بيانات تقييم مسودة مع بصمات البيانات والمقاييس؛ وتبقى العمال والنتائج والفوترة والتقارير والترتيبات متوقفة.',
+    source: '/api/evals/jobs',
   },
 ] as const
 
@@ -63,6 +63,8 @@ const BENCHMARK_SNIPPET = `curl -s https://api.dcp.sa/api/models/benchmarks/read
 curl -s https://api.dcp.sa/api/evals/readiness
 
 curl -s https://api.dcp.sa/api/evals/jobs/schema
+
+curl -s -H "Authorization: Bearer $DCP_RENTER_KEY" https://api.dcp.sa/api/evals/jobs
 
 curl -s https://api.dcp.sa/api/models/benchmarks
 
@@ -206,7 +208,7 @@ export default function BenchmarksProductPage() {
               <ul className="pshow-list">
                 <li><Bi en="Seeded benchmark profile rows never become public numbers without live provider measurement." ar="صفوف ملفات القياس المزروعة لا تصبح أرقاماً عامة دون قياس مزوّد حي." /></li>
                 <li><Bi en="Arabic task comparisons need approved datasets, harness version, baseline policy, and artifact checksum." ar="تحتاج مقارنات المهام العربية بيانات معتمدة وإصدار منهجية وسياسة أساس وبصمة أثر." /></li>
-                <li><Bi en="The eval-job schema contract is visible now; create/list/result APIs, workers, billing, reports, and rankings remain blocked." ar="عقد مخطط مهام التقييم ظاهر الآن؛ وتبقى واجهات الإنشاء والقائمة والنتائج والعمال والفوترة والتقارير والترتيبات مقيدة." /></li>
+                <li><Bi en="Eval job create/list/read endpoints are live for metadata records; workers, result APIs, billing, reports, and rankings remain blocked." ar="واجهات إنشاء وقراءة وقائمة مهام التقييم حية لسجلات البيانات فقط؛ وتبقى العمال وواجهات النتائج والفوترة والتقارير والترتيبات مقيدة." /></li>
               </ul>
             </div>
           </div>

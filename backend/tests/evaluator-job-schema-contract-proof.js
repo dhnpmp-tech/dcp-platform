@@ -140,7 +140,7 @@ function runEvaluatorJobSchemaContractProof(options = {}) {
         && schema.endpoints.schema === 'GET /api/evals/jobs/schema'
         && readiness.endpoints.job_schema === 'GET /api/evals/jobs/schema'
         && readiness.features.eval_job_schema.available === true
-        && readiness.features.eval_job_schema.creates_jobs === false,
+        && readiness.features.eval_job_schema.creates_metadata_only === true,
       'The schema is discoverable without implying evaluator job creation.',
     );
 
@@ -157,15 +157,18 @@ function runEvaluatorJobSchemaContractProof(options = {}) {
     );
 
     record(
-      'future endpoints remain non-live while schema is present',
-      readiness.features.eval_job_api.available === false
-        && readiness.features.eval_job_api.create_endpoint === null
-        && readiness.features.eval_job_api.list_endpoint === null
+      'metadata endpoints are live while worker result endpoint remains non-live',
+      readiness.features.eval_job_api.available === true
+        && readiness.features.eval_job_api.create_endpoint === 'POST /api/evals/jobs'
+        && readiness.features.eval_job_api.list_endpoint === 'GET /api/evals/jobs'
+        && readiness.features.eval_job_api.read_endpoint === 'GET /api/evals/jobs/:id'
         && readiness.features.eval_job_api.result_endpoint === null
-        && schema.claim_guards.create_endpoint_live === false
-        && schema.claim_guards.list_endpoint_live === false
+        && schema.claim_guards.create_endpoint_live === true
+        && schema.claim_guards.list_endpoint_live === true
+        && schema.claim_guards.read_endpoint_live === true
+        && schema.claim_guards.metadata_only === true
         && schema.claim_guards.result_endpoint_live === false,
-      'The schema does not expose create/list/result evaluator job APIs.',
+      'The schema exposes metadata APIs without exposing result artifacts or workers.',
     );
 
     record(

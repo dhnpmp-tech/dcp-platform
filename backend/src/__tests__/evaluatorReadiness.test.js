@@ -38,14 +38,16 @@ describe('evaluator readiness contract', () => {
           available: true,
           version: 'dcp.evaluator_job_schema.v1',
           schema_endpoint: 'GET /api/evals/jobs/schema',
-          creates_jobs: false,
+          creates_jobs: true,
+          creates_metadata_only: true,
           runs_worker: false,
         },
         eval_job_api: {
-          status: 'schema_ready_create_blocked',
-          available: false,
-          create_endpoint: null,
-          list_endpoint: null,
+          status: 'metadata_records_live_worker_blocked',
+          available: true,
+          create_endpoint: 'POST /api/evals/jobs',
+          list_endpoint: 'GET /api/evals/jobs',
+          read_endpoint: 'GET /api/evals/jobs/:id',
           result_endpoint: null,
         },
         dataset_artifacts: {
@@ -72,6 +74,7 @@ describe('evaluator readiness contract', () => {
       },
       claim_guards: {
         eval_jobs_live: false,
+        eval_job_metadata_api_live: true,
         arabic_quality_claim_allowed: false,
         customer_case_study_allowed: false,
         model_ranking_allowed: false,
@@ -94,11 +97,12 @@ describe('evaluator readiness contract', () => {
         eval_job_schema: {
           available: true,
           schema_endpoint: 'GET /api/evals/jobs/schema',
-          creates_jobs: false,
+          creates_metadata_only: true,
         },
         eval_job_api: {
-          available: false,
-          create_endpoint: null,
+          available: true,
+          create_endpoint: 'POST /api/evals/jobs',
+          result_endpoint: null,
         },
         public_reports: {
           available: false,
@@ -123,9 +127,10 @@ describe('evaluator readiness contract', () => {
       current_mode: 'schema_contract_only',
       endpoints: {
         schema: 'GET /api/evals/jobs/schema',
-        future_create: 'POST /api/evals/jobs',
-        future_list: 'GET /api/evals/jobs',
-        future_result: 'GET /api/evals/jobs/:id',
+        create_metadata: 'POST /api/evals/jobs',
+        list_metadata: 'GET /api/evals/jobs',
+        read_metadata: 'GET /api/evals/jobs/:id',
+        future_result_manifest: 'GET /api/evals/jobs/:id/results',
       },
       request_schema: {
         required: [
@@ -154,7 +159,10 @@ describe('evaluator readiness contract', () => {
         minimum_balance_endpoint: 'GET /api/renters/me/minimum-balances',
       },
       claim_guards: {
-        create_endpoint_live: false,
+        create_endpoint_live: true,
+        list_endpoint_live: true,
+        read_endpoint_live: true,
+        metadata_only: true,
         worker_enabled: false,
         stores_raw_customer_dataset: false,
         bills_eval_jobs: false,
