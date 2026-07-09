@@ -178,9 +178,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await page.goto('/renter/pods');
 
   await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toBeVisible();
-  await expect(page.locator('#pod-stage-1').getByText('Stage 1')).toBeVisible();
-  await expect(page.locator('#pod-stage-2').getByText('Stage 2')).toBeVisible();
-  await expect(page.locator('#pod-stage-3').getByText('Stage 3')).toBeVisible();
+  await expect(page.locator('#pod-stage-1 .pod-stage-no')).toHaveText('Stage 1');
+  await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2');
+  await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3');
   await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU request.*Auto-pick/ })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 ready');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
@@ -212,13 +212,16 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
 
   const computeSummary = page.locator('.pod-compute-summary');
-  await expect(computeSummary).toContainText('Launch GPU request');
+  await expect(computeSummary).toContainText('Stage 2 decision');
   await expect(computeSummary).toContainText('Auto-pick at launch');
-  await expect(computeSummary).toContainText('Request mode: auto-pick');
+  await expect(computeSummary).toContainText('Launch will auto-pick an available GPU type');
+  await expect(computeSummary).toContainText('Request mode: Auto-pick request');
   await expect(computeSummary).toContainText('Credit policy: synced');
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
-  await expect(computeSummary).toContainText('Trial tag: credit provenance');
+  await expect(computeSummary).toContainText('Trial accounts: credit provenance');
+  await expect(computeSummary.getByRole('button', { name: 'Auto-pick', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(computeSummary.getByRole('button', { name: 'Fixed GPU', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace and LoRA image evidence');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace contract: CI safe');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace live: provider window');
@@ -239,12 +242,18 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await gpuSelectionStrip.getByRole('button', { name: 'Clear filters' }).click();
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
+  await expect(page.getByLabel('Launch review')).toContainText('Stage 2');
+  await expect(page.getByLabel('Launch review')).toContainText('Auto-pick GPU');
+  await expect(page.getByLabel('Launch review')).toContainText('Trial via credit provenance');
 
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
   await expect(computeSummary).toContainText('RTX 4090');
-  await expect(computeSummary).toContainText('Request mode: fixed GPU');
+  await expect(computeSummary).toContainText('Request mode: Fixed GPU request');
   await expect(computeSummary).toContainText('24 GB VRAM');
   await expect(computeSummary).toContainText('Quote: ~SAR');
+  await expect(computeSummary.getByRole('button', { name: 'Auto-pick', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(computeSummary.getByRole('button', { name: 'Fixed GPU', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Launch review')).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');
   await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
