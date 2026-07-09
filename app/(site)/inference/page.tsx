@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, BiX } from '@/app/(site)/lib/i18n'
@@ -58,13 +59,74 @@ response = client.chat.completions.create(
 
 print(response.choices[0].message.content)`
 
+type RouterPolicyState = 'loading' | 'ready' | 'error'
+
+interface RouterPolicy {
+  id: string
+  label: string
+  status: string
+  available: boolean
+  default?: boolean
+  request_selectable?: boolean
+  current_behavior?: string
+}
+
+interface RouterPoliciesResponse {
+  version?: string
+  default_policy?: string
+  request_selectable?: boolean
+  data?: RouterPolicy[]
+}
+
 function capabilitySource(key: string): string {
   if (key === 'balanced_routing') return '/v1/router/policies'
   if (key === 'prompt_cache_readiness') return '/v1/prompt-cache/readiness'
   return '/v1/models'
 }
 
+function formatPolicyStatus(status?: string): string {
+  return String(status || 'gated').replace(/_/g, ' ')
+}
+
 export default function InferenceProductPage() {
+  const [routerPolicyState, setRouterPolicyState] = useState<RouterPolicyState>('loading')
+  const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadRouterPolicies() {
+      setRouterPolicyState('loading')
+      try {
+        const res = await fetch('/v1/router/policies', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`router policies failed: ${res.status}`)
+        const data = (await res.json()) as RouterPoliciesResponse
+        if (!cancelled) {
+          setRouterPolicies(data)
+          setRouterPolicyState('ready')
+        }
+      } catch {
+        if (!cancelled) {
+          setRouterPolicies(null)
+          setRouterPolicyState('error')
+        }
+      }
+    }
+    loadRouterPolicies()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const policies = useMemo(() => routerPolicies?.data || [], [routerPolicies])
+  const defaultPolicy = useMemo(() => {
+    return policies.find((policy) => policy.id === routerPolicies?.default_policy)
+      || policies.find((policy) => policy.default)
+      || policies.find((policy) => policy.id === 'balanced')
+      || null
+  }, [policies, routerPolicies?.default_policy])
+  const availablePolicies = policies.filter((policy) => policy.available).length
+  const gatedPolicies = Math.max(0, policies.length - availablePolicies)
+
   return (
     <>
       <SiteHeader active="/inference" />
@@ -171,6 +233,49 @@ export default function InferenceProductPage() {
                   ar="ترسل بيئة الاختبار سياسة التوازن فقط عندما تضعها الخلفية كمتاحة. سياسات أقل تكلفة وأقل كمون والمميزة والدُفعات واقتصاد التخزين المؤقت تحتاج بوابات قياس قبل أن تصبح وعوداً عامة."
                 />
               </p>
+              <div className="inference-policy-live" aria-live="polite">
+                <div className="policy-live-head">
+                  <span><Bi en="Router policy catalog" ar="كتالوج سياسات التوجيه" /></span>
+                  <b dir="ltr">{routerPolicies?.version || 'dcp.inference_routing_policies.v1'}</b>
+                </div>
+                {routerPolicyState === 'loading' && (
+                  <p className="policy-live-empty">
+                    <Bi en="Loading router-policy readiness..." ar="تحميل جاهزية سياسات التوجيه..." />
+                  </p>
+                )}
+                {routerPolicyState === 'error' && (
+                  <p className="policy-live-empty">
+                    <Bi en="Router-policy readiness is temporarily unavailable; future policies remain gated." ar="جاهزية سياسات التوجيه غير متاحة مؤقتاً؛ تبقى السياسات المستقبلية مقيدة." />
+                  </p>
+                )}
+                {routerPolicyState === 'ready' && (
+                  <>
+                    <div className="policy-live-metrics">
+                      <span>
+                        <em><Bi en="Default" ar="الافتراضي" /></em>
+                        <strong>{defaultPolicy?.label || 'Balanced'}</strong>
+                      </span>
+                      <span>
+                        <em><Bi en="Available" ar="متاح" /></em>
+                        <strong>{availablePolicies}/{policies.length}</strong>
+                      </span>
+                      <span>
+                        <em><Bi en="Gated policies" ar="سياسات مقيدة" /></em>
+                        <strong>{gatedPolicies}</strong>
+                      </span>
+                    </div>
+                    <div className="policy-live-list">
+                      {policies.map((policy) => (
+                        <span key={policy.id} className={policy.available ? 'available' : 'gated'}>
+                          <b>{policy.label}</b>
+                          <em>{formatPolicyStatus(policy.status)}</em>
+                          {!policy.request_selectable && <i><Bi en="not selectable" ar="غير قابل للاختيار" /></i>}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               <div style={{ marginTop: 22, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <Link className="btn primary" href="/renter/playground"><Bi en="Try Playground" ar="جرّب بيئة الاختبار" /></Link>
                 <Link className="btn ghost" href="/pricing"><Bi en="See pricing" ar="شاهد الأسعار" /></Link>

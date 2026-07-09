@@ -273,6 +273,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     packet for catalog shape, env-gated readiness, explicit balanced no-op
     resolution, future-policy rejection, and no-claim guards before any
     policy-specific routing behavior is enabled.
+  - PR #879 made public `/inference` render the same router-policy catalog from
+    `/v1/router/policies`, keeping future policies visibly gated/not selectable
+    until route-specific proof exists.
 - Surface model metadata in the Playground from `/v1/models`.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to
