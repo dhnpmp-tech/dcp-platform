@@ -9,6 +9,7 @@ const { buildEvaluatorResultManifestContract } = require('../services/evaluatorR
 const { buildEvaluatorResultWriterDryRunReadiness } = require('../services/evaluatorResultWriterDryRun');
 const { buildEvaluatorArtifactStoragePolicyReadiness } = require('../services/evaluatorArtifactStoragePolicy');
 const { buildEvaluatorResultAccessPolicyReadiness } = require('../services/evaluatorResultAccessPolicy');
+const { buildEvaluatorResultEndpointDisabledResponse } = require('../services/evaluatorResultEndpointGate');
 const {
   EvaluatorJobError,
   createEvaluatorJob,
@@ -164,6 +165,21 @@ function createEvalsRouter(deps = {}) {
         worker_enabled: false,
         billing_enabled: false,
       });
+    } catch (error) {
+      return sendEvaluatorJobError(res, error);
+    }
+  });
+
+  router.get('/jobs/:evalJobId/results', requireRenter, (req, res) => {
+    try {
+      const evalJob = getEvaluatorJob(evalDb, req.renter.id, req.params.evalJobId);
+      if (!evalJob) {
+        return res.status(404).json({
+          error: 'Evaluator job not found',
+          code: 'evaluator_job_not_found',
+        });
+      }
+      return res.status(409).json(buildEvaluatorResultEndpointDisabledResponse(evalJob, new Date()));
     } catch (error) {
       return sendEvaluatorJobError(res, error);
     }

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 05:24 UTC - `test(evals): add disabled result endpoint proof - PR #864`
+
+**PR:** [#864](https://github.com/dhnpmp-tech/dcp-platform/pull/864) (`codex/evaluator-result-endpoint-disabled-2026-07-09`).
+**Local timestamp:** 2026-07-09 09:24 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Makes the future evaluator result route explicit and renter-scoped while keeping result manifests and signed downloads disabled.
+
+- **Backend contract:** Added renter-authenticated `GET /api/evals/jobs/:id/results`, returning a disabled-result contract for the owning renter and 404 for other renters.
+- **Proof command:** Added `npm run proof:evaluator-result-endpoint-disabled` and included it in `npm run proof:local-roadmap`, raising the suite to 22 CI-safe gates.
+- **Public surface:** Evaluator readiness, job schema, worker gate, access policy, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs now distinguish the disabled result route from any live result download API.
+- **Safety:** Disabled route only; no result manifest exposure, artifact storage key exposure, signed download, worker start, eval-job status mutation, object-store write, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted disabled-result/access-policy/job-schema/job-metadata/worker-gate/result-writer/result-manifest/artifact-policy/readiness Jest suites; evaluator disabled-result proof; evaluator result-access proof; evaluator artifact-storage proof; evaluator worker-fixture proof; evaluator result-writer proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 22/22 gates; `git diff --check`.
+
 ### 2026-07-09 04:55 UTC - `test(evals): add result access policy proof - PR #863`
 
 **PR:** [#863](https://github.com/dhnpmp-tech/dcp-platform/pull/863) (`codex/evaluator-result-access-policy-2026-07-09`).

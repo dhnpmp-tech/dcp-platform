@@ -168,6 +168,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Evaluator worker dry-run fixture | `npm run proof:evaluator-worker-dry-run-fixture` | none | CI-safe gate available; simulates a draft eval queue item and invokes the dry-run writer while job status, production artifacts, result endpoints, billing, reports, rankings, and quality claims remain disabled |
 | Evaluator artifact storage policy | `npm run proof:evaluator-artifact-storage-policy` | none | CI-safe gate available; validates renter/job-scoped future result manifest keys and checksums while object-store writes, signed downloads, result endpoints, billing, reports, rankings, and quality claims remain disabled |
 | Evaluator result access policy | `npm run proof:evaluator-result-access-policy` | none | CI-safe gate available; validates owner-match, result-available, artifact-policy, and checksum guards while result endpoints, signed downloads, billing, reports, rankings, and quality claims remain disabled |
+| Evaluator disabled result endpoint | `npm run proof:evaluator-result-endpoint-disabled` | none | CI-safe gate available; renter-scoped route returns disabled contract only, with no manifest, storage key, signed URL, billing, reports, rankings, or quality claims |
 | Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
@@ -289,6 +290,11 @@ before or with the feature change.
      result availability, artifact storage policy, and checksum guards while
      result endpoints, signed downloads, billing, reports, rankings, and
      quality claims stay disabled.
+   - Evaluator disabled result endpoint starts in PR #864 with
+     renter-authenticated `GET /api/evals/jobs/:id/results` and `npm run
+     proof:evaluator-result-endpoint-disabled`; the route is owner-scoped and
+     returns a disabled contract only, without exposing manifests, artifact
+     keys, signed URLs, billing, reports, rankings, or quality claims.
    - Minimum-balance policy starts in PR #855 with
      `GET /api/renters/me/minimum-balances` and `npm run
      proof:minimum-balance-readiness`; payment/workload/enforcement mutation

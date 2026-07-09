@@ -45,6 +45,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
       worker_readiness: 'GET /api/evals/worker/readiness',
       evaluator_readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',
+      disabled_result_endpoint: 'GET /api/evals/jobs/:id/results',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
     },
     required_fields: [...RESULT_MANIFEST_REQUIRED_FIELDS],

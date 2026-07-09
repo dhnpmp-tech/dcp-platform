@@ -335,6 +335,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `npm run proof:evaluator-result-access-policy`; it defines owner-match,
     result-available, artifact-policy, and checksum guards before any result
     endpoint or signed download can go live.
+  - PR #864 adds renter-authenticated `GET /api/evals/jobs/:id/results` and
+    `npm run proof:evaluator-result-endpoint-disabled`; it makes the future
+    result route owner-scoped while returning only a disabled contract with no
+    manifest, artifact key, signed URL, billing, report, ranking, or quality
+    claim exposure.
 
 Acceptance:
 
