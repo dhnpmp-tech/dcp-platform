@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 10:18 UTC - Public inference router policy readiness (PR #879)
+
+- **PR:** [#879](https://github.com/dhnpmp-tech/dcp-platform/pull/879) (`codex/inference-router-policy-live-rail-2026-07-09`).
+- **Frontend:** `/inference` now fetches `/v1/router/policies` and renders contract version, default policy, available/gated counts, and policy status chips from backend data.
+- **Claim safety:** Balanced remains the only available policy in the rendered contract; future policies stay marked as gated/not selectable until route-specific proof exists.
+- **Regression:** Added a focused Playwright test with a mocked router-policy catalog to prove the public page renders the live readiness rail.
+- **Safety:** Frontend/read-only fetch only; no request routing, provider ordering, routing-policy selectability, pricing, billing, settlement, prompt-cache, batch, LoRA, or model catalog behavior changed.
+- **Verification:** TypeScript; focused Playwright browser regression for `/inference`; router-policy contract proof; Next build; `git diff --check`.
+
 ### 2026-07-09 10:08 UTC - Pod GPU selection clarity (PR #878)
 
 - **PR:** [#878](https://github.com/dhnpmp-tech/dcp-platform/pull/878) (`codex/pods-gpu-selection-clarity-2026-07-09`).

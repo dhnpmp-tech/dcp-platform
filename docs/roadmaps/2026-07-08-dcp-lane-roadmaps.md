@@ -435,6 +435,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   for the router-policy catalog shape, env-gated readiness metadata, explicit
   balanced no-op resolution, future-policy rejection, and no-claim guards for
   cheapest, lowest-latency, Saudi-only, coding, and Arabic routing.
+- PR #879 made public `/inference` consume `/v1/router/policies` directly,
+  rendering the contract version, default policy, available/gated counts, and
+  future-policy gated/not-selectable states without changing routing behavior.
 
 ### Now
 
