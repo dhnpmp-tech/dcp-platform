@@ -619,6 +619,21 @@ components:
             api_available:
               type: boolean
               example: true
+            artifact_policy_version:
+              type: string
+              example: dcp.adapter_artifact_policy.v1
+            artifact_policy_endpoint:
+              type: string
+              example: GET /api/adapters/artifacts/readiness
+            artifact_upload_endpoint_enabled:
+              type: boolean
+              example: false
+            artifact_storage_write_enabled:
+              type: boolean
+              example: false
+            model_card_required:
+              type: boolean
+              example: true
             serving_enabled:
               type: boolean
               example: false
@@ -2160,6 +2175,79 @@ paths:
           description: LoRA training job not found for this renter.
         '409':
           description: Training job is not succeeded, lacks artifact proof, or conflicts with an existing adapter.
+
+  /api/adapters/artifacts/readiness:
+    get:
+      tags: [Adapters]
+      summary: Get adapter artifact policy readiness
+      description: |
+        Returns a public, read-only policy contract for future LoRA adapter
+        artifacts and model cards. It defines renter/adapter-scoped
+        `adapter.safetensors` and `model-card.json` key requirements plus
+        checksum guards while artifact uploads, object-store writes, adapter
+        serving, route traffic, billing, and Tinker compatibility remain
+        disabled.
+      responses:
+        '200':
+          description: Adapter artifact policy readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, artifact_policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_artifact_policy_readiness]
+                  version:
+                    type: string
+                    example: dcp.adapter_artifact_policy.v1
+                  current_mode:
+                    type: string
+                    enum: [artifact_policy_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  artifact_policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      policy_available: { type: boolean, example: true }
+                      metadata_registry_available: { type: boolean, example: true }
+                      registry_metadata_create_enabled: { type: boolean, example: true }
+                      artifact_upload_endpoint_enabled: { type: boolean, example: false }
+                      artifact_storage_write_enabled: { type: boolean, example: false }
+                      adapter_serving_enabled: { type: boolean, example: false }
+                      route_traffic_enabled: { type: boolean, example: false }
+                      required_prefix_template: { type: string, example: 'adapters/renter-{renter_id}/{adapter_id}/' }
+                      required_artifact_filename: { type: string, example: adapter.safetensors }
+                      required_model_card_filename: { type: string, example: model-card.json }
+                      checksum_required: { type: boolean, example: true }
+                      model_card_required: { type: boolean, example: true }
+                      training_artifact_proof_required: { type: boolean, example: true }
+                      vllm_load_proof_required: { type: boolean, example: true }
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      policy_contract_live: { type: boolean, example: true }
+                      metadata_registry_available: { type: boolean, example: true }
+                      artifact_upload_endpoint_enabled: { type: boolean, example: false }
+                      artifact_storage_write_enabled: { type: boolean, example: false }
+                      exposes_object_store_bucket: { type: boolean, example: false }
+                      creates_training_job: { type: boolean, example: false }
+                      runs_gpu_training: { type: boolean, example: false }
+                      writes_adapter_artifact: { type: boolean, example: false }
+                      writes_model_card_artifact: { type: boolean, example: false }
+                      enables_adapter_serving: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      bills_training: { type: boolean, example: false }
+                      bills_adapter_inference: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
 
   /api/adapters:
     get:

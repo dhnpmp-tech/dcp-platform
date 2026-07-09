@@ -7,6 +7,7 @@ const {
   getAdapter,
   listAdapters,
 } = require('../services/adapterRegistry');
+const { buildAdapterArtifactPolicyReadiness } = require('../services/adapterArtifactPolicy');
 const {
   AdapterDeploymentError,
   attachAdapterDeploymentLoadProof,
@@ -63,6 +64,18 @@ function createAdaptersRouter(deps = {}) {
       });
     } catch (error) {
       return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.get('/artifacts/readiness', (_req, res) => {
+    try {
+      return res.json(buildAdapterArtifactPolicyReadiness(new Date()));
+    } catch (error) {
+      console.error('[adapters] artifact policy readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch adapter artifact policy readiness',
+        code: 'adapter_artifact_policy_readiness_internal_error',
+      });
     }
   });
 

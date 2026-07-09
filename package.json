@@ -27,6 +27,7 @@
     "proof:lora-training-contract": "npm --prefix backend run test:reliability:lora-training-contract-proof",
     "proof:tinker-loop-readiness": "npm --prefix backend run test:reliability:tinker-loop-readiness-contract-proof",
     "proof:lora-training-live-artifact": "npm --prefix backend run test:reliability:lora-training-live-artifact-proof",
+    "proof:adapter-artifact-policy": "npm --prefix backend run test:reliability:adapter-artifact-policy-proof",
     "proof:adapter-deployment-contract": "npm --prefix backend run test:reliability:adapter-deployment-contract-proof",
     "proof:adapter-vllm-live-load": "npm --prefix backend run test:reliability:adapter-vllm-live-load-proof",
     "proof:batch-inference-contract": "npm --prefix backend run test:reliability:batch-inference-contract-proof",
