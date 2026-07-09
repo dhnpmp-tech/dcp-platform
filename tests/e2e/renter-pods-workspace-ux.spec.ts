@@ -161,12 +161,16 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.locator('#pod-stage-3').getByText('Stage 3')).toBeVisible();
   await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU.*Auto-pick/ })).toBeVisible();
   await expect(page.getByText('Staged files')).toBeVisible();
+  await expect(page.getByText('Stage 1 manifest')).toBeVisible();
+  await expect(page.getByText('5 files · 4 groups')).toBeVisible();
+  await expect(page.getByText('Review folders')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Continue to Stage 2' })).toBeVisible();
   await expect(page.getByText('datasets/ · 2')).toBeVisible();
   await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
   await expect(page.getByRole('button', { name: /Open datasets\/ with 2 files/ })).toBeVisible();
   await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
 
-  await page.getByRole('link', { name: 'Go to Stage 2' }).click();
+  await page.getByRole('link', { name: 'Continue to Stage 2' }).click();
   await expect(page).toHaveURL(/#pod-stage-2$/);
   await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
   await page.getByRole('button', { name: /Open datasets\/ with 2 files/ }).click();
@@ -180,29 +184,32 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
 
   const computeSummary = page.locator('.pod-compute-summary');
-  await expect(computeSummary).toContainText('Selected compute');
+  await expect(computeSummary).toContainText('Launch GPU request');
   await expect(computeSummary).toContainText('Auto-pick at launch');
+  await expect(computeSummary).toContainText('Request mode: auto-pick');
   await expect(computeSummary).toContainText('Credit policy: synced');
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
-  await expect(computeSummary).toContainText('Trial accounts: credit provenance');
+  await expect(computeSummary).toContainText('Trial handling: credit provenance');
 
   const gpuSelectionStrip = page.locator('.gpu-selection-strip');
   await expect(gpuSelectionStrip).toContainText('GPU selection');
   await expect(gpuSelectionStrip).toContainText('Auto-pick at launch');
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
-  await expect(page.getByText('VRAM filter')).toBeVisible();
+  await expect(page.getByText('Card filter: VRAM')).toBeVisible();
   await page.getByRole('button', { name: '80 GB+', exact: true }).click();
-  await expect(gpuSelectionStrip).toContainText('Filter 80 GB+');
+  await expect(gpuSelectionStrip).toContainText('Card filter 80 GB+');
   await expect(gpuSelectionStrip).toContainText('1 shown');
   await expect(computeSummary).toContainText('Auto-pick at launch');
+  await expect(computeSummary).toContainText('Filter only; not the launch GPU');
   await gpuSelectionStrip.getByRole('button', { name: 'Clear filters' }).click();
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
 
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
   await expect(computeSummary).toContainText('RTX 4090');
+  await expect(computeSummary).toContainText('Request mode: fixed GPU');
   await expect(computeSummary).toContainText('24 GB VRAM');
   await expect(computeSummary).toContainText('Quote: ~SAR');
   await expect(gpuSelectionStrip).toContainText('RTX 4090');

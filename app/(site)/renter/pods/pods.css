@@ -384,6 +384,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   background: color-mix(in oklab, var(--teal) 7%, var(--paper));
   padding: 16px 18px;
   margin: 0 0 20px;
+  box-shadow: inset 3px 0 0 var(--rt-accent);
 }
 @media (max-width: 900px) { .pod-compute-summary { grid-template-columns: 1fr; } }
 .pod-compute-main {
@@ -435,6 +436,20 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   letter-spacing: .06em;
   text-transform: uppercase;
   border-radius: 2px;
+}
+.pod-request-state.fixed,
+.pod-request-state.auto {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 10%, var(--bg-2));
+}
+.pod-request-state.auto {
+  border-color: color-mix(in oklab, var(--rt-accent) 48%, var(--hair));
+}
+.pod-filter-note {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair)) !important;
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink)) !important;
+  background: color-mix(in oklab, var(--orange) 8%, var(--bg-2)) !important;
 }
 .pod-policy-state.ready {
   border-color: var(--rt-accent);

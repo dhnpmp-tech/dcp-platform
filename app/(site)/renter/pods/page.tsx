@@ -1177,7 +1177,7 @@ export default function RenterPodsPage() {
               <em>
                 {selectedType
                   ? displayGpuType(selectedType.gpu_model)
-                  : <Bi en="Auto-pick" ar="اختيار تلقائي" />}
+                  : <Bi en="Auto-pick · no fixed GPU" ar="اختيار تلقائي · بدون GPU محدد" />}
               </em>
             </a>
             <a href="#pod-stage-3" className="ok">
@@ -1239,7 +1239,7 @@ export default function RenterPodsPage() {
                 <strong>
                   {selectedType
                     ? displayGpuType(selectedType.gpu_model)
-                    : <Bi en="Auto-pick" ar="اختيار تلقائي" />}
+                    : <Bi en="Auto-pick · no fixed GPU" ar="اختيار تلقائي · بدون GPU محدد" />}
                 </strong>
               </div>
               <div className="pod-flow-item ok">
@@ -1274,13 +1274,13 @@ export default function RenterPodsPage() {
             <div className="pod-compute-summary" aria-live="polite">
               <div className="pod-compute-main">
                 <span className="pod-compute-k">
-                  <Bi en="Selected compute" ar="المعالج المحدد" />
+                  <Bi en="Launch GPU request" ar="طلب GPU للتشغيل" />
                 </span>
                 {selectedType ? (
                   <>
                     <strong>{displayGpuType(selectedType.gpu_model)}</strong>
                     <span>
-                      {selectedType.vram_gb} GB VRAM
+                      <Bi en="Fixed GPU type requested" ar="نوع GPU محدد في الطلب" /> · {selectedType.vram_gb} GB VRAM
                       {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
                     </span>
                   </>
@@ -1289,14 +1289,19 @@ export default function RenterPodsPage() {
                     <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
                     <span>
                       <Bi
-                        en="DCP will choose an available GPU type that matches the launch request."
-                        ar="ستختار DCP نوع GPU متاحاً يطابق طلب التشغيل."
+                        en="No fixed GPU type selected; card filters below are only for browsing."
+                        ar="لم يتم تحديد نوع GPU؛ التصفية أدناه للتصفح فقط."
                       />
                     </span>
                   </>
                 )}
               </div>
               <div className="pod-compute-facts">
+                <span className={selectedType ? 'pod-request-state fixed' : 'pod-request-state auto'}>
+                  {selectedType
+                    ? <Bi en="Request mode: fixed GPU" ar="وضع الطلب: GPU محدد" />
+                    : <Bi en="Request mode: auto-pick" ar="وضع الطلب: اختيار تلقائي" />}
+                </span>
                 <span className={`pod-policy-state ${trialRoutingStatus === 'loading' ? 'loading' : trialRoutingSynced ? 'ready' : 'fallback'}`}>
                   {trialRoutingStatus === 'loading'
                     ? <Bi en="Credit policy: checking" ar="سياسة الرصيد: جار التحقق" />
@@ -1306,7 +1311,12 @@ export default function RenterPodsPage() {
                 </span>
                 {minVram > 0 && (
                   <span>
-                    <Bi en={`Filter: ≥ ${minVram} GB`} ar={`التصفية: ≥ ${minVram} غ.ب`} />
+                    <Bi en={`Card filter: ≥ ${minVram} GB`} ar={`تصفية البطاقات: ≥ ${minVram} غ.ب`} />
+                  </span>
+                )}
+                {minVram > 0 && !selectedType && (
+                  <span className="pod-filter-note">
+                    <Bi en="Filter only; not the launch GPU" ar="تصفية فقط؛ ليست GPU التشغيل" />
                   </span>
                 )}
                 {selectedQuoteSar != null && (
@@ -1322,8 +1332,8 @@ export default function RenterPodsPage() {
                 </span>
                 <span>
                   {explicitTrialTagLive
-                    ? <Bi en="Trial accounts: explicit tag" ar="حسابات التجربة: وسم صريح" />
-                    : <Bi en="Trial accounts: credit provenance" ar="حسابات التجربة: حسب مصدر الرصيد" />}
+                    ? <Bi en="Trial handling: explicit tag" ar="التجربة: وسم صريح" />
+                    : <Bi en="Trial handling: credit provenance" ar="التجربة: حسب مصدر الرصيد" />}
                 </span>
                 {selectedType && (
                   <button
@@ -1496,8 +1506,8 @@ export default function RenterPodsPage() {
                       <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
                       <span>
                         <Bi
-                          en="Leave this on auto-pick when the exact GPU type does not matter."
-                          ar="اتركه على الاختيار التلقائي عندما لا يهم نوع GPU المحدد."
+                          en="No fixed GPU type selected; filters only narrow the cards below."
+                          ar="لم يتم تحديد نوع GPU؛ التصفية تقلل البطاقات أدناه فقط."
                         />
                       </span>
                     </>
@@ -1506,7 +1516,7 @@ export default function RenterPodsPage() {
                 <div className="gpu-selection-actions">
                   <span className="gpu-selection-chip">
                     {minVram > 0
-                      ? <Bi en={`Filter ${minVram} GB+`} ar={`تصفية ${minVram} غ.ب+`} />
+                      ? <Bi en={`Card filter ${minVram} GB+`} ar={`تصفية البطاقات ${minVram} غ.ب+`} />
                       : <Bi en="Any VRAM" ar="أي ذاكرة" />}
                   </span>
                   <span className="gpu-selection-chip">
@@ -1554,7 +1564,7 @@ export default function RenterPodsPage() {
                   </div>
                   <div className="gpu-ctl gpu-vram">
                     <label id="gpu-vram-filter-label">
-                      <Bi en="VRAM filter" ar="تصفية الذاكرة" />
+                      <Bi en="Card filter: VRAM" ar="تصفية البطاقات: الذاكرة" />
                     </label>
                     <div className="gpu-vram-options" role="group" aria-labelledby="gpu-vram-filter-label">
                       {VRAM_FILTER_OPTIONS.map((value) => (
