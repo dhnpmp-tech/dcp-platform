@@ -54,11 +54,13 @@ const BENCHMARK_GATES = [
     tAr: 'مهام تقييم العملاء لاحقاً',
     en: 'Renter-scoped eval jobs, result artifacts, redacted reports, and billing policy are the next build step.',
     ar: 'مهام تقييم حسب المستأجر وآثار النتائج والتقارير المنقحة وسياسة الفوترة هي خطوة البناء التالية.',
-    source: 'coming next',
+    source: '/api/evals/readiness',
   },
 ] as const
 
 const BENCHMARK_SNIPPET = `curl -s https://api.dcp.sa/api/models/benchmarks/readiness
+
+curl -s https://api.dcp.sa/api/evals/readiness
 
 curl -s https://api.dcp.sa/api/models/benchmarks
 

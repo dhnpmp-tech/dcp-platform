@@ -707,6 +707,8 @@ app.use('/api/admin', adminStatsRouter);
 
 const benchmarkRouter = require('./routes/benchmark');
 app.use('/api/benchmark', benchmarkRouter);
+const evalsRouter = require('./routes/evals');
+app.use('/api/evals', evalsRouter);
 
 const recoveryRouter = require('./routes/recovery');
 app.use('/api/recovery', recoveryRouter);
