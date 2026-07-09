@@ -425,7 +425,7 @@ export default function WorkspacePanel({
             {nextStageHref && (
               <span className="ws-stage-skip-note">
                 <Bi
-                  en="No need to scroll every file. Open the folder index only if you need to inspect; Stage 2 launches with the whole /workspace volume attached."
+                  en="No need to scroll every file. Stage 1 can stay collapsed; Stage 2 launches with the whole /workspace volume attached."
                   ar="لا تحتاج للمرور على كل ملف. المرحلة 2 تشغّل الحاوية مع وحدة /workspace كاملة."
                 />
               </span>
@@ -484,7 +484,7 @@ export default function WorkspacePanel({
                 <a href={nextStageHref}>
                   <span>3</span>
                   <b><Bi en="Stage 2" ar="المرحلة 2" /></b>
-                  <em><Bi en="Launch uses the full /workspace volume" ar="التشغيل يستخدم وحدة /workspace كاملة" /></em>
+                  <em><Bi en="Launch uses the full /workspace volume; file list can stay closed" ar="التشغيل يستخدم وحدة /workspace كاملة" /></em>
                 </a>
               ) : (
                 <span>

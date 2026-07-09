@@ -119,12 +119,29 @@ async function mockPodsApis(page: Page) {
           account: {
             balance_halala: 25000,
             balance_sar: 250,
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
             paid_funding_halala: 5000,
             paid_funding_sar: 50,
             on_demand_committed_halala: 1200,
             on_demand_committed_sar: 12,
             paid_available_halala: 3800,
             paid_available_sar: 38,
+          },
+          credit_policy: {
+            current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
+            source_contract: 'GET /api/pods/trial-routing/readiness',
+            explicit_trial_account_tag_live: false,
+            trial_credit_source: 'renters.trial_grant_halala',
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
+            has_trial_grant: true,
+            paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+            trial_credit_allowed_capacity: 'DCP/community/provider GPU capacity when normal quote checks pass',
+            trial_credit_unlocks_high_demand: false,
+            high_demand_requires_paid_credit: true,
           },
           rails: {
             gpu_pods_provider_supply: {
@@ -154,6 +171,8 @@ async function mockPodsApis(page: Page) {
             creates_adapter_deployment: false,
             enables_discount: false,
             changes_enforcement: false,
+            changes_trial_accounting: false,
+            changes_paid_credit_policy: false,
           },
         }),
       });
@@ -358,6 +377,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(stage1Checkpoint).toContainText('20 GB /workspace');
   await expect(stage1Checkpoint).toContainText('5 staged files');
   await expect(stage1Checkpoint).toContainText('3 folders');
+  await expect(stage1Checkpoint).toContainText('Stage 1 can stay collapsed');
   await expect(stage1Checkpoint.getByRole('link', { name: 'Skip to Stage 2' })).toBeVisible();
   await expect(stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' })).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeHidden();
@@ -372,7 +392,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('1.95 KiB');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Large workspace: folder index stays collapsed until you open it');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('No need to scroll every file');
-  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Open the folder index only if you need to inspect');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 can stay collapsed');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 2 launches with the whole /workspace volume attached');
   await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('Folder map');
   await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('3 folders · busiest folder datasets/');
@@ -455,6 +475,14 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
 
   const computeSummary = page.locator('.pod-compute-summary');
   await expect(computeSummary).toContainText('Stage 2 actual launch GPU');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Primary Stage 2 decision');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Auto-pick GPU');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Auto-pick is the launch request');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('gpu_type omitted = auto-pick');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Choose fixed GPU card');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('VRAM slider/chips are filters only');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Trial grant SAR 20.00');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('High-demand paid-credit gate live');
   await expect(computeSummary).toContainText('Template');
   await expect(computeSummary).toContainText('Actual GPU');
   await expect(computeSummary).toContainText('Auto-pick GPU');
@@ -493,10 +521,12 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('GPU selection source of truth')).toContainText('VRAM chips, workload guide, search, and sort change the list you see');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial accounts use grant-credit provenance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial tag is live.');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('Minimum-balance credit policy: synced');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Backend policy: synced');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial accounts: grant-credit provenance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('No trial-account tag live');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial source: grant balance');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('Trial grant SAR 20.00');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial route: native/community GPU pool');
   await expect(page.getByLabel('Trial routing policy')).toContainText('High-demand GPUs: paid credit only');
   await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial tag; grant credit decides');
@@ -507,6 +537,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Minimum balance policy')).toContainText('On-demand pods: paid credit preflight');
   await expect(page.getByLabel('Minimum balance policy')).toContainText('Paid available SAR 38.00');
   await expect(page.getByLabel('Minimum balance policy')).toContainText('Trial credit does not unlock high-demand GPUs');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('No trial-accounting change');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('No paid-credit policy change');
   await expect(page.getByLabel('Minimum balance policy')).toContainText('Read-only: no enforcement change');
   await expect(page.getByLabel('Minimum balance policy')).toContainText('4 future billing rails blocked');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace and LoRA image evidence');
@@ -561,6 +593,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Launch review')).toContainText('Trial via grant credit · native/community GPUs');
 
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('RTX 4090');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Fixed request: RTX 4090');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('gpu_type = RTX 4090');
   await expect(computeSummary).toContainText('RTX 4090');
   await expect(computeSummary).toContainText('Actual GPU');
   await expect(computeSummary).toContainText('Fixed GPU selected for launch');

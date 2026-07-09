@@ -436,6 +436,10 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   `npm run proof:minimum-balance-readiness`, and a renter Usage page strip for
   v1 estimate preflight, on-demand paid credit, and blocked future billing
   rails without changing enforcement.**
+  **PR #928 adds a read-only `credit_policy` block to that packet so trial/grant
+  provenance, paid-credit source, paid available credit, and high-demand
+  paid-credit requirements are visible without changing trial accounting or
+  enforcement, then wires the same answer into `/renter/pods` Stage 2.**
 - Evaluator job records.
 - Router policy objects.
 

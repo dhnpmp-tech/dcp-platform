@@ -4708,7 +4708,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [object, version, current_mode, account, rails, claim_guards]
+                required: [object, version, current_mode, account, credit_policy, rails, claim_guards]
                 properties:
                   object:
                     type: string
@@ -4727,11 +4727,52 @@ paths:
                     additionalProperties: true
                     properties:
                       balance_halala: { type: integer }
+                      trial_grant_halala: { type: integer }
                       paid_available_halala: { type: integer }
                       on_demand_committed_halala: { type: integer }
                       v1_remaining_cap_halala:
                         type: integer
                         nullable: true
+                  credit_policy:
+                    type: object
+                    required:
+                      - current_mode
+                      - source_contract
+                      - explicit_trial_account_tag_live
+                      - trial_credit_source
+                      - paid_credit_source
+                      - trial_credit_unlocks_high_demand
+                      - high_demand_requires_paid_credit
+                    properties:
+                      current_mode:
+                        type: string
+                        enum: [grant_credit_provenance_plus_paid_credit_gate]
+                      source_contract:
+                        type: string
+                        example: GET /api/pods/trial-routing/readiness
+                      explicit_trial_account_tag_live:
+                        type: boolean
+                        example: false
+                      trial_credit_source:
+                        type: string
+                        example: renters.trial_grant_halala
+                      trial_grant_halala:
+                        type: integer
+                      has_trial_grant:
+                        type: boolean
+                      paid_credit_source:
+                        type: string
+                        example: payments.status=paid/refunded minus active high-demand pod commitments
+                      paid_available_halala:
+                        type: integer
+                      trial_credit_allowed_capacity:
+                        type: string
+                      trial_credit_unlocks_high_demand:
+                        type: boolean
+                        example: false
+                      high_demand_requires_paid_credit:
+                        type: boolean
+                        example: true
                   rails:
                     type: object
                     additionalProperties:
@@ -4755,6 +4796,8 @@ paths:
                       creates_eval_job: { type: boolean, example: false }
                       enables_discount: { type: boolean, example: false }
                       changes_enforcement: { type: boolean, example: false }
+                      changes_trial_accounting: { type: boolean, example: false }
+                      changes_paid_credit_policy: { type: boolean, example: false }
 
   /api/evals/readiness:
     get:

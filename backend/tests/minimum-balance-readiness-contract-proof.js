@@ -48,6 +48,7 @@ function buildMarkdown(report) {
   lines.push('```json');
   lines.push(JSON.stringify({
     account: report.readiness.account,
+    credit_policy: report.readiness.credit_policy,
     rails: report.readiness.rails,
     claim_guards: report.readiness.claim_guards,
   }, null, 2));
@@ -97,6 +98,7 @@ async function runMinimumBalanceReadinessContractProof(options = {}) {
     renter: {
       id: 1,
       balance_halala: 25000,
+      trial_grant_halala: 2000,
     },
     paidCreditState: {
       paid_funding_halala: 5000,
@@ -128,6 +130,8 @@ async function runMinimumBalanceReadinessContractProof(options = {}) {
       creates_eval_job: false,
       enables_discount: false,
       changes_enforcement: false,
+      changes_trial_accounting: false,
+      changes_paid_credit_policy: false,
     },
     invariants: [],
     failure: null,
@@ -152,12 +156,25 @@ async function runMinimumBalanceReadinessContractProof(options = {}) {
     record(
       'account packet exposes balance, paid credit, commitments, and v1 cap',
       readiness.account.balance_halala === 25000
+        && readiness.account.trial_grant_halala === 2000
         && readiness.account.paid_funding_halala === 5000
         && readiness.account.on_demand_committed_halala === 1200
         && readiness.account.paid_available_halala === 3800
         && readiness.account.v1_monthly_spend_cap_halala === 5000
         && readiness.account.v1_remaining_cap_halala === 4700,
       'The packet separates paid available credit from total balance for on-demand GPU gates.',
+    );
+
+    record(
+      'credit policy separates trial grant provenance from paid-credit gates',
+      readiness.credit_policy.current_mode === 'grant_credit_provenance_plus_paid_credit_gate'
+        && readiness.credit_policy.explicit_trial_account_tag_live === false
+        && readiness.credit_policy.trial_credit_source === 'renters.trial_grant_halala'
+        && readiness.credit_policy.trial_grant_halala === 2000
+        && readiness.credit_policy.paid_available_halala === 3800
+        && readiness.credit_policy.trial_credit_unlocks_high_demand === false
+        && readiness.credit_policy.high_demand_requires_paid_credit === true,
+      'Trial/grant credit and paid credit are visible as separate policy inputs.',
     );
 
     record(

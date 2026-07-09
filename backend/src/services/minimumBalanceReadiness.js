@@ -13,6 +13,7 @@ function buildMinimumBalanceReadiness({
   budgetStatus = null,
 } = {}) {
   const balanceHalala = normalizeHalala(renter.balance_halala);
+  const trialGrantHalala = normalizeHalala(renter.trial_grant_halala);
   const paidAvailableHalala = normalizeHalala(paidCreditState.paid_available_halala);
   const paidFundingHalala = normalizeHalala(paidCreditState.paid_funding_halala);
   const onDemandCommittedHalala = normalizeHalala(paidCreditState.on_demand_committed_halala);
@@ -40,6 +41,8 @@ function buildMinimumBalanceReadiness({
     account: {
       balance_halala: balanceHalala,
       balance_sar: sarFromHalala(balanceHalala),
+      trial_grant_halala: trialGrantHalala,
+      trial_grant_sar: sarFromHalala(trialGrantHalala),
       paid_funding_halala: paidFundingHalala,
       paid_funding_sar: sarFromHalala(paidFundingHalala),
       on_demand_committed_halala: onDemandCommittedHalala,
@@ -50,6 +53,21 @@ function buildMinimumBalanceReadiness({
       v1_monthly_spend_cap_sar: sarFromHalala(v1CapHalala),
       v1_remaining_cap_halala: v1RemainingCapHalala,
       v1_remaining_cap_sar: v1RemainingCapHalala == null ? null : sarFromHalala(v1RemainingCapHalala),
+    },
+    credit_policy: {
+      current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
+      source_contract: 'GET /api/pods/trial-routing/readiness',
+      explicit_trial_account_tag_live: false,
+      trial_credit_source: 'renters.trial_grant_halala',
+      trial_grant_halala: trialGrantHalala,
+      trial_grant_sar: sarFromHalala(trialGrantHalala),
+      has_trial_grant: trialGrantHalala > 0,
+      paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
+      paid_available_halala: paidAvailableHalala,
+      paid_available_sar: sarFromHalala(paidAvailableHalala),
+      trial_credit_allowed_capacity: 'DCP/community/provider GPU capacity when normal quote checks pass',
+      trial_credit_unlocks_high_demand: false,
+      high_demand_requires_paid_credit: true,
     },
     rails: {
       v1_inference: {
@@ -139,6 +157,8 @@ function buildMinimumBalanceReadiness({
       creates_eval_job: false,
       enables_discount: false,
       changes_enforcement: false,
+      changes_trial_accounting: false,
+      changes_paid_credit_policy: false,
     },
     next_actions: [
       'Use this packet in renter UI and agent docs before changing any minimum-balance enforcement.',

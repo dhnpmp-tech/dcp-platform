@@ -208,6 +208,13 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     `/renter/pods`, showing provider/community quote preflight, high-demand
     paid-credit preflight, paid available SAR, trial-credit limits, and the
     read-only no-enforcement-change guard before launch.
+  - PR #928 adds `credit_policy` to the minimum-balance packet so agents and UI
+    can read trial/grant provenance, paid-credit source, and high-demand
+    paid-credit requirements from the same contract without changing launch or
+    billing behavior. It also promotes the answer into `/renter/pods`: Stage 1
+    stays visibly collapsible for large workspaces, Stage 2 shows the exact
+    launch GPU request above the picker, and VRAM slider/chips are labeled as
+    browse filters only.
   - PR #899 repeats the same trial-route and credit-gate state in the unified
     launch checklist, alongside the actual auto-pick/fixed-GPU request, without
     changing launch body, routing, billing, or enforcement behavior.

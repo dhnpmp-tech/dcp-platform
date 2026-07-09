@@ -2972,7 +2972,7 @@ function buildRenterBudgetStatus(authCtx, periodInfo) {
 function buildRenterMinimumBalanceReadiness(authCtx, periodInfo) {
   const renter = db.get(
     `SELECT id, organization, balance_halala, total_spent_halala, total_jobs,
-            monthly_spend_cap_halala
+            monthly_spend_cap_halala, trial_grant_halala
      FROM renters
      WHERE id = ? AND status = 'active'`,
     authCtx.renter.id
