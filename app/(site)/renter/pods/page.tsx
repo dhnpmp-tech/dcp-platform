@@ -1295,6 +1295,11 @@ export default function RenterPodsPage() {
   const workspaceChecklistDetail = workspaceVolume
     ? 'Stage 1 can stay collapsed; open only the folder you need.'
     : 'Create a persistent workspace before launching.'
+  const workspaceStageModeLabel = workspaceVolume
+    ? workspaceFiles.length > 4
+      ? 'Folder tree opens first'
+      : 'Compact workspace checkpoint'
+    : 'Volume required'
   const gpuChecklistLabel = selectedType ? displayGpuType(selectedType.gpu_model) : 'Auto-pick · no fixed GPU'
   const gpuChecklistDetail = selectedType
     ? `Fixed launch request · ${selectedType.vram_gb} GB${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
@@ -1521,6 +1526,24 @@ export default function RenterPodsPage() {
               </a>
             </div>
 
+            <div className="pod-stage-control-map" aria-label={lang === 'ar' ? 'ما الذي تتحكم به كل مرحلة' : 'What each stage controls'}>
+              <a href="#pod-stage-1">
+                <span>Stage 1</span>
+                <strong><Bi en="Workspace tree" ar="شجرة مساحة العمل" /></strong>
+                <em><Bi en={workspaceStageModeLabel} ar={workspaceVolume ? 'شجرة المجلدات أولاً' : 'وحدة التخزين مطلوبة'} /></em>
+              </a>
+              <a href="#pod-stage-2" className="primary">
+                <span>Stage 2</span>
+                <strong><Bi en="Actual launch GPU" ar="GPU التشغيل الفعلي" /></strong>
+                <em><Bi en={selectedType ? 'A GPU card is pinned' : 'Auto-pick is still active'} ar={selectedType ? 'تم تثبيت بطاقة GPU' : 'الاختيار التلقائي نشط'} /></em>
+              </a>
+              <a href="#pod-stage-3">
+                <span>Stage 3</span>
+                <strong><Bi en="Runtime and launch" ar="البيئة والتشغيل" /></strong>
+                <em>{selectedRuntimeLabel} · {durationLabel}</em>
+              </a>
+            </div>
+
             <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
               <span className="pod-stage-no">Stage 2</span>
               <div>
@@ -1599,6 +1622,20 @@ export default function RenterPodsPage() {
                   <span className={selectedType ? 'fixed' : 'auto'}>
                     <b><Bi en="Actual GPU" ar="GPU الفعلي" /></b>
                     {stage2GpuDecisionLabel}
+                  </span>
+                </div>
+                <div className="pod-stage2-source-grid" aria-label={lang === 'ar' ? 'مصادر قرار GPU' : 'GPU decision source guide'}>
+                  <span className="affects">
+                    <b><Bi en="Affects launch" ar="يؤثر على التشغيل" /></b>
+                    <Bi en="Auto-pick toggle or a selected GPU card" ar="زر الاختيار التلقائي أو بطاقة GPU محددة" />
+                  </span>
+                  <span>
+                    <b><Bi en="Browse only" ar="تصفح فقط" /></b>
+                    <Bi en="Template hint, VRAM chips, search, and sort" ar="تلميح القالب وشرائح الذاكرة والبحث والترتيب" />
+                  </span>
+                  <span>
+                    <b><Bi en="Trial accounts" ar="حسابات التجربة" /></b>
+                    <Bi en={`${trialHandlingAnswerLabel}; ${trialRouteAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يستخدم وحدات DCP والمجتمع." />
                   </span>
                 </div>
               </div>

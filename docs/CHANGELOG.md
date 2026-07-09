@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 17:13 UTC - Pods large-workspace and GPU decision scan polish (PR #903)
+
+- **PR:** [#903](https://github.com/dhnpmp-tech/dcp-platform/pull/903) (`codex/pods-workspace-tareq-feedback-2026-07-09`).
+- **Timestamp:** 2026-07-09 17:13 UTC / 2026-07-09 21:13 +04.
+- **Workspace UX:** `/renter/pods` Stage 1 now auto-opens the compact folder tree for larger workspaces while leaving the full file manifest collapsed.
+- **Stage UX:** Added a compact map that names Stage 1 as the workspace tree, Stage 2 as the actual launch GPU, and Stage 3 as runtime/launch.
+- **GPU clarity:** Stage 2 now separates launch-affecting controls from browse-only controls: auto-pick/fixed GPU affects launch; templates, VRAM chips, search, and sort only filter cards.
+- **Trial clarity:** The Stage 2 guide repeats the backend-readiness answer that trial handling uses grant-credit provenance unless a live trial tag is reported, with trial credit on native/community GPU capacity and high-demand GPUs requiring paid credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for auto-open folder tree behavior, stage-map copy, Stage 2 source-guide copy, and fixed-GPU state.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; `git diff --check`.
+
 ### 2026-07-09 16:57 UTC - Pods workspace search and launch GPU mode clarity (PR #902)
 
 - **PR:** [#902](https://github.com/dhnpmp-tech/dcp-platform/pull/902) (`codex/pods-workspace-stage-clarity-2026-07-09`).

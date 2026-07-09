@@ -118,6 +118,7 @@ export default function WorkspacePanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
   const initializedPodLaunchGroupsRef = useRef(false)
+  const autoOpenedCompactIndexRef = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
   const visibleFileGroups = useMemo(() => {
@@ -144,6 +145,7 @@ export default function WorkspacePanel({
     () => fileGroups.filter((group) => group.id !== '__root__').length,
     [fileGroups],
   )
+  const shouldAutoOpenCompactTree = context === 'pod-launch' && (files.length > 4 || fileGroups.length > 3)
   const uploadBusy = upload.state.status !== 'idle' &&
     upload.state.status !== 'completed' &&
     upload.state.status !== 'aborted'
@@ -231,6 +233,14 @@ export default function WorkspacePanel({
     setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id)))
     initializedPodLaunchGroupsRef.current = true
   }, [context, fileGroups, filesState])
+
+  // Large workspaces should reveal a folder tree, not a long manifest. The tree
+  // is compact and searchable; the actual file rows stay closed until requested.
+  useEffect(() => {
+    if (!showCompactStage || !shouldAutoOpenCompactTree || autoOpenedCompactIndexRef.current) return
+    setCompactFolderIndexOpen(true)
+    autoOpenedCompactIndexRef.current = true
+  }, [showCompactStage, shouldAutoOpenCompactTree])
 
   // ── rent a volume ───────────────────────────────────────────────────────────
   async function handleRent() {
@@ -377,7 +387,9 @@ export default function WorkspacePanel({
         <div className="ws-stage-compact" aria-label={lang === 'ar' ? 'ملخص المرحلة 1' : 'Stage 1 workspace summary'}>
           <div className="ws-stage-compact-main">
             <span className="ws-stage-compact-k">
-              <Bi en="Stage 1 ready" ar="المرحلة 1 جاهزة" />
+              {shouldAutoOpenCompactTree
+                ? <Bi en="Stage 1 file tree" ar="شجرة ملفات المرحلة 1" />
+                : <Bi en="Stage 1 ready" ar="المرحلة 1 جاهزة" />}
             </span>
             <strong>
               {files.length} <Bi en="files staged" ar="ملفات مجهزة" /> · {humanBytes(totalFileBytes)}
@@ -386,6 +398,11 @@ export default function WorkspacePanel({
               {volume.size_gb} GB /workspace · {workspaceFolderCount}{' '}
               <Bi en="folders" ar="مجلدات" /> · {fileGroups.length}{' '}
               <Bi en="groups" ar="مجموعات" />
+            </span>
+            <span className="ws-stage-tree-status">
+              {shouldAutoOpenCompactTree
+                ? <Bi en="Large workspace: folder tree opens first; full manifest stays collapsed." ar="مساحة عمل كبيرة: تظهر شجرة المجلدات أولاً ويبقى البيان الكامل مطوياً." />
+                : <Bi en="Compact checkpoint; open folders only when needed." ar="نقطة تحقق مختصرة؛ افتح المجلدات عند الحاجة فقط." />}
             </span>
           </div>
           <div className="ws-stage-compact-actions">
@@ -448,11 +465,21 @@ export default function WorkspacePanel({
             >
               <div className="ws-stage-folder-index-head">
                 <strong>
-                  <Bi en="Open one folder, keep Stage 1 collapsed" ar="افتح مجلداً واحداً وأبقِ المرحلة 1 مطوية" />
+                  <Bi en="Folder tree, not a file wall" ar="شجرة مجلدات بدلاً من جدار ملفات" />
                 </strong>
                 <span>
-                  <Bi en="Folders stay grouped while the manifest is closed." ar="تبقى المجلدات مجمعة عندما يكون البيان مغلقًا." />
+                  <Bi en="Open one folder, search by file name, or continue to Stage 2 with the manifest closed." ar="افتح مجلداً واحداً، أو ابحث باسم الملف، أو تابع للمرحلة 2 والبيان مطوي." />
                 </span>
+                <div className="ws-stage-folder-index-actions">
+                  {nextStageHref && (
+                    <a href={nextStageHref}>
+                      <Bi en="Go to Stage 2" ar="اذهب للمرحلة 2" />
+                    </a>
+                  )}
+                  <button type="button" onClick={() => setStageDetailsOpen(true)}>
+                    <Bi en="Full file manager" ar="مدير الملفات الكامل" />
+                  </button>
+                </div>
                 <label className="ws-folder-search">
                   <span>
                     <Bi en="Find folder or file" ar="ابحث عن مجلد أو ملف" />
@@ -665,6 +692,9 @@ export default function WorkspacePanel({
 
           {filesState === 'ready' && files.length > 0 && filesCollapsed && (
             <div className="ws-files-summary" aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}>
+              <span className="ws-files-summary-head">
+                <Bi en="Manifest collapsed by folder" ar="البيان مطوي حسب المجلد" />
+              </span>
               {visibleFileGroups.slice(0, 4).map((group) => (
                 <button
                   key={group.id}
