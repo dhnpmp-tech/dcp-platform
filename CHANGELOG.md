@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 10:08 UTC - `feat(pods): make GPU selection state prominent - PR #878`
+
+**PR:** [#878](https://github.com/dhnpmp-tech/dcp-platform/pull/878) (`codex/pods-gpu-selection-clarity-2026-07-09`).
+**Local timestamp:** 2026-07-09 14:08 +04.
+
+**What:** Tareq feedback follow-up for `/renter/pods`. Makes the selected GPU or auto-pick state visible before users work through the GPU filters and card grid.
+
+- **GPU selection clarity:** Added a compact selector-status strip above the GPU toolbar that shows auto-pick vs selected GPU, VRAM, hourly price, active workload/filter state, and visible GPU count.
+- **Control ergonomics:** The strip includes direct "Back to auto-pick" and "Clear filters" actions when relevant, so users do not need to scroll back through the card grid to understand or reset the choice.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to assert the new strip before and after selecting an RTX 4090.
+- **Safety:** Frontend-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused Playwright browser regression for `/renter/pods`; Next build; `git diff --check`.
+
 ### 2026-07-09 10:00 UTC - `feat(pods): sync launch credit policy from backend - PR #877`
 
 **PR:** [#877](https://github.com/dhnpmp-tech/dcp-platform/pull/877) (`codex/pods-trial-routing-ui-readiness-2026-07-09`).

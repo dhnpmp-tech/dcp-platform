@@ -169,9 +169,18 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
 
+  const gpuSelectionStrip = page.locator('.gpu-selection-strip');
+  await expect(gpuSelectionStrip).toContainText('GPU selection');
+  await expect(gpuSelectionStrip).toContainText('Auto-pick at launch');
+  await expect(gpuSelectionStrip).toContainText('Any VRAM');
+  await expect(gpuSelectionStrip).toContainText('2 shown');
+
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
   await expect(computeSummary).toContainText('RTX 4090');
   await expect(computeSummary).toContainText('24 GB VRAM');
   await expect(computeSummary).toContainText('Quote: ~SAR');
+  await expect(gpuSelectionStrip).toContainText('RTX 4090');
+  await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');
+  await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();
 });
