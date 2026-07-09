@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 15:23 UTC - Tareq workspace and GPU launch UX polish (PR #895)
+
+- **PR:** [#895](https://github.com/dhnpmp-tech/dcp-platform/pull/895) (`codex/pods-tareq-workspace-gpu-ux-2026-07-09`).
+- **Timestamp:** 2026-07-09 15:23 UTC / 2026-07-09 19:23 +04.
+- **Workspace UX:** `/renter/pods` now leads the compact Stage 1 checkpoint with the continue-to-Stage-2 action, keeps the manifest closed by default, and shows grouped folder counts and sizes.
+- **GPU UX:** Stage 2 now separates template, browse filter, and actual GPU into one decision summary; the final GPU request rail appears before template/GPU browsing; GPU cards now say "Use as launch GPU."
+- **Trial policy clarity:** The launch flow now answers the current trial policy plainly: no separate live trial-account tag, grant-credit provenance decides trial status, trial/free balance routes to native/community capacity, and high-demand GPUs require paid credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for folder grouping/sizes, Stage 2 decision wording, browse-filter separation, launch-GPU CTA copy, trial-route answers, and launch review credit route.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; Next build; `git diff --check`.
+
 ### 2026-07-09 15:03 UTC - Pod image readiness contract (PR #894)
 
 - **PR:** [#894](https://github.com/dhnpmp-tech/dcp-platform/pull/894) (`codex/pods-image-readiness-contract-2026-07-09`).
