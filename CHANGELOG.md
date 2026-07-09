@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 00:05 UTC - `test(lora): add adapter vLLM live load proof runner - PR #842`
+
+**PR:** [#842](https://github.com/dhnpmp-tech/dcp-platform/pull/842) (`codex/adapter-vllm-live-load-proof-runner-2026-07-09`).
+**Local timestamp:** 2026-07-09 04:05 +04.
+
+**What:** Eighty-eighth Fireworks/Tinker execution slice. Promotes the adapter vLLM load/billing gate from missing-runner status to an opt-in live readiness proof command.
+
+- **Live proof runner:** Added `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`, backed by `backend/tests/adapter-vllm-live-load-proof.js`.
+- **Default safety:** The runner refuses by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Readiness gate:** When explicitly allowed, it mints/reuses the deterministic smoke principal, checks renter-authenticated `GET /api/lora/readiness`, and records the exact blockers while current readiness keeps adapter serving, route traffic, load-proof completion, endpoint smoke, and billing disabled.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now marks the adapter vLLM load/billing gate command-ready, moving the ledger to 7/8 command-ready and 1/8 missing live acceptance runner.
+- **Roadmaps:** Updated the local roadmap external gates and Fireworks/Tinker roadmap docs so adapter vLLM load, route traffic, endpoint smoke, and adapter billing have a stable opt-in command before public serving claims.
+- **Safety:** No adapter creation, deployment creation, internal load-proof posting, endpoint smoke, route traffic, billing, settlement, discount, model catalog, frontend, or public product claim behavior changed.
+- **Verified:** Default blocked run of `npm run proof:adapter-vllm-live-load` with temp report output; targeted adapter live runner and live-gate status Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:58 UTC - `test(lora): add live training artifact proof runner - PR #840`
 
 **PR:** [#840](https://github.com/dhnpmp-tech/dcp-platform/pull/840) (`codex/lora-live-artifact-proof-runner-2026-07-09`).

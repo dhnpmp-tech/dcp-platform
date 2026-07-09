@@ -163,6 +163,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Batch inference lifecycle contract | `npm run proof:batch-inference-contract` | none | CI-safe gate available; live provider execution and discounted settlement smoke still blocked |
 | Batch live execution/discount smoke | `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` | funded smoke principal, object-store result path, live provider execution capacity, discount policy approval | Command available; currently records readiness blockers and stops before batch creation |
 | Adapter deployment lifecycle contract | `npm run proof:adapter-deployment-contract` | none | CI-safe gate available; live vLLM load and billing smoke still blocked |
+| Adapter vLLM load/billing smoke | `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load` | real adapter artifact checksum, vLLM host with LoRA enabled, dedicated endpoint capacity, funded smoke principal | Command available; currently records readiness blockers and stops before adapter/deployment/load-proof mutation |
 | API health | `curl -fsS https://api.dcp.sa/api/health` | production network | Required after every deploy |
 | Model catalog health | `curl -fsS https://api.dcp.sa/v1/models` | production network | Required after inference/model/catalog changes |
 | Anthropic route host sanity | `curl -sS -o /tmp/dcp-anthropic-unauth.json -w '%{http_code}\n' -X POST https://api.dcp.sa/anthropic/v1/messages -H 'content-type: application/json' -d '{}'` | production network; no secret required | Expected unauthenticated result is HTTP 401 |
@@ -186,7 +187,8 @@ before or with the feature change.
      artifact path, and blocked/pass/fail status.
    - Current live commands: workspace-pod proof, LoRA pod-image provider-host
      proof, Anthropic SSE proof, prompt-cache live settlement proof, batch live
-     execution proof, and LoRA live artifact proof are available.
+     execution proof, LoRA live artifact proof, and adapter vLLM live load proof
+     are available.
    - Status packet: `npm run proof:live-acceptance-status` lists remaining
      live gates, missing acceptance runners, blocked inputs, and claim guards.
 3. **POT/PODS workspace and image hardening**
@@ -211,9 +213,9 @@ before or with the feature change.
      manifest.
    - Public wording remains "metadata/readiness" until GPU artifact proof runs.
 7. **Adapter deployment and dedicated endpoints**
-   - Gate: `proof:adapter-deployment-contract`, deployment intent, vLLM adapter
-     load proof, endpoint smoke, and inference billing proof for adapter
-     traffic.
+   - Gate: `proof:adapter-deployment-contract`,
+     `proof:adapter-vllm-live-load`, deployment intent, vLLM adapter load
+     proof, endpoint smoke, and inference billing proof for adapter traffic.
    - Route traffic remains disabled until proof matches deployment id, adapter
      id, base model, mode, and artifact checksum.
 8. **Product packaging**
@@ -396,6 +398,10 @@ Required gates:
   `npm run proof:adapter-deployment-contract` to verify public deployment
   requests stay non-routing, mismatched load proof stays degraded, and only
   matching adapter/base-model load proof allows route traffic.
+- Opt-in live load proof: run
+  `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`
+  to verify readiness before any live adapter load, endpoint smoke, or adapter
+  billing claim.
 - Public copy says what is live now and what is coming next.
 
 Production smoke:

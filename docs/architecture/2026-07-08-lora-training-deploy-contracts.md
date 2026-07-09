@@ -208,3 +208,13 @@ PR #787 replaces the Fine-Tuning contract preview with copyable API snippets for
 readiness, training jobs, adapter registry, aggregate deployment intents, and
 gated deploy-intent creation. The snippets are operational examples only; their
 notes keep GPU trainer proof, public adapter serving, and route traffic gated.
+
+PR #842 adds `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run
+proof:adapter-vllm-live-load`, an opt-in live proof runner for the adapter
+vLLM load/billing gate. In the current production state it authenticates as the
+deterministic smoke principal, checks `GET /api/lora/readiness`, records the
+serving, route-traffic, load-proof, endpoint-smoke, and billing blockers, and
+exits blocked before adapter creation, deployment creation, internal load-proof
+posting, endpoint inference, route traffic, or billing mutation. A future
+passing run must add adapter checksum evidence, vLLM load proof, endpoint
+response evidence, and adapter billing ledger evidence.

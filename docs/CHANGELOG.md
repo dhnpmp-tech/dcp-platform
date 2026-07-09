@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 00:05 UTC - Adapter vLLM live load proof runner (PR #842)
+
+- **PR:** [#842](https://github.com/dhnpmp-tech/dcp-platform/pull/842) (`codex/adapter-vllm-live-load-proof-runner-2026-07-09`).
+- **Live proof command:** Added `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`.
+- **Default safety:** The runner refuses by default, writes JSON/Markdown/log artifacts, and redacts scoped key material.
+- **Contract:** When explicitly allowed, it checks renter-authenticated LoRA/adapter readiness with the deterministic smoke principal and records blockers for adapter serving, route traffic, load-proof completion, endpoint smoke, and adapter billing.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now reports adapter vLLM load/billing as command-ready, moving the live ledger to 7/8 command-ready and 1/8 missing acceptance runner.
+- **Safety:** No adapter creation, deployment creation, internal load-proof posting, endpoint smoke, route traffic, billing, settlement, discount, model catalog, frontend, or public product claim behavior changed.
+- **Verification:** Default blocked proof run; targeted Jest suites; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-08 23:58 UTC - LoRA live training artifact proof runner (PR #840)
 
 - **PR:** [#840](https://github.com/dhnpmp-tech/dcp-platform/pull/840) (`codex/lora-live-artifact-proof-runner-2026-07-09`).

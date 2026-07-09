@@ -358,6 +358,11 @@ Goal: ship the first real train-here/deploy-here loop.
     adapter deployment proof packet that verifies deployment intent stays
     non-routing, mismatched load proof stays degraded, and only matching
     adapter/base-model load proof allows route traffic.
+  - PR #842 added
+    `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`,
+    an opt-in live readiness runner before adapter vLLM load, route traffic,
+    endpoint smoke, and adapter billing claims. It records current readiness
+    blockers and stops before adapter/deployment/load-proof mutation.
 - Add dashboard:
   - datasets
   - training jobs
@@ -492,6 +497,12 @@ Acceptance:
     `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact`;
     training job creation, GPU execution, artifact/model-card writes, and
     Tinker claims remain gated until a provider-host proof run exists.**
+17. **Adapter vLLM live load runner** - opt-in live readiness proof before
+    adapter serving and billing claims. **Added in PR #842 as
+    `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`;
+    adapter creation, deployment creation, load-proof mutation, endpoint smoke,
+    route traffic, and billing remain gated until a real adapter/vLLM/funded
+    proof window exists.**
 
 ## Division of Work
 
