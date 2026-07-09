@@ -216,6 +216,14 @@ const STAGES = [
     bodyEn: 'Endpoint routing stays off until adapter load proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum.',
     bodyAr: 'يبقى توجيه النقطة متوقفا حتى يطابق إثبات التحميل معرف النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة.',
   },
+  {
+    no: '05',
+    status: 'blocked',
+    titleEn: 'Endpoint smoke',
+    titleAr: 'دخان النقطة',
+    bodyEn: 'A funded deterministic request must prove response hash, latency, token totals, and adapter trace before usage writes or billing.',
+    bodyAr: 'يجب أن يثبت طلب حتمي ممول بصمة الاستجابة والزمن والرموز وتتبع المحول قبل كتابة الاستخدام أو الفوترة.',
+  },
 ] as const
 
 const WORKSPACE_PREUPLOAD_STEPS = [
@@ -302,6 +310,15 @@ const API_SNIPPETS = [
     command:
       'curl -s "https://api.dcp.sa/api/adapters/deployments?limit=25" \\\n' +
       '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
+    id: 'adapter-endpoint-smoke',
+    titleEn: 'Check endpoint smoke gate',
+    titleAr: 'فحص بوابة دخان النقطة',
+    meta: 'GET /api/adapters/endpoints/smoke/readiness',
+    noteEn: 'Public read-only smoke policy; smoke recording, routing, usage writes, billing, invoices, and payouts remain disabled.',
+    noteAr: 'سياسة دخان عامة للقراءة فقط؛ يبقى تسجيل الدخان والتوجيه وكتابة الاستخدام والفوترة والفواتير والمدفوعات معطلة.',
+    command: 'curl -s https://api.dcp.sa/api/adapters/endpoints/smoke/readiness',
   },
   {
     id: 'adapter-usage-attribution',

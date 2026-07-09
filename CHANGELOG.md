@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 07:57 UTC - `test(lora): add adapter endpoint smoke readiness proof - PR #870`
+
+**PR:** [#870](https://github.com/dhnpmp-tech/dcp-platform/pull/870) (`codex/adapter-endpoint-smoke-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 11:57 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds the disabled endpoint-smoke evidence gate required before dedicated LoRA/adapter endpoint smoke can feed usage attribution or billing.
+
+- **Backend contract:** Added public `GET /api/adapters/endpoints/smoke/readiness` plus a pure adapter endpoint-smoke evaluator for strict load proof, funded principal, request attribution, response hash, latency, token totals, and adapter trace.
+- **Proof command:** Added `npm run proof:adapter-endpoint-smoke` and included it in `npm run proof:local-roadmap`, raising the suite to 27 CI-safe gates.
+- **Public surface:** LoRA readiness, adapter usage attribution readiness, adapter billing readiness, OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs now point to the disabled endpoint-smoke policy.
+- **Safety:** Readiness/policy only; no adapter dispatch, smoke recording, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, raw prompt/response exposure, adapter billing, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted adapter endpoint-smoke/usage/billing/LoRA Jest suites; adapter endpoint-smoke proof; adapter usage attribution proof; adapter billing readiness proof; local roadmap proof now passing 27/27 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 07:23 UTC - `test(lora): add adapter usage attribution readiness proof - PR #869`
 
 **PR:** [#869](https://github.com/dhnpmp-tech/dcp-platform/pull/869) (`codex/adapter-usage-attribution-readiness-2026-07-09`).

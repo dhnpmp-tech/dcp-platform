@@ -9,6 +9,7 @@ const {
 } = require('../services/adapterRegistry');
 const { buildAdapterArtifactPolicyReadiness } = require('../services/adapterArtifactPolicy');
 const { buildAdapterBillingReadiness } = require('../services/adapterBillingReadiness');
+const { buildAdapterEndpointSmokeReadiness } = require('../services/adapterEndpointSmokeReadiness');
 const { buildAdapterUsageAttributionReadiness } = require('../services/adapterUsageAttributionReadiness');
 const {
   AdapterDeploymentError,
@@ -89,6 +90,18 @@ function createAdaptersRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch adapter billing readiness',
         code: 'adapter_billing_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/endpoints/smoke/readiness', (_req, res) => {
+    try {
+      return res.json(buildAdapterEndpointSmokeReadiness(new Date()));
+    } catch (error) {
+      console.error('[adapters] endpoint smoke readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch adapter endpoint smoke readiness',
+        code: 'adapter_endpoint_smoke_readiness_internal_error',
       });
     }
   });

@@ -10,6 +10,7 @@ function buildAdapterUsageAttributionReadiness(now = new Date()) {
     current_mode: 'usage_attribution_contract_only',
     endpoints: {
       usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
+      endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
       adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
       minimum_balance_readiness: 'GET /api/renters/me/minimum-balances',
       usage_export: 'GET /api/renters/me/usage/export',

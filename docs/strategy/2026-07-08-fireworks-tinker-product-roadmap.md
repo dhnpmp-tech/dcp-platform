@@ -411,6 +411,12 @@ Goal: ship the first real train-here/deploy-here loop.
     endpoint-smoke, funded-principal, minimum-balance, usage-attribution,
     settlement, and founder-approval prerequisites before billed adapter
     inference can be claimed.
+  - PR #870 adds `GET /api/adapters/endpoints/smoke/readiness` and
+    `npm run proof:adapter-endpoint-smoke`; it defines strict load proof,
+    funded principal, deterministic request, response hash, latency, token
+    totals, and adapter trace requirements while smoke recording, routing,
+    usage writes, billing, raw prompt/response evidence, and Tinker claims stay
+    disabled.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -443,6 +449,11 @@ Goal: ship the first real train-here/deploy-here loop.
     deployment, adapter, endpoint, checksum, provider, request, scoped-key,
     token, cost, and pending-settlement fields while usage writes, invoices,
     payouts, route changes, billing, and Tinker compatibility remain disabled.
+  - PR #870 added the CI-safe adapter endpoint-smoke readiness gate before
+    adapter usage writes or billing claims; deterministic funded smoke must
+    prove strict load proof, request attribution, response hash, latency, token
+    totals, and adapter trace before route traffic, usage, billing, invoices,
+    payouts, raw prompt/response evidence, or Tinker claims.
 - Add dashboard:
   - datasets
   - training jobs
@@ -590,20 +601,27 @@ Acceptance:
     adapter creation, deployment creation, load-proof mutation, endpoint smoke,
     route traffic, and billing remain gated until a real adapter/vLLM/funded
     proof window exists.**
-18. **Adapter billing readiness** - CI-safe money-policy gate before billed
+18. **Adapter endpoint smoke readiness** - CI-safe deterministic endpoint-smoke
+    gate before usage or billing claims. **Added in PR #870 as
+    `npm run proof:adapter-endpoint-smoke`; smoke recording, route traffic,
+    usage writes, invoices, payouts, billing claims, raw prompt/response
+    evidence, and Tinker claims stay disabled until strict load proof, funded
+    principal, request attribution, response hash, latency, token totals, and
+    adapter trace exist.**
+19. **Adapter billing readiness** - CI-safe money-policy gate before billed
     adapter endpoint claims. **Added in PR #868 as
     `npm run proof:adapter-billing-readiness`; usage writes, invoices, provider
     payouts, minimum-balance enforcement changes, and adapter billing claims
     stay disabled until strict load proof, endpoint smoke, funded principal,
     usage attribution, settlement policy, and founder approval exist.**
-19. **Adapter usage attribution readiness** - CI-safe usage-ledger gate before
+20. **Adapter usage attribution readiness** - CI-safe usage-ledger gate before
     adapter billing claims. **Added in PR #869 as
     `npm run proof:adapter-usage-attribution`; adapter usage writes, invoices,
     provider payouts, route changes, adapter billing claims, and Tinker claims
     stay disabled until usage rows carry deployment, adapter, endpoint,
     checksum, provider, request, scoped-key, token, cost, and pending-settlement
     fields.**
-20. **Renter quotas and usage export** - Fireworks-style account controls before
+21. **Renter quotas and usage export** - Fireworks-style account controls before
     team budgets. **Started in PR #848 with billing-scoped
     `/api/renters/me/usage/export`, `/api/renters/me/budget-status`, and
     renter-console budget visibility. PR #849 adds scoped-key attribution to

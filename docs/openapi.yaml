@@ -625,6 +625,12 @@ components:
             artifact_policy_endpoint:
               type: string
               example: GET /api/adapters/artifacts/readiness
+            endpoint_smoke_readiness_version:
+              type: string
+              example: dcp.adapter_endpoint_smoke_readiness.v1
+            endpoint_smoke_readiness_endpoint:
+              type: string
+              example: GET /api/adapters/endpoints/smoke/readiness
             billing_readiness_version:
               type: string
               example: dcp.adapter_billing_readiness.v1
@@ -2260,6 +2266,81 @@ paths:
                       routes_adapter_traffic: { type: boolean, example: false }
                       bills_training: { type: boolean, example: false }
                       bills_adapter_inference: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
+
+  /api/adapters/endpoints/smoke/readiness:
+    get:
+      tags: [Adapters]
+      summary: Get adapter endpoint smoke readiness
+      description: |
+        Returns a public, read-only contract for future adapter endpoint smoke
+        evidence on dedicated LoRA endpoints. It defines the strict load proof,
+        funded smoke principal, deterministic request, response hash, latency,
+        token usage, and adapter trace fields required before smoke recording,
+        route traffic, usage writes, or adapter billing can be enabled. It does
+        not dispatch inference, record smoke results, route adapter traffic,
+        mutate balances, create invoices, settle payouts, expose raw prompts or
+        responses, or claim Tinker compatibility.
+      responses:
+        '200':
+          description: Adapter endpoint smoke readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_endpoint_smoke_readiness]
+                  version:
+                    type: string
+                    example: dcp.adapter_endpoint_smoke_readiness.v1
+                  current_mode:
+                    type: string
+                    enum: [endpoint_smoke_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      readiness_available: { type: boolean, example: true }
+                      endpoint_smoke_recording_enabled: { type: boolean, example: false }
+                      adapter_endpoint_routing_enabled: { type: boolean, example: false }
+                      adapter_billing_enabled: { type: boolean, example: false }
+                      required_before_smoke:
+                        type: array
+                        items: { type: string }
+                        example: [strict_load_proof_match, funded_smoke_principal, deterministic_smoke_request]
+                      required_smoke_fields:
+                        type: array
+                        items: { type: string }
+                        example: [renter_id, deployment_id, adapter_id, endpoint_id, base_model, artifact_checksum_sha256, provider_id, request_id, status_code, latency_ms, response_checksum_sha256, prompt_tokens, completion_tokens, total_tokens, finish_reason, adapter_trace]
+                      raw_prompt_storage_enabled: { type: boolean, example: false }
+                      raw_response_storage_enabled: { type: boolean, example: false }
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      readiness_contract_live: { type: boolean, example: true }
+                      endpoint_smoke_recording_enabled: { type: boolean, example: false }
+                      dispatches_inference: { type: boolean, example: false }
+                      records_smoke_result: { type: boolean, example: false }
+                      attaches_load_proof: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      records_usage_event: { type: boolean, example: false }
+                      mutates_balance: { type: boolean, example: false }
+                      creates_invoice: { type: boolean, example: false }
+                      settles_provider_payout: { type: boolean, example: false }
+                      exposes_raw_prompt: { type: boolean, example: false }
+                      exposes_raw_response: { type: boolean, example: false }
+                      enables_adapter_billing: { type: boolean, example: false }
                       claims_tinker_compatibility: { type: boolean, example: false }
 
   /api/adapters/usage/attribution/readiness:

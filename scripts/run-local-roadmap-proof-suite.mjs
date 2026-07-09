@@ -125,6 +125,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_ADAPTER_ARTIFACT_POLICY_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'adapter_endpoint_smoke_readiness',
+    command: 'npm run proof:adapter-endpoint-smoke',
+    outputEnv: 'DCP_ADAPTER_ENDPOINT_SMOKE_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'adapter_usage_attribution_readiness',
     command: 'npm run proof:adapter-usage-attribution',
     outputEnv: 'DCP_ADAPTER_USAGE_ATTRIBUTION_PROOF_OUTPUT_DIR',
