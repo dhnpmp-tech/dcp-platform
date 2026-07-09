@@ -57,6 +57,37 @@ test('public inference page renders live router policy readiness', async ({ page
     }),
   }));
 
+  await page.route('**/v1/prompt-cache/settlement/readiness', async (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      object: 'prompt_cache_settlement_readiness',
+      version: 'dcp.prompt_cache_settlement_readiness.v1',
+      current_mode: 'settlement_policy_contract_only',
+      endpoints: {
+        settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
+        prompt_cache_readiness: 'GET /v1/prompt-cache/readiness',
+        live_settlement_proof: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+      },
+      policy: {
+        cached_input_discounts_enabled: false,
+        settlement_discounts_enabled: false,
+        settlement_mutations_enabled: false,
+        required_before_discount: ['hash_only_measurement', 'live_provider_cache_hit_evidence'],
+        provider_cache_hit_evidence: { status: 'blocked_external', required: true },
+        discount_policy: { status: 'policy_pending', discount_bps_live: 0 },
+      },
+      denial_codes: ['prompt_cache_discount_disabled', 'prompt_cache_provider_hit_required'],
+      claim_guards: {
+        mutates_balance: false,
+        records_usage_event: false,
+        dispatches_inference: false,
+        stores_raw_prompt: false,
+        claims_tinker_compatibility: false,
+      },
+    }),
+  }));
+
   await page.route('**/v1/router/policies', async (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -107,6 +138,8 @@ test('public inference page renders live router policy readiness', async ({ page
   await expect(policyRail).toContainText('telemetry gate only');
   await expect(policyRail).toContainText('not selectable');
   const promptCacheRail = page.locator('.inference-prompt-cache-live');
-  await expect(promptCacheRail).toContainText('Prompt-cache live proof');
+  await expect(promptCacheRail).toContainText('Prompt-cache settlement gates');
   await expect(promptCacheRail).toContainText('prompt_cache_provider_discount_smoke');
+  await expect(promptCacheRail).toContainText('Provider cache-hit evidence');
+  await expect(promptCacheRail).toContainText('/v1/prompt-cache/settlement/readiness');
 });

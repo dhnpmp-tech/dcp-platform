@@ -522,6 +522,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   provider cache-hit evidence, funded smoke principal, usage attribution,
   approval, and discount-math gates required before cached-input discounts can
   ever touch settlement.
+- PR #919 makes public `/inference` and renter `/renter/playground` consume
+  that settlement-readiness contract, exposing the provider-hit, policy,
+  read-only proof, mutation, and proof-command gates without changing billing
+  or settlement behavior.
 - PR #892 exposes `batch_live_execution_discount_smoke` in
   `GET /api/batches/readiness`, public `/batch`, renter `/renter/batches`,
   OpenAPI, and the batch proof packet while execution, downloads, settlement,
@@ -597,6 +601,8 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   **PR #918 adds the settlement-readiness contract and CI-safe proof command
   for provider cache-hit evidence, usage attribution, policy/founder approval,
   and discount math while discounts and settlement mutations remain disabled.**
+  **PR #919 surfaces the settlement-readiness contract in public Inference and
+  the renter Playground Prompt cache panel.**
   **PR #836 adds the opt-in live proof runner for that next gate. It remains
   blocked until a funded smoke principal, provider cache-hit evidence, and
   discount/settlement policy approval exist.**
