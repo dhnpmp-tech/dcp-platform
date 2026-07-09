@@ -47,6 +47,41 @@ function buildPodTrialRoutingReadiness(now = new Date()) {
       paid_available_credit: 'min(balance_halala, paid_funding_halala - active_on_demand_commitments)',
       native_trial_launch: 'provider and dcp_owned supply can launch with trial/free balance when normal balance checks pass.',
     },
+    infrastructure_proofs: {
+      workspace_pod_contract: {
+        status: 'ci_safe',
+        command: 'npm run workspace-pods:verify-contracts',
+        local_roadmap_gate: 'workspace_pod_contracts',
+        verifies: [
+          'task_spec_workspace_s3_wiring',
+          'active_volume_gate',
+          'daemon_restore_snapshot_calls',
+        ],
+      },
+      workspace_live_acceptance: {
+        status: 'blocked_external',
+        command: 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
+        live_acceptance_gate: 'workspace_pod_live_launch',
+        blocked_on: ['funded renter key', 'active portable volume', 'launchable GPU capacity'],
+        verifies: [
+          'presigned workspace upload',
+          'pod launch',
+          'Jupyter /workspace marker visibility',
+          'default pod cleanup',
+        ],
+      },
+      lora_pod_image_provider_host: {
+        status: 'blocked_external',
+        command: 'npm run proof:lora-pod-image',
+        live_acceptance_gate: 'lora_pod_image_provider_host',
+        blocked_on: ['provider GPU host', 'Docker with NVIDIA runtime', 'built dcp-compute:lora image'],
+        verifies: [
+          'LoRA/QLoRA/vLLM import budget',
+          'offline SFT scaffold construction',
+          'GPU-host runtime wiring',
+        ],
+      },
+    },
     claim_guards: {
       readiness_contract_live: true,
       changes_provider_selection: false,
@@ -56,20 +91,31 @@ function buildPodTrialRoutingReadiness(now = new Date()) {
       mutates_balance: false,
       launches_pod: false,
       exposes_vendor_or_provider: false,
+      claims_workspace_live_acceptance: false,
+      claims_lora_pod_image_gpu_ready: false,
+      claims_fine_tuning_ready_pods: false,
     },
     evidence: {
       source_files: [
         'backend/src/services/podAccessPolicy.js',
         'backend/src/routes/pods.js',
         'backend/src/__tests__/podAccessPolicy.test.js',
+        'backend/tests/workspace-pod-live-proof.js',
       ],
       tests: [
         'backend/src/__tests__/podAccessPolicy.test.js',
         'backend/src/__tests__/podTrialRoutingReadiness.test.js',
       ],
       proof_command: 'npm run proof:pod-trial-routing-readiness',
+      linked_commands: [
+        'npm run workspace-pods:verify-contracts',
+        'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
+        'npm run proof:lora-pod-image',
+      ],
     },
     next_actions: [
+      'Run the workspace live proof during a funded GPU-capacity window before claiming workspace-to-pod file visibility accepted.',
+      'Build dcp-compute:lora on a provider GPU host and run npm run proof:lora-pod-image before claiming fine-tuning-ready pod images.',
       'Decide whether to add an explicit lifecycle trial-account flag for analytics only.',
       'Decide lifetime free-seconds accounting before enforcing trial exhaustion beyond credit provenance.',
       'Keep renter UI copy free of supply-tier, vendor, provider id, and machine identity.',

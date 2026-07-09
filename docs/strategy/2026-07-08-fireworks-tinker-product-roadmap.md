@@ -144,6 +144,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     runner for portable workspace upload -> pod launch -> Jupyter marker
     visibility under `/workspace`, with default pod cleanup and JSON/Markdown
     evidence reports.
+  - PR #889 surfaces the workspace contract and live acceptance proof gates in
+    `GET /api/pods/trial-routing/readiness` and `/renter/pods`, keeping the
+    proof commands visible while live GPU-provider evidence remains blocked.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -179,12 +182,17 @@ Acceptance:
   - PR #820 provides the proof command/report path; the gate closes only after
     the command passes on a real GPU provider host with `dcp-compute:lora`
     built locally.
+  - PR #889 exposes the LoRA pod-image provider-host proof command in the pod
+    readiness contract and renter UI, without claiming the image is GPU-ready
+    before that provider-host proof passes.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.
   - PR #812 provides the live smoke command; acceptance closes only after it is
     run successfully against a funded renter key, active volume, and live GPU
     capacity.
+  - PR #889 surfaces the CI-safe/live-acceptance split in pod readiness and the
+    renter launch flow while leaving the acceptance gate blocked.
 - Nsight benchmark can run on a provider node and emit a machine-readable report.
 
 ### Phase C - Inference Product Hardening (1 week)

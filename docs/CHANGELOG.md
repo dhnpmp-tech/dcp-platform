@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 13:24 UTC - Pod infrastructure proof readiness and launch UX (PR #889)
+
+- **PR:** [#889](https://github.com/dhnpmp-tech/dcp-platform/pull/889) (`codex/pods-infrastructure-proof-readiness-2026-07-09`).
+- **Backend:** `GET /api/pods/trial-routing/readiness` now exposes workspace contract proof, workspace live acceptance, and LoRA pod-image provider-host proof gates.
+- **Workspace UX:** `/renter/pods` now defaults Stage 1 to a compact ready checkpoint when staged files already exist, with one-click workspace expansion and Stage 2 continuation for renters with large workspaces.
+- **GPU UX:** Stage 2 now reads as a GPU request decision: auto-pick vs fixed GPU, template VRAM recommendation, and browse filters are separated so renters can see exactly what will be requested at launch.
+- **Frontend:** `/renter/pods` now renders a compact pod proof-gates strip so users see CI-safe workspace wiring and the still-blocked live provider/GPU-host evidence before fine-tuning-ready pod claims.
+- **Docs/contracts:** OpenAPI and roadmaps now point to the pod infrastructure proof block.
+- **Regression:** Updated pod readiness Jest/proof coverage and the focused `/renter/pods` Playwright test for proof gates, compact workspace behavior, GPU request wording, trial-policy chips, and false-claim guards.
+- **Safety:** Read-only contract/UI/docs change; no pod launch body change, image selection change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** OpenAPI YAML parse; targeted pod readiness Jest/proof suites; pod trial-routing readiness proof; focused `/renter/pods` Playwright regression; TypeScript; local roadmap proof suite passing 35/35 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 12:40 UTC - Pod workspace manifest and GPU request clarity (PR #888)
 
 - **PR:** [#888](https://github.com/dhnpmp-tech/dcp-platform/pull/888) (`codex/pods-workspace-compute-clarity-2026-07-09`).

@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 13:24 UTC - `feat(pods): surface infrastructure proof readiness and launch UX - PR #889`
+
+**PR:** [#889](https://github.com/dhnpmp-tech/dcp-platform/pull/889) (`codex/pods-infrastructure-proof-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 17:24 +04.
+
+**What:** POT/PODS roadmap slice and Tareq launch UX follow-up. Makes workspace-to-pod and LoRA pod-image proof gates visible through the existing pod readiness contract, while making the pod launch flow easier to scan with large workspaces.
+
+- **Backend contract:** Extended `GET /api/pods/trial-routing/readiness` with `infrastructure_proofs` for the CI-safe workspace contract, the opt-in workspace live acceptance command, and the LoRA pod-image provider-host proof command.
+- **Workspace UX:** `/renter/pods` now defaults Stage 1 to a compact ready checkpoint when a renter already has staged files, with explicit open-workspace and continue-to-Stage-2 actions so large workspaces no longer force a file-manager scroll before compute selection.
+- **GPU request clarity:** Stage 2 now reads as "Template + GPU request"; the launch request strips call out auto-pick vs fixed GPU, template VRAM recommendations, browse filters, and trial-credit provenance without implying filters select the launch GPU.
+- **Frontend visibility:** `/renter/pods` now shows a compact "Pod proof gates" strip with workspace contract, workspace live acceptance, and LoRA image proof status while keeping live GPU-host proof explicitly blocked.
+- **Docs/contracts:** OpenAPI now documents the infrastructure proof block, and roadmap notes link the pod UX to the existing proof commands.
+- **Regression:** Updated pod readiness Jest/proof coverage and the focused `/renter/pods` Playwright test so proof gates, compact workspace behavior, GPU request wording, trial-policy chips, and false-claim guards cannot drift.
+- **Safety:** Read-only contract/UI/docs change; no pod launch body change, image selection change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** OpenAPI YAML parse; targeted pod readiness Jest/proof suites; pod trial-routing readiness proof; focused `/renter/pods` Playwright regression; TypeScript; local roadmap proof suite passing 35/35 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 12:40 UTC - `feat(pods): clarify workspace manifest and GPU request - PR #888`
 
 **PR:** [#888](https://github.com/dhnpmp-tech/dcp-platform/pull/888) (`codex/pods-workspace-compute-clarity-2026-07-09`).

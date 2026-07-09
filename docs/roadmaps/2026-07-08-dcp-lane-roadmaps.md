@@ -159,6 +159,10 @@ what is live.
   workspace panel, then replaces the ambiguous min-VRAM slider with explicit
   VRAM filter chips so large workspaces and compute filtering do not obscure
   the actual selected GPU.
+- PR #889 surfaces pod infrastructure proof gates through
+  `GET /api/pods/trial-routing/readiness` and `/renter/pods`, showing the
+  CI-safe workspace contract plus blocked workspace-live and LoRA pod-image
+  provider-host proof commands before any fine-tuning-ready pod claim.
 
 ### Now
 
@@ -636,6 +640,9 @@ template launch.
 - PR #820 added `npm run proof:lora-pod-image`, the provider-host proof command
   for `dcp-compute:lora` imports and offline SFT scaffold readiness, with
   JSON/Markdown evidence output.
+- PR #889 makes those workspace and LoRA pod-image proof gates visible from the
+  pod readiness contract and renter launch UI while keeping live acceptance
+  blocked until provider/funded inputs exist.
 
 ### Now
 
@@ -676,6 +683,8 @@ template launch.
   **The live smoke runner landed in PR #812 as `npm run proof:workspace-pod`;
   run it with `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1` once a funded renter key,
   active volume, and launchable GPU capacity are available.**
+  **PR #889 now surfaces this CI/live proof split directly in pod readiness and
+  the renter launch UI without claiming the live proof has passed.**
 - Add Nsight Python benchmark MVP:
   - utilization
   - memory bandwidth
