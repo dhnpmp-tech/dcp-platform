@@ -642,6 +642,11 @@ DCP-hosted endpoint -> billed inference.
   packet for the adapter deployment lifecycle: public intent stays non-routing,
   mismatched load proof stays degraded, and only matching adapter/base-model load
   proof allows route traffic.**
+  **PR #842 adds
+  `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`,
+  an opt-in live readiness runner for the adapter vLLM load/billing gate. It
+  records serving, route-traffic, load-proof, endpoint-smoke, and billing
+  blockers and stops before adapter/deployment/load-proof mutation.**
 
 ### Later
 
@@ -715,6 +720,9 @@ DCP-hosted endpoint -> billed inference.
    **CI-safe deployment lifecycle proof command added in PR #822 as
    `npm run proof:adapter-deployment-contract`; real vLLM load and adapter
    billing smoke remain required before public serving.**
+   **PR #842 adds the blocked live command
+   `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`
+   before adapter serving, route traffic, endpoint smoke, or billing claims.**
 11. Fireworks-style product pages.
 
 ## Lane Proof Commands
@@ -729,7 +737,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched; `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` before cached-input discount claims; `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` before batch execution/discount claims |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
-| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` for GPU-host artifact proof; vLLM adapter load proof and adapter endpoint billing smoke remain blocked |
+| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:adapter-deployment-contract` | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` for GPU-host artifact proof; `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load` before vLLM adapter load, route traffic, endpoint smoke, or adapter billing claims |
 
 ## Weekly Cadence
 

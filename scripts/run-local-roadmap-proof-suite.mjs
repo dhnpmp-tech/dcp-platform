@@ -92,6 +92,11 @@ const EXTERNAL_GATES = Object.freeze([
     command: 'DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact',
     blocked_on: ['provider GPU host or pod', 'approved dataset fixture', 'artifact storage key', 'training budget window'],
   },
+  {
+    id: 'adapter_vllm_live_load',
+    command: 'DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load',
+    blocked_on: ['real adapter artifact checksum', 'vLLM host with LoRA enabled', 'dedicated endpoint capacity', 'funded smoke principal'],
+  },
 ]);
 
 function toStamp(date = new Date()) {

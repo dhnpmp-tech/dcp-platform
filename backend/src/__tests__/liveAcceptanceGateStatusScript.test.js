@@ -21,8 +21,8 @@ describe('live acceptance gate status script', () => {
     expect(report.summary).toMatchObject({
       total: LIVE_ACCEPTANCE_GATES.length,
       blocked: LIVE_ACCEPTANCE_GATES.length,
-      command_available: 6,
-      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 6,
+      command_available: 7,
+      missing_acceptance_command: LIVE_ACCEPTANCE_GATES.length - 7,
       capability_claim_allowed: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
@@ -73,16 +73,13 @@ describe('live acceptance gate status script', () => {
       capability_claim_allowed: false,
       blocked_on: expect.arrayContaining(['provider GPU host or pod', 'training budget window']),
     });
-    for (const id of [
-      'adapter_vllm_load_billing_smoke',
-    ]) {
-      expect(report.gates.find((gate) => gate.id === id)).toMatchObject({
-        acceptance_state: 'blocked_missing_acceptance_command',
-        acceptance_command: null,
-        command_available: false,
-        capability_claim_allowed: false,
-      });
-    }
+    expect(report.gates.find((gate) => gate.id === 'adapter_vllm_load_billing_smoke')).toMatchObject({
+      acceptance_state: 'blocked',
+      acceptance_command: 'DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load',
+      command_available: true,
+      capability_claim_allowed: false,
+      blocked_on: expect.arrayContaining(['real adapter artifact checksum', 'dedicated endpoint capacity']),
+    });
     expect(report.gates.find((gate) => gate.id === 'dcp_agent_reconciliation')).toMatchObject({
       acceptance_state: 'blocked_maintenance_window',
       acceptance_command: null,
