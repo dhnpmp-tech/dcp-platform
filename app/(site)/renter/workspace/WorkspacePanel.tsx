@@ -72,6 +72,26 @@ function groupWorkspaceFiles(files: WorkspaceFile[]): WorkspaceFileGroup[] {
     })
 }
 
+function filterWorkspaceFileGroups(groups: WorkspaceFileGroup[], query: string): WorkspaceFileGroup[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return groups
+
+  return groups
+    .map((group) => {
+      const labelMatch = group.label.toLowerCase().includes(q)
+      const matchingFiles = labelMatch
+        ? group.files
+        : group.files.filter((file) => String(file.key || '').toLowerCase().includes(q))
+      if (matchingFiles.length === 0) return null
+      return {
+        ...group,
+        files: matchingFiles,
+        totalBytes: matchingFiles.reduce((sum, file) => sum + Number(file.size || 0), 0),
+      }
+    })
+    .filter((group): group is WorkspaceFileGroup => !!group)
+}
+
 interface WorkspacePanelProps {
   apiBase: string
   renterKey: string | null
@@ -123,25 +143,7 @@ export default function WorkspacePanel({
   const initializedFolderFirstGroupsRef = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
-  const visibleFileGroups = useMemo(() => {
-    const q = folderQuery.trim().toLowerCase()
-    if (!q) return fileGroups
-
-    return fileGroups
-      .map((group) => {
-        const labelMatch = group.label.toLowerCase().includes(q)
-        const matchingFiles = labelMatch
-          ? group.files
-          : group.files.filter((file) => String(file.key || '').toLowerCase().includes(q))
-        if (matchingFiles.length === 0) return null
-        return {
-          ...group,
-          files: matchingFiles,
-          totalBytes: matchingFiles.reduce((sum, file) => sum + Number(file.size || 0), 0),
-        }
-      })
-      .filter((group): group is WorkspaceFileGroup => !!group)
-  }, [fileGroups, folderQuery])
+  const visibleFileGroups = useMemo(() => filterWorkspaceFileGroups(fileGroups, folderQuery), [fileGroups, folderQuery])
   const totalFileBytes = useMemo(() => files.reduce((sum, file) => sum + Number(file.size || 0), 0), [files])
   const workspaceFolderCount = useMemo(
     () => fileGroups.filter((group) => group.id !== '__root__').length,
@@ -158,6 +160,13 @@ export default function WorkspacePanel({
       return b.files.length - a.files.length || b.totalBytes - a.totalBytes || a.label.localeCompare(b.label)
     })
   }, [fileGroups, isLargePodLaunchWorkspace])
+  const visibleCompactFileGroups = useMemo(
+    () => filterWorkspaceFileGroups(compactFileGroups, folderQuery),
+    [compactFileGroups, folderQuery],
+  )
+  const compactPrimaryGroup = compactFileGroups[0] || null
+  const compactOtherGroupCount = Math.max(0, fileGroups.length - (compactPrimaryGroup ? 1 : 0))
+  const compactOtherFileCount = Math.max(0, files.length - (compactPrimaryGroup?.files.length || 0))
   const uploadBusy = upload.state.status !== 'idle' &&
     upload.state.status !== 'completed' &&
     upload.state.status !== 'aborted'
@@ -444,6 +453,48 @@ export default function WorkspacePanel({
               <Bi en="Manage files" ar="إدارة الملفات" />
             </button>
           </div>
+          {compactPrimaryGroup && (
+            <div className="ws-stage-route-map" aria-label={lang === 'ar' ? 'ملاحة مجلدات المرحلة 1' : 'Stage 1 folder navigator'}>
+              <button
+                type="button"
+                onClick={() => setCompactFolderIndexOpen(true)}
+                aria-expanded={compactFolderIndexOpen}
+                aria-controls="ws-stage-folder-index"
+              >
+                <span>1</span>
+                <b><Bi en="Folder map" ar="خريطة المجلدات" /></b>
+                <em>
+                  <Bi
+                    en={`${workspaceFolderCount} folders · busiest folder ${compactPrimaryGroup.label}`}
+                    ar={`${workspaceFolderCount} مجلدات · أكثرها ازدحاماً ${compactPrimaryGroup.label}`}
+                  />
+                </em>
+              </button>
+              <button type="button" onClick={() => openOnlyFileGroup(compactPrimaryGroup.id)}>
+                <span>2</span>
+                <b><Bi en="Open one folder" ar="افتح مجلداً واحداً" /></b>
+                <em>
+                  <Bi
+                    en={`${compactPrimaryGroup.files.length} files there · ${compactOtherFileCount} files stay collapsed`}
+                    ar={`${compactPrimaryGroup.files.length} ملفات هناك · تبقى بقية الملفات مطوية`}
+                  />
+                </em>
+              </button>
+              {nextStageHref ? (
+                <a href={nextStageHref}>
+                  <span>3</span>
+                  <b><Bi en="Stage 2" ar="المرحلة 2" /></b>
+                  <em><Bi en="Launch uses the full /workspace volume" ar="التشغيل يستخدم وحدة /workspace كاملة" /></em>
+                </a>
+              ) : (
+                <span>
+                  <span>3</span>
+                  <b><Bi en="Manage" ar="إدارة" /></b>
+                  <em><Bi en={`${compactOtherGroupCount} other groups stay collapsed`} ar="تبقى المجموعات الأخرى مطوية" /></em>
+                </span>
+              )}
+            </div>
+          )}
           {fileGroups.length > 0 && (
             <div className="ws-stage-folders" aria-label={lang === 'ar' ? 'مجلدات مساحة العمل' : 'Workspace folders'}>
               {compactFileGroups.slice(0, 4).map((group) => (
@@ -485,7 +536,7 @@ export default function WorkspacePanel({
                   <Bi en="Folder tree, not a file wall" ar="شجرة مجلدات بدلاً من جدار ملفات" />
                 </strong>
                 <span>
-                  <Bi en="Open one folder, search by file name, or continue to Stage 2 with the manifest closed." ar="افتح مجلداً واحداً، أو ابحث باسم الملف، أو تابع للمرحلة 2 والبيان مطوي." />
+                  <Bi en="Busiest folders first. Open one folder, search by file name, or continue to Stage 2 with the manifest closed." ar="المجلدات الأكثر ازدحاماً أولاً. افتح مجلداً واحداً، أو ابحث باسم الملف، أو تابع للمرحلة 2 والبيان مطوي." />
                 </span>
                 <div className="ws-stage-folder-index-actions">
                   {nextStageHref && (
@@ -510,9 +561,9 @@ export default function WorkspacePanel({
                   />
                 </label>
               </div>
-              {visibleFileGroups.length > 0 ? (
+              {visibleCompactFileGroups.length > 0 ? (
                 <div className="ws-stage-folder-index-grid">
-                  {visibleFileGroups.map((group) => (
+                  {visibleCompactFileGroups.map((group) => (
                     <button
                       key={group.id}
                       type="button"

@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 22:42 UTC - `feat(pods): add workspace stage navigator - PR #924`
+
+**PR:** [#924](https://github.com/dhnpmp-tech/dcp-platform/pull/924) (`codex/workspace-stage-navigator-2026-07-10`).
+**Local timestamp:** 2026-07-10 02:42 +04.
+
+**What:** Tareq workspace/pods UX follow-up. Keeps the Stage 1 large-workspace path compact while making the folder hierarchy and actual Stage 2 GPU selection state easier to understand.
+
+- **Stage 1 navigator:** The compact `/renter/pods` workspace checkpoint now shows a three-part navigator: folder map, open one folder, and Stage 2, so renters with many files can inspect the busiest folder or continue without opening the full manifest.
+- **Folder ordering:** The on-demand Stage 1 folder index now states that busiest folders appear first and uses the same busiest/largest ordering as the compact folder chips while preserving search.
+- **GPU clarity:** The VRAM filter copy is now state-aware: it says Auto-pick only when Auto-pick is active, and it keeps the pinned GPU visible when a fixed card was selected. The selected GPU card also gets a "Selected launch GPU" ribbon.
+- **Trial answer:** Existing contract-backed trial copy remains unchanged: no separate live trial-account tag unless the backend reports one, grant-credit provenance drives trial handling, native/community capacity accepts trial credit, and high-demand GPUs require paid credit.
+- **Safety:** Frontend-only UX behavior change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression; TypeScript.
+
 ### 2026-07-09 22:25 UTC - `feat(pods): keep Stage 1 folder index on demand - PR #923`
 
 **PR:** [#923](https://github.com/dhnpmp-tech/dcp-platform/pull/923) (`codex/pods-stage1-folder-index-on-demand-2026-07-10`).

@@ -237,6 +237,11 @@ what is live.
   rail now says Stage 1/2/3 of 3, stays sticky on desktop, keeps Stage 1
   explicitly collapsible, and adds a GPU-picker status panel showing the exact
   auto-pick or fixed-GPU `gpu_type` request before the browse filters.
+- PR #924 keeps the same launch/workspace/trial semantics and makes the compact
+  Stage 1 checkpoint more navigable: folder map, open-one-folder, and Stage 2
+  actions sit above the folder chips, the on-demand folder index is
+  busiest-first, and the VRAM filter copy follows the actual launch state rather
+  than always saying Auto-pick.
 
 ### Now
 
@@ -799,6 +804,10 @@ template launch.
   for large workspaces: the compact folder summary stays visible, the searchable
   folder index opens only on demand, and the direct Stage 2 path remains the
   primary route to the actual GPU decision.
+- PR #924 adds a compact Stage 1 folder navigator and selected-GPU card marker:
+  renters can open the busiest folder, keep the rest collapsed, or continue to
+  Stage 2, while VRAM filters now repeat whether launch is Auto-pick or a fixed
+  GPU.
 
 ### Now
 

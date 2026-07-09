@@ -1245,6 +1245,12 @@ export default function RenterPodsPage() {
     ? 'This selected GPU card is pinned in the final launch request.'
     : 'No GPU card is pinned; filters and template hints stay browse-only.'
   const stage2ModeChipLabel = selectedType ? 'Mode: fixed GPU selected' : 'Mode: auto-pick selected'
+  const vramFilterLaunchState = selectedType
+    ? `Launch request: ${displayGpuType(selectedType.gpu_model)}`
+    : 'Launch request: Auto-pick'
+  const vramFilterDisclaimer = selectedType
+    ? `Browse filter only. Launch stays ${displayGpuType(selectedType.gpu_model)} until you choose another card or return to auto-pick.`
+    : 'Browse filter only. Launch stays Auto-pick until you choose Use as launch GPU on a card.'
   const workspacePodContractStatus = trialRouting?.infrastructure_proofs?.workspace_pod_contract?.status
   const workspaceLiveStatus = trialRouting?.infrastructure_proofs?.workspace_live_acceptance?.status
   const loraPodImageStatus = trialRouting?.infrastructure_proofs?.lora_pod_image_provider_host?.status
@@ -2178,9 +2184,13 @@ export default function RenterPodsPage() {
                     </div>
                     <p className="gpu-filter-disclaimer">
                       <Bi
-                        en="This is only a browse filter. The launch GPU remains Auto-pick until you choose Use as launch GPU on a card."
-                        ar="هذه تصفية تصفح فقط. يبقى GPU التشغيل على الاختيار التلقائي حتى تختار بطاقة."
+                        en={vramFilterDisclaimer}
+                        ar={selectedType ? 'هذه تصفية تصفح فقط. يبقى GPU التشغيل المثبت كما هو حتى تختار بطاقة أخرى أو تعود للاختيار التلقائي.' : 'هذه تصفية تصفح فقط. يبقى GPU التشغيل على الاختيار التلقائي حتى تختار بطاقة.'}
                       />
+                    </p>
+                    <p className={`gpu-filter-state ${selectedType ? 'fixed' : 'auto'}`}>
+                      <span><Bi en="Current launch state" ar="حالة التشغيل الحالية" /></span>
+                      <strong><Bi en={vramFilterLaunchState} ar={selectedType ? 'طلب التشغيل: GPU محدد' : 'طلب التشغيل: اختيار تلقائي'} /></strong>
                     </p>
                   </div>
                   <div className="gpu-ctl">
@@ -2321,6 +2331,11 @@ export default function RenterPodsPage() {
                                       {workloadMatch
                                         ? <Bi en="Workload match" ar="مطابق للعمل" />
                                         : <Bi en="Best value" ar="أفضل قيمة" />}
+                                    </span>
+                                  )}
+                                  {selected && (
+                                    <span className="gpu-selected-ribbon">
+                                      <Bi en="Selected launch GPU" ar="GPU التشغيل المحدد" />
                                     </span>
                                   )}
                                   <div className="gpu-card-top">
