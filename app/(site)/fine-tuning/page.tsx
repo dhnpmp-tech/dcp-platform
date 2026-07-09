@@ -43,6 +43,13 @@ const GATES = [
     ar: 'صفوف النشر مرئية، وإثبات عقد دورة حياة النشر جزء من مجموعة خارطة الطريق المحلية. تبقى حركة التوجيه متوقفة حتى يوجد إثبات تحميل vLLM مطابق.',
   },
   {
+    k: 'deployment_control_loop',
+    tEn: 'Intent control loop',
+    tAr: 'حلقة التحكم في النية',
+    en: 'Ready adapters can create proof-gated deployment intent rows, and renters can stop stale intents. Neither action grants load-proof privileges or starts serving.',
+    ar: 'يمكن للمحولات الجاهزة إنشاء صفوف نية نشر مقيدة بالإثبات، ويمكن للمستأجر إيقاف النوايا القديمة. لا يمنح أي إجراء صلاحية إثبات التحميل أو يبدأ الخدمة.',
+  },
+  {
     k: 'endpoint_smoke',
     tEn: 'Endpoint smoke readiness',
     tAr: 'جاهزية دخان النقطة',
@@ -110,6 +117,16 @@ curl -s https://api.dcp.sa/api/adapters/billing/approval/readiness
 curl -s https://api.dcp.sa/api/adapters/billing/readiness
 
 curl -s "https://api.dcp.sa/api/adapters/deployments?limit=25" \\
+  -H "Authorization: Bearer $DCP_RENTER_KEY"
+
+curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments \\
+  -X POST \\
+  -H "Authorization: Bearer $DCP_RENTER_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"mode":"single_adapter_live_merge"}'
+
+curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/stop \\
+  -X POST \\
   -H "Authorization: Bearer $DCP_RENTER_KEY"`
 
 export default function FineTuningProductPage() {
@@ -160,8 +177,8 @@ export default function FineTuningProductPage() {
                 <div className="meta">
                   <span><Bi en="Status" ar="الحالة" /></span>
                   <b><Bi
-                    en={gate.k === 'deployment_intents' ? 'visible · routes off' : gate.k === 'endpoint_smoke' || gate.k === 'usage_attribution' || gate.k === 'billing_readiness' || gate.k === 'tinker_loop' ? 'contract-only · disabled' : 'contract live'}
-                    ar={gate.k === 'deployment_intents' ? 'مرئي · المسارات متوقفة' : gate.k === 'endpoint_smoke' || gate.k === 'usage_attribution' || gate.k === 'billing_readiness' || gate.k === 'tinker_loop' ? 'عقد فقط · معطل' : 'العقد يعمل'}
+                    en={gate.k === 'deployment_intents' ? 'visible · routes off' : gate.k === 'deployment_control_loop' ? 'create/stop live · routes off' : gate.k === 'endpoint_smoke' || gate.k === 'usage_attribution' || gate.k === 'billing_readiness' || gate.k === 'tinker_loop' ? 'contract-only · disabled' : 'contract live'}
+                    ar={gate.k === 'deployment_intents' ? 'مرئي · المسارات متوقفة' : gate.k === 'deployment_control_loop' ? 'إنشاء/إيقاف يعمل · المسارات متوقفة' : gate.k === 'endpoint_smoke' || gate.k === 'usage_attribution' || gate.k === 'billing_readiness' || gate.k === 'tinker_loop' ? 'عقد فقط · معطل' : 'العقد يعمل'}
                   /></b>
                 </div>
               </article>
@@ -201,6 +218,7 @@ export default function FineTuningProductPage() {
               <pre className="term" dir="ltr" aria-label="Fine-tuning API snippets">{SNIPPET}</pre>
               <ul className="pshow-list">
                 <li><Bi en="No public Tinker compatibility claim; low-level loop primitives are contract-only until GPU proof exists." ar="لا ادعاء توافق عام مع Tinker؛ بدائيات الحلقة منخفضة المستوى عقد فقط حتى يوجد إثبات GPU." /></li>
+                <li><Bi en="Ready adapters can create and stop gated deployment intent rows from the renter console; neither action accepts renter load proof or starts route traffic." ar="يمكن للمحولات الجاهزة إنشاء وإيقاف صفوف نية نشر مقيدة من لوحة المستأجر؛ لا يقبل أي إجراء إثبات تحميل من المستأجر ولا يبدأ حركة التوجيه." /></li>
                 <li><Bi en="No adapter route traffic until vLLM load proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum." ar="لا حركة لمحولات النشر حتى يطابق إثبات تحميل vLLM معرف النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
                 <li><Bi en="The endpoint-smoke GET returns renter-scoped no-record status, and the POST exists only as a disabled validation contract; it returns 409 and records nothing until response hash, latency, token totals, adapter trace, funded principal, usage attribution, settlement policy, and founder approval pass." ar="تعيد طريقة GET لحالة دخان النقطة حالة بلا تسجيل حسب المستأجر، وتبقى طريقة POST عقد تحقق معطلا يعيد 409 ولا يسجل شيئا حتى اعتماد دليل الاستجابة والرصيد ونسب الاستخدام وسياسة التسوية وموافقة المؤسسين." /></li>
                 <li><Bi en="No quality claims until reproducible benchmark artifacts exist." ar="لا ادعاءات جودة حتى توجد آثار قياس قابلة للتكرار." /></li>
@@ -219,7 +237,7 @@ export default function FineTuningProductPage() {
               <p>
                 <Bi
                   en="For today: prepare datasets, inspect training metadata, register adapter artifacts, create proof-gated deployment intents, and inspect disabled endpoint-smoke, usage-attribution, and adapter-billing policy. Next: run LoRA SFT on controlled 3090/4090/5090-class pods, attach artifact proof, load adapters into vLLM, smoke the endpoint with hashed response evidence and adapter trace, and route billed inference only after money and usage evidence exists."
-                  ar="اليوم: جهّز البيانات، وافحص بيانات التدريب، وسجل آثار المحولات، وأنشئ نوايا نشر مقيدة بالإثبات. التالي: تشغيل LoRA SFT على حاويات 3090/4090/5090 مضبوطة، وإرفاق إثبات الأثر، وتحميل المحولات في vLLM، وتوجيه الحركة عبر الاستدلال المفوتر فقط بعد وجود الدليل."
+                  ar="اليوم: جهّز البيانات، وافحص بيانات التدريب، وسجل آثار المحولات، وأنشئ أو أوقف نوايا نشر مقيدة بالإثبات. التالي: تشغيل LoRA SFT على حاويات 3090/4090/5090 مضبوطة، وإرفاق إثبات الأثر، وتحميل المحولات في vLLM، وتوجيه الحركة عبر الاستدلال المفوتر فقط بعد وجود الدليل."
                 />
               </p>
               <div style={{ marginTop: 22, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -235,11 +253,16 @@ export default function FineTuningProductPage() {
               </div>
               <div className="capacity-gate">
                 <span className="gate-n">02</span>
+                <span className="gate-k">intent_control</span>
+                <p><Bi en="Ready adapters can create or stop non-serving deployment intent rows." ar="يمكن للمحولات الجاهزة إنشاء أو إيقاف صفوف نية نشر بلا خدمة." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">03</span>
                 <span className="gate-k">gpu_artifact_proof</span>
                 <p><Bi en="Trainer workers must prove the adapter artifact before public training is claimed." ar="يجب أن تثبت عمال التدريب أثر المحول قبل ادعاء التدريب العام." /></p>
               </div>
               <div className="capacity-gate">
-                <span className="gate-n">03</span>
+                <span className="gate-n">04</span>
                 <span className="gate-k">adapter_load_proof</span>
                 <p><Bi en="Serving turns on only when the endpoint proves it loaded the right adapter for the right base model." ar="تعمل الخدمة فقط عندما تثبت النقطة أنها حملت المحول الصحيح للنموذج الأساسي الصحيح." /></p>
               </div>

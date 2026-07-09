@@ -243,6 +243,12 @@ test('public Fine-Tuning page exposes the adapter registry proof command', async
   await expect(page.getByText(/deployment lifecycle contract proof is part of the local roadmap suite/i)).toBeVisible();
   await expect(page.getByText('npm run proof:adapter-deployment-contract')).toBeVisible();
   await expect(page.getByText(/adapter_deployments\.deployment_contract_proof/)).toBeVisible();
+  await expect(page.getByText('Intent control loop')).toBeVisible();
+  await expect(page.getByText('create/stop live · routes off')).toBeVisible();
+  await expect(page.getByText(/ready adapters can create and stop gated deployment intent rows/i)).toBeVisible();
+  await expect(page.getByText('https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/stop')).toBeVisible();
+  await expect(page.getByText('-X POST').last()).toBeVisible();
+  await expect(page.getByText('intent_control')).toBeVisible();
 });
 
 test('renter Fine-Tuning readiness shows registry proof status', async ({ page, context }) => {

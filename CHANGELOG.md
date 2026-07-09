@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 20:10 UTC - `feat(fine-tuning): publish deployment intent control loop - PR #915`
+
+**PR:** [#915](https://github.com/dhnpmp-tech/dcp-platform/pull/915) (`codex/public-fine-tuning-deploy-loop-2026-07-09`).
+**Local timestamp:** 2026-07-10 00:10 +04.
+
+**What:** Fireworks/Tinker public product-surface follow-up. Updates the public `/fine-tuning` page so the shipped adapter deployment intent loop from PR #914 is visible before login.
+
+- **Public product page:** Added an "Intent control loop" gate explaining that ready adapters can create proof-gated deployment intent rows and renters can stop stale intents without gaining load-proof privileges or starting serving.
+- **API snippets:** Added copyable create-intent and stop-intent curl examples beside the existing LoRA readiness, deployment, endpoint-smoke, usage-attribution, settlement, and billing readiness examples.
+- **Product boundary:** Updated the public proof path to show metadata contracts, non-serving intent control, GPU artifact proof, and adapter load proof as separate stages.
+- **Regression:** Extended the focused Fine-Tuning Playwright regression so the public page must show the create/stop loop, stop endpoint, and routes-off guard.
+- **Safety:** Frontend/static product copy only; no API behavior, deployment mutation, load-proof acceptance, adapter serving, route traffic, endpoint smoke recording, usage write, billing, balance mutation, training execution, prompt-cache discount, batch execution, or Tinker claim changed.
+- **Verification:** Focused Fine-Tuning Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:57 UTC - `feat(fine-tuning): manage gated adapter deployment intents - PR #914`
 
 **PR:** [#914](https://github.com/dhnpmp-tech/dcp-platform/pull/914) (`codex/adapter-deployment-intent-management-2026-07-09`).
