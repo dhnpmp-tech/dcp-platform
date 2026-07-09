@@ -4,15 +4,15 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  ADAPTER_BILLING_READINESS_VERSION,
-  buildAdapterBillingReadiness,
-  evaluateAdapterBillingPolicy,
-} = require('../src/services/adapterBillingReadiness');
+  ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION,
+  buildAdapterUsageAttributionReadiness,
+  evaluateAdapterUsageAttribution,
+} = require('../src/services/adapterUsageAttributionReadiness');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const OUTPUT_DIR_DEFAULT = path.join(REPO_ROOT, 'docs/reports/reliability');
-const PROOF_PREFIX = 'adapter-billing-readiness-proof';
-const CONTRACT = 'dcp.adapter_billing_readiness_proof.v1';
+const PROOF_PREFIX = 'adapter-usage-attribution-readiness-proof';
+const CONTRACT = 'dcp.adapter_usage_attribution_readiness_proof.v1';
 const RENTER_API_KEY_ID_FIELD = ['renter', 'api', 'key', 'id'].join('_');
 
 function toStamp(date = new Date()) {
@@ -30,9 +30,9 @@ function assertInvariant(condition, code, message, details = {}) {
 
 function buildDeployment(overrides = {}) {
   return {
-    deployment_id: 'adpl_billproof1',
+    deployment_id: 'adpl_usageproof1',
     renter_id: 42,
-    adapter_id: 'adpt_billproof',
+    adapter_id: 'adpt_usageproof',
     base_model: 'meta-llama/Llama-3.1-8B-Instruct',
     mode: 'single_adapter_live_merge',
     endpoint_id: 'arabic-support-prod',
@@ -40,13 +40,13 @@ function buildDeployment(overrides = {}) {
     route_traffic: true,
     serving_load_proof: {
       loaded: true,
-      deployment_id: 'adpl_billproof1',
-      adapter_id: 'adpt_billproof',
+      deployment_id: 'adpl_usageproof1',
+      adapter_id: 'adpt_usageproof',
       base_model: 'meta-llama/Llama-3.1-8B-Instruct',
       mode: 'single_adapter_live_merge',
       endpoint_id: 'arabic-support-prod',
-      artifact_checksum_sha256: 'b'.repeat(64),
-      provider_id: 'provider-adapter-billing-1',
+      artifact_checksum_sha256: 'd'.repeat(64),
+      provider_id: 'provider-adapter-usage-1',
     },
     ...overrides,
   };
@@ -55,14 +55,14 @@ function buildDeployment(overrides = {}) {
 function buildUsage(overrides = {}) {
   return {
     renter_id: 42,
-    deployment_id: 'adpl_billproof1',
-    adapter_id: 'adpt_billproof',
+    deployment_id: 'adpl_usageproof1',
+    adapter_id: 'adpt_usageproof',
     base_model: 'meta-llama/Llama-3.1-8B-Instruct',
     endpoint_id: 'arabic-support-prod',
-    artifact_checksum_sha256: 'b'.repeat(64),
-    provider_id: 'provider-adapter-billing-1',
-    request_id: 'req-adapter-billing-proof-1',
-    [RENTER_API_KEY_ID_FIELD]: 'scoped-key-adapter-billing-1',
+    artifact_checksum_sha256: 'd'.repeat(64),
+    provider_id: 'provider-adapter-usage-1',
+    request_id: 'req-adapter-usage-proof-1',
+    [RENTER_API_KEY_ID_FIELD]: 'scoped-key-adapter-usage-1',
     renter_key_type: 'scoped_key',
     prompt_tokens: 128,
     completion_tokens: 32,
@@ -75,7 +75,7 @@ function buildUsage(overrides = {}) {
 
 function buildMarkdown(report) {
   const lines = [];
-  lines.push('# Adapter Billing Readiness Proof');
+  lines.push('# Adapter Usage Attribution Readiness Proof');
   lines.push('');
   lines.push(`- contract: \`${report.contract}\``);
   lines.push(`- generated_at: \`${report.generated_at}\``);
@@ -95,9 +95,10 @@ function buildMarkdown(report) {
   lines.push('```json');
   lines.push(JSON.stringify({
     readiness: report.readiness,
-    eligible_when_enabled: report.eligible_when_enabled,
+    complete_usage: report.complete_usage,
     missing_load_proof: report.missing_load_proof,
-    usage_mismatch: report.usage_mismatch,
+    endpoint_mismatch: report.endpoint_mismatch,
+    bad_token_totals: report.bad_token_totals,
     claims: report.claims,
   }, null, 2));
   lines.push('```');
@@ -113,7 +114,7 @@ function buildMarkdown(report) {
   lines.push('');
   lines.push('This proof is CI-safe and read-only. It does not dispatch adapter');
   lines.push('inference, attach load proof, route traffic, record usage, mutate');
-  lines.push('balances, create invoices, or settle provider payouts.');
+  lines.push('balances, create invoices, change budgets, or settle provider payouts.');
   lines.push('');
   return `${lines.join('\n')}\n`;
 }
@@ -138,31 +139,34 @@ function writeReport(report, outputDir = OUTPUT_DIR_DEFAULT) {
   return report.artifacts;
 }
 
-function runAdapterBillingReadinessProof(options = {}) {
-  const outputDir = path.resolve(options.outputDir || process.env.DCP_ADAPTER_BILLING_READINESS_PROOF_OUTPUT_DIR || OUTPUT_DIR_DEFAULT);
+function runAdapterUsageAttributionReadinessProof(options = {}) {
+  const outputDir = path.resolve(options.outputDir || process.env.DCP_ADAPTER_USAGE_ATTRIBUTION_PROOF_OUTPUT_DIR || OUTPUT_DIR_DEFAULT);
   const report = {
     contract: CONTRACT,
     generated_at: new Date().toISOString(),
     verdict: 'FAIL',
-    command: 'npm run proof:adapter-billing-readiness',
-    mode: 'ci_safe_adapter_billing_readiness_contract_only',
+    command: 'npm run proof:adapter-usage-attribution',
+    mode: 'ci_safe_adapter_usage_attribution_contract_only',
     claims: {
       readiness_contract_live: true,
-      adapter_billing_enabled: false,
+      adapter_usage_attribution_enabled: false,
+      adapter_usage_ledger_writes_enabled: false,
       dispatches_inference: false,
       attaches_load_proof: false,
       routes_adapter_traffic: false,
       records_usage_event: false,
       mutates_balance: false,
       creates_invoice: false,
+      changes_budget_cap: false,
       settles_provider_payout: false,
       claims_tinker_compatibility: false,
     },
     invariants: [],
     readiness: {},
-    eligible_when_enabled: {},
+    complete_usage: {},
     missing_load_proof: {},
-    usage_mismatch: {},
+    endpoint_mismatch: {},
+    bad_token_totals: {},
     failure: null,
     artifacts: {},
   };
@@ -173,33 +177,30 @@ function runAdapterBillingReadinessProof(options = {}) {
   };
 
   try {
-    const readiness = buildAdapterBillingReadiness(new Date('2026-07-09T06:45:00.000Z'));
-    const eligible = evaluateAdapterBillingPolicy({
+    const readiness = buildAdapterUsageAttributionReadiness(new Date('2026-07-09T07:20:00.000Z'));
+    const completeUsage = evaluateAdapterUsageAttribution({
       deployment: buildDeployment(),
       usage_event: buildUsage(),
       endpoint_smoke_passed: true,
-      funded_smoke_principal: true,
-      minimum_balance_policy_approved: true,
-      settlement_split_policy_approved: true,
-      founder_billing_approval: true,
+      funded_principal: true,
     });
-    const missingLoadProof = evaluateAdapterBillingPolicy({
+    const missingLoadProof = evaluateAdapterUsageAttribution({
       deployment: buildDeployment({ route_traffic: false, serving_load_proof: null }),
       usage_event: buildUsage(),
       endpoint_smoke_passed: true,
-      funded_smoke_principal: true,
-      minimum_balance_policy_approved: true,
-      settlement_split_policy_approved: true,
-      founder_billing_approval: true,
+      funded_principal: true,
     });
-    const usageMismatch = evaluateAdapterBillingPolicy({
+    const endpointMismatch = evaluateAdapterUsageAttribution({
       deployment: buildDeployment(),
-      usage_event: buildUsage({ artifact_checksum_sha256: 'c'.repeat(64) }),
+      usage_event: buildUsage({ endpoint_id: 'wrong-endpoint' }),
       endpoint_smoke_passed: true,
-      funded_smoke_principal: true,
-      minimum_balance_policy_approved: true,
-      settlement_split_policy_approved: true,
-      founder_billing_approval: true,
+      funded_principal: true,
+    });
+    const badTokenTotals = evaluateAdapterUsageAttribution({
+      deployment: buildDeployment(),
+      usage_event: buildUsage({ total_tokens: 159 }),
+      endpoint_smoke_passed: true,
+      funded_principal: true,
     });
 
     report.readiness = {
@@ -208,94 +209,108 @@ function runAdapterBillingReadinessProof(options = {}) {
       denial_codes: readiness.denial_codes,
       claim_guards: readiness.claim_guards,
     };
-    report.eligible_when_enabled = eligible;
+    report.complete_usage = completeUsage;
     report.missing_load_proof = missingLoadProof;
-    report.usage_mismatch = usageMismatch;
+    report.endpoint_mismatch = endpointMismatch;
+    report.bad_token_totals = badTokenTotals;
 
     record(
-      'adapter billing readiness is public and policy-only',
-      readiness.object === 'adapter_billing_readiness'
-        && readiness.version === ADAPTER_BILLING_READINESS_VERSION
-        && readiness.endpoints.billing_readiness === 'GET /api/adapters/billing/readiness'
-        && readiness.policy.adapter_inference_billing_enabled === false
+      'adapter usage attribution readiness is public and contract-only',
+      readiness.object === 'adapter_usage_attribution_readiness'
+        && readiness.version === ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION
+        && readiness.endpoints.usage_attribution_readiness === 'GET /api/adapters/usage/attribution/readiness'
+        && readiness.policy.adapter_usage_attribution_enabled === false
+        && readiness.policy.adapter_usage_ledger_writes_enabled === false
         && readiness.claim_guards.mutates_balance === false
         && readiness.claim_guards.routes_adapter_traffic === false
-        && readiness.claim_guards.records_usage_event === false,
-      'The readiness packet is visible without enabling money, routing, usage writes, or settlement.',
+        && readiness.claim_guards.enables_adapter_billing === false,
+      'The readiness packet is visible without enabling adapter usage writes, routing, or billing.',
     );
 
     record(
-      'fully attributed adapter usage remains non-billable until policy enablement',
-      eligible.would_bill_if_enabled === true
-        && eligible.billing_enabled === false
-        && eligible.billable === false
-        && eligible.denial_code_while_disabled === 'adapter_billing_disabled'
-        && eligible.blockers.length === 0,
-      'A complete proof packet only reaches would-bill-if-enabled; billing remains disabled.',
+      'complete adapter usage attribution remains disabled until writes are enabled',
+      completeUsage.would_record_if_enabled === true
+        && completeUsage.attribution_enabled === false
+        && completeUsage.usage_ledger_write_enabled === false
+        && completeUsage.recorded === false
+        && completeUsage.denial_code_while_disabled === 'adapter_usage_attribution_disabled'
+        && completeUsage.blockers.length === 0,
+      'A fully attributed usage event only reaches would-record-if-enabled.',
     );
 
     record(
-      'missing strict load proof blocks adapter billing',
-      missingLoadProof.would_bill_if_enabled === false
-        && missingLoadProof.denial_code_while_disabled === 'adapter_billing_load_proof_required'
+      'missing strict load proof blocks adapter usage attribution',
+      missingLoadProof.would_record_if_enabled === false
+        && missingLoadProof.denial_code_while_disabled === 'adapter_usage_load_proof_required'
         && missingLoadProof.blockers.includes('strict_load_proof_match'),
-      'Adapter billing cannot proceed from deployment intent or unverified route state.',
+      'Usage rows cannot be accepted for adapter billing without matching serving proof.',
     );
 
     record(
-      'usage ledger attribution must match adapter proof before billing',
-      usageMismatch.would_bill_if_enabled === false
-        && usageMismatch.denial_code_while_disabled === 'adapter_billing_usage_attribution_required'
-        && usageMismatch.blockers.includes('usage_ledger_adapter_attribution'),
-      'Checksum or adapter/deployment attribution drift blocks billing before settlement.',
+      'endpoint or checksum drift blocks adapter usage attribution',
+      endpointMismatch.would_record_if_enabled === false
+        && endpointMismatch.denial_code_while_disabled === 'adapter_usage_deployment_mismatch'
+        && endpointMismatch.blockers.includes('deployment_usage_match'),
+      'Usage rows must match the deployment, adapter, endpoint, base model, and artifact checksum.',
     );
 
     record(
-      'proof performs no adapter traffic or money mutation',
-      report.claims.adapter_billing_enabled === false
+      'token and cost totals are required before adapter usage writes',
+      badTokenTotals.would_record_if_enabled === false
+        && badTokenTotals.denial_code_while_disabled === 'adapter_usage_token_cost_required'
+        && badTokenTotals.blockers.includes('token_cost_fields'),
+      'Prompt/completion/total token fields and positive cost must be coherent before settlement.',
+    );
+
+    record(
+      'proof performs no adapter traffic usage or money mutation',
+      report.claims.adapter_usage_attribution_enabled === false
+        && report.claims.adapter_usage_ledger_writes_enabled === false
         && report.claims.dispatches_inference === false
         && report.claims.attaches_load_proof === false
         && report.claims.routes_adapter_traffic === false
         && report.claims.records_usage_event === false
         && report.claims.mutates_balance === false
         && report.claims.creates_invoice === false
+        && report.claims.changes_budget_cap === false
         && report.claims.settles_provider_payout === false,
-      'All billing and traffic side effects stay disabled in this CI-safe proof.',
+      'All usage, billing, traffic, budget, and settlement side effects stay disabled.',
     );
 
     report.verdict = 'PASS';
   } catch (error) {
     report.failure = {
-      code: error.code || 'adapter_billing_readiness_proof_failed',
+      code: error.code || 'adapter_usage_attribution_readiness_proof_failed',
       message: error.message,
-      details: error.details || null,
+      details: error.details || {},
+      stack: process.env.CI ? undefined : error.stack,
     };
     report.verdict = 'FAIL';
-  } finally {
-    writeReport(report, outputDir);
   }
 
+  writeReport(report, outputDir);
+  if (report.verdict !== 'PASS') {
+    const error = new Error(report.failure ? report.failure.message : 'adapter usage attribution readiness proof failed');
+    error.report = report;
+    throw error;
+  }
   return report;
 }
 
-function main() {
-  const report = runAdapterBillingReadinessProof();
-  console.log(`Adapter billing readiness proof: ${report.verdict}`);
-  console.log(`JSON report: ${report.artifacts.json}`);
-  console.log(`Markdown report: ${report.artifacts.markdown}`);
-  if (report.verdict !== 'PASS') {
-    console.error(report.failure ? `${report.failure.code}: ${report.failure.message}` : 'proof failed');
+if (require.main === module) {
+  try {
+    const report = runAdapterUsageAttributionReadinessProof();
+    console.log(`[adapter-usage-attribution-readiness-proof] PASS ${JSON.stringify(report.artifacts)}`);
+  } catch (error) {
+    const report = error.report;
+    console.error('[adapter-usage-attribution-readiness-proof] FAIL', report ? JSON.stringify(report.failure, null, 2) : error.stack || error.message);
     process.exit(1);
   }
 }
 
-if (require.main === module) {
-  main();
-}
-
 module.exports = {
   CONTRACT,
-  PROOF_PREFIX,
-  runAdapterBillingReadinessProof,
-  writeReport,
+  runAdapterUsageAttributionReadinessProof,
+  buildDeployment,
+  buildUsage,
 };

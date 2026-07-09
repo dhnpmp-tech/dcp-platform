@@ -36,6 +36,13 @@ const DEPLOYMENT_GATES = [
     ar: 'تبقى فوترة المحول متوقفة حتى اعتماد دخان النقطة والرصيد الممول ونسب الاستخدام وسياسة التسوية.',
   },
   {
+    k: 'usage_attribution',
+    tEn: 'Usage attribution readiness',
+    tAr: 'جاهزية نسب الاستخدام',
+    en: 'Usage rows stay disabled until they can prove deployment, adapter, endpoint, checksum, provider, request, scoped-key, token, cost, and pending settlement fields.',
+    ar: 'تبقى صفوف الاستخدام معطلة حتى تثبت حقول النشر والمحول والنقطة والبصمة والمزود والطلب والمفتاح والرموز والتكلفة والتسوية المعلقة.',
+  },
+  {
     k: 'multi_lora',
     tEn: 'Multi-LoRA later',
     tAr: 'تعدد LoRA لاحقاً',
@@ -56,6 +63,8 @@ curl -s https://api.dcp.sa/api/adapters/adpt_support_arabic/deployments \\
     "endpoint_id": "endpoint_qwen_arabic_01",
     "route_traffic": false
   }'
+
+curl -s https://api.dcp.sa/api/adapters/usage/attribution/readiness
 
 curl -s https://api.dcp.sa/api/adapters/billing/readiness`
 
@@ -146,7 +155,7 @@ export default function DedicatedDeploymentsProductPage() {
               <ul className="pshow-list">
                 <li><Bi en="Single-adapter live merge is first; multi-LoRA waits for controlled vLLM smoke." ar="دمج محول واحد أولاً؛ وينتظر تعدد LoRA دخان vLLM مضبوطاً." /></li>
                 <li><Bi en="Route traffic remains false until deployment, adapter, base model, mode, endpoint, and checksum proof match." ar="تبقى حركة التوجيه غير مفعلة حتى يتطابق إثبات النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
-                <li><Bi en="Billed inference starts only after endpoint smoke, funded principal, usage attribution, and settlement policy are approved." ar="يبدأ الاستدلال المفوتر فقط بعد اعتماد دخان النقطة والرصيد الممول ونسب الاستخدام وسياسة التسوية." /></li>
+                <li><Bi en="Usage writes and billed inference start only after endpoint smoke, funded principal, usage attribution, and settlement policy are approved." ar="تبدأ كتابة الاستخدام والاستدلال المفوتر فقط بعد اعتماد دخان النقطة والرصيد الممول ونسب الاستخدام وسياسة التسوية." /></li>
               </ul>
             </div>
           </div>
@@ -190,6 +199,11 @@ export default function DedicatedDeploymentsProductPage() {
                 <span className="gate-n">04</span>
                 <span className="gate-k">billing_readiness</span>
                 <p><Bi en="Billing stays disabled until usage rows carry adapter and endpoint attribution." ar="تبقى الفوترة معطلة حتى تحمل صفوف الاستخدام نسب المحول والنقطة." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">05</span>
+                <span className="gate-k">usage_attribution</span>
+                <p><Bi en="Usage rows must carry deployment, adapter, endpoint, checksum, provider, request, token, cost, and pending-settlement proof." ar="يجب أن تحمل صفوف الاستخدام إثبات النشر والمحول والنقطة والبصمة والمزود والطلب والرموز والتكلفة والتسوية المعلقة." /></p>
               </div>
             </div>
           </div>

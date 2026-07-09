@@ -304,6 +304,15 @@ const API_SNIPPETS = [
       '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
   },
   {
+    id: 'adapter-usage-attribution',
+    titleEn: 'Check usage attribution gate',
+    titleAr: 'فحص بوابة نسب الاستخدام',
+    meta: 'GET /api/adapters/usage/attribution/readiness',
+    noteEn: 'Public read-only usage policy; adapter usage writes, billing, invoices, payouts, and route changes remain disabled.',
+    noteAr: 'سياسة استخدام عامة للقراءة فقط؛ تبقى كتابة استخدام المحولات والفوترة والفواتير والمدفوعات وتغيير المسارات معطلة.',
+    command: 'curl -s https://api.dcp.sa/api/adapters/usage/attribution/readiness',
+  },
+  {
     id: 'adapter-billing',
     titleEn: 'Check billing gate',
     titleAr: 'فحص بوابة الفوترة',

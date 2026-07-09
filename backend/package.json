@@ -32,6 +32,7 @@
     "test:reliability:tinker-loop-readiness-contract-proof": "node tests/tinker-loop-readiness-contract-proof.js",
     "test:reliability:lora-training-live-artifact-proof": "node tests/lora-training-live-artifact-proof.js",
     "test:reliability:adapter-artifact-policy-proof": "node tests/adapter-artifact-policy-proof.js",
+    "test:reliability:adapter-usage-attribution-readiness-proof": "node tests/adapter-usage-attribution-readiness-proof.js",
     "test:reliability:adapter-billing-readiness-proof": "node tests/adapter-billing-readiness-proof.js",
     "test:reliability:adapter-deployment-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/adapter-deployment-contract-proof.js",
     "test:reliability:adapter-vllm-live-load-proof": "node tests/adapter-vllm-live-load-proof.js",

@@ -438,6 +438,11 @@ Goal: ship the first real train-here/deploy-here loop.
     smoke; adapter usage writes, invoices, provider payouts, minimum-balance
     enforcement changes, and billed endpoint claims remain disabled until the
     proof prerequisites exist.
+  - PR #869 added the CI-safe adapter usage attribution readiness gate before
+    adapter usage writes or billing claims; future usage rows must carry
+    deployment, adapter, endpoint, checksum, provider, request, scoped-key,
+    token, cost, and pending-settlement fields while usage writes, invoices,
+    payouts, route changes, billing, and Tinker compatibility remain disabled.
 - Add dashboard:
   - datasets
   - training jobs
@@ -591,7 +596,14 @@ Acceptance:
     payouts, minimum-balance enforcement changes, and adapter billing claims
     stay disabled until strict load proof, endpoint smoke, funded principal,
     usage attribution, settlement policy, and founder approval exist.**
-19. **Renter quotas and usage export** - Fireworks-style account controls before
+19. **Adapter usage attribution readiness** - CI-safe usage-ledger gate before
+    adapter billing claims. **Added in PR #869 as
+    `npm run proof:adapter-usage-attribution`; adapter usage writes, invoices,
+    provider payouts, route changes, adapter billing claims, and Tinker claims
+    stay disabled until usage rows carry deployment, adapter, endpoint,
+    checksum, provider, request, scoped-key, token, cost, and pending-settlement
+    fields.**
+20. **Renter quotas and usage export** - Fireworks-style account controls before
     team budgets. **Started in PR #848 with billing-scoped
     `/api/renters/me/usage/export`, `/api/renters/me/budget-status`, and
     renter-console budget visibility. PR #849 adds scoped-key attribution to
@@ -605,18 +617,18 @@ Acceptance:
     `npm run proof:minimum-balance-readiness` so renters and agents can inspect
     v1 estimate preflight, on-demand paid-credit gates, and future billing
     blockers without changing enforcement.**
-19. **Benchmarks/Evals readiness rail** - Fireworks-style evidence surface before
+21. **Benchmarks/Evals readiness rail** - Fireworks-style evidence surface before
     customer-facing quality claims. **Started in PR #852 with
     `GET /api/models/benchmarks/readiness`, public `/benchmarks`, sitemap/nav
     wiring, and explicit guards keeping Arabic-quality claims, case studies,
     rankings, and frontier comparisons blocked until reproducible artifacts
     exist.**
-20. **Evaluator readiness contract proof** - customer eval-job gates before job
+22. **Evaluator readiness contract proof** - customer eval-job gates before job
     creation. **Started in PR #853 with `GET /api/evals/readiness` and
     `npm run proof:evaluator-readiness-contract`; eval jobs, datasets, public
     reports, rankings, frontier comparisons, and billing remain blocked until
     schema, worker, artifact, baseline, and money policy proof exists.**
-21. **Evaluator job schema contract proof** - metadata-only customer eval job
+23. **Evaluator job schema contract proof** - metadata-only customer eval job
     record before create/list/read APIs. **Started in PR #856 with
     `GET /api/evals/jobs/schema` and
     `npm run proof:evaluator-job-schema-contract`; workers, dataset storage,

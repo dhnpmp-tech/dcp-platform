@@ -9,6 +9,7 @@ const {
 } = require('../services/adapterRegistry');
 const { buildAdapterArtifactPolicyReadiness } = require('../services/adapterArtifactPolicy');
 const { buildAdapterBillingReadiness } = require('../services/adapterBillingReadiness');
+const { buildAdapterUsageAttributionReadiness } = require('../services/adapterUsageAttributionReadiness');
 const {
   AdapterDeploymentError,
   attachAdapterDeploymentLoadProof,
@@ -88,6 +89,18 @@ function createAdaptersRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch adapter billing readiness',
         code: 'adapter_billing_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/usage/attribution/readiness', (_req, res) => {
+    try {
+      return res.json(buildAdapterUsageAttributionReadiness(new Date()));
+    } catch (error) {
+      console.error('[adapters] usage attribution readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch adapter usage attribution readiness',
+        code: 'adapter_usage_attribution_readiness_internal_error',
       });
     }
   });

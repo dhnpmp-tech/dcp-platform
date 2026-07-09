@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 07:23 UTC - `test(lora): add adapter usage attribution readiness proof - PR #869`
+
+**PR:** [#869](https://github.com/dhnpmp-tech/dcp-platform/pull/869) (`codex/adapter-usage-attribution-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 11:23 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds the disabled usage-ledger attribution gate required before dedicated LoRA/adapter endpoint usage rows can become billable.
+
+- **Backend contract:** Added public `GET /api/adapters/usage/attribution/readiness` plus a pure adapter usage attribution evaluator for deployment, adapter, endpoint, checksum, provider, request, scoped-key, token, cost, and pending-settlement fields.
+- **Proof command:** Added `npm run proof:adapter-usage-attribution` and included it in `npm run proof:local-roadmap`, raising the suite to 26 CI-safe gates.
+- **Public surface:** LoRA readiness, adapter billing readiness, OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs now point to the disabled adapter usage-attribution policy.
+- **Safety:** Readiness/policy only; no adapter dispatch, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, budget cap change, adapter billing, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted adapter usage/billing/LoRA/minimum-balance Jest suites; adapter usage attribution proof; adapter billing readiness proof; local roadmap proof now passing 26/26 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 06:52 UTC - `test(lora): add adapter billing readiness proof - PR #868`
 
 **PR:** [#868](https://github.com/dhnpmp-tech/dcp-platform/pull/868) (`codex/adapter-billing-readiness-policy-2026-07-09`).

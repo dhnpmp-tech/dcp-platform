@@ -10,6 +10,7 @@ function buildAdapterBillingReadiness(now = new Date()) {
     current_mode: 'billing_policy_contract_only',
     endpoints: {
       billing_readiness: 'GET /api/adapters/billing/readiness',
+      usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       artifact_policy_readiness: 'GET /api/adapters/artifacts/readiness',
       lora_readiness: 'GET /api/lora/readiness',
       minimum_balance_readiness: 'GET /api/renters/me/minimum-balances',
@@ -32,6 +33,8 @@ function buildAdapterBillingReadiness(now = new Date()) {
         'artifact_checksum_sha256',
         'provider_id',
         'request_id',
+        'renter_api_key_id',
+        'renter_key_type',
       ],
       required_before_billing: [
         'strict_load_proof_match',
@@ -51,8 +54,11 @@ function buildAdapterBillingReadiness(now = new Date()) {
         'artifact_checksum_sha256',
         'provider_id',
         'request_id',
+        'renter_api_key_id',
+        'renter_key_type',
         'prompt_tokens',
         'completion_tokens',
+        'total_tokens',
         'cost_halala',
         'settlement_status',
       ],
@@ -67,6 +73,12 @@ function buildAdapterBillingReadiness(now = new Date()) {
         provider_split_live: false,
         platform_split_live: false,
         notes: 'Adapter traffic must carry deployment and adapter attribution before provider settlement or payout can be enabled.',
+      },
+      usage_attribution: {
+        status: 'contract_pending',
+        readiness_endpoint: 'GET /api/adapters/usage/attribution/readiness',
+        usage_writes_live: false,
+        notes: 'Adapter usage rows must carry deployment, adapter, endpoint, checksum, provider, request, token, cost, scoped-key, and pending-settlement fields before billing can be enabled.',
       },
     },
     denial_codes: [
@@ -124,8 +136,12 @@ function evaluateAdapterBillingPolicy(input = {}) {
     && same(usage.artifact_checksum_sha256, proof.artifact_checksum_sha256)
     && nonEmpty(usage.provider_id)
     && nonEmpty(usage.request_id)
+    && nonEmpty(usage.renter_api_key_id)
+    && nonEmpty(usage.renter_key_type)
     && integerAtLeast(usage.prompt_tokens, 0)
     && integerAtLeast(usage.completion_tokens, 0)
+    && integerAtLeast(usage.total_tokens, 0)
+    && usage.total_tokens === usage.prompt_tokens + usage.completion_tokens
     && integerAtLeast(usage.cost_halala, 1)
     && same(usage.settlement_status, 'pending');
 
@@ -161,6 +177,12 @@ function evaluateAdapterBillingPolicy(input = {}) {
       endpoint_id: usage.endpoint_id || null,
       provider_id: usage.provider_id || null,
       request_id: usage.request_id || null,
+      renter_api_key_id: usage.renter_api_key_id || null,
+      renter_key_type: usage.renter_key_type || null,
+      prompt_tokens: numberOrNull(usage.prompt_tokens),
+      completion_tokens: numberOrNull(usage.completion_tokens),
+      total_tokens: numberOrNull(usage.total_tokens),
+      cost_halala: numberOrNull(usage.cost_halala),
       settlement_status: usage.settlement_status || null,
     },
   };
@@ -188,6 +210,10 @@ function nonEmpty(value) {
 
 function integerAtLeast(value, min) {
   return Number.isInteger(value) && value >= min;
+}
+
+function numberOrNull(value) {
+  return Number.isFinite(value) ? value : null;
 }
 
 function isSha256(value) {
