@@ -109,6 +109,7 @@ export default function WorkspacePanel({
   const [collapsedFileGroups, setCollapsedFileGroups] = useState<Set<string>>(() => new Set())
   const [stageDetailsOpen, setStageDetailsOpen] = useState(context !== 'pod-launch')
   const [compactFolderIndexOpen, setCompactFolderIndexOpen] = useState(false)
+  const [folderQuery, setFolderQuery] = useState('')
 
   const [confirmDelete, setConfirmDelete] = useState<WorkspaceFile | null>(null)
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
@@ -119,6 +120,25 @@ export default function WorkspacePanel({
   const initializedPodLaunchGroupsRef = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
+  const visibleFileGroups = useMemo(() => {
+    const q = folderQuery.trim().toLowerCase()
+    if (!q) return fileGroups
+
+    return fileGroups
+      .map((group) => {
+        const labelMatch = group.label.toLowerCase().includes(q)
+        const matchingFiles = labelMatch
+          ? group.files
+          : group.files.filter((file) => String(file.key || '').toLowerCase().includes(q))
+        if (matchingFiles.length === 0) return null
+        return {
+          ...group,
+          files: matchingFiles,
+          totalBytes: matchingFiles.reduce((sum, file) => sum + Number(file.size || 0), 0),
+        }
+      })
+      .filter((group): group is WorkspaceFileGroup => !!group)
+  }, [fileGroups, folderQuery])
   const totalFileBytes = useMemo(() => files.reduce((sum, file) => sum + Number(file.size || 0), 0), [files])
   const workspaceFolderCount = useMemo(
     () => fileGroups.filter((group) => group.id !== '__root__').length,
@@ -433,25 +453,43 @@ export default function WorkspacePanel({
                 <span>
                   <Bi en="Folders stay grouped while the manifest is closed." ar="تبقى المجلدات مجمعة عندما يكون البيان مغلقًا." />
                 </span>
+                <label className="ws-folder-search">
+                  <span>
+                    <Bi en="Find folder or file" ar="ابحث عن مجلد أو ملف" />
+                  </span>
+                  <input
+                    type="search"
+                    value={folderQuery}
+                    onChange={(event) => setFolderQuery(event.target.value)}
+                    placeholder={lang === 'ar' ? 'datasets أو train.jsonl' : 'datasets or train.jsonl'}
+                    aria-label={lang === 'ar' ? 'ابحث في مجلدات وملفات المرحلة 1' : 'Search Stage 1 folders and files'}
+                  />
+                </label>
               </div>
-              <div className="ws-stage-folder-index-grid">
-                {fileGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => openOnlyFileGroup(group.id)}
-                    aria-label={
-                      lang === 'ar'
-                        ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
-                        : `Open ${group.label} with ${group.files.length} files`
-                    }
-                  >
-                    <span>{group.label}</span>
-                    <b>{group.files.length}</b>
-                    <small>{humanBytes(group.totalBytes)}</small>
-                  </button>
-                ))}
-              </div>
+              {visibleFileGroups.length > 0 ? (
+                <div className="ws-stage-folder-index-grid">
+                  {visibleFileGroups.map((group) => (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => openOnlyFileGroup(group.id)}
+                      aria-label={
+                        lang === 'ar'
+                          ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
+                          : `Open ${group.label} with ${group.files.length} files`
+                      }
+                    >
+                      <span>{group.label}</span>
+                      <b>{group.files.length}</b>
+                      <small>{humanBytes(group.totalBytes)}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="ws-folder-empty">
+                  <Bi en="No folder or staged file matches that search." ar="لا يوجد مجلد أو ملف مجهز يطابق البحث." />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -522,6 +560,20 @@ export default function WorkspacePanel({
             </div>
             {(files.length > 0 || (context === 'pod-launch' && nextStageHref)) && (
               <div className="ws-files-actions">
+                {files.length > 0 && (
+                  <label className="ws-files-search">
+                    <span>
+                      <Bi en="Find files" ar="ابحث عن ملفات" />
+                    </span>
+                    <input
+                      type="search"
+                      value={folderQuery}
+                      onChange={(event) => setFolderQuery(event.target.value)}
+                      placeholder={lang === 'ar' ? 'مجلد أو ملف' : 'Folder or file'}
+                      aria-label={lang === 'ar' ? 'ابحث في المجلدات والملفات المجهزة' : 'Search staged folders and files'}
+                    />
+                  </label>
+                )}
                 {context === 'pod-launch' && nextStageHref && (
                   <a className="ws-files-next" href={nextStageHref}>
                     <Bi en="Go to Stage 2" ar="انتقل للمرحلة 2" />
@@ -613,7 +665,7 @@ export default function WorkspacePanel({
 
           {filesState === 'ready' && files.length > 0 && filesCollapsed && (
             <div className="ws-files-summary" aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}>
-              {fileGroups.slice(0, 4).map((group) => (
+              {visibleFileGroups.slice(0, 4).map((group) => (
                 <button
                   key={group.id}
                   type="button"
@@ -627,13 +679,18 @@ export default function WorkspacePanel({
                   {group.label} · {group.files.length}
                 </button>
               ))}
-              {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
+              {visibleFileGroups.length > 4 && <span>+{visibleFileGroups.length - 4}</span>}
+              {visibleFileGroups.length === 0 && (
+                <span>
+                  <Bi en="No matching folders" ar="لا توجد مجلدات مطابقة" />
+                </span>
+              )}
             </div>
           )}
 
           {filesState === 'ready' && files.length > 0 && !filesCollapsed && (
             <ul className="ws-file-groups" role="list">
-              {fileGroups.map((group) => {
+              {visibleFileGroups.map((group) => {
                 const collapsed = collapsedFileGroups.has(group.id)
                 return (
                   <li key={group.id} className="ws-file-group" data-collapsed={collapsed}>
@@ -683,6 +740,11 @@ export default function WorkspacePanel({
                   </li>
                 )
               })}
+              {visibleFileGroups.length === 0 && (
+                <li className="ws-file-no-results">
+                  <Bi en="No staged folder or file matches that search." ar="لا يوجد مجلد أو ملف مجهز يطابق البحث." />
+                </li>
+              )}
             </ul>
           )}
         </div>

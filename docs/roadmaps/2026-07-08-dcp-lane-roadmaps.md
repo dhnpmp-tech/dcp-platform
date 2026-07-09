@@ -204,6 +204,10 @@ what is live.
   workspace counts, Stage 2 auto-pick/fixed-GPU state, grant-credit trial
   routing, and minimum-balance credit-gate state into one scan-friendly rail
   before the detailed workspace/template/GPU controls.
+- PR #902 adds search to the collapsed Stage 1 folder index and expanded
+  staged-file manifest, then makes Stage 2 launch mode explicit with an
+  auto-pick/fixed-GPU card and browse-filter warning so renters can reach the
+  actual GPU decision without scrolling through every workspace file.
 
 ### Now
 
@@ -712,6 +716,10 @@ template launch.
   showing staged-file/folder counts, actual GPU request mode, trial routing,
   and minimum-balance status without changing launch, billing, routing, or
   workspace API semantics.
+- PR #902 keeps the workspace-first pod flow read-only but more usable by
+  adding Stage 1 folder/file search and making Stage 2 launch mode visibly
+  separate from VRAM browse filters, without changing pod launch, billing,
+  routing, or workspace API semantics.
 
 ### Now
 

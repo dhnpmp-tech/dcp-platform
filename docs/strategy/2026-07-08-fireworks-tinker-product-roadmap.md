@@ -154,6 +154,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #899 adds a unified `/renter/pods` launch checklist that shows staged
     file/folder counts while Stage 1 remains collapsed, so large workspaces no
     longer obscure the path to the compute decision.
+  - PR #902 adds search to the collapsed Stage 1 folder index and expanded
+    staged-file manifest, so renters with many files can jump to one folder or
+    file without opening a scroll wall before Stage 2.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -188,6 +191,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #899 repeats the same trial-route and credit-gate state in the unified
     launch checklist, alongside the actual auto-pick/fixed-GPU request, without
     changing launch body, routing, billing, or enforcement behavior.
+  - PR #902 makes the Stage 2 launch mode explicit with an auto-pick/fixed-GPU
+    card and browse-filter warning, keeping trial routing and minimum-balance
+    answers contract-backed and read-only.
 
 Acceptance:
 

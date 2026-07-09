@@ -234,7 +234,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.locator('#pod-stage-1 .pod-stage-no')).toHaveText('Stage 1');
   await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2');
   await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3');
-  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU decision.*Auto-pick/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ actual GPU.*Auto-pick/ })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 ready');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
@@ -250,6 +250,10 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Stage 1 folder index')).toContainText('Open one folder, keep Stage 1 collapsed');
   await expect(page.getByLabel('Stage 1 folder index')).toContainText('Folders stay grouped while the manifest is closed.');
   await expect(page.getByLabel('Stage 1 folder index').getByRole('button', { name: /Open notebooks\/ with 1 files/ })).toBeVisible();
+  await page.getByLabel('Search Stage 1 folders and files').fill('notebooks');
+  await expect(page.getByLabel('Stage 1 folder index')).toContainText('notebooks/');
+  await expect(page.getByLabel('Stage 1 folder index')).not.toContainText('datasets/');
+  await page.getByLabel('Search Stage 1 folders and files').fill('');
   await expect(page.getByText('Stage 1 manifest')).toBeHidden();
   await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Hide folders' }).click();
   await expect(page.getByLabel('Stage 1 folder index')).toBeHidden();
@@ -280,6 +284,10 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('Review folders')).toBeVisible();
   await expect(page.getByText('datasets/ · 2')).toBeVisible();
   await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
+  await page.getByLabel('Search staged folders and files').fill('checkpoints');
+  await expect(page.getByLabel('Workspace folder summary')).toContainText('checkpoints/');
+  await expect(page.getByLabel('Workspace folder summary')).not.toContainText('datasets/');
+  await page.getByLabel('Search staged folders and files').fill('');
   await expect(page.getByRole('button', { name: /Open datasets\/ with 2 files/ })).toBeVisible();
   await page.getByRole('button', { name: /Open datasets\/ with 2 files/ }).click();
   await expect(page.getByText('datasets/train.jsonl')).toBeVisible();
@@ -296,6 +304,10 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Template');
   await expect(computeSummary).toContainText('Actual GPU');
   await expect(computeSummary).toContainText('Auto-pick GPU');
+  await expect(computeSummary).toContainText('Launch mode');
+  await expect(computeSummary).toContainText('Auto-pick is selected for launch');
+  await expect(computeSummary).toContainText('Templates and VRAM chips only narrow the cards below');
+  await expect(computeSummary).toContainText('VRAM chips are browse filters, not the selected launch GPU');
   await expect(computeSummary).toContainText('No browse filter');
   await expect(computeSummary).toContainText('Auto-pick at launch · no GPU pinned');
   await expect(computeSummary).toContainText('Launch will auto-pick an available GPU type');
@@ -335,9 +347,10 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Pod proof gates')).toContainText('LoRA image: GPU-host proof');
 
   const gpuSelectionStrip = page.locator('.gpu-selection-strip');
-  await expect(gpuSelectionStrip).toContainText('Actual launch GPU request');
+  await expect(gpuSelectionStrip).toContainText('Stage 2 selected launch GPU');
   await expect(gpuSelectionStrip).toContainText('Auto-pick: no fixed GPU');
   await expect(gpuSelectionStrip).toContainText('Request: auto-pick');
+  await expect(gpuSelectionStrip).toContainText('Mode: auto-pick selected');
   await expect(gpuSelectionStrip).toContainText('Final launch request');
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
@@ -359,6 +372,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
   await expect(computeSummary).toContainText('RTX 4090');
   await expect(computeSummary).toContainText('Actual GPU');
+  await expect(computeSummary).toContainText('Fixed GPU selected for launch');
   await expect(computeSummary).toContainText('Request mode: Fixed GPU request');
   await expect(computeSummary).toContainText('24 GB VRAM');
   await expect(computeSummary).toContainText('Quote: ~SAR');
@@ -369,6 +383,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Launch review')).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');
+  await expect(gpuSelectionStrip).toContainText('Mode: fixed GPU selected');
   await expect(page.getByText('Launch GPU selected').first()).toBeVisible();
   await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();
