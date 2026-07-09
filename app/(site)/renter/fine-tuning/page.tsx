@@ -59,6 +59,14 @@ interface AdapterDeploymentListResponse {
   error?: string
 }
 
+interface AdapterDeploymentMutationResponse {
+  deployment?: AdapterDeploymentRecord
+  serving_enabled?: boolean
+  next?: string
+  error?: string
+  code?: string
+}
+
 interface LoraModelCardManifest {
   object: string
   schema_version: string
@@ -152,6 +160,12 @@ interface DatasetLedgerRow {
   recipes: string[]
   raw_dataset_persistence: false
   training_enabled: boolean
+}
+
+interface DeploymentPlannerRow {
+  adapter: AdapterRecord
+  latestDeployment: AdapterDeploymentRecord | null
+  activeDeployment: AdapterDeploymentRecord | null
 }
 
 interface LoraReadiness {
@@ -513,6 +527,14 @@ function gateLabel(enabled: boolean | undefined): string {
   return enabled ? 'live' : 'off'
 }
 
+function deploymentIsActive(deployment: AdapterDeploymentRecord): boolean {
+  return deployment.status !== 'stopped' && deployment.status !== 'failed'
+}
+
+function sortDeploymentsNewestFirst(a: AdapterDeploymentRecord, b: AdapterDeploymentRecord): number {
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+}
+
 function buildDatasetLedgerRows(jobs: TrainingJobRecord[]): DatasetLedgerRow[] {
   const rows = new Map<string, DatasetLedgerRow>()
 
@@ -573,6 +595,9 @@ export default function RenterFineTuningPage() {
   const [minimumBalance, setMinimumBalance] = useState<MinimumBalanceReadiness | null>(null)
   const [minimumBalanceStatus, setMinimumBalanceStatus] = useState<MinimumBalanceStatus>('idle')
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
+  const [deploymentActionId, setDeploymentActionId] = useState<string | null>(null)
+  const [deploymentNotice, setDeploymentNotice] = useState('')
+  const [deploymentError, setDeploymentError] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -705,6 +730,29 @@ export default function RenterFineTuningPage() {
     `Tinker ${gateLabel(claimGuards.tinker_compatible)}`,
     `discounts ${gateLabel(claimGuards.discounts_enabled)}`,
   ].join(' · ')
+  const deploymentsByAdapter = useMemo(() => {
+    const map = new Map<string, AdapterDeploymentRecord[]>()
+    for (const deployment of adapterDeployments) {
+      const list = map.get(deployment.adapter_id) || []
+      list.push(deployment)
+      map.set(deployment.adapter_id, list)
+    }
+    for (const [adapterId, list] of map) {
+      map.set(adapterId, [...list].sort(sortDeploymentsNewestFirst))
+    }
+    return map
+  }, [adapterDeployments])
+  const deploymentPlannerRows: DeploymentPlannerRow[] = readyAdapters.slice(0, 6).map((adapter) => {
+    const deployments = deploymentsByAdapter.get(adapter.adapter_id) || []
+    return {
+      adapter,
+      latestDeployment: deployments[0] || null,
+      activeDeployment: deployments.find(deploymentIsActive) || null,
+    }
+  })
+  const activeDeploymentCount = adapterDeployments.filter(deploymentIsActive).length
+  const routeTrafficCount = adapterDeployments.filter((deployment) => deployment.route_traffic).length
+  const pendingLoadProofCount = adapterDeployments.filter((deployment) => deploymentIsActive(deployment) && !deployment.serving_load_proof).length
 
   function copySnippet(id: string, command: string): void {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return
@@ -712,6 +760,77 @@ export default function RenterFineTuningPage() {
       setCopiedSnippet(id)
       window.setTimeout(() => setCopiedSnippet(null), 1800)
     })
+  }
+
+  async function createDeploymentIntent(adapter: AdapterRecord): Promise<void> {
+    const key = getRenterKey()
+    if (!key) {
+      setDeploymentError('Renter key required before creating a deploy intent.')
+      return
+    }
+    const actionId = `create:${adapter.adapter_id}`
+    setDeploymentActionId(actionId)
+    setDeploymentError('')
+    setDeploymentNotice('')
+    try {
+      const res = await fetch(`${getApiBase()}/adapters/${encodeURIComponent(adapter.adapter_id)}/deployments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-renter-key': key,
+        },
+        body: JSON.stringify({
+          base_model: adapter.base_model,
+          mode: 'single_adapter_live_merge',
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as AdapterDeploymentMutationResponse
+      if (!res.ok || !data.deployment) {
+        throw new Error(data.error || 'Failed to create deployment intent.')
+      }
+      setAdapterDeployments((current) => [
+        data.deployment as AdapterDeploymentRecord,
+        ...current.filter((row) => row.deployment_id !== data.deployment?.deployment_id),
+      ])
+      setDeploymentNotice(`Intent ${data.deployment.deployment_id} created. Serving remains disabled until load proof.`)
+    } catch (err) {
+      setDeploymentError(err instanceof Error ? err.message : 'Failed to create deployment intent.')
+    } finally {
+      setDeploymentActionId(null)
+    }
+  }
+
+  async function stopDeploymentIntent(deployment: AdapterDeploymentRecord): Promise<void> {
+    const key = getRenterKey()
+    if (!key) {
+      setDeploymentError('Renter key required before stopping a deploy intent.')
+      return
+    }
+    const actionId = `stop:${deployment.deployment_id}`
+    setDeploymentActionId(actionId)
+    setDeploymentError('')
+    setDeploymentNotice('')
+    try {
+      const res = await fetch(
+        `${getApiBase()}/adapters/${encodeURIComponent(deployment.adapter_id)}/deployments/${encodeURIComponent(deployment.deployment_id)}/stop`,
+        {
+          method: 'POST',
+          headers: { 'x-renter-key': key },
+        },
+      )
+      const data = (await res.json().catch(() => ({}))) as AdapterDeploymentMutationResponse
+      if (!res.ok || !data.deployment) {
+        throw new Error(data.error || 'Failed to stop deployment intent.')
+      }
+      setAdapterDeployments((current) => current.map((row) => (
+        row.deployment_id === data.deployment?.deployment_id ? data.deployment as AdapterDeploymentRecord : row
+      )))
+      setDeploymentNotice(`Intent ${data.deployment.deployment_id} stopped. Route traffic is off.`)
+    } catch (err) {
+      setDeploymentError(err instanceof Error ? err.message : 'Failed to stop deployment intent.')
+    } finally {
+      setDeploymentActionId(null)
+    }
   }
 
   return (
@@ -988,6 +1107,147 @@ export default function RenterFineTuningPage() {
                 </article>
               ))}
             </div>
+          </section>
+
+          <section className="ft-deploy-planner" aria-labelledby="ft-deploy-planner-title">
+            <div className="ft-section-head compact">
+              <div>
+                <span className="pod-label">
+                  <Bi en="Deployment planner" ar="مخطط النشر" />
+                </span>
+                <h2 id="ft-deploy-planner-title">
+                  <Bi en="Adapter serving path" ar="مسار خدمة المحول" />
+                </h2>
+              </div>
+              <span className="ft-contract-id mono">POST /api/adapters/:id/deployments</span>
+            </div>
+
+            <div className="ft-deploy-summary" aria-label={lang === 'ar' ? 'ملخص نشر المحولات' : 'Adapter deployment summary'}>
+              <div>
+                <span><Bi en="Ready adapters" ar="المحولات الجاهزة" /></span>
+                <b>{readyAdapters.length}</b>
+              </div>
+              <div>
+                <span><Bi en="Active intents" ar="نوايا نشطة" /></span>
+                <b>{activeDeploymentCount}</b>
+              </div>
+              <div>
+                <span><Bi en="Routes" ar="المسارات" /></span>
+                <b>{routeTrafficCount > 0 ? `${routeTrafficCount} on` : 'off'}</b>
+              </div>
+              <div>
+                <span><Bi en="Load proof" ar="إثبات التحميل" /></span>
+                <b>{pendingLoadProofCount > 0 ? `${pendingLoadProofCount} pending` : 'none pending'}</b>
+              </div>
+            </div>
+
+            {(deploymentNotice || deploymentError) && (
+              <div className={`ft-deploy-message${deploymentError ? ' error' : ''}`} role="status">
+                {deploymentError || deploymentNotice}
+              </div>
+            )}
+
+            {deploymentPlannerRows.length > 0 ? (
+              <div className="ft-deploy-planner-grid">
+                {deploymentPlannerRows.map((row) => {
+                  const activeDeployment = row.activeDeployment
+                  const latestDeployment = row.latestDeployment
+                  const createActionId = `create:${row.adapter.adapter_id}`
+                  const stopActionId = activeDeployment ? `stop:${activeDeployment.deployment_id}` : ''
+                  return (
+                    <article className="ft-deploy-plan-card" key={row.adapter.adapter_id}>
+                      <div className="ft-deploy-plan-top">
+                        <div>
+                          <span className="ft-table-sub mono">{row.adapter.adapter_id}</span>
+                          <h3>{row.adapter.name}</h3>
+                        </div>
+                        <span className={`stat ${statusTone(activeDeployment?.status || row.adapter.status)}`}>
+                          {activeDeployment?.status || row.adapter.status}
+                        </span>
+                      </div>
+
+                      <dl className="ft-deploy-plan-facts">
+                        <div>
+                          <dt><Bi en="Base" ar="الأساس" /></dt>
+                          <dd>{row.adapter.base_model}</dd>
+                        </div>
+                        <div>
+                          <dt><Bi en="Intent" ar="النية" /></dt>
+                          <dd>{activeDeployment?.deployment_id || latestDeployment?.deployment_id || 'not created'}</dd>
+                        </div>
+                        <div>
+                          <dt><Bi en="Endpoint" ar="النقطة" /></dt>
+                          <dd>{activeDeployment?.endpoint_id || latestDeployment?.endpoint_id || 'assigned after proof'}</dd>
+                        </div>
+                        <div>
+                          <dt><Bi en="Proof" ar="الإثبات" /></dt>
+                          <dd>
+                            {activeDeployment?.serving_load_proof
+                              ? 'load proof attached'
+                              : activeDeployment
+                                ? 'load proof pending'
+                                : 'create intent first'}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="ft-deploy-path">
+                        <span><Bi en="1. intent row" ar="١. صف النية" /></span>
+                        <span><Bi en="2. internal vLLM load proof" ar="٢. إثبات تحميل vLLM داخلي" /></span>
+                        <span><Bi en="3. endpoint smoke gate" ar="٣. بوابة دخان النقطة" /></span>
+                        <span><Bi en="4. billing approval" ar="٤. موافقة الفوترة" /></span>
+                      </div>
+
+                      <div className="ft-deploy-actions">
+                        {activeDeployment ? (
+                          <button
+                            type="button"
+                            className="btn-sec ft-action-btn"
+                            disabled={deploymentActionId === stopActionId}
+                            onClick={() => void stopDeploymentIntent(activeDeployment)}
+                          >
+                            <Bi
+                              en={deploymentActionId === stopActionId ? 'Stopping' : 'Stop intent'}
+                              ar={deploymentActionId === stopActionId ? 'جار الإيقاف' : 'أوقف النية'}
+                            />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-pri ft-action-btn"
+                            disabled={deploymentActionId === createActionId}
+                            onClick={() => void createDeploymentIntent(row.adapter)}
+                          >
+                            <Bi
+                              en={deploymentActionId === createActionId ? 'Creating' : 'Create gated intent'}
+                              ar={deploymentActionId === createActionId ? 'جار الإنشاء' : 'أنشئ نية مقيدة'}
+                            />
+                          </button>
+                        )}
+                        <span>
+                          <Bi
+                            en="No serving change: load proof and billing stay backend-owned."
+                            ar="لا تغيير في الخدمة: يبقى إثبات التحميل والفوترة في الخلفية."
+                          />
+                        </span>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="ft-empty">
+                <b>
+                  <Bi en="No ready adapters to deploy yet" ar="لا توجد محولات جاهزة للنشر بعد" />
+                </b>
+                <span>
+                  <Bi
+                    en="Deploy intents become available after an adapter reaches ready or deployed status. Training, load proof, endpoint smoke, billing, and routing remain gated."
+                    ar="تتوفر نوايا النشر بعد أن يصل المحول إلى حالة جاهز أو منشور. يبقى التدريب وإثبات التحميل ودخان النقطة والفوترة والتوجيه مقيدة."
+                  />
+                </span>
+              </div>
+            )}
           </section>
 
           <section className="ft-model-cards" aria-labelledby="ft-model-card-title">

@@ -29,7 +29,26 @@ async function mockFineTuningApis(page: Page) {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ object: 'list', data: [], count: 0, limit: 50, offset: 0 }),
+        body: JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              adapter_id: 'adpt_support_arabic',
+              name: 'support-arabic-lora',
+              base_model: 'Qwen/Qwen2.5-7B-Instruct',
+              storage_key: 'adapters/support-arabic/adapter.safetensors',
+              checksum_sha256: 'b'.repeat(64),
+              rank: 16,
+              status: 'ready',
+              created_at: '2026-07-09T12:30:00Z',
+              updated_at: '2026-07-09T12:30:00Z',
+              deployed_at: null,
+            },
+          ],
+          count: 1,
+          limit: 50,
+          offset: 0,
+        }),
       });
     }
 
@@ -38,6 +57,60 @@ async function mockFineTuningApis(page: Page) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ object: 'list', data: [], count: 0, limit: 50, offset: 0 }),
+      });
+    }
+
+    if (path === '/api/adapters/adpt_support_arabic/deployments' && route.request().method() === 'POST') {
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          deployment: {
+            deployment_id: 'adpl_mockintent',
+            renter_id: 1,
+            adapter_id: 'adpt_support_arabic',
+            base_model: 'Qwen/Qwen2.5-7B-Instruct',
+            mode: 'single_adapter_live_merge',
+            endpoint_id: null,
+            status: 'pending',
+            route_traffic: false,
+            serving_load_proof: null,
+            failure_reason: null,
+            created_at: '2026-07-09T12:40:00Z',
+            updated_at: '2026-07-09T12:40:00Z',
+            started_at: null,
+            stopped_at: null,
+          },
+          serving_enabled: false,
+          next: 'attach_serving_load_proof_internal',
+        }),
+      });
+    }
+
+    if (path === '/api/adapters/adpt_support_arabic/deployments/adpl_mockintent/stop' && route.request().method() === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          deployment: {
+            deployment_id: 'adpl_mockintent',
+            renter_id: 1,
+            adapter_id: 'adpt_support_arabic',
+            base_model: 'Qwen/Qwen2.5-7B-Instruct',
+            mode: 'single_adapter_live_merge',
+            endpoint_id: null,
+            status: 'stopped',
+            route_traffic: false,
+            serving_load_proof: null,
+            failure_reason: null,
+            created_at: '2026-07-09T12:40:00Z',
+            updated_at: '2026-07-09T12:45:00Z',
+            started_at: null,
+            stopped_at: '2026-07-09T12:45:00Z',
+          },
+          serving_enabled: false,
+          next: 'deployment_stopped_by_renter',
+        }),
       });
     }
 
@@ -223,6 +296,21 @@ test('renter Fine-Tuning readiness shows registry proof status', async ({ page, 
   await expect(datasetTable).toContainText('Qwen/Qwen2.5-7B-Instruct');
   await expect(datasetTable).toContainText('raw rows not stored');
   await expect(datasetTable).toContainText('trainer off');
+  const deploymentPlanner = page.getByLabel('Adapter deployment summary');
+  await expect(deploymentPlanner).toContainText('Ready adapters');
+  await expect(deploymentPlanner).toContainText('1');
+  await expect(deploymentPlanner).toContainText('Active intents');
+  await expect(deploymentPlanner).toContainText('0');
+  await expect(page.getByText('Adapter serving path')).toBeVisible();
+  await expect(page.getByText('support-arabic-lora').first()).toBeVisible();
+  await expect(page.getByText('Create gated intent')).toBeVisible();
+  await page.getByText('Create gated intent').click();
+  await expect(page.getByText('Intent adpl_mockintent created. Serving remains disabled until load proof.')).toBeVisible();
+  await expect(page.getByText('Stop intent')).toBeVisible();
+  await expect(page.getByLabel('Adapter serving path').getByText('load proof pending')).toBeVisible();
+  await page.getByText('Stop intent').click();
+  await expect(page.getByText('Intent adpl_mockintent stopped. Route traffic is off.')).toBeVisible();
+  await expect(page.getByText('Create gated intent')).toBeVisible();
   await expect(page.locator('.ft-supported')).toContainText('training off');
   await expect(page.locator('.ft-supported')).toContainText('routes off');
 });

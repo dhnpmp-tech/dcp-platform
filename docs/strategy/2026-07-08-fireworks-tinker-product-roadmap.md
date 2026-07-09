@@ -546,6 +546,11 @@ Goal: ship the first real train-here/deploy-here loop.
     training-job metadata, showing storage keys, checksums, splits, token
     estimates, latest job state, raw-row persistence disabled, and GPU worker
     off without claiming training execution or raw dataset storage.
+  - PR #914 adds the first dashboard-managed deployment intent workflow:
+    ready adapters can create gated deployment intent rows, active intents can
+    be stopped by the renter, and the UI repeats that serving still requires
+    internal vLLM load proof, endpoint smoke, and billing approval before
+    route traffic or usage writes are allowed.
   - PR #822 added `npm run proof:adapter-deployment-contract`, the CI-safe
     adapter deployment proof packet that verifies deployment intent stays
     non-routing, mismatched load proof stays degraded, and only matching
@@ -615,6 +620,10 @@ Goal: ship the first real train-here/deploy-here loop.
     `GET /api/renters/me/minimum-balances`, keeping managed LoRA training,
     adapter deployment billing, paid-credit availability, blocked billing
     rails, and no-enforcement-change status visible in the same dashboard.
+  - PR #914 adds an Adapter serving path planner to `/renter/fine-tuning`,
+    surfacing ready adapters, active deployment intents, route state, load-proof
+    blockers, create-intent, and stop-intent actions without enabling public
+    serving or renter-supplied load proof.
 - Add `dcpconnect` only after adapters can actually deploy.
 
 Acceptance:

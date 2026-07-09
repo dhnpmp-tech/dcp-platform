@@ -13,6 +13,7 @@ const {
   createAdapterDeployment,
   attachDeploymentLoadProof,
   listAllAdapterDeployments,
+  updateDeploymentStatus,
 } = require('../src/services/adapterDeploymentLifecycle');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -73,6 +74,7 @@ function summarizeDeployment(deployment) {
     status: deployment.status,
     route_traffic: deployment.route_traffic,
     failure_reason: deployment.failure_reason,
+    stopped_at: deployment.stopped_at || null,
     serving_load_proof: deployment.serving_load_proof
       ? {
           loaded: deployment.serving_load_proof.loaded,
@@ -299,6 +301,18 @@ function runAdapterDeploymentContractProof(options = {}) {
       'renter deployment list exposes verified running record',
       listed.deployments.length === 1 && listed.deployments[0].deployment_id === pending.deployment_id,
       'Aggregate deployment list can be used by dashboards/agents after load proof.',
+    );
+
+    const stopped = updateDeploymentStatus(db, 1, pending.deployment_id, 'stopped');
+    report.deployments.renter_stopped_intent = summarizeDeployment(stopped);
+    record(
+      'renter stop disables route traffic without load-proof privileges',
+      stopped.status === 'stopped'
+        && stopped.route_traffic === false
+        && stopped.stopped_at
+        && stopped.serving_load_proof
+        && stopped.serving_load_proof.deployment_id === pending.deployment_id,
+      'Renter-scoped stop moves the deployment to stopped and clears route_traffic without attaching or changing load proof.',
     );
 
     report.verdict = 'PASS';

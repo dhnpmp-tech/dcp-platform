@@ -3199,6 +3199,44 @@ paths:
         '404':
           description: Deployment not found for this renter and adapter.
 
+  /api/adapters/{adapter_id}/deployments/{deployment_id}/stop:
+    post:
+      tags: [Adapters]
+      summary: Stop a renter adapter deployment intent
+      description: |
+        Moves a renter-owned adapter deployment lifecycle record to `stopped`
+        and clears `route_traffic`. This is a renter-scoped lifecycle action,
+        not a load-proof endpoint: it cannot attach serving proof, cannot start
+        adapter serving, and always returns `serving_enabled: false`.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: deployment_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deployment intent stopped.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployment: { $ref: '#/components/schemas/AdapterDeployment' }
+                  serving_enabled:
+                    type: boolean
+                    example: false
+                  next:
+                    type: string
+                    example: deployment_stopped_by_renter
+        '404':
+          description: Deployment not found for this renter and adapter.
+
   /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke:
     get:
       tags: [Adapters]

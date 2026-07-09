@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 19:57 UTC - `feat(fine-tuning): manage gated adapter deployment intents - PR #914`
+
+**PR:** [#914](https://github.com/dhnpmp-tech/dcp-platform/pull/914) (`codex/adapter-deployment-intent-management-2026-07-09`).
+**Local timestamp:** 2026-07-09 23:57 +04.
+
+**What:** LoRA/Tinker deployment follow-up. Moves `/renter/fine-tuning` from read-only deployment ledgers toward a safer customer workflow by letting renters create and stop non-serving adapter deployment intent rows while keeping vLLM load proof, endpoint smoke, routing, usage writes, and billing backend-gated.
+
+- **Backend lifecycle:** Added renter-scoped `POST /api/adapters/{adapter_id}/deployments/{deployment_id}/stop`, which moves a renter-owned deployment intent to `stopped`, clears `route_traffic`, and always returns `serving_enabled: false`.
+- **Deployment proof:** Extended the adapter deployment contract proof so it verifies public deploy requests cannot attach load proof, mismatched proof cannot route, matching proof is required for routing, aggregate listing works, and renter stop clears route traffic without load-proof privileges.
+- **Fine-Tuning UX:** Added an Adapter serving path planner to `/renter/fine-tuning` with ready-adapter count, active-intent count, route state, load-proof state, create-gated-intent action, stop-intent action, and the four-step proof path.
+- **API docs:** Documented the new stop endpoint in OpenAPI beside the existing deployment intent and load-proof routes.
+- **Regression:** Extended backend deployment lifecycle tests and the focused Fine-Tuning Playwright regression for create/stop intent behavior.
+- **Safety:** No vLLM load proof is accepted from renters; no adapter serving, route traffic, endpoint smoke recording, usage write, billing, invoice, payout, balance mutation, training execution, prompt-cache discount, batch execution, provider selection, or Tinker claim is enabled.
+- **Verification:** Adapter deployment lifecycle Jest test; adapter deployment contract proof script test; focused Fine-Tuning Playwright regression; TypeScript; adapter deployment contract proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:42 UTC - `feat(fine-tuning): surface dataset ledger in renter console - PR #913`
 
 **PR:** [#913](https://github.com/dhnpmp-tech/dcp-platform/pull/913) (`codex/fine-tuning-dataset-ledger-2026-07-09-v2`).

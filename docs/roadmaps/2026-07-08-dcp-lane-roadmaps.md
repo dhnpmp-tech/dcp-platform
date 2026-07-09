@@ -1089,6 +1089,12 @@ DCP-hosted endpoint -> billed inference.
    **PR #842 adds the blocked live command
    `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`
    before adapter serving, route traffic, endpoint smoke, or billing claims.**
+   **PR #914 adds renter-scoped deployment intent management: ready adapters
+   can create gated intent rows from `/renter/fine-tuning`, renters can stop
+   their own intent rows through
+   `POST /api/adapters/{adapter_id}/deployments/{deployment_id}/stop`, and the
+   adapter deployment proof now verifies stop clears `route_traffic` without
+   granting renter load-proof privileges.**
 11. Fireworks-style product pages.
 
 ## Lane Proof Commands

@@ -25,6 +25,7 @@ const {
   listAllAdapterDeployments,
   listAdapterDeployments,
   toRouteError,
+  updateDeploymentStatus,
 } = require('../services/adapterDeploymentLifecycle');
 const { requireAdminAuth } = require('../middleware/auth');
 
@@ -248,6 +249,32 @@ function createAdaptersRouter(deps = {}) {
         });
       }
       return res.json({ deployment });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.post('/:adapterId/deployments/:deploymentId/stop', requireRenter, (req, res) => {
+    try {
+      const deployment = getAdapterDeployment(registryDb, req.renter.id, req.params.deploymentId);
+      if (!deployment || deployment.adapter_id !== req.params.adapterId) {
+        return res.status(404).json({
+          error: 'Deployment not found',
+          code: 'deployment_not_found',
+        });
+      }
+      const stopped = updateDeploymentStatus(registryDb, req.renter.id, req.params.deploymentId, 'stopped');
+      if (!stopped || stopped.adapter_id !== req.params.adapterId) {
+        return res.status(404).json({
+          error: 'Deployment not found',
+          code: 'deployment_not_found',
+        });
+      }
+      return res.json({
+        deployment: stopped,
+        serving_enabled: false,
+        next: 'deployment_stopped_by_renter',
+      });
     } catch (error) {
       return sendAdapterError(res, toRouteError(error));
     }
