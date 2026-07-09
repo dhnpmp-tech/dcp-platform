@@ -15,6 +15,7 @@ function buildEvaluatorJobSchema(now = new Date()) {
       create_metadata: 'POST /api/evals/jobs',
       list_metadata: 'GET /api/evals/jobs',
       read_metadata: 'GET /api/evals/jobs/:id',
+      disabled_result_endpoint: 'GET /api/evals/jobs/:id/results',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
     },
     job_record: {
@@ -141,6 +142,7 @@ function buildEvaluatorJobSchema(now = new Date()) {
       list_endpoint_live: true,
       read_endpoint_live: true,
       metadata_only: true,
+      disabled_result_endpoint_live: true,
       result_endpoint_live: false,
       worker_enabled: false,
       stores_raw_customer_dataset: false,

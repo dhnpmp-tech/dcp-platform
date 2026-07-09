@@ -23,6 +23,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_access_readiness: 'GET /api/evals/results/access/readiness',
       metadata_jobs: 'POST/GET /api/evals/jobs',
+      disabled_result_endpoint: 'GET /api/evals/jobs/:id/results',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
     },
     worker: {
@@ -53,6 +54,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
     },
     result_policy: {
       endpoint_live: false,
+      disabled_endpoint: 'GET /api/evals/jobs/:id/results',
       schema_endpoint: 'GET /api/evals/results/schema',
       writer_readiness_endpoint: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
