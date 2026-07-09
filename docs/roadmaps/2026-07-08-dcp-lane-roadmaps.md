@@ -35,6 +35,10 @@ what is live.
   mode, adapter deployment mode, paid available SAR, blocked billing rails, and
   the read-only no-enforcement-change guard before managed training or adapter
   serving claims.
+- PR #913 adds a `/renter/fine-tuning` dataset ledger derived from existing
+  LoRA training-job metadata, making dataset storage keys, checksums, splits,
+  token estimates, latest job state, and raw-row/no-worker guards visible
+  without claiming raw dataset persistence or GPU training execution.
 - PR #788 added the public `/fine-tuning` product page and wired Fine-Tuning
   into shared site navigation while keeping serving and trainer claims gated.
 - PR #789 added the public `/inference` product page and retargeted shared
@@ -266,6 +270,9 @@ what is live.
   - curl/API snippet
   **Curl/API snippets added in PR #787 for the shipped LoRA and adapter
   contracts while keeping trainer and serving proof gates explicit.**
+  **Dataset ledger added in PR #913 from existing training-job metadata, with
+  validate-only/raw-row/GPU-worker guards and no persistence or execution
+  overclaim.**
 - Add product pages once backend gates exist:
   - `/inference`
     **Added in PR #789 with shipped `/v1/models` and balanced-router gates.**
@@ -312,6 +319,7 @@ what is live.
    **Deployment intent loading moved to the aggregate deployment endpoint in
    PR #786.**
    **Copyable API snippets added in PR #787.**
+   **Dataset ledger added in PR #913 from existing training-job metadata.**
 4. Batch console shell tied to backend batch gates. **Started in PR #759.**
    **Readiness gates from the backend contract added in PR #777.**
 
