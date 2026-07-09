@@ -567,6 +567,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   and surfaces the proof-before-selectable command and first gate per policy in
   `/inference` and `/renter/playground`, while keeping all future policies
   non-selectable.
+- PR #927 mirrors those proof-contract, claim-guard, selection-guard, and
+  proof-gate fields into OpenAPI plus `llms.txt` so agents and SDK authors see
+  the same contract production serves.
 - PR #897 surfaces the account-scoped minimum-balance readiness packet in
   `/renter/playground`, so live inference requests now sit beside a read-only
   v1 estimate-preflight rail, paid-available credit, monthly-cap remaining, and
