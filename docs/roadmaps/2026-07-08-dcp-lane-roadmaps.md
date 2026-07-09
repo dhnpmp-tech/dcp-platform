@@ -177,6 +177,11 @@ what is live.
   browsed folder-first without opening the full manifest, makes the Stage 2
   selected-GPU strip a sticky final-launch-request rail, and answers the trial
   tag question directly with live-tag vs credit-provenance copy.
+- PR #896 makes the existing minimum-balance contract visible in
+  `/renter/pods`: provider/community pods show quote preflight, high-demand pods
+  show paid-credit preflight, paid available SAR is visible before launch, and
+  trial credit is explicitly blocked from unlocking high-demand GPUs while the
+  UI stays read-only.
 
 ### Now
 
@@ -669,6 +674,10 @@ template launch.
 - PR #889 makes those workspace and LoRA pod-image proof gates visible from the
   pod readiness contract and renter launch UI while keeping live acceptance
   blocked until provider/funded inputs exist.
+- PR #896 surfaces `GET /api/renters/me/minimum-balances` in the pod launch UI,
+  so the renter sees quote preflight for provider/community pods, paid-credit
+  preflight for high-demand pods, paid available SAR, and the read-only
+  no-enforcement-change guard before launching.
 
 ### Now
 

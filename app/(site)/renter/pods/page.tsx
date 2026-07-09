@@ -81,6 +81,7 @@ interface TemplateCatalogResponse {
 }
 
 type TemplateCatalogStatus = 'idle' | 'loading' | 'ready' | 'error'
+type MinimumBalanceStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 const IMAGE_PRESETS: ImagePreset[] = [
   { value: 'pytorch', label: 'PyTorch', labelAr: 'PyTorch' },
@@ -351,6 +352,66 @@ interface PodTrialRoutingReadinessResponse {
   error?: string
 }
 
+interface MinimumBalanceReadinessResponse {
+  object?: string
+  version?: string
+  current_mode?: string
+  account?: {
+    balance_halala?: number
+    balance_sar?: number
+    paid_funding_halala?: number
+    paid_funding_sar?: number
+    on_demand_committed_halala?: number
+    on_demand_committed_sar?: number
+    paid_available_halala?: number
+    paid_available_sar?: number
+  }
+  rails?: {
+    gpu_pods_provider_supply?: {
+      status?: string
+      minimum_type?: string
+      available_balance_halala?: number
+      enforcement_live?: boolean
+      notes?: string
+    }
+    gpu_pods_on_demand_supply?: {
+      status?: string
+      minimum_type?: string
+      paid_available_halala?: number
+      enforcement_live?: boolean
+      notes?: string
+    }
+    batch_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    prompt_cache_discount?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    lora_training?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    adapter_deployments?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+  }
+  claim_guards?: {
+    mutates_balance?: boolean
+    creates_payment?: boolean
+    creates_pod?: boolean
+    dispatches_inference?: boolean
+    creates_batch?: boolean
+    creates_lora_training_job?: boolean
+    creates_adapter_deployment?: boolean
+    enables_discount?: boolean
+    changes_enforcement?: boolean
+  }
+  error?: string
+}
+
 interface RenterMeResponse {
   renter?: { name?: string; email?: string; organization?: string }
 }
@@ -512,6 +573,9 @@ function bandForVram(vramGb: number): 'workhorse' | 'datacenter' {
 function fmtSar(v: number): string {
   return v.toFixed(2)
 }
+function sarFromHalala(value?: number | null): number {
+  return Number((Number(value || 0) / 100).toFixed(2))
+}
 // Approximate USD via the fixed peg — secondary display only.
 function fmtUsd(sar: number): string {
   return (sar * SAR_TO_USD).toFixed(2)
@@ -615,6 +679,9 @@ export default function RenterPodsPage() {
   const [trialRoutingStatus, setTrialRoutingStatus] = useState<TrialRoutingStatus>('idle')
   const [trialRouting, setTrialRouting] = useState<PodTrialRoutingReadinessResponse | null>(null)
   const [trialRoutingError, setTrialRoutingError] = useState('')
+  const [minimumBalanceStatus, setMinimumBalanceStatus] = useState<MinimumBalanceStatus>('idle')
+  const [minimumBalance, setMinimumBalance] = useState<MinimumBalanceReadinessResponse | null>(null)
+  const [minimumBalanceError, setMinimumBalanceError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [stopping, setStopping] = useState<Record<string, boolean>>({})
   const [extending, setExtending] = useState<Record<string, boolean>>({})
@@ -757,6 +824,27 @@ export default function RenterPodsPage() {
     }
   }, [])
 
+  const fetchMinimumBalanceReadiness = useCallback(async (apiKey: string) => {
+    setMinimumBalanceStatus('loading')
+    setMinimumBalanceError('')
+    try {
+      const res = await fetch(`${getApiBase()}/renters/me/minimum-balances`, {
+        headers: { 'x-renter-key': apiKey },
+        cache: 'no-store',
+      })
+      const data = (await res.json().catch(() => ({}))) as MinimumBalanceReadinessResponse
+      if (!res.ok) {
+        throw new Error(data.error || `Minimum balance policy failed (${res.status})`)
+      }
+      setMinimumBalance(data)
+      setMinimumBalanceStatus('ready')
+    } catch (err) {
+      setMinimumBalance(null)
+      setMinimumBalanceError(err instanceof Error ? err.message : 'Minimum balance policy unavailable')
+      setMinimumBalanceStatus('error')
+    }
+  }, [])
+
   // ── Auth gate + polling loop ─────────────────────────────────────────
   useEffect(() => {
     fetchTemplateCatalog()
@@ -769,13 +857,16 @@ export default function RenterPodsPage() {
     if (!apiKey) {
       setRenterKey(null)
       setWorkspaceVolume(null)
+      setMinimumBalance(null)
+      setMinimumBalanceStatus('idle')
+      setMinimumBalanceError('')
       setLoadState('missing-key')
       return
     }
     setRenterKey(apiKey)
     let cancelled = false
     const tick = async () => {
-      await Promise.all([fetchPods(apiKey), fetchRenter(apiKey), fetchProviders()])
+      await Promise.all([fetchPods(apiKey), fetchRenter(apiKey), fetchProviders(), fetchMinimumBalanceReadiness(apiKey)])
       if (!cancelled) setLoadState('ready')
     }
     tick()
@@ -787,7 +878,7 @@ export default function RenterPodsPage() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [fetchPods, fetchProviders, fetchRenter])
+  }, [fetchMinimumBalanceReadiness, fetchPods, fetchProviders, fetchRenter])
 
   // ── Launch ───────────────────────────────────────────────────────────
   const submitLaunch = async () => {
@@ -1146,6 +1237,37 @@ export default function RenterPodsPage() {
     : trialRoutingStatus === 'loading'
       ? 'Backend policy: checking'
       : 'Backend policy: fallback copy'
+  const providerPodRail = minimumBalance?.rails?.gpu_pods_provider_supply
+  const onDemandPodRail = minimumBalance?.rails?.gpu_pods_on_demand_supply
+  const paidAvailableSar = typeof minimumBalance?.account?.paid_available_sar === 'number'
+    ? minimumBalance.account.paid_available_sar
+    : sarFromHalala(minimumBalance?.account?.paid_available_halala)
+  const providerPodGateLabel = providerPodRail?.status === 'live_quote_preflight'
+    ? 'Provider/community pods: quote preflight'
+    : 'Provider/community pods: checking'
+  const onDemandPodGateLabel = onDemandPodRail?.status === 'live_paid_credit_preflight'
+    ? 'On-demand pods: paid credit preflight'
+    : 'On-demand pods: checking'
+  const minimumBalanceSynced = minimumBalanceStatus === 'ready' &&
+    minimumBalance?.object === 'minimum_balance_readiness' &&
+    minimumBalance?.current_mode === 'read_only_policy_contract' &&
+    providerPodRail?.enforcement_live === true &&
+    onDemandPodRail?.enforcement_live === true &&
+    minimumBalance?.claim_guards?.mutates_balance === false &&
+    minimumBalance?.claim_guards?.creates_payment === false &&
+    minimumBalance?.claim_guards?.creates_pod === false &&
+    minimumBalance?.claim_guards?.changes_enforcement === false
+  const minimumBalanceSourceLabel = minimumBalanceSynced
+    ? 'Minimum balance: synced'
+    : minimumBalanceStatus === 'loading'
+      ? 'Minimum balance: checking'
+      : 'Minimum balance: fallback copy'
+  const futureBillingRailsBlocked = [
+    minimumBalance?.rails?.batch_inference,
+    minimumBalance?.rails?.prompt_cache_discount,
+    minimumBalance?.rails?.lora_training,
+    minimumBalance?.rails?.adapter_deployments,
+  ].filter((rail) => rail?.enforcement_live === false).length
 
   const isLive = loadState === 'ready'
 
@@ -1573,6 +1695,54 @@ export default function RenterPodsPage() {
                 <span>
                   <Bi en="Provider identity hidden" ar="هوية المزود مخفية" />
                 </span>
+              </div>
+            </div>
+
+            <div className="pod-balance-policy" aria-label={lang === 'ar' ? 'سياسة الحد الأدنى للرصيد' : 'Minimum balance policy'}>
+              <div className="pod-balance-copy">
+                <span className="pod-balance-k">
+                  <Bi en="Minimum balance policy" ar="سياسة الحد الأدنى للرصيد" />
+                </span>
+                <strong>
+                  <Bi en="Credit gates are visible before launch" ar="بوابات الرصيد ظاهرة قبل التشغيل" />
+                </strong>
+                <span>
+                  <Bi
+                    en="Provider/community pods use quote preflight; high-demand pods require paid available credit."
+                    ar="حاويات DCP والمجتمع تستخدم فحص التسعير؛ الطلب العالي يحتاج رصيداً مدفوعاً متاحاً."
+                  />
+                </span>
+              </div>
+              <div className="pod-balance-facts">
+                <span className={minimumBalanceSynced ? 'ready' : 'checking'}>
+                  <Bi en={minimumBalanceSourceLabel} ar={minimumBalanceSynced ? 'الحد الأدنى: متزامن' : 'الحد الأدنى: قيد الفحص'} />
+                </span>
+                <span>
+                  <Bi en={providerPodGateLabel} ar="حاويات DCP والمجتمع: فحص التسعير" />
+                </span>
+                <span>
+                  <Bi en={onDemandPodGateLabel} ar="حاويات الطلب العالي: فحص الرصيد المدفوع" />
+                </span>
+                <span>
+                  <Bi en={`Paid available SAR ${fmtSar(paidAvailableSar)}`} ar={`الرصيد المدفوع المتاح ${fmtSar(paidAvailableSar)} ﷼`} />
+                </span>
+                <span className="blocked">
+                  <Bi en="Trial credit does not unlock high-demand GPUs" ar="رصيد التجربة لا يفتح وحدات الطلب العالي" />
+                </span>
+                <span className={minimumBalance?.claim_guards?.changes_enforcement ? 'checking' : 'ready'}>
+                  <Bi
+                    en={minimumBalance?.claim_guards?.changes_enforcement ? 'Enforcement change: pending' : 'Read-only: no enforcement change'}
+                    ar={minimumBalance?.claim_guards?.changes_enforcement ? 'تغيير التنفيذ: معلق' : 'قراءة فقط: لا تغيير في التنفيذ'}
+                  />
+                </span>
+                <span>
+                  <Bi en={`${futureBillingRailsBlocked} future billing rails blocked`} ar={`${futureBillingRailsBlocked} مسارات فوترة مستقبلية مقيدة`} />
+                </span>
+                {minimumBalanceStatus === 'error' && minimumBalanceError && (
+                  <span className="checking">
+                    <Bi en="Launch still uses backend credit gates" ar="التشغيل لا يزال يستخدم بوابات الرصيد الخلفية" />
+                  </span>
+                )}
               </div>
             </div>
 

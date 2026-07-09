@@ -108,6 +108,57 @@ async function mockPodsApis(page: Page) {
       });
     }
 
+    if (path === '/api/renters/me/minimum-balances') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'minimum_balance_readiness',
+          version: 'dcp.minimum_balance_readiness.v1',
+          current_mode: 'read_only_policy_contract',
+          account: {
+            balance_halala: 25000,
+            balance_sar: 250,
+            paid_funding_halala: 5000,
+            paid_funding_sar: 50,
+            on_demand_committed_halala: 1200,
+            on_demand_committed_sar: 12,
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+          },
+          rails: {
+            gpu_pods_provider_supply: {
+              status: 'live_quote_preflight',
+              minimum_type: 'quoted_pod_cost',
+              available_balance_halala: 25000,
+              enforcement_live: true,
+            },
+            gpu_pods_on_demand_supply: {
+              status: 'live_paid_credit_preflight',
+              minimum_type: 'quoted_pod_cost_paid_credit',
+              paid_available_halala: 3800,
+              enforcement_live: true,
+            },
+            batch_inference: { status: 'contract_only', enforcement_live: false },
+            prompt_cache_discount: { status: 'measurement_only', enforcement_live: false },
+            lora_training: { status: 'metadata_and_artifact_proof_only', enforcement_live: false },
+            adapter_deployments: { status: 'load_and_billing_policy_required', enforcement_live: false },
+          },
+          claim_guards: {
+            mutates_balance: false,
+            creates_payment: false,
+            creates_pod: false,
+            dispatches_inference: false,
+            creates_batch: false,
+            creates_lora_training_job: false,
+            creates_adapter_deployment: false,
+            enables_discount: false,
+            changes_enforcement: false,
+          },
+        }),
+      });
+    }
+
     if (path === '/api/renters/available-providers') {
       return route.fulfill({
         status: 200,
@@ -254,6 +305,14 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Trial routing policy')).toContainText('High-demand GPUs: paid credit only');
   await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial tag; grant credit decides');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Provider identity hidden');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('Credit gates are visible before launch');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('Minimum balance: synced');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('Provider/community pods: quote preflight');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('On-demand pods: paid credit preflight');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('Paid available SAR 38.00');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('Trial credit does not unlock high-demand GPUs');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('Read-only: no enforcement change');
+  await expect(page.getByLabel('Minimum balance policy')).toContainText('4 future billing rails blocked');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace and LoRA image evidence');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace contract: CI safe');
   await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace live: provider window');
