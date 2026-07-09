@@ -349,6 +349,53 @@ describe('renter usage export and budget status', () => {
     });
   });
 
+  test('reports usage rollups by scoped key for workspace usage views', async () => {
+    const res = await request(buildApp())
+      .get('/api/renters/me/usage/by-key?period=30d')
+      .set('x-renter-key', 'billing-key');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      object: 'renter_usage_by_key',
+      version: 'dcp.renter_usage_by_key.v1',
+      period: '30d',
+      totals: {
+        keys: 2,
+        requests: 1,
+        spend_halala: 300,
+        spend_sar: 3,
+      },
+      unattributed: {
+        requests: 0,
+        spend_halala: 0,
+      },
+      claims: {
+        per_key_spend_attribution_live: true,
+        per_key_budgets_enforced: true,
+        team_member_rollups_live: false,
+      },
+    });
+    const inferenceKey = res.body.rows.find((row) => row.id === 'key-inference');
+    const billingKey = res.body.rows.find((row) => row.id === 'key-billing');
+    expect(inferenceKey).toMatchObject({
+      label: 'inference',
+      scopes: ['inference'],
+      requests: 1,
+      total_tokens: 150,
+      spend_halala: 300,
+      spend_sar: 3,
+      monthly_spend_cap_halala: 1000,
+      monthly_spend_cap_unlimited: false,
+    });
+    expect(billingKey).toMatchObject({
+      label: 'billing',
+      scopes: ['billing'],
+      requests: 0,
+      spend_halala: 0,
+      monthly_spend_cap_unlimited: true,
+    });
+  });
+
   test('updates a scoped key monthly budget with master/admin access', async () => {
     const res = await request(buildApp())
       .put('/api/renters/me/keys/key-inference/budget')
