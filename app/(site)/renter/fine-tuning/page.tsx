@@ -364,6 +364,15 @@ const API_SNIPPETS = [
     command: 'curl -s https://api.dcp.sa/api/adapters/settlement/readiness',
   },
   {
+    id: 'adapter-billing-approval',
+    titleEn: 'Check approval gate',
+    titleAr: 'فحص بوابة الموافقة',
+    meta: 'GET /api/adapters/billing/approval/readiness',
+    noteEn: 'Public read-only founder-approval policy; evidence packets do not enable billing, routing, invoices, payouts, or balance mutations.',
+    noteAr: 'سياسة موافقة عامة للقراءة فقط؛ حزم الإثبات لا تفعل الفوترة أو التوجيه أو الفواتير أو المدفوعات أو تغييرات الرصيد.',
+    command: 'curl -s https://api.dcp.sa/api/adapters/billing/approval/readiness',
+  },
+  {
     id: 'adapter-billing',
     titleEn: 'Check billing gate',
     titleAr: 'فحص بوابة الفوترة',

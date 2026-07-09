@@ -150,6 +150,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_ADAPTER_SETTLEMENT_READINESS_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'adapter_billing_approval_readiness',
+    command: 'npm run proof:adapter-billing-approval',
+    outputEnv: 'DCP_ADAPTER_BILLING_APPROVAL_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'adapter_billing_readiness',
     command: 'npm run proof:adapter-billing-readiness',
     outputEnv: 'DCP_ADAPTER_BILLING_READINESS_PROOF_OUTPUT_DIR',

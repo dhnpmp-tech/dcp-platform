@@ -11,6 +11,7 @@ function buildAdapterSettlementReadiness(now = new Date()) {
     endpoints: {
       settlement_readiness: 'GET /api/adapters/settlement/readiness',
       adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
+      billing_approval_readiness: 'GET /api/adapters/billing/approval/readiness',
       usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       endpoint_smoke_readiness: 'GET /api/adapters/endpoints/smoke/readiness',
       minimum_balance_readiness: 'GET /api/renters/me/minimum-balances',
@@ -60,6 +61,7 @@ function buildAdapterSettlementReadiness(now = new Date()) {
         notes: 'Provider/platform split rows must sum to adapter inference cost before settlement or payout can be enabled.',
       },
       notes: 'Adapter settlement is a policy contract only. It does not create invoices, mutate balances, settle provider payouts, or alter existing v1 inference settlement.',
+      founder_approval_readiness: 'GET /api/adapters/billing/approval/readiness',
     },
     denial_codes: [
       'adapter_settlement_disabled',

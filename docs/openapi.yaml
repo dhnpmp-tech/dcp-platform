@@ -2412,6 +2412,76 @@ paths:
                       enables_adapter_billing: { type: boolean, example: false }
                       claims_tinker_compatibility: { type: boolean, example: false }
 
+  /api/adapters/billing/approval/readiness:
+    get:
+      tags: [Adapters]
+      summary: Get adapter billing approval readiness
+      description: |
+        Returns a public, read-only policy contract for future founder approval
+        before adapter billing enablement. It defines proof-packet evidence,
+        local-roadmap proof, production-smoke proof, evidence hash, approval
+        scope, and founder signoff prerequisites while adapter billing, route
+        traffic, usage writes, invoices, provider payouts, balance mutations,
+        raw prompt/response exposure, and Tinker compatibility remain disabled.
+      responses:
+        '200':
+          description: Adapter billing approval readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_billing_approval_readiness]
+                  version:
+                    type: string
+                    example: dcp.adapter_billing_approval_readiness.v1
+                  current_mode:
+                    type: string
+                    enum: [approval_policy_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      readiness_available: { type: boolean, example: true }
+                      founder_billing_approval_required: { type: boolean, example: true }
+                      founder_billing_approval_live: { type: boolean, example: false }
+                      adapter_billing_enablement_live: { type: boolean, example: false }
+                      approval_mutations_enabled: { type: boolean, example: false }
+                      required_evidence_before_approval:
+                        type: array
+                        items: { type: string }
+                        example: [strict_load_proof_match, endpoint_smoke_passed, usage_ledger_adapter_attribution, minimum_balance_policy_approved, settlement_split_policy_approved, local_roadmap_proof_passed, production_smoke_passed, evidence_packet_hash]
+                      required_approval_fields:
+                        type: array
+                        items: { type: string }
+                        example: [approval_id, approved_by, approved_at, evidence_packet_hash_sha256, scope, expires_at]
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      readiness_contract_live: { type: boolean, example: true }
+                      founder_billing_approval_live: { type: boolean, example: false }
+                      adapter_billing_enablement_live: { type: boolean, example: false }
+                      approval_mutations_enabled: { type: boolean, example: false }
+                      dispatches_inference: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      records_usage_event: { type: boolean, example: false }
+                      mutates_balance: { type: boolean, example: false }
+                      creates_invoice: { type: boolean, example: false }
+                      settles_provider_payout: { type: boolean, example: false }
+                      enables_adapter_billing: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
+
   /api/adapters/settlement/readiness:
     get:
       tags: [Adapters]

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 09:08 UTC - Adapter billing approval readiness proof (PR #874)
+
+- **PR:** [#874](https://github.com/dhnpmp-tech/dcp-platform/pull/874) (`codex/adapter-billing-approval-readiness-2026-07-09`).
+- **Backend:** Added public `GET /api/adapters/billing/approval/readiness` plus a pure approval evaluator for strict load proof, endpoint smoke, usage attribution, minimum-balance policy, settlement policy, local-roadmap proof, production smoke, evidence-packet hash, and founder signoff.
+- **Proof:** Added `npm run proof:adapter-billing-approval` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 31 CI-safe gates.
+- **Docs/contracts:** Updated adapter billing and settlement readiness, OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs with the approval gate.
+- **Safety:** Readiness/policy only; no approval mutation, adapter dispatch, route traffic, usage ledger write, balance mutation, invoice, provider payout, adapter billing, raw prompt/response exposure, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted adapter approval/billing/settlement Jest suites; adapter billing approval proof; local roadmap proof now passing 31/31 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 08:48 UTC - Adapter settlement readiness proof (PR #873)
 
 - **PR:** [#873](https://github.com/dhnpmp-tech/dcp-platform/pull/873) (`codex/adapter-settlement-readiness-policy-2026-07-09`).
