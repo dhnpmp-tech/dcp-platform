@@ -389,6 +389,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #879 made public `/inference` render the same router-policy catalog from
     `/v1/router/policies`, keeping future policies visibly gated/not selectable
     until route-specific proof exists.
+  - PR #926 makes that readiness contract stricter and more legible by adding
+    top-level proof-contract metadata, false claim guards, per-policy selection
+    guards, and proof-gate labels to `/v1/router/policies`, `/inference`, and
+    `/renter/playground` before any future policy can become selectable.
 - Surface model metadata on public `/inference` from `/v1/models`.
   - PR #880 added a live catalog rail with serving model count, provider-backed
     rows, maximum context, SAR input/output pricing, and catalog-only state
@@ -782,7 +786,8 @@ Acceptance:
     route selection. **CI-safe readiness proof added in PR #832; cheapest,
     lowest-latency, Saudi-only, coding, and Arabic policies remain non-selectable
     until route-ordering tests, billing/no-billing proofs, and live smoke
-    evidence exist.**
+    evidence exist. PR #926 surfaces those proof gates directly in the backend
+    contract plus public and renter UI.**
 13. **Live acceptance status packet** - one blocked-gate ledger before more
     product claims. **Added in PR #834 as
     `npm run proof:live-acceptance-status`; it lists command-ready live gates,

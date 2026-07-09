@@ -32,6 +32,20 @@ describe('router policy contract proof script', () => {
       default_policy: 'balanced',
       request_policy_parameter: null,
       request_selectable: false,
+      proof_contract: {
+        command: 'npm run proof:router-policy-contract',
+        live_smoke_required_before_selectable: true,
+      },
+      claim_guards: {
+        changes_provider_selection: false,
+        enables_future_policy_selection: false,
+        enables_price_optimized_routing: false,
+        enables_geo_residency_routing: false,
+        enables_coding_or_arabic_classifier_routing: false,
+        changes_billing_or_settlement: false,
+        proves_live_latency_ordering: false,
+        proves_tinker_compatibility: false,
+      },
       policy_ids: [
         'balanced',
         'lowest_latency',
@@ -46,17 +60,58 @@ describe('router policy contract proof script', () => {
       available: true,
       default: true,
       request_selectable: false,
+      selection_guard: 'accepted_noop_only',
       runtime: {
         earned_routing_mode: 'strict',
         latency_gate_enabled: true,
       },
     });
+    expect(report.catalog.policies.find((policy) => policy.id === 'balanced').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'balanced_noop_contract', status: 'ci_safe' }),
+      expect.objectContaining({ id: 'future_policy_fail_closed', status: 'ci_safe' }),
+    ]));
     expect(report.catalog.policies.filter((policy) => policy.id !== 'balanced')).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'lowest_latency', available: false, request_selectable: false }),
-      expect.objectContaining({ id: 'cheapest', status: 'not_enabled', available: false }),
-      expect.objectContaining({ id: 'saudi_only', status: 'gated', available: false }),
-      expect.objectContaining({ id: 'coding', status: 'catalog_only', available: false }),
-      expect.objectContaining({ id: 'arabic', status: 'catalog_only', available: false }),
+      expect.objectContaining({
+        id: 'lowest_latency',
+        available: false,
+        request_selectable: false,
+        selection_guard: 'not_request_selectable_until_policy_specific_proof',
+        proof_gates: expect.arrayContaining([
+          expect.objectContaining({ id: 'policy_specific_route_tests', status: 'required' }),
+        ]),
+      }),
+      expect.objectContaining({
+        id: 'cheapest',
+        status: 'not_enabled',
+        available: false,
+        proof_gates: expect.arrayContaining([
+          expect.objectContaining({ id: 'settlement_math_reconciliation', status: 'required' }),
+        ]),
+      }),
+      expect.objectContaining({
+        id: 'saudi_only',
+        status: 'gated',
+        available: false,
+        proof_gates: expect.arrayContaining([
+          expect.objectContaining({ id: 'provider_geo_audit', status: 'required' }),
+        ]),
+      }),
+      expect.objectContaining({
+        id: 'coding',
+        status: 'catalog_only',
+        available: false,
+        proof_gates: expect.arrayContaining([
+          expect.objectContaining({ id: 'agent_path_smoke', status: 'required' }),
+        ]),
+      }),
+      expect.objectContaining({
+        id: 'arabic',
+        status: 'catalog_only',
+        available: false,
+        proof_gates: expect.arrayContaining([
+          expect.objectContaining({ id: 'arabic_benchmark_freshness', status: 'required' }),
+        ]),
+      }),
     ]));
     expect(report.env_variants).toMatchObject({
       strict_latency_on: {
@@ -103,7 +158,10 @@ describe('router policy contract proof script', () => {
         requested_policy: id,
         policy_available: false,
         policy_request_selectable: false,
+        policy_selection_guard: 'not_request_selectable_until_policy_specific_proof',
+        policy_proof_gates: expect.any(Array),
       });
+      expect(report.future_policy_rejections.staged[id].policy_proof_gates.length).toBeGreaterThanOrEqual(2);
     }
     expect(report.future_policy_rejections.unknown).toMatchObject({
       ok: false,

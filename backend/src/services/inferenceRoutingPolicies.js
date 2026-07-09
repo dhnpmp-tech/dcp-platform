@@ -2,6 +2,165 @@
 
 const ROUTING_POLICY_CONTRACT_VERSION = 'dcp.inference_routing_policies.v1';
 
+const ROUTING_POLICY_CLAIM_GUARDS = Object.freeze({
+  changes_provider_selection: false,
+  enables_future_policy_selection: false,
+  enables_price_optimized_routing: false,
+  enables_geo_residency_routing: false,
+  enables_coding_or_arabic_classifier_routing: false,
+  changes_billing_or_settlement: false,
+  proves_live_latency_ordering: false,
+  proves_tinker_compatibility: false,
+});
+
+const ROUTING_POLICY_PROOF_CONTRACT = Object.freeze({
+  command: 'npm run proof:router-policy-contract',
+  mode: 'ci_safe_service_contract',
+  live_smoke_required_before_selectable: true,
+  required_before_future_policy_selectable: [
+    'policy_specific_route_tests',
+    'funded_policy_live_smoke',
+    'pricing_or_residency_or_classifier_evidence_for_specialized_policies',
+  ],
+});
+
+function gate(id, label, status, next, required = true) {
+  return { id, label, status, required, next };
+}
+
+function policyProofGates(policyId, latencyGateEnabled) {
+  switch (policyId) {
+    case 'balanced':
+      return [
+        gate(
+          'balanced_noop_contract',
+          'Balanced no-op contract',
+          'ci_safe',
+          'keep explicit routing_policy=balanced equivalent to default routing',
+        ),
+        gate(
+          'future_policy_fail_closed',
+          'Future policy fail-closed tests',
+          'ci_safe',
+          'reject staged policy ids before they can affect provider selection',
+        ),
+      ];
+    case 'lowest_latency':
+      return [
+        gate(
+          'latency_telemetry_visibility',
+          'Latency telemetry visibility',
+          latencyGateEnabled ? 'telemetry_gate_only' : 'gated_by_env',
+          'prove p50/p95 telemetry exists before strict latency ordering',
+        ),
+        gate(
+          'policy_specific_route_tests',
+          'Policy-specific route tests',
+          'required',
+          'add deterministic tests proving lowest-latency candidate ordering',
+        ),
+        gate(
+          'funded_policy_live_smoke',
+          'Funded policy live smoke',
+          'blocked_external',
+          'run a funded live request proving lowest-latency behavior before selection',
+        ),
+      ];
+    case 'cheapest':
+      return [
+        gate(
+          'cost_aware_route_tests',
+          'Cost-aware route tests',
+          'required',
+          'prove cheapest candidate ordering without breaking model compatibility',
+        ),
+        gate(
+          'settlement_math_reconciliation',
+          'Settlement math reconciliation',
+          'required',
+          'reconcile route-estimated cost with billing and provider settlement math',
+        ),
+        gate(
+          'funded_policy_live_smoke',
+          'Funded policy live smoke',
+          'blocked_external',
+          'run a funded live request proving cost-first behavior before selection',
+        ),
+      ];
+    case 'saudi_only':
+      return [
+        gate(
+          'provider_geo_audit',
+          'Provider geography audit',
+          'required',
+          'make provider geography auditable before hard residency filters',
+        ),
+        gate(
+          'residency_policy_approval',
+          'Residency policy approval',
+          'policy_required',
+          'approve the customer-facing residency claim before request selection',
+        ),
+        gate(
+          'funded_policy_live_smoke',
+          'Funded policy live smoke',
+          'blocked_external',
+          'run a funded live request proving geography-filtered routing',
+        ),
+      ];
+    case 'coding':
+      return [
+        gate(
+          'agent_path_smoke',
+          'Agent-path smoke',
+          'required',
+          'prove Anthropic-compatible and coding catalog paths before router selection',
+        ),
+        gate(
+          'classifier_route_tests',
+          'Classifier route tests',
+          'required',
+          'prove coding request classifier hints do not misroute general chat',
+        ),
+        gate(
+          'funded_policy_live_smoke',
+          'Funded policy live smoke',
+          'blocked_external',
+          'run a funded live request proving coding policy behavior',
+        ),
+      ];
+    case 'arabic':
+      return [
+        gate(
+          'arabic_benchmark_freshness',
+          'Arabic benchmark freshness',
+          'required',
+          'refresh Arabic benchmark evidence before language-specific routing claims',
+        ),
+        gate(
+          'language_classifier_tests',
+          'Language classifier tests',
+          'required',
+          'prove Arabic language hints route safely without overclaiming quality',
+        ),
+        gate(
+          'funded_policy_live_smoke',
+          'Funded policy live smoke',
+          'blocked_external',
+          'run a funded live request proving Arabic policy behavior',
+        ),
+      ];
+    default:
+      return [];
+  }
+}
+
+function selectionGuard(policyId) {
+  return policyId === 'balanced'
+    ? 'accepted_noop_only'
+    : 'not_request_selectable_until_policy_specific_proof';
+}
+
 function normalizeEarnedMode(value) {
   const mode = String(value || 'exclude-dead').trim().toLowerCase();
   return ['off', 'exclude-dead', 'earned-first', 'strict'].includes(mode) ? mode : 'exclude-dead';
@@ -93,7 +252,11 @@ function buildInferenceRoutingPolicies(env = process.env) {
       signals: ['model_supported_features_multilingual', 'arabic_portfolio_tier', 'request_classifier_language_hint'],
       next: 'add Arabic policy only after benchmark and model-selection proofs are current',
     },
-  ];
+  ].map((policy) => ({
+    ...policy,
+    selection_guard: selectionGuard(policy.id),
+    proof_gates: policyProofGates(policy.id, latencyGateEnabled),
+  }));
 
   return {
     object: 'list',
@@ -101,6 +264,8 @@ function buildInferenceRoutingPolicies(env = process.env) {
     default_policy: 'balanced',
     request_policy_parameter: null,
     request_selectable: false,
+    proof_contract: ROUTING_POLICY_PROOF_CONTRACT,
+    claim_guards: ROUTING_POLICY_CLAIM_GUARDS,
     generated_at: new Date().toISOString(),
     data: policies,
   };
@@ -182,6 +347,8 @@ function resolveRequestedRoutingPolicy(body = {}, env = process.env) {
 }
 
 module.exports = {
+  ROUTING_POLICY_CLAIM_GUARDS,
+  ROUTING_POLICY_PROOF_CONTRACT,
   ROUTING_POLICY_CONTRACT_VERSION,
   buildInferenceRoutingPolicies,
   extractRequestedRoutingPolicy,

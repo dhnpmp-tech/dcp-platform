@@ -62,6 +62,20 @@ describe('v1 models route', () => {
       default_policy: 'balanced',
       request_policy_parameter: null,
       request_selectable: false,
+      proof_contract: {
+        command: 'npm run proof:router-policy-contract',
+        live_smoke_required_before_selectable: true,
+      },
+      claim_guards: {
+        changes_provider_selection: false,
+        enables_future_policy_selection: false,
+        enables_price_optimized_routing: false,
+        enables_geo_residency_routing: false,
+        enables_coding_or_arabic_classifier_routing: false,
+        changes_billing_or_settlement: false,
+        proves_live_latency_ordering: false,
+        proves_tinker_compatibility: false,
+      },
     });
     expect(res.body.generated_at).toEqual(expect.any(String));
     expect(res.body.data.map((policy) => policy.id)).toEqual([
@@ -76,13 +90,22 @@ describe('v1 models route', () => {
       status: 'available',
       available: true,
       request_selectable: false,
+      selection_guard: 'accepted_noop_only',
       signals: expect.arrayContaining(['earned_state', 'latency_gate', 'gpu_utilization']),
     });
+    expect(res.body.data.find((policy) => policy.id === 'balanced').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'balanced_noop_contract', status: 'ci_safe' }),
+    ]));
     expect(res.body.data.find((policy) => policy.id === 'cheapest')).toMatchObject({
       status: 'not_enabled',
       available: false,
       request_selectable: false,
+      selection_guard: 'not_request_selectable_until_policy_specific_proof',
     });
+    expect(res.body.data.find((policy) => policy.id === 'cheapest').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'settlement_math_reconciliation', status: 'required' }),
+      expect.objectContaining({ id: 'funded_policy_live_smoke', status: 'blocked_external' }),
+    ]));
     expect(mockDb.all).not.toHaveBeenCalled();
   });
 

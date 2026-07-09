@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 23:17 UTC - Router policy proof gates surfaced (PR #926)
+
+- **PR:** [#926](https://github.com/dhnpmp-tech/dcp-platform/pull/926) (`codex/router-policy-proof-gates-2026-07-10`).
+- **Timestamp:** 2026-07-09 23:17 UTC / 2026-07-10 03:17 +04.
+- **Backend contract:** `/v1/router/policies` now carries the proof contract, false claim guards, selection guard, and per-policy proof gates needed before future router policies become selectable.
+- **Future policy gating:** Lowest-latency, cheapest, Saudi-only, coding, and Arabic policies remain blocked until route-specific tests, settlement/residency/classifier evidence, and funded live smoke are present.
+- **Public UI:** `/inference` now shows proof-gate count, first gate per policy, and `npm run proof:router-policy-contract` in the router catalog rail.
+- **Renter UI:** `/renter/playground` now shows the same gate labels and proof-before-selectable command beside the balanced routing catalog.
+- **Safety:** No provider selection, request routing, pricing optimization, billing/settlement mutation, geo-residency routing, classifier routing, latency-ordering claim, Tinker compatibility claim, or future-policy request selection was enabled.
+- **Verification:** Router service/proof script `node --check`; targeted backend Jest router suites; `npm run proof:router-policy-contract`; focused Playwright for `/inference` and `/renter/playground`.
+
 ### 2026-07-09 23:02 UTC - Pod Stage 1 accordion and GPU source-of-truth callout (PR #925)
 
 - **PR:** [#925](https://github.com/dhnpmp-tech/dcp-platform/pull/925) (`codex/workspace-launch-ux-tareq-2026-07-10`).

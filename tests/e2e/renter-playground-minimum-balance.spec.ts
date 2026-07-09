@@ -58,6 +58,26 @@ async function mockPlaygroundApis(page: Page) {
       version: 'dcp.inference_routing_policies.v1',
       default_policy: 'balanced',
       request_selectable: false,
+      proof_contract: {
+        command: 'npm run proof:router-policy-contract',
+        mode: 'ci_safe_service_contract',
+        live_smoke_required_before_selectable: true,
+        required_before_future_policy_selectable: [
+          'policy_specific_route_tests',
+          'funded_policy_live_smoke',
+          'pricing_or_residency_or_classifier_evidence_for_specialized_policies',
+        ],
+      },
+      claim_guards: {
+        changes_provider_selection: false,
+        enables_future_policy_selection: false,
+        enables_price_optimized_routing: false,
+        enables_geo_residency_routing: false,
+        enables_coding_or_arabic_classifier_routing: false,
+        changes_billing_or_settlement: false,
+        proves_live_latency_ordering: false,
+        proves_tinker_compatibility: false,
+      },
       data: [
         {
           id: 'balanced',
@@ -66,6 +86,24 @@ async function mockPlaygroundApis(page: Page) {
           available: true,
           default: true,
           request_selectable: false,
+          selection_guard: 'accepted_noop_only',
+          proof_gates: [
+            { id: 'balanced_noop_contract', label: 'Balanced no-op contract', status: 'ci_safe', required: true },
+            { id: 'future_policy_fail_closed', label: 'Future policy fail-closed', status: 'ci_safe', required: true },
+          ],
+        },
+        {
+          id: 'cheapest',
+          label: 'Cheapest',
+          status: 'not_enabled',
+          available: false,
+          request_selectable: false,
+          selection_guard: 'not_request_selectable_until_policy_specific_proof',
+          proof_gates: [
+            { id: 'settlement_math_reconciliation', label: 'Settlement math reconciliation', status: 'required', required: true },
+            { id: 'cost_aware_route_tests', label: 'Cost-aware route tests', status: 'required', required: true },
+            { id: 'funded_policy_live_smoke', label: 'Funded policy live smoke', status: 'blocked_external', required: true },
+          ],
         },
       ],
     }),
@@ -249,4 +287,11 @@ test('renter playground exposes inference minimum-balance preflight', async ({ p
   await expect(promptCachePanel).toContainText('Settlement discount policy');
   await expect(promptCachePanel).toContainText('Provider cache-hit evidence');
   await expect(promptCachePanel).toContainText('/v1/prompt-cache/settlement/readiness');
+
+  const routerPanel = page.locator('.router-panel').filter({ hasText: 'Routing' }).first();
+  await expect(routerPanel).toContainText('Balanced no-op contract');
+  await expect(routerPanel).toContainText('Settlement math reconciliation');
+  await expect(routerPanel).toContainText('Proof before selectable');
+  await expect(routerPanel).toContainText('npm run proof:router-policy-contract');
+  await expect(routerPanel).toContainText('live smoke required');
 });

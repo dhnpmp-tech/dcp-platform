@@ -426,8 +426,40 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   text-align: end;
   overflow-wrap: anywhere;
 }
+.route-policy small {
+  grid-column: 1 / -1;
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  line-height: 1.45;
+  letter-spacing: .03em;
+  overflow-wrap: anywhere;
+}
 .route-note {
   line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.route-proof-note {
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--teal) 5%, var(--paper));
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+.route-proof-note span,
+.route-proof-note em {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-style: normal;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.route-proof-note b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 .preflight-panel {

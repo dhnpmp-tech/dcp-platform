@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 23:17 UTC - `feat(inference): expose router proof gates - PR #926`
+
+**PR:** [#926](https://github.com/dhnpmp-tech/dcp-platform/pull/926) (`codex/router-policy-proof-gates-2026-07-10`).
+**Local timestamp:** 2026-07-10 03:17 +04.
+
+**What:** Fireworks/Tinker router-policy hardening slice. Makes the proof requirements for future inference routing policies machine-readable, tested, and visible before any non-balanced policy can become selectable.
+
+- **Backend contract:** `/v1/router/policies` now includes a top-level `proof_contract`, explicit false `claim_guards`, per-policy `selection_guard`, and per-policy `proof_gates`.
+- **Fail-closed future policies:** Balanced remains the only live default. Lowest-latency, cheapest, Saudi-only, coding, and Arabic policies now publish the concrete route-test, settlement/residency/classifier, and funded-live-smoke gates that must pass before selection.
+- **Public UI:** `/inference` now shows proof-gate count, first visible gate per policy, and the canonical `npm run proof:router-policy-contract` command in the router policy rail.
+- **Renter UI:** `/renter/playground` now surfaces the same gate labels and proof-before-selectable command beside the balanced routing catalog.
+- **Regression:** Extended backend router contract tests and focused Playwright mocks for both public inference and renter playground proof-gate visibility.
+- **Safety:** No provider selection, request routing, pricing optimization, billing/settlement mutation, geo-residency routing, classifier routing, live latency-ordering claim, Tinker compatibility claim, or future-policy request selection was enabled.
+- **Verification:** `node --check` for router policy service/proof script; targeted backend Jest router suites; `npm run proof:router-policy-contract`; focused Playwright for `/inference` and `/renter/playground`.
+
 ### 2026-07-09 23:02 UTC - `feat(pods): collapse Stage 1 and anchor GPU selection - PR #925`
 
 **PR:** [#925](https://github.com/dhnpmp-tech/dcp-platform/pull/925) (`codex/workspace-launch-ux-tareq-2026-07-10`).
