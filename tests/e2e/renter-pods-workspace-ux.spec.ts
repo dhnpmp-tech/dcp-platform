@@ -437,7 +437,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Auto-pick GPU');
   await expect(computeSummary).toContainText('Launch mode');
   await expect(computeSummary).toContainText('Auto-pick is selected for launch');
-  await expect(computeSummary).toContainText('Templates and VRAM chips only narrow the cards below');
+  await expect(computeSummary).toContainText('Templates, workload presets, and VRAM chips only narrow or highlight cards');
   await expect(page.getByLabel('Launch request preview')).toContainText('What DCP will send');
   await expect(page.getByLabel('Launch request preview')).toContainText('gpu_type omitted = auto-pick');
   await expect(page.getByLabel('Launch request preview')).toContainText('No GPU card is pinned; filters and template hints stay browse-only');
@@ -450,6 +450,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Auto-pick toggle or a selected GPU card');
   await expect(computeSummary).toContainText('Browse only');
   await expect(computeSummary).toContainText('Template hint, VRAM chips, search, and sort');
+  await expect(computeSummary).toContainText('Launch selection rule');
+  await expect(computeSummary).toContainText('Only Auto-pick or a GPU card selected with Use as launch GPU changes what DCP sends.');
   await expect(computeSummary).toContainText('Trial accounts');
   await expect(computeSummary).toContainText('No separate trial tag; grant credit decides; Trial route: native/community GPU pool.');
   await expect(computeSummary).toContainText('Credit policy: synced');
@@ -506,6 +508,18 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByRole('button', { name: 'Launch auto-picked GPU pod' })).toBeVisible();
   await expect(page.getByText('Use as launch GPU').first()).toBeVisible();
   await expect(page.getByText('Browse filter only: VRAM')).toBeVisible();
+  await page.getByRole('button', { name: /Not sure which GPU/ }).click();
+  await page.getByRole('button', { name: /Fine-tune 7/ }).click();
+  await expect(page.getByText(/Workload preset applied: Fine-tune 7/)).toBeVisible();
+  await expect(page.getByText(/Launch remains Auto-pick until you choose Use as launch GPU/)).toBeVisible();
+  await expect(page.getByText('Workload match').first()).toBeVisible();
+  await expect(gpuSelectionStrip).toContainText('Browse filter 24 GB+');
+  await expect(gpuSelectionStrip).toContainText('Fine-tune 7–13B');
+  await expect(gpuPickerStatus).toContainText('Selected for launch: Auto-pick');
+  await expect(gpuPickerStatus).toContainText('gpu_type omitted');
+  await expect(page.getByLabel('Launch request preview')).toContainText('gpu_type omitted = auto-pick');
+  await gpuSelectionStrip.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(gpuSelectionStrip).toContainText('No workload filter');
   await page.getByRole('button', { name: '80 GB+', exact: true }).click();
   await expect(gpuSelectionStrip).toContainText('Browse filter 80 GB+');
   await expect(gpuSelectionStrip).toContainText('1 shown');

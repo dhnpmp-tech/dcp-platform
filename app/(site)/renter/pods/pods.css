@@ -730,6 +730,38 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 @media (max-width: 760px) {
   .pod-stage2-source-grid { grid-template-columns: 1fr; }
 }
+.pod-stage2-rule {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: baseline;
+  margin-top: 10px;
+  padding: 12px 13px;
+  border: 1px solid color-mix(in oklab, var(--orange) 46%, var(--hair));
+  background: color-mix(in oklab, var(--orange) 6%, var(--paper));
+  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--orange) 78%, var(--ink));
+}
+.pod-stage2-rule strong {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--orange) 86%, var(--ink));
+  white-space: nowrap;
+}
+.pod-stage2-rule span {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 620px) {
+  .pod-stage2-rule { grid-template-columns: 1fr; }
+}
 .pod-compute-facts {
   min-width: 0;
   display: flex;
@@ -1871,6 +1903,16 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
 .gpu-card.is-out:hover { border-color: var(--hair); }
 .gpu-card.is-out:hover::before { background: transparent; }
 .gpu-card.is-reco { border-color: color-mix(in oklab, var(--teal) 45%, var(--hair)); }
+.gpu-card.is-workload-match {
+  border-color: color-mix(in oklab, var(--orange) 52%, var(--hair));
+  background: color-mix(in oklab, var(--orange) 4%, var(--paper));
+}
+.gpu-card.is-workload-match::before {
+  background: color-mix(in oklab, var(--orange) 72%, transparent);
+}
+.gpu-card.is-workload-match .gpu-ribbon {
+  background: color-mix(in oklab, var(--orange) 86%, var(--ink));
+}
 .gpu-ribbon {
   position: absolute; top: 0; inset-inline-end: 0; font-family: var(--mono); font-size: 9px;
   letter-spacing: .12em; text-transform: uppercase; color: #0a0b1a;

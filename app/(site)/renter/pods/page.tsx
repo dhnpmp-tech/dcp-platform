@@ -195,8 +195,8 @@ const BANDS: { key: 'workhorse' | 'datacenter'; en: string; ar: string; subEn: s
   { key: 'datacenter', en: 'Data-center & high-VRAM', ar: 'مراكز البيانات وذاكرة عالية', subEn: '48 GB and above', subAr: '48 غيغابايت فأكثر' },
 ]
 
-// Optional "Guide me by workload" presets. Each sets a VRAM floor + a preferred
-// gpu_model substring; the recommendation resolves against live stock at click.
+// Optional "Guide me by workload" presets. Each sets a VRAM floor and highlights
+// a preferred gpu_model substring. It never pins the launch GPU by itself.
 interface Workload {
   key: string
   titleEn: string
@@ -204,7 +204,7 @@ interface Workload {
   descEn: string
   descAr: string
   floor: number
-  prefer: string // gpu_model substring of the preferred pick
+  prefer: string // gpu_model substring of the highlighted workload match
   /** Optional image alias + duration the preset pre-selects (the Experiment
    *  pod uses this — a pod-shaped test server beats a bare vLLM on the node,
    *  see the 2026-07-03 VRAM-parking incident + team policy). */
@@ -1070,10 +1070,11 @@ export default function RenterPodsPage() {
     setGpuSearch('')
     setMinVram(0)
     setAvailFilters(new Set())
+    setActiveWorkload(null)
   }
 
-  // Apply a workload preset: set the VRAM floor and select its preferred type if
-  // that type is live, else leave selection unchanged.
+  // Apply a workload preset: set helper filters and runtime defaults only. The
+  // final launch GPU changes only through Auto-pick or an explicit GPU card.
   const applyWorkload = (w: Workload) => {
     setSelectedTemplateKey(null)
     setActiveWorkload(w.key)
@@ -1086,10 +1087,6 @@ export default function RenterPodsPage() {
         ...keepFundingLaunchError(l.error, l.creditError),
       }))
     }
-    const match = gpuTypes.find(
-      (g) => g.available && g.sar_per_hour != null && g.gpu_model.toLowerCase().includes(w.prefer),
-    )
-    if (match) selectGpuType(match.gpu_model)
   }
 
   const applyLaunchTemplate = (template: LaunchTemplate) => {
@@ -1192,11 +1189,19 @@ export default function RenterPodsPage() {
     (gpuSearch.trim() ? 1 : 0) +
     (minVram > 0 ? 1 : 0) +
     availFilters.size
-  const activeWorkloadLabel = activeWorkload
+  const activeWorkloadPreset = activeWorkload
     ? WORKLOADS.find((workload) => workload.key === activeWorkload)
     : null
+  const activeWorkloadLabel = activeWorkloadPreset
+  const workloadSuggestedType = activeWorkloadPreset
+    ? availableGpuTypes.find((g) => g.gpu_model.toLowerCase().includes(activeWorkloadPreset.prefer)) || null
+    : null
+  const workloadSuggestionLabel = workloadSuggestedType ? displayGpuType(workloadSuggestedType.gpu_model) : ''
+  const workloadLaunchStateLabel = selectedType ? displayGpuType(selectedType.gpu_model) : 'Auto-pick'
   const gpuRequestDetail = selectedType
     ? `${selectedType.vram_gb} GB VRAM${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
+    : activeWorkloadPreset
+      ? `${activeWorkloadPreset.titleEn} filters to ${activeWorkloadPreset.floor} GB+; workload matches are highlighted but not selected until a GPU card is chosen.`
     : selectedTemplateMinVram
       ? `${selectedRuntimeLabel} recommends ${selectedTemplateMinVram} GB+; browse filters do not pin launch until a GPU card is selected.`
       : minVram > 0
@@ -1232,7 +1237,7 @@ export default function RenterPodsPage() {
     : 'Auto-pick is selected for launch'
   const launchModeDetail = selectedType
     ? 'The launch request will include this GPU type. Filters below only change which cards are visible.'
-    : 'Templates and VRAM chips only narrow the cards below; they do not pin a GPU until a card is selected.'
+    : 'Templates, workload presets, and VRAM chips only narrow or highlight cards; they do not pin a GPU until a card is selected.'
   const launchRequestPayloadLabel = selectedType
     ? `gpu_type = ${displayGpuType(selectedType.gpu_model)}`
     : 'gpu_type omitted = auto-pick'
@@ -1697,6 +1702,17 @@ export default function RenterPodsPage() {
                     <Bi en={`${trialHandlingAnswerLabel}; ${trialRouteAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يستخدم وحدات DCP والمجتمع." />
                   </span>
                 </div>
+                <div className="pod-stage2-rule" aria-label={lang === 'ar' ? 'قاعدة اختيار GPU في المرحلة 2' : 'Stage 2 launch GPU selection rule'}>
+                  <strong>
+                    <Bi en="Launch selection rule" ar="قاعدة اختيار التشغيل" />
+                  </strong>
+                  <span>
+                    <Bi
+                      en="Only Auto-pick or a GPU card selected with Use as launch GPU changes what DCP sends. Templates, workload presets, VRAM chips, search, and sort only organize choices."
+                      ar="الاختيار التلقائي أو بطاقة GPU المحددة فقط يغير ما يرسله DCP. القوالب والعمل والذاكرة والبحث والترتيب تنظّم الخيارات فقط."
+                    />
+                  </span>
+                </div>
               </div>
               <div className="pod-compute-facts">
                 <span className={selectedType ? 'pod-request-state fixed' : 'pod-request-state auto'}>
@@ -2109,8 +2125,10 @@ export default function RenterPodsPage() {
                           </span>
                           <p className="why">
                             <Bi
-                              en={`Showing GPU types with at least ${w.floor} GB of VRAM. The best-value available type is pre-selected when one fits.`}
-                              ar={`تُعرض المعالجات بذاكرة ${w.floor} غيغابايت على الأقل. يُختار أفضل نوع متاح من حيث القيمة تلقائيًا عند توفره.`}
+                              en={`Workload preset applied: ${w.titleEn}. Showing GPU types with at least ${w.floor} GB of VRAM. ${
+                                workloadSuggestionLabel ? `${workloadSuggestionLabel} is highlighted as a workload match. ` : ''
+                              }Launch remains ${workloadLaunchStateLabel} until you choose Use as launch GPU on a card.`}
+                              ar={`تم تطبيق قالب العمل: ${w.titleAr}. تُعرض المعالجات بذاكرة ${w.floor} غيغابايت على الأقل. يبقى طلب التشغيل كما هو حتى تختار بطاقة GPU.`}
                             />
                           </p>
                         </div>
@@ -2255,10 +2273,18 @@ export default function RenterPodsPage() {
                               const unpriced = g.sar_per_hour == null
                               const selectable = !out && !unpriced
                               const selected = launch.gpuType === g.gpu_model
-                              const reco = isValuePick(g.gpu_model) && selectable
+                              const workloadMatch = !!activeWorkloadPreset &&
+                                selectable &&
+                                g.gpu_model.toLowerCase().includes(activeWorkloadPreset.prefer)
+                              const reco = (isValuePick(g.gpu_model) && selectable) || workloadMatch
                               const brand = gpuBrand(g.gpu_model)
                               const name = displayGpuType(g.gpu_model)
-                              const cls = ['gpu-card', out ? 'is-out' : '', reco ? 'is-reco' : ''].filter(Boolean).join(' ')
+                              const cls = [
+                                'gpu-card',
+                                out ? 'is-out' : '',
+                                reco ? 'is-reco' : '',
+                                workloadMatch ? 'is-workload-match' : '',
+                              ].filter(Boolean).join(' ')
                               // roving tabindex: the selected radio (or the first
                               // selectable card) is the single tab stop.
                               const isFirstSelectable =
@@ -2292,7 +2318,9 @@ export default function RenterPodsPage() {
                                 >
                                   {reco && (
                                     <span className="gpu-ribbon">
-                                      <Bi en="Best value" ar="أفضل قيمة" />
+                                      {workloadMatch
+                                        ? <Bi en="Workload match" ar="مطابق للعمل" />
+                                        : <Bi en="Best value" ar="أفضل قيمة" />}
                                     </span>
                                   )}
                                   <div className="gpu-card-top">

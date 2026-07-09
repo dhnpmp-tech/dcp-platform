@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 21:49 UTC - `feat(pods): prevent silent workload GPU pinning - PR #921`
+
+**PR:** [#921](https://github.com/dhnpmp-tech/dcp-platform/pull/921) (`codex/pods-workload-gpu-selection-clarity-2026-07-10`).
+**Local timestamp:** 2026-07-10 01:49 +04.
+
+**What:** Tareq workspace/pods UX follow-up. Removes the last ambiguous Stage 2 path where a workload helper could quietly select a GPU, and makes the launch GPU rule visible beside the compute controls.
+
+- **GPU decision clarity:** Workload presets now set runtime defaults and browse filters only; they no longer pin the launch GPU. A fixed GPU request now only comes from the explicit GPU card selection, while Auto-pick remains the default request.
+- **Workload guidance:** Matching GPU cards are highlighted as "Workload match" recommendations instead of being silently selected.
+- **Stage 2 rule:** `/renter/pods` now shows a visible launch-selection rule stating that only Auto-pick or `Use as launch GPU` changes the payload; templates, workload presets, VRAM chips, search, and sort only organize choices.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression so applying the Fine-tune workload guide keeps `gpu_type` omitted and Auto-pick active until a card is selected.
+- **Safety:** Frontend-only UX behavior change; no backend pod launch body schema, provider selection algorithm, pricing calculation, billing, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:38 UTC - `feat(batch): publish sanitized public readiness - PR #920`
 
 **PR:** [#920](https://github.com/dhnpmp-tech/dcp-platform/pull/920) (`codex/public-batch-readiness-2026-07-10`).
