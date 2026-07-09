@@ -40,6 +40,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_ROUTER_POLICY_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'evaluator_readiness_contract',
+    command: 'npm run proof:evaluator-readiness-contract',
+    outputEnv: 'DCP_EVALUATOR_READINESS_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'prompt_cache_contract',
     command: 'npm run proof:prompt-cache-contract',
     outputEnv: 'DCP_PROMPT_CACHE_PROOF_OUTPUT_DIR',

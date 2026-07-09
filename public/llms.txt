@@ -74,6 +74,7 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Public page: https://dcp.sa/benchmarks.
 - Current state: model benchmark metadata and provider benchmark contracts are visible, with public model metrics gated by live provider measurement and `measured_at` evidence.
 - Readiness: `GET https://api.dcp.sa/api/models/benchmarks/readiness`.
+- Evaluator readiness: `GET https://api.dcp.sa/api/evals/readiness`.
 - Benchmark feed: `GET https://api.dcp.sa/api/models/benchmarks`.
 - Important gate: public Arabic-quality claims, customer case studies, frontier-model comparisons, and model rankings remain off until DCP has an approved dataset, fixed eval harness, artifact checksum, model/provider metadata, and baseline policy approval.
 

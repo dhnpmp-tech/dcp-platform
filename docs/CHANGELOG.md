@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 02:05 UTC - Evaluator readiness contract proof (PR #853)
+
+- **PR:** [#853](https://github.com/dhnpmp-tech/dcp-platform/pull/853) (`codex/evaluator-readiness-contract-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/readiness`, a versioned evaluator readiness contract for renter-scoped eval-job gates, dataset artifact policy, baseline comparisons, public report gates, and billing policy.
+- **Proof:** Added `npm run proof:evaluator-readiness-contract` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 11 CI-safe gates.
+- **Frontend/docs:** Updated `/benchmarks` and `llms.txt` to point agents at the evaluator readiness source while keeping customer eval jobs marked as not live.
+- **Safety:** Read-only route and CI-safe proof only; no evaluator job creation, dataset storage, model comparison, public report, billing, settlement, benchmark ingestion, model routing, inference, pod, LoRA, adapter, or quality-claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator readiness Jest suites; evaluator readiness contract proof; TypeScript; Next build; local roadmap proof now passing 11/11 gates.
+
 ### 2026-07-09 01:50 UTC - Benchmarks readiness rail (PR #852)
 
 - **PR:** [#852](https://github.com/dhnpmp-tech/dcp-platform/pull/852) (`codex/benchmark-readiness-page-2026-07-09`).

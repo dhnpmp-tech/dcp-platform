@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 02:05 UTC - `test(evals): add evaluator readiness proof - PR #853`
+
+**PR:** [#853](https://github.com/dhnpmp-tech/dcp-platform/pull/853) (`codex/evaluator-readiness-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 06:05 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Promotes customer evaluator jobs from page copy to a versioned readiness contract and CI-safe proof gate.
+
+- **Backend readiness:** Added public `GET /api/evals/readiness`, exposing evaluator job, dataset artifact, baseline comparison, public report, and billing-policy gates without creating jobs.
+- **Proof command:** Added `npm run proof:evaluator-readiness-contract` and included it in `npm run proof:local-roadmap`, raising the local suite to 11 CI-safe gates.
+- **Public surface:** Updated `/benchmarks` and `llms.txt` to point at the evaluator readiness source while keeping customer eval jobs and public quality reports gated.
+- **Safety:** No evaluator job creation, dataset storage, model comparison, public report, billing, settlement, benchmark ingestion, provider routing, inference, pod, LoRA, adapter, or quality-claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted evaluator readiness Jest suites; evaluator readiness contract proof; TypeScript; Next build; local roadmap proof now passing 11/11 gates.
+
 ### 2026-07-09 01:50 UTC - `feat(benchmarks): add readiness rail - PR #852`
 
 **PR:** [#852](https://github.com/dhnpmp-tech/dcp-platform/pull/852) (`codex/benchmark-readiness-page-2026-07-09`).

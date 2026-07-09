@@ -87,7 +87,7 @@ The parts to tighten:
 | LoRA deployment | Adapter registry + live merge/multi-LoRA | vLLM configs reference LoRA logs, but no adapter registry/API | Add adapter schema, upload API, deployment API, vLLM multi-LoRA acceptance test |
 | Batch inference | DCP Batch | Readiness/metadata contract and public page exist; execution and discounts are gated | Add async worker execution, result proof, and discounted settlement on existing job/billing primitives |
 | Prompt caching | DCP cached input discount | Hash-only measurement, usage fields, and readiness contract exist; discounts are gated | Add settlement proof and provider cache-hit evidence before discounting |
-| Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist; public readiness rail starts in PR #852 | Add customer-facing eval jobs and published Arabic task benchmarks after reproducible artifacts |
+| Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist; public readiness rail starts in PR #852; evaluator readiness proof starts in PR #853 | Add customer-facing eval jobs and published Arabic task benchmarks after reproducible artifacts |
 | Routers | DCP model/router selection | Basic provider routing and demand telemetry exist | Add policy-driven router objects and model fallback rules |
 | Quotas/usage export | Renter/admin controls | Account v1 cap status and scoped usage export exist; per-key budgets are gated | Add scoped-key attribution, per-key budget enforcement, and team usage pages |
 | CLI/connectors | `dcp` / `dcpconnect` | `dcp` launcher exists for Claude Code path | Extend to Codex/Cursor/OpenCode configs after Anthropic/OpenAI paths are stable |
@@ -297,6 +297,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `GET /api/models/benchmarks/readiness` as the claim-safe product rail for
     model benchmark metadata, provider benchmark contracts, evaluator-job gates,
     and public Arabic-quality claim guards.
+  - PR #853 adds `GET /api/evals/readiness` and
+    `npm run proof:evaluator-readiness-contract` so customer evaluator jobs,
+    datasets, public reports, rankings, comparisons, and billing have a
+    repeatable false-claim gate before implementation.
 
 Acceptance:
 
@@ -532,6 +536,11 @@ Acceptance:
     wiring, and explicit guards keeping Arabic-quality claims, case studies,
     rankings, and frontier comparisons blocked until reproducible artifacts
     exist.**
+20. **Evaluator readiness contract proof** - customer eval-job gates before job
+    creation. **Started in PR #853 with `GET /api/evals/readiness` and
+    `npm run proof:evaluator-readiness-contract`; eval jobs, datasets, public
+    reports, rankings, frontier comparisons, and billing remain blocked until
+    schema, worker, artifact, baseline, and money policy proof exists.**
 
 ## Division of Work
 
