@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 12:40 UTC - Pod workspace manifest and GPU request clarity (PR #888)
+
+- **PR:** [#888](https://github.com/dhnpmp-tech/dcp-platform/pull/888) (`codex/pods-workspace-compute-clarity-2026-07-09`).
+- **Workspace UX:** `/renter/pods` now shows a compact Stage 1 manifest with file/group counts, total size, folder count, review-folders, and continue-to-Stage-2 actions so large workspaces are not a mandatory file-by-file scan.
+- **GPU UX:** The compute summary now reads as the launch GPU request, distinguishes fixed GPU vs auto-pick mode, and labels VRAM controls as card filters rather than launch constraints.
+- **Trial policy clarity:** Trial handling now reads as explicit tag vs credit provenance beside the synced credit policy.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to cover the manifest, Stage 2 continuation, request mode, trial handling, and card-filter wording.
+- **Safety:** Frontend-only UX/copy change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused Playwright browser regression for `/renter/pods`; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 12:21 UTC - LoRA readiness surfaces adapter deployment proof (PR #887)
 
 - **PR:** [#887](https://github.com/dhnpmp-tech/dcp-platform/pull/887) (`codex/lora-deployment-proof-readiness-surface-2026-07-09`).

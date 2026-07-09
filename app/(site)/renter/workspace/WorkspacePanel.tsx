@@ -115,6 +115,10 @@ export default function WorkspacePanel({
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
   const totalFileBytes = useMemo(() => files.reduce((sum, file) => sum + Number(file.size || 0), 0), [files])
+  const workspaceFolderCount = useMemo(
+    () => fileGroups.filter((group) => group.id !== '__root__').length,
+    [fileGroups],
+  )
 
   const flash = useCallback((kind: 'ok' | 'err', msg: string) => {
     setToast({ kind, msg })
@@ -297,7 +301,7 @@ export default function WorkspacePanel({
         <div className="ws-hd-actions">
           {context === 'pod-launch' && nextStageHref && (
             <a className="ws-stage-link" href={nextStageHref}>
-              <Bi en="Stage 2" ar="المرحلة 2" />
+              <Bi en="Continue: Stage 2" ar="تابع: المرحلة 2" />
             </a>
           )}
           <button
@@ -428,6 +432,34 @@ export default function WorkspacePanel({
         {filesState === 'error' && (
           <div className="ws-err" role="alert">
             {filesError}
+          </div>
+        )}
+
+        {context === 'pod-launch' && filesState === 'ready' && files.length > 0 && (
+          <div className="ws-launch-manifest">
+            <div className="ws-launch-copy">
+              <span className="ws-launch-k">
+                <Bi en="Stage 1 manifest" ar="بيان المرحلة 1" />
+              </span>
+              <strong>
+                {files.length} <Bi en="files" ar="ملفات" /> · {fileGroups.length}{' '}
+                <Bi en="groups" ar="مجموعات" />
+              </strong>
+              <span>
+                {humanBytes(totalFileBytes)} · {workspaceFolderCount}{' '}
+                <Bi en="folders ready for /workspace" ar="مجلدات جاهزة لـ /workspace" />
+              </span>
+            </div>
+            <div className="ws-launch-actions">
+              <button type="button" onClick={() => setFilesCollapsed(false)}>
+                <Bi en="Review folders" ar="راجع المجلدات" />
+              </button>
+              {nextStageHref && (
+                <a href={nextStageHref}>
+                  <Bi en="Continue to Stage 2" ar="تابع للمرحلة 2" />
+                </a>
+              )}
+            </div>
           </div>
         )}
 

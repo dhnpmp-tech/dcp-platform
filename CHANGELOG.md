@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 12:40 UTC - `feat(pods): clarify workspace manifest and GPU request - PR #888`
+
+**PR:** [#888](https://github.com/dhnpmp-tech/dcp-platform/pull/888) (`codex/pods-workspace-compute-clarity-2026-07-09`).
+**Local timestamp:** 2026-07-09 16:40 +04.
+
+**What:** Tareq feedback follow-up for `/renter/pods`. Makes Stage 1 feel like a checkpoint instead of a file wall and separates GPU browsing filters from the actual GPU request sent at launch.
+
+- **Workspace manifest:** Added a compact Stage 1 manifest with file/group counts, total size, folder count, a review-folders action, and a primary continue-to-Stage-2 action so large workspaces do not force a full file scan.
+- **GPU request clarity:** Renamed the selected-compute summary to "Launch GPU request", added fixed-vs-auto request mode chips, and made auto-pick explicitly say no fixed GPU type is selected.
+- **Filter clarity:** VRAM controls now read as card filters and show a warning when a renter filters cards without selecting a GPU, preventing the filter from being mistaken for a launch constraint.
+- **Trial policy clarity:** Trial handling now reads as explicit tag vs credit provenance beside the backend-synced credit policy.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to cover the workspace manifest, Stage 2 continuation, request mode, trial handling, and card-filter wording.
+- **Safety:** Frontend-only UX/copy change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused Playwright browser regression for `/renter/pods`; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 12:21 UTC - `feat(lora): surface adapter deployment proof readiness - PR #887`
 
 **PR:** [#887](https://github.com/dhnpmp-tech/dcp-platform/pull/887) (`codex/lora-deployment-proof-readiness-surface-2026-07-09`).
