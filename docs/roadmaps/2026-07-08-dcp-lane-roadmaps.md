@@ -758,6 +758,10 @@ DCP-hosted endpoint -> billed inference.
   - storage key
   - checksum
   - status
+  **PR #884 adds `npm run proof:adapter-registry-contract`, a CI-safe proof
+  packet for schema idempotency/indexes, tenant isolation, storage-key and
+  checksum validation, public status restrictions, metadata-only registration,
+  and no public deploy shortcut.**
 - Managed LoRA SFT job:
   - fixed recipe
   - logs
@@ -841,6 +845,9 @@ DCP-hosted endpoint -> billed inference.
    them through `/api/templates/catalog`, and adds the CI-safe
    `npm run proof:template-workflow-contract` gate to the local roadmap suite.**
 2. Adapter registry schema and service tests.
+   **PR #884 adds the repeatable `npm run proof:adapter-registry-contract`
+   gate and includes it in the local roadmap suite before live adapter serving
+   work continues.**
 3. Dataset validator and training-job contract.
 4. Single-adapter deploy API.
    **Deployment intent/load-proof APIs exist; PR #822 adds a repeatable
@@ -851,6 +858,8 @@ DCP-hosted endpoint -> billed inference.
 
 - Template validation.
 - Adapter registry tests.
+  **PR #884 adds `npm run proof:adapter-registry-contract`; this is now part
+  of `npm run proof:local-roadmap`.**
 - Adapter deployment contract proof.
 - GPU-host training artifact proof.
 - vLLM adapter load proof.
@@ -899,8 +908,10 @@ DCP-hosted endpoint -> billed inference.
 5. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
    Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard
    landed in PR #810; live proof runner landed in PR #812.**
-6. Adapter registry schema. **Schema/API foundation has landed; continue with
-   GPU-host adapter proof and deployment smoke before public serving claims.**
+6. Adapter registry schema. **Schema/API foundation has landed; PR #884 adds
+   `npm run proof:adapter-registry-contract` to prove tenant isolation,
+   checksum/key guards, metadata-only public registration, and no deploy
+   shortcut before GPU-host adapter proof and deployment smoke continue.**
 7. Prompt-cache accounting design.
    **Readiness contract added in PR #800; settlement discounts and provider
    cache-control proof remain gated.**

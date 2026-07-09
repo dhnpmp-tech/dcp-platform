@@ -32,6 +32,7 @@
     "test:reliability:lora-training-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/lora-training-contract-proof.js",
     "test:reliability:tinker-loop-readiness-contract-proof": "node tests/tinker-loop-readiness-contract-proof.js",
     "test:reliability:lora-training-live-artifact-proof": "node tests/lora-training-live-artifact-proof.js",
+    "test:reliability:adapter-registry-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/adapter-registry-contract-proof.js",
     "test:reliability:adapter-artifact-policy-proof": "node tests/adapter-artifact-policy-proof.js",
     "test:reliability:adapter-endpoint-smoke-readiness-proof": "node tests/adapter-endpoint-smoke-readiness-proof.js",
     "test:reliability:adapter-endpoint-smoke-status-disabled-proof": "node tests/adapter-endpoint-smoke-status-disabled-proof.js",

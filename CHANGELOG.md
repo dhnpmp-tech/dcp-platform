@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 11:49 UTC - `test(lora): add adapter registry contract proof - PR #884`
+
+**PR:** [#884](https://github.com/dhnpmp-tech/dcp-platform/pull/884) (`codex/adapter-registry-contract-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 15:49 +04.
+
+**What:** LoRA roadmap slice. Adds a first-class CI-safe proof packet for the existing adapter registry schema/API so the registry foundation is covered by the local roadmap gate before live adapter serving work.
+
+- **Proof command:** Added `npm run proof:adapter-registry-contract`, backed by `backend/tests/adapter-registry-contract-proof.js`.
+- **Coverage:** The proof exercises schema idempotency/indexes, metadata-only adapter registration, storage-key and checksum rejection, tenant isolation, status lifecycle/deployed timestamp behavior, public route status restrictions, list/read tenant boundaries, and the absence of a public deploy shortcut.
+- **Local roadmap:** Added the proof to `npm run proof:local-roadmap`, moving the CI-safe suite to 35 gates.
+- **Docs:** Updated the LoRA roadmap and Fireworks/Tinker strategy notes so they no longer describe the adapter registry/API as missing.
+- **Safety:** Test/proof/docs only; no artifact upload, deployment creation, load-proof attach, adapter traffic routing, usage/billing write, balance mutation, provider/vendor exposure, or GPU-host execution was enabled.
+- **Verification:** Package JSON parse; Node syntax check; adapter registry proof; focused adapter registry Jest suite; local roadmap proof now passing 35/35 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 11:38 UTC - `test(templates): add workflow contract proof - PR #883`
 
 **PR:** [#883](https://github.com/dhnpmp-tech/dcp-platform/pull/883) (`codex/template-workflow-contract-proof-2026-07-09`).

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 11:49 UTC - Adapter registry contract proof (PR #884)
+
+- **PR:** [#884](https://github.com/dhnpmp-tech/dcp-platform/pull/884) (`codex/adapter-registry-contract-proof-2026-07-09`).
+- **Proof:** Added `npm run proof:adapter-registry-contract`, covering schema idempotency/indexes, metadata-only registration, storage-key/checksum validation, tenant isolation, lifecycle status timestamps, public status restrictions, and no public deploy shortcut.
+- **Local roadmap:** Added the proof to `npm run proof:local-roadmap`, moving the CI-safe suite to 35 gates.
+- **Docs:** Updated the LoRA roadmap and Fireworks/Tinker strategy notes so adapter registry/API state is current.
+- **Safety:** Test/proof/docs only; no artifact upload, deployment creation, load-proof attach, adapter traffic routing, usage/billing write, balance mutation, provider/vendor exposure, or GPU-host execution was enabled.
+- **Verification:** Package JSON parse; Node syntax check; adapter registry proof; focused adapter registry Jest suite; local roadmap proof now passing 35/35 gates; Next build; `git diff --check`.
+
 ### 2026-07-09 11:38 UTC - Template workflow contract proof (PR #883)
 
 - **PR:** [#883](https://github.com/dhnpmp-tech/dcp-platform/pull/883) (`codex/template-workflow-contract-proof-2026-07-09`).
