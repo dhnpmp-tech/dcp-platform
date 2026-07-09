@@ -165,6 +165,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Evaluator worker gate contract | `npm run proof:evaluator-worker-gate-contract` | none | CI-safe gate available; worker, queue dispatch, result writer, billing hook, reports, rankings, and quality claims remain disabled |
 | Evaluator result manifest contract | `npm run proof:evaluator-result-manifest-contract` | none | CI-safe gate available; validates required checksums and raw-data guards while result endpoints and artifact writes remain disabled |
 | Evaluator result-writer dry run | `npm run proof:evaluator-result-writer-dry-run` | none | CI-safe gate available; writes validated manifest JSON to temporary proof storage only, with production artifacts and result endpoint disabled |
+| Evaluator worker dry-run fixture | `npm run proof:evaluator-worker-dry-run-fixture` | none | CI-safe gate available; simulates a draft eval queue item and invokes the dry-run writer while job status, production artifacts, result endpoints, billing, reports, rankings, and quality claims remain disabled |
 | Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
@@ -256,7 +257,8 @@ before or with the feature change.
      `GET /api/evals/worker/readiness` and `npm run
      proof:evaluator-worker-gate-contract`; queue dispatch, worker execution,
      result writing, billing hooks, reports, rankings, and quality claims
-     remain disabled until result-manifest and worker dry-run proof lands.
+     remain disabled until artifact storage, auth policy, billing, and real
+     worker dry-run proof land.
    - Evaluator result manifest schema starts in PR #859 with
      `GET /api/evals/results/schema` and `npm run
      proof:evaluator-result-manifest-contract`; required checksums and raw-data
@@ -268,6 +270,11 @@ before or with the feature change.
      manifest to temporary storage only while production artifacts, result
      downloads, worker queue dispatch, billing, reports, and rankings stay
      disabled.
+   - Evaluator worker dry-run fixture starts in PR #861 with
+     `npm run proof:evaluator-worker-dry-run-fixture`; the proof simulates a
+     draft eval queue item, invokes the dry-run writer, and preserves draft job
+     status while real queue dispatch, worker execution, production artifacts,
+     result endpoints, billing, reports, and rankings stay disabled.
    - Minimum-balance policy starts in PR #855 with
      `GET /api/renters/me/minimum-balances` and `npm run
      proof:minimum-balance-readiness`; payment/workload/enforcement mutation

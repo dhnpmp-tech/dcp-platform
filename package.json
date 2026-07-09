@@ -40,6 +40,7 @@
     "proof:evaluator-worker-gate-contract": "npm --prefix backend run test:reliability:evaluator-worker-gate-contract-proof",
     "proof:evaluator-result-manifest-contract": "npm --prefix backend run test:reliability:evaluator-result-manifest-contract-proof",
     "proof:evaluator-result-writer-dry-run": "npm --prefix backend run test:reliability:evaluator-result-writer-dry-run-proof",
+    "proof:evaluator-worker-dry-run-fixture": "npm --prefix backend run test:reliability:evaluator-worker-dry-run-fixture-proof",
     "proof:minimum-balance-readiness": "npm --prefix backend run test:reliability:minimum-balance-readiness-contract-proof",
     "workspace-pods:verify-contracts": "npm --prefix backend run workspace-pods:verify-contracts",
     "proof:workspace-pod": "npm --prefix backend run test:reliability:workspace-pod-proof",

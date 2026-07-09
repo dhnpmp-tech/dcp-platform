@@ -4,6 +4,7 @@ const { EVALUATOR_JOB_SCHEMA_VERSION } = require('./evaluatorJobSchema');
 const { EVALUATOR_WORKER_GATE_VERSION } = require('./evaluatorWorkerGate');
 const { EVALUATOR_RESULT_MANIFEST_VERSION } = require('./evaluatorResultManifest');
 const { EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION } = require('./evaluatorResultWriterDryRun');
+const { EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION } = require('./evaluatorWorkerDryRunFixture');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -55,8 +56,11 @@ function buildEvaluatorReadiness(now = new Date()) {
         queue_dispatch_enabled: false,
         result_writer_enabled: false,
         billing_hook_enabled: false,
+        dry_run_fixture_available: true,
+        dry_run_fixture_version: EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION,
+        dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
         required_before_enablement: [
-          'worker dry-run proof',
+          'production worker dry-run proof with artifact storage rollback',
           'result manifest checksum proof',
           'tenant artifact storage policy',
           'minimum-balance and refund policy proof',
@@ -87,7 +91,6 @@ function buildEvaluatorReadiness(now = new Date()) {
         artifact_store_enabled: false,
         signed_downloads_enabled: false,
         required_before_enablement: [
-          'worker dry-run queue fixture',
           'approved tenant artifact storage path',
           'result endpoint authorization policy',
           'signed download smoke proof',
@@ -142,6 +145,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       eval_jobs_live: false,
       eval_job_metadata_api_live: true,
       eval_worker_live: false,
+      eval_worker_dry_run_fixture_live: true,
       eval_result_manifest_schema_live: true,
       eval_result_writer_dry_run_live: true,
       arabic_quality_claim_allowed: false,

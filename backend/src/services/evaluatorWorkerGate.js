@@ -1,8 +1,14 @@
 'use strict';
 
+const {
+  EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION,
+  buildEvaluatorWorkerDryRunFixtureContract,
+} = require('./evaluatorWorkerDryRunFixture');
+
 const EVALUATOR_WORKER_GATE_VERSION = 'dcp.evaluator_worker_gate.v1';
 
 function buildEvaluatorWorkerGate(now = new Date()) {
+  const dryRunFixture = buildEvaluatorWorkerDryRunFixtureContract(now);
   return {
     object: 'evaluator_worker_gate',
     version: EVALUATOR_WORKER_GATE_VERSION,
@@ -23,6 +29,9 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       queue_name: null,
       result_writer_enabled: false,
       billing_hook_enabled: false,
+      dry_run_fixture_available: true,
+      dry_run_fixture_version: EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION,
+      dry_run_fixture_command: dryRunFixture.command,
       env_enable_var: 'DCP_EVALUATOR_WORKER_ENABLE',
       enablement_requires: [
         'dedicated worker binary or script with dry-run mode',
@@ -44,6 +53,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       endpoint_live: false,
       schema_endpoint: 'GET /api/evals/results/schema',
       writer_readiness_endpoint: 'GET /api/evals/results/writer/readiness',
+      dry_run_fixture_command: dryRunFixture.command,
       manifest_required_before_enablement: true,
       manifest_required_fields: [
         'eval_job_id',
@@ -58,6 +68,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       raw_prompt_or_completion_publication_allowed: false,
       signed_downloads_enabled: false,
     },
+    dry_run_fixture: dryRunFixture,
     claim_guards: {
       creates_eval_job: false,
       mutates_eval_job_status: false,
@@ -72,8 +83,8 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       arabic_quality_claim_allowed: false,
     },
     next_actions: [
-      'Add result-manifest checksum proof before any result endpoint becomes live.',
-      'Add a worker dry-run proof before any job leaves draft status.',
+      'Replace the simulated worker fixture with a real disabled worker dry-run before any job leaves draft status.',
+      'Add tenant artifact storage policy before any result endpoint becomes live.',
       'Add billing/refund proof before any evaluator budget is charged.',
     ],
   };

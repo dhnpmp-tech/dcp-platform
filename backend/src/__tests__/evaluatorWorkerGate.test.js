@@ -40,6 +40,9 @@ describe('evaluator worker gate contract', () => {
         queue_name: null,
         result_writer_enabled: false,
         billing_hook_enabled: false,
+        dry_run_fixture_available: true,
+        dry_run_fixture_version: 'dcp.evaluator_worker_dry_run_fixture.v1',
+        dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
         env_enable_var: 'DCP_EVALUATOR_WORKER_ENABLE',
       },
       job_status_policy: {
@@ -52,6 +55,16 @@ describe('evaluator worker gate contract', () => {
         endpoint_live: false,
         manifest_required_before_enablement: true,
         signed_downloads_enabled: false,
+      },
+      dry_run_fixture: {
+        object: 'evaluator_worker_dry_run_fixture_contract',
+        current_mode: 'simulated_queue_fixture_only',
+        command: 'npm run proof:evaluator-worker-dry-run-fixture',
+        source: {
+          dispatches_real_queue: false,
+          starts_runtime_worker: false,
+          mutates_eval_job_status: false,
+        },
       },
       claim_guards: {
         mutates_eval_job_status: false,
@@ -79,9 +92,12 @@ describe('evaluator worker gate contract', () => {
       queue_dispatch_enabled: false,
       result_writer_enabled: false,
       billing_hook_enabled: false,
+      dry_run_fixture_available: true,
+      dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
     });
     expect(readiness.claim_guards).toMatchObject({
       eval_worker_live: false,
+      eval_worker_dry_run_fixture_live: true,
       eval_jobs_live: false,
       bills_eval_jobs: false,
     });
@@ -103,6 +119,7 @@ describe('evaluator worker gate contract', () => {
       worker: {
         enabled: false,
         queue_dispatch_enabled: false,
+        dry_run_fixture_available: true,
       },
       claim_guards: {
         starts_worker: false,

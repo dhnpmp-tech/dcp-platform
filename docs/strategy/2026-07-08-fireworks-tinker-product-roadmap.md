@@ -322,6 +322,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `npm run proof:evaluator-result-writer-dry-run`; it writes a validated
     manifest to temporary proof storage only and keeps production artifacts,
     result downloads, billing, and reports disabled.
+  - PR #861 adds `npm run proof:evaluator-worker-dry-run-fixture`; it simulates
+    a draft eval queue item, invokes the dry-run writer, and keeps job status,
+    real queue dispatch, worker execution, production artifacts, result
+    downloads, billing, reports, rankings, and quality claims disabled.
 
 Acceptance:
 

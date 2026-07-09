@@ -3898,10 +3898,11 @@ paths:
       summary: Get evaluator worker readiness and disabled-by-default gates
       description: |
         Returns a public, read-only worker gate for evaluator jobs. Metadata job
-        records may exist, but queue dispatch, worker execution, result writing,
-        billing hooks, reports, rankings, and Arabic-quality claims remain
-        disabled until future worker, result-manifest, artifact, and billing
-        proofs pass.
+        records may exist, and the CI-safe worker dry-run fixture command is
+        available, but queue dispatch, worker execution, production result
+        writing, billing hooks, reports, rankings, and Arabic-quality claims
+        remain disabled until future worker, result-manifest, artifact, and
+        billing proofs pass.
       responses:
         '200':
           description: Evaluator worker gate contract.
@@ -3909,7 +3910,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [object, version, current_mode, endpoints, worker, claim_guards]
+                required: [object, version, current_mode, endpoints, worker, dry_run_fixture, claim_guards]
                 properties:
                   object:
                     type: string
@@ -3932,12 +3933,35 @@ paths:
                       queue_dispatch_enabled: { type: boolean, example: false }
                       result_writer_enabled: { type: boolean, example: false }
                       billing_hook_enabled: { type: boolean, example: false }
+                      dry_run_fixture_available: { type: boolean, example: true }
+                      dry_run_fixture_version: { type: string, example: dcp.evaluator_worker_dry_run_fixture.v1 }
+                      dry_run_fixture_command: { type: string, example: npm run proof:evaluator-worker-dry-run-fixture }
                   job_status_policy:
                     type: object
                     additionalProperties: true
                   result_policy:
                     type: object
                     additionalProperties: true
+                    properties:
+                      endpoint_live: { type: boolean, example: false }
+                      writer_readiness_endpoint: { type: string, example: GET /api/evals/results/writer/readiness }
+                      dry_run_fixture_command: { type: string, example: npm run proof:evaluator-worker-dry-run-fixture }
+                  dry_run_fixture:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      object:
+                        type: string
+                        enum: [evaluator_worker_dry_run_fixture_contract]
+                      version:
+                        type: string
+                        example: dcp.evaluator_worker_dry_run_fixture.v1
+                      current_mode:
+                        type: string
+                        enum: [simulated_queue_fixture_only]
+                      command:
+                        type: string
+                        example: npm run proof:evaluator-worker-dry-run-fixture
                   claim_guards:
                     type: object
                     additionalProperties: false
