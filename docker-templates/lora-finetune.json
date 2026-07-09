@@ -7,13 +7,15 @@
   "env_vars": [
     { "key": "DOCKER_IMAGE", "label": "Docker Image", "default": "dc1/llm-worker:latest", "required": true },
     { "key": "BASE_MODEL", "label": "Base Model", "default": "mistralai/Mistral-7B-Instruct-v0.2", "required": true },
+    { "key": "DATASET_PATH", "label": "Dataset JSONL Path", "default": "/workspace/datasets/train.jsonl", "required": true },
     { "key": "ADAPTER_RANK", "label": "LoRA Rank", "default": "16", "required": false },
+    { "key": "OUTPUT_ADAPTER_DIR", "label": "Adapter Output Directory", "default": "/workspace/adapters/lora-finetune", "required": false },
     { "key": "MODEL_CACHE_DIR", "label": "Model Cache Dir", "default": "/opt/dcp/model-cache", "required": false },
     { "key": "CACHE_POLICY", "label": "Cache Policy", "default": "warm", "required": false }
   ],
   "params": {
     "image_override": "dc1/llm-worker:latest",
-    "script": "import json, os, torch\n\nbase_model = os.getenv('BASE_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')\nrank = int(os.getenv('ADAPTER_RANK', '16'))\ndevice = 'cuda' if torch.cuda.is_available() else 'cpu'\n\n# Runtime-safe dry-run scaffold; full adapter training can mount dataset + trainer entrypoint\nadapter_params = rank * 4096\nprint('DC1_RESULT_JSON:' + json.dumps({\n  'template': 'lora-finetune',\n  'base_model': base_model,\n  'adapter_rank': rank,\n  'estimated_adapter_params': adapter_params,\n  'device': device,\n  'status': 'ready_for_dataset'\n}))\n"
+    "script": "import json, os, torch\n\nbase_model = os.getenv('BASE_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')\ndataset_path = os.getenv('DATASET_PATH', '/workspace/datasets/train.jsonl')\noutput_adapter_dir = os.getenv('OUTPUT_ADAPTER_DIR', '/workspace/adapters/lora-finetune')\nrank = int(os.getenv('ADAPTER_RANK', '16'))\ndevice = 'cuda' if torch.cuda.is_available() else 'cpu'\n\n# Runtime-safe dry-run scaffold; full adapter training can mount dataset + trainer entrypoint\nadapter_params = rank * 4096\nprint('DC1_RESULT_JSON:' + json.dumps({\n  'template': 'lora-finetune',\n  'base_model': base_model,\n  'dataset_path': dataset_path,\n  'adapter_rank': rank,\n  'output_adapter_dir': output_adapter_dir,\n  'estimated_adapter_params': adapter_params,\n  'device': device,\n  'status': 'ready_for_dataset'\n}))\n"
   },
   "model_cache": {
     "mount_path": "/opt/dcp/model-cache",
@@ -26,19 +28,50 @@
       "duration_minutes": 45,
       "params": {
         "image_override": "dc1/llm-worker:latest",
-        "script": "import json\nprint('DC1_RESULT_JSON:' + json.dumps({'template':'lora-finetune','base_model':'mistralai/Mistral-7B-Instruct-v0.2','adapter_rank':16,'estimated_adapter_params':65536,'status':'ready_for_dataset'}))\n"
+        "script": "import json\nprint('DC1_RESULT_JSON:' + json.dumps({'template':'lora-finetune','base_model':'mistralai/Mistral-7B-Instruct-v0.2','dataset_path':'/workspace/datasets/train.jsonl','adapter_rank':16,'output_adapter_dir':'/workspace/adapters/lora-finetune','estimated_adapter_params':65536,'status':'ready_for_dataset'}))\n"
       }
     },
     "output": {
       "template": "lora-finetune",
       "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
+      "dataset_path": "/workspace/datasets/train.jsonl",
       "adapter_rank": 16,
+      "output_adapter_dir": "/workspace/adapters/lora-finetune",
       "estimated_adapter_params": 65536,
       "status": "ready_for_dataset"
     }
   },
+  "workflow_contract": {
+    "version": "dcp.template_workflow.v1",
+    "mode": "lora_dry_run",
+    "workspace_mount": "/workspace",
+    "dataset": {
+      "required": true,
+      "env_var": "DATASET_PATH",
+      "default_path": "/workspace/datasets/train.jsonl",
+      "validation_endpoint": "POST /api/lora/datasets/validate",
+      "raw_rows_stored": false
+    },
+    "adapter_artifact": {
+      "output_dir": "/workspace/adapters/lora-finetune",
+      "required_files": ["adapter.safetensors", "model-card.json"],
+      "checksum_required": true
+    },
+    "claim_guards": {
+      "catalog_launches_pod": false,
+      "catalog_mutates_balance": false,
+      "managed_training_enabled": false,
+      "public_endpoint_route_enabled": false,
+      "adapter_billing_enabled": false,
+      "exposes_provider_or_vendor": false,
+      "requires_gpu_host_proof": true
+    },
+    "next_proof": "DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact"
+  },
   "min_vram_gb": 16,
   "estimated_price_sar_per_hour": 14.0,
+  "default_duration_minutes": 240,
+  "default_pricing_class": "standard",
   "tags": ["lora", "fine-tuning", "llm", "peft", "deploy-template"],
   "sort_order": 9,
   "icon": "🧩",
