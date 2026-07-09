@@ -28,6 +28,7 @@
     "proof:lora-training-contract": "npm --prefix backend run test:reliability:lora-training-contract-proof",
     "proof:tinker-loop-readiness": "npm --prefix backend run test:reliability:tinker-loop-readiness-contract-proof",
     "proof:lora-training-live-artifact": "npm --prefix backend run test:reliability:lora-training-live-artifact-proof",
+    "proof:adapter-registry-contract": "npm --prefix backend run test:reliability:adapter-registry-contract-proof",
     "proof:adapter-artifact-policy": "npm --prefix backend run test:reliability:adapter-artifact-policy-proof",
     "proof:adapter-endpoint-smoke": "npm --prefix backend run test:reliability:adapter-endpoint-smoke-readiness-proof",
     "proof:adapter-endpoint-smoke-status": "npm --prefix backend run test:reliability:adapter-endpoint-smoke-status-disabled-proof",

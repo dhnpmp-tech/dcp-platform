@@ -84,7 +84,7 @@ The parts to tighten:
 | Serverless text/vision inference | DCP Inference API | OpenAI `/v1`, Anthropic messages, model catalog, streaming, billing | Add per-model rate discipline, prompt-cache accounting, batch API, model capability metadata |
 | Dedicated deployments | DCP Dedicated Endpoints | Deployment intent/load-proof contracts and public page exist; route traffic is gated | Add endpoint lifecycle, quotas, customer-facing status, and serving smoke before traffic |
 | LoRA fine-tuning | DCP Fine-Tuning MVP | LoRA/QLoRA template scaffolds exist, no real adapter job product | Bake fat image, add dataset/upload/job flow, fixed SFT recipe |
-| LoRA deployment | Adapter registry + live merge/multi-LoRA | vLLM configs reference LoRA logs, but no adapter registry/API | Add adapter schema, upload API, deployment API, vLLM multi-LoRA acceptance test |
+| LoRA deployment | Adapter registry + live merge/multi-LoRA | Adapter registry/API and deployment intent/load-proof contracts exist; route traffic is gated | Add artifact upload proof, vLLM live-load smoke, usage attribution, and multi-LoRA acceptance test |
 | Batch inference | DCP Batch | Readiness/metadata contract and public page exist; execution and discounts are gated | Add async worker execution, result proof, and discounted settlement on existing job/billing primitives |
 | Prompt caching | DCP cached input discount | Hash-only measurement, usage fields, and readiness contract exist; discounts are gated | Add settlement proof and provider cache-hit evidence before discounting |
 | Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist; public readiness rail starts in PR #852; evaluator readiness proof starts in PR #853 | Add customer-facing eval jobs and published Arabic task benchmarks after reproducible artifacts |
@@ -381,6 +381,10 @@ Goal: ship the first real train-here/deploy-here loop.
   - checksum
   - status
   - created/deployed timestamps
+  - PR #884 adds `npm run proof:adapter-registry-contract`, proving schema
+    idempotency/indexes, tenant isolation, storage-key/checksum guards,
+    metadata-only public registration, and no deploy shortcut before live
+    adapter serving claims.
 - Add dataset upload flow using the existing workspace/file infrastructure.
   - PR #806 made the workspace-first path visible from `/renter/fine-tuning`,
     linking renters into the existing persistent Workspace panel before
@@ -603,7 +607,8 @@ Acceptance:
    code second. **Metadata and readiness foundations are in place through PR
    #782; CI-safe adapter deployment lifecycle proof added in PR #822; real
    GPU-host artifact proof and vLLM serving smoke remain the gates before public
-   LoRA serving claims.**
+   LoRA serving claims. PR #884 adds
+   `npm run proof:adapter-registry-contract` for the metadata registry itself.**
 8. **Batch lifecycle proof** - contract proof before live execution. **CI-safe
    lifecycle proof added in PR #824; real provider execution, object-store
    result writes, and discounted settlement smoke remain the gates before public

@@ -135,6 +135,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_TINKER_LOOP_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'adapter_registry_contract',
+    command: 'npm run proof:adapter-registry-contract',
+    outputEnv: 'DCP_ADAPTER_REGISTRY_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'adapter_artifact_policy',
     command: 'npm run proof:adapter-artifact-policy',
     outputEnv: 'DCP_ADAPTER_ARTIFACT_POLICY_PROOF_OUTPUT_DIR',
