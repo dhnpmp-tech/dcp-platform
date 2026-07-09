@@ -630,6 +630,82 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   background: color-mix(in oklab, var(--orange) 8%, var(--paper));
 }
 
+.pod-balance-policy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  margin: -10px 0 24px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 34%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 5%, var(--bg-2));
+}
+@media (max-width: 900px) {
+  .pod-balance-policy { grid-template-columns: 1fr; }
+}
+.pod-balance-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pod-balance-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-balance-copy strong {
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+}
+.pod-balance-copy span:not(.pod-balance-k) {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.pod-balance-facts {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .pod-balance-facts { justify-content: flex-start; }
+}
+.pod-balance-facts span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.pod-balance-facts .ready {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 9%, var(--paper));
+}
+.pod-balance-facts .checking,
+.pod-balance-facts .blocked {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair));
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink));
+  background: color-mix(in oklab, var(--orange) 8%, var(--paper));
+}
+
 .pod-proof-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

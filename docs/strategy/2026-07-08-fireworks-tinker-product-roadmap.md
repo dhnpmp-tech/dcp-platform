@@ -178,6 +178,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     vendor/on-demand internals out of renter copy.
   - PR #768 aligned the backend 402 and OpenAPI copy with the same credit-first
     language without changing the stable machine-readable contract.
+  - PR #896 surfaces the current minimum-balance readiness packet in
+    `/renter/pods`, showing provider/community quote preflight, high-demand
+    paid-credit preflight, paid available SAR, trial-credit limits, and the
+    read-only no-enforcement-change guard before launch.
 
 Acceptance:
 

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 15:35 UTC - Pod minimum-balance launch gates (PR #896)
+
+- **PR:** [#896](https://github.com/dhnpmp-tech/dcp-platform/pull/896) (`codex/pods-minimum-balance-launch-readiness-2026-07-09`).
+- **Timestamp:** 2026-07-09 15:35 UTC / 2026-07-09 19:35 +04.
+- **Launch readiness:** `/renter/pods` now consumes `GET /api/renters/me/minimum-balances` and shows a synced/fallback minimum-balance strip before launch.
+- **Credit clarity:** The strip separates provider/community quote preflight from high-demand paid-credit preflight, shows paid available SAR, and states that trial credit does not unlock high-demand GPUs.
+- **False-claim guards:** The UI exposes the read-only minimum-balance contract and blocked future billing rails for batch, prompt-cache, LoRA training, and adapter deployments.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the minimum-balance readiness packet, paid-available credit display, rail labels, read-only guard, and blocked future billing rails.
+- **Safety:** Frontend/read-only visibility change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:23 UTC - Tareq workspace and GPU launch UX polish (PR #895)
 
 - **PR:** [#895](https://github.com/dhnpmp-tech/dcp-platform/pull/895) (`codex/pods-tareq-workspace-gpu-ux-2026-07-09`).

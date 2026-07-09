@@ -152,6 +152,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |
 | Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
 | Pod image readiness contract | `npm run proof:pod-image-readiness` | none | CI-safe readiness packet for `/api/pods/images/readiness`; provider-host LoRA image proof remains blocked |
+| Pod minimum-balance readiness | `npm run proof:minimum-balance-readiness` | none | CI-safe readiness packet for `/api/renters/me/minimum-balances`; `/renter/pods` displays quote/paid-credit gates read-only before launch |
 | LoRA fat image provider-host imports | `npm run proof:lora-pod-image` | provider GPU host with Docker, NVIDIA Container Toolkit, and built `dcp-compute:lora` | Command available; blocked until run on a provider GPU host |
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
 | Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |
@@ -441,6 +442,9 @@ Required gates:
 - Launch quote/debit/refund path remains once-only.
 - On-demand/burst still requires paid available credit.
 - Trial/free credit cannot spill into third-party GPU cost.
+- Pod launch UI must keep the minimum-balance readiness strip read-only: quote
+  preflight for provider/community supply, paid-credit preflight for
+  high-demand supply, and no balance/enforcement mutation claims.
 - Workspace tier is truthful: ephemeral, same-provider, or portable.
 - Provider identity/vendor internals are not leaked to renters.
 

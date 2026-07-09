@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 15:35 UTC - `feat(pods): surface minimum balance gates in launch flow - PR #896`
+
+**PR:** [#896](https://github.com/dhnpmp-tech/dcp-platform/pull/896) (`codex/pods-minimum-balance-launch-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 19:35 +04.
+
+**What:** Tareq pods feedback follow-up. Makes the existing pod minimum-balance policy visible before launch so renters can see why community/provider GPUs and high-demand GPUs use different credit gates.
+
+- **Launch readiness:** `/renter/pods` now fetches `GET /api/renters/me/minimum-balances` with the renter key and shows a synced/fallback minimum-balance policy strip inside the launch flow.
+- **Credit clarity:** The strip separates provider/community pod quote preflight from high-demand paid-credit preflight, shows paid available SAR, and states that trial credit does not unlock high-demand GPUs.
+- **False-claim guards:** The UI surfaces the read-only contract state and the blocked future billing rails for batch, prompt-cache, LoRA training, and adapter deployments when the readiness packet proves no enforcement mutation.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression with the minimum-balance readiness packet, paid-available credit display, rail labels, read-only guard, and blocked future billing rails.
+- **Safety:** Frontend/read-only visibility change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:23 UTC - `feat(pods): sharpen Tareq workspace and GPU launch UX - PR #895`
 
 **PR:** [#895](https://github.com/dhnpmp-tech/dcp-platform/pull/895) (`codex/pods-tareq-workspace-gpu-ux-2026-07-09`).
