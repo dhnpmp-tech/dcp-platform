@@ -159,6 +159,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Adapter endpoint smoke disabled status | `npm run proof:adapter-endpoint-smoke-status` | none | CI-safe gate available; validates renter-scoped no-record endpoint-smoke status returns strict load-proof readiness while smoke recording, route traffic, usage writes, billing, raw prompt/response exposure, and Tinker claims remain disabled |
 | Adapter endpoint smoke disabled submission | `npm run proof:adapter-endpoint-smoke-submission` | none | CI-safe gate available; validates renter-scoped disabled smoke submission returns no-record 409 contracts and does not expose raw prompt/response content |
 | Adapter usage attribution readiness | `npm run proof:adapter-usage-attribution` | none | CI-safe gate available; validates future adapter usage rows for deployment, adapter, endpoint, checksum, provider, request, scoped-key, token, cost, and pending-settlement fields while usage writes, billing, invoices, payouts, route changes, and Tinker claims remain disabled |
+| Adapter settlement readiness | `npm run proof:adapter-settlement-readiness` | none | CI-safe gate available; validates future provider/platform split, pending-settlement, usage-attribution, minimum-balance, and founder-approval prerequisites while provider payouts, invoices, balance mutations, adapter billing, route changes, and Tinker claims remain disabled |
 | Adapter billing readiness | `npm run proof:adapter-billing-readiness` | none | CI-safe gate available; adapter billing, usage writes, invoices, provider payouts, route changes, and Tinker claims remain disabled until strict load proof, endpoint smoke, funded principal, minimum-balance policy, attribution, settlement, and founder approval exist |
 | LoRA GPU training artifact proof | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` | provider GPU host or pod, approved dataset fixture, artifact storage key, training budget window | Command available; currently records readiness blockers and stops before training job creation |
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
@@ -240,7 +241,8 @@ before or with the feature change.
      proof, `proof:adapter-endpoint-smoke`,
      `proof:adapter-endpoint-smoke-status`,
      `proof:adapter-endpoint-smoke-submission`,
-     `proof:adapter-usage-attribution`, `proof:adapter-billing-readiness`, and
+     `proof:adapter-usage-attribution`, `proof:adapter-settlement-readiness`,
+     `proof:adapter-billing-readiness`, and
      inference billing proof for adapter traffic.
    - Route traffic remains disabled until proof matches deployment id, adapter
      id, base model, mode, and artifact checksum.
@@ -516,6 +518,10 @@ Required gates:
 - Adapter usage attribution readiness: run
   `npm run proof:adapter-usage-attribution` before any adapter usage ledger
   write or billed dedicated-endpoint claim.
+- Adapter settlement readiness: run
+  `npm run proof:adapter-settlement-readiness` before any adapter provider
+  payout, platform revenue split, balance mutation, invoice, or billed
+  dedicated-endpoint claim.
 - Adapter billing readiness: run `npm run proof:adapter-billing-readiness`
   before any adapter usage write, invoice, provider payout, minimum-balance
   enforcement change, or billed dedicated-endpoint claim.

@@ -84,6 +84,8 @@ curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/e
 
 curl -s https://api.dcp.sa/api/adapters/usage/attribution/readiness
 
+curl -s https://api.dcp.sa/api/adapters/settlement/readiness
+
 curl -s https://api.dcp.sa/api/adapters/billing/readiness`
 
 export default function DedicatedDeploymentsProductPage() {
