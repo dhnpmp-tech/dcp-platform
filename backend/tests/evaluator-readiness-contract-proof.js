@@ -133,27 +133,25 @@ function runEvaluatorReadinessContractProof(options = {}) {
     );
 
     record(
-      'evaluator job schema is visible while create/list/result APIs remain unavailable',
+      'evaluator job metadata API is visible while worker/result APIs remain unavailable',
       readiness.features.eval_job_schema.available === true
         && readiness.features.eval_job_schema.schema_endpoint === 'GET /api/evals/jobs/schema'
-        && readiness.features.eval_job_schema.creates_jobs === false
+        && readiness.features.eval_job_schema.creates_metadata_only === true
         && readiness.features.eval_job_schema.runs_worker === false
-        && readiness.features.eval_job_api.status === 'schema_ready_create_blocked'
-        && readiness.features.eval_job_api.available === false
-        && readiness.features.eval_job_api.create_endpoint === null
-        && readiness.features.eval_job_api.list_endpoint === null
+        && readiness.features.eval_job_api.status === 'metadata_records_live_worker_blocked'
+        && readiness.features.eval_job_api.available === true
+        && readiness.features.eval_job_api.create_endpoint === 'POST /api/evals/jobs'
+        && readiness.features.eval_job_api.list_endpoint === 'GET /api/evals/jobs'
+        && readiness.features.eval_job_api.read_endpoint === 'GET /api/evals/jobs/:id'
         && readiness.features.eval_job_api.result_endpoint === null,
-      'The schema contract is live, but no public create/list/result evaluator job endpoints are exposed.',
+      'Metadata create/list/read endpoints are live, but no worker or result endpoint is exposed.',
     );
 
     record(
-      'evaluator job API remains unavailable until worker and artifact proof exist',
-      readiness.features.eval_job_api.available === false
-        && readiness.features.eval_job_api.create_endpoint === null
-        && readiness.features.eval_job_api.list_endpoint === null
-        && readiness.features.eval_job_api.result_endpoint === null
+      'evaluator result and worker APIs remain unavailable until artifact proof exists',
+      readiness.features.eval_job_api.result_endpoint === null
         && readiness.features.eval_job_api.required_before_enablement.includes('worker disabled-by-default guard'),
-      'No public create/list/result evaluator job endpoints are exposed by this readiness slice.',
+      'Metadata endpoints are live, but no result artifact or worker endpoint is exposed by this readiness slice.',
     );
 
     record(

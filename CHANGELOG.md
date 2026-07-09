@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 03:15 UTC - `feat(evals): add metadata-only evaluator jobs - PR #857`
+
+**PR:** [#857](https://github.com/dhnpmp-tech/dcp-platform/pull/857) (`codex/evaluator-job-metadata-records-2026-07-09`).
+**Local timestamp:** 2026-07-09 07:15 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds renter-scoped evaluator job records as metadata only, so customers and agents can prepare eval intent without running workers or billing.
+
+- **Backend records:** Added durable `evaluator_jobs` schema plus renter-scoped create/list/read endpoints under `/api/evals/jobs`.
+- **Contract safety:** Records validate dataset SHA-256, task, metrics, candidate model, optional baselines, and budget metadata; idempotency prevents duplicate creates.
+- **Proof command:** Added `npm run proof:evaluator-job-metadata-contract` and included it in `npm run proof:local-roadmap`, raising the suite to 15 CI-safe gates.
+- **Gates:** Readiness/schema now mark metadata APIs live while result artifacts, workers, billing, reports, rankings, and Arabic-quality claims remain blocked.
+- **Verified:** Syntax/package JSON checks; targeted evaluator metadata/readiness/schema Jest suites; evaluator metadata proof; evaluator schema proof; evaluator readiness proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 15/15 gates; `git diff --check`.
+
 ### 2026-07-09 02:58 UTC - `test(evals): add evaluator job schema proof - PR #856`
 
 **PR:** [#856](https://github.com/dhnpmp-tech/dcp-platform/pull/856) (`codex/evaluator-job-schema-contract-2026-07-09`).

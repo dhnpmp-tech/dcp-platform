@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { ensureAdapterRegistrySchema } = require('./services/adapterRegistry');
 const { ensureAdapterDeploymentSchema } = require('./services/adapterDeploymentLifecycle');
 const { ensureLoraTrainingJobsSchema } = require('./services/loraTrainingJobs');
+const { ensureEvaluatorJobSchema } = require('./services/evaluatorJobs');
 
 // PROV-9: deterministic sha256hex used both to backfill api_key_hash here and
 // (mirrored as hashProviderApiKey) in routes/providers.js. Keep the two in lockstep.
@@ -1589,6 +1590,7 @@ db.exec(`
 ensureAdapterRegistrySchema(db);
 ensureAdapterDeploymentSchema(db);
 ensureLoraTrainingJobsSchema(db);
+ensureEvaluatorJobSchema(db);
 
 // ─── CREDIT GRANTS TABLE ───
 // Immutable audit trail for admin-issued renter credits.

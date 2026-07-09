@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 03:15 UTC - Evaluator metadata job records (PR #857)
+
+- **PR:** [#857](https://github.com/dhnpmp-tech/dcp-platform/pull/857) (`codex/evaluator-job-metadata-records-2026-07-09`).
+- **Backend:** Added renter-scoped metadata-only `POST /api/evals/jobs`, `GET /api/evals/jobs`, and `GET /api/evals/jobs/:id` with dataset checksum validation, metric/task validation, idempotent create, and renter isolation.
+- **Proof:** Added `npm run proof:evaluator-job-metadata-contract` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 15 CI-safe gates.
+- **Docs/contracts:** Updated evaluator readiness/schema contracts so metadata APIs are live while workers, result artifacts, billing, reports, rankings, and Arabic-quality claims remain blocked.
+- **Safety:** Metadata records only; no evaluator worker, raw dataset storage, model comparison, billing, settlement, public report, ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator metadata/readiness/schema Jest suites; evaluator metadata proof; evaluator schema proof; evaluator readiness proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 15/15 gates; `git diff --check`.
+
 ### 2026-07-09 02:58 UTC - Evaluator job schema contract (PR #856)
 
 - **PR:** [#856](https://github.com/dhnpmp-tech/dcp-platform/pull/856) (`codex/evaluator-job-schema-contract-2026-07-09`).

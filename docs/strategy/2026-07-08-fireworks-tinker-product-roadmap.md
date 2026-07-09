@@ -304,7 +304,12 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #856 adds `GET /api/evals/jobs/schema` and
     `npm run proof:evaluator-job-schema-contract` so renter-scoped eval job
     records, dataset checksums, metrics, result manifests, harness gates, and
-    billing guards are explicit before create/list/result APIs exist.
+    billing guards are explicit before worker/result APIs exist.
+  - PR #857 adds renter-scoped metadata `POST/GET /api/evals/jobs`,
+    `GET /api/evals/jobs/:id`, and
+    `npm run proof:evaluator-job-metadata-contract`; it stores draft eval
+    intent only and keeps dataset storage, workers, result artifacts, billing,
+    reports, rankings, and quality claims blocked.
 
 Acceptance:
 
