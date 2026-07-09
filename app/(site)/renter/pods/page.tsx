@@ -1102,6 +1102,10 @@ export default function RenterPodsPage() {
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
   const explicitTrialTagLive = trialRouting?.account_classification?.explicit_trial_account_tag_live === true
   const trialAccountModeLabel = explicitTrialTagLive ? 'Trial accounts: explicit tag' : 'Trial accounts: credit provenance (no explicit tag)'
+  const trialTagAnswerLabel = explicitTrialTagLive ? 'Trial-account tag live' : 'No trial-account tag live'
+  const trialCreditSourceLabel = trialRouting?.account_classification?.trial_credit_source === 'renters.trial_grant_halala'
+    ? 'Trial source: grant balance'
+    : 'Trial source: credit provenance'
   const trialPolicyHeadline = explicitTrialTagLive
     ? 'Trial account tag is active'
     : 'Trial is handled by credit provenance'
@@ -1227,7 +1231,7 @@ export default function RenterPodsPage() {
             </a>
             <a href="#pod-stage-2" className={selectedType || launch.gpuType === '' ? 'ok' : ''}>
               <span>Stage 2</span>
-              <strong><Bi en="Template + GPU request" ar="القالب + طلب GPU" /></strong>
+              <strong><Bi en="Template + actual GPU" ar="القالب + GPU الفعلي" /></strong>
               <em>
                 {selectedType
                   ? displayGpuType(selectedType.gpu_model)
@@ -1405,6 +1409,12 @@ export default function RenterPodsPage() {
                 <span>
                   <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
                 </span>
+                <span>
+                  <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
+                </span>
+                <span>
+                  <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
+                </span>
                 {selectedType && (
                   <button
                     type="button"
@@ -1440,6 +1450,12 @@ export default function RenterPodsPage() {
                 </span>
                 <span>
                   <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
+                </span>
+                <span>
+                  <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
+                </span>
+                <span>
+                  <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
                 </span>
                 <span>
                   <Bi en="Trial route: native/community GPUs" ar="مسار التجربة: معالجات DCP والمجتمع" />
@@ -1658,6 +1674,9 @@ export default function RenterPodsPage() {
                     {selectedType
                       ? <Bi en="Request: fixed GPU" ar="الطلب: GPU محدد" />
                       : <Bi en="Request: auto-pick" ar="الطلب: اختيار تلقائي" />}
+                  </span>
+                  <span className="gpu-selection-chip final">
+                    <Bi en="Final launch request" ar="طلب التشغيل النهائي" />
                   </span>
                   <span className="gpu-selection-chip">
                     {minVram > 0

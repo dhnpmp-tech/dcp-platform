@@ -173,6 +173,10 @@ what is live.
   the source of truth, VRAM controls are browse-only filters, and the trial
   policy is a dedicated block covering credit provenance, native/community
   trial routing, paid high-demand routing, and hidden provider identity.
+- PR #893 adds a collapsible Stage 1 folder index so large workspaces can be
+  browsed folder-first without opening the full manifest, makes the Stage 2
+  selected-GPU strip a sticky final-launch-request rail, and answers the trial
+  tag question directly with live-tag vs credit-provenance copy.
 
 ### Now
 

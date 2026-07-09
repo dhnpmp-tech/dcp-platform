@@ -181,15 +181,24 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.locator('#pod-stage-1 .pod-stage-no')).toHaveText('Stage 1');
   await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2');
   await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3');
-  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU request.*Auto-pick/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ actual GPU.*Auto-pick/ })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 ready');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('datasets/');
+  await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Manage files' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Continue to Stage 2' })).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeHidden();
   await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
+
+  await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' }).click();
+  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Open one folder, keep Stage 1 collapsed');
+  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Use this when the workspace has many files.');
+  await expect(page.getByLabel('Stage 1 folder index').getByRole('button', { name: /Open notebooks\/ with 1 files/ })).toBeVisible();
+  await expect(page.getByText('Stage 1 manifest')).toBeHidden();
+  await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Hide folders' }).click();
+  await expect(page.getByLabel('Stage 1 folder index')).toBeHidden();
 
   await page.getByRole('link', { name: 'Continue to Stage 2' }).click();
   await expect(page).toHaveURL(/#pod-stage-2$/);
@@ -221,11 +230,15 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
   await expect(computeSummary).toContainText('Trial accounts: credit provenance');
+  await expect(computeSummary).toContainText('No trial-account tag live');
+  await expect(computeSummary).toContainText('Trial source: grant balance');
   await expect(computeSummary.getByRole('button', { name: 'Auto-pick', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(computeSummary.getByRole('button', { name: 'Fixed GPU', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial is handled by credit provenance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Backend policy: synced');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial accounts: credit provenance');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('No trial-account tag live');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('Trial source: grant balance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial route: native/community GPUs');
   await expect(page.getByLabel('Trial routing policy')).toContainText('High-demand route: paid credit');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Provider identity hidden');
@@ -238,6 +251,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuSelectionStrip).toContainText('Actual launch GPU request');
   await expect(gpuSelectionStrip).toContainText('Auto-pick: no fixed GPU');
   await expect(gpuSelectionStrip).toContainText('Request: auto-pick');
+  await expect(gpuSelectionStrip).toContainText('Final launch request');
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
   await expect(page.getByText('Browse-only VRAM filter')).toBeVisible();

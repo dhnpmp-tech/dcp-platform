@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 14:44 UTC - Pod workspace folder index and GPU request rail (PR #893)
+
+- **PR:** [#893](https://github.com/dhnpmp-tech/dcp-platform/pull/893) (`codex/pods-workspace-collapsible-gpu-clarity-2026-07-09`).
+- **Workspace UX:** `/renter/pods` compact Stage 1 now has a collapsible folder index so renters can browse all staged folders and open one folder without expanding the full manifest.
+- **GPU UX:** Stage 2 now labels the decision as template plus actual GPU, and the selected-GPU strip is a sticky final-launch-request rail while users browse GPU cards.
+- **Trial policy clarity:** The launch flow now states whether a live trial-account tag exists and shows credit-provenance/grant-balance handling beside native/community trial routing and paid high-demand routing.
+- **Regression:** Updated the focused `/renter/pods` Playwright test for folder-index browsing, trial-tag answer copy, and final-launch GPU rail clarity.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 14:30 UTC - Prompt-cache and batch live proof gates (PR #892)
 
 - **PR:** [#892](https://github.com/dhnpmp-tech/dcp-platform/pull/892) (`codex/inference-batch-live-proof-readiness-2026-07-09`).

@@ -105,6 +105,7 @@ export default function WorkspacePanel({
   const [filesCollapsed, setFilesCollapsed] = useState(context === 'pod-launch')
   const [collapsedFileGroups, setCollapsedFileGroups] = useState<Set<string>>(() => new Set())
   const [stageDetailsOpen, setStageDetailsOpen] = useState(context !== 'pod-launch')
+  const [compactFolderIndexOpen, setCompactFolderIndexOpen] = useState(false)
 
   const [confirmDelete, setConfirmDelete] = useState<WorkspaceFile | null>(null)
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
@@ -273,6 +274,7 @@ export default function WorkspacePanel({
 
   function openOnlyFileGroup(groupId: string) {
     setStageDetailsOpen(true)
+    setCompactFolderIndexOpen(false)
     setFilesCollapsed(false)
     setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id).filter((id) => id !== groupId)))
   }
@@ -360,6 +362,18 @@ export default function WorkspacePanel({
             </span>
           </div>
           <div className="ws-stage-compact-actions">
+            {fileGroups.length > 0 && (
+              <button
+                type="button"
+                aria-expanded={compactFolderIndexOpen}
+                aria-controls="ws-stage-folder-index"
+                onClick={() => setCompactFolderIndexOpen((value) => !value)}
+              >
+                {compactFolderIndexOpen
+                  ? <Bi en="Hide folders" ar="إخفاء المجلدات" />
+                  : <Bi en="Browse folders" ar="تصفح المجلدات" />}
+              </button>
+            )}
             <button type="button" onClick={() => setStageDetailsOpen(true)}>
               <Bi en="Manage files" ar="إدارة الملفات" />
             </button>
@@ -386,7 +400,49 @@ export default function WorkspacePanel({
                   <b>{group.files.length}</b>
                 </button>
               ))}
-              {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
+              {fileGroups.length > 4 && (
+                <button
+                  type="button"
+                  onClick={() => setCompactFolderIndexOpen(true)}
+                  aria-expanded={compactFolderIndexOpen}
+                  aria-controls="ws-stage-folder-index"
+                >
+                  +{fileGroups.length - 4}
+                </button>
+              )}
+            </div>
+          )}
+          {compactFolderIndexOpen && fileGroups.length > 0 && (
+            <div
+              id="ws-stage-folder-index"
+              className="ws-stage-folder-index"
+              aria-label={lang === 'ar' ? 'فهرس مجلدات المرحلة 1' : 'Stage 1 folder index'}
+            >
+              <div className="ws-stage-folder-index-head">
+                <strong>
+                  <Bi en="Open one folder, keep Stage 1 collapsed" ar="افتح مجلداً واحداً وأبقِ المرحلة 1 مطوية" />
+                </strong>
+                <span>
+                  <Bi en="Use this when the workspace has many files." ar="استخدم هذا عندما تحتوي مساحة العمل على ملفات كثيرة." />
+                </span>
+              </div>
+              <div className="ws-stage-folder-index-grid">
+                {fileGroups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => openOnlyFileGroup(group.id)}
+                    aria-label={
+                      lang === 'ar'
+                        ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
+                        : `Open ${group.label} with ${group.files.length} files`
+                    }
+                  >
+                    <span>{group.label}</span>
+                    <b>{group.files.length}</b>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
