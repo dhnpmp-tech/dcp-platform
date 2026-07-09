@@ -23,6 +23,7 @@ const {
 const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
 const { ADAPTER_ARTIFACT_POLICY_VERSION } = require('../services/adapterArtifactPolicy');
 const { ADAPTER_BILLING_READINESS_VERSION } = require('../services/adapterBillingReadiness');
+const { ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION } = require('../services/adapterUsageAttributionReadiness');
 
 const LORA_READINESS_VERSION = 'dcp.lora_readiness.v1';
 const LORA_DATASET_VALIDATION_VERSION = 'dcp.lora_dataset_validation.v1';
@@ -170,6 +171,7 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       training_job_logs: 'GET /api/lora/training-jobs/{training_job_id}/logs',
       register_adapter: 'POST /api/lora/training-jobs/{training_job_id}/register-adapter',
       adapter_artifact_policy: 'GET /api/adapters/artifacts/readiness',
+      adapter_usage_attribution_readiness: 'GET /api/adapters/usage/attribution/readiness',
       adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
       adapter_registry: 'GET/POST /api/adapters',
       adapter_deployments: 'GET/POST /api/adapters/{adapter_id}/deployments',
@@ -210,6 +212,8 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       artifact_policy_endpoint: 'GET /api/adapters/artifacts/readiness',
       billing_readiness_version: ADAPTER_BILLING_READINESS_VERSION,
       billing_readiness_endpoint: 'GET /api/adapters/billing/readiness',
+      usage_attribution_readiness_version: ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION,
+      usage_attribution_readiness_endpoint: 'GET /api/adapters/usage/attribution/readiness',
       artifact_upload_endpoint_enabled: false,
       artifact_storage_write_enabled: false,
       model_card_required: true,
@@ -226,6 +230,7 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       route_traffic: false,
       billing_enabled: false,
       load_proof_required: true,
+      usage_attribution_required: true,
       billing_policy_required: true,
       next: 'attach_vllm_adapter_load_proof_before_any_routing',
     },

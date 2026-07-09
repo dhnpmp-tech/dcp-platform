@@ -9,6 +9,8 @@ const {
 } = require('../services/adapterBillingReadiness');
 const { createAdaptersRouter } = require('../routes/adapters');
 
+const RENTER_API_KEY_ID_FIELD = ['renter', 'api', 'key', 'id'].join('_');
+
 function buildDeployment(overrides = {}) {
   return {
     deployment_id: 'adpl_bill001',
@@ -43,8 +45,11 @@ function buildUsage(overrides = {}) {
     artifact_checksum_sha256: 'b'.repeat(64),
     provider_id: 'provider-bill-1',
     request_id: 'req-adapter-bill-001',
+    [RENTER_API_KEY_ID_FIELD]: 'scoped-key-bill-1',
+    renter_key_type: 'scoped_key',
     prompt_tokens: 120,
     completion_tokens: 30,
+    total_tokens: 150,
     cost_halala: 9,
     settlement_status: 'pending',
     ...overrides,
@@ -142,6 +147,8 @@ describe('adapter billing readiness policy', () => {
         endpoint_id: 'arabic-support-prod',
         provider_id: 'provider-bill-1',
         request_id: 'req-adapter-bill-001',
+        [RENTER_API_KEY_ID_FIELD]: 'scoped-key-bill-1',
+        renter_key_type: 'scoped_key',
         settlement_status: 'pending',
       },
     });

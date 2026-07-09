@@ -155,6 +155,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
 | Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |
 | Adapter artifact policy | `npm run proof:adapter-artifact-policy` | none | CI-safe gate available; validates renter/adapter-scoped adapter/model-card keys and checksums while artifact upload, object-store writes, serving, routing, billing, and Tinker claims remain disabled |
+| Adapter usage attribution readiness | `npm run proof:adapter-usage-attribution` | none | CI-safe gate available; validates future adapter usage rows for deployment, adapter, endpoint, checksum, provider, request, scoped-key, token, cost, and pending-settlement fields while usage writes, billing, invoices, payouts, route changes, and Tinker claims remain disabled |
 | Adapter billing readiness | `npm run proof:adapter-billing-readiness` | none | CI-safe gate available; adapter billing, usage writes, invoices, provider payouts, route changes, and Tinker claims remain disabled until strict load proof, endpoint smoke, funded principal, minimum-balance policy, attribution, settlement, and founder approval exist |
 | LoRA GPU training artifact proof | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` | provider GPU host or pod, approved dataset fixture, artifact storage key, training budget window | Command available; currently records readiness blockers and stops before training job creation |
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
@@ -492,6 +493,9 @@ Required gates:
   `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`
   to verify readiness before any live adapter load, endpoint smoke, or adapter
   billing claim.
+- Adapter usage attribution readiness: run
+  `npm run proof:adapter-usage-attribution` before any adapter usage ledger
+  write or billed dedicated-endpoint claim.
 - Adapter billing readiness: run `npm run proof:adapter-billing-readiness`
   before any adapter usage write, invoice, provider payout, minimum-balance
   enforcement change, or billed dedicated-endpoint claim.
