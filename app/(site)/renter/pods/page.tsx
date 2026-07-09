@@ -1227,6 +1227,13 @@ export default function RenterPodsPage() {
     : 'Launch will auto-pick an available GPU type; no GPU is pinned yet.'
   const stage2FilterLabel = minVram > 0 ? `Browse filter ${minVram} GB+` : 'No browse filter'
   const stage2GpuDecisionLabel = selectedType ? displayGpuType(selectedType.gpu_model) : 'Auto-pick GPU'
+  const launchModeHeadline = selectedType
+    ? 'Fixed GPU selected for launch'
+    : 'Auto-pick is selected for launch'
+  const launchModeDetail = selectedType
+    ? 'The launch request will include this GPU type. Filters below only change which cards are visible.'
+    : 'Templates and VRAM chips only narrow the cards below; they do not pin a GPU until a card is selected.'
+  const stage2ModeChipLabel = selectedType ? 'Mode: fixed GPU selected' : 'Mode: auto-pick selected'
   const workspacePodContractStatus = trialRouting?.infrastructure_proofs?.workspace_pod_contract?.status
   const workspaceLiveStatus = trialRouting?.infrastructure_proofs?.workspace_live_acceptance?.status
   const loraPodImageStatus = trialRouting?.infrastructure_proofs?.lora_pod_image_provider_host?.status
@@ -1393,13 +1400,15 @@ export default function RenterPodsPage() {
               <strong><Bi en="Workspace files" ar="ملفات مساحة العمل" /></strong>
               <em>
                 {workspaceVolume
-                  ? `${workspaceVolume.size_gb} GB`
+                  ? workspaceFiles.length > 0
+                    ? `${workspaceFiles.length} files · collapsed`
+                    : `${workspaceVolume.size_gb} GB · empty`
                   : <Bi en="Create volume" ar="أنشئ وحدة" />}
               </em>
             </a>
             <a href="#pod-stage-2" className={selectedType || launch.gpuType === '' ? 'ok' : ''}>
               <span>Stage 2</span>
-              <strong><Bi en="Template + GPU decision" ar="القالب + قرار GPU" /></strong>
+              <strong><Bi en="Template + actual GPU" ar="القالب + GPU الفعلي" /></strong>
               <em>
                 {selectedType
                   ? displayGpuType(selectedType.gpu_model)
@@ -1567,6 +1576,17 @@ export default function RenterPodsPage() {
                     <Bi en="Fixed GPU" ar="GPU محدد" />
                   </button>
                 </div>
+                <div className={`pod-stage2-mode-card ${selectedType ? 'fixed' : 'auto'}`}>
+                  <span>
+                    <Bi en="Launch mode" ar="وضع التشغيل" />
+                  </span>
+                  <strong>
+                    <Bi en={launchModeHeadline} ar={selectedType ? 'تم تحديد GPU للتشغيل' : 'الاختيار التلقائي محدد للتشغيل'} />
+                  </strong>
+                  <em>
+                    <Bi en={launchModeDetail} ar={selectedType ? 'سيرسل التشغيل نوع GPU هذا. التصفية أدناه للتصفح فقط.' : 'القوالب وتصفية الذاكرة تضيق البطاقات فقط ولا تثبت GPU حتى تختار بطاقة.'} />
+                  </em>
+                </div>
                 <div className="pod-decision-lane" aria-label={lang === 'ar' ? 'ملخص قرارات المرحلة 2' : 'Stage 2 decision summary'}>
                   <span>
                     <b><Bi en="Template" ar="القالب" /></b>
@@ -1605,6 +1625,9 @@ export default function RenterPodsPage() {
                     <Bi en="Filter only; not the launch GPU" ar="تصفية فقط؛ ليست GPU التشغيل" />
                   </span>
                 )}
+                <span className="pod-filter-note">
+                  <Bi en="VRAM chips are browse filters, not the selected launch GPU" ar="شرائح الذاكرة للتصفح فقط وليست GPU التشغيل المحددة" />
+                </span>
                 {selectedQuoteSar != null && (
                   <span>
                     <Bi en={`Quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير: ~${fmtSar(selectedQuoteSar)} ﷼`} />
@@ -1654,7 +1677,7 @@ export default function RenterPodsPage() {
             <div className="gpu-selection-strip" aria-label={lang === 'ar' ? 'طلب GPU للتشغيل' : 'Actual launch GPU request'} aria-live="polite">
               <div className="gpu-selection-copy">
                 <span className="gpu-selection-k">
-                  <Bi en="Actual launch GPU request" ar="طلب GPU للتشغيل" />
+                  <Bi en="Stage 2 selected launch GPU" ar="GPU التشغيل المحدد في المرحلة 2" />
                 </span>
                 {selectedType ? (
                   <>
@@ -1681,6 +1704,9 @@ export default function RenterPodsPage() {
                   {selectedType
                     ? <Bi en="Request: fixed GPU" ar="الطلب: GPU محدد" />
                     : <Bi en="Request: auto-pick" ar="الطلب: اختيار تلقائي" />}
+                </span>
+                <span className={`gpu-selection-chip ${selectedType ? 'fixed' : 'auto'}`}>
+                  <Bi en={stage2ModeChipLabel} ar={selectedType ? 'الوضع: GPU محدد' : 'الوضع: اختيار تلقائي'} />
                 </span>
                 <span className="gpu-selection-chip final">
                   <Bi en="Final launch request" ar="طلب التشغيل النهائي" />

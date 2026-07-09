@@ -277,6 +277,39 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   line-height: 1.45;
   color: var(--ink-2);
 }
+.ws-folder-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ws-folder-search span,
+.ws-files-search span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.ws-folder-search input,
+.ws-files-search input {
+  min-height: 34px;
+  width: 100%;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .03em;
+  border-radius: 2px;
+}
+.ws-folder-search input:focus,
+.ws-files-search input:focus {
+  outline: none;
+  border-color: var(--teal);
+  background: color-mix(in oklab, var(--teal) 5%, var(--bg-2));
+}
 .ws-stage-folder-index-grid {
   min-width: 0;
   max-height: 176px;
@@ -326,6 +359,20 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   font-size: 10px;
   letter-spacing: .04em;
   white-space: nowrap;
+}
+.ws-folder-empty,
+.ws-file-no-results {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px dashed var(--hair);
+  background: var(--bg-2);
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  line-height: 1.45;
 }
 @media (max-width: 680px) {
   .ws-stage-compact {
@@ -627,6 +674,27 @@ html[dir="rtl"] .ws-up-bar span { transform-origin: right; inset: 0 0 0 100%; }
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+}
+.ws-files-search {
+  min-width: min(260px, 100%);
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.ws-files-search input {
+  min-height: 30px;
+  padding: 6px 9px;
+}
+@media (max-width: 680px) {
+  .ws-files-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ws-files-search {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
 }
 .ws-files-next {
   min-height: 30px;

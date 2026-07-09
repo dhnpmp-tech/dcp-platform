@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 16:57 UTC - Pods workspace search and launch GPU mode clarity (PR #902)
+
+- **PR:** [#902](https://github.com/dhnpmp-tech/dcp-platform/pull/902) (`codex/pods-workspace-stage-clarity-2026-07-09`).
+- **Timestamp:** 2026-07-09 16:57 UTC / 2026-07-09 20:57 +04.
+- **Workspace UX:** `/renter/pods` Stage 1 keeps the compact folder-first checkpoint and now adds search to the collapsed folder index plus the expanded staged-file manifest.
+- **Stage/GPU UX:** Stage 2 now has a dedicated Launch mode card for auto-pick vs fixed GPU, repeats that VRAM chips are browse filters only, and makes the launch request rail prominent without sticking over the filter controls.
+- **Trial/credit clarity:** The flow continues to surface grant-credit trial routing, native/community trial capacity, paid-credit high-demand gating, and minimum-balance status from existing readiness contracts.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for Stage 1 search, expanded-manifest search, launch mode copy, browse-filter copy, and auto-pick/fixed-GPU chips.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; `git diff --check`.
+
 ### 2026-07-09 16:38 UTC - Dedicated Deployments adapter readiness contracts (PR #901)
 
 - **PR:** [#901](https://github.com/dhnpmp-tech/dcp-platform/pull/901) (`codex/dedicated-deployments-readiness-rail-2026-07-09`).

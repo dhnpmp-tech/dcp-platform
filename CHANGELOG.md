@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 16:57 UTC - `feat(pods): sharpen workspace search and launch GPU mode clarity - PR #902`
+
+**PR:** [#902](https://github.com/dhnpmp-tech/dcp-platform/pull/902) (`codex/pods-workspace-stage-clarity-2026-07-09`).
+**Local timestamp:** 2026-07-09 20:57 +04.
+
+**What:** Tareq pods/workspace feedback follow-up. Makes large workspaces easier to pass through and makes the Stage 2 launch GPU mode harder to confuse with browse filters.
+
+- **Workspace search:** The embedded `/renter/pods` Stage 1 workspace checkpoint now keeps its folder-first collapsed mode, adds search inside the collapsed folder index, and adds search in the expanded staged-file manifest.
+- **Stage clarity:** The stage rail now shows Stage 1 as collapsed when files are staged and names Stage 2 as the template plus actual GPU decision.
+- **GPU mode clarity:** Stage 2 now has a dedicated Launch mode card for auto-pick vs fixed GPU, repeats that VRAM chips are browse filters only, and keeps the launch request rail prominent without sticking over filter controls.
+- **Trial and credit clarity:** Existing readiness-contract copy remains visible: trial accounts are handled through grant-credit provenance when no live trial tag exists, native/community GPUs are allowed for trial credit, and high-demand GPUs require paid available credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for Stage 1 search, expanded-manifest search, launch mode copy, browse-filter copy, and auto-pick/fixed-GPU chips.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; `git diff --check`.
+
 ### 2026-07-09 16:38 UTC - `feat(deployments): surface adapter readiness contracts - PR #901`
 
 **PR:** [#901](https://github.com/dhnpmp-tech/dcp-platform/pull/901) (`codex/dedicated-deployments-readiness-rail-2026-07-09`).
