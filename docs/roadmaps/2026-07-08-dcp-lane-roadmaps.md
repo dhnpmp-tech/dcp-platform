@@ -155,6 +155,10 @@ what is live.
 - PR #878 adds a prominent GPU-selection strip before the Stage 2 filters and
   card grid, keeping auto-pick vs selected GPU, VRAM, hourly price, active
   filters, and reset actions visible without changing launch semantics.
+- PR #882 adds a three-step jump rail and Stage 2 links inside the embedded
+  workspace panel, then replaces the ambiguous min-VRAM slider with explicit
+  VRAM filter chips so large workspaces and compute filtering do not obscure
+  the actual selected GPU.
 
 ### Now
 
