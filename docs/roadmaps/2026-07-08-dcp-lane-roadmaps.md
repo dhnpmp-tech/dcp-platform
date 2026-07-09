@@ -220,6 +220,10 @@ what is live.
   adds a Stage 1/2/3 control map, and adds a Stage 2 source guide that separates
   launch-affecting controls from browse-only template, VRAM, search, and sort
   controls.
+- PR #909 adds a top-level Stage 2 fast path above the workspace section,
+  makes the stage rail name Stage 2 as the actual launch GPU, labels VRAM chips
+  as browse filters only, and changes the launch CTA to distinguish auto-picked
+  versus fixed-GPU pod launches.
 
 ### Now
 
@@ -741,6 +745,10 @@ template launch.
   folder-tree-first by default and repeats the trial handling answer inside the
   Stage 2 launch-source guide: grant-credit provenance unless a live trial tag
   exists, native/community trial capacity, and paid credit for high-demand GPUs.
+- PR #909 keeps pod launch semantics unchanged while making the path through a
+  large workspace faster: users can jump to Stage 2 from the top fast path,
+  Stage 1 remains visibly collapsible, and the UI repeats that VRAM filters do
+  not select the actual launch GPU.
 
 ### Now
 

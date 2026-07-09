@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 18:42 UTC - `feat(pods): add Stage 2 fast path for launch UX - PR #909`
+
+**PR:** [#909](https://github.com/dhnpmp-tech/dcp-platform/pull/909) (`codex/pods-stage2-fast-path-2026-07-09`).
+**Local timestamp:** 2026-07-09 22:42 +04.
+
+**What:** Tareq workspace/pods follow-up. Makes the `/renter/pods` launch flow easier to scan when many files are staged, makes Stage 2 the obvious GPU decision point, and surfaces the trial-account answer before launch.
+
+- **Stage 2 fast path:** Added a top-level fast-path strip above Stage 1 so users can jump straight to the actual launch GPU decision without opening the workspace file tree.
+- **Workspace collapse clarity:** The fast-path strip states that Stage 1 can stay collapsed and summarizes staged files/folders instead of making the full manifest feel required.
+- **GPU decision prominence:** The stage rail now names Stage 2 as the actual launch GPU; the launch CTA now distinguishes auto-picked launches from fixed-GPU launches.
+- **VRAM filter clarity:** Added inline copy beside the VRAM controls explaining that the chips are browse filters only and do not select the launch GPU.
+- **Trial answer:** The fast-path strip repeats the backend-readiness policy: no separate live trial tag unless the backend reports one, grant-credit provenance drives trial handling, trial credit routes to native/community GPU capacity, and high-demand GPUs require paid credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the fast-path strip, Stage 2 rail copy, browse-filter disclaimer, and auto-pick launch button.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 18:29 UTC - `test(ops): surface latest live-gate evidence - PR #908`
 
 **PR:** [#908](https://github.com/dhnpmp-tech/dcp-platform/pull/908) (`codex/live-acceptance-evidence-2026-07-09`).

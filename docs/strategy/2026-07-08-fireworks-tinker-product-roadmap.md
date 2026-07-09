@@ -160,6 +160,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #903 auto-opens that compact Stage 1 folder tree for larger workspaces
     and adds a Stage 1/2/3 control map, so the user sees the path to Stage 2
     without reviewing the full file manifest.
+  - PR #909 adds a top-level Stage 2 fast path above Stage 1, making the
+    actual launch GPU decision reachable before the workspace file tree and
+    keeping Stage 1 visibly collapsible for large workspaces.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -200,6 +203,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #903 adds a Stage 2 source guide that separates launch-affecting controls
     from browse-only controls: auto-pick/fixed GPU affects launch, while
     templates, VRAM chips, search, and sort only filter cards.
+  - PR #909 promotes that answer into the top-level fast path and launch CTA:
+    Stage 2 is named as the actual launch GPU, VRAM chips are labeled as
+    browse filters only, and the button distinguishes auto-picked launches from
+    fixed-GPU launches while keeping trial and minimum-balance policy read-only.
 
 Acceptance:
 

@@ -234,7 +234,14 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.locator('#pod-stage-1 .pod-stage-no')).toHaveText('Stage 1');
   await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2');
   await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3');
-  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ actual GPU.*Auto-pick/ })).toBeVisible();
+  await expect(page.locator('.pod-stage-nav').getByRole('link', { name: /Stage 2.*Actual launch GPU.*Auto-pick/ })).toBeVisible();
+  const fastPath = page.getByLabel('Fast path to Stage 2');
+  await expect(fastPath).toContainText('Main decision');
+  await expect(fastPath).toContainText('Go straight to Stage 2');
+  await expect(fastPath).toContainText('Auto-pick is active; no fixed GPU is selected.');
+  await expect(fastPath).toContainText('Workspace can stay collapsed');
+  await expect(fastPath).toContainText('No trial-account tag live');
+  await expect(fastPath.getByRole('link', { name: /Go straight to Stage 2/ })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 file tree');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
@@ -373,6 +380,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuSelectionStrip).toContainText('Final launch request');
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
+  await expect(page.getByText('This is only a browse filter. The launch GPU remains Auto-pick until you choose Use as launch GPU on a card.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Launch auto-picked GPU pod' })).toBeVisible();
   await expect(page.getByText('Use as launch GPU').first()).toBeVisible();
   await expect(page.getByText('Browse filter only: VRAM')).toBeVisible();
   await page.getByRole('button', { name: '80 GB+', exact: true }).click();

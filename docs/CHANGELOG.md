@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 18:42 UTC - Pods Stage 2 fast path launch UX (PR #909)
+
+- **PR:** [#909](https://github.com/dhnpmp-tech/dcp-platform/pull/909) (`codex/pods-stage2-fast-path-2026-07-09`).
+- **Timestamp:** 2026-07-09 18:42 UTC / 2026-07-09 22:42 +04.
+- **Stage 2 fast path:** `/renter/pods` now shows a top-level fast-path strip above Stage 1 so renters can jump straight to the actual launch GPU decision even when many workspace files are staged.
+- **Workspace UX:** The fast path states that Stage 1 can stay collapsed and summarizes the file tree instead of making the full manifest feel required before Stage 2.
+- **GPU clarity:** The stage rail now names Stage 2 as the actual launch GPU, the launch button distinguishes auto-pick from fixed-GPU launches, and the VRAM controls repeat that chips are browse filters only.
+- **Trial clarity:** The fast path repeats the backend-readiness answer: trial handling is grant-credit provenance when no explicit trial tag is live, trial credit routes to native/community GPU capacity, and high-demand GPUs require paid credit.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the fast path, Stage 2 rail, browse-filter disclaimer, and auto-pick launch CTA.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 18:29 UTC - Live acceptance latest-evidence status (PR #908)
 
 - **PR:** [#908](https://github.com/dhnpmp-tech/dcp-platform/pull/908) (`codex/live-acceptance-evidence-2026-07-09`).
