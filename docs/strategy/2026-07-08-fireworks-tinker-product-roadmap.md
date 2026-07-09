@@ -295,6 +295,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     two measured prompt-cache requests, measured-hit evidence, and no-discount
     settlement guards. It remains blocked until funded/provider/policy inputs
     exist.
+  - PR #918 added `GET /v1/prompt-cache/settlement/readiness` plus
+    `npm run proof:prompt-cache-settlement-readiness` so provider cache-hit
+    evidence, funded smoke principal, usage attribution, founder approval, and
+    discount-math reconciliation are visible and CI-proofed before cached-input
+    discounts or settlement mutations can ship.
 - Add batch inference design:
   - upload JSONL
   - async job

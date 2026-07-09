@@ -47,6 +47,9 @@ const {
   recordPromptCacheMeasurement,
 } = require('../services/promptCacheAccounting');
 const {
+  buildPromptCacheSettlementReadiness,
+} = require('../services/promptCacheSettlementReadiness');
+const {
   selectProvidersWithLatencyGate,
   recordStreamOutcome,
   resolveProviderTier,
@@ -856,6 +859,11 @@ router.get('/router/policies', modelCatalogLimiter, (_req, res) => {
 // ── GET /v1/prompt-cache/readiness — read-only prompt-cache gate contract ──
 router.get('/prompt-cache/readiness', modelCatalogLimiter, (_req, res) => {
   return res.json(buildPromptCacheReadiness());
+});
+
+// ── GET /v1/prompt-cache/settlement/readiness — gated discount policy contract ──
+router.get('/prompt-cache/settlement/readiness', modelCatalogLimiter, (_req, res) => {
+  return res.json(buildPromptCacheSettlementReadiness());
 });
 
 // ── GET /v1/models — OpenAI-compatible model list ──────────────────────────

@@ -962,6 +962,66 @@ components:
           type: string
           example: enable_discount_only_after_provider_cache_hit_and_settlement_proof
 
+    PromptCacheSettlementReadiness:
+      type: object
+      description: Read-only prompt-cache settlement readiness contract. It exposes the exact evidence and policy gates required before future cached-input discounts can affect settlement, while keeping discounts, settlement mutations, provider KV-cache control, and raw prompt storage disabled.
+      required: [object, version, current_mode, endpoints, policy, denial_codes, claim_guards, next_actions]
+      properties:
+        object:
+          type: string
+          enum: [prompt_cache_settlement_readiness]
+          example: prompt_cache_settlement_readiness
+        version:
+          type: string
+          example: dcp.prompt_cache_settlement_readiness.v1
+        generated_at:
+          type: string
+          format: date-time
+        current_mode:
+          type: string
+          enum: [settlement_policy_contract_only]
+        endpoints:
+          type: object
+          additionalProperties:
+            type: string
+        policy:
+          type: object
+          additionalProperties: true
+          properties:
+            readiness_available: { type: boolean, example: true }
+            cached_input_discounts_enabled: { type: boolean, example: false }
+            provider_kv_cache_control_enabled: { type: boolean, example: false }
+            settlement_discounts_enabled: { type: boolean, example: false }
+            settlement_mutations_enabled: { type: boolean, example: false }
+            discount_start_event:
+              type: string
+              example: provider_cache_hit_evidence_after_settlement_policy_approval
+            required_before_discount:
+              type: array
+              items: { type: string }
+              example: [hash_only_measurement, live_provider_cache_hit_evidence, funded_smoke_principal, cached_input_token_attribution, settlement_discount_policy_approved, founder_discount_approval]
+            required_usage_fields:
+              type: array
+              items: { type: string }
+              example: [renter_id, request_id, model, cache_key, cache_key_sha256, cached_input_tokens, billable_input_tokens, settlement_status]
+            discount_policy:
+              type: object
+              additionalProperties: true
+            provider_cache_hit_evidence:
+              type: object
+              additionalProperties: true
+        denial_codes:
+          type: array
+          items: { type: string }
+          example: [prompt_cache_discount_disabled, prompt_cache_provider_hit_required, prompt_cache_discount_math_mismatch]
+        claim_guards:
+          type: object
+          additionalProperties:
+            type: boolean
+        next_actions:
+          type: array
+          items: { type: string }
+
     LoraTrainingJob:
       type: object
       description: Managed LoRA/QLoRA SFT training metadata record. Creation validates dataset JSONL and normalizes a fixed recipe, but does not launch GPU training yet.
@@ -8681,6 +8741,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PromptCacheReadiness'
+
+  /v1/prompt-cache/settlement/readiness:
+    get:
+      tags: [OpenAI-Compatible]
+      summary: Get DCP prompt-cache settlement readiness
+      description: |
+        Returns the settlement policy gate for future cached-input discounts.
+        The contract is read-only: it does not dispatch inference, record usage,
+        mutate balances, settle providers, control provider KV cache, or enable
+        discounts.
+      responses:
+        '200':
+          description: Prompt-cache settlement readiness contract.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptCacheSettlementReadiness'
 
   /v1/models:
     get:
