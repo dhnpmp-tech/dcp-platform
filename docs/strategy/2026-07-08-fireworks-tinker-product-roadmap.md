@@ -171,6 +171,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     workspace manager used by `/renter/playground?surface=workspace`, so
     Fine-Tuning/workspace pre-upload and pod Stage 1 both avoid a file-by-file
     scroll wall.
+  - PR #924 adds a compact Stage 1 folder navigator for `/renter/pods`, with a
+    folder map, open-one-folder action, and Stage 2 handoff so large workspaces
+    stay summary-first without hiding the path to the actual GPU decision.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -218,6 +221,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
     `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
     are explicitly browse-only.
+  - PR #924 makes that browse-only answer state-aware at the VRAM control and
+    marks the selected GPU card directly, so the filter no longer implies
+    Auto-pick after a fixed GPU is selected.
 
 Acceptance:
 
@@ -241,6 +247,9 @@ Acceptance:
   - PR #923 keeps large `/renter/pods` workspaces summary-first by default:
     the searchable folder index opens only when requested, while the Stage 2
     shortcut remains visible for the actual GPU launch decision.
+  - PR #924 adds the folder navigator and selected-GPU marker on top of that
+    summary-first path, preserving trial routing and minimum-balance policy as
+    read-only contract-backed copy.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.

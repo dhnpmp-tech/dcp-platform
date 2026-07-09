@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 22:42 UTC - Pod workspace stage navigator (PR #924)
+
+- **PR:** [#924](https://github.com/dhnpmp-tech/dcp-platform/pull/924) (`codex/workspace-stage-navigator-2026-07-10`).
+- **Timestamp:** 2026-07-09 22:42 UTC / 2026-07-10 02:42 +04.
+- **Stage 1 navigator:** Large `/renter/pods` workspaces now show a compact folder navigator with folder map, open-one-folder, and Stage 2 actions, keeping the full manifest closed unless the renter asks for it.
+- **Folder ordering:** The on-demand folder index now names the busiest-folder-first ordering and keeps search pointed at the same high-signal folder list.
+- **GPU clarity:** VRAM filter copy now follows the actual launch state, and the selected GPU card gets a "Selected launch GPU" marker so renters can see whether the launch is Auto-pick or fixed GPU.
+- **Trial answer:** Existing backend-readiness copy remains unchanged: trial handling uses grant-credit provenance unless a live trial tag exists, trial credit routes to native/community GPUs, and high-demand GPUs require paid credit.
+- **Safety:** Frontend-only UX behavior change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` and `/renter/playground?surface=workspace` Playwright regression; TypeScript.
+
 ### 2026-07-09 22:25 UTC - Pod Stage 1 folder index on demand (PR #923)
 
 - **PR:** [#923](https://github.com/dhnpmp-tech/dcp-platform/pull/923) (`codex/pods-stage1-folder-index-on-demand-2026-07-10`).

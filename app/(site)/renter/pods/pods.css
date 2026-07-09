@@ -1816,6 +1816,34 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   letter-spacing: .04em;
   line-height: 1.45;
 }
+.gpu-filter-state {
+  max-width: 520px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 0 0;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 42%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 7%, var(--paper));
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .05em;
+  border-radius: 2px;
+}
+.gpu-filter-state span {
+  color: var(--mut);
+  text-transform: uppercase;
+}
+.gpu-filter-state strong {
+  font-weight: 500;
+  color: var(--rt-accent);
+}
+.gpu-filter-state.fixed {
+  border-color: color-mix(in oklab, var(--teal) 52%, var(--hair));
+  background: color-mix(in oklab, var(--teal) 8%, var(--paper));
+}
 .gpu-vram-chip {
   scroll-margin-top: 170px;
   min-height: 34px;
@@ -1917,6 +1945,18 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
   position: absolute; top: 0; inset-inline-end: 0; font-family: var(--mono); font-size: 9px;
   letter-spacing: .12em; text-transform: uppercase; color: #0a0b1a;
   background: var(--rt-accent); padding: 3px 8px;
+}
+.gpu-selected-ribbon {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #0a0b1a;
+  background: var(--rt-accent);
+  padding: 3px 8px;
 }
 .gpu-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .gpu-card-brand {

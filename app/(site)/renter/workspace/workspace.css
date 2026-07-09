@@ -199,6 +199,74 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   color: #0a0b1a;
   outline: none;
 }
+.ws-stage-route-map {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 2px;
+  border: 1px solid color-mix(in oklab, var(--teal) 28%, var(--hair));
+  background: var(--hair);
+}
+.ws-stage-route-map > button,
+.ws-stage-route-map > a,
+.ws-stage-route-map > span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 3px 9px;
+  align-items: baseline;
+  padding: 10px 11px;
+  border: 0;
+  background: var(--paper);
+  color: var(--ink-2);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ws-stage-route-map > span {
+  cursor: default;
+}
+.ws-stage-route-map > button:hover,
+.ws-stage-route-map > button:focus-visible,
+.ws-stage-route-map > a:hover,
+.ws-stage-route-map > a:focus-visible {
+  background: color-mix(in oklab, var(--teal) 8%, var(--paper));
+  outline: none;
+}
+.ws-stage-route-map span {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid color-mix(in oklab, var(--teal) 42%, var(--hair));
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+.ws-stage-route-map b,
+.ws-stage-route-map em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-stage-route-map b {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+.ws-stage-route-map em {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: .04em;
+}
 .ws-stage-folders {
   grid-column: 1 / -1;
   display: flex;
@@ -430,6 +498,9 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
     grid-template-columns: 1fr;
   }
   .ws-stage-folder-index-grid {
+    grid-template-columns: 1fr;
+  }
+  .ws-stage-route-map {
     grid-template-columns: 1fr;
   }
 }

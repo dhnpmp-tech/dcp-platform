@@ -359,6 +359,11 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('No need to scroll every file');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Open the folder index only if you need to inspect');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 2 launches with the whole /workspace volume attached');
+  await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('Folder map');
+  await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('3 folders · busiest folder datasets/');
+  await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('Open one folder');
+  await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('2 files there · 3 files stay collapsed');
+  await expect(page.getByLabel('Stage 1 folder navigator')).toContainText('Launch uses the full /workspace volume');
   await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Manage files' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Continue to Stage 2' })).toBeVisible();
@@ -368,7 +373,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
 
   await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' }).click();
   await expect(page.getByLabel('Stage 1 folder index')).toContainText('Folder tree, not a file wall');
-  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Open one folder, search by file name, or continue to Stage 2 with the manifest closed.');
+  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Busiest folders first. Open one folder, search by file name, or continue to Stage 2 with the manifest closed.');
   await expect(page.getByLabel('Stage 1 folder index').getByRole('link', { name: 'Go to Stage 2' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 folder index').getByRole('button', { name: 'Full file manager' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 folder index').getByRole('button', { name: /Open notebooks\/ with 1 files/ })).toBeVisible();
@@ -507,7 +512,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuSelectionStrip).toContainText('gpu_type omitted = auto-pick');
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
-  await expect(page.getByText('This is only a browse filter. The launch GPU remains Auto-pick until you choose Use as launch GPU on a card.')).toBeVisible();
+  await expect(page.getByText('Browse filter only. Launch stays Auto-pick until you choose Use as launch GPU on a card.')).toBeVisible();
+  await expect(page.getByText('Launch request: Auto-pick')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Launch auto-picked GPU pod' })).toBeVisible();
   await expect(page.getByText('Use as launch GPU').first()).toBeVisible();
   await expect(page.getByText('Browse filter only: VRAM')).toBeVisible();
@@ -558,6 +564,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuSelectionStrip).toContainText('Mode: fixed GPU selected');
   await expect(gpuSelectionStrip).toContainText('gpu_type = RTX 4090');
   await expect(stageControlMap).toContainText('A GPU card is pinned');
+  await expect(page.locator('.gpu-card[aria-checked="true"]')).toContainText('Selected launch GPU');
+  await expect(page.getByText('Browse filter only. Launch stays RTX 4090 until you choose another card or return to auto-pick.')).toBeVisible();
+  await expect(page.getByText('Launch request: RTX 4090')).toBeVisible();
   await expect(page.getByText('Launch GPU selected').first()).toBeVisible();
   await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();

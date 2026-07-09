@@ -451,6 +451,9 @@ Required gates:
 - Pod launch UI must keep the minimum-balance readiness strip read-only: quote
   preflight for provider/community supply, paid-credit preflight for
   high-demand supply, and no balance/enforcement mutation claims.
+- Pod launch UI must keep Stage 1 workspace review navigable without forcing a
+  full manifest scan, and Stage 2 GPU filters must always distinguish browse
+  filters from the actual Auto-pick or fixed-GPU launch request.
 - Workspace tier is truthful: ephemeral, same-provider, or portable.
 - Provider identity/vendor internals are not leaked to renters.
 
