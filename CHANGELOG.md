@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 21:38 UTC - `feat(batch): publish sanitized public readiness - PR #920`
+
+**PR:** [#920](https://github.com/dhnpmp-tech/dcp-platform/pull/920) (`codex/public-batch-readiness-2026-07-10`).
+**Local timestamp:** 2026-07-10 01:38 +04.
+
+**What:** Batch product hardening follow-up. Makes public `/batch` read live backend readiness from a sanitized unauthenticated contract instead of relying only on static product copy.
+
+- **Backend API:** Added `GET /api/batches/public/readiness`, a public read-only view of the batch readiness contract that preserves execution, download, settlement, discount, and live-acceptance gates while stripping internal missing-config and feature-flag internals.
+- **Public Batch:** `/batch` now shows a live Batch readiness panel with mode, create state, execution state, JSONL validation, line ledger, worker execution, result downloads, settlement, discounts, live blockers, and the live proof command.
+- **OpenAPI:** Documented the sanitized public readiness endpoint.
+- **Regression:** Added backend service/route coverage for the sanitized view and a focused public Batch Playwright regression.
+- **Safety:** Read-only public contract and frontend UX only; no batch execution, result download, settlement, discount, model batch capability, worker dispatch, provider routing, inference dispatch, balance mutation, invoice, payout, renter data exposure, or internal config exposure was enabled.
+- **Verification:** Focused batch backend Jest coverage; public/renter Batch Playwright regressions; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:22 UTC - `feat(inference): surface prompt-cache settlement gates - PR #919`
 
 **PR:** [#919](https://github.com/dhnpmp-tech/dcp-platform/pull/919) (`codex/prompt-cache-settlement-ux-2026-07-10`).

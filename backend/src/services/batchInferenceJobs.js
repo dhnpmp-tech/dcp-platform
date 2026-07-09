@@ -412,6 +412,21 @@ function buildBatchInferenceReadiness(env = process.env) {
   };
 }
 
+function buildPublicBatchInferenceReadiness(env = process.env) {
+  const readiness = JSON.parse(JSON.stringify(buildBatchInferenceReadiness(env)));
+  readiness.public_view = true;
+  if (readiness.features?.result_downloads) {
+    delete readiness.features.result_downloads.missing_config;
+  }
+  if (readiness.features?.worker_execution) {
+    delete readiness.features.worker_execution.env_flag_enabled;
+  }
+  if (readiness.features?.settlement) {
+    delete readiness.features.settlement.env_flag_enabled;
+  }
+  return readiness;
+}
+
 function listBatchInferenceJobs(db, renterId, options = {}) {
   assertDb(db);
   const ownerId = normalizePositiveInteger(renterId, 'renter_id');
@@ -1064,6 +1079,7 @@ module.exports = {
   BATCH_READINESS_CONTRACT_VERSION,
   BatchInferenceJobError,
   buildBatchInferenceReadiness,
+  buildPublicBatchInferenceReadiness,
   ensureBatchInferenceJobSchema,
   createBatchInferenceJob,
   getBatchInferenceJob,

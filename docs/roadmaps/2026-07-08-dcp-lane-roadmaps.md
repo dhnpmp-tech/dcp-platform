@@ -623,6 +623,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   **PR #824 adds a repeatable local proof command for the batch lifecycle
   contract, including minimum-balance preflight. Live provider execution and
   discounted settlement smoke remain required before public batch claims.**
+  **PR #920 adds public `GET /api/batches/public/readiness` and makes `/batch`
+  consume that sanitized contract, so execution, downloads, settlement,
+  discounts, blockers, and the live proof command are visible without exposing
+  renter data or internal config names.**
 - Router policies:
   - cheapest
   - lowest latency
