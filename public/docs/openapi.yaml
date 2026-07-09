@@ -3884,6 +3884,7 @@ paths:
                       eval_job_metadata_api_live: { type: boolean, example: true }
                       eval_worker_live: { type: boolean, example: false }
                       eval_result_manifest_schema_live: { type: boolean, example: true }
+                      eval_result_writer_dry_run_live: { type: boolean, example: true }
                       arabic_quality_claim_allowed: { type: boolean, example: false }
                       customer_case_study_allowed: { type: boolean, example: false }
                       model_ranking_allowed: { type: boolean, example: false }
@@ -3946,6 +3947,64 @@ paths:
                       starts_worker: { type: boolean, example: false }
                       writes_result_manifest: { type: boolean, example: false }
                       stores_raw_customer_dataset: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
+                      settles_eval_jobs: { type: boolean, example: false }
+                      publishes_public_report: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
+
+  /api/evals/results/writer/readiness:
+    get:
+      tags: [Benchmarks]
+      summary: Get evaluator result-writer dry-run readiness
+      description: |
+        Returns a public, read-only contract for the evaluator result writer dry
+        run. The proof path can write a validated result manifest to temporary
+        storage only. Production artifact writes, result downloads, billing,
+        reports, rankings, and Arabic-quality claims remain disabled.
+      responses:
+        '200':
+          description: Evaluator result writer dry-run readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, writer, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_result_writer_dry_run_readiness]
+                  version:
+                    type: string
+                    example: dcp.evaluator_result_writer_dry_run.v1
+                  current_mode:
+                    type: string
+                    enum: [dry_run_temp_artifact_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  writer:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      dry_run_available: { type: boolean, example: true }
+                      production_writer_enabled: { type: boolean, example: false }
+                      result_endpoint_live: { type: boolean, example: false }
+                      writes_temp_manifest_only: { type: boolean, example: true }
+                  manifest_policy:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      writes_temp_artifact: { type: boolean, example: true }
+                      writes_production_artifact: { type: boolean, example: false }
+                      exposes_result_endpoint: { type: boolean, example: false }
+                      mutates_eval_job_status: { type: boolean, example: false }
+                      stores_raw_customer_dataset: { type: boolean, example: false }
+                      stores_raw_prompts_or_completions: { type: boolean, example: false }
                       bills_eval_jobs: { type: boolean, example: false }
                       settles_eval_jobs: { type: boolean, example: false }
                       publishes_public_report: { type: boolean, example: false }
