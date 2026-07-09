@@ -713,7 +713,10 @@ Acceptance:
     product claims. **Added in PR #834 as
     `npm run proof:live-acceptance-status`; it lists command-ready live gates,
     missing acceptance runners, blocked inputs, artifact patterns, and claim
-    guards without treating any live capability as accepted.**
+    guards without treating any live capability as accepted. PR #908 makes the
+    packet ingest matching `*-latest.json` proof reports, so latest dcp-agent
+    reconciliation blockers and other live-gate evidence are visible in the
+    same blocked-gate ledger without rerunning remote proofs.**
 14. **Prompt-cache live settlement runner** - opt-in live proof before cached
     input discounts. **Added in PR #836 as
     `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;

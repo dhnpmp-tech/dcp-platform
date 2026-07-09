@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 18:29 UTC - `test(ops): surface latest live-gate evidence - PR #908`
+
+**PR:** [#908](https://github.com/dhnpmp-tech/dcp-platform/pull/908) (`codex/live-acceptance-evidence-2026-07-09`).
+**Local timestamp:** 2026-07-09 22:29 +04.
+
+**What:** Ops/repo-hardening follow-up for the Fireworks/Tinker execution order. Makes the CI-safe live-acceptance status packet ingest latest proof reports, starting with the blocked dcp-agent reconciliation packet.
+
+- **Evidence ingestion:** `npm run proof:live-acceptance-status` now reads matching `*-latest.json` proof reports from the reliability report directory and attaches verdict, timestamp, failure code, blockers, and maintenance-required state to each gate.
+- **dcp-agent clarity:** The dcp-agent reconciliation gate can now surface current blockers such as detached local agent checkout, stale agent remote head, active gateway process, or installer artifact ownership directly inside the status packet.
+- **Markdown handoff:** The generated live-acceptance Markdown report includes a latest-evidence column and summary count so agents can see whether a gate has a recent real proof packet.
+- **Regression:** Extended the live-acceptance Jest coverage with a blocked dcp-agent evidence fixture while keeping capability claims disabled.
+- **Safety:** Read-only proof visibility change; no SSH, gateway stop, agent checkout mutation, installer rebuild/delete, production artifact cleanup, service restart, route change, billing, workload execution, or product capability claim changed.
+- **Verification:** Live-acceptance Jest test; live-acceptance proof; local roadmap proof; `git diff --check`.
+
 ### 2026-07-09 18:16 UTC - `test(usage): add team-readiness proof gate - PR #907`
 
 **PR:** [#907](https://github.com/dhnpmp-tech/dcp-platform/pull/907) (`codex/team-usage-readiness-proof-2026-07-09`).

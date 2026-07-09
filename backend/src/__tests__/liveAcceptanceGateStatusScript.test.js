@@ -13,7 +13,8 @@ const {
 describe('live acceptance gate status script', () => {
   test('writes a CI-safe blocked-gate status packet', () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-status-'));
-    const report = runLiveAcceptanceGateStatus({ outputDir });
+    const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-empty-evidence-'));
+    const report = runLiveAcceptanceGateStatus({ outputDir, evidenceDir });
 
     expect(report.verdict).toBe('PASS');
     expect(report.contract).toBe(CONTRACT);
@@ -24,6 +25,7 @@ describe('live acceptance gate status script', () => {
       command_available: 8,
       missing_acceptance_command: 0,
       capability_claim_allowed: 0,
+      latest_evidence_found: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
       'workspace_pod_live_launch',
@@ -86,10 +88,64 @@ describe('live acceptance gate status script', () => {
       command_available: true,
       capability_claim_allowed: false,
       blocked_on: expect.arrayContaining(['controlled maintenance window']),
+      latest_evidence: {
+        found: false,
+        artifact: expect.stringContaining('dcp-agent-reconciliation-latest.json'),
+        verdict: null,
+      },
     });
     expect(report.validation_failures).toEqual([]);
     expect(fs.existsSync(path.join(outputDir, 'live-acceptance-gate-status-latest.json'))).toBe(true);
     expect(fs.existsSync(path.join(outputDir, 'live-acceptance-gate-status-latest.md'))).toBe(true);
+  });
+
+  test('attaches latest dcp-agent blockers without allowing capability claims', () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-status-'));
+    const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-evidence-'));
+    fs.writeFileSync(path.join(evidenceDir, 'dcp-agent-reconciliation-latest.json'), JSON.stringify({
+      contract: 'dcp.dcp_agent_reconciliation_status.v1',
+      generated_at: '2026-07-09T18:26:58.000Z',
+      verdict: 'BLOCKED',
+      maintenance_required: true,
+      failure: {
+        code: 'DCP_AGENT_RECONCILIATION_MAINTENANCE_REQUIRED',
+        details: {
+          blockers: [
+            'local_agent_detached_head',
+            'local_agent_not_on_remote_main',
+            'active_local_gateway_process',
+          ],
+        },
+      },
+    }, null, 2));
+
+    const report = runLiveAcceptanceGateStatus({ outputDir, evidenceDir });
+    const dcpAgentGate = report.gates.find((gate) => gate.id === 'dcp_agent_reconciliation');
+
+    expect(report.verdict).toBe('PASS');
+    expect(report.summary.latest_evidence_found).toBe(1);
+    expect(dcpAgentGate).toMatchObject({
+      acceptance_state: 'blocked_maintenance_window',
+      capability_claim_allowed: false,
+      latest_evidence: {
+        found: true,
+        verdict: 'BLOCKED',
+        generated_at: '2026-07-09T18:26:58.000Z',
+        failure_code: 'DCP_AGENT_RECONCILIATION_MAINTENANCE_REQUIRED',
+        maintenance_required: true,
+        blockers: expect.arrayContaining([
+          'local_agent_detached_head',
+          'local_agent_not_on_remote_main',
+          'active_local_gateway_process',
+        ]),
+      },
+    });
+    expect(report.validation_failures).toEqual([]);
+
+    const markdown = fs.readFileSync(path.join(outputDir, 'live-acceptance-gate-status-latest.md'), 'utf8');
+    expect(markdown).toContain('latest_evidence_found: 1/8');
+    expect(markdown).toContain('local_agent_detached_head');
+    expect(markdown).toContain('active_local_gateway_process');
   });
 
   test('fails validation if a blocked gate would allow product claims', () => {

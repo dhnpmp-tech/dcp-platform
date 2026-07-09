@@ -1015,7 +1015,10 @@ DCP-hosted endpoint -> billed inference.
    capacity are available.**
    **PR #834 adds `npm run proof:live-acceptance-status`, a CI-safe status
    packet that keeps blocked live gates, missing acceptance runners, required
-   inputs, and claim guards visible in one JSON/Markdown artifact.**
+   inputs, and claim guards visible in one JSON/Markdown artifact. PR #908
+   adds latest-proof ingestion so the same packet can show current dcp-agent
+   reconciliation blockers and other matching live-gate evidence without
+   enabling any blocked capability.**
 3. Inference metadata/rate consistency.
    **Router-policy readiness proof added in PR #832 as
    `npm run proof:router-policy-contract`; future policy selection remains
