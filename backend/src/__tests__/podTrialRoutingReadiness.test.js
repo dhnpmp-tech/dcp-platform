@@ -18,6 +18,7 @@ describe('pod trial routing readiness', () => {
       current_mode: 'pod_trial_credit_policy_live',
       endpoints: {
         readiness: 'GET /api/pods/trial-routing/readiness',
+        pod_images: 'GET /api/pods/images/readiness',
         launch: 'POST /api/pods',
       },
       account_classification: {

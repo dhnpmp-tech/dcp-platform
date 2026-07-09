@@ -14,6 +14,7 @@ function buildPodTrialRoutingReadiness(now = new Date()) {
     current_mode: 'pod_trial_credit_policy_live',
     endpoints: {
       readiness: 'GET /api/pods/trial-routing/readiness',
+      pod_images: 'GET /api/pods/images/readiness',
       launch: 'POST /api/pods',
       wallet: 'GET /api/renters/balance',
       add_credit: 'POST /api/payments/topup',
@@ -99,6 +100,9 @@ function buildPodTrialRoutingReadiness(now = new Date()) {
       source_files: [
         'backend/src/services/podAccessPolicy.js',
         'backend/src/routes/pods.js',
+        'backend/src/services/podImageReadiness.js',
+        'backend/docker-templates/pod-image-contracts.json',
+        'backend/docker-templates/verify-lora-pod-image.sh',
         'backend/src/__tests__/podAccessPolicy.test.js',
         'backend/tests/workspace-pod-live-proof.js',
       ],
@@ -109,12 +113,14 @@ function buildPodTrialRoutingReadiness(now = new Date()) {
       proof_command: 'npm run proof:pod-trial-routing-readiness',
       linked_commands: [
         'npm run workspace-pods:verify-contracts',
+        'npm run proof:pod-image-readiness',
         'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
         'npm run proof:lora-pod-image',
       ],
     },
     next_actions: [
       'Run the workspace live proof during a funded GPU-capacity window before claiming workspace-to-pod file visibility accepted.',
+      'Inspect GET /api/pods/images/readiness for the LoRA pod image contract and provider-host acceptance gate.',
       'Build dcp-compute:lora on a provider GPU host and run npm run proof:lora-pod-image before claiming fine-tuning-ready pod images.',
       'Decide whether to add an explicit lifecycle trial-account flag for analytics only.',
       'Decide lifetime free-seconds accounting before enforcing trial exhaustion beyond credit provenance.',

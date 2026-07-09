@@ -133,6 +133,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #820 added `npm run proof:lora-pod-image`, a provider-host proof command
     that runs the `dcp-compute:lora` stack import smoke and offline SFT scaffold
     and writes JSON/Markdown evidence for handoff.
+  - PR #894 adds `GET /api/pods/images/readiness` and
+    `npm run proof:pod-image-readiness`, making the CI-safe pod image contract,
+    LoRA build/verify commands, provider-host blockers, and false-claim guards
+    machine-readable before the GPU-host proof is run.
 - Surface workspace pre-upload more clearly before pod launch.
   - PR #806 made Fine-Tuning start with workspace pre-upload and added a
     `/renter/playground?surface=workspace` deep link into the persistent
@@ -185,6 +189,10 @@ Acceptance:
   - PR #889 exposes the LoRA pod-image provider-host proof command in the pod
     readiness contract and renter UI, without claiming the image is GPU-ready
     before that provider-host proof passes.
+  - PR #894 exposes the image-specific readiness contract at
+    `GET /api/pods/images/readiness` and adds it to the local roadmap suite,
+    keeping the LoRA image in a contract-ready/provider-host-blocked state until
+    `npm run proof:lora-pod-image` passes on a GPU host.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.
@@ -608,8 +616,8 @@ Acceptance:
    status packet before that window.**
 3. **Fat pod image plan** - Dockerfile/build path, package list, GPU-host
    verification script, no product UI yet. **CI-safe contract gate started in
-   PR #762; provider-host proof command/report added in PR #820; GPU-host proof
-   still required.**
+   PR #762; provider-host proof command/report added in PR #820; image-specific
+   readiness endpoint/proof added in PR #894; GPU-host proof still required.**
 4. **Nsight provider benchmark MVP** - script/runbook and provider scorecard
    schema proposal. **Script/runbook landed in PR #740; mock evidence contract
    guard landed in PR #774; GPU-host proof remains required.**

@@ -20,8 +20,14 @@ describe('pod image contracts', () => {
     expect(rootPackage.scripts['proof:lora-pod-image']).toBe(
       'npm --prefix backend run test:reliability:lora-pod-image-proof',
     );
+    expect(rootPackage.scripts['proof:pod-image-readiness']).toBe(
+      'npm --prefix backend run test:reliability:pod-image-readiness-proof',
+    );
     expect(backendPackage.scripts['test:reliability:lora-pod-image-proof']).toBe(
       'bash docker-templates/verify-lora-pod-image.sh',
+    );
+    expect(backendPackage.scripts['test:reliability:pod-image-readiness-proof']).toBe(
+      'node tests/pod-image-readiness-proof.js',
     );
   });
 });

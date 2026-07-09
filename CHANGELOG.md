@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 15:03 UTC - `feat(pods): add pod image readiness contract - PR #894`
+
+**PR:** [#894](https://github.com/dhnpmp-tech/dcp-platform/pull/894) (`codex/pods-image-readiness-contract-2026-07-09`).
+**Local timestamp:** 2026-07-09 19:03 +04.
+
+**What:** Fireworks/Tinker POT/PODS roadmap slice. Makes the fat LoRA pod image contract and provider-host proof blocker inspectable through a read-only API/proof layer before any GPU-ready product claim is allowed.
+
+- **Backend contract:** Added public `GET /api/pods/images/readiness`, returning the CI-safe pod image contract status, all pre-baked image aliases, the `dcp-compute:lora` metadata, build/verify commands, and the blocked provider-host acceptance gate.
+- **Proof command:** Added `npm run proof:pod-image-readiness`, backed by `backend/tests/pod-image-readiness-proof.js`, proving the readiness route, pod-image contract gate, LoRA image metadata, provider-host blockers, and false-claim guards.
+- **Local roadmap:** Added `pod_image_readiness_contract` to `npm run proof:local-roadmap`, so the CI-safe suite now checks the image-specific readiness layer before reporting the external `npm run proof:lora-pod-image` gate as blocked.
+- **Cross-linking:** `GET /api/pods/trial-routing/readiness` now points to the pod-image readiness route and proof command so operators can move from trial routing to image evidence without reading source files.
+- **Docs/contracts:** Updated OpenAPI, the fat-image architecture note, Fireworks/Tinker strategy, and roadmap docs with the readiness endpoint/proof and the remaining provider-host acceptance requirement.
+- **Safety:** Read-only contract/proof/docs change; no Docker build, provider-host smoke, pod launch body, image exposure enablement, provider selection, billing, balance mutation, trial accounting, GPU-host execution, vendor/provider exposure, or fine-tuning-ready claim was enabled.
+- **Verification:** Targeted pod-image/pod-trial Jest suites; pod image readiness proof; pod image contract verifier; OpenAPI YAML parse; local roadmap proof suite; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 14:44 UTC - `feat(pods): add collapsible workspace folder index and GPU request rail - PR #893`
 
 **PR:** [#893](https://github.com/dhnpmp-tech/dcp-platform/pull/893) (`codex/pods-workspace-collapsible-gpu-clarity-2026-07-09`).

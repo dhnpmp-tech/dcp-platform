@@ -36,6 +36,7 @@ const { COST_RATES } = require('./jobs');
 const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 const { paymentRequiredPayload } = require('../lib/error-response');
 const { evaluatePodLaunchCreditPolicy } = require('../services/podAccessPolicy');
+const { buildPodImageReadiness } = require('../services/podImageReadiness');
 const { buildPodTrialRoutingReadiness } = require('../services/podTrialRoutingReadiness');
 const conversionFunnel = require('../services/conversionFunnelService');
 
@@ -660,6 +661,10 @@ function toPodView(job) {
 // ── GET /api/pods — list the renter's pods ──────────────────────────────────
 router.get('/trial-routing/readiness', (_req, res) => {
   return res.json(buildPodTrialRoutingReadiness());
+});
+
+router.get('/images/readiness', (_req, res) => {
+  return res.json(buildPodImageReadiness());
 });
 
 router.get('/', requireRenter, (req, res) => {

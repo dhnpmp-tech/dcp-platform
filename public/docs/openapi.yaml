@@ -1423,6 +1423,88 @@ paths:
 
   # ─── GPU Pods (on-demand whole-GPU rental) ───────────────────────────────────
 
+  /api/pods/images/readiness:
+    get:
+      tags: [Pods]
+      summary: Get GPU pod image readiness
+      description: |
+        Returns the read-only pod image contract status for pre-baked
+        dcp-compute images, including the fat LoRA/QLoRA/vLLM image. The
+        endpoint exposes the CI-safe image contract gate and the blocked
+        provider-host acceptance gate without building images, running Docker,
+        launching a pod, changing provider selection, or claiming LoRA pod
+        images are GPU-ready.
+      responses:
+        '200':
+          description: Current pod image contract status and provider-host proof gate.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    example: pod_image_readiness
+                  version:
+                    type: string
+                    example: dcp.pod_image_readiness.v1
+                  current_mode:
+                    type: string
+                    example: ci_contract_ready_provider_host_blocked
+                  contract_check:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ci_safe
+                      command:
+                        type: string
+                        example: npm run pod-images:verify-contracts
+                      local_roadmap_gate:
+                        type: string
+                        example: pod_image_contracts
+                      contract:
+                        type: string
+                        example: dcp.pod_image_contracts.v1
+                      image_count:
+                        type: integer
+                        example: 5
+                      errors:
+                        type: array
+                        items: { type: string }
+                  images:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  lora_image:
+                    type: object
+                    additionalProperties: true
+                  provider_host_acceptance:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: blocked_external
+                      command:
+                        type: string
+                        example: npm run proof:lora-pod-image
+                      live_acceptance_gate:
+                        type: string
+                        example: lora_pod_image_provider_host
+                      blocked_on:
+                        type: array
+                        items: { type: string }
+                      report_contract:
+                        type: string
+                        example: dcp.lora_pod_image_proof.v1
+                  build_plan:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: true
+
   /api/pods/trial-routing/readiness:
     get:
       tags: [Pods]
@@ -1432,7 +1514,8 @@ paths:
         routing on GPU pods. The contract explains the current source of truth:
         trial state is represented by credit provenance and paid-funding state,
         trial credit can cover DCP/community capacity, high-demand on-demand
-        capacity requires paid credit, and renter-facing surfaces must not expose
+        capacity requires paid credit, pod infrastructure proof gates are
+        visible as read-only status, and renter-facing surfaces must not expose
         provider id, vendor, or internal supply-tier labels.
       responses:
         '200':
@@ -1457,6 +1540,54 @@ paths:
                   routing_policy:
                     type: object
                     additionalProperties: true
+                  infrastructure_proofs:
+                    type: object
+                    properties:
+                      workspace_pod_contract:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: ci_safe
+                          command:
+                            type: string
+                            example: npm run workspace-pods:verify-contracts
+                          local_roadmap_gate:
+                            type: string
+                            example: workspace_pod_contracts
+                          verifies:
+                            type: array
+                            items: { type: string }
+                      workspace_live_acceptance:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: blocked_external
+                          command:
+                            type: string
+                            example: DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod
+                          live_acceptance_gate:
+                            type: string
+                            example: workspace_pod_live_launch
+                          blocked_on:
+                            type: array
+                            items: { type: string }
+                      lora_pod_image_provider_host:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: blocked_external
+                          command:
+                            type: string
+                            example: npm run proof:lora-pod-image
+                          live_acceptance_gate:
+                            type: string
+                            example: lora_pod_image_provider_host
+                          blocked_on:
+                            type: array
+                            items: { type: string }
                   claim_guards:
                     type: object
                     additionalProperties: true

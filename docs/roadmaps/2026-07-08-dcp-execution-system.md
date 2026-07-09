@@ -151,6 +151,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Workspace-to-pod wiring contract | `npm run workspace-pods:verify-contracts` | none | CI-safe gate available |
 | Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |
 | Pod image contract | `npm run pod-images:verify-contracts` | none | CI-safe gate available |
+| Pod image readiness contract | `npm run proof:pod-image-readiness` | none | CI-safe readiness packet for `/api/pods/images/readiness`; provider-host LoRA image proof remains blocked |
 | LoRA fat image provider-host imports | `npm run proof:lora-pod-image` | provider GPU host with Docker, NVIDIA Container Toolkit, and built `dcp-compute:lora` | Command available; blocked until run on a provider GPU host |
 | LoRA training lifecycle contract | `npm run proof:lora-training-contract` | none | CI-safe gate available; GPU-host artifact proof still blocked |
 | Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |
@@ -463,6 +464,10 @@ GPU/image smoke:
 - LoRA fat-image proof: run `npm run proof:lora-pod-image` on a GPU provider
   host after building `dcp-compute:lora`; archive the generated JSON/Markdown
   evidence from `docs/reports/reliability`.
+- Pod image readiness proof: run `npm run proof:pod-image-readiness` in CI or
+  locally to confirm `/api/pods/images/readiness` still exposes the image
+  contract, LoRA build/verify commands, provider-host blockers, and false-claim
+  guards without running Docker.
 - Workspace gate: run
   `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` with a funded
   renter key, active portable volume, and launchable GPU capacity. If any input

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 15:03 UTC - Pod image readiness contract (PR #894)
+
+- **PR:** [#894](https://github.com/dhnpmp-tech/dcp-platform/pull/894) (`codex/pods-image-readiness-contract-2026-07-09`).
+- **Timestamp:** 2026-07-09 15:03 UTC / 2026-07-09 19:03 +04.
+- **Backend:** Added public `GET /api/pods/images/readiness` with the CI-safe pod image contract status, pre-baked aliases, `dcp-compute:lora` metadata, provider-host build/verify commands, and blocked LoRA image acceptance gate.
+- **Proof:** Added `npm run proof:pod-image-readiness`, covering the readiness route, `pod_image_contracts` gate, LoRA image metadata, provider-host blockers, build commands, and no-build/no-Docker/no-launch/no-billing claim guards.
+- **Local roadmap:** Added the `pod_image_readiness_contract` CI-safe gate to `npm run proof:local-roadmap`.
+- **Docs/contracts:** Updated OpenAPI, the fat-image architecture note, Fireworks/Tinker strategy, and lane/execution roadmaps.
+- **Safety:** Read-only contract/proof/docs change; no Docker build, provider-host smoke, pod launch body, provider selection, billing, balance mutation, trial accounting, GPU-host execution, vendor/provider exposure, or fine-tuning-ready claim was enabled.
+- **Verification:** Targeted pod-image/pod-trial Jest suites; pod image readiness proof; pod image contract verifier; OpenAPI YAML parse; local roadmap proof suite; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 14:44 UTC - Pod workspace folder index and GPU request rail (PR #893)
 
 - **PR:** [#893](https://github.com/dhnpmp-tech/dcp-platform/pull/893) (`codex/pods-workspace-collapsible-gpu-clarity-2026-07-09`).

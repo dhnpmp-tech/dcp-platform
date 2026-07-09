@@ -662,6 +662,10 @@ template launch.
 - PR #820 added `npm run proof:lora-pod-image`, the provider-host proof command
   for `dcp-compute:lora` imports and offline SFT scaffold readiness, with
   JSON/Markdown evidence output.
+- PR #894 added `GET /api/pods/images/readiness` plus
+  `npm run proof:pod-image-readiness`, a CI-safe readiness packet that keeps the
+  LoRA pod image contract, build/verify commands, provider-host blockers, and
+  false-claim guards visible before the GPU-host proof can pass.
 - PR #889 makes those workspace and LoRA pod-image proof gates visible from the
   pod readiness contract and renter launch UI while keeping live acceptance
   blocked until provider/funded inputs exist.
@@ -694,7 +698,9 @@ template launch.
 - Build and verify fat image on a GPU provider host.
   **Provider-host proof command added in PR #820 as
   `npm run proof:lora-pod-image`; acceptance still requires running it on a GPU
-  provider host after `dcp-compute:lora` is built.**
+  provider host after `dcp-compute:lora` is built. PR #894 adds
+  `npm run proof:pod-image-readiness` and `/api/pods/images/readiness` so the
+  contract-ready/provider-host-blocked state is visible before that live proof.**
 - Add template-backed launch flow.
 - Add workspace pre-upload polish.
   **Fine-Tuning now links directly into the persistent Workspace tab in PR
@@ -942,7 +948,7 @@ DCP-hosted endpoint -> billed inference.
    **Router-policy readiness proof added in PR #832 as
    `npm run proof:router-policy-contract`; future policy selection remains
    blocked until policy-specific routing tests and live smokes exist.**
-4. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; GPU-host proof still required.**
+4. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; image-specific readiness proof added in PR #894; GPU-host proof still required.**
 5. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
    Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard
    landed in PR #810; live proof runner landed in PR #812.**
@@ -995,7 +1001,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Frontend | `npm run build` | touched route on `https://dcp.sa` plus Vercel success |
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:model-catalog-parity` when model catalog/pricing metadata is touched; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:evaluator-readiness-contract`, `npm run proof:evaluator-job-schema-contract`, `npm run proof:evaluator-job-metadata-contract`, `npm run proof:evaluator-worker-gate-contract`, `npm run proof:evaluator-result-manifest-contract`, `npm run proof:evaluator-result-writer-dry-run`, `npm run proof:evaluator-worker-dry-run-fixture`, `npm run proof:evaluator-artifact-storage-policy`, `npm run proof:evaluator-result-access-policy`, or `npm run proof:evaluator-result-endpoint-disabled` when benchmark/eval behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched; `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` before cached-input discount claims; `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` before batch execution/discount claims |
-| POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
+| POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts`, `npm run proof:pod-image-readiness` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
 | LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:tinker-loop-readiness`, `npm run proof:adapter-artifact-policy`, `npm run proof:adapter-endpoint-smoke`, `npm run proof:adapter-endpoint-smoke-status`, `npm run proof:adapter-endpoint-smoke-submission`, `npm run proof:adapter-usage-attribution`, `npm run proof:adapter-settlement-readiness`, `npm run proof:adapter-billing-approval`, `npm run proof:adapter-billing-readiness`, `npm run proof:adapter-deployment-contract` | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` for GPU-host artifact proof; `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load` before vLLM adapter load, route traffic, endpoint smoke, or adapter billing claims |
 
 ## Weekly Cadence

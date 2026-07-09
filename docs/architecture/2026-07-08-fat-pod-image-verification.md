@@ -59,6 +59,17 @@ The default build script can still build all pre-baked pod images:
 
 ## Provider Verification
 
+Read-only readiness contract:
+
+```bash
+curl -fsS https://api.dcp.sa/api/pods/images/readiness
+npm run proof:pod-image-readiness
+```
+
+This endpoint/proof exposes the CI-safe pod image contract and the blocked
+provider-host LoRA image gate. It does not build images, run Docker, launch a
+pod, mutate billing, or claim that LoRA/fine-tuning pod images are GPU-ready.
+
 Run from the provider-host checkout:
 
 ```bash
