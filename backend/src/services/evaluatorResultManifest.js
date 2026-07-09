@@ -40,6 +40,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
     endpoints: {
       result_manifest_schema: 'GET /api/evals/results/schema',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
+      artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       worker_readiness: 'GET /api/evals/worker/readiness',
       evaluator_readiness: 'GET /api/evals/readiness',
       job_schema: 'GET /api/evals/jobs/schema',
@@ -81,7 +82,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
       bills_eval_jobs: false,
     },
     next_actions: [
-      'Attach approved tenant artifact storage before production result writes.',
+      'Enforce approved tenant artifact storage before production result writes.',
       'Add signed result download smoke only after artifact storage policy is approved.',
       'Keep public reports gated until human review and baseline policy proof exist.',
     ],

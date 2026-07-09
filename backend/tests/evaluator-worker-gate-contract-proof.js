@@ -207,6 +207,7 @@ function runEvaluatorWorkerGateContractProof(options = {}) {
       workerGate.object === 'evaluator_worker_gate'
         && workerGate.current_mode === 'worker_disabled_by_default'
         && workerGate.endpoints.worker_readiness === 'GET /api/evals/worker/readiness'
+        && workerGate.endpoints.artifact_storage_readiness === 'GET /api/evals/results/artifacts/readiness'
         && workerGate.worker.enabled === false
         && workerGate.worker.queue_dispatch_enabled === false
         && workerGate.worker.result_writer_enabled === false
@@ -229,6 +230,7 @@ function runEvaluatorWorkerGateContractProof(options = {}) {
     record(
       'result manifest and billing hooks remain unavailable',
       workerGate.result_policy.endpoint_live === false
+        && workerGate.result_policy.artifact_storage_readiness_endpoint === 'GET /api/evals/results/artifacts/readiness'
         && workerGate.result_policy.manifest_required_before_enablement === true
         && workerGate.claim_guards.writes_result_manifest === false
         && workerGate.claim_guards.bills_eval_jobs === false

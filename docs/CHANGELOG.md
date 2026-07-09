@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 04:37 UTC - Evaluator artifact storage policy proof (PR #862)
+
+- **PR:** [#862](https://github.com/dhnpmp-tech/dcp-platform/pull/862) (`codex/evaluator-artifact-storage-policy-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/results/artifacts/readiness` and a pure evaluator artifact storage policy validator for renter/job-scoped result manifest keys, SHA-256 checksums, JSON content type, and path traversal/scope rejection.
+- **Proof:** Added `npm run proof:evaluator-artifact-storage-policy` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 20 CI-safe gates.
+- **Docs/contracts:** Linked evaluator readiness, worker readiness, result manifest schema, result-writer readiness, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs to the policy endpoint.
+- **Safety:** Policy contract only; no object-store configuration, production artifact write, signed download, result endpoint, raw dataset/prompt storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator artifact-policy/worker-fixture/worker-gate/result-writer/result-manifest/metadata/readiness/schema Jest suites; evaluator artifact-storage policy proof; evaluator worker-fixture proof; evaluator result-writer proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 20/20 gates; `git diff --check`.
+
 ### 2026-07-09 04:17 UTC - Evaluator worker dry-run fixture proof (PR #861)
 
 - **PR:** [#861](https://github.com/dhnpmp-tech/dcp-platform/pull/861) (`codex/evaluator-worker-dry-run-fixture-2026-07-09`).

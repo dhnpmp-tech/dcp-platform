@@ -5,6 +5,7 @@ const { EVALUATOR_WORKER_GATE_VERSION } = require('./evaluatorWorkerGate');
 const { EVALUATOR_RESULT_MANIFEST_VERSION } = require('./evaluatorResultManifest');
 const { EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION } = require('./evaluatorResultWriterDryRun');
 const { EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION } = require('./evaluatorWorkerDryRunFixture');
+const { EVALUATOR_ARTIFACT_STORAGE_POLICY_VERSION } = require('./evaluatorArtifactStoragePolicy');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -20,6 +21,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       worker_readiness: 'GET /api/evals/worker/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
+      result_artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
       product_page: 'GET /benchmarks',
@@ -86,6 +88,7 @@ function buildEvaluatorReadiness(now = new Date()) {
         available: true,
         version: EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION,
         readiness_endpoint: 'GET /api/evals/results/writer/readiness',
+        artifact_storage_policy_endpoint: 'GET /api/evals/results/artifacts/readiness',
         production_writer_enabled: false,
         result_endpoint_live: false,
         artifact_store_enabled: false,
@@ -94,6 +97,23 @@ function buildEvaluatorReadiness(now = new Date()) {
           'approved tenant artifact storage path',
           'result endpoint authorization policy',
           'signed download smoke proof',
+        ],
+      },
+      eval_result_artifact_storage: {
+        status: 'policy_contract_only',
+        available: true,
+        version: EVALUATOR_ARTIFACT_STORAGE_POLICY_VERSION,
+        readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
+        default_key_template: 'eval-results/renter-{renter_id}/{eval_job_id}/result-manifest.json',
+        production_artifact_store_enabled: false,
+        production_writes_enabled: false,
+        signed_downloads_enabled: false,
+        raw_storage_allowed: false,
+        required_before_enablement: [
+          'production object-store writer',
+          'result endpoint authorization policy',
+          'signed download smoke proof',
+          'retention and deletion policy',
         ],
       },
       dataset_artifacts: {
@@ -148,6 +168,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       eval_worker_dry_run_fixture_live: true,
       eval_result_manifest_schema_live: true,
       eval_result_writer_dry_run_live: true,
+      eval_result_artifact_storage_policy_live: true,
       arabic_quality_claim_allowed: false,
       customer_case_study_allowed: false,
       model_ranking_allowed: false,

@@ -208,6 +208,7 @@ function runEvaluatorResultManifestContractProof(options = {}) {
       resultContract.object === 'evaluator_result_manifest_contract'
         && resultContract.current_mode === 'schema_and_checksum_contract_only'
         && resultContract.endpoints.result_manifest_schema === 'GET /api/evals/results/schema'
+        && resultContract.endpoints.artifact_storage_readiness === 'GET /api/evals/results/artifacts/readiness'
         && resultContract.required_fields.includes('summary_sha256')
         && resultContract.checksum_policy.digest === 'sha256_hex'
         && resultContract.claim_guards.result_endpoint_live === false,
@@ -239,10 +240,12 @@ function runEvaluatorResultManifestContractProof(options = {}) {
     record(
       'readiness schema and worker gate link the manifest contract without result endpoint',
       readiness.endpoints.result_manifest_schema === 'GET /api/evals/results/schema'
+        && readiness.endpoints.result_artifact_storage_readiness === 'GET /api/evals/results/artifacts/readiness'
         && readiness.features.eval_result_manifest.available === true
         && readiness.features.eval_result_manifest.result_endpoint_live === false
         && readiness.claim_guards.eval_result_manifest_schema_live === true
         && workerGate.result_policy.schema_endpoint === 'GET /api/evals/results/schema'
+        && workerGate.result_policy.artifact_storage_readiness_endpoint === 'GET /api/evals/results/artifacts/readiness'
         && workerGate.result_policy.endpoint_live === false
         && schema.artifact_policy.manifest_schema_endpoint === 'GET /api/evals/results/schema'
         && schema.claim_guards.result_endpoint_live === false,

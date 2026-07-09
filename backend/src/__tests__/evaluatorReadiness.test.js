@@ -48,7 +48,7 @@ describe('evaluator readiness contract', () => {
           create_endpoint: 'POST /api/evals/jobs',
           list_endpoint: 'GET /api/evals/jobs',
           read_endpoint: 'GET /api/evals/jobs/:id',
-          result_endpoint: null,
+        result_endpoint: null,
         },
         eval_worker: {
           status: 'disabled_by_default_contract',
@@ -62,6 +62,16 @@ describe('evaluator readiness contract', () => {
           dry_run_fixture_available: true,
           dry_run_fixture_version: 'dcp.evaluator_worker_dry_run_fixture.v1',
           dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
+        },
+        eval_result_artifact_storage: {
+          status: 'policy_contract_only',
+          available: true,
+          version: 'dcp.evaluator_artifact_storage_policy.v1',
+          readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
+          production_artifact_store_enabled: false,
+          production_writes_enabled: false,
+          signed_downloads_enabled: false,
+          raw_storage_allowed: false,
         },
         dataset_artifacts: {
           status: 'gated_storage_policy',
@@ -90,6 +100,7 @@ describe('evaluator readiness contract', () => {
         eval_job_metadata_api_live: true,
         eval_worker_live: false,
         eval_worker_dry_run_fixture_live: true,
+        eval_result_artifact_storage_policy_live: true,
         arabic_quality_claim_allowed: false,
         customer_case_study_allowed: false,
         model_ranking_allowed: false,
@@ -125,6 +136,11 @@ describe('evaluator readiness contract', () => {
           dry_run_fixture_available: true,
           dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
         },
+        eval_result_artifact_storage: {
+          available: true,
+          production_writes_enabled: false,
+          signed_downloads_enabled: false,
+        },
         public_reports: {
           available: false,
           ranking_allowed: false,
@@ -134,6 +150,7 @@ describe('evaluator readiness contract', () => {
         eval_jobs_live: false,
         eval_worker_live: false,
         eval_worker_dry_run_fixture_live: true,
+        eval_result_artifact_storage_policy_live: true,
         arabic_quality_claim_allowed: false,
         bills_eval_jobs: false,
       },

@@ -276,9 +276,11 @@ function runEvaluatorResultWriterDryRunProof(options = {}) {
       writerReadiness.object === 'evaluator_result_writer_dry_run_readiness'
         && writerReadiness.current_mode === 'dry_run_temp_artifact_only'
         && writerReadiness.endpoints.writer_readiness === 'GET /api/evals/results/writer/readiness'
+        && writerReadiness.endpoints.artifact_storage_readiness === 'GET /api/evals/results/artifacts/readiness'
         && writerReadiness.writer.dry_run_available === true
         && writerReadiness.writer.production_writer_enabled === false
         && writerReadiness.writer.result_endpoint_live === false
+        && writerReadiness.writer.artifact_storage_policy_endpoint === 'GET /api/evals/results/artifacts/readiness'
         && writerReadiness.claim_guards.writes_production_artifact === false,
       'The writer gate is visible without enabling production writes.',
     );
@@ -307,11 +309,15 @@ function runEvaluatorResultWriterDryRunProof(options = {}) {
     record(
       'readiness worker gate and manifest contract link the dry-run writer',
       readiness.endpoints.result_writer_readiness === 'GET /api/evals/results/writer/readiness'
+        && readiness.endpoints.result_artifact_storage_readiness === 'GET /api/evals/results/artifacts/readiness'
         && readiness.features.eval_result_writer.available === true
         && readiness.features.eval_result_writer.production_writer_enabled === false
         && readiness.claim_guards.eval_result_writer_dry_run_live === true
+        && readiness.claim_guards.eval_result_artifact_storage_policy_live === true
         && workerGate.result_policy.writer_readiness_endpoint === 'GET /api/evals/results/writer/readiness'
-        && resultManifestContract.endpoints.result_writer_readiness === 'GET /api/evals/results/writer/readiness',
+        && workerGate.result_policy.artifact_storage_readiness_endpoint === 'GET /api/evals/results/artifacts/readiness'
+        && resultManifestContract.endpoints.result_writer_readiness === 'GET /api/evals/results/writer/readiness'
+        && resultManifestContract.endpoints.artifact_storage_readiness === 'GET /api/evals/results/artifacts/readiness',
       'All evaluator contracts point to the dry-run writer while production result access remains false.',
     );
 

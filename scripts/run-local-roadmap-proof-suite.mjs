@@ -75,6 +75,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_EVALUATOR_WORKER_DRY_RUN_FIXTURE_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'evaluator_artifact_storage_policy',
+    command: 'npm run proof:evaluator-artifact-storage-policy',
+    outputEnv: 'DCP_EVALUATOR_ARTIFACT_STORAGE_POLICY_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'minimum_balance_readiness_contract',
     command: 'npm run proof:minimum-balance-readiness',
     outputEnv: 'DCP_MINIMUM_BALANCE_PROOF_OUTPUT_DIR',
