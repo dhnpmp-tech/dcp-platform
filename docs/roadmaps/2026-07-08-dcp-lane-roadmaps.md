@@ -168,6 +168,11 @@ what is live.
   mode controls, final launch review repeats the GPU request, and trial
   handling is explicit-tag vs credit-provenance copy from the backend readiness
   packet.
+- PR #891 polishes that flow further: compact Stage 1 now exposes top folder
+  buttons for large workspaces, Stage 2 names the actual launch GPU request as
+  the source of truth, VRAM controls are browse-only filters, and the trial
+  policy is a dedicated block covering credit provenance, native/community
+  trial routing, paid high-demand routing, and hidden provider identity.
 
 ### Now
 

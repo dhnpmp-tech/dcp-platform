@@ -272,6 +272,7 @@ export default function WorkspacePanel({
   }
 
   function openOnlyFileGroup(groupId: string) {
+    setStageDetailsOpen(true)
     setFilesCollapsed(false)
     setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id).filter((id) => id !== groupId)))
   }
@@ -360,7 +361,7 @@ export default function WorkspacePanel({
           </div>
           <div className="ws-stage-compact-actions">
             <button type="button" onClick={() => setStageDetailsOpen(true)}>
-              <Bi en="Open workspace" ar="افتح مساحة العمل" />
+              <Bi en="Manage files" ar="إدارة الملفات" />
             </button>
             {nextStageHref && (
               <a href={nextStageHref}>
@@ -368,6 +369,26 @@ export default function WorkspacePanel({
               </a>
             )}
           </div>
+          {fileGroups.length > 0 && (
+            <div className="ws-stage-folders" aria-label={lang === 'ar' ? 'مجلدات مساحة العمل' : 'Workspace folders'}>
+              {fileGroups.slice(0, 4).map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => openOnlyFileGroup(group.id)}
+                  aria-label={
+                    lang === 'ar'
+                      ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
+                      : `Open ${group.label} with ${group.files.length} files`
+                  }
+                >
+                  <span>{group.label}</span>
+                  <b>{group.files.length}</b>
+                </button>
+              ))}
+              {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
+            </div>
+          )}
         </div>
       )}
 

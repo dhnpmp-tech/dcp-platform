@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 14:09 UTC - `feat(pods): polish workspace folders, trial policy, and GPU request UX - PR #891`
+
+**PR:** [#891](https://github.com/dhnpmp-tech/dcp-platform/pull/891) (`codex/pods-workspace-trial-gpu-polish-2026-07-09`).
+**Local timestamp:** 2026-07-09 18:09 +04.
+
+**What:** Tareq pods/workspace feedback follow-up. Makes the launch flow more folder-first, makes trial handling answerable without reading chips, and makes the actual GPU request harder to confuse with browse filters.
+
+- **Workspace organization:** The compact Stage 1 workspace checkpoint now exposes top folder controls directly, so renters with many staged files can open one folder from the summary instead of expanding the full manifest.
+- **Workspace actions:** The compact checkpoint now uses a clearer "Manage files" action while preserving the direct continue-to-Stage-2 path.
+- **GPU request clarity:** Stage 2 now labels the source-of-truth panel as the actual launch GPU, makes auto-pick say no GPU is pinned, and renames the VRAM control to a browse-only filter.
+- **Trial routing clarity:** `/renter/pods` now has a dedicated trial routing policy block that states credit-provenance handling, native/community trial routing, paid high-demand routing, and hidden provider identity.
+- **Regression:** Updated the focused `/renter/pods` Playwright regression for compact folder controls, the trial policy block, and the clearer actual-GPU/browse-filter wording.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; Next build; `git diff --check`.
+
 ### 2026-07-09 13:42 UTC - `feat(pods): sharpen workspace, trial, and GPU request UX - PR #890`
 
 **PR:** [#890](https://github.com/dhnpmp-tech/dcp-platform/pull/890) (`codex/pods-workspace-gpu-trial-ux-2026-07-09`).
