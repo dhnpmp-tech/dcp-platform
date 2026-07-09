@@ -430,6 +430,16 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
+.preflight-panel {
+  border-color: color-mix(in oklab, var(--rt-accent) 28%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 4%, var(--paper));
+}
+.preflight-panel .route-default {
+  background: color-mix(in oklab, var(--rt-accent) 8%, var(--paper));
+}
+.preflight-panel .route-policy.on b {
+  color: var(--rt-accent);
+}
 
 .chat { background: var(--paper); border: 1px solid var(--hair); display: flex; flex-direction: column; min-height: 520px; }
 .chat-hd { padding: 14px 18px; border-bottom: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: center; }
