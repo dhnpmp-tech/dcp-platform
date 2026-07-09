@@ -680,6 +680,24 @@ components:
             api_available:
               type: boolean
               example: true
+            deployment_contract_proof:
+              type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  example: ci_safe
+                command:
+                  type: string
+                  example: npm run proof:adapter-deployment-contract
+                local_roadmap_gate:
+                  type: string
+                  example: adapter_deployment_contract
+                verifies:
+                  type: array
+                  items:
+                    type: string
+                  example: [intent_only_public_create, load_proof_mismatch_blocks_route_traffic, checksum_mismatch_blocks_route_traffic, matching_load_proof_required_for_running, renter_scoped_deployment_listing]
             serving_enabled:
               type: boolean
               example: false

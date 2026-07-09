@@ -473,6 +473,10 @@ Goal: ship the first real train-here/deploy-here loop.
     adapter deployment proof packet that verifies deployment intent stays
     non-routing, mismatched load proof stays degraded, and only matching
     adapter/base-model load proof allows route traffic.
+  - PR #887 surfaces that deployment proof through `/api/lora/readiness`,
+    OpenAPI, and the public/renter Fine-Tuning surfaces so the lifecycle proof
+    is visible before any vLLM load, route traffic, usage/billing, or GPU-host
+    execution claim.
   - PR #867 tightened the load-proof gate so route traffic also requires the
     deployment id, mode, endpoint id, and adapter artifact checksum to match the
     deployment row and registered adapter.

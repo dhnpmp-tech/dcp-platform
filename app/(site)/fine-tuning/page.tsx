@@ -39,8 +39,8 @@ const GATES = [
     k: 'deployment_intents',
     tEn: 'Deployment intents',
     tAr: 'نوايا النشر',
-    en: 'Deployment rows are visible, but route traffic stays off until vLLM proof matches deployment, adapter, endpoint, and artifact.',
-    ar: 'صفوف النشر مرئية، لكن حركة التوجيه تبقى متوقفة حتى يوجد إثبات تحميل vLLM مطابق.',
+    en: 'Deployment rows are visible, and the deployment lifecycle contract proof is part of the local roadmap suite. Route traffic stays off until vLLM proof matches deployment, adapter, endpoint, and artifact.',
+    ar: 'صفوف النشر مرئية، وإثبات عقد دورة حياة النشر جزء من مجموعة خارطة الطريق المحلية. تبقى حركة التوجيه متوقفة حتى يوجد إثبات تحميل vLLM مطابق.',
   },
   {
     k: 'endpoint_smoke',
@@ -82,6 +82,11 @@ curl -s https://api.dcp.sa/api/lora/readiness \\
   -H "Authorization: Bearer $DCP_RENTER_KEY" | jq '.adapter_registry.registry_contract_proof'
 
 npm run proof:adapter-registry-contract
+
+curl -s https://api.dcp.sa/api/lora/readiness \\
+  -H "Authorization: Bearer $DCP_RENTER_KEY" | jq '.adapter_deployments.deployment_contract_proof'
+
+npm run proof:adapter-deployment-contract
 
 curl -s https://api.dcp.sa/api/adapters/artifacts/readiness
 

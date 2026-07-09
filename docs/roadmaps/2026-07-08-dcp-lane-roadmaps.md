@@ -765,6 +765,10 @@ DCP-hosted endpoint -> billed inference.
   **PR #885 surfaces that registry proof in `/api/lora/readiness`, OpenAPI, and
   the public/renter Fine-Tuning surfaces so operators and agents can see the
   proof status without opening CI logs.**
+  **PR #887 surfaces the adapter deployment lifecycle proof in
+  `/api/lora/readiness`, OpenAPI, and the public/renter Fine-Tuning surfaces so
+  deployment intents are tied to a CI-safe proof while vLLM load, route traffic,
+  usage/billing, and GPU-host execution remain gated.**
 - Managed LoRA SFT job:
   - fixed recipe
   - logs

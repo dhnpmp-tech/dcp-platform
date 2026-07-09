@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 12:21 UTC - `feat(lora): surface adapter deployment proof readiness - PR #887`
+
+**PR:** [#887](https://github.com/dhnpmp-tech/dcp-platform/pull/887) (`codex/lora-deployment-proof-readiness-surface-2026-07-09`).
+**Local timestamp:** 2026-07-09 16:21 +04.
+
+**What:** LoRA/deployment roadmap slice. Makes the existing adapter deployment lifecycle proof discoverable through `/api/lora/readiness`, OpenAPI, and Fine-Tuning product/console surfaces.
+
+- **Readiness contract:** Added `adapter_deployments.deployment_contract_proof` to the LoRA readiness response with proof status, command, local-roadmap gate id, and verified lifecycle invariants.
+- **Frontend visibility:** The renter Fine-Tuning readiness grid now shows deployment proof status beside the load-proof-required deployment state, and the public Fine-Tuning page/snippets point users and agents at the deployment proof command and readiness field.
+- **Docs/contracts:** Updated OpenAPI and roadmap notes so the deployment proof signal is discoverable from API docs as well as product copy.
+- **Safety:** Read-only contract/UI/docs change; no adapter registration behavior, artifact upload, deployment creation, load-proof attach, route traffic, usage/billing write, balance mutation, provider/vendor exposure, or GPU-host execution was enabled.
+- **Verification:** OpenAPI YAML parse; targeted LoRA readiness Jest suite; adapter deployment contract proof; TypeScript; focused Fine-Tuning Playwright regression; Next build; local roadmap proof suite passing 35/35 gates; `git diff --check`.
+
 ### 2026-07-09 12:10 UTC - `feat(pods): improve workspace folder disclosure - PR #886`
 
 **PR:** [#886](https://github.com/dhnpmp-tech/dcp-platform/pull/886) (`codex/pods-workspace-folder-disclosure-2026-07-09`).
