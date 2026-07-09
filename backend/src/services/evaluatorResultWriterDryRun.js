@@ -37,6 +37,7 @@ function buildEvaluatorResultWriterDryRunReadiness(now = new Date()) {
     endpoints: {
       writer_readiness: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
+      result_access_readiness: 'GET /api/evals/results/access/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',
       worker_readiness: 'GET /api/evals/worker/readiness',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
@@ -47,6 +48,7 @@ function buildEvaluatorResultWriterDryRunReadiness(now = new Date()) {
       result_endpoint_live: false,
       artifact_store_enabled: false,
       artifact_storage_policy_endpoint: 'GET /api/evals/results/artifacts/readiness',
+      result_access_policy_endpoint: 'GET /api/evals/results/access/readiness',
       signed_downloads_enabled: false,
       writes_temp_manifest_only: true,
       summary_hash_required: true,
@@ -72,6 +74,7 @@ function buildEvaluatorResultWriterDryRunReadiness(now = new Date()) {
     },
     next_actions: [
       'Enforce the artifact storage policy in a production object-store writer before result writes.',
+      'Enforce result access authorization before exposing result downloads.',
       'Replace the simulated worker fixture with a real disabled worker dry-run before enabling queue dispatch.',
       'Add signed download smoke only after result endpoint and artifact checksums are approved.',
     ],

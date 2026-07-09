@@ -331,6 +331,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     renter/job-scoped future result manifest object keys and checksum guards
     while object-store writes, signed downloads, result endpoints, billing,
     reports, rankings, and quality claims remain disabled.
+  - PR #863 adds `GET /api/evals/results/access/readiness` and
+    `npm run proof:evaluator-result-access-policy`; it defines owner-match,
+    result-available, artifact-policy, and checksum guards before any result
+    endpoint or signed download can go live.
 
 Acceptance:
 

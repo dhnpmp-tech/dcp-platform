@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 04:55 UTC - `test(evals): add result access policy proof - PR #863`
+
+**PR:** [#863](https://github.com/dhnpmp-tech/dcp-platform/pull/863) (`codex/evaluator-result-access-policy-2026-07-09`).
+**Local timestamp:** 2026-07-09 08:55 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Defines evaluator result access authorization before any result endpoint, signed download, or public eval report can go live.
+
+- **Backend contract:** Added public `GET /api/evals/results/access/readiness` plus a pure result-access policy validator for renter owner-match, result availability, artifact-storage policy, and checksum requirements.
+- **Proof command:** Added `npm run proof:evaluator-result-access-policy` and included it in `npm run proof:local-roadmap`, raising the suite to 21 CI-safe gates.
+- **Public surface:** Evaluator readiness, worker gate, result manifest schema, result-writer readiness, artifact-storage readiness, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs now link to the access policy endpoint.
+- **Safety:** Policy/readiness only; no result endpoint, signed download, object-store configuration, production artifact write, raw dataset/prompt storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted evaluator access-policy/artifact-policy/worker-fixture/worker-gate/result-writer/result-manifest/metadata/readiness/schema Jest suites; evaluator result-access policy proof; evaluator artifact-storage policy proof; evaluator worker-fixture proof; evaluator result-writer proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 21/21 gates; `git diff --check`.
+
 ### 2026-07-09 04:37 UTC - `test(evals): add artifact storage policy proof - PR #862`
 
 **PR:** [#862](https://github.com/dhnpmp-tech/dcp-platform/pull/862) (`codex/evaluator-artifact-storage-policy-2026-07-09`).

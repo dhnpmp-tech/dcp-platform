@@ -70,6 +70,8 @@ curl -s https://api.dcp.sa/api/evals/results/schema
 
 curl -s https://api.dcp.sa/api/evals/results/artifacts/readiness
 
+curl -s https://api.dcp.sa/api/evals/results/access/readiness
+
 curl -s https://api.dcp.sa/api/evals/results/writer/readiness
 
 curl -s -H "Authorization: Bearer $DCP_RENTER_KEY" https://api.dcp.sa/api/evals/jobs
@@ -221,6 +223,7 @@ export default function BenchmarksProductPage() {
                 <li><Bi en="The worker dry-run fixture proof simulates a draft eval queue item and writes only a temporary manifest, without changing job status or billing." ar="يثبت تشغيل العامل الجاف عنصر طابور تقييم مسودة ويكتب بياناً مؤقتاً فقط، دون تغيير حالة المهمة أو الفوترة." /></li>
                 <li><Bi en="The result manifest schema defines checksum proof for future artifacts while result download APIs remain off." ar="يعرّف مخطط بيان النتائج إثبات البصمة للآثار المستقبلية بينما تبقى واجهات تنزيل النتائج متوقفة." /></li>
                 <li><Bi en="The artifact storage policy defines renter/job-scoped result keys and checksum guards before object-store writes or signed downloads exist." ar="تعرّف سياسة تخزين الآثار مفاتيح نتائج محددة بالمستأجر والمهمة وحراس البصمة قبل وجود كتابات التخزين أو التنزيلات الموقعة." /></li>
+                <li><Bi en="The result access policy requires renter ownership, result availability, artifact scope, and checksums before any result endpoint or signed download can go live." ar="تتطلب سياسة وصول النتائج ملكية المستأجر وتوفر النتيجة ونطاق الأثر والبصمات قبل تفعيل أي واجهة نتائج أو تنزيل موقّع." /></li>
                 <li><Bi en="The writer dry-run can create a validated manifest in temporary proof storage without production artifact writes." ar="يمكن للتشغيل الجاف للكاتب إنشاء بيان نتائج متحقق في تخزين إثبات مؤقت دون كتابة آثار إنتاجية." /></li>
               </ul>
             </div>
