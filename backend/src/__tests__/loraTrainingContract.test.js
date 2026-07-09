@@ -3,6 +3,8 @@
 const {
   DATASET_FORMATS,
   LoraContractError,
+  TINKER_LOOP_PRIMITIVES,
+  buildTinkerLoopReadiness,
   normalizeAdapterDeploySpec,
   normalizeLoraTrainingSpec,
   validateLoraDatasetJsonl,
@@ -68,6 +70,43 @@ describe('LoRA dataset validation contract', () => {
 });
 
 describe('LoRA training and deployment contracts', () => {
+  test('keeps Tinker-style loop primitives contract-only until GPU proof exists', () => {
+    const readiness = buildTinkerLoopReadiness();
+
+    expect(readiness).toMatchObject({
+      status: 'contract_only',
+      available: false,
+      api_available: false,
+      compatibility_claim_allowed: false,
+      tinker_api_compatible: false,
+      safety: {
+        runs_remote_gpu_loop: false,
+        creates_training_job: false,
+        writes_adapter_weights: false,
+        persists_raw_dataset: false,
+        exposes_low_level_gradients: false,
+        bills_training_steps: false,
+        claims_tinker_compatibility: false,
+      },
+    });
+    expect(Object.keys(readiness.primitives)).toEqual(TINKER_LOOP_PRIMITIVES);
+    for (const primitive of TINKER_LOOP_PRIMITIVES) {
+      expect(readiness.primitives[primitive]).toMatchObject({
+        status: 'not_enabled',
+        available: false,
+        endpoint: null,
+        mutates_training_state: false,
+      });
+      expect(readiness.primitives[primitive].requires_before_enablement).toEqual(
+        expect.arrayContaining(['renter auth', 'dataset/artifact checksum policy', 'GPU-host proof'])
+      );
+    }
+    expect(readiness.required_before_enablement).toEqual(expect.arrayContaining([
+      'GPU-host executor proof for forward/backward/optimizer/save',
+      'adapter registry link and vLLM load-proof handoff',
+    ]));
+  });
+
   test('normalizes a fixed QLoRA SFT training draft', () => {
     const spec = normalizeLoraTrainingSpec({
       recipe: 'qlora-sft',

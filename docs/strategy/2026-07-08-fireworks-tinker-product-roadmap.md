@@ -353,6 +353,10 @@ Goal: ship the first real train-here/deploy-here loop.
     checks renter-authenticated `GET /api/lora/readiness` only when explicitly
     allowed, records worker/model-card artifact blockers, and stops before job
     creation until a GPU training window exists.
+  - PR #854 adds a disabled `.tinker_loop` readiness block and
+    `npm run proof:tinker-loop-readiness` so create-LoRA, forward/backward,
+    optimizer-step, save-weights, sample, and evaluate are explicit future
+    primitives without claiming Tinker API compatibility or running GPU work.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports

@@ -93,6 +93,10 @@ what is live.
   `npm run proof:evaluator-readiness-contract`, making customer evaluator-job
   gates command-ready while eval jobs, datasets, reports, rankings, and billing
   remain blocked.
+- PR #854 adds `.tinker_loop` to `GET /api/lora/readiness` and
+  `npm run proof:tinker-loop-readiness`, making Tinker-style local-loop
+  primitives visible as disabled gates while compatibility, GPU mutation, and
+  training-step billing remain blocked.
 
 ### Now
 
