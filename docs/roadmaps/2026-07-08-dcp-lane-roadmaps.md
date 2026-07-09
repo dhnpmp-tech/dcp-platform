@@ -726,6 +726,8 @@ DCP-hosted endpoint -> billed inference.
   packet for the adapter deployment lifecycle: public intent stays non-routing,
   mismatched load proof stays degraded, and only matching adapter/base-model load
   proof allows route traffic.**
+  **PR #867 tightens that gate so route traffic requires matching deployment id,
+  adapter id, base model, mode, endpoint id, and artifact checksum.**
   **PR #842 adds
   `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`,
   an opt-in live readiness runner for the adapter vLLM load/billing gate. It

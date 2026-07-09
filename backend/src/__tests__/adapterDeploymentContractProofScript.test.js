@@ -28,18 +28,28 @@ describe('adapter deployment contract proof script', () => {
       route_traffic: false,
       failure_reason: 'serving_load_proof_mismatch',
     });
+    expect(report.deployments.checksum_mismatch_load_proof).toMatchObject({
+      status: 'degraded',
+      route_traffic: false,
+      failure_reason: 'serving_load_proof_mismatch',
+    });
     expect(report.deployments.matching_load_proof).toMatchObject({
       status: 'running',
       route_traffic: true,
       failure_reason: null,
       serving_load_proof: {
+        deployment_id: 'adpl_contract01',
         adapter_id: 'adpt_contractproof',
         base_model: 'meta-llama/Llama-3.1-8B-Instruct',
+        mode: 'single_adapter_live_merge',
+        endpoint_id: 'adapter-proof-endpoint',
+        artifact_checksum_sha256: 'a'.repeat(64),
       },
     });
     expect(report.invariants.map((item) => item.name)).toEqual([
       'public deployment request cannot attach load proof',
       'mismatched load proof cannot route traffic',
+      'artifact checksum mismatch cannot route traffic',
       'matching load proof is required before route traffic',
       'renter deployment list exposes verified running record',
     ]);

@@ -478,11 +478,14 @@ Required gates:
 - Adapter artifacts have owner, base model, checksum, rank, storage key, and
   status.
 - Adapter deployment cannot route traffic until the serving backend confirms it
-  loaded the adapter.
+  loaded the exact deployment id, adapter id, base model, mode, recorded
+  endpoint id, and adapter artifact checksum.
 - CI-safe deploy lifecycle proof: run
   `npm run proof:adapter-deployment-contract` to verify public deployment
   requests stay non-routing, mismatched load proof stays degraded, and only
-  matching adapter/base-model load proof allows route traffic.
+  matching deployment/adapter/base-model/mode/endpoint/checksum load proof
+  allows route traffic. PR #867 tightened this proof and the backend route gate
+  to require that full match before `route_traffic=true`.
 - Opt-in live load proof: run
   `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`
   to verify readiness before any live adapter load, endpoint smoke, or adapter

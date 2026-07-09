@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 06:23 UTC - `test(lora): require strict adapter load proof - PR #867`
+
+**PR:** [#867](https://github.com/dhnpmp-tech/dcp-platform/pull/867) (`codex/adapter-load-proof-strict-match-2026-07-09`).
+**Local timestamp:** 2026-07-09 10:23 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Tightens the adapter deployment routing gate so a vLLM load proof must match the deployment row and registered adapter artifact before traffic can route.
+
+- **Backend contract:** Adapter deployment load proof now has to match deployment id, adapter id, base model, mode, endpoint id when present, and adapter artifact checksum before `route_traffic` can become true.
+- **Proof command:** Strengthened `npm run proof:adapter-deployment-contract` with checksum-mismatch coverage and a verified proof packet that records deployment, adapter, model, mode, endpoint, checksum, timestamp, and provider.
+- **Public surface:** OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning copy, `llms.txt`, and roadmap docs now describe the stricter proof gate.
+- **Safety:** Contract tightening only; no public deploy action, serving load mutation access, adapter serving, route traffic, billing, GPU training, or Tinker compatibility behavior was enabled.
+- **Verified:** Syntax checks; targeted LoRA/deployment/artifact-policy Jest suites; adapter deployment contract proof; adapter artifact policy proof; local roadmap proof still passing 24/24 gates; OpenAPI YAML parse; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 06:03 UTC - `test(lora): add adapter artifact policy proof - PR #866`
 
 **PR:** [#866](https://github.com/dhnpmp-tech/dcp-platform/pull/866) (`codex/adapter-artifact-policy-2026-07-09`).

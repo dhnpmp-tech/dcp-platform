@@ -212,12 +212,21 @@ function normalizeAdapterDeploySpec(input = {}) {
   const mode = normalizeEnum(input.mode || 'single_adapter_live_merge', DEPLOY_MODES, 'mode');
   const adapterId = normalizeAdapterId(input.adapter_id);
   const baseModel = normalizeBoundedString(input.base_model, 'base_model', 160);
+  const deploymentId = input.deployment_id ? normalizeBoundedString(input.deployment_id, 'deployment_id', 80) : null;
+  const endpointId = input.endpoint_id ? normalizeBoundedString(input.endpoint_id, 'endpoint_id', 120) : null;
+  const artifactChecksum = input.artifact_checksum_sha256
+    ? normalizeChecksum(input.artifact_checksum_sha256, 'artifact_checksum_sha256')
+    : null;
   const loadProof = normalizeLoadProof(input.serving_load_proof);
   const routeTraffic = !!(
     loadProof &&
     loadProof.loaded === true &&
     loadProof.adapter_id === adapterId &&
-    loadProof.base_model === baseModel
+    loadProof.base_model === baseModel &&
+    loadProof.mode === mode &&
+    (!deploymentId || loadProof.deployment_id === deploymentId) &&
+    (!endpointId || loadProof.endpoint_id === endpointId) &&
+    (!artifactChecksum || loadProof.artifact_checksum_sha256 === artifactChecksum)
   );
 
   return {
@@ -225,7 +234,9 @@ function normalizeAdapterDeploySpec(input = {}) {
     mode,
     adapter_id: adapterId,
     base_model: baseModel,
-    endpoint_id: input.endpoint_id ? normalizeBoundedString(input.endpoint_id, 'endpoint_id', 120) : null,
+    deployment_id: deploymentId,
+    endpoint_id: endpointId,
+    artifact_checksum_sha256: artifactChecksum,
     route_traffic: routeTraffic,
     serving_load_proof: loadProof,
   };
@@ -301,8 +312,14 @@ function normalizeLoadProof(value) {
   }
   return {
     loaded: value.loaded === true,
+    deployment_id: value.deployment_id ? normalizeBoundedString(value.deployment_id, 'serving_load_proof.deployment_id', 80) : null,
     adapter_id: normalizeAdapterId(value.adapter_id),
     base_model: normalizeBoundedString(value.base_model, 'serving_load_proof.base_model', 160),
+    mode: value.mode ? normalizeEnum(value.mode, DEPLOY_MODES, 'serving_load_proof.mode') : null,
+    endpoint_id: value.endpoint_id ? normalizeBoundedString(value.endpoint_id, 'serving_load_proof.endpoint_id', 120) : null,
+    artifact_checksum_sha256: value.artifact_checksum_sha256
+      ? normalizeChecksum(value.artifact_checksum_sha256, 'serving_load_proof.artifact_checksum_sha256')
+      : null,
     loaded_at: value.loaded_at ? normalizeBoundedString(value.loaded_at, 'serving_load_proof.loaded_at', 80) : null,
     provider_id: value.provider_id == null ? null : String(value.provider_id),
   };
@@ -332,6 +349,17 @@ function normalizeAdapterId(value) {
     });
   }
   return id;
+}
+
+function normalizeChecksum(value, fieldName) {
+  const checksum = String(value || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(checksum)) {
+    throw new LoraContractError(`${fieldName} must be a 64-character hex SHA-256 digest`, {
+      code: 'invalid_checksum',
+      details: { field: fieldName },
+    });
+  }
+  return checksum;
 }
 
 function normalizeStorageKey(value) {

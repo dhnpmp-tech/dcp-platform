@@ -83,12 +83,16 @@ function createAdapterDeployment(db, renterId, input = {}, options = {}) {
     });
   }
 
-  const spec = normalizeDeploySpecForAdapter(adapter, input, {
+  const deploymentId = normalizeDeploymentId(input.deployment_id);
+  const spec = normalizeDeploySpecForAdapter(adapter, {
+    ...input,
+    deployment_id: deploymentId,
+  }, {
     acceptLoadProof: options.acceptLoadProof === true,
   });
   const now = new Date().toISOString();
   const deployment = {
-    deployment_id: normalizeDeploymentId(input.deployment_id),
+    deployment_id: deploymentId,
     renter_id: ownerId,
     adapter_id: adapter.adapter_id,
     base_model: adapter.base_model,
@@ -162,12 +166,22 @@ function attachDeploymentLoadProof(db, renterId, deploymentId, servingLoadProof)
       details: { deployment_id: id },
     });
   }
+  const adapter = getAdapter(db, ownerId, deployment.adapter_id);
+  if (!adapter) {
+    deploymentError('Adapter not found for this renter', {
+      code: 'adapter_not_found',
+      httpStatus: 404,
+      details: { adapter_id: deployment.adapter_id },
+    });
+  }
 
   const spec = normalizeAdapterDeploySpec({
+    deployment_id: deployment.deployment_id,
     mode: deployment.mode,
     adapter_id: deployment.adapter_id,
     base_model: deployment.base_model,
     endpoint_id: deployment.endpoint_id || undefined,
+    artifact_checksum_sha256: adapter.checksum_sha256,
     serving_load_proof: servingLoadProof,
   });
   const now = new Date().toISOString();
@@ -319,10 +333,12 @@ function getAdapterDeployment(db, renterId, deploymentId) {
 function normalizeDeploySpecForAdapter(adapter, input, options = {}) {
   const requestedBaseModel = input.base_model || adapter.base_model;
   const spec = normalizeAdapterDeploySpec({
+    deployment_id: input.deployment_id,
     mode: input.mode || 'single_adapter_live_merge',
     adapter_id: adapter.adapter_id,
     base_model: requestedBaseModel,
     endpoint_id: input.endpoint_id,
+    artifact_checksum_sha256: adapter.checksum_sha256,
     serving_load_proof: options.acceptLoadProof ? input.serving_load_proof : null,
   });
   if (spec.base_model !== adapter.base_model) {

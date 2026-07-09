@@ -39,7 +39,7 @@ const GATES = [
     k: 'deployment_intents',
     tEn: 'Deployment intents',
     tAr: 'نوايا النشر',
-    en: 'Deployment rows are visible, but route traffic stays off until matching vLLM load proof exists.',
+    en: 'Deployment rows are visible, but route traffic stays off until vLLM proof matches deployment, adapter, endpoint, and artifact.',
     ar: 'صفوف النشر مرئية، لكن حركة التوجيه تبقى متوقفة حتى يوجد إثبات تحميل vLLM مطابق.',
   },
   {
@@ -151,7 +151,7 @@ export default function FineTuningProductPage() {
               <pre className="term" dir="ltr" aria-label="Fine-tuning API snippets">{SNIPPET}</pre>
               <ul className="pshow-list">
                 <li><Bi en="No public Tinker compatibility claim; low-level loop primitives are contract-only until GPU proof exists." ar="لا ادعاء توافق عام مع Tinker؛ بدائيات الحلقة منخفضة المستوى عقد فقط حتى يوجد إثبات GPU." /></li>
-                <li><Bi en="No adapter route traffic until vLLM load proof matches adapter and base model." ar="لا حركة لمحولات النشر حتى يطابق إثبات تحميل vLLM المحول والنموذج الأساسي." /></li>
+                <li><Bi en="No adapter route traffic until vLLM load proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum." ar="لا حركة لمحولات النشر حتى يطابق إثبات تحميل vLLM معرف النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
                 <li><Bi en="No quality claims until reproducible benchmark artifacts exist." ar="لا ادعاءات جودة حتى توجد آثار قياس قابلة للتكرار." /></li>
               </ul>
             </div>

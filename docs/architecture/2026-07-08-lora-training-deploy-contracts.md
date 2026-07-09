@@ -125,7 +125,10 @@ Before a public training route:
 7. Keep deployment separate until vLLM load proof exists. **Proof attachment is
    wired in PR #749** via admin/internal `POST
    /api/adapters/{adapter_id}/deployments/{deployment_id}/load-proof`; it only
-   flips `route_traffic` when the load proof matches adapter id and base model.
+   flips `route_traffic` when the load proof matches deployment id, adapter id,
+   base model, mode, recorded endpoint id, and adapter artifact checksum. **PR
+   #867 tightened this from adapter/base-model proof to full deployment and
+   artifact proof.**
 
 PR #744 adds `/api/lora/training-jobs` as a metadata foundation. It validates
 dataset JSONL and normalizes the recipe, but returns `training_enabled: false`
@@ -191,7 +194,8 @@ PR #784 adds read-only adapter deployment intent rows to `/renter/fine-tuning`.
 The page now fetches `GET /api/adapters/{adapter_id}/deployments` for visible
 adapters and displays mode, endpoint, lifecycle status, route traffic, and load
 proof state. It still does not expose a deploy action or claim serving until
-the backend row has matching load proof.
+the backend row has matching deployment, adapter, model, mode, endpoint, and
+artifact-checksum load proof.
 
 PR #785 adds renter-wide `GET /api/adapters/deployments` for deployment
 lifecycle records across all adapters. It is a read-only contract for dashboards

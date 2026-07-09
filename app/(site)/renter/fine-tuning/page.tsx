@@ -213,8 +213,8 @@ const STAGES = [
     status: 'blocked',
     titleEn: 'Deployment proof',
     titleAr: 'إثبات النشر',
-    bodyEn: 'Endpoint routing stays off until adapter load proof matches adapter id and base model.',
-    bodyAr: 'يبقى توجيه النقطة متوقفا حتى يطابق إثبات التحميل معرف المحول والنموذج الأساسي.',
+    bodyEn: 'Endpoint routing stays off until adapter load proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum.',
+    bodyAr: 'يبقى توجيه النقطة متوقفا حتى يطابق إثبات التحميل معرف النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة.',
   },
 ] as const
 
@@ -1007,7 +1007,7 @@ export default function RenterFineTuningPage() {
                     </b>
                     <span>
                       <Bi
-                        en="Deployment records appear only after a ready adapter asks for a serving target. Route traffic stays off until matching vLLM load proof is attached."
+                        en="Deployment records appear only after a ready adapter asks for a serving target. Route traffic stays off until vLLM proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum."
                         ar="تظهر سجلات النشر فقط بعد أن يطلب محول جاهز هدف خدمة. تبقى الحركة متوقفة حتى يرفق إثبات تحميل vLLM مطابق."
                       />
                     </span>

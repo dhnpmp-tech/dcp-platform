@@ -421,6 +421,9 @@ Goal: ship the first real train-here/deploy-here loop.
     adapter deployment proof packet that verifies deployment intent stays
     non-routing, mismatched load proof stays degraded, and only matching
     adapter/base-model load proof allows route traffic.
+  - PR #867 tightened the load-proof gate so route traffic also requires the
+    deployment id, mode, endpoint id, and adapter artifact checksum to match the
+    deployment row and registered adapter.
   - PR #842 added
     `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`,
     an opt-in live readiness runner before adapter vLLM load, route traffic,
