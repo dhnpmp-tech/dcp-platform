@@ -80,6 +80,8 @@ interface WorkspacePanelProps {
   onVolumeRented?: (vol: WorkspaceVolume) => void
   /** Optional callback whenever the current volume state is loaded/refreshed. */
   onVolumeLoaded?: (vol: WorkspaceVolume | null) => void
+  /** Optional callback whenever the current staged file list is loaded/refreshed. */
+  onFilesLoaded?: (files: WorkspaceFile[]) => void
 }
 
 export default function WorkspacePanel({
@@ -89,6 +91,7 @@ export default function WorkspacePanel({
   nextStageHref,
   onVolumeRented,
   onVolumeLoaded,
+  onFilesLoaded,
 }: WorkspacePanelProps) {
   const { lang } = useV2()
 
@@ -162,11 +165,13 @@ export default function WorkspacePanel({
   const loadFiles = useCallback(async () => {
     if (!renterKey) {
       setFilesState('idle')
+      onFilesLoaded?.([])
       return
     }
     // Don't attempt the files list if there's no active volume — backend 409s.
     if (volumeState === 'ready' && !volume) {
       setFiles([])
+      onFilesLoaded?.([])
       setFilesState('idle')
       return
     }
@@ -174,13 +179,15 @@ export default function WorkspacePanel({
     setFilesError('')
     try {
       const data: FilesListResponse = await listFiles(apiBase, renterKey, '')
-      setFiles(data.files || [])
+      const loadedFiles = data.files || []
+      setFiles(loadedFiles)
+      onFilesLoaded?.(loadedFiles)
       setFilesState('ready')
     } catch (e) {
       setFilesState('error')
       setFilesError(e instanceof Error ? e.message : 'Failed to load files.')
     }
-  }, [apiBase, renterKey, volume, volumeState])
+  }, [apiBase, renterKey, volume, volumeState, onFilesLoaded])
 
   useEffect(() => {
     loadVolume()

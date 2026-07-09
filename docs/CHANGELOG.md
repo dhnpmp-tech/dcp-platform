@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 16:06 UTC - Pods unified launch checklist (PR #899)
+
+- **PR:** [#899](https://github.com/dhnpmp-tech/dcp-platform/pull/899) (`codex/pods-launch-checklist-tareq-ux-2026-07-09`).
+- **Timestamp:** 2026-07-09 16:06 UTC / 2026-07-09 20:06 +04.
+- **Pods UX:** `/renter/pods` now has a top-level launch checklist for Stage 1 workspace, Stage 2 actual GPU request, trial account route, and minimum-balance credit gate before the deeper controls.
+- **Workspace UX:** The workspace panel reports staged-file counts upward so the launch checklist can show file/folder counts while Stage 1 remains collapsed and folder-first.
+- **GPU clarity:** The checklist repeats auto-pick vs fixed GPU and keeps browse-only VRAM filters separate from the launch GPU request.
+- **Trial and credit clarity:** The checklist repeats grant-credit trial routing, paid-credit high-demand gating, and synced/fallback minimum-balance state from existing readiness contracts.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the checklist in auto-pick and fixed-GPU states.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:59 UTC - Batch credit preflight gates (PR #898)
 
 - **PR:** [#898](https://github.com/dhnpmp-tech/dcp-platform/pull/898) (`codex/batches-minimum-balance-preflight-2026-07-09`).

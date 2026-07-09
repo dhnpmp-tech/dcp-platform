@@ -254,6 +254,22 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Hide folders' }).click();
   await expect(page.getByLabel('Stage 1 folder index')).toBeHidden();
 
+  const launchChecklist = page.getByLabel('Launch checklist');
+  await expect(launchChecklist).toContainText('Stage 1');
+  await expect(launchChecklist).toContainText('Workspace');
+  await expect(launchChecklist).toContainText('5 files · 3 folders');
+  await expect(launchChecklist).toContainText('Stage 1 can stay collapsed');
+  await expect(launchChecklist).toContainText('Stage 2');
+  await expect(launchChecklist).toContainText('Actual GPU request');
+  await expect(launchChecklist).toContainText('Auto-pick · no fixed GPU');
+  await expect(launchChecklist).toContainText('Backend picks an available GPU type at launch');
+  await expect(launchChecklist).toContainText('Trial');
+  await expect(launchChecklist).toContainText('Trial accounts: grant-credit provenance');
+  await expect(launchChecklist).toContainText('Trial route: native/community GPU pool; High-demand GPUs: paid credit only');
+  await expect(launchChecklist).toContainText('Credit');
+  await expect(launchChecklist).toContainText('Credit gates synced');
+  await expect(launchChecklist).toContainText('Paid available SAR 38.00 · high-demand requires paid credit');
+
   await page.getByRole('link', { name: 'Continue to Stage 2' }).click();
   await expect(page).toHaveURL(/#pod-stage-2$/);
   await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
@@ -348,6 +364,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Quote: ~SAR');
   await expect(computeSummary.getByRole('button', { name: 'Auto-pick', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await expect(computeSummary.getByRole('button', { name: 'Fixed GPU', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(launchChecklist).toContainText('RTX 4090');
+  await expect(launchChecklist).toContainText('Fixed launch request · 24 GB · SAR 12.00/hr');
   await expect(page.getByLabel('Launch review')).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');

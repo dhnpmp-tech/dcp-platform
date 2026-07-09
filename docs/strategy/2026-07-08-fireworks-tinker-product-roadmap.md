@@ -151,6 +151,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #889 surfaces the workspace contract and live acceptance proof gates in
     `GET /api/pods/trial-routing/readiness` and `/renter/pods`, keeping the
     proof commands visible while live GPU-provider evidence remains blocked.
+  - PR #899 adds a unified `/renter/pods` launch checklist that shows staged
+    file/folder counts while Stage 1 remains collapsed, so large workspaces no
+    longer obscure the path to the compute decision.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -182,6 +185,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     `/renter/pods`, showing provider/community quote preflight, high-demand
     paid-credit preflight, paid available SAR, trial-credit limits, and the
     read-only no-enforcement-change guard before launch.
+  - PR #899 repeats the same trial-route and credit-gate state in the unified
+    launch checklist, alongside the actual auto-pick/fixed-GPU request, without
+    changing launch body, routing, billing, or enforcement behavior.
 
 Acceptance:
 
