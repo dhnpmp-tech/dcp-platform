@@ -296,6 +296,52 @@ interface ProbeEvidencePayload {
   providers?: ProbeEvidenceRow[]
 }
 
+interface LiveAcceptanceEvidence {
+  found?: boolean
+  artifact?: string | null
+  verdict?: string | null
+  generated_at?: string | null
+  failure_code?: string | null
+  blockers?: string[]
+  maintenance_required?: boolean | null
+}
+
+interface LiveAcceptanceGate {
+  id?: string
+  lane?: string
+  product_area?: string
+  acceptance_state?: string
+  acceptance_command?: string | null
+  command_available?: boolean
+  artifact_pattern?: string
+  blocked_on?: string[]
+  verifies?: string[]
+  claim_guard?: string
+  capability_claim_allowed?: boolean
+  next_action?: string
+  latest_evidence?: LiveAcceptanceEvidence | null
+}
+
+interface LiveAcceptancePayload {
+  contract?: string
+  generated_at?: string
+  verdict?: string
+  command?: string
+  mode?: string
+  summary?: {
+    total?: number
+    blocked?: number
+    command_available?: number
+    missing_acceptance_command?: number
+    capability_claim_allowed?: number
+    latest_evidence_found?: number
+  }
+  evidence_dir?: string
+  gates?: LiveAcceptanceGate[]
+  validation_failures?: string[]
+  artifacts?: Record<string, string>
+}
+
 interface FleetProviderRow {
   id?: number | string
   name?: string | null
@@ -1354,6 +1400,10 @@ function fleetAlertRows(payload: FleetAlertsPayload | null): FleetAlertRow[] {
 
 function probeEvidenceRows(payload: ProbeEvidencePayload | null): ProbeEvidenceRow[] {
   return Array.isArray(payload?.providers) ? payload.providers : []
+}
+
+function liveAcceptanceGateRows(payload: LiveAcceptancePayload | null): LiveAcceptanceGate[] {
+  return Array.isArray(payload?.gates) ? payload.gates : []
 }
 
 function errorEventRows(payload: ErrorsPayload | null): ErrorEventRow[] {
@@ -2558,6 +2608,7 @@ export default function V2AdminPage() {
   const [fleet, setFleet] = useState<FleetHealthPayload | null>(null)
   const [fleetAlerts, setFleetAlerts] = useState<FleetAlertsPayload | null>(null)
   const [probeEvidence, setProbeEvidence] = useState<ProbeEvidencePayload | null>(null)
+  const [liveAcceptance, setLiveAcceptance] = useState<LiveAcceptancePayload | null>(null)
   const [reconciliation, setReconciliation] = useState<ReconciliationPayload | null>(null)
   const [errorsPayload, setErrorsPayload] = useState<ErrorsPayload | null>(null)
   const [signals, setSignals] = useState<ControlPlaneSignalsPayload | null>(null)
@@ -2625,6 +2676,7 @@ export default function V2AdminPage() {
         fleetRes,
         fleetAlertsRes,
         probeEvidenceRes,
+        liveAcceptanceRes,
         reconciliationRes,
         errorsRes,
         signalsRes,
@@ -2656,6 +2708,7 @@ export default function V2AdminPage() {
         fetchJson<FleetHealthPayload>('/admin/fleet/health', token),
         fetchJson<FleetAlertsPayload>('/admin/fleet/alerts', token),
         fetchJson<ProbeEvidencePayload>('/admin/fleet/probe-evidence?limit=50', token),
+        fetchJson<LiveAcceptancePayload>('/admin/live-acceptance-gates', token),
         fetchJson<ReconciliationPayload>('/admin/finance/reconciliation?days=7', token),
         fetchJson<ErrorsPayload>('/admin/errors?limit=20', token),
         fetchJson<ControlPlaneSignalsPayload>('/admin/control-plane/signals?limit=5', token),
@@ -2688,6 +2741,7 @@ export default function V2AdminPage() {
       setFleet(fleetRes)
       setFleetAlerts(fleetAlertsRes)
       setProbeEvidence(probeEvidenceRes)
+      setLiveAcceptance(liveAcceptanceRes)
       setReconciliation(reconciliationRes)
       setErrorsPayload(errorsRes)
       setSignals(signalsRes)
@@ -3141,6 +3195,14 @@ export default function V2AdminPage() {
   )
   const fleetProviderList = fleetProviderRows(fleet)
   const probeEvidenceList = probeEvidenceRows(probeEvidence)
+  const liveAcceptanceRows = liveAcceptanceGateRows(liveAcceptance)
+  const liveAcceptanceTotal = toNumber(liveAcceptance?.summary?.total) || liveAcceptanceRows.length
+  const liveAcceptanceBlocked = toNumber(liveAcceptance?.summary?.blocked) || liveAcceptanceRows.filter((gate) => String(gate.acceptance_state || '').startsWith('blocked')).length
+  const liveAcceptanceCommandReady = toNumber(liveAcceptance?.summary?.command_available)
+  const liveAcceptanceLatestEvidence = toNumber(liveAcceptance?.summary?.latest_evidence_found)
+  const liveAcceptanceClaimAllowed = toNumber(liveAcceptance?.summary?.capability_claim_allowed)
+  const liveAcceptanceValidationFailures = Array.isArray(liveAcceptance?.validation_failures) ? liveAcceptance.validation_failures.length : 0
+  const liveAcceptanceLoaded = liveAcceptanceRows.length > 0
   const hasProbeEvidence = probeEvidence !== null
   const fleetReadyProviders = fleetProviderList.filter((provider) => fleetProviderBlockers(provider).length === 0)
   const fleetBlockedProviders = fleetProviderList.filter((provider) => fleetProviderBlockers(provider).length > 0)
@@ -3597,6 +3659,9 @@ export default function V2AdminPage() {
           <a href="#launch" className="rail-link">
             <span>GO</span><Bi en="Launch" ar="الإطلاق" />
           </a>
+          <a href="#live-acceptance" className="rail-link">
+            <span>LA</span><Bi en="Live gates" ar="بوابات حية" />
+          </a>
           <a href="#serving-recovery" className="rail-link">
             <span>SR</span><Bi en="Recovery" ar="الاستعادة" />
           </a>
@@ -3922,6 +3987,98 @@ export default function V2AdminPage() {
                 <Bi
                   en="v2 launch readiness is read-only. It decides what the founding team may safely say publicly; it does not trigger provider repair, payments, deploys, or control-plane runs."
                   ar="جاهزية إطلاق v2 للقراءة فقط. تحدد ما يمكن لفريق المؤسسين قوله علناً بأمان؛ ولا تشغل إصلاح مزوّد أو مدفوعات أو نشر أو دورات لوحة التحكم."
+                />
+              </p>
+            </section>
+
+            <section className="live-acceptance-board" id="live-acceptance" aria-label="Live acceptance gates">
+              <div className="section-head">
+                <div>
+                  <p className="admin-kicker"><Bi en="Roadmap proof control" ar="تحكم إثبات الخطة" /></p>
+                  <h2><Bi en="Live acceptance gates" ar="بوابات القبول الحية" /></h2>
+                </div>
+                <span className={liveAcceptanceLoaded ? 'critical' : 'watch'}>
+                  <Bi
+                    en={liveAcceptanceLoaded ? `${liveAcceptanceBlocked}/${liveAcceptanceTotal} gated` : 'not loaded'}
+                    ar={liveAcceptanceLoaded ? `${liveAcceptanceBlocked}/${liveAcceptanceTotal} محجوبة` : 'لم تحمل'}
+                  />
+                </span>
+              </div>
+
+              <div className="live-acceptance-summary">
+                <div className="critical">
+                  <span><Bi en="blocked gates" ar="بوابات محجوبة" /></span>
+                  <strong>{numFmt.format(liveAcceptanceBlocked)}</strong>
+                  <small><Bi en="live proof still required" ar="ما زال الإثبات الحي مطلوباً" /></small>
+                </div>
+                <div className={liveAcceptanceCommandReady === liveAcceptanceTotal && liveAcceptanceTotal > 0 ? 'ready' : 'watch'}>
+                  <span><Bi en="commands ready" ar="أوامر جاهزة" /></span>
+                  <strong>{numFmt.format(liveAcceptanceCommandReady)}</strong>
+                  <small><Bi en={`${liveAcceptanceTotal} acceptance paths`} ar={`${liveAcceptanceTotal} مسارات قبول`} /></small>
+                </div>
+                <div className={liveAcceptanceLatestEvidence > 0 ? 'watch' : ''}>
+                  <span><Bi en="latest evidence" ar="آخر دليل" /></span>
+                  <strong>{numFmt.format(liveAcceptanceLatestEvidence)}</strong>
+                  <small><Bi en="latest proof packets found" ar="حزم إثبات حديثة موجودة" /></small>
+                </div>
+                <div className={liveAcceptanceClaimAllowed > 0 ? 'critical' : 'ready'}>
+                  <span><Bi en="claim allowed" ar="الادعاء مسموح" /></span>
+                  <strong>{numFmt.format(liveAcceptanceClaimAllowed)}</strong>
+                  <small><Bi en="must stay zero until proof passes" ar="يجب أن يبقى صفراً حتى ينجح الإثبات" /></small>
+                </div>
+                <div className={liveAcceptanceValidationFailures > 0 ? 'critical' : 'ready'}>
+                  <span><Bi en="contract validation" ar="تحقق العقد" /></span>
+                  <strong><Bi en={liveAcceptanceValidationFailures > 0 ? 'fail' : 'pass'} ar={liveAcceptanceValidationFailures > 0 ? 'فشل' : 'نجح'} /></strong>
+                  <small><Bi en={liveAcceptance?.contract || 'dcp.live_acceptance_gate_status.v1'} ar={liveAcceptance?.contract || 'dcp.live_acceptance_gate_status.v1'} /></small>
+                </div>
+              </div>
+
+              {liveAcceptanceRows.length === 0 ? (
+                <p className="live-acceptance-empty">
+                  <Bi
+                    en="Live acceptance status is not loaded yet. Keep Fireworks/Tinker capability claims gated until the backend packet returns."
+                    ar="لم يتم تحميل حالة القبول الحي بعد. أبقِ ادعاءات قدرات Fireworks/Tinker محجوبة حتى تعود حزمة الخلفية."
+                  />
+                </p>
+              ) : (
+                <div className="live-acceptance-gate-grid">
+                  {liveAcceptanceRows.map((gate) => {
+                    const gateId = gate.id || 'unknown_gate'
+                    const evidence = gate.latest_evidence || null
+                    const evidenceVerdict = evidence?.found ? (evidence.verdict || 'unknown') : 'none'
+                    const gateBlockers = evidence?.found && Array.isArray(evidence.blockers) && evidence.blockers.length > 0
+                      ? evidence.blockers
+                      : (Array.isArray(gate.blocked_on) ? gate.blocked_on : [])
+                    const gateClass = String(gate.acceptance_state || '').includes('maintenance') ? 'watch' : 'critical'
+                    return (
+                      <article className={`live-acceptance-gate ${gateClass}`} key={gateId}>
+                        <div className="live-acceptance-gate-head">
+                          <div>
+                            <span>{gate.lane || 'Roadmap'}</span>
+                            <strong>{gateId.replace(/_/g, ' ')}</strong>
+                          </div>
+                          <em><Bi en={gate.acceptance_state || 'blocked'} ar={gate.acceptance_state || 'محجوبة'} /></em>
+                        </div>
+                        <p>{gate.product_area || 'Live acceptance proof is required before public claims change.'}</p>
+                        <div className="live-acceptance-evidence">
+                          <span><Bi en={`latest evidence: ${evidenceVerdict}`} ar={`آخر دليل: ${evidenceVerdict}`} /></span>
+                          <small><Bi en={evidence?.generated_at ? formatDate(evidence.generated_at) : 'no latest proof packet'} ar={evidence?.generated_at ? formatDate(evidence.generated_at) : 'لا توجد حزمة إثبات حديثة'} /></small>
+                        </div>
+                        <div className="live-acceptance-blockers">
+                          {gateBlockers.slice(0, 3).map((blocker) => <span key={`${gateId}-${blocker}`}>{blocker}</span>)}
+                        </div>
+                        <code>{gate.acceptance_command || 'acceptance command missing'}</code>
+                        <small>{gate.claim_guard || gate.next_action || 'Keep capability claims gated until acceptance proof passes.'}</small>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+
+              <p className="live-acceptance-policy">
+                <Bi
+                  en={`Read-only packet generated ${liveAcceptance?.generated_at ? formatDate(liveAcceptance.generated_at) : 'after backend load'} from ${liveAcceptance?.evidence_dir || 'docs/reports/reliability'}. It does not run paid compute, mutate routing, or unlock capability claims.`}
+                  ar={`حزمة للقراءة فقط ولدت ${liveAcceptance?.generated_at ? formatDate(liveAcceptance.generated_at) : 'بعد تحميل الخلفية'} من ${liveAcceptance?.evidence_dir || 'docs/reports/reliability'}. لا تشغل حوسبة مدفوعة ولا تغير التوجيه ولا تفتح ادعاءات القدرات.`}
                 />
               </p>
             </section>

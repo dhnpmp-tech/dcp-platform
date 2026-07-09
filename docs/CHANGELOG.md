@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 18:54 UTC - Admin live acceptance gate panel (PR #910)
+
+- **PR:** [#910](https://github.com/dhnpmp-tech/dcp-platform/pull/910) (`codex/live-acceptance-admin-panel-2026-07-09`).
+- **Timestamp:** 2026-07-09 18:54 UTC / 2026-07-09 22:54 +04.
+- **Read-only builder:** `scripts/run-live-acceptance-gate-status.js` now exposes `buildLiveAcceptanceGateStatus()` so callers can construct the status packet without writing JSON/Markdown artifacts.
+- **Backend:** Guarded `GET /api/admin/live-acceptance-gates` returns the `dcp.live_acceptance_gate_status.v1` packet with latest evidence, blocked inputs, commands, validation state, and claim guards.
+- **Admin UI:** v2 admin now includes a "Live acceptance gates" section and rail shortcut showing blocked gates, command readiness, latest evidence count, claim-allowed count, contract validation, blockers, and acceptance commands.
+- **Regression:** Added read-only builder coverage, admin route coverage, and static admin UI wiring checks.
+- **Safety:** Read-only ops/admin visibility change; no paid compute, workload launch, provider routing, billing, balance, trial-accounting, adapter serving, prompt-cache discount, batch execution, pod launch, or capability-claim unlock was added.
+- **Verification:** Live-acceptance Jest test; admin live-acceptance route integration test; admin live-acceptance static test; TypeScript; live-acceptance proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 18:42 UTC - Pods Stage 2 fast path launch UX (PR #909)
 
 - **PR:** [#909](https://github.com/dhnpmp-tech/dcp-platform/pull/909) (`codex/pods-stage2-fast-path-2026-07-09`).

@@ -723,7 +723,10 @@ Acceptance:
     guards without treating any live capability as accepted. PR #908 makes the
     packet ingest matching `*-latest.json` proof reports, so latest dcp-agent
     reconciliation blockers and other live-gate evidence are visible in the
-    same blocked-gate ledger without rerunning remote proofs.**
+    same blocked-gate ledger without rerunning remote proofs. PR #910 exposes
+    that ledger through guarded `GET /api/admin/live-acceptance-gates` and the
+    v2 admin Live acceptance gates panel so founders can inspect blocked live
+    proofs before changing Fireworks/Tinker capability claims.**
 14. **Prompt-cache live settlement runner** - opt-in live proof before cached
     input discounts. **Added in PR #836 as
     `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;

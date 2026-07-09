@@ -24,6 +24,9 @@ const {
 } = require('../services/providerVerification');
 const { safeErrorPayload } = require('../lib/error-response');
 const {
+  buildLiveAcceptanceGateStatus,
+} = require('../../../scripts/run-live-acceptance-gate-status');
+const {
   listPolicies: listControlPlanePolicies,
   updatePolicy: updateControlPlanePolicy,
   getRecentSignals: getControlPlaneSignals,
@@ -2199,6 +2202,18 @@ router.get('/access/policy', (req, res) => {
   } catch (error) {
     console.error('Admin access policy error:', error);
     res.status(500).json({ error: 'Access policy check failed' });
+  }
+});
+
+// === GET /api/admin/live-acceptance-gates - CI-safe roadmap gate packet ===
+router.get('/live-acceptance-gates', (req, res) => {
+  try {
+    const report = buildLiveAcceptanceGateStatus();
+    res.set('Cache-Control', 'no-store');
+    res.json(report);
+  } catch (error) {
+    console.error('Admin live acceptance gates error:', error);
+    res.status(500).json({ error: 'Live acceptance gate status failed' });
   }
 });
 

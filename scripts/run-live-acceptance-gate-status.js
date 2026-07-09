@@ -283,16 +283,18 @@ function writeReport(report, outputDir = OUTPUT_DIR_DEFAULT) {
   return report.artifacts;
 }
 
-function runLiveAcceptanceGateStatus(options = {}) {
-  const outputDir = path.resolve(options.outputDir || process.env.DCP_LIVE_ACCEPTANCE_STATUS_OUTPUT_DIR || OUTPUT_DIR_DEFAULT);
+function buildLiveAcceptanceGateStatus(options = {}) {
   const evidenceDir = path.resolve(options.evidenceDir || process.env.DCP_LIVE_ACCEPTANCE_EVIDENCE_DIR || OUTPUT_DIR_DEFAULT);
   const gates = LIVE_ACCEPTANCE_GATES.map(cloneGate);
   for (const gate of gates) {
     gate.latest_evidence = readLatestEvidence(gate, evidenceDir);
   }
+  const generatedAt = options.generatedAt
+    ? new Date(options.generatedAt).toISOString()
+    : new Date().toISOString();
   const report = {
     contract: CONTRACT,
-    generated_at: new Date().toISOString(),
+    generated_at: generatedAt,
     verdict: 'FAIL',
     command: 'npm run proof:live-acceptance-status',
     mode: 'ci_safe_status_packet',
@@ -304,6 +306,12 @@ function runLiveAcceptanceGateStatus(options = {}) {
   };
   report.validation_failures = validateReport(report);
   report.verdict = report.validation_failures.length === 0 ? 'PASS' : 'FAIL';
+  return report;
+}
+
+function runLiveAcceptanceGateStatus(options = {}) {
+  const outputDir = path.resolve(options.outputDir || process.env.DCP_LIVE_ACCEPTANCE_STATUS_OUTPUT_DIR || OUTPUT_DIR_DEFAULT);
+  const report = buildLiveAcceptanceGateStatus(options);
   writeReport(report, outputDir);
   return report;
 }
@@ -332,6 +340,7 @@ module.exports = {
   CONTRACT,
   LIVE_ACCEPTANCE_GATES,
   PROOF_PREFIX,
+  buildLiveAcceptanceGateStatus,
   buildSummary,
   runLiveAcceptanceGateStatus,
   validateReport,
