@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 20:34 UTC - Workspace folder-first large manifests (PR #916)
+
+- **PR:** [#916](https://github.com/dhnpmp-tech/dcp-platform/pull/916) (`codex/workspace-folder-first-large-manifest-2026-07-10`).
+- **Timestamp:** 2026-07-09 20:34 UTC / 2026-07-10 00:34 +04.
+- **Workspace UX:** The shared `WorkspacePanel` now starts large manifests as a folder-first summary with file count, group count, total bytes, and per-folder count/size chips.
+- **Playground workspace:** `/renter/playground?surface=workspace` now gets the same large-file protection as the pod launch flow, so workspace pre-upload does not become a file-by-file scroll wall before LoRA or pod work.
+- **Pod continuity:** `/renter/pods` keeps Stage 1 compact and now shows the richer folder-first summary when users open the full workspace manager.
+- **Regression:** Extended the focused workspace/pods Playwright regression for both `/renter/pods` and `/renter/playground?surface=workspace`.
+- **Safety:** Frontend/read-only UX change; no workspace API behavior, upload/delete/download semantics, pod launch body, provider selection, pricing calculation, billing, balance mutation, trial-accounting mutation, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused workspace/pods Playwright regression; TypeScript; workspace pod contract proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 20:10 UTC - Public Fine-Tuning deployment intent loop (PR #915)
 
 - **PR:** [#915](https://github.com/dhnpmp-tech/dcp-platform/pull/915) (`codex/public-fine-tuning-deploy-loop-2026-07-09`).

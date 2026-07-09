@@ -848,16 +848,55 @@ html[dir="rtl"] .ws-up-bar span { transform-origin: right; inset: 0 0 0 100%; }
 }
 
 .ws-files-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(220px, .36fr) minmax(0, 1fr);
+  gap: 12px 14px;
   padding: 12px 0 2px;
 }
-.ws-files-summary span,
+.ws-files-summary.folder-first {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklab, var(--teal) 38%, var(--hair));
+  background: color-mix(in oklab, var(--teal) 5%, var(--bg-2));
+}
+.ws-files-summary-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ws-files-summary-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.ws-files-summary-copy em {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.ws-files-summary-groups {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+}
+.ws-files-summary-groups > span,
+.ws-files-summary-groups > button,
 .ws-files-summary button {
   min-height: 28px;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   padding: 5px 9px;
   border: 1px solid var(--hair);
   background: var(--bg-2);
@@ -868,6 +907,7 @@ html[dir="rtl"] .ws-up-bar span { transform-origin: right; inset: 0 0 0 100%; }
   border-radius: 2px;
 }
 .ws-files-summary .ws-files-summary-head {
+  width: fit-content;
   border-color: color-mix(in oklab, var(--teal) 40%, var(--hair));
   background: color-mix(in oklab, var(--teal) 7%, var(--bg-2));
   color: var(--teal);
@@ -878,12 +918,34 @@ html[dir="rtl"] .ws-up-bar span { transform-origin: right; inset: 0 0 0 100%; }
   cursor: pointer;
   text-align: start;
 }
+.ws-files-summary button span {
+  min-width: 0;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-files-summary button b {
+  color: var(--teal);
+  font-weight: 500;
+}
+.ws-files-summary button small {
+  color: var(--mut);
+  font-size: 10px;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
 .ws-files-summary button:hover,
 .ws-files-summary button:focus-visible {
   border-color: var(--teal);
   color: var(--teal);
   outline: none;
   background: color-mix(in oklab, var(--teal) 7%, var(--bg-2));
+}
+@media (max-width: 760px) {
+  .ws-files-summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ws-empty {

@@ -167,6 +167,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     3, the desktop stage rail stays visible while scanning large workspaces, and
     the GPU picker starts with the selected launch request before templates,
     VRAM chips, search, or sort.
+  - PR #916 extends the folder-first large-manifest behavior into the shared
+    workspace manager used by `/renter/playground?surface=workspace`, so
+    Fine-Tuning/workspace pre-upload and pod Stage 1 both avoid a file-by-file
+    scroll wall.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT

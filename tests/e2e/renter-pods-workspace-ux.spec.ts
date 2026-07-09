@@ -213,6 +213,80 @@ async function mockPodsApis(page: Page) {
   });
 }
 
+async function mockPlaygroundV1Apis(page: Page) {
+  await page.route('**/v1/**', async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+
+    if (path === '/v1/models') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              id: 'qwen3-32b',
+              name: 'Qwen3 32B',
+              provider_count: 1,
+              pricing: { sar_per_1m_input_tokens: 1.2, sar_per_1m_output_tokens: 3.6 },
+              capability_flags: { chat_completions: true, streaming: true, multilingual: true },
+              feature_readiness: {
+                prompt_caching: { status: 'measurement_only', available: false },
+                batch: { status: 'contract_only', available: false },
+                lora: { status: 'metadata_only', available: false },
+                dedicated_deployment: { status: 'contract_only', available: false },
+              },
+            },
+          ],
+        }),
+      });
+    }
+
+    if (path === '/v1/router/policies') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'router_policy_list',
+          default_policy: 'balanced',
+          request_selectable: true,
+          data: [
+            {
+              id: 'balanced',
+              label: 'Balanced',
+              status: 'available',
+              available: true,
+              default: true,
+              request_selectable: true,
+            },
+          ],
+        }),
+      });
+    }
+
+    if (path === '/v1/prompt-cache/readiness') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'prompt_cache_readiness',
+          current_mode: 'measurement_only',
+          measurement: { hash_only: true, tracks_cached_input_tokens: true },
+          billing: { discounts_enabled: false },
+          claims: { prompt_cache_discount: false },
+        }),
+      });
+    }
+
+    return route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: `Unhandled mocked route: ${path}` }),
+    });
+  });
+}
+
 test('renter pods launch keeps workspace compact and compute selection explicit', async ({ page, context }) => {
   await context.addCookies([{
     name: SESSION_COOKIE,
@@ -305,11 +379,12 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Manage files' }).click();
   await expect(page.getByText('Staged files')).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeVisible();
-  await expect(page.getByText('5 files · 4 groups')).toBeVisible();
+  await expect(page.locator('.ws-launch-manifest')).toContainText('5 files · 4 groups');
   await expect(page.getByText('Review folders')).toBeVisible();
-  await expect(page.getByText('Manifest collapsed by folder')).toBeVisible();
-  await expect(page.getByText('datasets/ · 2')).toBeVisible();
-  await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
+  await expect(page.getByText('Folder-first workspace')).toBeVisible();
+  await expect(page.getByText('Large manifest collapsed. Open one folder, search by name, or show the full manifest only when needed.')).toBeVisible();
+  await expect(page.getByLabel('Workspace folder summary')).toContainText('datasets/');
+  await expect(page.getByLabel('Workspace folder summary')).toContainText('checkpoints/');
   await page.getByLabel('Search staged folders and files').fill('checkpoints');
   await expect(page.getByLabel('Workspace folder summary')).toContainText('checkpoints/');
   await expect(page.getByLabel('Workspace folder summary')).not.toContainText('datasets/');
@@ -439,4 +514,47 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('Launch GPU selected').first()).toBeVisible();
   await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();
+});
+
+test('playground workspace tab opens large manifests as a folder-first summary', async ({ page, context }) => {
+  await context.addCookies([{
+    name: SESSION_COOKIE,
+    value: buildSessionCookie('renter'),
+    domain: 'localhost',
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax',
+    expires: Math.floor(Date.now() / 1000) + 3600,
+  }]);
+  await page.addInitScript((key) => {
+    window.localStorage.setItem('dc1_renter_key', key);
+  }, RENTER_KEY);
+  await mockPodsApis(page);
+  await mockPlaygroundV1Apis(page);
+
+  await page.goto('/renter/playground?surface=workspace');
+
+  await expect(page.getByRole('tab', { name: 'Workspace' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Workspace' })).toBeVisible();
+
+  const folderSummary = page.getByLabel('Workspace folder summary');
+  await expect(folderSummary).toContainText('Folder-first workspace');
+  await expect(folderSummary).toContainText('5 files');
+  await expect(folderSummary).toContainText('4 groups');
+  await expect(folderSummary).toContainText('Large manifest collapsed');
+  await expect(folderSummary).toContainText('datasets/');
+  await expect(folderSummary).toContainText('notebooks/');
+  await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Show full manifest' })).toBeVisible();
+
+  await page.getByLabel('Search staged folders and files').fill('notebooks');
+  await expect(folderSummary).toContainText('notebooks/');
+  await expect(folderSummary).not.toContainText('datasets/');
+  await page.getByLabel('Search staged folders and files').fill('');
+
+  await folderSummary.getByRole('button', { name: /Open datasets\/ with 2 files/ }).click();
+  await expect(page.getByText('datasets/train.jsonl')).toBeVisible();
+  await expect(page.getByText('datasets/valid.jsonl')).toBeVisible();
+  await expect(page.getByText('notebooks/demo.ipynb')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Collapse manifest' })).toBeVisible();
 });

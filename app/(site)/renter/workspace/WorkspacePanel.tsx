@@ -34,6 +34,9 @@ import './workspace.css'
 
 type FilesFetchState = 'idle' | 'loading' | 'ready' | 'error'
 
+const LARGE_WORKSPACE_FILE_THRESHOLD = 4
+const LARGE_WORKSPACE_GROUP_THRESHOLD = 3
+
 interface WorkspaceFileGroup {
   id: string
   label: string
@@ -117,7 +120,7 @@ export default function WorkspacePanel({
   const upload = useResumableUpload({ apiBase, renterKey, concurrency: 2 })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
-  const initializedPodLaunchGroupsRef = useRef(false)
+  const initializedFolderFirstGroupsRef = useRef(false)
   const autoOpenedCompactIndexRef = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
@@ -145,7 +148,9 @@ export default function WorkspacePanel({
     () => fileGroups.filter((group) => group.id !== '__root__').length,
     [fileGroups],
   )
-  const shouldAutoOpenCompactTree = context === 'pod-launch' && (files.length > 4 || fileGroups.length > 3)
+  const isLargeWorkspaceManifest = files.length > LARGE_WORKSPACE_FILE_THRESHOLD || fileGroups.length > LARGE_WORKSPACE_GROUP_THRESHOLD
+  const shouldUseFolderFirstManifest = context === 'pod-launch' || isLargeWorkspaceManifest
+  const shouldAutoOpenCompactTree = context === 'pod-launch' && isLargeWorkspaceManifest
   const compactFileGroups = useMemo(() => {
     if (!shouldAutoOpenCompactTree) return fileGroups
     return [...fileGroups].sort((a, b) => {
@@ -232,15 +237,20 @@ export default function WorkspacePanel({
     if (upload.state.status === 'completed') loadFiles()
   }, [upload.state.status, loadFiles])
 
-  // In the pod launch flow the workspace is a staging checkpoint, not the main
-  // destination. Keep large workspaces navigable by showing folders first and
-  // leaving each folder closed until the renter intentionally opens it.
+  // Keep large workspaces navigable by showing folders first and leaving each
+  // folder closed until the renter intentionally opens it. Pod launch always
+  // uses this pattern because Stage 1 is a checkpoint before compute selection.
   useEffect(() => {
-    if (context !== 'pod-launch' || filesState !== 'ready' || initializedPodLaunchGroupsRef.current) return
+    if (filesState !== 'ready' || initializedFolderFirstGroupsRef.current) return
     if (fileGroups.length === 0) return
-    setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id)))
-    initializedPodLaunchGroupsRef.current = true
-  }, [context, fileGroups, filesState])
+    if (shouldUseFolderFirstManifest) {
+      setFilesCollapsed(true)
+      setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id)))
+    } else {
+      setCollapsedFileGroups(new Set())
+    }
+    initializedFolderFirstGroupsRef.current = true
+  }, [fileGroups, filesState, shouldUseFolderFirstManifest])
 
   // Large workspaces should reveal a folder tree, not a long manifest. The tree
   // is compact and searchable; the actual file rows stay closed until requested.
@@ -630,8 +640,8 @@ export default function WorkspacePanel({
                     onClick={() => setFilesCollapsed((value) => !value)}
                   >
                     {filesCollapsed
-                      ? <Bi en="Show" ar="إظهار" />
-                      : <Bi en="Collapse" ar="طي" />}
+                      ? <Bi en={isLargeWorkspaceManifest ? 'Show full manifest' : 'Show'} ar="إظهار البيان الكامل" />
+                      : <Bi en="Collapse manifest" ar="طي البيان" />}
                   </button>
                 )}
                 {files.length > 0 && !filesCollapsed && fileGroups.length > 0 && (
@@ -707,30 +717,50 @@ export default function WorkspacePanel({
           )}
 
           {filesState === 'ready' && files.length > 0 && filesCollapsed && (
-            <div className="ws-files-summary" aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}>
-              <span className="ws-files-summary-head">
-                <Bi en="Manifest collapsed by folder" ar="البيان مطوي حسب المجلد" />
-              </span>
-              {visibleFileGroups.slice(0, 4).map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => openOnlyFileGroup(group.id)}
-                  aria-label={
-                    lang === 'ar'
-                      ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
-                      : `Open ${group.label} with ${group.files.length} files`
-                  }
-                >
-                  {group.label} · {group.files.length}
-                </button>
-              ))}
-              {visibleFileGroups.length > 4 && <span>+{visibleFileGroups.length - 4}</span>}
-              {visibleFileGroups.length === 0 && (
-                <span>
-                  <Bi en="No matching folders" ar="لا توجد مجلدات مطابقة" />
+            <div
+              className={`ws-files-summary${isLargeWorkspaceManifest ? ' folder-first' : ''}`}
+              aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}
+            >
+              <div className="ws-files-summary-copy">
+                <span className="ws-files-summary-head">
+                  {isLargeWorkspaceManifest
+                    ? <Bi en="Folder-first workspace" ar="مساحة العمل حسب المجلد أولاً" />
+                    : <Bi en="Manifest collapsed by folder" ar="البيان مطوي حسب المجلد" />}
                 </span>
-              )}
+                <strong>
+                  {files.length} <Bi en="files" ar="ملفات" /> · {fileGroups.length}{' '}
+                  <Bi en="groups" ar="مجموعات" /> · {humanBytes(totalFileBytes)}
+                </strong>
+                <em>
+                  {isLargeWorkspaceManifest
+                    ? <Bi en="Large manifest collapsed. Open one folder, search by name, or show the full manifest only when needed." ar="البيان الكبير مطوي. افتح مجلداً واحداً، أو ابحث بالاسم، أو اعرض البيان الكامل عند الحاجة فقط." />
+                    : <Bi en="Open one folder without scanning every staged file." ar="افتح مجلداً واحداً دون المرور على كل ملف." />}
+                </em>
+              </div>
+              <div className="ws-files-summary-groups">
+                {visibleFileGroups.slice(0, 6).map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => openOnlyFileGroup(group.id)}
+                    aria-label={
+                      lang === 'ar'
+                        ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
+                        : `Open ${group.label} with ${group.files.length} files`
+                    }
+                  >
+                    <span>{group.label}</span>
+                    <b>{group.files.length}</b>
+                    <small>{humanBytes(group.totalBytes)}</small>
+                  </button>
+                ))}
+                {visibleFileGroups.length > 6 && <span>+{visibleFileGroups.length - 6}</span>}
+                {visibleFileGroups.length === 0 && (
+                  <span>
+                    <Bi en="No matching folders" ar="لا توجد مجلدات مطابقة" />
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
