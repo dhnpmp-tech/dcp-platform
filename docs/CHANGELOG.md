@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 08:32 UTC - Disabled endpoint smoke status proof (PR #872)
+
+- **PR:** [#872](https://github.com/dhnpmp-tech/dcp-platform/pull/872) (`codex/adapter-endpoint-smoke-status-contract-2026-07-09`).
+- **Backend:** Added disabled `GET /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke`, returning no-record status, strict load-proof readiness, and missing inputs while endpoint-smoke recording remains disabled.
+- **Proof:** Added `npm run proof:adapter-endpoint-smoke-status` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 29 CI-safe gates.
+- **Docs/contracts:** Updated OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs with the no-record endpoint-smoke status route.
+- **Safety:** Disabled status contract only; no adapter dispatch, smoke recording, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, raw prompt/response exposure, adapter billing, or Tinker compatibility behavior was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted endpoint-smoke status/submission/readiness/deployment Jest suites; endpoint-smoke status proof; endpoint-smoke submission proof; endpoint-smoke readiness proof; local roadmap proof now passing 29/29 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 08:12 UTC - Disabled endpoint smoke submission proof (PR #871)
 
 - **PR:** [#871](https://github.com/dhnpmp-tech/dcp-platform/pull/871) (`codex/adapter-endpoint-smoke-submission-contract-2026-07-09`).

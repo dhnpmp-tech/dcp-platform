@@ -423,6 +423,11 @@ Goal: ship the first real train-here/deploy-here loop.
     renter-scoped future smoke evidence shape while returning a no-record 409
     and keeping raw prompt/response content, routing, usage, billing, and
     Tinker claims disabled.
+  - PR #872 adds disabled renter-scoped
+    `GET /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke`
+    and `npm run proof:adapter-endpoint-smoke-status`; it lets dashboards and
+    agents poll no-record smoke status while keeping smoke recording, routing,
+    usage, billing, raw prompt/response exposure, and Tinker claims disabled.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -464,6 +469,11 @@ Goal: ship the first real train-here/deploy-here loop.
     before adapter usage writes or billing claims; the renter-scoped POST route
     evaluates future smoke evidence but still records nothing and exposes no raw
     prompt/response content.
+  - PR #872 added the CI-safe disabled adapter endpoint-smoke status gate
+    before adapter usage writes or billing claims; the renter-scoped GET route
+    reports no recorded smoke and strict load-proof readiness without recording
+    smoke, writing usage, routing traffic, billing, or exposing raw prompts and
+    responses.
 - Add dashboard:
   - datasets
   - training jobs
@@ -624,7 +634,13 @@ Acceptance:
     route returns 409 while disabled and records no smoke, writes no usage,
     routes no traffic, bills nothing, and exposes no raw prompt/response
     content.**
-20. **Adapter billing readiness** - CI-safe money-policy gate before billed
+20. **Adapter endpoint smoke disabled status** - CI-safe no-record GET gate
+    before dashboards or agents can rely on recorded smoke status. **Added in
+    PR #872 as `npm run proof:adapter-endpoint-smoke-status`; the renter-scoped
+    GET route returns no recorded smoke, exposes strict load-proof readiness,
+    writes no usage, routes no traffic, bills nothing, and exposes no raw
+    prompt/response content.**
+21. **Adapter billing readiness** - CI-safe money-policy gate before billed
     adapter endpoint claims. **Added in PR #868 as
     `npm run proof:adapter-billing-readiness`; usage writes, invoices, provider
     payouts, minimum-balance enforcement changes, and adapter billing claims

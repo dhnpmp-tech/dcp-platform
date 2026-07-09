@@ -12,6 +12,7 @@ const { buildAdapterBillingReadiness } = require('../services/adapterBillingRead
 const {
   buildAdapterEndpointSmokeDisabledResponse,
   buildAdapterEndpointSmokeReadiness,
+  buildAdapterEndpointSmokeStatusDisabledResponse,
 } = require('../services/adapterEndpointSmokeReadiness');
 const { buildAdapterUsageAttributionReadiness } = require('../services/adapterUsageAttributionReadiness');
 const {
@@ -221,6 +222,21 @@ function createAdaptersRouter(deps = {}) {
         });
       }
       return res.json({ deployment });
+    } catch (error) {
+      return sendAdapterError(res, toRouteError(error));
+    }
+  });
+
+  router.get('/:adapterId/deployments/:deploymentId/endpoint-smoke', requireRenter, (req, res) => {
+    try {
+      const deployment = getAdapterDeployment(registryDb, req.renter.id, req.params.deploymentId);
+      if (!deployment || deployment.adapter_id !== req.params.adapterId) {
+        return res.status(404).json({
+          error: 'Deployment not found',
+          code: 'deployment_not_found',
+        });
+      }
+      return res.json(buildAdapterEndpointSmokeStatusDisabledResponse({ deployment }, new Date()));
     } catch (error) {
       return sendAdapterError(res, toRouteError(error));
     }
