@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 10:31 UTC - `feat(inference): show live model catalog metadata - PR #880`
+
+**PR:** [#880](https://github.com/dhnpmp-tech/dcp-platform/pull/880) (`codex/inference-model-catalog-live-rail-2026-07-09`).
+**Local timestamp:** 2026-07-09 14:31 +04.
+
+**What:** Inference roadmap slice. Makes the public `/inference` model-metadata section render a live `/v1/models` catalog summary instead of relying only on prose.
+
+- **Public catalog rail:** `/inference` now fetches `/v1/models` and renders serving model count, provider-backed count, maximum context window, sample model rows, provider counts, SAR input/output pricing, and serving/catalog-only state from backend data.
+- **Claim safety:** Rows with zero providers remain visible only as catalog metadata; the rail does not convert unavailable models into capacity claims.
+- **Regression:** Added a focused Playwright test with a mocked model catalog and updated the router-policy rail test to mock both live reads.
+- **Safety:** Frontend/read-only fetch only; no model catalog semantics, provider selection, request routing, pricing, billing, settlement, prompt-cache, batch, LoRA, or deployment behavior changed.
+- **Verification:** TypeScript; focused Playwright browser regressions for `/inference` model-catalog and router-policy rails; Next build; `git diff --check`.
+
 ### 2026-07-09 10:18 UTC - `feat(inference): show live router policy readiness - PR #879`
 
 **PR:** [#879](https://github.com/dhnpmp-tech/dcp-platform/pull/879) (`codex/inference-router-policy-live-rail-2026-07-09`).

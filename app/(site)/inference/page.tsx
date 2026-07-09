@@ -60,6 +60,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)`
 
 type RouterPolicyState = 'loading' | 'ready' | 'error'
+type ModelCatalogState = 'loading' | 'ready' | 'error'
 
 interface RouterPolicy {
   id: string
@@ -78,6 +79,34 @@ interface RouterPoliciesResponse {
   data?: RouterPolicy[]
 }
 
+interface ModelPricing {
+  sar_per_1m_input_tokens?: string | number | null
+  sar_per_1m_output_tokens?: string | number | null
+  halala_per_1m_input_tokens?: number | null
+  halala_per_1m_output_tokens?: number | null
+}
+
+interface InferenceModel {
+  id: string
+  name?: string
+  display_name?: string
+  available?: boolean
+  provider_count?: number
+  context_length?: number
+  context_window?: number
+  max_output_tokens?: number
+  status?: string
+  pricing?: ModelPricing
+  token_pricing?: ModelPricing
+  supported_features?: string[]
+  capability_flags?: Record<string, boolean>
+}
+
+interface ModelCatalogResponse {
+  object?: string
+  data?: InferenceModel[]
+}
+
 function capabilitySource(key: string): string {
   if (key === 'balanced_routing') return '/v1/router/policies'
   if (key === 'prompt_cache_readiness') return '/v1/prompt-cache/readiness'
@@ -88,9 +117,35 @@ function formatPolicyStatus(status?: string): string {
   return String(status || 'gated').replace(/_/g, ' ')
 }
 
+function modelName(model: InferenceModel): string {
+  return model.name || model.display_name || model.id
+}
+
+function modelContext(model: InferenceModel): number {
+  return model.context_length || model.context_window || 0
+}
+
+function formatContext(tokens: number): string {
+  if (!tokens) return 'n/a'
+  if (tokens >= 1024) return `${Math.round(tokens / 1024)}K`
+  return String(tokens)
+}
+
+function formatSar(value?: string | number | null): string {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 'n/a'
+  return `SAR ${parsed.toFixed(2)}`
+}
+
+function modelPricing(model: InferenceModel): ModelPricing {
+  return model.pricing || model.token_pricing || {}
+}
+
 export default function InferenceProductPage() {
   const [routerPolicyState, setRouterPolicyState] = useState<RouterPolicyState>('loading')
   const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
+  const [modelCatalogState, setModelCatalogState] = useState<ModelCatalogState>('loading')
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalogResponse | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -117,6 +172,31 @@ export default function InferenceProductPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    async function loadModelCatalog() {
+      setModelCatalogState('loading')
+      try {
+        const res = await fetch('/v1/models', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`models failed: ${res.status}`)
+        const data = (await res.json()) as ModelCatalogResponse
+        if (!cancelled) {
+          setModelCatalog(data)
+          setModelCatalogState('ready')
+        }
+      } catch {
+        if (!cancelled) {
+          setModelCatalog(null)
+          setModelCatalogState('error')
+        }
+      }
+    }
+    loadModelCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const policies = useMemo(() => routerPolicies?.data || [], [routerPolicies])
   const defaultPolicy = useMemo(() => {
     return policies.find((policy) => policy.id === routerPolicies?.default_policy)
@@ -126,6 +206,17 @@ export default function InferenceProductPage() {
   }, [policies, routerPolicies?.default_policy])
   const availablePolicies = policies.filter((policy) => policy.available).length
   const gatedPolicies = Math.max(0, policies.length - availablePolicies)
+  const catalogModels = useMemo(() => modelCatalog?.data || [], [modelCatalog])
+  const visibleCatalogModels = useMemo(() => {
+    return [...catalogModels]
+      .sort((a, b) => Number(Boolean(b.available)) - Number(Boolean(a.available))
+        || (b.provider_count || 0) - (a.provider_count || 0)
+        || modelName(a).localeCompare(modelName(b)))
+      .slice(0, 5)
+  }, [catalogModels])
+  const availableCatalogModels = catalogModels.filter((model) => model.available).length
+  const providerBackedModels = catalogModels.filter((model) => (model.provider_count || 0) > 0).length
+  const maxContextTokens = catalogModels.reduce((max, model) => Math.max(max, modelContext(model)), 0)
 
   return (
     <>
@@ -164,6 +255,71 @@ export default function InferenceProductPage() {
           <div className="section-meta">
             <span className="idx"><Bi en="§ 01 · Shipped inference contract" ar="§ ٠١ · عقد الاستدلال المشحون" /></span>
             <span><Bi en="Model metadata before product claims" ar="بيانات النموذج قبل ادعاءات المنتج" /></span>
+          </div>
+          <div className="inference-model-live" aria-live="polite">
+            <div className="model-live-head">
+              <span><Bi en="Live model catalog" ar="كتالوج النماذج الحي" /></span>
+              <b dir="ltr">GET /v1/models</b>
+            </div>
+            {modelCatalogState === 'loading' && (
+              <p className="model-live-empty">
+                <Bi en="Loading live model metadata..." ar="تحميل بيانات النماذج الحية..." />
+              </p>
+            )}
+            {modelCatalogState === 'error' && (
+              <p className="model-live-empty">
+                <Bi en="Model metadata is temporarily unavailable; capacity claims stay tied to the backend catalog." ar="بيانات النماذج غير متاحة مؤقتاً؛ تبقى ادعاءات السعة مرتبطة بكتالوج الخلفية." />
+              </p>
+            )}
+            {modelCatalogState === 'ready' && (
+              <>
+                <div className="model-live-metrics">
+                  <span>
+                    <em><Bi en="Serving models" ar="نماذج قيد الخدمة" /></em>
+                    <strong>{availableCatalogModels}/{catalogModels.length}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Provider-backed" ar="مدعومة بمزوّد" /></em>
+                    <strong>{providerBackedModels}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Max context" ar="أكبر سياق" /></em>
+                    <strong>{formatContext(maxContextTokens)}</strong>
+                  </span>
+                </div>
+                <div className="model-live-list">
+                  {visibleCatalogModels.map((model) => {
+                    const pricing = modelPricing(model)
+                    const flags = model.capability_flags || {}
+                    const chips = [
+                      flags.streaming ? 'streaming' : null,
+                      flags.tool_calling ? 'tools' : null,
+                      flags.vision ? 'vision' : null,
+                      flags.lora ? 'LoRA' : null,
+                    ].filter(Boolean)
+                    return (
+                      <div key={model.id} className={model.available ? 'available' : 'catalog-only'}>
+                        <span>
+                          <b>{modelName(model)}</b>
+                          <i dir="ltr">{model.id}</i>
+                        </span>
+                        <span><em><Bi en="Providers" ar="المزوّدون" /></em><strong>{model.provider_count || 0}</strong></span>
+                        <span><em><Bi en="Context" ar="السياق" /></em><strong>{formatContext(modelContext(model))}</strong></span>
+                        <span>
+                          <em><Bi en="SAR / 1M" ar="ريال / مليون" /></em>
+                          <strong>{formatSar(pricing.sar_per_1m_input_tokens)} in / {formatSar(pricing.sar_per_1m_output_tokens)} out</strong>
+                        </span>
+                        <span><em><Bi en="State" ar="الحالة" /></em><strong>{model.available ? 'serving' : formatPolicyStatus(model.status || 'catalog_only')}</strong></span>
+                        {chips.length > 0 && <small>{chips.join(' · ')}</small>}
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="model-live-note">
+                  <Bi en="Rows with zero providers stay visible as catalog metadata, not capacity claims." ar="تبقى الصفوف بلا مزوّدين ظاهرة كبيانات كتالوج، لا كادعاءات سعة." />
+                </p>
+              </>
+            )}
           </div>
           <div className="mg-grid" style={{ marginTop: 20 }}>
             {CAPABILITIES.map((capability) => (

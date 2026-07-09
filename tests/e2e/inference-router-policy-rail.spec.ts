@@ -1,6 +1,28 @@
 import { expect, test } from '@playwright/test';
 
 test('public inference page renders live router policy readiness', async ({ page }) => {
+  await page.route('**/v1/models', async (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      object: 'list',
+      data: [
+        {
+          id: 'qwen2.5:7b',
+          name: 'Qwen 2.5 7B',
+          available: true,
+          provider_count: 1,
+          context_length: 32768,
+          pricing: {
+            sar_per_1m_input_tokens: '0.3000',
+            sar_per_1m_output_tokens: '0.6000',
+          },
+          capability_flags: { streaming: true },
+        },
+      ],
+    }),
+  }));
+
   await page.route('**/v1/router/policies', async (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
