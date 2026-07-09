@@ -160,6 +160,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
 | Router policy readiness contract | `npm run proof:router-policy-contract` | none | CI-safe gate available; policy-specific routing and live smoke remain blocked until tests/proof exist |
 | Evaluator readiness contract | `npm run proof:evaluator-readiness-contract` | none | CI-safe gate available; evaluator jobs, datasets, public reports, rankings, and billing remain blocked |
+| Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
 | Batch inference lifecycle contract | `npm run proof:batch-inference-contract` | none | CI-safe gate available; live provider execution and discounted settlement smoke still blocked |
@@ -235,6 +236,10 @@ before or with the feature change.
      `GET /api/evals/readiness` and `npm run
      proof:evaluator-readiness-contract`; customer eval jobs remain blocked
      until schema, worker, artifact, baseline, and billing policy proof exists.
+   - Minimum-balance policy starts in PR #855 with
+     `GET /api/renters/me/minimum-balances` and `npm run
+     proof:minimum-balance-readiness`; payment/workload/enforcement mutation
+     remains blocked.
 
 ## Lane Gates
 

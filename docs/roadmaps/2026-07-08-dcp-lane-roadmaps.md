@@ -269,6 +269,11 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   **Per-key budget enforcement starts in PR #850 with default-unlimited scoped
   key caps, management APIs, and pre-dispatch 402s; PR #851 adds scoped-key
   operator rollups for the Usage console.**
+- Minimum-balance policy visibility.
+  **PR #855 adds billing-scoped `/api/renters/me/minimum-balances`,
+  `npm run proof:minimum-balance-readiness`, and a renter Usage page strip for
+  v1 estimate preflight, on-demand paid credit, and blocked future billing
+  rails without changing enforcement.**
 - Evaluator job records.
 - Router policy objects.
 

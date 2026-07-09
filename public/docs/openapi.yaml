@@ -3766,6 +3766,81 @@ paths:
                   total_jobs:
                     type: integer
 
+  /api/renters/me/minimum-balances:
+    get:
+      tags: [Renters]
+      summary: Inspect minimum-balance and paid-credit gate readiness
+      description: |
+        Returns a read-only contract for balance and paid-credit gates across
+        v1 inference, scoped-key inference, GPU pods, volumes, batch inference,
+        prompt-cache discounts, LoRA training, adapter deployments, and
+        evaluator jobs. This route does not create payments, launch pods,
+        dispatch inference, create jobs, enable discounts, or change existing
+        HTTP 402 enforcement.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+            default: 30d
+      responses:
+        '200':
+          description: Minimum-balance readiness contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, account, rails, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [minimum_balance_readiness]
+                  version:
+                    type: string
+                    example: dcp.minimum_balance_readiness.v1
+                  generated_at:
+                    type: string
+                    format: date-time
+                  current_mode:
+                    type: string
+                    enum: [read_only_policy_contract]
+                  account:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      balance_halala: { type: integer }
+                      paid_available_halala: { type: integer }
+                      on_demand_committed_halala: { type: integer }
+                      v1_remaining_cap_halala:
+                        type: integer
+                        nullable: true
+                  rails:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        status: { type: string }
+                        minimum_type: { type: string }
+                        enforcement_live: { type: boolean }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      mutates_balance: { type: boolean, example: false }
+                      creates_payment: { type: boolean, example: false }
+                      creates_pod: { type: boolean, example: false }
+                      dispatches_inference: { type: boolean, example: false }
+                      creates_batch: { type: boolean, example: false }
+                      creates_lora_training_job: { type: boolean, example: false }
+                      creates_adapter_deployment: { type: boolean, example: false }
+                      creates_eval_job: { type: boolean, example: false }
+                      enables_discount: { type: boolean, example: false }
+                      changes_enforcement: { type: boolean, example: false }
+
   /api/renters/topup:
     post:
       tags: [Renters]

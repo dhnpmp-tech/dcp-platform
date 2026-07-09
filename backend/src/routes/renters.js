@@ -24,6 +24,10 @@ const { getBearerToken, isAdminRequest, looksLikeRenterKey } = require('../middl
 const { toRenterProviderView, toRenterJobView } = require('../lib/renter-job-view');
 const analytics = require('../services/analyticsService');
 const conversionFunnel = require('../services/conversionFunnelService');
+const { getRenterPaidCreditState } = require('../services/podAccessPolicy');
+const {
+  buildMinimumBalanceReadiness,
+} = require('../services/minimumBalanceReadiness');
 
 function flattenRunParams(params) {
   if (params.length === 1 && Array.isArray(params[0])) return params[0];
@@ -2961,6 +2965,24 @@ function buildRenterBudgetStatus(authCtx, periodInfo) {
   };
 }
 
+function buildRenterMinimumBalanceReadiness(authCtx, periodInfo) {
+  const renter = db.get(
+    `SELECT id, organization, balance_halala, total_spent_halala, total_jobs,
+            monthly_spend_cap_halala
+     FROM renters
+     WHERE id = ? AND status = 'active'`,
+    authCtx.renter.id
+  );
+  if (!renter) return null;
+  const budgetStatus = buildRenterBudgetStatus(authCtx, periodInfo);
+  const paidCreditState = getRenterPaidCreditState(db, renter);
+  return buildMinimumBalanceReadiness({
+    renter,
+    paidCreditState,
+    budgetStatus,
+  });
+}
+
 // GET /api/renters/me/templates?key=
 router.get('/me/templates', (req, res) => {
   try {
@@ -3089,6 +3111,24 @@ router.get('/me/budget-status', (req, res) => {
   } catch (error) {
     console.error('Renter budget status error:', error);
     return res.status(500).json({ error: 'Failed to fetch budget status' });
+  }
+});
+
+// ============================================================================
+// GET /api/renters/me/minimum-balances — read-only balance gate contract
+// ============================================================================
+router.get('/me/minimum-balances', (req, res) => {
+  try {
+    const auth = requireRenterBillingRead(req);
+    if (auth.error) return res.status(auth.error.status).json(auth.error.body);
+
+    const periodInfo = normalizeRenterUsagePeriod(req.query.period);
+    const readiness = buildRenterMinimumBalanceReadiness(auth.authCtx, periodInfo);
+    if (!readiness) return res.status(404).json({ error: 'Renter not found' });
+    return res.json(readiness);
+  } catch (error) {
+    console.error('Renter minimum balance readiness error:', error);
+    return res.status(500).json({ error: 'Failed to fetch minimum balance readiness' });
   }
 });
 

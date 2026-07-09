@@ -533,7 +533,11 @@ Acceptance:
     management APIs, API Keys cap visibility, and pre-dispatch 402 enforcement
     for capped scoped keys without changing account caps or master-key behavior.
     PR #851 adds scoped-key usage rollups for the Usage console while true
-    team-member rollups remain gated.**
+    team-member rollups remain gated. PR #855 adds
+    `/api/renters/me/minimum-balances` and
+    `npm run proof:minimum-balance-readiness` so renters and agents can inspect
+    v1 estimate preflight, on-demand paid-credit gates, and future billing
+    blockers without changing enforcement.**
 19. **Benchmarks/Evals readiness rail** - Fireworks-style evidence surface before
     customer-facing quality claims. **Started in PR #852 with
     `GET /api/models/benchmarks/readiness`, public `/benchmarks`, sitemap/nav

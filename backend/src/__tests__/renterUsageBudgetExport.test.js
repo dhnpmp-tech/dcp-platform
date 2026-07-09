@@ -103,6 +103,8 @@ function buildDb() {
       id INTEGER PRIMARY KEY,
       job_id TEXT UNIQUE,
       renter_id INTEGER,
+      provider_id INTEGER,
+      job_type TEXT,
       status TEXT,
       cost_halala INTEGER DEFAULT 0,
       actual_cost_halala INTEGER,
@@ -114,6 +116,20 @@ function buildDb() {
       id INTEGER PRIMARY KEY,
       job_id TEXT,
       gross_cost_halala INTEGER
+    );
+
+    CREATE TABLE providers (
+      id INTEGER PRIMARY KEY,
+      is_burst INTEGER DEFAULT 0,
+      supply_tier TEXT
+    );
+
+    CREATE TABLE payments (
+      id INTEGER PRIMARY KEY,
+      renter_id INTEGER NOT NULL,
+      amount_halala INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      refund_amount_halala INTEGER
     );
 
     CREATE TABLE renter_quota (
@@ -188,9 +204,22 @@ function seedAccount(db) {
      VALUES ('usage-old', 'req-old', 1, 'old-model', 'v1', 50, 10, 60, 100, 20, 120, 'SAR', 'settled', ?)`
   ).run(isoDaysAgo(45));
   db.prepare(
+    `INSERT INTO providers (id, is_burst, supply_tier)
+     VALUES (44, 0, 'provider'), (45, 1, 'on_demand')`
+  ).run();
+  db.prepare(
+    `INSERT INTO payments (renter_id, amount_halala, status)
+     VALUES (1, 5000, 'paid')`
+  ).run();
+  db.prepare(
     `INSERT INTO jobs
-     (id, job_id, renter_id, status, cost_halala, actual_cost_halala, submitted_at, created_at)
-     VALUES (1, 'job-compute-1', 1, 'completed', 900, 800, ?, ?)`
+     (id, job_id, renter_id, provider_id, job_type, status, cost_halala, actual_cost_halala, submitted_at, created_at)
+     VALUES (10, 'job-on-demand-running', 1, 45, 'interactive_pod', 'running', 1200, NULL, ?, ?)`
+  ).run(isoDaysAgo(1), isoDaysAgo(1));
+  db.prepare(
+    `INSERT INTO jobs
+     (id, job_id, renter_id, provider_id, job_type, status, cost_halala, actual_cost_halala, submitted_at, created_at)
+     VALUES (1, 'job-compute-1', 1, 44, 'batch', 'completed', 900, 800, ?, ?)`
   ).run(isoDaysAgo(4), isoDaysAgo(4));
   db.prepare(
     `INSERT INTO billing_records
@@ -319,6 +348,65 @@ describe('renter usage export and budget status', () => {
         per_key_budgets_enforced: true,
       },
     });
+  });
+
+  test('reports minimum-balance readiness without changing money or creating work', async () => {
+    const res = await request(buildApp())
+      .get('/api/renters/me/minimum-balances?period=30d')
+      .set('x-renter-key', 'billing-key');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      object: 'minimum_balance_readiness',
+      version: 'dcp.minimum_balance_readiness.v1',
+      current_mode: 'read_only_policy_contract',
+      account: {
+        balance_halala: 25000,
+        paid_funding_halala: 5000,
+        on_demand_committed_halala: 1200,
+        paid_available_halala: 3800,
+        v1_monthly_spend_cap_halala: 5000,
+        v1_remaining_cap_halala: 4700,
+      },
+      rails: {
+        v1_inference: {
+          status: 'live_estimate_preflight',
+          minimum_type: 'estimated_request_cost',
+          enforcement_live: true,
+        },
+        gpu_pods_on_demand_supply: {
+          status: 'live_paid_credit_preflight',
+          minimum_type: 'quoted_pod_cost_paid_credit',
+          paid_available_halala: 3800,
+          enforcement_live: true,
+        },
+        batch_inference: {
+          status: 'contract_only',
+          enforcement_live: false,
+        },
+        lora_training: {
+          status: 'metadata_and_artifact_proof_only',
+          enforcement_live: false,
+        },
+        evaluators: {
+          status: 'readiness_contract_only',
+          enforcement_live: false,
+        },
+      },
+      claim_guards: {
+        mutates_balance: false,
+        creates_payment: false,
+        creates_pod: false,
+        dispatches_inference: false,
+        creates_batch: false,
+        creates_lora_training_job: false,
+        creates_adapter_deployment: false,
+        creates_eval_job: false,
+        enables_discount: false,
+        changes_enforcement: false,
+      },
+    });
+    expect(res.body.endpoints.readiness).toBe('GET /api/renters/me/minimum-balances');
   });
 
   test('lists scoped keys with attributed 30d spend and request counts', async () => {
