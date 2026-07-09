@@ -69,8 +69,8 @@ function buildEvaluatorResultWriterDryRunReadiness(now = new Date()) {
       arabic_quality_claim_allowed: false,
     },
     next_actions: [
-      'Run this dry-run proof from an evaluator worker fixture before enabling queue dispatch.',
       'Add approved artifact storage policy before production result writes.',
+      'Replace the simulated worker fixture with a real disabled worker dry-run before enabling queue dispatch.',
       'Add signed download smoke only after result endpoint and artifact checksums are approved.',
     ],
   };
@@ -134,7 +134,7 @@ function createEvaluatorResultWriterDryRun(input = {}, options = {}) {
       settles_eval_jobs: false,
       publishes_public_report: false,
     },
-    next: 'worker_dry_run_queue_fixture_before_production_result_writer',
+    next: 'tenant_artifact_storage_policy_before_production_result_writer',
   };
 }
 

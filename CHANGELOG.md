@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 04:17 UTC - `test(evals): add worker dry-run fixture proof - PR #861`
+
+**PR:** [#861](https://github.com/dhnpmp-tech/dcp-platform/pull/861) (`codex/evaluator-worker-dry-run-fixture-2026-07-09`).
+**Local timestamp:** 2026-07-09 08:17 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Proves a draft evaluator metadata job can be passed through a simulated worker queue fixture and the result-writer dry run before any real queue dispatch or production result artifact exists.
+
+- **Backend proof path:** Added a worker dry-run fixture service and contract that simulates a queue item from a draft eval job, calls the result-writer dry run, and preserves draft job status.
+- **Proof command:** Added `npm run proof:evaluator-worker-dry-run-fixture` and included it in `npm run proof:local-roadmap`, raising the suite to 19 CI-safe gates.
+- **Public surface:** Evaluator readiness, worker readiness, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs now surface the fixture command while keeping worker availability false.
+- **Safety:** No production database mutation, real queue dispatch, worker start, eval job status mutation, production artifact write, result endpoint, raw dataset/prompt storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verified:** Syntax/package JSON checks; targeted evaluator worker-fixture/worker-gate/result-writer/result-manifest/metadata/readiness/schema Jest suites; evaluator worker dry-run fixture proof; evaluator result-writer dry-run proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 19/19 gates; `git diff --check`.
+
 ### 2026-07-09 03:58 UTC - `test(evals): add result writer dry-run proof - PR #860`
 
 **PR:** [#860](https://github.com/dhnpmp-tech/dcp-platform/pull/860) (`codex/evaluator-result-writer-dry-run-2026-07-09`).

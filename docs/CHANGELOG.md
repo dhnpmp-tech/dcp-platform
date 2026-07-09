@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 04:17 UTC - Evaluator worker dry-run fixture proof (PR #861)
+
+- **PR:** [#861](https://github.com/dhnpmp-tech/dcp-platform/pull/861) (`codex/evaluator-worker-dry-run-fixture-2026-07-09`).
+- **Backend:** Added a CI-safe evaluator worker dry-run fixture contract that simulates a queue item from a draft metadata job, invokes the result-writer dry run, and keeps the job in draft with no result database mutation.
+- **Proof:** Added `npm run proof:evaluator-worker-dry-run-fixture` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 19 CI-safe gates.
+- **Docs/contracts:** Linked evaluator readiness, worker readiness, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs to the fixture command while preserving the disabled worker/queue/billing contract.
+- **Safety:** Fixture proof only; no production database mutation, queue dispatch, worker start, eval job status mutation, production artifact write, result endpoint, raw dataset/prompt storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator worker-fixture/worker-gate/result-writer/result-manifest/metadata/readiness/schema Jest suites; evaluator worker dry-run fixture proof; evaluator result-writer dry-run proof; evaluator worker-gate proof; evaluator result-manifest proof; evaluator metadata/schema/readiness proofs; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 19/19 gates; `git diff --check`.
+
 ### 2026-07-09 03:58 UTC - Evaluator result-writer dry-run proof (PR #860)
 
 - **PR:** [#860](https://github.com/dhnpmp-tech/dcp-platform/pull/860) (`codex/evaluator-result-writer-dry-run-2026-07-09`).

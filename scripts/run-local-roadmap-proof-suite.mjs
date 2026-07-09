@@ -70,6 +70,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_EVALUATOR_RESULT_WRITER_DRY_RUN_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'evaluator_worker_dry_run_fixture',
+    command: 'npm run proof:evaluator-worker-dry-run-fixture',
+    outputEnv: 'DCP_EVALUATOR_WORKER_DRY_RUN_FIXTURE_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'minimum_balance_readiness_contract',
     command: 'npm run proof:minimum-balance-readiness',
     outputEnv: 'DCP_MINIMUM_BALANCE_PROOF_OUTPUT_DIR',

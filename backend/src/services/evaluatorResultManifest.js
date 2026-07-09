@@ -81,7 +81,7 @@ function buildEvaluatorResultManifestContract(now = new Date()) {
       bills_eval_jobs: false,
     },
     next_actions: [
-      'Run the result writer dry-run from a queued worker fixture before production writes.',
+      'Attach approved tenant artifact storage before production result writes.',
       'Add signed result download smoke only after artifact storage policy is approved.',
       'Keep public reports gated until human review and baseline policy proof exist.',
     ],

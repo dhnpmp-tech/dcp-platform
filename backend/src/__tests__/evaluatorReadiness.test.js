@@ -50,6 +50,19 @@ describe('evaluator readiness contract', () => {
           read_endpoint: 'GET /api/evals/jobs/:id',
           result_endpoint: null,
         },
+        eval_worker: {
+          status: 'disabled_by_default_contract',
+          available: false,
+          version: 'dcp.evaluator_worker_gate.v1',
+          readiness_endpoint: 'GET /api/evals/worker/readiness',
+          worker_enabled: false,
+          queue_dispatch_enabled: false,
+          result_writer_enabled: false,
+          billing_hook_enabled: false,
+          dry_run_fixture_available: true,
+          dry_run_fixture_version: 'dcp.evaluator_worker_dry_run_fixture.v1',
+          dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
+        },
         dataset_artifacts: {
           status: 'gated_storage_policy',
           available: false,
@@ -75,6 +88,8 @@ describe('evaluator readiness contract', () => {
       claim_guards: {
         eval_jobs_live: false,
         eval_job_metadata_api_live: true,
+        eval_worker_live: false,
+        eval_worker_dry_run_fixture_live: true,
         arabic_quality_claim_allowed: false,
         customer_case_study_allowed: false,
         model_ranking_allowed: false,
@@ -104,6 +119,12 @@ describe('evaluator readiness contract', () => {
           create_endpoint: 'POST /api/evals/jobs',
           result_endpoint: null,
         },
+        eval_worker: {
+          available: false,
+          queue_dispatch_enabled: false,
+          dry_run_fixture_available: true,
+          dry_run_fixture_command: 'npm run proof:evaluator-worker-dry-run-fixture',
+        },
         public_reports: {
           available: false,
           ranking_allowed: false,
@@ -111,6 +132,8 @@ describe('evaluator readiness contract', () => {
       },
       claim_guards: {
         eval_jobs_live: false,
+        eval_worker_live: false,
+        eval_worker_dry_run_fixture_live: true,
         arabic_quality_claim_allowed: false,
         bills_eval_jobs: false,
       },
