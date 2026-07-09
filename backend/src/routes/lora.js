@@ -21,6 +21,7 @@ const {
   buildTinkerLoopReadiness,
 } = require('../services/loraTrainingContract');
 const { AdapterRegistryError, ensureAdapterRegistrySchema } = require('../services/adapterRegistry');
+const { ADAPTER_ARTIFACT_POLICY_VERSION } = require('../services/adapterArtifactPolicy');
 
 const LORA_READINESS_VERSION = 'dcp.lora_readiness.v1';
 const LORA_DATASET_VALIDATION_VERSION = 'dcp.lora_dataset_validation.v1';
@@ -167,6 +168,7 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       list_training_jobs: 'GET /api/lora/training-jobs',
       training_job_logs: 'GET /api/lora/training-jobs/{training_job_id}/logs',
       register_adapter: 'POST /api/lora/training-jobs/{training_job_id}/register-adapter',
+      adapter_artifact_policy: 'GET /api/adapters/artifacts/readiness',
       adapter_registry: 'GET/POST /api/adapters',
       adapter_deployments: 'GET/POST /api/adapters/{adapter_id}/deployments',
       adapter_load_proof: 'POST /api/adapters/{adapter_id}/deployments/{deployment_id}/load-proof',
@@ -202,6 +204,11 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       status: 'metadata_registry',
       api_available: true,
       public_upload_enabled: true,
+      artifact_policy_version: ADAPTER_ARTIFACT_POLICY_VERSION,
+      artifact_policy_endpoint: 'GET /api/adapters/artifacts/readiness',
+      artifact_upload_endpoint_enabled: false,
+      artifact_storage_write_enabled: false,
+      model_card_required: true,
       serving_enabled: false,
       route_traffic: false,
       checksum_required: true,

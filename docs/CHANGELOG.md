@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 06:03 UTC - Adapter artifact policy proof (PR #866)
+
+- **PR:** [#866](https://github.com/dhnpmp-tech/dcp-platform/pull/866) (`codex/adapter-artifact-policy-2026-07-09`).
+- **Backend:** Added public `GET /api/adapters/artifacts/readiness` and a pure adapter artifact policy validator for renter/adapter-scoped `adapter.safetensors`, `model-card.json`, and SHA-256 checksum requirements.
+- **Proof:** Added `npm run proof:adapter-artifact-policy` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 24 CI-safe gates.
+- **Docs/contracts:** Linked LoRA readiness, adapter registry docs, `/fine-tuning`, `llms.txt`, OpenAPI, and roadmap docs to the adapter artifact policy endpoint.
+- **Safety:** Policy contract only; no artifact upload endpoint, object-store write, GPU training, model-card write, adapter serving, route traffic, billing, or Tinker compatibility behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted adapter-artifact/adapter-registry/LoRA-readiness/training-contract/deployment-contract/Tinker readiness Jest suites; adapter artifact policy proof; LoRA training contract proof; Tinker loop readiness proof; adapter deployment contract proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 24/24 gates; `git diff --check`.
+
 ### 2026-07-09 05:41 UTC - Evaluator signed-download policy proof (PR #865)
 
 - **PR:** [#865](https://github.com/dhnpmp-tech/dcp-platform/pull/865) (`codex/evaluator-signed-download-policy-2026-07-09`).

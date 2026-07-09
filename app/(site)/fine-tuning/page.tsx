@@ -29,6 +29,13 @@ const GATES = [
     ar: 'يمكن تسجيل المحولات مع النموذج الأساسي ومفتاح التخزين والبصمة والرتبة والحالة.',
   },
   {
+    k: 'artifact_policy',
+    tEn: 'Artifact policy',
+    tAr: 'سياسة آثار المحولات',
+    en: 'Adapter and model-card keys are renter/adapter scoped and checksum-guarded before uploads or serving are claimed.',
+    ar: 'مفاتيح المحول وبطاقة النموذج محددة بالمستأجر والمحول ومحروسة بالبصمة قبل ادعاء الرفع أو الخدمة.',
+  },
+  {
     k: 'deployment_intents',
     tEn: 'Deployment intents',
     tAr: 'نوايا النشر',
@@ -49,6 +56,8 @@ const SNIPPET = `curl -s https://api.dcp.sa/api/lora/readiness \\
 
 curl -s https://api.dcp.sa/api/lora/readiness \\
   -H "Authorization: Bearer $DCP_RENTER_KEY" | jq '.tinker_loop'
+
+curl -s https://api.dcp.sa/api/adapters/artifacts/readiness
 
 curl -s "https://api.dcp.sa/api/adapters/deployments?limit=25" \\
   -H "Authorization: Bearer $DCP_RENTER_KEY"`

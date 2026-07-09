@@ -401,6 +401,11 @@ Goal: ship the first real train-here/deploy-here loop.
     `npm run proof:tinker-loop-readiness` so create-LoRA, forward/backward,
     optimizer-step, save-weights, sample, and evaluate are explicit future
     primitives without claiming Tinker API compatibility or running GPU work.
+  - PR #866 adds `GET /api/adapters/artifacts/readiness` and
+    `npm run proof:adapter-artifact-policy`; it defines renter/adapter-scoped
+    `adapter.safetensors`, `model-card.json`, and checksum requirements while
+    artifact uploads, object-store writes, adapter serving, route traffic,
+    billing, and Tinker compatibility remain disabled.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
