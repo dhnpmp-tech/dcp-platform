@@ -163,6 +163,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #909 adds a top-level Stage 2 fast path above Stage 1, making the
     actual launch GPU decision reachable before the workspace file tree and
     keeping Stage 1 visibly collapsible for large workspaces.
+  - PR #912 adds stronger launch-flow signage: stages are labeled Stage 1/2/3 of
+    3, the desktop stage rail stays visible while scanning large workspaces, and
+    the GPU picker starts with the selected launch request before templates,
+    VRAM chips, search, or sort.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -207,6 +211,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     Stage 2 is named as the actual launch GPU, VRAM chips are labeled as
     browse filters only, and the button distinguishes auto-picked launches from
     fixed-GPU launches while keeping trial and minimum-balance policy read-only.
+  - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
+    `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
+    are explicitly browse-only.
 
 Acceptance:
 

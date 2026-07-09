@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 19:33 UTC - `feat(pods): make stage navigation and launch GPU state unmistakable - PR #912`
+
+**PR:** [#912](https://github.com/dhnpmp-tech/dcp-platform/pull/912) (`codex/pods-stage-navigation-gpu-clarity-2026-07-09`).
+**Local timestamp:** 2026-07-09 23:33 +04.
+
+**What:** Tareq workspace/pods follow-up. Makes the pod launch flow easier to scan when many files are staged by naming all three stages consistently, keeping Stage 1 visibly collapsible, and repeating the actual launch GPU state beside the GPU browser controls.
+
+- **Stage navigation:** The `/renter/pods` stage rail now labels the flow as Stage 1/2/3 of 3, stays sticky on desktop, and keeps Stage 2 as the primary launch decision.
+- **Workspace collapse clarity:** The Stage 1 shortcut now says the workspace is collapsible and that users can skip file-by-file review once the folder summary looks right.
+- **GPU picker clarity:** The GPU picker now has a prominent selected-launch-state panel before the workload guide and VRAM chips, showing auto-pick versus pinned GPU plus the exact request payload.
+- **Filter honesty:** The new picker status repeats that VRAM chips, templates, search, and sort are browse organization only; they do not replace a pinned GPU or select a launch GPU by themselves.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for Stage 1/2/3 labels, collapsible workspace copy, and auto-pick/fixed-GPU picker status.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 19:14 UTC - `feat(pods): clarify workspace skip path and launch GPU request - PR #911`
 
 **PR:** [#911](https://github.com/dhnpmp-tech/dcp-platform/pull/911) (`codex/pods-stage2-request-preview-2026-07-09`).
