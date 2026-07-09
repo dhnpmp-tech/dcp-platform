@@ -1058,6 +1058,13 @@ export default function RenterPodsPage() {
   const selectedQuoteSar = selectedType?.sar_per_hour != null
     ? selectedType.sar_per_hour * (launch.durationMinutes / 60)
     : null
+  const activeFilterCount =
+    (gpuSearch.trim() ? 1 : 0) +
+    (minVram > 0 ? 1 : 0) +
+    availFilters.size
+  const activeWorkloadLabel = activeWorkload
+    ? WORKLOADS.find((workload) => workload.key === activeWorkload)
+    : null
   const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: DCP/community capacity'
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
   const trialRoutingSynced = trialRoutingStatus === 'ready' &&
@@ -1439,6 +1446,62 @@ export default function RenterPodsPage() {
                   </div>
                 )}
               </section>
+
+              <div className="gpu-selection-strip" aria-live="polite">
+                <div className="gpu-selection-copy">
+                  <span className="gpu-selection-k">
+                    <Bi en="GPU selection" ar="اختيار GPU" />
+                  </span>
+                  {selectedType ? (
+                    <>
+                      <strong>{displayGpuType(selectedType.gpu_model)}</strong>
+                      <span>
+                        {selectedType.vram_gb} GB VRAM
+                        {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
+                      <span>
+                        <Bi
+                          en="Leave this on auto-pick when the exact GPU type does not matter."
+                          ar="اتركه على الاختيار التلقائي عندما لا يهم نوع GPU المحدد."
+                        />
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="gpu-selection-actions">
+                  <span className="gpu-selection-chip">
+                    {minVram > 0
+                      ? <Bi en={`Min VRAM ${minVram} GB`} ar={`أدنى ذاكرة ${minVram} غ.ب`} />
+                      : <Bi en="Any VRAM" ar="أي ذاكرة" />}
+                  </span>
+                  <span className="gpu-selection-chip">
+                    {activeWorkloadLabel
+                      ? (lang === 'ar' ? activeWorkloadLabel.titleAr : activeWorkloadLabel.titleEn)
+                      : <Bi en="No workload filter" ar="لا توجد تصفية عمل" />}
+                  </span>
+                  <span className="gpu-selection-chip">
+                    <Bi en={`${shownCount} shown`} ar={`${shownCount} معروضة`} />
+                  </span>
+                  {selectedType && (
+                    <button
+                      type="button"
+                      className="gpu-selection-action"
+                      onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+                    >
+                      <Bi en="Back to auto-pick" ar="العودة للاختيار التلقائي" />
+                    </button>
+                  )}
+                  {activeFilterCount > 0 && (
+                    <button type="button" className="gpu-selection-action" onClick={clearGpuFilters}>
+                      <Bi en="Clear filters" ar="مسح التصفية" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
               {/* Quiet toolbar: search + min-VRAM + sort + availability chips */}
               <div className="gpu-toolbar">

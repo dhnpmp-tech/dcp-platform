@@ -248,6 +248,16 @@ Status as of PR #877:
 - The UI does not expose the internal trial-account tag status, provider id,
   vendor, or supply-tier values.
 
+Status as of PR #878:
+
+- Stage 2 now has a prominent GPU-selection strip before the filters and cards,
+  so auto-pick vs selected GPU is visible without scrolling through the full
+  grid.
+- The strip shows the chosen GPU, VRAM, hourly price, active filter/workload
+  state, and visible GPU count, plus direct reset actions where relevant.
+- This is a frontend UX clarification only; launch payloads, provider
+  selection, pricing, billing, and trial policy remain unchanged.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully

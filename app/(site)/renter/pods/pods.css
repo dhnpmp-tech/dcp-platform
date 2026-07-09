@@ -720,6 +720,81 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .gpu-reco .why { color: var(--ink-2); font-size: 13px; line-height: 1.55; margin: 6px 0 0; }
 
 /* ── Toolbar ──────────────────────────────────────────────── */
+.gpu-selection-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 38%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 6%, var(--bg-2));
+}
+@media (max-width: 860px) {
+  .gpu-selection-strip { grid-template-columns: 1fr; }
+}
+.gpu-selection-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gpu-selection-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.gpu-selection-copy strong {
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--ink);
+}
+.gpu-selection-copy span:not(.gpu-selection-k) {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+.gpu-selection-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 860px) {
+  .gpu-selection-actions { justify-content: flex-start; }
+}
+.gpu-selection-chip,
+.gpu-selection-action {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.gpu-selection-action {
+  cursor: pointer;
+  color: var(--rt-accent);
+  border-color: var(--rt-accent);
+}
+.gpu-selection-action:hover,
+.gpu-selection-action:focus-visible {
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  outline: none;
+}
 .gpu-toolbar { display: grid; grid-template-columns: 1fr auto; gap: 14px 18px; align-items: end; margin-bottom: 8px; }
 @media (max-width: 760px) { .gpu-toolbar { grid-template-columns: 1fr; } }
 .gpu-tb-left { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 10:08 UTC - Pod GPU selection clarity (PR #878)
+
+- **PR:** [#878](https://github.com/dhnpmp-tech/dcp-platform/pull/878) (`codex/pods-gpu-selection-clarity-2026-07-09`).
+- **Frontend:** Added a compact selector-status strip above the GPU toolbar that keeps auto-pick vs selected GPU, VRAM, hourly price, active workload/filter state, and visible GPU count prominent.
+- **Controls:** The strip exposes direct "Back to auto-pick" and "Clear filters" actions only when relevant.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to assert the strip before and after selecting an RTX 4090.
+- **Safety:** Frontend-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused Playwright browser regression for `/renter/pods`; Next build; `git diff --check`.
+
 ### 2026-07-09 10:00 UTC - Pod launch credit policy sync (PR #877)
 
 - **PR:** [#877](https://github.com/dhnpmp-tech/dcp-platform/pull/877) (`codex/pods-trial-routing-ui-readiness-2026-07-09`).

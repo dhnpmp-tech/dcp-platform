@@ -152,6 +152,9 @@ what is live.
   `GET /api/pods/trial-routing/readiness`, showing a synced/fallback credit
   policy chip and backend-approved trial/high-demand copy without exposing
   trial-tag internals, provider ids, vendors, or supply tiers.
+- PR #878 adds a prominent GPU-selection strip before the Stage 2 filters and
+  card grid, keeping auto-pick vs selected GPU, VRAM, hourly price, active
+  filters, and reset actions visible without changing launch semantics.
 
 ### Now
 
