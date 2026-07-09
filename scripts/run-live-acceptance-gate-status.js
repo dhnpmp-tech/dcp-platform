@@ -128,6 +128,56 @@ function relative(target) {
   return path.relative(REPO_ROOT, target);
 }
 
+function latestArtifactPathForPattern(pattern, evidenceDir) {
+  const basename = path.basename(pattern);
+  const latestName = basename.includes('-*.json')
+    ? basename.replace('-*.json', '-latest.json')
+    : basename.replace(/\.json$/, '-latest.json');
+  return path.join(evidenceDir, latestName);
+}
+
+function readLatestEvidence(gate, evidenceDir) {
+  const latestPath = latestArtifactPathForPattern(gate.artifact_pattern, evidenceDir);
+  const evidence = {
+    found: false,
+    artifact: relative(latestPath),
+    verdict: null,
+    generated_at: null,
+    failure_code: null,
+    blockers: [],
+    maintenance_required: null,
+  };
+  if (!fs.existsSync(latestPath)) return evidence;
+
+  try {
+    const data = JSON.parse(fs.readFileSync(latestPath, 'utf8'));
+    const blockers = Array.isArray(data.failure?.details?.blockers)
+      ? data.failure.details.blockers
+      : Array.isArray(data.blocked_on)
+        ? data.blocked_on
+        : [];
+    return {
+      ...evidence,
+      found: true,
+      verdict: data.verdict || null,
+      generated_at: data.generated_at || null,
+      failure_code: data.failure?.code || null,
+      blockers: blockers.map(String),
+      maintenance_required: typeof data.maintenance_required === 'boolean'
+        ? data.maintenance_required
+        : null,
+    };
+  } catch (error) {
+    return {
+      ...evidence,
+      found: true,
+      verdict: 'UNREADABLE',
+      failure_code: 'latest_evidence_unreadable',
+      blockers: [`unreadable latest evidence: ${error.message}`],
+    };
+  }
+}
+
 function cloneGate(gate) {
   return {
     id: gate.id,
@@ -142,6 +192,7 @@ function cloneGate(gate) {
     claim_guard: gate.claim_guard,
     capability_claim_allowed: false,
     next_action: gate.next_action,
+    latest_evidence: null,
   };
 }
 
@@ -152,6 +203,7 @@ function buildSummary(gates) {
     command_available: gates.filter((gate) => gate.command_available).length,
     missing_acceptance_command: gates.filter((gate) => !gate.command_available).length,
     capability_claim_allowed: gates.filter((gate) => gate.capability_claim_allowed).length,
+    latest_evidence_found: gates.filter((gate) => gate.latest_evidence?.found).length,
   };
 }
 
@@ -179,14 +231,18 @@ function buildMarkdown(report) {
   lines.push(`- blocked: ${report.summary.blocked}/${report.summary.total}`);
   lines.push(`- command_available: ${report.summary.command_available}/${report.summary.total}`);
   lines.push(`- missing_acceptance_command: ${report.summary.missing_acceptance_command}/${report.summary.total}`);
+  lines.push(`- latest_evidence_found: ${report.summary.latest_evidence_found}/${report.summary.total}`);
   lines.push('');
   lines.push('## Gates');
   lines.push('');
-  lines.push('| gate | lane | state | command | blocked on | next action |');
-  lines.push('|---|---|---|---|---|---|');
+  lines.push('| gate | lane | state | command | blocked on | latest evidence | next action |');
+  lines.push('|---|---|---|---|---|---|---|');
   for (const gate of report.gates) {
     const command = gate.acceptance_command ? `\`${gate.acceptance_command}\`` : 'missing';
-    lines.push(`| ${gate.id} | ${gate.lane} | ${gate.acceptance_state} | ${command} | ${gate.blocked_on.join(', ')} | ${String(gate.next_action).replace(/\|/g, '\\|')} |`);
+    const latest = gate.latest_evidence?.found
+      ? `${gate.latest_evidence.verdict || 'unknown'}${gate.latest_evidence.blockers.length > 0 ? `; ${gate.latest_evidence.blockers.join(', ')}` : ''}`
+      : 'none';
+    lines.push(`| ${gate.id} | ${gate.lane} | ${gate.acceptance_state} | ${command} | ${gate.blocked_on.join(', ')} | ${String(latest).replace(/\|/g, '\\|')} | ${String(gate.next_action).replace(/\|/g, '\\|')} |`);
   }
   lines.push('');
   lines.push('## Scope');
@@ -229,7 +285,11 @@ function writeReport(report, outputDir = OUTPUT_DIR_DEFAULT) {
 
 function runLiveAcceptanceGateStatus(options = {}) {
   const outputDir = path.resolve(options.outputDir || process.env.DCP_LIVE_ACCEPTANCE_STATUS_OUTPUT_DIR || OUTPUT_DIR_DEFAULT);
+  const evidenceDir = path.resolve(options.evidenceDir || process.env.DCP_LIVE_ACCEPTANCE_EVIDENCE_DIR || OUTPUT_DIR_DEFAULT);
   const gates = LIVE_ACCEPTANCE_GATES.map(cloneGate);
+  for (const gate of gates) {
+    gate.latest_evidence = readLatestEvidence(gate, evidenceDir);
+  }
   const report = {
     contract: CONTRACT,
     generated_at: new Date().toISOString(),
@@ -237,6 +297,7 @@ function runLiveAcceptanceGateStatus(options = {}) {
     command: 'npm run proof:live-acceptance-status',
     mode: 'ci_safe_status_packet',
     summary: buildSummary(gates),
+    evidence_dir: relative(evidenceDir),
     gates,
     validation_failures: [],
     artifacts: {},

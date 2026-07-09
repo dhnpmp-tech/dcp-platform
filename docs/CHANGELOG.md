@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 18:29 UTC - Live acceptance latest-evidence status (PR #908)
+
+- **PR:** [#908](https://github.com/dhnpmp-tech/dcp-platform/pull/908) (`codex/live-acceptance-evidence-2026-07-09`).
+- **Timestamp:** 2026-07-09 18:29 UTC / 2026-07-09 22:29 +04.
+- **Evidence ingestion:** `npm run proof:live-acceptance-status` now attaches matching `*-latest.json` proof-report verdict, timestamp, failure code, blockers, and maintenance-required state to each gate.
+- **dcp-agent clarity:** The dcp-agent reconciliation gate can surface latest blockers from the read-only reconciliation packet without rerunning remote inventory.
+- **Markdown handoff:** The generated report now includes latest-evidence status per live gate plus a summary count.
+- **Regression:** Extended the live-acceptance status Jest test with a blocked dcp-agent evidence fixture.
+- **Safety:** Read-only proof visibility change; no SSH, gateway stop, agent checkout mutation, installer rebuild/delete, production artifact cleanup, service restart, route change, billing, workload execution, or product capability claim changed.
+- **Verification:** Live-acceptance Jest test; live-acceptance proof; local roadmap proof; `git diff --check`.
+
 ### 2026-07-09 18:16 UTC - Team usage readiness proof gate (PR #907)
 
 - **PR:** [#907](https://github.com/dhnpmp-tech/dcp-platform/pull/907) (`codex/team-usage-readiness-proof-2026-07-09`).
