@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 14:44 UTC - `feat(pods): add collapsible workspace folder index and GPU request rail - PR #893`
+
+**PR:** [#893](https://github.com/dhnpmp-tech/dcp-platform/pull/893) (`codex/pods-workspace-collapsible-gpu-clarity-2026-07-09`).
+**Local timestamp:** 2026-07-09 18:44 +04.
+
+**What:** Tareq pods/workspace feedback follow-up. Keeps large staged workspaces scannable, answers trial-account handling directly, and makes the actual GPU request more prominent while browsing cards.
+
+- **Workspace organization:** The compact Stage 1 checkpoint now has a collapsible folder index, letting renters browse all folders and open one folder without expanding the full manifest or scrolling through every file.
+- **Stage clarity:** The Stage 2 rail now names the decision as the template plus actual GPU request, keeping Stage 1, Stage 2, and Stage 3 visible as distinct launch decisions.
+- **GPU request clarity:** The selected-GPU strip is now a sticky final-launch-request rail while browsing GPUs, and it separates the final request from browse-only VRAM filters.
+- **Trial routing clarity:** The pod launch flow now states whether a live trial-account tag exists, surfaces credit-provenance/grant-balance handling, and keeps native/community trial routing distinct from paid high-demand routing.
+- **Regression:** Updated the focused `/renter/pods` Playwright regression for folder-index browsing, trial-tag answer copy, and the final-launch GPU request rail.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 14:30 UTC - `feat(inference): expose prompt-cache and batch live proof gates - PR #892`
 
 **PR:** [#892](https://github.com/dhnpmp-tech/dcp-platform/pull/892) (`codex/inference-batch-live-proof-readiness-2026-07-09`).

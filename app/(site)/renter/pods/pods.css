@@ -1039,6 +1039,9 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 /* ── Toolbar ──────────────────────────────────────────────── */
 .gpu-selection-strip {
+  position: sticky;
+  top: 72px;
+  z-index: 18;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px 18px;
@@ -1046,10 +1049,15 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   padding: 14px 16px;
   margin-bottom: 14px;
   border: 1px solid color-mix(in oklab, var(--rt-accent) 38%, var(--hair));
-  background: color-mix(in oklab, var(--rt-accent) 6%, var(--bg-2));
+  background: color-mix(in oklab, var(--rt-accent) 7%, var(--bg-2));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, .24), inset 3px 0 0 var(--rt-accent);
+  backdrop-filter: blur(12px);
 }
 @media (max-width: 860px) {
-  .gpu-selection-strip { grid-template-columns: 1fr; }
+  .gpu-selection-strip {
+    position: static;
+    grid-template-columns: 1fr;
+  }
 }
 .gpu-selection-copy {
   min-width: 0;
@@ -1110,6 +1118,11 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 }
 .gpu-selection-chip.auto {
   border-color: color-mix(in oklab, var(--rt-accent) 48%, var(--hair));
+}
+.gpu-selection-chip.final {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair));
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink));
+  background: color-mix(in oklab, var(--orange) 8%, var(--paper));
 }
 .gpu-selection-action {
   cursor: pointer;
