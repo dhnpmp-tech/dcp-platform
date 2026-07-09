@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 16:38 UTC - Dedicated Deployments adapter readiness contracts (PR #901)
+
+- **PR:** [#901](https://github.com/dhnpmp-tech/dcp-platform/pull/901) (`codex/dedicated-deployments-readiness-rail-2026-07-09`).
+- **Timestamp:** 2026-07-09 16:38 UTC / 2026-07-09 20:38 +04.
+- **Public deployments UX:** `/dedicated-deployments` now consumes adapter artifact policy, endpoint-smoke, usage-attribution, settlement, founder-approval, and billing readiness packets.
+- **Readiness clarity:** The public page shows contracts-live count, traffic-gate blockers, billing-gate blockers, per-contract mode/version, and the next strict vLLM load-proof action.
+- **Regression:** Added a focused `/dedicated-deployments` Playwright regression with mocked readiness packets for all six adapter contract endpoints.
+- **Safety:** Frontend/read-only visibility change; no adapter deployment creation, load-proof attachment, endpoint smoke recording, route traffic, usage write, billing, settlement, payout, invoice, balance mutation, minimum-balance enforcement change, provider selection, or Tinker claim was added.
+- **Verification:** TypeScript; focused `/dedicated-deployments` Playwright regression; adapter readiness proof commands; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 16:26 UTC - Fine-Tuning LoRA credit preflight gates (PR #900)
 
 - **PR:** [#900](https://github.com/dhnpmp-tech/dcp-platform/pull/900) (`codex/fine-tuning-minimum-balance-preflight-2026-07-09`).

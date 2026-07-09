@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import SiteHeader from '@/app/(site)/components/chrome/SiteHeader'
 import { Bi, BiX } from '@/app/(site)/lib/i18n'
@@ -90,7 +91,165 @@ curl -s https://api.dcp.sa/api/adapters/billing/approval/readiness
 
 curl -s https://api.dcp.sa/api/adapters/billing/readiness`
 
+const READINESS_ENDPOINTS = [
+  {
+    id: 'artifact_policy',
+    title: 'Artifact policy',
+    path: '/api/adapters/artifacts/readiness',
+    fallbackMode: 'artifact_policy_contract_only',
+  },
+  {
+    id: 'endpoint_smoke',
+    title: 'Endpoint smoke',
+    path: '/api/adapters/endpoints/smoke/readiness',
+    fallbackMode: 'endpoint_smoke_contract_only',
+  },
+  {
+    id: 'usage_attribution',
+    title: 'Usage attribution',
+    path: '/api/adapters/usage/attribution/readiness',
+    fallbackMode: 'usage_attribution_contract_only',
+  },
+  {
+    id: 'settlement',
+    title: 'Settlement',
+    path: '/api/adapters/settlement/readiness',
+    fallbackMode: 'settlement_policy_contract_only',
+  },
+  {
+    id: 'founder_approval',
+    title: 'Founder approval',
+    path: '/api/adapters/billing/approval/readiness',
+    fallbackMode: 'approval_policy_contract_only',
+  },
+  {
+    id: 'adapter_billing',
+    title: 'Adapter billing',
+    path: '/api/adapters/billing/readiness',
+    fallbackMode: 'billing_policy_contract_only',
+  },
+] as const
+
+type ReadinessState = 'loading' | 'ready' | 'error'
+
+type ReadinessEndpointId = typeof READINESS_ENDPOINTS[number]['id']
+
+interface AdapterReadinessPacket {
+  object?: string
+  version?: string
+  current_mode?: string
+  endpoints?: Record<string, string>
+  artifact_policy?: {
+    policy_available?: boolean
+    artifact_upload_endpoint_enabled?: boolean
+    artifact_storage_write_enabled?: boolean
+    adapter_serving_enabled?: boolean
+    route_traffic_enabled?: boolean
+  }
+  policy?: {
+    readiness_available?: boolean
+    endpoint_smoke_recording_enabled?: boolean
+    adapter_endpoint_routing_enabled?: boolean
+    adapter_usage_attribution_enabled?: boolean
+    adapter_usage_ledger_writes_enabled?: boolean
+    adapter_settlement_enabled?: boolean
+    provider_payouts_enabled?: boolean
+    founder_billing_approval_live?: boolean
+    adapter_billing_enabled?: boolean
+    adapter_inference_billing_enabled?: boolean
+    dispatches_inference?: boolean
+  }
+  claim_guards?: Record<string, boolean | undefined>
+  next_actions?: string[]
+}
+
+type AdapterReadinessMap = Partial<Record<ReadinessEndpointId, AdapterReadinessPacket>>
+
+function formatStatus(value: string | undefined): string {
+  if (!value) return 'contract only'
+  return value.replace(/_/g, ' ')
+}
+
+function packetLive(packet: AdapterReadinessPacket | undefined): boolean {
+  return packet?.claim_guards?.readiness_contract_live === true
+    || packet?.claim_guards?.policy_contract_live === true
+    || packet?.artifact_policy?.policy_available === true
+    || packet?.policy?.readiness_available === true
+}
+
+function blocksTraffic(packet: AdapterReadinessPacket | undefined): boolean {
+  if (!packet) return false
+  return packet.claim_guards?.routes_adapter_traffic === false
+    || packet.claim_guards?.enables_adapter_serving === false
+    || packet.policy?.adapter_endpoint_routing_enabled === false
+    || packet.artifact_policy?.route_traffic_enabled === false
+    || packet.artifact_policy?.adapter_serving_enabled === false
+}
+
+function blocksBilling(packet: AdapterReadinessPacket | undefined): boolean {
+  if (!packet) return false
+  return packet.claim_guards?.enables_adapter_billing === false
+    || packet.claim_guards?.bills_adapter_inference === false
+    || packet.policy?.adapter_billing_enabled === false
+    || packet.policy?.adapter_inference_billing_enabled === false
+    || packet.policy?.adapter_settlement_enabled === false
+    || packet.policy?.founder_billing_approval_live === false
+}
+
 export default function DedicatedDeploymentsProductPage() {
+  const [readinessState, setReadinessState] = useState<ReadinessState>('loading')
+  const [readinessPackets, setReadinessPackets] = useState<AdapterReadinessMap>({})
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadReadiness() {
+      setReadinessState('loading')
+      try {
+        const entries = await Promise.all(READINESS_ENDPOINTS.map(async (endpoint) => {
+          const res = await fetch(endpoint.path, { cache: 'no-store' })
+          if (!res.ok) throw new Error(`${endpoint.id} failed: ${res.status}`)
+          return [endpoint.id, await res.json()] as const
+        }))
+        if (!cancelled) {
+          setReadinessPackets(Object.fromEntries(entries) as AdapterReadinessMap)
+          setReadinessState('ready')
+        }
+      } catch {
+        if (!cancelled) {
+          setReadinessPackets({})
+          setReadinessState('error')
+        }
+      }
+    }
+    loadReadiness()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const readinessRows = useMemo(() => {
+    return READINESS_ENDPOINTS.map((endpoint) => {
+      const packet = readinessPackets[endpoint.id]
+      return {
+        ...endpoint,
+        packet,
+        mode: packet?.current_mode || endpoint.fallbackMode,
+        version: packet?.version || 'pending',
+        live: packetLive(packet),
+        trafficBlocked: blocksTraffic(packet),
+        billingBlocked: blocksBilling(packet),
+      }
+    })
+  }, [readinessPackets])
+  const liveContractCount = readinessRows.filter((row) => row.live).length
+  const trafficBlockedCount = readinessRows.filter((row) => row.trafficBlocked).length
+  const billingBlockedCount = readinessRows.filter((row) => row.billingBlocked).length
+  const billingPacket = readinessPackets.adapter_billing
+  const smokePacket = readinessPackets.endpoint_smoke
+  const nextAdapterAction = billingPacket?.next_actions?.[0]
+    || smokePacket?.next_actions?.[0]
+    || 'Run strict adapter vLLM load proof against a real serving endpoint.'
+
   return (
     <>
       <SiteHeader active="/dedicated-deployments" />
@@ -128,6 +287,66 @@ export default function DedicatedDeploymentsProductPage() {
           <div className="section-meta">
             <span className="idx"><Bi en="§ 01 · What is shipped" ar="§ ٠١ · ما تم شحنه" /></span>
             <span><Bi en="Intent and proof, not traffic yet" ar="نية وإثبات، وليس حركة بعد" /></span>
+          </div>
+          <div className="dedicated-readiness-live" aria-live="polite">
+            <div className="dedicated-readiness-head">
+              <span><Bi en="Adapter readiness contracts" ar="عقود جاهزية المحولات" /></span>
+              <b dir="ltr">GET /api/adapters/*/readiness</b>
+            </div>
+            {readinessState === 'loading' && (
+              <p className="dedicated-readiness-empty">
+                <Bi en="Loading adapter deployment readiness..." ar="تحميل جاهزية نشر المحولات..." />
+              </p>
+            )}
+            {readinessState === 'error' && (
+              <p className="dedicated-readiness-empty">
+                <Bi en="Adapter readiness is temporarily unavailable; route traffic and billing stay gated." ar="جاهزية المحولات غير متاحة مؤقتاً؛ تبقى الحركة والفوترة مقيدة." />
+              </p>
+            )}
+            {readinessState === 'ready' && (
+              <>
+                <div className="dedicated-readiness-metrics">
+                  <span>
+                    <em><Bi en="Contracts live" ar="العقود الحية" /></em>
+                    <strong>{liveContractCount}/{READINESS_ENDPOINTS.length}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Traffic gates blocked" ar="بوابات الحركة المقيدة" /></em>
+                    <strong>{trafficBlockedCount}</strong>
+                  </span>
+                  <span>
+                    <em><Bi en="Billing gates blocked" ar="بوابات الفوترة المقيدة" /></em>
+                    <strong>{billingBlockedCount}</strong>
+                  </span>
+                </div>
+                <div className="dedicated-readiness-list">
+                  {readinessRows.map((row) => (
+                    <div key={row.id} className={row.live ? 'contract-live' : 'contract-pending'}>
+                      <span>
+                        <b>{row.title}</b>
+                        <i dir="ltr">{row.path}</i>
+                      </span>
+                      <span>
+                        <em><Bi en="Mode" ar="الوضع" /></em>
+                        <strong>{formatStatus(row.mode)}</strong>
+                      </span>
+                      <span>
+                        <em><Bi en="Traffic" ar="الحركة" /></em>
+                        <strong>{row.trafficBlocked ? 'gated' : 'checking'}</strong>
+                      </span>
+                      <span>
+                        <em><Bi en="Billing" ar="الفوترة" /></em>
+                        <strong>{row.billingBlocked ? 'gated' : 'checking'}</strong>
+                      </span>
+                      <small dir="ltr">{row.version}</small>
+                    </div>
+                  ))}
+                </div>
+                <p className="dedicated-readiness-note">
+                  <Bi en={nextAdapterAction} ar="الإجراء التالي: شغّل إثبات تحميل vLLM الصارم للمحول على نقطة خدمة حقيقية." />
+                </p>
+              </>
+            )}
           </div>
           <div className="mg-grid" style={{ marginTop: 20 }}>
             {DEPLOYMENT_GATES.map((gate) => (
