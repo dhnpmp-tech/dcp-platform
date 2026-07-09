@@ -64,6 +64,7 @@ function buildDb() {
       scopes TEXT NOT NULL DEFAULT '["inference"]',
       org_id TEXT,
       org_role TEXT NOT NULL DEFAULT 'member',
+      monthly_spend_cap_halala INTEGER DEFAULT 0,
       expires_at TEXT,
       revoked_at TEXT,
       last_used_at TEXT,
@@ -139,14 +140,14 @@ function seedAccount(db) {
   ).run(isoDaysAgo(10));
   db.prepare(
     `INSERT INTO renter_api_keys
-     (id, renter_id, key, label, scopes, org_id, org_role, created_at)
-     VALUES (?, 1, ?, ?, ?, 'org:dcp-test', ?, ?)`
-  ).run('key-billing', 'billing-key', 'billing', JSON.stringify(['billing']), 'read-only', isoDaysAgo(3));
+     (id, renter_id, key, label, scopes, org_id, org_role, monthly_spend_cap_halala, created_at)
+     VALUES (?, 1, ?, ?, ?, 'org:dcp-test', ?, ?, ?)`
+  ).run('key-billing', 'billing-key', 'billing', JSON.stringify(['billing']), 'read-only', 0, isoDaysAgo(3));
   db.prepare(
     `INSERT INTO renter_api_keys
-     (id, renter_id, key, label, scopes, org_id, org_role, created_at)
-     VALUES (?, 1, ?, ?, ?, 'org:dcp-test', ?, ?)`
-  ).run('key-inference', 'inference-key', 'inference', JSON.stringify(['inference']), 'member', isoDaysAgo(2));
+     (id, renter_id, key, label, scopes, org_id, org_role, monthly_spend_cap_halala, created_at)
+     VALUES (?, 1, ?, ?, ?, 'org:dcp-test', ?, ?, ?)`
+  ).run('key-inference', 'inference-key', 'inference', JSON.stringify(['inference']), 'member', 1000, isoDaysAgo(2));
   db.prepare(
     `INSERT INTO renter_quota
      (renter_id, daily_jobs_limit, monthly_spend_limit_halala, created_at)
@@ -304,16 +305,18 @@ describe('renter usage export and budget status', () => {
         active: 2,
         billing: 1,
         inference: 1,
+        budgeted: 1,
+        monthly_spend_cap_halala: 1000,
         attributed_requests_30d: 1,
         attributed_spend_30d_halala: 300,
         per_key_spend_available: true,
-        per_key_budgets_available: false,
+        per_key_budgets_available: true,
       },
       claims: {
         v1_account_spend_cap_gate_live: true,
         workspace_usage_export_live: true,
         per_key_spend_attribution_live: true,
-        per_key_budgets_enforced: false,
+        per_key_budgets_enforced: true,
       },
     });
   });
@@ -328,15 +331,40 @@ describe('renter usage export and budget status', () => {
     const billingKey = res.body.keys.find((key) => key.id === 'key-billing');
     expect(inferenceKey).toMatchObject({
       spend_attribution_available: true,
+      monthly_spend_cap_halala: 1000,
+      monthly_spend_cap_sar: 10,
+      monthly_spend_cap_unlimited: false,
       requests_30d: 1,
       spend_30d_halala: 300,
       spend_30d_sar: 3,
     });
     expect(billingKey).toMatchObject({
       spend_attribution_available: true,
+      monthly_spend_cap_halala: 0,
+      monthly_spend_cap_sar: 0,
+      monthly_spend_cap_unlimited: true,
       requests_30d: 0,
       spend_30d_halala: 0,
       spend_30d_sar: 0,
     });
+  });
+
+  test('updates a scoped key monthly budget with master/admin access', async () => {
+    const res = await request(buildApp())
+      .put('/api/renters/me/keys/key-inference/budget')
+      .set('x-renter-key', 'master-key')
+      .send({ monthly_spend_cap_sar: 25.5 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      ok: true,
+      id: 'key-inference',
+      monthly_spend_cap_halala: 2550,
+      monthly_spend_cap_sar: 25.5,
+      monthly_spend_cap_unlimited: false,
+      per_key_budgets_enforced: true,
+    });
+    const row = global.__testDb.prepare('SELECT monthly_spend_cap_halala FROM renter_api_keys WHERE id = ?').get('key-inference');
+    expect(row.monthly_spend_cap_halala).toBe(2550);
   });
 });

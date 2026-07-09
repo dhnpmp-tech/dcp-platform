@@ -512,8 +512,9 @@ Acceptance:
     `/api/renters/me/usage/export`, `/api/renters/me/budget-status`, and
     renter-console budget visibility. PR #849 adds scoped-key attribution to
     `/v1` and `/api/vllm` usage rows, usage exports, budget status, and the API
-    Keys table; per-key budget enforcement remains gated until the next debit
-    guard and 402 contract prove key-level caps without breaking account caps.**
+    Keys table. PR #850 adds default-unlimited scoped-key monthly caps,
+    management APIs, API Keys cap visibility, and pre-dispatch 402 enforcement
+    for capped scoped keys without changing account caps or master-key behavior.**
 
 ## Division of Work
 

@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { vllmCompleteLimiter, vllmStreamLimiter } = require('../middleware/rateLimiter');
 const db = require('../db');
 const { recordOpenRouterUsage } = require('../services/openrouterSettlementService');
+const billingService = require('../services/billingService');
 const { looksLikeProviderKey } = require('../middleware/auth');
 
 const router = express.Router();
@@ -767,6 +768,29 @@ async function submitAndAwait(req) {
           balance_halala: Number(req.renter.balance_halala || 0),
           required_halala: estimatedCostHalala,
           shortfall_halala: estimatedCostHalala - Number(req.renter.balance_halala || 0),
+        },
+      },
+    };
+  }
+
+  const keyBudgetGate = billingService.checkScopedKeyBudgetCap(db._db || db, {
+    renterId: req.renter.id,
+    renterApiKeyId: req.renterAuth?.renter_api_key_id || null,
+    estimateHalala: estimatedCostHalala,
+  });
+  if (keyBudgetGate.capped && !keyBudgetGate.ok) {
+    return {
+      error: {
+        status: 402,
+        body: {
+          error: 'key_budget_cap_exceeded',
+          code: 'key_budget_cap_exceeded',
+          message: 'Scoped API key monthly budget cap reached. Raise or remove the key cap before retrying.',
+          monthly_key_cap_halala: keyBudgetGate.capHalala,
+          key_spent_this_month_halala: keyBudgetGate.spentThisMonthHalala,
+          key_remaining_halala: keyBudgetGate.remainingHalala,
+          estimate_halala: keyBudgetGate.estimateHalala,
+          renter_api_key_id: req.renterAuth?.renter_api_key_id || null,
         },
       },
     };

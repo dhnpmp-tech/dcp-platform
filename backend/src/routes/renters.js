@@ -1714,6 +1714,27 @@ router.post(['/me/rotate-key', '/rotate-key'], (req, res) => {
 // Valid scopes: "inference" (submit vLLM jobs), "billing" (view balance), "compute" (rent GPU pods), "admin" (all)
 const VALID_KEY_SCOPES = new Set(['inference', 'billing', 'admin', 'compute']);
 const MAX_SCOPED_KEYS_PER_RENTER = 20;
+const MAX_MONTHLY_SPEND_CAP_HALALA = 100_000_000; // 1,000,000 SAR sanity ceiling
+
+function normalizeMonthlySpendCapInput(body = {}, { required = true } = {}) {
+  let capHalala;
+  if (body.monthly_spend_cap_halala != null) {
+    capHalala = Number(body.monthly_spend_cap_halala);
+  } else if (body.monthly_spend_cap_sar != null) {
+    capHalala = Math.round(Number(body.monthly_spend_cap_sar) * 100);
+  } else if (!required) {
+    return { capHalala: 0 };
+  } else {
+    return { error: 'Provide monthly_spend_cap_halala (integer) or monthly_spend_cap_sar (number). 0 = unlimited.' };
+  }
+  if (!Number.isFinite(capHalala) || capHalala < 0 || !Number.isInteger(capHalala)) {
+    return { error: 'monthly_spend_cap_halala must be a non-negative integer (0 = unlimited).' };
+  }
+  if (capHalala > MAX_MONTHLY_SPEND_CAP_HALALA) {
+    return { error: 'Cap exceeds the maximum allowed (1,000,000 SAR).' };
+  }
+  return { capHalala };
+}
 
 // POST /api/renters/me/keys — create a scoped sub-key
 router.post('/me/keys', (req, res) => {
@@ -1738,6 +1759,9 @@ router.post('/me/keys', (req, res) => {
     const expiresAt = rawExpiry && !isNaN(Date.parse(rawExpiry)) ? new Date(rawExpiry).toISOString() : null;
     const orgId = deriveOrgId(renter);
     const orgRole = normalizeOrgRole(req.body?.org_role) || inferRoleFromScopes(scopes);
+    const capInput = normalizeMonthlySpendCapInput(req.body || {}, { required: false });
+    if (capInput.error) return res.status(400).json({ error: capInput.error });
+    const monthlySpendCapHalala = capInput.capHalala;
 
     const activeCount = db.get(
       'SELECT COUNT(*) AS c FROM renter_api_keys WHERE renter_id = ? AND revoked_at IS NULL',
@@ -1752,12 +1776,24 @@ router.post('/me/keys', (req, res) => {
     const now = new Date().toISOString();
     runStatement(
       `INSERT INTO renter_api_keys
-       (id, renter_id, key, label, scopes, org_id, org_role, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, renter.id, key, label, JSON.stringify(scopes), orgId, orgRole, expiresAt, now
+       (id, renter_id, key, label, scopes, org_id, org_role, monthly_spend_cap_halala, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, renter.id, key, label, JSON.stringify(scopes), orgId, orgRole, monthlySpendCapHalala, expiresAt, now
     );
 
-    return res.status(201).json({ id, key, label, scopes, org_id: orgId, org_role: orgRole, expires_at: expiresAt, created_at: now });
+    return res.status(201).json({
+      id,
+      key,
+      label,
+      scopes,
+      org_id: orgId,
+      org_role: orgRole,
+      monthly_spend_cap_halala: monthlySpendCapHalala,
+      monthly_spend_cap_sar: sarFromHalala(monthlySpendCapHalala),
+      monthly_spend_cap_unlimited: monthlySpendCapHalala === 0,
+      expires_at: expiresAt,
+      created_at: now,
+    });
   } catch (error) {
     console.error('Scoped key create error:', error);
     return res.status(500).json({ error: 'Failed to create API key' });
@@ -1784,7 +1820,9 @@ router.get('/me/keys', (req, res) => {
     );
 
     const keys = db.all(
-      `SELECT id, label, scopes, org_id, org_role, expires_at, last_used_at, created_at,
+      `SELECT id, label, scopes, org_id, org_role,
+              ${renterApiKeysHasColumn('monthly_spend_cap_halala') ? 'monthly_spend_cap_halala' : '0 AS monthly_spend_cap_halala'},
+              expires_at, last_used_at, created_at,
               CASE WHEN revoked_at IS NOT NULL THEN 1 ELSE 0 END AS revoked
        FROM renter_api_keys
        WHERE renter_id = ?
@@ -1794,6 +1832,7 @@ router.get('/me/keys', (req, res) => {
     ).map(k => {
       const attributed = usage30d.usageByKey.get(k.id) || {};
       const spendHalala = Number(attributed.spend_30d_halala || 0);
+      const monthlySpendCapHalala = Number(k.monthly_spend_cap_halala || 0);
       return {
         id: k.id,
         label: k.label,
@@ -1804,6 +1843,9 @@ router.get('/me/keys', (req, res) => {
         last_used_at: k.last_used_at,
         created_at: k.created_at,
         revoked: Boolean(k.revoked),
+        monthly_spend_cap_halala: monthlySpendCapHalala,
+        monthly_spend_cap_sar: sarFromHalala(monthlySpendCapHalala),
+        monthly_spend_cap_unlimited: monthlySpendCapHalala === 0,
         spend_attribution_available: usage30d.available,
         requests_30d: Number(attributed.requests_30d || 0),
         spend_30d_halala: spendHalala,
@@ -1815,6 +1857,53 @@ router.get('/me/keys', (req, res) => {
   } catch (error) {
     console.error('Scoped key list error:', error);
     return res.status(500).json({ error: 'Failed to list API keys' });
+  }
+});
+
+// PUT /api/renters/me/keys/:keyId/budget — set or remove a scoped key cap
+router.put('/me/keys/:keyId/budget', (req, res) => {
+  try {
+    const rawKey = req.headers['x-renter-key'] || req.query.key;
+    if (!rawKey) return res.status(401).json({ error: 'API key required' });
+    const authCtx = getRenterAuthContext(rawKey);
+    if (!authCtx) return res.status(403).json({ error: 'Invalid or inactive API key' });
+    if (authCtx.actorType !== 'master_key' && !authCtx.scopes.includes('admin')) {
+      return res.status(403).json({ error: 'Changing API key budgets requires your master key or an admin-scoped key.' });
+    }
+    if (!renterApiKeysHasColumn('monthly_spend_cap_halala')) {
+      return res.status(503).json({ error: 'Scoped key budgets are not available on this database yet.' });
+    }
+
+    const renter = authCtx.renter;
+    const keyId = req.params.keyId;
+    if (!keyId) return res.status(400).json({ error: 'Key ID required' });
+    const capInput = normalizeMonthlySpendCapInput(req.body || {});
+    if (capInput.error) return res.status(400).json({ error: capInput.error });
+
+    const existing = db.get(
+      `SELECT id, label
+       FROM renter_api_keys
+       WHERE id = ? AND renter_id = ? AND revoked_at IS NULL`,
+      keyId, renter.id
+    );
+    if (!existing) return res.status(404).json({ error: 'Key not found or already revoked' });
+
+    runStatement(
+      'UPDATE renter_api_keys SET monthly_spend_cap_halala = ? WHERE id = ? AND renter_id = ? AND revoked_at IS NULL',
+      capInput.capHalala, keyId, renter.id
+    );
+    return res.json({
+      ok: true,
+      id: keyId,
+      label: existing.label || null,
+      monthly_spend_cap_halala: capInput.capHalala,
+      monthly_spend_cap_sar: sarFromHalala(capInput.capHalala),
+      monthly_spend_cap_unlimited: capInput.capHalala === 0,
+      per_key_budgets_enforced: true,
+    });
+  } catch (error) {
+    console.error('Scoped key budget update error:', error);
+    return res.status(500).json({ error: 'Failed to update API key budget' });
   }
 });
 
@@ -2439,6 +2528,7 @@ const RENTER_USAGE_PERIODS = new Map([
 ]);
 const USAGE_EXPORT_MAX_ROWS = 5000;
 const OPENROUTER_USAGE_COLUMN_CACHE = new Map();
+const RENTER_API_KEYS_COLUMN_CACHE = new Map();
 
 function normalizeRenterUsagePeriod(rawPeriod) {
   const period = RENTER_USAGE_PERIODS.has(String(rawPeriod || '')) ? String(rawPeriod) : '30d';
@@ -2500,6 +2590,21 @@ function openrouterUsageHasColumn(columnName) {
     return hasColumn;
   } catch (_) {
     OPENROUTER_USAGE_COLUMN_CACHE.set(safeName, false);
+    return false;
+  }
+}
+
+function renterApiKeysHasColumn(columnName) {
+  const safeName = String(columnName || '');
+  if (!safeName) return false;
+  if (RENTER_API_KEYS_COLUMN_CACHE.has(safeName)) return RENTER_API_KEYS_COLUMN_CACHE.get(safeName);
+  try {
+    const rows = db.all('PRAGMA table_info(renter_api_keys)');
+    const hasColumn = rows.some((row) => row?.name === safeName);
+    RENTER_API_KEYS_COLUMN_CACHE.set(safeName, hasColumn);
+    return hasColumn;
+  } catch (_) {
+    RENTER_API_KEYS_COLUMN_CACHE.set(safeName, false);
     return false;
   }
 }
@@ -2620,8 +2725,10 @@ function getScopedKeyUsageMap(renterId, cutoff) {
 }
 
 function summarizeScopedKeys(renterId, cutoff) {
+  const hasKeyBudgetColumn = renterApiKeysHasColumn('monthly_spend_cap_halala');
   const keys = db.all(
-    `SELECT scopes, revoked_at
+    `SELECT scopes, revoked_at,
+            ${hasKeyBudgetColumn ? 'monthly_spend_cap_halala' : '0 AS monthly_spend_cap_halala'}
      FROM renter_api_keys
      WHERE renter_id = ?`,
     renterId
@@ -2634,9 +2741,12 @@ function summarizeScopedKeys(renterId, cutoff) {
     inference: 0,
     billing: 0,
     compute: 0,
+    budgeted: 0,
+    monthly_spend_cap_halala: 0,
     attributed_requests_30d: 0,
     attributed_spend_30d_halala: 0,
     per_key_spend_available: openrouterUsageHasColumn('renter_api_key_id'),
+    per_key_budgets_available: hasKeyBudgetColumn,
   };
   for (const key of keys) {
     const revoked = Boolean(key.revoked_at);
@@ -2650,6 +2760,11 @@ function summarizeScopedKeys(renterId, cutoff) {
     if (scopes.includes('inference')) counts.inference += 1;
     if (scopes.includes('billing')) counts.billing += 1;
     if (scopes.includes('compute')) counts.compute += 1;
+    const capHalala = Number(key.monthly_spend_cap_halala || 0);
+    if (capHalala > 0) {
+      counts.budgeted += 1;
+      counts.monthly_spend_cap_halala += capHalala;
+    }
   }
   if (counts.per_key_spend_available && cutoff) {
     const usage = getScopedKeyUsageMap(renterId, cutoff);
@@ -2744,13 +2859,12 @@ function buildRenterBudgetStatus(authCtx, periodInfo) {
     },
     api_keys: {
       ...keyCounts,
-      per_key_budgets_available: false,
     },
     claims: {
       v1_account_spend_cap_gate_live: true,
       workspace_usage_export_live: true,
       per_key_spend_attribution_live: keyCounts.per_key_spend_available,
-      per_key_budgets_enforced: false,
+      per_key_budgets_enforced: keyCounts.per_key_budgets_available,
       team_member_budgets_enforced: false,
       prompt_cache_discount_applied: false,
     },

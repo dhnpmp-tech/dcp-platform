@@ -1557,6 +1557,8 @@ db.exec(`
   'ALTER TABLE renters ADD COLUMN auto_topup_monthly_cap_halala INTEGER DEFAULT 0',
   // Optional renter-set monthly inference spend cap (#20). 0 = unlimited.
   'ALTER TABLE renters ADD COLUMN monthly_spend_cap_halala INTEGER DEFAULT 0',
+  // Optional scoped renter-key monthly inference spend cap. 0 = unlimited.
+  'ALTER TABLE renter_api_keys ADD COLUMN monthly_spend_cap_halala INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN moyasar_card_token TEXT',
   'ALTER TABLE renters ADD COLUMN moyasar_card_brand TEXT',
   'ALTER TABLE renters ADD COLUMN moyasar_card_last4 TEXT',
@@ -1648,6 +1650,7 @@ db.exec(`
     scopes TEXT NOT NULL DEFAULT '["inference"]',
     org_id TEXT,
     org_role TEXT NOT NULL DEFAULT 'member' CHECK(org_role IN ('owner', 'admin', 'member', 'read-only')),
+    monthly_spend_cap_halala INTEGER NOT NULL DEFAULT 0,
     expires_at TEXT,
     revoked_at TEXT,
     last_used_at TEXT,
@@ -1657,6 +1660,7 @@ db.exec(`
 `);
 try { db.prepare(`ALTER TABLE renter_api_keys ADD COLUMN org_id TEXT`).run(); } catch (_) {}
 try { db.prepare(`ALTER TABLE renter_api_keys ADD COLUMN org_role TEXT NOT NULL DEFAULT 'member' CHECK(org_role IN ('owner', 'admin', 'member', 'read-only'))`).run(); } catch (_) {}
+try { db.prepare(`ALTER TABLE renter_api_keys ADD COLUMN monthly_spend_cap_halala INTEGER NOT NULL DEFAULT 0`).run(); } catch (_) {}
 db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_api_keys_key ON renter_api_keys(key)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_api_keys_renter ON renter_api_keys(renter_id, revoked_at)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_renter_api_keys_org ON renter_api_keys(org_id, org_role, revoked_at)`);
