@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 02:58 UTC - Evaluator job schema contract (PR #856)
+
+- **PR:** [#856](https://github.com/dhnpmp-tech/dcp-platform/pull/856) (`codex/evaluator-job-schema-contract-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/jobs/schema`, a read-only schema contract for future renter-scoped eval-job records, dataset checksums, candidate/baseline models, metrics, result manifests, harness gates, and billing guards.
+- **Proof:** Added `npm run proof:evaluator-job-schema-contract` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 14 CI-safe gates.
+- **Frontend/docs:** Updated `/benchmarks`, `llms.txt`, and OpenAPI so humans and agents can inspect the eval-job schema before any customer eval job API exists.
+- **Safety:** Schema/readiness only; no eval job creation, list/result endpoint, dataset storage, worker execution, model comparison, billing, settlement, public report, ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator readiness/schema Jest suites; evaluator job schema proof; evaluator readiness proof; TypeScript; Next build; local roadmap proof now passing 14/14 gates; `git diff --check`.
+
 ### 2026-07-09 02:40 UTC - Minimum-balance readiness contract (PR #855)
 
 - **PR:** [#855](https://github.com/dhnpmp-tech/dcp-platform/pull/855) (`codex/minimum-balance-readiness-contract-2026-07-09`).

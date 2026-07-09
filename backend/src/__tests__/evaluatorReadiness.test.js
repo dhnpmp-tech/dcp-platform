@@ -27,13 +27,22 @@ describe('evaluator readiness contract', () => {
       current_mode: 'readiness_contract_only',
       endpoints: {
         readiness: 'GET /api/evals/readiness',
+        job_schema: 'GET /api/evals/jobs/schema',
         benchmark_readiness: 'GET /api/models/benchmarks/readiness',
         benchmark_feed: 'GET /api/models/benchmarks',
         product_page: 'GET /benchmarks',
       },
       features: {
+        eval_job_schema: {
+          status: 'schema_contract_only',
+          available: true,
+          version: 'dcp.evaluator_job_schema.v1',
+          schema_endpoint: 'GET /api/evals/jobs/schema',
+          creates_jobs: false,
+          runs_worker: false,
+        },
         eval_job_api: {
-          status: 'coming_next',
+          status: 'schema_ready_create_blocked',
           available: false,
           create_endpoint: null,
           list_endpoint: null,
@@ -82,6 +91,11 @@ describe('evaluator readiness contract', () => {
       version: 'dcp.evaluator_readiness.v1',
       current_mode: 'readiness_contract_only',
       features: {
+        eval_job_schema: {
+          available: true,
+          schema_endpoint: 'GET /api/evals/jobs/schema',
+          creates_jobs: false,
+        },
         eval_job_api: {
           available: false,
           create_endpoint: null,
@@ -95,6 +109,58 @@ describe('evaluator readiness contract', () => {
         eval_jobs_live: false,
         arabic_quality_claim_allowed: false,
         bills_eval_jobs: false,
+      },
+    });
+  });
+
+  test('exposes a public read-only evaluator job schema contract', async () => {
+    const response = await request(buildApp()).get('/api/evals/jobs/schema');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      object: 'evaluator_job_schema_contract',
+      version: 'dcp.evaluator_job_schema.v1',
+      current_mode: 'schema_contract_only',
+      endpoints: {
+        schema: 'GET /api/evals/jobs/schema',
+        future_create: 'POST /api/evals/jobs',
+        future_list: 'GET /api/evals/jobs',
+        future_result: 'GET /api/evals/jobs/:id',
+      },
+      request_schema: {
+        required: [
+          'name',
+          'task',
+          'dataset.ref',
+          'dataset.sha256',
+          'candidate_model',
+          'metrics',
+        ],
+        fields: {
+          task: {
+            allowed_values: expect.arrayContaining(['arabic_qa', 'arabic_safety', 'latency_cost']),
+          },
+          dataset: {
+            raw_publication_allowed: false,
+            redaction_review_required: true,
+          },
+        },
+      },
+      scoring_harness: {
+        worker_enabled: false,
+      },
+      billing_policy: {
+        bills_eval_jobs: false,
+        minimum_balance_endpoint: 'GET /api/renters/me/minimum-balances',
+      },
+      claim_guards: {
+        create_endpoint_live: false,
+        worker_enabled: false,
+        stores_raw_customer_dataset: false,
+        bills_eval_jobs: false,
+        public_report_allowed: false,
+        arabic_quality_claim_allowed: false,
+        model_ranking_allowed: false,
       },
     });
   });

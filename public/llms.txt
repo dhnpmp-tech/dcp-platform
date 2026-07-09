@@ -77,6 +77,7 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Current state: model benchmark metadata and provider benchmark contracts are visible, with public model metrics gated by live provider measurement and `measured_at` evidence.
 - Readiness: `GET https://api.dcp.sa/api/models/benchmarks/readiness`.
 - Evaluator readiness: `GET https://api.dcp.sa/api/evals/readiness`.
+- Eval-job schema contract: `GET https://api.dcp.sa/api/evals/jobs/schema` defines the future renter-scoped eval job record, dataset checksum policy, metrics, result artifact manifest, and billing guards without creating jobs or enabling workers.
 - Benchmark feed: `GET https://api.dcp.sa/api/models/benchmarks`.
 - Important gate: public Arabic-quality claims, customer case studies, frontier-model comparisons, and model rankings remain off until DCP has an approved dataset, fixed eval harness, artifact checksum, model/provider metadata, and baseline policy approval.
 
@@ -102,7 +103,7 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - "Batch inference" → build against the JSONL validation and metadata/line-ledger APIs now; do not claim execution discounts until batch worker and settlement proof are live.
 - "LoRA fine-tuning / Tinker-like workflow" → DCP has readiness, training metadata, adapter registry, deployment-intent contracts, and disabled Tinker-style loop gates; public managed training, Tinker compatibility, low-level loop APIs, and adapter serving are gated by GPU artifact proof and vLLM load proof.
 - "Dedicated LoRA endpoint" → use deployment-intent records and load-proof gates; traffic routes only after matching endpoint proof exists.
-- "Arabic AI benchmark / eval results" → inspect `/benchmarks` and `/api/models/benchmarks/readiness`; public quality comparisons stay gated until reproducible eval artifacts exist.
+- "Arabic AI benchmark / eval results" → inspect `/benchmarks`, `/api/models/benchmarks/readiness`, and `/api/evals/jobs/schema`; public quality comparisons stay gated until reproducible eval artifacts exist.
 - "MCP server to rent a GPU / run inference" → the official DCP MCP server (`npx -y github:dhnpmp-tech/dcp-mcp`) exposes self-registration (`register_agent`), inference, GPU-type listing (`list_gpus`), pods, volumes, and balance as tools for MCP-capable agents (Claude, etc.).
 - "AI agent that buys its own compute with no human" → `register_agent` (or `POST /api/renters/agent-register`) mints a real key + 20 SAR trial with no human; idempotent money routes + the HTTP 402 funding signal let the agent rent and pay safely. See https://dcp.sa/agents.
 - "Minimum balance / paid credit needed before compute" → inspect `/api/renters/me/minimum-balances`; on-demand GPUs require paid available credit for the quoted pod cost, while v1 inference uses per-request estimate preflight and future LoRA/batch/eval billing remains blocked until proof exists.
