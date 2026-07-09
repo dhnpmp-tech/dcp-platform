@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 21:22 UTC - Prompt-cache settlement gates in Inference UX (PR #919)
+
+- **PR:** [#919](https://github.com/dhnpmp-tech/dcp-platform/pull/919) (`codex/prompt-cache-settlement-ux-2026-07-10`).
+- **Timestamp:** 2026-07-09 21:22 UTC / 2026-07-10 01:22 +04.
+- **Public Inference:** `/inference` now reads the prompt-cache settlement-readiness contract and shows provider cache-hit evidence, settlement policy, read-only proof, mutation state, required gates, and proof commands.
+- **Playground:** `/renter/playground` now exposes settlement discount policy, provider cache-hit evidence, read-only settlement proof, and settlement mutation rows in the Prompt cache panel.
+- **Regression:** Updated focused public inference and renter Playground/Workspace Playwright mocks and assertions for `GET /v1/prompt-cache/settlement/readiness`.
+- **Safety:** Frontend/read-only UX change; no cached-input discount, settlement mutation, provider payout, invoice, balance mutation, usage write, provider KV-cache control, inference dispatch, raw prompt storage, route traffic, or Tinker compatibility claim was enabled.
+- **Verification:** Focused public inference and Playground/Workspace Playwright regressions; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:09 UTC - Prompt-cache settlement readiness contract (PR #918)
 
 - **PR:** [#918](https://github.com/dhnpmp-tech/dcp-platform/pull/918) (`codex/prompt-cache-settlement-readiness-2026-07-10`).

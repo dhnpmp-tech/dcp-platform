@@ -300,6 +300,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     evidence, funded smoke principal, usage attribution, founder approval, and
     discount-math reconciliation are visible and CI-proofed before cached-input
     discounts or settlement mutations can ship.
+  - PR #919 surfaces that settlement-readiness contract on public `/inference`
+    and renter `/renter/playground`, making provider cache-hit evidence,
+    settlement policy, read-only proof, mutation state, and proof commands
+    visible where users evaluate prompt-cache economics.
 - Add batch inference design:
   - upload JSONL
   - async job

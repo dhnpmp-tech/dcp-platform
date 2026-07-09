@@ -96,6 +96,34 @@ async function mockPlaygroundApis(page: Page) {
     }),
   }));
 
+  await page.route('**/v1/prompt-cache/settlement/readiness', async (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      object: 'prompt_cache_settlement_readiness',
+      version: 'dcp.prompt_cache_settlement_readiness.v1',
+      current_mode: 'settlement_policy_contract_only',
+      endpoints: {
+        settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
+        prompt_cache_readiness: 'GET /v1/prompt-cache/readiness',
+      },
+      policy: {
+        cached_input_discounts_enabled: false,
+        settlement_discounts_enabled: false,
+        settlement_mutations_enabled: false,
+        provider_cache_hit_evidence: { status: 'blocked_external', required: true },
+        discount_policy: { status: 'policy_pending', discount_bps_live: 0 },
+      },
+      denial_codes: ['prompt_cache_discount_disabled', 'prompt_cache_provider_hit_required'],
+      claim_guards: {
+        mutates_balance: false,
+        records_usage_event: false,
+        dispatches_inference: false,
+        stores_raw_prompt: false,
+      },
+    }),
+  }));
+
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -213,4 +241,12 @@ test('renter playground exposes inference minimum-balance preflight', async ({ p
   await expect(preflight).toContainText('Future billing rails blocked');
   await expect(preflight).toContainText('5');
   await expect(preflight).toContainText('/api/renters/me/minimum-balances');
+
+  const promptCachePanel = page.locator('.prompt-cache-panel');
+  await expect(promptCachePanel).toContainText('Prompt cache');
+  await expect(promptCachePanel).toContainText('Hash-only measurement');
+  await expect(promptCachePanel).toContainText('Cached-input discounts');
+  await expect(promptCachePanel).toContainText('Settlement discount policy');
+  await expect(promptCachePanel).toContainText('Provider cache-hit evidence');
+  await expect(promptCachePanel).toContainText('/v1/prompt-cache/settlement/readiness');
 });

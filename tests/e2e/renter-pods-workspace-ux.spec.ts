@@ -279,6 +279,36 @@ async function mockPlaygroundV1Apis(page: Page) {
       });
     }
 
+    if (path === '/v1/prompt-cache/settlement/readiness') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'prompt_cache_settlement_readiness',
+          version: 'dcp.prompt_cache_settlement_readiness.v1',
+          current_mode: 'settlement_policy_contract_only',
+          endpoints: {
+            settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
+            prompt_cache_readiness: 'GET /v1/prompt-cache/readiness',
+          },
+          policy: {
+            cached_input_discounts_enabled: false,
+            settlement_discounts_enabled: false,
+            settlement_mutations_enabled: false,
+            provider_cache_hit_evidence: { status: 'blocked_external', required: true },
+            discount_policy: { status: 'policy_pending', discount_bps_live: 0 },
+          },
+          denial_codes: ['prompt_cache_discount_disabled', 'prompt_cache_provider_hit_required'],
+          claim_guards: {
+            mutates_balance: false,
+            records_usage_event: false,
+            dispatches_inference: false,
+            stores_raw_prompt: false,
+          },
+        }),
+      });
+    }
+
     return route.fulfill({
       status: 404,
       contentType: 'application/json',

@@ -56,6 +56,37 @@ test('public inference page renders live model catalog metadata', async ({ page 
     }),
   }));
 
+  await page.route('**/v1/prompt-cache/settlement/readiness', async (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      object: 'prompt_cache_settlement_readiness',
+      version: 'dcp.prompt_cache_settlement_readiness.v1',
+      current_mode: 'settlement_policy_contract_only',
+      endpoints: {
+        settlement_readiness: 'GET /v1/prompt-cache/settlement/readiness',
+        prompt_cache_readiness: 'GET /v1/prompt-cache/readiness',
+        live_settlement_proof: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+      },
+      policy: {
+        cached_input_discounts_enabled: false,
+        settlement_discounts_enabled: false,
+        settlement_mutations_enabled: false,
+        required_before_discount: ['hash_only_measurement', 'live_provider_cache_hit_evidence'],
+        provider_cache_hit_evidence: { status: 'blocked_external', required: true },
+        discount_policy: { status: 'policy_pending', discount_bps_live: 0 },
+      },
+      denial_codes: ['prompt_cache_discount_disabled', 'prompt_cache_provider_hit_required'],
+      claim_guards: {
+        mutates_balance: false,
+        records_usage_event: false,
+        dispatches_inference: false,
+        stores_raw_prompt: false,
+        claims_tinker_compatibility: false,
+      },
+    }),
+  }));
+
   await page.route('**/v1/models', async (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -109,12 +140,15 @@ test('public inference page renders live model catalog metadata', async ({ page 
   await expect(catalogRail).toContainText('Rows with zero providers stay visible as catalog metadata');
 
   const promptCacheRail = page.locator('.inference-prompt-cache-live');
-  await expect(promptCacheRail).toContainText('Prompt-cache live proof');
-  await expect(promptCacheRail).toContainText('dcp.prompt_cache.v1');
+  await expect(promptCacheRail).toContainText('Prompt-cache settlement gates');
+  await expect(promptCacheRail).toContainText('dcp.prompt_cache_settlement_readiness.v1');
   await expect(promptCacheRail).toContainText('measurement only no discount');
   await expect(promptCacheRail).toContainText('blocked external');
   await expect(promptCacheRail).toContainText('gated');
+  await expect(promptCacheRail).toContainText('settlement policy contract only');
   await expect(promptCacheRail).toContainText('funded smoke principal');
   await expect(promptCacheRail).toContainText('provider cache-hit evidence');
+  await expect(promptCacheRail).toContainText('Read-only settlement proof');
+  await expect(promptCacheRail).toContainText('npm run proof:prompt-cache-settlement-readiness');
   await expect(promptCacheRail).toContainText('DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement');
 });

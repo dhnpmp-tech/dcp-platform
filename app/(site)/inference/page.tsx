@@ -62,6 +62,7 @@ print(response.choices[0].message.content)`
 type RouterPolicyState = 'loading' | 'ready' | 'error'
 type ModelCatalogState = 'loading' | 'ready' | 'error'
 type PromptCacheState = 'loading' | 'ready' | 'error'
+type PromptCacheSettlementState = 'loading' | 'ready' | 'error'
 
 interface RouterPolicy {
   id: string
@@ -140,6 +141,41 @@ interface PromptCacheReadiness {
   }
 }
 
+interface PromptCacheSettlementReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  endpoints?: {
+    settlement_readiness?: string
+    prompt_cache_readiness?: string
+    live_settlement_proof?: string
+  }
+  policy?: {
+    cached_input_discounts_enabled?: boolean
+    provider_kv_cache_control_enabled?: boolean
+    settlement_discounts_enabled?: boolean
+    settlement_mutations_enabled?: boolean
+    required_before_discount?: string[]
+    required_usage_fields?: string[]
+    discount_policy?: {
+      status?: string
+      discount_bps_live?: number
+    }
+    provider_cache_hit_evidence?: {
+      status?: string
+      required?: boolean
+    }
+  }
+  denial_codes?: string[]
+  claim_guards?: {
+    mutates_balance?: boolean
+    records_usage_event?: boolean
+    dispatches_inference?: boolean
+    stores_raw_prompt?: boolean
+    claims_tinker_compatibility?: boolean
+  }
+}
+
 function capabilitySource(key: string): string {
   if (key === 'balanced_routing') return '/v1/router/policies'
   if (key === 'prompt_cache_readiness') return '/v1/prompt-cache/readiness'
@@ -181,6 +217,8 @@ export default function InferenceProductPage() {
   const [modelCatalog, setModelCatalog] = useState<ModelCatalogResponse | null>(null)
   const [promptCacheState, setPromptCacheState] = useState<PromptCacheState>('loading')
   const [promptCacheReadiness, setPromptCacheReadiness] = useState<PromptCacheReadiness | null>(null)
+  const [promptCacheSettlementState, setPromptCacheSettlementState] = useState<PromptCacheSettlementState>('loading')
+  const [promptCacheSettlementReadiness, setPromptCacheSettlementReadiness] = useState<PromptCacheSettlementReadiness | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -202,6 +240,31 @@ export default function InferenceProductPage() {
       }
     }
     loadRouterPolicies()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadPromptCacheSettlementReadiness() {
+      setPromptCacheSettlementState('loading')
+      try {
+        const res = await fetch('/v1/prompt-cache/settlement/readiness', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`prompt cache settlement readiness failed: ${res.status}`)
+        const data = (await res.json()) as PromptCacheSettlementReadiness
+        if (!cancelled) {
+          setPromptCacheSettlementReadiness(data?.object === 'prompt_cache_settlement_readiness' ? data : null)
+          setPromptCacheSettlementState('ready')
+        }
+      } catch {
+        if (!cancelled) {
+          setPromptCacheSettlementReadiness(null)
+          setPromptCacheSettlementState('error')
+        }
+      }
+    }
+    loadPromptCacheSettlementReadiness()
     return () => {
       cancelled = true
     }
@@ -281,6 +344,14 @@ export default function InferenceProductPage() {
   const promptCacheMode = promptCacheReadiness?.current_mode || 'measurement_only_no_discount'
   const promptCacheDiscountsEnabled = promptCacheReadiness?.billing?.discounts_enabled === true
   const promptCacheHashOnly = promptCacheReadiness?.measurement?.hash_only === true
+  const settlementMode = promptCacheSettlementReadiness?.current_mode || 'settlement_policy_contract_only'
+  const settlementPolicy = promptCacheSettlementReadiness?.policy
+  const settlementProviderHitStatus = settlementPolicy?.provider_cache_hit_evidence?.status || 'blocked_external'
+  const settlementDiscountsEnabled = settlementPolicy?.settlement_discounts_enabled === true
+  const settlementMutationsEnabled = settlementPolicy?.settlement_mutations_enabled === true
+  const settlementReadOnly = promptCacheSettlementReadiness?.claim_guards?.mutates_balance === false
+    && promptCacheSettlementReadiness?.claim_guards?.dispatches_inference === false
+    && promptCacheSettlementReadiness?.claim_guards?.records_usage_event === false
 
   return (
     <>
@@ -400,8 +471,8 @@ export default function InferenceProductPage() {
           </div>
           <div className="inference-prompt-cache-live" aria-live="polite">
             <div className="prompt-cache-live-head">
-              <span><Bi en="Prompt-cache live proof" ar="إثبات التخزين المؤقت الحي" /></span>
-              <b dir="ltr">{promptCacheReadiness?.version || 'dcp.prompt_cache.v1'}</b>
+              <span><Bi en="Prompt-cache settlement gates" ar="بوابات تسوية التخزين المؤقت" /></span>
+              <b dir="ltr">{promptCacheSettlementReadiness?.version || promptCacheReadiness?.version || 'dcp.prompt_cache.v1'}</b>
             </div>
             {promptCacheState === 'loading' && (
               <p className="prompt-cache-live-empty">
@@ -442,6 +513,28 @@ export default function InferenceProductPage() {
                     <b><Bi en="Settlement discount" ar="خصم التسوية" /></b>
                     <em>{promptCacheReadiness?.billing?.settlement_discount_enabled ? 'live' : 'gated'}</em>
                   </span>
+                  <span className={settlementDiscountsEnabled ? 'available' : 'gated'}>
+                    <b><Bi en="Settlement policy" ar="سياسة التسوية" /></b>
+                    <em>{settlementDiscountsEnabled ? 'live' : formatPolicyStatus(settlementMode)}</em>
+                  </span>
+                  <span className="gated">
+                    <b><Bi en="Provider cache-hit evidence" ar="إثبات إصابة التخزين لدى المزوّد" /></b>
+                    <em>{formatPolicyStatus(settlementProviderHitStatus)}</em>
+                  </span>
+                  <span className={settlementReadOnly ? 'available' : 'gated'}>
+                    <b><Bi en="Read-only settlement proof" ar="إثبات تسوية للقراءة فقط" /></b>
+                    <em>{settlementReadOnly ? 'safe' : 'checking'}</em>
+                  </span>
+                  <span className={settlementMutationsEnabled ? 'available' : 'gated'}>
+                    <b><Bi en="Settlement mutations" ar="تغييرات التسوية" /></b>
+                    <em>{settlementMutationsEnabled ? 'live' : 'off'}</em>
+                  </span>
+                  {settlementPolicy?.required_before_discount?.slice(0, 2).map((gate) => (
+                    <span key={gate} className="gated">
+                      <b>{gate}</b>
+                      <em>required</em>
+                    </span>
+                  ))}
                   {promptCacheGate?.live_acceptance_gate && (
                     <span className="gated">
                       <b>{promptCacheGate.live_acceptance_gate}</b>
@@ -456,7 +549,9 @@ export default function InferenceProductPage() {
                   ))}
                 </div>
                 <p className="prompt-cache-live-note" dir="ltr">
-                  {promptCacheGate?.command || 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement'}
+                  {promptCacheSettlementState === 'error'
+                    ? 'GET /v1/prompt-cache/settlement/readiness unavailable; cached-input discounts remain gated.'
+                    : `${promptCacheSettlementReadiness?.endpoints?.settlement_readiness || 'GET /v1/prompt-cache/settlement/readiness'} · npm run proof:prompt-cache-settlement-readiness · ${promptCacheGate?.command || 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement'}`}
                 </p>
               </>
             )}

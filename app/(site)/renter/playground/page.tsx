@@ -129,6 +129,7 @@ interface FeatureReadiness {
 type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
 type RouterPolicyState = 'loading' | 'ready' | 'error'
 type PromptCacheReadinessState = 'loading' | 'ready' | 'error'
+type PromptCacheSettlementState = 'loading' | 'ready' | 'error'
 type MinimumBalanceState = 'missing-key' | 'loading' | 'ready' | 'error'
 type PlaygroundSurface = 'playground' | 'workspace'
 
@@ -180,6 +181,39 @@ interface PromptCacheReadiness {
   }
   response_fields?: string[]
   next?: string
+}
+
+interface PromptCacheSettlementReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  endpoints?: {
+    settlement_readiness?: string
+    prompt_cache_readiness?: string
+    live_settlement_proof?: string
+  }
+  policy?: {
+    cached_input_discounts_enabled?: boolean
+    settlement_discounts_enabled?: boolean
+    settlement_mutations_enabled?: boolean
+    required_before_discount?: string[]
+    required_usage_fields?: string[]
+    provider_cache_hit_evidence?: {
+      status?: string
+      required?: boolean
+    }
+    discount_policy?: {
+      status?: string
+      discount_bps_live?: number
+    }
+  }
+  denial_codes?: string[]
+  claim_guards?: {
+    mutates_balance?: boolean
+    records_usage_event?: boolean
+    dispatches_inference?: boolean
+    stores_raw_prompt?: boolean
+  }
 }
 
 interface MinimumBalanceReadiness {
@@ -378,6 +412,8 @@ export default function PlaygroundPage() {
   const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
   const [promptCacheState, setPromptCacheState] = useState<PromptCacheReadinessState>('loading')
   const [promptCacheReadiness, setPromptCacheReadiness] = useState<PromptCacheReadiness | null>(null)
+  const [promptCacheSettlementState, setPromptCacheSettlementState] = useState<PromptCacheSettlementState>('loading')
+  const [promptCacheSettlementReadiness, setPromptCacheSettlementReadiness] = useState<PromptCacheSettlementReadiness | null>(null)
   const [minimumBalanceState, setMinimumBalanceState] = useState<MinimumBalanceState>('loading')
   const [minimumBalanceReadiness, setMinimumBalanceReadiness] = useState<MinimumBalanceReadiness | null>(null)
   const [tempRaw, setTempRaw] = useState(7) // 0..20 -> /10
@@ -467,6 +503,11 @@ export default function PlaygroundPage() {
   const promptCacheMeasurement = promptCacheReadiness?.measurement
   const promptCacheBilling = promptCacheReadiness?.billing
   const promptCacheClaims = promptCacheReadiness?.claims
+  const promptCacheSettlementPolicy = promptCacheSettlementReadiness?.policy
+  const promptCacheSettlementGuards = promptCacheSettlementReadiness?.claim_guards
+  const promptCacheSettlementReadOnly = promptCacheSettlementGuards?.mutates_balance === false
+    && promptCacheSettlementGuards?.dispatches_inference === false
+    && promptCacheSettlementGuards?.records_usage_event === false
   const v1MinimumBalanceRail = minimumBalanceReadiness?.rails?.v1_inference
   const paidAvailableSar = minimumBalanceReadiness?.account?.paid_available_sar
     ?? halalaToSar(minimumBalanceReadiness?.account?.paid_available_halala)
@@ -734,6 +775,29 @@ export default function PlaygroundPage() {
         setModels([])
         setModel('')
         setCatalogState('error')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ── read-only prompt-cache settlement readiness catalog ──
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        setPromptCacheSettlementState('loading')
+        const res = await fetch('/v1/prompt-cache/settlement/readiness', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`Prompt-cache settlement readiness request failed: ${res.status}`)
+        const data = (await res.json()) as PromptCacheSettlementReadiness
+        if (cancelled) return
+        setPromptCacheSettlementReadiness(data?.object === 'prompt_cache_settlement_readiness' ? data : null)
+        setPromptCacheSettlementState('ready')
+      } catch {
+        if (cancelled) return
+        setPromptCacheSettlementReadiness(null)
+        setPromptCacheSettlementState('error')
       }
     })()
     return () => {
@@ -1309,9 +1373,28 @@ export default function PlaygroundPage() {
                         <span><Bi en="Provider KV cache control" ar="تحكم KV لدى المزود" /></span>
                         <b>{formatGate(promptCacheClaims?.provider_kv_cache_control)}</b>
                       </div>
+                      <div className={`route-policy${promptCacheSettlementPolicy?.settlement_discounts_enabled ? ' on' : ' gated'}`}>
+                        <span><Bi en="Settlement discount policy" ar="سياسة خصم التسوية" /></span>
+                        <b>{formatContractStatus(promptCacheSettlementReadiness?.current_mode || promptCacheSettlementPolicy?.discount_policy?.status)}</b>
+                      </div>
+                      <div className="route-policy gated">
+                        <span><Bi en="Provider cache-hit evidence" ar="إثبات إصابة التخزين لدى المزود" /></span>
+                        <b>{formatContractStatus(promptCacheSettlementPolicy?.provider_cache_hit_evidence?.status || 'blocked_external')}</b>
+                      </div>
+                      <div className={`route-policy${promptCacheSettlementReadOnly ? ' on' : ' gated'}`}>
+                        <span><Bi en="Read-only settlement proof" ar="إثبات تسوية للقراءة فقط" /></span>
+                        <b>{promptCacheSettlementReadOnly ? 'safe' : 'checking'}</b>
+                      </div>
+                      <div className={`route-policy${promptCacheSettlementPolicy?.settlement_mutations_enabled ? ' on' : ' gated'}`}>
+                        <span><Bi en="Settlement mutations" ar="تغييرات التسوية" /></span>
+                        <b>{formatGate(promptCacheSettlementPolicy?.settlement_mutations_enabled, 'enabled', 'off')}</b>
+                      </div>
                     </div>
                     <div className="route-note mono">
-                      <Bi en="/v1/prompt-cache/readiness" ar="/v1/prompt-cache/readiness" />
+                      <Bi
+                        en={`/v1/prompt-cache/readiness · ${promptCacheSettlementState === 'error' ? 'settlement readiness unavailable' : '/v1/prompt-cache/settlement/readiness'}`}
+                        ar={`/v1/prompt-cache/readiness · ${promptCacheSettlementState === 'error' ? 'جاهزية التسوية غير متاحة' : '/v1/prompt-cache/settlement/readiness'}`}
+                      />
                     </div>
                   </>
                 )}

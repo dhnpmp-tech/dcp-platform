@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 21:22 UTC - `feat(inference): surface prompt-cache settlement gates - PR #919`
+
+**PR:** [#919](https://github.com/dhnpmp-tech/dcp-platform/pull/919) (`codex/prompt-cache-settlement-ux-2026-07-10`).
+**Local timestamp:** 2026-07-10 01:22 +04.
+
+**What:** Frontend follow-up for the prompt-cache settlement-readiness contract. Makes the gated settlement path visible on public and renter inference surfaces without enabling cached-input discounts.
+
+- **Public Inference:** `/inference` now reads `GET /v1/prompt-cache/settlement/readiness` beside the existing prompt-cache measurement endpoint and shows settlement-policy mode, provider cache-hit evidence, read-only proof state, settlement-mutation state, required gates, and proof commands.
+- **Playground:** `/renter/playground` now adds settlement discount policy, provider cache-hit evidence, read-only settlement proof, and settlement mutation rows to the Prompt cache panel.
+- **Regression:** Updated focused public inference and renter Playground/Workspace Playwright mocks and assertions for the new settlement-readiness route.
+- **Safety:** Frontend/read-only UX change; no cached-input discount, settlement mutation, provider payout, invoice, balance mutation, usage write, provider KV-cache control, inference dispatch, raw prompt storage, route traffic, or Tinker compatibility claim was enabled.
+- **Verification:** Focused public inference and Playground/Workspace Playwright regressions; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:09 UTC - `feat(prompt-cache): add settlement readiness contract - PR #918`
 
 **PR:** [#918](https://github.com/dhnpmp-tech/dcp-platform/pull/918) (`codex/prompt-cache-settlement-readiness-2026-07-10`).
