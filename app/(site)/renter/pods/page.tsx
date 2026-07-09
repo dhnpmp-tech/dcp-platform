@@ -302,6 +302,12 @@ interface AvailableProvidersResponse {
 interface PodTrialRoutingReadinessResponse {
   object?: string
   version?: string
+  account_classification?: {
+    explicit_trial_account_tag_live?: boolean
+    trial_credit_source?: string
+    paid_credit_source?: string
+    note?: string
+  }
   routing_policy?: {
     trial_capacity_copy?: string
     high_demand_capacity_copy?: string
@@ -1059,6 +1065,7 @@ export default function RenterPodsPage() {
     : null
   const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: DCP/community capacity'
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
+  const explicitTrialTagLive = trialRouting?.account_classification?.explicit_trial_account_tag_live === true
   const trialRoutingSynced = trialRoutingStatus === 'ready' &&
     trialRouting?.object === 'pod_trial_routing_readiness' &&
     trialRouting?.claim_guards?.launches_pod === false &&
@@ -1312,6 +1319,11 @@ export default function RenterPodsPage() {
                 </span>
                 <span>
                   <Bi en={highDemandCapacityCopy} ar="السعة عالية الطلب: رصيد مدفوع" />
+                </span>
+                <span>
+                  {explicitTrialTagLive
+                    ? <Bi en="Trial accounts: explicit tag" ar="حسابات التجربة: وسم صريح" />
+                    : <Bi en="Trial accounts: credit provenance" ar="حسابات التجربة: حسب مصدر الرصيد" />}
                 </span>
                 {selectedType && (
                   <button

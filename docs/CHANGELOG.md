@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 12:10 UTC - Pod workspace folder disclosure (PR #886)
+
+- **PR:** [#886](https://github.com/dhnpmp-tech/dcp-platform/pull/886) (`codex/pods-workspace-folder-disclosure-2026-07-09`).
+- **Workspace UX:** `/renter/pods` now treats staged workspace files as a folder-first disclosure in pod-launch context. Summary chips open exactly one folder, keeping large workspaces from becoming a mandatory scroll wall before Stage 2.
+- **Controls:** Expanded file groups now expose explicit expand-all and collapse-all controls for users who do need to inspect the full workspace.
+- **Trial policy clarity:** The selected-compute summary now mirrors the backend trial-routing readiness packet by showing whether trial handling is credit-provenance based or explicit-tag based.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to cover folder-summary controls, one-folder expansion, bulk expand/collapse, and the trial policy chip.
+- **Safety:** Frontend/read-only readiness display only; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused Playwright browser regression for `/renter/pods`; Next build; `git diff --check`.
+
 ### 2026-07-09 11:58 UTC - LoRA readiness surfaces adapter registry proof (PR #885)
 
 - **PR:** [#885](https://github.com/dhnpmp-tech/dcp-platform/pull/885) (`codex/lora-readiness-registry-proof-surface-2026-07-09`).
