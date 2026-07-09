@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 11:58 UTC - `feat(lora): surface adapter registry proof readiness - PR #885`
+
+**PR:** [#885](https://github.com/dhnpmp-tech/dcp-platform/pull/885) (`codex/lora-readiness-registry-proof-surface-2026-07-09`).
+**Local timestamp:** 2026-07-09 15:58 +04.
+
+**What:** LoRA roadmap slice. Makes the new adapter registry contract proof visible through `/api/lora/readiness`, OpenAPI, and the Fine-Tuning product/console surfaces.
+
+- **Readiness contract:** Added `adapter_registry.registry_contract_proof` to the LoRA readiness response with proof status, command, local-roadmap gate id, and verified invariants.
+- **Frontend visibility:** The renter Fine-Tuning readiness grid now shows registry proof status beside the registry state, and the public Fine-Tuning page/snippets point users and agents at the proof command and readiness field.
+- **Docs/contracts:** Updated OpenAPI and LoRA roadmap notes so the registry proof is discoverable from API docs as well as product copy.
+- **Safety:** Read-only contract/UI/docs change; no adapter registration behavior, artifact upload, deployment creation, load-proof attach, route traffic, usage/billing write, balance mutation, provider/vendor exposure, or GPU-host execution was enabled.
+- **Verification:** OpenAPI YAML parse; targeted LoRA readiness and artifact-policy Jest suites; TypeScript; focused Fine-Tuning Playwright regression; Next build; `git diff --check`.
+
 ### 2026-07-09 11:49 UTC - `test(lora): add adapter registry contract proof - PR #884`
 
 **PR:** [#884](https://github.com/dhnpmp-tech/dcp-platform/pull/884) (`codex/adapter-registry-contract-proof-2026-07-09`).

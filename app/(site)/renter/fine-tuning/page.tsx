@@ -162,6 +162,12 @@ interface LoraReadiness {
   adapter_registry?: {
     status?: string
     api_available?: boolean
+    registry_contract_proof?: {
+      status?: string
+      command?: string
+      local_roadmap_gate?: string
+      verifies?: string[]
+    }
     serving_enabled?: boolean
     route_traffic?: boolean
   }
@@ -533,6 +539,7 @@ export default function RenterFineTuningPage() {
   const isLive = loadState === 'ready'
   const readinessMode = readiness?.current_mode || 'metadata_and_artifact_proof_only'
   const claimGuards = readiness?.claim_guards || {}
+  const registryProofStatus = readiness?.adapter_registry?.registry_contract_proof?.status
   const readinessClaims = [
     `training ${gateLabel(claimGuards.public_training_enabled)}`,
     `serving ${gateLabel(claimGuards.public_serving_enabled)}`,
@@ -685,7 +692,10 @@ export default function RenterFineTuningPage() {
               </div>
               <div>
                 <span><Bi en="Registry" ar="السجل" /></span>
-                <b>{readinessLabel(readiness?.adapter_registry?.status)}</b>
+                <b>
+                  {readinessLabel(readiness?.adapter_registry?.status)}
+                  {registryProofStatus ? ` · ${readinessLabel(registryProofStatus)}` : ''}
+                </b>
               </div>
               <div>
                 <span><Bi en="Deployments" ar="النشر" /></span>

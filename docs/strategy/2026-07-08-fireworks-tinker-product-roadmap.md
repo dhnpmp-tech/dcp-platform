@@ -385,6 +385,9 @@ Goal: ship the first real train-here/deploy-here loop.
     idempotency/indexes, tenant isolation, storage-key/checksum guards,
     metadata-only public registration, and no deploy shortcut before live
     adapter serving claims.
+  - PR #885 surfaces that proof through `/api/lora/readiness`, OpenAPI, and the
+    public/renter Fine-Tuning surfaces so the registry gate is visible outside
+    the CI log.
 - Add dataset upload flow using the existing workspace/file infrastructure.
   - PR #806 made the workspace-first path visible from `/renter/fine-tuning`,
     linking renters into the existing persistent Workspace panel before

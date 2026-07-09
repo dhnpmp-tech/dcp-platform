@@ -762,6 +762,9 @@ DCP-hosted endpoint -> billed inference.
   packet for schema idempotency/indexes, tenant isolation, storage-key and
   checksum validation, public status restrictions, metadata-only registration,
   and no public deploy shortcut.**
+  **PR #885 surfaces that registry proof in `/api/lora/readiness`, OpenAPI, and
+  the public/renter Fine-Tuning surfaces so operators and agents can see the
+  proof status without opening CI logs.**
 - Managed LoRA SFT job:
   - fixed recipe
   - logs
