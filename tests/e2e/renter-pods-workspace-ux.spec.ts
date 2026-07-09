@@ -51,6 +51,11 @@ async function mockPodsApis(page: Page) {
         body: JSON.stringify({
           object: 'pod_trial_routing_readiness',
           version: 'dcp.pod_trial_routing_readiness.v1',
+          account_classification: {
+            explicit_trial_account_tag_live: false,
+            trial_credit_source: 'renters.trial_grant_halala',
+            paid_credit_source: 'payments.status=paid',
+          },
           routing_policy: {
             trial_capacity_copy: 'Trial credit: native/community GPUs',
             high_demand_capacity_copy: 'High-demand capacity: paid credit only',
@@ -158,14 +163,21 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('Staged files')).toBeVisible();
   await expect(page.getByText('datasets/ · 2')).toBeVisible();
   await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Open datasets\/ with 2 files/ })).toBeVisible();
   await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Go to Stage 2' }).click();
   await expect(page).toHaveURL(/#pod-stage-2$/);
   await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
-  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('button', { name: /Open datasets\/ with 2 files/ }).click();
   await expect(page.getByText('datasets/train.jsonl')).toBeVisible();
+  await expect(page.getByText('notebooks/demo.ipynb')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /datasets\/.*2/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Expand all' })).toBeVisible();
+  await page.getByRole('button', { name: 'Expand all' }).click();
+  await expect(page.getByText('notebooks/demo.ipynb')).toBeVisible();
+  await page.getByRole('button', { name: 'Collapse all' }).click();
+  await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
 
   const computeSummary = page.locator('.pod-compute-summary');
   await expect(computeSummary).toContainText('Selected compute');
@@ -173,6 +185,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Credit policy: synced');
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
+  await expect(computeSummary).toContainText('Trial accounts: credit provenance');
 
   const gpuSelectionStrip = page.locator('.gpu-selection-strip');
   await expect(gpuSelectionStrip).toContainText('GPU selection');

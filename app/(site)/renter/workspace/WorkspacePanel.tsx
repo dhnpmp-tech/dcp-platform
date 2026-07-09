@@ -111,6 +111,7 @@ export default function WorkspacePanel({
   const upload = useResumableUpload({ apiBase, renterKey, concurrency: 2 })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
+  const initializedPodLaunchGroupsRef = useRef(false)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
   const totalFileBytes = useMemo(() => files.reduce((sum, file) => sum + Number(file.size || 0), 0), [files])
@@ -178,6 +179,16 @@ export default function WorkspacePanel({
     if (upload.state.status === 'completed') loadFiles()
   }, [upload.state.status, loadFiles])
 
+  // In the pod launch flow the workspace is a staging checkpoint, not the main
+  // destination. Keep large workspaces navigable by showing folders first and
+  // leaving each folder closed until the renter intentionally opens it.
+  useEffect(() => {
+    if (context !== 'pod-launch' || filesState !== 'ready' || initializedPodLaunchGroupsRef.current) return
+    if (fileGroups.length === 0) return
+    setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id)))
+    initializedPodLaunchGroupsRef.current = true
+  }, [context, fileGroups, filesState])
+
   // ── rent a volume ───────────────────────────────────────────────────────────
   async function handleRent() {
     if (!renterKey) return
@@ -242,6 +253,19 @@ export default function WorkspacePanel({
       next.has(groupId) ? next.delete(groupId) : next.add(groupId)
       return next
     })
+  }
+
+  function openOnlyFileGroup(groupId: string) {
+    setFilesCollapsed(false)
+    setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id).filter((id) => id !== groupId)))
+  }
+
+  function collapseAllFileGroups() {
+    setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id)))
+  }
+
+  function expandAllFileGroups() {
+    setCollapsedFileGroups(new Set())
   }
 
   return (
@@ -368,6 +392,16 @@ export default function WorkspacePanel({
                     : <Bi en="Collapse" ar="طي" />}
                 </button>
               )}
+              {files.length > 0 && !filesCollapsed && fileGroups.length > 0 && (
+                <>
+                  <button type="button" className="ws-files-toggle" onClick={expandAllFileGroups}>
+                    <Bi en="Expand all" ar="افتح الكل" />
+                  </button>
+                  <button type="button" className="ws-files-toggle" onClick={collapseAllFileGroups}>
+                    <Bi en="Collapse all" ar="اطوِ الكل" />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -398,11 +432,20 @@ export default function WorkspacePanel({
         )}
 
         {filesState === 'ready' && files.length > 0 && filesCollapsed && (
-          <div className="ws-files-summary" role="status">
+          <div className="ws-files-summary" aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}>
             {fileGroups.slice(0, 4).map((group) => (
-              <span key={group.id}>
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => openOnlyFileGroup(group.id)}
+                aria-label={
+                  lang === 'ar'
+                    ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
+                    : `Open ${group.label} with ${group.files.length} files`
+                }
+              >
                 {group.label} · {group.files.length}
-              </span>
+              </button>
             ))}
             {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
           </div>

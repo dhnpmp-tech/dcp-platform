@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 12:10 UTC - `feat(pods): improve workspace folder disclosure - PR #886`
+
+**PR:** [#886](https://github.com/dhnpmp-tech/dcp-platform/pull/886) (`codex/pods-workspace-folder-disclosure-2026-07-09`).
+**Local timestamp:** 2026-07-09 16:10 +04.
+
+**What:** Tareq feedback follow-up for `/renter/pods`. Makes large staged workspaces folder-first and makes the trial-credit handling visible beside selected compute.
+
+- **Workspace disclosure:** In pod-launch context, staged files now stay collapsed by folder first. Summary chips are real controls that open exactly one folder instead of expanding the whole workspace.
+- **Folder controls:** Added explicit expand-all and collapse-all actions once the file groups are open, so power users can still inspect everything quickly.
+- **Trial policy clarity:** The selected-compute summary now surfaces whether trial accounts are represented by explicit account tags or credit provenance, matching the backend trial-routing readiness packet.
+- **Regression:** Extended the focused `/renter/pods` Playwright test to prove folder-summary controls, one-folder expansion, bulk expand/collapse, and the trial policy chip.
+- **Safety:** Frontend/read-only readiness display only; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused Playwright browser regression for `/renter/pods`; Next build; `git diff --check`.
+
 ### 2026-07-09 11:58 UTC - `feat(lora): surface adapter registry proof readiness - PR #885`
 
 **PR:** [#885](https://github.com/dhnpmp-tech/dcp-platform/pull/885) (`codex/lora-readiness-registry-proof-surface-2026-07-09`).

@@ -423,7 +423,8 @@ html[dir="rtl"] .ws-up-bar span { transform-origin: right; inset: 0 0 0 100%; }
   gap: 8px;
   padding: 12px 0 2px;
 }
-.ws-files-summary span {
+.ws-files-summary span,
+.ws-files-summary button {
   min-height: 28px;
   display: inline-flex;
   align-items: center;
@@ -435,6 +436,17 @@ html[dir="rtl"] .ws-up-bar span { transform-origin: right; inset: 0 0 0 100%; }
   font-size: 10.5px;
   letter-spacing: .04em;
   border-radius: 2px;
+}
+.ws-files-summary button {
+  cursor: pointer;
+  text-align: start;
+}
+.ws-files-summary button:hover,
+.ws-files-summary button:focus-visible {
+  border-color: var(--teal);
+  color: var(--teal);
+  outline: none;
+  background: color-mix(in oklab, var(--teal) 7%, var(--bg-2));
 }
 
 .ws-empty {
