@@ -438,6 +438,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #879 made public `/inference` consume `/v1/router/policies` directly,
   rendering the contract version, default policy, available/gated counts, and
   future-policy gated/not-selectable states without changing routing behavior.
+- PR #880 made public `/inference` consume `/v1/models` directly, rendering a
+  live model-catalog summary with serving counts, provider-backed rows, context,
+  SAR input/output pricing, and catalog-only state without changing model
+  availability semantics.
 
 ### Now
 

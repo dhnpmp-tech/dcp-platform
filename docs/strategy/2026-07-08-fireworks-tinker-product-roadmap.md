@@ -276,6 +276,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #879 made public `/inference` render the same router-policy catalog from
     `/v1/router/policies`, keeping future policies visibly gated/not selectable
     until route-specific proof exists.
+- Surface model metadata on public `/inference` from `/v1/models`.
+  - PR #880 added a live catalog rail with serving model count, provider-backed
+    rows, maximum context, SAR input/output pricing, and catalog-only state
+    without changing model availability semantics.
 - Surface model metadata in the Playground from `/v1/models`.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to
