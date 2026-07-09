@@ -62,6 +62,7 @@
     "test:reliability:evaluator-result-endpoint-disabled-proof": "node tests/evaluator-result-endpoint-disabled-proof.js",
     "test:reliability:evaluator-signed-download-policy-proof": "node tests/evaluator-signed-download-policy-proof.js",
     "test:reliability:minimum-balance-readiness-contract-proof": "node tests/minimum-balance-readiness-contract-proof.js",
+    "test:reliability:team-usage-readiness-proof": "node tests/team-usage-readiness-proof.js",
     "test:reliability:pod-trial-routing-readiness-proof": "node tests/pod-trial-routing-readiness-proof.js",
     "test": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest --runInBand --forceExit",
     "test:integration": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest tests/integration/ --runInBand",

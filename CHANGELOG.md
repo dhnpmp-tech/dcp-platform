@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 18:16 UTC - `test(usage): add team-readiness proof gate - PR #907`
+
+**PR:** [#907](https://github.com/dhnpmp-tech/dcp-platform/pull/907) (`codex/team-usage-readiness-proof-2026-07-09`).
+**Local timestamp:** 2026-07-09 22:16 +04.
+
+**What:** Proof-system follow-up for PR #906. Promotes the team-usage readiness builder into a shared backend service and adds a CI-safe proof gate to the local roadmap suite.
+
+- **Shared contract:** Moved `team_usage_readiness` construction into `backend/src/services/teamUsageReadiness.js` so production routes and proof scripts use the same builder.
+- **Proof command:** Added `npm run proof:team-usage-readiness`, writing JSON/Markdown reliability artifacts and asserting scoped-key controls are live while member rollups remain gated.
+- **Roadmap suite:** Added `team_usage_readiness_contract` to `npm run proof:local-roadmap`, raising the CI-safe suite coverage for the usage/team lane.
+- **Docs:** Updated the execution-system proof map with the new command and acceptance state.
+- **Safety:** Proof/refactor only; no API response semantics, usage mutation, budget mutation, billing change, inference dispatch, key secret exposure, team-member creation, member-rollup claim, or enforcement change.
+- **Verification:** Team usage readiness proof; targeted renter usage/budget Jest suite; local roadmap proof; `git diff --check`.
+
 ### 2026-07-09 18:04 UTC - `feat(usage): surface scoped-key team readiness - PR #906`
 
 **PR:** [#906](https://github.com/dhnpmp-tech/dcp-platform/pull/906) (`codex/usage-team-readiness-rail-2026-07-09`).
