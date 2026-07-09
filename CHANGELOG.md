@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 09:27 UTC - `feat(pods): clarify workspace stages and compute selection - PR #875`
+
+**PR:** Pending (`codex/workspace-trial-ux-2026-07-09`).
+**Local timestamp:** 2026-07-09 13:27 +04.
+
+**What:** Tareq feedback slice for `/renter/pods`. Makes workspace staging easier to scan when renters have many files and makes the GPU/trial-credit state clearer before launch.
+
+- **Workspace UX:** The embedded workspace manager now defaults staged files to a collapsed summary in pod-launch context, groups expanded files by top-level folder/root files, and keeps download/delete actions inside each group.
+- **Launch flow:** `/renter/pods` now labels the flow as Stage 1 workspace, Stage 2 template/GPU, and Stage 3 runtime/launch, instead of leaving later stages implicit.
+- **Compute clarity:** Added a prominent selected-compute panel showing the selected GPU or auto-pick state, min-VRAM filter, quote when available, and a one-click return to auto-pick.
+- **Trial-credit clarity:** The launch screen now states the current product policy without exposing supply-tier/vendor internals: trial credit covers DCP/community capacity; high-demand capacity requires paid credit.
+- **Safety:** Frontend-only UX/copy change; no pod launch body change, provider selection change, trial-credit accounting change, payment creation, balance mutation, billing/refund path, workspace API behavior, or vendor/provider exposure was added.
+- **Verification:** TypeScript; Next build; focused Playwright browser regression for `/renter/pods` with mocked workspace/provider APIs; `git diff --check`.
+
 ### 2026-07-09 09:08 UTC - `test(lora): add adapter billing approval readiness proof - PR #874`
 
 **PR:** [#874](https://github.com/dhnpmp-tech/dcp-platform/pull/874) (`codex/adapter-billing-approval-readiness-2026-07-09`).

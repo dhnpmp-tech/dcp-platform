@@ -212,6 +212,17 @@ Status as of PR #768:
   now also speak in available/required credit and Add credit terms while keeping
   stable `insufficient_balance` machine codes and SAR/halala accounting fields.
 
+Status as of PR #875:
+
+- `/renter/pods` makes the current answer visible before launch: trial credit
+  covers DCP/community capacity, while high-demand capacity requires paid credit.
+- The UI still hides supplier tier, vendor, provider id, and machine identity.
+- Workspace staging is now a compact Stage 1 with collapsed/grouped files, so
+  renters with many files can reach Stage 2 without scrolling through the full
+  file list.
+- Stage 2 now has a prominent selected-compute summary, making it clear whether
+  the launch is using auto-pick or a specific GPU type.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully
