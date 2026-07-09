@@ -10,7 +10,7 @@
 // Visual language: editorial-luxury dark theme from dcp-kit.css tokens.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { useResumableUpload } from './useResumableUpload'
 import VolumeSection, { type VolumeFetchState } from './VolumeSection'
@@ -33,6 +33,41 @@ import {
 import './workspace.css'
 
 type FilesFetchState = 'idle' | 'loading' | 'ready' | 'error'
+
+interface WorkspaceFileGroup {
+  id: string
+  label: string
+  files: WorkspaceFile[]
+  totalBytes: number
+}
+
+function groupWorkspaceFiles(files: WorkspaceFile[]): WorkspaceFileGroup[] {
+  const groups = new Map<string, WorkspaceFileGroup>()
+
+  for (const file of files) {
+    const normalizedKey = String(file.key || '').replace(/^\/+/, '')
+    const parts = normalizedKey.split('/').filter(Boolean)
+    const hasFolder = parts.length > 1
+    const id = hasFolder ? parts[0] : '__root__'
+    const label = hasFolder ? `${parts[0]}/` : 'Root files'
+    const existing = groups.get(id)
+    const target = existing || { id, label, files: [], totalBytes: 0 }
+    target.files.push(file)
+    target.totalBytes += Number(file.size || 0)
+    groups.set(id, target)
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      files: [...group.files].sort((a, b) => String(a.key).localeCompare(String(b.key))),
+    }))
+    .sort((a, b) => {
+      if (a.id === '__root__') return -1
+      if (b.id === '__root__') return 1
+      return a.label.localeCompare(b.label)
+    })
+}
 
 interface WorkspacePanelProps {
   apiBase: string
@@ -64,6 +99,8 @@ export default function WorkspacePanel({
   const [files, setFiles] = useState<WorkspaceFile[]>([])
   const [filesState, setFilesState] = useState<FilesFetchState>('idle')
   const [filesError, setFilesError] = useState('')
+  const [filesCollapsed, setFilesCollapsed] = useState(context === 'pod-launch')
+  const [collapsedFileGroups, setCollapsedFileGroups] = useState<Set<string>>(() => new Set())
 
   const [confirmDelete, setConfirmDelete] = useState<WorkspaceFile | null>(null)
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
@@ -72,6 +109,8 @@ export default function WorkspacePanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
+  const totalFileBytes = useMemo(() => files.reduce((sum, file) => sum + Number(file.size || 0), 0), [files])
 
   const flash = useCallback((kind: 'ok' | 'err', msg: string) => {
     setToast({ kind, msg })
@@ -194,6 +233,14 @@ export default function WorkspacePanel({
     if (e.dataTransfer?.files) pickFiles(e.dataTransfer.files)
   }
 
+  function toggleFileGroup(groupId: string) {
+    setCollapsedFileGroups((prev) => {
+      const next = new Set(prev)
+      next.has(groupId) ? next.delete(groupId) : next.add(groupId)
+      return next
+    })
+  }
+
   return (
     <section className="ws-panel" aria-labelledby="ws-hd">
       {/* ── header ── */}
@@ -280,10 +327,30 @@ export default function WorkspacePanel({
       {/* ── file list ── */}
       <div className="ws-files">
         <div className="ws-files-hd">
-          <h4>
-            <Bi en="Files" ar="الملفات" />
-          </h4>
-          {files.length > 0 && <span className="ws-files-count">{files.length}</span>}
+          <div className="ws-files-title">
+            <h4>
+              {context === 'pod-launch'
+                ? <Bi en="Staged files" ar="الملفات المجهزة" />
+                : <Bi en="Files" ar="الملفات" />}
+            </h4>
+            {files.length > 0 && (
+              <span className="ws-files-count">
+                {files.length} · {humanBytes(totalFileBytes)}
+              </span>
+            )}
+          </div>
+          {files.length > 0 && (
+            <button
+              type="button"
+              className="ws-files-toggle"
+              aria-expanded={!filesCollapsed}
+              onClick={() => setFilesCollapsed((value) => !value)}
+            >
+              {filesCollapsed
+                ? <Bi en="Show" ar="إظهار" />
+                : <Bi en="Collapse" ar="طي" />}
+            </button>
+          )}
         </div>
 
         {filesState === 'loading' && (
@@ -311,35 +378,69 @@ export default function WorkspacePanel({
           </div>
         )}
 
-        {filesState === 'ready' && files.length > 0 && (
-          <ul className="ws-file-list" role="list">
-            {files.map((f) => (
-              <li key={f.key} className="ws-file-row">
-                <div className="ws-file-key" title={f.key}>
-                  {f.key}
-                </div>
-                <div className="ws-file-size mono">{humanBytes(f.size)}</div>
-                <div className="ws-file-date mono">{formatDate(f.last_modified)}</div>
-                <div className="ws-file-actions">
-                  <button
-                    className="ws-act"
-                    onClick={() => handleDownload(f)}
-                    aria-label={lang === 'ar' ? 'تنزيل' : 'Download'}
-                    title={lang === 'ar' ? 'تنزيل' : 'Download'}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    className="ws-act danger"
-                    onClick={() => setConfirmDelete(f)}
-                    aria-label={lang === 'ar' ? 'حذف' : 'Delete'}
-                    title={lang === 'ar' ? 'حذف' : 'Delete'}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </li>
+        {filesState === 'ready' && files.length > 0 && filesCollapsed && (
+          <div className="ws-files-summary" role="status">
+            {fileGroups.slice(0, 4).map((group) => (
+              <span key={group.id}>
+                {group.label} · {group.files.length}
+              </span>
             ))}
+            {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
+          </div>
+        )}
+
+        {filesState === 'ready' && files.length > 0 && !filesCollapsed && (
+          <ul className="ws-file-groups" role="list">
+            {fileGroups.map((group) => {
+              const collapsed = collapsedFileGroups.has(group.id)
+              return (
+                <li key={group.id} className="ws-file-group" data-collapsed={collapsed}>
+                  <button
+                    type="button"
+                    className="ws-file-group-hd"
+                    aria-expanded={!collapsed}
+                    onClick={() => toggleFileGroup(group.id)}
+                  >
+                    <span className="chev" aria-hidden="true">▾</span>
+                    <span className="nm">{group.label}</span>
+                    <span className="meta">
+                      {group.files.length} · {humanBytes(group.totalBytes)}
+                    </span>
+                  </button>
+                  {!collapsed && (
+                    <ul className="ws-file-list" role="list">
+                      {group.files.map((f) => (
+                        <li key={f.key} className="ws-file-row">
+                          <div className="ws-file-key" title={f.key}>
+                            {f.key}
+                          </div>
+                          <div className="ws-file-size mono">{humanBytes(f.size)}</div>
+                          <div className="ws-file-date mono">{formatDate(f.last_modified)}</div>
+                          <div className="ws-file-actions">
+                            <button
+                              className="ws-act"
+                              onClick={() => handleDownload(f)}
+                              aria-label={lang === 'ar' ? 'تنزيل' : 'Download'}
+                              title={lang === 'ar' ? 'تنزيل' : 'Download'}
+                            >
+                              ↓
+                            </button>
+                            <button
+                              className="ws-act danger"
+                              onClick={() => setConfirmDelete(f)}
+                              aria-label={lang === 'ar' ? 'حذف' : 'Delete'}
+                              title={lang === 'ar' ? 'حذف' : 'Delete'}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

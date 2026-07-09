@@ -1101,7 +1101,7 @@ export default function RenterPodsPage() {
           {/* ── Workspace staging ────────────────────────────── */}
           <div className="pod-stage" style={{ marginTop: '28px' }}>
             <div className="pod-stage-hd">
-              <span className="pod-stage-no">01</span>
+              <span className="pod-stage-no">Stage 1</span>
               <div>
                 <h2><Bi en="Stage workspace files" ar="جهّز ملفات مساحة العمل" /></h2>
                 <p>
@@ -1165,6 +1165,73 @@ export default function RenterPodsPage() {
                     ? `~SAR ${fmtSar(selectedQuoteSar)}`
                     : <Bi en="After GPU pick" ar="بعد اختيار GPU" />}
                 </strong>
+              </div>
+            </div>
+
+            <div className="pod-stage-hd pod-stage-hd--compact">
+              <span className="pod-stage-no">Stage 2</span>
+              <div>
+                <h2><Bi en="Choose template and GPU" ar="اختر القالب ومعالج GPU" /></h2>
+                <p>
+                  <Bi
+                    en="Pick a workload template, then make the GPU choice explicit or leave launch on auto-pick."
+                    ar="اختر قالب العمل، ثم حدد معالج GPU بوضوح أو اترك التشغيل على الاختيار التلقائي."
+                  />
+                </p>
+              </div>
+            </div>
+
+            <div className="pod-compute-summary" aria-live="polite">
+              <div className="pod-compute-main">
+                <span className="pod-compute-k">
+                  <Bi en="Selected compute" ar="المعالج المحدد" />
+                </span>
+                {selectedType ? (
+                  <>
+                    <strong>{displayGpuType(selectedType.gpu_model)}</strong>
+                    <span>
+                      {selectedType.vram_gb} GB VRAM
+                      {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
+                    <span>
+                      <Bi
+                        en="DCP will choose an available GPU type that matches the launch request."
+                        ar="ستختار DCP نوع GPU متاحاً يطابق طلب التشغيل."
+                      />
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="pod-compute-facts">
+                {minVram > 0 && (
+                  <span>
+                    <Bi en={`Filter: ≥ ${minVram} GB`} ar={`التصفية: ≥ ${minVram} غ.ب`} />
+                  </span>
+                )}
+                {selectedQuoteSar != null && (
+                  <span>
+                    <Bi en={`Quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير: ~${fmtSar(selectedQuoteSar)} ﷼`} />
+                  </span>
+                )}
+                <span>
+                  <Bi en="Trial credit: DCP/community capacity" ar="رصيد التجربة: سعة DCP والمجتمع" />
+                </span>
+                <span>
+                  <Bi en="High-demand capacity: paid credit" ar="السعة عالية الطلب: رصيد مدفوع" />
+                </span>
+                {selectedType && (
+                  <button
+                    type="button"
+                    className="pod-auto-pick"
+                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+                  >
+                    <Bi en="Use auto-pick" ar="استخدم الاختيار التلقائي" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1590,6 +1657,19 @@ export default function RenterPodsPage() {
                     />
                   </span>
                 )}
+              </div>
+            </div>
+
+            <div className="pod-stage-hd pod-stage-hd--compact pod-stage-hd--runtime">
+              <span className="pod-stage-no">Stage 3</span>
+              <div>
+                <h2><Bi en="Confirm runtime and launch" ar="أكد بيئة التشغيل وشغّل" /></h2>
+                <p>
+                  <Bi
+                    en="Set duration, image, and notebook access before the prepaid launch."
+                    ar="حدد المدة والصورة ووصول الدفتر قبل التشغيل مسبق الدفع."
+                  />
+                </p>
               </div>
             </div>
 

@@ -138,6 +138,11 @@ what is live.
   local-roadmap proof, production smoke, and founder signoff explicit while
   approval mutation, adapter billing, invoices, payouts, route changes, balance
   mutations, raw prompt/response exposure, and Tinker claims remain disabled.
+- PR #875 makes Tareq's `/renter/pods` feedback actionable in the launch UX:
+  Stage 1 workspace files are collapsed/grouped for large workspaces, Stage 2
+  has an explicit selected-compute summary, Stage 3 names runtime/launch, and
+  the trial-credit policy is visible without exposing vendor or provider
+  internals.
 
 ### Now
 
