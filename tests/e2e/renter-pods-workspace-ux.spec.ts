@@ -71,6 +71,28 @@ async function mockPodsApis(page: Page) {
             changes_billing: false,
             changes_trial_accounting: false,
             exposes_vendor_or_provider: false,
+            claims_workspace_live_acceptance: false,
+            claims_lora_pod_image_gpu_ready: false,
+            claims_fine_tuning_ready_pods: false,
+          },
+          infrastructure_proofs: {
+            workspace_pod_contract: {
+              status: 'ci_safe',
+              command: 'npm run workspace-pods:verify-contracts',
+              local_roadmap_gate: 'workspace_pod_contracts',
+            },
+            workspace_live_acceptance: {
+              status: 'blocked_external',
+              command: 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
+              live_acceptance_gate: 'workspace_pod_live_launch',
+              blocked_on: ['funded renter key', 'active portable volume', 'launchable GPU capacity'],
+            },
+            lora_pod_image_provider_host: {
+              status: 'blocked_external',
+              command: 'npm run proof:lora-pod-image',
+              live_acceptance_gate: 'lora_pod_image_provider_host',
+              blocked_on: ['provider GPU host', 'Docker with NVIDIA runtime', 'built dcp-compute:lora image'],
+            },
           },
         }),
       });
@@ -159,20 +181,26 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.locator('#pod-stage-1').getByText('Stage 1')).toBeVisible();
   await expect(page.locator('#pod-stage-2').getByText('Stage 2')).toBeVisible();
   await expect(page.locator('#pod-stage-3').getByText('Stage 3')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU.*Auto-pick/ })).toBeVisible();
-  await expect(page.getByText('Staged files')).toBeVisible();
-  await expect(page.getByText('Stage 1 manifest')).toBeVisible();
-  await expect(page.getByText('5 files · 4 groups')).toBeVisible();
-  await expect(page.getByText('Review folders')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Stage 2.*Template \+ GPU request.*Auto-pick/ })).toBeVisible();
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 ready');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
+  await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Open workspace' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Continue to Stage 2' })).toBeVisible();
-  await expect(page.getByText('datasets/ · 2')).toBeVisible();
-  await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Open datasets\/ with 2 files/ })).toBeVisible();
-  await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
+  await expect(page.getByText('Stage 1 manifest')).toBeHidden();
+  await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
 
   await page.getByRole('link', { name: 'Continue to Stage 2' }).click();
   await expect(page).toHaveURL(/#pod-stage-2$/);
   await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
+  await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Open workspace' }).click();
+  await expect(page.getByText('Staged files')).toBeVisible();
+  await expect(page.getByText('Stage 1 manifest')).toBeVisible();
+  await expect(page.getByText('5 files · 4 groups')).toBeVisible();
+  await expect(page.getByText('Review folders')).toBeVisible();
+  await expect(page.getByText('datasets/ · 2')).toBeVisible();
+  await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Open datasets\/ with 2 files/ })).toBeVisible();
   await page.getByRole('button', { name: /Open datasets\/ with 2 files/ }).click();
   await expect(page.getByText('datasets/train.jsonl')).toBeVisible();
   await expect(page.getByText('notebooks/demo.ipynb')).toHaveCount(0);
@@ -190,16 +218,21 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Credit policy: synced');
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
-  await expect(computeSummary).toContainText('Trial handling: credit provenance');
+  await expect(computeSummary).toContainText('Trial tag: credit provenance');
+  await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace and LoRA image evidence');
+  await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace contract: CI safe');
+  await expect(page.getByLabel('Pod proof gates')).toContainText('Workspace live: provider window');
+  await expect(page.getByLabel('Pod proof gates')).toContainText('LoRA image: GPU-host proof');
 
   const gpuSelectionStrip = page.locator('.gpu-selection-strip');
-  await expect(gpuSelectionStrip).toContainText('GPU selection');
-  await expect(gpuSelectionStrip).toContainText('Auto-pick at launch');
+  await expect(gpuSelectionStrip).toContainText('Launch GPU request');
+  await expect(gpuSelectionStrip).toContainText('Auto-pick: no fixed GPU');
+  await expect(gpuSelectionStrip).toContainText('Request: auto-pick');
   await expect(gpuSelectionStrip).toContainText('Any VRAM');
   await expect(gpuSelectionStrip).toContainText('2 shown');
-  await expect(page.getByText('Card filter: VRAM')).toBeVisible();
+  await expect(page.getByText('Browse filter: VRAM')).toBeVisible();
   await page.getByRole('button', { name: '80 GB+', exact: true }).click();
-  await expect(gpuSelectionStrip).toContainText('Card filter 80 GB+');
+  await expect(gpuSelectionStrip).toContainText('Browse filter 80 GB+');
   await expect(gpuSelectionStrip).toContainText('1 shown');
   await expect(computeSummary).toContainText('Auto-pick at launch');
   await expect(computeSummary).toContainText('Filter only; not the launch GPU');

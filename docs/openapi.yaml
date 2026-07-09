@@ -1443,7 +1443,8 @@ paths:
         routing on GPU pods. The contract explains the current source of truth:
         trial state is represented by credit provenance and paid-funding state,
         trial credit can cover DCP/community capacity, high-demand on-demand
-        capacity requires paid credit, and renter-facing surfaces must not expose
+        capacity requires paid credit, pod infrastructure proof gates are
+        visible as read-only status, and renter-facing surfaces must not expose
         provider id, vendor, or internal supply-tier labels.
       responses:
         '200':
@@ -1468,6 +1469,54 @@ paths:
                   routing_policy:
                     type: object
                     additionalProperties: true
+                  infrastructure_proofs:
+                    type: object
+                    properties:
+                      workspace_pod_contract:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: ci_safe
+                          command:
+                            type: string
+                            example: npm run workspace-pods:verify-contracts
+                          local_roadmap_gate:
+                            type: string
+                            example: workspace_pod_contracts
+                          verifies:
+                            type: array
+                            items: { type: string }
+                      workspace_live_acceptance:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: blocked_external
+                          command:
+                            type: string
+                            example: DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod
+                          live_acceptance_gate:
+                            type: string
+                            example: workspace_pod_live_launch
+                          blocked_on:
+                            type: array
+                            items: { type: string }
+                      lora_pod_image_provider_host:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: blocked_external
+                          command:
+                            type: string
+                            example: npm run proof:lora-pod-image
+                          live_acceptance_gate:
+                            type: string
+                            example: lora_pod_image_provider_host
+                          blocked_on:
+                            type: array
+                            items: { type: string }
                   claim_guards:
                     type: object
                     additionalProperties: true

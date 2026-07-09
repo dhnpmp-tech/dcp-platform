@@ -55,6 +55,25 @@ function buildProof() {
         && readiness.routing_policy.provider_visibility.exposes_provider_id_to_renter === false
         && readiness.routing_policy.provider_visibility.exposes_supply_tier_to_renter === false,
     },
+    {
+      id: 'workspace_contract_and_live_gate_declared',
+      pass: readiness.infrastructure_proofs.workspace_pod_contract.command === 'npm run workspace-pods:verify-contracts'
+        && readiness.infrastructure_proofs.workspace_pod_contract.status === 'ci_safe'
+        && readiness.infrastructure_proofs.workspace_live_acceptance.command === 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod'
+        && readiness.infrastructure_proofs.workspace_live_acceptance.status === 'blocked_external',
+    },
+    {
+      id: 'lora_pod_image_provider_host_gate_declared',
+      pass: readiness.infrastructure_proofs.lora_pod_image_provider_host.command === 'npm run proof:lora-pod-image'
+        && readiness.infrastructure_proofs.lora_pod_image_provider_host.status === 'blocked_external'
+        && readiness.infrastructure_proofs.lora_pod_image_provider_host.blocked_on.includes('provider GPU host'),
+    },
+    {
+      id: 'no_pod_infrastructure_overclaim',
+      pass: readiness.claim_guards.claims_workspace_live_acceptance === false
+        && readiness.claim_guards.claims_lora_pod_image_gpu_ready === false
+        && readiness.claim_guards.claims_fine_tuning_ready_pods === false,
+    },
   ];
 
   return {

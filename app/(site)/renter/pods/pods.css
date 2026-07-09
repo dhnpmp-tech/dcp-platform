@@ -478,6 +478,80 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   outline: none;
 }
 
+.pod-proof-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  margin: -6px 0 24px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklab, var(--orange) 42%, var(--hair));
+  background: color-mix(in oklab, var(--orange) 6%, var(--bg-2));
+}
+@media (max-width: 860px) {
+  .pod-proof-strip { grid-template-columns: 1fr; }
+}
+.pod-proof-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pod-proof-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-proof-copy strong {
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+}
+.pod-proof-copy span:not(.pod-proof-k) {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+.pod-proof-facts {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 860px) {
+  .pod-proof-facts { justify-content: flex-start; }
+}
+.pod-proof-facts span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.pod-proof-facts .ready {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 9%, var(--paper));
+}
+.pod-proof-facts .blocked {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair));
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink));
+  background: color-mix(in oklab, var(--orange) 8%, var(--paper));
+}
+
 .pod-flow-rail {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -869,6 +943,15 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   letter-spacing: .06em;
   text-transform: uppercase;
   border-radius: 2px;
+}
+.gpu-selection-chip.fixed,
+.gpu-selection-chip.auto {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 9%, var(--paper));
+}
+.gpu-selection-chip.auto {
+  border-color: color-mix(in oklab, var(--rt-accent) 48%, var(--hair));
 }
 .gpu-selection-action {
   cursor: pointer;

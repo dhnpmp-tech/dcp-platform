@@ -104,6 +104,7 @@ export default function WorkspacePanel({
   const [filesError, setFilesError] = useState('')
   const [filesCollapsed, setFilesCollapsed] = useState(context === 'pod-launch')
   const [collapsedFileGroups, setCollapsedFileGroups] = useState<Set<string>>(() => new Set())
+  const [stageDetailsOpen, setStageDetailsOpen] = useState(context !== 'pod-launch')
 
   const [confirmDelete, setConfirmDelete] = useState<WorkspaceFile | null>(null)
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
@@ -119,6 +120,16 @@ export default function WorkspacePanel({
     () => fileGroups.filter((group) => group.id !== '__root__').length,
     [fileGroups],
   )
+  const uploadBusy = upload.state.status !== 'idle' &&
+    upload.state.status !== 'completed' &&
+    upload.state.status !== 'aborted'
+  const canUseCompactStage = context === 'pod-launch' &&
+    volumeState === 'ready' &&
+    !!volume &&
+    filesState === 'ready' &&
+    files.length > 0 &&
+    !uploadBusy
+  const showCompactStage = canUseCompactStage && !stageDetailsOpen
 
   const flash = useCallback((kind: 'ok' | 'err', msg: string) => {
     setToast({ kind, msg })
@@ -240,6 +251,7 @@ export default function WorkspacePanel({
   // ── upload: drag/drop + picker ──────────────────────────────────────────────
   function pickFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return
+    setStageDetailsOpen(true)
     const file = fileList[0]
     const key = keyForFile(file)
     upload.upload(file, key)
@@ -304,6 +316,19 @@ export default function WorkspacePanel({
               <Bi en="Continue: Stage 2" ar="تابع: المرحلة 2" />
             </a>
           )}
+          {canUseCompactStage && (
+            <button
+              type="button"
+              className="ws-detail-toggle"
+              aria-expanded={stageDetailsOpen}
+              aria-controls="ws-stage-details"
+              onClick={() => setStageDetailsOpen((value) => !value)}
+            >
+              {stageDetailsOpen
+                ? <Bi en="Collapse workspace" ar="اطوِ مساحة العمل" />
+                : <Bi en="Open workspace" ar="افتح مساحة العمل" />}
+            </button>
+          )}
           <button
             className="ws-refresh"
             onClick={() => {
@@ -318,225 +343,263 @@ export default function WorkspacePanel({
         </div>
       </div>
 
-      {/* ── volume usage / rent CTA ── */}
-      <div className="ws-volume">
-        <VolumeSection
-          volumeState={volumeState}
-          volume={volume}
-          rentOptions={rentOptions}
-          volumeError={volumeError}
-          selectedSize={selectedSize}
-          onSelectSize={setSelectedSize}
-          onRent={handleRent}
-          renting={renting}
-        />
-      </div>
-
-      {/* ── upload dropzone + resume wizard ── */}
-      {volume && (
-        <UploadDropzone
-          state={upload.state}
-          fileInputRef={fileInputRef}
-          resumeInputRef={resumeInputRef}
-          dragOver={dragOver}
-          onDrop={onDrop}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setDragOver(true)
-          }}
-          onDragLeave={(e) => {
-            e.preventDefault()
-            setDragOver(false)
-          }}
-          onPick={pickFiles}
-          onResumeFile={(e) => {
-            const f = e.target.files?.[0]
-            if (f) upload.resumeWithFile(f)
-            e.target.value = ''
-          }}
-          onPause={upload.pause}
-          onAbort={upload.abort}
-          onDiscardResumable={upload.discardResumable}
-          onRetryPicker={() => fileInputRef.current?.click()}
-          context={context}
-        />
-      )}
-
-      {/* ── file list ── */}
-      <div className="ws-files">
-        <div className="ws-files-hd">
-          <div className="ws-files-title">
-            <h4>
-              {context === 'pod-launch'
-                ? <Bi en="Staged files" ar="الملفات المجهزة" />
-                : <Bi en="Files" ar="الملفات" />}
-            </h4>
-            {files.length > 0 && (
-              <span className="ws-files-count">
-                {files.length} · {humanBytes(totalFileBytes)}
-              </span>
+      {showCompactStage && volume && (
+        <div className="ws-stage-compact" aria-label={lang === 'ar' ? 'ملخص المرحلة 1' : 'Stage 1 workspace summary'}>
+          <div className="ws-stage-compact-main">
+            <span className="ws-stage-compact-k">
+              <Bi en="Stage 1 ready" ar="المرحلة 1 جاهزة" />
+            </span>
+            <strong>
+              {files.length} <Bi en="files staged" ar="ملفات مجهزة" /> · {humanBytes(totalFileBytes)}
+            </strong>
+            <span>
+              {volume.size_gb} GB /workspace · {workspaceFolderCount}{' '}
+              <Bi en="folders" ar="مجلدات" /> · {fileGroups.length}{' '}
+              <Bi en="groups" ar="مجموعات" />
+            </span>
+          </div>
+          <div className="ws-stage-compact-actions">
+            <button type="button" onClick={() => setStageDetailsOpen(true)}>
+              <Bi en="Open workspace" ar="افتح مساحة العمل" />
+            </button>
+            {nextStageHref && (
+              <a href={nextStageHref}>
+                <Bi en="Continue to Stage 2" ar="تابع للمرحلة 2" />
+              </a>
             )}
           </div>
-          {(files.length > 0 || (context === 'pod-launch' && nextStageHref)) && (
-            <div className="ws-files-actions">
-              {context === 'pod-launch' && nextStageHref && (
-                <a className="ws-files-next" href={nextStageHref}>
-                  <Bi en="Go to Stage 2" ar="انتقل للمرحلة 2" />
-                </a>
-              )}
-              {files.length > 0 && (
-                <button
-                  type="button"
-                  className="ws-files-toggle"
-                  aria-expanded={!filesCollapsed}
-                  onClick={() => setFilesCollapsed((value) => !value)}
-                >
-                  {filesCollapsed
-                    ? <Bi en="Show" ar="إظهار" />
-                    : <Bi en="Collapse" ar="طي" />}
-                </button>
-              )}
-              {files.length > 0 && !filesCollapsed && fileGroups.length > 0 && (
-                <>
-                  <button type="button" className="ws-files-toggle" onClick={expandAllFileGroups}>
-                    <Bi en="Expand all" ar="افتح الكل" />
-                  </button>
-                  <button type="button" className="ws-files-toggle" onClick={collapseAllFileGroups}>
-                    <Bi en="Collapse all" ar="اطوِ الكل" />
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+        </div>
+      )}
+
+      <div id="ws-stage-details" hidden={showCompactStage}>
+        {/* ── volume usage / rent CTA ── */}
+        <div className="ws-volume">
+          <VolumeSection
+            volumeState={volumeState}
+            volume={volume}
+            rentOptions={rentOptions}
+            volumeError={volumeError}
+            selectedSize={selectedSize}
+            onSelectSize={setSelectedSize}
+            onRent={handleRent}
+            renting={renting}
+          />
         </div>
 
-        {filesState === 'loading' && (
-          <div className="ws-skel">
-            <span className="skeleton line" style={{ width: '90%' }} />
-            <span className="skeleton line" style={{ width: '75%' }} />
-            <span className="skeleton line" style={{ width: '60%' }} />
-          </div>
+        {/* ── upload dropzone + resume wizard ── */}
+        {volume && (
+          <UploadDropzone
+            state={upload.state}
+            fileInputRef={fileInputRef}
+            resumeInputRef={resumeInputRef}
+            dragOver={dragOver}
+            onDrop={onDrop}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragOver(true)
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault()
+              setDragOver(false)
+            }}
+            onPick={pickFiles}
+            onResumeFile={(e) => {
+              const f = e.target.files?.[0]
+              if (f) {
+                setStageDetailsOpen(true)
+                upload.resumeWithFile(f)
+              }
+              e.target.value = ''
+            }}
+            onPause={upload.pause}
+            onAbort={upload.abort}
+            onDiscardResumable={upload.discardResumable}
+            onRetryPicker={() => fileInputRef.current?.click()}
+            context={context}
+          />
         )}
 
-        {filesState === 'ready' && files.length === 0 && (
-          <div className="ws-empty">
-            <span className="ws-empty-ic">∅</span>
-            <p>
-              {context === 'pod-launch'
-                ? <Bi en="No staged files yet." ar="لا توجد ملفات مجهزة بعد." />
-                : <Bi en="No files yet. Upload one above." ar="لا توجد ملفات بعد. ارفع واحداً بالأعلى." />}
-            </p>
-          </div>
-        )}
-
-        {filesState === 'error' && (
-          <div className="ws-err" role="alert">
-            {filesError}
-          </div>
-        )}
-
-        {context === 'pod-launch' && filesState === 'ready' && files.length > 0 && (
-          <div className="ws-launch-manifest">
-            <div className="ws-launch-copy">
-              <span className="ws-launch-k">
-                <Bi en="Stage 1 manifest" ar="بيان المرحلة 1" />
-              </span>
-              <strong>
-                {files.length} <Bi en="files" ar="ملفات" /> · {fileGroups.length}{' '}
-                <Bi en="groups" ar="مجموعات" />
-              </strong>
-              <span>
-                {humanBytes(totalFileBytes)} · {workspaceFolderCount}{' '}
-                <Bi en="folders ready for /workspace" ar="مجلدات جاهزة لـ /workspace" />
-              </span>
-            </div>
-            <div className="ws-launch-actions">
-              <button type="button" onClick={() => setFilesCollapsed(false)}>
-                <Bi en="Review folders" ar="راجع المجلدات" />
-              </button>
-              {nextStageHref && (
-                <a href={nextStageHref}>
-                  <Bi en="Continue to Stage 2" ar="تابع للمرحلة 2" />
-                </a>
+        {/* ── file list ── */}
+        <div className="ws-files">
+          <div className="ws-files-hd">
+            <div className="ws-files-title">
+              <h4>
+                {context === 'pod-launch'
+                  ? <Bi en="Staged files" ar="الملفات المجهزة" />
+                  : <Bi en="Files" ar="الملفات" />}
+              </h4>
+              {files.length > 0 && (
+                <span className="ws-files-count">
+                  {files.length} · {humanBytes(totalFileBytes)}
+                </span>
               )}
             </div>
-          </div>
-        )}
-
-        {filesState === 'ready' && files.length > 0 && filesCollapsed && (
-          <div className="ws-files-summary" aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}>
-            {fileGroups.slice(0, 4).map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                onClick={() => openOnlyFileGroup(group.id)}
-                aria-label={
-                  lang === 'ar'
-                    ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
-                    : `Open ${group.label} with ${group.files.length} files`
-                }
-              >
-                {group.label} · {group.files.length}
-              </button>
-            ))}
-            {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
-          </div>
-        )}
-
-        {filesState === 'ready' && files.length > 0 && !filesCollapsed && (
-          <ul className="ws-file-groups" role="list">
-            {fileGroups.map((group) => {
-              const collapsed = collapsedFileGroups.has(group.id)
-              return (
-                <li key={group.id} className="ws-file-group" data-collapsed={collapsed}>
+            {(files.length > 0 || (context === 'pod-launch' && nextStageHref)) && (
+              <div className="ws-files-actions">
+                {context === 'pod-launch' && nextStageHref && (
+                  <a className="ws-files-next" href={nextStageHref}>
+                    <Bi en="Go to Stage 2" ar="انتقل للمرحلة 2" />
+                  </a>
+                )}
+                {files.length > 0 && (
                   <button
                     type="button"
-                    className="ws-file-group-hd"
-                    aria-expanded={!collapsed}
-                    onClick={() => toggleFileGroup(group.id)}
+                    className="ws-files-toggle"
+                    aria-expanded={!filesCollapsed}
+                    onClick={() => setFilesCollapsed((value) => !value)}
                   >
-                    <span className="chev" aria-hidden="true">▾</span>
-                    <span className="nm">{group.label}</span>
-                    <span className="meta">
-                      {group.files.length} · {humanBytes(group.totalBytes)}
-                    </span>
+                    {filesCollapsed
+                      ? <Bi en="Show" ar="إظهار" />
+                      : <Bi en="Collapse" ar="طي" />}
                   </button>
-                  {!collapsed && (
-                    <ul className="ws-file-list" role="list">
-                      {group.files.map((f) => (
-                        <li key={f.key} className="ws-file-row">
-                          <div className="ws-file-key" title={f.key}>
-                            {f.key}
-                          </div>
-                          <div className="ws-file-size mono">{humanBytes(f.size)}</div>
-                          <div className="ws-file-date mono">{formatDate(f.last_modified)}</div>
-                          <div className="ws-file-actions">
-                            <button
-                              className="ws-act"
-                              onClick={() => handleDownload(f)}
-                              aria-label={lang === 'ar' ? 'تنزيل' : 'Download'}
-                              title={lang === 'ar' ? 'تنزيل' : 'Download'}
-                            >
-                              ↓
-                            </button>
-                            <button
-                              className="ws-act danger"
-                              onClick={() => setConfirmDelete(f)}
-                              aria-label={lang === 'ar' ? 'حذف' : 'Delete'}
-                              title={lang === 'ar' ? 'حذف' : 'Delete'}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
+                )}
+                {files.length > 0 && !filesCollapsed && fileGroups.length > 0 && (
+                  <>
+                    <button type="button" className="ws-files-toggle" onClick={expandAllFileGroups}>
+                      <Bi en="Expand all" ar="افتح الكل" />
+                    </button>
+                    <button type="button" className="ws-files-toggle" onClick={collapseAllFileGroups}>
+                      <Bi en="Collapse all" ar="اطوِ الكل" />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {filesState === 'loading' && (
+            <div className="ws-skel">
+              <span className="skeleton line" style={{ width: '90%' }} />
+              <span className="skeleton line" style={{ width: '75%' }} />
+              <span className="skeleton line" style={{ width: '60%' }} />
+            </div>
+          )}
+
+          {filesState === 'ready' && files.length === 0 && (
+            <div className="ws-empty">
+              <span className="ws-empty-ic">∅</span>
+              <p>
+                {context === 'pod-launch'
+                  ? <Bi en="No staged files yet." ar="لا توجد ملفات مجهزة بعد." />
+                  : <Bi en="No files yet. Upload one above." ar="لا توجد ملفات بعد. ارفع واحداً بالأعلى." />}
+              </p>
+            </div>
+          )}
+
+          {filesState === 'error' && (
+            <div className="ws-err" role="alert">
+              {filesError}
+            </div>
+          )}
+
+          {context === 'pod-launch' && filesState === 'ready' && files.length > 0 && (
+            <div className="ws-launch-manifest">
+              <div className="ws-launch-copy">
+                <span className="ws-launch-k">
+                  <Bi en="Stage 1 manifest" ar="بيان المرحلة 1" />
+                </span>
+                <strong>
+                  {files.length} <Bi en="files" ar="ملفات" /> · {fileGroups.length}{' '}
+                  <Bi en="groups" ar="مجموعات" />
+                </strong>
+                <span>
+                  {humanBytes(totalFileBytes)} · {workspaceFolderCount}{' '}
+                  <Bi en="folders ready for /workspace" ar="مجلدات جاهزة لـ /workspace" />
+                </span>
+              </div>
+              <div className="ws-launch-actions">
+                <button type="button" onClick={() => setFilesCollapsed(false)}>
+                  <Bi en="Review folders" ar="راجع المجلدات" />
+                </button>
+                {canUseCompactStage && (
+                  <button type="button" onClick={() => setStageDetailsOpen(false)}>
+                    <Bi en="Collapse workspace" ar="اطوِ مساحة العمل" />
+                  </button>
+                )}
+                {nextStageHref && (
+                  <a href={nextStageHref}>
+                    <Bi en="Continue to Stage 2" ar="تابع للمرحلة 2" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {filesState === 'ready' && files.length > 0 && filesCollapsed && (
+            <div className="ws-files-summary" aria-label={lang === 'ar' ? 'ملخص مجلدات مساحة العمل' : 'Workspace folder summary'}>
+              {fileGroups.slice(0, 4).map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => openOnlyFileGroup(group.id)}
+                  aria-label={
+                    lang === 'ar'
+                      ? `افتح ${group.label} وفيه ${group.files.length} ملفات`
+                      : `Open ${group.label} with ${group.files.length} files`
+                  }
+                >
+                  {group.label} · {group.files.length}
+                </button>
+              ))}
+              {fileGroups.length > 4 && <span>+{fileGroups.length - 4}</span>}
+            </div>
+          )}
+
+          {filesState === 'ready' && files.length > 0 && !filesCollapsed && (
+            <ul className="ws-file-groups" role="list">
+              {fileGroups.map((group) => {
+                const collapsed = collapsedFileGroups.has(group.id)
+                return (
+                  <li key={group.id} className="ws-file-group" data-collapsed={collapsed}>
+                    <button
+                      type="button"
+                      className="ws-file-group-hd"
+                      aria-expanded={!collapsed}
+                      onClick={() => toggleFileGroup(group.id)}
+                    >
+                      <span className="chev" aria-hidden="true">▾</span>
+                      <span className="nm">{group.label}</span>
+                      <span className="meta">
+                        {group.files.length} · {humanBytes(group.totalBytes)}
+                      </span>
+                    </button>
+                    {!collapsed && (
+                      <ul className="ws-file-list" role="list">
+                        {group.files.map((f) => (
+                          <li key={f.key} className="ws-file-row">
+                            <div className="ws-file-key" title={f.key}>
+                              {f.key}
+                            </div>
+                            <div className="ws-file-size mono">{humanBytes(f.size)}</div>
+                            <div className="ws-file-date mono">{formatDate(f.last_modified)}</div>
+                            <div className="ws-file-actions">
+                              <button
+                                className="ws-act"
+                                onClick={() => handleDownload(f)}
+                                aria-label={lang === 'ar' ? 'تنزيل' : 'Download'}
+                                title={lang === 'ar' ? 'تنزيل' : 'Download'}
+                              >
+                                ↓
+                              </button>
+                              <button
+                                className="ws-act danger"
+                                onClick={() => setConfirmDelete(f)}
+                                aria-label={lang === 'ar' ? 'حذف' : 'Delete'}
+                                title={lang === 'ar' ? 'حذف' : 'Delete'}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* ── delete confirm modal ── */}

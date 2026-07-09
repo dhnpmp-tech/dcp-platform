@@ -323,6 +323,28 @@ interface PodTrialRoutingReadinessResponse {
     changes_billing?: boolean
     changes_trial_accounting?: boolean
     exposes_vendor_or_provider?: boolean
+    claims_workspace_live_acceptance?: boolean
+    claims_lora_pod_image_gpu_ready?: boolean
+    claims_fine_tuning_ready_pods?: boolean
+  }
+  infrastructure_proofs?: {
+    workspace_pod_contract?: {
+      status?: string
+      command?: string
+      local_roadmap_gate?: string
+    }
+    workspace_live_acceptance?: {
+      status?: string
+      command?: string
+      live_acceptance_gate?: string
+      blocked_on?: string[]
+    }
+    lora_pod_image_provider_host?: {
+      status?: string
+      command?: string
+      live_acceptance_gate?: string
+      blocked_on?: string[]
+    }
   }
   error?: string
 }
@@ -1042,6 +1064,12 @@ export default function RenterPodsPage() {
   const selectedLaunchTemplate = selectedTemplateKey
     ? LAUNCH_TEMPLATES.find((template) => template.key === selectedTemplateKey) || null
     : null
+  const selectedTemplateCatalogItems = selectedLaunchTemplate
+    ? catalogItemsFor(selectedLaunchTemplate, templateCatalogById)
+    : []
+  const selectedTemplateMinVram = selectedLaunchTemplate
+    ? catalogMinVram(selectedLaunchTemplate, selectedTemplateCatalogItems)
+    : undefined
   const selectedImage = resolveImage(launch)
   const selectedPreset = IMAGE_PRESETS.find((img) => img.value === launch.imageChoice)
   const selectedImageLabel = isCustom
@@ -1063,9 +1091,19 @@ export default function RenterPodsPage() {
   const activeWorkloadLabel = activeWorkload
     ? WORKLOADS.find((workload) => workload.key === activeWorkload)
     : null
+  const gpuRequestDetail = selectedType
+    ? `${selectedType.vram_gb} GB VRAM${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
+    : selectedTemplateMinVram
+      ? `${selectedRuntimeLabel} recommends ${selectedTemplateMinVram} GB+; launch still auto-picks until a card is selected.`
+      : minVram > 0
+        ? `Browsing ${minVram} GB+ cards; launch still auto-picks until a card is selected.`
+        : 'No fixed GPU type selected; backend picks an available type at launch.'
   const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: DCP/community capacity'
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
   const explicitTrialTagLive = trialRouting?.account_classification?.explicit_trial_account_tag_live === true
+  const workspacePodContractStatus = trialRouting?.infrastructure_proofs?.workspace_pod_contract?.status
+  const workspaceLiveStatus = trialRouting?.infrastructure_proofs?.workspace_live_acceptance?.status
+  const loraPodImageStatus = trialRouting?.infrastructure_proofs?.lora_pod_image_provider_host?.status
   const trialRoutingSynced = trialRoutingStatus === 'ready' &&
     trialRouting?.object === 'pod_trial_routing_readiness' &&
     trialRouting?.claim_guards?.launches_pod === false &&
@@ -1073,6 +1111,9 @@ export default function RenterPodsPage() {
     trialRouting?.claim_guards?.changes_billing === false &&
     trialRouting?.claim_guards?.changes_trial_accounting === false &&
     trialRouting?.claim_guards?.exposes_vendor_or_provider === false &&
+    trialRouting?.claim_guards?.claims_workspace_live_acceptance === false &&
+    trialRouting?.claim_guards?.claims_lora_pod_image_gpu_ready === false &&
+    trialRouting?.claim_guards?.claims_fine_tuning_ready_pods === false &&
     trialRouting?.routing_policy?.provider_visibility?.exposes_provider_id_to_renter === false &&
     trialRouting?.routing_policy?.provider_visibility?.exposes_vendor_to_renter === false &&
     trialRouting?.routing_policy?.provider_visibility?.exposes_supply_tier_to_renter === false
@@ -1173,7 +1214,7 @@ export default function RenterPodsPage() {
             </a>
             <a href="#pod-stage-2" className={selectedType || launch.gpuType === '' ? 'ok' : ''}>
               <span>Stage 2</span>
-              <strong><Bi en="Template + GPU" ar="القالب + GPU" /></strong>
+              <strong><Bi en="Template + GPU request" ar="القالب + طلب GPU" /></strong>
               <em>
                 {selectedType
                   ? displayGpuType(selectedType.gpu_model)
@@ -1261,7 +1302,7 @@ export default function RenterPodsPage() {
             <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
               <span className="pod-stage-no">Stage 2</span>
               <div>
-                <h2><Bi en="Choose template and GPU" ar="اختر القالب ومعالج GPU" /></h2>
+                <h2><Bi en="Choose template and GPU request" ar="اختر القالب وطلب GPU" /></h2>
                 <p>
                   <Bi
                     en="Pick a workload template, then make the GPU choice explicit or leave launch on auto-pick."
@@ -1289,7 +1330,7 @@ export default function RenterPodsPage() {
                     <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
                     <span>
                       <Bi
-                        en="No fixed GPU type selected; card filters below are only for browsing."
+                        en={gpuRequestDetail}
                         ar="لم يتم تحديد نوع GPU؛ التصفية أدناه للتصفح فقط."
                       />
                     </span>
@@ -1332,8 +1373,8 @@ export default function RenterPodsPage() {
                 </span>
                 <span>
                   {explicitTrialTagLive
-                    ? <Bi en="Trial handling: explicit tag" ar="التجربة: وسم صريح" />
-                    : <Bi en="Trial handling: credit provenance" ar="التجربة: حسب مصدر الرصيد" />}
+                    ? <Bi en="Trial tag: explicit" ar="وسم التجربة: صريح" />
+                    : <Bi en="Trial tag: credit provenance" ar="وسم التجربة: حسب مصدر الرصيد" />}
                 </span>
                 {selectedType && (
                   <button
@@ -1351,6 +1392,45 @@ export default function RenterPodsPage() {
                 )}
               </div>
             </div>
+
+            {trialRoutingSynced && (
+              <div className="pod-proof-strip" aria-label={lang === 'ar' ? 'بوابات إثبات الحاويات' : 'Pod proof gates'}>
+                <div className="pod-proof-copy">
+                  <span className="pod-proof-k">
+                    <Bi en="Pod proof gates" ar="بوابات إثبات الحاوية" />
+                  </span>
+                  <strong>
+                    <Bi en="Workspace and LoRA image evidence" ar="أدلة مساحة العمل وصورة LoRA" />
+                  </strong>
+                  <span>
+                    <Bi
+                      en="CI contracts are visible; live GPU-host acceptance still needs a funded provider window."
+                      ar="عقود CI ظاهرة؛ قبول GPU الحي يحتاج نافذة مزود ممولة."
+                    />
+                  </span>
+                </div>
+                <div className="pod-proof-facts">
+                  <span className="ready">
+                    <Bi
+                      en={`Workspace contract: ${workspacePodContractStatus === 'ci_safe' ? 'CI safe' : 'checking'}`}
+                      ar={`عقد مساحة العمل: ${workspacePodContractStatus === 'ci_safe' ? 'آمن CI' : 'قيد الفحص'}`}
+                    />
+                  </span>
+                  <span className="blocked">
+                    <Bi
+                      en={`Workspace live: ${workspaceLiveStatus === 'blocked_external' ? 'provider window' : 'checking'}`}
+                      ar={`مساحة العمل الحية: ${workspaceLiveStatus === 'blocked_external' ? 'نافذة مزود' : 'قيد الفحص'}`}
+                    />
+                  </span>
+                  <span className="blocked">
+                    <Bi
+                      en={`LoRA image: ${loraPodImageStatus === 'blocked_external' ? 'GPU-host proof' : 'checking'}`}
+                      ar={`صورة LoRA: ${loraPodImageStatus === 'blocked_external' ? 'إثبات GPU' : 'قيد الفحص'}`}
+                    />
+                  </span>
+                </div>
+              </div>
+            )}
 
             <section className="pod-template-picker" aria-labelledby="pod-template-heading">
               <div className="pod-template-hd">
@@ -1491,7 +1571,7 @@ export default function RenterPodsPage() {
               <div className="gpu-selection-strip" aria-live="polite">
                 <div className="gpu-selection-copy">
                   <span className="gpu-selection-k">
-                    <Bi en="GPU selection" ar="اختيار GPU" />
+                    <Bi en="Launch GPU request" ar="طلب GPU للتشغيل" />
                   </span>
                   {selectedType ? (
                     <>
@@ -1503,10 +1583,10 @@ export default function RenterPodsPage() {
                     </>
                   ) : (
                     <>
-                      <strong><Bi en="Auto-pick at launch" ar="اختيار تلقائي عند التشغيل" /></strong>
+                      <strong><Bi en="Auto-pick: no fixed GPU" ar="اختيار تلقائي: بدون GPU محدد" /></strong>
                       <span>
                         <Bi
-                          en="No fixed GPU type selected; filters only narrow the cards below."
+                          en={gpuRequestDetail}
                           ar="لم يتم تحديد نوع GPU؛ التصفية تقلل البطاقات أدناه فقط."
                         />
                       </span>
@@ -1514,11 +1594,21 @@ export default function RenterPodsPage() {
                   )}
                 </div>
                 <div className="gpu-selection-actions">
+                  <span className={`gpu-selection-chip ${selectedType ? 'fixed' : 'auto'}`}>
+                    {selectedType
+                      ? <Bi en="Request: fixed GPU" ar="الطلب: GPU محدد" />
+                      : <Bi en="Request: auto-pick" ar="الطلب: اختيار تلقائي" />}
+                  </span>
                   <span className="gpu-selection-chip">
                     {minVram > 0
-                      ? <Bi en={`Card filter ${minVram} GB+`} ar={`تصفية البطاقات ${minVram} غ.ب+`} />
+                      ? <Bi en={`Browse filter ${minVram} GB+`} ar={`تصفية التصفح ${minVram} غ.ب+`} />
                       : <Bi en="Any VRAM" ar="أي ذاكرة" />}
                   </span>
+                  {selectedTemplateMinVram && (
+                    <span className="gpu-selection-chip">
+                      <Bi en={`Template hint ${selectedTemplateMinVram} GB+`} ar={`تلميح القالب ${selectedTemplateMinVram} غ.ب+`} />
+                    </span>
+                  )}
                   <span className="gpu-selection-chip">
                     {activeWorkloadLabel
                       ? (lang === 'ar' ? activeWorkloadLabel.titleAr : activeWorkloadLabel.titleEn)
@@ -1564,7 +1654,7 @@ export default function RenterPodsPage() {
                   </div>
                   <div className="gpu-ctl gpu-vram">
                     <label id="gpu-vram-filter-label">
-                      <Bi en="Card filter: VRAM" ar="تصفية البطاقات: الذاكرة" />
+                      <Bi en="Browse filter: VRAM" ar="تصفية التصفح: الذاكرة" />
                     </label>
                     <div className="gpu-vram-options" role="group" aria-labelledby="gpu-vram-filter-label">
                       {VRAM_FILTER_OPTIONS.map((value) => (

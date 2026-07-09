@@ -37,6 +37,23 @@ describe('pod trial routing readiness', () => {
           renter_selects_gpu_type_not_machine: true,
         },
       },
+      infrastructure_proofs: {
+        workspace_pod_contract: {
+          status: 'ci_safe',
+          command: 'npm run workspace-pods:verify-contracts',
+          local_roadmap_gate: 'workspace_pod_contracts',
+        },
+        workspace_live_acceptance: {
+          status: 'blocked_external',
+          command: 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
+          live_acceptance_gate: 'workspace_pod_live_launch',
+        },
+        lora_pod_image_provider_host: {
+          status: 'blocked_external',
+          command: 'npm run proof:lora-pod-image',
+          live_acceptance_gate: 'lora_pod_image_provider_host',
+        },
+      },
       claim_guards: {
         readiness_contract_live: true,
         changes_provider_selection: false,
@@ -44,6 +61,9 @@ describe('pod trial routing readiness', () => {
         changes_trial_accounting: false,
         launches_pod: false,
         exposes_vendor_or_provider: false,
+        claims_workspace_live_acceptance: false,
+        claims_lora_pod_image_gpu_ready: false,
+        claims_fine_tuning_ready_pods: false,
       },
     });
   });
@@ -63,7 +83,14 @@ describe('pod trial routing readiness', () => {
       claim_guards: {
         launches_pod: false,
         mutates_balance: false,
+        claims_workspace_live_acceptance: false,
+        claims_lora_pod_image_gpu_ready: false,
       },
     });
+    expect(res.body.infrastructure_proofs.workspace_live_acceptance.blocked_on).toEqual(expect.arrayContaining([
+      'funded renter key',
+      'active portable volume',
+      'launchable GPU capacity',
+    ]));
   });
 });
