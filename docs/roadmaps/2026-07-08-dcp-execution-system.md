@@ -169,7 +169,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
-| Router policy readiness contract | `npm run proof:router-policy-contract` | none | CI-safe gate available; policy-specific routing and live smoke remain blocked until tests/proof exist |
+| Router policy readiness contract | `npm run proof:router-policy-contract` | none | CI-safe gate available; API/UI now expose proof-before-selectable gates, while policy-specific routing and live smoke remain blocked until tests/proof exist |
 | Evaluator readiness contract | `npm run proof:evaluator-readiness-contract` | none | CI-safe gate available; metadata create/list/read is live, but workers, result artifacts, public reports, rankings, and billing remain blocked |
 | Evaluator job schema contract | `npm run proof:evaluator-job-schema-contract` | none | CI-safe gate available; schema/readiness plus metadata endpoint guards, no worker, billing, report, ranking, or quality-claim mutation |
 | Evaluator metadata job contract | `npm run proof:evaluator-job-metadata-contract` | none | CI-safe gate available; renter-scoped draft metadata records only, no dataset storage, worker, result artifact, billing, report, ranking, or quality-claim mutation |
@@ -231,6 +231,8 @@ before or with the feature change.
    - Gate: targeted v1/model catalog tests, `/v1/models` production smoke, and
      `proof:router-policy-contract` plus `proof:anthropic-sse` for
      agent-path streaming.
+   - Router policy changes must keep `/v1/router/policies` proof-contract,
+     claim-guard, selection-guard, and proof-gate fields current.
    - Advanced claims stay gated until a funded live proof report exists.
 5. **Prompt-cache and batch economics**
    - Gate: `proof:prompt-cache-contract`, `proof:batch-inference-contract`,

@@ -72,12 +72,28 @@ interface RouterPolicy {
   default?: boolean
   request_selectable?: boolean
   current_behavior?: string
+  selection_guard?: string
+  proof_gates?: RouterProofGate[]
+}
+
+interface RouterProofGate {
+  id: string
+  label: string
+  status: string
+  required?: boolean
+  next?: string
 }
 
 interface RouterPoliciesResponse {
   version?: string
   default_policy?: string
   request_selectable?: boolean
+  proof_contract?: {
+    command?: string
+    live_smoke_required_before_selectable?: boolean
+    required_before_future_policy_selectable?: string[]
+  }
+  claim_guards?: Record<string, boolean>
   data?: RouterPolicy[]
 }
 
@@ -329,6 +345,9 @@ export default function InferenceProductPage() {
   }, [policies, routerPolicies?.default_policy])
   const availablePolicies = policies.filter((policy) => policy.available).length
   const gatedPolicies = Math.max(0, policies.length - availablePolicies)
+  const routerProofGateCount = policies.reduce((sum, policy) => sum + (policy.proof_gates?.length || 0), 0)
+  const routerProofCommand = routerPolicies?.proof_contract?.command || 'npm run proof:router-policy-contract'
+  const routerLiveSmokeRequired = routerPolicies?.proof_contract?.live_smoke_required_before_selectable === true
   const catalogModels = useMemo(() => modelCatalog?.data || [], [modelCatalog])
   const visibleCatalogModels = useMemo(() => {
     return [...catalogModels]
@@ -641,15 +660,32 @@ export default function InferenceProductPage() {
                         <em><Bi en="Gated policies" ar="سياسات مقيدة" /></em>
                         <strong>{gatedPolicies}</strong>
                       </span>
+                      <span>
+                        <em><Bi en="Proof gates" ar="بوابات الإثبات" /></em>
+                        <strong>{routerProofGateCount}</strong>
+                      </span>
                     </div>
                     <div className="policy-live-list">
-                      {policies.map((policy) => (
-                        <span key={policy.id} className={policy.available ? 'available' : 'gated'}>
-                          <b>{policy.label}</b>
-                          <em>{formatPolicyStatus(policy.status)}</em>
-                          {!policy.request_selectable && <i><Bi en="not selectable" ar="غير قابل للاختيار" /></i>}
-                        </span>
-                      ))}
+                      {policies.map((policy) => {
+                        const firstGate = policy.proof_gates?.[0]
+                        return (
+                          <span key={policy.id} className={policy.available ? 'available' : 'gated'}>
+                            <b>{policy.label}</b>
+                            <em>{formatPolicyStatus(policy.status)}</em>
+                            {!policy.request_selectable && <i><Bi en="not selectable" ar="غير قابل للاختيار" /></i>}
+                            {firstGate && (
+                              <small>
+                                <Bi en="Gate" ar="البوابة" />: {firstGate.label} · {formatPolicyStatus(firstGate.status)}
+                              </small>
+                            )}
+                          </span>
+                        )
+                      })}
+                    </div>
+                    <div className="policy-proof-contract">
+                      <span><Bi en="Proof before selectable" ar="الإثبات قبل الاختيار" /></span>
+                      <b dir="ltr">{routerProofCommand}</b>
+                      {routerLiveSmokeRequired && <em><Bi en="live smoke required" ar="يلزم اختبار حي" /></em>}
                     </div>
                   </>
                 )}

@@ -563,6 +563,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #879 made public `/inference` consume `/v1/router/policies` directly,
   rendering the contract version, default policy, available/gated counts, and
   future-policy gated/not-selectable states without changing routing behavior.
+- PR #926 adds machine-readable router proof gates to `/v1/router/policies`
+  and surfaces the proof-before-selectable command and first gate per policy in
+  `/inference` and `/renter/playground`, while keeping all future policies
+  non-selectable.
 - PR #897 surfaces the account-scoped minimum-balance readiness packet in
   `/renter/playground`, so live inference requests now sit beside a read-only
   v1 estimate-preflight rail, paid-available credit, monthly-cap remaining, and
@@ -1100,7 +1104,8 @@ DCP-hosted endpoint -> billed inference.
 3. Inference metadata/rate consistency.
    **Router-policy readiness proof added in PR #832 as
    `npm run proof:router-policy-contract`; future policy selection remains
-   blocked until policy-specific routing tests and live smokes exist.**
+   blocked until policy-specific routing tests and live smokes exist. PR #926
+   makes those future proof gates visible in the API contract and UI.**
 4. Fat pod image spec and GPU-host verification. **Contract gate started in PR #762; image-specific readiness proof added in PR #894; GPU-host proof still required.**
 5. Workspace-to-pod launch polish. **Started in PR #761; workspace-first
    Fine-Tuning link landed in PR #806; CI-safe task-spec/daemon contract guard

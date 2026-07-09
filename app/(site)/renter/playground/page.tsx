@@ -141,7 +141,17 @@ interface RouterPolicy {
   default?: boolean
   request_selectable: boolean
   current_behavior?: string
+  selection_guard?: string
+  proof_gates?: RouterProofGate[]
   signals?: string[]
+  next?: string
+}
+
+interface RouterProofGate {
+  id: string
+  label: string
+  status: string
+  required?: boolean
   next?: string
 }
 
@@ -152,6 +162,12 @@ interface RouterPoliciesResponse {
   request_policy_parameter?: string | null
   request_selectable?: boolean
   generated_at?: string
+  proof_contract?: {
+    command?: string
+    live_smoke_required_before_selectable?: boolean
+    required_before_future_policy_selectable?: string[]
+  }
+  claim_guards?: Record<string, boolean>
   data?: RouterPolicy[]
 }
 
@@ -500,6 +516,8 @@ export default function PlaygroundPage() {
       || null
   }, [routerPolicies])
   const shouldSendBalancedPolicy = defaultRouterPolicy?.id === 'balanced' && defaultRouterPolicy.available === true
+  const routerProofCommand = routerPolicies?.proof_contract?.command || 'npm run proof:router-policy-contract'
+  const routerLiveSmokeRequired = routerPolicies?.proof_contract?.live_smoke_required_before_selectable === true
   const promptCacheMeasurement = promptCacheReadiness?.measurement
   const promptCacheBilling = promptCacheReadiness?.billing
   const promptCacheClaims = promptCacheReadiness?.claims
@@ -1260,21 +1278,34 @@ export default function PlaygroundPage() {
                       <em>{formatPolicyStatus(defaultRouterPolicy?.status)}</em>
                     </div>
                     <div className="route-policy-list">
-                      {(routerPolicies?.data || []).map((policy) => (
-                        <div
-                          key={policy.id}
-                          className={`route-policy${policy.id === defaultRouterPolicy?.id ? ' on' : ''}${policy.available ? '' : ' gated'}`}
-                        >
-                          <span>{policy.label}</span>
-                          <b>{formatPolicyStatus(policy.status)}</b>
-                        </div>
-                      ))}
+                      {(routerPolicies?.data || []).map((policy) => {
+                        const firstGate = policy.proof_gates?.[0]
+                        return (
+                          <div
+                            key={policy.id}
+                            className={`route-policy${policy.id === defaultRouterPolicy?.id ? ' on' : ''}${policy.available ? '' : ' gated'}`}
+                          >
+                            <span>{policy.label}</span>
+                            <b>{formatPolicyStatus(policy.status)}</b>
+                            {firstGate && (
+                              <small>
+                                <Bi en="Gate" ar="البوابة" />: {firstGate.label} · {formatPolicyStatus(firstGate.status)}
+                              </small>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                     <div className="route-note mono">
                       <Bi
                         en={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'read-only routing catalog'}
                         ar={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'كتالوج توجيه للقراءة فقط'}
                       />
+                    </div>
+                    <div className="route-proof-note">
+                      <span><Bi en="Proof before selectable" ar="الإثبات قبل الاختيار" /></span>
+                      <b dir="ltr">{routerProofCommand}</b>
+                      {routerLiveSmokeRequired && <em><Bi en="live smoke required" ar="يلزم اختبار حي" /></em>}
                     </div>
                   </>
                 )}

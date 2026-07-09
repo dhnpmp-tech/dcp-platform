@@ -4,6 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 const {
+  ROUTING_POLICY_CLAIM_GUARDS,
+  ROUTING_POLICY_PROOF_CONTRACT,
   ROUTING_POLICY_CONTRACT_VERSION,
   buildInferenceRoutingPolicies,
   normalizeEarnedMode,
@@ -40,6 +42,8 @@ function summarizePolicy(policy) {
     current_behavior: policy.current_behavior,
     signals: policy.signals,
     runtime: policy.runtime || null,
+    selection_guard: policy.selection_guard,
+    proof_gates: policy.proof_gates || [],
     next: policy.next,
   };
 }
@@ -51,6 +55,8 @@ function summarizeContract(contract) {
     default_policy: contract.default_policy,
     request_policy_parameter: contract.request_policy_parameter,
     request_selectable: contract.request_selectable,
+    proof_contract: contract.proof_contract,
+    claim_guards: contract.claim_guards,
     policy_ids: contract.data.map((policy) => policy.id),
     policies: contract.data.map(summarizePolicy),
   };
@@ -81,6 +87,7 @@ function buildMarkdown(report) {
     env_variants: report.env_variants,
     request_resolution: report.request_resolution,
     future_policy_rejections: report.future_policy_rejections,
+    proof_contract: report.proof_contract,
     claims: report.claims,
   }, null, 2));
   lines.push('```');
@@ -133,16 +140,8 @@ function runRouterPolicyContractProof(options = {}) {
     verdict: 'FAIL',
     command: 'npm run proof:router-policy-contract',
     mode: 'ci_safe_service_contract',
-    claims: {
-      changes_provider_selection: false,
-      enables_future_policy_selection: false,
-      enables_price_optimized_routing: false,
-      enables_geo_residency_routing: false,
-      enables_coding_or_arabic_classifier_routing: false,
-      changes_billing_or_settlement: false,
-      proves_live_latency_ordering: false,
-      proves_tinker_compatibility: false,
-    },
+    proof_contract: ROUTING_POLICY_PROOF_CONTRACT,
+    claims: { ...ROUTING_POLICY_CLAIM_GUARDS },
     invariants: [],
     catalog: {},
     env_variants: {},
@@ -174,11 +173,16 @@ function runRouterPolicyContractProof(options = {}) {
         && strictCatalog.default_policy === 'balanced'
         && strictCatalog.request_policy_parameter === null
         && strictCatalog.request_selectable === false
+        && strictCatalog.proof_contract.command === 'npm run proof:router-policy-contract'
+        && strictCatalog.proof_contract.live_smoke_required_before_selectable === true
+        && Object.values(strictCatalog.claim_guards).every((value) => value === false)
         && policyIds.join(',') === 'balanced,lowest_latency,cheapest,saudi_only,coding,arabic'
         && balanced
         && balanced.available === true
         && balanced.default === true
         && balanced.request_selectable === false
+        && balanced.selection_guard === 'accepted_noop_only'
+        && balanced.proof_gates.some((gate) => gate.id === 'balanced_noop_contract' && gate.status === 'ci_safe')
         && stagedPolicies.every((policy) => policy.available === false && policy.request_selectable === false),
       'The public catalog advertises readiness states only; future policies are not selectable or available.',
     );
@@ -272,6 +276,8 @@ function runRouterPolicyContractProof(options = {}) {
         policy_status: result.policy && result.policy.status,
         policy_available: result.policy && result.policy.available,
         policy_request_selectable: result.policy && result.policy.request_selectable,
+        policy_selection_guard: result.policy && result.policy.selection_guard,
+        policy_proof_gates: result.policy && result.policy.proof_gates,
       };
     }
     const unknown = resolveRequestedRoutingPolicy({ route_policy: 'moonshot' });
@@ -297,7 +303,10 @@ function runRouterPolicyContractProof(options = {}) {
         && entry.httpStatus === 400
         && entry.code === 'routing_policy_not_selectable'
         && entry.policy_available === false
-        && entry.policy_request_selectable === false)
+        && entry.policy_request_selectable === false
+        && entry.policy_selection_guard === 'not_request_selectable_until_policy_specific_proof'
+        && Array.isArray(entry.policy_proof_gates)
+        && entry.policy_proof_gates.length >= 2)
         && unknown.ok === false
         && unknown.code === 'unknown_routing_policy'
         && invalid.ok === false
@@ -314,16 +323,22 @@ function runRouterPolicyContractProof(options = {}) {
       'specialized policy claims remain gated until policy-specific tests and smokes exist',
       cheapest.status === 'not_enabled'
         && cheapest.signals.includes('model_token_pricing')
+        && cheapest.proof_gates.some((gate) => gate.id === 'settlement_math_reconciliation')
         && saudiOnly.status === 'gated'
         && saudiOnly.signals.includes('provider_country')
+        && saudiOnly.proof_gates.some((gate) => gate.id === 'provider_geo_audit')
         && coding.status === 'catalog_only'
         && coding.signals.includes('curated_coding_catalog')
+        && coding.proof_gates.some((gate) => gate.id === 'agent_path_smoke')
         && arabic.status === 'catalog_only'
         && arabic.signals.includes('arabic_portfolio_tier')
+        && arabic.proof_gates.some((gate) => gate.id === 'arabic_benchmark_freshness')
         && lowestLatency.status === 'telemetry_gate_only'
         && lowestLatency.available === false
+        && lowestLatency.proof_gates.some((gate) => gate.id === 'policy_specific_route_tests')
+        && strictCatalog.data.every((policy) => Array.isArray(policy.proof_gates) && policy.proof_gates.length > 0)
         && Object.values(report.claims).every((value) => value === false),
-      'Cost, residency, coding, Arabic, and strict latency policies remain readiness metadata only.',
+      'Cost, residency, coding, Arabic, and strict latency policies name their proof gates while remaining readiness metadata only.',
     );
 
     report.verdict = 'PASS';

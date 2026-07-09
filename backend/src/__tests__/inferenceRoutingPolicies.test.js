@@ -27,6 +27,20 @@ describe('inference routing policy catalog', () => {
       default_policy: 'balanced',
       request_policy_parameter: null,
       request_selectable: false,
+      proof_contract: {
+        command: 'npm run proof:router-policy-contract',
+        live_smoke_required_before_selectable: true,
+      },
+      claim_guards: {
+        changes_provider_selection: false,
+        enables_future_policy_selection: false,
+        enables_price_optimized_routing: false,
+        enables_geo_residency_routing: false,
+        enables_coding_or_arabic_classifier_routing: false,
+        changes_billing_or_settlement: false,
+        proves_live_latency_ordering: false,
+        proves_tinker_compatibility: false,
+      },
     });
     expect(contract.data.map((policy) => policy.id)).toEqual([
       'balanced',
@@ -41,20 +55,41 @@ describe('inference routing policy catalog', () => {
       available: true,
       default: true,
       request_selectable: false,
+      selection_guard: 'accepted_noop_only',
       runtime: {
         earned_routing_mode: 'strict',
         latency_gate_enabled: true,
       },
     });
+    expect(contract.data.find((policy) => policy.id === 'balanced').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'balanced_noop_contract', status: 'ci_safe' }),
+      expect.objectContaining({ id: 'future_policy_fail_closed', status: 'ci_safe' }),
+    ]));
     expect(contract.data.find((policy) => policy.id === 'lowest_latency')).toMatchObject({
       status: 'telemetry_gate_only',
       available: false,
       request_selectable: false,
+      selection_guard: 'not_request_selectable_until_policy_specific_proof',
     });
+    expect(contract.data.find((policy) => policy.id === 'lowest_latency').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'latency_telemetry_visibility', status: 'telemetry_gate_only' }),
+      expect.objectContaining({ id: 'policy_specific_route_tests', status: 'required' }),
+      expect.objectContaining({ id: 'funded_policy_live_smoke', status: 'blocked_external' }),
+    ]));
+    expect(contract.data.find((policy) => policy.id === 'cheapest').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'settlement_math_reconciliation', status: 'required' }),
+    ]));
     expect(contract.data.find((policy) => policy.id === 'coding')).toMatchObject({
       status: 'catalog_only',
       available: false,
+      selection_guard: 'not_request_selectable_until_policy_specific_proof',
     });
+    expect(contract.data.find((policy) => policy.id === 'coding').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'agent_path_smoke', status: 'required' }),
+    ]));
+    expect(contract.data.find((policy) => policy.id === 'arabic').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'arabic_benchmark_freshness', status: 'required' }),
+    ]));
   });
 
   test('marks latency policy gated when latency gate is disabled', () => {
@@ -66,6 +101,9 @@ describe('inference routing policy catalog', () => {
       status: 'gated',
       current_behavior: 'latency gate disabled by environment',
     });
+    expect(contract.data.find((policy) => policy.id === 'lowest_latency').proof_gates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'latency_telemetry_visibility', status: 'gated_by_env' }),
+    ]));
   });
 
   test('allows explicit balanced policy and rejects staged policies', () => {

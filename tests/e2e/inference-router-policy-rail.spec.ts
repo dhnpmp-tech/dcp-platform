@@ -96,6 +96,26 @@ test('public inference page renders live router policy readiness', async ({ page
       version: 'dcp.inference_routing_policies.v1',
       default_policy: 'balanced',
       request_selectable: false,
+      proof_contract: {
+        command: 'npm run proof:router-policy-contract',
+        mode: 'ci_safe_service_contract',
+        live_smoke_required_before_selectable: true,
+        required_before_future_policy_selectable: [
+          'policy_specific_route_tests',
+          'funded_policy_live_smoke',
+          'pricing_or_residency_or_classifier_evidence_for_specialized_policies',
+        ],
+      },
+      claim_guards: {
+        changes_provider_selection: false,
+        enables_future_policy_selection: false,
+        enables_price_optimized_routing: false,
+        enables_geo_residency_routing: false,
+        enables_coding_or_arabic_classifier_routing: false,
+        changes_billing_or_settlement: false,
+        proves_live_latency_ordering: false,
+        proves_tinker_compatibility: false,
+      },
       data: [
         {
           id: 'balanced',
@@ -104,6 +124,11 @@ test('public inference page renders live router policy readiness', async ({ page
           available: true,
           default: true,
           request_selectable: false,
+          selection_guard: 'accepted_noop_only',
+          proof_gates: [
+            { id: 'balanced_noop_contract', label: 'Balanced no-op contract', status: 'ci_safe', required: true },
+            { id: 'future_policy_fail_closed', label: 'Future policy fail-closed', status: 'ci_safe', required: true },
+          ],
         },
         {
           id: 'lowest_latency',
@@ -111,6 +136,12 @@ test('public inference page renders live router policy readiness', async ({ page
           status: 'telemetry_gate_only',
           available: false,
           request_selectable: false,
+          selection_guard: 'not_request_selectable_until_policy_specific_proof',
+          proof_gates: [
+            { id: 'latency_telemetry_visibility', label: 'Latency telemetry visibility', status: 'telemetry_gate_only', required: true },
+            { id: 'policy_specific_route_tests', label: 'Policy-specific route tests', status: 'required', required: true },
+            { id: 'funded_policy_live_smoke', label: 'Funded policy live smoke', status: 'blocked_external', required: true },
+          ],
         },
         {
           id: 'arabic',
@@ -118,6 +149,12 @@ test('public inference page renders live router policy readiness', async ({ page
           status: 'catalog_only',
           available: false,
           request_selectable: false,
+          selection_guard: 'not_request_selectable_until_policy_specific_proof',
+          proof_gates: [
+            { id: 'arabic_benchmark_freshness', label: 'Arabic benchmark freshness', status: 'required', required: true },
+            { id: 'language_classifier_tests', label: 'Language classifier tests', status: 'required', required: true },
+            { id: 'funded_policy_live_smoke', label: 'Funded policy live smoke', status: 'blocked_external', required: true },
+          ],
         },
       ],
     }),
@@ -134,9 +171,16 @@ test('public inference page renders live router policy readiness', async ({ page
   await expect(policyRail).toContainText('1/3');
   await expect(policyRail).toContainText('Gated policies');
   await expect(policyRail).toContainText('2');
+  await expect(policyRail).toContainText('Proof gates');
+  await expect(policyRail).toContainText('8');
   await expect(policyRail).toContainText('Lowest latency');
   await expect(policyRail).toContainText('telemetry gate only');
   await expect(policyRail).toContainText('not selectable');
+  await expect(policyRail).toContainText('Gate: Latency telemetry visibility');
+  await expect(policyRail).toContainText('Gate: Arabic benchmark freshness');
+  await expect(policyRail).toContainText('Proof before selectable');
+  await expect(policyRail).toContainText('npm run proof:router-policy-contract');
+  await expect(policyRail).toContainText('live smoke required');
   const promptCacheRail = page.locator('.inference-prompt-cache-live');
   await expect(promptCacheRail).toContainText('Prompt-cache settlement gates');
   await expect(promptCacheRail).toContainText('prompt_cache_provider_discount_smoke');
