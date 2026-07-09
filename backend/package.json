@@ -46,6 +46,7 @@
     "test:reliability:prompt-cache-contract-proof": "npm run native:ensure:better-sqlite3 && node tests/prompt-cache-contract-proof.js",
     "test:reliability:prompt-cache-live-settlement-proof": "node tests/prompt-cache-live-settlement-proof.js",
     "test:reliability:router-policy-contract-proof": "node tests/router-policy-contract-proof.js",
+    "test:reliability:model-catalog-parity-proof": "node tests/model-catalog-parity-proof.js",
     "test:reliability:evaluator-readiness-contract-proof": "node tests/evaluator-readiness-contract-proof.js",
     "test:reliability:evaluator-job-schema-contract-proof": "node tests/evaluator-job-schema-contract-proof.js",
     "test:reliability:evaluator-job-metadata-contract-proof": "node tests/evaluator-job-metadata-contract-proof.js",

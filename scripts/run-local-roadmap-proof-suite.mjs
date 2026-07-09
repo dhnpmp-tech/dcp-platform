@@ -40,6 +40,11 @@ const CI_SAFE_GATES = Object.freeze([
     outputEnv: 'DCP_ROUTER_POLICY_PROOF_OUTPUT_DIR',
   },
   {
+    id: 'model_catalog_parity',
+    command: 'npm run proof:model-catalog-parity',
+    outputEnv: 'DCP_MODEL_CATALOG_PARITY_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'evaluator_readiness_contract',
     command: 'npm run proof:evaluator-readiness-contract',
     outputEnv: 'DCP_EVALUATOR_READINESS_PROOF_OUTPUT_DIR',
