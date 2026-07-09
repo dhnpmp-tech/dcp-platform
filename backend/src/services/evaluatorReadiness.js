@@ -6,6 +6,7 @@ const { EVALUATOR_RESULT_MANIFEST_VERSION } = require('./evaluatorResultManifest
 const { EVALUATOR_RESULT_WRITER_DRY_RUN_VERSION } = require('./evaluatorResultWriterDryRun');
 const { EVALUATOR_WORKER_DRY_RUN_FIXTURE_VERSION } = require('./evaluatorWorkerDryRunFixture');
 const { EVALUATOR_ARTIFACT_STORAGE_POLICY_VERSION } = require('./evaluatorArtifactStoragePolicy');
+const { EVALUATOR_RESULT_ACCESS_POLICY_VERSION } = require('./evaluatorResultAccessPolicy');
 
 const EVALUATOR_READINESS_VERSION = 'dcp.evaluator_readiness.v1';
 
@@ -22,6 +23,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       result_manifest_schema: 'GET /api/evals/results/schema',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       result_artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
+      result_access_readiness: 'GET /api/evals/results/access/readiness',
       benchmark_readiness: 'GET /api/models/benchmarks/readiness',
       benchmark_feed: 'GET /api/models/benchmarks',
       product_page: 'GET /benchmarks',
@@ -116,6 +118,24 @@ function buildEvaluatorReadiness(now = new Date()) {
           'retention and deletion policy',
         ],
       },
+      eval_result_access_policy: {
+        status: 'authorization_policy_contract_only',
+        available: true,
+        version: EVALUATOR_RESULT_ACCESS_POLICY_VERSION,
+        readiness_endpoint: 'GET /api/evals/results/access/readiness',
+        future_result_endpoint: 'GET /api/evals/jobs/:id/results',
+        result_endpoint_live: false,
+        signed_downloads_enabled: false,
+        renter_auth_required: true,
+        renter_owner_match_required: true,
+        result_available_required: true,
+        required_before_enablement: [
+          'disabled result endpoint route',
+          'artifact storage policy enforcement',
+          'signed download smoke proof',
+          'result endpoint audit log',
+        ],
+      },
       dataset_artifacts: {
         status: 'gated_storage_policy',
         available: false,
@@ -169,6 +189,7 @@ function buildEvaluatorReadiness(now = new Date()) {
       eval_result_manifest_schema_live: true,
       eval_result_writer_dry_run_live: true,
       eval_result_artifact_storage_policy_live: true,
+      eval_result_access_policy_live: true,
       arabic_quality_claim_allowed: false,
       customer_case_study_allowed: false,
       model_ranking_allowed: false,

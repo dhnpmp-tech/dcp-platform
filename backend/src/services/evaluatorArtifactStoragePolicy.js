@@ -25,6 +25,7 @@ function buildEvaluatorArtifactStoragePolicyReadiness(now = new Date()) {
     current_mode: 'policy_contract_only',
     endpoints: {
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
+      result_access_readiness: 'GET /api/evals/results/access/readiness',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',
       worker_readiness: 'GET /api/evals/worker/readiness',
@@ -69,6 +70,7 @@ function buildEvaluatorArtifactStoragePolicyReadiness(now = new Date()) {
     },
     next_actions: [
       'Add a production object-store writer only after this policy is enforced by the worker.',
+      'Enforce result access authorization before signed result downloads.',
       'Add signed result download smoke only after result endpoint authorization is approved.',
       'Keep public reports gated until artifact checksums, human review, and baseline policy exist.',
     ],

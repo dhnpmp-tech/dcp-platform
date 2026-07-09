@@ -3935,7 +3935,7 @@ paths:
                       billing_hook_enabled: { type: boolean, example: false }
                       dry_run_fixture_available: { type: boolean, example: true }
                       dry_run_fixture_version: { type: string, example: dcp.evaluator_worker_dry_run_fixture.v1 }
-                      dry_run_fixture_command: { type: string, example: npm run proof:evaluator-worker-dry-run-fixture }
+                      dry_run_fixture_command: { type: string, example: "npm run proof:evaluator-worker-dry-run-fixture" }
                   job_status_policy:
                     type: object
                     additionalProperties: true
@@ -3945,7 +3945,7 @@ paths:
                     properties:
                       endpoint_live: { type: boolean, example: false }
                       writer_readiness_endpoint: { type: string, example: GET /api/evals/results/writer/readiness }
-                      dry_run_fixture_command: { type: string, example: npm run proof:evaluator-worker-dry-run-fixture }
+                      dry_run_fixture_command: { type: string, example: "npm run proof:evaluator-worker-dry-run-fixture" }
                   dry_run_fixture:
                     type: object
                     additionalProperties: true
@@ -3961,7 +3961,7 @@ paths:
                         enum: [simulated_queue_fixture_only]
                       command:
                         type: string
-                        example: npm run proof:evaluator-worker-dry-run-fixture
+                        example: "npm run proof:evaluator-worker-dry-run-fixture"
                   claim_guards:
                     type: object
                     additionalProperties: false
@@ -4016,6 +4016,7 @@ paths:
                       production_writer_enabled: { type: boolean, example: false }
                       result_endpoint_live: { type: boolean, example: false }
                       artifact_storage_policy_endpoint: { type: string, example: GET /api/evals/results/artifacts/readiness }
+                      result_access_policy_endpoint: { type: string, example: GET /api/evals/results/access/readiness }
                       writes_temp_manifest_only: { type: boolean, example: true }
                   manifest_policy:
                     type: object
@@ -4096,6 +4097,78 @@ paths:
                       exposes_result_endpoint: { type: boolean, example: false }
                       stores_raw_customer_dataset: { type: boolean, example: false }
                       stores_raw_prompts_or_completions: { type: boolean, example: false }
+                      bills_eval_jobs: { type: boolean, example: false }
+                      settles_eval_jobs: { type: boolean, example: false }
+                      publishes_public_report: { type: boolean, example: false }
+                      model_ranking_allowed: { type: boolean, example: false }
+                      arabic_quality_claim_allowed: { type: boolean, example: false }
+
+  /api/evals/results/access/readiness:
+    get:
+      tags: [Benchmarks]
+      summary: Get evaluator result access policy readiness
+      description: |
+        Returns a public, read-only authorization policy contract for future
+        evaluator result access. It proves renter ownership, result availability,
+        artifact storage policy, and checksum guards are required before any
+        result endpoint or signed download can go live. Result endpoints, signed
+        downloads, billing, reports, rankings, and Arabic-quality claims remain
+        disabled.
+      responses:
+        '200':
+          description: Evaluator result access policy readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, access_policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [evaluator_result_access_policy_readiness]
+                  version:
+                    type: string
+                    example: dcp.evaluator_result_access_policy.v1
+                  current_mode:
+                    type: string
+                    enum: [authorization_policy_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  access_policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      policy_available: { type: boolean, example: true }
+                      result_endpoint_live: { type: boolean, example: false }
+                      signed_downloads_enabled: { type: boolean, example: false }
+                      renter_auth_required: { type: boolean, example: true }
+                      renter_owner_match_required: { type: boolean, example: true }
+                      result_available_required: { type: boolean, example: true }
+                      artifact_policy_required: { type: boolean, example: true }
+                      checksum_required: { type: boolean, example: true }
+                      admin_override_enabled: { type: boolean, example: false }
+                      public_report_access_enabled: { type: boolean, example: false }
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                    example:
+                      - evaluator_result_endpoint_disabled
+                      - evaluator_result_owner_mismatch
+                      - evaluator_result_not_available
+                      - evaluator_result_artifact_policy_invalid
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      policy_contract_live: { type: boolean, example: true }
+                      result_endpoint_live: { type: boolean, example: false }
+                      signed_downloads_enabled: { type: boolean, example: false }
+                      exposes_result_endpoint: { type: boolean, example: false }
+                      signs_download_url: { type: boolean, example: false }
+                      allows_cross_renter_access: { type: boolean, example: false }
+                      allows_public_report_access: { type: boolean, example: false }
                       bills_eval_jobs: { type: boolean, example: false }
                       settles_eval_jobs: { type: boolean, example: false }
                       publishes_public_report: { type: boolean, example: false }

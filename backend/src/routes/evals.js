@@ -8,6 +8,7 @@ const { buildEvaluatorWorkerGate } = require('../services/evaluatorWorkerGate');
 const { buildEvaluatorResultManifestContract } = require('../services/evaluatorResultManifest');
 const { buildEvaluatorResultWriterDryRunReadiness } = require('../services/evaluatorResultWriterDryRun');
 const { buildEvaluatorArtifactStoragePolicyReadiness } = require('../services/evaluatorArtifactStoragePolicy');
+const { buildEvaluatorResultAccessPolicyReadiness } = require('../services/evaluatorResultAccessPolicy');
 const {
   EvaluatorJobError,
   createEvaluatorJob,
@@ -90,6 +91,18 @@ function createEvalsRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch evaluator result artifact storage readiness',
         code: 'evaluator_artifact_storage_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/results/access/readiness', publicEndpointLimiter, (_req, res) => {
+    try {
+      return res.json(buildEvaluatorResultAccessPolicyReadiness(new Date()));
+    } catch (error) {
+      console.error('[evals] result access readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch evaluator result access readiness',
+        code: 'evaluator_result_access_readiness_internal_error',
       });
     }
   });

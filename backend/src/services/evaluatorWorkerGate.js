@@ -21,6 +21,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       result_manifest_schema: 'GET /api/evals/results/schema',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
+      result_access_readiness: 'GET /api/evals/results/access/readiness',
       metadata_jobs: 'POST/GET /api/evals/jobs',
       future_result_manifest: 'GET /api/evals/jobs/:id/results',
     },
@@ -55,6 +56,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
       schema_endpoint: 'GET /api/evals/results/schema',
       writer_readiness_endpoint: 'GET /api/evals/results/writer/readiness',
       artifact_storage_readiness_endpoint: 'GET /api/evals/results/artifacts/readiness',
+      result_access_readiness_endpoint: 'GET /api/evals/results/access/readiness',
       dry_run_fixture_command: dryRunFixture.command,
       manifest_required_before_enablement: true,
       manifest_required_fields: [
@@ -87,6 +89,7 @@ function buildEvaluatorWorkerGate(now = new Date()) {
     next_actions: [
       'Replace the simulated worker fixture with a real disabled worker dry-run before any job leaves draft status.',
       'Enforce tenant artifact storage policy before any result endpoint becomes live.',
+      'Enforce renter ownership result access policy before signed downloads become live.',
       'Add billing/refund proof before any evaluator budget is charged.',
     ],
   };
