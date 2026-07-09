@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-09 00:32 UTC - dcp-agent VPS-local inventory fix (PR #846)
+
+- **PR:** [#846](https://github.com/dhnpmp-tech/dcp-platform/pull/846) (`codex/dcp-agent-vps-local-inventory-2026-07-09`).
+- **Fix:** `DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation` now inventories `/root/dc1-platform` directly when running on VPS2, instead of attempting SSH back to the same host.
+- **Coverage:** Added Jest coverage for the local-path VPS inventory path.
+- **Safety:** Still read-only; no gateway process, installer artifact, production file, self-update manifest, runtime service, frontend, billing, inference, pod, or product claim behavior changed.
+- **Verification:** Targeted Jest suite; package script parse; `node --check`; `git diff --check`.
+
 ### 2026-07-09 00:27 UTC - dcp-agent reconciliation status packet (PR #844)
 
 - **PR:** [#844](https://github.com/dhnpmp-tech/dcp-platform/pull/844) (`codex/dcp-agent-reconciliation-status-2026-07-09`).
