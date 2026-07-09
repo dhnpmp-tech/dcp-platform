@@ -365,6 +365,21 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   text-transform: uppercase;
   border-radius: 2px;
 }
+.pod-policy-state.ready {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 10%, var(--bg-2));
+}
+.pod-policy-state.loading {
+  border-color: color-mix(in oklab, var(--rt-accent) 48%, var(--hair));
+  color: var(--ink-2);
+}
+.pod-policy-state.fallback,
+.pod-policy-note {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair));
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink));
+  background: color-mix(in oklab, var(--orange) 8%, var(--bg-2));
+}
 .pod-auto-pick {
   cursor: pointer;
   color: var(--rt-accent);

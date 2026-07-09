@@ -44,6 +44,33 @@ async function mockPodsApis(page: Page) {
       });
     }
 
+    if (path === '/api/pods/trial-routing/readiness') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'pod_trial_routing_readiness',
+          version: 'dcp.pod_trial_routing_readiness.v1',
+          routing_policy: {
+            trial_capacity_copy: 'Trial credit: native/community GPUs',
+            high_demand_capacity_copy: 'High-demand capacity: paid credit only',
+            provider_visibility: {
+              exposes_provider_id_to_renter: false,
+              exposes_vendor_to_renter: false,
+              exposes_supply_tier_to_renter: false,
+            },
+          },
+          claim_guards: {
+            launches_pod: false,
+            mutates_balance: false,
+            changes_billing: false,
+            changes_trial_accounting: false,
+            exposes_vendor_or_provider: false,
+          },
+        }),
+      });
+    }
+
     if (path === '/api/renters/me') {
       return route.fulfill({
         status: 200,
@@ -138,8 +165,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   const computeSummary = page.locator('.pod-compute-summary');
   await expect(computeSummary).toContainText('Selected compute');
   await expect(computeSummary).toContainText('Auto-pick at launch');
-  await expect(computeSummary).toContainText('Trial credit: DCP/community capacity');
-  await expect(computeSummary).toContainText('High-demand capacity: paid credit');
+  await expect(computeSummary).toContainText('Credit policy: synced');
+  await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
+  await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
 
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
   await expect(computeSummary).toContainText('RTX 4090');

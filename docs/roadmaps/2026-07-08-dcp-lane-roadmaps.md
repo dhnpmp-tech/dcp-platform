@@ -148,6 +148,10 @@ what is live.
   vs paid-credit routing policy explicit while launch mutation, billing,
   balance mutation, trial-accounting mutation, provider selection changes, and
   vendor/provider/supply-tier exposure remain blocked.
+- PR #877 wires `/renter/pods` Stage 2 to
+  `GET /api/pods/trial-routing/readiness`, showing a synced/fallback credit
+  policy chip and backend-approved trial/high-demand copy without exposing
+  trial-tag internals, provider ids, vendors, or supply tiers.
 
 ### Now
 
