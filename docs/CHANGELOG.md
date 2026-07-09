@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 01:50 UTC - Benchmarks readiness rail (PR #852)
+
+- **PR:** [#852](https://github.com/dhnpmp-tech/dcp-platform/pull/852) (`codex/benchmark-readiness-page-2026-07-09`).
+- **Backend:** Added `GET /api/models/benchmarks/readiness`, a claim-safe contract summarizing live measured benchmark rows, latency/quality/cost readiness, evaluator-job gates, and explicit public-claim guards.
+- **Frontend:** Added the public `/benchmarks` product page and wired Benchmarks into shared navigation, sitemap, footer, and `llms.txt`.
+- **Roadmap:** Advances the Fireworks-style Benchmarks/Evals rail while keeping Arabic-quality claims, case studies, rankings, and frontier comparisons blocked until reproducible artifacts exist.
+- **Safety:** Read-only endpoint and display-only page; no benchmark ingestion, model catalog availability, billing, provider routing, inference execution, settlement, pod, LoRA, adapter, or public quality-claim behavior changed.
+- **Verification:** Syntax/whitespace checks, targeted model benchmark/catalog Jest suites, TypeScript, Next build, backend-context endpoint smoke, and local roadmap proof.
+
 ### 2026-07-09 01:36 UTC - Scoped key usage rollups (PR #851)
 
 - **PR:** [#851](https://github.com/dhnpmp-tech/dcp-platform/pull/851) (`codex/scoped-key-usage-rollups-2026-07-09`).

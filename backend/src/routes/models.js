@@ -733,6 +733,110 @@ function toBenchmarksEntry(model) {
   };
 }
 
+function hasMetric(value) {
+  return Number.isFinite(Number(value));
+}
+
+function buildBenchmarkReadiness(benchmarkEntries, generatedAt = new Date()) {
+  const entries = Array.isArray(benchmarkEntries) ? benchmarkEntries : [];
+  const liveMeasuredEntries = entries.filter((entry) => entry.measured_at);
+  const liveLatencyEntries = entries.filter((entry) => (
+    entry.measured_at
+      && (hasMetric(entry.latency_ms?.p50)
+        || hasMetric(entry.latency_ms?.p95)
+        || hasMetric(entry.latency_ms?.p99))
+  ));
+  const liveQualityEntries = entries.filter((entry) => (
+    entry.measured_at
+      && (hasMetric(entry.arabic_quality?.arabic_mmlu_score)
+        || hasMetric(entry.arabic_quality?.arabicaqa_score))
+  ));
+  const liveCostEntries = entries.filter((entry) => entry.measured_at && hasMetric(entry.cost_per_1k_tokens_sar));
+  const launchReadyEntries = entries.filter((entry) => entry.launch_ready === true);
+
+  return {
+    object: 'benchmark_readiness',
+    version: 'dcp.benchmark_readiness.v1',
+    generated_at: generatedAt.toISOString(),
+    benchmark_suite: 'saudi-arabic-v1',
+    source_endpoints: {
+      benchmark_feed: 'GET /api/models/benchmarks',
+      model_catalog: 'GET /v1/models',
+      status_page: 'GET /status',
+      product_page: 'GET /benchmarks',
+    },
+    summary: {
+      total_models: entries.length,
+      live_measured_models: liveMeasuredEntries.length,
+      live_latency_rows: liveLatencyEntries.length,
+      live_quality_rows: liveQualityEntries.length,
+      live_cost_rows: liveCostEntries.length,
+      launch_ready_models: launchReadyEntries.length,
+      public_quality_claim_allowed: false,
+    },
+    features: {
+      model_latency_feed: {
+        status: liveLatencyEntries.length > 0 ? 'live_measurements_visible' : 'metadata_only',
+        available: liveLatencyEntries.length > 0,
+        endpoint: '/api/models/benchmarks',
+        claim_scope: 'Per-model latency is shown only for live-provider rows with measured_at.',
+      },
+      provider_benchmark_contract: {
+        status: 'contract_visible',
+        available: true,
+        endpoint: '/api/benchmark',
+        claim_scope: 'Provider benchmark records support fleet quality work; GPU-host proof is still required before public score claims.',
+      },
+      arabic_quality_benchmarks: {
+        status: 'gated_reproducibility',
+        available: false,
+        measured_rows: liveQualityEntries.length,
+        required_evidence: [
+          'approved Saudi Arabic task dataset',
+          'fixed prompt/eval harness',
+          'model/version/provider commit metadata',
+          'artifact checksum and run report',
+          'side-by-side baseline policy approval',
+        ],
+      },
+      customer_evaluator_jobs: {
+        status: 'coming_next',
+        available: false,
+        api_available: false,
+        required_evidence: [
+          'renter-scoped eval job schema',
+          'dataset/result artifact storage',
+          'billing/no-billing policy',
+          'redacted public report format',
+        ],
+      },
+      cost_residency_comparison: {
+        status: 'gated_artifact',
+        available: false,
+        required_evidence: [
+          'same input/output workload across providers',
+          'DCP settlement proof',
+          'external baseline source link',
+          'residency boundary statement',
+        ],
+      },
+    },
+    claim_guards: {
+      seeded_profile_claim_allowed: false,
+      arabic_quality_claim_allowed: false,
+      frontier_model_comparison_allowed: false,
+      customer_case_study_allowed: false,
+      public_ranking_allowed: false,
+    },
+    next_actions: [
+      'Publish the /benchmarks product page as a claim-safe readiness rail.',
+      'Promote a reproducible Saudi customer-support eval harness before any quality claim.',
+      'Attach artifact checksums and baseline metadata before publishing comparison content.',
+      'Keep /api/models/benchmarks metrics null for models without live provider measurement.',
+    ],
+  };
+}
+
 function toCardEntry(model) {
   // Honesty: a card's metrics + summary must reflect a live measurement, not a
   // seeded/inverted benchmark row. Gate on a live provider AND a real
@@ -933,6 +1037,18 @@ router.get('/benchmarks', publicEndpointLimiter, (req, res) => {
   } catch (error) {
     console.error('Model benchmark feed error:', error);
     return res.status(500).json({ error: 'Failed to fetch model benchmark feed' });
+  }
+});
+
+// GET /api/models/benchmarks/readiness
+// Claim-safe readiness contract for public Benchmarks/Evals packaging.
+router.get('/benchmarks/readiness', publicEndpointLimiter, (req, res) => {
+  try {
+    const entries = getCatalogModels().map(toBenchmarksEntry);
+    return res.json(buildBenchmarkReadiness(entries));
+  } catch (error) {
+    console.error('Model benchmark readiness error:', error);
+    return res.status(500).json({ error: 'Failed to fetch model benchmark readiness' });
   }
 });
 
@@ -1255,6 +1371,7 @@ router.get(/^\/([a-zA-Z0-9._/-]+)$/, publicEndpointLimiter, (req, res) => {
 router.invalidateCatalogCache = invalidateCatalogCache;
 router.__test = {
   applyEarnedCatalogPolicy,
+  buildBenchmarkReadiness,
   parseCachedModels,
   providerCanServeModel,
   resolveEarnedCatalogMode,

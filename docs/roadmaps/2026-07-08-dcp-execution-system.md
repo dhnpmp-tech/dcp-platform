@@ -224,6 +224,10 @@ before or with the feature change.
    - Gate: public pages, renter dashboards, pricing, playground, docs, and
      `llms.txt` all derive from or link to shipped contracts.
    - Product copy must say "coming next" for every gate that is blocked.
+   - Benchmarks/Evals starts in PR #852 with public `/benchmarks` and
+     `GET /api/models/benchmarks/readiness`, keeping Arabic-quality claims,
+     rankings, case studies, and frontier comparisons blocked until
+     reproducible artifacts exist.
 
 ## Lane Gates
 

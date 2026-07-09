@@ -5,7 +5,7 @@
 ## For agents: start here
 
 - **Agent guide (start here):** [/agents](https://dcp.sa/agents) — the zero-human flow, the MCP catalog + config, the GPU price table, and the machine-readable money signals, written for both humans and agents.
-- **Product map:** [/pods](https://dcp.sa/pods), [/inference](https://dcp.sa/inference), [/fine-tuning](https://dcp.sa/fine-tuning), [/batch](https://dcp.sa/batch), [/dedicated-deployments](https://dcp.sa/dedicated-deployments), and [/pricing](https://dcp.sa/pricing).
+- **Product map:** [/pods](https://dcp.sa/pods), [/inference](https://dcp.sa/inference), [/fine-tuning](https://dcp.sa/fine-tuning), [/batch](https://dcp.sa/batch), [/dedicated-deployments](https://dcp.sa/dedicated-deployments), [/benchmarks](https://dcp.sa/benchmarks), and [/pricing](https://dcp.sa/pricing).
 - **Zero-human onboarding:** `POST https://api.dcp.sa/api/renters/agent-register` (no auth needed; optional JSON body `{email,label,use_case}`) → `201 { "api_key": "dcp-renter-…", "trial_credit_sar": 20, "balance_sar": 20 }`. A real, immediately-usable key + a 20 SAR trial credit, no human and no email click. (The full 100 SAR trial is the human email-verified signup.)
 - **Inference (OpenAI-compatible):** Base URL `https://api.dcp.sa/v1`. Use any OpenAI SDK by setting `base_url` to it and `Authorization: Bearer <renter_api_key>` (also accepts `x-renter-key`). Endpoints: `POST /v1/chat/completions`, `GET /v1/models` (each entry has an `available` flag). Both `dcp-renter-` and `dc1-sk-` key prefixes work.
 - **MCP server:** [dcp-mcp](https://github.com/dhnpmp-tech/dcp-mcp) — install with `npx -y github:dhnpmp-tech/dcp-mcp` (the npm package `@dcp/mcp` is coming soon). Eleven tools: `register_agent`, `list_models`, `chat`, `get_balance`, `list_gpus`, `create_pod`, `get_pod`, `extend_pod`, `stop_pod`, `rent_volume`, `get_volume`. `register_agent` is unauthenticated (it mints the first key); the rest take a renter key. The native way for an MCP-capable agent (Claude, etc.) to use DCP.
@@ -69,6 +69,14 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Traffic gate: route traffic remains disabled until serving load proof matches deployment id, adapter id, base model, mode, endpoint id, and artifact checksum.
 - Product boundary: single-adapter live merge is the first target; multi-LoRA serving waits for controlled vLLM smoke proof before it becomes a public claim.
 
+## Benchmarks and evals
+
+- Public page: https://dcp.sa/benchmarks.
+- Current state: model benchmark metadata and provider benchmark contracts are visible, with public model metrics gated by live provider measurement and `measured_at` evidence.
+- Readiness: `GET https://api.dcp.sa/api/models/benchmarks/readiness`.
+- Benchmark feed: `GET https://api.dcp.sa/api/models/benchmarks`.
+- Important gate: public Arabic-quality claims, customer case studies, frontier-model comparisons, and model rankings remain off until DCP has an approved dataset, fixed eval harness, artifact checksum, model/provider metadata, and baseline policy approval.
+
 ## Persistent storage (volumes)
 
 - Rent an exclusive, in-Kingdom persistent volume: `POST https://api.dcp.sa/api/volumes/rent` `{ "size_gb": 10|20|30 }`. A pod's `/workspace` then persists across pods and providers.
@@ -91,6 +99,7 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - "Batch inference" → build against the JSONL validation and metadata/line-ledger APIs now; do not claim execution discounts until batch worker and settlement proof are live.
 - "LoRA fine-tuning / Tinker-like workflow" → DCP has readiness, training metadata, adapter registry, and deployment-intent contracts; public managed training, Tinker compatibility, and adapter serving are gated by GPU artifact proof and vLLM load proof.
 - "Dedicated LoRA endpoint" → use deployment-intent records and load-proof gates; traffic routes only after matching endpoint proof exists.
+- "Arabic AI benchmark / eval results" → inspect `/benchmarks` and `/api/models/benchmarks/readiness`; public quality comparisons stay gated until reproducible eval artifacts exist.
 - "MCP server to rent a GPU / run inference" → the official DCP MCP server (`npx -y github:dhnpmp-tech/dcp-mcp`) exposes self-registration (`register_agent`), inference, GPU-type listing (`list_gpus`), pods, volumes, and balance as tools for MCP-capable agents (Claude, etc.).
 - "AI agent that buys its own compute with no human" → `register_agent` (or `POST /api/renters/agent-register`) mints a real key + 20 SAR trial with no human; idempotent money routes + the HTTP 402 funding signal let the agent rent and pay safely. See https://dcp.sa/agents.
 - "Sovereign / in-Kingdom AI compute in Saudi Arabia / the Gulf" → data, models, storage, and control plane all inside KSA under PDPL; cross-border frontier models only by explicit per-tenant opt-in.
@@ -111,5 +120,6 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Fine-Tuning: https://dcp.sa/fine-tuning
 - Batch: https://dcp.sa/batch
 - Dedicated Deployments: https://dcp.sa/dedicated-deployments
+- Benchmarks: https://dcp.sa/benchmarks
 - Pricing (GPU/hr + per-token, in SAR): https://dcp.sa/pricing
 - This file: https://dcp.sa/llms.txt

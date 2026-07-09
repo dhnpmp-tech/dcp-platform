@@ -87,7 +87,7 @@ The parts to tighten:
 | LoRA deployment | Adapter registry + live merge/multi-LoRA | vLLM configs reference LoRA logs, but no adapter registry/API | Add adapter schema, upload API, deployment API, vLLM multi-LoRA acceptance test |
 | Batch inference | DCP Batch | Readiness/metadata contract and public page exist; execution and discounts are gated | Add async worker execution, result proof, and discounted settlement on existing job/billing primitives |
 | Prompt caching | DCP cached input discount | Hash-only measurement, usage fields, and readiness contract exist; discounts are gated | Add settlement proof and provider cache-hit evidence before discounting |
-| Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist | Add customer-facing eval jobs and published Arabic task benchmarks |
+| Evaluators | DCP Benchmarks/Evals | Benchmark routes/scripts exist; public readiness rail starts in PR #852 | Add customer-facing eval jobs and published Arabic task benchmarks after reproducible artifacts |
 | Routers | DCP model/router selection | Basic provider routing and demand telemetry exist | Add policy-driven router objects and model fallback rules |
 | Quotas/usage export | Renter/admin controls | Account v1 cap status and scoped usage export exist; per-key budgets are gated | Add scoped-key attribution, per-key budget enforcement, and team usage pages |
 | CLI/connectors | `dcp` / `dcpconnect` | `dcp` launcher exists for Claude Code path | Extend to Codex/Cursor/OpenCode configs after Anthropic/OpenAI paths are stable |
@@ -293,6 +293,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #816 corrected the runner default to `https://api.dcp.sa` and hardened
     `/api`/`/anthropic`/`/v1` base URL normalization.
 - Publish honest benchmark pages before making quality claims.
+  - PR #852 adds `/benchmarks` and
+    `GET /api/models/benchmarks/readiness` as the claim-safe product rail for
+    model benchmark metadata, provider benchmark contracts, evaluator-job gates,
+    and public Arabic-quality claim guards.
 
 Acceptance:
 
@@ -418,6 +422,11 @@ Goal: make the product easy to understand and sell.
   - `/dedicated-deployments`
     **Added in PR #792 with deployment-intent/load-proof gates and no
     route-traffic overclaim.**
+  - `/benchmarks`
+    **Started in PR #852 with a readiness rail tied to
+    `GET /api/models/benchmarks/readiness`; public quality claims, case studies,
+    rankings, and frontier comparisons remain gated until reproducible eval
+    artifacts exist.**
 - Add GCC startup credits and case-study pipeline only after billing/product
   controls are clear.
 - Publish comparison content:
@@ -517,6 +526,12 @@ Acceptance:
     for capped scoped keys without changing account caps or master-key behavior.
     PR #851 adds scoped-key usage rollups for the Usage console while true
     team-member rollups remain gated.**
+19. **Benchmarks/Evals readiness rail** - Fireworks-style evidence surface before
+    customer-facing quality claims. **Started in PR #852 with
+    `GET /api/models/benchmarks/readiness`, public `/benchmarks`, sitemap/nav
+    wiring, and explicit guards keeping Arabic-quality claims, case studies,
+    rankings, and frontier comparisons blocked until reproducible artifacts
+    exist.**
 
 ## Division of Work
 

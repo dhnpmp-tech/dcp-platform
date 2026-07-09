@@ -177,6 +177,111 @@ describe('/api/models catalog honesty', () => {
     });
   });
 
+  test('exposes claim-safe benchmark readiness without fabricating dead metrics', async () => {
+    mockCatalog({
+      providers: [providerRow({ cached_models: JSON.stringify(['bge-m3']) })],
+    });
+
+    const app = buildApp();
+    const feed = await request(app).get('/api/models/benchmarks');
+    const readiness = await request(app).get('/api/models/benchmarks/readiness');
+
+    expect(feed.status).toBe(200);
+    expect(feed.body.models).toHaveLength(1);
+    expect(feed.body.models[0]).toMatchObject({
+      model_id: 'BAAI/bge-m3',
+      measured_at: null,
+      latency_ms: { p50: null, p95: null, p99: null },
+      arabic_quality: { arabic_mmlu_score: null, arabicaqa_score: null },
+      cost_per_1k_tokens_sar: null,
+      launch_ready: false,
+    });
+
+    expect(readiness.status).toBe(200);
+    expect(readiness.body).toMatchObject({
+      object: 'benchmark_readiness',
+      version: 'dcp.benchmark_readiness.v1',
+      benchmark_suite: 'saudi-arabic-v1',
+      summary: {
+        total_models: 1,
+        live_measured_models: 0,
+        live_latency_rows: 0,
+        live_quality_rows: 0,
+        live_cost_rows: 0,
+        launch_ready_models: 0,
+        public_quality_claim_allowed: false,
+      },
+      features: {
+        model_latency_feed: {
+          status: 'metadata_only',
+          available: false,
+          endpoint: '/api/models/benchmarks',
+        },
+        arabic_quality_benchmarks: {
+          status: 'gated_reproducibility',
+          available: false,
+          measured_rows: 0,
+        },
+        customer_evaluator_jobs: {
+          status: 'coming_next',
+          available: false,
+          api_available: false,
+        },
+      },
+      claim_guards: {
+        seeded_profile_claim_allowed: false,
+        arabic_quality_claim_allowed: false,
+        frontier_model_comparison_allowed: false,
+        customer_case_study_allowed: false,
+        public_ranking_allowed: false,
+      },
+    });
+  });
+
+  test('counts live benchmark rows while keeping public quality claims gated', async () => {
+    mockCatalog({
+      providers: [providerRow({ cached_models: JSON.stringify(['bge-m3']) })],
+      modelOverrides: {
+        benchmark_suite: 'saudi-arabic-v1',
+        latency_p50_ms: 42.2,
+        latency_p95_ms: 88.8,
+        latency_p99_ms: 121.4,
+        arabic_mmlu_score: 61.5,
+        arabicaqa_score: 72.25,
+        cost_per_1k_tokens_halala: 7,
+        vram_required_gb: 12,
+        cold_start_ms: 1400,
+        measured_at: '2026-07-09T01:55:00.000Z',
+      },
+    });
+
+    const readiness = await request(buildApp()).get('/api/models/benchmarks/readiness');
+
+    expect(readiness.status).toBe(200);
+    expect(readiness.body.summary).toMatchObject({
+      total_models: 1,
+      live_measured_models: 1,
+      live_latency_rows: 1,
+      live_quality_rows: 1,
+      live_cost_rows: 1,
+      public_quality_claim_allowed: false,
+    });
+    expect(readiness.body.features.model_latency_feed).toMatchObject({
+      status: 'live_measurements_visible',
+      available: true,
+    });
+    expect(readiness.body.features.arabic_quality_benchmarks).toMatchObject({
+      status: 'gated_reproducibility',
+      available: false,
+      measured_rows: 1,
+    });
+    expect(readiness.body.claim_guards).toMatchObject({
+      arabic_quality_claim_allowed: false,
+      frontier_model_comparison_allowed: false,
+      public_ranking_allowed: false,
+    });
+  });
+
   test('adds token pricing and proof-gated capability metadata to legacy model list', async () => {
     mockCatalog({
       providers: [providerRow({ cached_models: JSON.stringify(['bge-m3']) })],

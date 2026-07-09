@@ -16,6 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/fine-tuning',
     '/batch',
     '/dedicated-deployments',
+    '/benchmarks',
     // Compatibility URL for older GPU Pods links. Keep lower-priority but
     // discoverable while external references migrate to /pods.
     '/containers',
