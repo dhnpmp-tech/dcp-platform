@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 03:46 UTC - Evaluator result manifest checksum contract (PR #859)
+
+- **PR:** [#859](https://github.com/dhnpmp-tech/dcp-platform/pull/859) (`codex/evaluator-result-manifest-contract-2026-07-09`).
+- **Backend:** Added public `GET /api/evals/results/schema`, a schema/checksum contract for future evaluator result manifests, plus pure validation for required fields, SHA-256 digests, metric allowlists, metadata matches, and raw customer data rejection.
+- **Proof:** Added `npm run proof:evaluator-result-manifest-contract` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 17 CI-safe gates.
+- **Docs/contracts:** Linked evaluator readiness/schema, worker gate, `/benchmarks`, `llms.txt`, OpenAPI, and roadmap docs to the result manifest schema while keeping `GET /api/evals/jobs/:id/results` non-live.
+- **Safety:** Schema/validation only; no result endpoint, artifact write, worker execution, raw dataset storage, billing, settlement, public report, model ranking, or Arabic-quality claim behavior changed.
+- **Verification:** Syntax/package JSON checks; targeted evaluator result-manifest/worker-gate/metadata/readiness/schema Jest suites; evaluator result-manifest proof; evaluator worker-gate proof; evaluator metadata proof; evaluator schema proof; evaluator readiness proof; OpenAPI YAML parse; TypeScript; Next build; local roadmap proof now passing 17/17 gates; `git diff --check`.
+
 ### 2026-07-09 03:35 UTC - Evaluator worker gate contract (PR #858)
 
 - **PR:** [#858](https://github.com/dhnpmp-tech/dcp-platform/pull/858) (`codex/evaluator-worker-gate-contract-2026-07-09`).

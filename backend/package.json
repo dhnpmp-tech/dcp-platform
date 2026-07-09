@@ -42,6 +42,7 @@
     "test:reliability:evaluator-job-schema-contract-proof": "node tests/evaluator-job-schema-contract-proof.js",
     "test:reliability:evaluator-job-metadata-contract-proof": "node tests/evaluator-job-metadata-contract-proof.js",
     "test:reliability:evaluator-worker-gate-contract-proof": "node tests/evaluator-worker-gate-contract-proof.js",
+    "test:reliability:evaluator-result-manifest-contract-proof": "node tests/evaluator-result-manifest-contract-proof.js",
     "test:reliability:minimum-balance-readiness-contract-proof": "node tests/minimum-balance-readiness-contract-proof.js",
     "test": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest --runInBand --forceExit",
     "test:integration": "npm run native:ensure:better-sqlite3 && NODE_ENV=test jest tests/integration/ --runInBand",
