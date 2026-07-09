@@ -55,6 +55,41 @@ const SUBS: ReadonlyArray<{ nameEn: string; nameAr: string; sar: number; pctEn: 
 ]
 
 type LiveCatalogState = 'loading' | 'ready' | 'empty' | 'error'
+type AdvancedFeatureKey = 'prompt_caching' | 'batch' | 'lora' | 'dedicated_deployment'
+
+interface FeatureReadinessRaw {
+  status?: string
+  available?: boolean
+  next?: string
+  [key: string]: unknown
+}
+
+interface AdvancedFeatureDefinition {
+  key: AdvancedFeatureKey
+  labelEn: string
+  labelAr: string
+  blockedEn: string
+  blockedAr: string
+}
+
+interface AdvancedFeatureReadiness {
+  key: AdvancedFeatureKey
+  status: string
+  available: boolean
+  next?: string
+}
+
+interface AdvancedReadinessSummary {
+  key: AdvancedFeatureKey
+  labelEn: string
+  labelAr: string
+  status: string
+  availableCount: number
+  applicableCount: number
+  next?: string
+  blockedEn: string
+  blockedAr: string
+}
 
 interface LiveCatalogModelRaw {
   id?: string
@@ -81,6 +116,13 @@ interface LiveCatalogModelRaw {
     multilingual?: boolean
   }
   capabilities?: LiveCatalogModelRaw['capability_flags']
+  feature_readiness?: {
+    version?: string
+    prompt_caching?: FeatureReadinessRaw
+    batch?: FeatureReadinessRaw
+    lora?: FeatureReadinessRaw
+    dedicated_deployment?: FeatureReadinessRaw
+  }
 }
 
 interface LiveCatalogModel {
@@ -95,7 +137,40 @@ interface LiveCatalogModel {
   outputSarPer1m?: string | number
   pricingSource?: string
   featureLabels: string[]
+  readinessVersion?: string
+  advancedReadiness: AdvancedFeatureReadiness[]
 }
+
+const ADVANCED_FEATURES: AdvancedFeatureDefinition[] = [
+  {
+    key: 'prompt_caching',
+    labelEn: 'Prompt cache',
+    labelAr: 'تخزين المطالبات',
+    blockedEn: 'Discounts gated',
+    blockedAr: 'الخصومات مقيدة',
+  },
+  {
+    key: 'batch',
+    labelEn: 'Batch API',
+    labelAr: 'واجهة الدُفعات',
+    blockedEn: 'Execution gated',
+    blockedAr: 'التنفيذ مقيد',
+  },
+  {
+    key: 'lora',
+    labelEn: 'LoRA',
+    labelAr: 'LoRA',
+    blockedEn: 'Serving gated',
+    blockedAr: 'الخدمة مقيدة',
+  },
+  {
+    key: 'dedicated_deployment',
+    labelEn: 'Dedicated deployments',
+    labelAr: 'النشر المخصص',
+    blockedEn: 'Load proof required',
+    blockedAr: 'إثبات التحميل مطلوب',
+  },
+]
 
 function formatCompactNumber(value: number | null | undefined): string {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return '-'
@@ -113,6 +188,11 @@ function formatStatus(value: string | null | undefined): string {
   return value.replace(/_/g, ' ')
 }
 
+function formatReadinessStatus(value: string | null | undefined): string {
+  if (!value) return 'not reported'
+  return value.replace(/_/g, ' ')
+}
+
 function featureLabelsFor(model: LiveCatalogModelRaw): string[] {
   const flags = model.capability_flags || model.capabilities || {}
   return [
@@ -122,6 +202,42 @@ function featureLabelsFor(model: LiveCatalogModelRaw): string[] {
     flags.code_generation ? 'Code' : null,
     flags.multilingual ? 'Multilingual' : null,
   ].filter(Boolean) as string[]
+}
+
+function advancedReadinessFor(model: LiveCatalogModelRaw): AdvancedFeatureReadiness[] {
+  const readiness = model.feature_readiness || {}
+  const rows: AdvancedFeatureReadiness[] = []
+  for (const feature of ADVANCED_FEATURES) {
+    const raw = readiness[feature.key]
+    if (!raw || typeof raw !== 'object') continue
+    const row: AdvancedFeatureReadiness = {
+      key: feature.key,
+      status: String(raw.status || 'not_reported'),
+      available: raw.available === true,
+    }
+    if (typeof raw.next === 'string') row.next = raw.next
+    rows.push(row)
+  }
+  return rows
+}
+
+function summarizeAdvancedReadiness(models: LiveCatalogModel[]): AdvancedReadinessSummary[] {
+  return ADVANCED_FEATURES.map((definition) => {
+    const rows = models
+      .map((model) => model.advancedReadiness.find((feature) => feature.key === definition.key))
+      .filter((feature): feature is AdvancedFeatureReadiness => !!feature && feature.status !== 'not_applicable')
+    const statusCounts = new Map<string, number>()
+    rows.forEach((row) => statusCounts.set(row.status, (statusCounts.get(row.status) || 0) + 1))
+    const primaryStatus = Array.from(statusCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'not_reported'
+    const availableCount = rows.filter((row) => row.available).length
+    return {
+      ...definition,
+      status: availableCount > 0 ? 'partially_available' : primaryStatus,
+      availableCount,
+      applicableCount: rows.length,
+      next: rows.find((row) => row.next)?.next,
+    }
+  })
 }
 
 function mapLiveCatalogModels(raw: LiveCatalogModelRaw[]): LiveCatalogModel[] {
@@ -143,6 +259,8 @@ function mapLiveCatalogModels(raw: LiveCatalogModelRaw[]): LiveCatalogModel[] {
         outputSarPer1m: model.pricing?.sar_per_1m_output_tokens,
         pricingSource: model.pricing?.source,
         featureLabels: featureLabelsFor(model),
+        readinessVersion: model.feature_readiness?.version,
+        advancedReadiness: advancedReadinessFor(model),
       }
     })
     .filter((model) => model.id)
@@ -154,6 +272,8 @@ export default function PricingPage() {
   const [liveState, setLiveState] = useState<LiveCatalogState>('loading')
   const [liveModels, setLiveModels] = useState<LiveCatalogModel[]>([])
   const visibleLiveModels = useMemo(() => liveModels.slice(0, 12), [liveModels])
+  const advancedReadiness = useMemo(() => summarizeAdvancedReadiness(liveModels), [liveModels])
+  const readinessVersion = liveModels.find((model) => model.readinessVersion)?.readinessVersion || 'dcp.model_feature_readiness.v1'
 
   useEffect(() => {
     let cancelled = false
@@ -335,6 +455,41 @@ export default function PricingPage() {
               </div>
             )}
           </div>
+
+          {liveState === 'ready' && (
+            <div className="pricing-readiness-rail" aria-label={lang === 'ar' ? 'جاهزية ميزات النماذج المتقدمة' : 'Advanced model feature readiness'}>
+              <div className="pricing-readiness-head">
+                <div>
+                  <span className="pricing-readiness-k">
+                    <Bi en="Advanced readiness — from /v1/models feature_readiness" ar="جاهزية متقدمة — من /v1/models feature_readiness" />
+                  </span>
+                  <strong>
+                    <Bi en="Rates are live; advanced economics stay gated until proof closes" ar="الأسعار مباشرة؛ اقتصاديات الميزات المتقدمة مقيدة حتى اكتمال الإثبات" />
+                  </strong>
+                </div>
+                <span className="pricing-readiness-version">{readinessVersion}</span>
+              </div>
+              <div className="pricing-readiness-grid">
+                {advancedReadiness.map((feature) => (
+                  <div className={`pricing-readiness-card${feature.availableCount > 0 ? ' live' : ' gated'}`} key={feature.key}>
+                    <span className="pricing-readiness-card-k">
+                      <Bi en={feature.labelEn} ar={feature.labelAr} />
+                    </span>
+                    <strong>{formatReadinessStatus(feature.status)}</strong>
+                    <span>
+                      {feature.applicableCount > 0
+                        ? <Bi en={`${feature.applicableCount} serveable models covered`} ar={`${feature.applicableCount} نموذجاً قابلاً للخدمة مشمولاً`} />
+                        : <Bi en="No serveable model coverage yet" ar="لا توجد تغطية لنموذج قابل للخدمة بعد" />}
+                    </span>
+                    <em>
+                      <Bi en={feature.availableCount > 0 ? `${feature.availableCount} available` : feature.blockedEn} ar={feature.availableCount > 0 ? `${feature.availableCount} متاح` : feature.blockedAr} />
+                    </em>
+                    {feature.next && <small>{feature.next}</small>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

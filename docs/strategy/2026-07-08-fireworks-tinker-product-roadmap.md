@@ -246,6 +246,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #804 added cross-surface Jest parity coverage for `/v1/models`,
     `/api/models`, and `/api/models/catalog`, locking token pricing,
     provider-count, availability, capability, and readiness fields together.
+  - PR #904 makes public `/pricing` surface the existing
+    `/v1/models.feature_readiness` gates for prompt cache, Batch API, LoRA,
+    and Dedicated Deployments beside live SAR rates, without enabling advanced
+    economics, execution, serving, or route traffic.
 - Add prompt-cache accounting design:
   - static prefix/session hash
   - cached input token estimate

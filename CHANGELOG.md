@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 17:24 UTC - `feat(pricing): surface live model feature readiness gates - PR #904`
+
+**PR:** [#904](https://github.com/dhnpmp-tech/dcp-platform/pull/904) (`codex/pricing-model-readiness-gates-2026-07-09-v2`).
+**Local timestamp:** 2026-07-09 21:24 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Makes the public `/pricing` page show the same advanced feature-readiness gates already carried by `GET /v1/models`, so model pricing, Playground metadata, and public pricing tell one consistent story.
+
+- **Pricing UX:** `/pricing` now aggregates `feature_readiness` for prompt cache, Batch API, LoRA, and Dedicated Deployments beside the live SAR/M token table.
+- **Readiness clarity:** Each advanced rail shows the contract version, serving-model coverage, gated/available state, and the next proof action before DCP claims advanced economics, execution, serving, or route traffic.
+- **Catalog discipline:** Only provider-backed live catalog rows contribute to the readiness counts, so zero-provider catalog entries do not inflate public availability.
+- **Regression:** Added a focused mocked Playwright regression proving `/pricing` renders serveable model rates, hides zero-provider rows, and surfaces the advanced readiness gate copy.
+- **Safety:** Frontend/read-only visibility change; no model catalog semantics, provider selection, request routing, pricing calculation, billing, settlement, prompt-cache discount, batch execution, LoRA training, adapter deployment, dedicated deployment traffic, or Tinker claim changed.
+- **Verification:** TypeScript; focused `/pricing` Playwright regression; model-catalog parity proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 17:13 UTC - `feat(pods): make large workspace and GPU decisions easier to scan - PR #903`
 
 **PR:** [#903](https://github.com/dhnpmp-tech/dcp-platform/pull/903) (`codex/pods-workspace-tareq-feedback-2026-07-09`).
