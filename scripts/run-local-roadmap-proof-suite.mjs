@@ -31,6 +31,11 @@ const CI_SAFE_GATES = Object.freeze([
     command: 'npm run pod-images:verify-contracts',
   },
   {
+    id: 'pod_image_readiness_contract',
+    command: 'npm run proof:pod-image-readiness',
+    outputEnv: 'DCP_POD_IMAGE_READINESS_PROOF_OUTPUT_DIR',
+  },
+  {
     id: 'provider_nsight_contract',
     command: 'npm run provider:nsight:verify',
   },
