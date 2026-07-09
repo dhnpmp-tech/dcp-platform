@@ -208,6 +208,10 @@ what is live.
   staged-file manifest, then makes Stage 2 launch mode explicit with an
   auto-pick/fixed-GPU card and browse-filter warning so renters can reach the
   actual GPU decision without scrolling through every workspace file.
+- PR #903 auto-opens the compact Stage 1 folder tree for larger workspaces,
+  adds a Stage 1/2/3 control map, and adds a Stage 2 source guide that separates
+  launch-affecting controls from browse-only template, VRAM, search, and sort
+  controls.
 
 ### Now
 
@@ -720,6 +724,10 @@ template launch.
   adding Stage 1 folder/file search and making Stage 2 launch mode visibly
   separate from VRAM browse filters, without changing pod launch, billing,
   routing, or workspace API semantics.
+- PR #903 keeps the same semantics but makes the large-workspace path
+  folder-tree-first by default and repeats the trial handling answer inside the
+  Stage 2 launch-source guide: grant-credit provenance unless a live trial tag
+  exists, native/community trial capacity, and paid credit for high-demand GPUs.
 
 ### Now
 

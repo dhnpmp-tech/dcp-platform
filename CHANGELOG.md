@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 17:13 UTC - `feat(pods): make large workspace and GPU decisions easier to scan - PR #903`
+
+**PR:** [#903](https://github.com/dhnpmp-tech/dcp-platform/pull/903) (`codex/pods-workspace-tareq-feedback-2026-07-09`).
+**Local timestamp:** 2026-07-09 21:13 +04.
+
+**What:** Tareq pods/workspace feedback follow-up. Makes the Stage 1 large-workspace path folder-first by default and adds a compact Stage 2 source-of-truth guide for the actual launch GPU.
+
+- **Workspace tree:** Embedded `/renter/pods` Stage 1 now auto-opens the compact folder tree for larger staged workspaces while keeping the full file manifest collapsed.
+- **Stage navigation:** Added a scan-friendly control map that names what Stage 1, Stage 2, and Stage 3 each control before the detailed launch controls.
+- **GPU decision clarity:** Stage 2 now states which controls affect launch versus which controls only browse/filter GPU cards, so template hints and VRAM chips cannot be mistaken for the selected GPU.
+- **Trial answer:** The Stage 2 source guide repeats the contract-backed trial-account answer: no separate live trial tag unless the backend reports one, grant-credit provenance drives trial handling, and trial credit routes to native/community GPU capacity.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for auto-open folder tree behavior, the stage control map, the Stage 2 launch-source guide, and fixed-GPU state after card selection.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; `git diff --check`.
+
 ### 2026-07-09 16:57 UTC - `feat(pods): sharpen workspace search and launch GPU mode clarity - PR #902`
 
 **PR:** [#902](https://github.com/dhnpmp-tech/dcp-platform/pull/902) (`codex/pods-workspace-stage-clarity-2026-07-09`).

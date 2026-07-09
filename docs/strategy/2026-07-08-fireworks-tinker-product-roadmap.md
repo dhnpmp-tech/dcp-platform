@@ -157,6 +157,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #902 adds search to the collapsed Stage 1 folder index and expanded
     staged-file manifest, so renters with many files can jump to one folder or
     file without opening a scroll wall before Stage 2.
+  - PR #903 auto-opens that compact Stage 1 folder tree for larger workspaces
+    and adds a Stage 1/2/3 control map, so the user sees the path to Stage 2
+    without reviewing the full file manifest.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -194,6 +197,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #902 makes the Stage 2 launch mode explicit with an auto-pick/fixed-GPU
     card and browse-filter warning, keeping trial routing and minimum-balance
     answers contract-backed and read-only.
+  - PR #903 adds a Stage 2 source guide that separates launch-affecting controls
+    from browse-only controls: auto-pick/fixed GPU affects launch, while
+    templates, VRAM chips, search, and sort only filter cards.
 
 Acceptance:
 

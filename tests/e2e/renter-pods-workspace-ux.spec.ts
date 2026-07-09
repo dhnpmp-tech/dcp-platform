@@ -235,20 +235,22 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.locator('#pod-stage-2 .pod-stage-no')).toHaveText('Stage 2');
   await expect(page.locator('#pod-stage-3 .pod-stage-no')).toHaveText('Stage 3');
   await expect(page.getByRole('link', { name: /Stage 2.*Template \+ actual GPU.*Auto-pick/ })).toBeVisible();
-  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 ready');
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 file tree');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('datasets/');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('1.95 KiB');
-  await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' })).toBeVisible();
+  await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Large workspace: folder tree opens first');
+  await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Hide folders' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Manage files' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Continue to Stage 2' })).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeHidden();
   await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
 
-  await page.getByLabel('Stage 1 workspace summary').getByRole('button', { name: 'Browse folders' }).click();
-  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Open one folder, keep Stage 1 collapsed');
-  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Folders stay grouped while the manifest is closed.');
+  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Folder tree, not a file wall');
+  await expect(page.getByLabel('Stage 1 folder index')).toContainText('Open one folder, search by file name, or continue to Stage 2 with the manifest closed.');
+  await expect(page.getByLabel('Stage 1 folder index').getByRole('link', { name: 'Go to Stage 2' })).toBeVisible();
+  await expect(page.getByLabel('Stage 1 folder index').getByRole('button', { name: 'Full file manager' })).toBeVisible();
   await expect(page.getByLabel('Stage 1 folder index').getByRole('button', { name: /Open notebooks\/ with 1 files/ })).toBeVisible();
   await page.getByLabel('Search Stage 1 folders and files').fill('notebooks');
   await expect(page.getByLabel('Stage 1 folder index')).toContainText('notebooks/');
@@ -274,6 +276,16 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(launchChecklist).toContainText('Credit gates synced');
   await expect(launchChecklist).toContainText('Paid available SAR 38.00 · high-demand requires paid credit');
 
+  const stageControlMap = page.getByLabel('What each stage controls');
+  await expect(stageControlMap).toContainText('Stage 1');
+  await expect(stageControlMap).toContainText('Workspace tree');
+  await expect(stageControlMap).toContainText('Folder tree opens first');
+  await expect(stageControlMap).toContainText('Stage 2');
+  await expect(stageControlMap).toContainText('Actual launch GPU');
+  await expect(stageControlMap).toContainText('Auto-pick is still active');
+  await expect(stageControlMap).toContainText('Stage 3');
+  await expect(stageControlMap).toContainText('Runtime and launch');
+
   await page.getByRole('link', { name: 'Continue to Stage 2' }).click();
   await expect(page).toHaveURL(/#pod-stage-2$/);
   await page.locator('#pod-stage-1').scrollIntoViewIfNeeded();
@@ -282,6 +294,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('Stage 1 manifest')).toBeVisible();
   await expect(page.getByText('5 files · 4 groups')).toBeVisible();
   await expect(page.getByText('Review folders')).toBeVisible();
+  await expect(page.getByText('Manifest collapsed by folder')).toBeVisible();
   await expect(page.getByText('datasets/ · 2')).toBeVisible();
   await expect(page.getByText('checkpoints/ · 1')).toBeVisible();
   await page.getByLabel('Search staged folders and files').fill('checkpoints');
@@ -312,6 +325,12 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Auto-pick at launch · no GPU pinned');
   await expect(computeSummary).toContainText('Launch will auto-pick an available GPU type');
   await expect(computeSummary).toContainText('Request mode: Auto-pick request');
+  await expect(computeSummary).toContainText('Affects launch');
+  await expect(computeSummary).toContainText('Auto-pick toggle or a selected GPU card');
+  await expect(computeSummary).toContainText('Browse only');
+  await expect(computeSummary).toContainText('Template hint, VRAM chips, search, and sort');
+  await expect(computeSummary).toContainText('Trial accounts');
+  await expect(computeSummary).toContainText('No separate trial tag; grant credit decides; Trial route: native/community GPU pool.');
   await expect(computeSummary).toContainText('Credit policy: synced');
   await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
@@ -384,6 +403,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuSelectionStrip).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');
   await expect(gpuSelectionStrip).toContainText('Mode: fixed GPU selected');
+  await expect(stageControlMap).toContainText('A GPU card is pinned');
   await expect(page.getByText('Launch GPU selected').first()).toBeVisible();
   await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();
