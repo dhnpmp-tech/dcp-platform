@@ -70,7 +70,15 @@ async function mockFineTuningApis(page: Page) {
             serving_enabled: false,
             route_traffic: false,
           },
-          adapter_deployments: { status: 'load_proof_required', route_traffic: false },
+          adapter_deployments: {
+            status: 'load_proof_required',
+            deployment_contract_proof: {
+              status: 'ci_safe',
+              command: 'npm run proof:adapter-deployment-contract',
+              local_roadmap_gate: 'adapter_deployment_contract',
+            },
+            route_traffic: false,
+          },
           claim_guards: {
             public_training_enabled: false,
             public_serving_enabled: false,
@@ -97,6 +105,9 @@ test('public Fine-Tuning page exposes the adapter registry proof command', async
   await expect(page.getByText(/registry contract proof is now part of the local roadmap suite/i)).toBeVisible();
   await expect(page.getByText('npm run proof:adapter-registry-contract')).toBeVisible();
   await expect(page.getByText(/adapter_registry\.registry_contract_proof/)).toBeVisible();
+  await expect(page.getByText(/deployment lifecycle contract proof is part of the local roadmap suite/i)).toBeVisible();
+  await expect(page.getByText('npm run proof:adapter-deployment-contract')).toBeVisible();
+  await expect(page.getByText(/adapter_deployments\.deployment_contract_proof/)).toBeVisible();
 });
 
 test('renter Fine-Tuning readiness shows registry proof status', async ({ page, context }) => {
@@ -119,6 +130,8 @@ test('renter Fine-Tuning readiness shows registry proof status', async ({ page, 
   const readinessGrid = page.locator('.ft-readiness-grid');
   await expect(readinessGrid).toContainText('Registry');
   await expect(readinessGrid).toContainText('metadata registry · ci safe');
+  await expect(readinessGrid).toContainText('Deployments');
+  await expect(readinessGrid).toContainText('load proof required · ci safe');
   await expect(page.locator('.ft-supported')).toContainText('training off');
   await expect(page.locator('.ft-supported')).toContainText('routes off');
 });

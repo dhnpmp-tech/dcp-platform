@@ -174,6 +174,12 @@ interface LoraReadiness {
   adapter_deployments?: {
     status?: string
     api_available?: boolean
+    deployment_contract_proof?: {
+      status?: string
+      command?: string
+      local_roadmap_gate?: string
+      verifies?: string[]
+    }
     serving_enabled?: boolean
     route_traffic?: boolean
     load_proof_required?: boolean
@@ -540,6 +546,7 @@ export default function RenterFineTuningPage() {
   const readinessMode = readiness?.current_mode || 'metadata_and_artifact_proof_only'
   const claimGuards = readiness?.claim_guards || {}
   const registryProofStatus = readiness?.adapter_registry?.registry_contract_proof?.status
+  const deploymentProofStatus = readiness?.adapter_deployments?.deployment_contract_proof?.status
   const readinessClaims = [
     `training ${gateLabel(claimGuards.public_training_enabled)}`,
     `serving ${gateLabel(claimGuards.public_serving_enabled)}`,
@@ -699,7 +706,10 @@ export default function RenterFineTuningPage() {
               </div>
               <div>
                 <span><Bi en="Deployments" ar="النشر" /></span>
-                <b>{readinessLabel(readiness?.adapter_deployments?.status)}</b>
+                <b>
+                  {readinessLabel(readiness?.adapter_deployments?.status)}
+                  {deploymentProofStatus ? ` · ${readinessLabel(deploymentProofStatus)}` : ''}
+                </b>
               </div>
               <div>
                 <span><Bi en="Route traffic" ar="توجيه الحركة" /></span>

@@ -141,6 +141,11 @@ describe('LoRA training job foundation', () => {
         status: 'load_proof_required',
         api_available: true,
         modes: ['single_adapter_live_merge', 'multi_lora'],
+        deployment_contract_proof: {
+          status: 'ci_safe',
+          command: 'npm run proof:adapter-deployment-contract',
+          local_roadmap_gate: 'adapter_deployment_contract',
+        },
         serving_enabled: false,
         route_traffic: false,
         load_proof_required: true,
@@ -658,6 +663,10 @@ describe('LoRA training job foundation', () => {
         },
       },
       adapter_deployments: {
+        deployment_contract_proof: {
+          status: 'ci_safe',
+          command: 'npm run proof:adapter-deployment-contract',
+        },
         serving_enabled: false,
         route_traffic: false,
       },

@@ -242,6 +242,18 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       status: 'load_proof_required',
       api_available: true,
       modes: DEPLOY_MODES,
+      deployment_contract_proof: {
+        status: 'ci_safe',
+        command: 'npm run proof:adapter-deployment-contract',
+        local_roadmap_gate: 'adapter_deployment_contract',
+        verifies: [
+          'intent_only_public_create',
+          'load_proof_mismatch_blocks_route_traffic',
+          'checksum_mismatch_blocks_route_traffic',
+          'matching_load_proof_required_for_running',
+          'renter_scoped_deployment_listing',
+        ],
+      },
       serving_enabled: false,
       route_traffic: false,
       billing_enabled: false,

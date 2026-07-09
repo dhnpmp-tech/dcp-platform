@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 12:21 UTC - LoRA readiness surfaces adapter deployment proof (PR #887)
+
+- **PR:** [#887](https://github.com/dhnpmp-tech/dcp-platform/pull/887) (`codex/lora-deployment-proof-readiness-surface-2026-07-09`).
+- **Backend:** `/api/lora/readiness` now exposes `adapter_deployments.deployment_contract_proof` with proof status, command, local-roadmap gate id, and verified lifecycle invariants.
+- **Frontend:** Public and renter Fine-Tuning surfaces now make the deployment lifecycle proof visible without implying vLLM load, route traffic, billing, or GPU execution is enabled.
+- **Docs/contracts:** OpenAPI and roadmap notes now point to the deployment proof signal.
+- **Safety:** Read-only contract/UI/docs change; no adapter registration behavior, artifact upload, deployment creation, load-proof attach, route traffic, usage/billing write, balance mutation, provider/vendor exposure, or GPU-host execution was enabled.
+- **Verification:** OpenAPI YAML parse; targeted LoRA readiness Jest suite; adapter deployment contract proof; TypeScript; focused Fine-Tuning Playwright regression; Next build; local roadmap proof suite passing 35/35 gates; `git diff --check`.
+
 ### 2026-07-09 12:10 UTC - Pod workspace folder disclosure (PR #886)
 
 - **PR:** [#886](https://github.com/dhnpmp-tech/dcp-platform/pull/886) (`codex/pods-workspace-folder-disclosure-2026-07-09`).
