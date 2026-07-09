@@ -106,13 +106,13 @@ const LIVE_ACCEPTANCE_GATES = Object.freeze([
     lane: 'Ops',
     product_area: 'dcp-agent local/GitHub/VPS reconciliation',
     acceptance_state: 'blocked_maintenance_window',
-    acceptance_command: null,
-    command_available: false,
+    acceptance_command: 'DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation',
+    command_available: true,
     artifact_pattern: 'docs/reports/reliability/dcp-agent-reconciliation-*.json',
     blocked_on: ['controlled maintenance window', 'installer artifact decision', 'owner approval for production artifact cleanup'],
     verifies: ['agent source/artifact parity', 'installer artifact ownership', 'safe cleanup or promotion path'],
     claim_guard: 'Do not delete or overwrite existing production installer artifacts outside the maintenance window.',
-    next_action: 'Schedule the controlled dcp-agent reconciliation window and decide artifact ownership.',
+    next_action: 'Run the read-only reconciliation packet, then schedule the controlled gateway maintenance window and decide artifact ownership.',
   },
 ]);
 

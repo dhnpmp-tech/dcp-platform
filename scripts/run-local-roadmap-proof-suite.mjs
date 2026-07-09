@@ -97,6 +97,11 @@ const EXTERNAL_GATES = Object.freeze([
     command: 'DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load',
     blocked_on: ['real adapter artifact checksum', 'vLLM host with LoRA enabled', 'dedicated endpoint capacity', 'funded smoke principal'],
   },
+  {
+    id: 'dcp_agent_reconciliation',
+    command: 'DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation',
+    blocked_on: ['controlled maintenance window', 'installer artifact decision', 'owner approval for production artifact cleanup'],
+  },
 ]);
 
 function toStamp(date = new Date()) {

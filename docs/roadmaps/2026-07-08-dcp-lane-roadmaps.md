@@ -206,6 +206,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 
 - Reconcile platform-adjacent drift:
   - `dcp-agent` local checkout remains stale/detached.
+  - PR #844 adds `DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run
+    proof:dcp-agent-reconciliation`, a read-only status packet for the local
+    checkout, active gateway process, and optional VPS artifact inventory.
   - `ops/dcp-deploy-watch.sh` is no longer drift: PR #731 promoted it into Git
     and the 2026-07-08 11:03 UTC refresh confirmed the tracked file is
     byte-identical to the VPS2 cron copy.
@@ -248,7 +251,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
 ### First PRs
 
 1. Ops cleanup PR for `dcp-agent` and deploy-watch decision.
-   **Deploy-watch resolved in PR #731; `dcp-agent` remains a maintenance-window task.**
+   **Deploy-watch resolved in PR #731; PR #844 adds a read-only
+   `proof:dcp-agent-reconciliation` packet, and the actual dcp-agent update
+   remains a maintenance-window task.**
 2. Inference metadata/rate consistency tests.
 3. Adapter registry schema with tests, no serving behavior yet.
 
@@ -676,7 +681,9 @@ DCP-hosted endpoint -> billed inference.
 
 ## Cross-Lane Priority Order
 
-1. Ops cleanup and repo parity. **Deploy-watch resolved; `dcp-agent` remains the open maintenance-window item.**
+1. Ops cleanup and repo parity. **Deploy-watch resolved; PR #844 adds a
+   read-only `proof:dcp-agent-reconciliation` packet, and `dcp-agent` remains
+   the open maintenance-window item.**
 2. Proof harnesses before product claims. **`npm run proof:workspace-pod`,
    `npm run proof:lora-pod-image`, and `npm run proof:anthropic-sse` now exist
    for the current command-ready live acceptance paths; they remain blocked,

@@ -19,6 +19,7 @@
     "proof:prefetch-top3-sla": "node scripts/run-prefetch-top3-sla-proof.mjs",
     "proof:local-roadmap": "node scripts/run-local-roadmap-proof-suite.mjs",
     "proof:live-acceptance-status": "node scripts/run-live-acceptance-gate-status.js",
+    "proof:dcp-agent-reconciliation": "node scripts/run-dcp-agent-reconciliation-status.js",
     "provider:nsight:verify": "npm --prefix backend run providers:nsight-contract",
     "templates:validate": "npm --prefix backend run templates:validate",
     "pod-images:verify-contracts": "npm --prefix backend run pod-images:verify-contracts",
