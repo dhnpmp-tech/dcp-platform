@@ -44,6 +44,7 @@ const PERIODS = ['7d', '30d', '90d'] as const
 
 type Period = (typeof PERIODS)[number]
 type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
+type ExportState = 'idle' | 'downloading' | 'ready' | 'error'
 
 interface RenterAccount {
   name?: string
@@ -199,6 +200,36 @@ interface TeamUsageReadiness {
     exposes_key_secret?: boolean
     claims_team_member_rollups_live?: boolean
   }
+}
+
+interface PodTrialRoutingReadinessResponse {
+  object?: string
+  version?: string
+  account_classification?: {
+    explicit_trial_account_tag_live?: boolean
+    trial_credit_source?: string
+    paid_credit_source?: string
+    note?: string
+  }
+  routing_policy?: {
+    trial_capacity_copy?: string
+    high_demand_capacity_copy?: string
+    trial_credit_allowed_supply_tiers?: string[]
+    paid_credit_required_supply_tiers?: string[]
+    provider_visibility?: {
+      exposes_provider_id_to_renter?: boolean
+      exposes_vendor_to_renter?: boolean
+      exposes_supply_tier_to_renter?: boolean
+    }
+  }
+  claim_guards?: {
+    launches_pod?: boolean
+    mutates_balance?: boolean
+    changes_billing?: boolean
+    changes_trial_accounting?: boolean
+    exposes_vendor_or_provider?: boolean
+  }
+  error?: string
 }
 
 interface UsageByKeyResponse {
@@ -409,6 +440,8 @@ export default function RenterUsagePage() {
   const [usageByKey, setUsageByKey] = useState<UsageByKeyResponse | null>(null)
   const [budgetStatus, setBudgetStatus] = useState<BudgetStatusResponse | null>(null)
   const [minimumBalances, setMinimumBalances] = useState<MinimumBalanceReadinessResponse | null>(null)
+  const [trialRouting, setTrialRouting] = useState<PodTrialRoutingReadinessResponse | null>(null)
+  const [exportState, setExportState] = useState<ExportState>('idle')
   // C1 phase-2: CSV export uses downloadUsageCsv (x-renter-key header) instead of an <a href="?key=">.
 
   useEffect(() => {
@@ -427,7 +460,7 @@ export default function RenterUsagePage() {
       try {
         setLoadState('loading')
         setError('')
-        const [me, balanceData, analyticsData, jobsData, usageData, usageByKeyData, budgetData, minimumBalanceData] = await Promise.all([
+        const [me, balanceData, analyticsData, jobsData, usageData, usageByKeyData, budgetData, minimumBalanceData, trialRoutingData] = await Promise.all([
           readJson<RenterMeResponse>(`${base}/renters/me`, headers),
           readJson<RenterBalanceResponse>(`${base}/renters/balance`, headers, true),
           readJson<AnalyticsResponse>(`${base}/renters/me/analytics?period=${period}`, headers, true),
@@ -436,6 +469,7 @@ export default function RenterUsagePage() {
           readJson<UsageByKeyResponse>(`${base}/renters/me/usage/by-key?period=${period}`, headers, true),
           readJson<BudgetStatusResponse>(`${base}/renters/me/budget-status?period=${period}`, headers, true),
           readJson<MinimumBalanceReadinessResponse>(`${base}/renters/me/minimum-balances?period=${period}`, headers, true),
+          readJson<PodTrialRoutingReadinessResponse>(`${base}/pods/trial-routing/readiness`, headers, true).catch(() => null),
         ])
         if (cancelled) return
         setRenter(me?.renter || null)
@@ -447,6 +481,7 @@ export default function RenterUsagePage() {
         setUsageByKey(usageByKeyData || null)
         setBudgetStatus(budgetData || null)
         setMinimumBalances(minimumBalanceData || null)
+        setTrialRouting(trialRoutingData || null)
         setLoadState('ready')
       } catch (err) {
         if (cancelled) return
@@ -532,6 +567,39 @@ export default function RenterUsagePage() {
       teamUsageReadiness.claim_guards.exposes_key_secret === false &&
       teamUsageReadiness.claim_guards.claims_team_member_rollups_live === false
     : false
+  const explicitTrialTagLive = trialRouting?.account_classification?.explicit_trial_account_tag_live === true
+  const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: native/community GPU pool'
+  const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand GPUs: paid credit only'
+  const trialAccountModeLabel = explicitTrialTagLive ? 'Explicit trial-account tag' : 'Grant-credit provenance'
+  const trialTagAnswerLabel = explicitTrialTagLive ? 'Trial tag live' : 'No trial tag live'
+  const trialCreditSourceLabel = trialRouting?.account_classification?.trial_credit_source === 'renters.trial_grant_halala'
+    ? 'Trial source: grant balance'
+    : 'Trial source: credit provenance'
+  const trialRoutingSynced = trialRouting?.object === 'pod_trial_routing_readiness' &&
+    trialRouting?.claim_guards?.launches_pod === false &&
+    trialRouting?.claim_guards?.mutates_balance === false &&
+    trialRouting?.claim_guards?.changes_billing === false &&
+    trialRouting?.claim_guards?.changes_trial_accounting === false &&
+    trialRouting?.claim_guards?.exposes_vendor_or_provider === false &&
+    trialRouting?.routing_policy?.provider_visibility?.exposes_provider_id_to_renter === false &&
+    trialRouting?.routing_policy?.provider_visibility?.exposes_vendor_to_renter === false &&
+    trialRouting?.routing_policy?.provider_visibility?.exposes_supply_tier_to_renter === false
+  const usageExportLive = teamLive.workspace_usage_export || budgetStatus?.claims?.workspace_usage_export_live === true
+  const usageExportStatusLabel = exportState === 'downloading'
+    ? 'CSV downloading'
+    : exportState === 'ready'
+      ? 'CSV ready'
+      : exportState === 'error'
+        ? 'CSV failed'
+        : usageExportLive
+          ? 'Header-auth CSV export'
+          : 'Export checking'
+  const accountControlsGuardClean = teamGuardClean &&
+    minimumBalances?.claim_guards?.mutates_balance === false &&
+    minimumBalances?.claim_guards?.creates_pod === false &&
+    minimumBalances?.claim_guards?.dispatches_inference === false &&
+    minimumBalances?.claim_guards?.changes_enforcement === false &&
+    (trialRouting ? trialRoutingSynced : true)
 
   const modelRows = useMemo(() => {
     const byModel = new Map<string, number>()
@@ -711,11 +779,18 @@ export default function RenterUsagePage() {
             <button
               type="button"
               className="btn-sec"
+              disabled={exportState === 'downloading'}
               onClick={() => {
-                void downloadUsageCsv(period).catch((err) => setError(String(err?.message || err)))
+                setExportState('downloading')
+                void downloadUsageCsv(period)
+                  .then(() => setExportState('ready'))
+                  .catch((err) => {
+                    setExportState('error')
+                    setError(String(err?.message || err))
+                  })
               }}
             >
-              ↓ <Bi en="Export CSV" ar="تصدير CSV" />
+              ↓ <Bi en={exportState === 'downloading' ? 'Exporting…' : 'Export CSV'} ar={exportState === 'downloading' ? 'جارٍ التصدير…' : 'تصدير CSV'} />
             </button>
           </div>
 
@@ -815,6 +890,68 @@ export default function RenterUsagePage() {
               <b><Bi en={minimumBalances?.claim_guards?.changes_enforcement ? 'Mutating' : 'No change'} ar={minimumBalances?.claim_guards?.changes_enforcement ? 'يغير' : 'لا تغيير'} /></b>
             </div>
           </div>
+
+          <section className="account-controls" aria-label={lang === 'ar' ? 'حزمة ضوابط الحساب' : 'Account controls packet'}>
+            <div className="account-controls-copy">
+              <span className="account-controls-k">
+                <Bi en="Account controls packet" ar="حزمة ضوابط الحساب" />
+              </span>
+              <strong>
+                <Bi en="Trial, export, and spend gates in one view" ar="التجربة والتصدير وبوابات الإنفاق في عرض واحد" />
+              </strong>
+              <span>
+                <Bi
+                  en="This is the current customer-facing answer before launch: trial status comes from credit provenance, usage export is header-authenticated, and paid-credit gates stay separate from grant credit."
+                  ar="هذه هي الإجابة الحالية قبل التشغيل: حالة التجربة من مصدر الرصيد، والتصدير يستخدم ترويسة آمنة، وبوابات الرصيد المدفوع منفصلة عن رصيد المنحة."
+                />
+              </span>
+            </div>
+            <div className="account-controls-grid">
+              <span className={trialRoutingSynced ? 'ready' : 'checking'}>
+                <b><Bi en="Trial mode" ar="وضع التجربة" /></b>
+                <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'وسم تجربة صريح' : 'حسب مصدر رصيد المنحة'} />
+              </span>
+              <span className={explicitTrialTagLive ? 'ready' : 'checking'}>
+                <b><Bi en="Trial tag" ar="وسم التجربة" /></b>
+                <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة مفعل' : 'لا يوجد وسم تجربة مباشر'} />
+              </span>
+              <span className="ready">
+                <b><Bi en="Trial route" ar="مسار التجربة" /></b>
+                <Bi en={trialCapacityCopy} ar="رصيد التجربة يستخدم سعة DCP والمجتمع" />
+              </span>
+              <span className="blocked">
+                <b><Bi en="High-demand gate" ar="بوابة الطلب العالي" /></b>
+                <Bi en={highDemandCapacityCopy} ar="وحدات الطلب العالي تحتاج رصيداً مدفوعاً فقط" />
+              </span>
+              <span className={usageExportLive ? 'ready' : 'checking'}>
+                <b><Bi en="Usage export" ar="تصدير الاستخدام" /></b>
+                <Bi en={usageExportStatusLabel} ar={exportState === 'downloading' ? 'جارٍ تحميل CSV' : exportState === 'ready' ? 'CSV جاهز' : 'تصدير CSV بترويسة آمنة'} />
+              </span>
+              <span className={teamLive.scoped_key_budget_caps ? 'ready' : 'checking'}>
+                <b><Bi en="Per-key caps" ar="حدود كل مفتاح" /></b>
+                <Bi en={teamLive.scoped_key_budget_caps ? 'Budget caps enforced' : 'Budget caps checking'} ar={teamLive.scoped_key_budget_caps ? 'حدود الميزانية مفعلة' : 'قيد الفحص'} />
+              </span>
+              <span className={minimumBalances?.rails?.v1_inference?.enforcement_live ? 'ready' : 'checking'}>
+                <b><Bi en="Inference gate" ar="بوابة الاستدلال" /></b>
+                <Bi en={minimumBalances?.rails?.v1_inference?.enforcement_live ? 'Estimate preflight live' : 'Estimate preflight checking'} ar={minimumBalances?.rails?.v1_inference?.enforcement_live ? 'فحص التقدير مفعل' : 'فحص التقدير قيد المراجعة'} />
+              </span>
+              <span className={accountControlsGuardClean ? 'ready' : 'checking'}>
+                <b><Bi en="Safety" ar="السلامة" /></b>
+                <Bi en={accountControlsGuardClean ? 'Read-only packet' : 'Readiness checking'} ar={accountControlsGuardClean ? 'حزمة قراءة فقط' : 'الجاهزية قيد الفحص'} />
+              </span>
+            </div>
+            <div className="account-controls-foot">
+              <span className={trialRoutingSynced ? 'ready' : 'checking'}>
+                <Bi en={trialRoutingSynced ? 'Backend trial-routing contract synced' : 'Trial routing fallback copy'} ar={trialRoutingSynced ? 'عقد مسار التجربة متزامن' : 'نسخة احتياطية لمسار التجربة'} />
+              </span>
+              <span>
+                <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
+              </span>
+              <span className={accountControlsGuardClean ? 'ready' : 'checking'}>
+                <Bi en={accountControlsGuardClean ? 'No balance, billing, pod, or inference mutation' : 'No launch claim made here'} ar={accountControlsGuardClean ? 'لا تغيير للرصيد أو الفوترة أو الحاويات أو الاستدلال' : 'لا يوجد ادعاء تشغيل هنا'} />
+              </span>
+            </div>
+          </section>
 
           <section className="team-readiness" aria-label={lang === 'ar' ? 'جاهزية استخدام الفريق' : 'Team usage readiness'}>
             <div className="team-readiness-copy">

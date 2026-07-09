@@ -78,6 +78,40 @@ async function mockUsageApis(page: Page) {
       });
     }
 
+    if (path === '/api/pods/trial-routing/readiness') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          object: 'pod_trial_routing_readiness',
+          version: 'dcp.pod_trial_routing_readiness.v1',
+          account_classification: {
+            explicit_trial_account_tag_live: false,
+            trial_credit_source: 'renters.trial_grant_halala',
+            paid_credit_source: 'payments.status=paid',
+          },
+          routing_policy: {
+            trial_capacity_copy: 'Trial credit: native/community GPU pool',
+            high_demand_capacity_copy: 'High-demand GPUs: paid credit only',
+            trial_credit_allowed_supply_tiers: ['dcp_owned', 'provider'],
+            paid_credit_required_supply_tiers: ['on_demand'],
+            provider_visibility: {
+              exposes_provider_id_to_renter: false,
+              exposes_vendor_to_renter: false,
+              exposes_supply_tier_to_renter: false,
+            },
+          },
+          claim_guards: {
+            launches_pod: false,
+            mutates_balance: false,
+            changes_billing: false,
+            changes_trial_accounting: false,
+            exposes_vendor_or_provider: false,
+          },
+        }),
+      });
+    }
+
     if (path === '/api/renters/balance') {
       return route.fulfill({
         status: 200,
@@ -274,6 +308,16 @@ async function mockUsageApis(page: Page) {
       });
     }
 
+    if (path === '/api/renters/me/usage/export') {
+      expect(route.request().headers()['x-renter-key']).toBe(RENTER_KEY);
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/csv',
+        headers: { 'Content-Disposition': 'attachment; filename="dcp-usage-30d.csv"' },
+        body: 'request_id,model,total_tokens,cost_halala\nreq-usage-1,ALLaM-AI/ALLaM-7B-Instruct-preview,1200,420\n',
+      });
+    }
+
     return route.fulfill({
       status: 404,
       contentType: 'application/json',
@@ -299,6 +343,28 @@ test('renter usage shows scoped-key team readiness without claiming member rollu
 
   await page.goto('/renter/usage');
 
+  const accountControls = page.getByLabel('Account controls packet');
+  await expect(accountControls).toBeVisible();
+  await expect(accountControls).toContainText('Trial, export, and spend gates in one view');
+  await expect(accountControls).toContainText('Trial mode');
+  await expect(accountControls).toContainText('Grant-credit provenance');
+  await expect(accountControls).toContainText('Trial tag');
+  await expect(accountControls).toContainText('No trial tag live');
+  await expect(accountControls).toContainText('Trial route');
+  await expect(accountControls).toContainText('Trial credit: native/community GPU pool');
+  await expect(accountControls).toContainText('High-demand gate');
+  await expect(accountControls).toContainText('High-demand GPUs: paid credit only');
+  await expect(accountControls).toContainText('Usage export');
+  await expect(accountControls).toContainText('Header-auth CSV export');
+  await expect(accountControls).toContainText('Per-key caps');
+  await expect(accountControls).toContainText('Budget caps enforced');
+  await expect(accountControls).toContainText('Inference gate');
+  await expect(accountControls).toContainText('Estimate preflight live');
+  await expect(accountControls).toContainText('Read-only packet');
+  await expect(accountControls).toContainText('Backend trial-routing contract synced');
+  await expect(accountControls).toContainText('Trial source: grant balance');
+  await expect(accountControls).toContainText('No balance, billing, pod, or inference mutation');
+
   const readiness = page.getByLabel('Team usage readiness');
   await expect(readiness).toBeVisible();
   await expect(readiness).toContainText('Scoped-key controls');
@@ -321,4 +387,9 @@ test('renter usage shows scoped-key team readiness without claiming member rollu
   await expect(keyUsage).toContainText('Scoped-key rollup');
   await expect(keyUsage).toContainText('inference');
   await expect(keyUsage).toContainText('10.00');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  await downloadPromise;
+  await expect(accountControls).toContainText('CSV ready');
 });

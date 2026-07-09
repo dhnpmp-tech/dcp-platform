@@ -841,7 +841,11 @@ Acceptance:
     surfaces the same scoped-key-live/member-rollup-gated state in the Usage
     console without creating team members or changing enforcement. PR #907 adds
     `npm run proof:team-usage-readiness` and includes it in the local roadmap
-    suite so this team/workspace boundary is now CI-safe proofed.**
+    suite so this team/workspace boundary is now CI-safe proofed. PR #917 adds
+    the Usage account-controls packet so trial-mode provenance, trial GPU route,
+    high-demand paid-credit gates, header-auth CSV export, per-key caps, and
+    inference preflight are visible in one read-only renter view outside pod
+    launch.**
 21. **Benchmarks/Evals readiness rail** - Fireworks-style evidence surface before
     customer-facing quality claims. **Started in PR #852 with
     `GET /api/models/benchmarks/readiness`, public `/benchmarks`, sitemap/nav
