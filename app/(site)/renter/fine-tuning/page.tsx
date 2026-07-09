@@ -321,6 +321,17 @@ const API_SNIPPETS = [
     command: 'curl -s https://api.dcp.sa/api/adapters/endpoints/smoke/readiness',
   },
   {
+    id: 'adapter-endpoint-smoke-status',
+    titleEn: 'Inspect smoke status',
+    titleAr: 'فحص حالة الدخان',
+    meta: 'GET /api/adapters/{id}/deployments/{id}/endpoint-smoke',
+    noteEn: 'Renter-scoped no-record status; it shows strict load-proof readiness while recording, usage writes, and billing remain disabled.',
+    noteAr: 'حالة بلا تسجيل حسب المستأجر؛ تعرض جاهزية إثبات التحميل الصارم مع بقاء التسجيل وكتابة الاستخدام والفوترة معطلة.',
+    command:
+      'curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/endpoint-smoke \\\n' +
+      '  -H "Authorization: Bearer $DCP_RENTER_KEY"',
+  },
+  {
     id: 'adapter-endpoint-smoke-submit',
     titleEn: 'Submit disabled smoke evidence',
     titleAr: 'إرسال دليل دخان معطل',

@@ -29,6 +29,7 @@
     "proof:lora-training-live-artifact": "npm --prefix backend run test:reliability:lora-training-live-artifact-proof",
     "proof:adapter-artifact-policy": "npm --prefix backend run test:reliability:adapter-artifact-policy-proof",
     "proof:adapter-endpoint-smoke": "npm --prefix backend run test:reliability:adapter-endpoint-smoke-readiness-proof",
+    "proof:adapter-endpoint-smoke-status": "npm --prefix backend run test:reliability:adapter-endpoint-smoke-status-disabled-proof",
     "proof:adapter-endpoint-smoke-submission": "npm --prefix backend run test:reliability:adapter-endpoint-smoke-submission-disabled-proof",
     "proof:adapter-usage-attribution": "npm --prefix backend run test:reliability:adapter-usage-attribution-readiness-proof",
     "proof:adapter-billing-readiness": "npm --prefix backend run test:reliability:adapter-billing-readiness-proof",

@@ -74,6 +74,9 @@ curl -s https://api.dcp.sa/api/adapters/adpt_support_arabic/deployments \\
 curl -s https://api.dcp.sa/api/adapters/endpoints/smoke/readiness
 
 curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/endpoint-smoke \\
+  -H "Authorization: Bearer $DCP_RENTER_KEY"
+
+curl -s https://api.dcp.sa/api/adapters/$ADAPTER_ID/deployments/$DEPLOYMENT_ID/endpoint-smoke \\
   -X POST \\
   -H "Authorization: Bearer $DCP_RENTER_KEY" \\
   -H "Content-Type: application/json" \\

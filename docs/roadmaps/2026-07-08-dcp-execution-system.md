@@ -156,6 +156,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Tinker loop readiness contract | `npm run proof:tinker-loop-readiness` | none | CI-safe gate available; low-level loop APIs, GPU mutation, billing, and compatibility claims remain blocked |
 | Adapter artifact policy | `npm run proof:adapter-artifact-policy` | none | CI-safe gate available; validates renter/adapter-scoped adapter/model-card keys and checksums while artifact upload, object-store writes, serving, routing, billing, and Tinker claims remain disabled |
 | Adapter endpoint smoke readiness | `npm run proof:adapter-endpoint-smoke` | none | CI-safe gate available; validates strict load proof, funded principal, deterministic request, response hash, latency, token totals, and adapter trace while smoke recording, route traffic, usage writes, billing, invoices, payouts, and Tinker claims remain disabled |
+| Adapter endpoint smoke disabled status | `npm run proof:adapter-endpoint-smoke-status` | none | CI-safe gate available; validates renter-scoped no-record endpoint-smoke status returns strict load-proof readiness while smoke recording, route traffic, usage writes, billing, raw prompt/response exposure, and Tinker claims remain disabled |
 | Adapter endpoint smoke disabled submission | `npm run proof:adapter-endpoint-smoke-submission` | none | CI-safe gate available; validates renter-scoped disabled smoke submission returns no-record 409 contracts and does not expose raw prompt/response content |
 | Adapter usage attribution readiness | `npm run proof:adapter-usage-attribution` | none | CI-safe gate available; validates future adapter usage rows for deployment, adapter, endpoint, checksum, provider, request, scoped-key, token, cost, and pending-settlement fields while usage writes, billing, invoices, payouts, route changes, and Tinker claims remain disabled |
 | Adapter billing readiness | `npm run proof:adapter-billing-readiness` | none | CI-safe gate available; adapter billing, usage writes, invoices, provider payouts, route changes, and Tinker claims remain disabled until strict load proof, endpoint smoke, funded principal, minimum-balance policy, attribution, settlement, and founder approval exist |
@@ -237,6 +238,7 @@ before or with the feature change.
    - Gate: `proof:adapter-deployment-contract`,
      `proof:adapter-vllm-live-load`, deployment intent, vLLM adapter load
      proof, `proof:adapter-endpoint-smoke`,
+     `proof:adapter-endpoint-smoke-status`,
      `proof:adapter-endpoint-smoke-submission`,
      `proof:adapter-usage-attribution`, `proof:adapter-billing-readiness`, and
      inference billing proof for adapter traffic.
@@ -501,6 +503,11 @@ Required gates:
   `npm run proof:adapter-endpoint-smoke` before any endpoint-smoke recording,
   adapter route traffic, usage ledger write, billed dedicated-endpoint claim,
   or raw prompt/response evidence handling.
+- Adapter endpoint smoke disabled status: run
+  `npm run proof:adapter-endpoint-smoke-status` before exposing dashboard or
+  agent polling for recorded smoke evidence. The route must remain
+  renter-scoped, return no recorded smoke while disabled, and avoid usage,
+  billing, route-traffic, or raw prompt/response side effects.
 - Adapter endpoint smoke disabled submission: run
   `npm run proof:adapter-endpoint-smoke-submission` before enabling any
   endpoint-smoke recording endpoint. The route must remain renter-scoped,

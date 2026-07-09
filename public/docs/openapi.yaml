@@ -2799,6 +2799,95 @@ paths:
           description: Deployment not found for this renter and adapter.
 
   /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke:
+    get:
+      tags: [Adapters]
+      summary: Inspect disabled adapter endpoint smoke status
+      description: |
+        Renter-scoped read-only status contract for future deterministic
+        endpoint smoke evidence. The route validates ownership and reports that
+        no endpoint smoke result is recorded while smoke recording remains
+        disabled. It exposes strict-load-proof readiness and the missing inputs
+        needed before recording can start. It does not dispatch inference,
+        record smoke results, attach load proof, route traffic, write usage
+        rows, mutate balances, create invoices, settle payouts, expose raw
+        prompts/responses, enable adapter billing, or claim Tinker
+        compatibility.
+      security:
+        - RenterApiKey: []
+      parameters:
+        - in: path
+          name: adapter_id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: deployment_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Endpoint smoke status is available but no smoke evidence is recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, endpoint_smoke_status_endpoint_live, endpoint_smoke_recording_enabled, endpoint_smoke_recorded, latest_smoke_result, readiness, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_endpoint_smoke_status_disabled]
+                  version:
+                    type: string
+                    example: dcp.adapter_endpoint_smoke_status_disabled.v1
+                  deployment_id: { type: string, example: adpl_8f4c2b9a18e34d220f7a9b12 }
+                  adapter_id: { type: string, example: adpt_8f4c2b9a18e34d220f7a9b12 }
+                  endpoint_id: { type: string, nullable: true, example: arabic-support-prod }
+                  endpoint_smoke_status_endpoint_live: { type: boolean, example: true }
+                  endpoint_smoke_recording_enabled: { type: boolean, example: false }
+                  endpoint_smoke_recorded: { type: boolean, example: false }
+                  latest_smoke_result:
+                    nullable: true
+                    example: null
+                  smoke_history:
+                    type: array
+                    items: { type: object }
+                    example: []
+                  denial_code:
+                    type: string
+                    example: adapter_endpoint_smoke_status_unrecorded
+                  readiness:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      strict_load_proof_match: { type: boolean, example: true }
+                      recording_can_start: { type: boolean, example: false }
+                      missing_before_recording:
+                        type: array
+                        items: { type: string }
+                        example: [funded_smoke_principal, deterministic_smoke_submission, usage_attribution_policy, settlement_policy, minimum_balance_policy, founder_approval]
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      renter_auth_required: { type: boolean, example: true }
+                      renter_owner_scope_enforced: { type: boolean, example: true }
+                      disabled_status_endpoint_live: { type: boolean, example: true }
+                      endpoint_smoke_recording_enabled: { type: boolean, example: false }
+                      returns_recorded_smoke: { type: boolean, example: false }
+                      records_smoke_result: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      records_usage_event: { type: boolean, example: false }
+                      mutates_balance: { type: boolean, example: false }
+                      creates_invoice: { type: boolean, example: false }
+                      settles_provider_payout: { type: boolean, example: false }
+                      exposes_raw_prompt: { type: boolean, example: false }
+                      exposes_raw_response: { type: boolean, example: false }
+                      enables_adapter_billing: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
+        '401':
+          description: Renter API key required.
+        '404':
+          description: Deployment not found for this renter and adapter.
+
     post:
       tags: [Adapters]
       summary: Submit disabled adapter endpoint smoke evidence

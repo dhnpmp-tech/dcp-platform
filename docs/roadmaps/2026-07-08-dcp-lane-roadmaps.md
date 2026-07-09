@@ -122,6 +122,11 @@ what is live.
   endpoint-smoke submissions renter-scoped and no-record while smoke recording,
   route traffic, usage writes, billing, raw prompt/response exposure, and
   Tinker claims remain disabled.
+- PR #872 adds disabled renter-scoped
+  `GET /api/adapters/{adapter_id}/deployments/{deployment_id}/endpoint-smoke`
+  and `npm run proof:adapter-endpoint-smoke-status`, making endpoint-smoke
+  no-record status pollable while smoke recording, route traffic, usage writes,
+  billing, raw prompt/response exposure, and Tinker claims remain disabled.
 
 ### Now
 
@@ -762,6 +767,10 @@ DCP-hosted endpoint -> billed inference.
   disabled submission gate for the renter-scoped POST route. Valid smoke
   evidence still returns a no-record 409 while recording is disabled, and raw
   prompt/response content is not exposed.**
+  **PR #872 adds `npm run proof:adapter-endpoint-smoke-status`, a CI-safe
+  disabled status gate for the renter-scoped GET route. It returns no recorded
+  smoke, exposes strict load-proof readiness, and keeps usage, billing,
+  routing, and raw prompt/response handling disabled.**
 
 ### Later
 
@@ -802,6 +811,10 @@ DCP-hosted endpoint -> billed inference.
   billing proof: the POST route evaluates evidence shape without recording
   smoke, writing usage, routing traffic, or exposing raw prompt/response
   content.**
+  **PR #872 adds the disabled endpoint-smoke status gate before this live
+  billing proof: the GET route lets dashboards/agents poll no-record smoke
+  state without creating smoke evidence, writing usage, routing traffic, or
+  exposing raw prompt/response content.**
 
 ## Cross-Lane Priority Order
 
@@ -868,7 +881,7 @@ credential or unavailable provider is **Blocked**, not **Passed**.
 | Backend | targeted Jest plus `git diff --check` | `curl -fsS https://api.dcp.sa/api/health` |
 | Inference | targeted v1/Anthropic/model tests; `npm run proof:router-policy-contract` when router policy behavior is touched; `npm run proof:evaluator-readiness-contract`, `npm run proof:evaluator-job-schema-contract`, `npm run proof:evaluator-job-metadata-contract`, `npm run proof:evaluator-worker-gate-contract`, `npm run proof:evaluator-result-manifest-contract`, `npm run proof:evaluator-result-writer-dry-run`, `npm run proof:evaluator-worker-dry-run-fixture`, `npm run proof:evaluator-artifact-storage-policy`, `npm run proof:evaluator-result-access-policy`, or `npm run proof:evaluator-result-endpoint-disabled` when benchmark/eval behavior is touched; `npm run proof:prompt-cache-contract` when prompt-cache behavior is touched; `npm run proof:batch-inference-contract` when batch behavior is touched | `curl -fsS https://api.dcp.sa/v1/models`; `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` when streaming or Anthropic compatibility is touched; `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` before cached-input discount claims; `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` before batch execution/discount claims |
 | POT/PODS | pod policy tests, `npm run workspace-pods:verify-contracts`, `npm run pod-images:verify-contracts` | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` for workspace/pod lifecycle proof; `npm run proof:lora-pod-image` for provider-host fat image imports |
-| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:tinker-loop-readiness`, `npm run proof:adapter-artifact-policy`, `npm run proof:adapter-endpoint-smoke`, `npm run proof:adapter-endpoint-smoke-submission`, `npm run proof:adapter-usage-attribution`, `npm run proof:adapter-billing-readiness`, `npm run proof:adapter-deployment-contract` | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` for GPU-host artifact proof; `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load` before vLLM adapter load, route traffic, endpoint smoke, or adapter billing claims |
+| LoRA | `npm run templates:validate`, adapter/training route tests, `npm run proof:lora-training-contract`, `npm run proof:tinker-loop-readiness`, `npm run proof:adapter-artifact-policy`, `npm run proof:adapter-endpoint-smoke`, `npm run proof:adapter-endpoint-smoke-status`, `npm run proof:adapter-endpoint-smoke-submission`, `npm run proof:adapter-usage-attribution`, `npm run proof:adapter-billing-readiness`, `npm run proof:adapter-deployment-contract` | `DCP_LORA_TRAINING_LIVE_PROOF_ALLOW=1 npm run proof:lora-training-live-artifact` for GPU-host artifact proof; `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load` before vLLM adapter load, route traffic, endpoint smoke, or adapter billing claims |
 
 ## Weekly Cadence
 
