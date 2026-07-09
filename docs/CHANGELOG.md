@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 19:14 UTC - Pods workspace skip path and launch GPU request preview (PR #911)
+
+- **PR:** [#911](https://github.com/dhnpmp-tech/dcp-platform/pull/911) (`codex/pods-stage2-request-preview-2026-07-09`).
+- **Timestamp:** 2026-07-09 19:14 UTC / 2026-07-09 23:14 +04.
+- **Workspace UX:** `/renter/pods` now tells renters they do not need to scroll every staged file before Stage 2 because the whole `/workspace` volume is attached at launch.
+- **Folder organization:** The compact large-workspace chips prioritize busier/larger folders first so the collapsed view remains useful with many staged files.
+- **GPU clarity:** Stage 2 now includes a "What DCP will send" request preview showing `gpu_type` omitted for auto-pick or naming the pinned GPU when a card is selected.
+- **Selection strip:** The actual launch GPU strip repeats the request preview beside the final-request chips.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for skip-file-review copy plus auto-pick and fixed-GPU request previews.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; pod trial-routing readiness proof; workspace pod contract proof; minimum-balance readiness proof; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 18:54 UTC - Admin live acceptance gate panel (PR #910)
 
 - **PR:** [#910](https://github.com/dhnpmp-tech/dcp-platform/pull/910) (`codex/live-acceptance-admin-panel-2026-07-09`).

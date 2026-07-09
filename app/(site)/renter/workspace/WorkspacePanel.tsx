@@ -146,6 +146,14 @@ export default function WorkspacePanel({
     [fileGroups],
   )
   const shouldAutoOpenCompactTree = context === 'pod-launch' && (files.length > 4 || fileGroups.length > 3)
+  const compactFileGroups = useMemo(() => {
+    if (!shouldAutoOpenCompactTree) return fileGroups
+    return [...fileGroups].sort((a, b) => {
+      if (a.id === '__root__') return 1
+      if (b.id === '__root__') return -1
+      return b.files.length - a.files.length || b.totalBytes - a.totalBytes || a.label.localeCompare(b.label)
+    })
+  }, [fileGroups, shouldAutoOpenCompactTree])
   const uploadBusy = upload.state.status !== 'idle' &&
     upload.state.status !== 'completed' &&
     upload.state.status !== 'aborted'
@@ -404,6 +412,14 @@ export default function WorkspacePanel({
                 ? <Bi en="Large workspace: folder tree opens first; full manifest stays collapsed." ar="مساحة عمل كبيرة: تظهر شجرة المجلدات أولاً ويبقى البيان الكامل مطوياً." />
                 : <Bi en="Compact checkpoint; open folders only when needed." ar="نقطة تحقق مختصرة؛ افتح المجلدات عند الحاجة فقط." />}
             </span>
+            {nextStageHref && (
+              <span className="ws-stage-skip-note">
+                <Bi
+                  en="No need to scroll every file. Stage 2 launches with the whole /workspace volume attached."
+                  ar="لا تحتاج للمرور على كل ملف. المرحلة 2 تشغّل الحاوية مع وحدة /workspace كاملة."
+                />
+              </span>
+            )}
           </div>
           <div className="ws-stage-compact-actions">
             {nextStageHref && (
@@ -429,7 +445,7 @@ export default function WorkspacePanel({
           </div>
           {fileGroups.length > 0 && (
             <div className="ws-stage-folders" aria-label={lang === 'ar' ? 'مجلدات مساحة العمل' : 'Workspace folders'}>
-              {fileGroups.slice(0, 4).map((group) => (
+              {compactFileGroups.slice(0, 4).map((group) => (
                 <button
                   key={group.id}
                   type="button"

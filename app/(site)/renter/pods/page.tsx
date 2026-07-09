@@ -1233,6 +1233,12 @@ export default function RenterPodsPage() {
   const launchModeDetail = selectedType
     ? 'The launch request will include this GPU type. Filters below only change which cards are visible.'
     : 'Templates and VRAM chips only narrow the cards below; they do not pin a GPU until a card is selected.'
+  const launchRequestPayloadLabel = selectedType
+    ? `gpu_type = ${displayGpuType(selectedType.gpu_model)}`
+    : 'gpu_type omitted = auto-pick'
+  const launchRequestPayloadDetail = selectedType
+    ? 'This selected GPU card is pinned in the final launch request.'
+    : 'No GPU card is pinned; filters and template hints stay browse-only.'
   const stage2ModeChipLabel = selectedType ? 'Mode: fixed GPU selected' : 'Mode: auto-pick selected'
   const workspacePodContractStatus = trialRouting?.infrastructure_proofs?.workspace_pod_contract?.status
   const workspaceLiveStatus = trialRouting?.infrastructure_proofs?.workspace_live_acceptance?.status
@@ -1642,6 +1648,15 @@ export default function RenterPodsPage() {
                     <Bi en={launchModeDetail} ar={selectedType ? 'سيرسل التشغيل نوع GPU هذا. التصفية أدناه للتصفح فقط.' : 'القوالب وتصفية الذاكرة تضيق البطاقات فقط ولا تثبت GPU حتى تختار بطاقة.'} />
                   </em>
                 </div>
+                <div className={`pod-request-preview ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'معاينة طلب التشغيل' : 'Launch request preview'}>
+                  <span>
+                    <Bi en="What DCP will send" ar="ما سيرسله DCP" />
+                  </span>
+                  <code>{launchRequestPayloadLabel}</code>
+                  <em>
+                    <Bi en={launchRequestPayloadDetail} ar={selectedType ? 'بطاقة GPU المحددة مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة GPU مثبتة؛ التصفية والقوالب للتصفح فقط.'} />
+                  </em>
+                </div>
                 <div className="pod-decision-lane" aria-label={lang === 'ar' ? 'ملخص قرارات المرحلة 2' : 'Stage 2 decision summary'}>
                   <span>
                     <b><Bi en="Template" ar="القالب" /></b>
@@ -1779,6 +1794,9 @@ export default function RenterPodsPage() {
                 </span>
                 <span className="gpu-selection-chip final">
                   <Bi en="Final launch request" ar="طلب التشغيل النهائي" />
+                </span>
+                <span className="gpu-selection-chip request">
+                  {launchRequestPayloadLabel}
                 </span>
                 <span className="gpu-selection-chip">
                   {minVram > 0

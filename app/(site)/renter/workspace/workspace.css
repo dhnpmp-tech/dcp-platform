@@ -281,6 +281,10 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   margin-top: 2px;
   color: var(--teal) !important;
 }
+.ws-stage-skip-note {
+  margin-top: 1px;
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink)) !important;
+}
 .ws-stage-folder-index-actions {
   display: flex;
   flex-wrap: wrap;
