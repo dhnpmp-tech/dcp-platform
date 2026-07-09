@@ -8731,7 +8731,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [object, version, default_policy, request_selectable, data]
+                required: [object, version, default_policy, request_selectable, proof_contract, claim_guards, data]
                 properties:
                   object:
                     type: string
@@ -8749,6 +8749,61 @@ paths:
                   request_selectable:
                     type: boolean
                     example: false
+                  proof_contract:
+                    type: object
+                    required: [command, mode, live_smoke_required_before_selectable, required_before_future_policy_selectable]
+                    properties:
+                      command:
+                        type: string
+                        example: npm run proof:router-policy-contract
+                      mode:
+                        type: string
+                        example: ci_safe_service_contract
+                      live_smoke_required_before_selectable:
+                        type: boolean
+                        description: Future policies remain non-selectable until a funded live smoke has passed.
+                        example: true
+                      required_before_future_policy_selectable:
+                        type: array
+                        items:
+                          type: string
+                        example: [policy_specific_route_tests, funded_policy_live_smoke, pricing_or_residency_or_classifier_evidence_for_specialized_policies]
+                  claim_guards:
+                    type: object
+                    required:
+                      - changes_provider_selection
+                      - enables_future_policy_selection
+                      - enables_price_optimized_routing
+                      - enables_geo_residency_routing
+                      - enables_coding_or_arabic_classifier_routing
+                      - changes_billing_or_settlement
+                      - proves_live_latency_ordering
+                      - proves_tinker_compatibility
+                    properties:
+                      changes_provider_selection:
+                        type: boolean
+                        example: false
+                      enables_future_policy_selection:
+                        type: boolean
+                        example: false
+                      enables_price_optimized_routing:
+                        type: boolean
+                        example: false
+                      enables_geo_residency_routing:
+                        type: boolean
+                        example: false
+                      enables_coding_or_arabic_classifier_routing:
+                        type: boolean
+                        example: false
+                      changes_billing_or_settlement:
+                        type: boolean
+                        example: false
+                      proves_live_latency_ordering:
+                        type: boolean
+                        example: false
+                      proves_tinker_compatibility:
+                        type: boolean
+                        example: false
                   generated_at:
                     type: string
                     format: date-time
@@ -8756,7 +8811,7 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, label, status, available, request_selectable, current_behavior, signals, next]
+                      required: [id, label, status, available, request_selectable, current_behavior, selection_guard, proof_gates, signals, next]
                       properties:
                         id:
                           type: string
@@ -8774,6 +8829,29 @@ paths:
                           type: boolean
                         current_behavior:
                           type: string
+                        selection_guard:
+                          type: string
+                          enum: [accepted_noop_only, not_request_selectable_until_policy_specific_proof]
+                        proof_gates:
+                          type: array
+                          items:
+                            type: object
+                            required: [id, label, status, required, next]
+                            properties:
+                              id:
+                                type: string
+                                example: policy_specific_route_tests
+                              label:
+                                type: string
+                                example: Policy-specific route tests
+                              status:
+                                type: string
+                                enum: [ci_safe, telemetry_gate_only, gated_by_env, required, blocked_external, policy_required]
+                              required:
+                                type: boolean
+                                example: true
+                              next:
+                                type: string
                         signals:
                           type: array
                           items:

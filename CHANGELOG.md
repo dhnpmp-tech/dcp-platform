@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 23:27 UTC - `docs(inference): document router proof gates - PR #927`
+
+**PR:** [#927](https://github.com/dhnpmp-tech/dcp-platform/pull/927) (`codex/router-proof-openapi-2026-07-10`).
+**Local timestamp:** 2026-07-10 03:27 +04.
+
+**What:** Follow-up to PR #926. Aligns public machine-readable docs with the live `/v1/router/policies` proof-gate contract now served in production.
+
+- **OpenAPI:** `docs/openapi.yaml` and `public/docs/openapi.yaml` now document router `proof_contract`, false `claim_guards`, per-policy `selection_guard`, and `proof_gates`.
+- **Agent docs:** `public/llms.txt` now tells agents that router policies expose proof gates and that `npm run proof:router-policy-contract` is the local CI-safe proof.
+- **Safety:** Documentation-only change; no backend route, frontend behavior, provider selection, billing, settlement, routing, classifier, latency-ordering, or Tinker claim changed.
+- **Verification:** YAML parse for both OpenAPI copies; live production router policy smoke; `git diff --check`.
+
 ### 2026-07-09 23:17 UTC - `feat(inference): expose router proof gates - PR #926`
 
 **PR:** [#926](https://github.com/dhnpmp-tech/dcp-platform/pull/926) (`codex/router-policy-proof-gates-2026-07-10`).
