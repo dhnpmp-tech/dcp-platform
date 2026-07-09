@@ -24,6 +24,7 @@ function buildEvaluatorResultAccessPolicyReadiness(now = new Date()) {
     current_mode: 'authorization_policy_contract_only',
     endpoints: {
       result_access_readiness: 'GET /api/evals/results/access/readiness',
+      signed_download_readiness: 'GET /api/evals/results/downloads/readiness',
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',
@@ -55,6 +56,7 @@ function buildEvaluatorResultAccessPolicyReadiness(now = new Date()) {
       disabled_result_endpoint_live: true,
       result_endpoint_live: false,
       signed_downloads_enabled: false,
+      signed_download_policy_live: true,
       exposes_result_endpoint: false,
       signs_download_url: false,
       allows_cross_renter_access: false,

@@ -26,6 +26,7 @@ function buildEvaluatorArtifactStoragePolicyReadiness(now = new Date()) {
     endpoints: {
       artifact_storage_readiness: 'GET /api/evals/results/artifacts/readiness',
       result_access_readiness: 'GET /api/evals/results/access/readiness',
+      signed_download_readiness: 'GET /api/evals/results/downloads/readiness',
       result_writer_readiness: 'GET /api/evals/results/writer/readiness',
       result_manifest_schema: 'GET /api/evals/results/schema',
       worker_readiness: 'GET /api/evals/worker/readiness',

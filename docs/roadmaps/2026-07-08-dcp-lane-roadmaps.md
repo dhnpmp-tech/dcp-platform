@@ -493,7 +493,12 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `GET /api/evals/jobs/:id/results` and
   `npm run proof:evaluator-result-endpoint-disabled` so the future result route
   is owner-scoped but returns only a disabled contract with no manifest,
-  storage key, signed URL, billing, report, ranking, or quality claim.**
+  storage key, signed URL, billing, report, ranking, or quality claim. PR #865
+  adds `GET /api/evals/results/downloads/readiness` and
+  `npm run proof:evaluator-signed-download-policy` so owner access, artifact
+  policy, checksum, content type, and 60-900 second expiry guards exist before
+  any signed URL, object-store key, live result endpoint, billing, report,
+  ranking, or quality claim can go live.**
 - Metrics export.
 - Customer-facing latency/throughput dashboards.
 - Multimodal/audio model surfaces.

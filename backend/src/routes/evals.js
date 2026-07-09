@@ -10,6 +10,7 @@ const { buildEvaluatorResultWriterDryRunReadiness } = require('../services/evalu
 const { buildEvaluatorArtifactStoragePolicyReadiness } = require('../services/evaluatorArtifactStoragePolicy');
 const { buildEvaluatorResultAccessPolicyReadiness } = require('../services/evaluatorResultAccessPolicy');
 const { buildEvaluatorResultEndpointDisabledResponse } = require('../services/evaluatorResultEndpointGate');
+const { buildEvaluatorSignedDownloadPolicyReadiness } = require('../services/evaluatorSignedDownloadPolicy');
 const {
   EvaluatorJobError,
   createEvaluatorJob,
@@ -104,6 +105,18 @@ function createEvalsRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch evaluator result access readiness',
         code: 'evaluator_result_access_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/results/downloads/readiness', publicEndpointLimiter, (_req, res) => {
+    try {
+      return res.json(buildEvaluatorSignedDownloadPolicyReadiness(new Date()));
+    } catch (error) {
+      console.error('[evals] signed download readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch evaluator signed download readiness',
+        code: 'evaluator_signed_download_readiness_internal_error',
       });
     }
   });

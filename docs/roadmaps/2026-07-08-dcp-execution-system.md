@@ -169,6 +169,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Evaluator artifact storage policy | `npm run proof:evaluator-artifact-storage-policy` | none | CI-safe gate available; validates renter/job-scoped future result manifest keys and checksums while object-store writes, signed downloads, result endpoints, billing, reports, rankings, and quality claims remain disabled |
 | Evaluator result access policy | `npm run proof:evaluator-result-access-policy` | none | CI-safe gate available; validates owner-match, result-available, artifact-policy, and checksum guards while result endpoints, signed downloads, billing, reports, rankings, and quality claims remain disabled |
 | Evaluator disabled result endpoint | `npm run proof:evaluator-result-endpoint-disabled` | none | CI-safe gate available; renter-scoped route returns disabled contract only, with no manifest, storage key, signed URL, billing, reports, rankings, or quality claims |
+| Evaluator signed download policy | `npm run proof:evaluator-signed-download-policy` | none | CI-safe gate available; validates owner access, artifact policy, checksum, content type, and 60-900 second expiry requirements while signed URLs, object-store keys, result endpoints, billing, reports, rankings, and quality claims remain disabled |
 | Minimum-balance readiness contract | `npm run proof:minimum-balance-readiness` | none | CI-safe gate available; read-only policy packet, no payment/workload/enforcement mutation |
 | Prompt-cache measurement contract | `npm run proof:prompt-cache-contract` | none | CI-safe gate available; provider KV-cache and discount settlement proof still blocked |
 | Prompt-cache live hit/settlement smoke | `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement` | provider cache-hit evidence, funded smoke principal, settlement discount policy approval | Command available; blocked until funded/provider/policy inputs exist |
@@ -295,6 +296,12 @@ before or with the feature change.
      proof:evaluator-result-endpoint-disabled`; the route is owner-scoped and
      returns a disabled contract only, without exposing manifests, artifact
      keys, signed URLs, billing, reports, rankings, or quality claims.
+   - Evaluator signed download policy starts in PR #865 with
+     `GET /api/evals/results/downloads/readiness` and `npm run
+     proof:evaluator-signed-download-policy`; the proof validates owner
+     access, artifact policy, checksum, content type, and 60-900 second expiry
+     requirements while signed URLs, object-store keys, result endpoints,
+     billing, reports, rankings, and quality claims stay disabled.
    - Minimum-balance policy starts in PR #855 with
      `GET /api/renters/me/minimum-balances` and `npm run
      proof:minimum-balance-readiness`; payment/workload/enforcement mutation
