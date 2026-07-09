@@ -190,6 +190,10 @@ what is live.
   show paid-credit preflight, paid available SAR is visible before launch, and
   trial credit is explicitly blocked from unlocking high-demand GPUs while the
   UI stays read-only.
+- PR #899 adds a unified launch checklist to `/renter/pods`, pulling Stage 1
+  workspace counts, Stage 2 auto-pick/fixed-GPU state, grant-credit trial
+  routing, and minimum-balance credit-gate state into one scan-friendly rail
+  before the detailed workspace/template/GPU controls.
 
 ### Now
 
@@ -694,6 +698,10 @@ template launch.
   so the renter sees quote preflight for provider/community pods, paid-credit
   preflight for high-demand pods, paid available SAR, and the read-only
   no-enforcement-change guard before launching.
+- PR #899 adds a single launch checklist above the detailed pod controls,
+  showing staged-file/folder counts, actual GPU request mode, trial routing,
+  and minimum-balance status without changing launch, billing, routing, or
+  workspace API semantics.
 
 ### Now
 

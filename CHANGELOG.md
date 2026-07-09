@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 16:06 UTC - `feat(pods): add unified launch checklist for workspace and GPU clarity - PR #899`
+
+**PR:** [#899](https://github.com/dhnpmp-tech/dcp-platform/pull/899) (`codex/pods-launch-checklist-tareq-ux-2026-07-09`).
+**Local timestamp:** 2026-07-09 20:06 +04.
+
+**What:** Tareq pods/workspace feedback follow-up. Collapses the key launch decisions into one scan-friendly checklist so renters do not have to hunt through large staged workspaces or multiple policy strips to understand the launch state.
+
+- **Launch checklist:** `/renter/pods` now shows a top-level checklist for Stage 1 workspace, Stage 2 actual GPU request, trial account route, and minimum-balance credit gate before the deeper launch controls.
+- **Workspace clarity:** The embedded workspace panel now reports staged-file counts upward, letting the launch checklist show file and folder counts while Stage 1 stays collapsed and folder-first.
+- **GPU request clarity:** The checklist repeats whether launch is auto-pick or fixed GPU, and keeps browse-only VRAM filters separate from the actual launch request.
+- **Trial and credit clarity:** The checklist repeats grant-credit trial routing, paid-credit high-demand gating, and synced/fallback minimum-balance status from the existing readiness contracts.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the launch checklist in both auto-pick and fixed-GPU states.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, supply-tier exposure, or enforcement change was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:59 UTC - `feat(batches): surface batch credit preflight gates - PR #898`
 
 **PR:** [#898](https://github.com/dhnpmp-tech/dcp-platform/pull/898) (`codex/batches-minimum-balance-preflight-2026-07-09`).

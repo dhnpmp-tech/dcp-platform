@@ -6,7 +6,7 @@ import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
 import { displayGpuType } from '@/app/lib/useGpuTypes'
 import WorkspacePanel from '../workspace/WorkspacePanel'
-import type { WorkspaceVolume } from '../workspace/workspaceApi'
+import type { WorkspaceFile, WorkspaceVolume } from '../workspace/workspaceApi'
 import { PodSidebar, PodTopbar, initials } from './PodShell'
 import './pods.css'
 
@@ -576,6 +576,15 @@ function fmtSar(v: number): string {
 function sarFromHalala(value?: number | null): number {
   return Number((Number(value || 0) / 100).toFixed(2))
 }
+function countTopLevelWorkspaceFolders(files: WorkspaceFile[]): number {
+  const folders = new Set<string>()
+  for (const file of files) {
+    const key = String(file.key || '').replace(/^\/+/, '')
+    const parts = key.split('/').filter(Boolean)
+    if (parts.length > 1) folders.add(parts[0])
+  }
+  return folders.size
+}
 // Approximate USD via the fixed peg — secondary display only.
 function fmtUsd(sar: number): string {
   return (sar * SAR_TO_USD).toFixed(2)
@@ -669,6 +678,7 @@ export default function RenterPodsPage() {
   const [providers, setProviders] = useState<AvailableProvider[]>([])
   const [renterKey, setRenterKey] = useState<string | null>(null)
   const [workspaceVolume, setWorkspaceVolume] = useState<WorkspaceVolume | null>(null)
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([])
   const [renterName, setRenterName] = useState('Renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string | null>('pytorch-notebook')
@@ -857,6 +867,7 @@ export default function RenterPodsPage() {
     if (!apiKey) {
       setRenterKey(null)
       setWorkspaceVolume(null)
+      setWorkspaceFiles([])
       setMinimumBalance(null)
       setMinimumBalanceStatus('idle')
       setMinimumBalanceError('')
@@ -1268,6 +1279,29 @@ export default function RenterPodsPage() {
     minimumBalance?.rails?.lora_training,
     minimumBalance?.rails?.adapter_deployments,
   ].filter((rail) => rail?.enforcement_live === false).length
+  const workspaceFolderCount = countTopLevelWorkspaceFolders(workspaceFiles)
+  const workspaceChecklistLabel = workspaceVolume
+    ? workspaceFiles.length > 0
+      ? `${workspaceFiles.length} files · ${workspaceFolderCount} folders`
+      : `${workspaceVolume.size_gb} GB /workspace · empty`
+    : 'Create /workspace volume'
+  const workspaceChecklistDetail = workspaceVolume
+    ? 'Stage 1 can stay collapsed; open only the folder you need.'
+    : 'Create a persistent workspace before launching.'
+  const gpuChecklistLabel = selectedType ? displayGpuType(selectedType.gpu_model) : 'Auto-pick · no fixed GPU'
+  const gpuChecklistDetail = selectedType
+    ? `Fixed launch request · ${selectedType.vram_gb} GB${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
+    : minVram > 0
+      ? `${stage2FilterLabel} is browsing only; launch still auto-picks.`
+      : 'Backend picks an available GPU type at launch.'
+  const creditChecklistLabel = minimumBalanceSynced
+    ? 'Credit gates synced'
+    : minimumBalanceStatus === 'loading'
+      ? 'Credit gates checking'
+      : 'Credit gates fallback'
+  const creditChecklistDetail = minimumBalanceSynced
+    ? `Paid available SAR ${fmtSar(paidAvailableSar)} · high-demand requires paid credit.`
+    : 'Launch still uses backend credit enforcement.'
 
   const isLive = loadState === 'ready'
 
@@ -1399,6 +1433,7 @@ export default function RenterPodsPage() {
               context="pod-launch"
               nextStageHref="#pod-stage-2"
               onVolumeLoaded={setWorkspaceVolume}
+              onFilesLoaded={setWorkspaceFiles}
             />
           </div>
 
@@ -1448,6 +1483,33 @@ export default function RenterPodsPage() {
                     : <Bi en="After GPU pick" ar="بعد اختيار GPU" />}
                 </strong>
               </div>
+            </div>
+
+            <div className="pod-launch-checklist" aria-label={lang === 'ar' ? 'قائمة تحقق التشغيل' : 'Launch checklist'}>
+              <a className={workspaceVolume ? 'ready' : 'needs'} href="#pod-stage-1">
+                <span className="pod-launch-check-no">Stage 1</span>
+                <strong><Bi en="Workspace" ar="مساحة العمل" /></strong>
+                <b>{workspaceChecklistLabel}</b>
+                <em><Bi en={workspaceChecklistDetail} ar={workspaceVolume ? 'تبقى المرحلة 1 مطوية؛ افتح مجلداً واحداً فقط عند الحاجة.' : 'أنشئ مساحة عمل دائمة قبل التشغيل.'} /></em>
+              </a>
+              <a className={selectedType ? 'ready' : 'auto'} href="#pod-stage-2">
+                <span className="pod-launch-check-no">Stage 2</span>
+                <strong><Bi en="Actual GPU request" ar="طلب GPU الفعلي" /></strong>
+                <b>{gpuChecklistLabel}</b>
+                <em><Bi en={gpuChecklistDetail} ar={selectedType ? 'طلب GPU محدد عند التشغيل.' : 'التصفية للتصفح فقط؛ التشغيل يختار تلقائياً.'} /></em>
+              </a>
+              <a className={trialRoutingSynced ? 'ready' : 'needs'} href="#pod-stage-2">
+                <span className="pod-launch-check-no">Trial</span>
+                <strong><Bi en="Account route" ar="مسار الحساب" /></strong>
+                <b><Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'وسم تجربة صريح' : 'حسب مصدر رصيد المنحة'} /></b>
+                <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
+              </a>
+              <a className={minimumBalanceSynced ? 'ready' : 'needs'} href="#pod-stage-3">
+                <span className="pod-launch-check-no">Credit</span>
+                <strong><Bi en="Minimum balance" ar="الحد الأدنى للرصيد" /></strong>
+                <b><Bi en={creditChecklistLabel} ar={minimumBalanceSynced ? 'بوابات الرصيد متزامنة' : 'بوابات الرصيد قيد الفحص'} /></b>
+                <em><Bi en={creditChecklistDetail} ar="التشغيل يستخدم بوابات الرصيد في الخلفية." /></em>
+              </a>
             </div>
 
             <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
