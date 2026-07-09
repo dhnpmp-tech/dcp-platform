@@ -236,3 +236,11 @@ execution/download/settlement/discount blockers, and exits blocked before batch
 creation or billing mutation. A future passing run must add
 create/poll/download/settlement evidence before batch execution or discount
 claims can be enabled.
+PR #892 exposes both live proof gates in readiness contracts and product
+surfaces: `prompt_cache_provider_discount_smoke` under
+`GET /v1/prompt-cache/readiness` and `batch_live_execution_discount_smoke` under
+`GET /api/batches/readiness`. Public `/inference`, public `/batch`, and renter
+`/renter/batches` render those blocked proof commands from readiness metadata;
+no prompt-cache discount, provider KV-cache control, batch execution, result
+download, settlement, model batch flag, route selection, provider routing,
+billing path, or balance mutation is enabled by this visibility.

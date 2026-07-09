@@ -828,7 +828,7 @@ components:
     PromptCacheReadiness:
       type: object
       description: Read-only prompt-cache readiness contract for OpenAI-compatible inference. Measurement is available, but cache discounts and provider KV-cache control remain disabled until settlement and provider-hit proof exist.
-      required: [object, version, current_mode, status, measurement, billing, claims, next]
+      required: [object, version, current_mode, status, measurement, billing, live_acceptance, claims, next]
       properties:
         object:
           type: string
@@ -890,6 +890,31 @@ components:
           type: array
           items: { type: string }
           example: [usage.prompt_cache, usage.pricing.prompt_cache, usage.pricing.cached_input_tokens, usage.pricing.billable_input_tokens]
+        live_acceptance:
+          type: object
+          additionalProperties: false
+          properties:
+            provider_discount_smoke:
+              type: object
+              required: [status, command, live_acceptance_gate, blocked_on, verifies]
+              properties:
+                status:
+                  type: string
+                  enum: [blocked_external]
+                command:
+                  type: string
+                  example: DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement
+                live_acceptance_gate:
+                  type: string
+                  example: prompt_cache_provider_discount_smoke
+                blocked_on:
+                  type: array
+                  items: { type: string }
+                  example: [funded smoke principal, provider cache-hit evidence, settlement discount policy approval]
+                verifies:
+                  type: array
+                  items: { type: string }
+                  example: [live hit metadata, no discount while disabled, settlement discount policy remains disabled]
         claims:
           type: object
           additionalProperties: false
@@ -1794,7 +1819,7 @@ paths:
                 properties:
                   readiness:
                     type: object
-                    required: [object, version, current_mode, public_execution_enabled, request_creation_enabled, supported_urls, limits, features, claims, next]
+                    required: [object, version, current_mode, public_execution_enabled, request_creation_enabled, supported_urls, limits, features, live_acceptance, claims, next]
                     properties:
                       object:
                         type: string
@@ -1821,6 +1846,31 @@ paths:
                       features:
                         type: object
                         additionalProperties: true
+                      live_acceptance:
+                        type: object
+                        additionalProperties: true
+                        properties:
+                          execution_discount_smoke:
+                            type: object
+                            required: [status, command, live_acceptance_gate, blocked_on, verifies]
+                            properties:
+                              status:
+                                type: string
+                                example: blocked_external
+                              command:
+                                type: string
+                                example: DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution
+                              live_acceptance_gate:
+                                type: string
+                                example: batch_live_execution_discount_smoke
+                              blocked_on:
+                                type: array
+                                items: { type: string }
+                                example: [funded renter key, live provider execution capacity, object-store result path, discount policy approval]
+                              verifies:
+                                type: array
+                                items: { type: string }
+                                example: [renter-authenticated readiness, batch create guard, result manifest/download prerequisites, discount remains disabled until approved]
                       claims:
                         type: object
                         additionalProperties: true

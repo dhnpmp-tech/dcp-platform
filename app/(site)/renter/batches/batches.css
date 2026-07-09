@@ -101,6 +101,84 @@ body {
   overflow-wrap: anywhere;
 }
 
+.bt-live-proof {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  border: 1px solid var(--hair);
+  border-top: 0;
+  background: color-mix(in oklab, var(--orange) 6%, var(--bg-2));
+  padding: 14px 16px;
+}
+
+.bt-live-proof-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bt-live-proof-copy span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.bt-live-proof-copy strong {
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.bt-live-proof-copy p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+
+.bt-live-proof-facts {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bt-live-proof-facts span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.bt-live-proof-facts .blocked {
+  border-color: color-mix(in oklab, var(--orange) 58%, var(--hair));
+  color: color-mix(in oklab, var(--orange) 82%, var(--ink));
+  background: color-mix(in oklab, var(--orange) 8%, var(--paper));
+}
+
+.bt-live-proof-facts .ready {
+  border-color: color-mix(in oklab, var(--teal) 46%, var(--hair));
+  color: var(--teal);
+  background: color-mix(in oklab, var(--teal) 8%, var(--paper));
+}
+
 .bt-ledger,
 .bt-create,
 .bt-detail {
@@ -440,6 +518,14 @@ body {
   .bt-supported {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  .bt-live-proof {
+    grid-template-columns: 1fr;
+  }
+
+  .bt-live-proof-facts {
+    justify-content: flex-start;
   }
 }
 

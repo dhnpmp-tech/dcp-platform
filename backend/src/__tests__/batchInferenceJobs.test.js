@@ -133,6 +133,13 @@ describe('batch inference job foundation', () => {
           enabled: false,
         },
       },
+      live_acceptance: {
+        execution_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+          live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        },
+      },
       claims: {
         batch_execution_live: false,
         batch_discount_live: false,
@@ -146,6 +153,18 @@ describe('batch inference job foundation', () => {
       'BATCH_RESULTS_S3_KEY',
       'BATCH_RESULTS_S3_SECRET',
     ]);
+    expect(readiness.live_acceptance.execution_discount_smoke.blocked_on).toEqual(expect.arrayContaining([
+      'funded renter key',
+      'live provider execution capacity',
+      'object-store result path',
+      'discount policy approval',
+    ]));
+    expect(readiness.live_acceptance.execution_discount_smoke.verifies).toEqual(expect.arrayContaining([
+      'renter-authenticated readiness',
+      'batch create guard',
+      'result manifest/download prerequisites',
+      'discount remains disabled until approved',
+    ]));
 
     const configured = buildBatchInferenceReadiness({
       BATCH_RESULTS_S3_BUCKET: 'dcp-batch-results',
@@ -547,6 +566,13 @@ describe('batch inference job foundation', () => {
         jsonl_validation: { enabled: true },
         worker_execution: { public_enabled: false },
         discounts: { enabled: false },
+      },
+      live_acceptance: {
+        execution_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+          live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        },
       },
     });
 

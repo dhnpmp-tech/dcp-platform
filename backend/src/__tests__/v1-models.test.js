@@ -30,6 +30,10 @@ jest.mock('../services/billingService', () => ({
     capped: false,
     ok: true,
   })),
+  checkScopedKeyBudgetCap: jest.fn(() => ({
+    capped: false,
+    ok: true,
+  })),
   settleInferenceOnce: jest.fn(() => ({ status: 'settled' })),
 }));
 
@@ -106,6 +110,13 @@ describe('v1 models route', () => {
         discount_bps: 0,
         billable_input_tokens_discounted: false,
         settlement_discount_enabled: false,
+      },
+      live_acceptance: {
+        provider_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+          live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+        },
       },
       claims: {
         prompt_cache_discount: false,

@@ -445,6 +445,14 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   proof runner that refuses billed traffic by default, verifies readiness,
   sends two prompt-cache measurement requests only when explicitly allowed, and
   requires a measured hit with discount/settlement flags still false.
+- PR #892 exposes `prompt_cache_provider_discount_smoke` in
+  `GET /v1/prompt-cache/readiness`, public `/inference`, OpenAPI, and the
+  prompt-cache proof packet so the live provider/discount gate is visible
+  before discounts or provider KV-cache claims can ship.
+- PR #892 exposes `batch_live_execution_discount_smoke` in
+  `GET /api/batches/readiness`, public `/batch`, renter `/renter/batches`,
+  OpenAPI, and the batch proof packet while execution, downloads, settlement,
+  discounts, and model batch flags remain gated.
 - PR #828 added `npm run proof:lora-training-contract`, a CI-safe proof packet
   for LoRA dataset validation, metadata-only/idempotent training jobs, disabled
   worker behavior, artifact checksum requirements, model-card claim guards, and
@@ -943,12 +951,16 @@ DCP-hosted endpoint -> billed inference.
    cache-control proof remain gated.**
    **Opt-in live prompt-cache settlement runner added in PR #836; it is
    command-ready but blocked until funded/provider/policy inputs exist.**
+   **PR #892 surfaces that live gate through readiness, OpenAPI, `/inference`,
+   and the prompt-cache proof packet without enabling discounts.**
 8. Batch inference design.
    **Contract proof added in PR #824 as `npm run proof:batch-inference-contract`;
    opt-in live readiness runner added in PR #838 as
    `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution`.
    Provider execution, result downloads, discounts, and model batch capability
    remain blocked until that live runner can prove the full flow.**
+   **PR #892 surfaces the blocked live execution/discount gate through
+   readiness, OpenAPI, `/batch`, `/renter/batches`, and the batch proof packet.**
 9. LoRA training job MVP.
    **Metadata/job/readiness contracts are in place through PRs #744/#751/#775/#782;
    PR #828 adds a local contract proof command. GPU-host artifact proof remains

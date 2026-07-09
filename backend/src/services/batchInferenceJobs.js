@@ -383,6 +383,25 @@ function buildBatchInferenceReadiness(env = process.env) {
         enabled: false,
       },
     },
+    live_acceptance: {
+      execution_discount_smoke: {
+        status: 'blocked_external',
+        command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+        live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        blocked_on: [
+          'funded renter key',
+          'live provider execution capacity',
+          'object-store result path',
+          'discount policy approval',
+        ],
+        verifies: [
+          'renter-authenticated readiness',
+          'batch create guard',
+          'result manifest/download prerequisites',
+          'discount remains disabled until approved',
+        ],
+      },
+    },
     claims: {
       batch_execution_live: false,
       batch_discount_live: false,

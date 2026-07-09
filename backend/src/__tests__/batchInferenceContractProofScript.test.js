@@ -27,6 +27,13 @@ describe('batch inference contract proof script', () => {
       public_execution_enabled: false,
       discounts_enabled: false,
       model_batch_capability_live: false,
+      live_acceptance: {
+        execution_discount_smoke: {
+          status: 'blocked_external',
+          command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+          live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        },
+      },
     });
     expect(report.validation.replay).toMatchObject({
       idempotent_replay: true,
@@ -74,6 +81,7 @@ describe('batch inference contract proof script', () => {
     });
     expect(report.invariants.map((item) => item.name)).toEqual([
       'readiness keeps public execution and discounts gated',
+      'readiness names the blocked batch live execution and discount smoke gate',
       'invalid JSONL request is rejected before job creation',
       'idempotency key replays the existing batch',
       'line ledger preserves every input request without raw prompt output',

@@ -93,6 +93,14 @@ interface BatchReadinessFeature {
   missing_config?: string[]
 }
 
+interface LiveAcceptanceGate {
+  status?: string
+  command?: string
+  live_acceptance_gate?: string
+  blocked_on?: string[]
+  verifies?: string[]
+}
+
 interface BatchReadiness {
   object: 'batch_inference_readiness'
   version: string
@@ -121,6 +129,9 @@ interface BatchReadiness {
     settlement: BatchReadinessFeature
     discounts: BatchReadinessFeature
     model_capability_flag: BatchReadinessFeature
+  }
+  live_acceptance?: {
+    execution_discount_smoke?: LiveAcceptanceGate
   }
   claims: {
     batch_execution_live: boolean
@@ -389,6 +400,7 @@ export default function RenterBatchesPage() {
   const resultDownloadsConfigured = readiness?.features.result_downloads.configured === true
   const discountsEnabled = readiness?.features.discounts.enabled === true
   const readinessMode = readiness?.current_mode || 'metadata_validation_only'
+  const batchLiveGate = readiness?.live_acceptance?.execution_discount_smoke || null
   const supportedUrls = readiness?.supported_urls?.length
     ? readiness.supported_urls.join(' · ')
     : '/v1/chat/completions · /v1/complete'
@@ -516,6 +528,24 @@ export default function RenterBatchesPage() {
                     <b>{completionWindows}</b>
                   </div>
                 </div>
+                {batchLiveGate && (
+                  <div className="bt-live-proof" aria-label={lang === 'ar' ? 'بوابة إثبات الدُفعات الحية' : 'Batch live proof gate'}>
+                    <div className="bt-live-proof-copy">
+                      <span><Bi en="Live proof gate" ar="بوابة إثبات حي" /></span>
+                      <strong>{formatMode(batchLiveGate.live_acceptance_gate || 'batch_live_execution_discount_smoke')}</strong>
+                      <p>{batchLiveGate.command || 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution'}</p>
+                    </div>
+                    <div className="bt-live-proof-facts">
+                      <span className="blocked">{formatMode(batchLiveGate.status || 'blocked_external')}</span>
+                      {(batchLiveGate.blocked_on || []).slice(0, 4).map((item) => (
+                        <span key={`blocked-${item}`}>{item}</span>
+                      ))}
+                      {(batchLiveGate.verifies || []).slice(0, 2).map((item) => (
+                        <span key={`verifies-${item}`} className="ready">{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="bt-supported">
                   <span><Bi en="Supported URLs" ar="المسارات المدعومة" /></span>
                   <code>{supportedUrls}</code>
