@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-09 21:49 UTC - Pod workload GPU selection clarity (PR #921)
+
+- **PR:** [#921](https://github.com/dhnpmp-tech/dcp-platform/pull/921) (`codex/pods-workload-gpu-selection-clarity-2026-07-10`).
+- **Timestamp:** 2026-07-09 21:49 UTC / 2026-07-10 01:49 +04.
+- **GPU decision clarity:** Workload presets in `/renter/pods` now set runtime defaults and browse filters only; they do not silently pin a launch GPU.
+- **Workload guidance:** Matching GPU cards are highlighted as "Workload match" recommendations, while the final launch request stays Auto-pick until `Use as launch GPU` is selected.
+- **Stage 2 rule:** Added a visible Stage 2 launch-selection rule explaining that only Auto-pick or an explicit GPU card changes the payload; templates, workload presets, VRAM chips, search, and sort only organize choices.
+- **Regression:** Extended the focused `/renter/pods` Playwright regression for the Fine-tune workload helper, proving `gpu_type` remains omitted until a card is selected.
+- **Safety:** Frontend-only UX behavior change; no backend pod launch body schema, provider selection algorithm, pricing calculation, billing, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** Focused `/renter/pods` Playwright regression; TypeScript; local roadmap proof; Next build; `git diff --check`.
+
 ### 2026-07-09 21:38 UTC - Public Batch sanitized readiness (PR #920)
 
 - **PR:** [#920](https://github.com/dhnpmp-tech/dcp-platform/pull/920) (`codex/public-batch-readiness-2026-07-10`).
