@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-09 01:02 UTC - Scoped key usage attribution (PR #849)
+
+- **PR:** [#849](https://github.com/dhnpmp-tech/dcp-platform/pull/849) (`codex/scoped-key-usage-attribution-2026-07-09`).
+- **Backend:** Added nullable `openrouter_usage_ledger.renter_api_key_id` and `renter_key_type` columns plus a renter/key/date index so OpenAI-compatible `/v1` and `/api/vllm` usage rows can be attributed to the scoped key that created them.
+- **Renter APIs:** Usage export JSON/CSV now includes key attribution columns, `/api/renters/me/keys` returns 30-day per-key request/spend totals, and `/api/renters/me/budget-status` marks per-key spend attribution live while keeping per-key budget enforcement false.
+- **Frontend:** The renter API Keys table now shows live 30-day spend when attribution is available instead of a placeholder dash.
+- **Safety:** No settlement debit, balance mutation, key secret exposure, per-key budget enforcement, router selection, model catalog, inference execution, prompt-cache discount, or public claim behavior changed.
+- **Verification:** Targeted Jest suites, syntax checks, TypeScript/Next verification, local roadmap proof, and production smoke after deploy.
+
 ### 2026-07-09 00:43 UTC - Renter usage export and budget status (PR #848)
 
 - **PR:** [#848](https://github.com/dhnpmp-tech/dcp-platform/pull/848) (`codex/renter-usage-budget-export-2026-07-09`).

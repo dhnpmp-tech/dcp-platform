@@ -34,6 +34,8 @@ function recordOpenRouterUsage(db, {
   providerResponseId = null,
   jobId = null,
   requestPath = null,
+  renterApiKeyId = null,
+  renterKeyType = null,
   promptCostHalala = null,
   completionCostHalala = null,
   tokenRateHalala = null,
@@ -55,6 +57,10 @@ function recordOpenRouterUsage(db, {
   const cleanProviderResponseId = typeof providerResponseId === 'string' ? providerResponseId.trim().slice(0, 200) : '';
   const cleanJobId = typeof jobId === 'string' ? jobId.trim().slice(0, 120) : '';
   const cleanRequestPath = typeof requestPath === 'string' ? requestPath.trim().slice(0, 160) : '';
+  const cleanRenterApiKeyId = typeof renterApiKeyId === 'string' ? renterApiKeyId.trim().slice(0, 120) : '';
+  const cleanRenterKeyType = renterKeyType === 'scoped_key' || renterKeyType === 'master_key'
+    ? renterKeyType
+    : null;
   const cleanTokenRateHalala = toInt(tokenRateHalala, { min: 0, max: 100_000_000_000 });
   const cleanRenterId = toInt(renterId, { min: 1 });
   const cleanProviderId = providerId == null ? null : toInt(providerId, { min: 1 });
@@ -86,6 +92,8 @@ function recordOpenRouterUsage(db, {
   const hasProviderResponseId = ledgerColumns.some((col) => col?.name === 'provider_response_id');
   const hasJobId = ledgerColumns.some((col) => col?.name === 'job_id');
   const hasRequestPath = ledgerColumns.some((col) => col?.name === 'request_path');
+  const hasRenterApiKeyId = ledgerColumns.some((col) => col?.name === 'renter_api_key_id');
+  const hasRenterKeyType = ledgerColumns.some((col) => col?.name === 'renter_key_type');
   const hasPromptCostHalala = ledgerColumns.some((col) => col?.name === 'prompt_cost_halala');
   const hasCompletionCostHalala = ledgerColumns.some((col) => col?.name === 'completion_cost_halala');
   const hasTokenRateHalala = ledgerColumns.some((col) => col?.name === 'token_rate_halala');
@@ -133,6 +141,14 @@ function recordOpenRouterUsage(db, {
   if (hasRequestPath) {
     insertColumns.push('request_path');
     insertValues.push(cleanRequestPath || null);
+  }
+  if (hasRenterApiKeyId) {
+    insertColumns.push('renter_api_key_id');
+    insertValues.push(cleanRenterApiKeyId || null);
+  }
+  if (hasRenterKeyType) {
+    insertColumns.push('renter_key_type');
+    insertValues.push(cleanRenterKeyType || null);
   }
   if (hasPromptCostHalala) {
     insertColumns.push('prompt_cost_halala');

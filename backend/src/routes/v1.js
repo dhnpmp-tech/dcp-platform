@@ -507,6 +507,11 @@ function requireAuth(req, res, next) {
       });
     }
     req.renter = { id: scopedKey.r_id, api_key: scopedKey.api_key, balance_halala: scopedKey.balance_halala, status: scopedKey.status };
+    req.renterAuth = {
+      key_type: 'scoped_key',
+      renter_api_key_id: scopedKey.id,
+      scopes,
+    };
     req.renterKey = key;
     return next();
   }
@@ -525,6 +530,11 @@ function requireAuth(req, res, next) {
   });
 
   req.renter = renter;
+  req.renterAuth = {
+    key_type: 'master_key',
+    renter_api_key_id: null,
+    scopes: ['admin'],
+  };
   req.renterKey = key;
   return next();
 }
@@ -2786,6 +2796,8 @@ router.post('/chat/completions', v1ChatRateLimiter, requireAuth, async (req, res
           requestId: meteringRequestId,
           providerResponseId,
           requestPath: normalizeString(req.path || req.originalUrl || '/v1/chat/completions', { maxLen: 160 }),
+          renterApiKeyId: req.renterAuth?.renter_api_key_id || null,
+          renterKeyType: req.renterAuth?.key_type || 'master_key',
           tokenRateHalala,
           renterId: req.renter.id,
           providerId: providerForUsage?.id || null,

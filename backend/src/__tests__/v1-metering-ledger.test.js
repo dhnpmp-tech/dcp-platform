@@ -232,6 +232,8 @@ describe('v1 chat metering ledger persistence', () => {
     expect(payload.usdCompletion).toBe('0.000000');
     expect(payload.usdTotal).toBe('0.002667');
     expect(payload.settlementStatus).toBe('settled');
+    expect(payload.renterApiKeyId).toBeNull();
+    expect(payload.renterKeyType).toBe('master_key');
 
     fetchSpy.mockRestore();
   });
@@ -442,6 +444,68 @@ describe('v1 chat metering ledger persistence', () => {
     expect(typeof durationSecondsArg).toBe('number');
     expect(Number.isFinite(durationSecondsArg)).toBe(true);
     expect(durationSecondsArg).toBeGreaterThanOrEqual(0);
+
+    fetchSpy.mockRestore();
+  });
+
+  test('persists scoped key attribution for non-stream completion usage', async () => {
+    wireBaselineDbMocks();
+    mockDb.get.mockImplementation((sql) => {
+      const query = String(sql);
+      if (query.includes('FROM renter_api_keys')) {
+        return {
+          id: 'scoped-key-1',
+          renter_id: 7,
+          scopes: JSON.stringify(['inference']),
+          expires_at: null,
+          revoked_at: null,
+          r_id: 7,
+          api_key: 'test-key',
+          balance_halala: 50000,
+          status: 'active',
+        };
+      }
+      if (query.includes('SELECT price_in_halala_per_1m_tok')) {
+        return {
+          price_in_halala_per_1m_tok: 2,
+          price_out_halala_per_1m_tok: 0,
+        };
+      }
+      if (query.includes('FROM model_registry WHERE model_id = ?')) {
+        return { model_id: 'stream-model', min_gpu_vram_gb: 8, context_window: 4096 };
+      }
+      if (query.includes('FROM cost_rates')) return { token_rate_halala: 2 };
+      if (query.includes('FROM jobs WHERE job_id')) return null;
+      return null;
+    });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'chatcmpl-scoped-1',
+        object: 'chat.completion',
+        model: 'stream-model',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'hello scoped' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 8, completion_tokens: 5, total_tokens: 13 },
+      }),
+    });
+
+    const res = await request(app)
+      .post('/v1/chat/completions')
+      .set('Authorization', 'Bearer scoped-live-key')
+      .set('Idempotency-Key', 'req-scoped-123')
+      .send({
+        model: 'stream-model',
+        stream: false,
+        messages: [{ role: 'user', content: 'hello scoped' }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockRecordOpenRouterUsage).toHaveBeenCalledTimes(1);
+    const payload = mockRecordOpenRouterUsage.mock.calls[0][1];
+    expect(payload.requestId).toBe('req-scoped-123');
+    expect(payload.renterId).toBe(7);
+    expect(payload.renterApiKeyId).toBe('scoped-key-1');
+    expect(payload.renterKeyType).toBe('scoped_key');
 
     fetchSpy.mockRestore();
   });

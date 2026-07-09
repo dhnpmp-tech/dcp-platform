@@ -1778,6 +1778,10 @@ router.get('/me/keys', (req, res) => {
       return res.status(403).json({ error: 'This API key does not have permission to list API keys. Use your master key or a key with the billing or admin scope.' });
     }
     const renter = authCtx.renter;
+    const usage30d = getScopedKeyUsageMap(
+      renter.id,
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    );
 
     const keys = db.all(
       `SELECT id, label, scopes, org_id, org_role, expires_at, last_used_at, created_at,
@@ -1787,17 +1791,25 @@ router.get('/me/keys', (req, res) => {
        ORDER BY created_at DESC
        LIMIT 100`,
       renter.id
-    ).map(k => ({
-      id: k.id,
-      label: k.label,
-      scopes: (() => { try { return JSON.parse(k.scopes); } catch (_) { return []; } })(),
-      org_id: k.org_id,
-      org_role: k.org_role || 'member',
-      expires_at: k.expires_at,
-      last_used_at: k.last_used_at,
-      created_at: k.created_at,
-      revoked: Boolean(k.revoked),
-    }));
+    ).map(k => {
+      const attributed = usage30d.usageByKey.get(k.id) || {};
+      const spendHalala = Number(attributed.spend_30d_halala || 0);
+      return {
+        id: k.id,
+        label: k.label,
+        scopes: (() => { try { return JSON.parse(k.scopes); } catch (_) { return []; } })(),
+        org_id: k.org_id,
+        org_role: k.org_role || 'member',
+        expires_at: k.expires_at,
+        last_used_at: k.last_used_at,
+        created_at: k.created_at,
+        revoked: Boolean(k.revoked),
+        spend_attribution_available: usage30d.available,
+        requests_30d: Number(attributed.requests_30d || 0),
+        spend_30d_halala: spendHalala,
+        spend_30d_sar: sarFromHalala(spendHalala),
+      };
+    });
 
     return res.json({ keys });
   } catch (error) {
@@ -2426,6 +2438,7 @@ const RENTER_USAGE_PERIODS = new Map([
   ['90d', 90],
 ]);
 const USAGE_EXPORT_MAX_ROWS = 5000;
+const OPENROUTER_USAGE_COLUMN_CACHE = new Map();
 
 function normalizeRenterUsagePeriod(rawPeriod) {
   const period = RENTER_USAGE_PERIODS.has(String(rawPeriod || '')) ? String(rawPeriod) : '30d';
@@ -2476,9 +2489,29 @@ function sarFromHalala(halala) {
   return Number((Number(halala || 0) / 100).toFixed(2));
 }
 
+function openrouterUsageHasColumn(columnName) {
+  const safeName = String(columnName || '');
+  if (!safeName) return false;
+  if (OPENROUTER_USAGE_COLUMN_CACHE.has(safeName)) return OPENROUTER_USAGE_COLUMN_CACHE.get(safeName);
+  try {
+    const rows = db.all('PRAGMA table_info(openrouter_usage_ledger)');
+    const hasColumn = rows.some((row) => row?.name === safeName);
+    OPENROUTER_USAGE_COLUMN_CACHE.set(safeName, hasColumn);
+    return hasColumn;
+  } catch (_) {
+    OPENROUTER_USAGE_COLUMN_CACHE.set(safeName, false);
+    return false;
+  }
+}
+
 function queryRenterUsageRows(renterId, cutoff, limit) {
+  const keyAttributionColumns = [
+    openrouterUsageHasColumn('renter_api_key_id') ? 'renter_api_key_id' : 'NULL AS renter_api_key_id',
+    openrouterUsageHasColumn('renter_key_type') ? 'renter_key_type' : 'NULL AS renter_key_type',
+  ].join(', ');
   return db.all(
     `SELECT id, request_id, provider_response_id, job_id, request_path, model, source,
+            ${keyAttributionColumns},
             prompt_tokens, completion_tokens, total_tokens,
             prompt_cost_halala, completion_cost_halala, token_rate_halala,
             cost_halala, currency, created_at, provider_id, usd_prompt,
@@ -2513,6 +2546,8 @@ function serializeUsageExportRows(rows) {
     provider_response_id: row.provider_response_id || null,
     job_id: row.job_id || null,
     request_path: row.request_path || null,
+    renter_api_key_id: row.renter_api_key_id || null,
+    renter_key_type: row.renter_key_type || null,
     model: row.model,
     source: row.source || 'v1',
     prompt_tokens: row.prompt_tokens || 0,
@@ -2538,6 +2573,8 @@ function usageExportCsv(rows) {
   const headers = [
     'created_at',
     'request_id',
+    'renter_api_key_id',
+    'renter_key_type',
     'model',
     'source',
     'prompt_tokens',
@@ -2557,7 +2594,32 @@ function usageExportCsv(rows) {
   return [headers.join(','), ...lines].join('\r\n') + '\r\n';
 }
 
-function summarizeScopedKeys(renterId) {
+function getScopedKeyUsageMap(renterId, cutoff) {
+  const available = openrouterUsageHasColumn('renter_api_key_id');
+  const usageByKey = new Map();
+  if (!available) return { available, usageByKey };
+  const rows = db.all(
+    `SELECT renter_api_key_id AS key_id,
+            COUNT(*) AS requests_30d,
+            COALESCE(SUM(cost_halala), 0) AS spend_30d_halala
+     FROM openrouter_usage_ledger
+     WHERE renter_id = ?
+       AND created_at >= ?
+       AND renter_api_key_id IS NOT NULL
+     GROUP BY renter_api_key_id`,
+    renterId, cutoff
+  );
+  for (const row of rows) {
+    if (!row?.key_id) continue;
+    usageByKey.set(row.key_id, {
+      requests_30d: Number(row.requests_30d || 0),
+      spend_30d_halala: Number(row.spend_30d_halala || 0),
+    });
+  }
+  return { available, usageByKey };
+}
+
+function summarizeScopedKeys(renterId, cutoff) {
   const keys = db.all(
     `SELECT scopes, revoked_at
      FROM renter_api_keys
@@ -2572,6 +2634,9 @@ function summarizeScopedKeys(renterId) {
     inference: 0,
     billing: 0,
     compute: 0,
+    attributed_requests_30d: 0,
+    attributed_spend_30d_halala: 0,
+    per_key_spend_available: openrouterUsageHasColumn('renter_api_key_id'),
   };
   for (const key of keys) {
     const revoked = Boolean(key.revoked_at);
@@ -2585,6 +2650,13 @@ function summarizeScopedKeys(renterId) {
     if (scopes.includes('inference')) counts.inference += 1;
     if (scopes.includes('billing')) counts.billing += 1;
     if (scopes.includes('compute')) counts.compute += 1;
+  }
+  if (counts.per_key_spend_available && cutoff) {
+    const usage = getScopedKeyUsageMap(renterId, cutoff);
+    for (const row of usage.usageByKey.values()) {
+      counts.attributed_requests_30d += row.requests_30d;
+      counts.attributed_spend_30d_halala += row.spend_30d_halala;
+    }
   }
   return counts;
 }
@@ -2616,7 +2688,7 @@ function buildRenterBudgetStatus(authCtx, periodInfo) {
      WHERE renter_id = ?`,
     renter.id
   );
-  const keyCounts = summarizeScopedKeys(renter.id);
+  const keyCounts = summarizeScopedKeys(renter.id, periodInfo.cutoff);
   const v1CapHalala = Number(renter.monthly_spend_cap_halala || 0);
   const v1SpendHalala = Number(usageTotals.total_cost_halala || 0);
   const v1RemainingHalala = v1CapHalala > 0 ? Math.max(v1CapHalala - v1SpendHalala, 0) : null;
@@ -2672,13 +2744,12 @@ function buildRenterBudgetStatus(authCtx, periodInfo) {
     },
     api_keys: {
       ...keyCounts,
-      per_key_spend_available: false,
       per_key_budgets_available: false,
     },
     claims: {
       v1_account_spend_cap_gate_live: true,
       workspace_usage_export_live: true,
-      per_key_spend_attribution_live: false,
+      per_key_spend_attribution_live: keyCounts.per_key_spend_available,
       per_key_budgets_enforced: false,
       team_member_budgets_enforced: false,
       prompt_cache_discount_applied: false,
@@ -2851,7 +2922,7 @@ router.get('/me/usage/export', (req, res) => {
       limit,
       truncated: rows.length >= limit,
       claims: {
-        per_key_spend_attribution_live: false,
+        per_key_spend_attribution_live: openrouterUsageHasColumn('renter_api_key_id'),
         prompt_cache_discount_applied: false,
       },
     };

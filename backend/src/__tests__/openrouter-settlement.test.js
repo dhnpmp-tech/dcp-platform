@@ -20,17 +20,20 @@ function cleanTables() {
   try { db.run('DELETE FROM openrouter_usage_ledger'); } catch (_) {}
 }
 
+let seedSeq = 0;
+
 function seedRenterAndProvider() {
   const now = new Date().toISOString();
+  const suffix = `${Date.now()}-${++seedSeq}`;
   db.run(
     `INSERT INTO renters (name, email, api_key, balance_halala, status, created_at)
      VALUES (?, ?, ?, ?, 'active', ?)`,
-    'OR Renter', `or-renter-${Date.now()}@dc1.test`, `dc1-renter-${Date.now()}`, 50000, now
+    'OR Renter', `or-renter-${suffix}@dc1.test`, `dc1-renter-${suffix}`, 50000, now
   );
   db.run(
     `INSERT INTO providers (name, email, gpu_model, os, api_key, status, created_at)
      VALUES (?, ?, ?, ?, ?, 'online', ?)`,
-    'OR Provider', `or-provider-${Date.now()}@dc1.test`, 'RTX 4090', 'linux', `dc1-provider-${Date.now()}`, now
+    'OR Provider', `or-provider-${suffix}@dc1.test`, 'RTX 4090', 'linux', `dc1-provider-${suffix}`, now
   );
   return {
     renter: db.get('SELECT id FROM renters ORDER BY id DESC LIMIT 1'),
@@ -101,6 +104,8 @@ describe('openrouterSettlementService', () => {
       providerResponseId: 'chatcmpl-metadata-1',
       jobId: 'job-metadata-1',
       requestPath: '/api/vllm/chat/completions',
+      renterApiKeyId: 'key-scope-1',
+      renterKeyType: 'scoped_key',
       promptCostHalala: 27,
       completionCostHalala: 18,
       tokenRateHalala: 3,
@@ -120,6 +125,8 @@ describe('openrouterSettlementService', () => {
     expect(usage.provider_response_id).toBe('chatcmpl-metadata-1');
     expect(usage.job_id).toBe('job-metadata-1');
     expect(usage.request_path).toBe('/api/vllm/chat/completions');
+    expect(usage.renter_api_key_id).toBe('key-scope-1');
+    expect(usage.renter_key_type).toBe('scoped_key');
     expect(usage.prompt_cost_halala).toBe(27);
     expect(usage.completion_cost_halala).toBe(18);
     expect(usage.token_rate_halala).toBe(3);
