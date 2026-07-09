@@ -197,6 +197,7 @@ function parseKeyValueLines(stdout) {
 function collectVpsSnapshot(options = {}) {
   const readRemote = options.readRemote ?? process.env.DCP_AGENT_RECONCILE_READ_REMOTE === '1';
   const runCommand = options.runCommand || defaultCommandRunner;
+  const fsImpl = options.fsImpl || fs;
   const vpsHost = options.vpsHost || process.env.DCP_VPS_HOST || 'root@76.13.179.86';
   const vpsPath = options.vpsPath || process.env.DCP_VPS_PLATFORM_PATH || '/root/dc1-platform';
   if (!readRemote) {
@@ -206,6 +207,14 @@ function collectVpsSnapshot(options = {}) {
       path: vpsPath,
       reason: 'set DCP_AGENT_RECONCILE_READ_REMOTE=1 to include read-only VPS inventory',
     };
+  }
+  if (fsImpl.existsSync(vpsPath)) {
+    return collectVpsSnapshotFromLocalPath({
+      vpsHost,
+      vpsPath,
+      fsImpl,
+      runCommand,
+    });
   }
 
   const remoteScript = `
@@ -258,6 +267,34 @@ fi
       has_dcp_agent_wrapper: listing.some((entry) => entry === 'dcp-agent/' || entry.startsWith('dcp-agent/')),
       appledouble_entries: listing.filter((entry) => entry.includes('/._') || entry.startsWith('._')).slice(0, 20),
     },
+  };
+}
+
+function collectVpsSnapshotFromLocalPath(options = {}) {
+  const vpsHost = options.vpsHost || process.env.DCP_VPS_HOST || 'root@76.13.179.86';
+  const vpsPath = options.vpsPath || process.env.DCP_VPS_PLATFORM_PATH || '/root/dc1-platform';
+  const fsImpl = options.fsImpl || fs;
+  const runCommand = options.runCommand || defaultCommandRunner;
+  const branch = safeGit(vpsPath, ['branch', '--show-current'], runCommand);
+  const head = safeGit(vpsPath, ['rev-parse', 'HEAD'], runCommand);
+  const status = safeGit(vpsPath, ['status', '--short'], runCommand);
+  const artifact = inspectAgentArtifact(path.join(vpsPath, 'backend/installers/dcp-agent.tar.gz'), {
+    fsImpl,
+    runCommand,
+  });
+  return {
+    checked: true,
+    host: vpsHost,
+    path: vpsPath,
+    ok: branch.ok && head.ok && status.ok,
+    transport: 'local_path',
+    error: [branch, head, status].filter((entry) => !entry.ok).map((entry) => entry.error).filter(Boolean).join('; ') || null,
+    git: {
+      branch: branch.value || null,
+      head: head.value || null,
+      status_short: status.value || '',
+    },
+    artifact,
   };
 }
 
@@ -460,6 +497,7 @@ module.exports = {
   collectGatewayProcesses,
   collectPlatformSnapshot,
   collectVpsSnapshot,
+  collectVpsSnapshotFromLocalPath,
   findReconciliationBlockers,
   inspectAgentArtifact,
   parseKeyValueLines,

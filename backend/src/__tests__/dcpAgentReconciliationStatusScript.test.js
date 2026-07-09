@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const {
   CONTRACT,
+  collectVpsSnapshot,
   findReconciliationBlockers,
   parseKeyValueLines,
   runDcpAgentReconciliationStatus,
@@ -185,5 +186,54 @@ describe('dcp-agent reconciliation status script', () => {
       head: 'abc',
       artifact_exists: 'true',
     });
+  });
+
+  test('uses local VPS path inventory when already running on the VPS checkout', () => {
+    const vpsPath = '/root/dc1-platform';
+    const artifactPath = `${vpsPath}/backend/installers/dcp-agent.tar.gz`;
+    const fsImpl = {
+      existsSync: (target) => target === vpsPath || target === artifactPath,
+      statSync: () => ({ size: 3 }),
+      readFileSync: () => Buffer.from('abc'),
+    };
+    const runCommand = jest.fn((command, args) => {
+      const key = [command, ...args].join(' ');
+      if (key === `git -C ${vpsPath} branch --show-current`) {
+        return { ok: true, stdout: 'security/staged-rollouts\n' };
+      }
+      if (key === `git -C ${vpsPath} rev-parse HEAD`) {
+        return { ok: true, stdout: 'platform-head\n' };
+      }
+      if (key === `git -C ${vpsPath} status --short`) {
+        return { ok: true, stdout: '?? backend/installers/dcp-agent.tar.gz\n' };
+      }
+      if (key === `tar -tzf ${artifactPath}`) {
+        return { ok: true, stdout: 'dcp-agent/\ndcp-agent/pyproject.toml\n' };
+      }
+      return { ok: false, stderr: `unexpected ${key}` };
+    });
+
+    const snapshot = collectVpsSnapshot({
+      readRemote: true,
+      vpsPath,
+      fsImpl,
+      runCommand,
+    });
+
+    expect(snapshot).toMatchObject({
+      checked: true,
+      ok: true,
+      transport: 'local_path',
+      git: {
+        branch: 'security/staged-rollouts',
+        head: 'platform-head',
+      },
+      artifact: {
+        exists: true,
+        size_bytes: 3,
+        has_dcp_agent_wrapper: true,
+      },
+    });
+    expect(runCommand).not.toHaveBeenCalledWith('ssh', expect.any(Array));
   });
 });
