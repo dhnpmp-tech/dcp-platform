@@ -199,6 +199,44 @@ html[data-lang="ar"] .ws-hd h3 { font-family: var(--arabic); font-weight: 600; }
   color: #0a0b1a;
   outline: none;
 }
+.ws-stage-folders {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in oklab, var(--teal) 26%, var(--hair));
+}
+.ws-stage-folders button,
+.ws-stage-folders span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  border-radius: 2px;
+}
+.ws-stage-folders button {
+  cursor: pointer;
+  text-align: start;
+}
+.ws-stage-folders button:hover,
+.ws-stage-folders button:focus-visible {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: color-mix(in oklab, var(--teal) 7%, var(--paper));
+  outline: none;
+}
+.ws-stage-folders b {
+  color: var(--teal);
+  font-weight: 500;
+}
 @media (max-width: 680px) {
   .ws-stage-compact {
     grid-template-columns: 1fr;

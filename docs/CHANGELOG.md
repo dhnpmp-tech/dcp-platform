@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 14:09 UTC - Pod workspace folders, trial policy, and GPU request polish (PR #891)
+
+- **PR:** [#891](https://github.com/dhnpmp-tech/dcp-platform/pull/891) (`codex/pods-workspace-trial-gpu-polish-2026-07-09`).
+- **Workspace UX:** `/renter/pods` now exposes top folder controls in the compact Stage 1 checkpoint, letting renters jump into one staged folder without opening the entire workspace manifest.
+- **GPU UX:** Stage 2 now labels the actual launch GPU request as the source of truth, makes auto-pick explicitly say no GPU is pinned, and labels VRAM controls as browse-only filters.
+- **Trial policy clarity:** The pods launch flow now has a dedicated policy block for credit-provenance trial handling, native/community trial routing, paid high-demand routing, and hidden provider identity.
+- **Regression:** Updated the focused `/renter/pods` Playwright test for folder summary controls, trial policy copy, and actual-GPU/browse-filter wording.
+- **Safety:** Frontend/read-only UX change; no pod launch body change, provider selection change, pricing calculation change, billing change, balance mutation, trial-accounting mutation, workspace API behavior, GPU-host execution, vendor/provider exposure, or supply-tier exposure was added.
+- **Verification:** TypeScript; focused `/renter/pods` Playwright regression; Next build; `git diff --check`.
+
 ### 2026-07-09 13:42 UTC - Pod workspace, trial, and GPU request UX (PR #890)
 
 - **PR:** [#890](https://github.com/dhnpmp-tech/dcp-platform/pull/890) (`codex/pods-workspace-gpu-trial-ux-2026-07-09`).
