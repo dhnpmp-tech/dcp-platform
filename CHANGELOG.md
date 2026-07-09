@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 15:49 UTC - `feat(playground): surface inference credit preflight gates - PR #897`
+
+**PR:** [#897](https://github.com/dhnpmp-tech/dcp-platform/pull/897) (`codex/playground-minimum-balance-preflight-2026-07-09`).
+**Local timestamp:** 2026-07-09 19:49 +04.
+
+**What:** Inference roadmap follow-up. Makes the existing minimum-balance readiness contract visible in the renter Playground before a user sends v1 inference traffic.
+
+- **Playground UX:** `/renter/playground` now fetches `GET /api/renters/me/minimum-balances` beside account balance and shows a compact Credit preflight panel near model/routing controls.
+- **Credit clarity:** The panel shows v1 estimate preflight, paid available SAR, monthly cap remaining, prompt-cache discount status, and the count of blocked future billing rails.
+- **Safety:** Frontend/read-only visibility change; no request dispatch change, routing-policy change, pricing calculation change, billing change, balance mutation, prompt-cache discount, batch execution, LoRA training, adapter deployment, eval job, provider selection, or Tinker claim was added.
+- **Regression:** Added a focused `/renter/playground` Playwright regression for the minimum-balance readiness packet, v1 preflight status, paid-available credit, monthly cap, prompt-cache discount gate, and blocked future billing rails.
+- **Verification:** TypeScript; focused `/renter/playground` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:35 UTC - `feat(pods): surface minimum balance gates in launch flow - PR #896`
 
 **PR:** [#896](https://github.com/dhnpmp-tech/dcp-platform/pull/896) (`codex/pods-minimum-balance-launch-readiness-2026-07-09`).

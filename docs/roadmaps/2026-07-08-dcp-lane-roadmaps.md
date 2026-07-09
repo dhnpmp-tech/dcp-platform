@@ -83,6 +83,10 @@ what is live.
 - PR #802 made the renter Playground consume `/v1/prompt-cache/readiness` so
   users see hash-only prompt-cache measurement, no raw-prompt storage, and
   gated cached-input economics from the same contract as public `/inference`.
+- PR #897 makes the renter Playground consume
+  `GET /api/renters/me/minimum-balances`, showing v1 estimate preflight, paid
+  available SAR, monthly cap remaining, prompt-cache discount status, and
+  blocked future billing rails before a user sends inference traffic.
 - PR #781 added a live `/v1/models` serveable-model pricing table to `/pricing`
   with context, SAR input/output rates, provider count, and capability chips.
 - PR #852 added `/benchmarks` and
@@ -473,6 +477,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #879 made public `/inference` consume `/v1/router/policies` directly,
   rendering the contract version, default policy, available/gated counts, and
   future-policy gated/not-selectable states without changing routing behavior.
+- PR #897 surfaces the account-scoped minimum-balance readiness packet in
+  `/renter/playground`, so live inference requests now sit beside a read-only
+  v1 estimate-preflight rail, paid-available credit, monthly-cap remaining, and
+  still-blocked prompt-cache/batch/LoRA/adapter/eval billing rails.
 - PR #880 made public `/inference` consume `/v1/models` directly, rendering a
   live model-catalog summary with serving counts, provider-backed rows, context,
   SAR input/output pricing, and catalog-only state without changing model

@@ -129,6 +129,7 @@ interface FeatureReadiness {
 type CatalogState = 'loading' | 'ready' | 'empty' | 'error'
 type RouterPolicyState = 'loading' | 'ready' | 'error'
 type PromptCacheReadinessState = 'loading' | 'ready' | 'error'
+type MinimumBalanceState = 'missing-key' | 'loading' | 'ready' | 'error'
 type PlaygroundSurface = 'playground' | 'workspace'
 
 interface RouterPolicy {
@@ -179,6 +180,58 @@ interface PromptCacheReadiness {
   }
   response_fields?: string[]
   next?: string
+}
+
+interface MinimumBalanceReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  account?: {
+    balance_halala?: number
+    balance_sar?: number
+    paid_available_halala?: number
+    paid_available_sar?: number
+    v1_remaining_cap_halala?: number | null
+    v1_remaining_cap_sar?: number | null
+  }
+  rails?: {
+    v1_inference?: {
+      status?: string
+      enforcement_live?: boolean
+      monthly_cap_remaining_halala?: number | null
+    }
+    prompt_cache_discount?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    batch_inference?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    lora_training?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    adapter_deployments?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+    evaluators?: {
+      status?: string
+      enforcement_live?: boolean
+    }
+  }
+  claim_guards?: {
+    mutates_balance?: boolean
+    creates_payment?: boolean
+    dispatches_inference?: boolean
+    creates_batch?: boolean
+    creates_lora_training_job?: boolean
+    creates_adapter_deployment?: boolean
+    creates_eval_job?: boolean
+    enables_discount?: boolean
+    changes_enforcement?: boolean
+  }
 }
 
 interface RenterAccount {
@@ -325,6 +378,8 @@ export default function PlaygroundPage() {
   const [routerPolicies, setRouterPolicies] = useState<RouterPoliciesResponse | null>(null)
   const [promptCacheState, setPromptCacheState] = useState<PromptCacheReadinessState>('loading')
   const [promptCacheReadiness, setPromptCacheReadiness] = useState<PromptCacheReadiness | null>(null)
+  const [minimumBalanceState, setMinimumBalanceState] = useState<MinimumBalanceState>('loading')
+  const [minimumBalanceReadiness, setMinimumBalanceReadiness] = useState<MinimumBalanceReadiness | null>(null)
   const [tempRaw, setTempRaw] = useState(7) // 0..20 -> /10
   const [maxTokens, setMaxTokens] = useState(1024)
   const [topPRaw, setTopPRaw] = useState(100) // 0..100 -> /100
@@ -412,6 +467,32 @@ export default function PlaygroundPage() {
   const promptCacheMeasurement = promptCacheReadiness?.measurement
   const promptCacheBilling = promptCacheReadiness?.billing
   const promptCacheClaims = promptCacheReadiness?.claims
+  const v1MinimumBalanceRail = minimumBalanceReadiness?.rails?.v1_inference
+  const paidAvailableSar = minimumBalanceReadiness?.account?.paid_available_sar
+    ?? halalaToSar(minimumBalanceReadiness?.account?.paid_available_halala)
+  const v1RemainingCapSar = minimumBalanceReadiness?.account?.v1_remaining_cap_sar
+    ?? halalaToSar(
+      minimumBalanceReadiness?.account?.v1_remaining_cap_halala
+        ?? v1MinimumBalanceRail?.monthly_cap_remaining_halala
+        ?? undefined,
+    )
+  const minimumBalanceSynced = minimumBalanceState === 'ready'
+    && minimumBalanceReadiness?.object === 'minimum_balance_readiness'
+    && minimumBalanceReadiness?.current_mode === 'read_only_policy_contract'
+    && v1MinimumBalanceRail?.enforcement_live === true
+    && minimumBalanceReadiness?.claim_guards?.mutates_balance === false
+    && minimumBalanceReadiness?.claim_guards?.dispatches_inference === false
+    && minimumBalanceReadiness?.claim_guards?.changes_enforcement === false
+  const inferencePreflightLabel = v1MinimumBalanceRail?.status === 'live_estimate_preflight'
+    ? 'v1 requests: estimate preflight'
+    : 'v1 requests: checking'
+  const blockedFutureBillingRails = [
+    minimumBalanceReadiness?.rails?.prompt_cache_discount,
+    minimumBalanceReadiness?.rails?.batch_inference,
+    minimumBalanceReadiness?.rails?.lora_training,
+    minimumBalanceReadiness?.rails?.adapter_deployments,
+    minimumBalanceReadiness?.rails?.evaluators,
+  ].filter((rail) => rail?.enforcement_live === false).length
 
   const accountName = renter?.organization || renter?.name || renter?.email || 'Renter account'
   const accountSub = renter?.email ||
@@ -712,23 +793,35 @@ export default function PlaygroundPage() {
     const key = getRenterKey()
     if (!key) {
       setAccountState('missing-key')
+      setMinimumBalanceState('missing-key')
       return
     }
     let cancelled = false
     ;(async () => {
       try {
         setAccountState('loading')
+        setMinimumBalanceState('loading')
         const headers = { 'x-renter-key': key }
-        const [meData, balanceData] = await Promise.all([
+        const minimumBalancePromise = readJson<MinimumBalanceReadiness>(
+          `${getApiBase()}/renters/me/minimum-balances`,
+          headers,
+          true,
+        ).catch(() => null)
+        const [meData, balanceData, minimumBalanceData] = await Promise.all([
           readJson<RenterMeResponse>(`${getApiBase()}/renters/me`, headers),
           readJson<RenterBalanceResponse>(`${getApiBase()}/renters/balance`, headers, true),
+          minimumBalancePromise,
         ])
         if (cancelled) return
         setRenter(meData?.renter || null)
         setBalance(balanceData)
+        setMinimumBalanceReadiness(minimumBalanceData?.object === 'minimum_balance_readiness' ? minimumBalanceData : null)
+        setMinimumBalanceState(minimumBalanceData?.object === 'minimum_balance_readiness' ? 'ready' : 'error')
         setAccountState('ready')
       } catch {
         if (cancelled) return
+        setMinimumBalanceReadiness(null)
+        setMinimumBalanceState('error')
         setAccountState('error')
       }
     })()
@@ -1118,6 +1211,61 @@ export default function PlaygroundPage() {
                         en={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'read-only routing catalog'}
                         ar={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'كتالوج توجيه للقراءة فقط'}
                       />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="panel router-panel preflight-panel" aria-label={lang === 'ar' ? 'فحص الرصيد للاستدلال' : 'Inference credit preflight'}>
+                <h4>
+                  <Bi en="Credit preflight" ar="فحص الرصيد" />
+                </h4>
+                {minimumBalanceState === 'missing-key' && (
+                  <div className="pg-empty">
+                    <Bi en="Sign in to load inference credit gates." ar="سجّل الدخول لتحميل بوابات رصيد الاستدلال." />
+                  </div>
+                )}
+                {minimumBalanceState === 'loading' && (
+                  <div className="pg-empty">
+                    <Bi en="Loading minimum-balance policy..." ar="تحميل سياسة الحد الأدنى للرصيد..." />
+                  </div>
+                )}
+                {minimumBalanceState === 'error' && (
+                  <div className="pg-error" role="alert">
+                    <Bi en="Could not load minimum-balance policy. Requests still use backend preflight." ar="تعذر تحميل سياسة الرصيد. الطلبات لا تزال تستخدم فحص الخلفية." />
+                  </div>
+                )}
+                {minimumBalanceState === 'ready' && (
+                  <>
+                    <div className="route-default">
+                      <span><Bi en="Minimum balance" ar="الحد الأدنى للرصيد" /></span>
+                      <b>{minimumBalanceSynced ? 'synced read-only' : 'fallback contract'}</b>
+                      <em>{minimumBalanceReadiness?.version || 'dcp.minimum_balance_readiness.v1'}</em>
+                    </div>
+                    <div className="route-policy-list">
+                      <div className={`route-policy${v1MinimumBalanceRail?.enforcement_live ? ' on' : ' gated'}`}>
+                        <span><Bi en={inferencePreflightLabel} ar="طلبات v1: فحص تقديري" /></span>
+                        <b>{formatContractStatus(v1MinimumBalanceRail?.status)}</b>
+                      </div>
+                      <div className="route-policy on">
+                        <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
+                        <b>SAR {fmtSar(paidAvailableSar)}</b>
+                      </div>
+                      <div className="route-policy">
+                        <span><Bi en="Monthly cap remaining" ar="المتبقي من الحد الشهري" /></span>
+                        <b>{typeof v1RemainingCapSar === 'number' ? `SAR ${fmtSar(v1RemainingCapSar)}` : 'unlimited'}</b>
+                      </div>
+                      <div className="route-policy gated">
+                        <span><Bi en="Prompt-cache discounts" ar="خصومات التخزين المؤقت" /></span>
+                        <b>{formatContractStatus(minimumBalanceReadiness?.rails?.prompt_cache_discount?.status)}</b>
+                      </div>
+                      <div className="route-policy gated">
+                        <span><Bi en="Future billing rails blocked" ar="مسارات فوترة مستقبلية مقيدة" /></span>
+                        <b>{blockedFutureBillingRails}</b>
+                      </div>
+                    </div>
+                    <div className="route-note mono">
+                      <Bi en="/api/renters/me/minimum-balances · read-only" ar="/api/renters/me/minimum-balances · قراءة فقط" />
                     </div>
                   </>
                 )}

@@ -280,6 +280,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     readiness contracts, OpenAPI, public `/inference`, public `/batch`, renter
     `/renter/batches`, and the CI-safe proof packets so missing live evidence is
     visible before Fireworks-style cache discount or batch execution claims.
+  - PR #897 adds the same account-scoped minimum-balance readiness to
+    `/renter/playground`, making v1 estimate preflight, paid available credit,
+    monthly cap remaining, prompt-cache discount status, and blocked future
+    billing rails visible before users send live inference traffic.
 - Add customer-facing routing rules:
   - cheapest
   - lowest latency

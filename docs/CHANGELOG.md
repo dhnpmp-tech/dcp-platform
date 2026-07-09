@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-09 15:49 UTC - Playground inference credit preflight gates (PR #897)
+
+- **PR:** [#897](https://github.com/dhnpmp-tech/dcp-platform/pull/897) (`codex/playground-minimum-balance-preflight-2026-07-09`).
+- **Timestamp:** 2026-07-09 15:49 UTC / 2026-07-09 19:49 +04.
+- **Playground UX:** `/renter/playground` now consumes `GET /api/renters/me/minimum-balances` and shows a compact Credit preflight panel beside model/routing controls.
+- **Credit clarity:** The panel shows v1 estimate preflight, paid available SAR, monthly cap remaining, prompt-cache discount status, and blocked future billing rails.
+- **Regression:** Added a focused `/renter/playground` Playwright regression for the readiness packet, v1 preflight status, paid-available credit, monthly cap, prompt-cache discount gate, and blocked future billing rails.
+- **Safety:** Frontend/read-only visibility change; no request dispatch change, routing-policy change, pricing calculation change, billing change, balance mutation, prompt-cache discount, batch execution, LoRA training, adapter deployment, eval job, provider selection, or Tinker claim was added.
+- **Verification:** TypeScript; focused `/renter/playground` Playwright regression; minimum-balance readiness proof; Next build; `git diff --check`.
+
 ### 2026-07-09 15:35 UTC - Pod minimum-balance launch gates (PR #896)
 
 - **PR:** [#896](https://github.com/dhnpmp-tech/dcp-platform/pull/896) (`codex/pods-minimum-balance-launch-readiness-2026-07-09`).
