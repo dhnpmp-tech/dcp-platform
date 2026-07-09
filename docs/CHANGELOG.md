@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 23:34 UTC - Minimum-balance credit policy and pod GPU choice UX (PR #928)
+
+- **PR:** [#928](https://github.com/dhnpmp-tech/dcp-platform/pull/928) (`codex/minimum-balance-credit-policy-2026-07-10`).
+- **Timestamp:** 2026-07-09 23:34 UTC / 2026-07-10 03:34 +04.
+- **Backend contract:** `GET /api/renters/me/minimum-balances` now includes `account.trial_grant_halala` and a `credit_policy` section separating trial/grant credit from paid available credit.
+- **Trial answer:** The packet states there is no explicit trial-account tag live, trial credit comes from `renters.trial_grant_halala`, and high-demand capacity still requires paid credit.
+- **Pod UX:** `/renter/pods` now keeps Stage 1 visibly collapsible for large workspaces, repeats that Stage 2 launches with the whole `/workspace` volume, and promotes the Stage 2 launch GPU decision above the picker.
+- **GPU picker:** The Stage 2 priority strip shows the exact launch request and labels VRAM slider/chips as browse filters only, so template/filter choices cannot be mistaken for the selected GPU.
+- **Docs:** OpenAPI and `llms.txt` now describe the credit-policy fields and no-mutation guards.
+- **Safety:** No payment creation, balance mutation, pod launch, inference dispatch, workload creation, discount enablement, trial-accounting mutation, paid-credit policy mutation, enforcement change, provider selection, or routing change was added.
+- **Verification:** Minimum-balance service/route/proof `node --check`; targeted backend Jest; `npm run proof:minimum-balance-readiness`; focused Playwright workspace/GPU UX spec.
+
 ### 2026-07-09 23:27 UTC - Router proof-gate OpenAPI docs (PR #927)
 
 - **PR:** [#927](https://github.com/dhnpmp-tech/dcp-platform/pull/927) (`codex/router-proof-openapi-2026-07-10`).

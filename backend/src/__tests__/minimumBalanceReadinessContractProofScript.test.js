@@ -21,11 +21,22 @@ describe('minimum balance readiness contract proof script', () => {
       current_mode: 'read_only_policy_contract',
       account: {
         balance_halala: 25000,
+        trial_grant_halala: 2000,
         paid_funding_halala: 5000,
         on_demand_committed_halala: 1200,
         paid_available_halala: 3800,
         v1_monthly_spend_cap_halala: 5000,
         v1_remaining_cap_halala: 4700,
+      },
+      credit_policy: {
+        current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
+        source_contract: 'GET /api/pods/trial-routing/readiness',
+        explicit_trial_account_tag_live: false,
+        trial_credit_source: 'renters.trial_grant_halala',
+        trial_grant_halala: 2000,
+        paid_available_halala: 3800,
+        trial_credit_unlocks_high_demand: false,
+        high_demand_requires_paid_credit: true,
       },
       rails: {
         v1_inference: {
@@ -69,11 +80,14 @@ describe('minimum balance readiness contract proof script', () => {
         creates_eval_job: false,
         enables_discount: false,
         changes_enforcement: false,
+        changes_trial_accounting: false,
+        changes_paid_credit_policy: false,
       },
     });
     expect(report.invariants.map((item) => item.name)).toEqual([
       'minimum-balance contract is versioned and read-only',
       'account packet exposes balance, paid credit, commitments, and v1 cap',
+      'credit policy separates trial grant provenance from paid-credit gates',
       'live rails name existing estimate and paid-credit enforcement',
       'blocked rails stay blocked until their proof commands pass',
       'claim guards prove no money or workload mutation',

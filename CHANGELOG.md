@@ -14,6 +14,23 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 23:34 UTC - `feat(pods): clarify trial credit and GPU launch choice - PR #928`
+
+**PR:** [#928](https://github.com/dhnpmp-tech/dcp-platform/pull/928) (`codex/minimum-balance-credit-policy-2026-07-10`).
+**Local timestamp:** 2026-07-10 03:34 +04.
+
+**What:** Tareq trial/minimum-balance and pod-workspace clarity follow-up. Adds a read-only credit-policy summary to the minimum-balance readiness contract so renters, agents, and product surfaces can distinguish grant/trial credit from paid available credit from one packet, then surfaces that answer in the pod Stage 2 flow.
+
+- **Backend contract:** `GET /api/renters/me/minimum-balances` now includes `account.trial_grant_halala` and a `credit_policy` block with trial-credit source, paid-credit source, paid available credit, high-demand paid-credit requirement, and the linked pod trial-routing contract.
+- **Workspace UX:** `/renter/pods` now makes Stage 1 explicitly collapsible in the checkpoint summary and repeats that renters can continue to Stage 2 without reviewing every staged file.
+- **GPU decision UX:** Stage 2 now has a primary GPU-decision strip above the picker showing the exact launch request (`gpu_type` omitted for Auto-pick or fixed to the selected GPU card) and warning that VRAM slider/chips are browse filters only.
+- **Trial answer in UI:** The pod trial policy and Stage 2 decision strip now show the minimum-balance credit-policy source, trial grant amount, no live trial-account tag, native/community GPU route for trial credit, and paid-credit-only high-demand gate.
+- **Claim guards:** Minimum-balance readiness now explicitly states it does not change trial accounting or paid-credit policy, in addition to existing no-money/no-workload/no-enforcement-change guards.
+- **Agent docs/OpenAPI:** `docs/openapi.yaml`, `public/docs/openapi.yaml`, and `public/llms.txt` now document the `credit_policy` contract.
+- **Proof:** `npm run proof:minimum-balance-readiness` now verifies trial/grant provenance and paid-credit gates stay separate.
+- **Safety:** No payment creation, balance mutation, pod launch, inference dispatch, batch/LoRA/adapter/eval creation, discount enablement, trial-accounting mutation, paid-credit policy mutation, enforcement change, provider selection, or routing change was added.
+- **Verification:** `node --check` for minimum-balance service/route/proof script; targeted backend Jest minimum-balance and renter usage suites; `npm run proof:minimum-balance-readiness`; `npx playwright test tests/e2e/renter-pods-workspace-ux.spec.ts --project=chromium`.
+
 ### 2026-07-09 23:27 UTC - `docs(inference): document router proof gates - PR #927`
 
 **PR:** [#927](https://github.com/dhnpmp-tech/dcp-platform/pull/927) (`codex/router-proof-openapi-2026-07-10`).

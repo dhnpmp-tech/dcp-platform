@@ -49,6 +49,7 @@ function buildDb() {
       organization TEXT,
       status TEXT DEFAULT 'active',
       balance_halala INTEGER DEFAULT 0,
+      trial_grant_halala INTEGER DEFAULT 0,
       total_spent_halala INTEGER DEFAULT 0,
       total_jobs INTEGER DEFAULT 0,
       monthly_spend_cap_halala INTEGER DEFAULT 0,
@@ -151,8 +152,8 @@ function isoDaysAgo(days) {
 function seedAccount(db) {
   db.prepare(
     `INSERT INTO renters
-     (id, name, email, api_key, organization, status, balance_halala, total_spent_halala, total_jobs, monthly_spend_cap_halala, created_at)
-     VALUES (1, 'Usage Renter', 'usage@dcp.test', 'master-key', 'DCP Test', 'active', 25000, 9000, 4, 5000, ?)`
+     (id, name, email, api_key, organization, status, balance_halala, trial_grant_halala, total_spent_halala, total_jobs, monthly_spend_cap_halala, created_at)
+     VALUES (1, 'Usage Renter', 'usage@dcp.test', 'master-key', 'DCP Test', 'active', 25000, 2000, 9000, 4, 5000, ?)`
   ).run(isoDaysAgo(10));
   db.prepare(
     `INSERT INTO renter_api_keys
@@ -394,11 +395,22 @@ describe('renter usage export and budget status', () => {
       current_mode: 'read_only_policy_contract',
       account: {
         balance_halala: 25000,
+        trial_grant_halala: 2000,
         paid_funding_halala: 5000,
         on_demand_committed_halala: 1200,
         paid_available_halala: 3800,
         v1_monthly_spend_cap_halala: 5000,
         v1_remaining_cap_halala: 4700,
+      },
+      credit_policy: {
+        current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
+        source_contract: 'GET /api/pods/trial-routing/readiness',
+        explicit_trial_account_tag_live: false,
+        trial_credit_source: 'renters.trial_grant_halala',
+        trial_grant_halala: 2000,
+        paid_available_halala: 3800,
+        trial_credit_unlocks_high_demand: false,
+        high_demand_requires_paid_credit: true,
       },
       rails: {
         v1_inference: {
@@ -436,6 +448,8 @@ describe('renter usage export and budget status', () => {
         creates_eval_job: false,
         enables_discount: false,
         changes_enforcement: false,
+        changes_trial_accounting: false,
+        changes_paid_credit_policy: false,
       },
     });
     expect(res.body.endpoints.readiness).toBe('GET /api/renters/me/minimum-balances');
