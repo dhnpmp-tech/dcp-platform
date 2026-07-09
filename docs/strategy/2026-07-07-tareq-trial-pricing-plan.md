@@ -223,6 +223,21 @@ Status as of PR #875:
 - Stage 2 now has a prominent selected-compute summary, making it clear whether
   the launch is using auto-pick or a specific GPU type.
 
+Status as of PR #876:
+
+- `GET /api/pods/trial-routing/readiness` is the public, read-only answer to
+  Tareq's trial-account routing question.
+- The contract records that there is no separate live `account_type=trial`
+  flag; current trial classification comes from `renters.trial_grant_halala`,
+  active balance, and paid-funding history.
+- The same contract records the current routing policy: trial credit can cover
+  `dcp_owned` and `provider` capacity, while `on_demand`/high-demand capacity
+  requires paid available credit and returns `on_demand_requires_prepaid_credit`
+  on shortfall.
+- The route and proof explicitly guard against launch mutation, billing
+  mutation, balance mutation, trial-accounting mutation, provider selection
+  changes, or vendor/provider/supply-tier exposure.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully

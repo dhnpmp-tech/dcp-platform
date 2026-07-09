@@ -143,6 +143,11 @@ what is live.
   has an explicit selected-compute summary, Stage 3 names runtime/launch, and
   the trial-credit policy is visible without exposing vendor or provider
   internals.
+- PR #876 adds `GET /api/pods/trial-routing/readiness` and
+  `npm run proof:pod-trial-routing-readiness`, making the current trial-credit
+  vs paid-credit routing policy explicit while launch mutation, billing,
+  balance mutation, trial-accounting mutation, provider selection changes, and
+  vendor/provider/supply-tier exposure remain blocked.
 
 ### Now
 

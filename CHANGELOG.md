@@ -14,9 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 09:47 UTC - `test(pods): add trial routing readiness proof - PR #876`
+
+**PR:** [#876](https://github.com/dhnpmp-tech/dcp-platform/pull/876) (`codex/pod-trial-routing-readiness-2026-07-09`).
+**Local timestamp:** 2026-07-09 13:47 +04.
+
+**What:** Tareq feedback follow-up for trial accounts and high-demand pod access. Adds a public read-only contract that documents how DCP currently classifies trial credit and paid credit before pod launch.
+
+- **Backend contract:** Added public `GET /api/pods/trial-routing/readiness`, returning the current no-mutation policy for trial-credit provenance, paid-credit derivation, native/community capacity, and high-demand paid-credit gates.
+- **Proof command:** Added `npm run proof:pod-trial-routing-readiness` and included it in `npm run proof:local-roadmap`, raising the suite to 32 CI-safe gates.
+- **Public surface:** OpenAPI and `llms.txt` now point agents to the trial-routing readiness endpoint alongside minimum-balance policy.
+- **Safety:** Readiness/policy only; no provider selection change, pod launch mutation, billing change, payment creation, balance mutation, trial-accounting mutation, vendor/provider exposure, or supply-tier exposure was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted pod trial-routing and pod access-policy Jest suites; pod trial-routing readiness proof; local roadmap proof now passing 32/32 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 09:27 UTC - `feat(pods): clarify workspace stages and compute selection - PR #875`
 
-**PR:** Pending (`codex/workspace-trial-ux-2026-07-09`).
+**PR:** [#875](https://github.com/dhnpmp-tech/dcp-platform/pull/875) (`codex/workspace-trial-ux-2026-07-09`).
 **Local timestamp:** 2026-07-09 13:27 +04.
 
 **What:** Tareq feedback slice for `/renter/pods`. Makes workspace staging easier to scan when renters have many files and makes the GPU/trial-credit state clearer before launch.

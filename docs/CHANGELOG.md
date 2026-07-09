@@ -2,9 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-09 09:47 UTC - Pod trial routing readiness proof (PR #876)
+
+- **PR:** [#876](https://github.com/dhnpmp-tech/dcp-platform/pull/876) (`codex/pod-trial-routing-readiness-2026-07-09`).
+- **Backend:** Added public `GET /api/pods/trial-routing/readiness`, returning the current no-mutation policy for trial-credit provenance, paid-credit derivation, native/community capacity, and high-demand paid-credit gates.
+- **Proof:** Added `npm run proof:pod-trial-routing-readiness` and included it in `npm run proof:local-roadmap`, moving the local roadmap suite to 32 CI-safe gates.
+- **Docs/contracts:** Added OpenAPI and `llms.txt` references so agents can inspect the pod trial-routing policy beside minimum-balance policy.
+- **Safety:** Readiness/policy only; no provider selection change, pod launch mutation, billing change, payment creation, balance mutation, trial-accounting mutation, vendor/provider exposure, or supply-tier exposure was enabled.
+- **Verification:** Syntax/package JSON checks; OpenAPI YAML parse; targeted pod trial-routing and pod access-policy Jest suites; pod trial-routing readiness proof; local roadmap proof now passing 32/32 gates; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 09:27 UTC - Pod workspace stages and compute-selection clarity (PR #875)
 
-- **PR:** Pending (`codex/workspace-trial-ux-2026-07-09`).
+- **PR:** [#875](https://github.com/dhnpmp-tech/dcp-platform/pull/875) (`codex/workspace-trial-ux-2026-07-09`).
 - **Workspace UX:** The embedded workspace manager now defaults staged files to a collapsed summary in pod-launch context, groups expanded files by top-level folder/root files, and keeps download/delete actions inside each group.
 - **Launch flow:** `/renter/pods` now labels the flow as Stage 1 workspace, Stage 2 template/GPU, and Stage 3 runtime/launch, instead of leaving later stages implicit.
 - **Compute clarity:** Added a prominent selected-compute panel showing the selected GPU or auto-pick state, min-VRAM filter, quote when available, and a one-click return to auto-pick.

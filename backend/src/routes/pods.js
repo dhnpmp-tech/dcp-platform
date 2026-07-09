@@ -36,6 +36,7 @@ const { COST_RATES } = require('./jobs');
 const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 const { paymentRequiredPayload } = require('../lib/error-response');
 const { evaluatePodLaunchCreditPolicy } = require('../services/podAccessPolicy');
+const { buildPodTrialRoutingReadiness } = require('../services/podTrialRoutingReadiness');
 const conversionFunnel = require('../services/conversionFunnelService');
 
 // ── Burst (external-cloud) pod plumbing ──────────────────────────────────────
@@ -657,6 +658,10 @@ function toPodView(job) {
 // ── POST /api/pods — launch an interactive GPU pod ──────────────────────────
 // Body: { provider_id?, duration_minutes?, params: { NOTEBOOK_TOKEN } }
 // ── GET /api/pods — list the renter's pods ──────────────────────────────────
+router.get('/trial-routing/readiness', (_req, res) => {
+  return res.json(buildPodTrialRoutingReadiness());
+});
+
 router.get('/', requireRenter, (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);

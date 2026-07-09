@@ -1398,6 +1398,44 @@ paths:
 
   # ─── GPU Pods (on-demand whole-GPU rental) ───────────────────────────────────
 
+  /api/pods/trial-routing/readiness:
+    get:
+      tags: [Pods]
+      summary: Get GPU pod trial-routing readiness
+      description: |
+        Returns the read-only policy contract for trial-credit and paid-credit
+        routing on GPU pods. The contract explains the current source of truth:
+        trial state is represented by credit provenance and paid-funding state,
+        trial credit can cover DCP/community capacity, high-demand on-demand
+        capacity requires paid credit, and renter-facing surfaces must not expose
+        provider id, vendor, or internal supply-tier labels.
+      responses:
+        '200':
+          description: Current trial-credit and high-demand routing policy for GPU pods.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    example: pod_trial_routing_readiness
+                  version:
+                    type: string
+                    example: dcp.pod_trial_routing_readiness.v1
+                  current_mode:
+                    type: string
+                    example: pod_trial_credit_policy_live
+                  account_classification:
+                    type: object
+                    additionalProperties: true
+                  routing_policy:
+                    type: object
+                    additionalProperties: true
+                  claim_guards:
+                    type: object
+                    additionalProperties: true
+
   /api/pods:
     post:
       tags: [Pods]
