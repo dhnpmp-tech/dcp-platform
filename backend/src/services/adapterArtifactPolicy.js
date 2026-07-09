@@ -27,6 +27,7 @@ function buildAdapterArtifactPolicyReadiness(now = new Date()) {
       register_training_adapter: 'POST /api/lora/training-jobs/{training_job_id}/register-adapter',
       adapter_deployments: 'GET/POST /api/adapters/{adapter_id}/deployments',
       adapter_load_proof: 'POST /api/adapters/{adapter_id}/deployments/{deployment_id}/load-proof',
+      adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
     },
     artifact_policy: {
       policy_available: true,
@@ -45,6 +46,7 @@ function buildAdapterArtifactPolicyReadiness(now = new Date()) {
       model_card_required: true,
       training_artifact_proof_required: true,
       vllm_load_proof_required: true,
+      adapter_billing_policy_required: true,
     },
     denial_codes: [
       'adapter_artifact_upload_disabled',
@@ -73,7 +75,7 @@ function buildAdapterArtifactPolicyReadiness(now = new Date()) {
     next_actions: [
       'Run the LoRA GPU training artifact proof on a provider host.',
       'Record adapter.safetensors and model-card.json under the renter/adapter scoped key prefix.',
-      'Keep adapter traffic disabled until vLLM load proof and billing smoke are approved.',
+      'Keep adapter traffic and billing disabled until vLLM load proof, endpoint smoke, and adapter billing policy are approved.',
     ],
   };
 }

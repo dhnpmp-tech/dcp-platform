@@ -8,6 +8,7 @@ const {
   listAdapters,
 } = require('../services/adapterRegistry');
 const { buildAdapterArtifactPolicyReadiness } = require('../services/adapterArtifactPolicy');
+const { buildAdapterBillingReadiness } = require('../services/adapterBillingReadiness');
 const {
   AdapterDeploymentError,
   attachAdapterDeploymentLoadProof,
@@ -75,6 +76,18 @@ function createAdaptersRouter(deps = {}) {
       return res.status(500).json({
         error: 'Failed to fetch adapter artifact policy readiness',
         code: 'adapter_artifact_policy_readiness_internal_error',
+      });
+    }
+  });
+
+  router.get('/billing/readiness', (_req, res) => {
+    try {
+      return res.json(buildAdapterBillingReadiness(new Date()));
+    } catch (error) {
+      console.error('[adapters] billing readiness error:', error && error.message ? error.message : error);
+      return res.status(500).json({
+        error: 'Failed to fetch adapter billing readiness',
+        code: 'adapter_billing_readiness_internal_error',
       });
     }
   });

@@ -29,6 +29,13 @@ const DEPLOYMENT_GATES = [
     ar: 'تبقى الحركة متوقفة حتى تسجل الخلفية إثباتا مطابقا للنشر والنقطة والأثر.',
   },
   {
+    k: 'billing_readiness',
+    tEn: 'Billing readiness',
+    tAr: 'جاهزية الفوترة',
+    en: 'Adapter billing stays off until endpoint smoke, funded principal, usage attribution, and settlement policy are approved.',
+    ar: 'تبقى فوترة المحول متوقفة حتى اعتماد دخان النقطة والرصيد الممول ونسب الاستخدام وسياسة التسوية.',
+  },
+  {
     k: 'multi_lora',
     tEn: 'Multi-LoRA later',
     tAr: 'تعدد LoRA لاحقاً',
@@ -48,7 +55,9 @@ curl -s https://api.dcp.sa/api/adapters/adpt_support_arabic/deployments \\
     "mode": "single_adapter_live_merge",
     "endpoint_id": "endpoint_qwen_arabic_01",
     "route_traffic": false
-  }'`
+  }'
+
+curl -s https://api.dcp.sa/api/adapters/billing/readiness`
 
 export default function DedicatedDeploymentsProductPage() {
   return (
@@ -137,7 +146,7 @@ export default function DedicatedDeploymentsProductPage() {
               <ul className="pshow-list">
                 <li><Bi en="Single-adapter live merge is first; multi-LoRA waits for controlled vLLM smoke." ar="دمج محول واحد أولاً؛ وينتظر تعدد LoRA دخان vLLM مضبوطاً." /></li>
                 <li><Bi en="Route traffic remains false until deployment, adapter, base model, mode, endpoint, and checksum proof match." ar="تبقى حركة التوجيه غير مفعلة حتى يتطابق إثبات النشر والمحول والنموذج الأساسي والوضع والنقطة والبصمة." /></li>
-                <li><Bi en="Billed inference starts only after the endpoint is proven and observable." ar="يبدأ الاستدلال المفوتر فقط بعد إثبات النقطة وجعلها قابلة للمراقبة." /></li>
+                <li><Bi en="Billed inference starts only after endpoint smoke, funded principal, usage attribution, and settlement policy are approved." ar="يبدأ الاستدلال المفوتر فقط بعد اعتماد دخان النقطة والرصيد الممول ونسب الاستخدام وسياسة التسوية." /></li>
               </ul>
             </div>
           </div>
@@ -176,6 +185,11 @@ export default function DedicatedDeploymentsProductPage() {
                 <span className="gate-n">03</span>
                 <span className="gate-k">route_traffic</span>
                 <p><Bi en="Traffic and billing stay off until the proof row marks the deployment running." ar="تبقى الحركة والفوترة متوقفتين حتى يضع صف الإثبات النشر في حالة تشغيل." /></p>
+              </div>
+              <div className="capacity-gate">
+                <span className="gate-n">04</span>
+                <span className="gate-k">billing_readiness</span>
+                <p><Bi en="Billing stays disabled until usage rows carry adapter and endpoint attribution." ar="تبقى الفوترة معطلة حتى تحمل صفوف الاستخدام نسب المحول والنقطة." /></p>
               </div>
             </div>
           </div>

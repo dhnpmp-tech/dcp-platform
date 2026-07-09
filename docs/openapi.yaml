@@ -625,6 +625,12 @@ components:
             artifact_policy_endpoint:
               type: string
               example: GET /api/adapters/artifacts/readiness
+            billing_readiness_version:
+              type: string
+              example: dcp.adapter_billing_readiness.v1
+            billing_readiness_endpoint:
+              type: string
+              example: GET /api/adapters/billing/readiness
             artifact_upload_endpoint_enabled:
               type: boolean
               example: false
@@ -656,7 +662,13 @@ components:
             route_traffic:
               type: boolean
               example: false
+            billing_enabled:
+              type: boolean
+              example: false
             load_proof_required:
+              type: boolean
+              example: true
+            billing_policy_required:
               type: boolean
               example: true
         tinker_loop:
@@ -2227,6 +2239,7 @@ paths:
                       model_card_required: { type: boolean, example: true }
                       training_artifact_proof_required: { type: boolean, example: true }
                       vllm_load_proof_required: { type: boolean, example: true }
+                      adapter_billing_policy_required: { type: boolean, example: true }
                   denial_codes:
                     type: array
                     items: { type: string }
@@ -2247,6 +2260,78 @@ paths:
                       routes_adapter_traffic: { type: boolean, example: false }
                       bills_training: { type: boolean, example: false }
                       bills_adapter_inference: { type: boolean, example: false }
+                      claims_tinker_compatibility: { type: boolean, example: false }
+
+  /api/adapters/billing/readiness:
+    get:
+      tags: [Adapters]
+      summary: Get adapter billing readiness
+      description: |
+        Returns a public, read-only policy contract for future billed adapter
+        inference on dedicated endpoints. It defines the strict load-proof,
+        endpoint-smoke, funded-principal, minimum-balance, usage-attribution,
+        settlement, and founder-approval prerequisites while adapter billing,
+        usage writes, invoices, provider payouts, and route changes remain
+        disabled.
+      responses:
+        '200':
+          description: Adapter billing readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, version, current_mode, endpoints, policy, denial_codes, claim_guards]
+                properties:
+                  object:
+                    type: string
+                    enum: [adapter_billing_readiness]
+                  version:
+                    type: string
+                    example: dcp.adapter_billing_readiness.v1
+                  current_mode:
+                    type: string
+                    enum: [billing_policy_contract_only]
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  policy:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      readiness_available: { type: boolean, example: true }
+                      adapter_inference_billing_enabled: { type: boolean, example: false }
+                      bills_adapter_inference: { type: boolean, example: false }
+                      billing_start_event:
+                        type: string
+                        example: first_successful_endpoint_smoke_after_strict_load_proof
+                      required_before_billing:
+                        type: array
+                        items: { type: string }
+                        example: [strict_load_proof_match, endpoint_smoke_passed, funded_smoke_principal, minimum_balance_policy_approved, usage_ledger_adapter_attribution, settlement_split_policy_approved, founder_billing_approval]
+                      required_usage_fields:
+                        type: array
+                        items: { type: string }
+                        example: [renter_id, deployment_id, adapter_id, endpoint_id, base_model, artifact_checksum_sha256, provider_id, request_id, prompt_tokens, completion_tokens, cost_halala, settlement_status]
+                  denial_codes:
+                    type: array
+                    items: { type: string }
+                  claim_guards:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      readiness_contract_live: { type: boolean, example: true }
+                      adapter_billing_enabled: { type: boolean, example: false }
+                      mutates_balance: { type: boolean, example: false }
+                      dispatches_inference: { type: boolean, example: false }
+                      creates_adapter_deployment: { type: boolean, example: false }
+                      attaches_load_proof: { type: boolean, example: false }
+                      enables_adapter_serving: { type: boolean, example: false }
+                      routes_adapter_traffic: { type: boolean, example: false }
+                      records_usage_event: { type: boolean, example: false }
+                      creates_invoice: { type: boolean, example: false }
+                      settles_provider_payout: { type: boolean, example: false }
+                      changes_minimum_balance_enforcement: { type: boolean, example: false }
                       claims_tinker_compatibility: { type: boolean, example: false }
 
   /api/adapters:

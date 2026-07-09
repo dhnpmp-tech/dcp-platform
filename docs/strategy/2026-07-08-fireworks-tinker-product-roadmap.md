@@ -406,6 +406,11 @@ Goal: ship the first real train-here/deploy-here loop.
     `adapter.safetensors`, `model-card.json`, and checksum requirements while
     artifact uploads, object-store writes, adapter serving, route traffic,
     billing, and Tinker compatibility remain disabled.
+  - PR #868 adds `GET /api/adapters/billing/readiness` and
+    `npm run proof:adapter-billing-readiness`; it defines strict load-proof,
+    endpoint-smoke, funded-principal, minimum-balance, usage-attribution,
+    settlement, and founder-approval prerequisites before billed adapter
+    inference can be claimed.
 - Add adapter deploy API:
   - live-merge mode for one adapter on a dedicated deployment
   - multi-LoRA mode for many adapters on one base deployment where vLLM supports
@@ -429,6 +434,10 @@ Goal: ship the first real train-here/deploy-here loop.
     an opt-in live readiness runner before adapter vLLM load, route traffic,
     endpoint smoke, and adapter billing claims. It records current readiness
     blockers and stops before adapter/deployment/load-proof mutation.
+  - PR #868 added the CI-safe adapter billing readiness gate before live billing
+    smoke; adapter usage writes, invoices, provider payouts, minimum-balance
+    enforcement changes, and billed endpoint claims remain disabled until the
+    proof prerequisites exist.
 - Add dashboard:
   - datasets
   - training jobs
@@ -576,7 +585,13 @@ Acceptance:
     adapter creation, deployment creation, load-proof mutation, endpoint smoke,
     route traffic, and billing remain gated until a real adapter/vLLM/funded
     proof window exists.**
-18. **Renter quotas and usage export** - Fireworks-style account controls before
+18. **Adapter billing readiness** - CI-safe money-policy gate before billed
+    adapter endpoint claims. **Added in PR #868 as
+    `npm run proof:adapter-billing-readiness`; usage writes, invoices, provider
+    payouts, minimum-balance enforcement changes, and adapter billing claims
+    stay disabled until strict load proof, endpoint smoke, funded principal,
+    usage attribution, settlement policy, and founder approval exist.**
+19. **Renter quotas and usage export** - Fireworks-style account controls before
     team budgets. **Started in PR #848 with billing-scoped
     `/api/renters/me/usage/export`, `/api/renters/me/budget-status`, and
     renter-console budget visibility. PR #849 adds scoped-key attribution to

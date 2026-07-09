@@ -34,6 +34,7 @@ function buildMinimumBalanceReadiness({
       v1_inference: 'POST /v1/chat/completions',
       batch_readiness: 'GET /api/batches/readiness',
       lora_readiness: 'GET /api/lora/readiness',
+      adapter_billing_readiness: 'GET /api/adapters/billing/readiness',
       eval_readiness: 'GET /api/evals/readiness',
     },
     account: {
@@ -113,11 +114,11 @@ function buildMinimumBalanceReadiness({
         notes: 'Managed LoRA/Tinker-style training is not live; training-step billing/no-billing policy must be proven before any charge.',
       },
       adapter_deployments: {
-        status: 'load_proof_required',
+        status: 'load_and_billing_policy_required',
         minimum_type: 'endpoint_quote_and_adapter_billing_policy_pending',
         minimum_balance_halala: null,
         enforcement_live: false,
-        notes: 'Adapter serving, endpoint smoke, route traffic, and adapter billing remain gated by vLLM load proof.',
+        notes: 'Adapter serving, endpoint smoke, route traffic, and adapter billing remain gated by strict vLLM load proof and adapter billing readiness policy.',
       },
       evaluators: {
         status: 'readiness_contract_only',

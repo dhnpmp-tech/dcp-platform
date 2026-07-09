@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 06:52 UTC - `test(lora): add adapter billing readiness proof - PR #868`
+
+**PR:** [#868](https://github.com/dhnpmp-tech/dcp-platform/pull/868) (`codex/adapter-billing-readiness-policy-2026-07-09`).
+**Local timestamp:** 2026-07-09 10:52 +04.
+
+**What:** Next Fireworks/Tinker execution slice. Adds the disabled billing-policy gate required before dedicated LoRA/adapter endpoint traffic can become billable.
+
+- **Backend contract:** Added public `GET /api/adapters/billing/readiness` plus a pure adapter billing policy evaluator for strict load proof, endpoint smoke, funded principal, minimum-balance policy, usage attribution, settlement policy, and founder approval prerequisites.
+- **Proof command:** Added `npm run proof:adapter-billing-readiness` and included it in `npm run proof:local-roadmap`, raising the suite to 25 CI-safe gates.
+- **Public surface:** LoRA readiness, adapter artifact readiness, minimum-balance readiness, OpenAPI, `/fine-tuning`, `/dedicated-deployments`, renter Fine-Tuning snippets, `llms.txt`, and roadmap docs now point to the disabled adapter billing policy.
+- **Safety:** Readiness/policy only; no adapter dispatch, load-proof mutation, route traffic, usage ledger write, balance mutation, invoice, provider payout, minimum-balance enforcement change, or Tinker compatibility behavior was enabled.
+- **Verified:** Syntax/package JSON checks; targeted adapter-billing/artifact/LoRA/minimum-balance Jest suites; adapter billing readiness proof; adapter artifact policy proof; minimum-balance readiness proof; local roadmap proof now passing 25/25 gates; OpenAPI YAML parse; TypeScript; Next build; `git diff --check`.
+
 ### 2026-07-09 06:23 UTC - `test(lora): require strict adapter load proof - PR #867`
 
 **PR:** [#867](https://github.com/dhnpmp-tech/dcp-platform/pull/867) (`codex/adapter-load-proof-strict-match-2026-07-09`).
