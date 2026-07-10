@@ -1305,7 +1305,6 @@ export default function RenterPodsPage() {
         ? `Browsing ${minVram} GB+ cards only; launch still auto-picks until a card is selected.`
         : 'No fixed GPU type selected; backend picks an available type at launch.'
   const minimumCreditPolicy = minimumBalance?.credit_policy
-  const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: DCP/community capacity'
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
   const explicitTrialTagLive = typeof minimumCreditPolicy?.explicit_trial_account_tag_live === 'boolean'
     ? minimumCreditPolicy.explicit_trial_account_tag_live
@@ -1332,17 +1331,18 @@ export default function RenterPodsPage() {
   const highDemandPaidCreditGateLabel = minimumCreditPolicy?.high_demand_requires_paid_credit === true
     ? 'High-demand paid-credit gate live'
     : 'High-demand paid-credit gate enforced by backend'
-  const trialRouteAnswerLabel = 'Trial route: native/community GPU pool'
+  const trialCapacityAnswerLabel = 'Trial credit: DCP/community GPU pool'
+  const trialRouteAnswerLabel = 'Trial route: DCP/community GPU pool'
   const highDemandAnswerLabel = 'High-demand GPUs: paid credit only'
-  const trialHandlingAnswerLabel = explicitTrialTagLive
-    ? 'Trial flag is explicit on the account'
-    : 'No separate trial tag; grant credit decides'
+  const trialFounderAnswerLabel = explicitTrialTagLive
+    ? 'Tagged trial account; backend policy still gates high-demand GPUs'
+    : 'No separate trial-account tag; grant credit is the trial signal'
   const trialPolicyHeadline = explicitTrialTagLive
     ? 'Trial account tag is active'
     : 'Trial accounts use grant-credit provenance'
   const trialPolicyDetail = explicitTrialTagLive
-    ? `${trialCapacityCopy} · ${highDemandCapacityCopy}`
-    : `No separate trial tag is live. ${trialCapacityCopy} ${highDemandCapacityCopy}`
+    ? `${trialCapacityAnswerLabel} · ${highDemandAnswerLabel}`
+    : `No separate trial tag is live. ${trialCapacityAnswerLabel}. ${highDemandAnswerLabel}.`
   const gpuRequestModeLabel = selectedType ? 'Fixed GPU request' : 'Auto-pick request'
   const launchGpuLine = selectedType
     ? `Launch will request ${displayGpuType(selectedType.gpu_model)}.`
@@ -1507,6 +1507,14 @@ export default function RenterPodsPage() {
   const launchButtonLabel = selectedType
     ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
     : 'Launch auto-picked GPU pod'
+  const stage2AutoChoiceHeadline = selectedType ? 'Return to Auto-pick' : 'Auto-pick selected'
+  const stage2AutoChoiceDetail = selectedType
+    ? 'Clears gpu_type so DCP chooses an available GPU type at launch.'
+    : 'No fixed GPU is pinned. DCP chooses an available GPU type when you launch.'
+  const stage2FixedChoiceHeadline = selectedType ? `${displayGpuType(selectedType.gpu_model)} selected` : 'Choose a fixed GPU card'
+  const stage2FixedChoiceDetail = selectedType
+    ? 'This GPU type is pinned in the final request. Filters can hide cards, but they do not replace it.'
+    : 'Pick a card below with Use as launch GPU. VRAM filters and workload hints only organize the list.'
   const commandCenterWorkspaceLabel = workspaceVolume
     ? workspaceFiles.length >= LARGE_WORKSPACE_COLLAPSE_FILE_COUNT
       ? `${workspaceFiles.length} files · Stage 1 auto-collapsed`
@@ -1704,7 +1712,7 @@ export default function RenterPodsPage() {
             <div className="pod-fast-card policy">
               <span><Bi en="Trial answer" ar="إجابة التجربة" /></span>
               <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></strong>
-              <em><Bi en={`${trialHandlingAnswerLabel}; ${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يذهب إلى سعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
+              <em><Bi en={`${trialFounderAnswerLabel}; ${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يذهب إلى سعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
             </div>
           </div>
 
@@ -1943,6 +1951,27 @@ export default function RenterPodsPage() {
                   <Bi en={highDemandPaidCreditGateLabel} ar="الطلب العالي يحتاج رصيداً مدفوعاً" />
                 </span>
               </div>
+              <div className="pod-stage2-choice-board" aria-label={lang === 'ar' ? 'اختيار طلب GPU في المرحلة 2' : 'Stage 2 GPU request chooser'}>
+                <div className="pod-stage2-choice-head">
+                  <span><Bi en="Which GPU will DCP request?" ar="أي GPU سيطلبه DCP؟" /></span>
+                  <strong>{launchRequestPayloadLabel}</strong>
+                </div>
+                <button
+                  type="button"
+                  className={!selectedType ? 'selected' : ''}
+                  aria-pressed={!selectedType}
+                  onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+                >
+                  <span><Bi en="Option A" ar="الخيار أ" /></span>
+                  <strong><Bi en={stage2AutoChoiceHeadline} ar={selectedType ? 'العودة للاختيار التلقائي' : 'الاختيار التلقائي محدد'} /></strong>
+                  <em><Bi en={stage2AutoChoiceDetail} ar="لا يوجد GPU مثبت؛ يختار DCP نوعاً متاحاً عند التشغيل." /></em>
+                </button>
+                <a href="#gpu-results" className={selectedType ? 'selected' : ''}>
+                  <span><Bi en="Option B" ar="الخيار ب" /></span>
+                  <strong><Bi en={stage2FixedChoiceHeadline} ar={selectedType ? 'تم اختيار GPU محدد' : 'اختر بطاقة GPU محددة'} /></strong>
+                  <em><Bi en={stage2FixedChoiceDetail} ar="اختر بطاقة أدناه. التصفية لا تختار GPU التشغيل." /></em>
+                </a>
+              </div>
             </div>
 
             <div className={`pod-final-gpu-request ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'طلب GPU النهائي' : 'Final GPU request'}>
@@ -2039,7 +2068,7 @@ export default function RenterPodsPage() {
                   </span>
                   <span>
                     <b><Bi en="Trial accounts" ar="حسابات التجربة" /></b>
-                    <Bi en={`${trialHandlingAnswerLabel}; ${trialRouteAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يستخدم وحدات DCP والمجتمع." />
+                    <Bi en={`${trialFounderAnswerLabel}; ${trialRouteAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يستخدم وحدات DCP والمجتمع." />
                   </span>
                 </div>
                 <div className="pod-stage2-rule" aria-label={lang === 'ar' ? 'قاعدة اختيار GPU في المرحلة 2' : 'Stage 2 launch GPU selection rule'}>
@@ -2086,7 +2115,7 @@ export default function RenterPodsPage() {
                   </span>
                 )}
                 <span>
-                  <Bi en={trialCapacityCopy} ar="رصيد التجربة: سعة DCP والمجتمع" />
+                  <Bi en={trialCapacityAnswerLabel} ar="رصيد التجربة: سعة DCP والمجتمع" />
                 </span>
                 <span>
                   <Bi en={highDemandCapacityCopy} ar="السعة عالية الطلب: رصيد مدفوع" />
@@ -2104,7 +2133,7 @@ export default function RenterPodsPage() {
                   <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
                 </span>
                 <span>
-                  <Bi en={trialHandlingAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
+                  <Bi en={trialFounderAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
                 </span>
                 <span>
                   <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
@@ -2239,7 +2268,7 @@ export default function RenterPodsPage() {
                   <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
                 </span>
                 <span>
-                  <Bi en={trialHandlingAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
+                  <Bi en={trialFounderAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
                 </span>
                 <span>
                   <Bi en="Provider identity hidden" ar="هوية المزود مخفية" />
@@ -2522,7 +2551,7 @@ export default function RenterPodsPage() {
                   </div>
                   <div className="gpu-ctl gpu-vram">
                     <label id="gpu-vram-filter-label">
-                      <Bi en="Browse filter only: VRAM" ar="تصفية التصفح فقط: الذاكرة" />
+                      <Bi en="Filter list by VRAM (not launch GPU)" ar="صفّ القائمة حسب الذاكرة، وليس GPU التشغيل" />
                     </label>
                     <div className="gpu-vram-options" role="group" aria-labelledby="gpu-vram-filter-label">
                       {VRAM_FILTER_OPTIONS.map((value) => (
@@ -3014,7 +3043,7 @@ export default function RenterPodsPage() {
               </span>
               <span>
                 <b><Bi en="Credit route" ar="مسار الرصيد" /></b>
-                <Bi en={explicitTrialTagLive ? 'Trial tag active' : 'Trial via grant credit · native/community GPUs'} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب رصيد المنحة · معالجات DCP والمجتمع'} />
+                <Bi en={explicitTrialTagLive ? 'Trial tag active' : 'Trial via grant credit · DCP/community GPUs'} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب رصيد المنحة · معالجات DCP والمجتمع'} />
               </span>
             </div>
 

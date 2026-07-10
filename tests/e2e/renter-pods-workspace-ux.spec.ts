@@ -57,7 +57,7 @@ async function mockPodsApis(page: Page) {
             paid_credit_source: 'payments.status=paid',
           },
           routing_policy: {
-            trial_capacity_copy: 'Trial credit: native/community GPUs',
+            trial_capacity_copy: 'Trial credit: DCP/community GPUs',
             high_demand_capacity_copy: 'High-demand capacity: paid credit only',
             trial_credit_allowed_supply_tiers: ['dcp_owned', 'provider'],
             paid_credit_required_supply_tiers: ['on_demand'],
@@ -370,7 +370,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(stickyDecision).toContainText('Runtime');
   await expect(stickyDecision).toContainText('PyTorch · 1h');
   await expect(stickyDecision).toContainText('Trial route');
-  await expect(stickyDecision).toContainText('No trial-account tag live · Trial route: native/community GPU pool');
+  await expect(stickyDecision).toContainText('No trial-account tag live · Trial route: DCP/community GPU pool');
   const commandCenter = page.getByLabel('Launch command center');
   await expect(commandCenter).toBeVisible();
   await expect(commandCenter).toContainText('Main decision · Stage 2 of 3');
@@ -464,7 +464,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(launchChecklist).toContainText('Backend picks an available GPU type at launch');
   await expect(launchChecklist).toContainText('Trial');
   await expect(launchChecklist).toContainText('Trial accounts: grant-credit provenance');
-  await expect(launchChecklist).toContainText('Trial route: native/community GPU pool; High-demand GPUs: paid credit only');
+  await expect(launchChecklist).toContainText('Trial route: DCP/community GPU pool; High-demand GPUs: paid credit only');
   await expect(launchChecklist).toContainText('Credit');
   await expect(launchChecklist).toContainText('Credit gates synced');
   await expect(launchChecklist).toContainText('Paid available SAR 38.00 · high-demand requires paid credit');
@@ -516,6 +516,16 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('VRAM chips are browse filters only');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Trial grant SAR 20.00');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('High-demand paid-credit gate live');
+  const gpuRequestChooser = page.getByLabel('Stage 2 GPU request chooser');
+  await expect(gpuRequestChooser).toContainText('Which GPU will DCP request?');
+  await expect(gpuRequestChooser).toContainText('gpu_type omitted = auto-pick');
+  await expect(gpuRequestChooser).toContainText('Option A');
+  await expect(gpuRequestChooser).toContainText('Auto-pick selected');
+  await expect(gpuRequestChooser).toContainText('No fixed GPU is pinned. DCP chooses an available GPU type when you launch.');
+  await expect(gpuRequestChooser).toContainText('Option B');
+  await expect(gpuRequestChooser).toContainText('Choose a fixed GPU card');
+  await expect(gpuRequestChooser).toContainText('VRAM filters and workload hints only organize the list.');
+  await expect(gpuRequestChooser.getByRole('button', { name: /Auto-pick selected/ })).toHaveAttribute('aria-pressed', 'true');
   const finalGpuRequest = page.getByLabel('Final GPU request');
   await expect(finalGpuRequest).toContainText('Final GPU request');
   await expect(finalGpuRequest).toContainText('Auto-pick GPU');
@@ -542,15 +552,15 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(computeSummary).toContainText('Launch selection rule');
   await expect(computeSummary).toContainText('Only Auto-pick or a GPU card selected with Use as launch GPU changes what DCP sends.');
   await expect(computeSummary).toContainText('Trial accounts');
-  await expect(computeSummary).toContainText('No separate trial tag; grant credit decides; Trial route: native/community GPU pool.');
+  await expect(computeSummary).toContainText('No separate trial-account tag; grant credit is the trial signal; Trial route: DCP/community GPU pool.');
   await expect(computeSummary).toContainText('Credit policy: synced');
-  await expect(computeSummary).toContainText('Trial credit: native/community GPUs');
+  await expect(computeSummary).toContainText('Trial credit: DCP/community GPU pool');
   await expect(computeSummary).toContainText('High-demand capacity: paid credit only');
-  await expect(computeSummary).toContainText('Trial route: native/community GPU pool');
+  await expect(computeSummary).toContainText('Trial route: DCP/community GPU pool');
   await expect(computeSummary).toContainText('High-demand GPUs: paid credit only');
   await expect(computeSummary).toContainText('Trial accounts: grant-credit provenance');
   await expect(computeSummary).toContainText('No trial-account tag live');
-  await expect(computeSummary).toContainText('No separate trial tag; grant credit decides');
+  await expect(computeSummary).toContainText('No separate trial-account tag; grant credit is the trial signal');
   await expect(computeSummary).toContainText('Trial source: grant balance');
   await expect(computeSummary.getByRole('button', { name: 'Auto-pick', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(computeSummary.getByRole('button', { name: 'Fixed GPU', exact: true })).toHaveAttribute('aria-pressed', 'false');
@@ -565,9 +575,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Trial routing policy')).toContainText('No trial-account tag live');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial source: grant balance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial grant SAR 20.00');
-  await expect(page.getByLabel('Trial routing policy')).toContainText('Trial route: native/community GPU pool');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('Trial route: DCP/community GPU pool');
   await expect(page.getByLabel('Trial routing policy')).toContainText('High-demand GPUs: paid credit only');
-  await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial tag; grant credit decides');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial-account tag; grant credit is the trial signal');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Provider identity hidden');
   await expect(page.getByLabel('Minimum balance policy')).toContainText('Credit gates are visible before launch');
   await expect(page.getByLabel('Minimum balance policy')).toContainText('Minimum balance: synced');
@@ -604,7 +614,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('Launch request: Auto-pick')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Launch auto-picked GPU pod' })).toBeVisible();
   await expect(page.getByText('Use as launch GPU').first()).toBeVisible();
-  await expect(page.getByText('Browse filter only: VRAM')).toBeVisible();
+  await expect(page.getByText('Filter list by VRAM (not launch GPU)')).toBeVisible();
   await page.getByRole('button', { name: /Not sure which GPU/ }).click();
   await page.getByRole('button', { name: /Fine-tune 7/ }).click();
   await expect(page.getByText(/Workload preset applied: Fine-tune 7/)).toBeVisible();
@@ -630,12 +640,18 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuSelectionStrip).toContainText('2 shown');
   await expect(page.getByLabel('Launch review')).toContainText('Stage 2');
   await expect(page.getByLabel('Launch review')).toContainText('Auto-pick GPU');
-  await expect(page.getByLabel('Launch review')).toContainText('Trial via grant credit · native/community GPUs');
+  await expect(page.getByLabel('Launch review')).toContainText('Trial via grant credit · DCP/community GPUs');
 
   await page.getByRole('radio', { name: /RTX 4090/ }).click();
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('RTX 4090');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Fixed request: RTX 4090');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('gpu_type = RTX 4090');
+  await expect(gpuRequestChooser).toContainText('Which GPU will DCP request?');
+  await expect(gpuRequestChooser).toContainText('gpu_type = RTX 4090');
+  await expect(gpuRequestChooser).toContainText('Return to Auto-pick');
+  await expect(gpuRequestChooser).toContainText('RTX 4090 selected');
+  await expect(gpuRequestChooser).toContainText('This GPU type is pinned in the final request.');
+  await expect(gpuRequestChooser.getByRole('button', { name: /Return to Auto-pick/ })).toHaveAttribute('aria-pressed', 'false');
   await expect(finalGpuRequest).toContainText('RTX 4090');
   await expect(finalGpuRequest).toContainText('gpu_type = RTX 4090');
   await expect(finalGpuRequest).toContainText('Pinned card · 24 GB VRAM');

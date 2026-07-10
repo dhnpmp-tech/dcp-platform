@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 01:43 UTC - `feat(pods): clarify founder feedback launch UX - PR #936`
+
+**PR:** [#936](https://github.com/dhnpmp-tech/dcp-platform/pull/936) (`codex/pods-founder-feedback-ux-2026-07-10`).
+**Local timestamp:** 2026-07-10 05:43 +04.
+
+**What:** Tareq workspace/GPU/trial feedback follow-up. Tightens `/renter/pods` so the large-workspace path stays collapsed, the Stage 2 GPU choice reads as the primary launch decision, and the trial-account answer uses founder-facing DCP/community wording.
+
+- **Workspace UX:** Keeps Stage 1 folder-summary-first and collapsed for large workspaces, with copy reinforcing that renters can skip file-by-file review because the full `/workspace` volume mounts at launch.
+- **GPU clarity:** Adds a Stage 2 "Which GPU will DCP request?" chooser with explicit Auto-pick vs fixed-card options, the exact `gpu_type` payload, and selected-state coverage before renters reach VRAM filters or GPU cards.
+- **Trial answer:** Updates the renter-facing answer to "no separate trial-account tag; grant credit is the trial signal," with trial credit routed to the DCP/community GPU pool and high-demand GPUs requiring paid credit.
+- **Safety:** Frontend/test/docs-only UX clarification; no pod launch payload semantics, provider selection, GPU filtering behavior, workspace API behavior, pricing, billing, credit enforcement, minimum-balance policy, balance mutation, trial accounting, routing, vendor/provider exposure, supply-tier exposure, or API contract behavior changed.
+- **Verification:** Focused `/renter/pods` Playwright regression covers collapsed Stage 1, the Stage 2 GPU request chooser, Auto-pick and fixed RTX 4090 payload states, DCP/community trial wording, and the VRAM-filter-not-launch-GPU copy.
+
 ### 2026-07-10 01:28 UTC - `feat(ops): add live acceptance operator runbooks - PR #935`
 
 **PR:** [#935](https://github.com/dhnpmp-tech/dcp-platform/pull/935) (`codex/live-acceptance-operator-runbooks-2026-07-10`).
