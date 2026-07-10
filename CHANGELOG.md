@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 04:39 UTC - `feat(pods): add workspace decision map - PR #947`
+
+**PR:** [#947](https://github.com/dhnpmp-tech/dcp-platform/pull/947) (`codex/pods-tareq-workspace-decision-map-2026-07-10`).
+**Local timestamp:** 2026-07-10 08:39 +04.
+
+**What:** Tareq workspace follow-up. Adds a compact `/renter/pods` decision map that answers the launch flow in the order renters scan it: Stage 1 files, Stage 2 GPU, Stage 3 launch.
+
+- **Workspace UX:** The new decision map keeps Stage 1 folder-first and collapsible, shows the staged file/folder count, and offers a one-click busiest-folder drilldown without opening the full file wall.
+- **Stage clarity:** The map names Stage 1, Stage 2, and Stage 3 side by side so the second and third launch steps are visible before the renter reaches the detailed panels.
+- **GPU clarity:** Stage 2 now repeats the actual launch request, the current `gpu_type` payload, the suggested GPU, and the rule that memory chips are browse filters, not a launch slider.
+- **Trial answer:** The same map keeps the current trial-account answer visible before launch: no separate live trial-account tag under grant-credit provenance, trial credit routes to DCP/community GPUs, and high-demand GPUs require paid credit.
+- **Regression guard:** The `/renter/pods` Playwright regression now covers the new decision map, folder drilldown action, suggested-GPU action, trial copy, and post-selection fixed `gpu_type` state.
+- **Safety:** Frontend/test/docs-only UX change; no pod launch body semantics, workspace API behavior, provider selection, GPU availability filtering, routing, pricing, billing, settlement, balance, minimum-balance enforcement, trial-accounting, account classification, paid-credit policy, or provider/vendor exposure changed.
+- **Verification:** Focused `/renter/pods` Playwright regression, desktop/mobile screenshot QA, static renter console guard, clean Next build, diff check, and local roadmap proof suite.
+
 ### 2026-07-10 04:21 UTC - `feat(pods): add Stage 2 GPU recommendation clarity - PR #946`
 
 **PR:** [#946](https://github.com/dhnpmp-tech/dcp-platform/pull/946) (`codex/pods-stage2-recommendation-ux-2026-07-10`).
