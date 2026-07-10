@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 03:22 UTC - Collapsed workspace folder search (PR #944)
+
+- **PR:** [#944](https://github.com/dhnpmp-tech/dcp-platform/pull/944) (`codex/pods-workspace-stage-collapse-ux-2026-07-10`).
+- **Timestamp:** 2026-07-10 03:22 UTC / 2026-07-10 07:22 +04.
+- **Workspace UX:** `/renter/pods` collapsed Stage 1 now includes folder/file search in the folder preview, keeping large workspace manifests closed while still letting renters find a specific folder.
+- **Stage flow:** The preview shows match counts and keeps Stage 2 one click away, preserving the direct path to the actual launch GPU decision.
+- **GPU/trial continuity:** Existing Stage 2 source-of-truth strips and the derived trial-classification answer remain unchanged.
+- **Safety:** Frontend/test/docs-only change; no launch body, workspace API, routing, provider-selection, GPU filtering semantics, billing, balance, trial-accounting, or account-classification mutation.
+- **Verification:** Focused `/renter/pods` Playwright regression for collapsed search, empty state, Stage 2 path, mobile dock, and fixed GPU state.
+
 ### 2026-07-10 03:10 UTC - LoRA image proof evidence contract (PR #943)
 
 - **PR:** [#943](https://github.com/dhnpmp-tech/dcp-platform/pull/943) (`codex/lora-pod-image-evidence-contract-2026-07-10`).

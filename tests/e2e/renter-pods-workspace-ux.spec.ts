@@ -441,6 +441,19 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(folderPreview).toContainText('1.95 KiB');
   await expect(folderPreview).toContainText('notebooks/');
   await expect(folderPreview).toContainText('checkpoints/');
+  await expect(folderPreview).toContainText('3 folders; Stage 2 stays one click away.');
+  const collapsedFolderSearch = folderPreview.getByLabel('Find folder or file');
+  const collapsedFolderList = folderPreview.locator('.pod-stage-folder-peek-list');
+  await expect(collapsedFolderSearch).toBeVisible();
+  await collapsedFolderSearch.fill('checkpoints');
+  await expect(folderPreview).toContainText('1 matching folder; Stage 2 stays one click away.');
+  await expect(collapsedFolderList).toContainText('checkpoints/');
+  await expect(collapsedFolderList).not.toContainText('datasets/');
+  await collapsedFolderSearch.fill('missing-folder');
+  await expect(folderPreview).toContainText('0 matching folders; Stage 2 stays one click away.');
+  await expect(collapsedFolderList).toContainText('No collapsed folder matches that search.');
+  await collapsedFolderSearch.fill('');
+  await expect(collapsedFolderList).toContainText('datasets/');
 
   await stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' }).click();
   await expect(stage1Checkpoint).toContainText('Workspace details open');

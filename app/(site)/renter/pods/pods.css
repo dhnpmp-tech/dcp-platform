@@ -961,7 +961,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 .pod-stage-folder-peek {
   display: grid;
-  grid-template-columns: minmax(0, .72fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, .64fr) minmax(260px, .46fr) minmax(0, 1fr);
   gap: 14px 18px;
   align-items: center;
   padding: 14px 16px 16px;
@@ -1001,13 +1001,57 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   line-height: 1.45;
   color: var(--ink-2);
 }
+.pod-stage-folder-peek-search {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.pod-stage-folder-peek-search label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.pod-stage-folder-peek-search span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-stage-folder-peek-search input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 34%, var(--hair));
+  background: var(--paper);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  outline: none;
+}
+.pod-stage-folder-peek-search input:focus {
+  border-color: var(--rt-accent);
+  box-shadow: inset 2px 0 0 var(--rt-accent);
+}
+.pod-stage-folder-peek-search em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
 .pod-stage-folder-peek-list {
   min-width: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
-.pod-stage-folder-peek-list button {
+.pod-stage-folder-peek-list button,
+.pod-stage-folder-peek-empty {
   min-width: 0;
   display: grid;
   gap: 4px;
@@ -1018,6 +1062,16 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   text-align: start;
   cursor: pointer;
   border-radius: 2px;
+}
+.pod-stage-folder-peek-empty {
+  cursor: default;
+  align-content: center;
+  min-height: 72px;
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0;
+  line-height: 1.35;
 }
 .pod-stage-folder-peek-list button span {
   min-width: 0;

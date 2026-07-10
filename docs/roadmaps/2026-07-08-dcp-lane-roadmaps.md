@@ -274,6 +274,9 @@ what is live.
   Stage 2's actual GPU request, exact `gpu_type` payload, Stage 1 drawer state,
   trial route, and paid-credit high-demand gate reachable while large Stage 1
   workspaces remain collapsed.
+- PR #944 adds folder/file search directly to the collapsed Stage 1 folder
+  preview, so large workspaces can stay closed while renters find a specific
+  folder and keep Stage 2's actual launch GPU decision one click away.
 
 ### Now
 
@@ -885,6 +888,9 @@ template launch.
 - PR #930 keeps that path summary-first while making it easier to scan: the
   closed Stage 1 state shows top folders and sizes, and Stage 2 repeats the
   final `gpu_type` request in its own strip before the compute summary.
+- PR #944 keeps that same launch contract but adds search to the closed Stage 1
+  folder preview, so renters can find a matching folder/file without opening
+  the full manifest before Stage 2.
 
 ### Now
 

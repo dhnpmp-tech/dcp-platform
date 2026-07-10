@@ -637,8 +637,9 @@ interface WorkspaceFolderPeek {
   totalBytes: number
 }
 
-function summarizeWorkspaceFolders(files: WorkspaceFile[], limit = 3): WorkspaceFolderPeek[] {
+function summarizeWorkspaceFolders(files: WorkspaceFile[], limit = 3, query = ''): WorkspaceFolderPeek[] {
   const groups = new Map<string, WorkspaceFolderPeek>()
+  const normalizedQuery = query.trim().toLowerCase()
 
   for (const file of files) {
     const key = String(file.key || '').replace(/^\/+/, '')
@@ -646,6 +647,10 @@ function summarizeWorkspaceFolders(files: WorkspaceFile[], limit = 3): Workspace
     const hasFolder = parts.length > 1
     const id = hasFolder ? parts[0] : '__root__'
     const label = hasFolder ? `${parts[0]}/` : 'Root files'
+    if (normalizedQuery) {
+      const haystack = `${label} ${key}`.toLowerCase()
+      if (!haystack.includes(normalizedQuery)) continue
+    }
     const current = groups.get(id) || { id, label, fileCount: 0, totalBytes: 0 }
     current.fileCount += 1
     current.totalBytes += Number(file.size || 0)
@@ -755,6 +760,7 @@ export default function RenterPodsPage() {
   const [workspaceVolume, setWorkspaceVolume] = useState<WorkspaceVolume | null>(null)
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([])
   const [workspaceStageOpen, setWorkspaceStageOpen] = useState(false)
+  const [workspacePeekQuery, setWorkspacePeekQuery] = useState('')
   const [workspaceFolderFocusRequest, setWorkspaceFolderFocusRequest] = useState<{ folderId: string; nonce: number } | null>(null)
   const [renterName, setRenterName] = useState('Renter')
   const [renterEmail, setRenterEmail] = useState('')
@@ -1451,8 +1457,21 @@ export default function RenterPodsPage() {
     minimumBalance?.rails?.adapter_deployments,
   ].filter((rail) => rail?.enforcement_live === false).length
   const workspaceFolderCount = countTopLevelWorkspaceFolders(workspaceFiles)
-  const workspaceFolderPeek = summarizeWorkspaceFolders(workspaceFiles)
-  const hiddenWorkspaceFolderCount = Math.max(0, workspaceFolderCount - workspaceFolderPeek.length)
+  const workspacePeekSearch = workspacePeekQuery.trim()
+  const workspaceFolderPeekMatches = summarizeWorkspaceFolders(
+    workspaceFiles,
+    Number.MAX_SAFE_INTEGER,
+    workspacePeekSearch,
+  )
+  const workspaceFolderPeek = workspaceFolderPeekMatches.slice(0, workspacePeekSearch ? 6 : 3)
+  const hiddenWorkspaceFolderCount = Math.max(
+    0,
+    (workspacePeekSearch ? workspaceFolderPeekMatches.length : workspaceFolderCount) - workspaceFolderPeek.length,
+  )
+  const workspacePeekMatchNoun = workspaceFolderPeekMatches.length === 1 ? 'matching folder' : 'matching folders'
+  const workspacePeekResultLabel = workspacePeekSearch
+    ? `${workspaceFolderPeekMatches.length} ${workspacePeekMatchNoun}`
+    : `${workspaceFolderCount} folders`
   const workspaceChecklistLabel = workspaceVolume
     ? workspaceFiles.length > 0
       ? `${workspaceFiles.length} files · ${workspaceFolderCount} folders`
@@ -1845,6 +1864,25 @@ export default function RenterPodsPage() {
                       />
                     </em>
                   </div>
+                  <div className="pod-stage-folder-peek-search">
+                    <label htmlFor="pod-stage-folder-peek-search">
+                      <span><Bi en="Find folder or file" ar="ابحث عن مجلد أو ملف" /></span>
+                      <input
+                        id="pod-stage-folder-peek-search"
+                        type="search"
+                        value={workspacePeekQuery}
+                        onChange={(event) => setWorkspacePeekQuery(event.target.value)}
+                        placeholder={lang === 'ar' ? 'datasets أو checkpoints' : 'datasets, notebooks, checkpoints'}
+                        autoComplete="off"
+                      />
+                    </label>
+                    <em>
+                      <Bi
+                        en={`${workspacePeekResultLabel}; Stage 2 stays one click away.`}
+                        ar="تبقى المرحلة 2 بنقرة واحدة."
+                      />
+                    </em>
+                  </div>
                   <div className="pod-stage-folder-peek-list">
                     {workspaceFolderPeek.map((folder) => (
                       <button
@@ -1862,10 +1900,15 @@ export default function RenterPodsPage() {
                         <small>{humanBytes(folder.totalBytes)}</small>
                       </button>
                     ))}
+                    {workspacePeekSearch && workspaceFolderPeek.length === 0 && (
+                      <span className="pod-stage-folder-peek-empty">
+                        <Bi en="No collapsed folder matches that search." ar="لا يوجد مجلد مطوي يطابق البحث." />
+                      </span>
+                    )}
                     {hiddenWorkspaceFolderCount > 0 && (
                       <button type="button" onClick={() => setWorkspaceStageOpen(true)}>
                         <span>+{hiddenWorkspaceFolderCount}</span>
-                        <b><Bi en="more folders" ar="مجلدات أخرى" /></b>
+                        <b><Bi en={workspacePeekSearch ? 'more matches' : 'more folders'} ar="مجلدات أخرى" /></b>
                         <small><Bi en="expand Stage 1" ar="افتح المرحلة 1" /></small>
                       </button>
                     )}
