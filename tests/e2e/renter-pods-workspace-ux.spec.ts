@@ -644,6 +644,43 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();
 });
 
+test('renter pods Stage 1 remembers collapse state and focuses folder previews', async ({ page, context }) => {
+  await context.addCookies([{
+    name: SESSION_COOKIE,
+    value: buildSessionCookie('renter'),
+    domain: 'localhost',
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax',
+    expires: Math.floor(Date.now() / 1000) + 3600,
+  }]);
+  await page.addInitScript((key) => {
+    window.localStorage.setItem('dc1_renter_key', key);
+  }, RENTER_KEY);
+  await mockPodsApis(page);
+  await page.goto('/renter/pods');
+
+  const stage1Checkpoint = page.getByLabel('Stage 1 workspace checkpoint');
+  await expect(stage1Checkpoint).toContainText('Workspace details collapsed');
+  const folderPreview = page.getByLabel('Stage 1 folder preview');
+  await folderPreview.getByRole('button', { name: /Open Stage 1 with checkpoints\/ focused/ }).click();
+
+  await expect(stage1Checkpoint).toContainText('Workspace details open');
+  await expect(page.getByText('Stage 1 manifest')).toBeVisible();
+  await expect(page.getByText('checkpoints/epoch-1.bin')).toBeVisible();
+  await expect(page.getByText('datasets/train.jsonl')).toHaveCount(0);
+  await expect(page.getByText('notebooks/demo.ipynb')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('dcp_pods_workspace_stage_open'))).toBe('open');
+
+  await stage1Checkpoint.getByRole('button', { name: 'Collapse Stage 1 workspace' }).click();
+  await expect(stage1Checkpoint).toContainText('Workspace details collapsed');
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('dcp_pods_workspace_stage_open'))).toBe('closed');
+
+  await page.reload();
+  await expect(page.getByLabel('Stage 1 workspace checkpoint')).toContainText('Workspace details collapsed');
+  await expect(page.getByText('Stage 1 manifest')).toBeHidden();
+});
+
 test('playground workspace tab opens large manifests as a folder-first summary', async ({ page, context }) => {
   await context.addCookies([{
     name: SESSION_COOKIE,

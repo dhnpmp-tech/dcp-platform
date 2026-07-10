@@ -180,6 +180,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #930 adds a top-folder checkpoint to the closed Stage 1 accordion, so
     renters can see the busiest workspace folders and sizes without opening a
     full file wall before the GPU decision.
+  - PR #931 remembers each renter's Stage 1 open/collapsed browser preference
+    and turns closed-checkpoint folder chips into one-folder drilldowns, so a
+    renter can inspect one busy folder while the rest of a large manifest stays
+    collapsed.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT

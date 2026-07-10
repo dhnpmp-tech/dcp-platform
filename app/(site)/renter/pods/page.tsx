@@ -14,6 +14,7 @@ import './pods.css'
 const POD_REFRESH_MS = 8000
 const MIN_TOKEN_LENGTH = 16
 const DEFAULT_DURATION_MINUTES = 60
+const POD_WORKSPACE_STAGE_PREF_KEY = 'dcp_pods_workspace_stage_open'
 
 // Launchable, PREPAID durations. A launch debits the full-duration quote
 // upfront (rate + 40% per gpu-second); an early stop refunds the difference.
@@ -730,6 +731,7 @@ export default function RenterPodsPage() {
   const [workspaceVolume, setWorkspaceVolume] = useState<WorkspaceVolume | null>(null)
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([])
   const [workspaceStageOpen, setWorkspaceStageOpen] = useState(false)
+  const [workspaceFolderFocusRequest, setWorkspaceFolderFocusRequest] = useState<{ folderId: string; nonce: number } | null>(null)
   const [renterName, setRenterName] = useState('Renter')
   const [renterEmail, setRenterEmail] = useState('')
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string | null>('pytorch-notebook')
@@ -776,6 +778,8 @@ export default function RenterPodsPage() {
 
   // Track ids we're actively polling so a launch immediately starts polling.
   const pollIdsRef = useRef<Set<string>>(new Set())
+  const workspaceStagePreferenceLoadedRef = useRef(false)
+  const skipInitialWorkspaceStagePreferenceWriteRef = useRef(true)
 
   // ── Data loaders ─────────────────────────────────────────────────────
   const [nowTick, setNowTick] = useState(() => 0)
@@ -783,6 +787,33 @@ export default function RenterPodsPage() {
     const t = setInterval(() => setNowTick((n) => n + 1), 1000)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const saved = window.localStorage.getItem(POD_WORKSPACE_STAGE_PREF_KEY)
+      if (saved === 'open' || saved === 'closed') {
+        setWorkspaceStageOpen(saved === 'open')
+      }
+    } catch {
+      /* localStorage is optional for the UX preference */
+    } finally {
+      workspaceStagePreferenceLoadedRef.current = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !workspaceStagePreferenceLoadedRef.current) return
+    if (skipInitialWorkspaceStagePreferenceWriteRef.current) {
+      skipInitialWorkspaceStagePreferenceWriteRef.current = false
+      return
+    }
+    try {
+      window.localStorage.setItem(POD_WORKSPACE_STAGE_PREF_KEY, workspaceStageOpen ? 'open' : 'closed')
+    } catch {
+      /* non-fatal preference write */
+    }
+  }, [workspaceStageOpen])
 
   const fetchPods = useCallback(async (apiKey: string) => {
     try {
@@ -1460,6 +1491,14 @@ export default function RenterPodsPage() {
     ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
     : 'Launch auto-picked GPU pod'
 
+  function focusWorkspaceFolder(folderId: string) {
+    setWorkspaceFolderFocusRequest((current) => ({
+      folderId,
+      nonce: (current?.nonce || 0) + 1,
+    }))
+    setWorkspaceStageOpen(true)
+  }
+
   const isLive = loadState === 'ready'
 
   return (
@@ -1639,6 +1678,7 @@ export default function RenterPodsPage() {
                   renterKey={renterKey}
                   context="pod-launch"
                   nextStageHref="#pod-stage-2"
+                  folderFocusRequest={workspaceFolderFocusRequest}
                   onVolumeLoaded={setWorkspaceVolume}
                   onFilesLoaded={setWorkspaceFiles}
                 />
@@ -1660,11 +1700,11 @@ export default function RenterPodsPage() {
                       <button
                         key={folder.id}
                         type="button"
-                        onClick={() => setWorkspaceStageOpen(true)}
+                        onClick={() => focusWorkspaceFolder(folder.id)}
                         aria-label={
                           lang === 'ar'
-                            ? `افتح المرحلة 1 لفحص ${folder.label}`
-                            : `Open Stage 1 to inspect ${folder.label}`
+                            ? `افتح المرحلة 1 مع التركيز على ${folder.label}`
+                            : `Open Stage 1 with ${folder.label} focused`
                         }
                       >
                         <span>{folder.label}</span>

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 00:33 UTC - Pod Stage 1 remembered workspace focus (PR #931)
+
+- **PR:** [#931](https://github.com/dhnpmp-tech/dcp-platform/pull/931) (`codex/pods-workspace-focus-2026-07-10`).
+- **Timestamp:** 2026-07-10 00:33 UTC / 2026-07-10 04:33 +04.
+- **Workspace UX:** `/renter/pods` now remembers the renter's Stage 1 open/collapsed preference in the browser and keeps large workspaces summary-first after the renter chooses the compact view.
+- **Folder drilldown:** Clicking a top-folder chip in the closed Stage 1 checkpoint opens the workspace manager with that folder expanded and the rest of the file manifest collapsed.
+- **Policy continuity:** Trial handling and GPU launch semantics stay unchanged: grant-credit provenance drives trial handling, high-demand GPUs require paid credit, and only Auto-pick or an explicit GPU-card choice changes the launch `gpu_type`.
+- **Safety:** Frontend/state/test-only change; no workspace API, pod launch, billing, balance, trial-accounting, paid-credit policy, routing, provider-selection, supply-tier exposure, or enforcement mutation.
+- **Verification:** Focused Pods workspace Playwright regression plus standard build/proof sweep before merge.
+
 ### 2026-07-10 00:15 UTC - Pod folder checkpoint, final GPU request, and playground credit policy (PR #930)
 
 - **PR:** [#930](https://github.com/dhnpmp-tech/dcp-platform/pull/930) (`codex/pods-playground-credit-ux-2026-07-10`).
