@@ -184,6 +184,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     and turns closed-checkpoint folder chips into one-folder drilldowns, so a
     renter can inspect one busy folder while the rest of a large manifest stays
     collapsed.
+  - PR #933 adds a top `/renter/pods` launch command center before Stage 1 file
+    expansion, making Stage 2's actual Auto-pick/fixed-GPU request and exact
+    `gpu_type` payload visible immediately. Large workspaces auto-collapse after
+    files load even when an old browser preference had left Stage 1 open.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -243,6 +247,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     Stage 2 is named as the actual launch GPU, VRAM chips are labeled as
     browse filters only, and the button distinguishes auto-picked launches from
     fixed-GPU launches while keeping trial and minimum-balance policy read-only.
+  - PR #933 repeats the trial-account answer in the new launch command center:
+    no separate live trial-account tag when grant-credit provenance is active,
+    trial credit routes to native/community GPU capacity, and high-demand GPUs
+    require paid credit without exposing vendor/provider internals.
   - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
     `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
     are explicitly browse-only.

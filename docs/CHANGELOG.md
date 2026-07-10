@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 01:02 UTC - Pod launch command center (PR #933)
+
+- **PR:** [#933](https://github.com/dhnpmp-tech/dcp-platform/pull/933) (`codex/pods-stage-gpu-clarity-2026-07-10`).
+- **Timestamp:** 2026-07-10 01:02 UTC / 2026-07-10 05:02 +04.
+- **Workspace UX:** `/renter/pods` now has a top launch command center before Stage 1 file expansion and auto-collapses large Stage 1 workspaces after files load.
+- **GPU clarity:** Stage 2 is the first visible operative decision, with Auto-pick/fixed GPU state, exact `gpu_type` payload, and direct Stage 2/3 actions above workspace details.
+- **Trial answer:** The same rail repeats grant-credit trial provenance, native/community trial routing, and paid-credit high-demand gating without exposing provider/vendor internals.
+- **Safety:** Frontend-only UX/test/docs change; no launch, provider-selection, pricing, billing, enforcement, trial-accounting, balance, routing, storage, or API behavior mutation.
+- **Verification:** Focused `/renter/pods` Playwright regression plus standard build/proof sweep before merge.
+
 ### 2026-07-10 00:48 UTC - Model pricing contract visibility (PR #932)
 
 - **PR:** [#932](https://github.com/dhnpmp-tech/dcp-platform/pull/932) (`codex/model-pricing-contract-v2-2026-07-10`).
