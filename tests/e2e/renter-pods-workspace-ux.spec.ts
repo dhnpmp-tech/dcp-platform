@@ -411,6 +411,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(commandCenter).toContainText('Stage 1 files are collapsed');
   await expect(commandCenter).toContainText('No trial-account tag live');
   await expect(commandCenter).toContainText('High-demand GPUs: paid credit only');
+  await expect(page.getByLabel('Mobile launch dock')).toBeHidden();
   const fastPath = page.getByLabel('Fast path to Stage 2');
   await expect(fastPath).toContainText('Main decision');
   await expect(fastPath).toContainText('Go straight to Stage 2 of 3');
@@ -711,6 +712,46 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText('Launch GPU selected').first()).toBeVisible();
   await expect(gpuSelectionStrip.getByRole('button', { name: 'Back to auto-pick' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use auto-pick' })).toBeVisible();
+});
+
+test('mobile launch dock keeps Stage 2 reachable over the workspace drawer', async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await context.addCookies([{
+    name: SESSION_COOKIE,
+    value: buildSessionCookie('renter'),
+    domain: 'localhost',
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax',
+    expires: Math.floor(Date.now() / 1000) + 3600,
+  }]);
+  await page.addInitScript((key) => {
+    window.localStorage.setItem('dc1_renter_key', key);
+  }, RENTER_KEY);
+  await mockPodsApis(page);
+
+  await page.goto('/renter/pods');
+
+  const dock = page.getByLabel('Mobile launch dock');
+  await expect(dock).toBeVisible();
+  await expect(dock).toContainText('Stage 2 launch GPU');
+  await expect(dock).toContainText('Auto-pick GPU');
+  await expect(dock).toContainText('gpu_type omitted = auto-pick');
+  await expect(dock).toContainText('Stage 1 collapsed');
+  await expect(dock).toContainText('Trial route: DCP/community GPU pool');
+  await expect(dock).toContainText('High-demand GPUs: paid credit only');
+  await expect(dock.getByRole('button', { name: 'Open Stage 1' })).toBeVisible();
+  await expect(dock.getByRole('link', { name: 'Go to Stage 2' })).toBeVisible();
+
+  await dock.getByRole('link', { name: 'Go to Stage 2' }).click();
+  await expect(page).toHaveURL(/#pod-stage-2$/);
+  await page.getByRole('radio', { name: /RTX 4090/ }).click();
+  await expect(dock).toContainText('RTX 4090');
+  await expect(dock).toContainText('gpu_type = RTX 4090');
+
+  await dock.getByRole('button', { name: 'Open Stage 1' }).click();
+  await expect(dock).toContainText('Stage 1 open');
+  await expect(dock.getByRole('button', { name: 'Collapse Stage 1' })).toBeVisible();
 });
 
 test('renter pods Stage 1 remembers collapse state and focuses folder previews', async ({ page, context }) => {

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 02:44 UTC - `feat(pods): add mobile Stage 2 launch dock - PR #941`
+
+**PR:** [#941](https://github.com/dhnpmp-tech/dcp-platform/pull/941) (`codex/pods-stage-drawer-gpu-decision-2026-07-10`).
+**Local timestamp:** 2026-07-10 06:44 +04.
+
+**What:** Tareq workspace/GPU-choice feedback follow-up. Adds a mobile/tablet sticky launch dock so Stage 2's actual GPU request stays reachable while Stage 1 workspace files remain a collapsible drawer.
+
+- **Mobile UX:** `/renter/pods` now shows a compact mobile launch dock with Stage 2 launch GPU, exact `gpu_type` payload, Stage 1 open/collapsed state, trial route, and high-demand paid-credit gate.
+- **Workspace navigation:** The dock provides immediate "Go to Stage 2" and Stage 1 open/collapse actions so renters do not have to scroll through a large workspace file list to reach the GPU decision on narrow screens.
+- **GPU clarity:** Auto-pick vs fixed GPU state updates in the dock when a GPU card is selected, keeping VRAM filters clearly separate from the final launch request.
+- **Safety:** Frontend/test/docs-only UX change; no pod launch payload semantics, provider selection, workspace API behavior, GPU filtering behavior, pricing, billing, credit enforcement, trial accounting, balance mutation, routing, or API contract behavior changed.
+- **Verification:** Focused `/renter/pods` Playwright regression covers desktop hiding, mobile dock visibility, Stage 2 navigation, Auto-pick payload, fixed RTX 4090 payload, and Stage 1 open/collapse state.
+
 ### 2026-07-10 02:31 UTC - `test(inference): add OpenAI SSE live proof runner - PR #940`
 
 **PR:** [#940](https://github.com/dhnpmp-tech/dcp-platform/pull/940) (`codex/openai-sse-live-proof-runner-2026-07-10`).

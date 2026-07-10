@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 02:44 UTC - Mobile Stage 2 launch dock (PR #941)
+
+- **PR:** [#941](https://github.com/dhnpmp-tech/dcp-platform/pull/941) (`codex/pods-stage-drawer-gpu-decision-2026-07-10`).
+- **Timestamp:** 2026-07-10 02:44 UTC / 2026-07-10 06:44 +04.
+- **Mobile UX:** `/renter/pods` now shows a mobile/tablet sticky launch dock with the Stage 2 launch GPU, exact `gpu_type` payload, Stage 1 open/collapsed state, trial route, and high-demand paid-credit gate.
+- **Workspace navigation:** The dock keeps "Go to Stage 2" and Stage 1 open/collapse controls reachable while large Stage 1 workspace file lists remain collapsed on narrow screens.
+- **GPU clarity:** Selecting a fixed GPU card updates the dock from Auto-pick to the fixed `gpu_type`, preserving the distinction between the launch request and browse-only VRAM filters.
+- **Safety:** Frontend/test/docs-only UX change; no launch payload, provider-selection, workspace API, GPU filtering, pricing, billing, credit enforcement, trial accounting, balance, routing, or API contract mutation.
+- **Verification:** Focused `/renter/pods` Playwright regression covering desktop hiding, mobile visibility, Stage 2 navigation, Auto-pick, fixed RTX 4090 payload, and Stage 1 open/collapse state.
+
 ### 2026-07-10 02:31 UTC - OpenAI SSE live proof runner (PR #940)
 
 - **PR:** [#940](https://github.com/dhnpmp-tech/dcp-platform/pull/940) (`codex/openai-sse-live-proof-runner-2026-07-10`).
