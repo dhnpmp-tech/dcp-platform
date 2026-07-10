@@ -322,6 +322,71 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   letter-spacing: .04em;
   color: var(--mut);
 }
+.pod-stage-nav-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(240px, 1.2fr) repeat(3, minmax(0, .8fr));
+  gap: 1px;
+  border-top: 1px solid var(--hair);
+  background: var(--hair);
+}
+.pod-stage-nav-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  padding: 10px 13px;
+  background: #04050d;
+}
+.pod-stage-nav-summary > div.primary {
+  background: color-mix(in oklab, var(--teal) 9%, #04050d);
+  box-shadow: inset 3px 0 0 var(--rt-accent);
+}
+.pod-stage-nav-summary b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .13em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+.pod-stage-nav-summary strong,
+.pod-stage-nav-summary em,
+.pod-stage-nav-summary code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pod-stage-nav-summary strong {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+.pod-stage-nav-summary em,
+.pod-stage-nav-summary code {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: .04em;
+}
+.pod-stage-nav-summary code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 42%, var(--hair));
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 8%, transparent);
+  border-radius: 2px;
+}
 @media (max-width: 860px) {
   .pod-stage-nav {
     position: static;
@@ -332,6 +397,9 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
     border-bottom: 1px solid var(--hair);
   }
   .pod-stage-nav a:last-child { border-bottom: 0; }
+  .pod-stage-nav-summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pod-command-center {
