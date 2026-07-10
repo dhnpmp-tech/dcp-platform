@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 02:17 UTC - `feat(pods): surface public trial classification - PR #939`
+
+**PR:** [#939](https://github.com/dhnpmp-tech/dcp-platform/pull/939) (`codex/public-pods-trial-classification-2026-07-10`).
+**Local timestamp:** 2026-07-10 06:17 +04.
+
+**What:** Public Pods product-page follow-up to PR #938. Shows the derived trial-routing contract mode and capacity classes on `/pods`/`/containers` so visitors can see the same grant-credit, DCP/community, paid-credit-only high-demand answer before login.
+
+- **Public UX:** The public readiness gate now displays derived credit-provenance mode, no account-classification mutation, trial route as the DCP/community GPU pool, and high-demand capacity as paid credit only.
+- **Regression:** Public Pods Playwright coverage now mocks and asserts the new trial-routing fields without exposing provider ids, vendors, or internal supply-tier labels.
+- **Safety:** Frontend/test/docs-only visibility change; no trial-accounting mutation, account classification mutation, paid-credit policy change, billing, balance mutation, pod launch, provider selection, routing, vendor/provider exposure, supply-tier exposure, or 402 enforcement change.
+- **Verification:** Focused public Pods Playwright regression, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 02:08 UTC - `feat(pods): expose derived trial classification - PR #938`
 
 **PR:** [#938](https://github.com/dhnpmp-tech/dcp-platform/pull/938) (`codex/trial-classification-readiness-2026-07-10`).

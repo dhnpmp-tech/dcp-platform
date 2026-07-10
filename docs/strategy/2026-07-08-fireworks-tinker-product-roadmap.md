@@ -257,6 +257,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     DCP/community GPU pool and paid-credit-only high-demand classes, and Pods
     plus Usage show the derived trial state while `changes_account_classification`
     and `changes_trial_accounting` remain false.
+  - PR #939 mirrors the same derived trial-routing answer on public `/pods` and
+    `/containers`, keeping visitors aligned with the authenticated renter
+    surfaces before they create or fund an account.
   - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
     `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
     are explicitly browse-only.

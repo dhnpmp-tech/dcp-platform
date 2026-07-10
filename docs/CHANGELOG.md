@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-10 02:17 UTC - Public Pods trial classification visibility (PR #939)
+
+- **PR:** [#939](https://github.com/dhnpmp-tech/dcp-platform/pull/939) (`codex/public-pods-trial-classification-2026-07-10`).
+- **Timestamp:** 2026-07-10 02:17 UTC / 2026-07-10 06:17 +04.
+- **Public UX:** `/pods` and `/containers` now show the derived credit-provenance mode, no account-classification mutation, DCP/community trial route, and paid-credit-only high-demand class from the public trial-routing readiness packet.
+- **Regression:** `tests/e2e/public-pods-readiness.spec.ts` now asserts those public contract fields while preserving no provider/vendor/supply-tier exposure.
+- **Safety:** Frontend/test/docs-only visibility change; no trial-accounting, account-classification, paid-credit policy, billing, balance, launch, routing, provider-selection, vendor/provider exposure, supply-tier exposure, or enforcement mutation.
+- **Verification:** Focused public Pods Playwright regression, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 02:08 UTC - Derived trial classification readiness (PR #938)
 
 - **PR:** [#938](https://github.com/dhnpmp-tech/dcp-platform/pull/938) (`codex/trial-classification-readiness-2026-07-10`).

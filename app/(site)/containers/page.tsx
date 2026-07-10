@@ -55,11 +55,17 @@ interface PodTrialRoutingReadinessResponse {
   current_mode?: string
   account_classification?: {
     explicit_trial_account_tag_live?: boolean
+    current_mode?: string
     trial_credit_source?: string
+    derived_states?: Record<string, string>
+    analytics_lifecycle_tag_live?: boolean
+    mutates_account_classification?: boolean
   }
   routing_policy?: {
     trial_capacity_copy?: string
     high_demand_capacity_copy?: string
+    trial_credit_capacity_class?: string
+    high_demand_capacity_class?: string
     provider_visibility?: {
       exposes_provider_id_to_renter?: boolean
       exposes_vendor_to_renter?: boolean
@@ -87,6 +93,7 @@ interface PodTrialRoutingReadinessResponse {
     changes_provider_selection?: boolean
     changes_billing?: boolean
     changes_trial_accounting?: boolean
+    changes_account_classification?: boolean
     launches_pod?: boolean
     mutates_balance?: boolean
     exposes_vendor_or_provider?: boolean
@@ -162,6 +169,20 @@ export default function ContainersPage() {
   const trialAccountCopy = explicitTrialTagLive
     ? 'Trial-account tag live'
     : 'Trial accounts use grant-credit provenance'
+  const derivedTrialMode = podTrialRouting?.account_classification?.current_mode === 'derived_from_credit_provenance'
+  const derivedTrialCopy = derivedTrialMode
+    ? 'Derived trial mode: credit provenance'
+    : 'Derived trial mode: checking'
+  const classificationMutationCopy = podTrialRouting?.account_classification?.mutates_account_classification === false &&
+    podTrialRouting?.claim_guards?.changes_account_classification === false
+      ? 'no account classification mutation'
+      : 'classification guard checking'
+  const trialCapacityClass = podTrialRouting?.routing_policy?.trial_credit_capacity_class === 'dcp_native_and_community_gpu_pool'
+    ? 'DCP/community GPU pool'
+    : 'DCP/community capacity'
+  const highDemandCapacityClass = podTrialRouting?.routing_policy?.high_demand_capacity_class === 'paid_credit_only'
+    ? 'paid credit only'
+    : 'paid-credit gate'
   const trialCapacityCopy = podTrialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit covers DCP/community capacity.'
   const highDemandCapacityCopy = podTrialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity requires paid credit.'
   const noProviderExposure = podTrialRouting?.routing_policy?.provider_visibility?.exposes_provider_id_to_renter === false &&
@@ -173,6 +194,7 @@ export default function ContainersPage() {
     podImageReadiness?.claim_guards?.mutates_balance === false &&
     podTrialRouting?.claim_guards?.claims_workspace_live_acceptance === false &&
     podTrialRouting?.claim_guards?.changes_trial_accounting === false &&
+    (podTrialRouting?.claim_guards?.changes_account_classification ?? false) === false &&
     podTrialRouting?.claim_guards?.exposes_vendor_or_provider === false
 
   return (
@@ -296,7 +318,7 @@ export default function ContainersPage() {
                 <span className="gate-k">trial_and_paid_credit</span>
                 <p>
                   <Bi
-                    en={`${trialAccountCopy}. ${trialCapacityCopy} ${highDemandCapacityCopy}`}
+                    en={`${trialAccountCopy}. ${derivedTrialCopy}; ${classificationMutationCopy}. Trial route: ${trialCapacityClass}. High-demand: ${highDemandCapacityClass}. ${trialCapacityCopy} ${highDemandCapacityCopy}`}
                     ar="حسابات التجربة تعتمد على مصدر رصيد المنحة؛ السعة عالية الطلب تحتاج رصيداً مدفوعاً."
                   />
                 </p>
