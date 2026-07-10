@@ -5,6 +5,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { ensureInferenceSmokePrincipal } = require('./ensure-inference-smoke-principal');
+const {
+  PROMPT_CACHE_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+  buildEmptyPromptCacheLiveAcceptanceEvidence,
+  buildPromptCacheLiveAcceptanceContract,
+  findMissingPromptCacheLiveAcceptanceEvidence,
+} = require('../src/services/promptCacheLiveAcceptanceContract');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const OUTPUT_DIR_DEFAULT = path.join(REPO_ROOT, 'docs/reports/reliability');
@@ -89,6 +95,7 @@ function classifyFailure(code, message, details = {}) {
     PROMPT_CACHE_FIRST_REQUEST_FAILED: 'Check renter auth, model availability, provider health, and v1 chat route logs for the first measurement request.',
     PROMPT_CACHE_SECOND_REQUEST_FAILED: 'Check renter auth, model availability, provider health, and v1 chat route logs for the second measurement request.',
     PROMPT_CACHE_LIVE_CONTRACT_FAILED: 'Inspect prompt_cache usage fields; live proof must show measured hit metadata without discount or settlement changes.',
+    PROMPT_CACHE_LIVE_ACCEPTANCE_EVIDENCE_MISSING: 'Do not claim prompt-cache live measurement unless the report proves readiness, funded principal, miss, hit, no-discount, and redacted artifact evidence.',
   };
   return {
     code,
@@ -189,6 +196,27 @@ function buildMarkdown(report) {
   lines.push(JSON.stringify(report.prompt_cache, null, 2));
   lines.push('```');
   lines.push('');
+  lines.push('## Acceptance Evidence');
+  lines.push('');
+  lines.push(`- contract: \`${report.acceptance_contract.contract}\``);
+  lines.push(`- gate: \`${report.acceptance_contract.gate}\``);
+  lines.push(`- pass_condition: ${report.acceptance_contract.pass_condition}`);
+  lines.push('');
+  lines.push('| evidence | proven | required fields |');
+  lines.push('|---|---:|---|');
+  for (const item of report.acceptance_contract.required_evidence) {
+    const proven = report.acceptance_evidence[item.id] === true ? 'yes' : 'no';
+    lines.push(`| ${item.id} | ${proven} | ${item.required_fields.join(', ')} |`);
+  }
+  lines.push('');
+  lines.push('### Future Discount Evidence');
+  lines.push('');
+  lines.push('| evidence | required fields |');
+  lines.push('|---|---|');
+  for (const item of report.acceptance_contract.future_discount_required_evidence) {
+    lines.push(`| ${item.id} | ${item.required_fields.join(', ')} |`);
+  }
+  lines.push('');
   if (report.failure) {
     lines.push('## Failure Classification');
     lines.push('');
@@ -259,6 +287,8 @@ async function runPromptCacheLiveSettlementProof(options = {}) {
     },
     principal: {},
     readiness: {},
+    acceptance_contract: buildPromptCacheLiveAcceptanceContract(),
+    acceptance_evidence: buildEmptyPromptCacheLiveAcceptanceEvidence(),
     probes: {},
     prompt_cache: {
       first: {},
@@ -309,6 +339,7 @@ async function runPromptCacheLiveSettlementProof(options = {}) {
         details: report.readiness,
       });
     }
+    report.acceptance_evidence.readiness_measurement_mode_verified = true;
 
     let principal;
     try {
@@ -328,6 +359,12 @@ async function runPromptCacheLiveSettlementProof(options = {}) {
       scoped_key_expires_at: principal.inferenceKeyExpiresAt,
       balance_halala: principal.balanceHalala,
     };
+    report.acceptance_evidence.funded_smoke_principal_verified = Boolean(
+      report.principal.renter_id
+        && report.principal.scoped_key_id
+        && report.principal.key_hint
+        && Number(report.principal.balance_halala || 0) > 0
+    );
     log(`principal renter_id=${principal.renterId} key_hint=${report.principal.key_hint}`);
 
     const headers = {
@@ -411,6 +448,20 @@ async function runPromptCacheLiveSettlementProof(options = {}) {
       && Number(secondCache.cached_input_tokens || 0) > 0
       && Number(secondCache.billable_input_tokens || 0) === Number(report.prompt_cache.second.prompt_tokens || secondCache.billable_input_tokens || 0);
 
+    report.acceptance_evidence.first_measurement_request_verified = first.ok
+      && report.probes.first_chat_completion.request_id
+      && report.probes.first_chat_completion.response_hash
+      && firstCache.status === 'miss_measured'
+      && Boolean(firstCache.cache_key)
+      && firstCache.discount_applied === false;
+    report.acceptance_evidence.second_hit_measurement_verified = second.ok
+      && report.probes.second_chat_completion.request_id
+      && report.probes.second_chat_completion.response_hash
+      && secondCache.status === 'hit_measured_no_discount'
+      && Boolean(cacheKeysMatch)
+      && Number(secondCache.cached_input_tokens || 0) > 0;
+    report.acceptance_evidence.no_discount_guard_verified = Boolean(noDiscount);
+    report.acceptance_evidence.redacted_artifact_verified = true;
     report.prompt_cache.no_discount_verified = noDiscount;
     report.prompt_cache.live_hit_measured = Boolean(cacheKeysMatch && hitMeasured);
     report.prompt_cache.cache_keys_match = Boolean(cacheKeysMatch);
@@ -424,6 +475,19 @@ async function runPromptCacheLiveSettlementProof(options = {}) {
           no_discount_verified: report.prompt_cache.no_discount_verified,
           first: report.prompt_cache.first,
           second: report.prompt_cache.second,
+        },
+      });
+    }
+
+    const missingEvidence = findMissingPromptCacheLiveAcceptanceEvidence(report);
+    if (missingEvidence.length > 0) {
+      throw Object.assign(new Error('Prompt-cache live measurement proof is missing required acceptance evidence'), {
+        code: 'PROMPT_CACHE_LIVE_ACCEPTANCE_EVIDENCE_MISSING',
+        details: {
+          missing_evidence: missingEvidence,
+          acceptance_contract: report.acceptance_contract.contract,
+          gate: report.acceptance_contract.gate,
+          required_evidence: report.acceptance_contract.required_evidence,
         },
       });
     }
@@ -467,9 +531,11 @@ if (require.main === module) {
 module.exports = {
   CONTRACT,
   PROOF_PREFIX,
+  PROMPT_CACHE_LIVE_ACCEPTANCE_CONTRACT_VERSION,
   buildPayload,
   buildUrl,
   classifyFailure,
+  findMissingPromptCacheLiveAcceptanceEvidence,
   normalizeBaseUrl,
   redactSecret,
   runPromptCacheLiveSettlementProof,

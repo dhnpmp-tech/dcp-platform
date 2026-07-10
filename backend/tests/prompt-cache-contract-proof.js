@@ -198,6 +198,11 @@ function runPromptCacheContractProof(options = {}) {
       readiness.live_acceptance?.provider_discount_smoke?.status === 'blocked_external'
         && readiness.live_acceptance.provider_discount_smoke.command === 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement'
         && readiness.live_acceptance.provider_discount_smoke.live_acceptance_gate === 'prompt_cache_provider_discount_smoke'
+        && readiness.live_acceptance.provider_discount_smoke.acceptance_contract === 'dcp.prompt_cache_live_acceptance_evidence.v1'
+        && readiness.live_acceptance.provider_discount_smoke.required_evidence.some((item) => item.id === 'first_measurement_request_verified')
+        && readiness.live_acceptance.provider_discount_smoke.required_evidence.some((item) => item.id === 'second_hit_measurement_verified')
+        && readiness.live_acceptance.provider_discount_smoke.future_discount_required_evidence.some((item) => item.id === 'discounted_settlement_proof_verified')
+        && readiness.live_acceptance.provider_discount_smoke.pass_condition.includes('does not unlock cached-input discounts')
         && readiness.live_acceptance.provider_discount_smoke.blocked_on.includes('provider cache-hit evidence')
         && readiness.live_acceptance.provider_discount_smoke.verifies.includes('settlement discount policy remains disabled'),
       'The opt-in live proof command is discoverable while discounts and provider KV-cache control remain gated.',

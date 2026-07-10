@@ -34,6 +34,7 @@ describe('prompt cache contract proof script', () => {
           status: 'blocked_external',
           command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
           live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+          acceptance_contract: 'dcp.prompt_cache_live_acceptance_evidence.v1',
         },
       },
       claims: {
@@ -42,6 +43,16 @@ describe('prompt cache contract proof script', () => {
         tinker_compatible: false,
       },
     });
+    expect(report.readiness.live_acceptance.provider_discount_smoke.required_evidence.map((item) => item.id)).toEqual(expect.arrayContaining([
+      'first_measurement_request_verified',
+      'second_hit_measurement_verified',
+      'no_discount_guard_verified',
+    ]));
+    expect(report.readiness.live_acceptance.provider_discount_smoke.future_discount_required_evidence.map((item) => item.id)).toEqual(expect.arrayContaining([
+      'provider_kv_cache_control_verified',
+      'discounted_settlement_proof_verified',
+      'model_pricing_flag_verified',
+    ]));
     expect(report.key_scope).toMatchObject({
       miss: {
         eligible: true,

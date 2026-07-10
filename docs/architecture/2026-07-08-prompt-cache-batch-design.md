@@ -249,3 +249,8 @@ A passing Batch live proof now requires authenticated readiness, batch create,
 completed polling, result manifest, checksum-verified download, per-line usage
 and provider trace proof, discounted settlement proof, and post-settlement model
 capability flag verification before execution or discount claims can change.
+PR #949 adds `dcp.prompt_cache_live_acceptance_evidence.v1` to the Prompt
+cache live gate. A passing Prompt cache live proof now means live hash-only
+miss/hit measurement and no-discount guards were proven; provider KV-cache
+control, cached-input discounts, discounted settlement, and pricing/model flags
+remain blocked until the future discount evidence in readiness is satisfied.

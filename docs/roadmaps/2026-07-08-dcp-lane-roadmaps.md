@@ -590,6 +590,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `GET /v1/prompt-cache/readiness`, public `/inference`, OpenAPI, and the
   prompt-cache proof packet so the live provider/discount gate is visible
   before discounts or provider KV-cache claims can ship.
+- PR #949 adds `dcp.prompt_cache_live_acceptance_evidence.v1` to the Prompt
+  cache readiness gate and live proof runner, separating live hash-only
+  miss/hit measurement evidence from the future provider KV-cache,
+  cached-input discount, discounted settlement, and model pricing evidence.
 - PR #918 adds public `GET /v1/prompt-cache/settlement/readiness` and
   `npm run proof:prompt-cache-settlement-readiness`, locking the exact
   provider cache-hit evidence, funded smoke principal, usage attribution,

@@ -1,6 +1,11 @@
 'use strict';
 
 const crypto = require('crypto');
+const {
+  PROMPT_CACHE_LIVE_ACCEPTANCE_COMMAND,
+  PROMPT_CACHE_LIVE_ACCEPTANCE_GATE,
+  buildPromptCacheLiveAcceptanceContract,
+} = require('./promptCacheLiveAcceptanceContract');
 
 const PROMPT_CACHE_ACCOUNTING_VERSION = 'dcp.prompt_cache.v1';
 const DEFAULT_CHARS_PER_TOKEN = 4;
@@ -8,6 +13,7 @@ const MAX_MODEL_LENGTH = 200;
 const MAX_REQUEST_ID_LENGTH = 200;
 
 function buildPromptCacheReadiness(now = new Date()) {
+  const liveAcceptanceContract = buildPromptCacheLiveAcceptanceContract();
   return {
     object: 'prompt_cache_readiness',
     version: PROMPT_CACHE_ACCOUNTING_VERSION,
@@ -43,8 +49,13 @@ function buildPromptCacheReadiness(now = new Date()) {
     live_acceptance: {
       provider_discount_smoke: {
         status: 'blocked_external',
-        command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
-        live_acceptance_gate: 'prompt_cache_provider_discount_smoke',
+        command: PROMPT_CACHE_LIVE_ACCEPTANCE_COMMAND,
+        live_acceptance_gate: PROMPT_CACHE_LIVE_ACCEPTANCE_GATE,
+        acceptance_contract: liveAcceptanceContract.contract,
+        pass_condition: liveAcceptanceContract.pass_condition,
+        required_evidence: liveAcceptanceContract.required_evidence,
+        future_discount_required_evidence: liveAcceptanceContract.future_discount_required_evidence,
+        claim_unlocks: liveAcceptanceContract.claim_unlocks,
         blocked_on: [
           'funded smoke principal',
           'provider cache-hit evidence',
@@ -53,6 +64,9 @@ function buildPromptCacheReadiness(now = new Date()) {
         verifies: [
           'live hit metadata',
           'no discount while disabled',
+          'redacted proof artifact',
+          'future provider KV-cache control remains gated',
+          'future discounted settlement proof remains gated',
           'settlement discount policy remains disabled',
         ],
       },
