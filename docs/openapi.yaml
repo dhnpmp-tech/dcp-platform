@@ -932,7 +932,7 @@ components:
           properties:
             provider_discount_smoke:
               type: object
-              required: [status, command, live_acceptance_gate, blocked_on, verifies]
+              required: [status, command, live_acceptance_gate, acceptance_contract, pass_condition, required_evidence, future_discount_required_evidence, blocked_on, verifies]
               properties:
                 status:
                   type: string
@@ -943,6 +943,36 @@ components:
                 live_acceptance_gate:
                   type: string
                   example: prompt_cache_provider_discount_smoke
+                acceptance_contract:
+                  type: string
+                  example: dcp.prompt_cache_live_acceptance_evidence.v1
+                pass_condition:
+                  type: string
+                  example: A PASS report proves only live hash-based prompt-cache measurement and no-discount guards; it does not unlock cached-input discounts or provider KV-cache control.
+                required_evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                  example:
+                    - id: first_measurement_request_verified
+                      label: First request records a measured miss
+                      required_fields: [first.request_id, first.response_hash, first.prompt_cache.status=miss_measured]
+                    - id: second_hit_measurement_verified
+                      label: Second request records a measured hit
+                      required_fields: [second.request_id, cache_keys_match=true, second.prompt_cache.cached_input_tokens>0]
+                future_discount_required_evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                  example:
+                    - id: discounted_settlement_proof_verified
+                      label: Discounted settlement is proven
+                      required_fields: [minimum_balance_preflight, settlement_request_id, settlement_status=settled]
+                claim_unlocks:
+                  type: object
+                  additionalProperties: true
                 blocked_on:
                   type: array
                   items: { type: string }

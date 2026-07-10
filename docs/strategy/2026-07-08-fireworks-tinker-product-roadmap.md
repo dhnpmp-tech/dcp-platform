@@ -406,6 +406,11 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     two measured prompt-cache requests, measured-hit evidence, and no-discount
     settlement guards. It remains blocked until funded/provider/policy inputs
     exist.
+  - PR #949 adds `dcp.prompt_cache_live_acceptance_evidence.v1`, making that
+    proof explicit: a PASS proves live hash-only miss/hit measurement and
+    no-discount guards only, while provider KV-cache control, cached-input
+    discounts, discounted settlement, and pricing/model flags stay gated by
+    future discount evidence.
   - PR #918 added `GET /v1/prompt-cache/settlement/readiness` plus
     `npm run proof:prompt-cache-settlement-readiness` so provider cache-hit
     evidence, funded smoke principal, usage attribution, founder approval, and

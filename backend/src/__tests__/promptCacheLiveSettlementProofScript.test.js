@@ -4,8 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
+  PROMPT_CACHE_LIVE_ACCEPTANCE_CONTRACT_VERSION,
   CONTRACT,
   buildUrl,
+  findMissingPromptCacheLiveAcceptanceEvidence,
   redactSecret,
   runPromptCacheLiveSettlementProof,
 } = require('../../tests/prompt-cache-live-settlement-proof');
@@ -80,6 +82,25 @@ describe('prompt cache live settlement proof script', () => {
     expect(exitCode).toBe(2);
     expect(report.verdict).toBe('FAIL');
     expect(report.contract).toBe(CONTRACT);
+    expect(report.acceptance_contract).toMatchObject({
+      contract: PROMPT_CACHE_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+      gate: 'prompt_cache_provider_discount_smoke',
+      command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
+    });
+    expect(report.acceptance_contract.required_evidence.map((item) => item.id)).toEqual([
+      'readiness_measurement_mode_verified',
+      'funded_smoke_principal_verified',
+      'first_measurement_request_verified',
+      'second_hit_measurement_verified',
+      'no_discount_guard_verified',
+      'redacted_artifact_verified',
+    ]);
+    expect(report.acceptance_contract.future_discount_required_evidence.map((item) => item.id)).toEqual([
+      'provider_kv_cache_control_verified',
+      'discount_policy_approved',
+      'discounted_settlement_proof_verified',
+      'model_pricing_flag_verified',
+    ]);
     expect(report.failure).toMatchObject({
       code: 'LIVE_PROOF_NOT_ENABLED',
       severity: 'blocking',
@@ -195,6 +216,26 @@ describe('prompt cache live settlement proof script', () => {
         },
       },
     });
+    expect(report.acceptance_evidence).toMatchObject({
+      readiness_measurement_mode_verified: true,
+      funded_smoke_principal_verified: true,
+      first_measurement_request_verified: true,
+      second_hit_measurement_verified: true,
+      no_discount_guard_verified: true,
+      redacted_artifact_verified: true,
+    });
+    expect(report.claims).toMatchObject({
+      prompt_cache_discount_enabled: false,
+      provider_kv_cache_control: false,
+      settlement_discount_enabled: false,
+      changes_billing_or_settlement: false,
+    });
+    expect(report.acceptance_contract.claim_unlocks.prompt_cache_discount).toEqual([
+      'provider_kv_cache_control_verified',
+      'discount_policy_approved',
+      'discounted_settlement_proof_verified',
+      'model_pricing_flag_verified',
+    ]);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(ensurePrincipal).toHaveBeenCalledWith({ baseUrl: 'https://api.example.test/api' });
     expect(calls[1].options.headers.authorization).toBe(`Bearer ${fixtureCredential}`);
@@ -211,5 +252,14 @@ describe('prompt cache live settlement proof script', () => {
     expect(buildUrl('https://api.dcp.sa/api', '/api/health')).toBe('https://api.dcp.sa/api/health');
     expect(redactSecret('short')).toBe('shor...');
     expect(redactSecret(['fixture', 'prompt', 'cache', 'value'].join('-'))).toBe('fixture-...alue');
+    expect(findMissingPromptCacheLiveAcceptanceEvidence({
+      readiness_measurement_mode_verified: true,
+      funded_smoke_principal_verified: true,
+    })).toEqual([
+      'first_measurement_request_verified',
+      'second_hit_measurement_verified',
+      'no_discount_guard_verified',
+      'redacted_artifact_verified',
+    ]);
   });
 });

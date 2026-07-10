@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 05:07 UTC - `test(prompt-cache): add live acceptance evidence contract - PR #949`
+
+**PR:** [#949](https://github.com/dhnpmp-tech/dcp-platform/pull/949) (`codex/prompt-cache-live-acceptance-evidence-contract-2026-07-10`).
+**Local timestamp:** 2026-07-10 09:07 +04.
+
+**What:** Prompt-cache acceptance hardening. Makes the live hit/no-discount proof explicit about what it proves today and what remains required before cached-input discounts or provider KV-cache claims can ship.
+
+- **Shared contract:** Added `dcp.prompt_cache_live_acceptance_evidence.v1` for the `prompt_cache_provider_discount_smoke` gate.
+- **Readiness packet:** `GET /v1/prompt-cache/readiness` now exposes the live measurement pass condition, required evidence, future discount-settlement evidence, and claim-unlock mapping.
+- **Live proof runner:** `npm run proof:prompt-cache-live-settlement` now emits acceptance evidence and only passes when readiness, funded principal, measured miss, measured hit, no-discount guards, and redacted artifact checks are proven.
+- **Claim boundary:** A live measurement PASS still leaves provider KV-cache control, cached-input discounts, discounted settlement, and model pricing flags gated behind future evidence.
+- **Safety:** Evidence/test/docs-only change; no prompt-cache accounting, inference routing, billing, settlement, discounts, balances, model catalog flags, provider behavior, or raw prompt storage changed.
+- **Verification:** Focused Prompt cache live proof/accounting/contract Jest suites, prompt-cache contract proof, blocked live proof, local roadmap proof, OpenAPI parse, build, and diff check.
+
 ### 2026-07-10 04:54 UTC - `test(batch): add live acceptance evidence contract - PR #948`
 
 **PR:** [#948](https://github.com/dhnpmp-tech/dcp-platform/pull/948) (`codex/batch-live-acceptance-evidence-contract-2026-07-10`).
