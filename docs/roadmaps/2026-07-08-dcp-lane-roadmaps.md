@@ -256,6 +256,11 @@ what is live.
   visible immediately. Large Stage 1 workspaces auto-collapse after files load,
   and the rail repeats the trial grant-credit/native-community/high-demand
   paid-credit answer without changing launch, billing, or routing behavior.
+- PR #936 adds a Stage 2 "Which GPU will DCP request?" chooser before VRAM
+  filters and workload hints, changes the trial copy to the clearer
+  no-separate-trial-tag/grant-credit/DCP-community/high-demand-paid-credit
+  answer, and keeps launch payloads, routing, billing, credit enforcement,
+  trial accounting, and provider/vendor/supply-tier exposure unchanged.
 
 ### Now
 

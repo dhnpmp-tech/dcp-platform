@@ -258,6 +258,20 @@ Status as of PR #878:
 - This is a frontend UX clarification only; launch payloads, provider
   selection, pricing, billing, and trial policy remain unchanged.
 
+Status as of PR #936:
+
+- `/renter/pods` now has a dedicated Stage 2 "Which GPU will DCP request?"
+  chooser, so Auto-pick and fixed-card launch modes are presented as the actual
+  decision before VRAM filters, workload hints, or sort controls.
+- Founder-facing copy now answers the trial-account question as: no separate
+  trial-account tag is live, grant credit is the trial signal, trial credit
+  routes to the DCP/community GPU pool, and high-demand GPUs require paid
+  credit.
+- This is a frontend UX clarification only; launch payloads, provider
+  selection, pricing, billing, credit enforcement, minimum-balance policy,
+  trial accounting, routing, and provider/vendor/supply-tier exposure remain
+  unchanged.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully

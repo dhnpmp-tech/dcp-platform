@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 01:43 UTC - Pod founder-feedback launch UX (PR #936)
+
+- **PR:** [#936](https://github.com/dhnpmp-tech/dcp-platform/pull/936) (`codex/pods-founder-feedback-ux-2026-07-10`).
+- **Timestamp:** 2026-07-10 01:43 UTC / 2026-07-10 05:43 +04.
+- **Workspace UX:** `/renter/pods` keeps Stage 1 summary-first for large workspaces and reinforces that users do not need to inspect every file before continuing to Stage 2 because the whole `/workspace` volume mounts at launch.
+- **GPU clarity:** Stage 2 now includes a "Which GPU will DCP request?" chooser with explicit Auto-pick and fixed-card options, the live `gpu_type` payload, and selected-state copy before VRAM filters or workload hints.
+- **Trial answer:** Renter-facing copy now answers Tareq's question directly: no separate trial-account tag is live, grant credit is the trial signal, trial credit routes to the DCP/community GPU pool, and high-demand GPUs require paid credit.
+- **Safety:** Frontend/test/docs-only UX clarification; no launch payload, provider-selection, filtering, workspace API, pricing, billing, credit enforcement, minimum-balance policy, balance, trial-accounting, routing, vendor/provider exposure, supply-tier exposure, or API contract mutation.
+- **Verification:** Focused `/renter/pods` Playwright regression covering collapsed Stage 1, Stage 2 chooser, Auto-pick/fixed GPU states, DCP/community trial wording, and VRAM-filter copy.
+
 ### 2026-07-10 01:28 UTC - Live acceptance operator runbooks (PR #935)
 
 - **PR:** [#935](https://github.com/dhnpmp-tech/dcp-platform/pull/935) (`codex/live-acceptance-operator-runbooks-2026-07-10`).
