@@ -218,6 +218,11 @@ const EXTERNAL_GATES = Object.freeze([
     blocked_on: ['funded inference smoke principal', 'compatible vLLM provider capacity'],
   },
   {
+    id: 'openai_sse_live',
+    command: 'DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1 npm run proof:openai-sse',
+    blocked_on: ['funded inference smoke principal', 'compatible vLLM provider capacity'],
+  },
+  {
     id: 'prompt_cache_live_settlement',
     command: 'DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement',
     blocked_on: ['provider cache-hit evidence', 'funded smoke principal', 'settlement discount policy approval'],

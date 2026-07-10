@@ -23,17 +23,18 @@ describe('live acceptance gate status script', () => {
     expect(report.summary).toMatchObject({
       total: LIVE_ACCEPTANCE_GATES.length,
       blocked: LIVE_ACCEPTANCE_GATES.length,
-      command_available: 8,
+      command_available: 9,
       missing_acceptance_command: 0,
       capability_claim_allowed: 0,
       latest_evidence_found: 0,
-      operator_runbooks: 8,
+      operator_runbooks: 9,
       ready_to_run: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
       'workspace_pod_live_launch',
       'lora_pod_image_provider_host',
       'anthropic_sse_live',
+      'openai_sse_live',
       'prompt_cache_provider_discount_smoke',
       'batch_live_execution_discount_smoke',
       'lora_gpu_training_artifact_proof',
@@ -76,6 +77,16 @@ describe('live acceptance gate status script', () => {
       acceptance_command: 'DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse',
       command_available: true,
       blocked_on: expect.arrayContaining(['funded inference smoke principal']),
+    });
+    expect(report.gates.find((gate) => gate.id === 'openai_sse_live')).toMatchObject({
+      acceptance_command: 'DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1 npm run proof:openai-sse',
+      command_available: true,
+      blocked_on: expect.arrayContaining(['funded inference smoke principal', 'compatible vLLM provider capacity']),
+      verifies: expect.arrayContaining(['POST /v1/chat/completions', 'OpenAI delta frames and data: [DONE]']),
+      operator_runbook: {
+        required_env: ['DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1'],
+        ready_to_run: false,
+      },
     });
     expect(report.gates.find((gate) => gate.id === 'prompt_cache_provider_discount_smoke')).toMatchObject({
       acceptance_state: 'blocked',
@@ -176,8 +187,8 @@ describe('live acceptance gate status script', () => {
     expect(report.validation_failures).toEqual([]);
 
     const markdown = fs.readFileSync(path.join(outputDir, 'live-acceptance-gate-status-latest.md'), 'utf8');
-    expect(markdown).toContain('latest_evidence_found: 1/8');
-    expect(markdown).toContain('operator_runbooks: 8/8');
+    expect(markdown).toContain('latest_evidence_found: 1/9');
+    expect(markdown).toContain('operator_runbooks: 9/9');
     expect(markdown).toContain('## Operator Runbooks');
     expect(markdown).toContain('ready_to_run: false');
     expect(markdown).toContain('local_agent_detached_head');
