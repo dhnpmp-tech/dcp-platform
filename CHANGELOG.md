@@ -14,6 +14,18 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-09 23:58 UTC - `feat(usage): surface credit-policy account controls - PR #929`
+
+**PR:** [#929](https://github.com/dhnpmp-tech/dcp-platform/pull/929) (`codex/usage-credit-policy-visibility-2026-07-10`).
+**Local timestamp:** 2026-07-10 03:58 +04.
+
+**What:** Extends the PR #928 minimum-balance `credit_policy` answer into `/renter/usage`, so account controls show the same trial/grant credit and paid-credit gate facts that the pod launch flow now uses.
+
+- **Usage UI:** The Account controls packet now shows the minimum-balance credit-policy sync state, trial grant amount, paid available credit, high-demand paid-credit gate, and no trial/paid-credit policy mutation guard.
+- **Contract source:** Trial-account mode and trial source now prefer `GET /api/renters/me/minimum-balances.credit_policy`, falling back to the older pod trial-routing readiness packet only when needed.
+- **Safety:** Read-only UI/typing/test change; no payment creation, balance mutation, pod launch, inference dispatch, billing policy change, trial-accounting change, routing change, provider selection, or enforcement change.
+- **Verification:** Focused Playwright Usage/account-controls spec; `git diff --check`; build/proof sweep before merge.
+
 ### 2026-07-09 23:34 UTC - `feat(pods): clarify trial credit and GPU launch choice - PR #928`
 
 **PR:** [#928](https://github.com/dhnpmp-tech/dcp-platform/pull/928) (`codex/minimum-balance-credit-policy-2026-07-10`).

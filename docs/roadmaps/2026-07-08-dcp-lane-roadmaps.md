@@ -440,6 +440,9 @@ adapter registry, and deployment lifecycle without breaking money/routing.
   provenance, paid-credit source, paid available credit, and high-demand
   paid-credit requirements are visible without changing trial accounting or
   enforcement, then wires the same answer into `/renter/pods` Stage 2.**
+  **PR #929 extends the same `credit_policy` answer into `/renter/usage`
+  Account controls, so account, trial, usage-export, and paid-credit gates
+  share one visible contract.**
 - Evaluator job records.
 - Router policy objects.
 
