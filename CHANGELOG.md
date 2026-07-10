@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 04:54 UTC - `test(batch): add live acceptance evidence contract - PR #948`
+
+**PR:** [#948](https://github.com/dhnpmp-tech/dcp-platform/pull/948) (`codex/batch-live-acceptance-evidence-contract-2026-07-10`).
+**Local timestamp:** 2026-07-10 08:54 +04.
+
+**What:** Batch inference acceptance hardening. Makes the live batch execution and discounted-settlement gate evidence-driven so readiness flags cannot be treated as product-live without create, poll, result, download, line, settlement, and model-capability proof.
+
+- **Shared contract:** Added `dcp.batch_live_acceptance_evidence.v1`, a backend evidence checklist for the `batch_live_execution_discount_smoke` gate.
+- **Readiness packet:** `GET /api/batches/readiness` and `GET /api/batches/public/readiness` now expose the acceptance contract, pass condition, required evidence fields, and claim-unlock mapping.
+- **Live proof runner:** `npm run proof:batch-live-execution` now emits the acceptance contract and fails if readiness claims live execution while the artifact is missing required evidence.
+- **Regression guard:** Jest coverage now simulates the dangerous state where readiness claims all live flags but no batch create/poll/download/settlement evidence exists.
+- **Safety:** Evidence/test/docs-only change; no batch creation, worker execution, result download, settlement, discount, model catalog flag, routing, billing, balance, or provider behavior changed.
+- **Verification:** Focused Batch live proof Jest suite, Batch inference contract proof, live proof blocked-run check, local roadmap proof, OpenAPI parse, build, and diff check.
+
 ### 2026-07-10 04:39 UTC - `feat(pods): add workspace decision map - PR #947`
 
 **PR:** [#947](https://github.com/dhnpmp-tech/dcp-platform/pull/947) (`codex/pods-tareq-workspace-decision-map-2026-07-10`).

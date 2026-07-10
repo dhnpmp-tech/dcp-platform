@@ -603,6 +603,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `GET /api/batches/readiness`, public `/batch`, renter `/renter/batches`,
   OpenAPI, and the batch proof packet while execution, downloads, settlement,
   discounts, and model batch flags remain gated.
+- PR #948 adds `dcp.batch_live_acceptance_evidence.v1` to the Batch readiness
+  gate and live proof runner, so live Batch and discount claims require
+  authenticated readiness, create, poll, result manifest, checksum download,
+  per-line execution, discounted settlement, and model capability evidence.
 - PR #898 surfaces the account-scoped minimum-balance readiness packet in
   `/renter/batches`, so batch creation/readiness now sits beside batch
   settlement status, paid-available credit, v1 monthly-cap remaining, and

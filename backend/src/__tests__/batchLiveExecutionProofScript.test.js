@@ -4,8 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
+  BATCH_LIVE_ACCEPTANCE_CONTRACT_VERSION,
   CONTRACT,
   buildUrl,
+  findMissingBatchLiveAcceptanceEvidence,
   findReadinessBlockers,
   redactSecret,
   runBatchLiveExecutionProof,
@@ -72,6 +74,45 @@ function readinessBody(overrides = {}) {
   };
 }
 
+function liveReadyBody() {
+  return readinessBody({
+    current_mode: 'live_execution_discount_ready',
+    public_execution_enabled: true,
+    request_creation_enabled: true,
+    features: {
+      result_downloads: {
+        status: 'configured_after_result_proof',
+        configured: true,
+        enabled_for_completed_results: true,
+      },
+      worker_execution: {
+        status: 'public_executor_ready',
+        env_flag_enabled: true,
+        public_enabled: true,
+      },
+      settlement: {
+        status: 'public_settlement_ready',
+        env_flag_enabled: true,
+        public_enabled: true,
+      },
+      discounts: {
+        status: 'enabled',
+        enabled: true,
+      },
+      model_capability_flag: {
+        status: 'enabled_after_live_proof',
+        enabled: true,
+      },
+    },
+    claims: {
+      batch_execution_live: true,
+      batch_discount_live: true,
+      model_batch_capability_live: true,
+      result_downloads_depend_on_completed_result_proof: true,
+    },
+  });
+}
+
 describe('batch live execution proof script', () => {
   test('refuses live checks by default and writes artifacts', async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'batch-live-blocked-'));
@@ -88,6 +129,21 @@ describe('batch live execution proof script', () => {
     expect(exitCode).toBe(2);
     expect(report.verdict).toBe('BLOCKED');
     expect(report.contract).toBe(CONTRACT);
+    expect(report.acceptance_contract).toMatchObject({
+      contract: BATCH_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+      gate: 'batch_live_execution_discount_smoke',
+      command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
+    });
+    expect(report.acceptance_contract.required_evidence.map((item) => item.id)).toEqual([
+      'readiness_live_claims_verified',
+      'batch_create_verified',
+      'batch_poll_completed',
+      'result_manifest_verified',
+      'result_download_verified',
+      'line_execution_proof_verified',
+      'discounted_settlement_proof_verified',
+      'model_capability_flag_verified',
+    ]);
     expect(report.failure).toMatchObject({
       code: 'LIVE_PROOF_NOT_ENABLED',
       severity: 'blocking',
@@ -196,5 +252,66 @@ describe('batch live execution proof script', () => {
       'features.settlement.public_enabled',
       'claims.batch_discount_live',
     ]));
+    expect(findMissingBatchLiveAcceptanceEvidence({
+      readiness_live_claims_verified: true,
+    })).toEqual([
+      'batch_create_verified',
+      'batch_poll_completed',
+      'result_manifest_verified',
+      'result_download_verified',
+      'line_execution_proof_verified',
+      'discounted_settlement_proof_verified',
+      'model_capability_flag_verified',
+    ]);
+  });
+
+  test('fails if readiness claims live batch execution before evidence exists', async () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'batch-live-missing-evidence-'));
+    const fixtureCredential = ['fixture', 'batch', 'live', 'ready'].join('-');
+    const fetchImpl = jest.fn(async () => jsonResponse(liveReadyBody(), { requestId: 'req-live-ready' }));
+    const ensurePrincipal = jest.fn(async () => ({
+      renterId: 9,
+      renterEmail: 'batch-ready-proof@example.test',
+      balanceHalala: 50000,
+      inferenceKey: fixtureCredential,
+      inferenceKeyId: 'key_batch_ready',
+      inferenceKeyLabel: 'batch-live-ready-proof',
+      inferenceKeyExpiresAt: '2026-07-09T04:00:00.000Z',
+    }));
+
+    const { report, exitCode } = await runBatchLiveExecutionProof({
+      allowLive: true,
+      outputDir,
+      fetchImpl,
+      ensurePrincipal,
+      baseUrl: 'https://api.example.test',
+    });
+
+    expect(exitCode).toBe(1);
+    expect(report.verdict).toBe('FAIL');
+    expect(report.acceptance_evidence.readiness_live_claims_verified).toBe(true);
+    expect(report.batch).toMatchObject({
+      attempted_creation: false,
+      attempted_execution: false,
+      attempted_download: false,
+      attempted_settlement: false,
+    });
+    expect(report.failure).toMatchObject({
+      code: 'BATCH_LIVE_ACCEPTANCE_EVIDENCE_MISSING',
+      details: {
+        acceptance_contract: BATCH_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+        gate: 'batch_live_execution_discount_smoke',
+        missing_evidence: expect.arrayContaining([
+          'batch_create_verified',
+          'batch_poll_completed',
+          'result_download_verified',
+          'discounted_settlement_proof_verified',
+          'model_capability_flag_verified',
+        ]),
+      },
+    });
+    expect(report.failure.details.missing_evidence).not.toContain('readiness_live_claims_verified');
+    expect(JSON.stringify(report)).not.toContain(fixtureCredential);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

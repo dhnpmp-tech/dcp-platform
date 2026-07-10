@@ -244,3 +244,8 @@ surfaces: `prompt_cache_provider_discount_smoke` under
 no prompt-cache discount, provider KV-cache control, batch execution, result
 download, settlement, model batch flag, route selection, provider routing,
 billing path, or balance mutation is enabled by this visibility.
+PR #948 adds `dcp.batch_live_acceptance_evidence.v1` to the Batch live gate.
+A passing Batch live proof now requires authenticated readiness, batch create,
+completed polling, result manifest, checksum-verified download, per-line usage
+and provider trace proof, discounted settlement proof, and post-settlement model
+capability flag verification before execution or discount claims can change.

@@ -9,6 +9,11 @@ const {
   checksumBatchRequest,
   parseBatchJsonl,
 } = require('./batchInferenceContract');
+const {
+  BATCH_LIVE_ACCEPTANCE_COMMAND,
+  BATCH_LIVE_ACCEPTANCE_GATE,
+  buildBatchLiveAcceptanceContract,
+} = require('./batchLiveAcceptanceContract');
 const { getBatchResultDownloadConfig } = require('./batchResultDownloads');
 
 const BATCH_STATUSES = Object.freeze([
@@ -325,6 +330,7 @@ function buildBatchInferenceReadiness(env = process.env) {
   const workerFlagEnabled = parseEnvBoolean(env.DCP_BATCH_WORKER_ENABLED);
   const settlementFlagEnabled = parseEnvBoolean(env.DCP_BATCH_SETTLEMENT_ENABLED);
   const downloadConfig = getBatchResultDownloadConfig(env);
+  const liveAcceptanceContract = buildBatchLiveAcceptanceContract();
 
   return {
     object: 'batch_inference_readiness',
@@ -386,8 +392,12 @@ function buildBatchInferenceReadiness(env = process.env) {
     live_acceptance: {
       execution_discount_smoke: {
         status: 'blocked_external',
-        command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
-        live_acceptance_gate: 'batch_live_execution_discount_smoke',
+        command: BATCH_LIVE_ACCEPTANCE_COMMAND,
+        live_acceptance_gate: BATCH_LIVE_ACCEPTANCE_GATE,
+        acceptance_contract: liveAcceptanceContract.contract,
+        pass_condition: liveAcceptanceContract.pass_condition,
+        required_evidence: liveAcceptanceContract.required_evidence,
+        claim_unlocks: liveAcceptanceContract.claim_unlocks,
         blocked_on: [
           'funded renter key',
           'live provider execution capacity',
@@ -397,7 +407,11 @@ function buildBatchInferenceReadiness(env = process.env) {
         verifies: [
           'renter-authenticated readiness',
           'batch create guard',
+          'batch poll completed proof',
           'result manifest/download prerequisites',
+          'per-line usage and provider trace proof',
+          'discounted settlement proof',
+          'model capability flag proof after settlement',
           'discount remains disabled until approved',
         ],
       },

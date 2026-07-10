@@ -32,9 +32,17 @@ describe('batch inference contract proof script', () => {
           status: 'blocked_external',
           command: 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution',
           live_acceptance_gate: 'batch_live_execution_discount_smoke',
+          acceptance_contract: 'dcp.batch_live_acceptance_evidence.v1',
         },
       },
     });
+    expect(report.readiness.live_acceptance.execution_discount_smoke.required_evidence.map((item) => item.id)).toEqual(expect.arrayContaining([
+      'batch_create_verified',
+      'batch_poll_completed',
+      'result_download_verified',
+      'discounted_settlement_proof_verified',
+      'model_capability_flag_verified',
+    ]));
     expect(report.validation.replay).toMatchObject({
       idempotent_replay: true,
       batch_id: 'batch_contract1',
