@@ -1553,6 +1553,7 @@ export default function RenterPodsPage() {
   const commandCenterWorkspaceDetail = workspaceStageBodyOpen
     ? 'Stage 1 files are open'
     : 'Stage 1 files are collapsed'
+  const mobileDockStage1Label = workspaceStageBodyOpen ? 'Stage 1 open' : 'Stage 1 collapsed'
 
   function focusWorkspaceFolder(folderId: string) {
     setWorkspaceFolderFocusRequest((current) => ({
@@ -1725,6 +1726,32 @@ export default function RenterPodsPage() {
                 <b>Credit</b>
                 <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
               </span>
+            </div>
+          </div>
+
+          <div className={`pod-mobile-launch-dock ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'شريط تشغيل مختصر' : 'Mobile launch dock'}>
+            <div className="pod-mobile-launch-copy">
+              <span><Bi en="Stage 2 launch GPU" ar="GPU تشغيل المرحلة 2" /></span>
+              <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+              <code>{launchRequestPayloadLabel}</code>
+            </div>
+            <div className="pod-mobile-launch-actions">
+              <button
+                type="button"
+                onClick={() => setWorkspaceStageOpen((value) => !value)}
+                aria-expanded={workspaceStageBodyOpen}
+                aria-controls="pod-stage-1-workspace-panel"
+              >
+                <Bi en={workspaceStageBodyOpen ? 'Collapse Stage 1' : 'Open Stage 1'} ar={workspaceStageBodyOpen ? 'اطوِ المرحلة 1' : 'افتح المرحلة 1'} />
+              </button>
+              <a href="#pod-stage-2">
+                <Bi en="Go to Stage 2" ar="اذهب للمرحلة 2" />
+              </a>
+            </div>
+            <div className="pod-mobile-launch-facts">
+              <span><Bi en={mobileDockStage1Label} ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة' : 'المرحلة 1 مطوية'} /></span>
+              <span><Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" /></span>
+              <span><Bi en={highDemandAnswerLabel} ar="الطلب العالي: رصيد مدفوع فقط" /></span>
             </div>
           </div>
 

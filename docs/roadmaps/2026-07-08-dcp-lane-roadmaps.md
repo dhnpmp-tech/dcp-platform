@@ -270,6 +270,10 @@ what is live.
   `/containers`, so visitors see credit-provenance mode, DCP/community trial
   route, paid-credit-only high-demand capacity, and no account-classification
   mutation before login.
+- PR #941 adds a sticky mobile/tablet launch dock for `/renter/pods`, keeping
+  Stage 2's actual GPU request, exact `gpu_type` payload, Stage 1 drawer state,
+  trial route, and paid-credit high-demand gate reachable while large Stage 1
+  workspaces remain collapsed.
 
 ### Now
 

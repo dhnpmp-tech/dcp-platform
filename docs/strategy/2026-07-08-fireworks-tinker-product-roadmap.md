@@ -188,6 +188,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     expansion, making Stage 2's actual Auto-pick/fixed-GPU request and exact
     `gpu_type` payload visible immediately. Large workspaces auto-collapse after
     files load even when an old browser preference had left Stage 1 open.
+  - PR #941 adds a mobile/tablet sticky launch dock so Stage 2's actual GPU
+    request, exact `gpu_type` payload, Stage 1 open/collapsed state, trial
+    route, and high-demand paid-credit gate stay reachable while the Stage 1
+    workspace file drawer remains collapsed.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -260,6 +264,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #939 mirrors the same derived trial-routing answer on public `/pods` and
     `/containers`, keeping visitors aligned with the authenticated renter
     surfaces before they create or fund an account.
+  - PR #941 carries the same answer into the mobile launch dock next to the
+    Stage 2 GPU decision, so trial routing and minimum paid-credit expectations
+    remain visible even while scanning a long workspace.
   - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
     `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
     are explicitly browse-only.
