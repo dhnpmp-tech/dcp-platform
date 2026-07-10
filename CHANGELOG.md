@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 01:55 UTC - `docs(ops): document live acceptance runbook packet - PR #937`
+
+**PR:** [#937](https://github.com/dhnpmp-tech/dcp-platform/pull/937) (`codex/live-acceptance-openapi-runbook-docs-2026-07-10`).
+**Local timestamp:** 2026-07-10 05:55 +04.
+
+**What:** Ops/repo hardening slice. Documents the guarded live-acceptance status endpoint and its operator-runbook packet in the public OpenAPI specs and agent docs so future agents can discover the exact read-only gate state and command handoff.
+
+- **OpenAPI:** `docs/openapi.yaml` and `public/docs/openapi.yaml` now include `GET /api/admin/live-acceptance-gates`, the `dcp.live_acceptance_gate_status.v1` response shape, summary counters, per-gate latest evidence, and `dcp.live_acceptance_operator_runbook.v1` runbook fields.
+- **Agent docs:** `public/llms.txt` now points agents at the admin live-acceptance endpoint, names the runbook contract, and states the no-paid-compute/no-routing/no-billing/no-trial-accounting/no-claim-unlock safety boundary.
+- **Regression:** The existing admin live-acceptance static check now verifies the route, admin UI, OpenAPI docs, published OpenAPI docs, and `llms.txt` stay aligned.
+- **Safety:** Docs/test-only change; no endpoint behavior, authentication, admin UI behavior, paid compute, provider routing, pod launch, inference dispatch, payments, billing, balance, trial accounting, adapter routing, prompt-cache discount, batch execution, LoRA training, or capability-claim behavior changed.
+- **Verification:** OpenAPI YAML parse, admin live-acceptance static check, live-acceptance proof, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 01:43 UTC - `feat(pods): clarify founder feedback launch UX - PR #936`
 
 **PR:** [#936](https://github.com/dhnpmp-tech/dcp-platform/pull/936) (`codex/pods-founder-feedback-ux-2026-07-10`).

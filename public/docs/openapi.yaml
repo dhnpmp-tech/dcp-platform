@@ -6534,6 +6534,212 @@ paths:
 
   # ─── Admin ──────────────────────────────────────────────────────────────────
 
+  /api/admin/live-acceptance-gates:
+    get:
+      tags: [Admin]
+      summary: Live acceptance gate status and operator runbooks
+      description: |
+        Returns the CI-safe roadmap gate packet used by operators and agents to
+        see which live acceptance proofs are blocked, which command would prove
+        each gate, the latest matching evidence, and the read-only operator
+        runbook for every gate. This endpoint is guarded by `AdminToken` and
+        does not run paid compute, mutate provider routing, unlock capability
+        claims, create payments, change billing, or change trial accounting.
+      security:
+        - AdminToken: []
+      responses:
+        '200':
+          description: Live acceptance gates, latest evidence, and runbooks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contract, generated_at, verdict, command, mode, summary, gates]
+                properties:
+                  contract:
+                    type: string
+                    example: dcp.live_acceptance_gate_status.v1
+                  generated_at:
+                    type: string
+                    format: date-time
+                  verdict:
+                    type: string
+                    enum: [PASS, FAIL]
+                  command:
+                    type: string
+                    example: npm run proof:live-acceptance-status
+                  mode:
+                    type: string
+                    example: ci_safe_status_packet
+                  evidence_dir:
+                    type: string
+                    example: docs/reports/reliability
+                  summary:
+                    type: object
+                    required: [total, blocked, command_available, missing_acceptance_command, capability_claim_allowed, latest_evidence_found, operator_runbooks, ready_to_run]
+                    properties:
+                      total:
+                        type: integer
+                        example: 8
+                      blocked:
+                        type: integer
+                        example: 8
+                      command_available:
+                        type: integer
+                        example: 8
+                      missing_acceptance_command:
+                        type: integer
+                        example: 0
+                      capability_claim_allowed:
+                        type: integer
+                        example: 0
+                      latest_evidence_found:
+                        type: integer
+                        example: 1
+                      operator_runbooks:
+                        type: integer
+                        example: 8
+                      ready_to_run:
+                        type: integer
+                        example: 0
+                  gates:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, lane, product_area, acceptance_state, acceptance_command, command_available, blocked_on, verifies, claim_guard, capability_claim_allowed, latest_evidence, operator_runbook]
+                      properties:
+                        id:
+                          type: string
+                          example: workspace_pod_live_launch
+                        lane:
+                          type: string
+                          example: POT/PODS
+                        product_area:
+                          type: string
+                          example: Workspace upload -> pod launch -> /workspace visibility
+                        acceptance_state:
+                          type: string
+                          example: blocked
+                        acceptance_command:
+                          type: string
+                          example: DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod
+                        command_available:
+                          type: boolean
+                          example: true
+                        artifact_pattern:
+                          type: string
+                        blocked_on:
+                          type: array
+                          items:
+                            type: string
+                        verifies:
+                          type: array
+                          items:
+                            type: string
+                        claim_guard:
+                          type: string
+                        capability_claim_allowed:
+                          type: boolean
+                          example: false
+                        next_action:
+                          type: string
+                        latest_evidence:
+                          type: object
+                          required: [found, artifact, verdict, generated_at, failure_code, blockers, maintenance_required]
+                          properties:
+                            found:
+                              type: boolean
+                            artifact:
+                              type: string
+                            verdict:
+                              type: string
+                              nullable: true
+                            generated_at:
+                              type: string
+                              format: date-time
+                              nullable: true
+                            failure_code:
+                              type: string
+                              nullable: true
+                            blockers:
+                              type: array
+                              items:
+                                type: string
+                            maintenance_required:
+                              type: boolean
+                              nullable: true
+                        operator_runbook:
+                          type: object
+                          required: [contract, owner_lane, safe_mode, readiness_state, ready_to_run, required_env, prerequisites, command, evidence_to_collect, post_run_smoke, failure_triage, next_operator_step]
+                          properties:
+                            contract:
+                              type: string
+                              example: dcp.live_acceptance_operator_runbook.v1
+                            owner_lane:
+                              type: string
+                              example: POT/PODS
+                            safe_mode:
+                              type: string
+                              example: blocked_read_only_until_live_proof_passes
+                            readiness_state:
+                              type: string
+                              example: blocked_external_inputs
+                            ready_to_run:
+                              type: boolean
+                              example: false
+                            required_env:
+                              type: array
+                              items:
+                                type: string
+                            prerequisites:
+                              type: array
+                              items:
+                                type: string
+                            command:
+                              type: string
+                              nullable: true
+                            evidence_to_collect:
+                              type: array
+                              items:
+                                type: string
+                            post_run_smoke:
+                              type: array
+                              items:
+                                type: string
+                            failure_triage:
+                              type: array
+                              items:
+                                type: string
+                            next_operator_step:
+                              type: string
+                  validation_failures:
+                    type: array
+                    items:
+                      type: string
+                  artifacts:
+                    type: object
+                    properties:
+                      json:
+                        type: string
+                      markdown:
+                        type: string
+                      latest_json:
+                        type: string
+                      latest_markdown:
+                        type: string
+        '401':
+          description: Admin access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Admin token not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/admin/dashboard:
     get:
       tags: [Admin]

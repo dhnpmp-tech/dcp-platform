@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 01:55 UTC - Live acceptance OpenAPI runbook docs (PR #937)
+
+- **PR:** [#937](https://github.com/dhnpmp-tech/dcp-platform/pull/937) (`codex/live-acceptance-openapi-runbook-docs-2026-07-10`).
+- **Timestamp:** 2026-07-10 01:55 UTC / 2026-07-10 05:55 +04.
+- **OpenAPI:** `docs/openapi.yaml` and `public/docs/openapi.yaml` now document guarded `GET /api/admin/live-acceptance-gates`, the `dcp.live_acceptance_gate_status.v1` packet, summary counters, latest evidence, and per-gate `dcp.live_acceptance_operator_runbook.v1` fields.
+- **Agent docs:** `public/llms.txt` now tells agents where to fetch the admin live-acceptance gate packet and repeats the no-paid-compute/no-routing/no-billing/no-trial-accounting/no-claim-unlock safety boundary.
+- **Regression:** `tests/admin-live-acceptance-static.test.js` now covers route/UI/OpenAPI/published-OpenAPI/agent-doc alignment for the runbook packet.
+- **Safety:** Docs/test-only change; no endpoint behavior, auth, admin UI behavior, compute, routing, launches, inference, payments, billing, balance, trial-accounting, prompt-cache, batch, LoRA, adapter, or capability-claim mutation.
+- **Verification:** OpenAPI YAML parse, admin static check, live-acceptance proof, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 01:43 UTC - Pod founder-feedback launch UX (PR #936)
 
 - **PR:** [#936](https://github.com/dhnpmp-tech/dcp-platform/pull/936) (`codex/pods-founder-feedback-ux-2026-07-10`).
