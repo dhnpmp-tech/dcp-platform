@@ -470,6 +470,13 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(collapsedStagePath).toContainText('datasets/ opens; other folders stay closed.');
   await expect(collapsedStagePath).toContainText('Stage 2 GPU');
   await expect(collapsedStagePath).toContainText('Skip file review when the summary is enough.');
+  const collapsedFolderOutline = page.getByLabel('Stage 1 folder outline');
+  await expect(collapsedFolderOutline).toContainText('Workspace outline');
+  await expect(collapsedFolderOutline).toContainText('3 folders stay collapsed until one needs inspection.');
+  await expect(collapsedFolderOutline).toContainText('Open busiest folder');
+  await expect(collapsedFolderOutline).toContainText('datasets/ · 2 files · 1.95 KiB');
+  await expect(collapsedFolderOutline).toContainText('Next stop');
+  await expect(collapsedFolderOutline).toContainText('Stage 2 is the actual GPU request.');
 
   await stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' }).click();
   await expect(stage1Checkpoint).toContainText('Workspace details open');
@@ -582,6 +589,15 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuRequestChooser).toContainText('Choose a fixed GPU card');
   await expect(gpuRequestChooser).toContainText('VRAM filters and workload hints only organize the list.');
   await expect(gpuRequestChooser.getByRole('button', { name: /Auto-pick selected/ })).toHaveAttribute('aria-pressed', 'true');
+  const gpuRecommendation = page.getByLabel('Stage 2 GPU recommendation');
+  await expect(gpuRecommendation).toContainText('Suggested GPU for this setup');
+  await expect(gpuRecommendation).toContainText('RTX 4090');
+  await expect(gpuRecommendation).toContainText('Notebook / PyTorch recommends 8 GB+');
+  await expect(gpuRecommendation).toContainText('Actual request');
+  await expect(gpuRecommendation).toContainText('gpu_type omitted = auto-pick');
+  await expect(gpuRecommendation).toContainText('Launch still uses Auto-pick until you press Use recommended GPU or choose a card.');
+  await expect(gpuRecommendation).toContainText('Browse chips, not a launch slider');
+  await expect(gpuRecommendation.getByRole('button', { name: 'Use recommended GPU' })).toBeVisible();
   const finalGpuRequest = page.getByLabel('Final GPU request');
   await expect(finalGpuRequest).toContainText('Final GPU request');
   await expect(finalGpuRequest).toContainText('Auto-pick GPU');
@@ -677,6 +693,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByText(/Workload preset applied: Fine-tune 7/)).toBeVisible();
   await expect(page.getByText(/Launch remains Auto-pick until you choose Use as launch GPU/)).toBeVisible();
   await expect(page.getByText('Workload match').first()).toBeVisible();
+  await expect(gpuRecommendation).toContainText('Fine-tune 7–13B currently points to RTX 4090');
   await expect(gpuSelectionStrip).toContainText('Browse filter 24 GB+');
   await expect(gpuSelectionStrip).toContainText('Fine-tune 7–13B');
   await expect(gpuPickerStatus).toContainText('Selected for launch: Auto-pick');
@@ -699,7 +716,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Launch review')).toContainText('Auto-pick GPU');
   await expect(page.getByLabel('Launch review')).toContainText('Trial via grant credit · DCP/community GPUs');
 
-  await page.getByRole('radio', { name: /RTX 4090/ }).click();
+  await gpuRecommendation.getByRole('button', { name: 'Use recommended GPU' }).click();
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('RTX 4090');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Fixed request: RTX 4090');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('gpu_type = RTX 4090');
@@ -709,6 +726,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuRequestChooser).toContainText('RTX 4090 selected');
   await expect(gpuRequestChooser).toContainText('This GPU type is pinned in the final request.');
   await expect(gpuRequestChooser.getByRole('button', { name: /Return to Auto-pick/ })).toHaveAttribute('aria-pressed', 'false');
+  await expect(gpuRecommendation).toContainText('Recommendation selected');
+  await expect(gpuRecommendation).toContainText('Recommendation is pinned in the launch request.');
+  await expect(gpuRecommendation).toContainText('gpu_type = RTX 4090');
   await expect(finalGpuRequest).toContainText('RTX 4090');
   await expect(finalGpuRequest).toContainText('gpu_type = RTX 4090');
   await expect(finalGpuRequest).toContainText('Pinned card · 24 GB VRAM');

@@ -749,6 +749,41 @@ function filterGpuTypes(
   })
 }
 
+function cheapestGpuType(arr: GpuType[]): GpuType | null {
+  return [...arr]
+    .sort((a, b) => {
+      const priceDiff = priceValue(a) - priceValue(b)
+      if (priceDiff !== 0) return priceDiff
+      if (a.vram_gb !== b.vram_gb) return a.vram_gb - b.vram_gb
+      return displayGpuType(a.gpu_model).localeCompare(displayGpuType(b.gpu_model))
+    })[0] || null
+}
+
+function recommendedGpuTypeForContext(
+  availableTypes: GpuType[],
+  opts: { workload?: Workload | null; templateMinVram?: number; browseMinVram?: number },
+): GpuType | null {
+  const available = availableTypes.filter((g) => g.available && g.sar_per_hour != null)
+  if (available.length === 0) return null
+
+  const floor = Math.max(
+    0,
+    opts.workload?.floor || 0,
+    opts.templateMinVram || 0,
+    opts.browseMinVram || 0,
+  )
+  const floorMatches = floor > 0 ? available.filter((g) => g.vram_gb >= floor) : available
+  const pool = floorMatches.length > 0 ? floorMatches : available
+  const prefer = opts.workload?.prefer?.trim().toLowerCase() || ''
+  if (prefer) {
+    const preferred = pool.filter((g) => g.gpu_model.toLowerCase().includes(prefer))
+    const cheapestPreferred = cheapestGpuType(preferred)
+    if (cheapestPreferred) return cheapestPreferred
+  }
+
+  return cheapestGpuType(pool)
+}
+
 export default function RenterPodsPage() {
   const { lang, toggle } = useV2()
 
@@ -1553,6 +1588,27 @@ export default function RenterPodsPage() {
   const finalGpuRequestDetail = selectedType
     ? `Pinned card · ${selectedType.vram_gb} GB VRAM${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
     : 'No fixed GPU card pinned. VRAM chips and workload presets are only browse filters.'
+  const recommendedGpuType = recommendedGpuTypeForContext(availableGpuTypes, {
+    workload: activeWorkloadPreset,
+    templateMinVram: selectedTemplateMinVram,
+    browseMinVram: minVram,
+  })
+  const recommendedGpuLabel = recommendedGpuType ? displayGpuType(recommendedGpuType.gpu_model) : ''
+  const recommendationMatchesSelected = !!selectedType && !!recommendedGpuType && selectedType.gpu_model === recommendedGpuType.gpu_model
+  const recommendationReasonLabel = recommendedGpuType
+    ? activeWorkloadPreset
+      ? `${activeWorkloadPreset.titleEn} currently points to ${recommendedGpuLabel}; it is the lowest priced available match for that workload floor.`
+      : selectedTemplateMinVram
+        ? `${selectedRuntimeLabel} recommends ${selectedTemplateMinVram} GB+; ${recommendedGpuLabel} is the lowest priced available match.`
+        : minVram > 0
+          ? `Current browse filter is ${minVram} GB+; ${recommendedGpuLabel} is the lowest priced available card in that view.`
+          : `${recommendedGpuLabel} is the lowest priced available card for this pod shape.`
+    : 'No available priced GPU card can be recommended yet.'
+  const recommendationStateLabel = recommendationMatchesSelected
+    ? 'Recommendation is pinned in the launch request.'
+    : selectedType
+      ? `Launch is pinned to ${displayGpuType(selectedType.gpu_model)}; the suggestion will not replace it unless you choose it.`
+      : 'Launch still uses Auto-pick until you press Use recommended GPU or choose a card.'
   const launchButtonLabel = selectedType
     ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
     : 'Launch auto-picked GPU pod'
@@ -1577,6 +1633,9 @@ export default function RenterPodsPage() {
   const gpuSourceAnswerLabel = selectedType
     ? 'GPU source: selected card'
     : 'GPU source: Auto-pick at launch'
+  const workspaceOutlinePrimaryLabel = workspacePathPrimaryFolder
+    ? `${workspacePathPrimaryFolder.label} · ${workspacePathPrimaryFolder.fileCount} files · ${humanBytes(workspacePathPrimaryFolder.totalBytes)}`
+    : 'No folder selected'
 
   function focusWorkspaceFolder(folderId: string) {
     setWorkspaceFolderFocusRequest((current) => ({
@@ -1905,6 +1964,23 @@ export default function RenterPodsPage() {
                       />
                     </em>
                   </div>
+                  <div className="pod-stage-folder-outline" aria-label={lang === 'ar' ? 'مخطط مجلدات المرحلة 1' : 'Stage 1 folder outline'}>
+                    <span>
+                      <b><Bi en="Workspace outline" ar="مخطط مساحة العمل" /></b>
+                      <em><Bi en={`${workspaceFolderCount} folders stay collapsed until one needs inspection.`} ar="تبقى المجلدات مطوية حتى يحتاج أحدها للفحص." /></em>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
+                    >
+                      <b><Bi en="Open busiest folder" ar="افتح أكثر مجلد نشاطاً" /></b>
+                      <em><Bi en={workspaceOutlinePrimaryLabel} ar="افتح مجلداً واحداً فقط." /></em>
+                    </button>
+                    <a href="#pod-stage-2">
+                      <b><Bi en="Next stop" ar="الخطوة التالية" /></b>
+                      <em><Bi en="Stage 2 is the actual GPU request." ar="المرحلة 2 هي طلب GPU الفعلي." /></em>
+                    </a>
+                  </div>
                   <div className="pod-stage-folder-peek-list">
                     {workspaceFolderPeek.map((folder) => (
                       <button
@@ -2120,6 +2196,54 @@ export default function RenterPodsPage() {
                 </a>
               </div>
             </div>
+
+            {recommendedGpuType && (
+              <div className={`pod-gpu-recommendation ${recommendationMatchesSelected ? 'selected' : selectedType ? 'pinned-other' : 'auto'}`} aria-label={lang === 'ar' ? 'توصية GPU للمرحلة 2' : 'Stage 2 GPU recommendation'}>
+                <div className="pod-gpu-recommendation-copy">
+                  <span><Bi en="Suggested GPU for this setup" ar="GPU مقترح لهذا الإعداد" /></span>
+                  <strong>{recommendedGpuLabel}</strong>
+                  <em><Bi en={recommendationReasonLabel} ar="اقتراح قابل للتطبيق؛ لا يغيّر طلب التشغيل إلا عند اختياره." /></em>
+                </div>
+                <div className="pod-gpu-recommendation-facts">
+                  <span>
+                    <b><Bi en="Actual request" ar="الطلب الفعلي" /></b>
+                    <code>{launchRequestPayloadLabel}</code>
+                  </span>
+                  <span>
+                    <b><Bi en="Suggestion state" ar="حالة الاقتراح" /></b>
+                    <em><Bi en={recommendationStateLabel} ar="الاقتراح لا يستبدل طلب التشغيل إلا عند اختياره." /></em>
+                  </span>
+                  <span>
+                    <b><Bi en="Memory selector" ar="اختيار الذاكرة" /></b>
+                    <em><Bi en="Browse chips, not a launch slider" ar="شرائح للتصفح وليست منزلق تشغيل." /></em>
+                  </span>
+                  <span>
+                    <b><Bi en="Trial route" ar="مسار التجربة" /></b>
+                    <em><Bi en={trialRouteAnswerLabel} ar="سعة DCP والمجتمع" /></em>
+                  </span>
+                </div>
+                <div className="pod-gpu-recommendation-actions">
+                  {recommendationMatchesSelected ? (
+                    <span className="selected">
+                      <Bi en="Recommendation selected" ar="تم اختيار الاقتراح" />
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => selectGpuType(recommendedGpuType.gpu_model)}
+                    >
+                      <Bi en="Use recommended GPU" ar="استخدم GPU المقترح" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+                  >
+                    <Bi en="Keep Auto-pick request" ar="أبقِ طلب الاختيار التلقائي" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className={`pod-final-gpu-request ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'طلب GPU النهائي' : 'Final GPU request'}>
               <span><Bi en="Final GPU request" ar="طلب GPU النهائي" /></span>

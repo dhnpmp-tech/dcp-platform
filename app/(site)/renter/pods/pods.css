@@ -1068,6 +1068,62 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   line-height: 1.4;
   color: var(--ink-2);
 }
+.pod-stage-folder-outline {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid color-mix(in oklab, var(--orange) 28%, var(--hair));
+  background: var(--hair);
+}
+.pod-stage-folder-outline span,
+.pod-stage-folder-outline button,
+.pod-stage-folder-outline a {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  padding: 11px 12px;
+  border: 0;
+  background: color-mix(in oklab, var(--orange) 4%, var(--paper));
+  color: var(--ink-2);
+  text-align: start;
+  text-decoration: none;
+  border-radius: 0;
+}
+.pod-stage-folder-outline button,
+.pod-stage-folder-outline a {
+  cursor: pointer;
+}
+.pod-stage-folder-outline button:hover,
+.pod-stage-folder-outline button:focus-visible,
+.pod-stage-folder-outline a:hover,
+.pod-stage-folder-outline a:focus-visible {
+  background: color-mix(in oklab, var(--rt-accent) 8%, var(--paper));
+  outline: none;
+}
+.pod-stage-folder-outline b,
+.pod-stage-folder-outline em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pod-stage-folder-outline b {
+  color: color-mix(in oklab, var(--orange) 88%, var(--ink));
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.pod-stage-folder-outline em {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .03em;
+  line-height: 1.4;
+}
 .pod-stage-folder-peek-list {
   min-width: 0;
   display: grid;
@@ -1196,6 +1252,9 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   }
   .pod-stage-folder-peek-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pod-stage-folder-outline {
+    grid-template-columns: 1fr;
   }
   .pod-stage-folder-path {
     grid-template-columns: 1fr;
@@ -1406,6 +1465,171 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 @media (max-width: 560px) {
   .pod-stage2-priority-copy strong {
     font-size: 30px;
+  }
+}
+
+.pod-gpu-recommendation {
+  display: grid;
+  grid-template-columns: minmax(300px, .95fr) minmax(0, 1.25fr) auto;
+  gap: 0;
+  align-items: stretch;
+  margin: 0 0 14px;
+  border: 1px solid color-mix(in oklab, var(--orange) 48%, var(--hair));
+  background: var(--hair);
+  box-shadow: inset 4px 0 0 color-mix(in oklab, var(--orange) 82%, var(--ink));
+}
+.pod-gpu-recommendation.selected {
+  border-color: color-mix(in oklab, var(--rt-accent) 58%, var(--hair));
+  box-shadow: inset 4px 0 0 var(--rt-accent);
+}
+.pod-gpu-recommendation-copy,
+.pod-gpu-recommendation-facts,
+.pod-gpu-recommendation-actions {
+  min-width: 0;
+  background: color-mix(in oklab, var(--orange) 5%, var(--paper));
+}
+.pod-gpu-recommendation-copy {
+  display: grid;
+  gap: 5px;
+  align-content: center;
+  padding: 16px 17px;
+  border-inline-end: 1px solid var(--hair);
+}
+.pod-gpu-recommendation-copy span {
+  color: color-mix(in oklab, var(--orange) 88%, var(--ink));
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.pod-gpu-recommendation-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: .98;
+}
+.pod-gpu-recommendation-copy em {
+  min-width: 0;
+  max-width: 64ch;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+}
+.pod-gpu-recommendation-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hair);
+}
+.pod-gpu-recommendation-facts span {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  align-content: center;
+  padding: 11px 12px;
+  background: var(--paper);
+  color: var(--ink-2);
+}
+.pod-gpu-recommendation-facts b {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.pod-gpu-recommendation-facts code,
+.pod-gpu-recommendation-facts em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .03em;
+  line-height: 1.35;
+}
+.pod-gpu-recommendation-facts code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 40%, var(--hair));
+  background: color-mix(in oklab, var(--rt-accent) 7%, transparent);
+  color: var(--rt-accent);
+}
+.pod-gpu-recommendation-actions {
+  min-width: 190px;
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  padding: 13px;
+  border-inline-start: 1px solid var(--hair);
+}
+.pod-gpu-recommendation-actions button,
+.pod-gpu-recommendation-actions span {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 11px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.pod-gpu-recommendation-actions button {
+  cursor: pointer;
+}
+.pod-gpu-recommendation-actions button:first-child {
+  border-color: color-mix(in oklab, var(--orange) 72%, var(--hair));
+  background: color-mix(in oklab, var(--orange) 10%, var(--paper));
+  color: var(--ink);
+}
+.pod-gpu-recommendation-actions button:hover,
+.pod-gpu-recommendation-actions button:focus-visible {
+  border-color: var(--rt-accent);
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  outline: none;
+}
+.pod-gpu-recommendation-actions span.selected {
+  border-color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 12%, var(--paper));
+  color: var(--rt-accent);
+}
+@media (max-width: 1060px) {
+  .pod-gpu-recommendation {
+    grid-template-columns: 1fr;
+  }
+  .pod-gpu-recommendation-copy,
+  .pod-gpu-recommendation-actions {
+    border-inline-end: 0;
+    border-inline-start: 0;
+  }
+  .pod-gpu-recommendation-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .pod-gpu-recommendation-facts,
+  .pod-gpu-recommendation-actions {
+    grid-template-columns: 1fr;
+  }
+  .pod-gpu-recommendation-copy strong {
+    font-size: 26px;
   }
 }
 
