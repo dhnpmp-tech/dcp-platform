@@ -19,6 +19,11 @@ test('pricing page surfaces live model feature-readiness gates', async ({ page }
             sar_per_1m_input_tokens: '0.3000',
             sar_per_1m_output_tokens: '0.6000',
             source: 'model_registry',
+            contract: {
+              version: 'dcp.model_token_pricing.v1',
+              source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+              usd_display_only: true,
+            },
           },
           capability_flags: {
             streaming: true,
@@ -62,6 +67,11 @@ test('pricing page surfaces live model feature-readiness gates', async ({ page }
             sar_per_1m_input_tokens: '0.8000',
             sar_per_1m_output_tokens: '1.5000',
             source: 'model_registry',
+            contract: {
+              version: 'dcp.model_token_pricing.v1',
+              source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+              usd_display_only: true,
+            },
           },
           capability_flags: {
             streaming: true,
@@ -103,6 +113,11 @@ test('pricing page surfaces live model feature-readiness gates', async ({ page }
             sar_per_1m_input_tokens: '2.0000',
             sar_per_1m_output_tokens: '4.0000',
             source: 'model_registry',
+            contract: {
+              version: 'dcp.model_token_pricing.v1',
+              source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+              usd_display_only: true,
+            },
           },
           feature_readiness: {
             version: 'dcp.model_feature_readiness.v1',
@@ -122,8 +137,11 @@ test('pricing page surfaces live model feature-readiness gates', async ({ page }
   await expect(catalog).toContainText('Live API catalog');
   await expect(catalog).toContainText('/v1/models');
   await expect(catalog).toContainText('2 serveable models');
+  await expect(catalog).toContainText('dcp.model_token_pricing.v1');
   await expect(catalog).toContainText('Qwen 3 Coder');
   await expect(catalog).toContainText('2 live');
+  await expect(catalog).toContainText('model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok');
+  await expect(catalog).toContainText('USD display only');
   await expect(catalog).toContainText('SAR 0.30');
   await expect(catalog).toContainText('SAR 0.60');
   await expect(catalog).toContainText('DeepSeek V3');

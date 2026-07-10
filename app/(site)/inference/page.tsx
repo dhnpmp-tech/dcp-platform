@@ -102,6 +102,19 @@ interface ModelPricing {
   sar_per_1m_output_tokens?: string | number | null
   halala_per_1m_input_tokens?: number | null
   halala_per_1m_output_tokens?: number | null
+  source?: string | null
+  contract?: ModelPricingContract | null
+}
+
+interface ModelPricingContract {
+  version?: string
+  currency?: string
+  billing_unit?: string
+  source?: string
+  source_contract?: string
+  usd_display_only?: boolean
+  settlement_path?: string
+  claim_guards?: Record<string, boolean>
 }
 
 interface InferenceModel {
@@ -359,6 +372,7 @@ export default function InferenceProductPage() {
   const availableCatalogModels = catalogModels.filter((model) => model.available).length
   const providerBackedModels = catalogModels.filter((model) => (model.provider_count || 0) > 0).length
   const maxContextTokens = catalogModels.reduce((max, model) => Math.max(max, modelContext(model)), 0)
+  const pricingContract = catalogModels.map((model) => modelPricing(model).contract).find(Boolean)
   const promptCacheGate = promptCacheReadiness?.live_acceptance?.provider_discount_smoke || null
   const promptCacheMode = promptCacheReadiness?.current_mode || 'measurement_only_no_discount'
   const promptCacheDiscountsEnabled = promptCacheReadiness?.billing?.discounts_enabled === true
@@ -440,6 +454,10 @@ export default function InferenceProductPage() {
                     <em><Bi en="Max context" ar="أكبر سياق" /></em>
                     <strong>{formatContext(maxContextTokens)}</strong>
                   </span>
+                  <span>
+                    <em><Bi en="Pricing contract" ar="عقد التسعير" /></em>
+                    <strong>{pricingContract?.version || 'dcp.model_token_pricing.v1'}</strong>
+                  </span>
                 </div>
                 <div className="model-live-list">
                   {visibleCatalogModels.map((model) => {
@@ -464,7 +482,9 @@ export default function InferenceProductPage() {
                           <strong>{formatSar(pricing.sar_per_1m_input_tokens)} in / {formatSar(pricing.sar_per_1m_output_tokens)} out</strong>
                         </span>
                         <span><em><Bi en="State" ar="الحالة" /></em><strong>{model.available ? 'serving' : formatPolicyStatus(model.status || 'catalog_only')}</strong></span>
-                        {chips.length > 0 && <small>{chips.join(' · ')}</small>}
+                        <small>
+                          {[...chips, pricing.source || 'catalog', pricing.contract?.version || null].filter(Boolean).join(' · ')}
+                        </small>
                       </div>
                     )
                   })}

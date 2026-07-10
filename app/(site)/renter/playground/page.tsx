@@ -98,6 +98,18 @@ interface ModelPricing {
   halala_per_1m_output_tokens?: number
   billing_unit?: string
   source?: string
+  contract?: ModelPricingContract
+}
+
+interface ModelPricingContract {
+  version?: string
+  currency?: string
+  billing_unit?: string
+  source?: string
+  source_contract?: string
+  usd_display_only?: boolean
+  settlement_path?: string
+  claim_guards?: Record<string, boolean>
 }
 
 interface ModelCapabilityFlags {
@@ -1158,7 +1170,7 @@ export default function PlaygroundPage() {
                   ))}
                 </div>
                 {selectedModel && (
-                  <div className="model-contract">
+                  <div className="model-contract" aria-label={lang === 'ar' ? 'عقد النموذج المحدد' : 'Selected contract'}>
                     <div className="model-contract-head">
                       <span><Bi en="Selected contract" ar="عقد النموذج المحدد" /></span>
                       <b>{formatContractStatus(selectedModel.status || 'available')}</b>
@@ -1208,10 +1220,18 @@ export default function PlaygroundPage() {
                     </div>
                     <div className="model-contract-note mono">
                       <Bi
-                        en={`pricing source: ${selectedModel.pricing?.source || 'catalog'}`}
-                        ar={`مصدر التسعير: ${selectedModel.pricing?.source || 'catalog'}`}
+                        en={`pricing source: ${selectedModel.pricing?.source || 'catalog'} · contract: ${selectedModel.pricing?.contract?.version || 'dcp.model_token_pricing.v1'} · ${selectedModel.pricing?.contract?.usd_display_only ? 'USD display only' : 'SAR source of truth'}`}
+                        ar={`مصدر التسعير: ${selectedModel.pricing?.source || 'catalog'} · العقد: ${selectedModel.pricing?.contract?.version || 'dcp.model_token_pricing.v1'}`}
                       />
                     </div>
+                    {selectedModel.pricing?.contract?.source_contract && (
+                      <div className="model-contract-note mono">
+                        <Bi
+                          en={`${selectedModel.pricing.contract.source_contract} · ${selectedModel.pricing.contract.settlement_path || 'usage.pricing'}`}
+                          ar={`${selectedModel.pricing.contract.source_contract} · ${selectedModel.pricing.contract.settlement_path || 'usage.pricing'}`}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

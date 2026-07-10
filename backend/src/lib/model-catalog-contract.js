@@ -30,6 +30,16 @@ function toSarStringFromHalala(halalaValue) {
   return (halala / 100).toFixed(4);
 }
 
+function pricingSourceContract(source) {
+  if (source === 'model_registry') {
+    return 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok';
+  }
+  if (source === 'cost_rates') {
+    return 'cost_rates.token_rate_halala';
+  }
+  return 'unconfigured';
+}
+
 function toTokenPricingContract({
   inputHalalaPer1m,
   outputHalalaPer1m,
@@ -49,6 +59,27 @@ function toTokenPricingContract({
     halala_per_1m_output_tokens: outputRate,
     billing_unit: 'per_1m_tokens',
     source,
+    contract: {
+      version: 'dcp.model_token_pricing.v1',
+      currency: 'SAR',
+      billing_unit: 'per_1m_tokens',
+      source,
+      source_contract: pricingSourceContract(source),
+      rate_fields: {
+        input_halala_per_1m_tokens: 'halala_per_1m_input_tokens',
+        output_halala_per_1m_tokens: 'halala_per_1m_output_tokens',
+        input_sar_per_1m_tokens: 'sar_per_1m_input_tokens',
+        output_sar_per_1m_tokens: 'sar_per_1m_output_tokens',
+      },
+      usd_display_only: true,
+      settlement_path: 'POST /v1/chat/completions usage.pricing',
+      claim_guards: {
+        changes_billing: false,
+        changes_settlement: false,
+        changes_provider_selection: false,
+        changes_request_routing: false,
+      },
+    },
     model_class: modelClass,
   };
 }

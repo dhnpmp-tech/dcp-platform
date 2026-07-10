@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 00:48 UTC - `feat(inference): expose model pricing contract - PR #932`
+
+**PR:** [#932](https://github.com/dhnpmp-tech/dcp-platform/pull/932) (`codex/model-pricing-contract-v2-2026-07-10`).
+**Local timestamp:** 2026-07-10 04:48 +04.
+
+**What:** Fireworks/Tinker inference metadata hardening slice. Makes the token-pricing contract behind `/v1/models`, `/api/models`, and `/api/models/catalog` machine-readable and visible on public/renter model-inspection surfaces.
+
+- **Backend contract:** Shared `toTokenPricingContract` now emits `pricing.contract.version = dcp.model_token_pricing.v1`, SAR currency/billing-unit metadata, the source contract used for rates, USD-display-only status, settlement path, and false billing/settlement/routing/provider-selection claim guards.
+- **Surface parity:** `/v1/models`, `/api/models`, and `/api/models/catalog` inherit the same nested pricing contract from the shared helper; model-catalog parity proof now names pricing-contract coverage.
+- **Frontend visibility:** `/inference`, `/pricing`, and `/renter/playground` now show the model pricing contract/source metadata next to the live model rates so users and agents can distinguish catalog-backed SAR rates from display-only USD fields.
+- **Agent docs/OpenAPI:** `docs/openapi.yaml`, `public/docs/openapi.yaml`, and `public/llms.txt` document the nested pricing contract and source fields.
+- **Safety:** Additive metadata/frontend/test/docs change; no rate values, token accounting, pod pricing, billing, settlement, provider selection, request routing, balance mutation, prompt-cache discount, batch execution, LoRA serving, or dedicated-deployment behavior changed.
+- **Verification:** Targeted model catalog Jest/parity proof and focused `/inference`, `/pricing`, and Playground Playwright regressions; full build/proof sweep before merge.
+
 ### 2026-07-10 00:33 UTC - `feat(pods): remember Stage 1 workspace focus - PR #931`
 
 **PR:** [#931](https://github.com/dhnpmp-tech/dcp-platform/pull/931) (`codex/pods-workspace-focus-2026-07-10`).

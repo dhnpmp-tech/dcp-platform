@@ -422,11 +422,18 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #880 added a live catalog rail with serving model count, provider-backed
     rows, maximum context, SAR input/output pricing, and catalog-only state
     without changing model availability semantics.
+  - PR #932 adds the machine-readable `dcp.model_token_pricing.v1` contract to
+    model pricing metadata and surfaces it on `/inference`, `/pricing`, and
+    `/renter/playground`, so SAR source-of-truth rates, display-only USD fields,
+    and no-mutation guards are visible where users inspect models.
 - Keep model catalog/pricing parity proofable.
   - PR #881 added `npm run proof:model-catalog-parity`, covering `/v1/models`,
     `/api/models`, and `/api/models/catalog` token pricing, provider count,
     availability, capability flags, readiness, modalities, and max-output
     metadata parity.
+  - PR #932 extends that proof scope to include the nested token-pricing
+    contract, source contract, settlement path, and false billing/routing claim
+    guards without changing price values or routing behavior.
 - Surface model metadata in the Playground from `/v1/models`.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to

@@ -9030,8 +9030,49 @@ paths:
                               example: per_1m_tokens
                             source:
                               type: string
-                              enum: [model_registry, cost_rates]
+                              enum: [model_registry, cost_rates, unconfigured]
                               example: model_registry
+                            contract:
+                              type: object
+                              description: Machine-readable DCP token-pricing contract; SAR/halala are source-of-truth, USD fields are display only.
+                              properties:
+                                version:
+                                  type: string
+                                  example: dcp.model_token_pricing.v1
+                                currency:
+                                  type: string
+                                  example: SAR
+                                billing_unit:
+                                  type: string
+                                  example: per_1m_tokens
+                                source:
+                                  type: string
+                                  enum: [model_registry, cost_rates, unconfigured]
+                                  example: model_registry
+                                source_contract:
+                                  type: string
+                                  example: model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok
+                                usd_display_only:
+                                  type: boolean
+                                  example: true
+                                settlement_path:
+                                  type: string
+                                  example: POST /v1/chat/completions usage.pricing
+                                claim_guards:
+                                  type: object
+                                  properties:
+                                    changes_billing:
+                                      type: boolean
+                                      example: false
+                                    changes_settlement:
+                                      type: boolean
+                                      example: false
+                                    changes_provider_selection:
+                                      type: boolean
+                                      example: false
+                                    changes_request_routing:
+                                      type: boolean
+                                      example: false
                         capability_flags:
                           type: object
                           properties:

@@ -102,6 +102,12 @@ test('public inference page renders live model catalog metadata', async ({ page 
           pricing: {
             sar_per_1m_input_tokens: '0.3000',
             sar_per_1m_output_tokens: '0.6000',
+            source: 'model_registry',
+            contract: {
+              version: 'dcp.model_token_pricing.v1',
+              source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+              usd_display_only: true,
+            },
           },
           capability_flags: { streaming: true },
         },
@@ -114,6 +120,12 @@ test('public inference page renders live model catalog metadata', async ({ page 
           pricing: {
             sar_per_1m_input_tokens: '2.0000',
             sar_per_1m_output_tokens: '4.0000',
+            source: 'model_registry',
+            contract: {
+              version: 'dcp.model_token_pricing.v1',
+              source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+              usd_display_only: true,
+            },
           },
           status: 'no_providers',
           capability_flags: { vision: true, lora: true },
@@ -132,8 +144,11 @@ test('public inference page renders live model catalog metadata', async ({ page 
   await expect(catalogRail).toContainText('Provider-backed');
   await expect(catalogRail).toContainText('Max context');
   await expect(catalogRail).toContainText('128K');
+  await expect(catalogRail).toContainText('Pricing contract');
+  await expect(catalogRail).toContainText('dcp.model_token_pricing.v1');
   await expect(catalogRail).toContainText('Qwen 2.5 7B');
   await expect(catalogRail).toContainText('SAR 0.30 in / SAR 0.60 out');
+  await expect(catalogRail).toContainText('model_registry');
   await expect(catalogRail).toContainText('serving');
   await expect(catalogRail).toContainText('Future Model');
   await expect(catalogRail).toContainText('no providers');

@@ -205,6 +205,21 @@ describe('model catalog contract parity', () => {
       usd_per_1m_output_tokens: '0.400000',
       billing_unit: 'per_1m_tokens',
       source: 'model_registry',
+      contract: {
+        version: 'dcp.model_token_pricing.v1',
+        currency: 'SAR',
+        billing_unit: 'per_1m_tokens',
+        source: 'model_registry',
+        source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+        usd_display_only: true,
+        settlement_path: 'POST /v1/chat/completions usage.pricing',
+        claim_guards: {
+          changes_billing: false,
+          changes_settlement: false,
+          changes_provider_selection: false,
+          changes_request_routing: false,
+        },
+      },
     };
 
     expect(v1Model.pricing).toMatchObject(expectedPricing);
