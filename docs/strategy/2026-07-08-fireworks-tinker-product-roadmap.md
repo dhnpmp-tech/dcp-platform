@@ -213,6 +213,11 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     no live trial-account tag under grant-credit provenance, trial credit routes
     to DCP/community GPUs, high-demand GPUs require paid credit, and the launch
     GPU source is either Auto-pick or a selected card.
+  - PR #946 adds a collapsed Stage 1 folder outline and a Stage 2 GPU
+    recommendation card. The recommendation names the suggested card for the
+    current template/workload/browse context, shows the actual `gpu_type`
+    request beside it, and labels memory chips as browse controls rather than a
+    launch slider.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -329,6 +334,9 @@ Acceptance:
   - PR #925 keeps those contracts read-only and adds a pre-filter GPU
     source-of-truth callout: launch GPU comes only from Auto-pick or an
     explicitly selected card, not the VRAM/workload/search controls.
+  - PR #946 keeps the same read-only routing and billing boundary while adding
+    the Stage 2 recommendation panel: a suggested GPU can be applied explicitly,
+    but the actual request remains Auto-pick or the selected-card `gpu_type`.
 - Workspace upload -> launch pod -> files visible in `/workspace` is verified.
   - PR #810 verifies the code contract for this path in CI; the real
     provider-host smoke is still required for acceptance.

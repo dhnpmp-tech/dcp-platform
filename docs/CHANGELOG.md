@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-10 04:21 UTC - Stage 2 GPU recommendation clarity (PR #946)
+
+- **PR:** [#946](https://github.com/dhnpmp-tech/dcp-platform/pull/946) (`codex/pods-stage2-recommendation-ux-2026-07-10`).
+- **Timestamp:** 2026-07-10 04:21 UTC / 2026-07-10 08:21 +04.
+- **Workspace UX:** `/renter/pods` collapsed Stage 1 now includes a folder outline with workspace count, busiest-folder drilldown, and a direct Stage 2 handoff.
+- **GPU recommendation:** Stage 2 now shows a suggested GPU for the current template/workload/browse context, why it was suggested, and the actual `gpu_type` request beside it.
+- **Slider clarity:** Memory chips are explicitly labeled as browse controls, not a launch slider; only Auto-pick, "Use recommended GPU", or a selected card changes launch.
+- **Regression guard:** `tests/e2e/renter-pods-workspace-ux.spec.ts` covers the folder outline, recommendation copy, recommended-GPU action, and resulting fixed `gpu_type` state.
+- **Safety:** Frontend/test/docs-only change; no launch body, provider-selection, GPU filtering semantics, workspace API, routing, pricing, billing, balance, minimum-balance enforcement, trial-accounting, account classification, paid-credit policy, or provider/vendor exposure mutation.
+- **Verification:** `git diff --check`, `node tests/v2-renter-console-static.test.js`, focused `/renter/pods` Playwright regression, clean Next build, and local roadmap proof suite (38/38).
+
 ### 2026-07-10 04:06 UTC - Renter platform readiness and launch clarity (PR #945)
 
 - **PR:** [#945](https://github.com/dhnpmp-tech/dcp-platform/pull/945) (`codex/renter-dashboard-platform-readiness-2026-07-10`).

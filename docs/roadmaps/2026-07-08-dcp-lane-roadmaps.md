@@ -281,6 +281,10 @@ what is live.
   summary -> one-folder -> Stage 2 is visible without opening the file manager,
   and the command center answers trial tagging, DCP/community trial capacity,
   high-demand paid-credit routing, and Auto-pick vs selected-card GPU source.
+- PR #946 adds a collapsed Stage 1 folder outline and Stage 2 recommendation
+  card: renters see the busiest-folder drilldown, the suggested GPU for the
+  current template/workload/browse context, and the actual `gpu_type` request
+  side by side so memory chips cannot read as a launch slider.
 
 ### Now
 
@@ -895,6 +899,10 @@ template launch.
 - PR #944 keeps that same launch contract but adds search to the closed Stage 1
   folder preview, so renters can find a matching folder/file without opening
   the full manifest before Stage 2.
+- PR #946 adds a Stage 2 recommendation panel that can explicitly apply the
+  suggested GPU while preserving the same source-of-truth rule: launch is
+  Auto-pick or the selected-card `gpu_type`, never the template, workload, or
+  memory browse controls by themselves.
 
 ### Now
 
