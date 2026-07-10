@@ -277,6 +277,10 @@ what is live.
 - PR #944 adds folder/file search directly to the collapsed Stage 1 folder
   preview, so large workspaces can stay closed while renters find a specific
   folder and keep Stage 2's actual launch GPU decision one click away.
+- PR #945 adds a collapsed Stage 1 path map and a launch-policy answer strip:
+  summary -> one-folder -> Stage 2 is visible without opening the file manager,
+  and the command center answers trial tagging, DCP/community trial capacity,
+  high-demand paid-credit routing, and Auto-pick vs selected-card GPU source.
 
 ### Now
 
@@ -1234,6 +1238,14 @@ DCP-hosted endpoint -> billed inference.
    create/stop deployment intent loop is visible before login, including
    create-intent and stop-intent snippets and separate metadata, intent-control,
    GPU artifact proof, and adapter load-proof stages.**
+   **PR #945 brings the same connected Fireworks/Tinker rail visibility into
+   `/renter/dashboard`: renters now see Inference, Prompt cache, Batch,
+   LoRA/adapters, and Pods readiness in one board backed by `/v1/models`,
+   `/v1/prompt-cache/settlement/readiness`, `/api/batches/readiness`,
+   `/api/lora/readiness`, and pod runway state. It also tightens `/renter/pods`
+   launch IA with a collapsed Stage 1 path map and explicit trial/GPU-source
+   answers, while all billing, routing, training, discount, and launch
+   mutations remain behind their existing proof gates.**
 
 ## Lane Proof Commands
 

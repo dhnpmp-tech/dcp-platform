@@ -1573,6 +1573,10 @@ export default function RenterPodsPage() {
     ? 'Stage 1 files are open'
     : 'Stage 1 files are collapsed'
   const mobileDockStage1Label = workspaceStageBodyOpen ? 'Stage 1 open' : 'Stage 1 collapsed'
+  const workspacePathPrimaryFolder = workspaceFolderPeek[0] || workspaceFolderPeekMatches[0] || null
+  const gpuSourceAnswerLabel = selectedType
+    ? 'GPU source: selected card'
+    : 'GPU source: Auto-pick at launch'
 
   function focusWorkspaceFolder(folderId: string) {
     setWorkspaceFolderFocusRequest((current) => ({
@@ -1746,6 +1750,24 @@ export default function RenterPodsPage() {
                 <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
               </span>
             </div>
+            <div className="pod-command-answers" aria-label={lang === 'ar' ? 'إجابات سياسة التشغيل' : 'Launch policy answers'}>
+              <span>
+                <b><Bi en="Trial tagging" ar="وسم التجربة" /></b>
+                <em><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} /></em>
+              </span>
+              <span>
+                <b><Bi en="Trial capacity" ar="سعة التجربة" /></b>
+                <em><Bi en="Grant credit routes to DCP/community GPUs" ar="رصيد المنحة يذهب إلى وحدات DCP والمجتمع" /></em>
+              </span>
+              <span>
+                <b><Bi en="High-demand" ar="الطلب العالي" /></b>
+                <em><Bi en="Paid credit only" ar="رصيد مدفوع فقط" /></em>
+              </span>
+              <span>
+                <b><Bi en="GPU source" ar="مصدر GPU" /></b>
+                <em><Bi en={gpuSourceAnswerLabel} ar={selectedType ? 'المصدر: البطاقة المحددة' : 'المصدر: اختيار تلقائي عند التشغيل'} /></em>
+              </span>
+            </div>
           </div>
 
           <div className={`pod-mobile-launch-dock ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'شريط تشغيل مختصر' : 'Mobile launch dock'}>
@@ -1912,6 +1934,31 @@ export default function RenterPodsPage() {
                         <small><Bi en="expand Stage 1" ar="افتح المرحلة 1" /></small>
                       </button>
                     )}
+                  </div>
+                  <div className="pod-stage-folder-path" aria-label={lang === 'ar' ? 'مسار المرحلة 1 المطوية' : 'Collapsed Stage 1 path'}>
+                    <span>
+                      <b>1</b>
+                      <strong><Bi en="Summary first" ar="الملخص أولاً" /></strong>
+                      <em><Bi en="Use folder counts instead of scrolling every file." ar="استخدم عدد المجلدات بدلاً من التمرير على كل ملف." /></em>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
+                    >
+                      <b>2</b>
+                      <strong><Bi en="Open one folder" ar="افتح مجلداً واحداً" /></strong>
+                      <em>
+                        <Bi
+                          en={workspacePathPrimaryFolder ? `${workspacePathPrimaryFolder.label} opens; other folders stay closed.` : 'Open Stage 1 only when files need changes.'}
+                          ar="افتح مجلداً واحداً فقط؛ تبقى البقية مطوية."
+                        />
+                      </em>
+                    </button>
+                    <a href="#pod-stage-2">
+                      <b>3</b>
+                      <strong><Bi en="Stage 2 GPU" ar="GPU المرحلة 2" /></strong>
+                      <em><Bi en="Skip file review when the summary is enough." ar="تجاوز مراجعة الملفات عندما يكفي الملخص." /></em>
+                    </a>
                   </div>
                 </div>
               )}

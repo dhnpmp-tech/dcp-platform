@@ -88,6 +88,118 @@ interface PodsResp {
   pods?: PodLite[]
 }
 
+type PlatformReadinessState = 'loading' | 'ready' | 'partial' | 'missing-key' | 'error'
+
+interface ModelCatalogRow {
+  id?: string
+  pricing?: {
+    contract?: {
+      version?: string
+    }
+  }
+  capability_contract?: {
+    version?: string
+  }
+  feature_readiness?: Record<string, unknown>
+}
+
+interface ModelCatalogResp {
+  data?: ModelCatalogRow[]
+}
+
+interface PromptCacheSettlementReadiness {
+  object?: string
+  version?: string
+  current_mode?: string
+  policy?: {
+    cached_input_discounts_enabled?: boolean
+    settlement_discounts_enabled?: boolean
+    provider_cache_hit_evidence?: {
+      status?: string
+    }
+    discount_policy?: {
+      status?: string
+    }
+  }
+  claim_guards?: {
+    cached_input_discounts_enabled?: boolean
+    settlement_discounts_enabled?: boolean
+    mutates_balance?: boolean
+    dispatches_inference?: boolean
+  }
+}
+
+interface BatchReadinessResp {
+  readiness?: {
+    object?: string
+    version?: string
+    current_mode?: string
+    public_execution_enabled?: boolean
+    features?: {
+      discounts?: {
+        enabled?: boolean
+        status?: string
+      }
+      worker_execution?: {
+        public_enabled?: boolean
+        status?: string
+      }
+    }
+    claims?: {
+      batch_execution_live?: boolean
+      batch_discount_live?: boolean
+    }
+    live_acceptance?: {
+      execution_discount_smoke?: {
+        status?: string
+        command?: string
+      }
+    }
+  }
+}
+
+interface LoraReadinessResp {
+  object?: string
+  version?: string
+  current_mode?: string
+  training_jobs?: {
+    status?: string
+    public_training_enabled?: boolean
+    worker_execution_enabled?: boolean
+  }
+  adapter_registry?: {
+    status?: string
+    api_available?: boolean
+    serving_enabled?: boolean
+    route_traffic?: boolean
+  }
+  adapter_deployments?: {
+    status?: string
+    serving_enabled?: boolean
+    route_traffic?: boolean
+    billing_enabled?: boolean
+  }
+  claim_guards?: {
+    public_training_enabled?: boolean
+    public_serving_enabled?: boolean
+    route_traffic?: boolean
+    tinker_compatible?: boolean
+  }
+}
+
+interface PlatformRail {
+  key: string
+  labelEn: string
+  labelAr: string
+  href: string
+  statusEn: string
+  statusAr: string
+  detailEn: string
+  detailAr: string
+  contract: string
+  tone: 'live' | 'gated' | 'checking'
+}
+
 // Renter pod quota (DCP_MAX_ACTIVE_PODS) — the bounded, runway-relevant "session".
 const MAX_ACTIVE_PODS = 2
 // Statuses that occupy an active pod slot (mirrors the pods page's ACTIVE_POD_STATUSES).
@@ -102,6 +214,23 @@ function initials(name: string): string {
   if (parts.length === 0) return '·'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+async function readOptionalJson<T>(url: string, options: RequestInit = {}): Promise<T | null> {
+  try {
+    const res = await fetch(url, { ...options, cache: 'no-store' })
+    if (!res.ok) return null
+    return (await res.json().catch(() => null)) as T | null
+  } catch {
+    return null
+  }
+}
+
+function formatContractStatus(value: string | undefined, fallback = 'checking'): string {
+  return String(value || fallback)
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export default function RenterDashboardPage() {
@@ -121,6 +250,11 @@ export default function RenterDashboardPage() {
   const [activeJobs, setActiveJobs] = useState<LiveJob[]>([])
   const [recentJobs, setRecentJobs] = useState<LiveJob[]>([])
   const [activePodCount, setActivePodCount] = useState<number | null>(null)
+  const [platformState, setPlatformState] = useState<PlatformReadinessState>('loading')
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalogResp | null>(null)
+  const [promptCacheSettlement, setPromptCacheSettlement] = useState<PromptCacheSettlementReadiness | null>(null)
+  const [batchReadinessResp, setBatchReadinessResp] = useState<BatchReadinessResp | null>(null)
+  const [loraReadiness, setLoraReadiness] = useState<LoraReadinessResp | null>(null)
 
   const liveJobs = useMemo(() => [...activeJobs, ...recentJobs], [activeJobs, recentJobs])
   // Runway view: how much of the balance is currently held by in-flight jobs, and
@@ -139,6 +273,7 @@ export default function RenterDashboardPage() {
     const key = getRenterKey()
     if (!key) {
       setDataState('missing-key')
+      setPlatformState('missing-key')
       return
     }
 
@@ -147,6 +282,7 @@ export default function RenterDashboardPage() {
     let cancelled = false
     setDataState('loading')
     setDataError('')
+    setPlatformState('loading')
 
     ;(async () => {
       try {
@@ -181,10 +317,34 @@ export default function RenterDashboardPage() {
             setActivePodCount((pd.pods ?? []).filter((p) => ACTIVE_POD_STATUSES.has(p.status)).length)
           }
         }
+        const platformResults = await Promise.allSettled([
+          readOptionalJson<ModelCatalogResp>('/v1/models'),
+          readOptionalJson<PromptCacheSettlementReadiness>('/v1/prompt-cache/settlement/readiness'),
+          readOptionalJson<BatchReadinessResp>(`${base}/batches/readiness`, { headers }),
+          readOptionalJson<LoraReadinessResp>(`${base}/lora/readiness`, { headers }),
+        ])
+        if (!cancelled) {
+          const modelData = platformResults[0].status === 'fulfilled' ? platformResults[0].value : null
+          const promptData = platformResults[1].status === 'fulfilled' ? platformResults[1].value : null
+          const batchData = platformResults[2].status === 'fulfilled' ? platformResults[2].value : null
+          const loraData = platformResults[3].status === 'fulfilled' ? platformResults[3].value : null
+          setModelCatalog(Array.isArray(modelData?.data) ? modelData : null)
+          setPromptCacheSettlement(promptData?.object === 'prompt_cache_settlement_readiness' ? promptData : null)
+          setBatchReadinessResp(batchData?.readiness?.object === 'batch_inference_readiness' ? batchData : null)
+          setLoraReadiness(loraData?.object === 'lora_readiness' ? loraData : null)
+          const loadedContracts = [
+            Array.isArray(modelData?.data),
+            promptData?.object === 'prompt_cache_settlement_readiness',
+            batchData?.readiness?.object === 'batch_inference_readiness',
+            loraData?.object === 'lora_readiness',
+          ].filter(Boolean).length
+          setPlatformState(loadedContracts === 4 ? 'ready' : loadedContracts > 0 ? 'partial' : 'error')
+        }
         if (!cancelled) setDataState('ready')
       } catch (err) {
         if (cancelled) return
         setDataState('error')
+        setPlatformState('error')
         setDataError(err instanceof Error ? err.message : 'Failed to load renter dashboard.')
       }
     })()
@@ -229,6 +389,86 @@ export default function RenterDashboardPage() {
   const displayWorkspace = workspaceName || (lang === 'ar' ? 'مساحة العمل' : 'Workspace')
   const wsInitials = initials(workspaceName || renterName || displayWorkspace)
   const userInitials = initials(renterName || workspaceName || displayName)
+  const modelRows = modelCatalog?.data ?? []
+  const pricedModelCount = modelRows.filter((row) => row.pricing?.contract?.version === 'dcp.model_token_pricing.v1').length
+  const capabilityModelCount = modelRows.filter((row) => row.capability_contract?.version === 'dcp.model_capability_contract.v1').length
+  const batchReadiness = batchReadinessResp?.readiness
+  const batchExecutionLive = batchReadiness?.public_execution_enabled === true || batchReadiness?.claims?.batch_execution_live === true
+  const batchDiscountLive = batchReadiness?.features?.discounts?.enabled === true || batchReadiness?.claims?.batch_discount_live === true
+  const promptCacheDiscountLive = promptCacheSettlement?.policy?.cached_input_discounts_enabled === true || promptCacheSettlement?.claim_guards?.cached_input_discounts_enabled === true
+  const loraTrainingLive = loraReadiness?.training_jobs?.public_training_enabled === true || loraReadiness?.training_jobs?.worker_execution_enabled === true
+  const adapterRouteLive = loraReadiness?.adapter_deployments?.route_traffic === true || loraReadiness?.claim_guards?.route_traffic === true
+  const platformStateLabel = platformState === 'ready'
+    ? '4 contracts synced'
+    : platformState === 'partial'
+      ? 'partial contract sync'
+      : platformState === 'missing-key'
+        ? 'renter key required'
+        : platformState === 'loading'
+          ? 'loading contracts'
+          : 'contracts unavailable'
+  const platformRails: PlatformRail[] = [
+    {
+      key: 'inference',
+      labelEn: 'Inference',
+      labelAr: 'الاستدلال',
+      href: '/renter/playground',
+      statusEn: modelRows.length > 0 ? `${modelRows.length} models · ${pricedModelCount} priced` : 'checking model catalog',
+      statusAr: modelRows.length > 0 ? `${modelRows.length} نماذج` : 'فحص الكتالوج',
+      detailEn: `${capabilityModelCount || 'No'} capability contracts visible; use Playground for live requests.`,
+      detailAr: 'عقود القدرة ظاهرة؛ استخدم البيئة التجريبية للطلبات الحية.',
+      contract: '/v1/models',
+      tone: modelRows.length > 0 ? 'live' : 'checking',
+    },
+    {
+      key: 'prompt-cache',
+      labelEn: 'Prompt cache',
+      labelAr: 'تخزين المحادثة',
+      href: '/renter/playground',
+      statusEn: promptCacheDiscountLive ? 'discounts live' : formatContractStatus(promptCacheSettlement?.policy?.provider_cache_hit_evidence?.status || promptCacheSettlement?.policy?.discount_policy?.status, 'settlement gated'),
+      statusAr: promptCacheDiscountLive ? 'الخصم يعمل' : 'التسوية مقيدة',
+      detailEn: 'Hash-only measurement is visible; provider hit evidence and discount approval still gate settlement.',
+      detailAr: 'القياس ظاهر؛ إثبات المزود والموافقة يقيدان الخصم.',
+      contract: '/v1/prompt-cache/settlement/readiness',
+      tone: promptCacheSettlement ? (promptCacheDiscountLive ? 'live' : 'gated') : 'checking',
+    },
+    {
+      key: 'batch',
+      labelEn: 'Batch',
+      labelAr: 'الدُفعات',
+      href: '/renter/batches',
+      statusEn: batchExecutionLive ? 'execution live' : formatContractStatus(batchReadiness?.current_mode, 'metadata only'),
+      statusAr: batchExecutionLive ? 'التنفيذ يعمل' : 'بيانات فقط',
+      detailEn: batchDiscountLive ? 'Discounts are live.' : 'JSONL validation and ledgers are available; worker execution, downloads, and discounts stay proof-gated.',
+      detailAr: 'التحقق والسجل متاحان؛ التنفيذ والخصومات مقيدة.',
+      contract: '/api/batches/readiness',
+      tone: batchReadiness ? (batchExecutionLive ? 'live' : 'gated') : 'checking',
+    },
+    {
+      key: 'lora',
+      labelEn: 'LoRA + adapters',
+      labelAr: 'LoRA والمحوّلات',
+      href: '/renter/fine-tuning',
+      statusEn: adapterRouteLive ? 'adapter routing live' : formatContractStatus(loraReadiness?.current_mode, 'metadata only'),
+      statusAr: adapterRouteLive ? 'توجيه المحوّل يعمل' : 'بيانات فقط',
+      detailEn: loraTrainingLive ? 'Training worker is enabled.' : 'Dataset validation, job metadata, adapter registry, and deployment intents are visible; GPU artifact/load proof still gates serving.',
+      detailAr: 'التحقق والبيانات ظاهرة؛ إثبات GPU وتحميل المحوّل يقيدان الخدمة.',
+      contract: '/api/lora/readiness',
+      tone: loraReadiness ? (adapterRouteLive || loraTrainingLive ? 'live' : 'gated') : 'checking',
+    },
+    {
+      key: 'pods',
+      labelEn: 'Pods',
+      labelAr: 'الحاويات',
+      href: '/renter/pods',
+      statusEn: activePodCount != null ? `${activePodCount} / ${MAX_ACTIVE_PODS} active` : 'checking pods',
+      statusAr: activePodCount != null ? `${activePodCount} / ${MAX_ACTIVE_PODS} نشطة` : 'فحص الحاويات',
+      detailEn: 'Launch GPU pods, attach /workspace, and use Stage 2 to choose Auto-pick or a fixed GPU card.',
+      detailAr: 'شغّل حاويات GPU واختر GPU في المرحلة 2.',
+      contract: '/api/pods',
+      tone: activePodCount != null ? 'live' : 'checking',
+    },
+  ]
 
   return (
     <div className="rt-app">
@@ -490,6 +730,55 @@ export default function RenterDashboardPage() {
               </span>
             </div>
           </div>
+
+          <section className={`platform-readiness ${platformState}`} aria-label={lang === 'ar' ? 'جاهزية منصة DCP' : 'Platform readiness'}>
+            <div className="platform-readiness-head">
+              <div>
+                <span className="platform-eyebrow">
+                  <Bi en="Fireworks/Tinker rails" ar="مسارات Fireworks/Tinker" />
+                </span>
+                <h2>
+                  <Bi en="Platform readiness" ar="جاهزية المنصة" />
+                </h2>
+                <p>
+                  <Bi
+                    en="One board for the connected DCP product: inference, prompt cache, Batch, LoRA/adapters, and Pods."
+                    ar="لوحة واحدة لمسارات DCP: الاستدلال، التخزين المؤقت، الدُفعات، LoRA، والحاويات."
+                  />
+                </p>
+              </div>
+              <span className={`platform-state ${platformState}`}>
+                <Bi en={platformStateLabel} ar={platformState === 'ready' ? 'العقود متزامنة' : 'جار الفحص'} />
+              </span>
+            </div>
+            <div className="platform-rail-grid">
+              {platformRails.map((rail) => (
+                <Link key={rail.key} href={rail.href} className={`platform-rail ${rail.tone}`}>
+                  <span><Bi en={rail.labelEn} ar={rail.labelAr} /></span>
+                  <strong><Bi en={rail.statusEn} ar={rail.statusAr} /></strong>
+                  <em><Bi en={rail.detailEn} ar={rail.detailAr} /></em>
+                  <code>{rail.contract}</code>
+                </Link>
+              ))}
+            </div>
+            <div className="platform-proof-row">
+              <span>
+                <Bi
+                  en="No billing, routing, training, discount, or launch mutation happens from this dashboard."
+                  ar="لا تغيّر هذه اللوحة الفوترة أو التوجيه أو التدريب أو الخصومات أو التشغيل."
+                />
+              </span>
+              <Link href="/fine-tuning">
+                <Bi en="Public fine-tuning page" ar="صفحة الضبط العامة" />
+              </Link>
+              <Link href="/batch">
+                <Bi en="Public Batch page" ar="صفحة الدُفعات العامة" />
+              </Link>
+              <Link href="/dedicated-deployments">
+                <Bi en="Dedicated endpoints" ar="نقاط النهاية المخصصة" />
+              </Link>
+            </div>
+          </section>
 
           {/* Quick actions + Live jobs */}
           <div className="two-col" style={{ marginTop: 28 }}>
