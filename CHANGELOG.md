@@ -14,6 +14,21 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 05:42 UTC - `test(adapter): add vLLM live acceptance evidence contract - PR #951`
+
+**PR:** [#951](https://github.com/dhnpmp-tech/dcp-platform/pull/951) (`codex/adapter-vllm-live-acceptance-evidence-contract-2026-07-10`).
+**Local timestamp:** 2026-07-10 09:42 +04.
+
+**What:** Fireworks/Tinker LoRA hardening. Makes adapter vLLM live load and billing acceptance evidence-driven so readiness, route traffic, endpoint smoke, and adapter billing claims cannot turn true without a single redacted proof artifact covering the full live flow.
+
+- **Shared contract:** Added `dcp.adapter_vllm_live_acceptance_evidence.v1` for the `adapter_vllm_load_billing_smoke` gate.
+- **LoRA readiness:** `GET /api/lora/readiness` now exposes `adapter_deployments.live_acceptance.vllm_load_billing_smoke` with pass condition, required evidence, blocked inputs, and claim-unlock mapping.
+- **Billing readiness:** `GET /api/adapters/billing/readiness` now exposes `policy.live_acceptance`, linking adapter billing policy to the same required evidence before billed endpoint claims can ship.
+- **Live proof runner:** `npm run proof:adapter-vllm-live-load` now emits acceptance evidence and fails if readiness claims adapter serving/routing/billing while adapter checksum, deployment intent, strict vLLM load proof, endpoint smoke, usage attribution, billing policy, or claim-boundary evidence is missing.
+- **Docs/contracts:** Updated OpenAPI, `llms.txt`, LoRA architecture docs, and Fireworks/Tinker roadmaps with the adapter live acceptance evidence contract and remaining production gates.
+- **Safety:** Evidence/test/docs-only hardening; no adapter serving, deployment mutation, route traffic, endpoint smoke recording, usage ledger write, adapter billing, invoice, payout, balance, minimum-balance enforcement, provider behavior, raw prompt/response exposure, discount, quality, or Tinker-compatibility claim changed.
+- **Verification:** Focused adapter vLLM live proof/billing readiness/LoRA Jest suites; blocked adapter vLLM live proof; adapter billing readiness proof; LoRA training contract proof; adapter deployment contract proof; OpenAPI parse; syntax checks; local roadmap proof (38/38); clean Next build; `git diff --check`.
+
 ### 2026-07-10 05:24 UTC - `feat(pods): add final launch confirmation - PR #950`
 
 **PR:** [#950](https://github.com/dhnpmp-tech/dcp-platform/pull/950) (`codex/pods-workspace-launch-confirmation-2026-07-10`).

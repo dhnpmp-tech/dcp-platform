@@ -1,8 +1,13 @@
 'use strict';
 
+const {
+  buildAdapterVllmLiveAcceptanceContract,
+} = require('./adapterVllmLiveAcceptanceContract');
+
 const ADAPTER_BILLING_READINESS_VERSION = 'dcp.adapter_billing_readiness.v1';
 
 function buildAdapterBillingReadiness(now = new Date()) {
+  const adapterVllmAcceptance = buildAdapterVllmLiveAcceptanceContract();
   return {
     object: 'adapter_billing_readiness',
     version: ADAPTER_BILLING_READINESS_VERSION,
@@ -95,6 +100,14 @@ function buildAdapterBillingReadiness(now = new Date()) {
         readiness_endpoint: 'GET /api/adapters/endpoints/smoke/readiness',
         smoke_recording_live: false,
         notes: 'Adapter endpoint smoke must prove strict load proof, funded principal, deterministic request, response hash, latency, token usage, and adapter trace before usage or billing claims.',
+      },
+      live_acceptance: {
+        status: 'blocked_external',
+        acceptance_contract: adapterVllmAcceptance.contract,
+        live_acceptance_gate: adapterVllmAcceptance.gate,
+        command: adapterVllmAcceptance.command,
+        required_evidence: adapterVllmAcceptance.required_evidence,
+        claim_unlocks: adapterVllmAcceptance.claim_unlocks,
       },
     },
     denial_codes: [

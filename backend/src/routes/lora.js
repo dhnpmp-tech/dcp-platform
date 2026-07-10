@@ -25,6 +25,11 @@ const { ADAPTER_ARTIFACT_POLICY_VERSION } = require('../services/adapterArtifact
 const { ADAPTER_BILLING_READINESS_VERSION } = require('../services/adapterBillingReadiness');
 const { ADAPTER_ENDPOINT_SMOKE_READINESS_VERSION } = require('../services/adapterEndpointSmokeReadiness');
 const { ADAPTER_USAGE_ATTRIBUTION_READINESS_VERSION } = require('../services/adapterUsageAttributionReadiness');
+const {
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_COMMAND,
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+  buildAdapterVllmLiveAcceptanceContract,
+} = require('../services/adapterVllmLiveAcceptanceContract');
 
 const LORA_READINESS_VERSION = 'dcp.lora_readiness.v1';
 const LORA_DATASET_VALIDATION_VERSION = 'dcp.lora_dataset_validation.v1';
@@ -159,6 +164,7 @@ function createLoraRouter(deps = {}) {
 }
 
 function buildLoraReadiness(now = new Date(), options = {}) {
+  const adapterVllmAcceptance = buildAdapterVllmLiveAcceptanceContract();
   return {
     object: 'lora_readiness',
     version: LORA_READINESS_VERSION,
@@ -260,6 +266,32 @@ function buildLoraReadiness(now = new Date(), options = {}) {
       load_proof_required: true,
       usage_attribution_required: true,
       billing_policy_required: true,
+      live_acceptance: {
+        vllm_load_billing_smoke: {
+          status: 'blocked_external',
+          command: ADAPTER_VLLM_LIVE_ACCEPTANCE_COMMAND,
+          live_acceptance_gate: ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+          acceptance_contract: adapterVllmAcceptance.contract,
+          pass_condition: adapterVllmAcceptance.pass_condition,
+          required_evidence: adapterVllmAcceptance.required_evidence,
+          claim_unlocks: adapterVllmAcceptance.claim_unlocks,
+          blocked_on: [
+            'real adapter artifact checksum',
+            'vLLM host with LoRA enabled',
+            'dedicated endpoint capacity',
+            'funded smoke principal',
+            'adapter usage attribution',
+            'billing policy approval',
+          ],
+          verifies: [
+            'strict load proof matches deployment',
+            'endpoint smoke response hash and latency',
+            'adapter usage attribution',
+            'minimum-balance and settlement policy',
+            'claim boundary remains false until proven',
+          ],
+        },
+      },
       next: 'attach_vllm_adapter_load_proof_before_any_routing',
     },
     tinker_loop: buildTinkerLoopReadiness(),

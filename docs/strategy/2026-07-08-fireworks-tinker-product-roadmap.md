@@ -746,6 +746,12 @@ Goal: ship the first real train-here/deploy-here loop.
     an opt-in live readiness runner before adapter vLLM load, route traffic,
     endpoint smoke, and adapter billing claims. It records current readiness
     blockers and stops before adapter/deployment/load-proof mutation.
+  - PR #951 adds `dcp.adapter_vllm_live_acceptance_evidence.v1` to that live
+    runner and to the LoRA/billing readiness packets, requiring readiness
+    claims, funded principal, adapter checksum, deployment intent, strict vLLM
+    load proof, endpoint smoke, usage attribution, billing policy, and
+    claim-boundary evidence before adapter serving, routing, endpoint-smoke,
+    billing, or dedicated-deployment claims can pass.
   - PR #868 added the CI-safe adapter billing readiness gate before live billing
     smoke; adapter usage writes, invoices, provider payouts, minimum-balance
     enforcement changes, and billed endpoint claims remain disabled until the
@@ -954,7 +960,10 @@ Acceptance:
     `DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load`;
     adapter creation, deployment creation, load-proof mutation, endpoint smoke,
     route traffic, and billing remain gated until a real adapter/vLLM/funded
-    proof window exists.**
+    proof window exists. PR #951 adds
+    `dcp.adapter_vllm_live_acceptance_evidence.v1`, so a PASS now requires the
+    full readiness/funded/checksum/deployment/load/smoke/usage/billing/claim
+    evidence set in one redacted artifact.**
 18. **Adapter endpoint smoke readiness** - CI-safe deterministic endpoint-smoke
     gate before usage or billing claims. **Added in PR #870 as
     `npm run proof:adapter-endpoint-smoke`; smoke recording, route traffic,

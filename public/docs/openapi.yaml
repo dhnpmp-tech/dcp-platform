@@ -677,6 +677,45 @@ components:
             billing_policy_required:
               type: boolean
               example: true
+            live_acceptance:
+              type: object
+              additionalProperties: true
+              properties:
+                vllm_load_billing_smoke:
+                  type: object
+                  additionalProperties: true
+                  properties:
+                    status:
+                      type: string
+                      example: blocked_external
+                    live_acceptance_gate:
+                      type: string
+                      example: adapter_vllm_load_billing_smoke
+                    acceptance_contract:
+                      type: string
+                      example: dcp.adapter_vllm_live_acceptance_evidence.v1
+                    command:
+                      type: string
+                      example: DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load
+                    pass_condition:
+                      type: string
+                    required_evidence:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: true
+                    claim_unlocks:
+                      type: object
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
+                    blocked_on:
+                      type: array
+                      items: { type: string }
+                    verifies:
+                      type: array
+                      items: { type: string }
         tinker_loop:
           type: object
           additionalProperties: true
@@ -2953,6 +2992,33 @@ paths:
                         type: array
                         items: { type: string }
                         example: [renter_id, deployment_id, adapter_id, endpoint_id, base_model, artifact_checksum_sha256, provider_id, request_id, renter_api_key_id, renter_key_type, prompt_tokens, completion_tokens, total_tokens, cost_halala, settlement_status]
+                      live_acceptance:
+                        type: object
+                        additionalProperties: true
+                        properties:
+                          status:
+                            type: string
+                            example: blocked_external
+                          live_acceptance_gate:
+                            type: string
+                            example: adapter_vllm_load_billing_smoke
+                          acceptance_contract:
+                            type: string
+                            example: dcp.adapter_vllm_live_acceptance_evidence.v1
+                          command:
+                            type: string
+                            example: DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load
+                          required_evidence:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: true
+                          claim_unlocks:
+                            type: object
+                            additionalProperties:
+                              type: array
+                              items:
+                                type: string
                   denial_codes:
                     type: array
                     items: { type: string }
