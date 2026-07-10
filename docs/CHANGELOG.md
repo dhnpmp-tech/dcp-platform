@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-10 00:48 UTC - Model pricing contract visibility (PR #932)
+
+- **PR:** [#932](https://github.com/dhnpmp-tech/dcp-platform/pull/932) (`codex/model-pricing-contract-v2-2026-07-10`).
+- **Timestamp:** 2026-07-10 00:48 UTC / 2026-07-10 04:48 +04.
+- **Backend contract:** Shared model token pricing now carries `dcp.model_token_pricing.v1`, SAR currency, rate-source contract, display-only USD status, settlement path, and false no-mutation guards.
+- **Surface parity:** `/v1/models`, `/api/models`, and `/api/models/catalog` expose the same nested `pricing.contract` through the shared helper and parity proof.
+- **UI visibility:** `/inference`, `/pricing`, and `/renter/playground` show the pricing contract/source near live model rates.
+- **Docs:** OpenAPI and `llms.txt` describe the nested pricing contract for agents.
+- **Safety:** Additive metadata/frontend/test/docs change; no billing, settlement, routing, provider selection, balance, rate, discount, batch, LoRA, or deployment behavior mutation.
+- **Verification:** Targeted backend/model-catalog and focused Playwright regressions plus standard build/proof sweep before merge.
+
 ### 2026-07-10 00:33 UTC - Pod Stage 1 remembered workspace focus (PR #931)
 
 - **PR:** [#931](https://github.com/dhnpmp-tech/dcp-platform/pull/931) (`codex/pods-workspace-focus-2026-07-10`).

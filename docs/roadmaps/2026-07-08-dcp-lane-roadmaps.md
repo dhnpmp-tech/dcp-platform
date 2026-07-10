@@ -593,6 +593,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   live model-catalog summary with serving counts, provider-backed rows, context,
   SAR input/output pricing, and catalog-only state without changing model
   availability semantics.
+- PR #932 adds `pricing.contract.version = dcp.model_token_pricing.v1` across
+  `/v1/models`, `/api/models`, and `/api/models/catalog`, with SAR source of
+  truth, source-contract, display-only USD, settlement-path, and no-mutation
+  guard metadata visible on `/inference`, `/pricing`, and `/renter/playground`.
 - PR #881 added `npm run proof:model-catalog-parity`, a CI-safe proof command
   covering `/v1/models`, `/api/models`, and `/api/models/catalog` token pricing,
   provider count, availability, capability flags, feature readiness, modalities,

@@ -107,6 +107,7 @@ interface LiveCatalogModelRaw {
     sar_per_1m_input_tokens?: string | number
     sar_per_1m_output_tokens?: string | number
     source?: string
+    contract?: PricingContractRaw
   }
   capability_flags?: {
     streaming?: boolean
@@ -125,6 +126,15 @@ interface LiveCatalogModelRaw {
   }
 }
 
+interface PricingContractRaw {
+  version?: string
+  currency?: string
+  billing_unit?: string
+  source?: string
+  source_contract?: string
+  usd_display_only?: boolean
+}
+
 interface LiveCatalogModel {
   id: string
   name: string
@@ -136,6 +146,9 @@ interface LiveCatalogModel {
   inputSarPer1m?: string | number
   outputSarPer1m?: string | number
   pricingSource?: string
+  pricingContractVersion?: string
+  pricingSourceContract?: string
+  pricingUsdDisplayOnly?: boolean
   featureLabels: string[]
   readinessVersion?: string
   advancedReadiness: AdvancedFeatureReadiness[]
@@ -258,6 +271,9 @@ function mapLiveCatalogModels(raw: LiveCatalogModelRaw[]): LiveCatalogModel[] {
         inputSarPer1m: model.pricing?.sar_per_1m_input_tokens,
         outputSarPer1m: model.pricing?.sar_per_1m_output_tokens,
         pricingSource: model.pricing?.source,
+        pricingContractVersion: model.pricing?.contract?.version,
+        pricingSourceContract: model.pricing?.contract?.source_contract,
+        pricingUsdDisplayOnly: model.pricing?.contract?.usd_display_only,
         featureLabels: featureLabelsFor(model),
         readinessVersion: model.feature_readiness?.version,
         advancedReadiness: advancedReadinessFor(model),
@@ -274,6 +290,7 @@ export default function PricingPage() {
   const visibleLiveModels = useMemo(() => liveModels.slice(0, 12), [liveModels])
   const advancedReadiness = useMemo(() => summarizeAdvancedReadiness(liveModels), [liveModels])
   const readinessVersion = liveModels.find((model) => model.readinessVersion)?.readinessVersion || 'dcp.model_feature_readiness.v1'
+  const pricingContractVersion = liveModels.find((model) => model.pricingContractVersion)?.pricingContractVersion || 'dcp.model_token_pricing.v1'
 
   useEffect(() => {
     let cancelled = false
@@ -403,7 +420,7 @@ export default function PricingPage() {
           <div className="mp-live pricing-live-catalog" style={{ marginTop: 24 }}>
             <div className="mp-live-head">
               <span><Bi en="Live API catalog — from /v1/models" ar="كتالوج الواجهة المباشر — من /v1/models" /></span>
-              <span><Bi en={liveState === 'ready' ? `${liveModels.length} serveable models` : 'checking live catalog'} ar={liveState === 'ready' ? `${liveModels.length} نموذجاً قابلاً للخدمة` : 'جارٍ فحص الكتالوج المباشر'} /></span>
+              <span><Bi en={liveState === 'ready' ? `${liveModels.length} serveable models · ${pricingContractVersion}` : 'checking live catalog'} ar={liveState === 'ready' ? `${liveModels.length} نموذجاً قابلاً للخدمة · ${pricingContractVersion}` : 'جارٍ فحص الكتالوج المباشر'} /></span>
             </div>
             <div className="mp-rows">
               <div className="mp-row mp-row-head" aria-hidden="true">
@@ -432,7 +449,10 @@ export default function PricingPage() {
                 <div className="mp-row pricing-live-row" key={model.id}>
                   <span className="mp-model">
                     <b>{model.name}</b>
-                    <i>{model.id} · {formatStatus(model.status)} · {model.providerCount} live · {model.pricingSource || 'catalog'}</i>
+                    <i>{model.id} · {formatStatus(model.status)} · {model.providerCount} live · {model.pricingSource || 'catalog'} · {model.pricingContractVersion || 'pricing contract pending'}</i>
+                    {model.pricingSourceContract && (
+                      <i>{model.pricingSourceContract}{model.pricingUsdDisplayOnly ? ' · USD display only' : ''}</i>
+                    )}
                     {model.featureLabels.length > 0 && (
                       <span className="pricing-chip-row">
                         {model.featureLabels.map((feature) => <em key={feature}>{feature}</em>)}

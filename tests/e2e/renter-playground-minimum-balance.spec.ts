@@ -30,6 +30,12 @@ async function mockPlaygroundApis(page: Page) {
             sar_per_1m_input_tokens: '0.3000',
             sar_per_1m_output_tokens: '0.6000',
             source: 'catalog',
+            contract: {
+              version: 'dcp.model_token_pricing.v1',
+              source_contract: 'model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok',
+              usd_display_only: true,
+              settlement_path: 'POST /v1/chat/completions usage.pricing',
+            },
           },
           capability_flags: {
             chat_completions: true,
@@ -305,6 +311,9 @@ test('renter playground exposes inference minimum-balance preflight', async ({ p
   await expect(preflight).toContainText('5');
   await expect(preflight).toContainText('Policy guards');
   await expect(preflight).toContainText('no trial/paid-credit change');
+  await expect(page.getByLabel('Selected contract')).toContainText('dcp.model_token_pricing.v1');
+  await expect(page.getByLabel('Selected contract')).toContainText('USD display only');
+  await expect(page.getByLabel('Selected contract')).toContainText('model_registry.price_in_halala_per_1m_tok/price_out_halala_per_1m_tok');
   await expect(preflight).toContainText('/api/renters/me/minimum-balances');
 
   const promptCachePanel = page.locator('.prompt-cache-panel');

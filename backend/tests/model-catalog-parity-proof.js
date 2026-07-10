@@ -64,8 +64,9 @@ function buildMarkdown(report) {
   lines.push('');
   lines.push('This proof is CI-safe and runs the mocked model catalog parity route');
   lines.push('test. It proves that `/v1/models`, `/api/models`, and');
-  lines.push('`/api/models/catalog` keep token pricing, provider count, availability,');
-  lines.push('capability flags, readiness metadata, modalities, and max-output metadata');
+  lines.push('`/api/models/catalog` keep token pricing, pricing-contract metadata,');
+  lines.push('provider count, availability, capability flags, readiness metadata,');
+  lines.push('modalities, and max-output metadata');
   lines.push('aligned for the same registry row. It does not change model availability,');
   lines.push('provider selection, routing, billing, settlement, prompt-cache, batch,');
   lines.push('LoRA, or deployment behavior.');
@@ -139,7 +140,7 @@ function runModelCatalogParityProof(options = {}) {
       managed_catalog: 'GET /api/models/catalog',
     },
     parity: {
-      pricing: 'token pricing and model_registry source',
+      pricing: 'token pricing, pricing contract, source contract, and model_registry source',
       provider_count: 'provider_count and available state',
       capability_flags: 'capability_flags and capabilities mirrors',
       readiness: 'feature_readiness for prompt cache, batch, LoRA, and dedicated deployment',
@@ -211,7 +212,7 @@ function runModelCatalogParityProof(options = {}) {
     record(
       'pricing, provider count, capabilities, readiness, and metadata parity are enforced',
       Object.keys(report.parity).join(',') === 'pricing,provider_count,capability_flags,readiness,metadata',
-      'The underlying route test asserts token pricing, provider_count/availability, capability mirrors, feature_readiness, modalities, and max_output_tokens.',
+      'The underlying route test asserts token pricing contract metadata, provider_count/availability, capability mirrors, feature_readiness, modalities, and max_output_tokens.',
     );
     record(
       'proof is read-only and does not enable product behavior',
