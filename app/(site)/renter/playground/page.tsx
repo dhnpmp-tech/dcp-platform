@@ -239,10 +239,27 @@ interface MinimumBalanceReadiness {
   account?: {
     balance_halala?: number
     balance_sar?: number
+    trial_grant_halala?: number
+    trial_grant_sar?: number
     paid_available_halala?: number
     paid_available_sar?: number
     v1_remaining_cap_halala?: number | null
     v1_remaining_cap_sar?: number | null
+  }
+  credit_policy?: {
+    current_mode?: string
+    source_contract?: string
+    explicit_trial_account_tag_live?: boolean
+    trial_credit_source?: string
+    trial_grant_halala?: number
+    trial_grant_sar?: number
+    has_trial_grant?: boolean
+    paid_credit_source?: string
+    paid_available_halala?: number
+    paid_available_sar?: number
+    trial_credit_allowed_capacity?: string
+    trial_credit_unlocks_high_demand?: boolean
+    high_demand_requires_paid_credit?: boolean
   }
   rails?: {
     v1_inference?: {
@@ -281,6 +298,8 @@ interface MinimumBalanceReadiness {
     creates_eval_job?: boolean
     enables_discount?: boolean
     changes_enforcement?: boolean
+    changes_trial_accounting?: boolean
+    changes_paid_credit_policy?: boolean
   }
 }
 
@@ -527,8 +546,22 @@ export default function PlaygroundPage() {
     && promptCacheSettlementGuards?.dispatches_inference === false
     && promptCacheSettlementGuards?.records_usage_event === false
   const v1MinimumBalanceRail = minimumBalanceReadiness?.rails?.v1_inference
-  const paidAvailableSar = minimumBalanceReadiness?.account?.paid_available_sar
-    ?? halalaToSar(minimumBalanceReadiness?.account?.paid_available_halala)
+  const minimumCreditPolicy = minimumBalanceReadiness?.credit_policy
+  const paidAvailableSar = minimumCreditPolicy?.paid_available_sar
+    ?? minimumBalanceReadiness?.account?.paid_available_sar
+    ?? halalaToSar(minimumCreditPolicy?.paid_available_halala ?? minimumBalanceReadiness?.account?.paid_available_halala)
+  const trialGrantSar = minimumCreditPolicy?.trial_grant_sar
+    ?? minimumBalanceReadiness?.account?.trial_grant_sar
+    ?? halalaToSar(minimumCreditPolicy?.trial_grant_halala ?? minimumBalanceReadiness?.account?.trial_grant_halala)
+  const creditPolicyLabel = minimumCreditPolicy
+    ? 'credit policy synced'
+    : 'credit policy fallback'
+  const highDemandGateLabel = minimumCreditPolicy?.high_demand_requires_paid_credit === true
+    ? 'paid credit only'
+    : 'backend gate'
+  const noCreditPolicyMutation =
+    (minimumBalanceReadiness?.claim_guards?.changes_trial_accounting ?? false) === false &&
+    (minimumBalanceReadiness?.claim_guards?.changes_paid_credit_policy ?? false) === false
   const v1RemainingCapSar = minimumBalanceReadiness?.account?.v1_remaining_cap_sar
     ?? halalaToSar(
       minimumBalanceReadiness?.account?.v1_remaining_cap_halala
@@ -542,6 +575,7 @@ export default function PlaygroundPage() {
     && minimumBalanceReadiness?.claim_guards?.mutates_balance === false
     && minimumBalanceReadiness?.claim_guards?.dispatches_inference === false
     && minimumBalanceReadiness?.claim_guards?.changes_enforcement === false
+    && noCreditPolicyMutation
   const inferencePreflightLabel = v1MinimumBalanceRail?.status === 'live_estimate_preflight'
     ? 'v1 requests: estimate preflight'
     : 'v1 requests: checking'
@@ -1338,6 +1372,10 @@ export default function PlaygroundPage() {
                       <em>{minimumBalanceReadiness?.version || 'dcp.minimum_balance_readiness.v1'}</em>
                     </div>
                     <div className="route-policy-list">
+                      <div className={`route-policy${minimumCreditPolicy ? ' on' : ' gated'}`}>
+                        <span><Bi en="Credit policy" ar="سياسة الرصيد" /></span>
+                        <b>{creditPolicyLabel}</b>
+                      </div>
                       <div className={`route-policy${v1MinimumBalanceRail?.enforcement_live ? ' on' : ' gated'}`}>
                         <span><Bi en={inferencePreflightLabel} ar="طلبات v1: فحص تقديري" /></span>
                         <b>{formatContractStatus(v1MinimumBalanceRail?.status)}</b>
@@ -1345,6 +1383,14 @@ export default function PlaygroundPage() {
                       <div className="route-policy on">
                         <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
                         <b>SAR {fmtSar(paidAvailableSar)}</b>
+                      </div>
+                      <div className="route-policy on">
+                        <span><Bi en="Trial grant" ar="منحة التجربة" /></span>
+                        <b>SAR {fmtSar(trialGrantSar)}</b>
+                      </div>
+                      <div className="route-policy gated">
+                        <span><Bi en="High-demand gate" ar="بوابة الطلب العالي" /></span>
+                        <b>{highDemandGateLabel}</b>
                       </div>
                       <div className="route-policy">
                         <span><Bi en="Monthly cap remaining" ar="المتبقي من الحد الشهري" /></span>
@@ -1357,6 +1403,10 @@ export default function PlaygroundPage() {
                       <div className="route-policy gated">
                         <span><Bi en="Future billing rails blocked" ar="مسارات فوترة مستقبلية مقيدة" /></span>
                         <b>{blockedFutureBillingRails}</b>
+                      </div>
+                      <div className={noCreditPolicyMutation ? 'route-policy on' : 'route-policy gated'}>
+                        <span><Bi en="Policy guards" ar="حراس السياسة" /></span>
+                        <b>{noCreditPolicyMutation ? 'no trial/paid-credit change' : 'checking'}</b>
                       </div>
                     </div>
                     <div className="route-note mono">

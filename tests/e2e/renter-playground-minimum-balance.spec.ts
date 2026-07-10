@@ -207,10 +207,27 @@ async function mockPlaygroundApis(page: Page) {
           account: {
             balance_halala: 25000,
             balance_sar: 250,
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
             paid_available_halala: 3800,
             paid_available_sar: 38,
             v1_remaining_cap_halala: 14000,
             v1_remaining_cap_sar: 140,
+          },
+          credit_policy: {
+            current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
+            source_contract: 'GET /api/pods/trial-routing/readiness',
+            explicit_trial_account_tag_live: false,
+            trial_credit_source: 'renters.trial_grant_halala',
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
+            has_trial_grant: true,
+            paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+            trial_credit_allowed_capacity: 'DCP/community/provider GPU capacity when normal quote checks pass',
+            trial_credit_unlocks_high_demand: false,
+            high_demand_requires_paid_credit: true,
           },
           rails: {
             v1_inference: {
@@ -234,6 +251,8 @@ async function mockPlaygroundApis(page: Page) {
             creates_eval_job: false,
             enables_discount: false,
             changes_enforcement: false,
+            changes_trial_accounting: false,
+            changes_paid_credit_policy: false,
           },
         }),
       });
@@ -268,16 +287,24 @@ test('renter playground exposes inference minimum-balance preflight', async ({ p
   await expect(preflight).toContainText('Credit preflight');
   await expect(preflight).toContainText('synced read-only');
   await expect(preflight).toContainText('dcp.minimum_balance_readiness.v1');
+  await expect(preflight).toContainText('Credit policy');
+  await expect(preflight).toContainText('credit policy synced');
   await expect(preflight).toContainText('v1 requests: estimate preflight');
   await expect(preflight).toContainText('live estimate preflight');
   await expect(preflight).toContainText('Paid available');
   await expect(preflight).toContainText('SAR 38.00');
+  await expect(preflight).toContainText('Trial grant');
+  await expect(preflight).toContainText('SAR 20.00');
+  await expect(preflight).toContainText('High-demand gate');
+  await expect(preflight).toContainText('paid credit only');
   await expect(preflight).toContainText('Monthly cap remaining');
   await expect(preflight).toContainText('SAR 140.00');
   await expect(preflight).toContainText('Prompt-cache discounts');
   await expect(preflight).toContainText('measurement only');
   await expect(preflight).toContainText('Future billing rails blocked');
   await expect(preflight).toContainText('5');
+  await expect(preflight).toContainText('Policy guards');
+  await expect(preflight).toContainText('no trial/paid-credit change');
   await expect(preflight).toContainText('/api/renters/me/minimum-balances');
 
   const promptCachePanel = page.locator('.prompt-cache-panel');
