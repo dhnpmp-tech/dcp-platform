@@ -56,11 +56,20 @@ test('public pods page renders contract-backed readiness gates', async ({ page }
       current_mode: 'pod_trial_credit_policy_live',
       account_classification: {
         explicit_trial_account_tag_live: false,
+        current_mode: 'derived_from_credit_provenance',
         trial_credit_source: 'renters.trial_grant_halala',
+        derived_states: {
+          trial_grant_active: 'renters.trial_grant_halala > 0',
+          no_trial_grant: 'renters.trial_grant_halala = 0',
+        },
+        analytics_lifecycle_tag_live: false,
+        mutates_account_classification: false,
       },
       routing_policy: {
         trial_capacity_copy: 'Trial credit covers DCP/community capacity.',
         high_demand_capacity_copy: 'High-demand capacity requires paid credit.',
+        trial_credit_capacity_class: 'dcp_native_and_community_gpu_pool',
+        high_demand_capacity_class: 'paid_credit_only',
         provider_visibility: {
           exposes_provider_id_to_renter: false,
           exposes_vendor_to_renter: false,
@@ -88,6 +97,7 @@ test('public pods page renders contract-backed readiness gates', async ({ page }
         changes_provider_selection: false,
         changes_billing: false,
         changes_trial_accounting: false,
+        changes_account_classification: false,
         launches_pod: false,
         mutates_balance: false,
         exposes_vendor_or_provider: false,
@@ -112,6 +122,10 @@ test('public pods page renders contract-backed readiness gates', async ({ page }
   await expect(readiness).toContainText('Workspace contract: ci_safe');
   await expect(readiness).toContainText('DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod');
   await expect(readiness).toContainText('Trial accounts use grant-credit provenance');
+  await expect(readiness).toContainText('Derived trial mode: credit provenance');
+  await expect(readiness).toContainText('no account classification mutation');
+  await expect(readiness).toContainText('Trial route: DCP/community GPU pool');
+  await expect(readiness).toContainText('High-demand: paid credit only');
   await expect(readiness).toContainText('Trial credit covers DCP/community capacity.');
   await expect(readiness).toContainText('High-demand capacity requires paid credit.');
   await expect(readiness).toContainText('False-claim guards synced');
