@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-10 03:10 UTC - LoRA image proof evidence contract (PR #943)
+
+- **PR:** [#943](https://github.com/dhnpmp-tech/dcp-platform/pull/943) (`codex/lora-pod-image-evidence-contract-2026-07-10`).
+- **Timestamp:** 2026-07-10 03:10 UTC / 2026-07-10 07:10 +04.
+- **Proof contract:** `backend/docker-templates/verify-lora-pod-image.sh` now emits `verdict`, `generated_at`, `acceptance_gate`, `acceptance_requirements`, and false product-claim guards for LoRA pod-image evidence.
+- **Acceptance boundary:** Provider-host readiness requires `verdict=PASS` with `require_gpu=1`; CPU/local runs are labeled `DRY_RUN` and cannot satisfy the live acceptance gate.
+- **Gate status:** `npm run proof:live-acceptance-status` normalizes LoRA image proof evidence, including legacy `status=pass` reports, so non-GPU reports show as `DRY_RUN`.
+- **Readiness packet:** `GET /api/pods/images/readiness` documents accepted/dry-run verdicts, required report fields, and provider-host requirements.
+- **Safety:** Evidence/test/docs-only change; no Docker build, launch, routing, billing, balance, trial-accounting, training, adapter serving, or Tinker-claim mutation.
+- **Verification:** Focused pod-image/live-acceptance Jest suites plus pod image contract, pod image readiness, and live acceptance proofs.
+
 ### 2026-07-10 02:58 UTC - Model capability contract (PR #942)
 
 - **PR:** [#942](https://github.com/dhnpmp-tech/dcp-platform/pull/942) (`codex/model-capability-contract-2026-07-10`).

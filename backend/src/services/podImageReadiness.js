@@ -72,6 +72,23 @@ function buildPodImageReadiness(now = new Date()) {
         'Docker with NVIDIA runtime',
         'built dcp-compute:lora image',
       ],
+      accepted_verdict: 'PASS',
+      dry_run_verdict: 'DRY_RUN',
+      requires_report_fields: [
+        'contract=dcp.lora_pod_image_proof.v1',
+        'verdict=PASS',
+        'generated_at',
+        'acceptance_gate=lora_pod_image_provider_host',
+        'require_gpu=1',
+      ],
+      acceptance_requirements: {
+        provider_gpu_host: true,
+        docker_nvidia_runtime: true,
+        built_image: 'dcp-compute:lora',
+        require_gpu: '1',
+        accepted_verdict: 'PASS',
+        dry_run_verdict: 'DRY_RUN',
+      },
       verifies: [
         'docker image inspect dcp-compute:lora',
         'fresh GPU container imports LoRA/QLoRA/vLLM stack',
@@ -111,6 +128,7 @@ function buildPodImageReadiness(now = new Date()) {
       tests: [
         'backend/src/__tests__/podImageContracts.test.js',
         'backend/src/__tests__/podImageReadiness.test.js',
+        'backend/src/__tests__/liveAcceptanceGateStatusScript.test.js',
       ],
       proof_command: 'npm run proof:pod-image-readiness',
       linked_commands: [
@@ -121,7 +139,7 @@ function buildPodImageReadiness(now = new Date()) {
     next_actions: [
       'Run npm run pod-images:verify-contracts in CI to keep aliases, Dockerfiles, examples, and smoke scripts wired.',
       'Build dcp-compute:lora on a provider GPU host before running the provider-host proof.',
-      'Run npm run proof:lora-pod-image on that host and archive the report before claiming LoRA/fine-tuning pod image readiness.',
+      'Run npm run proof:lora-pod-image on that host and archive a verdict=PASS, require_gpu=1 report before claiming LoRA/fine-tuning pod image readiness.',
       'Keep renter-facing pod launch copy free of provider, vendor, and supply-tier identity.',
     ],
   };

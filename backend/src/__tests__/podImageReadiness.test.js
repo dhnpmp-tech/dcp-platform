@@ -39,6 +39,16 @@ describe('pod image readiness', () => {
         live_acceptance_gate: LORA_PROVIDER_HOST_GATE,
         report_contract: 'dcp.lora_pod_image_proof.v1',
         artifact_pattern: 'docs/reports/reliability/lora-pod-image-proof-*.json',
+        accepted_verdict: 'PASS',
+        dry_run_verdict: 'DRY_RUN',
+        acceptance_requirements: {
+          provider_gpu_host: true,
+          docker_nvidia_runtime: true,
+          built_image: 'dcp-compute:lora',
+          require_gpu: '1',
+          accepted_verdict: 'PASS',
+          dry_run_verdict: 'DRY_RUN',
+        },
       },
       build_plan: {
         build_command: 'DCP_POD_IMAGE_TARGETS=lora ./build-pod-images.sh',
@@ -89,6 +99,13 @@ describe('pod image readiness', () => {
       'Docker with NVIDIA runtime',
       'built dcp-compute:lora image',
     ]));
+    expect(readiness.provider_host_acceptance.requires_report_fields).toEqual(expect.arrayContaining([
+      'contract=dcp.lora_pod_image_proof.v1',
+      'verdict=PASS',
+      'generated_at',
+      'acceptance_gate=lora_pod_image_provider_host',
+      'require_gpu=1',
+    ]));
   });
 
   test('exposes the pod image readiness route without renter authentication', async () => {
@@ -111,6 +128,8 @@ describe('pod image readiness', () => {
       provider_host_acceptance: {
         status: 'blocked_external',
         live_acceptance_gate: LORA_PROVIDER_HOST_GATE,
+        accepted_verdict: 'PASS',
+        dry_run_verdict: 'DRY_RUN',
       },
       claim_guards: {
         launches_pod: false,

@@ -169,11 +169,12 @@ function readLatestEvidence(gate, evidenceDir) {
       : Array.isArray(data.blocked_on)
         ? data.blocked_on
         : [];
+    const verdict = normalizeLatestEvidenceVerdict(data);
     return {
       ...evidence,
       found: true,
-      verdict: data.verdict || null,
-      generated_at: data.generated_at || null,
+      verdict,
+      generated_at: data.generated_at || data.finished_at || null,
       failure_code: data.failure?.code || null,
       blockers: blockers.map(String),
       maintenance_required: typeof data.maintenance_required === 'boolean'
@@ -189,6 +190,18 @@ function readLatestEvidence(gate, evidenceDir) {
       blockers: [`unreadable latest evidence: ${error.message}`],
     };
   }
+}
+
+function normalizeLatestEvidenceVerdict(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (data.verdict) return String(data.verdict);
+  const status = String(data.status || '').toLowerCase();
+  if (!status) return null;
+  if (data.contract === 'dcp.lora_pod_image_proof.v1') {
+    if (status === 'pass') return String(data.require_gpu) === '1' ? 'PASS' : 'DRY_RUN';
+    if (status === 'fail') return 'FAIL';
+  }
+  return status.toUpperCase();
 }
 
 function requiredEnvForCommand(command) {
