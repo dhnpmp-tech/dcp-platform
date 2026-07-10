@@ -290,6 +290,10 @@ what is live.
   `gpu_type` payload plus suggested GPU, and Stage 3 repeats trial route and
   paid-credit high-demand status so Tareq's review questions are answered before
   a large workspace can become a scroll wall.
+- PR #950 adds a final launch confirmation directly above the `/renter/pods`
+  launch button, repeating the exact Auto-pick/fixed-GPU `gpu_type` payload,
+  workspace open/collapsed state, trial route, high-demand paid-credit rule,
+  runtime, and quote state so the final submit point is the source of truth.
 
 ### Now
 
@@ -916,6 +920,10 @@ template launch.
   suggested GPU while preserving the same source-of-truth rule: launch is
   Auto-pick or the selected-card `gpu_type`, never the template, workload, or
   memory browse controls by themselves.
+- PR #950 repeats that same source-of-truth rule at the final launch button:
+  the confirmation strip shows Auto-pick versus fixed GPU, exact `gpu_type`,
+  workspace attachment, trial route, paid-credit high-demand gate, runtime, and
+  quote state before submit.
 
 ### Now
 

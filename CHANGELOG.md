@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 05:24 UTC - `feat(pods): add final launch confirmation - PR #950`
+
+**PR:** [#950](https://github.com/dhnpmp-tech/dcp-platform/pull/950) (`codex/pods-workspace-launch-confirmation-2026-07-10`).
+**Local timestamp:** 2026-07-10 09:24 +04.
+
+**What:** Tareq workspace/GPU-choice follow-up. Adds a final `/renter/pods` confirmation strip directly above the launch button so renters can see the exact GPU request, workspace state, trial route, high-demand credit rule, runtime, and quote state at the moment of launch.
+
+- **Final confirmation:** Stage 3 now repeats whether launch will use Auto-pick or a fixed GPU card, plus the exact `gpu_type` payload (`gpu_type omitted = auto-pick` or `gpu_type = <GPU>`).
+- **Workspace clarity:** The confirmation repeats the Stage 1 file/folder summary and states that launch attaches the full `/workspace` volume whether Stage 1 is open or collapsed.
+- **Trial answer:** The confirmation keeps the current policy visible beside the launch button: no separate live trial-account tag under grant-credit provenance, trial credit routes to DCP/community GPUs, and high-demand GPUs require paid credit.
+- **GPU-slider clarity:** The strip reinforces that the selected card or Auto-pick is the launch source of truth; VRAM chips, workload guide, search, and sort remain browse-only helpers.
+- **Regression guard:** The `/renter/pods` Playwright regression now covers the final confirmation in both Auto-pick and fixed RTX 4090 states.
+- **Safety:** Frontend/test/docs-only UX change; no pod launch body semantics, workspace API behavior, provider selection, GPU availability filtering, routing, pricing, billing, settlement, balance, minimum-balance enforcement, trial-accounting, account classification, paid-credit policy, or provider/vendor exposure changed.
+
 ### 2026-07-10 05:07 UTC - `test(prompt-cache): add live acceptance evidence contract - PR #949`
 
 **PR:** [#949](https://github.com/dhnpmp-tech/dcp-platform/pull/949) (`codex/prompt-cache-live-acceptance-evidence-contract-2026-07-10`).

@@ -222,6 +222,11 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     1 files stay folder-first/collapsible with busiest-folder drilldown, Stage 2
     repeats the actual `gpu_type` payload and suggested GPU, and Stage 3 repeats
     the trial/paid-credit launch route before the renter opens the file manager.
+  - PR #950 adds a final Stage 3 launch confirmation directly above the launch
+    button, repeating Auto-pick versus fixed GPU, exact `gpu_type` payload,
+    workspace collapsed/open state, trial route, high-demand paid-credit rule,
+    runtime, and quote state so the last action no longer depends on scanning
+    the file manager or GPU picker.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -297,6 +302,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #941 carries the same answer into the mobile launch dock next to the
     Stage 2 GPU decision, so trial routing and minimum paid-credit expectations
     remain visible even while scanning a long workspace.
+  - PR #950 carries the same answer into the final launch confirmation beside
+    the launch button: no live trial-account tag under grant-credit provenance,
+    trial credit routes to DCP/community GPUs, high-demand GPUs require paid
+    credit, and the exact Auto-pick/fixed-GPU request is repeated before submit.
   - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
     `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
     are explicitly browse-only.

@@ -3356,6 +3356,53 @@ export default function RenterPodsPage() {
               </div>
             ) : null}
 
+            <div className={`pod-launch-confirmation ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'تأكيد التشغيل النهائي' : 'Final launch confirmation'}>
+              <div className="pod-launch-confirmation-main">
+                <span><Bi en="Launch button will use" ar="زر التشغيل سيستخدم" /></span>
+                <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+                <code>{launchRequestPayloadLabel}</code>
+                <em>
+                  <Bi
+                    en={selectedType
+                      ? 'This fixed GPU card is pinned in the final request.'
+                      : 'No fixed GPU card is pinned; DCP will auto-pick an available type at launch.'}
+                    ar={selectedType ? 'بطاقة GPU هذه مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة مثبتة؛ سيختار DCP نوعاً متاحاً عند التشغيل.'}
+                  />
+                </em>
+              </div>
+              <div className="pod-launch-confirmation-grid">
+                <span className="primary">
+                  <b><Bi en="Stage 2 source" ar="مصدر المرحلة 2" /></b>
+                  <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+                  <em>{launchRequestPayloadLabel}</em>
+                </span>
+                <span>
+                  <b><Bi en="Workspace" ar="مساحة العمل" /></b>
+                  <strong><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة مساحة عمل'} /></strong>
+                  <em>
+                    <Bi
+                      en={workspaceStageBodyOpen ? 'Stage 1 is open; launch still attaches the full /workspace volume.' : 'Stage 1 can stay collapsed; launch still attaches the full /workspace volume.'}
+                      ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة؛ التشغيل يربط كامل /workspace.' : 'يمكن إبقاء المرحلة 1 مطوية؛ التشغيل يربط كامل /workspace.'}
+                    />
+                  </em>
+                </span>
+                <span>
+                  <b><Bi en="Trial policy" ar="سياسة التجربة" /></b>
+                  <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة مباشر' : 'لا يوجد وسم تجربة مباشر'} /></strong>
+                  <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></em>
+                </span>
+                <span>
+                  <b><Bi en="Runtime" ar="البيئة" /></b>
+                  <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
+                  <em>
+                    {selectedQuoteSar != null
+                      ? <Bi en={`Visible quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير الظاهر: ~${fmtSar(selectedQuoteSar)} ﷼`} />
+                      : <Bi en="Quote appears after a fixed GPU card is selected or backend auto-pick resolves." ar="يظهر التقدير بعد اختيار GPU محدد أو عند حل الاختيار التلقائي في الخلفية." />}
+                  </em>
+                </span>
+              </div>
+            </div>
+
             <div className="pod-launch-review" aria-label={lang === 'ar' ? 'مراجعة التشغيل' : 'Launch review'}>
               <span>
                 <b><Bi en="Stage 1" ar="المرحلة 1" /></b>

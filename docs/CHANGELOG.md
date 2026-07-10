@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 05:24 UTC - Pods final launch confirmation (PR #950)
+
+- **PR:** [#950](https://github.com/dhnpmp-tech/dcp-platform/pull/950) (`codex/pods-workspace-launch-confirmation-2026-07-10`).
+- **Timestamp:** 2026-07-10 05:24 UTC / 2026-07-10 09:24 +04.
+- **Final confirmation:** `/renter/pods` now repeats the exact Stage 2 launch request directly above the launch button, including Auto-pick versus fixed GPU and the final `gpu_type` payload.
+- **Workspace UX:** The confirmation repeats the Stage 1 file/folder summary and clarifies that the full `/workspace` volume attaches even when the file drawer stays collapsed.
+- **Trial/GPU clarity:** The same strip keeps the trial-account answer, DCP/community trial route, high-demand paid-credit rule, runtime, and quote state visible at final launch.
+- **Regression guard:** `tests/e2e/renter-pods-workspace-ux.spec.ts` covers the final confirmation in both Auto-pick and fixed RTX 4090 states.
+- **Safety:** Frontend/test/docs-only change; no launch body, workspace API, provider-selection, GPU filtering semantics, routing, pricing, billing, settlement, balance, minimum-balance enforcement, trial-accounting, account-classification, paid-credit policy, or provider/vendor exposure mutation.
+
 ### 2026-07-10 05:07 UTC - Prompt cache live acceptance evidence contract (PR #949)
 
 - **PR:** [#949](https://github.com/dhnpmp-tech/dcp-platform/pull/949) (`codex/prompt-cache-live-acceptance-evidence-contract-2026-07-10`).

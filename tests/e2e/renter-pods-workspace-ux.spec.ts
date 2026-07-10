@@ -734,6 +734,21 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Launch review')).toContainText('Stage 2');
   await expect(page.getByLabel('Launch review')).toContainText('Auto-pick GPU');
   await expect(page.getByLabel('Launch review')).toContainText('Trial via grant credit · DCP/community GPUs');
+  const finalConfirmation = page.getByLabel('Final launch confirmation');
+  await expect(finalConfirmation).toContainText('Launch button will use');
+  await expect(finalConfirmation).toContainText('Auto-pick GPU');
+  await expect(finalConfirmation).toContainText('gpu_type omitted = auto-pick');
+  await expect(finalConfirmation).toContainText('No fixed GPU card is pinned; DCP will auto-pick an available type at launch.');
+  await expect(finalConfirmation).toContainText('Stage 2 source');
+  await expect(finalConfirmation).toContainText('Workspace');
+  await expect(finalConfirmation).toContainText('5 files · 3 folders');
+  await expect(finalConfirmation).toContainText('launch still attaches the full /workspace volume.');
+  await expect(finalConfirmation).toContainText('Trial policy');
+  await expect(finalConfirmation).toContainText('No trial-account tag live');
+  await expect(finalConfirmation).toContainText('Trial route: DCP/community GPU pool; High-demand GPUs: paid credit only.');
+  await expect(finalConfirmation).toContainText('Runtime');
+  await expect(finalConfirmation).toContainText('PyTorch · 4h');
+  await expect(finalConfirmation).toContainText('Quote appears after a fixed GPU card is selected or backend auto-pick resolves.');
 
   await gpuRecommendation.getByRole('button', { name: 'Use recommended GPU' }).click();
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('RTX 4090');
@@ -764,6 +779,11 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(launchChecklist).toContainText('RTX 4090');
   await expect(launchChecklist).toContainText('Fixed launch request · 24 GB · SAR 12.00/hr');
   await expect(page.getByLabel('Launch review')).toContainText('RTX 4090');
+  await expect(finalConfirmation).toContainText('Launch button will use');
+  await expect(finalConfirmation).toContainText('RTX 4090');
+  await expect(finalConfirmation).toContainText('gpu_type = RTX 4090');
+  await expect(finalConfirmation).toContainText('This fixed GPU card is pinned in the final request.');
+  await expect(finalConfirmation).toContainText('Visible quote: ~SAR');
   await expect(gpuPickerStatus).toContainText('Selected for launch: RTX 4090');
   await expect(gpuPickerStatus).toContainText('Changing templates, VRAM chips, search, or sort will not replace the pinned GPU card.');
   await expect(gpuPickerStatus).toContainText('gpu_type = RTX 4090');
