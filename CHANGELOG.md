@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 03:22 UTC - `feat(pods): add collapsed workspace folder search - PR #944`
+
+**PR:** [#944](https://github.com/dhnpmp-tech/dcp-platform/pull/944) (`codex/pods-workspace-stage-collapse-ux-2026-07-10`).
+**Local timestamp:** 2026-07-10 07:22 +04.
+
+**What:** Tareq workspace/GPU-choice feedback follow-up. Makes the collapsed Stage 1 workspace checkpoint more useful for large workspaces while keeping Stage 2's actual launch GPU decision primary.
+
+- **Workspace UX:** `/renter/pods` collapsed Stage 1 now has folder/file search inside the folder preview, so renters can find `datasets/`, `notebooks/`, `checkpoints/`, or a matching file without opening the full manifest.
+- **Stage 2 path:** The collapsed preview keeps a live result count and repeats that Stage 2 is one click away, preserving the skip-file-wall path for large workspaces.
+- **GPU clarity continuity:** The existing Stage 2 command center, GPU request chooser, final `gpu_type` strip, and mobile dock remain the launch source of truth; VRAM chips/search/sort stay browse-only.
+- **Trial answer continuity:** The UI still shows the existing contract-backed answer: no separate live trial-account tag under grant-credit provenance, trial credit routes to DCP/community capacity, and high-demand GPUs require paid credit.
+- **Safety:** Frontend/test/docs-only UX change; no workspace API behavior, pod launch body, provider selection, GPU filtering semantics, pricing, billing, balance mutation, trial accounting, account classification, routing, or API contract behavior changed.
+- **Verification:** Focused `/renter/pods` Playwright regression covers collapsed search, no-match state, Stage 2 skip path, Stage labels, trial copy, mobile dock, and fixed-GPU state.
+
 ### 2026-07-10 03:10 UTC - `test(pods): harden LoRA image proof evidence contract - PR #943`
 
 **PR:** [#943](https://github.com/dhnpmp-tech/dcp-platform/pull/943) (`codex/lora-pod-image-evidence-contract-2026-07-10`).

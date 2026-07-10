@@ -197,6 +197,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     request, exact `gpu_type` payload, Stage 1 open/collapsed state, trial
     route, and high-demand paid-credit gate stay reachable while the Stage 1
     workspace file drawer remains collapsed.
+  - PR #944 adds folder/file search to the collapsed Stage 1 folder preview, so
+    renters can locate a specific folder without opening the full manifest and
+    still keep Stage 2's actual launch GPU decision one click away.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -301,6 +304,9 @@ Acceptance:
     provider-host acceptance, blocked workspace live proof, trial-credit
     routing, paid-credit high-demand gates, and false-claim guards before
     logging in.
+  - PR #944 preserves the same trial/GPU routing semantics while reducing
+    large-workspace friction: collapsed Stage 1 now has direct folder/file
+    search and Stage 2 remains the primary GPU decision path.
   - PR #923 keeps large `/renter/pods` workspaces summary-first by default:
     the searchable folder index opens only when requested, while the Stage 2
     shortcut remains visible for the actual GPU launch decision.
