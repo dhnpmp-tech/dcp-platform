@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 00:33 UTC - `feat(pods): remember Stage 1 workspace focus - PR #931`
+
+**PR:** [#931](https://github.com/dhnpmp-tech/dcp-platform/pull/931) (`codex/pods-workspace-focus-2026-07-10`).
+**Local timestamp:** 2026-07-10 04:33 +04.
+
+**What:** Tareq workspace usability follow-up. Keeps the existing collapsed Stage 1 / prominent Stage 2 GPU decision flow, then removes two bits of friction for renters with large workspaces.
+
+- **Workspace preference:** `/renter/pods` now remembers whether the renter left Stage 1 workspace details open or collapsed in the current browser, so large file trees do not keep re-opening after the renter has chosen the compact path.
+- **Folder focus:** The closed Stage 1 top-folder preview now opens the shared workspace manager with that folder expanded and the rest of the manifest still collapsed, turning the preview into a one-click folder drilldown instead of a generic expand.
+- **Trial/GPU policy continuity:** The existing answer remains unchanged and visible: no separate live trial-account tag unless the backend reports one, trial/grant credit routes to native/community capacity, high-demand GPUs require paid available credit, and the launch GPU is still only Auto-pick or a selected GPU card.
+- **Safety:** Frontend/state/test-only change; no workspace API behavior, upload/delete/download semantics, pod launch body, payment creation, balance mutation, billing policy, trial-accounting policy, provider selection, routing, vendor/provider exposure, supply-tier exposure, or enforcement change.
+- **Verification:** Focused `/renter/pods` Playwright regression for persisted Stage 1 collapse state and one-folder preview drilldown; standard build/proof sweep before merge.
+
 ### 2026-07-10 00:15 UTC - `feat(pods): add folder checkpoint and final GPU request - PR #930`
 
 **PR:** [#930](https://github.com/dhnpmp-tech/dcp-platform/pull/930) (`codex/pods-playground-credit-ux-2026-07-10`).

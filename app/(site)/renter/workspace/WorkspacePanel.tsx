@@ -99,6 +99,8 @@ interface WorkspacePanelProps {
   context?: 'workspace' | 'pod-launch'
   /** Optional in-page jump for launch flows with many staged files. */
   nextStageHref?: string
+  /** Optional one-shot request to open the file manager with one folder expanded. */
+  folderFocusRequest?: { folderId: string; nonce: number } | null
   /** Optional callback when the renter creates a volume (e.g. to refresh shell). */
   onVolumeRented?: (vol: WorkspaceVolume) => void
   /** Optional callback whenever the current volume state is loaded/refreshed. */
@@ -112,6 +114,7 @@ export default function WorkspacePanel({
   renterKey,
   context = 'workspace',
   nextStageHref,
+  folderFocusRequest,
   onVolumeRented,
   onVolumeLoaded,
   onFilesLoaded,
@@ -141,6 +144,7 @@ export default function WorkspacePanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
   const initializedFolderFirstGroupsRef = useRef(false)
+  const handledFolderFocusRequestRef = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileGroups = useMemo(() => groupWorkspaceFiles(files), [files])
   const visibleFileGroups = useMemo(() => filterWorkspaceFileGroups(fileGroups, folderQuery), [fileGroups, folderQuery])
@@ -333,6 +337,21 @@ export default function WorkspacePanel({
     setFilesCollapsed(false)
     setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id).filter((id) => id !== groupId)))
   }
+
+  useEffect(() => {
+    if (!folderFocusRequest) return
+    if (handledFolderFocusRequestRef.current === folderFocusRequest.nonce) return
+    if (filesState !== 'ready' || fileGroups.length === 0) return
+    const target = fileGroups.find((group) => group.id === folderFocusRequest.folderId)
+    if (!target) return
+
+    setFolderQuery('')
+    setStageDetailsOpen(true)
+    setCompactFolderIndexOpen(false)
+    setFilesCollapsed(false)
+    setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id).filter((id) => id !== target.id)))
+    handledFolderFocusRequestRef.current = folderFocusRequest.nonce
+  }, [fileGroups, filesState, folderFocusRequest])
 
   function collapseAllFileGroups() {
     setCollapsedFileGroups(new Set(fileGroups.map((group) => group.id)))
