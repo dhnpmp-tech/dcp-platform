@@ -5,6 +5,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { ensureInferenceSmokePrincipal } = require('./ensure-inference-smoke-principal');
+const {
+  BATCH_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+  buildBatchLiveAcceptanceContract,
+  buildEmptyBatchLiveAcceptanceEvidence,
+  findMissingBatchLiveAcceptanceEvidence,
+} = require('../src/services/batchLiveAcceptanceContract');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const OUTPUT_DIR_DEFAULT = path.join(REPO_ROOT, 'docs/reports/reliability');
@@ -88,6 +94,7 @@ function classifyFailure(code, message, details = {}) {
     READINESS_REQUEST_FAILED: 'Check renter auth and GET /api/batches/readiness before attempting any batch execution smoke.',
     READINESS_CONTRACT_FAILED: 'Keep batch execution and discount claims gated until the readiness contract is explicit and internally consistent.',
     BATCH_EXECUTION_NOT_ENABLED: 'Keep batch execution, result-download, settlement, discount, and model batch capability claims blocked; finish the named readiness blockers first.',
+    BATCH_LIVE_ACCEPTANCE_EVIDENCE_MISSING: 'Keep public batch execution, result downloads, discounts, settlement, and model capability claims blocked until the live report proves every required evidence step.',
     BATCH_LIVE_FLOW_NOT_IMPLEMENTED: 'Add create/poll/download/settlement proof steps before allowing readiness to claim public live batch execution.',
   };
   return {
@@ -197,6 +204,19 @@ function buildMarkdown(report) {
   lines.push(JSON.stringify(report.readiness, null, 2));
   lines.push('```');
   lines.push('');
+  lines.push('## Acceptance Evidence');
+  lines.push('');
+  lines.push(`- contract: \`${report.acceptance_contract.contract}\``);
+  lines.push(`- gate: \`${report.acceptance_contract.gate}\``);
+  lines.push(`- pass_condition: ${report.acceptance_contract.pass_condition}`);
+  lines.push('');
+  lines.push('| evidence | proven | required fields |');
+  lines.push('|---|---:|---|');
+  for (const item of report.acceptance_contract.required_evidence) {
+    const proven = report.acceptance_evidence[item.id] === true ? 'yes' : 'no';
+    lines.push(`| ${item.id} | ${proven} | ${item.required_fields.join(', ')} |`);
+  }
+  lines.push('');
   if (report.failure) {
     lines.push('## Failure Classification');
     lines.push('');
@@ -266,6 +286,8 @@ async function runBatchLiveExecutionProof(options = {}) {
     },
     principal: {},
     readiness: {},
+    acceptance_contract: buildBatchLiveAcceptanceContract(),
+    acceptance_evidence: buildEmptyBatchLiveAcceptanceEvidence(),
     probes: {},
     batch: {
       attempted_creation: false,
@@ -350,6 +372,20 @@ async function runBatchLiveExecutionProof(options = {}) {
       });
     }
 
+    report.acceptance_evidence.readiness_live_claims_verified = true;
+    const missingEvidence = findMissingBatchLiveAcceptanceEvidence(report);
+    if (missingEvidence.length > 0) {
+      throw Object.assign(new Error('Readiness claims live batch execution, but the live proof artifact is missing required create/poll/download/settlement evidence'), {
+        code: 'BATCH_LIVE_ACCEPTANCE_EVIDENCE_MISSING',
+        details: {
+          missing_evidence: missingEvidence,
+          acceptance_contract: report.acceptance_contract.contract,
+          gate: report.acceptance_contract.gate,
+          required_evidence: report.acceptance_contract.required_evidence,
+        },
+      });
+    }
+
     throw Object.assign(new Error('Readiness claims live batch execution, but create/poll/download/settlement proof steps are not implemented in this runner yet'), {
       code: 'BATCH_LIVE_FLOW_NOT_IMPLEMENTED',
       details: {
@@ -396,8 +432,10 @@ if (require.main === module) {
 module.exports = {
   CONTRACT,
   PROOF_PREFIX,
+  BATCH_LIVE_ACCEPTANCE_CONTRACT_VERSION,
   buildUrl,
   classifyFailure,
+  findMissingBatchLiveAcceptanceEvidence,
   findReadinessBlockers,
   normalizeBaseUrl,
   redactSecret,

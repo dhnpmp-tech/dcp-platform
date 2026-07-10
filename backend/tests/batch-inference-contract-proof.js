@@ -278,6 +278,11 @@ async function runBatchInferenceContractProof(options = {}) {
       readiness.live_acceptance?.execution_discount_smoke?.status === 'blocked_external'
         && readiness.live_acceptance.execution_discount_smoke.command === 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution'
         && readiness.live_acceptance.execution_discount_smoke.live_acceptance_gate === 'batch_live_execution_discount_smoke'
+        && readiness.live_acceptance.execution_discount_smoke.acceptance_contract === 'dcp.batch_live_acceptance_evidence.v1'
+        && readiness.live_acceptance.execution_discount_smoke.required_evidence.some((item) => item.id === 'batch_create_verified')
+        && readiness.live_acceptance.execution_discount_smoke.required_evidence.some((item) => item.id === 'result_download_verified')
+        && readiness.live_acceptance.execution_discount_smoke.required_evidence.some((item) => item.id === 'discounted_settlement_proof_verified')
+        && readiness.live_acceptance.execution_discount_smoke.pass_condition.includes('PASS report')
         && readiness.live_acceptance.execution_discount_smoke.blocked_on.includes('live provider execution capacity')
         && readiness.live_acceptance.execution_discount_smoke.verifies.includes('discount remains disabled until approved'),
       'The opt-in live proof command is discoverable while public execution, settlement, downloads, discounts, and model flags remain gated.',

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 04:54 UTC - Batch live acceptance evidence contract (PR #948)
+
+- **PR:** [#948](https://github.com/dhnpmp-tech/dcp-platform/pull/948) (`codex/batch-live-acceptance-evidence-contract-2026-07-10`).
+- **Timestamp:** 2026-07-10 04:54 UTC / 2026-07-10 08:54 +04.
+- **Evidence contract:** Added `dcp.batch_live_acceptance_evidence.v1` for the `batch_live_execution_discount_smoke` gate, listing readiness, create, poll, manifest, download, line, discounted settlement, and model-capability evidence.
+- **Readiness packet:** Batch readiness now publishes the acceptance contract, pass condition, required evidence fields, and claim-unlock mapping.
+- **Proof guard:** `npm run proof:batch-live-execution` fails if readiness claims live Batch execution before the live artifact proves every required evidence step.
+- **Safety:** Evidence/test/docs-only change; no batch execution, downloads, settlement, discounts, model flags, billing, balances, routing, or provider behavior changed.
+- **Verification:** Focused Batch live proof Jest suite, Batch inference contract proof, blocked live proof, local roadmap proof, OpenAPI parse, build, and diff check.
+
 ### 2026-07-10 04:39 UTC - Pods workspace decision map (PR #947)
 
 - **PR:** [#947](https://github.com/dhnpmp-tech/dcp-platform/pull/947) (`codex/pods-tareq-workspace-decision-map-2026-07-10`).

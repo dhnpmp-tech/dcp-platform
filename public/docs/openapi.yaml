@@ -2057,7 +2057,7 @@ paths:
                         properties:
                           execution_discount_smoke:
                             type: object
-                            required: [status, command, live_acceptance_gate, blocked_on, verifies]
+                            required: [status, command, live_acceptance_gate, acceptance_contract, pass_condition, required_evidence, blocked_on, verifies]
                             properties:
                               status:
                                 type: string
@@ -2068,6 +2068,27 @@ paths:
                               live_acceptance_gate:
                                 type: string
                                 example: batch_live_execution_discount_smoke
+                              acceptance_contract:
+                                type: string
+                                example: dcp.batch_live_acceptance_evidence.v1
+                              pass_condition:
+                                type: string
+                                example: A PASS report must prove every required_evidence id in one redacted live run before batch claims can be enabled.
+                              required_evidence:
+                                type: array
+                                items:
+                                  type: object
+                                  additionalProperties: true
+                                example:
+                                  - id: batch_create_verified
+                                    label: Batch create accepted
+                                    required_fields: [batch_id, idempotency_key, request_count, input_checksum_sha256]
+                                  - id: discounted_settlement_proof_verified
+                                    label: Discounted settlement is proven
+                                    required_fields: [minimum_balance_preflight, discount_policy_id, settlement_request_id, settlement_status=settled]
+                              claim_unlocks:
+                                type: object
+                                additionalProperties: true
                               blocked_on:
                                 type: array
                                 items: { type: string }

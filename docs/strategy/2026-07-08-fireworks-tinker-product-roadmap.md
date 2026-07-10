@@ -440,6 +440,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     readiness contracts, OpenAPI, public `/inference`, public `/batch`, renter
     `/renter/batches`, and the CI-safe proof packets so missing live evidence is
     visible before Fireworks-style cache discount or batch execution claims.
+  - PR #948 adds `dcp.batch_live_acceptance_evidence.v1`, making the Batch live
+    gate explicitly require readiness, create, poll, result manifest, checksum
+    download, per-line execution, discounted settlement, and model capability
+    evidence before any live Batch or discount claim can flip true.
   - PR #897 adds the same account-scoped minimum-balance readiness to
     `/renter/playground`, making v1 estimate preflight, paid available credit,
     monthly cap remaining, prompt-cache discount status, and blocked future

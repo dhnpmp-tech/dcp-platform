@@ -76,6 +76,7 @@ Apple Silicon (M2-class) is also live in-Kingdom for inference-only workloads.
 - Public page: https://dcp.sa/batch.
 - Current state: JSONL validation, batch metadata records, line-ledger rows, result-manifest proof shape, and readiness gates exist.
 - Readiness: `GET https://api.dcp.sa/api/batches/readiness` (Bearer renter key).
+- Live acceptance contract: readiness exposes `dcp.batch_live_acceptance_evidence.v1` under `batch_live_execution_discount_smoke`; `DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution` must prove readiness, batch create, completed polling, result manifest, checksum-verified download, per-line execution proof, discounted settlement, and model capability flag evidence before batch execution or discount claims can turn true.
 - Create/list/read records: `POST /api/batches`, `GET /api/batches`, `GET /api/batches/{batch_id}`, `GET /api/batches/{batch_id}/lines`, `GET /api/batches/{batch_id}/results`.
 - Important gate: production batch worker execution, completed-result downloads without proof, discounted settlement, and `/v1/models` batch product-available flags remain off until worker/result/billing proof is enabled.
 
