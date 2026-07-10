@@ -6,7 +6,7 @@ import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
 import { displayGpuType } from '@/app/lib/useGpuTypes'
 import WorkspacePanel from '../workspace/WorkspacePanel'
-import type { WorkspaceFile, WorkspaceVolume } from '../workspace/workspaceApi'
+import { humanBytes, type WorkspaceFile, type WorkspaceVolume } from '../workspace/workspaceApi'
 import { PodSidebar, PodTopbar, initials } from './PodShell'
 import './pods.css'
 
@@ -603,6 +603,37 @@ function countTopLevelWorkspaceFolders(files: WorkspaceFile[]): number {
     if (parts.length > 1) folders.add(parts[0])
   }
   return folders.size
+}
+
+interface WorkspaceFolderPeek {
+  id: string
+  label: string
+  fileCount: number
+  totalBytes: number
+}
+
+function summarizeWorkspaceFolders(files: WorkspaceFile[], limit = 3): WorkspaceFolderPeek[] {
+  const groups = new Map<string, WorkspaceFolderPeek>()
+
+  for (const file of files) {
+    const key = String(file.key || '').replace(/^\/+/, '')
+    const parts = key.split('/').filter(Boolean)
+    const hasFolder = parts.length > 1
+    const id = hasFolder ? parts[0] : '__root__'
+    const label = hasFolder ? `${parts[0]}/` : 'Root files'
+    const current = groups.get(id) || { id, label, fileCount: 0, totalBytes: 0 }
+    current.fileCount += 1
+    current.totalBytes += Number(file.size || 0)
+    groups.set(id, current)
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => {
+      if (b.fileCount !== a.fileCount) return b.fileCount - a.fileCount
+      if (b.totalBytes !== a.totalBytes) return b.totalBytes - a.totalBytes
+      return a.label.localeCompare(b.label)
+    })
+    .slice(0, limit)
 }
 // Approximate USD via the fixed peg — secondary display only.
 function fmtUsd(sar: number): string {
@@ -1344,6 +1375,8 @@ export default function RenterPodsPage() {
     minimumBalance?.rails?.adapter_deployments,
   ].filter((rail) => rail?.enforcement_live === false).length
   const workspaceFolderCount = countTopLevelWorkspaceFolders(workspaceFiles)
+  const workspaceFolderPeek = summarizeWorkspaceFolders(workspaceFiles)
+  const hiddenWorkspaceFolderCount = Math.max(0, workspaceFolderCount - workspaceFolderPeek.length)
   const workspaceChecklistLabel = workspaceVolume
     ? workspaceFiles.length > 0
       ? `${workspaceFiles.length} files · ${workspaceFolderCount} folders`
@@ -1417,6 +1450,12 @@ export default function RenterPodsPage() {
   const stage2PrimaryDecisionDetail = selectedType
     ? `Fixed request: ${displayGpuType(selectedType.gpu_model)}. Filters can hide cards, but they do not replace this pinned launch GPU.`
     : 'Auto-pick is the launch request. VRAM chips, workload guide, search, and sort only change what you browse.'
+  const finalGpuRequestHeadline = selectedType
+    ? displayGpuType(selectedType.gpu_model)
+    : 'Auto-pick GPU'
+  const finalGpuRequestDetail = selectedType
+    ? `Pinned card · ${selectedType.vram_gb} GB VRAM${selectedType.sar_per_hour != null ? ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr` : ''}`
+    : 'No fixed GPU card pinned. VRAM chips and workload presets are only browse filters.'
   const launchButtonLabel = selectedType
     ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
     : 'Launch auto-picked GPU pod'
@@ -1604,6 +1643,45 @@ export default function RenterPodsPage() {
                   onFilesLoaded={setWorkspaceFiles}
                 />
               </div>
+              {!workspaceStageBodyOpen && workspaceFiles.length > 0 && (
+                <div className="pod-stage-folder-peek" aria-label={lang === 'ar' ? 'معاينة مجلدات المرحلة 1' : 'Stage 1 folder preview'}>
+                  <div className="pod-stage-folder-peek-copy">
+                    <span><Bi en="Folder checkpoint" ar="نقطة تحقق المجلدات" /></span>
+                    <strong><Bi en="Top folders, not every file" ar="أهم المجلدات بدلاً من كل ملف" /></strong>
+                    <em>
+                      <Bi
+                        en="Use this preview to confirm the workspace shape. Expand only for uploads, deletes, or one-folder inspection."
+                        ar="استخدم هذه المعاينة لتأكيد شكل مساحة العمل. افتحها فقط للرفع أو الحذف أو فحص مجلد واحد."
+                      />
+                    </em>
+                  </div>
+                  <div className="pod-stage-folder-peek-list">
+                    {workspaceFolderPeek.map((folder) => (
+                      <button
+                        key={folder.id}
+                        type="button"
+                        onClick={() => setWorkspaceStageOpen(true)}
+                        aria-label={
+                          lang === 'ar'
+                            ? `افتح المرحلة 1 لفحص ${folder.label}`
+                            : `Open Stage 1 to inspect ${folder.label}`
+                        }
+                      >
+                        <span>{folder.label}</span>
+                        <b>{folder.fileCount} files</b>
+                        <small>{humanBytes(folder.totalBytes)}</small>
+                      </button>
+                    ))}
+                    {hiddenWorkspaceFolderCount > 0 && (
+                      <button type="button" onClick={() => setWorkspaceStageOpen(true)}>
+                        <span>+{hiddenWorkspaceFolderCount}</span>
+                        <b><Bi en="more folders" ar="مجلدات أخرى" /></b>
+                        <small><Bi en="expand Stage 1" ar="افتح المرحلة 1" /></small>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1731,7 +1809,7 @@ export default function RenterPodsPage() {
                   <Bi en="Keep Auto-pick" ar="أبقِ الاختيار التلقائي" />
                 </button>
                 <span>
-                  <Bi en="VRAM slider/chips are filters only" ar="شرائح الذاكرة للتصفية فقط" />
+                  <Bi en="VRAM chips are browse filters only" ar="شرائح الذاكرة للتصفح فقط" />
                 </span>
                 <span>
                   <Bi en={trialGrantAnswerLabel} ar="رصيد التجربة من المنحة" />
@@ -1740,6 +1818,13 @@ export default function RenterPodsPage() {
                   <Bi en={highDemandPaidCreditGateLabel} ar="الطلب العالي يحتاج رصيداً مدفوعاً" />
                 </span>
               </div>
+            </div>
+
+            <div className={`pod-final-gpu-request ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'طلب GPU النهائي' : 'Final GPU request'}>
+              <span><Bi en="Final GPU request" ar="طلب GPU النهائي" /></span>
+              <strong><Bi en={finalGpuRequestHeadline} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي للـ GPU'} /></strong>
+              <code>{launchRequestPayloadLabel}</code>
+              <em><Bi en={finalGpuRequestDetail} ar={selectedType ? 'بطاقة مثبتة في طلب التشغيل.' : 'لا توجد بطاقة مثبتة؛ تصفية الذاكرة والعمل للتصفح فقط.'} /></em>
             </div>
 
             <div className="pod-compute-summary" aria-live="polite" aria-label={lang === 'ar' ? 'قرار GPU في المرحلة 2' : 'Stage 2 GPU decision'}>

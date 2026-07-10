@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 00:15 UTC - Pod folder checkpoint, final GPU request, and playground credit policy (PR #930)
+
+- **PR:** [#930](https://github.com/dhnpmp-tech/dcp-platform/pull/930) (`codex/pods-playground-credit-ux-2026-07-10`).
+- **Timestamp:** 2026-07-10 00:15 UTC / 2026-07-10 04:15 +04.
+- **Workspace UX:** `/renter/pods` collapsed Stage 1 now shows a top-folder checkpoint before the full workspace manager opens, preserving the Stage 2 fast path for large workspaces.
+- **GPU clarity:** Stage 2 now has a dedicated final GPU request strip and uses "VRAM chips are browse filters only" language, so Auto-pick versus fixed `gpu_type` remains the only launch decision.
+- **Inference credit policy:** `/renter/playground` minimum-balance preflight now shows credit-policy sync, trial grant SAR, paid available SAR, high-demand paid-credit gate, and no trial/paid-credit policy mutation guard.
+- **Safety:** Frontend/type/test-only change; no workspace API, pod launch, inference dispatch, billing, balance, trial-accounting, paid-credit policy, routing, provider-selection, or enforcement mutation.
+- **Verification:** Focused Pods workspace/GPU and Playground minimum-balance Playwright specs plus standard build/proof sweep before merge.
+
 ### 2026-07-09 23:58 UTC - Usage account controls credit-policy visibility (PR #929)
 
 - **PR:** [#929](https://github.com/dhnpmp-tech/dcp-platform/pull/929) (`codex/usage-credit-policy-visibility-2026-07-10`).
@@ -17,7 +27,7 @@
 - **Backend contract:** `GET /api/renters/me/minimum-balances` now includes `account.trial_grant_halala` and a `credit_policy` section separating trial/grant credit from paid available credit.
 - **Trial answer:** The packet states there is no explicit trial-account tag live, trial credit comes from `renters.trial_grant_halala`, and high-demand capacity still requires paid credit.
 - **Pod UX:** `/renter/pods` now keeps Stage 1 visibly collapsible for large workspaces, repeats that Stage 2 launches with the whole `/workspace` volume, and promotes the Stage 2 launch GPU decision above the picker.
-- **GPU picker:** The Stage 2 priority strip shows the exact launch request and labels VRAM slider/chips as browse filters only, so template/filter choices cannot be mistaken for the selected GPU.
+- **GPU picker:** The Stage 2 priority strip shows the exact launch request and labels VRAM chips/controls as browse filters only, so template/filter choices cannot be mistaken for the selected GPU.
 - **Docs:** OpenAPI and `llms.txt` now describe the credit-policy fields and no-mutation guards.
 - **Safety:** No payment creation, balance mutation, pod launch, inference dispatch, workload creation, discount enablement, trial-accounting mutation, paid-credit policy mutation, enforcement change, provider selection, or routing change was added.
 - **Verification:** Minimum-balance service/route/proof `node --check`; targeted backend Jest; `npm run proof:minimum-balance-readiness`; focused Playwright workspace/GPU UX spec.

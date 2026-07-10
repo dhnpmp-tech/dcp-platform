@@ -247,6 +247,10 @@ what is live.
   hiding the detailed workspace manager by default. It also adds a GPU
   source-of-truth callout before filters, clarifying that only Auto-pick or a
   card marked "Selected launch GPU" changes the final request.
+- PR #930 adds a top-folder checkpoint to the collapsed Stage 1 pod workspace
+  and a dedicated "Final GPU request" strip in Stage 2, replacing the last
+  visible slider wording with "VRAM chips are browse filters only" while keeping
+  launch semantics unchanged.
 
 ### Now
 
@@ -581,6 +585,10 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `/renter/playground`, so live inference requests now sit beside a read-only
   v1 estimate-preflight rail, paid-available credit, monthly-cap remaining, and
   still-blocked prompt-cache/batch/LoRA/adapter/eval billing rails.
+- PR #930 extends that `/renter/playground` preflight with the same
+  minimum-balance `credit_policy` fields already visible in Pods and Usage:
+  trial grant SAR, paid available SAR, high-demand paid-credit gate, and
+  no trial/paid-credit policy mutation guard.
 - PR #880 made public `/inference` consume `/v1/models` directly, rendering a
   live model-catalog summary with serving counts, provider-backed rows, context,
   SAR input/output pricing, and catalog-only state without changing model
@@ -831,6 +839,9 @@ template launch.
   callout, so large workspaces no longer leave the detailed file manager visible
   before the compute decision and VRAM/search controls cannot be mistaken for
   the actual GPU selection.
+- PR #930 keeps that path summary-first while making it easier to scan: the
+  closed Stage 1 state shows top folders and sizes, and Stage 2 repeats the
+  final `gpu_type` request in its own strip before the compute summary.
 
 ### Now
 

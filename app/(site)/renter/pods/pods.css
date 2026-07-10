@@ -583,6 +583,105 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   }
 }
 
+.pod-stage-folder-peek {
+  display: grid;
+  grid-template-columns: minmax(0, .72fr) minmax(0, 1fr);
+  gap: 14px 18px;
+  align-items: center;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--teal) 3%, var(--paper));
+}
+.pod-stage-folder-peek-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pod-stage-folder-peek-copy span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--rt-accent);
+}
+.pod-stage-folder-peek-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.pod-stage-folder-peek-copy em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  max-width: 58ch;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.pod-stage-folder-peek-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.pod-stage-folder-peek-list button {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 10px 11px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  text-align: start;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.pod-stage-folder-peek-list button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink);
+}
+.pod-stage-folder-peek-list button b,
+.pod-stage-folder-peek-list button small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--mut);
+}
+.pod-stage-folder-peek-list button:hover,
+.pod-stage-folder-peek-list button:focus-visible {
+  border-color: var(--rt-accent);
+  color: var(--ink);
+  outline: none;
+}
+@media (max-width: 900px) {
+  .pod-stage-folder-peek {
+    grid-template-columns: 1fr;
+  }
+  .pod-stage-folder-peek-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .pod-stage-folder-peek-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pod-launch .panel-hd .hint { align-self: center; }
 
 .pod-stage2-priority {
@@ -691,6 +790,66 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 @media (max-width: 560px) {
   .pod-stage2-priority-copy strong {
     font-size: 30px;
+  }
+}
+
+.pod-final-gpu-request {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px 14px;
+  align-items: baseline;
+  margin: -2px 0 14px;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in oklab, var(--teal) 48%, var(--hair));
+  background: #04050d;
+  color: var(--ink);
+  box-shadow: inset 4px 0 0 var(--rt-accent);
+}
+.pod-final-gpu-request > span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--rt-accent);
+}
+.pod-final-gpu-request strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+}
+.pod-final-gpu-request code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in oklab, var(--teal) 40%, var(--hair));
+  background: color-mix(in oklab, var(--teal) 7%, transparent);
+  color: var(--rt-accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: 2px;
+}
+.pod-final-gpu-request em {
+  grid-column: 2 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+.pod-final-gpu-request.fixed {
+  border-color: color-mix(in oklab, var(--teal) 62%, var(--hair));
+}
+@media (max-width: 720px) {
+  .pod-final-gpu-request {
+    grid-template-columns: 1fr;
+  }
+  .pod-final-gpu-request em {
+    grid-column: auto;
   }
 }
 

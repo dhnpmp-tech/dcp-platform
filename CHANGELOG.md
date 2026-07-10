@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 00:15 UTC - `feat(pods): add folder checkpoint and final GPU request - PR #930`
+
+**PR:** [#930](https://github.com/dhnpmp-tech/dcp-platform/pull/930) (`codex/pods-playground-credit-ux-2026-07-10`).
+**Local timestamp:** 2026-07-10 04:15 +04.
+
+**What:** Tareq workspace/GPU clarity follow-up plus inference credit-policy continuity. Keeps the pod launch path summary-first for large workspaces, makes the final Stage 2 GPU request impossible to miss, and carries the minimum-balance credit-policy answer into the inference playground preflight.
+
+- **Workspace UX:** `/renter/pods` now shows a collapsed Stage 1 folder checkpoint with the top folders and sizes visible before the full workspace manager opens, so renters can confirm the workspace shape without scanning every file before Stage 2.
+- **GPU decision UX:** Stage 2 now includes a dedicated "Final GPU request" strip (`gpu_type` omitted for Auto-pick or fixed to the selected card) and removes the last visible "slider" wording; VRAM chips are labeled as browse filters only.
+- **Inference preflight:** `/renter/playground` now shows the same minimum-balance `credit_policy` facts as Pods/Usage: credit-policy sync, trial grant SAR, paid available SAR, high-demand paid-credit gate, and no trial/paid-credit policy mutation guard.
+- **Safety:** Frontend/type/test-only change; no workspace API behavior, upload/delete/download semantics, pod launch body, inference dispatch, payment creation, balance mutation, billing policy, trial-accounting policy, provider selection, routing, or enforcement change.
+- **Verification:** Focused `/renter/pods` workspace/GPU Playwright regression and `/renter/playground` minimum-balance preflight regression; full build/proof sweep before merge.
+
 ### 2026-07-09 23:58 UTC - `feat(usage): surface credit-policy account controls - PR #929`
 
 **PR:** [#929](https://github.com/dhnpmp-tech/dcp-platform/pull/929) (`codex/usage-credit-policy-visibility-2026-07-10`).
@@ -35,7 +48,7 @@ checklists do not belong in this public changelog.
 
 - **Backend contract:** `GET /api/renters/me/minimum-balances` now includes `account.trial_grant_halala` and a `credit_policy` block with trial-credit source, paid-credit source, paid available credit, high-demand paid-credit requirement, and the linked pod trial-routing contract.
 - **Workspace UX:** `/renter/pods` now makes Stage 1 explicitly collapsible in the checkpoint summary and repeats that renters can continue to Stage 2 without reviewing every staged file.
-- **GPU decision UX:** Stage 2 now has a primary GPU-decision strip above the picker showing the exact launch request (`gpu_type` omitted for Auto-pick or fixed to the selected GPU card) and warning that VRAM slider/chips are browse filters only.
+- **GPU decision UX:** Stage 2 now has a primary GPU-decision strip above the picker showing the exact launch request (`gpu_type` omitted for Auto-pick or fixed to the selected GPU card) and warning that VRAM chips/controls are browse filters only.
 - **Trial answer in UI:** The pod trial policy and Stage 2 decision strip now show the minimum-balance credit-policy source, trial grant amount, no live trial-account tag, native/community GPU route for trial credit, and paid-credit-only high-demand gate.
 - **Claim guards:** Minimum-balance readiness now explicitly states it does not change trial accounting or paid-credit policy, in addition to existing no-money/no-workload/no-enforcement-change guards.
 - **Agent docs/OpenAPI:** `docs/openapi.yaml`, `public/docs/openapi.yaml`, and `public/llms.txt` now document the `credit_policy` contract.

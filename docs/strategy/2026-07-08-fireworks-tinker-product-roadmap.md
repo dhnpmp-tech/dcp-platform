@@ -177,6 +177,9 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #925 turns the whole Stage 1 workspace area into an accordion after
     staged files load, so the detailed workspace manager is not visible before
     Stage 2 unless the renter expands it.
+  - PR #930 adds a top-folder checkpoint to the closed Stage 1 accordion, so
+    renters can see the busiest workspace folders and sizes without opening a
+    full file wall before the GPU decision.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -213,12 +216,16 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     paid-credit requirements from the same contract without changing launch or
     billing behavior. It also promotes the answer into `/renter/pods`: Stage 1
     stays visibly collapsible for large workspaces, Stage 2 shows the exact
-    launch GPU request above the picker, and VRAM slider/chips are labeled as
-    browse filters only.
+    launch GPU request above the picker, and VRAM chips are labeled as browse
+    filters only.
   - PR #929 carries the same credit-policy contract into `/renter/usage`
     Account controls, adding trial grant SAR, paid available SAR, high-demand
     paid-credit gate, and no trial/paid-credit policy mutation status next to
     usage export and scoped-key controls.
+  - PR #930 carries the same credit-policy facts into `/renter/playground`
+    minimum-balance preflight, adding trial grant SAR, high-demand paid-credit
+    gate, and no trial/paid-credit policy mutation guard beside live v1
+    estimate preflight.
   - PR #899 repeats the same trial-route and credit-gate state in the unified
     launch checklist, alongside the actual auto-pick/fixed-GPU request, without
     changing launch body, routing, billing, or enforcement behavior.
@@ -367,6 +374,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     `/renter/playground`, making v1 estimate preflight, paid available credit,
     monthly cap remaining, prompt-cache discount status, and blocked future
     billing rails visible before users send live inference traffic.
+  - PR #930 extends that playground rail with the shared credit-policy answer:
+    trial grant, paid-credit source, high-demand paid-credit gate, and
+    no trial/paid-credit mutation status.
   - PR #898 adds the account-scoped minimum-balance readiness to
     `/renter/batches`, making batch settlement status, paid available credit,
     v1 monthly cap remaining, and blocked future billing rails visible before

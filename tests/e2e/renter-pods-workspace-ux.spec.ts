@@ -382,9 +382,18 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' })).toBeVisible();
   await expect(page.getByText('Stage 1 manifest')).toBeHidden();
   await expect(page.getByText('datasets/train.jsonl')).toBeHidden();
+  const folderPreview = page.getByLabel('Stage 1 folder preview');
+  await expect(folderPreview).toContainText('Folder checkpoint');
+  await expect(folderPreview).toContainText('Top folders, not every file');
+  await expect(folderPreview).toContainText('datasets/');
+  await expect(folderPreview).toContainText('2 files');
+  await expect(folderPreview).toContainText('1.95 KiB');
+  await expect(folderPreview).toContainText('notebooks/');
+  await expect(folderPreview).toContainText('checkpoints/');
 
   await stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' }).click();
   await expect(stage1Checkpoint).toContainText('Workspace details open');
+  await expect(folderPreview).toBeHidden();
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('Stage 1 folder summary');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('5 files staged');
   await expect(page.getByLabel('Stage 1 workspace summary')).toContainText('20 GB /workspace');
@@ -480,9 +489,14 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Auto-pick is the launch request');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('gpu_type omitted = auto-pick');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Choose fixed GPU card');
-  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('VRAM slider/chips are filters only');
+  await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('VRAM chips are browse filters only');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Trial grant SAR 20.00');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('High-demand paid-credit gate live');
+  const finalGpuRequest = page.getByLabel('Final GPU request');
+  await expect(finalGpuRequest).toContainText('Final GPU request');
+  await expect(finalGpuRequest).toContainText('Auto-pick GPU');
+  await expect(finalGpuRequest).toContainText('gpu_type omitted = auto-pick');
+  await expect(finalGpuRequest).toContainText('No fixed GPU card pinned');
   await expect(computeSummary).toContainText('Template');
   await expect(computeSummary).toContainText('Actual GPU');
   await expect(computeSummary).toContainText('Auto-pick GPU');
@@ -580,6 +594,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await gpuSelectionStrip.getByRole('button', { name: 'Clear filters' }).click();
   await expect(gpuSelectionStrip).toContainText('No workload filter');
   await page.getByRole('button', { name: '80 GB+', exact: true }).click();
+  await expect(finalGpuRequest).toContainText('Auto-pick GPU');
+  await expect(finalGpuRequest).toContainText('gpu_type omitted = auto-pick');
   await expect(gpuSelectionStrip).toContainText('Browse filter 80 GB+');
   await expect(gpuSelectionStrip).toContainText('1 shown');
   await expect(computeSummary).toContainText('Browse filter 80 GB+');
@@ -596,6 +612,9 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('RTX 4090');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('Fixed request: RTX 4090');
   await expect(page.getByLabel('Stage 2 primary GPU decision')).toContainText('gpu_type = RTX 4090');
+  await expect(finalGpuRequest).toContainText('RTX 4090');
+  await expect(finalGpuRequest).toContainText('gpu_type = RTX 4090');
+  await expect(finalGpuRequest).toContainText('Pinned card · 24 GB VRAM');
   await expect(computeSummary).toContainText('RTX 4090');
   await expect(computeSummary).toContainText('Actual GPU');
   await expect(computeSummary).toContainText('Fixed GPU selected for launch');
