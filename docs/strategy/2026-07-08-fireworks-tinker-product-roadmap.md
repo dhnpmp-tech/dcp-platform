@@ -92,6 +92,14 @@ The parts to tighten:
 | Quotas/usage export | Renter/admin controls | Account v1 cap status and scoped usage export exist; per-key budgets are gated | Add scoped-key attribution, per-key budget enforcement, and team usage pages |
 | CLI/connectors | `dcp` / `dcpconnect` | `dcp` launcher exists for Claude Code path | Extend to Codex/Cursor/OpenCode configs after Anthropic/OpenAI paths are stable |
 
+PR #945 adds the renter dashboard as the cross-rail visibility surface for this
+matrix: `/renter/dashboard` now summarizes Inference, Prompt cache, Batch,
+LoRA/adapters, and Pods readiness from the existing contracts while keeping
+billing, routing, training, discount, and launch mutations out of the dashboard.
+The same slice tightens `/renter/pods` launch IA with a collapsed Stage 1 path
+map plus explicit trial/GPU-source answers before the file manager or detailed
+GPU picker.
+
 ## Roadmap
 
 ### Phase A - Reconciliation and Hardening (1-3 days)
@@ -200,6 +208,11 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
   - PR #944 adds folder/file search to the collapsed Stage 1 folder preview, so
     renters can locate a specific folder without opening the full manifest and
     still keep Stage 2's actual launch GPU decision one click away.
+  - PR #945 adds a collapsed Stage 1 path map and top launch-policy answer
+    strip, so Tareq's review questions are visible before the file manager:
+    no live trial-account tag under grant-credit provenance, trial credit routes
+    to DCP/community GPUs, high-demand GPUs require paid credit, and the launch
+    GPU source is either Auto-pick or a selected card.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
@@ -1011,6 +1024,9 @@ Frontend lane:
 - Product IA and pages.
 - Renter pod launch/template UX.
 - Dataset/training/adapters dashboard.
+- Cross-rail renter dashboard readiness board for Inference, Prompt cache,
+  Batch, LoRA/adapters, and Pods. **PR #945 adds this to `/renter/dashboard`
+  using existing read-only contracts and no-mutation guard copy.**
 - Playground and pricing transparency.
 
 Shared lane:

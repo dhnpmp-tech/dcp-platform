@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-07-10 04:06 UTC - Renter platform readiness and launch clarity (PR #945)
+
+- **PR:** [#945](https://github.com/dhnpmp-tech/dcp-platform/pull/945) (`codex/renter-dashboard-platform-readiness-2026-07-10`).
+- **Timestamp:** 2026-07-10 04:06 UTC / 2026-07-10 08:06 +04.
+- **Dashboard UX:** `/renter/dashboard` now shows a Fireworks/Tinker-style Platform readiness board for Inference, Prompt cache, Batch, LoRA/adapters, and Pods.
+- **Readiness inputs:** The board consumes `/v1/models`, `/v1/prompt-cache/settlement/readiness`, `/api/batches/readiness`, `/api/lora/readiness`, and current pod runway state through the existing proxy/auth pattern.
+- **Pod workspace UX:** `/renter/pods` collapsed Stage 1 now shows a summary -> one-folder -> Stage 2 path map, so large workspace manifests stay closed while the actual GPU decision remains one click away.
+- **Trial/GPU clarity:** The launch command center now answers trial tagging, trial capacity, high-demand paid-credit routing, and Auto-pick vs selected-card GPU source before the detailed picker.
+- **Gate honesty:** The board marks prompt-cache discounts, Batch execution/discounts, LoRA training, adapter routing, and pod launches as governed by existing proof/readiness contracts.
+- **Regression guard:** `tests/v2-renter-console-static.test.js` protects current `x-renter-key` Dashboard/API Keys fetches and the dashboard no-mutation claim; `tests/e2e/renter-pods-workspace-ux.spec.ts` protects the launch-policy answers and collapsed Stage 1 path.
+- **Safety:** Frontend/test/docs-only change; no dispatch, launch body, workspace API, provider selection, GPU filter semantics, adapter traffic, training worker, batch execution, prompt-cache discount, billing, settlement, balance, trial-accounting, paid-credit policy, or account-classification mutation.
+- **Verification:** Dashboard/API key static guard, Pods workspace Playwright regression, Next build, local roadmap proof, and production smoke.
+
 ### 2026-07-10 03:22 UTC - Collapsed workspace folder search (PR #944)
 
 - **PR:** [#944](https://github.com/dhnpmp-tech/dcp-platform/pull/944) (`codex/pods-workspace-stage-collapse-ux-2026-07-10`).

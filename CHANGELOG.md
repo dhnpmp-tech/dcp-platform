@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 04:06 UTC - `feat(renter): add platform readiness and launch clarity - PR #945`
+
+**PR:** [#945](https://github.com/dhnpmp-tech/dcp-platform/pull/945) (`codex/renter-dashboard-platform-readiness-2026-07-10`).
+**Local timestamp:** 2026-07-10 08:06 +04.
+
+**What:** Fireworks/Tinker product-visibility plus Tareq workspace/GPU-choice follow-up. Adds a renter-dashboard readiness board and makes `/renter/pods` clearer for file-heavy workspaces, trial-account policy, and final GPU source of truth without unlocking gated compute, billing, training, or routing.
+
+- **Dashboard UX:** `/renter/dashboard` now shows a Platform readiness board for Inference, Prompt cache, Batch, LoRA/adapters, and Pods, with direct links to the owning product surfaces.
+- **Contract inputs:** The board reads `/v1/models`, `/v1/prompt-cache/settlement/readiness`, `/api/batches/readiness`, `/api/lora/readiness`, and current pod runway state through the existing Next.js proxy/auth pattern.
+- **Pod workspace UX:** `/renter/pods` collapsed Stage 1 now includes a summary -> one-folder -> Stage 2 path map, so renters can inspect one folder or skip directly to the actual GPU decision without opening the full workspace manager.
+- **Trial/GPU clarity:** The launch command center now shows explicit answers for trial tagging, trial capacity, high-demand paid-credit routing, and whether the final GPU source is Auto-pick or a selected card.
+- **Honest gates:** Prompt-cache discounts, Batch execution/discounts, LoRA training, adapter routing, and pod launches remain explicitly gated by their existing readiness/proof contracts.
+- **Regression guard:** `tests/v2-renter-console-static.test.js` now reflects the current `x-renter-key` auth flow for Dashboard and API Keys, while the Pods Playwright regression guards the launch answers and collapsed Stage 1 path.
+- **Safety:** Frontend/test/docs-only change; no inference dispatch, pod launch body, workspace API behavior, provider selection, GPU filter semantics, provider routing, adapter route traffic, training worker, batch execution, prompt-cache discount, billing, settlement, balance, trial-accounting, paid-credit policy, or account-classification behavior changed.
+- **Verification:** Dashboard/API key static guard, Pods workspace Playwright regression, Next build, local roadmap proof, and production smoke for the public dashboard/workspace readiness docs.
+
 ### 2026-07-10 03:22 UTC - `feat(pods): add collapsed workspace folder search - PR #944`
 
 **PR:** [#944](https://github.com/dhnpmp-tech/dcp-platform/pull/944) (`codex/pods-workspace-stage-collapse-ux-2026-07-10`).

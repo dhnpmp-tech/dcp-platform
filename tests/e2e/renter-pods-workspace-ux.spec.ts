@@ -411,6 +411,15 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(commandCenter).toContainText('Stage 1 files are collapsed');
   await expect(commandCenter).toContainText('No trial-account tag live');
   await expect(commandCenter).toContainText('High-demand GPUs: paid credit only');
+  const launchPolicyAnswers = page.getByLabel('Launch policy answers');
+  await expect(launchPolicyAnswers).toContainText('Trial tagging');
+  await expect(launchPolicyAnswers).toContainText('No trial-account tag live');
+  await expect(launchPolicyAnswers).toContainText('Trial capacity');
+  await expect(launchPolicyAnswers).toContainText('Grant credit routes to DCP/community GPUs');
+  await expect(launchPolicyAnswers).toContainText('High-demand');
+  await expect(launchPolicyAnswers).toContainText('Paid credit only');
+  await expect(launchPolicyAnswers).toContainText('GPU source');
+  await expect(launchPolicyAnswers).toContainText('GPU source: Auto-pick at launch');
   await expect(page.getByLabel('Mobile launch dock')).toBeHidden();
   const fastPath = page.getByLabel('Fast path to Stage 2');
   await expect(fastPath).toContainText('Main decision');
@@ -454,6 +463,13 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(collapsedFolderList).toContainText('No collapsed folder matches that search.');
   await collapsedFolderSearch.fill('');
   await expect(collapsedFolderList).toContainText('datasets/');
+  const collapsedStagePath = page.getByLabel('Collapsed Stage 1 path');
+  await expect(collapsedStagePath).toContainText('Summary first');
+  await expect(collapsedStagePath).toContainText('Use folder counts instead of scrolling every file.');
+  await expect(collapsedStagePath).toContainText('Open one folder');
+  await expect(collapsedStagePath).toContainText('datasets/ opens; other folders stay closed.');
+  await expect(collapsedStagePath).toContainText('Stage 2 GPU');
+  await expect(collapsedStagePath).toContainText('Skip file review when the summary is enough.');
 
   await stage1Checkpoint.getByRole('button', { name: 'Expand Stage 1 workspace' }).click();
   await expect(stage1Checkpoint).toContainText('Workspace details open');
