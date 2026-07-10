@@ -70,10 +70,23 @@ describe('GET /api/admin/live-acceptance-gates', () => {
       command_available: 8,
       capability_claim_allowed: 0,
       latest_evidence_found: 1,
+      operator_runbooks: 8,
+      ready_to_run: 0,
     });
     expect(res.body.gates.find((gate) => gate.id === 'dcp_agent_reconciliation')).toMatchObject({
       acceptance_state: 'blocked_maintenance_window',
       capability_claim_allowed: false,
+      operator_runbook: {
+        contract: 'dcp.live_acceptance_operator_runbook.v1',
+        readiness_state: 'blocked_maintenance_window',
+        ready_to_run: false,
+        command: 'DCP_AGENT_RECONCILE_READ_REMOTE=1 npm run proof:dcp-agent-reconciliation',
+        required_env: ['DCP_AGENT_RECONCILE_READ_REMOTE=1'],
+        prerequisites: expect.arrayContaining(['controlled maintenance window']),
+        post_run_smoke: expect.arrayContaining([
+          expect.stringContaining('proof:live-acceptance-status'),
+        ]),
+      },
       latest_evidence: {
         found: true,
         verdict: 'BLOCKED',

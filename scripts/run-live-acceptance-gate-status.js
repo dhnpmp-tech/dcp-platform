@@ -178,6 +178,47 @@ function readLatestEvidence(gate, evidenceDir) {
   }
 }
 
+function requiredEnvForCommand(command) {
+  if (!command) return [];
+  return command
+    .trim()
+    .split(/\s+/)
+    .filter((part) => /^[A-Z0-9_]+=/.test(part))
+    .map(String);
+}
+
+function buildOperatorRunbook(gate, latestEvidence) {
+  const latestArtifact = latestEvidence?.artifact || relative(latestArtifactPathForPattern(gate.artifact_pattern, OUTPUT_DIR_DEFAULT));
+  const readinessState = gate.acceptance_state === 'blocked_maintenance_window'
+    ? 'blocked_maintenance_window'
+    : 'blocked_external_inputs';
+  return {
+    contract: 'dcp.live_acceptance_operator_runbook.v1',
+    owner_lane: gate.lane,
+    safe_mode: 'blocked_read_only_until_live_proof_passes',
+    readiness_state: readinessState,
+    ready_to_run: false,
+    required_env: requiredEnvForCommand(gate.acceptance_command),
+    prerequisites: [...gate.blocked_on],
+    command: gate.acceptance_command || null,
+    evidence_to_collect: [
+      `artifact pattern: ${gate.artifact_pattern}`,
+      `latest artifact: ${latestArtifact}`,
+      ...gate.verifies.map((item) => `verify: ${item}`),
+    ],
+    post_run_smoke: [
+      `Confirm ${latestArtifact} records verdict PASS before changing ${gate.id}.`,
+      'Re-run npm run proof:live-acceptance-status and npm run proof:local-roadmap.',
+      'Attach the proof packet to the PR, deployment note, or founder handoff before any public claim changes.',
+    ],
+    failure_triage: [
+      'If verdict remains BLOCKED, copy latest_evidence.blockers into the owner queue.',
+      `Keep claim guard active: ${gate.claim_guard}`,
+    ],
+    next_operator_step: gate.next_action,
+  };
+}
+
 function cloneGate(gate) {
   return {
     id: gate.id,
@@ -193,6 +234,7 @@ function cloneGate(gate) {
     capability_claim_allowed: false,
     next_action: gate.next_action,
     latest_evidence: null,
+    operator_runbook: null,
   };
 }
 
@@ -204,6 +246,8 @@ function buildSummary(gates) {
     missing_acceptance_command: gates.filter((gate) => !gate.command_available).length,
     capability_claim_allowed: gates.filter((gate) => gate.capability_claim_allowed).length,
     latest_evidence_found: gates.filter((gate) => gate.latest_evidence?.found).length,
+    operator_runbooks: gates.filter((gate) => gate.operator_runbook?.contract === 'dcp.live_acceptance_operator_runbook.v1').length,
+    ready_to_run: gates.filter((gate) => gate.operator_runbook?.ready_to_run === true).length,
   };
 }
 
@@ -216,6 +260,18 @@ function validateReport(report) {
     if (gate.capability_claim_allowed !== false) failures.push(`${gate.id} must not allow capability claims`);
     if (!Array.isArray(gate.blocked_on) || gate.blocked_on.length === 0) failures.push(`${gate.id} must name blocked inputs`);
     if (gate.command_available && !gate.acceptance_command) failures.push(`${gate.id} marks command available without a command`);
+    const runbook = gate.operator_runbook;
+    if (!runbook || runbook.contract !== 'dcp.live_acceptance_operator_runbook.v1') {
+      failures.push(`${gate.id} must include an operator runbook`);
+      continue;
+    }
+    if (runbook.ready_to_run !== false) failures.push(`${gate.id} runbook must stay not-ready while gate is blocked`);
+    if (runbook.command !== gate.acceptance_command) failures.push(`${gate.id} runbook command must match acceptance command`);
+    if (!Array.isArray(runbook.prerequisites) || runbook.prerequisites.length === 0) failures.push(`${gate.id} runbook must list prerequisites`);
+    if (!Array.isArray(runbook.evidence_to_collect) || runbook.evidence_to_collect.length < 2) failures.push(`${gate.id} runbook must list evidence to collect`);
+    if (!Array.isArray(runbook.post_run_smoke) || runbook.post_run_smoke.length === 0) failures.push(`${gate.id} runbook must list post-run smoke steps`);
+    if (!Array.isArray(runbook.failure_triage) || runbook.failure_triage.length === 0) failures.push(`${gate.id} runbook must list failure triage steps`);
+    if (!runbook.safe_mode || !String(runbook.safe_mode).includes('blocked_read_only')) failures.push(`${gate.id} runbook must preserve read-only safe mode`);
   }
   return failures;
 }
@@ -232,17 +288,40 @@ function buildMarkdown(report) {
   lines.push(`- command_available: ${report.summary.command_available}/${report.summary.total}`);
   lines.push(`- missing_acceptance_command: ${report.summary.missing_acceptance_command}/${report.summary.total}`);
   lines.push(`- latest_evidence_found: ${report.summary.latest_evidence_found}/${report.summary.total}`);
+  lines.push(`- operator_runbooks: ${report.summary.operator_runbooks}/${report.summary.total}`);
+  lines.push(`- ready_to_run: ${report.summary.ready_to_run}/${report.summary.total}`);
   lines.push('');
   lines.push('## Gates');
   lines.push('');
-  lines.push('| gate | lane | state | command | blocked on | latest evidence | next action |');
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push('| gate | lane | state | runbook | command | blocked on | latest evidence | next action |');
+  lines.push('|---|---|---|---|---|---|---|---|');
   for (const gate of report.gates) {
     const command = gate.acceptance_command ? `\`${gate.acceptance_command}\`` : 'missing';
+    const runbook = gate.operator_runbook?.ready_to_run ? 'ready' : gate.operator_runbook?.readiness_state || 'missing';
     const latest = gate.latest_evidence?.found
       ? `${gate.latest_evidence.verdict || 'unknown'}${gate.latest_evidence.blockers.length > 0 ? `; ${gate.latest_evidence.blockers.join(', ')}` : ''}`
       : 'none';
-    lines.push(`| ${gate.id} | ${gate.lane} | ${gate.acceptance_state} | ${command} | ${gate.blocked_on.join(', ')} | ${String(latest).replace(/\|/g, '\\|')} | ${String(gate.next_action).replace(/\|/g, '\\|')} |`);
+    lines.push(`| ${gate.id} | ${gate.lane} | ${gate.acceptance_state} | ${runbook} | ${command} | ${gate.blocked_on.join(', ')} | ${String(latest).replace(/\|/g, '\\|')} | ${String(gate.next_action).replace(/\|/g, '\\|')} |`);
+  }
+  lines.push('');
+  lines.push('## Operator Runbooks');
+  lines.push('');
+  for (const gate of report.gates) {
+    const runbook = gate.operator_runbook;
+    if (!runbook) continue;
+    lines.push(`### ${gate.id}`);
+    lines.push('');
+    lines.push(`- owner_lane: ${runbook.owner_lane}`);
+    lines.push(`- readiness_state: ${runbook.readiness_state}`);
+    lines.push(`- ready_to_run: ${runbook.ready_to_run}`);
+    lines.push(`- command: \`${runbook.command || 'missing'}\``);
+    lines.push(`- required_env: ${runbook.required_env.length > 0 ? runbook.required_env.map((item) => `\`${item}\``).join(', ') : 'none'}`);
+    lines.push(`- prerequisites: ${runbook.prerequisites.join(', ')}`);
+    lines.push(`- evidence_to_collect: ${runbook.evidence_to_collect.join('; ')}`);
+    lines.push(`- post_run_smoke: ${runbook.post_run_smoke.join('; ')}`);
+    lines.push(`- failure_triage: ${runbook.failure_triage.join('; ')}`);
+    lines.push(`- next_operator_step: ${String(runbook.next_operator_step).replace(/\|/g, '\\|')}`);
+    lines.push('');
   }
   lines.push('');
   lines.push('## Scope');
@@ -288,6 +367,7 @@ function buildLiveAcceptanceGateStatus(options = {}) {
   const gates = LIVE_ACCEPTANCE_GATES.map(cloneGate);
   for (const gate of gates) {
     gate.latest_evidence = readLatestEvidence(gate, evidenceDir);
+    gate.operator_runbook = buildOperatorRunbook(gate, gate.latest_evidence);
   }
   const generatedAt = options.generatedAt
     ? new Date(options.generatedAt).toISOString()
@@ -341,6 +421,7 @@ module.exports = {
   LIVE_ACCEPTANCE_GATES,
   PROOF_PREFIX,
   buildLiveAcceptanceGateStatus,
+  buildOperatorRunbook,
   buildSummary,
   runLiveAcceptanceGateStatus,
   validateReport,

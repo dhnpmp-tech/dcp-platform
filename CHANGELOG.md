@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 01:28 UTC - `feat(ops): add live acceptance operator runbooks - PR #935`
+
+**PR:** [#935](https://github.com/dhnpmp-tech/dcp-platform/pull/935) (`codex/live-acceptance-operator-runbooks-2026-07-10`).
+**Local timestamp:** 2026-07-10 05:28 +04.
+
+**What:** Fireworks/Tinker execution-process hardening slice. Extends the CI-safe live acceptance gate ledger with per-gate operator runbooks so blocked live gates show exactly what must be prepared, run, collected, and smoked before product claims can change.
+
+- **Status contract:** Each live acceptance gate now carries `operator_runbook.contract = dcp.live_acceptance_operator_runbook.v1`, owner lane, read-only safe mode, readiness state, required env toggles, prerequisites, command, evidence collection checklist, post-run smoke steps, failure triage, and next operator step.
+- **Admin visibility:** The v2 admin Live acceptance gates panel now shows operator-runbook coverage and per-gate runbook cards beside blockers, commands, latest evidence, and claim guards.
+- **Markdown handoff:** `npm run proof:live-acceptance-status` writes an "Operator Runbooks" section into the Markdown packet so founders and agents can execute the same order of operations outside the UI.
+- **Safety:** Additive status/UI/test/docs change; no paid compute, provider routing, pod launch, inference dispatch, payment, balance, billing, artifact cleanup, trial accounting, adapter routing, prompt-cache discount, batch execution, LoRA training, or capability-claim behavior changed.
+- **Verification:** Live-acceptance script Jest, admin route integration, admin static panel check, live-acceptance proof, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 01:16 UTC - `feat(pods): add sticky launch decision rail - PR #934`
 
 **PR:** [#934](https://github.com/dhnpmp-tech/dcp-platform/pull/934) (`codex/pods-sticky-launch-decision-2026-07-10`).

@@ -146,7 +146,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Audit gate | Command | Required external input | Current acceptance state |
 |---|---|---|---|
 | CI-safe local roadmap suite | `npm run proof:local-roadmap` | none | Runs all CI-safe gates below and reports excluded live gates |
-| Live acceptance gate status | `npm run proof:live-acceptance-status`; guarded `GET /api/admin/live-acceptance-gates` | none | CI-safe status packet; reports blocked live gates, missing acceptance runners, and latest matching proof-report blockers in JSON/Markdown and v2 admin without marking capabilities passed |
+| Live acceptance gate status | `npm run proof:live-acceptance-status`; guarded `GET /api/admin/live-acceptance-gates` | none | CI-safe status packet; reports blocked live gates, missing acceptance runners, latest matching proof-report blockers, and per-gate operator runbooks in JSON/Markdown and v2 admin without marking capabilities passed |
 | Build/product route integrity | `npm run build` | none | Required for frontend/runtime PRs |
 | Workspace-to-pod wiring contract | `npm run workspace-pods:verify-contracts` | none | CI-safe gate available |
 | Workspace upload -> pod -> `/workspace` visibility | `DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod` | funded renter key, active portable volume, launchable GPU capacity | Command available; blocked until live credentials/capacity are supplied |
@@ -217,11 +217,15 @@ before or with the feature change.
      are available; dcp-agent has a read-only reconciliation packet.
    - Status packet: `npm run proof:live-acceptance-status` lists remaining
      live gates, missing acceptance runners, blocked inputs, latest matching
-     proof-report blockers, and claim guards.
+     proof-report blockers, claim guards, and per-gate operator runbooks.
    - Admin visibility: PR #910 exposes the same packet through guarded
      `GET /api/admin/live-acceptance-gates` and the v2 admin Live acceptance
      gates panel without writing report artifacts, running paid compute, or
      unlocking product claims.
+   - Operator handoff: PR #935 adds `dcp.live_acceptance_operator_runbook.v1`
+     to every gate so the admin panel and Markdown packet show required env
+     toggles, prerequisites, evidence collection, post-run smoke, failure
+     triage, and next operator step while all gates remain blocked.
 3. **POT/PODS workspace and image hardening**
    - Gate: `workspace-pods:verify-contracts`, `proof:workspace-pod`,
      `pod-images:verify-contracts`, and `proof:lora-pod-image`.

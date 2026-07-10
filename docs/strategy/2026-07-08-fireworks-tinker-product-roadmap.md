@@ -838,7 +838,10 @@ Acceptance:
     same blocked-gate ledger without rerunning remote proofs. PR #910 exposes
     that ledger through guarded `GET /api/admin/live-acceptance-gates` and the
     v2 admin Live acceptance gates panel so founders can inspect blocked live
-    proofs before changing Fireworks/Tinker capability claims.**
+    proofs before changing Fireworks/Tinker capability claims. PR #935 adds
+    per-gate operator runbooks to the same ledger, so each blocked proof now
+    names env toggles, prerequisites, evidence to collect, post-run smoke,
+    failure triage, and the next operator step without unlocking claims.**
 14. **Prompt-cache live settlement runner** - opt-in live proof before cached
     input discounts. **Added in PR #836 as
     `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;

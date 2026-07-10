@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 01:28 UTC - Live acceptance operator runbooks (PR #935)
+
+- **PR:** [#935](https://github.com/dhnpmp-tech/dcp-platform/pull/935) (`codex/live-acceptance-operator-runbooks-2026-07-10`).
+- **Timestamp:** 2026-07-10 01:28 UTC / 2026-07-10 05:28 +04.
+- **Status contract:** `npm run proof:live-acceptance-status` now attaches `dcp.live_acceptance_operator_runbook.v1` to every blocked gate with owner lane, safe mode, readiness state, required env toggles, prerequisites, command, evidence checklist, post-run smoke, failure triage, and next operator step.
+- **Admin UI:** Guarded v2 admin Live acceptance gates now shows operator-runbook coverage and per-gate runbook cards next to blockers, latest evidence, commands, and claim guards.
+- **Markdown handoff:** The generated live-acceptance Markdown packet includes an "Operator Runbooks" section so founders and agents can execute the same order of operations from reports.
+- **Safety:** Additive status/UI/test/docs change; no paid compute, routing, launch, inference, payments, billing, balance, cleanup, trial-accounting, prompt-cache, batch, LoRA, adapter, or capability-claim mutation.
+- **Verification:** Live-acceptance Jest, admin route integration, admin static check, live-acceptance proof, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 01:16 UTC - Pod sticky launch decision rail (PR #934)
 
 - **PR:** [#934](https://github.com/dhnpmp-tech/dcp-platform/pull/934) (`codex/pods-sticky-launch-decision-2026-07-10`).

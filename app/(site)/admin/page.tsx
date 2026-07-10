@@ -306,6 +306,21 @@ interface LiveAcceptanceEvidence {
   maintenance_required?: boolean | null
 }
 
+interface LiveAcceptanceRunbook {
+  contract?: string
+  owner_lane?: string
+  safe_mode?: string
+  readiness_state?: string
+  ready_to_run?: boolean
+  required_env?: string[]
+  prerequisites?: string[]
+  command?: string | null
+  evidence_to_collect?: string[]
+  post_run_smoke?: string[]
+  failure_triage?: string[]
+  next_operator_step?: string
+}
+
 interface LiveAcceptanceGate {
   id?: string
   lane?: string
@@ -320,6 +335,7 @@ interface LiveAcceptanceGate {
   capability_claim_allowed?: boolean
   next_action?: string
   latest_evidence?: LiveAcceptanceEvidence | null
+  operator_runbook?: LiveAcceptanceRunbook | null
 }
 
 interface LiveAcceptancePayload {
@@ -335,6 +351,8 @@ interface LiveAcceptancePayload {
     missing_acceptance_command?: number
     capability_claim_allowed?: number
     latest_evidence_found?: number
+    operator_runbooks?: number
+    ready_to_run?: number
   }
   evidence_dir?: string
   gates?: LiveAcceptanceGate[]
@@ -3201,6 +3219,8 @@ export default function V2AdminPage() {
   const liveAcceptanceCommandReady = toNumber(liveAcceptance?.summary?.command_available)
   const liveAcceptanceLatestEvidence = toNumber(liveAcceptance?.summary?.latest_evidence_found)
   const liveAcceptanceClaimAllowed = toNumber(liveAcceptance?.summary?.capability_claim_allowed)
+  const liveAcceptanceRunbooks = toNumber(liveAcceptance?.summary?.operator_runbooks) || liveAcceptanceRows.filter((gate) => gate.operator_runbook?.contract === 'dcp.live_acceptance_operator_runbook.v1').length
+  const liveAcceptanceReadyToRun = toNumber(liveAcceptance?.summary?.ready_to_run)
   const liveAcceptanceValidationFailures = Array.isArray(liveAcceptance?.validation_failures) ? liveAcceptance.validation_failures.length : 0
   const liveAcceptanceLoaded = liveAcceptanceRows.length > 0
   const hasProbeEvidence = probeEvidence !== null
@@ -4016,6 +4036,11 @@ export default function V2AdminPage() {
                   <strong>{numFmt.format(liveAcceptanceCommandReady)}</strong>
                   <small><Bi en={`${liveAcceptanceTotal} acceptance paths`} ar={`${liveAcceptanceTotal} مسارات قبول`} /></small>
                 </div>
+                <div className={liveAcceptanceRunbooks === liveAcceptanceTotal && liveAcceptanceTotal > 0 ? 'ready' : 'watch'}>
+                  <span><Bi en="operator runbooks" ar="أدلة المشغل" /></span>
+                  <strong>{numFmt.format(liveAcceptanceRunbooks)}</strong>
+                  <small><Bi en={`${numFmt.format(liveAcceptanceReadyToRun)} ready to run`} ar={`${numFmt.format(liveAcceptanceReadyToRun)} جاهزة للتشغيل`} /></small>
+                </div>
                 <div className={liveAcceptanceLatestEvidence > 0 ? 'watch' : ''}>
                   <span><Bi en="latest evidence" ar="آخر دليل" /></span>
                   <strong>{numFmt.format(liveAcceptanceLatestEvidence)}</strong>
@@ -4045,10 +4070,13 @@ export default function V2AdminPage() {
                   {liveAcceptanceRows.map((gate) => {
                     const gateId = gate.id || 'unknown_gate'
                     const evidence = gate.latest_evidence || null
+                    const runbook = gate.operator_runbook || null
                     const evidenceVerdict = evidence?.found ? (evidence.verdict || 'unknown') : 'none'
                     const gateBlockers = evidence?.found && Array.isArray(evidence.blockers) && evidence.blockers.length > 0
                       ? evidence.blockers
                       : (Array.isArray(gate.blocked_on) ? gate.blocked_on : [])
+                    const runbookEvidence = Array.isArray(runbook?.evidence_to_collect) ? runbook.evidence_to_collect : []
+                    const runbookSmoke = Array.isArray(runbook?.post_run_smoke) ? runbook.post_run_smoke : []
                     const gateClass = String(gate.acceptance_state || '').includes('maintenance') ? 'watch' : 'critical'
                     return (
                       <article className={`live-acceptance-gate ${gateClass}`} key={gateId}>
@@ -4067,6 +4095,28 @@ export default function V2AdminPage() {
                         <div className="live-acceptance-blockers">
                           {gateBlockers.slice(0, 3).map((blocker) => <span key={`${gateId}-${blocker}`}>{blocker}</span>)}
                         </div>
+                        {runbook && (
+                          <div className="live-acceptance-runbook" aria-label={`${gateId} operator runbook`}>
+                            <div className="live-acceptance-runbook-head">
+                              <span><Bi en="operator runbook" ar="دليل المشغل" /></span>
+                              <strong>
+                                <Bi
+                                  en={runbook.ready_to_run ? 'ready to run' : (runbook.readiness_state || 'blocked')}
+                                  ar={runbook.ready_to_run ? 'جاهز للتشغيل' : (runbook.readiness_state || 'محجوب')}
+                                />
+                              </strong>
+                            </div>
+                            <div className="live-acceptance-runbook-facts">
+                              <span>{runbook.owner_lane || gate.lane || 'owner lane'}</span>
+                              <span>{Array.isArray(runbook.required_env) && runbook.required_env.length > 0 ? runbook.required_env.join(' · ') : 'no env toggle'}</span>
+                              <span>{runbook.safe_mode || 'blocked read-only'}</span>
+                            </div>
+                            <ul>
+                              {runbookEvidence.slice(0, 2).map((item) => <li key={`${gateId}-evidence-${item}`}>{item}</li>)}
+                              {runbookSmoke.slice(0, 1).map((item) => <li key={`${gateId}-smoke-${item}`}>{item}</li>)}
+                            </ul>
+                          </div>
+                        )}
                         <code>{gate.acceptance_command || 'acceptance command missing'}</code>
                         <small>{gate.claim_guard || gate.next_action || 'Keep capability claims gated until acceptance proof passes.'}</small>
                       </article>
