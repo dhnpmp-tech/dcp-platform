@@ -272,6 +272,18 @@ Status as of PR #936:
   trial accounting, routing, and provider/vendor/supply-tier exposure remain
   unchanged.
 
+Status as of PR #952:
+
+- `GET /api/pods/trial-routing/readiness` now exposes a `founder_answer` block
+  with the explicit current answer to Tareq's review questions: no separate
+  live trial-account tag, grant-credit provenance is the trial signal, trial
+  credit routes to DCP/community provider capacity, high-demand on-demand GPUs
+  require paid available credit, and minimum-balance handling comes from
+  `GET /api/renters/me/minimum-balances`.
+- The block also carries the claim boundary: no trial accounting, account
+  classification, provider selection, billing, balance, or minimum-balance
+  enforcement mutation is made by this contract.
+
 ## Open Questions Before Shipping
 
 1. After 2 free hours are used and no paid credit exists, is the account fully

@@ -53,6 +53,19 @@ function buildProof() {
         && readiness.routing_policy.trial_credit_capacity_class === 'dcp_native_and_community_gpu_pool',
     },
     {
+      id: 'founder_answer_addresses_trial_tag_route_and_minimum_balance',
+      pass: readiness.founder_answer.trial_account_tagging.explicit_trial_account_tag_live === false
+        && readiness.founder_answer.trial_account_tagging.current_signal === 'renters.trial_grant_halala plus paid-funding state'
+        && readiness.founder_answer.trial_gpu_routing.trial_credit_route === 'dcp_native_and_community_gpu_pool'
+        && readiness.founder_answer.trial_gpu_routing.allowed_supply_tiers.includes('dcp_owned')
+        && readiness.founder_answer.trial_gpu_routing.allowed_supply_tiers.includes('provider')
+        && readiness.founder_answer.high_demand_gpu_routing.high_demand_route === 'paid_credit_only'
+        && readiness.founder_answer.high_demand_gpu_routing.shortfall_code === 'on_demand_requires_prepaid_credit'
+        && readiness.founder_answer.minimum_balance_handling.source_contract === 'GET /api/renters/me/minimum-balances'
+        && readiness.founder_answer.minimum_balance_handling.trial_credit_unlocks_high_demand === false
+        && readiness.founder_answer.claim_boundary.mutates_balance === false,
+    },
+    {
       id: 'no_trial_or_billing_mutation',
       pass: readiness.claim_guards.changes_trial_accounting === false
         && readiness.claim_guards.changes_account_classification === false
