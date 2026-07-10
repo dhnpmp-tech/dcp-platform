@@ -261,6 +261,11 @@ what is live.
   no-separate-trial-tag/grant-credit/DCP-community/high-demand-paid-credit
   answer, and keeps launch payloads, routing, billing, credit enforcement,
   trial accounting, and provider/vendor/supply-tier exposure unchanged.
+- PR #938 makes the trial-account answer machine-readable: minimum-balance
+  packets now expose a derived `trial_classification`, pod trial-routing names
+  the DCP/community GPU pool and paid-credit-only high-demand classes, and Pods
+  plus Usage show the derived trial state without mutating trial accounting or
+  account classification.
 
 ### Now
 

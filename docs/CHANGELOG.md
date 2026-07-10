@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-10 02:08 UTC - Derived trial classification readiness (PR #938)
+
+- **PR:** [#938](https://github.com/dhnpmp-tech/dcp-platform/pull/938) (`codex/trial-classification-readiness-2026-07-10`).
+- **Timestamp:** 2026-07-10 02:08 UTC / 2026-07-10 06:08 +04.
+- **Backend contract:** `GET /api/renters/me/minimum-balances` now exposes `credit_policy.derived_trial_account_state`, a read-only `trial_classification` packet, and `changes_account_classification = false`.
+- **Pod policy:** `GET /api/pods/trial-routing/readiness` now names derived credit-provenance mode, derived trial states, DCP/community trial capacity, paid-credit-only high-demand capacity, and the no account-classification mutation guard.
+- **UI visibility:** `/renter/pods` and `/renter/usage` show the derived trial state next to grant-credit, trial route, and paid-credit high-demand controls.
+- **Docs:** OpenAPI, published OpenAPI, `llms.txt`, and roadmap notes now describe the derived trial classification answer for agents and operators.
+- **Safety:** Additive read-only contract/UI/docs change; no trial-accounting, account-classification, paid-credit policy, billing, balance, launch, routing, provider-selection, vendor/provider exposure, supply-tier exposure, or enforcement mutation.
+- **Verification:** Targeted backend readiness tests, proof scripts, focused Pods/Usage Playwright tests, OpenAPI parse, local roadmap proof, and build.
+
 ### 2026-07-10 01:55 UTC - Live acceptance OpenAPI runbook docs (PR #937)
 
 - **PR:** [#937](https://github.com/dhnpmp-tech/dcp-platform/pull/937) (`codex/live-acceptance-openapi-runbook-docs-2026-07-10`).

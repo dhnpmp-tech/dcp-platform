@@ -333,6 +333,19 @@ Status as of PR #768:
 - Backend 402 messages and OpenAPI examples were aligned with the same
   credit-first language in PR #768.
 
+Status as of PR #938:
+
+- Trial-account handling is now an explicit read-only contract instead of only
+  renter-facing copy. `GET /api/renters/me/minimum-balances` returns
+  `trial_classification` derived from `renters.trial_grant_halala`, and
+  `GET /api/pods/trial-routing/readiness` names the DCP/community trial
+  capacity class plus paid-credit-only high-demand class.
+- `/renter/pods` and `/renter/usage` show the derived trial state beside grant
+  credit, trial route, and paid-credit high-demand gates.
+- `changes_trial_accounting` and `changes_account_classification` remain false;
+  this does not add a mutable account tag, change paid-credit policy, or alter
+  launch enforcement.
+
 ### Slice 5 - Production Rollout
 
 - Deploy backend first with gates off or in log-only mode if feasible.

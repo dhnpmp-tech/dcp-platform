@@ -53,14 +53,23 @@ async function mockPodsApis(page: Page) {
           version: 'dcp.pod_trial_routing_readiness.v1',
           account_classification: {
             explicit_trial_account_tag_live: false,
+            current_mode: 'derived_from_credit_provenance',
             trial_credit_source: 'renters.trial_grant_halala',
             paid_credit_source: 'payments.status=paid',
+            derived_states: {
+              trial_grant_active: 'renters.trial_grant_halala > 0',
+              no_trial_grant: 'renters.trial_grant_halala = 0',
+            },
+            analytics_lifecycle_tag_live: false,
+            mutates_account_classification: false,
           },
           routing_policy: {
             trial_capacity_copy: 'Trial credit: DCP/community GPUs',
             high_demand_capacity_copy: 'High-demand capacity: paid credit only',
             trial_credit_allowed_supply_tiers: ['dcp_owned', 'provider'],
             paid_credit_required_supply_tiers: ['on_demand'],
+            trial_credit_capacity_class: 'dcp_native_and_community_gpu_pool',
+            high_demand_capacity_class: 'paid_credit_only',
             provider_visibility: {
               exposes_provider_id_to_renter: false,
               exposes_vendor_to_renter: false,
@@ -72,6 +81,7 @@ async function mockPodsApis(page: Page) {
             mutates_balance: false,
             changes_billing: false,
             changes_trial_accounting: false,
+            changes_account_classification: false,
             exposes_vendor_or_provider: false,
             claims_workspace_live_acceptance: false,
             claims_lora_pod_image_gpu_ready: false,
@@ -132,6 +142,7 @@ async function mockPodsApis(page: Page) {
             current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
             source_contract: 'GET /api/pods/trial-routing/readiness',
             explicit_trial_account_tag_live: false,
+            derived_trial_account_state: 'trial_grant_active',
             trial_credit_source: 'renters.trial_grant_halala',
             trial_grant_halala: 2000,
             trial_grant_sar: 20,
@@ -142,6 +153,20 @@ async function mockPodsApis(page: Page) {
             trial_credit_allowed_capacity: 'DCP/community/provider GPU capacity when normal quote checks pass',
             trial_credit_unlocks_high_demand: false,
             high_demand_requires_paid_credit: true,
+          },
+          trial_classification: {
+            current_mode: 'derived_from_credit_provenance',
+            explicit_trial_account_tag_live: false,
+            analytics_lifecycle_tag_live: false,
+            derived_account_state: 'trial_grant_active',
+            has_trial_grant: true,
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+            trial_credit_capacity_class: 'dcp_native_and_community_gpu_pool',
+            high_demand_capacity_class: 'paid_credit_only',
+            mutates_account_classification: false,
           },
           rails: {
             gpu_pods_provider_supply: {
@@ -172,6 +197,7 @@ async function mockPodsApis(page: Page) {
             enables_discount: false,
             changes_enforcement: false,
             changes_trial_accounting: false,
+            changes_account_classification: false,
             changes_paid_credit_policy: false,
           },
         }),
@@ -575,6 +601,7 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByLabel('Trial routing policy')).toContainText('No trial-account tag live');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial source: grant balance');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial grant SAR 20.00');
+  await expect(page.getByLabel('Trial routing policy')).toContainText('Derived trial state: grant active');
   await expect(page.getByLabel('Trial routing policy')).toContainText('Trial route: DCP/community GPU pool');
   await expect(page.getByLabel('Trial routing policy')).toContainText('High-demand GPUs: paid credit only');
   await expect(page.getByLabel('Trial routing policy')).toContainText('No separate trial-account tag; grant credit is the trial signal');

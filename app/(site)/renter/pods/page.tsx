@@ -307,8 +307,12 @@ interface PodTrialRoutingReadinessResponse {
   version?: string
   account_classification?: {
     explicit_trial_account_tag_live?: boolean
+    current_mode?: string
     trial_credit_source?: string
     paid_credit_source?: string
+    derived_states?: Record<string, string>
+    analytics_lifecycle_tag_live?: boolean
+    mutates_account_classification?: boolean
     note?: string
   }
   routing_policy?: {
@@ -316,6 +320,8 @@ interface PodTrialRoutingReadinessResponse {
     high_demand_capacity_copy?: string
     trial_credit_allowed_supply_tiers?: string[]
     paid_credit_required_supply_tiers?: string[]
+    trial_credit_capacity_class?: string
+    high_demand_capacity_class?: string
     provider_visibility?: {
       exposes_provider_id_to_renter?: boolean
       exposes_vendor_to_renter?: boolean
@@ -327,6 +333,7 @@ interface PodTrialRoutingReadinessResponse {
     mutates_balance?: boolean
     changes_billing?: boolean
     changes_trial_accounting?: boolean
+    changes_account_classification?: boolean
     exposes_vendor_or_provider?: boolean
     claims_workspace_live_acceptance?: boolean
     claims_lora_pod_image_gpu_ready?: boolean
@@ -374,6 +381,7 @@ interface MinimumBalanceReadinessResponse {
     current_mode?: string
     source_contract?: string
     explicit_trial_account_tag_live?: boolean
+    derived_trial_account_state?: string
     trial_credit_source?: string
     trial_grant_halala?: number
     trial_grant_sar?: number
@@ -384,6 +392,20 @@ interface MinimumBalanceReadinessResponse {
     trial_credit_allowed_capacity?: string
     trial_credit_unlocks_high_demand?: boolean
     high_demand_requires_paid_credit?: boolean
+  }
+  trial_classification?: {
+    current_mode?: string
+    explicit_trial_account_tag_live?: boolean
+    analytics_lifecycle_tag_live?: boolean
+    derived_account_state?: string
+    has_trial_grant?: boolean
+    trial_grant_halala?: number
+    trial_grant_sar?: number
+    paid_available_halala?: number
+    paid_available_sar?: number
+    trial_credit_capacity_class?: string
+    high_demand_capacity_class?: string
+    mutates_account_classification?: boolean
   }
   rails?: {
     gpu_pods_provider_supply?: {
@@ -428,6 +450,7 @@ interface MinimumBalanceReadinessResponse {
     enables_discount?: boolean
     changes_enforcement?: boolean
     changes_trial_accounting?: boolean
+    changes_account_classification?: boolean
     changes_paid_credit_policy?: boolean
   }
   error?: string
@@ -1305,6 +1328,7 @@ export default function RenterPodsPage() {
         ? `Browsing ${minVram} GB+ cards only; launch still auto-picks until a card is selected.`
         : 'No fixed GPU type selected; backend picks an available type at launch.'
   const minimumCreditPolicy = minimumBalance?.credit_policy
+  const trialClassification = minimumBalance?.trial_classification
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand capacity: paid credit'
   const explicitTrialTagLive = typeof minimumCreditPolicy?.explicit_trial_account_tag_live === 'boolean'
     ? minimumCreditPolicy.explicit_trial_account_tag_live
@@ -1323,6 +1347,12 @@ export default function RenterPodsPage() {
   const trialGrantAnswerLabel = trialGrantSar > 0
     ? `Trial grant SAR ${fmtSar(trialGrantSar)}`
     : 'No trial grant on account'
+  const derivedTrialState = trialClassification?.derived_account_state
+    || minimumCreditPolicy?.derived_trial_account_state
+    || (trialGrantSar > 0 ? 'trial_grant_active' : 'no_trial_grant')
+  const derivedTrialStateLabel = derivedTrialState === 'trial_grant_active'
+    ? 'Derived trial state: grant active'
+    : 'Derived trial state: no grant'
   const creditPolicyContractLabel = minimumCreditPolicy
     ? 'Minimum-balance credit policy: synced'
     : minimumBalanceStatus === 'loading'
@@ -2260,6 +2290,9 @@ export default function RenterPodsPage() {
                 </span>
                 <span>
                   <Bi en={trialGrantAnswerLabel} ar="رصيد التجربة من المنحة" />
+                </span>
+                <span className={trialClassification?.mutates_account_classification === false ? 'ready' : 'checking'}>
+                  <Bi en={derivedTrialStateLabel} ar="حالة التجربة مشتقة من مصدر الرصيد" />
                 </span>
                 <span>
                   <Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" />

@@ -23,12 +23,21 @@ describe('pod trial routing readiness', () => {
       },
       account_classification: {
         explicit_trial_account_tag_live: false,
+        current_mode: 'derived_from_credit_provenance',
         trial_credit_source: 'renters.trial_grant_halala',
         paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
+        derived_states: {
+          trial_grant_active: 'renters.trial_grant_halala > 0',
+          no_trial_grant: 'renters.trial_grant_halala = 0',
+        },
+        analytics_lifecycle_tag_live: false,
+        mutates_account_classification: false,
       },
       routing_policy: {
         trial_credit_allowed_supply_tiers: ['dcp_owned', 'provider'],
         paid_credit_required_supply_tiers: ['on_demand'],
+        trial_credit_capacity_class: 'dcp_native_and_community_gpu_pool',
+        high_demand_capacity_class: 'paid_credit_only',
         on_paid_credit_shortfall_status: 402,
         on_paid_credit_shortfall_code: 'on_demand_requires_prepaid_credit',
         provider_visibility: {
@@ -60,6 +69,7 @@ describe('pod trial routing readiness', () => {
         changes_provider_selection: false,
         changes_billing: false,
         changes_trial_accounting: false,
+        changes_account_classification: false,
         launches_pod: false,
         exposes_vendor_or_provider: false,
         claims_workspace_live_acceptance: false,

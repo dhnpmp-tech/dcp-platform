@@ -49,6 +49,7 @@ function buildMarkdown(report) {
   lines.push(JSON.stringify({
     account: report.readiness.account,
     credit_policy: report.readiness.credit_policy,
+    trial_classification: report.readiness.trial_classification,
     rails: report.readiness.rails,
     claim_guards: report.readiness.claim_guards,
   }, null, 2));
@@ -169,12 +170,26 @@ async function runMinimumBalanceReadinessContractProof(options = {}) {
       'credit policy separates trial grant provenance from paid-credit gates',
       readiness.credit_policy.current_mode === 'grant_credit_provenance_plus_paid_credit_gate'
         && readiness.credit_policy.explicit_trial_account_tag_live === false
+        && readiness.credit_policy.derived_trial_account_state === 'trial_grant_active'
         && readiness.credit_policy.trial_credit_source === 'renters.trial_grant_halala'
         && readiness.credit_policy.trial_grant_halala === 2000
         && readiness.credit_policy.paid_available_halala === 3800
         && readiness.credit_policy.trial_credit_unlocks_high_demand === false
         && readiness.credit_policy.high_demand_requires_paid_credit === true,
       'Trial/grant credit and paid credit are visible as separate policy inputs.',
+    );
+
+    record(
+      'trial classification is derived and non-mutating',
+      readiness.trial_classification.current_mode === 'derived_from_credit_provenance'
+        && readiness.trial_classification.explicit_trial_account_tag_live === false
+        && readiness.trial_classification.analytics_lifecycle_tag_live === false
+        && readiness.trial_classification.derived_account_state === 'trial_grant_active'
+        && readiness.trial_classification.has_trial_grant === true
+        && readiness.trial_classification.trial_credit_capacity_class === 'dcp_native_and_community_gpu_pool'
+        && readiness.trial_classification.high_demand_capacity_class === 'paid_credit_only'
+        && readiness.trial_classification.mutates_account_classification === false,
+      'The packet answers trial-account status without introducing a mutable lifecycle tag.',
     );
 
     record(

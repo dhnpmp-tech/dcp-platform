@@ -406,11 +406,24 @@ describe('renter usage export and budget status', () => {
         current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
         source_contract: 'GET /api/pods/trial-routing/readiness',
         explicit_trial_account_tag_live: false,
+        derived_trial_account_state: 'trial_grant_active',
         trial_credit_source: 'renters.trial_grant_halala',
         trial_grant_halala: 2000,
         paid_available_halala: 3800,
         trial_credit_unlocks_high_demand: false,
         high_demand_requires_paid_credit: true,
+      },
+      trial_classification: {
+        current_mode: 'derived_from_credit_provenance',
+        explicit_trial_account_tag_live: false,
+        analytics_lifecycle_tag_live: false,
+        derived_account_state: 'trial_grant_active',
+        has_trial_grant: true,
+        trial_grant_halala: 2000,
+        paid_available_halala: 3800,
+        trial_credit_capacity_class: 'dcp_native_and_community_gpu_pool',
+        high_demand_capacity_class: 'paid_credit_only',
+        mutates_account_classification: false,
       },
       rails: {
         v1_inference: {
@@ -449,6 +462,7 @@ describe('renter usage export and budget status', () => {
         enables_discount: false,
         changes_enforcement: false,
         changes_trial_accounting: false,
+        changes_account_classification: false,
         changes_paid_credit_policy: false,
       },
     });

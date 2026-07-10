@@ -251,6 +251,12 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     no separate live trial-account tag when grant-credit provenance is active,
     trial credit routes to native/community GPU capacity, and high-demand GPUs
     require paid credit without exposing vendor/provider internals.
+  - PR #938 turns that answer into a contract field instead of copy alone:
+    `GET /api/renters/me/minimum-balances` exposes a derived
+    `trial_classification`, `GET /api/pods/trial-routing/readiness` names the
+    DCP/community GPU pool and paid-credit-only high-demand classes, and Pods
+    plus Usage show the derived trial state while `changes_account_classification`
+    and `changes_trial_accounting` remain false.
   - PR #912 repeats the answer inside the GPU picker itself: auto-pick shows
     `gpu_type` omitted, a selected card shows `gpu_type = <GPU>`, and filters
     are explicitly browse-only.

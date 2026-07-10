@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 02:08 UTC - `feat(pods): expose derived trial classification - PR #938`
+
+**PR:** [#938](https://github.com/dhnpmp-tech/dcp-platform/pull/938) (`codex/trial-classification-readiness-2026-07-10`).
+**Local timestamp:** 2026-07-10 06:08 +04.
+
+**What:** Tareq trial-account handling follow-up. Makes the existing grant-credit trial policy machine-readable by exposing a derived, read-only trial classification in pod trial-routing and minimum-balance contracts, then surfaces that derived state in renter Pods and Usage.
+
+- **Backend contract:** `GET /api/renters/me/minimum-balances` now includes `credit_policy.derived_trial_account_state`, a top-level `trial_classification` packet, and a `changes_account_classification = false` guard.
+- **Pod policy:** `GET /api/pods/trial-routing/readiness` now documents the derived credit-provenance mode, derived states, DCP/community GPU pool class, paid-credit-only high-demand class, and no account-classification mutation.
+- **Frontend:** `/renter/pods` and `/renter/usage` show the derived trial state beside grant-credit, trial route, and paid-credit high-demand gates so users do not need to infer trial handling from prose.
+- **Docs:** OpenAPI, published OpenAPI, `llms.txt`, and roadmap notes now describe the derived trial classification contract for agents and operators.
+- **Safety:** Additive read-only contract/UI/docs change; no trial-accounting mutation, account classification mutation, paid-credit policy change, billing change, balance mutation, pod launch, provider selection, routing, vendor/provider exposure, supply-tier exposure, or 402 enforcement change.
+- **Verification:** Targeted backend readiness tests, proof scripts, focused Pods/Usage Playwright tests, OpenAPI parse, local roadmap proof, and build.
+
 ### 2026-07-10 01:55 UTC - `docs(ops): document live acceptance runbook packet - PR #937`
 
 **PR:** [#937](https://github.com/dhnpmp-tech/dcp-platform/pull/937) (`codex/live-acceptance-openapi-runbook-docs-2026-07-10`).

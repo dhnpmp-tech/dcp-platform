@@ -1537,9 +1537,47 @@ paths:
                   account_classification:
                     type: object
                     additionalProperties: true
+                    properties:
+                      explicit_trial_account_tag_live:
+                        type: boolean
+                        example: false
+                      current_mode:
+                        type: string
+                        enum: [derived_from_credit_provenance]
+                      trial_credit_source:
+                        type: string
+                        example: renters.trial_grant_halala
+                      paid_credit_source:
+                        type: string
+                        example: payments.status=paid/refunded minus active high-demand pod commitments
+                      derived_states:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      analytics_lifecycle_tag_live:
+                        type: boolean
+                        example: false
+                      mutates_account_classification:
+                        type: boolean
+                        example: false
                   routing_policy:
                     type: object
                     additionalProperties: true
+                    properties:
+                      trial_credit_allowed_supply_tiers:
+                        type: array
+                        items: { type: string }
+                        example: [dcp_owned, provider]
+                      paid_credit_required_supply_tiers:
+                        type: array
+                        items: { type: string }
+                        example: [on_demand]
+                      trial_credit_capacity_class:
+                        type: string
+                        enum: [dcp_native_and_community_gpu_pool]
+                      high_demand_capacity_class:
+                        type: string
+                        enum: [paid_credit_only]
                   infrastructure_proofs:
                     type: object
                     properties:
@@ -4708,7 +4746,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [object, version, current_mode, account, credit_policy, rails, claim_guards]
+                required: [object, version, current_mode, account, credit_policy, trial_classification, rails, claim_guards]
                 properties:
                   object:
                     type: string
@@ -4739,6 +4777,7 @@ paths:
                       - current_mode
                       - source_contract
                       - explicit_trial_account_tag_live
+                      - derived_trial_account_state
                       - trial_credit_source
                       - paid_credit_source
                       - trial_credit_unlocks_high_demand
@@ -4753,6 +4792,10 @@ paths:
                       explicit_trial_account_tag_live:
                         type: boolean
                         example: false
+                      derived_trial_account_state:
+                        type: string
+                        enum: [trial_grant_active, no_trial_grant]
+                        example: trial_grant_active
                       trial_credit_source:
                         type: string
                         example: renters.trial_grant_halala
@@ -4773,6 +4816,56 @@ paths:
                       high_demand_requires_paid_credit:
                         type: boolean
                         example: true
+                  trial_classification:
+                    type: object
+                    required:
+                      - current_mode
+                      - explicit_trial_account_tag_live
+                      - analytics_lifecycle_tag_live
+                      - derived_account_state
+                      - has_trial_grant
+                      - trial_credit_capacity_class
+                      - high_demand_capacity_class
+                      - mutates_account_classification
+                    properties:
+                      current_mode:
+                        type: string
+                        enum: [derived_from_credit_provenance]
+                      explicit_trial_account_tag_live:
+                        type: boolean
+                        example: false
+                      analytics_lifecycle_tag_live:
+                        type: boolean
+                        example: false
+                      derived_account_state:
+                        type: string
+                        enum: [trial_grant_active, no_trial_grant]
+                        example: trial_grant_active
+                      derived_from:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      has_trial_grant:
+                        type: boolean
+                      trial_grant_halala:
+                        type: integer
+                      trial_grant_sar:
+                        type: number
+                      paid_available_halala:
+                        type: integer
+                      paid_available_sar:
+                        type: number
+                      trial_credit_capacity_class:
+                        type: string
+                        enum: [dcp_native_and_community_gpu_pool]
+                      high_demand_capacity_class:
+                        type: string
+                        enum: [paid_credit_only]
+                      mutates_account_classification:
+                        type: boolean
+                        example: false
+                      note:
+                        type: string
                   rails:
                     type: object
                     additionalProperties:
@@ -4797,6 +4890,7 @@ paths:
                       enables_discount: { type: boolean, example: false }
                       changes_enforcement: { type: boolean, example: false }
                       changes_trial_accounting: { type: boolean, example: false }
+                      changes_account_classification: { type: boolean, example: false }
                       changes_paid_credit_policy: { type: boolean, example: false }
 
   /api/evals/readiness:
