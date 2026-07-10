@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-07-10 05:50 UTC - Pods trial founder answer contract (PR #952)
+
+- **PR:** [#952](https://github.com/dhnpmp-tech/dcp-platform/pull/952) (`codex/pods-trial-founder-answer-contract-2026-07-10`).
+- **Timestamp:** 2026-07-10 05:50 UTC / 2026-07-10 09:50 +04.
+- **Founder answer:** Pod trial-routing readiness now exposes `founder_answer`, directly answering trial-account tag status, trial GPU routing, high-demand paid-credit routing, and minimum-balance source.
+- **Policy clarity:** The packet states that trial status is still grant-credit provenance, trial credit routes to DCP/community capacity, high-demand GPUs require paid available credit, and minimum-balance handling comes from `GET /api/renters/me/minimum-balances`.
+- **Safety:** Readiness/test/docs-only clarification; no launch, provider selection, routing, trial accounting, account classification, billing, payment, invoice, payout, balance, minimum-balance enforcement, pricing, paid-credit policy, provider/vendor exposure, or supply-tier exposure changed.
+- **Verification:** Focused pod trial-routing Jest suite, pod trial-routing readiness proof, minimum-balance readiness proof, OpenAPI parse, syntax checks, local roadmap proof (38/38), clean Next build, and `git diff --check`.
+
 ### 2026-07-10 05:42 UTC - Adapter vLLM live acceptance evidence contract (PR #951)
 
 - **PR:** [#951](https://github.com/dhnpmp-tech/dcp-platform/pull/951) (`codex/adapter-vllm-live-acceptance-evidence-contract-2026-07-10`).

@@ -266,6 +266,13 @@ what is live.
   the DCP/community GPU pool and paid-credit-only high-demand classes, and Pods
   plus Usage show the derived trial state without mutating trial accounting or
   account classification.
+- PR #952 makes the founder-facing trial answer first-class in
+  `GET /api/pods/trial-routing/readiness.founder_answer`: no separate live
+  trial-account tag, grant-credit provenance as the trial signal, DCP/community
+  GPU route for trial credit, paid-credit-only high-demand route, and
+  `GET /api/renters/me/minimum-balances` as the minimum-balance source, with
+  all trial, account, provider-selection, billing, balance, and
+  minimum-balance mutations guarded false.
 - PR #939 carries that same derived trial-routing answer onto public `/pods` and
   `/containers`, so visitors see credit-provenance mode, DCP/community trial
   route, paid-credit-only high-demand capacity, and no account-classification

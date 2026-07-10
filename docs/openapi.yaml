@@ -1735,6 +1735,63 @@ paths:
                   current_mode:
                     type: string
                     example: pod_trial_credit_policy_live
+                  founder_answer:
+                    type: object
+                    additionalProperties: true
+                    description: Founder-facing answer to trial-account tagging, trial GPU route, high-demand paid-credit route, and minimum-balance handling. This block is read-only and does not mutate launch, billing, routing, balance, or account classification.
+                    properties:
+                      summary:
+                        type: string
+                        example: Trial accounts are derived from grant-credit provenance today; trial credit can use DCP/community GPU capacity, while high-demand on-demand GPUs require paid available credit.
+                      questions_answered:
+                        type: array
+                        items: { type: string }
+                        example: [Are trial accounts tagged?, Do trial users run on DCP/community GPUs or high-demand on-demand GPUs?, How are minimum balances handled before pod launch?]
+                      trial_account_tagging:
+                        type: object
+                        additionalProperties: true
+                        properties:
+                          explicit_trial_account_tag_live:
+                            type: boolean
+                            example: false
+                          current_signal:
+                            type: string
+                            example: renters.trial_grant_halala plus paid-funding state
+                      trial_gpu_routing:
+                        type: object
+                        additionalProperties: true
+                        properties:
+                          trial_credit_route:
+                            type: string
+                            example: dcp_native_and_community_gpu_pool
+                          allowed_supply_tiers:
+                            type: array
+                            items: { type: string }
+                            example: [dcp_owned, provider]
+                      high_demand_gpu_routing:
+                        type: object
+                        additionalProperties: true
+                        properties:
+                          high_demand_route:
+                            type: string
+                            example: paid_credit_only
+                          paid_credit_required_supply_tiers:
+                            type: array
+                            items: { type: string }
+                            example: [on_demand]
+                          shortfall_code:
+                            type: string
+                            example: on_demand_requires_prepaid_credit
+                      minimum_balance_handling:
+                        type: object
+                        additionalProperties: true
+                        properties:
+                          source_contract:
+                            type: string
+                            example: GET /api/renters/me/minimum-balances
+                          trial_credit_unlocks_high_demand:
+                            type: boolean
+                            example: false
                   account_classification:
                     type: object
                     additionalProperties: true

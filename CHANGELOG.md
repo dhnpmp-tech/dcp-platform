@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 05:50 UTC - `feat(pods): add trial founder answer contract - PR #952`
+
+**PR:** [#952](https://github.com/dhnpmp-tech/dcp-platform/pull/952) (`codex/pods-trial-founder-answer-contract-2026-07-10`).
+**Local timestamp:** 2026-07-10 09:50 +04.
+
+**What:** Tareq trial/minimum-balance follow-up. Makes the current trial-account answer first-class in the public pod trial-routing readiness packet so founders, UI, and agents can read the policy without reconstructing it from several fields.
+
+- **Founder answer:** `GET /api/pods/trial-routing/readiness` now exposes `founder_answer`, explicitly answering trial tag status, trial GPU route, high-demand paid-credit route, and minimum-balance source.
+- **Trial tag clarity:** The contract states that no separate live trial-account tag is active today; `renters.trial_grant_halala` plus paid-funding state is the current trial signal.
+- **GPU route clarity:** Trial credit routes to DCP/community provider capacity when normal quote checks pass; high-demand/on-demand GPUs require paid available credit and keep the existing `on_demand_requires_prepaid_credit` shortfall code.
+- **Minimum-balance clarity:** The contract points to `GET /api/renters/me/minimum-balances` and names the two gates: available-balance quote preflight for DCP/community capacity and paid-available-credit quote preflight for high-demand capacity.
+- **Safety:** Readiness/test/docs-only clarification; no pod launch, provider selection, route traffic, trial accounting, account classification, billing, payment, invoice, payout, balance, minimum-balance enforcement, pricing, paid-credit policy, provider/vendor exposure, or supply-tier exposure changed.
+- **Verification:** Focused pod trial-routing Jest suite; pod trial-routing readiness proof; minimum-balance readiness proof; OpenAPI parse; syntax checks; local roadmap proof (38/38); clean Next build; `git diff --check`.
+
 ### 2026-07-10 05:42 UTC - `test(adapter): add vLLM live acceptance evidence contract - PR #951`
 
 **PR:** [#951](https://github.com/dhnpmp-tech/dcp-platform/pull/951) (`codex/adapter-vllm-live-acceptance-evidence-contract-2026-07-10`).

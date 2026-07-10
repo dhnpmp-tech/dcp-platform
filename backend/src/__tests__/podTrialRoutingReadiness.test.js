@@ -20,6 +20,44 @@ describe('pod trial routing readiness', () => {
         readiness: 'GET /api/pods/trial-routing/readiness',
         pod_images: 'GET /api/pods/images/readiness',
         launch: 'POST /api/pods',
+        minimum_balances: 'GET /api/renters/me/minimum-balances',
+      },
+      founder_answer: {
+        questions_answered: [
+          'Are trial accounts tagged?',
+          'Do trial users run on DCP/community GPUs or high-demand on-demand GPUs?',
+          'How are minimum balances handled before pod launch?',
+        ],
+        trial_account_tagging: {
+          explicit_trial_account_tag_live: false,
+          current_signal: 'renters.trial_grant_halala plus paid-funding state',
+        },
+        trial_gpu_routing: {
+          trial_credit_route: 'dcp_native_and_community_gpu_pool',
+          allowed_supply_tiers: ['dcp_owned', 'provider'],
+          exposes_provider_identity_to_renter: false,
+          exposes_supply_tier_to_renter: false,
+        },
+        high_demand_gpu_routing: {
+          high_demand_route: 'paid_credit_only',
+          paid_credit_required_supply_tiers: ['on_demand'],
+          shortfall_status: 402,
+          shortfall_code: 'on_demand_requires_prepaid_credit',
+        },
+        minimum_balance_handling: {
+          source_contract: 'GET /api/renters/me/minimum-balances',
+          dcp_community_capacity_gate: 'quoted_pod_cost_available_balance',
+          high_demand_capacity_gate: 'quoted_pod_cost_paid_available_credit',
+          trial_credit_unlocks_high_demand: false,
+          mutates_minimum_balance_policy: false,
+        },
+        claim_boundary: {
+          changes_trial_accounting: false,
+          changes_account_classification: false,
+          changes_provider_selection: false,
+          changes_billing: false,
+          mutates_balance: false,
+        },
       },
       account_classification: {
         explicit_trial_account_tag_live: false,
@@ -88,6 +126,15 @@ describe('pod trial routing readiness', () => {
     expect(res.body).toMatchObject({
       object: 'pod_trial_routing_readiness',
       version: POD_TRIAL_ROUTING_READINESS_VERSION,
+      founder_answer: {
+        trial_account_tagging: {
+          explicit_trial_account_tag_live: false,
+        },
+        minimum_balance_handling: {
+          source_contract: 'GET /api/renters/me/minimum-balances',
+          trial_credit_unlocks_high_demand: false,
+        },
+      },
       routing_policy: {
         on_paid_credit_shortfall_code: 'on_demand_requires_prepaid_credit',
       },
