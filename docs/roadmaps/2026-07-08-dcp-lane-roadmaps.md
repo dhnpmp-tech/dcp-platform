@@ -285,6 +285,11 @@ what is live.
   card: renters see the busiest-folder drilldown, the suggested GPU for the
   current template/workload/browse context, and the actual `gpu_type` request
   side by side so memory chips cannot read as a launch slider.
+- PR #947 adds a compact workspace decision map before the detailed file/GPU
+  panels: Stage 1 stays folder-first and collapsible, Stage 2 repeats the actual
+  `gpu_type` payload plus suggested GPU, and Stage 3 repeats trial route and
+  paid-credit high-demand status so Tareq's review questions are answered before
+  a large workspace can become a scroll wall.
 
 ### Now
 

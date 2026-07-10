@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-07-10 04:39 UTC - Pods workspace decision map (PR #947)
+
+- **PR:** [#947](https://github.com/dhnpmp-tech/dcp-platform/pull/947) (`codex/pods-tareq-workspace-decision-map-2026-07-10`).
+- **Timestamp:** 2026-07-10 04:39 UTC / 2026-07-10 08:39 +04.
+- **Workspace UX:** `/renter/pods` now has a compact decision map that keeps Stage 1 folder-first and collapsible, with staged file/folder count plus busiest-folder drilldown before the detailed file manager.
+- **Stage clarity:** The map lays out Stage 1 files, Stage 2 GPU, and Stage 3 launch side by side so renters do not have to scroll through workspace details to understand the flow.
+- **GPU clarity:** Stage 2 repeats the actual launch request, current `gpu_type` payload, suggested GPU, and the browse-only memory-chip rule so VRAM controls cannot read as a launch slider.
+- **Trial answer:** The decision map repeats the current backend-derived policy: no separate live trial-account tag, grant credit routes to DCP/community GPUs, and high-demand GPUs require paid credit.
+- **Regression guard:** `tests/e2e/renter-pods-workspace-ux.spec.ts` covers the new map, folder action, suggested-GPU action, trial copy, and fixed `gpu_type` update.
+- **Safety:** Frontend/test/docs-only UX change; no launch body, workspace API, provider-selection, GPU filtering semantics, routing, pricing, billing, settlement, balance, minimum-balance enforcement, trial-accounting, account-classification, paid-credit policy, or provider/vendor exposure mutation.
+- **Verification:** Focused Pods Playwright regression, desktop/mobile screenshot QA, static renter console guard, clean Next build, diff check, and local roadmap proof suite.
+
 ### 2026-07-10 04:21 UTC - Stage 2 GPU recommendation clarity (PR #946)
 
 - **PR:** [#946](https://github.com/dhnpmp-tech/dcp-platform/pull/946) (`codex/pods-stage2-recommendation-ux-2026-07-10`).

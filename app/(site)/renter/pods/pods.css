@@ -599,6 +599,138 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   }
 }
 
+.pod-review-map {
+  display: grid;
+  grid-template-columns: minmax(260px, .95fr) repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 16px;
+  border: 1px solid color-mix(in oklab, var(--teal) 34%, var(--hair));
+  background: var(--hair);
+}
+.pod-review-head,
+.pod-review-stage-card {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  padding: 15px 16px;
+  background: var(--paper);
+}
+.pod-review-head {
+  background: color-mix(in oklab, var(--teal) 7%, var(--paper));
+  box-shadow: inset 3px 0 0 var(--rt-accent);
+}
+.pod-review-stage-card.primary {
+  background: color-mix(in oklab, var(--teal) 10%, var(--paper));
+  box-shadow: inset 3px 0 0 var(--rt-accent);
+}
+.pod-review-head span,
+.pod-review-stage-card span {
+  color: var(--rt-accent);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.pod-review-stage-card:not(.primary) span {
+  color: var(--mut);
+}
+.pod-review-head strong,
+.pod-review-stage-card strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1.02;
+}
+.pod-review-stage-card.primary strong {
+  color: var(--rt-accent);
+}
+.pod-review-head em,
+.pod-review-stage-card em,
+.pod-review-stage-card small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+}
+.pod-review-stage-card small {
+  color: var(--mut);
+}
+.pod-review-stage-card code {
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in oklab, var(--teal) 42%, var(--hair));
+  background: color-mix(in oklab, var(--teal) 8%, transparent);
+  color: var(--rt-accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.25;
+  border-radius: 2px;
+}
+.pod-review-stage-card a,
+.pod-review-stage-card button {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.pod-review-stage-card.primary a,
+.pod-review-stage-card.primary button {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 8%, var(--paper));
+}
+.pod-review-stage-card a:hover,
+.pod-review-stage-card a:focus-visible,
+.pod-review-stage-card button:hover,
+.pod-review-stage-card button:focus-visible {
+  border-color: var(--rt-accent);
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  outline: none;
+}
+.pod-review-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 1120px) {
+  .pod-review-map {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 680px) {
+  .pod-review-map {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pod-mobile-launch-dock {
   display: none;
 }

@@ -1829,6 +1829,64 @@ export default function RenterPodsPage() {
             </div>
           </div>
 
+          <div className="pod-review-map" aria-label={lang === 'ar' ? 'خريطة قرار مساحة العمل' : 'Workspace decision map'}>
+            <div className="pod-review-head">
+              <span><Bi en="Fast review" ar="مراجعة سريعة" /></span>
+              <strong><Bi en="Files, GPU, launch — in order" ar="الملفات، GPU، التشغيل — بالترتيب" /></strong>
+              <em>
+                <Bi
+                  en="Use this when the workspace has many files: Stage 1 stays folder-first, Stage 2 is the only GPU decision, and Stage 3 is the final launch."
+                  ar="استخدم هذا عند وجود ملفات كثيرة: المرحلة 1 بالمجلدات أولاً، المرحلة 2 قرار GPU الوحيد، والمرحلة 3 التشغيل النهائي."
+                />
+              </em>
+            </div>
+            <div className="pod-review-stage-card">
+              <span>Stage 1</span>
+              <strong><Bi en="Workspace collapsed by folders" ar="مساحة العمل مطوية حسب المجلدات" /></strong>
+              <em><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ مساحة العمل'} /></em>
+              <small><Bi en="Open one folder only when the summary is not enough." ar="افتح مجلداً واحداً فقط عندما لا يكفي الملخص." /></small>
+              <button
+                type="button"
+                onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
+              >
+                <Bi en={workspacePathPrimaryFolder ? `Open ${workspacePathPrimaryFolder.label}` : 'Open Stage 1'} ar="افتح مجلداً واحداً" />
+              </button>
+            </div>
+            <div className="pod-review-stage-card primary">
+              <span>Stage 2</span>
+              <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+              <code>{launchRequestPayloadLabel}</code>
+              <small>
+                <Bi
+                  en={recommendedGpuType ? `Suggested: ${recommendedGpuLabel}. Memory chips are browse filters, not a launch slider.` : 'Memory chips are browse filters, not a launch slider.'}
+                  ar="شرائح الذاكرة للتصفح وليست منزلق تشغيل."
+                />
+              </small>
+              <div className="pod-review-card-actions">
+                <a href="#pod-stage-2">
+                  <Bi en="Review GPU" ar="راجع GPU" />
+                </a>
+                {recommendedGpuType && !recommendationMatchesSelected && (
+                  <button
+                    type="button"
+                    onClick={() => selectGpuType(recommendedGpuType.gpu_model)}
+                  >
+                    <Bi en="Use suggested GPU" ar="استخدم GPU المقترح" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="pod-review-stage-card">
+              <span>Stage 3</span>
+              <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
+              <em><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></em>
+              <small><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></small>
+              <a href="#pod-stage-3">
+                <Bi en="Confirm launch" ar="أكد التشغيل" />
+              </a>
+            </div>
+          </div>
+
           <div className={`pod-mobile-launch-dock ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'شريط تشغيل مختصر' : 'Mobile launch dock'}>
             <div className="pod-mobile-launch-copy">
               <span><Bi en="Stage 2 launch GPU" ar="GPU تشغيل المرحلة 2" /></span>

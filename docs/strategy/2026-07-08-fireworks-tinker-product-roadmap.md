@@ -218,6 +218,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     current template/workload/browse context, shows the actual `gpu_type`
     request beside it, and labels memory chips as browse controls rather than a
     launch slider.
+  - PR #947 adds a compact workspace decision map above the detailed flow: Stage
+    1 files stay folder-first/collapsible with busiest-folder drilldown, Stage 2
+    repeats the actual `gpu_type` payload and suggested GPU, and Stage 3 repeats
+    the trial/paid-credit launch route before the renter opens the file manager.
 - Attach pod templates directly to launch flows:
   - LoRA SFT
   - QLoRA SFT
