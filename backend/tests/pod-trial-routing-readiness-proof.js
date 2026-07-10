@@ -40,11 +40,22 @@ function buildProof() {
     {
       id: 'high_demand_paid_credit_required',
       pass: readiness.routing_policy.paid_credit_required_supply_tiers.includes('on_demand')
+        && readiness.routing_policy.high_demand_capacity_class === 'paid_credit_only'
         && readiness.routing_policy.on_paid_credit_shortfall_code === 'on_demand_requires_prepaid_credit',
+    },
+    {
+      id: 'trial_account_classification_is_derived',
+      pass: readiness.account_classification.current_mode === 'derived_from_credit_provenance'
+        && readiness.account_classification.explicit_trial_account_tag_live === false
+        && readiness.account_classification.analytics_lifecycle_tag_live === false
+        && readiness.account_classification.mutates_account_classification === false
+        && readiness.account_classification.derived_states.trial_grant_active === 'renters.trial_grant_halala > 0'
+        && readiness.routing_policy.trial_credit_capacity_class === 'dcp_native_and_community_gpu_pool',
     },
     {
       id: 'no_trial_or_billing_mutation',
       pass: readiness.claim_guards.changes_trial_accounting === false
+        && readiness.claim_guards.changes_account_classification === false
         && readiness.claim_guards.changes_billing === false
         && readiness.claim_guards.mutates_balance === false
         && readiness.claim_guards.launches_pod === false,

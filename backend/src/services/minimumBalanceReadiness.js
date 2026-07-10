@@ -21,6 +21,8 @@ function buildMinimumBalanceReadiness({
   const v1RemainingCapHalala = budgetStatus?.v1_inference?.remaining_cap_halala == null
     ? null
     : normalizeHalala(budgetStatus.v1_inference.remaining_cap_halala);
+  const hasTrialGrant = trialGrantHalala > 0;
+  const derivedTrialState = hasTrialGrant ? 'trial_grant_active' : 'no_trial_grant';
 
   return {
     object: 'minimum_balance_readiness',
@@ -58,16 +60,36 @@ function buildMinimumBalanceReadiness({
       current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
       source_contract: 'GET /api/pods/trial-routing/readiness',
       explicit_trial_account_tag_live: false,
+      derived_trial_account_state: derivedTrialState,
       trial_credit_source: 'renters.trial_grant_halala',
       trial_grant_halala: trialGrantHalala,
       trial_grant_sar: sarFromHalala(trialGrantHalala),
-      has_trial_grant: trialGrantHalala > 0,
+      has_trial_grant: hasTrialGrant,
       paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
       paid_available_halala: paidAvailableHalala,
       paid_available_sar: sarFromHalala(paidAvailableHalala),
       trial_credit_allowed_capacity: 'DCP/community/provider GPU capacity when normal quote checks pass',
       trial_credit_unlocks_high_demand: false,
       high_demand_requires_paid_credit: true,
+    },
+    trial_classification: {
+      current_mode: 'derived_from_credit_provenance',
+      explicit_trial_account_tag_live: false,
+      analytics_lifecycle_tag_live: false,
+      derived_account_state: derivedTrialState,
+      derived_from: {
+        trial_credit_source: 'renters.trial_grant_halala',
+        paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
+      },
+      has_trial_grant: hasTrialGrant,
+      trial_grant_halala: trialGrantHalala,
+      trial_grant_sar: sarFromHalala(trialGrantHalala),
+      paid_available_halala: paidAvailableHalala,
+      paid_available_sar: sarFromHalala(paidAvailableHalala),
+      trial_credit_capacity_class: 'dcp_native_and_community_gpu_pool',
+      high_demand_capacity_class: 'paid_credit_only',
+      mutates_account_classification: false,
+      note: 'Trial status is derived for display and policy inspection only; no separate mutable trial-account flag is live.',
     },
     rails: {
       v1_inference: {
@@ -158,6 +180,7 @@ function buildMinimumBalanceReadiness({
       enables_discount: false,
       changes_enforcement: false,
       changes_trial_accounting: false,
+      changes_account_classification: false,
       changes_paid_credit_policy: false,
     },
     next_actions: [

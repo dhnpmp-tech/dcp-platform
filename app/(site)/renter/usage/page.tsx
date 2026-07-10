@@ -207,8 +207,12 @@ interface PodTrialRoutingReadinessResponse {
   version?: string
   account_classification?: {
     explicit_trial_account_tag_live?: boolean
+    current_mode?: string
     trial_credit_source?: string
     paid_credit_source?: string
+    derived_states?: Record<string, string>
+    analytics_lifecycle_tag_live?: boolean
+    mutates_account_classification?: boolean
     note?: string
   }
   routing_policy?: {
@@ -216,6 +220,8 @@ interface PodTrialRoutingReadinessResponse {
     high_demand_capacity_copy?: string
     trial_credit_allowed_supply_tiers?: string[]
     paid_credit_required_supply_tiers?: string[]
+    trial_credit_capacity_class?: string
+    high_demand_capacity_class?: string
     provider_visibility?: {
       exposes_provider_id_to_renter?: boolean
       exposes_vendor_to_renter?: boolean
@@ -227,6 +233,7 @@ interface PodTrialRoutingReadinessResponse {
     mutates_balance?: boolean
     changes_billing?: boolean
     changes_trial_accounting?: boolean
+    changes_account_classification?: boolean
     exposes_vendor_or_provider?: boolean
   }
   error?: string
@@ -287,6 +294,7 @@ interface MinimumBalanceReadinessResponse {
     current_mode?: string
     source_contract?: string
     explicit_trial_account_tag_live?: boolean
+    derived_trial_account_state?: string
     trial_credit_source?: string
     trial_grant_halala?: number
     trial_grant_sar?: number
@@ -297,6 +305,20 @@ interface MinimumBalanceReadinessResponse {
     trial_credit_allowed_capacity?: string
     trial_credit_unlocks_high_demand?: boolean
     high_demand_requires_paid_credit?: boolean
+  }
+  trial_classification?: {
+    current_mode?: string
+    explicit_trial_account_tag_live?: boolean
+    analytics_lifecycle_tag_live?: boolean
+    derived_account_state?: string
+    has_trial_grant?: boolean
+    trial_grant_halala?: number
+    trial_grant_sar?: number
+    paid_available_halala?: number
+    paid_available_sar?: number
+    trial_credit_capacity_class?: string
+    high_demand_capacity_class?: string
+    mutates_account_classification?: boolean
   }
   rails?: {
     v1_inference?: {
@@ -331,6 +353,7 @@ interface MinimumBalanceReadinessResponse {
     creates_pod?: boolean
     dispatches_inference?: boolean
     changes_trial_accounting?: boolean
+    changes_account_classification?: boolean
     changes_paid_credit_policy?: boolean
   }
 }
@@ -559,6 +582,7 @@ export default function RenterUsagePage() {
   const keyUsageRows = usageByKey?.rows || []
   const unattributedUsage = usageByKey?.unattributed || null
   const minimumCreditPolicy = minimumBalances?.credit_policy
+  const trialClassification = minimumBalances?.trial_classification
   const paidAvailableSar = typeof minimumCreditPolicy?.paid_available_sar === 'number'
     ? minimumCreditPolicy.paid_available_sar
     : typeof minimumBalances?.account?.paid_available_sar === 'number'
@@ -610,6 +634,12 @@ export default function RenterUsagePage() {
   const trialGrantLabel = trialGrantSar > 0
     ? `Trial grant SAR ${fmtSar(trialGrantSar)}`
     : 'No trial grant on account'
+  const derivedTrialState = trialClassification?.derived_account_state
+    || minimumCreditPolicy?.derived_trial_account_state
+    || (trialGrantSar > 0 ? 'trial_grant_active' : 'no_trial_grant')
+  const derivedTrialStateLabel = derivedTrialState === 'trial_grant_active'
+    ? 'Derived trial state: grant active'
+    : 'Derived trial state: no grant'
   const minimumCreditPolicyLabel = minimumCreditPolicy
     ? 'Minimum-balance credit policy synced'
     : 'Minimum-balance credit policy fallback'
@@ -618,12 +648,14 @@ export default function RenterUsagePage() {
     : 'High-demand paid-credit gate enforced'
   const noCreditPolicyMutation =
     minimumBalances?.claim_guards?.changes_trial_accounting === false &&
+    (minimumBalances?.claim_guards?.changes_account_classification ?? false) === false &&
     minimumBalances?.claim_guards?.changes_paid_credit_policy === false
   const trialRoutingSynced = trialRouting?.object === 'pod_trial_routing_readiness' &&
     trialRouting?.claim_guards?.launches_pod === false &&
     trialRouting?.claim_guards?.mutates_balance === false &&
     trialRouting?.claim_guards?.changes_billing === false &&
     trialRouting?.claim_guards?.changes_trial_accounting === false &&
+    (trialRouting?.claim_guards?.changes_account_classification ?? false) === false &&
     trialRouting?.claim_guards?.exposes_vendor_or_provider === false &&
     trialRouting?.routing_policy?.provider_visibility?.exposes_provider_id_to_renter === false &&
     trialRouting?.routing_policy?.provider_visibility?.exposes_vendor_to_renter === false &&
@@ -644,6 +676,7 @@ export default function RenterUsagePage() {
     minimumBalances?.claim_guards?.dispatches_inference === false &&
     minimumBalances?.claim_guards?.changes_enforcement === false &&
     (minimumBalances?.claim_guards?.changes_trial_accounting ?? false) === false &&
+    (minimumBalances?.claim_guards?.changes_account_classification ?? false) === false &&
     (minimumBalances?.claim_guards?.changes_paid_credit_policy ?? false) === false &&
     (trialRouting ? trialRoutingSynced : true)
 
@@ -968,6 +1001,10 @@ export default function RenterUsagePage() {
               <span className={trialGrantSar > 0 ? 'ready' : 'checking'}>
                 <b><Bi en="Trial grant" ar="منحة التجربة" /></b>
                 <Bi en={trialGrantLabel} ar="رصيد التجربة من المنحة" />
+              </span>
+              <span className={trialClassification?.mutates_account_classification === false ? 'ready' : 'checking'}>
+                <b><Bi en="Derived state" ar="الحالة المشتقة" /></b>
+                <Bi en={derivedTrialStateLabel} ar="حالة التجربة مشتقة من مصدر الرصيد" />
               </span>
               <span className="ready">
                 <b><Bi en="Trial route" ar="مسار التجربة" /></b>
