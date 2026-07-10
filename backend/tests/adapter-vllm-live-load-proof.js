@@ -5,6 +5,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { ensureInferenceSmokePrincipal } = require('./ensure-inference-smoke-principal');
+const {
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+  buildAdapterVllmLiveAcceptanceContract,
+  buildEmptyAdapterVllmLiveAcceptanceEvidence,
+  findMissingAdapterVllmLiveAcceptanceEvidence,
+} = require('../src/services/adapterVllmLiveAcceptanceContract');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const OUTPUT_DIR_DEFAULT = path.join(REPO_ROOT, 'docs/reports/reliability');
@@ -88,6 +94,7 @@ function classifyFailure(code, message, details = {}) {
     READINESS_REQUEST_FAILED: 'Check renter auth and GET /api/lora/readiness before attempting any adapter load or billing smoke.',
     READINESS_CONTRACT_FAILED: 'Keep adapter serving, route traffic, dedicated endpoint, and billing claims gated until the readiness contract is explicit and internally consistent.',
     ADAPTER_VLLM_LOAD_NOT_ENABLED: 'Keep adapter serving, route traffic, endpoint smoke, and adapter billing claims blocked; finish the named readiness blockers first.',
+    ADAPTER_VLLM_ACCEPTANCE_EVIDENCE_MISSING: 'Keep adapter serving, route traffic, endpoint smoke, billing, and dedicated deployment claims blocked until every adapter live evidence step is present.',
     ADAPTER_VLLM_LIVE_FLOW_NOT_IMPLEMENTED: 'Add adapter create/list, deployment, internal load-proof, endpoint smoke, and billing-ledger proof steps before allowing this runner to pass.',
   };
   return {
@@ -187,6 +194,19 @@ function buildMarkdown(report) {
   lines.push(JSON.stringify(report.readiness, null, 2));
   lines.push('```');
   lines.push('');
+  lines.push('## Acceptance Evidence');
+  lines.push('');
+  lines.push(`- contract: \`${report.acceptance_contract.contract}\``);
+  lines.push(`- gate: \`${report.acceptance_contract.gate}\``);
+  lines.push(`- pass_condition: ${report.acceptance_contract.pass_condition}`);
+  lines.push('');
+  lines.push('| evidence | proven | required fields |');
+  lines.push('|---|---:|---|');
+  for (const item of report.acceptance_contract.required_evidence) {
+    const proven = report.acceptance_evidence[item.id] === true ? 'yes' : 'no';
+    lines.push(`| ${item.id} | ${proven} | ${item.required_fields.join(', ')} |`);
+  }
+  lines.push('');
   if (report.failure) {
     lines.push('## Failure Classification');
     lines.push('');
@@ -262,6 +282,8 @@ async function runAdapterVllmLiveLoadProof(options = {}) {
     },
     principal: {},
     readiness: {},
+    acceptance_contract: buildAdapterVllmLiveAcceptanceContract(),
+    acceptance_evidence: buildEmptyAdapterVllmLiveAcceptanceEvidence(),
     probes: {},
     adapter_flow: {
       attempted_adapter_create: false,
@@ -301,6 +323,12 @@ async function runAdapterVllmLiveLoadProof(options = {}) {
       scoped_key_expires_at: principal.inferenceKeyExpiresAt,
       balance_halala: principal.balanceHalala,
     };
+    report.acceptance_evidence.funded_smoke_principal_verified = Boolean(
+      report.principal.renter_id
+        && report.principal.scoped_key_id
+        && report.principal.key_hint
+        && Number(report.principal.balance_halala || 0) > 0
+    );
     log(`principal renter_id=${principal.renterId} key_hint=${report.principal.key_hint}`);
 
     const headers = {
@@ -345,6 +373,23 @@ async function runAdapterVllmLiveLoadProof(options = {}) {
           blockers,
           current_mode: report.readiness.current_mode,
           next: report.readiness.adapter_deployments.next,
+        },
+      });
+    }
+
+    report.acceptance_evidence.readiness_serving_claims_verified = true;
+    report.acceptance_evidence.claim_boundary_verified = report.readiness.claim_guards.quality_claims === false
+      && report.readiness.claim_guards.tinker_compatible === false
+      && report.readiness.claim_guards.discounts_enabled === false;
+    const missingEvidence = findMissingAdapterVllmLiveAcceptanceEvidence(report);
+    if (missingEvidence.length > 0) {
+      throw Object.assign(new Error('Readiness claims adapter serving is live, but the live proof artifact is missing required adapter/load/smoke/billing evidence'), {
+        code: 'ADAPTER_VLLM_ACCEPTANCE_EVIDENCE_MISSING',
+        details: {
+          missing_evidence: missingEvidence,
+          acceptance_contract: report.acceptance_contract.contract,
+          gate: report.acceptance_contract.gate,
+          required_evidence: report.acceptance_contract.required_evidence,
         },
       });
     }
@@ -395,8 +440,10 @@ if (require.main === module) {
 module.exports = {
   CONTRACT,
   PROOF_PREFIX,
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
   buildUrl,
   classifyFailure,
+  findMissingAdapterVllmLiveAcceptanceEvidence,
   findReadinessBlockers,
   normalizeBaseUrl,
   redactSecret,

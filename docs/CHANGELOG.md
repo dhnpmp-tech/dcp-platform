@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 05:42 UTC - Adapter vLLM live acceptance evidence contract (PR #951)
+
+- **PR:** [#951](https://github.com/dhnpmp-tech/dcp-platform/pull/951) (`codex/adapter-vllm-live-acceptance-evidence-contract-2026-07-10`).
+- **Timestamp:** 2026-07-10 05:42 UTC / 2026-07-10 09:42 +04.
+- **Evidence contract:** Added `dcp.adapter_vllm_live_acceptance_evidence.v1` for `adapter_vllm_load_billing_smoke`, listing readiness claims, funded principal, adapter checksum, deployment intent, strict vLLM load, endpoint smoke, usage attribution, billing policy, and claim-boundary evidence.
+- **Readiness packets:** LoRA readiness now publishes `adapter_deployments.live_acceptance.vllm_load_billing_smoke`; adapter billing readiness now publishes `policy.live_acceptance`.
+- **Proof guard:** `npm run proof:adapter-vllm-live-load` emits acceptance evidence and fails if readiness claims adapter serving/routing/billing before the live artifact proves every required evidence step.
+- **Safety:** Evidence/test/docs-only change; no adapter serving, route traffic, smoke recording, usage writes, billing, invoices, payouts, balance, provider behavior, raw prompts/responses, discounts, quality, or Tinker claims changed.
+- **Verification:** Focused adapter vLLM live proof/billing readiness/LoRA Jest suites, blocked live proof, adapter billing readiness proof, LoRA training contract proof, adapter deployment contract proof, OpenAPI parse, syntax checks, local roadmap proof (38/38), clean Next build, and `git diff --check`.
+
 ### 2026-07-10 05:24 UTC - Pods final launch confirmation (PR #950)
 
 - **PR:** [#950](https://github.com/dhnpmp-tech/dcp-platform/pull/950) (`codex/pods-workspace-launch-confirmation-2026-07-10`).

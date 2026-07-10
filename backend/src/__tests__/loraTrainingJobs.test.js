@@ -19,6 +19,10 @@ const {
 } = require('../services/loraTrainingJobs');
 const { ensureAdapterRegistrySchema, getAdapter } = require('../services/adapterRegistry');
 const {
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+} = require('../services/adapterVllmLiveAcceptanceContract');
+const {
   LORA_DATASET_VALIDATION_VERSION,
   LORA_READINESS_VERSION,
   buildLoraReadiness,
@@ -149,6 +153,14 @@ describe('LoRA training job foundation', () => {
         serving_enabled: false,
         route_traffic: false,
         load_proof_required: true,
+        live_acceptance: {
+          vllm_load_billing_smoke: {
+            status: 'blocked_external',
+            command: 'DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load',
+            live_acceptance_gate: ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+            acceptance_contract: ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+          },
+        },
       },
       tinker_loop: {
         status: 'contract_only',
@@ -214,6 +226,24 @@ describe('LoRA training job foundation', () => {
         tinker_low_level_api_enabled: false,
         discounts_enabled: false,
       },
+    });
+    expect(readiness.adapter_deployments.live_acceptance.vllm_load_billing_smoke.required_evidence.map((item) => item.id)).toEqual([
+      'readiness_serving_claims_verified',
+      'funded_smoke_principal_verified',
+      'adapter_artifact_checksum_verified',
+      'deployment_intent_verified',
+      'strict_vllm_load_proof_verified',
+      'endpoint_smoke_verified',
+      'usage_attribution_verified',
+      'billing_policy_verified',
+      'claim_boundary_verified',
+    ]);
+    expect(readiness.adapter_deployments.live_acceptance.vllm_load_billing_smoke.claim_unlocks).toMatchObject({
+      adapter_serving: expect.arrayContaining([
+        'strict_vllm_load_proof_verified',
+        'endpoint_smoke_verified',
+      ]),
+      adapter_billing: ['usage_attribution_verified', 'billing_policy_verified'],
     });
   });
 
@@ -669,12 +699,26 @@ describe('LoRA training job foundation', () => {
         },
         serving_enabled: false,
         route_traffic: false,
+        live_acceptance: {
+          vllm_load_billing_smoke: {
+            status: 'blocked_external',
+            live_acceptance_gate: ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+            acceptance_contract: ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+          },
+        },
       },
       claim_guards: {
         tinker_compatible: false,
         quality_claims: false,
       },
     });
+    expect(readiness.body.adapter_deployments.live_acceptance.vllm_load_billing_smoke.required_evidence.map((item) => item.id)).toEqual(expect.arrayContaining([
+      'strict_vllm_load_proof_verified',
+      'endpoint_smoke_verified',
+      'usage_attribution_verified',
+      'billing_policy_verified',
+      'claim_boundary_verified',
+    ]));
 
     const created = await request(app)
       .post('/api/lora/training-jobs')

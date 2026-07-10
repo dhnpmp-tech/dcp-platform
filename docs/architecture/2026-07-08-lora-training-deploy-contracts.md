@@ -222,3 +222,13 @@ exits blocked before adapter creation, deployment creation, internal load-proof
 posting, endpoint inference, route traffic, or billing mutation. A future
 passing run must add adapter checksum evidence, vLLM load proof, endpoint
 response evidence, and adapter billing ledger evidence.
+
+PR #951 adds `dcp.adapter_vllm_live_acceptance_evidence.v1` to that runner and
+the readiness surface. `GET /api/lora/readiness` now publishes
+`adapter_deployments.live_acceptance.vllm_load_billing_smoke`, and
+`GET /api/adapters/billing/readiness` publishes `policy.live_acceptance`. The
+contract requires readiness-claim, funded-principal, adapter-checksum,
+deployment-intent, strict-vLLM-load, endpoint-smoke, usage-attribution,
+billing-policy, and claim-boundary evidence before adapter serving, route
+traffic, endpoint-smoke, adapter-billing, dedicated-deployment, or Tinker-style
+claims can pass.

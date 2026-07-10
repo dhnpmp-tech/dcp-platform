@@ -7,6 +7,10 @@ const {
   buildAdapterBillingReadiness,
   evaluateAdapterBillingPolicy,
 } = require('../services/adapterBillingReadiness');
+const {
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+} = require('../services/adapterVllmLiveAcceptanceContract');
 const { createAdaptersRouter } = require('../routes/adapters');
 
 const RENTER_API_KEY_ID_FIELD = ['renter', 'api', 'key', 'id'].join('_');
@@ -96,6 +100,12 @@ describe('adapter billing readiness policy', () => {
           provider_split_live: false,
           platform_split_live: false,
         },
+        live_acceptance: {
+          status: 'blocked_external',
+          acceptance_contract: ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+          live_acceptance_gate: ADAPTER_VLLM_LIVE_ACCEPTANCE_GATE,
+          command: 'DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load',
+        },
       },
       claim_guards: {
         readiness_contract_live: true,
@@ -109,6 +119,21 @@ describe('adapter billing readiness policy', () => {
         creates_invoice: false,
         settles_provider_payout: false,
       },
+    });
+    expect(readiness.policy.live_acceptance.required_evidence.map((item) => item.id)).toEqual([
+      'readiness_serving_claims_verified',
+      'funded_smoke_principal_verified',
+      'adapter_artifact_checksum_verified',
+      'deployment_intent_verified',
+      'strict_vllm_load_proof_verified',
+      'endpoint_smoke_verified',
+      'usage_attribution_verified',
+      'billing_policy_verified',
+      'claim_boundary_verified',
+    ]);
+    expect(readiness.policy.live_acceptance.claim_unlocks).toMatchObject({
+      adapter_billing: ['usage_attribution_verified', 'billing_policy_verified'],
+      route_traffic: ['strict_vllm_load_proof_verified', 'endpoint_smoke_verified'],
     });
   });
 

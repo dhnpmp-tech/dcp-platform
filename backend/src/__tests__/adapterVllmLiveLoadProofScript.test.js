@@ -4,8 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
+  ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
   CONTRACT,
   buildUrl,
+  findMissingAdapterVllmLiveAcceptanceEvidence,
   findReadinessBlockers,
   redactSecret,
   runAdapterVllmLiveLoadProof,
@@ -63,6 +65,38 @@ function readinessBody(overrides = {}) {
   };
 }
 
+function liveReadyBody() {
+  return readinessBody({
+    current_mode: 'adapter_serving_live_claimed',
+    adapter_registry: {
+      status: 'serving_ready',
+      api_available: true,
+      public_upload_enabled: true,
+      serving_enabled: true,
+      route_traffic: true,
+      checksum_required: true,
+      next: 'run_live_acceptance_evidence',
+    },
+    adapter_deployments: {
+      status: 'serving_ready',
+      api_available: true,
+      modes: ['single_adapter_live_merge', 'multi_lora'],
+      serving_enabled: true,
+      route_traffic: true,
+      load_proof_required: false,
+      next: 'run_endpoint_smoke_and_billing_evidence',
+    },
+    claim_guards: {
+      public_training_enabled: false,
+      public_serving_enabled: true,
+      route_traffic: true,
+      quality_claims: false,
+      tinker_compatible: false,
+      discounts_enabled: false,
+    },
+  });
+}
+
 describe('adapter vLLM live load proof script', () => {
   test('refuses live adapter checks by default and writes artifacts', async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adapter-live-blocked-'));
@@ -79,6 +113,22 @@ describe('adapter vLLM live load proof script', () => {
     expect(exitCode).toBe(2);
     expect(report.verdict).toBe('BLOCKED');
     expect(report.contract).toBe(CONTRACT);
+    expect(report.acceptance_contract).toMatchObject({
+      contract: ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+      gate: 'adapter_vllm_load_billing_smoke',
+      command: 'DCP_ADAPTER_VLLM_LIVE_PROOF_ALLOW=1 npm run proof:adapter-vllm-live-load',
+    });
+    expect(report.acceptance_contract.required_evidence.map((item) => item.id)).toEqual([
+      'readiness_serving_claims_verified',
+      'funded_smoke_principal_verified',
+      'adapter_artifact_checksum_verified',
+      'deployment_intent_verified',
+      'strict_vllm_load_proof_verified',
+      'endpoint_smoke_verified',
+      'usage_attribution_verified',
+      'billing_policy_verified',
+      'claim_boundary_verified',
+    ]);
     expect(report.failure).toMatchObject({
       code: 'LIVE_PROOF_NOT_ENABLED',
       severity: 'blocking',
@@ -195,5 +245,72 @@ describe('adapter vLLM live load proof script', () => {
       'adapter_deployments.load_proof_required',
       'claim_guards.route_traffic',
     ]));
+    expect(findMissingAdapterVllmLiveAcceptanceEvidence({
+      readiness_serving_claims_verified: true,
+      funded_smoke_principal_verified: true,
+      claim_boundary_verified: true,
+    })).toEqual([
+      'adapter_artifact_checksum_verified',
+      'deployment_intent_verified',
+      'strict_vllm_load_proof_verified',
+      'endpoint_smoke_verified',
+      'usage_attribution_verified',
+      'billing_policy_verified',
+    ]);
+  });
+
+  test('fails if readiness claims adapter serving before live evidence exists', async () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adapter-live-missing-evidence-'));
+    const fixtureCredential = ['fixture', 'adapter', 'live', 'ready'].join('-');
+    const fetchImpl = jest.fn(async () => jsonResponse(liveReadyBody(), { requestId: 'req-adapter-live-ready' }));
+    const ensurePrincipal = jest.fn(async () => ({
+      renterId: 11,
+      renterEmail: 'adapter-ready-proof@example.test',
+      balanceHalala: 50000,
+      inferenceKey: fixtureCredential,
+      inferenceKeyId: 'key_adapter_ready',
+      inferenceKeyLabel: 'adapter-ready-proof',
+      inferenceKeyExpiresAt: '2026-07-09T05:00:00.000Z',
+    }));
+
+    const { report, exitCode } = await runAdapterVllmLiveLoadProof({
+      allowLive: true,
+      outputDir,
+      fetchImpl,
+      ensurePrincipal,
+      baseUrl: 'https://api.example.test',
+    });
+
+    expect(exitCode).toBe(1);
+    expect(report.verdict).toBe('FAIL');
+    expect(report.acceptance_evidence).toMatchObject({
+      readiness_serving_claims_verified: true,
+      funded_smoke_principal_verified: true,
+      claim_boundary_verified: true,
+    });
+    expect(report.adapter_flow).toMatchObject({
+      attempted_adapter_create: false,
+      attempted_deployment_create: false,
+      attempted_internal_load_proof: false,
+      attempted_endpoint_smoke: false,
+      attempted_billing_probe: false,
+    });
+    expect(report.failure).toMatchObject({
+      code: 'ADAPTER_VLLM_ACCEPTANCE_EVIDENCE_MISSING',
+      details: {
+        acceptance_contract: ADAPTER_VLLM_LIVE_ACCEPTANCE_CONTRACT_VERSION,
+        gate: 'adapter_vllm_load_billing_smoke',
+        missing_evidence: expect.arrayContaining([
+          'adapter_artifact_checksum_verified',
+          'strict_vllm_load_proof_verified',
+          'endpoint_smoke_verified',
+          'usage_attribution_verified',
+          'billing_policy_verified',
+        ]),
+      },
+    });
+    expect(report.failure.details.missing_evidence).not.toContain('readiness_serving_claims_verified');
+    expect(JSON.stringify(report)).not.toContain(fixtureCredential);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
