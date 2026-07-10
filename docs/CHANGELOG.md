@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 01:16 UTC - Pod sticky launch decision rail (PR #934)
+
+- **PR:** [#934](https://github.com/dhnpmp-tech/dcp-platform/pull/934) (`codex/pods-sticky-launch-decision-2026-07-10`).
+- **Timestamp:** 2026-07-10 01:16 UTC / 2026-07-10 05:16 +04.
+- **Workspace UX:** `/renter/pods` now repeats the Stage 1 workspace file/folder checkpoint inside the existing sticky launch-stage rail, so large workspaces can stay collapsed without losing launch context.
+- **GPU clarity:** The sticky rail now includes the exact Stage 2 launch request: Auto-pick with `gpu_type` omitted, or the selected GPU card when fixed mode is chosen.
+- **Trial answer:** The same sticky rail keeps the no-live-trial-tag, grant-credit provenance, native/community trial route, and paid-credit high-demand answer visible near the GPU decision.
+- **Safety:** Frontend/test/docs-only change; no pod launch, provider-selection, GPU filtering, workspace API, pricing, billing, balance, credit enforcement, trial-accounting, routing, or API behavior mutation.
+- **Verification:** Focused `/renter/pods` Playwright regression covering Auto-pick and fixed-GPU sticky-decision states.
+
 ### 2026-07-10 01:02 UTC - Pod launch command center (PR #933)
 
 - **PR:** [#933](https://github.com/dhnpmp-tech/dcp-platform/pull/933) (`codex/pods-stage-gpu-clarity-2026-07-10`).

@@ -1628,6 +1628,25 @@ export default function RenterPodsPage() {
               <strong><Bi en="Runtime + launch" ar="البيئة + التشغيل" /></strong>
               <em>{stage3NavStatusLabel}</em>
             </a>
+            <div className={`pod-stage-nav-summary ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'قرار التشغيل المثبت' : 'Sticky launch decision'}>
+              <div className="primary">
+                <b><Bi en="Launch request" ar="طلب التشغيل" /></b>
+                <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+                <code>{launchRequestPayloadLabel}</code>
+              </div>
+              <div>
+                <b><Bi en="Workspace" ar="مساحة العمل" /></b>
+                <em><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة'} /></em>
+              </div>
+              <div>
+                <b><Bi en="Runtime" ar="البيئة" /></b>
+                <em>{selectedRuntimeLabel} · {durationLabel}</em>
+              </div>
+              <div>
+                <b><Bi en="Trial route" ar="مسار التجربة" /></b>
+                <em><Bi en={`${trialTagAnswerLabel} · ${trialRouteAnswerLabel}`} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'حسب رصيد المنحة'} /></em>
+              </div>
+            </div>
           </nav>
 
           <div className={`pod-command-center ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'مركز أوامر التشغيل' : 'Launch command center'}>

@@ -361,6 +361,16 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toContainText('Stage 2 of 3');
   await expect(page.getByRole('navigation', { name: 'Pod launch stages' })).toContainText('Stage 3 of 3');
   await expect(page.locator('.pod-stage-nav').getByRole('link', { name: /Stage 2.*Actual launch GPU.*Auto-pick/ })).toBeVisible();
+  const stickyDecision = page.getByLabel('Sticky launch decision');
+  await expect(stickyDecision).toContainText('Launch request');
+  await expect(stickyDecision).toContainText('Auto-pick GPU');
+  await expect(stickyDecision).toContainText('gpu_type omitted = auto-pick');
+  await expect(stickyDecision).toContainText('Workspace');
+  await expect(stickyDecision).toContainText('5 files · 3 folders');
+  await expect(stickyDecision).toContainText('Runtime');
+  await expect(stickyDecision).toContainText('PyTorch · 1h');
+  await expect(stickyDecision).toContainText('Trial route');
+  await expect(stickyDecision).toContainText('No trial-account tag live · Trial route: native/community GPU pool');
   const commandCenter = page.getByLabel('Launch command center');
   await expect(commandCenter).toBeVisible();
   await expect(commandCenter).toContainText('Main decision · Stage 2 of 3');
@@ -645,6 +655,8 @@ test('renter pods launch keeps workspace compact and compute selection explicit'
   await expect(gpuPickerStatus).toContainText('Selected for launch: RTX 4090');
   await expect(gpuPickerStatus).toContainText('Changing templates, VRAM chips, search, or sort will not replace the pinned GPU card.');
   await expect(gpuPickerStatus).toContainText('gpu_type = RTX 4090');
+  await expect(stickyDecision).toContainText('RTX 4090');
+  await expect(stickyDecision).toContainText('gpu_type = RTX 4090');
   await expect(gpuSelectionStrip).toContainText('RTX 4090');
   await expect(gpuSelectionStrip).toContainText('SAR 12.00/hr');
   await expect(gpuSelectionStrip).toContainText('Mode: fixed GPU selected');

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 01:16 UTC - `feat(pods): add sticky launch decision rail - PR #934`
+
+**PR:** [#934](https://github.com/dhnpmp-tech/dcp-platform/pull/934) (`codex/pods-sticky-launch-decision-2026-07-10`).
+**Local timestamp:** 2026-07-10 05:16 +04.
+
+**What:** Tareq workspace/GPU-choice feedback follow-up. Keeps the Stage 1 collapse and Stage 2 command-center flow, then adds a compact launch-decision strip inside the existing sticky stage rail so the exact launch request remains visible while renters move through workspace files, GPU choice, and runtime settings.
+
+- **Workspace UX:** The sticky rail now repeats the Stage 1 workspace summary, so renters can keep large workspaces collapsed while still seeing the file/folder checkpoint.
+- **GPU clarity:** The same rail shows the current Stage 2 launch request (`gpu_type` omitted for Auto-pick, or fixed to the selected GPU card), making the final GPU choice persistent instead of only visible inside the detailed Stage 2 panels.
+- **Trial answer:** The sticky rail carries the trial-account answer beside the launch decision: no live trial-account tag under grant-credit provenance, trial route to native/community GPU capacity, and high-demand GPUs requiring paid credit.
+- **Safety:** Frontend/test/docs-only change; no pod launch payload semantics, provider selection, GPU filtering behavior, workspace API behavior, pricing, billing, credit enforcement, balance mutation, trial accounting, routing, or API contract behavior changed.
+- **Verification:** Focused `/renter/pods` Playwright regression protects the sticky launch decision in both Auto-pick and fixed-GPU states.
+
 ### 2026-07-10 01:02 UTC - `feat(pods): add launch command center - PR #933`
 
 **PR:** [#933](https://github.com/dhnpmp-tech/dcp-platform/pull/933) (`codex/pods-stage-gpu-clarity-2026-07-10`).
