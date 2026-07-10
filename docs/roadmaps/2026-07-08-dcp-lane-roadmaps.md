@@ -545,6 +545,11 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 - PR #816 corrected that runner to default to `https://api.dcp.sa` and to
   normalize `/api`, `/anthropic`, and `/v1` paths correctly for backend API
   hosts.
+- PR #940 added the matching opt-in OpenAI Chat Completions SSE live proof
+  runner. `npm run proof:openai-sse` validates funded
+  `POST /v1/chat/completions` streaming headers, OpenAI delta frames, terminal
+  `data: [DONE]`, redacted evidence artifacts, and stays gated behind
+  `DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1`.
 - PR #824 added `npm run proof:batch-inference-contract`, a CI-safe proof
   packet for batch readiness, JSONL validation, idempotent create replay,
   disabled worker behavior, result checksum proof, line-ledger totals, and
@@ -770,6 +775,9 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
 
 - Targeted v1/Anthropic/backend tests.
 - Streaming smoke for `/v1/chat/completions`.
+  **Live proof runner landed in PR #940 as `npm run proof:openai-sse`; run it
+  with `DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1` when a funded smoke principal and
+  compatible vLLM provider capacity are available.**
 - Anthropic SSE smoke for agent path when touched.
   **Live proof runner landed in PR #814 as `npm run proof:anthropic-sse`; run
   it with `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1` when a funded smoke principal and
@@ -1133,8 +1141,9 @@ DCP-hosted endpoint -> billed inference.
    read-only `proof:dcp-agent-reconciliation` packet, and `dcp-agent` remains
    the open maintenance-window item.**
 2. Proof harnesses before product claims. **`npm run proof:workspace-pod`,
-   `npm run proof:lora-pod-image`, and `npm run proof:anthropic-sse` now exist
-   for the current command-ready live acceptance paths; they remain blocked,
+   `npm run proof:lora-pod-image`, `npm run proof:openai-sse`, and
+   `npm run proof:anthropic-sse` now exist for the current command-ready live
+   acceptance paths; they remain blocked,
    not accepted, until funded credentials, provider GPU hosts, and live provider
    capacity are available.**
    **PR #834 adds `npm run proof:live-acceptance-status`, a CI-safe status

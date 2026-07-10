@@ -73,6 +73,7 @@
     "test:reliability:first-live-proof": "node tests/first-live-inference-proof-package.js",
     "test:reliability:workspace-pod-proof": "node tests/workspace-pod-live-proof.js",
     "test:reliability:anthropic-sse-proof": "node tests/anthropic-sse-live-proof.js",
+    "test:reliability:openai-sse-proof": "node tests/openai-sse-live-proof.js",
     "test:reliability:dcp472-capacity-proof": "node tests/dcp-472-capacity-proof.js",
     "test:smoke": "NODE_ENV=test jest tests/integration/sprint19-20-smoke.test.js",
     "test:s21": "NODE_ENV=test jest tests/integration/sprint21-smoke.test.js",

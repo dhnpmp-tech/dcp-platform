@@ -169,6 +169,7 @@ remain blocked by credentials, provider GPU hosts, or serving capacity.
 | Provider Nsight evidence contract | `npm run provider:nsight:verify` | none for mock contract; provider GPU host for real proof | Contract gate available; GPU-host proof remains blocked |
 | Template catalog validity | `npm run templates:validate` | none | Required for pod/template/LoRA template PRs |
 | Anthropic agent-path SSE | `DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
+| OpenAI-compatible chat SSE | `DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1 npm run proof:openai-sse` | funded inference smoke principal and compatible vLLM provider capacity | Command available; blocked until live credentials/capacity are supplied |
 | Router policy readiness contract | `npm run proof:router-policy-contract` | none | CI-safe gate available; API/UI now expose proof-before-selectable gates, while policy-specific routing and live smoke remain blocked until tests/proof exist |
 | Evaluator readiness contract | `npm run proof:evaluator-readiness-contract` | none | CI-safe gate available; metadata create/list/read is live, but workers, result artifacts, public reports, rankings, and billing remain blocked |
 | Evaluator job schema contract | `npm run proof:evaluator-job-schema-contract` | none | CI-safe gate available; schema/readiness plus metadata endpoint guards, no worker, billing, report, ranking, or quality-claim mutation |
@@ -212,9 +213,10 @@ before or with the feature change.
    - Gate: every remaining manual live acceptance step has a repo command,
      artifact path, and blocked/pass/fail status.
    - Current live commands: workspace-pod proof, LoRA pod-image provider-host
-     proof, Anthropic SSE proof, prompt-cache live settlement proof, batch live
-     execution proof, LoRA live artifact proof, and adapter vLLM live load proof
-     are available; dcp-agent has a read-only reconciliation packet.
+     proof, Anthropic SSE proof, OpenAI SSE proof, prompt-cache live settlement
+     proof, batch live execution proof, LoRA live artifact proof, and adapter
+     vLLM live load proof are available; dcp-agent has a read-only
+     reconciliation packet.
    - Status packet: `npm run proof:live-acceptance-status` lists remaining
      live gates, missing acceptance runners, blocked inputs, latest matching
      proof-report blockers, claim guards, and per-gate operator runbooks.
@@ -233,8 +235,8 @@ before or with the feature change.
      file visibility and LoRA stack imports without long `pip install`.
 4. **Inference streaming and catalog hardening**
    - Gate: targeted v1/model catalog tests, `/v1/models` production smoke, and
-     `proof:router-policy-contract` plus `proof:anthropic-sse` for
-     agent-path streaming.
+     `proof:router-policy-contract` plus `proof:openai-sse` and
+     `proof:anthropic-sse` for streaming paths.
    - Router policy changes must keep `/v1/router/policies` proof-contract,
      claim-guard, selection-guard, and proof-gate fields current.
    - Advanced claims stay gated until a funded live proof report exists.
@@ -427,6 +429,12 @@ Anthropic-compatible behavior changes also require:
 
 ```bash
 DCP_ANTHROPIC_PROOF_ALLOW_LIVE=1 npm run proof:anthropic-sse
+```
+
+OpenAI-compatible streaming behavior changes also require:
+
+```bash
+DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1 npm run proof:openai-sse
 ```
 
 If the funded smoke principal or compatible vLLM provider capacity is missing,

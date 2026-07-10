@@ -470,6 +470,10 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
     JSON/Markdown/log evidence output.
   - PR #816 corrected the runner default to `https://api.dcp.sa` and hardened
     `/api`/`/anthropic`/`/v1` base URL normalization.
+  - PR #940 adds `npm run proof:openai-sse`, a gated live proof for
+    `POST /v1/chat/completions` with `stream: true`, `text/event-stream`
+    preservation, OpenAI delta frames, terminal `data: [DONE]`, and redacted
+    JSON/Markdown/log evidence output.
 - Publish honest benchmark pages before making quality claims.
   - PR #852 adds `/benchmarks` and
     `GET /api/models/benchmarks/readiness` as the claim-safe product rail for
@@ -532,6 +536,9 @@ Acceptance:
   - PR #814 provides the Anthropic SSE proof command; acceptance closes only
     after a funded smoke principal and compatible vLLM provider capacity produce
     a passing live report. PR #816 points that command at the correct API host.
+  - PR #940 provides the OpenAI-compatible SSE proof command for
+    `/v1/chat/completions`; it remains blocked until the same funded smoke
+    principal and compatible vLLM provider capacity produce a passing report.
 - Batch/prompt-cache PRs have backend designs and acceptance tests before code.
 
 ### Phase D - LoRA/Tinker MVP (2-3 weeks)
@@ -850,7 +857,10 @@ Acceptance:
     proofs before changing Fireworks/Tinker capability claims. PR #935 adds
     per-gate operator runbooks to the same ledger, so each blocked proof now
     names env toggles, prerequisites, evidence to collect, post-run smoke,
-    failure triage, and the next operator step without unlocking claims.**
+    failure triage, and the next operator step without unlocking claims. PR
+    #940 adds the missing OpenAI-compatible SSE live gate so the ledger covers
+    both `/v1/chat/completions` and `/anthropic/v1/messages` streaming before
+    any streaming-acceptance claim changes.**
 14. **Prompt-cache live settlement runner** - opt-in live proof before cached
     input discounts. **Added in PR #836 as
     `DCP_PROMPT_CACHE_LIVE_PROOF_ALLOW=1 npm run proof:prompt-cache-live-settlement`;

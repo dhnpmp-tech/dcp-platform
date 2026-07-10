@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-10 02:31 UTC - OpenAI SSE live proof runner (PR #940)
+
+- **PR:** [#940](https://github.com/dhnpmp-tech/dcp-platform/pull/940) (`codex/openai-sse-live-proof-runner-2026-07-10`).
+- **Timestamp:** 2026-07-10 02:31 UTC / 2026-07-10 06:31 +04.
+- **Live proof:** Added `npm run proof:openai-sse`, gated by `DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1`, for funded OpenAI-compatible `POST /v1/chat/completions` streaming acceptance.
+- **Contract checks:** The runner validates `text/event-stream`, OpenAI delta chunks, terminal `data: [DONE]`, no SSE error frames, and redacts scoped renter credentials in JSON/Markdown/log artifacts.
+- **Gate ledger:** `openai_sse_live` is now included in `npm run proof:live-acceptance-status` and the local roadmap external-gate list, blocked on funded smoke principal and compatible vLLM provider capacity until live proof passes.
+- **Safety:** Proof/test/docs-only change; no v1 runtime, routing, billing, settlement, balance, model catalog, trial-accounting, or stream payload mutation.
+- **Verification:** Runner syntax check, focused Jest proof guards, live-acceptance status proof, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 02:17 UTC - Public Pods trial classification visibility (PR #939)
 
 - **PR:** [#939](https://github.com/dhnpmp-tech/dcp-platform/pull/939) (`codex/public-pods-trial-classification-2026-07-10`).

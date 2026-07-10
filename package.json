@@ -64,6 +64,7 @@
     "proof:pod-trial-routing-readiness": "npm --prefix backend run test:reliability:pod-trial-routing-readiness-proof",
     "proof:workspace-pod": "npm --prefix backend run test:reliability:workspace-pod-proof",
     "proof:anthropic-sse": "npm --prefix backend run test:reliability:anthropic-sse-proof",
+    "proof:openai-sse": "npm --prefix backend run test:reliability:openai-sse-proof",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui"

@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 02:31 UTC - `test(inference): add OpenAI SSE live proof runner - PR #940`
+
+**PR:** [#940](https://github.com/dhnpmp-tech/dcp-platform/pull/940) (`codex/openai-sse-live-proof-runner-2026-07-10`).
+**Local timestamp:** 2026-07-10 06:31 +04.
+
+**What:** Inference acceptance follow-up. Adds the missing OpenAI-compatible streaming live proof runner so `/v1/chat/completions` SSE can be verified with the same blocked-until-funded discipline already used for the Anthropic agent path.
+
+- **Live proof runner:** `npm run proof:openai-sse` now gates a funded `POST /v1/chat/completions` request behind `DCP_OPENAI_SSE_PROOF_ALLOW_LIVE=1`, validates `text/event-stream`, OpenAI delta chunks, terminal `data: [DONE]`, and writes redacted JSON/Markdown/log artifacts.
+- **Gate ledger:** `npm run proof:live-acceptance-status` now tracks `openai_sse_live` beside `anthropic_sse_live`, with blockers for funded inference smoke principal and compatible vLLM provider capacity plus a runbook command.
+- **Roadmap suite:** `npm run proof:local-roadmap` reports the OpenAI SSE live proof as an external blocked gate rather than running paid inference in CI.
+- **Safety:** Additive proof/test/docs change; no `/v1/chat/completions` runtime behavior, provider routing, billing, settlement, balance, model catalog, trial accounting, or streaming payload semantics changed.
+- **Verification:** Runner syntax check, focused OpenAI SSE proof Jest guard, live-acceptance status tests, live-acceptance proof, local roadmap proof, build, and diff checks.
+
 ### 2026-07-10 02:17 UTC - `feat(pods): surface public trial classification - PR #939`
 
 **PR:** [#939](https://github.com/dhnpmp-tech/dcp-platform/pull/939) (`codex/public-pods-trial-classification-2026-07-10`).
