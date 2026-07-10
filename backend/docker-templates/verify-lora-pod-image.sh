@@ -41,19 +41,45 @@ write_report() {
   local scaffold_json="${5:-}"
   local finished_at
   local host_name
+  local verdict
   finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   host_name="$(hostname 2>/dev/null || echo unknown)"
+  verdict="FAIL"
+  if [ "$status" = "pass" ] && [ "$REQUIRE_GPU" = "1" ]; then
+    verdict="PASS"
+  elif [ "$status" = "pass" ]; then
+    verdict="DRY_RUN"
+  fi
   mkdir -p "$REPORT_DIR"
 
   cat > "$REPORT_JSON" <<JSON
 {
   "contract": "dcp.lora_pod_image_proof.v1",
+  "verdict": "$(json_escape "$verdict")",
   "status": "$(json_escape "$status")",
+  "generated_at": "$(json_escape "$finished_at")",
   "finished_at": "$(json_escape "$finished_at")",
+  "acceptance_gate": "lora_pod_image_provider_host",
   "host": "$(json_escape "$host_name")",
   "image": "$(json_escape "$IMAGE")",
   "max_import_seconds": "$(json_escape "$MAX_IMPORT_SECONDS")",
   "require_gpu": "$(json_escape "$REQUIRE_GPU")",
+  "acceptance_requirements": {
+    "provider_gpu_host": true,
+    "docker_nvidia_runtime": true,
+    "built_image": "$(json_escape "$IMAGE")",
+    "require_gpu": "1",
+    "accepted_verdict": "PASS",
+    "dry_run_verdict": "DRY_RUN"
+  },
+  "claim_guards": {
+    "claims_lora_pod_image_gpu_ready": false,
+    "claims_fine_tuning_ready_pods": false,
+    "enables_managed_training": false,
+    "enables_adapter_serving": false,
+    "enables_route_traffic": false,
+    "proves_tinker_compatibility": false
+  },
   "stack_smoke_exit_code": $stack_status,
   "scaffold_exit_code": $scaffold_status,
   "stack_smoke": ${stack_json:-null},
@@ -65,6 +91,7 @@ JSON
 # DCP LoRA Pod Image Proof
 
 - Contract: \`dcp.lora_pod_image_proof.v1\`
+- Verdict: \`$verdict\`
 - Status: \`$status\`
 - Finished at: \`$finished_at\`
 - Host: \`$host_name\`
@@ -92,6 +119,9 @@ This provider-host proof only verifies that a fresh \`$IMAGE\` container imports
 the LoRA/QLoRA/vLLM stack quickly and can construct the fixed SFT scaffold. It
 does not claim managed training, adapter serving, route traffic, benchmark
 quality, or Tinker compatibility are live.
+
+\`DRY_RUN\` evidence is useful for script debugging only. The live acceptance
+gate accepts only \`verdict=PASS\` with \`require_gpu=1\` on a provider GPU host.
 MD
 
   echo ">>> Wrote proof report: $REPORT_JSON"

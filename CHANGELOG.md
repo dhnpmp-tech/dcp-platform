@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 03:10 UTC - `test(pods): harden LoRA image proof evidence contract - PR #943`
+
+**PR:** [#943](https://github.com/dhnpmp-tech/dcp-platform/pull/943) (`codex/lora-pod-image-evidence-contract-2026-07-10`).
+**Local timestamp:** 2026-07-10 07:10 +04.
+
+**What:** Fat LoRA pod-image verification hardening slice. Makes the provider-host proof artifact unambiguous so a CPU/local dry run cannot be mistaken for GPU-ready LoRA pod image evidence.
+
+- **Proof contract:** `backend/docker-templates/verify-lora-pod-image.sh` now writes `verdict`, `generated_at`, `acceptance_gate`, `acceptance_requirements`, and false product-claim guards into the LoRA pod-image proof report.
+- **Acceptance boundary:** A passing provider-host artifact requires `verdict=PASS` and `require_gpu=1`; CPU/local smoke runs are labeled `DRY_RUN` and remain script-debug evidence only.
+- **Live gate status:** `npm run proof:live-acceptance-status` now normalizes LoRA pod-image proof reports, maps legacy `status=pass` CPU evidence to `DRY_RUN`, and carries `finished_at` forward as `generated_at` for older reports.
+- **Readiness packet:** `GET /api/pods/images/readiness` now names the required accepted report fields and provider-host acceptance requirements before LoRA image readiness can be claimed.
+- **Safety:** Evidence/test/docs-only change; no Docker build, pod launch, provider selection, routing, billing, balance, trial accounting, managed LoRA training, adapter serving, or Tinker-compatibility claim changed.
+- **Verification:** Focused pod-image/live-acceptance Jest suites, pod image contract proof, pod image readiness proof, and live acceptance status proof.
+
 ### 2026-07-10 02:58 UTC - `feat(inference): add model capability contract - PR #942`
 
 **PR:** [#942](https://github.com/dhnpmp-tech/dcp-platform/pull/942) (`codex/model-capability-contract-2026-07-10`).

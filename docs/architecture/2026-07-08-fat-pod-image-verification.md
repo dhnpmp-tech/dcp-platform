@@ -87,8 +87,9 @@ cd /root/dc1-platform/backend/docker-templates
 Acceptance gate:
 
 - `docker image inspect dcp-compute:lora` succeeds.
-- `nvidia-smi` is available unless `REQUIRE_GPU=0` is explicitly set for a
-  CPU-only dry run.
+- `nvidia-smi` is available and `REQUIRE_GPU=1` stays in force for accepted
+  provider-host evidence. `REQUIRE_GPU=0` is only a CPU/local script-debug dry
+  run and never satisfies the provider-host acceptance gate.
 - A fresh container imports `torch`, `transformers`, `peft`, `accelerate`,
   `datasets`, `bitsandbytes`, `safetensors`, `trl`, and `vllm`.
 - Total import time is <= `MAX_IMPORT_SECONDS` (default `5`).
@@ -100,9 +101,13 @@ Acceptance gate:
   an alternate handoff directory.
 
 The report contract is `dcp.lora_pod_image_proof.v1`. It records the image,
-host, import budget, GPU requirement, stack-smoke result, and offline scaffold
-result. A passing report still does not claim managed training, adapter serving,
-route traffic, benchmark quality, or Tinker compatibility are live.
+host, import budget, GPU requirement, stack-smoke result, offline scaffold
+result, `generated_at`, `acceptance_gate`, and a normalized `verdict`.
+Accepted provider-host evidence requires `verdict=PASS`, `require_gpu=1`, and
+`acceptance_gate=lora_pod_image_provider_host`. CPU/local evidence is labeled
+`verdict=DRY_RUN`, even when the script checks pass, and is not accepted by the
+live gate. A passing report still does not claim managed training, adapter
+serving, route traffic, benchmark quality, or Tinker compatibility are live.
 
 ## Workspace Examples
 

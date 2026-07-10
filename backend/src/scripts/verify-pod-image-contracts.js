@@ -126,6 +126,12 @@ function verifyImageContract(image, shared, errors) {
       assertIncludes(smoke, '--require-gpu', errors, `${context} smoke script`);
       assertIncludes(smoke, 'MAX_IMPORT_SECONDS', errors, `${context} smoke script`);
       assertIncludes(smoke, 'dcp.lora_pod_image_proof.v1', errors, `${context} smoke script`);
+      assertIncludes(smoke, '"verdict"', errors, `${context} smoke script`);
+      assertIncludes(smoke, '"generated_at"', errors, `${context} smoke script`);
+      assertIncludes(smoke, '"acceptance_gate": "lora_pod_image_provider_host"', errors, `${context} smoke script`);
+      assertIncludes(smoke, '"accepted_verdict": "PASS"', errors, `${context} smoke script`);
+      assertIncludes(smoke, '"dry_run_verdict": "DRY_RUN"', errors, `${context} smoke script`);
+      assertIncludes(smoke, '"claims_lora_pod_image_gpu_ready": false', errors, `${context} smoke script`);
       assertIncludes(smoke, 'DCP_LORA_IMAGE_PROOF_REPORT_DIR', errors, `${context} smoke script`);
       assertIncludes(smoke, 'DC1_RESULT_JSON', errors, `${context} smoke script`);
       assertIncludes(smoke, 'docs/reports/reliability', errors, `${context} smoke script`);

@@ -253,4 +253,28 @@ describe('live acceptance gate status script', () => {
       'unsafe_gate must include an operator runbook',
     ]));
   });
+
+  test('normalizes LoRA pod image proof evidence for provider-host acceptance status', () => {
+    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-status-output-'));
+    const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-lora-evidence-'));
+    fs.writeFileSync(path.join(evidenceDir, 'lora-pod-image-proof-latest.json'), `${JSON.stringify({
+      contract: 'dcp.lora_pod_image_proof.v1',
+      status: 'pass',
+      finished_at: '2026-07-10T03:05:00Z',
+      require_gpu: '0',
+      image: 'dcp-compute:lora',
+    }, null, 2)}\n`);
+
+    const report = runLiveAcceptanceGateStatus({ outputDir, evidenceDir });
+    const loraGate = report.gates.find((gate) => gate.id === 'lora_pod_image_provider_host');
+
+    expect(loraGate.latest_evidence).toMatchObject({
+      found: true,
+      artifact: expect.stringContaining('lora-pod-image-proof-latest.json'),
+      verdict: 'DRY_RUN',
+      generated_at: '2026-07-10T03:05:00Z',
+    });
+    expect(loraGate.capability_claim_allowed).toBe(false);
+    expect(loraGate.operator_runbook.ready_to_run).toBe(false);
+  });
 });

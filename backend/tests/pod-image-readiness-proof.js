@@ -56,7 +56,12 @@ function buildProof() {
         && readiness.provider_host_acceptance.live_acceptance_gate === LORA_PROVIDER_HOST_GATE
         && readiness.provider_host_acceptance.blocked_on.includes('provider GPU host')
         && readiness.provider_host_acceptance.blocked_on.includes('Docker with NVIDIA runtime')
-        && readiness.provider_host_acceptance.blocked_on.includes('built dcp-compute:lora image'),
+        && readiness.provider_host_acceptance.blocked_on.includes('built dcp-compute:lora image')
+        && readiness.provider_host_acceptance.accepted_verdict === 'PASS'
+        && readiness.provider_host_acceptance.dry_run_verdict === 'DRY_RUN'
+        && readiness.provider_host_acceptance.acceptance_requirements?.require_gpu === '1'
+        && readiness.provider_host_acceptance.requires_report_fields?.includes('verdict=PASS')
+        && readiness.provider_host_acceptance.requires_report_fields?.includes('generated_at'),
     },
     {
       id: 'provider_build_and_verify_commands_declared',

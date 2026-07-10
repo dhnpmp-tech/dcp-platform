@@ -137,6 +137,11 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     `npm run proof:pod-image-readiness`, making the CI-safe pod image contract,
     LoRA build/verify commands, provider-host blockers, and false-claim guards
     machine-readable before the GPU-host proof is run.
+  - PR #943 hardens the `dcp.lora_pod_image_proof.v1` evidence boundary:
+    accepted provider-host proof must carry `verdict=PASS`, `generated_at`,
+    `acceptance_gate=lora_pod_image_provider_host`, and `require_gpu=1`;
+    CPU/local checks now report `DRY_RUN` and cannot unlock a GPU-ready LoRA
+    image claim.
 - Surface workspace pre-upload more clearly before pod launch.
   - PR #806 made Fine-Tuning start with workspace pre-upload and added a
     `/renter/playground?surface=workspace` deep link into the persistent
@@ -288,6 +293,9 @@ Acceptance:
     `GET /api/pods/images/readiness` and adds it to the local roadmap suite,
     keeping the LoRA image in a contract-ready/provider-host-blocked state until
     `npm run proof:lora-pod-image` passes on a GPU host.
+  - PR #943 clarifies that accepted evidence must be a provider-host report with
+    `verdict=PASS` and `require_gpu=1`; CPU/local script passes are normalized
+    to `DRY_RUN` and remain debugging-only.
   - PR #922 surfaces the same pod image and trial-routing readiness packets on
     public `/pods`, so visitors see contract-ready image aliases, blocked LoRA
     provider-host acceptance, blocked workspace live proof, trial-credit

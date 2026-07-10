@@ -835,6 +835,10 @@ template launch.
   `npm run proof:pod-image-readiness`, a CI-safe readiness packet that keeps the
   LoRA pod image contract, build/verify commands, provider-host blockers, and
   false-claim guards visible before the GPU-host proof can pass.
+- PR #943 hardens that provider-host evidence contract: LoRA image acceptance
+  requires `verdict=PASS`, `generated_at`,
+  `acceptance_gate=lora_pod_image_provider_host`, and `require_gpu=1`, while
+  CPU/local proof checks report `DRY_RUN` and stay debugging-only.
 - PR #922 carries those image/trial/workspace readiness packets to public
   `/pods`, keeping contract-ready image aliases visible while marking LoRA
   image GPU-host acceptance and workspace live file visibility as coming-next
@@ -912,7 +916,9 @@ template launch.
   `npm run proof:lora-pod-image`; acceptance still requires running it on a GPU
   provider host after `dcp-compute:lora` is built. PR #894 adds
   `npm run proof:pod-image-readiness` and `/api/pods/images/readiness` so the
-  contract-ready/provider-host-blocked state is visible before that live proof.**
+  contract-ready/provider-host-blocked state is visible before that live proof.
+  PR #943 requires `verdict=PASS` plus `require_gpu=1` for accepted provider-host
+  evidence and treats CPU/local script passes as `DRY_RUN`.**
 - Add template-backed launch flow.
 - Add workspace pre-upload polish.
   **Fine-Tuning now links directly into the persistent Workspace tab in PR
