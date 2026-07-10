@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-10 02:58 UTC - Model capability contract (PR #942)
+
+- **PR:** [#942](https://github.com/dhnpmp-tech/dcp-platform/pull/942) (`codex/model-capability-contract-2026-07-10`).
+- **Timestamp:** 2026-07-10 02:58 UTC / 2026-07-10 06:58 +04.
+- **Backend contract:** `/v1/models`, `/api/models`, and `/api/models/catalog` now emit `capability_contract.version = dcp.model_capability_contract.v1`.
+- **Gate clarity:** The packet separates live/derived model features from gated product rails and points prompt cache, Batch, LoRA, and Dedicated Deployment clients at `feature_readiness.*` before making availability claims.
+- **Proof coverage:** `npm run proof:model-catalog-parity` now includes capability-contract parity across all three model catalog surfaces.
+- **Docs:** OpenAPI, published OpenAPI, `llms.txt`, changelogs, and roadmap notes document the packet.
+- **Safety:** Additive metadata/test/docs change; no availability, provider-selection, routing, pricing, billing, settlement, prompt-cache discount, batch execution, LoRA serving, or dedicated-deployment routing mutation.
+- **Verification:** Focused model-catalog Jest suites and proof-script guard.
+
 ### 2026-07-10 02:44 UTC - Mobile Stage 2 launch dock (PR #941)
 
 - **PR:** [#941](https://github.com/dhnpmp-tech/dcp-platform/pull/941) (`codex/pods-stage-drawer-gpu-decision-2026-07-10`).

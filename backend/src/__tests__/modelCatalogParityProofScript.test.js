@@ -39,7 +39,7 @@ describe('model catalog parity proof script', () => {
     expect(report.invariants.map((item) => item.name)).toEqual([
       'targeted model catalog parity test passes',
       'all three model catalog surfaces are covered',
-      'pricing, provider count, capabilities, readiness, and metadata parity are enforced',
+      'pricing, provider count, capabilities, capability contract, readiness, and metadata parity are enforced',
       'proof is read-only and does not enable product behavior',
     ]);
     expect(fs.existsSync(path.join(outputDir, 'model-catalog-parity-proof-latest.json'))).toBe(true);

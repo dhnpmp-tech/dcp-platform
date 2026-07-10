@@ -625,10 +625,14 @@ batchable, observable, and compatible with OpenAI/Anthropic clients.
   `/v1/models`, `/api/models`, and `/api/models/catalog`, with SAR source of
   truth, source-contract, display-only USD, settlement-path, and no-mutation
   guard metadata visible on `/inference`, `/pricing`, and `/renter/playground`.
+- PR #942 adds `capability_contract.version = dcp.model_capability_contract.v1`
+  across the same model surfaces, separating live/derived model features from
+  gated prompt-cache, Batch, LoRA, and Dedicated Deployment rails while keeping
+  product-available booleans and routing/billing behavior unchanged.
 - PR #881 added `npm run proof:model-catalog-parity`, a CI-safe proof command
   covering `/v1/models`, `/api/models`, and `/api/models/catalog` token pricing,
-  provider count, availability, capability flags, feature readiness, modalities,
-  and max-output metadata parity.
+  provider count, availability, capability flags, capability contract, feature
+  readiness, modalities, and max-output metadata parity.
 
 ### Now
 

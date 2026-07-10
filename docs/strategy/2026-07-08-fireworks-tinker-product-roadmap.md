@@ -333,6 +333,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #804 added cross-surface Jest parity coverage for `/v1/models`,
     `/api/models`, and `/api/models/catalog`, locking token pricing,
     provider-count, availability, capability, and readiness fields together.
+  - PR #942 adds `capability_contract.version = dcp.model_capability_contract.v1`
+    across the same model surfaces, separating live/derived model features from
+    gated prompt-cache, Batch, LoRA, and Dedicated Deployment product rails.
   - PR #904 makes public `/pricing` surface the existing
     `/v1/models.feature_readiness` gates for prompt cache, Batch API, LoRA,
     and Dedicated Deployments beside live SAR rates, without enabling advanced
@@ -458,6 +461,9 @@ Goal: make DCP Inference look like a serious API product, not just a proxy.
   - PR #932 extends that proof scope to include the nested token-pricing
     contract, source contract, settlement path, and false billing/routing claim
     guards without changing price values or routing behavior.
+  - PR #942 extends the same proof scope to include the nested capability
+    contract, live/gated feature sources, and false claim guards for prompt
+    cache, Batch, LoRA, and Dedicated Deployments.
 - Surface model metadata in the Playground from `/v1/models`.
   - PR #780 added selected-model context, max output, SAR token rates,
     capability chips, and advanced feature readiness gates to

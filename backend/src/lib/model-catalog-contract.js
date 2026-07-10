@@ -192,6 +192,78 @@ function toFeatureReadinessContract(capabilityFlags = {}) {
   };
 }
 
+function toCapabilityContract(capabilityFlags = {}, supportedFeatures = []) {
+  const flags = capabilityFlags || {};
+  const readiness = toFeatureReadinessContract(flags);
+  const normalizedSupportedFeatures = Array.isArray(supportedFeatures)
+    ? supportedFeatures.map((entry) => String(entry || '').trim()).filter(Boolean).sort()
+    : [];
+
+  return {
+    version: 'dcp.model_capability_contract.v1',
+    source: 'model_registry.use_cases',
+    source_fields: {
+      supported_features: 'supported_features',
+      live_flags: 'capability_flags',
+      gated_products: 'feature_readiness',
+    },
+    supported_features: normalizedSupportedFeatures,
+    live_capability_flags: {
+      chat_completions: Boolean(flags.chat_completions),
+      streaming: Boolean(flags.streaming),
+      tool_calling: Boolean(flags.tool_calling),
+      reasoning: Boolean(flags.reasoning),
+      code_generation: Boolean(flags.code_generation),
+      embeddings: Boolean(flags.embeddings),
+      reranking: Boolean(flags.reranking),
+      image_generation: Boolean(flags.image_generation),
+      vision: Boolean(flags.vision),
+      multilingual: Boolean(flags.multilingual),
+    },
+    gated_product_flags: {
+      prompt_caching: {
+        flag: Boolean(flags.prompt_caching),
+        readiness_field: 'feature_readiness.prompt_caching',
+        status: readiness.prompt_caching.status,
+        available: Boolean(readiness.prompt_caching.available),
+        next: readiness.prompt_caching.next,
+      },
+      batch: {
+        flag: Boolean(flags.batch),
+        readiness_field: 'feature_readiness.batch',
+        status: readiness.batch.status,
+        available: Boolean(readiness.batch.available),
+        next: readiness.batch.next,
+      },
+      lora: {
+        flag: Boolean(flags.lora),
+        readiness_field: 'feature_readiness.lora',
+        status: readiness.lora.status,
+        available: Boolean(readiness.lora.available),
+        next: readiness.lora.next,
+      },
+      dedicated_deployment: {
+        flag: Boolean(flags.dedicated_deployment),
+        readiness_field: 'feature_readiness.dedicated_deployment',
+        status: readiness.dedicated_deployment.status,
+        available: Boolean(readiness.dedicated_deployment.available),
+        next: readiness.dedicated_deployment.next,
+      },
+    },
+    claim_guards: {
+      capability_flags_are_metadata_only: true,
+      use_feature_readiness_for_gated_products: true,
+      changes_model_availability: false,
+      changes_provider_selection: false,
+      changes_request_routing: false,
+      enables_prompt_cache_discount: false,
+      enables_batch_execution: false,
+      enables_lora_serving: false,
+      enables_dedicated_deployment_routing: false,
+    },
+  };
+}
+
 function toCatalogContractCore({ model, providerCount = 0, maxVramGb = 0, created = null, nameFallback = null }) {
   const modelId = String(model?.model_id || '').trim();
   const useCases = parseUseCases(model?.use_cases);
@@ -230,5 +302,6 @@ module.exports = {
   toFeatureReadinessContract,
   inferModalitiesFromUseCases,
   inferSupportedFeaturesFromUseCases,
+  toCapabilityContract,
   toCatalogContractCore,
 };

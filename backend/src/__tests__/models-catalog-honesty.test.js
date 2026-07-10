@@ -315,6 +315,29 @@ describe('/api/models catalog honesty', () => {
         prompt_caching: false,
         batch: false,
       },
+      capability_contract: {
+        version: 'dcp.model_capability_contract.v1',
+        source: 'model_registry.use_cases',
+        supported_features: ['embeddings'],
+        gated_product_flags: {
+          prompt_caching: {
+            status: 'not_applicable',
+            available: false,
+          },
+          batch: {
+            status: 'not_applicable',
+            available: false,
+          },
+          lora: {
+            status: 'not_applicable',
+            available: false,
+          },
+          dedicated_deployment: {
+            status: 'not_applicable',
+            available: false,
+          },
+        },
+      },
       feature_readiness: {
         version: 'dcp.model_feature_readiness.v1',
         prompt_caching: {
@@ -345,6 +368,12 @@ describe('/api/models catalog honesty', () => {
       supported_features: ['embeddings'],
     });
     expect(response.body[0].capabilities).toEqual(response.body[0].capability_flags);
+    expect(response.body[0].capability_contract.claim_guards).toMatchObject({
+      capability_flags_are_metadata_only: true,
+      use_feature_readiness_for_gated_products: true,
+      enables_lora_serving: false,
+      enables_dedicated_deployment_routing: false,
+    });
   });
 
   test('adds the same token and capability contract to managed catalog feed', async () => {
@@ -391,6 +420,39 @@ describe('/api/models catalog honesty', () => {
       prompt_caching: false,
       lora: false,
     });
+    expect(response.body.models[0].capability_contract).toMatchObject({
+      version: 'dcp.model_capability_contract.v1',
+      supported_features: ['chat.completions', 'multilingual', 'reasoning', 'tool_calling'],
+      live_capability_flags: {
+        chat_completions: true,
+        streaming: true,
+        reasoning: true,
+        tool_calling: true,
+        multilingual: true,
+      },
+      gated_product_flags: {
+        prompt_caching: {
+          status: 'measurement_only',
+          available: false,
+          next: 'validate_hit_measurement_before_discount',
+        },
+        batch: {
+          status: 'api_metadata_only',
+          available: false,
+          next: 'enable_worker_result_artifact_and_settlement',
+        },
+        lora: {
+          status: 'metadata_only',
+          available: false,
+          next: 'run_gpu_training_proof_then_enable_adapter_serving',
+        },
+        dedicated_deployment: {
+          status: 'gated',
+          available: false,
+          next: 'create_deployment_then_attach_vllm_load_proof',
+        },
+      },
+    });
     expect(response.body.models[0].feature_readiness).toMatchObject({
       version: 'dcp.model_feature_readiness.v1',
       prompt_caching: {
@@ -423,6 +485,7 @@ describe('/api/models catalog honesty', () => {
       },
     });
     expect(response.body.models[0].feature_readiness).toEqual(legacyResponse.body[0].feature_readiness);
+    expect(response.body.models[0].capability_contract).toEqual(legacyResponse.body[0].capability_contract);
     expect(response.body.models[0].capabilities).toEqual(response.body.models[0].capability_flags);
   });
 
