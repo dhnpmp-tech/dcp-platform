@@ -29,12 +29,28 @@ assert(
   'admin page should show the claim guard count',
 );
 assert(
+  adminPage.includes('operator runbooks'),
+  'admin page should show the operator runbook count',
+);
+assert(
+  adminPage.includes('operator_runbook'),
+  'admin page should render per-gate operator runbooks',
+);
+assert(
+  adminPage.includes('ready_to_run'),
+  'admin page should show whether a gate is ready to run',
+);
+assert(
   adminPage.includes('It does not run paid compute, mutate routing, or unlock capability claims.'),
   'admin panel should state the read-only policy',
 );
 assert(
   adminCss.includes('.live-acceptance-gate-grid'),
   'admin CSS should style the live acceptance gate grid',
+);
+assert(
+  adminCss.includes('.live-acceptance-runbook'),
+  'admin CSS should style the operator runbook block',
 );
 
 console.log('admin live acceptance static checks passed');

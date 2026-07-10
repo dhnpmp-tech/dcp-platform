@@ -1130,7 +1130,11 @@ DCP-hosted endpoint -> billed inference.
    reconciliation blockers and other matching live-gate evidence without
    enabling any blocked capability. PR #910 exposes the same packet through
    guarded `GET /api/admin/live-acceptance-gates` and the v2 admin Live
-   acceptance gates panel, without running paid compute or unlocking claims.**
+   acceptance gates panel, without running paid compute or unlocking claims.
+   PR #935 adds per-gate operator runbooks to the packet and admin panel so
+   every blocked live gate carries env toggles, prerequisites, evidence
+   collection, post-run smoke, failure triage, and next operator step while
+   staying read-only and claim-blocked.**
 3. Inference metadata/rate consistency.
    **Router-policy readiness proof added in PR #832 as
    `npm run proof:router-policy-contract`; future policy selection remains

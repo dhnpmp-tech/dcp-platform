@@ -27,6 +27,8 @@ describe('live acceptance gate status script', () => {
       missing_acceptance_command: 0,
       capability_claim_allowed: 0,
       latest_evidence_found: 0,
+      operator_runbooks: 8,
+      ready_to_run: 0,
     });
     expect(report.gates.map((gate) => gate.id)).toEqual([
       'workspace_pod_live_launch',
@@ -44,6 +46,26 @@ describe('live acceptance gate status script', () => {
       command_available: true,
       capability_claim_allowed: false,
       blocked_on: expect.arrayContaining(['funded renter key', 'launchable GPU capacity']),
+      operator_runbook: {
+        contract: 'dcp.live_acceptance_operator_runbook.v1',
+        owner_lane: 'POT/PODS',
+        readiness_state: 'blocked_external_inputs',
+        ready_to_run: false,
+        required_env: ['DCP_WORKSPACE_POD_ALLOW_LAUNCH=1'],
+        prerequisites: expect.arrayContaining(['funded renter key', 'launchable GPU capacity']),
+        command: 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
+        evidence_to_collect: expect.arrayContaining([
+          expect.stringContaining('workspace-pod-live-proof-*.json'),
+          expect.stringContaining('Jupyter /workspace marker visibility'),
+        ]),
+        post_run_smoke: expect.arrayContaining([
+          expect.stringContaining('proof:live-acceptance-status'),
+          expect.stringContaining('proof:local-roadmap'),
+        ]),
+        failure_triage: expect.arrayContaining([
+          expect.stringContaining('Keep claim guard active'),
+        ]),
+      },
     });
     expect(report.gates.find((gate) => gate.id === 'lora_pod_image_provider_host')).toMatchObject({
       acceptance_command: 'npm run proof:lora-pod-image',
@@ -128,6 +150,16 @@ describe('live acceptance gate status script', () => {
     expect(dcpAgentGate).toMatchObject({
       acceptance_state: 'blocked_maintenance_window',
       capability_claim_allowed: false,
+      operator_runbook: {
+        readiness_state: 'blocked_maintenance_window',
+        ready_to_run: false,
+        required_env: ['DCP_AGENT_RECONCILE_READ_REMOTE=1'],
+        prerequisites: expect.arrayContaining(['controlled maintenance window']),
+        evidence_to_collect: expect.arrayContaining([
+          expect.stringContaining('dcp-agent-reconciliation-*.json'),
+          expect.stringContaining('agent source/artifact parity'),
+        ]),
+      },
       latest_evidence: {
         found: true,
         verdict: 'BLOCKED',
@@ -145,6 +177,9 @@ describe('live acceptance gate status script', () => {
 
     const markdown = fs.readFileSync(path.join(outputDir, 'live-acceptance-gate-status-latest.md'), 'utf8');
     expect(markdown).toContain('latest_evidence_found: 1/8');
+    expect(markdown).toContain('operator_runbooks: 8/8');
+    expect(markdown).toContain('## Operator Runbooks');
+    expect(markdown).toContain('ready_to_run: false');
     expect(markdown).toContain('local_agent_detached_head');
     expect(markdown).toContain('active_local_gateway_process');
   });
@@ -175,6 +210,14 @@ describe('live acceptance gate status script', () => {
       generated_at: '2026-07-09T18:54:00.000Z',
       blockers: expect.arrayContaining(['funded_renter_key', 'launchable_gpu_capacity']),
     });
+    expect(workspaceGate.operator_runbook).toMatchObject({
+      ready_to_run: false,
+      command: 'DCP_WORKSPACE_POD_ALLOW_LAUNCH=1 npm run proof:workspace-pod',
+      required_env: ['DCP_WORKSPACE_POD_ALLOW_LAUNCH=1'],
+      evidence_to_collect: expect.arrayContaining([
+        expect.stringContaining('workspace-pod-live-proof-latest.json'),
+      ]),
+    });
     expect(fs.readdirSync(outputDir)).toEqual([]);
   });
 
@@ -196,6 +239,7 @@ describe('live acceptance gate status script', () => {
       'unsafe_gate must remain blocked until live evidence exists',
       'unsafe_gate must not allow capability claims',
       'unsafe_gate must name blocked inputs',
+      'unsafe_gate must include an operator runbook',
     ]));
   });
 });
