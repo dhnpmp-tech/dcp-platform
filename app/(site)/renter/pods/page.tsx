@@ -15,6 +15,7 @@ const POD_REFRESH_MS = 8000
 const MIN_TOKEN_LENGTH = 16
 const DEFAULT_DURATION_MINUTES = 60
 const POD_WORKSPACE_STAGE_PREF_KEY = 'dcp_pods_workspace_stage_open'
+const LARGE_WORKSPACE_COLLAPSE_FILE_COUNT = 12
 
 // Launchable, PREPAID durations. A launch debits the full-duration quote
 // upfront (rate + 40% per gpu-second); an early stop refunds the difference.
@@ -780,6 +781,7 @@ export default function RenterPodsPage() {
   const pollIdsRef = useRef<Set<string>>(new Set())
   const workspaceStagePreferenceLoadedRef = useRef(false)
   const skipInitialWorkspaceStagePreferenceWriteRef = useRef(true)
+  const largeWorkspaceAutoCollapsedRef = useRef(false)
 
   // ── Data loaders ─────────────────────────────────────────────────────
   const [nowTick, setNowTick] = useState(() => 0)
@@ -814,6 +816,19 @@ export default function RenterPodsPage() {
       /* non-fatal preference write */
     }
   }, [workspaceStageOpen])
+
+  useEffect(() => {
+    if (
+      largeWorkspaceAutoCollapsedRef.current ||
+      !workspaceStagePreferenceLoadedRef.current ||
+      !workspaceStageOpen ||
+      workspaceFiles.length < LARGE_WORKSPACE_COLLAPSE_FILE_COUNT
+    ) {
+      return
+    }
+    largeWorkspaceAutoCollapsedRef.current = true
+    setWorkspaceStageOpen(false)
+  }, [workspaceFiles.length, workspaceStageOpen])
 
   const fetchPods = useCallback(async (apiKey: string) => {
     try {
@@ -1417,7 +1432,9 @@ export default function RenterPodsPage() {
     ? 'Stage 1 can stay collapsed; open only the folder you need.'
     : 'Create a persistent workspace before launching.'
   const workspaceStageModeLabel = workspaceVolume
-    ? workspaceFiles.length > 4
+    ? workspaceFiles.length >= LARGE_WORKSPACE_COLLAPSE_FILE_COUNT
+      ? 'Large workspace auto-collapsed'
+      : workspaceFiles.length > 4
       ? 'Accordion collapsed by default'
       : 'Compact workspace checkpoint'
     : 'Volume required'
@@ -1490,6 +1507,14 @@ export default function RenterPodsPage() {
   const launchButtonLabel = selectedType
     ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
     : 'Launch auto-picked GPU pod'
+  const commandCenterWorkspaceLabel = workspaceVolume
+    ? workspaceFiles.length >= LARGE_WORKSPACE_COLLAPSE_FILE_COUNT
+      ? `${workspaceFiles.length} files · Stage 1 auto-collapsed`
+      : workspaceChecklistLabel
+    : 'Create workspace volume'
+  const commandCenterWorkspaceDetail = workspaceStageBodyOpen
+    ? 'Stage 1 files are open'
+    : 'Stage 1 files are collapsed'
 
   function focusWorkspaceFolder(folderId: string) {
     setWorkspaceFolderFocusRequest((current) => ({
@@ -1604,6 +1629,47 @@ export default function RenterPodsPage() {
               <em>{stage3NavStatusLabel}</em>
             </a>
           </nav>
+
+          <div className={`pod-command-center ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'مركز أوامر التشغيل' : 'Launch command center'}>
+            <div className="pod-command-primary">
+              <span><Bi en="Main decision · Stage 2 of 3" ar="القرار الرئيسي · المرحلة 2 من 3" /></span>
+              <strong><Bi en={finalGpuRequestHeadline} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي للـ GPU'} /></strong>
+              <em><Bi en={finalGpuRequestDetail} ar={selectedType ? 'بطاقة مثبتة في طلب التشغيل.' : 'لا توجد بطاقة مثبتة؛ تصفية الذاكرة والعمل للتصفح فقط.'} /></em>
+            </div>
+            <div className="pod-command-payload">
+              <span><Bi en="Will send" ar="سيرسل" /></span>
+              <code>{launchRequestPayloadLabel}</code>
+            </div>
+            <div className="pod-command-actions">
+              <a className="primary" href="#pod-stage-2">
+                <Bi en="Review Stage 2 GPU" ar="راجع GPU المرحلة 2" />
+              </a>
+              <button type="button" onClick={() => setWorkspaceStageOpen(false)}>
+                <Bi en="Collapse Stage 1 files" ar="اطوِ ملفات المرحلة 1" />
+              </button>
+              <a href="#pod-stage-3">
+                <Bi en="Stage 3 launch" ar="تشغيل المرحلة 3" />
+              </a>
+            </div>
+            <div className="pod-command-facts">
+              <span>
+                <b>Stage 1</b>
+                <Bi en={commandCenterWorkspaceLabel} ar={workspaceVolume ? 'ملفات المرحلة 1 مطوية' : 'أنشئ مساحة العمل'} />
+              </span>
+              <span>
+                <b>Workspace</b>
+                <Bi en={commandCenterWorkspaceDetail} ar={workspaceStageBodyOpen ? 'ملفات المرحلة 1 مفتوحة' : 'ملفات المرحلة 1 مطوية'} />
+              </span>
+              <span>
+                <b>Trial</b>
+                <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} />
+              </span>
+              <span>
+                <b>Credit</b>
+                <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
+              </span>
+            </div>
+          </div>
 
           <div className="pod-fast-path" aria-label={lang === 'ar' ? 'الانتقال السريع للمرحلة 2' : 'Fast path to Stage 2'}>
             <a href="#pod-stage-2" className="pod-fast-card primary">

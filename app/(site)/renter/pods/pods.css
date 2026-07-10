@@ -334,6 +334,179 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
   .pod-stage-nav a:last-child { border-bottom: 0; }
 }
 
+.pod-command-center {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(180px, .45fr) minmax(220px, .75fr);
+  gap: 0;
+  margin-top: 16px;
+  border: 1px solid color-mix(in oklab, var(--rt-accent) 46%, var(--hair));
+  background: var(--hair);
+  box-shadow: inset 4px 0 0 var(--rt-accent);
+}
+.pod-command-center.fixed {
+  border-color: color-mix(in oklab, var(--rt-accent) 62%, var(--hair));
+}
+.pod-command-primary,
+.pod-command-payload,
+.pod-command-actions {
+  min-width: 0;
+  background: color-mix(in oklab, var(--rt-accent) 7%, var(--paper));
+  border-inline-end: 1px solid var(--hair);
+}
+.pod-command-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 18px 18px 17px;
+}
+.pod-command-primary span,
+.pod-command-payload span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--rt-accent);
+}
+.pod-command-primary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 400;
+  line-height: .95;
+  color: var(--ink);
+}
+.pod-command-primary em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  max-width: 68ch;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: .04em;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.pod-command-payload {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 16px;
+  background: #04050d;
+}
+.pod-command-payload code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.pod-command-actions {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 15px;
+}
+.pod-command-actions a,
+.pod-command-actions button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 11px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.pod-command-actions a.primary {
+  border-color: var(--rt-accent);
+  background: var(--rt-accent);
+  color: #0a0b1a;
+}
+.pod-command-actions a:hover,
+.pod-command-actions a:focus-visible,
+.pod-command-actions button:hover,
+.pod-command-actions button:focus-visible {
+  border-color: var(--rt-accent);
+  color: var(--rt-accent);
+  outline: none;
+}
+.pod-command-actions a.primary:hover,
+.pod-command-actions a.primary:focus-visible {
+  color: #0a0b1a;
+  filter: brightness(1.08);
+}
+.pod-command-facts {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hair);
+  border-top: 1px solid var(--hair);
+}
+.pod-command-facts span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.pod-command-facts b {
+  color: var(--mut);
+  font-size: 9px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+@media (max-width: 1100px) {
+  .pod-command-center {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pod-command-primary {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--hair);
+  }
+  .pod-command-payload {
+    border-inline-end: 1px solid var(--hair);
+  }
+  .pod-command-actions {
+    border-inline-end: 0;
+  }
+}
+@media (max-width: 720px) {
+  .pod-command-center,
+  .pod-command-facts {
+    grid-template-columns: 1fr;
+  }
+  .pod-command-primary,
+  .pod-command-payload,
+  .pod-command-actions {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .pod-command-primary strong {
+    font-size: 32px;
+  }
+}
+
 .pod-fast-path {
   display: grid;
   grid-template-columns: minmax(300px, 1.35fr) minmax(220px, .85fr) minmax(220px, .85fr);

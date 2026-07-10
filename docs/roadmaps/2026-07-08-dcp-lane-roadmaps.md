@@ -251,6 +251,11 @@ what is live.
   and a dedicated "Final GPU request" strip in Stage 2, replacing the last
   visible slider wording with "VRAM chips are browse filters only" while keeping
   launch semantics unchanged.
+- PR #933 adds a top launch command center before Stage 1 file expansion so
+  Stage 2's actual Auto-pick/fixed-GPU request and exact `gpu_type` payload are
+  visible immediately. Large Stage 1 workspaces auto-collapse after files load,
+  and the rail repeats the trial grant-credit/native-community/high-demand
+  paid-credit answer without changing launch, billing, or routing behavior.
 
 ### Now
 

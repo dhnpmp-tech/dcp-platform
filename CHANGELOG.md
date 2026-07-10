@@ -14,6 +14,19 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 01:02 UTC - `feat(pods): add launch command center - PR #933`
+
+**PR:** [#933](https://github.com/dhnpmp-tech/dcp-platform/pull/933) (`codex/pods-stage-gpu-clarity-2026-07-10`).
+**Local timestamp:** 2026-07-10 05:02 +04.
+
+**What:** Tareq workspace/GPU-choice feedback slice. Adds a top-level `/renter/pods` launch command center that makes Stage 2 the first visible operative decision, shows the exact `gpu_type` payload before any workspace file expansion, and keeps Stage 1 workspace details secondary.
+
+- **Workspace UX:** Stage 1 remains folder-summary-first and collapsible; large workspaces auto-collapse after files load even if an old browser preference left the detailed manager open.
+- **GPU clarity:** The command center shows Auto-pick vs fixed GPU, the final request payload, and direct links to Stage 2 and Stage 3 so VRAM filters cannot be mistaken for the selected launch GPU.
+- **Trial answer:** The same compact rail repeats the trial-account answer: no live trial-account tag when grant-credit provenance is active, trial credit routes to native/community capacity, and high-demand GPUs require paid credit.
+- **Safety:** Frontend-only UX/test/docs change; no launch payload semantics, provider selection, pod pricing, billing, credit enforcement, trial accounting, balance mutation, routing, workspace storage, or API contract behavior changed.
+- **Verification:** Focused `/renter/pods` Playwright regression plus build/proof sweep before merge.
+
 ### 2026-07-10 00:48 UTC - `feat(inference): expose model pricing contract - PR #932`
 
 **PR:** [#932](https://github.com/dhnpmp-tech/dcp-platform/pull/932) (`codex/model-pricing-contract-v2-2026-07-10`).
