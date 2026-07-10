@@ -277,9 +277,26 @@ interface BudgetStatusResponse {
 interface MinimumBalanceReadinessResponse {
   account?: {
     balance_halala?: number
+    trial_grant_halala?: number
+    trial_grant_sar?: number
     paid_available_halala?: number
     paid_available_sar?: number
     v1_remaining_cap_halala?: number | null
+  }
+  credit_policy?: {
+    current_mode?: string
+    source_contract?: string
+    explicit_trial_account_tag_live?: boolean
+    trial_credit_source?: string
+    trial_grant_halala?: number
+    trial_grant_sar?: number
+    has_trial_grant?: boolean
+    paid_credit_source?: string
+    paid_available_halala?: number
+    paid_available_sar?: number
+    trial_credit_allowed_capacity?: string
+    trial_credit_unlocks_high_demand?: boolean
+    high_demand_requires_paid_credit?: boolean
   }
   rails?: {
     v1_inference?: {
@@ -313,6 +330,8 @@ interface MinimumBalanceReadinessResponse {
     mutates_balance?: boolean
     creates_pod?: boolean
     dispatches_inference?: boolean
+    changes_trial_accounting?: boolean
+    changes_paid_credit_policy?: boolean
   }
 }
 
@@ -539,7 +558,12 @@ export default function RenterUsagePage() {
   const billingKeys = budgetStatus?.api_keys?.billing || 0
   const keyUsageRows = usageByKey?.rows || []
   const unattributedUsage = usageByKey?.unattributed || null
-  const paidAvailableSar = halalaToSar(minimumBalances?.account?.paid_available_halala)
+  const minimumCreditPolicy = minimumBalances?.credit_policy
+  const paidAvailableSar = typeof minimumCreditPolicy?.paid_available_sar === 'number'
+    ? minimumCreditPolicy.paid_available_sar
+    : typeof minimumBalances?.account?.paid_available_sar === 'number'
+      ? minimumBalances.account.paid_available_sar
+      : halalaToSar(minimumBalances?.account?.paid_available_halala)
   const minRails = minimumBalances?.rails || {}
   const futureBalanceRails = [
     minRails.batch_inference,
@@ -567,14 +591,34 @@ export default function RenterUsagePage() {
       teamUsageReadiness.claim_guards.exposes_key_secret === false &&
       teamUsageReadiness.claim_guards.claims_team_member_rollups_live === false
     : false
-  const explicitTrialTagLive = trialRouting?.account_classification?.explicit_trial_account_tag_live === true
+  const explicitTrialTagLive = typeof minimumCreditPolicy?.explicit_trial_account_tag_live === 'boolean'
+    ? minimumCreditPolicy.explicit_trial_account_tag_live
+    : trialRouting?.account_classification?.explicit_trial_account_tag_live === true
   const trialCapacityCopy = trialRouting?.routing_policy?.trial_capacity_copy || 'Trial credit: native/community GPU pool'
   const highDemandCapacityCopy = trialRouting?.routing_policy?.high_demand_capacity_copy || 'High-demand GPUs: paid credit only'
   const trialAccountModeLabel = explicitTrialTagLive ? 'Explicit trial-account tag' : 'Grant-credit provenance'
   const trialTagAnswerLabel = explicitTrialTagLive ? 'Trial tag live' : 'No trial tag live'
-  const trialCreditSourceLabel = trialRouting?.account_classification?.trial_credit_source === 'renters.trial_grant_halala'
+  const trialCreditSource = minimumCreditPolicy?.trial_credit_source || trialRouting?.account_classification?.trial_credit_source
+  const trialCreditSourceLabel = trialCreditSource === 'renters.trial_grant_halala'
     ? 'Trial source: grant balance'
     : 'Trial source: credit provenance'
+  const trialGrantSar = typeof minimumCreditPolicy?.trial_grant_sar === 'number'
+    ? minimumCreditPolicy.trial_grant_sar
+    : typeof minimumBalances?.account?.trial_grant_sar === 'number'
+      ? minimumBalances.account.trial_grant_sar
+      : halalaToSar(minimumCreditPolicy?.trial_grant_halala ?? minimumBalances?.account?.trial_grant_halala)
+  const trialGrantLabel = trialGrantSar > 0
+    ? `Trial grant SAR ${fmtSar(trialGrantSar)}`
+    : 'No trial grant on account'
+  const minimumCreditPolicyLabel = minimumCreditPolicy
+    ? 'Minimum-balance credit policy synced'
+    : 'Minimum-balance credit policy fallback'
+  const paidCreditGateLabel = minimumCreditPolicy?.high_demand_requires_paid_credit === true
+    ? 'High-demand paid-credit gate live'
+    : 'High-demand paid-credit gate enforced'
+  const noCreditPolicyMutation =
+    minimumBalances?.claim_guards?.changes_trial_accounting === false &&
+    minimumBalances?.claim_guards?.changes_paid_credit_policy === false
   const trialRoutingSynced = trialRouting?.object === 'pod_trial_routing_readiness' &&
     trialRouting?.claim_guards?.launches_pod === false &&
     trialRouting?.claim_guards?.mutates_balance === false &&
@@ -599,6 +643,8 @@ export default function RenterUsagePage() {
     minimumBalances?.claim_guards?.creates_pod === false &&
     minimumBalances?.claim_guards?.dispatches_inference === false &&
     minimumBalances?.claim_guards?.changes_enforcement === false &&
+    (minimumBalances?.claim_guards?.changes_trial_accounting ?? false) === false &&
+    (minimumBalances?.claim_guards?.changes_paid_credit_policy ?? false) === false &&
     (trialRouting ? trialRoutingSynced : true)
 
   const modelRows = useMemo(() => {
@@ -907,6 +953,10 @@ export default function RenterUsagePage() {
               </span>
             </div>
             <div className="account-controls-grid">
+              <span className={minimumCreditPolicy ? 'ready' : 'checking'}>
+                <b><Bi en="Credit policy" ar="سياسة الرصيد" /></b>
+                <Bi en={minimumCreditPolicyLabel} ar={minimumCreditPolicy ? 'سياسة الحد الأدنى متزامنة' : 'سياسة الحد الأدنى احتياطية'} />
+              </span>
               <span className={trialRoutingSynced ? 'ready' : 'checking'}>
                 <b><Bi en="Trial mode" ar="وضع التجربة" /></b>
                 <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'وسم تجربة صريح' : 'حسب مصدر رصيد المنحة'} />
@@ -915,6 +965,10 @@ export default function RenterUsagePage() {
                 <b><Bi en="Trial tag" ar="وسم التجربة" /></b>
                 <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة مفعل' : 'لا يوجد وسم تجربة مباشر'} />
               </span>
+              <span className={trialGrantSar > 0 ? 'ready' : 'checking'}>
+                <b><Bi en="Trial grant" ar="منحة التجربة" /></b>
+                <Bi en={trialGrantLabel} ar="رصيد التجربة من المنحة" />
+              </span>
               <span className="ready">
                 <b><Bi en="Trial route" ar="مسار التجربة" /></b>
                 <Bi en={trialCapacityCopy} ar="رصيد التجربة يستخدم سعة DCP والمجتمع" />
@@ -922,6 +976,10 @@ export default function RenterUsagePage() {
               <span className="blocked">
                 <b><Bi en="High-demand gate" ar="بوابة الطلب العالي" /></b>
                 <Bi en={highDemandCapacityCopy} ar="وحدات الطلب العالي تحتاج رصيداً مدفوعاً فقط" />
+              </span>
+              <span className="blocked">
+                <b><Bi en="Paid credit" ar="الرصيد المدفوع" /></b>
+                <Bi en={`${paidCreditGateLabel} · SAR ${fmtSar(paidAvailableSar)} available`} ar="بوابة الرصيد المدفوع مفعلة" />
               </span>
               <span className={usageExportLive ? 'ready' : 'checking'}>
                 <b><Bi en="Usage export" ar="تصدير الاستخدام" /></b>
@@ -935,6 +993,10 @@ export default function RenterUsagePage() {
                 <b><Bi en="Inference gate" ar="بوابة الاستدلال" /></b>
                 <Bi en={minimumBalances?.rails?.v1_inference?.enforcement_live ? 'Estimate preflight live' : 'Estimate preflight checking'} ar={minimumBalances?.rails?.v1_inference?.enforcement_live ? 'فحص التقدير مفعل' : 'فحص التقدير قيد المراجعة'} />
               </span>
+              <span className={noCreditPolicyMutation ? 'ready' : 'checking'}>
+                <b><Bi en="Policy mutation" ar="تغيير السياسة" /></b>
+                <Bi en={noCreditPolicyMutation ? 'No trial or paid-credit change' : 'Policy guard checking'} ar="لا تغيير في التجربة أو الرصيد المدفوع" />
+              </span>
               <span className={accountControlsGuardClean ? 'ready' : 'checking'}>
                 <b><Bi en="Safety" ar="السلامة" /></b>
                 <Bi en={accountControlsGuardClean ? 'Read-only packet' : 'Readiness checking'} ar={accountControlsGuardClean ? 'حزمة قراءة فقط' : 'الجاهزية قيد الفحص'} />
@@ -944,8 +1006,17 @@ export default function RenterUsagePage() {
               <span className={trialRoutingSynced ? 'ready' : 'checking'}>
                 <Bi en={trialRoutingSynced ? 'Backend trial-routing contract synced' : 'Trial routing fallback copy'} ar={trialRoutingSynced ? 'عقد مسار التجربة متزامن' : 'نسخة احتياطية لمسار التجربة'} />
               </span>
+              <span className={minimumCreditPolicy ? 'ready' : 'checking'}>
+                <Bi en={minimumCreditPolicyLabel} ar="سياسة الحد الأدنى متزامنة" />
+              </span>
               <span>
                 <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
+              </span>
+              <span>
+                <Bi en={trialGrantLabel} ar="رصيد التجربة من المنحة" />
+              </span>
+              <span className={noCreditPolicyMutation ? 'ready' : 'checking'}>
+                <Bi en={noCreditPolicyMutation ? 'No trial-accounting or paid-credit policy change' : 'Credit policy guard checking'} ar="لا تغيير في حسابات التجربة أو الرصيد المدفوع" />
               </span>
               <span className={accountControlsGuardClean ? 'ready' : 'checking'}>
                 <Bi en={accountControlsGuardClean ? 'No balance, billing, pod, or inference mutation' : 'No launch claim made here'} ar={accountControlsGuardClean ? 'لا تغيير للرصيد أو الفوترة أو الحاويات أو الاستدلال' : 'لا يوجد ادعاء تشغيل هنا'} />

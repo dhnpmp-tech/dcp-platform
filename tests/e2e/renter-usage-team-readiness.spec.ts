@@ -258,8 +258,25 @@ async function mockUsageApis(page: Page) {
           current_mode: 'read_only_policy_contract',
           account: {
             balance_halala: 25000,
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
             paid_available_halala: 3800,
             paid_available_sar: 38,
+          },
+          credit_policy: {
+            current_mode: 'grant_credit_provenance_plus_paid_credit_gate',
+            source_contract: 'GET /api/pods/trial-routing/readiness',
+            explicit_trial_account_tag_live: false,
+            trial_credit_source: 'renters.trial_grant_halala',
+            trial_grant_halala: 2000,
+            trial_grant_sar: 20,
+            has_trial_grant: true,
+            paid_credit_source: 'payments.status=paid/refunded minus active high-demand pod commitments',
+            paid_available_halala: 3800,
+            paid_available_sar: 38,
+            trial_credit_allowed_capacity: 'DCP/community/provider GPU capacity when normal quote checks pass',
+            trial_credit_unlocks_high_demand: false,
+            high_demand_requires_paid_credit: true,
           },
           rails: {
             v1_inference: { status: 'live_estimate_preflight', enforcement_live: true },
@@ -274,6 +291,8 @@ async function mockUsageApis(page: Page) {
             mutates_balance: false,
             creates_pod: false,
             dispatches_inference: false,
+            changes_trial_accounting: false,
+            changes_paid_credit_policy: false,
           },
         }),
       });
@@ -346,23 +365,32 @@ test('renter usage shows scoped-key team readiness without claiming member rollu
   const accountControls = page.getByLabel('Account controls packet');
   await expect(accountControls).toBeVisible();
   await expect(accountControls).toContainText('Trial, export, and spend gates in one view');
+  await expect(accountControls).toContainText('Credit policy');
+  await expect(accountControls).toContainText('Minimum-balance credit policy synced');
   await expect(accountControls).toContainText('Trial mode');
   await expect(accountControls).toContainText('Grant-credit provenance');
   await expect(accountControls).toContainText('Trial tag');
   await expect(accountControls).toContainText('No trial tag live');
+  await expect(accountControls).toContainText('Trial grant');
+  await expect(accountControls).toContainText('Trial grant SAR 20.00');
   await expect(accountControls).toContainText('Trial route');
   await expect(accountControls).toContainText('Trial credit: native/community GPU pool');
   await expect(accountControls).toContainText('High-demand gate');
   await expect(accountControls).toContainText('High-demand GPUs: paid credit only');
+  await expect(accountControls).toContainText('Paid credit');
+  await expect(accountControls).toContainText('High-demand paid-credit gate live · SAR 38.00 available');
   await expect(accountControls).toContainText('Usage export');
   await expect(accountControls).toContainText('Header-auth CSV export');
   await expect(accountControls).toContainText('Per-key caps');
   await expect(accountControls).toContainText('Budget caps enforced');
   await expect(accountControls).toContainText('Inference gate');
   await expect(accountControls).toContainText('Estimate preflight live');
+  await expect(accountControls).toContainText('Policy mutation');
+  await expect(accountControls).toContainText('No trial or paid-credit change');
   await expect(accountControls).toContainText('Read-only packet');
   await expect(accountControls).toContainText('Backend trial-routing contract synced');
   await expect(accountControls).toContainText('Trial source: grant balance');
+  await expect(accountControls).toContainText('No trial-accounting or paid-credit policy change');
   await expect(accountControls).toContainText('No balance, billing, pod, or inference mutation');
 
   const readiness = page.getByLabel('Team usage readiness');

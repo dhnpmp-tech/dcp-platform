@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-07-09 23:58 UTC - Usage account controls credit-policy visibility (PR #929)
+
+- **PR:** [#929](https://github.com/dhnpmp-tech/dcp-platform/pull/929) (`codex/usage-credit-policy-visibility-2026-07-10`).
+- **Timestamp:** 2026-07-09 23:58 UTC / 2026-07-10 03:58 +04.
+- **Usage UI:** `/renter/usage` Account controls now surfaces the `minimum-balances.credit_policy` sync state, trial grant SAR, paid available SAR, high-demand paid-credit gate, and no trial/paid-credit policy mutation guard.
+- **Safety:** Read-only frontend/test change; no billing, balance, inference, pod, routing, enforcement, trial-accounting, or paid-credit policy mutation.
+- **Verification:** Focused Playwright Usage readiness spec plus standard build/proof sweep before merge.
+
 ### 2026-07-09 23:34 UTC - Minimum-balance credit policy and pod GPU choice UX (PR #928)
 
 - **PR:** [#928](https://github.com/dhnpmp-tech/dcp-platform/pull/928) (`codex/minimum-balance-credit-policy-2026-07-10`).

@@ -215,6 +215,10 @@ Goal: turn pods into a fine-tuning-ready product surface, not a bare machine.
     stays visibly collapsible for large workspaces, Stage 2 shows the exact
     launch GPU request above the picker, and VRAM slider/chips are labeled as
     browse filters only.
+  - PR #929 carries the same credit-policy contract into `/renter/usage`
+    Account controls, adding trial grant SAR, paid available SAR, high-demand
+    paid-credit gate, and no trial/paid-credit policy mutation status next to
+    usage export and scoped-key controls.
   - PR #899 repeats the same trial-route and credit-gate state in the unified
     launch checklist, alongside the actual auto-pick/fixed-GPU request, without
     changing launch body, routing, billing, or enforcement behavior.
