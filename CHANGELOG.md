@@ -14,6 +14,20 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### 2026-07-10 02:58 UTC - `feat(inference): add model capability contract - PR #942`
+
+**PR:** [#942](https://github.com/dhnpmp-tech/dcp-platform/pull/942) (`codex/model-capability-contract-2026-07-10`).
+**Local timestamp:** 2026-07-10 06:58 +04.
+
+**What:** Fireworks/Tinker inference metadata hardening slice. Adds a machine-readable model capability contract beside the existing pricing and feature-readiness contracts across DCP's three model catalog surfaces.
+
+- **Backend contract:** `/v1/models`, `/api/models`, and `/api/models/catalog` now emit `capability_contract.version = dcp.model_capability_contract.v1`, separating live/derived model features from gated product rails.
+- **Gate clarity:** The contract points clients from prompt cache, Batch, LoRA, and Dedicated Deployment labels to `feature_readiness.*` status/next-action objects before treating those rails as product available.
+- **Proof coverage:** `npm run proof:model-catalog-parity` now names and verifies capability-contract parity across all three model surfaces.
+- **Docs:** OpenAPI, published OpenAPI, `llms.txt`, public changelog, and roadmap notes now document the capability contract for agents and frontend clients.
+- **Safety:** Additive metadata/test/docs change; no model availability, provider selection, request routing, pricing, billing, settlement, prompt-cache discounts, batch execution, LoRA serving, or dedicated-deployment routing changed.
+- **Verification:** Focused model-catalog Jest suites and proof-script guard cover chat-capable and embedding-only models plus cross-surface parity.
+
 ### 2026-07-10 02:44 UTC - `feat(pods): add mobile Stage 2 launch dock - PR #941`
 
 **PR:** [#941](https://github.com/dhnpmp-tech/dcp-platform/pull/941) (`codex/pods-stage-drawer-gpu-decision-2026-07-10`).

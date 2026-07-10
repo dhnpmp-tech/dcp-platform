@@ -65,8 +65,8 @@ function buildMarkdown(report) {
   lines.push('This proof is CI-safe and runs the mocked model catalog parity route');
   lines.push('test. It proves that `/v1/models`, `/api/models`, and');
   lines.push('`/api/models/catalog` keep token pricing, pricing-contract metadata,');
-  lines.push('provider count, availability, capability flags, readiness metadata,');
-  lines.push('modalities, and max-output metadata');
+  lines.push('provider count, availability, capability flags, capability-contract');
+  lines.push('metadata, readiness metadata, modalities, and max-output metadata');
   lines.push('aligned for the same registry row. It does not change model availability,');
   lines.push('provider selection, routing, billing, settlement, prompt-cache, batch,');
   lines.push('LoRA, or deployment behavior.');
@@ -143,6 +143,7 @@ function runModelCatalogParityProof(options = {}) {
       pricing: 'token pricing, pricing contract, source contract, and model_registry source',
       provider_count: 'provider_count and available state',
       capability_flags: 'capability_flags and capabilities mirrors',
+      capability_contract: 'dcp.model_capability_contract.v1 live/gated feature source and claim guards',
       readiness: 'feature_readiness for prompt cache, batch, LoRA, and dedicated deployment',
       metadata: 'modalities and max_output_tokens',
     },
@@ -210,9 +211,9 @@ function runModelCatalogParityProof(options = {}) {
       'The proof covers the OpenAI-compatible, legacy, and managed catalog payloads.',
     );
     record(
-      'pricing, provider count, capabilities, readiness, and metadata parity are enforced',
-      Object.keys(report.parity).join(',') === 'pricing,provider_count,capability_flags,readiness,metadata',
-      'The underlying route test asserts token pricing contract metadata, provider_count/availability, capability mirrors, feature_readiness, modalities, and max_output_tokens.',
+      'pricing, provider count, capabilities, capability contract, readiness, and metadata parity are enforced',
+      Object.keys(report.parity).join(',') === 'pricing,provider_count,capability_flags,capability_contract,readiness,metadata',
+      'The underlying route test asserts token pricing contract metadata, provider_count/availability, capability mirrors, capability contract, feature_readiness, modalities, and max_output_tokens.',
     );
     record(
       'proof is read-only and does not enable product behavior',

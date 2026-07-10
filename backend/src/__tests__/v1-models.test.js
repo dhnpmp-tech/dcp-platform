@@ -420,6 +420,52 @@ describe('v1 models route', () => {
       prompt_caching: false,
       batch: false,
     });
+    expect(model.capability_contract).toMatchObject({
+      version: 'dcp.model_capability_contract.v1',
+      source: 'model_registry.use_cases',
+      supported_features: ['chat.completions', 'multilingual', 'reasoning', 'tool_calling'],
+      live_capability_flags: {
+        chat_completions: true,
+        streaming: true,
+        tool_calling: true,
+        reasoning: true,
+        multilingual: true,
+      },
+      gated_product_flags: {
+        prompt_caching: {
+          flag: false,
+          readiness_field: 'feature_readiness.prompt_caching',
+          status: 'measurement_only',
+          available: false,
+        },
+        batch: {
+          flag: false,
+          readiness_field: 'feature_readiness.batch',
+          status: 'api_metadata_only',
+          available: false,
+        },
+        lora: {
+          flag: false,
+          readiness_field: 'feature_readiness.lora',
+          status: 'metadata_only',
+          available: false,
+        },
+        dedicated_deployment: {
+          flag: false,
+          readiness_field: 'feature_readiness.dedicated_deployment',
+          status: 'gated',
+          available: false,
+        },
+      },
+      claim_guards: {
+        capability_flags_are_metadata_only: true,
+        use_feature_readiness_for_gated_products: true,
+        enables_prompt_cache_discount: false,
+        enables_batch_execution: false,
+        enables_lora_serving: false,
+        enables_dedicated_deployment_routing: false,
+      },
+    });
     expect(model.feature_readiness).toMatchObject({
       version: 'dcp.model_feature_readiness.v1',
       dedicated_deployment: {
@@ -529,6 +575,37 @@ describe('v1 models route', () => {
       dedicated_deployment: {
         status: 'not_applicable',
         api_available: false,
+      },
+    });
+    expect(model.capability_contract).toMatchObject({
+      version: 'dcp.model_capability_contract.v1',
+      supported_features: ['embeddings'],
+      live_capability_flags: {
+        chat_completions: false,
+        streaming: false,
+        embeddings: true,
+      },
+      gated_product_flags: {
+        prompt_caching: {
+          flag: false,
+          status: 'not_applicable',
+          next: 'chat_completions_required',
+        },
+        batch: {
+          flag: false,
+          status: 'not_applicable',
+          next: 'chat_completions_required',
+        },
+        lora: {
+          flag: false,
+          status: 'not_applicable',
+          next: 'chat_capable_base_model_required',
+        },
+        dedicated_deployment: {
+          flag: false,
+          status: 'not_applicable',
+          next: 'chat_capable_model_required',
+        },
       },
     });
     expect(model.capabilities).toEqual(model.capability_flags);

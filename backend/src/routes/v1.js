@@ -26,6 +26,7 @@ const {
 } = rateLimiterMiddleware;
 const {
   toCatalogContractCore,
+  toCapabilityContract,
   toFeatureReadinessContract,
   toTokenPricingContract,
   toUsdStringFromHalala,
@@ -1010,6 +1011,7 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         source: catalogRates.source,
       });
       const capabilityMetadata = buildCatalogCapabilityMetadata(contractCore);
+      const capabilityContract = toCapabilityContract(capabilityMetadata, contractCore.supported_features);
       const featureReadiness = toFeatureReadinessContract(capabilityMetadata);
       const endpoints = capabilityMetadata.chat_completions
         ? [{ url: endpointUrl, type: 'chat' }]
@@ -1049,6 +1051,7 @@ router.get('/models', modelCatalogLimiter, (req, res) => {
         },
         capability_flags: capabilityMetadata,
         capabilities: capabilityMetadata,
+        capability_contract: capabilityContract,
         feature_readiness: featureReadiness,
         architecture,
         endpoints,

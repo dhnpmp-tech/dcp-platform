@@ -253,6 +253,66 @@ describe('model catalog contract parity', () => {
     expect(v1Model.capabilities).toEqual(v1Model.capability_flags);
     expect(legacyModel.capabilities).toEqual(legacyModel.capability_flags);
     expect(catalogModel.capabilities).toEqual(catalogModel.capability_flags);
+    expect(v1Model.capability_contract).toMatchObject({
+      version: 'dcp.model_capability_contract.v1',
+      source: 'model_registry.use_cases',
+      source_fields: {
+        supported_features: 'supported_features',
+        live_flags: 'capability_flags',
+        gated_products: 'feature_readiness',
+      },
+      supported_features: ['chat.completions', 'multilingual', 'reasoning', 'tool_calling'],
+      live_capability_flags: {
+        chat_completions: true,
+        streaming: true,
+        tool_calling: true,
+        reasoning: true,
+        multilingual: true,
+      },
+      gated_product_flags: {
+        prompt_caching: {
+          flag: false,
+          readiness_field: 'feature_readiness.prompt_caching',
+          status: 'measurement_only',
+          available: false,
+          next: 'validate_hit_measurement_before_discount',
+        },
+        batch: {
+          flag: false,
+          readiness_field: 'feature_readiness.batch',
+          status: 'api_metadata_only',
+          available: false,
+          next: 'enable_worker_result_artifact_and_settlement',
+        },
+        lora: {
+          flag: false,
+          readiness_field: 'feature_readiness.lora',
+          status: 'metadata_only',
+          available: false,
+          next: 'run_gpu_training_proof_then_enable_adapter_serving',
+        },
+        dedicated_deployment: {
+          flag: false,
+          readiness_field: 'feature_readiness.dedicated_deployment',
+          status: 'gated',
+          available: false,
+          next: 'create_deployment_then_attach_vllm_load_proof',
+        },
+      },
+      claim_guards: {
+        capability_flags_are_metadata_only: true,
+        use_feature_readiness_for_gated_products: true,
+        changes_model_availability: false,
+        changes_provider_selection: false,
+        changes_request_routing: false,
+        enables_prompt_cache_discount: false,
+        enables_batch_execution: false,
+        enables_lora_serving: false,
+        enables_dedicated_deployment_routing: false,
+      },
+    });
+    expect(legacyModel.capability_contract).toEqual(v1Model.capability_contract);
+    expect(catalogModel.capability_contract).toEqual(v1Model.capability_contract);
 
     expect(v1Model.feature_readiness).toMatchObject({
       version: 'dcp.model_feature_readiness.v1',

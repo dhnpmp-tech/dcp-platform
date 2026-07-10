@@ -9404,6 +9404,57 @@ paths:
                             batch:
                               type: boolean
                               description: Product-available flag. False until batch execution and settlement are enabled.
+                        capability_contract:
+                          type: object
+                          description: Machine-readable model capability contract. It separates live/derived model features from gated product rails and points clients at `feature_readiness` before treating prompt cache, batch, LoRA, or dedicated deployment as available.
+                          properties:
+                            version:
+                              type: string
+                              example: dcp.model_capability_contract.v1
+                            source:
+                              type: string
+                              example: model_registry.use_cases
+                            supported_features:
+                              type: array
+                              items:
+                                type: string
+                              example: [chat.completions, reasoning, tool_calling]
+                            live_capability_flags:
+                              type: object
+                              description: Features inferred from model metadata and safe to display as model capabilities.
+                            gated_product_flags:
+                              type: object
+                              description: Prompt cache, batch, LoRA, and dedicated deployment product gates. Use the referenced `feature_readiness.*` object for status and next action.
+                            claim_guards:
+                              type: object
+                              properties:
+                                capability_flags_are_metadata_only:
+                                  type: boolean
+                                  example: true
+                                use_feature_readiness_for_gated_products:
+                                  type: boolean
+                                  example: true
+                                changes_model_availability:
+                                  type: boolean
+                                  example: false
+                                changes_provider_selection:
+                                  type: boolean
+                                  example: false
+                                changes_request_routing:
+                                  type: boolean
+                                  example: false
+                                enables_prompt_cache_discount:
+                                  type: boolean
+                                  example: false
+                                enables_batch_execution:
+                                  type: boolean
+                                  example: false
+                                enables_lora_serving:
+                                  type: boolean
+                                  example: false
+                                enables_dedicated_deployment_routing:
+                                  type: boolean
+                                  example: false
                         feature_readiness:
                           type: object
                           description: Additive readiness metadata for advanced Fireworks-style rails. Product-available booleans above remain false until the rail can route traffic or alter billing safely.
