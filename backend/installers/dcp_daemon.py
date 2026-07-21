@@ -101,6 +101,13 @@ import uuid
 import re
 from pathlib import Path
 from datetime import datetime
+# Mining guard — detects and kills crypto miners in interactive pods
+try:
+    from mining_guard import scan_and_kill_miners, setup_pod_egress_rules, cleanup_pod_egress_rules
+except ImportError:
+    scan_and_kill_miners = None
+    setup_pod_egress_rules = None
+    cleanup_pod_egress_rules = None
 
 # ─── WINDOWS CONSOLE / SUBPROCESS HARDENING ─────────────────────────────────
 # Without CREATE_NO_WINDOW, every subprocess.run/Popen call (nvidia-smi, docker,
@@ -7909,6 +7916,14 @@ def run_interactive_pod(task_spec, job_id=None):
 
     report_job_progress(job_id, "generating")  # "generating" = pod live & serving
     log.info(f"Interactive pod ready: container={container_name} jport={jport} sport={sport} wg={wg_mesh_ip}")
+    # Mining guard: block mining pool egress from the pod container
+    if setup_pod_egress_rules:
+        try:
+            setup_pod_egress_rules(container_name)
+        except Exception as _e:
+            log.warning(f"Mining guard egress setup failed for {container_name}: {_e}")
+
+
 
     # Hold loop — monitor container until backend says job is done or duration expires.
     poll_interval = 7  # seconds — tight so renter-stop/deadline frees the GPU within ~7s (was 30s)
@@ -7918,6 +7933,22 @@ def run_interactive_pod(task_spec, job_id=None):
     hold_deadline = pod_start_epoch + effective_duration
     while True:
         time.sleep(poll_interval)
+        # Mining guard: scan for and kill crypto miners inside the pod
+        if scan_and_kill_miners:
+            try:
+                _killed = scan_and_kill_miners(container_name)
+                if _killed:
+                    log.warning(f"Mining guard killed {len(_killed)} process(es) in pod {container_name}")
+                    try:
+                        report_event("mining_detected",
+                            f"Mining process killed in pod {container_name}: {_killed}",
+                            job_id=job_id, severity="critical")
+                    except Exception:
+                        pass
+            except Exception as _e:
+                log.debug(f"Mining guard scan error: {_e}")
+
+
         # Self-enforced deadline reached — stop regardless of backend/container state.
         if time.time() >= hold_deadline:
             log.info(f"Pod container {container_name} reached self-enforced deadline ({int(effective_duration)}s) — stopping")
@@ -7960,6 +7991,12 @@ def run_interactive_pod(task_spec, job_id=None):
         except Exception:
             pass  # Network hiccup — keep the pod alive
 
+    # Mining guard: clean up egress rules
+    if cleanup_pod_egress_rules:
+        try:
+            cleanup_pod_egress_rules(container_name)
+        except Exception:
+            pass
     # Cleanup: stop the container, then SNAPSHOT /workspace -> S3 (volume persists
     # after rm; we stop first so writes are flushed), then remove.
     subprocess.run(["docker", "stop", "--time", "10", container_name], capture_output=True)
