@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-22T21:50:00+03:00",
+  "items": [
+    {
+      "id": "DCP-COORD-001",
+      "title": "Multi-agent coordination board + roles (this system)",
+      "owner": "hermes",
+      "status": "doing",
+      "priority": "P0",
+      "notes": [
+        "2026-07-22: Created ops/coord ROLES, HANDOFF, board, CLI"
+      ],
+      "created_at": "2026-07-22T21:50:00+03:00",
+      "updated_at": "2026-07-22T21:50:00+03:00"
+    },
+    {
+      "id": "DCP-SEC-953",
+      "title": "Merge security residual PR #953 (session mint + ops router gates)",
+      "owner": "codex",
+      "status": "review",
+      "priority": "P0",
+      "notes": [
+        "PR: https://github.com/dhnpmp-tech/dcp-platform/pull/953",
+        "Branch: security/dcp-hardening-2026-07-22",
+        "Most of stale 041129ff already on main; residual H1/L1/M1 only"
+      ],
+      "created_at": "2026-07-22T16:00:00+03:00",
+      "updated_at": "2026-07-22T21:50:00+03:00"
+    },
+    {
+      "id": "DCP-NODE2-480",
+      "title": "Verify Node 2 daemon self-updated to v4.8.0 + mining guard live",
+      "owner": "claude",
+      "status": "doing",
+      "priority": "P0",
+      "notes": [
+        "Downloaded 4.8.0 earlier; heartbeat still showed 4.7.2 for a while",
+        "Miner killed; vLLM foreign proc is legitimate",
+        "Verify: admin provider 1774351995321 daemon_version + no forge/pearlhash"
+      ],
+      "created_at": "2026-07-22T12:45:00+03:00",
+      "updated_at": "2026-07-22T21:50:00+03:00"
+    },
+    {
+      "id": "DCP-PAPERCLIP-001",
+      "title": "Paperclip: bootstrap or freeze (no half-dead orchestrator)",
+      "owner": "tareq",
+      "status": "blocked",
+      "priority": "P1",
+      "notes": [
+        "http://76.13.179.86:3100 bootstrap_pending",
+        "Decision needed: onboard UI once OR stop referencing Paperclip in CLAUDE.md"
+      ],
+      "created_at": "2026-07-22T21:50:00+03:00",
+      "updated_at": "2026-07-22T21:50:00+03:00"
+    },
+    {
+      "id": "DCP-SEC-DEFER",
+      "title": "Deferred security: C3 per-provider HMAC, H2 renter key hash, H5 deps",
+      "owner": "unassigned",
+      "status": "backlog",
+      "priority": "P1",
+      "notes": [
+        "See docs/security/dcp-security-hardening-residual-2026-07-22.md"
+      ],
+      "created_at": "2026-07-22T16:00:00+03:00",
+      "updated_at": "2026-07-22T21:50:00+03:00"
+    },
+    {
+      "id": "DCP-CR-PDF",
+      "title": "CR certificate live at https://dcp.sa/cr.pdf",
+      "owner": "hermes",
+      "status": "done",
+      "priority": "P2",
+      "notes": [
+        "public/cr.pdf committed; HTTP 200 978826 bytes"
+      ],
+      "created_at": "2026-07-22T15:35:00+03:00",
+      "updated_at": "2026-07-22T15:40:00+03:00"
+    }
+  ]
+}
