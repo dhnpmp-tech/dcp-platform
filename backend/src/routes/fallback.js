@@ -6,6 +6,10 @@ const { getStatus } = require('../services/fallback-loop');
 const { safeErrorPayload } = require('../lib/error-response');
 const { requireAdminAuth } = require('../middleware/auth');
 
+// SECURITY: ops diagnostics + simulate trigger - no external consumer.
+// Gate the whole router (GET status/bottlenecks/disconnects were open).
+router.use(requireAdminAuth);
+
 // GET /api/fallback/status
 router.get('/status', (req, res) => {
   try {
@@ -43,7 +47,7 @@ router.get('/disconnects', (req, res) => {
 });
 
 // POST /api/fallback/simulate
-router.post('/simulate', requireAdminAuth, (req, res) => {
+router.post('/simulate', (req, res) => {
   try {
     const { provider_id, trigger } = req.body;
     if (!provider_id || !trigger) {
