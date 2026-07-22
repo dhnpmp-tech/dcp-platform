@@ -3,6 +3,10 @@ const router = express.Router();
 const db = require('../db');
 const { requireAdminAuth } = require('../middleware/auth');
 
+// SECURITY: recovery GETs expose provider health/ops state; POST resolve is
+// state-changing. No daemon/frontend consumer - gate the whole router.
+router.use(requireAdminAuth);
+
 // ============================================================================
 // Recovery Orchestrator State Machine
 // Handles: WARNING → RECONNECT → FAILOVER → CRITICAL escalation
@@ -192,7 +196,7 @@ router.get('/status/:provider_id', (req, res) => {
 });
 
 // POST /api/recovery/resolve/:event_id — mark event resolved
-router.post('/resolve/:event_id', requireAdminAuth, (req, res) => {
+router.post('/resolve/:event_id', (req, res) => {
   try {
     const eventId = parseInt(req.params.event_id, 10);
     if (isNaN(eventId)) {
