@@ -140,7 +140,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.8.0"  # ownership gate on live pod container + SIGKILL escalation
+DAEMON_VERSION = "4.8.1"  # ownership gate on live pod container + SIGKILL escalation
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -9774,6 +9774,7 @@ def bootstrap_inference_supervisor() -> None:
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 
+def _startup_miner_sweep():
     """Kill any known mining processes on startup - runs once before main loop."""
     if scan_and_kill_miners is None:
         return
