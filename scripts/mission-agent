@@ -1,0 +1,176 @@
+#!/usr/bin/env node
+// mission-agent — CLI helper for Mission Control local agent sessions.
+// Zero npm dependencies; Node 18+ global fetch only.
+'use strict';
+
+const { parseArgs } = require('./mission-agent-lib');
+
+// ── Config ─────────────────────────────────────────────────────────────────
+const BASE_URL = (process.env.MISSION_BASE_URL || 'https://api.dcp.sa').replace(/\/$/, '');
+const AGENT_KEY = process.env.MISSION_AGENT_KEY || '';
+
+function requireKey() {
+  if (!AGENT_KEY) {
+    process.stderr.write('error: MISSION_AGENT_KEY is not set (exit 2)\n');
+    process.exit(2);
+  }
+}
+
+// ── HTTP helpers ────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  requireKey();
+  const url = `${BASE_URL}/api/mission${path}`;
+  const opts = {
+    method,
+    headers: { 'x-mission-agent-key': AGENT_KEY, 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  if (!res.ok) {
+    process.stderr.write(`error ${res.status}: ${text}\n`);
+    process.exit(1);
+  }
+  // Detect markdown responses (digest, protocol)
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('text/markdown') || ct.startsWith('text/plain')) return text;
+  try { return JSON.parse(text); } catch { return text; }
+}
+
+function mapTask(t) {
+  return { id: t.id, title: t.title, status: t.status, priority: t.priority };
+}
+
+// ── Commands ────────────────────────────────────────────────────────────────
+async function cmdPoll() {
+  // Resolve my identity first (per-agent key → assignee_id)
+  const meData = await api('GET', '/me');
+  const me = meData && meData.assignee && meData.assignee.assignee_id;
+
+  let mine = [];
+  if (me) {
+    const r = await api('GET', `/tasks?assignee=${encodeURIComponent(me)}&status=todo,in_progress`);
+    mine = (r.tasks || []).map(mapTask);
+  }
+  const poolRes = await api('GET', '/tasks?assignee=pool&status=todo');
+  const pool = (poolRes.tasks || []).map(mapTask);
+  process.stdout.write(JSON.stringify({ mine, pool }, null, 2) + '\n');
+}
+
+async function cmdClaim(taskId, flags) {
+  const qs = flags.ttl ? `?ttl_minutes=${flags.ttl}` : '';
+  const data = await api('POST', `/tasks/${taskId}/claim${qs}`);
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdComment(taskId, text) {
+  const data = await api('POST', `/tasks/${taskId}/comments`, { body: text });
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdRenew(taskId, flags) {
+  const qs = flags.ttl ? `?ttl_minutes=${flags.ttl}` : '';
+  const data = await api('POST', `/tasks/${taskId}/renew${qs}`);
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdRelease(taskId, flags) {
+  const data = await api('POST', `/tasks/${taskId}/release`, { reason: flags.reason });
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdReview(taskId, flags) {
+  const body = { status: 'review' };
+  if (flags.pr) body.source_url = flags.pr;
+  const data = await api('PATCH', `/tasks/${taskId}`, body);
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdBlock(taskId, flags) {
+  const data = await api('PATCH', `/tasks/${taskId}`, {
+    status: 'blocked',
+    blocked_reason: flags.reason,
+  });
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdResume(taskId) {
+  const data = await api('PATCH', `/tasks/${taskId}`, { status: 'in_progress' });
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdHeartbeat(flags) {
+  const body = {};
+  if (flags && flags.state) body.state = flags.state;
+  const data = await api('POST', '/heartbeat', body);
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+async function cmdDigest() {
+  const text = await api('GET', '/digest');
+  process.stdout.write(typeof text === 'string' ? text : JSON.stringify(text) + '\n');
+}
+
+async function cmdProtocol() {
+  const text = await api('GET', '/protocol');
+  process.stdout.write(typeof text === 'string' ? text : JSON.stringify(text) + '\n');
+}
+
+function printHelp() {
+  process.stdout.write(`mission-agent — Mission Control CLI helper
+
+Env vars:
+  MISSION_BASE_URL    API base (default: https://api.dcp.sa)
+  MISSION_AGENT_KEY   Required — per-agent x-mission-agent-key
+
+Commands:
+  poll
+  claim <task-id> [--ttl <minutes>]
+  comment <task-id> <text...>
+  renew <task-id> [--ttl <minutes>]
+  release <task-id> --reason <text...>
+  review <task-id> [--pr <url>]
+  block <task-id> --reason <text...>
+  resume <task-id>
+  heartbeat [--state <text>]
+  digest
+  protocol
+  help
+\n`);
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
+async function main() {
+  const parsed = parseArgs(process.argv.slice(2));
+
+  if (parsed.error) {
+    process.stderr.write(`${parsed.error}\n`);
+    printHelp();
+    process.exit(1);
+  }
+
+  switch (parsed.cmd) {
+    case 'poll':      return cmdPoll();
+    case 'claim':     return cmdClaim(parsed.taskId, parsed.flags || {});
+    case 'comment':   return cmdComment(parsed.taskId, parsed.text);
+    case 'renew':     return cmdRenew(parsed.taskId, parsed.flags || {});
+    case 'release':   return cmdRelease(parsed.taskId, parsed.flags || {});
+    case 'review':    return cmdReview(parsed.taskId, parsed.flags || {});
+    case 'block':     return cmdBlock(parsed.taskId, parsed.flags || {});
+    case 'resume':    return cmdResume(parsed.taskId);
+    case 'heartbeat': return cmdHeartbeat(parsed.flags || {});
+    case 'digest':    return cmdDigest();
+    case 'protocol':  return cmdProtocol();
+    case 'help':
+    default:          printHelp(); return;
+  }
+}
+
+if (require.main === module) {
+  main().catch((err) => {
+    process.stderr.write(`fatal: ${err && err.message}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = { main, parseArgs };
