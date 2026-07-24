@@ -141,3 +141,106 @@ describe('mission task routes (claim protocol + filters)', () => {
     expect(res.body.task.assignee_id).toBe('codex');
   });
 });
+
+// ── Scope enforcement route-level tests ───────────────────────────────────
+describe('mission scope enforcement (route-level)', () => {
+  let agentKey;
+  let otherKey;
+
+  beforeAll(() => {
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('codex','Codex','agent',1)`);
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('tito','Tito','agent',1)`);
+    agentKey = keys.issueKey({ assignee_id: 'codex', scopes: 'agent' }).rawKey;
+    otherKey = keys.issueKey({ assignee_id: 'tito', scopes: 'agent' }).rawKey;
+  });
+
+  beforeEach(() => {
+    db.run(`DELETE FROM mission_task_comments WHERE task_id IN (SELECT id FROM mission_tasks WHERE title = 'RT')`);
+    db.run(`DELETE FROM mission_tasks WHERE title = 'RT'`);
+  });
+
+  // (1) agent key POST /tasks → 403 agent_scope_forbidden
+  it('agent scope: POST /tasks → 403 agent_scope_forbidden', async () => {
+    const res = await request(app)
+      .post('/api/mission/tasks')
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ title: 'should not create' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('agent_scope_forbidden');
+  });
+
+  // (2) holder PATCH {source_url} → 200 + persisted
+  it('agent scope: claim holder PATCH {source_url} → 200 + persisted', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: new Date().toISOString(),
+      lease_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .patch(`/api/mission/tasks/${id}`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ source_url: 'https://github.com/dhnpmp-tech/dcp-platform/pull/99' });
+    expect(res.status).toBe(200);
+    expect(res.body.task.source_url).toBe('https://github.com/dhnpmp-tech/dcp-platform/pull/99');
+    const row = db.get(`SELECT source_url FROM mission_tasks WHERE id = ?`, id);
+    expect(row.source_url).toBe('https://github.com/dhnpmp-tech/dcp-platform/pull/99');
+  });
+
+  // (3) holder PATCH {status:'done'} → 403
+  it('agent scope: claim holder PATCH {status:done} → 403 agent_scope_forbidden', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: new Date().toISOString(),
+      lease_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .patch(`/api/mission/tasks/${id}`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ status: 'done' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('agent_scope_forbidden');
+    // Task status must be unchanged
+    expect(db.get(`SELECT status FROM mission_tasks WHERE id = ?`, id).status).toBe('in_progress');
+  });
+
+  // (4) non-holder agent PATCH → 403
+  it('agent scope: non-holder PATCH → 403 agent_scope_forbidden', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: new Date().toISOString(),
+      lease_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .patch(`/api/mission/tasks/${id}`)
+      .set({ 'x-mission-agent-key': otherKey })  // tito, not the holder
+      .send({ status: 'review' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('agent_scope_forbidden');
+  });
+
+  // (5) agent DELETE → 403
+  it('agent scope: DELETE /tasks/:id → 403 agent_scope_forbidden', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: new Date().toISOString(),
+      lease_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .delete(`/api/mission/tasks/${id}`)
+      .set({ 'x-mission-agent-key': agentKey });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('agent_scope_forbidden');
+    // Task must still exist
+    expect(db.get(`SELECT id FROM mission_tasks WHERE id = ?`, id)).toBeTruthy();
+  });
+});

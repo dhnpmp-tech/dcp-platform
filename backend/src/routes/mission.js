@@ -337,6 +337,7 @@ router.get('/tasks', requireAuth, (req, res) => {
 });
 
 router.post('/tasks', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'create_task')) return;
   const title = clean(req.body?.title, 300);
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = newId('task');
@@ -375,6 +376,7 @@ router.post('/tasks', requireWriteAuth, (req, res) => {
 router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
   const existing = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
+  if (!enforceAgentPolicy(req, res, 'patch_task', existing)) return;
   const sets = [];
   const params = [];
   const allow = {
@@ -387,6 +389,7 @@ router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
     goal_id:        { fn: v => clean(v, 100) },
     due_date:       { fn: v => isoOrNull(v) },
     blocked_reason: { fn: v => clean(v, 1000) },
+    source_url:     { fn: v => clean(v, 500) },
   };
   for (const [k, { fn }] of Object.entries(allow)) {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) {
@@ -491,6 +494,7 @@ router.post('/tasks/:id/release', requireWriteAuth, requireAgentIdentity, (req, 
 // the assignee swap happen together — if validation fails neither side
 // runs, so the comment log stays in sync with the task state.
 router.post('/tasks/:id/reassign', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'reassign_task')) return;
   const task = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
   const newAssigneeId = clean(req.body?.new_assignee_id, 100);
@@ -560,6 +564,7 @@ router.post('/tasks/:id/reassign', requireWriteAuth, (req, res) => {
 });
 
 router.delete('/tasks/:id', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'delete_task')) return;
   let r;
   try {
     r = db.run(`DELETE FROM mission_tasks WHERE id = ?`, req.params.id);
@@ -578,6 +583,7 @@ router.delete('/tasks/:id', requireWriteAuth, (req, res) => {
 });
 
 router.post('/tasks/:id/comments', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'comment')) return;
   const task = db.get(`SELECT id FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
   const body = clean(req.body?.body, 8000);
@@ -618,6 +624,7 @@ router.get('/milestones', requireAuth, (req, res) => {
 });
 
 router.post('/milestones', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_milestone')) return;
   const name = clean(req.body?.name, 200);
   if (!name) return res.status(400).json({ error: 'name required' });
   const id = newId('ms');
@@ -635,6 +642,7 @@ router.post('/milestones', requireWriteAuth, (req, res) => {
 });
 
 router.patch('/milestones/:id', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_milestone')) return;
   const existing = db.get(`SELECT * FROM mission_milestones WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
@@ -682,6 +690,7 @@ router.get('/goals', requireAuth, (req, res) => {
 });
 
 router.post('/goals', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_goal')) return;
   const title = clean(req.body?.title, 300);
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = newId('goal');
@@ -699,6 +708,7 @@ router.post('/goals', requireWriteAuth, (req, res) => {
 });
 
 router.patch('/goals/:id', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_goal')) return;
   const existing = db.get(`SELECT * FROM mission_goals WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
@@ -1101,7 +1111,68 @@ function formatAge(ms) {
   return `${d}d`;
 }
 
+// ── Scope enforcement (anti-chaos layer) ──────────────────────────────
+// Callers with a scoped per-agent key (scopes:'agent'|'dispatcher') are
+// limited to a narrow write surface. Admin tokens and the legacy shared
+// env key (assignee_id:null, scopes:'legacy') bypass this gate entirely —
+// no behaviour change for today's callers.
+
+const AGENT_PATCH_FIELDS = new Set(['status', 'blocked_reason', 'source_url']);
+const AGENT_STATUS_TARGETS = new Set(['in_progress', 'blocked', 'review']);
+
+// Pure policy — no I/O. Returns { allowed: boolean, reason?: string }.
+// action values: 'create_task' | 'patch_task' | 'delete_task' |
+//                'reassign_task' | 'write_goal' | 'write_milestone' | 'comment'
+function agentWritePolicy(missionAgent, { action, task = null, body = {} }) {
+  const scope = missionAgent && missionAgent.scopes;
+
+  // Comments are the agents' only coordination channel (spec §8 rule 3) and
+  // are deliberately NOT ownership-gated: a reviewer agent must be able to
+  // comment on another agent's task.
+  if (action === 'comment') return { allowed: true };
+
+  if (action === 'create_task') {
+    if (scope === 'dispatcher') {
+      return body && body.external_id
+        ? { allowed: true }
+        : { allowed: false, reason: 'dispatcher task creation requires external_id' };
+    }
+    return { allowed: false, reason: 'agents may not create tasks' };
+  }
+
+  if (action === 'patch_task') {
+    if (!task || task.claimed_by !== missionAgent.assignee_id) {
+      return { allowed: false, reason: 'not the claim holder' };
+    }
+    for (const field of Object.keys(body || {})) {
+      if (!AGENT_PATCH_FIELDS.has(field)) {
+        return { allowed: false, reason: `field not allowed: ${field}` };
+      }
+    }
+    if (body.status !== undefined && !AGENT_STATUS_TARGETS.has(body.status)) {
+      return { allowed: false, reason: `status not allowed: ${body.status}` };
+    }
+    return { allowed: true };
+  }
+
+  // delete_task, reassign_task, write_goal, write_milestone — denied for all scoped agents
+  return { allowed: false, reason: `action not allowed for agents: ${action}` };
+}
+
+// Gate helper applied at the top of each write route. Returns true when the
+// caller may proceed; false when a 403 has already been sent to the client.
+// Admin tokens and legacy shared key both have assignee_id:null → bypass.
+function enforceAgentPolicy(req, res, action, task = null) {
+  if (!req.missionAgent || !req.missionAgent.assignee_id) return true; // admin / legacy / other auth
+  const verdict = agentWritePolicy(req.missionAgent, { action, task, body: req.body || {} });
+  if (!verdict.allowed) {
+    res.status(403).json({ error: 'agent_scope_forbidden', detail: verdict.reason });
+    return false;
+  }
+  return true;
+}
+
 // Test-only internals — mirrors the pattern used in providers.js
-router.__private = { resolveMissionAgent, addComment, requireAgentIdentity };
+router.__private = { resolveMissionAgent, addComment, requireAgentIdentity, agentWritePolicy };
 
 module.exports = router;
