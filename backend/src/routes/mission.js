@@ -12,6 +12,8 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const db = require('../db');
 const { isAdminRequest } = require('../middleware/auth');
 const missionAgentKeys = require('../lib/missionAgentKeys');
@@ -1172,7 +1174,70 @@ function enforceAgentPolicy(req, res, action, task = null) {
   return true;
 }
 
+// ── Heartbeat ──────────────────────────────────────────────────────────
+// Agents POST here on a regular cadence to surface liveness in the admin
+// UI and /fleet view. last_seen_at + heartbeat_state are stamped atomically
+// via a single UPDATE — no separate read needed.
+
+function recordHeartbeat(assigneeId, state) {
+  db.run(
+    `UPDATE mission_assignees SET last_seen_at = datetime('now'), heartbeat_state = ? WHERE id = ?`,
+    clean(state, 200) || 'idle',
+    assigneeId
+  );
+}
+
+router.post('/heartbeat', requireWriteAuth, requireAgentIdentity, (req, res) => {
+  recordHeartbeat(req.missionAgent.assignee_id, req.body?.state);
+  res.json({ ok: true });
+});
+
+// ── Admin key management ───────────────────────────────────────────────
+// All three endpoints require the DC1_ADMIN_TOKEN (x-admin-token header).
+// Per-agent keys are deliberately excluded — they operate on tasks, not
+// on the key management surface.
+
+router.get('/agent-keys', requireAuth, (req, res) => {
+  if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
+  res.json({ keys: missionAgentKeys.listKeys() });
+});
+
+router.post('/agent-keys', requireAuth, (req, res) => {
+  if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
+  try {
+    const { id, rawKey } = missionAgentKeys.issueKey({
+      assignee_id: clean(req.body?.assignee_id, 100),
+      label:       clean(req.body?.label, 200),
+      scopes:      clean(req.body?.scopes, 50) || 'agent',
+    });
+    res.status(201).json({ id, key: rawKey, note: 'shown once — store it now' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/agent-keys/:id', requireAuth, (req, res) => {
+  if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
+  missionAgentKeys.revokeKey(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Agent protocol doc ─────────────────────────────────────────────────
+// Self-briefing document every agent reads at session start. Served as
+// text/markdown so agents can ingest it without JSON unwrapping.
+// Path: dc1-platform/docs/orchestration/AGENT_PROTOCOL.md
+// __dirname = backend/src/routes → ../../../ = repo root.
+
+router.get('/protocol', requireAuth, (_req, res) => {
+  const p = path.join(__dirname, '../../../docs/orchestration/AGENT_PROTOCOL.md');
+  try {
+    res.type('text/markdown').send(fs.readFileSync(p, 'utf8'));
+  } catch {
+    res.status(404).json({ error: 'protocol doc missing' });
+  }
+});
+
 // Test-only internals — mirrors the pattern used in providers.js
-router.__private = { resolveMissionAgent, addComment, requireAgentIdentity, agentWritePolicy };
+router.__private = { resolveMissionAgent, addComment, requireAgentIdentity, agentWritePolicy, recordHeartbeat };
 
 module.exports = router;
