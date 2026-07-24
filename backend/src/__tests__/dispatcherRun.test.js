@@ -10,7 +10,7 @@
  *   NODE_ENV=test npx jest src/__tests__/dispatcherRun.test.js --runInBand --forceExit
  */
 
-const { tick } = require('../dispatcher/run');
+const { tick, normalizeState } = require('../dispatcher/run');
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -426,5 +426,199 @@ describe('tick: cursor and ledger lifecycle', () => {
     // saveState must be called with the same state object (mutated in place)
     expect(deps.saveState).toHaveBeenCalledWith(deps.state);
     expect(deps.saveState).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. normalizeState — state shape validation / coercion (Fix #2)
+// ---------------------------------------------------------------------------
+
+describe('normalizeState', () => {
+  it('returns defaults when raw is null', () => {
+    const result = normalizeState(null);
+    expect(result).toEqual({ ledger: {}, lastCursor: null, lastDigestDate: null });
+  });
+
+  it('returns defaults when raw is a non-object primitive (number)', () => {
+    const result = normalizeState(42);
+    expect(result).toEqual({ ledger: {}, lastCursor: null, lastDigestDate: null });
+  });
+
+  it('returns defaults when raw is a string', () => {
+    const result = normalizeState('bad');
+    expect(result).toEqual({ ledger: {}, lastCursor: null, lastDigestDate: null });
+  });
+
+  it('coerces ledger to {} when it is not a plain object', () => {
+    const result = normalizeState({ ledger: 7, lastCursor: null, lastDigestDate: null });
+    expect(result.ledger).toEqual({});
+  });
+
+  it('coerces lastCursor to null when it is not a string', () => {
+    const result = normalizeState({ ledger: {}, lastCursor: 123, lastDigestDate: null });
+    expect(result.lastCursor).toBeNull();
+  });
+
+  it('coerces lastDigestDate to null when it is not a string', () => {
+    const result = normalizeState({ ledger: {}, lastCursor: null, lastDigestDate: true });
+    expect(result.lastDigestDate).toBeNull();
+  });
+
+  it('preserves valid string fields', () => {
+    const result = normalizeState({ ledger: {}, lastCursor: '2026-07-24T10:00:00Z', lastDigestDate: '2026-07-24' });
+    expect(result.lastCursor).toBe('2026-07-24T10:00:00Z');
+    expect(result.lastDigestDate).toBe('2026-07-24');
+  });
+
+  it('preserves valid ledger object', () => {
+    const ledger = { 'task_x': '2026-07-24T10:00:00Z' };
+    const result = normalizeState({ ledger, lastCursor: null, lastDigestDate: null });
+    expect(result.ledger).toEqual(ledger);
+  });
+
+  it('tick runs fine when state file contains null (via normalizeState coercion)', async () => {
+    // Simulates loadState reading `null` JSON — normalizeState should coerce to defaults
+    const coerced = normalizeState(null);
+    const deps = makeDeps({ state: coerced });
+    await expect(tick(deps)).resolves.not.toThrow();
+    expect(deps.saveState).toHaveBeenCalled();
+  });
+
+  it('tick runs fine when state file contains {"ledger": 7}', async () => {
+    const coerced = normalizeState({ ledger: 7 });
+    const deps = makeDeps({ state: coerced });
+    await expect(tick(deps)).resolves.not.toThrow();
+    expect(deps.saveState).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. fetch timeout — signal option passed to fetchImpl (Fix #3)
+// ---------------------------------------------------------------------------
+
+describe('MissionClient: fetch timeout', () => {
+  it('passes a signal option to fetchImpl on getTasks', async () => {
+    const { MissionClient } = require('../dispatcher/client');
+
+    let capturedOpts;
+    const mockFetch = jest.fn().mockImplementation((url, opts) => {
+      capturedOpts = opts;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ tasks: [] }),
+      });
+    });
+
+    const client = new MissionClient({ baseUrl: 'http://localhost', agentKey: 'test', fetchImpl: mockFetch });
+    await client.getTasks();
+
+    expect(capturedOpts).toBeDefined();
+    expect(capturedOpts.signal).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. Dry-run purity — no network calls in dry-run for create_repair_task (Fix #5)
+// ---------------------------------------------------------------------------
+
+describe('tick: dry-run create_repair_task purity', () => {
+  it('does NOT call getTaskByExternalId in dry-run mode', async () => {
+    const fleetWithOffline = {
+      online: [], stale: [], paused: [],
+      unreachable: [{ id: 'p9', name: 'GPU-9', last_heartbeat_age_seconds: 1800 }],
+      offline_recent: [],
+      counts: { online: 0, stale: 0 },
+    };
+    const deps = makeDeps({
+      client: {
+        ...makeDeps().client,
+        getTasks: jest.fn().mockResolvedValue([]),
+        getFleet: jest.fn().mockResolvedValue(fleetWithOffline),
+        getTaskByExternalId: jest.fn().mockResolvedValue(null),
+      },
+      dryRun: true,
+    });
+
+    await tick(deps);
+
+    expect(deps.client.getTaskByExternalId).not.toHaveBeenCalled();
+    expect(deps.client.createRepairTask).not.toHaveBeenCalled();
+  });
+
+  it('logs would-create message in dry-run', async () => {
+    const fleetWithOffline = {
+      online: [], stale: [], paused: [],
+      unreachable: [{ id: 'p99', name: 'GPU-99', last_heartbeat_age_seconds: 1800 }],
+      offline_recent: [],
+      counts: { online: 0, stale: 0 },
+    };
+    const deps = makeDeps({
+      client: {
+        ...makeDeps().client,
+        getTasks: jest.fn().mockResolvedValue([]),
+        getFleet: jest.fn().mockResolvedValue(fleetWithOffline),
+      },
+      dryRun: true,
+    });
+
+    await tick(deps);
+
+    const logCalls = deps.log.mock.calls.flat().join(' ');
+    expect(logCalls).toMatch(/dry.run/i);
+    expect(logCalls).toMatch(/provider:p99:unreachable/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Error-path coverage: getTasks rejects → tick resolves, saveState called (Fix #6i)
+// ---------------------------------------------------------------------------
+
+describe('tick: getTasks rejects', () => {
+  it('resolves even when client.getTasks rejects', async () => {
+    const deps = makeDeps({
+      client: {
+        ...makeDeps().client,
+        getTasks: jest.fn().mockRejectedValue(new Error('connection refused')),
+      },
+    });
+
+    await expect(tick(deps)).resolves.not.toThrow();
+  });
+
+  it('calls saveState even when getTasks rejects', async () => {
+    const deps = makeDeps({
+      client: {
+        ...makeDeps().client,
+        getTasks: jest.fn().mockRejectedValue(new Error('connection refused')),
+      },
+    });
+
+    await tick(deps);
+
+    expect(deps.saveState).toHaveBeenCalledWith(deps.state);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. Dry-run digest — notifier.sendTeam NOT called, client.getDigest NOT called (Fix #6ii)
+// ---------------------------------------------------------------------------
+
+describe('tick: dry-run digest', () => {
+  it('does NOT call notifier.sendTeam on a digest day in dry-run', async () => {
+    // NOW is 2026-07-24T10:00:00Z = 14:00 Dubai — digest should be due
+    const deps = makeDeps({ dryRun: true });
+    expect(deps.state.lastDigestDate).toBeNull();
+
+    await tick(deps);
+
+    expect(deps.notifier.sendTeam).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call client.getDigest on a digest day in dry-run', async () => {
+    const deps = makeDeps({ dryRun: true });
+
+    await tick(deps);
+
+    expect(deps.client.getDigest).not.toHaveBeenCalled();
   });
 });

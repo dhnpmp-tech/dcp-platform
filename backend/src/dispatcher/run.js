@@ -233,14 +233,14 @@ async function executeAction(action, { client, notifier, state, now, dryRun, log
     }
 
     case 'create_repair_task': {
+      if (dryRun) {
+        log(`[dry-run] would create repair task ${action.externalId} (if absent)`);
+        return;
+      }
       // Double-check: do not create if a task with this external_id already exists.
       const existing = await client.getTaskByExternalId(action.externalId);
       if (existing) {
         log(`[dispatcher] repair task already exists for ${action.externalId} (${existing.id}), skipping`);
-        return;
-      }
-      if (dryRun) {
-        log(`[dry-run] would create_repair_task: ${action.title} (${action.externalId})`);
         return;
       }
       const created = await client.createRepairTask({
@@ -258,10 +258,38 @@ async function executeAction(action, { client, notifier, state, now, dryRun, log
 }
 
 // ---------------------------------------------------------------------------
+// State shape normalisation
+// ---------------------------------------------------------------------------
+
+/**
+ * Coerce a raw parsed JSON value into a valid dispatcher state object.
+ *
+ * Handles corrupt/null state files gracefully:
+ *   - `null`              → full defaults
+ *   - non-object          → full defaults
+ *   - `{ ledger: 7 }`    → ledger coerced to {}
+ *   - bad lastCursor type → null
+ *   - bad lastDigestDate  → null
+ *
+ * @param {unknown} raw
+ * @returns {{ ledger: object, lastCursor: string|null, lastDigestDate: string|null }}
+ */
+function normalizeState(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ledger: {}, lastCursor: null, lastDigestDate: null };
+  }
+  return {
+    ledger:         (raw.ledger !== null && typeof raw.ledger === 'object' && !Array.isArray(raw.ledger)) ? raw.ledger : {},
+    lastCursor:     typeof raw.lastCursor === 'string' ? raw.lastCursor : null,
+    lastDigestDate: typeof raw.lastDigestDate === 'string' ? raw.lastDigestDate : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
-module.exports = { tick };
+module.exports = { tick, normalizeState };
 
 // ---------------------------------------------------------------------------
 // Main-module block — only runs when executed directly (node dispatcher/run.js)
@@ -287,30 +315,45 @@ if (require.main === module) {
 
   function loadState() {
     try {
-      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+      const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+      return normalizeState(raw);
     } catch {
       return { ledger: {}, lastCursor: null, lastDigestDate: null };
     }
   }
 
   function saveState(state) {
+    const tmp = `${STATE_FILE}.tmp`;
     try {
-      fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+      fs.writeFileSync(tmp, JSON.stringify(state, null, 2), 'utf8');
+      fs.renameSync(tmp, STATE_FILE);
     } catch (err) {
       console.error('[dispatcher] failed to save state:', err && err.message);
     }
   }
 
+  // Re-entrancy guard: skip interval tick if the previous one is still running.
+  let ticking = false;
+
   async function runTick() {
-    const state = loadState();
-    await tick({
-      client,
-      notifier,
-      state,
-      saveState,
-      dryRun: DRY_RUN,
-      log: (...args) => console.log(...args),
-    });
+    if (ticking) {
+      console.log('[tick] previous tick still running, skipping');
+      return;
+    }
+    ticking = true;
+    try {
+      const state = loadState();
+      await tick({
+        client,
+        notifier,
+        state,
+        saveState,
+        dryRun: DRY_RUN,
+        log: (...args) => console.log(...args),
+      });
+    } finally {
+      ticking = false;
+    }
   }
 
   const once = process.argv.includes('--once');
@@ -323,6 +366,8 @@ if (require.main === module) {
   } else {
     console.log(`[dispatcher] starting (interval=${INTERVAL_MS}ms, dryRun=${DRY_RUN}, base=${MISSION_BASE_URL})`);
     runTick(); // immediate first run
-    setInterval(runTick, INTERVAL_MS);
+    setInterval(() => {
+      runTick().catch((err) => console.log('[tick] failed', err && err.message));
+    }, INTERVAL_MS);
   }
 }

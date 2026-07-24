@@ -17,14 +17,16 @@
 class MissionClient {
   /**
    * @param {object} opts
-   * @param {string} opts.baseUrl    — e.g. 'http://127.0.0.1:8083'
-   * @param {string} opts.agentKey  — value for x-mission-agent-key header
-   * @param {Function} [opts.fetchImpl] — injectable fetch (default: global fetch)
+   * @param {string}   opts.baseUrl      — e.g. 'http://127.0.0.1:8083'
+   * @param {string}   opts.agentKey     — value for x-mission-agent-key header
+   * @param {Function} [opts.fetchImpl]  — injectable fetch (default: global fetch)
+   * @param {number}   [opts.timeoutMs]  — per-request timeout in ms (default: 30 000)
    */
-  constructor({ baseUrl, agentKey, fetchImpl = fetch }) {
+  constructor({ baseUrl, agentKey, fetchImpl = fetch, timeoutMs = 30_000 }) {
     this._base = baseUrl.replace(/\/$/, '');
     this._key = agentKey;
     this._fetch = fetchImpl;
+    this._timeoutMs = timeoutMs;
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────
@@ -34,6 +36,11 @@ class MissionClient {
       'x-mission-agent-key': this._key,
       ...extra,
     };
+  }
+
+  /** Return a fresh AbortSignal that times out after this._timeoutMs. */
+  _signal() {
+    return AbortSignal.timeout(this._timeoutMs);
   }
 
   /**
@@ -64,6 +71,7 @@ class MissionClient {
     const res = await this._fetch(url, {
       method: 'GET',
       headers: this._headers(),
+      signal: this._signal(),
     });
     if (!res.ok) this._throwForStatus(res, 'GET /api/mission/tasks');
     const body = await res.json();
@@ -90,6 +98,7 @@ class MissionClient {
     const res = await this._fetch(`${this._base}/api/mission/tasks/${taskId}/reset-lease`, {
       method: 'POST',
       headers: this._headers(),
+      signal: this._signal(),
     });
     if (res.status === 409) return { ok: false, skipped: true };
     if (!res.ok) this._throwForStatus(res, route);
@@ -113,6 +122,7 @@ class MissionClient {
         source: 'dispatcher',
         priority: 'p1',
       }),
+      signal: this._signal(),
     });
     if (!res.ok) this._throwForStatus(res, route);
     const body = await res.json();
@@ -128,6 +138,7 @@ class MissionClient {
     const res = await this._fetch(`${this._base}/api/mission/digest`, {
       method: 'GET',
       headers: this._headers(),
+      signal: this._signal(),
     });
     if (!res.ok) this._throwForStatus(res, route);
     return res.text();
@@ -143,6 +154,7 @@ class MissionClient {
     const res = await this._fetch(`${this._base}/api/mission/fleet`, {
       method: 'GET',
       headers: this._headers(),
+      signal: this._signal(),
     });
     if (!res.ok) this._throwForStatus(res, route);
     return res.json();
