@@ -14,6 +14,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
 const { isAdminRequest } = require('../middleware/auth');
+const missionAgentKeys = require('../lib/missionAgentKeys');
 
 // ── Auth helpers ───────────────────────────────────────────────────────
 // Reads: lightweight — any valid renter key OR admin token. We treat
@@ -49,8 +50,40 @@ function timingSafeEqualString(left, right) {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+// Resolve the caller's agent identity. Per-agent DB key wins; the legacy
+// shared env key still authenticates (scopes:'legacy', no identity) until
+// rollout retires it. Returns { assignee_id, scopes, key_id? } | null.
+//
+// Memoization strategy: result is cached on req._missionAgent (set once per
+// request) so that isAuthed → isMissionAgentRequest and the subsequent
+// requireWriteAuth call don't each stamp last_used_at separately. The cache
+// is keyed to the request object itself, so it's naturally scoped to one
+// in-flight request with zero global state.
+function resolveMissionAgent(req, { legacyKey = MISSION_AGENT_KEY } = {}) {
+  if (req && Object.prototype.hasOwnProperty.call(req, '_missionAgent')) {
+    return req._missionAgent;
+  }
+  const raw = req && req.headers && req.headers['x-mission-agent-key'];
+  if (!raw) {
+    if (req) req._missionAgent = null;
+    return null;
+  }
+  const resolved = missionAgentKeys.resolveKey(raw);
+  if (resolved) {
+    if (req) req._missionAgent = resolved;
+    return resolved;
+  }
+  if (legacyKey && timingSafeEqualString(raw, legacyKey)) {
+    const legacy = { assignee_id: null, scopes: 'legacy' };
+    if (req) req._missionAgent = legacy;
+    return legacy;
+  }
+  if (req) req._missionAgent = null;
+  return null;
+}
+
 function isMissionAgentRequest(req) {
-  return Boolean(MISSION_AGENT_KEY && timingSafeEqualString(req.headers['x-mission-agent-key'], MISSION_AGENT_KEY));
+  return Boolean(resolveMissionAgent(req));
 }
 
 function isAuthed(req) {
@@ -91,18 +124,22 @@ function isAuthed(req) {
       }
     }
   }
-  // Dedicated agent key (off unless MISSION_AGENT_KEY env is set)
+  // Dedicated agent key (per-agent DB key or legacy shared env key)
   if (isMissionAgentRequest(req)) return true;
   return false;
 }
 
 function requireAuth(req, res, next) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
+  // Attach resolved agent identity for downstream handlers (e.g. /me).
+  // resolveMissionAgent is memoized on req._missionAgent so this is free.
+  req.missionAgent = resolveMissionAgent(req) || null;
   next();
 }
 
 function requireWriteAuth(req, res, next) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
+  req.missionAgent = resolveMissionAgent(req) || null;
   if (!strictMissionWritesEnabled()) return next();
   if (isAdminRequest(req) || isMissionAgentRequest(req)) return next();
   return res.status(403).json({
@@ -160,7 +197,16 @@ router.get('/me', requireAuth, (req, res) => {
     );
     return res.json({ assignee: row || null });
   }
-  // 2) Provider key → look up provider, match by lowercased name OR
+  // 2) Per-agent DB key → look up assignee directly by id.
+  if (req.missionAgent && req.missionAgent.assignee_id) {
+    const row = db.get(
+      `SELECT id AS assignee_id, display_name, kind
+       FROM mission_assignees WHERE id = ? AND active = 1`,
+      req.missionAgent.assignee_id
+    );
+    return res.json({ assignee: row || null });
+  }
+  // 3) Provider key → look up provider, match by lowercased name OR
   //    external_id against mission_assignees.
   const providerKey = req.headers['x-provider-key'];
   if (providerKey) {
@@ -184,7 +230,7 @@ router.get('/me', requireAuth, (req, res) => {
       }
     } catch (_) { /* providers table column may differ */ }
   }
-  // 3) Renter key → look up renter, match by email/name against assignees.
+  // 4) Renter key → look up renter, match by email/name against assignees.
   const renterKey = req.headers['x-renter-key'] || req.query.key;
   if (renterKey) {
     try {
@@ -209,7 +255,7 @@ router.get('/me', requireAuth, (req, res) => {
       }
     } catch (_) { /* renter_api_keys may not exist in some env */ }
   }
-  // 4) No mapping — frontend falls back to anonymous author.
+  // 5) No mapping — frontend falls back to anonymous author.
   res.json({ assignee: null });
 });
 
@@ -990,5 +1036,8 @@ function formatAge(ms) {
   const d = Math.round(h / 24);
   return `${d}d`;
 }
+
+// Test-only internals — mirrors the pattern used in providers.js
+router.__private = { resolveMissionAgent };
 
 module.exports = router;
