@@ -142,6 +142,97 @@ describe('mission task routes (claim protocol + filters)', () => {
   });
 });
 
+// ── Dispatcher lease-reset tests ──────────────────────────────────────────
+describe('dispatcher lease-reset endpoint', () => {
+  let agentKey;
+  let dispatcherKey;
+
+  beforeAll(() => {
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('codex','Codex','agent',1)`);
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('dispatcher','Dispatcher','agent',1)`);
+    agentKey = keys.issueKey({ assignee_id: 'codex', scopes: 'agent' }).rawKey;
+    dispatcherKey = keys.issueKey({ assignee_id: 'dispatcher', scopes: 'dispatcher' }).rawKey;
+  });
+
+  beforeEach(() => {
+    db.run(`DELETE FROM mission_task_comments WHERE task_id IN (SELECT id FROM mission_tasks WHERE title = 'RT')`);
+    db.run(`DELETE FROM mission_tasks WHERE title = 'RT'`);
+  });
+
+  // (1) expired lease → 200, task back to todo, fields NULL, auto-comment
+  it('dispatcher + expired lease → 200, task reset to todo + auto-comment', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: '2026-01-01T00:00:00.000Z',
+      lease_expires_at: '2026-01-01T01:00:00.000Z', // expired
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/reset-lease`)
+      .set({ 'x-mission-agent-key': dispatcherKey });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    const row = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, id);
+    expect(row.status).toBe('todo');
+    expect(row.claimed_by).toBeNull();
+    expect(row.claimed_at).toBeNull();
+    expect(row.lease_expires_at).toBeNull();
+    expect(row.assignee_id).toBeNull();
+    const cmt = db.get(
+      `SELECT * FROM mission_task_comments WHERE task_id = ? AND kind = 'lease_expired'`, id
+    );
+    expect(cmt).toBeTruthy();
+    expect(cmt.body).toMatch(/lease expired \(was codex\)/);
+  });
+
+  // (2) live (unexpired) lease → 409 lease_not_expired
+  it('dispatcher + live lease → 409 lease_not_expired', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: new Date().toISOString(),
+      lease_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min from now
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/reset-lease`)
+      .set({ 'x-mission-agent-key': dispatcherKey });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('lease_not_expired');
+    // Task must be untouched
+    const row = db.get(`SELECT status FROM mission_tasks WHERE id = ?`, id);
+    expect(row.status).toBe('in_progress');
+  });
+
+  // (3) agent-scoped key → 403 dispatcher_only
+  it('agent-scoped key → 403 dispatcher_only', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: '2026-01-01T00:00:00.000Z',
+      lease_expires_at: '2026-01-01T01:00:00.000Z',
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/reset-lease`)
+      .set({ 'x-mission-agent-key': agentKey });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('dispatcher_only');
+  });
+
+  // (4) unknown task → 404
+  it('unknown task → 404', async () => {
+    const res = await request(app)
+      .post('/api/mission/tasks/task_nonexistent/reset-lease')
+      .set({ 'x-mission-agent-key': dispatcherKey });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('not_found');
+  });
+});
+
 // ── Scope enforcement route-level tests ───────────────────────────────────
 describe('mission scope enforcement (route-level)', () => {
   let agentKey;

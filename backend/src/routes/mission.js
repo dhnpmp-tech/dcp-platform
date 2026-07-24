@@ -493,6 +493,27 @@ router.post('/tasks/:id/release', missionClaimLimiter, requireWriteAuth, require
   res.json({ ok: true });
 });
 
+// Dispatcher-only: reset an expired lease back to the pool. Only fires when
+// the lease has actually expired — if the holder still has a live claim we
+// return 409 so the dispatcher never silently evicts an active agent.
+router.post('/tasks/:id/reset-lease', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
+  if (req.missionAgent.scopes !== 'dispatcher') return res.status(403).json({ error: 'dispatcher_only' });
+  const t = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
+  if (!t) return res.status(404).json({ error: 'not_found' });
+  const info = db.run(
+    `UPDATE mission_tasks
+     SET status = 'todo', claimed_by = NULL, claimed_at = NULL, lease_expires_at = NULL,
+         assignee_id = NULL, updated_at = datetime('now')
+     WHERE id = ? AND status IN ('in_progress','blocked')
+       AND lease_expires_at IS NOT NULL AND lease_expires_at < ?`,
+    req.params.id, new Date().toISOString()
+  );
+  if (!info || info.changes !== 1) return res.status(409).json({ error: 'lease_not_expired' });
+  try { addComment(req.params.id, req.missionAgent.assignee_id, `lease expired (was ${t.claimed_by})`, 'lease_expired'); }
+  catch (err) { console.error('[mission] lease-reset comment failed', { taskId: req.params.id, message: err && err.message }); }
+  res.json({ ok: true });
+});
+
 // Reassign with mandatory rationale. Insertion of the explanatory comment +
 // the assignee swap happen together — if validation fails neither side
 // runs, so the comment log stays in sync with the task state.
