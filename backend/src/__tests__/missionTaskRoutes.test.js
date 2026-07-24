@@ -142,6 +142,90 @@ describe('mission task routes (claim protocol + filters)', () => {
   });
 });
 
+// ── Assignees enrichment (heartbeat + current claim) ──────────────────────
+describe('GET /assignees enrichment (heartbeat + current claim)', () => {
+  beforeAll(() => {
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('codex','Codex','agent',1)`);
+  });
+
+  beforeEach(() => {
+    db.run(`DELETE FROM mission_task_comments WHERE task_id IN (SELECT id FROM mission_tasks WHERE title = 'RT')`);
+    db.run(`DELETE FROM mission_tasks WHERE title = 'RT'`);
+    db.run(`UPDATE mission_assignees SET last_seen_at = NULL, heartbeat_state = NULL WHERE id = 'codex'`);
+  });
+
+  it('returns heartbeat fields + current claim for a claimed assignee', async () => {
+    db.run(`UPDATE mission_assignees
+            SET last_seen_at = '2026-07-24T10:00:00.000Z', heartbeat_state = 'working on RT'
+            WHERE id = 'codex'`);
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: '2026-07-24T10:00:00.000Z',
+      lease_expires_at: '2026-07-24T14:00:00.000Z',
+      assignee_id: 'codex',
+    });
+    const res = await request(app).get('/api/mission/assignees').set(LEGACY);
+    expect(res.status).toBe(200);
+    const row = res.body.assignees.find((a) => a.id === 'codex');
+    expect(row).toBeTruthy();
+    expect(row.last_seen_at).toBe('2026-07-24T10:00:00.000Z');
+    expect(row.heartbeat_state).toBe('working on RT');
+    expect(row.claim_task_id).toBe(id);
+    expect(row.claim_task_title).toBe('RT');
+    expect(row.claim_task_status).toBe('in_progress');
+    expect(row.claim_lease_expires_at).toBe('2026-07-24T14:00:00.000Z');
+  });
+
+  it('returns null claim fields for an assignee without a claim', async () => {
+    const res = await request(app).get('/api/mission/assignees').set(LEGACY);
+    expect(res.status).toBe(200);
+    const row = res.body.assignees.find((a) => a.id === 'codex');
+    expect(row).toBeTruthy();
+    expect(row.last_seen_at).toBeNull();
+    expect(row.heartbeat_state).toBeNull();
+    expect(row.claim_task_id).toBeNull();
+    expect(row.claim_task_title).toBeNull();
+    expect(row.claim_task_status).toBeNull();
+    expect(row.claim_lease_expires_at).toBeNull();
+  });
+
+  it('takes the newest claimed_at when multiple leases exist (defensive)', async () => {
+    seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: '2026-07-24T08:00:00.000Z',
+      lease_expires_at: '2026-07-24T12:00:00.000Z',
+      assignee_id: 'codex',
+    });
+    const newest = seedTask({
+      status: 'blocked',
+      claimed_by: 'codex',
+      claimed_at: '2026-07-24T11:00:00.000Z',
+      lease_expires_at: '2026-07-24T15:00:00.000Z',
+      assignee_id: 'codex',
+    });
+    const res = await request(app).get('/api/mission/assignees').set(LEGACY);
+    expect(res.status).toBe(200);
+    const row = res.body.assignees.find((a) => a.id === 'codex');
+    expect(row.claim_task_id).toBe(newest);
+    expect(row.claim_task_status).toBe('blocked');
+  });
+
+  it('ignores done tasks that still carry claimed_by', async () => {
+    seedTask({
+      status: 'done',
+      claimed_by: 'codex',
+      claimed_at: '2026-07-24T08:00:00.000Z',
+      assignee_id: 'codex',
+    });
+    const res = await request(app).get('/api/mission/assignees').set(LEGACY);
+    const row = res.body.assignees.find((a) => a.id === 'codex');
+    expect(row.claim_task_id).toBeNull();
+  });
+});
+
 // ── Dispatcher lease-reset tests ──────────────────────────────────────────
 describe('dispatcher lease-reset endpoint', () => {
   let agentKey;

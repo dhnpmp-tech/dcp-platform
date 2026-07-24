@@ -500,6 +500,22 @@ interface MissionAssignee {
   display_name?: string
   kind?: MissionAssigneeKind | string
   active?: number
+  last_seen_at?: string | null
+  heartbeat_state?: string | null
+  claim_task_id?: string | null
+  claim_task_title?: string | null
+  claim_task_status?: string | null
+  claim_lease_expires_at?: string | null
+}
+
+interface MissionAgentKey {
+  id?: string
+  assignee_id?: string | null
+  label?: string | null
+  scopes?: string | null
+  active?: number
+  created_at?: string | null
+  last_used_at?: string | null
 }
 
 interface MissionTask {
@@ -546,6 +562,10 @@ interface MissionTasksPayload {
 
 interface MissionAssigneesPayload {
   assignees?: MissionAssignee[]
+}
+
+interface MissionAgentKeysPayload {
+  keys?: MissionAgentKey[]
 }
 
 interface MissionGoalsPayload {
@@ -1880,6 +1900,39 @@ function missionStatusLabel(status: string | undefined | null): string {
   return status ? status.replace(/_/g, ' ') : 'unknown'
 }
 
+// Heartbeat thresholds for the agents strip: fresh within 10 minutes,
+// idle within the hour, dark beyond that.
+const AGENT_SEEN_FRESH_MS = 10 * 60 * 1000
+const AGENT_SEEN_IDLE_MS = 60 * 60 * 1000
+
+type AgentSeenState = 'fresh' | 'idle' | 'dark' | 'never'
+
+// SQLite's datetime('now') emits "YYYY-MM-DD HH:MM:SS" in UTC without a
+// zone marker — Date.parse would read that as local time, so normalize.
+function parseUtcTimestamp(value: string | null | undefined): number | null {
+  if (!value) return null
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(' ', 'T')}Z`
+    : value
+  const ts = Date.parse(normalized)
+  return Number.isFinite(ts) ? ts : null
+}
+
+function agentSeenState(lastSeenAt: string | null | undefined): AgentSeenState {
+  const ts = parseUtcTimestamp(lastSeenAt)
+  if (ts === null) return 'never'
+  const age = Date.now() - ts
+  if (age <= AGENT_SEEN_FRESH_MS) return 'fresh'
+  if (age <= AGENT_SEEN_IDLE_MS) return 'idle'
+  return 'dark'
+}
+
+function agentLastSeenLabel(lastSeenAt: string | null | undefined): string {
+  const ts = parseUtcTimestamp(lastSeenAt)
+  if (ts === null) return 'never'
+  return `${formatAgeSeconds(Math.max(0, (Date.now() - ts) / 1000))} ago`
+}
+
 function missionPriorityRank(priority: string | undefined | null): number {
   if (priority === 'p0') return 0
   if (priority === 'p1') return 1
@@ -2634,6 +2687,8 @@ export default function V2AdminPage() {
   const [missionOverview, setMissionOverview] = useState<MissionOverviewPayload | null>(null)
   const [missionTasks, setMissionTasks] = useState<MissionTask[]>([])
   const [missionAssignees, setMissionAssignees] = useState<MissionAssignee[]>([])
+  // null = admin-only agent-keys fetch unavailable (403 / error) → hide key badges.
+  const [missionAgentKeys, setMissionAgentKeys] = useState<MissionAgentKey[] | null>(null)
   const [missionGoals, setMissionGoals] = useState<MissionGoal[]>([])
   const [missionPulse, setMissionPulse] = useState<MissionPulsePayload | null>(null)
   const [accessPolicy, setAccessPolicy] = useState<AccessPolicyPayload | null>(null)
@@ -2702,6 +2757,7 @@ export default function V2AdminPage() {
         missionOverviewRes,
         missionTasksRes,
         missionAssigneesRes,
+        missionAgentKeysRes,
         missionGoalsRes,
         missionPulseRes,
         accessPolicyRes,
@@ -2734,6 +2790,7 @@ export default function V2AdminPage() {
         fetchJson<MissionOverviewPayload>('/mission/overview', token),
         fetchJson<MissionTasksPayload>('/mission/tasks?status=todo,in_progress,blocked,review', token),
         fetchJson<MissionAssigneesPayload>('/mission/assignees', token),
+        fetchJson<MissionAgentKeysPayload>('/mission/agent-keys', token),
         fetchJson<MissionGoalsPayload>('/mission/goals', token),
         fetchJson<MissionPulsePayload>('/mission/pulse?hours=24', token),
         fetchJson<AccessPolicyPayload>('/admin/access/policy', token),
@@ -2767,6 +2824,7 @@ export default function V2AdminPage() {
       setMissionOverview(missionOverviewRes)
       setMissionTasks(missionTaskRows(missionTasksRes))
       setMissionAssignees(missionAssigneeRows(missionAssigneesRes))
+      setMissionAgentKeys(Array.isArray(missionAgentKeysRes?.keys) ? missionAgentKeysRes.keys : null)
       setMissionGoals(missionGoalRows(missionGoalsRes))
       setMissionPulse(missionPulseRes)
       setAccessPolicy(accessPolicyRes)
@@ -3185,6 +3243,14 @@ export default function V2AdminPage() {
     : missionGoals.filter((goal) => goal.status === 'active').slice(0, 6)
   const humanAssignees = missionAssignees.filter((assignee) => assignee.kind === 'human')
   const agentAssignees = missionAssignees.filter((assignee) => assignee.kind === 'agent')
+  const agentKeyOwners = useMemo(() => {
+    if (!missionAgentKeys) return null
+    return new Set(
+      missionAgentKeys
+        .filter((key) => Number(key.active) === 1 && key.assignee_id)
+        .map((key) => String(key.assignee_id)),
+    )
+  }, [missionAgentKeys])
   const missionTaskPreview = [...missionTasks]
     .sort((a, b) => {
       const byStatus = missionStatusRank(a.status) - missionStatusRank(b.status)
@@ -5309,6 +5375,51 @@ export default function V2AdminPage() {
                   <strong>{numFmt.format(humanAssignees.length)} / {numFmt.format(agentAssignees.length)}</strong>
                 </div>
               </div>
+
+              {agentAssignees.length > 0 && (
+                <div className="mission-agent-strip" aria-label="Agent liveness, claims, and key status">
+                  <div className="mission-panel-head">
+                    <span><Bi en="Agents" ar="الوكلاء" /></span>
+                    <em><Bi en="heartbeat · claims · keys" ar="نبض · مطالبات · مفاتيح" /></em>
+                  </div>
+                  <div className="mission-agent-cards">
+                    {agentAssignees.map((assignee) => {
+                      const seenState = agentSeenState(assignee.last_seen_at)
+                      const hasKey = agentKeyOwners ? agentKeyOwners.has(String(assignee.id || '')) : null
+                      return (
+                        <article key={assignee.id || assignee.display_name || 'agent'} className="mission-agent-card">
+                          <div className="mission-agent-head">
+                            <i className={`mission-agent-dot ${seenState}`} aria-hidden="true" />
+                            <strong>{assignee.display_name || assignee.id || 'Agent'}</strong>
+                            {hasKey !== null && (
+                              <b className={hasKey ? 'key-ok' : 'key-missing'}>{hasKey ? 'key ✓' : 'no key'}</b>
+                            )}
+                          </div>
+                          <small title={assignee.heartbeat_state || undefined}>
+                            {agentLastSeenLabel(assignee.last_seen_at)}
+                            {assignee.heartbeat_state ? ` · ${assignee.heartbeat_state}` : ''}
+                          </small>
+                          {assignee.claim_task_id ? (
+                            <button
+                              type="button"
+                              className="mission-agent-claim"
+                              onClick={() => {
+                                setSelectedMissionTaskId(assignee.claim_task_id || null)
+                                setMissionActionMessage(null)
+                              }}
+                            >
+                              <span>{shortId(assignee.claim_task_title, 40)}</span>
+                              <em>{missionStatusLabel(assignee.claim_task_status)}</em>
+                            </button>
+                          ) : (
+                            <p className="mission-agent-idle"><Bi en="no active claim" ar="لا مطالبة نشطة" /></p>
+                          )}
+                        </article>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="mission-layout">
                 <article className="mission-roster">

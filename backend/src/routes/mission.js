@@ -198,11 +198,25 @@ const GOAL_STATUSES    = ['active','paused','done','dropped'];
 const MS_STATUSES      = ['planned','in_progress','done','dropped'];
 
 // ── Assignees ──────────────────────────────────────────────────────────
+// Enriched for the admin Agents strip: heartbeat liveness plus the
+// current claim (at most one live lease per agent is the invariant — the
+// correlated subquery takes the newest claimed_at defensively).
 router.get('/assignees', requireAuth, (req, res) => {
   const rows = db.all(
-    `SELECT id, display_name, kind, avatar_url, external_id, active
-     FROM mission_assignees WHERE active = 1
-     ORDER BY kind, display_name`
+    `SELECT a.id, a.display_name, a.kind, a.avatar_url, a.external_id, a.active,
+            a.last_seen_at, a.heartbeat_state,
+            c.id               AS claim_task_id,
+            c.title            AS claim_task_title,
+            c.status           AS claim_task_status,
+            c.lease_expires_at AS claim_lease_expires_at
+     FROM mission_assignees a
+     LEFT JOIN mission_tasks c ON c.id = (
+       SELECT id FROM mission_tasks
+       WHERE claimed_by = a.id AND status IN ('in_progress','blocked')
+       ORDER BY claimed_at DESC LIMIT 1
+     )
+     WHERE a.active = 1
+     ORDER BY a.kind, a.display_name`
   );
   res.json({ assignees: rows });
 });

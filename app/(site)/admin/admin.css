@@ -3226,6 +3226,133 @@ body {
   color: var(--orange);
 }
 
+.mission-agent-strip {
+  margin-top: 16px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--bg) 87%, var(--paper));
+  padding: 14px 18px;
+}
+
+.mission-agent-strip .mission-panel-head {
+  margin-bottom: 12px;
+}
+
+.mission-agent-cards {
+  display: flex;
+  gap: 1px;
+  overflow-x: auto;
+  border: 1px solid var(--hair);
+  background: var(--hair);
+}
+
+.mission-agent-card {
+  flex: 1 0 220px;
+  min-width: 220px;
+  background: color-mix(in oklab, var(--bg) 86%, var(--paper));
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mission-agent-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mission-agent-head strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-agent-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mut);
+}
+
+.mission-agent-dot.fresh { background: var(--ok); }
+.mission-agent-dot.idle  { background: var(--warn); }
+.mission-agent-dot.dark  { background: var(--err); }
+.mission-agent-dot.never { background: var(--mut); }
+
+.mission-agent-head b {
+  margin-inline-start: auto;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--hair);
+  white-space: nowrap;
+}
+
+.mission-agent-head b.key-ok      { color: var(--teal); }
+.mission-agent-head b.key-missing { color: var(--orange); }
+
+.mission-agent-card small {
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-agent-claim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid var(--hair);
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+}
+
+.mission-agent-claim:hover {
+  border-color: var(--teal);
+}
+
+.mission-agent-claim span {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mission-agent-claim em {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mission-agent-idle {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px dashed var(--hair);
+  color: var(--mut);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .mission-layout {
   margin-top: 16px;
   display: grid;
