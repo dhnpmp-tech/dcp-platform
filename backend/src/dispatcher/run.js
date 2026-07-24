@@ -30,6 +30,7 @@ const fs = require('fs');
 const path = require('path');
 const { MissionClient } = require('./client');
 const { planActions, ts, dubaiDateString } = require('./rules');
+const { createTelegramNotifier } = require('./telegram');
 
 // ---------------------------------------------------------------------------
 // Incident derivation
@@ -308,10 +309,12 @@ if (require.main === module) {
     agentKey: MISSION_DISPATCHER_KEY,
   });
 
-  const notifier = {
-    sendTeam:  async (text) => console.log('[notify-noop]', text.slice(0, 120)),
-    sendAlert: async (text) => console.log('[notify-noop]', text.slice(0, 120)),
-  };
+  const notifier = createTelegramNotifier({
+    token:       process.env.DCP_TG_BOT_TOKEN,
+    chatId:      process.env.DCP_TG_CHAT_ID,
+    topicTeam:   Number(process.env.DCP_TG_TOPIC_TEAM)   || 7,
+    topicAlerts: Number(process.env.DCP_TG_TOPIC_ALERTS) || 4,
+  });
 
   function loadState() {
     try {
