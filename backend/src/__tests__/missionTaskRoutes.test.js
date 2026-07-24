@@ -1,0 +1,143 @@
+// Route-level coverage for the claim protocol + task list filters.
+// The legacy shared env key must be set BEFORE the router is required —
+// mission.js captures MISSION_AGENT_KEY at module load.
+process.env.MISSION_AGENT_KEY = 'legacy-shared-secret-for-tests';
+
+const express = require('express');
+const request = require('supertest');
+const db = require('../db');
+const keys = require('../lib/missionAgentKeys');
+const missionRouter = require('../routes/mission');
+
+const LEGACY = { 'x-mission-agent-key': 'legacy-shared-secret-for-tests' };
+
+const app = express();
+app.use(express.json());
+app.use('/api/mission', missionRouter);
+
+function seedTask(over = {}) {
+  const id = `task_${Math.random().toString(16).slice(2, 10)}`;
+  db.run(
+    `INSERT INTO mission_tasks
+     (id, title, status, priority, assignee_id, claimed_by, claimed_at, lease_expires_at, external_id)
+     VALUES (?, 'RT', ?, 'p2', ?, ?, ?, ?, ?)`,
+    id, over.status || 'todo', over.assignee_id ?? null, over.claimed_by ?? null,
+    over.claimed_at ?? null, over.lease_expires_at ?? null, over.external_id ?? null
+  );
+  return id;
+}
+
+describe('mission task routes (claim protocol + filters)', () => {
+  let agentKey;
+
+  beforeAll(() => {
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('codex','Codex','agent',1)`);
+    agentKey = keys.issueKey({ assignee_id: 'codex', scopes: 'agent' }).rawKey;
+  });
+
+  beforeEach(() => {
+    db.run(`DELETE FROM mission_task_comments WHERE task_id IN (SELECT id FROM mission_tasks WHERE title = 'RT')`);
+    db.run(`DELETE FROM mission_tasks WHERE title = 'RT'`);
+  });
+
+  it('GET /tasks?assignee=pool returns only unassigned tasks', async () => {
+    const poolId = seedTask();
+    seedTask({ assignee_id: 'codex' });
+    const res = await request(app).get('/api/mission/tasks?assignee=pool').set(LEGACY);
+    expect(res.status).toBe(200);
+    const mine = res.body.tasks.filter((t) => t.title === 'RT');
+    expect(mine).toHaveLength(1);
+    expect(mine[0].id).toBe(poolId);
+    expect(mine[0].assignee_id).toBeNull();
+  });
+
+  it('GET /tasks?external_id= returns only the matching task', async () => {
+    const wanted = seedTask({ external_id: 'gh-issue-42' });
+    seedTask({ external_id: 'gh-issue-43' });
+    seedTask();
+    const res = await request(app).get('/api/mission/tasks?external_id=gh-issue-42').set(LEGACY);
+    expect(res.status).toBe(200);
+    const matched = res.body.tasks.filter((t) => t.title === 'RT');
+    expect(matched).toHaveLength(1);
+    expect(matched[0].id).toBe(wanted);
+  });
+
+  it('POST /tasks/:id/claim with legacy shared key → 403 agent_identity_required', async () => {
+    const id = seedTask();
+    const res = await request(app).post(`/api/mission/tasks/${id}/claim`).set(LEGACY);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('agent_identity_required');
+    // Task untouched
+    expect(db.get(`SELECT status FROM mission_tasks WHERE id = ?`, id).status).toBe('todo');
+  });
+
+  it('POST /tasks/:id/claim with per-agent key → 200 + lease + auto-comment', async () => {
+    const id = seedTask();
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/claim`)
+      .set({ 'x-mission-agent-key': agentKey });
+    expect(res.status).toBe(200);
+    expect(res.body.task.status).toBe('in_progress');
+    expect(res.body.task.claimed_by).toBe('codex');
+    expect(res.body.task.assignee_id).toBe('codex');
+    expect(res.body.task.lease_expires_at).toBeTruthy();
+    const cmt = db.get(
+      `SELECT * FROM mission_task_comments WHERE task_id = ? AND kind = 'claim'`, id
+    );
+    expect(cmt).toBeTruthy();
+    expect(cmt.author_id).toBe('codex');
+    expect(cmt.source).toBe('agent');
+    expect(cmt.body).toBe('claimed by codex');
+  });
+
+  it('POST /tasks/:id/claim on an already-claimed task → 409 claimed', async () => {
+    const id = seedTask();
+    await request(app).post(`/api/mission/tasks/${id}/claim`).set({ 'x-mission-agent-key': agentKey });
+    const res = await request(app).post(`/api/mission/tasks/${id}/claim`).set({ 'x-mission-agent-key': agentKey });
+    // Fresh lease held by codex, task is in_progress w/ unexpired lease → conflict
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('claimed');
+  });
+
+  it('POST /tasks/:id/release requires a reason and returns the task to the pool', async () => {
+    const id = seedTask();
+    await request(app).post(`/api/mission/tasks/${id}/claim`).set({ 'x-mission-agent-key': agentKey });
+    const noReason = await request(app).post(`/api/mission/tasks/${id}/release`).set({ 'x-mission-agent-key': agentKey });
+    expect(noReason.status).toBe(400);
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/release`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ reason: 'context exhausted, needs a fresh session' });
+    expect(res.status).toBe(200);
+    const row = db.get(`SELECT status, claimed_by, assignee_id, lease_expires_at FROM mission_tasks WHERE id = ?`, id);
+    expect(row.status).toBe('todo');
+    expect(row.claimed_by).toBeNull();
+    expect(row.assignee_id).toBeNull();
+    expect(row.lease_expires_at).toBeNull();
+    const cmt = db.get(`SELECT * FROM mission_task_comments WHERE task_id = ? AND kind = 'release'`, id);
+    expect(cmt).toBeTruthy();
+    expect(cmt.body).toMatch(/^released: /);
+  });
+
+  it('PATCH /tasks/:id → review clears the lease', async () => {
+    const id = seedTask({
+      status: 'in_progress',
+      claimed_by: 'codex',
+      claimed_at: '2026-07-24T10:00:00.000Z',
+      lease_expires_at: '2026-07-24T14:00:00.000Z',
+      assignee_id: 'codex',
+    });
+    const res = await request(app)
+      .patch(`/api/mission/tasks/${id}`)
+      .set(LEGACY)
+      .send({ status: 'review' });
+    expect(res.status).toBe(200);
+    expect(res.body.task.status).toBe('review');
+    expect(res.body.task.claimed_by).toBeNull();
+    expect(res.body.task.claimed_at).toBeNull();
+    expect(res.body.task.lease_expires_at).toBeNull();
+    // assignee_id is intentionally KEPT — review still belongs to the agent
+    expect(res.body.task.assignee_id).toBe('codex');
+  });
+});
