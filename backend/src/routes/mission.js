@@ -18,6 +18,7 @@ const db = require('../db');
 const { isAdminRequest } = require('../middleware/auth');
 const missionAgentKeys = require('../lib/missionAgentKeys');
 const missionClaims = require('../lib/missionClaims');
+const { missionClaimLimiter, missionHeartbeatLimiter } = require('../middleware/rateLimiter');
 
 // ── Auth helpers ───────────────────────────────────────────────────────
 // Reads: lightweight — any valid renter key OR admin token. We treat
@@ -462,7 +463,7 @@ router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
 // All three require a per-agent identity — see requireAgentIdentity. The
 // lease semantics live in lib/missionClaims (single guarded UPDATE = lock).
 
-router.post('/tasks/:id/claim', requireWriteAuth, requireAgentIdentity, (req, res) => {
+router.post('/tasks/:id/claim', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
   const agentId = req.missionAgent.assignee_id;
   const ttl = Number(req.query.ttl_minutes) || undefined;
   const r = missionClaims.claimTask({ taskId: req.params.id, agentId, ttlMinutes: ttl });
@@ -474,14 +475,14 @@ router.post('/tasks/:id/claim', requireWriteAuth, requireAgentIdentity, (req, re
   res.json({ task: db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id) });
 });
 
-router.post('/tasks/:id/renew', requireWriteAuth, requireAgentIdentity, (req, res) => {
+router.post('/tasks/:id/renew', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
   const r = missionClaims.renewLease({ taskId: req.params.id, agentId: req.missionAgent.assignee_id,
     ttlMinutes: Number(req.query.ttl_minutes) || undefined });
   if (!r.ok) return res.status(409).json({ error: r.error });
   res.json({ ok: true });
 });
 
-router.post('/tasks/:id/release', requireWriteAuth, requireAgentIdentity, (req, res) => {
+router.post('/tasks/:id/release', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
   const reason = clean(req.body?.reason, 1000);
   if (!reason) return res.status(400).json({ error: 'reason required' });
   const agentId = req.missionAgent.assignee_id;
@@ -1187,7 +1188,7 @@ function recordHeartbeat(assigneeId, state) {
   );
 }
 
-router.post('/heartbeat', requireWriteAuth, requireAgentIdentity, (req, res) => {
+router.post('/heartbeat', missionHeartbeatLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
   recordHeartbeat(req.missionAgent.assignee_id, req.body?.state);
   res.json({ ok: true });
 });
@@ -1197,12 +1198,12 @@ router.post('/heartbeat', requireWriteAuth, requireAgentIdentity, (req, res) => 
 // Per-agent keys are deliberately excluded — they operate on tasks, not
 // on the key management surface.
 
-router.get('/agent-keys', requireAuth, (req, res) => {
+router.get('/agent-keys', missionClaimLimiter, requireAuth, (req, res) => {
   if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
   res.json({ keys: missionAgentKeys.listKeys() });
 });
 
-router.post('/agent-keys', requireAuth, (req, res) => {
+router.post('/agent-keys', missionClaimLimiter, requireAuth, (req, res) => {
   if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
   try {
     const { id, rawKey } = missionAgentKeys.issueKey({
@@ -1216,7 +1217,7 @@ router.post('/agent-keys', requireAuth, (req, res) => {
   }
 });
 
-router.delete('/agent-keys/:id', requireAuth, (req, res) => {
+router.delete('/agent-keys/:id', missionClaimLimiter, requireAuth, (req, res) => {
   if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
   missionAgentKeys.revokeKey(req.params.id);
   res.json({ ok: true });

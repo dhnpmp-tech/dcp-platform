@@ -219,6 +219,34 @@ const webhookRegistrationLimiter = createRateLimiter({ windowMs: 60*60*1000, max
 const cliDeviceCodeLimiter = createRateLimiter({ windowMs: 60*1000, max: 10, keyGenerator: (req) => ipFallbackKey(req) });
 const cliDevicePollLimiter = createRateLimiter({ windowMs: 60*1000, max: 60, keyGenerator: (req) => ipFallbackKey(req) });
 
+// Mission agent claim/renew/release + key management: write-tier, keyed on the
+// mission agent key (or IP when absent). Budget matches jobCreateLimiter (10/min)
+// — claim/renew/release are discrete workflow actions, not high-frequency calls,
+// so 10/min per identity gives ample room for retries and burst startup without
+// opening the door to claim-storm abuse.
+function getMissionAgentKey(req) {
+  const raw = req.headers && req.headers['x-mission-agent-key'];
+  if (typeof raw === 'string' && raw.trim()) return `mak:${raw.trim()}`;
+  const adminToken = req.headers && req.headers['x-admin-token'];
+  if (typeof adminToken === 'string' && adminToken.trim()) return `admin:${adminToken.trim()}`;
+  return ipFallbackKey(req);
+}
+
+const missionClaimLimiter = createRateLimiter({
+  windowMs: 60*1000,
+  max: 10,
+  keyGenerator: (req) => getMissionAgentKey(req),
+});
+
+// Mission heartbeat: agents POST at ~1/min cadence; 30/min gives 30× headroom
+// (accommodates burst restarts, retry-on-connect, and multi-task polling loops
+// without ever threatening a legit agent with a 429).
+const missionHeartbeatLimiter = createRateLimiter({
+  windowMs: 60*1000,
+  max: 30,
+  keyGenerator: (req) => getMissionAgentKey(req),
+});
+
 module.exports = {
   cliDeviceCodeLimiter, cliDevicePollLimiter,
   createRateLimiter, createAdminIpAllowlist,
@@ -232,4 +260,5 @@ module.exports = {
   adminLimiter, heartbeatProviderLimiter, authLimiter,
   providerActivateLimiter, webhookRegistrationLimiter,
   templateDeployLimiter,
+  missionClaimLimiter, missionHeartbeatLimiter,
 };
