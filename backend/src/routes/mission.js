@@ -12,8 +12,13 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const db = require('../db');
 const { isAdminRequest } = require('../middleware/auth');
+const missionAgentKeys = require('../lib/missionAgentKeys');
+const missionClaims = require('../lib/missionClaims');
+const { missionClaimLimiter, missionHeartbeatLimiter } = require('../middleware/rateLimiter');
 
 // ── Auth helpers ───────────────────────────────────────────────────────
 // Reads: lightweight — any valid renter key OR admin token. We treat
@@ -49,8 +54,40 @@ function timingSafeEqualString(left, right) {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+// Resolve the caller's agent identity. Per-agent DB key wins; the legacy
+// shared env key still authenticates (scopes:'legacy', no identity) until
+// rollout retires it. Returns { assignee_id, scopes, key_id? } | null.
+//
+// Memoization strategy: result is cached on req._missionAgent (set once per
+// request) so that isAuthed → isMissionAgentRequest and the subsequent
+// requireWriteAuth call don't each stamp last_used_at separately. The cache
+// is keyed to the request object itself, so it's naturally scoped to one
+// in-flight request with zero global state.
+function resolveMissionAgent(req, { legacyKey = MISSION_AGENT_KEY } = {}) {
+  if (req && Object.prototype.hasOwnProperty.call(req, '_missionAgent')) {
+    return req._missionAgent;
+  }
+  const raw = req && req.headers && req.headers['x-mission-agent-key'];
+  if (!raw) {
+    if (req) req._missionAgent = null;
+    return null;
+  }
+  const resolved = missionAgentKeys.resolveKey(raw);
+  if (resolved) {
+    if (req) req._missionAgent = resolved;
+    return resolved;
+  }
+  if (legacyKey && timingSafeEqualString(raw, legacyKey)) {
+    const legacy = { assignee_id: null, scopes: 'legacy' };
+    if (req) req._missionAgent = legacy;
+    return legacy;
+  }
+  if (req) req._missionAgent = null;
+  return null;
+}
+
 function isMissionAgentRequest(req) {
-  return Boolean(MISSION_AGENT_KEY && timingSafeEqualString(req.headers['x-mission-agent-key'], MISSION_AGENT_KEY));
+  return Boolean(resolveMissionAgent(req));
 }
 
 function isAuthed(req) {
@@ -91,18 +128,22 @@ function isAuthed(req) {
       }
     }
   }
-  // Dedicated agent key (off unless MISSION_AGENT_KEY env is set)
+  // Dedicated agent key (per-agent DB key or legacy shared env key)
   if (isMissionAgentRequest(req)) return true;
   return false;
 }
 
 function requireAuth(req, res, next) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
+  // Attach resolved agent identity for downstream handlers (e.g. /me).
+  // resolveMissionAgent is memoized on req._missionAgent so this is free.
+  req.missionAgent = resolveMissionAgent(req) || null;
   next();
 }
 
 function requireWriteAuth(req, res, next) {
   if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
+  req.missionAgent = resolveMissionAgent(req) || null;
   if (!strictMissionWritesEnabled()) return next();
   if (isAdminRequest(req) || isMissionAgentRequest(req)) return next();
   return res.status(403).json({
@@ -130,17 +171,52 @@ function isoOrNull(v) {
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }
+// Insert a task comment. Default source='agent' (claim/release audit trail);
+// the UI comment route passes its own source/kind explicitly.
+function addComment(taskId, authorId, body, kind, source = 'agent') {
+  const id = newId('cmt');
+  db.run(
+    `INSERT INTO mission_task_comments (id, task_id, author_id, body, source, kind) VALUES (?, ?, ?, ?, ?, ?)`,
+    id, taskId, authorId, body, source, kind
+  );
+  return id;
+}
+
+// Claim/renew/release require a real per-agent identity — the legacy
+// shared key authenticates but carries no assignee_id, so it can't hold
+// a lease.
+function requireAgentIdentity(req, res, next) {
+  if (!req.missionAgent || !req.missionAgent.assignee_id) {
+    return res.status(403).json({ error: 'agent_identity_required', detail: 'per-agent x-mission-agent-key required' });
+  }
+  next();
+}
+
 const TASK_STATUSES    = ['todo','in_progress','blocked','review','done','cancelled'];
 const TASK_PRIORITIES  = ['p0','p1','p2','p3'];
 const GOAL_STATUSES    = ['active','paused','done','dropped'];
 const MS_STATUSES      = ['planned','in_progress','done','dropped'];
 
 // ── Assignees ──────────────────────────────────────────────────────────
+// Enriched for the admin Agents strip: heartbeat liveness plus the
+// current claim (at most one live lease per agent is the invariant — the
+// correlated subquery takes the newest claimed_at defensively).
 router.get('/assignees', requireAuth, (req, res) => {
   const rows = db.all(
-    `SELECT id, display_name, kind, avatar_url, external_id, active
-     FROM mission_assignees WHERE active = 1
-     ORDER BY kind, display_name`
+    `SELECT a.id, a.display_name, a.kind, a.avatar_url, a.external_id, a.active,
+            a.last_seen_at, a.heartbeat_state,
+            c.id               AS claim_task_id,
+            c.title            AS claim_task_title,
+            c.status           AS claim_task_status,
+            c.lease_expires_at AS claim_lease_expires_at
+     FROM mission_assignees a
+     LEFT JOIN mission_tasks c ON c.id = (
+       SELECT id FROM mission_tasks
+       WHERE claimed_by = a.id AND status IN ('in_progress','blocked')
+       ORDER BY claimed_at DESC LIMIT 1
+     )
+     WHERE a.active = 1
+     ORDER BY a.kind, a.display_name`
   );
   res.json({ assignees: rows });
 });
@@ -160,7 +236,16 @@ router.get('/me', requireAuth, (req, res) => {
     );
     return res.json({ assignee: row || null });
   }
-  // 2) Provider key → look up provider, match by lowercased name OR
+  // 2) Per-agent DB key → look up assignee directly by id.
+  if (req.missionAgent && req.missionAgent.assignee_id) {
+    const row = db.get(
+      `SELECT id AS assignee_id, display_name, kind
+       FROM mission_assignees WHERE id = ? AND active = 1`,
+      req.missionAgent.assignee_id
+    );
+    return res.json({ assignee: row || null });
+  }
+  // 3) Provider key → look up provider, match by lowercased name OR
   //    external_id against mission_assignees.
   const providerKey = req.headers['x-provider-key'];
   if (providerKey) {
@@ -184,7 +269,7 @@ router.get('/me', requireAuth, (req, res) => {
       }
     } catch (_) { /* providers table column may differ */ }
   }
-  // 3) Renter key → look up renter, match by email/name against assignees.
+  // 4) Renter key → look up renter, match by email/name against assignees.
   const renterKey = req.headers['x-renter-key'] || req.query.key;
   if (renterKey) {
     try {
@@ -209,7 +294,7 @@ router.get('/me', requireAuth, (req, res) => {
       }
     } catch (_) { /* renter_api_keys may not exist in some env */ }
   }
-  // 4) No mapping — frontend falls back to anonymous author.
+  // 5) No mapping — frontend falls back to anonymous author.
   res.json({ assignee: null });
 });
 
@@ -224,7 +309,10 @@ router.get('/tasks', requireAuth, (req, res) => {
       params.push(...statuses);
     }
   }
-  if (req.query.assignee) { where.push('t.assignee_id = ?'); params.push(String(req.query.assignee)); }
+  // 'pool' is a virtual assignee: unclaimed work anyone may pick up.
+  if (req.query.assignee === 'pool') { where.push('t.assignee_id IS NULL'); }
+  else if (req.query.assignee) { where.push('t.assignee_id = ?'); params.push(String(req.query.assignee)); }
+  if (req.query.external_id) { where.push('t.external_id = ?'); params.push(String(req.query.external_id)); }
   if (req.query.goal)     { where.push('t.goal_id = ?');     params.push(String(req.query.goal)); }
   if (req.query.milestone){ where.push('t.milestone_id = ?');params.push(String(req.query.milestone)); }
   const sql = `
@@ -266,6 +354,7 @@ router.get('/tasks', requireAuth, (req, res) => {
 });
 
 router.post('/tasks', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'create_task')) return;
   const title = clean(req.body?.title, 300);
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = newId('task');
@@ -304,6 +393,7 @@ router.post('/tasks', requireWriteAuth, (req, res) => {
 router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
   const existing = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
+  if (!enforceAgentPolicy(req, res, 'patch_task', existing)) return;
   const sets = [];
   const params = [];
   const allow = {
@@ -316,6 +406,7 @@ router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
     goal_id:        { fn: v => clean(v, 100) },
     due_date:       { fn: v => isoOrNull(v) },
     blocked_reason: { fn: v => clean(v, 1000) },
+    source_url:     { fn: v => clean(v, 500) },
   };
   for (const [k, { fn }] of Object.entries(allow)) {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) {
@@ -335,6 +426,11 @@ router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
   const leavingDone  = existing.status === 'done' && req.body?.status && req.body.status !== 'done';
   if (becomingDone) sets.push(`completed_at = datetime('now')`);
   if (leavingDone)  sets.push(`completed_at = NULL`);
+  // Moving to review hands the task off for human eyes — the executing
+  // agent's lease no longer applies, so clear it in the same UPDATE.
+  if (req.body?.status === 'review') {
+    sets.push('claimed_by = NULL', 'claimed_at = NULL', 'lease_expires_at = NULL');
+  }
   sets.push(`updated_at = datetime('now')`);
   params.push(req.params.id);
   let result;
@@ -377,10 +473,66 @@ router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
   res.json({ task });
 });
 
+// ── Claim / renew / release (agent lease protocol) ─────────────────────
+// All three require a per-agent identity — see requireAgentIdentity. The
+// lease semantics live in lib/missionClaims (single guarded UPDATE = lock).
+
+router.post('/tasks/:id/claim', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
+  const agentId = req.missionAgent.assignee_id;
+  const ttl = Number(req.query.ttl_minutes) || undefined;
+  const r = missionClaims.claimTask({ taskId: req.params.id, agentId, ttlMinutes: ttl });
+  if (!r.ok) return res.status(r.error === 'not_found' ? 404 : 409).json({ error: r.error });
+  // Audit comment is best-effort: the claim itself already committed, and a
+  // failed comment INSERT must not surface a raw DB error to the caller.
+  try { addComment(req.params.id, agentId, `claimed by ${agentId}`, 'claim'); }
+  catch (err) { console.error('[mission] claim comment failed', { taskId: req.params.id, message: err && err.message }); }
+  res.json({ task: db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id) });
+});
+
+router.post('/tasks/:id/renew', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
+  const r = missionClaims.renewLease({ taskId: req.params.id, agentId: req.missionAgent.assignee_id,
+    ttlMinutes: Number(req.query.ttl_minutes) || undefined });
+  if (!r.ok) return res.status(409).json({ error: r.error });
+  res.json({ ok: true });
+});
+
+router.post('/tasks/:id/release', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
+  const reason = clean(req.body?.reason, 1000);
+  if (!reason) return res.status(400).json({ error: 'reason required' });
+  const agentId = req.missionAgent.assignee_id;
+  const r = missionClaims.releaseTask({ taskId: req.params.id, agentId });
+  if (!r.ok) return res.status(409).json({ error: r.error });
+  try { addComment(req.params.id, agentId, `released: ${reason}`, 'release'); }
+  catch (err) { console.error('[mission] release comment failed', { taskId: req.params.id, message: err && err.message }); }
+  res.json({ ok: true });
+});
+
+// Dispatcher-only: reset an expired lease back to the pool. Only fires when
+// the lease has actually expired — if the holder still has a live claim we
+// return 409 so the dispatcher never silently evicts an active agent.
+router.post('/tasks/:id/reset-lease', missionClaimLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
+  if (req.missionAgent.scopes !== 'dispatcher') return res.status(403).json({ error: 'dispatcher_only' });
+  const t = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
+  if (!t) return res.status(404).json({ error: 'not_found' });
+  const info = db.run(
+    `UPDATE mission_tasks
+     SET status = 'todo', claimed_by = NULL, claimed_at = NULL, lease_expires_at = NULL,
+         assignee_id = NULL, updated_at = datetime('now')
+     WHERE id = ? AND status IN ('in_progress','blocked')
+       AND lease_expires_at IS NOT NULL AND lease_expires_at < ?`,
+    req.params.id, new Date().toISOString()
+  );
+  if (!info || info.changes !== 1) return res.status(409).json({ error: 'lease_not_expired' });
+  try { addComment(req.params.id, req.missionAgent.assignee_id, `lease expired (was ${t.claimed_by})`, 'lease_expired'); }
+  catch (err) { console.error('[mission] lease-reset comment failed', { taskId: req.params.id, message: err && err.message }); }
+  res.json({ ok: true });
+});
+
 // Reassign with mandatory rationale. Insertion of the explanatory comment +
 // the assignee swap happen together — if validation fails neither side
 // runs, so the comment log stays in sync with the task state.
 router.post('/tasks/:id/reassign', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'reassign_task')) return;
   const task = db.get(`SELECT * FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
   const newAssigneeId = clean(req.body?.new_assignee_id, 100);
@@ -450,6 +602,7 @@ router.post('/tasks/:id/reassign', requireWriteAuth, (req, res) => {
 });
 
 router.delete('/tasks/:id', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'delete_task')) return;
   let r;
   try {
     r = db.run(`DELETE FROM mission_tasks WHERE id = ?`, req.params.id);
@@ -468,16 +621,17 @@ router.delete('/tasks/:id', requireWriteAuth, (req, res) => {
 });
 
 router.post('/tasks/:id/comments', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'comment')) return;
   const task = db.get(`SELECT id FROM mission_tasks WHERE id = ?`, req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
   const body = clean(req.body?.body, 8000);
   if (!body) return res.status(400).json({ error: 'body required' });
-  const id = newId('cmt');
-  db.run(
-    `INSERT INTO mission_task_comments (id, task_id, author_id, body, source, kind) VALUES (?, ?, ?, ?, ?, ?)`,
-    id, req.params.id, clean(req.body?.author_id, 100), body,
-    clean(req.body?.source, 50) || 'ui',
-    clean(req.body?.kind, 50) || 'comment'
+  const id = addComment(
+    req.params.id,
+    clean(req.body?.author_id, 100),
+    body,
+    clean(req.body?.kind, 50) || 'comment',
+    clean(req.body?.source, 50) || 'ui'
   );
   res.status(201).json({ comment: db.get(`SELECT * FROM mission_task_comments WHERE id = ?`, id) });
 });
@@ -508,6 +662,7 @@ router.get('/milestones', requireAuth, (req, res) => {
 });
 
 router.post('/milestones', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_milestone')) return;
   const name = clean(req.body?.name, 200);
   if (!name) return res.status(400).json({ error: 'name required' });
   const id = newId('ms');
@@ -525,6 +680,7 @@ router.post('/milestones', requireWriteAuth, (req, res) => {
 });
 
 router.patch('/milestones/:id', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_milestone')) return;
   const existing = db.get(`SELECT * FROM mission_milestones WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
@@ -572,6 +728,7 @@ router.get('/goals', requireAuth, (req, res) => {
 });
 
 router.post('/goals', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_goal')) return;
   const title = clean(req.body?.title, 300);
   if (!title) return res.status(400).json({ error: 'title required' });
   const id = newId('goal');
@@ -589,6 +746,7 @@ router.post('/goals', requireWriteAuth, (req, res) => {
 });
 
 router.patch('/goals/:id', requireWriteAuth, (req, res) => {
+  if (!enforceAgentPolicy(req, res, 'write_goal')) return;
   const existing = db.get(`SELECT * FROM mission_goals WHERE id = ?`, req.params.id);
   if (!existing) return res.status(404).json({ error: 'not found' });
   const sets = [];
@@ -990,5 +1148,132 @@ function formatAge(ms) {
   const d = Math.round(h / 24);
   return `${d}d`;
 }
+
+// ── Scope enforcement (anti-chaos layer) ──────────────────────────────
+// Callers with a scoped per-agent key (scopes:'agent'|'dispatcher') are
+// limited to a narrow write surface. Admin tokens and the legacy shared
+// env key (assignee_id:null, scopes:'legacy') bypass this gate entirely —
+// no behaviour change for today's callers.
+
+const AGENT_PATCH_FIELDS = new Set(['status', 'blocked_reason', 'source_url']);
+const AGENT_STATUS_TARGETS = new Set(['in_progress', 'blocked', 'review']);
+
+// Pure policy — no I/O. Returns { allowed: boolean, reason?: string }.
+// action values: 'create_task' | 'patch_task' | 'delete_task' |
+//                'reassign_task' | 'write_goal' | 'write_milestone' | 'comment'
+function agentWritePolicy(missionAgent, { action, task = null, body = {} }) {
+  const scope = missionAgent && missionAgent.scopes;
+
+  // Comments are the agents' only coordination channel (spec §8 rule 3) and
+  // are deliberately NOT ownership-gated: a reviewer agent must be able to
+  // comment on another agent's task.
+  if (action === 'comment') return { allowed: true };
+
+  if (action === 'create_task') {
+    if (scope === 'dispatcher') {
+      return body && body.external_id
+        ? { allowed: true }
+        : { allowed: false, reason: 'dispatcher task creation requires external_id' };
+    }
+    return { allowed: false, reason: 'agents may not create tasks' };
+  }
+
+  if (action === 'patch_task') {
+    if (!task || task.claimed_by !== missionAgent.assignee_id) {
+      return { allowed: false, reason: 'not the claim holder' };
+    }
+    for (const field of Object.keys(body || {})) {
+      if (!AGENT_PATCH_FIELDS.has(field)) {
+        return { allowed: false, reason: `field not allowed: ${field}` };
+      }
+    }
+    if (body.status !== undefined && !AGENT_STATUS_TARGETS.has(body.status)) {
+      return { allowed: false, reason: `status not allowed: ${body.status}` };
+    }
+    return { allowed: true };
+  }
+
+  // delete_task, reassign_task, write_goal, write_milestone — denied for all scoped agents
+  return { allowed: false, reason: `action not allowed for agents: ${action}` };
+}
+
+// Gate helper applied at the top of each write route. Returns true when the
+// caller may proceed; false when a 403 has already been sent to the client.
+// Admin tokens and legacy shared key both have assignee_id:null → bypass.
+function enforceAgentPolicy(req, res, action, task = null) {
+  if (!req.missionAgent || !req.missionAgent.assignee_id) return true; // admin / legacy / other auth
+  const verdict = agentWritePolicy(req.missionAgent, { action, task, body: req.body || {} });
+  if (!verdict.allowed) {
+    res.status(403).json({ error: 'agent_scope_forbidden', detail: verdict.reason });
+    return false;
+  }
+  return true;
+}
+
+// ── Heartbeat ──────────────────────────────────────────────────────────
+// Agents POST here on a regular cadence to surface liveness in the admin
+// UI and /fleet view. last_seen_at + heartbeat_state are stamped atomically
+// via a single UPDATE — no separate read needed.
+
+function recordHeartbeat(assigneeId, state) {
+  db.run(
+    `UPDATE mission_assignees SET last_seen_at = datetime('now'), heartbeat_state = ? WHERE id = ?`,
+    clean(state, 200) || 'idle',
+    assigneeId
+  );
+}
+
+router.post('/heartbeat', missionHeartbeatLimiter, requireWriteAuth, requireAgentIdentity, (req, res) => {
+  recordHeartbeat(req.missionAgent.assignee_id, req.body?.state);
+  res.json({ ok: true });
+});
+
+// ── Admin key management ───────────────────────────────────────────────
+// All three endpoints require the DC1_ADMIN_TOKEN (x-admin-token header).
+// Per-agent keys are deliberately excluded — they operate on tasks, not
+// on the key management surface.
+
+router.get('/agent-keys', missionClaimLimiter, requireAuth, (req, res) => {
+  if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
+  res.json({ keys: missionAgentKeys.listKeys() });
+});
+
+router.post('/agent-keys', missionClaimLimiter, requireAuth, (req, res) => {
+  if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
+  try {
+    const { id, rawKey } = missionAgentKeys.issueKey({
+      assignee_id: clean(req.body?.assignee_id, 100),
+      label:       clean(req.body?.label, 200),
+      scopes:      clean(req.body?.scopes, 50) || 'agent',
+    });
+    res.status(201).json({ id, key: rawKey, note: 'shown once — store it now' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/agent-keys/:id', missionClaimLimiter, requireAuth, (req, res) => {
+  if (!isAdminRequest(req)) return res.status(403).json({ error: 'admin_only' });
+  missionAgentKeys.revokeKey(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Agent protocol doc ─────────────────────────────────────────────────
+// Self-briefing document every agent reads at session start. Served as
+// text/markdown so agents can ingest it without JSON unwrapping.
+// Path: dc1-platform/docs/orchestration/AGENT_PROTOCOL.md
+// __dirname = backend/src/routes → ../../../ = repo root.
+
+router.get('/protocol', requireAuth, (_req, res) => {
+  const p = path.join(__dirname, '../../../docs/orchestration/AGENT_PROTOCOL.md');
+  try {
+    res.type('text/markdown').send(fs.readFileSync(p, 'utf8'));
+  } catch {
+    res.status(404).json({ error: 'protocol doc missing' });
+  }
+});
+
+// Test-only internals — mirrors the pattern used in providers.js
+router.__private = { resolveMissionAgent, addComment, requireAgentIdentity, agentWritePolicy, recordHeartbeat };
 
 module.exports = router;

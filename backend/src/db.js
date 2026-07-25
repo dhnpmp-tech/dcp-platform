@@ -1579,6 +1579,13 @@ db.exec(`
   "ALTER TABLE renters ADD COLUMN source TEXT",
   'ALTER TABLE renters ADD COLUMN signup_ip TEXT',
   'ALTER TABLE renters ADD COLUMN trial_grant_halala INTEGER DEFAULT 0',
+  // Mission Control 2026-07-24: atomic task claiming + tier + agent heartbeat.
+  'ALTER TABLE mission_tasks ADD COLUMN claimed_by TEXT',
+  'ALTER TABLE mission_tasks ADD COLUMN claimed_at TEXT',
+  'ALTER TABLE mission_tasks ADD COLUMN lease_expires_at TEXT',
+  "ALTER TABLE mission_tasks ADD COLUMN tier TEXT DEFAULT 'standard'",
+  'ALTER TABLE mission_assignees ADD COLUMN last_seen_at TEXT',
+  'ALTER TABLE mission_assignees ADD COLUMN heartbeat_state TEXT',
 ].forEach((sql) => {
   try { db.exec(sql); } catch (_) { /* column exists */ }
 });
@@ -2726,14 +2733,16 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_providers_group ON providers(group_id)`)
 // for the canonical schema documentation.
 db.exec(`
   CREATE TABLE IF NOT EXISTS mission_assignees (
-    id           TEXT    PRIMARY KEY,
-    display_name TEXT    NOT NULL,
-    kind         TEXT    NOT NULL CHECK(kind IN ('human','agent')),
-    avatar_url   TEXT,
-    external_id  TEXT,
-    active       INTEGER NOT NULL DEFAULT 1,
-    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
-    updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    id               TEXT    PRIMARY KEY,
+    display_name     TEXT    NOT NULL,
+    kind             TEXT    NOT NULL CHECK(kind IN ('human','agent')),
+    avatar_url       TEXT,
+    external_id      TEXT,
+    active           INTEGER NOT NULL DEFAULT 1,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    last_seen_at     TEXT,
+    heartbeat_state  TEXT
   );
   CREATE TABLE IF NOT EXISTS mission_goals (
     id          TEXT    PRIMARY KEY,
@@ -2772,6 +2781,10 @@ db.exec(`
     source         TEXT,
     source_url     TEXT,
     external_id    TEXT,
+    claimed_by     TEXT,
+    claimed_at     TEXT,
+    lease_expires_at TEXT,
+    tier           TEXT    DEFAULT 'standard',
     created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at     TEXT    NOT NULL DEFAULT (datetime('now')),
     completed_at   TEXT
@@ -2785,6 +2798,17 @@ db.exec(`
     kind       TEXT,
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS mission_agent_keys (
+    id           TEXT PRIMARY KEY,
+    assignee_id  TEXT NOT NULL,
+    key_hash     TEXT NOT NULL,
+    label        TEXT,
+    scopes       TEXT NOT NULL DEFAULT 'agent',
+    active       INTEGER NOT NULL DEFAULT 1,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_mission_agent_keys_hash ON mission_agent_keys(key_hash, active);
   CREATE INDEX IF NOT EXISTS idx_mission_tasks_status    ON mission_tasks(status, priority, due_date);
   CREATE INDEX IF NOT EXISTS idx_mission_tasks_assignee  ON mission_tasks(assignee_id, status);
   CREATE INDEX IF NOT EXISTS idx_mission_tasks_milestone ON mission_tasks(milestone_id);
