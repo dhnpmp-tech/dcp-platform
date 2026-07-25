@@ -91,17 +91,21 @@ backend. From then on only per-agent keys authenticate agent traffic
 
 **GitHub configuration (checklist — config, not code):**
 
+- [ ] Grant Tareq (`HaakBank`) repo admin — requires an org owner of
+      `dhnpmp-tech` (Peter's account; recovery email likely dhnpmp@gmail.com).
+      Tareq is the final merge approver (spec §9, amended 2026-07-25).
 - [ ] Branch protection on `main`: require PR, ≥1 required review, required
       status checks (backend tests), no force pushes. Applies to admins.
 - [ ] CODEOWNERS covering critical paths (tier `critical` in the spec §9):
       `backend/src/routes/`, `backend/src/db.js`, `backend/src/middleware/`,
-      `security/`, deploy scripts, `backend/ecosystem*.config.js` → Peter.
+      `security/`, deploy scripts, `backend/ecosystem*.config.js` → `@HaakBank`
+      (+ Peter's account once recovered).
 - [ ] Per-agent commit identity: Codex uses its GitHub identity; other agents
       use machine users or `Co-Authored-By` trailers so blame → agent + task.
 - [ ] Branch naming convention enforced socially (protocol rule 5):
       `agent/<name>/<task-id>-<slug>`.
 - [ ] Review ladder documented in PR template: low = Claude approval,
-      standard/critical = Peter merges (spec §9 table).
+      standard/critical = Tareq merges (spec §9 table, amended 2026-07-25).
 
 ## Operational notes
 

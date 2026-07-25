@@ -205,8 +205,11 @@ not by agent goodwill.
 | Tier | Examples | Required to merge |
 |---|---|---|
 | low | docs, tests, comments, non-prod scripts | Claude approval |
-| standard | features, fixes, refactors | Claude review + Peter merge |
-| critical | auth, billing, provider daemons, migrations, deploy scripts, `security/` | Claude + security pass + Peter merge |
+| standard | features, fixes, refactors | Claude review + Tareq merge |
+| critical | auth, billing, provider daemons, migrations, deploy scripts, `security/` | Claude + security pass + Tareq merge |
+
+*(Amended 2026-07-25: Tareq — GitHub `HaakBank` — is the final merge approver;
+Peter retains org ownership, admin rights, and the emergency lane.)*
 
 - Claude is mandatory first reviewer on every agent PR; verdict posted as a task
   comment (APPROVE / CHANGES + severity). Tito provides advisory verification for
@@ -215,7 +218,8 @@ not by agent goodwill.
   so merge rights are deploy rights. `review → done` only after merge AND deploy
   evidence (Vercel URL / reload log) is posted to the task.
 - Emergency lane: Peter may hotfix directly with a post-hoc task documenting it.
-- Tareq/Fadi: Mission Control viewers + Telegram consumers; no code authority.
+- Tareq (`HaakBank`): final merge approver on standard/critical tiers.
+  Fadi: Mission Control viewer + Telegram consumer; no code authority.
 - Note for planning: branch protection, CODEOWNERS, and machine-user setup are
   GitHub configuration, not repo code — treat as a checklist task, not a code phase.
 

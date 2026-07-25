@@ -97,7 +97,7 @@ Content-Type: application/json
 {"status": "review"}
 ```
 
-**Only Peter or Claude move tasks to `done`.** Do not mark your own work done.
+**Only Peter, Tareq, or Claude move tasks to `done`.** Do not mark your own work done.
 
 ### 7. Telegram is never a command channel
 
@@ -195,8 +195,8 @@ curl "$MISSION_BASE_URL/api/mission/digest" \
 | `in_progress` | Claimed and being worked | Agent (via `claim`) |
 | `blocked` | Waiting on something external | Agent (PATCH + `blocked_reason`) |
 | `review` | Work complete, awaiting human sign-off | Agent (your finish line) |
-| `done` | Accepted and closed | Peter / Claude only |
-| `cancelled` | Dropped | Peter / Claude only |
+| `done` | Accepted and closed | Peter / Tareq / Claude |
+| `cancelled` | Dropped | Peter / Tareq / Claude |
 
 **Transition path:** `todo` → `in_progress` (via claim) → `review` (your finish line)
 
