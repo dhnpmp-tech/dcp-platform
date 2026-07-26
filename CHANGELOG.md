@@ -14,9 +14,9 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### Pending - `fix(admin): hide soft-deleted providers from dashboard - PR TBD`
+### Pending - `fix(admin): hide soft-deleted providers from dashboard - PR #965`
 
-**PR:** TBD (`agent/codex/task_54cdc6ae7fb2-runpod-cleanup`).
+**PR:** [#965](https://github.com/dhnpmp-tech/dcp-platform/pull/965) (`agent/codex/task_54cdc6ae7fb2-runpod-cleanup`).
 
 **What:** Tightens the admin provider dashboard cleanup path so provider rows
 that have been soft-deleted no longer appear in normal provider counts or lists.
