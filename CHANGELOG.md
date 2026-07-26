@@ -77,6 +77,8 @@ requested instead of only name + email.
   the stored legal/billing profile instead of the old "not configured" gap.
 - **Database:** Added migration `026_renter_signup_profile.sql` and matching
   idempotent boot-time column guards for existing SQLite deployments.
+- **Dependency gate:** Updated the backend optional `sharp` dependency to the
+  patched 0.35 line so the production high/critical audit gate stays green.
 - **Safety:** Magic-link finalization, starter-credit timing, balance mutation,
   payments, provider operations, inference routing, and API-key issuance logic
   are unchanged. New signup fields are optional except the existing required
