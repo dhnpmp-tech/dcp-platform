@@ -14,9 +14,9 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### Pending - `fix(mission): persist task review tier - PR TBD`
+### Pending - `fix(mission): persist task review tier - PR #964`
 
-**PR:** TBD (`agent/codex/task_6199af435165-mission-tier`).
+**PR:** [#964](https://github.com/dhnpmp-tech/dcp-platform/pull/964) (`agent/codex/task_6199af435165-mission-tier`).
 
 **What:** Fixes Mission Control task criticality so API-created and API-edited
 tasks can carry the review tier that drives the code-authority ladder.
