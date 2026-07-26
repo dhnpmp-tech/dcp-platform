@@ -159,9 +159,10 @@ const nextConfig = {
       { source: '/docs/brand', destination: '/docs', permanent: true },
       // Retired v2 design-handoff URLs previously lived under public/dcp-v2.
       { source: '/dcp-v2/:path*', destination: '/', permanent: true },
-      // Retired model-browser URLs → the playground/catalog source of truth.
-      { source: '/models', destination: '/renter/playground', permanent: true },
-      { source: '/marketplace/models', destination: '/renter/playground', permanent: true },
+      // Retired marketplace deep links → public route twins.
+      // /models is live again, so the old /marketplace/models URL lands on the
+      // public model directory instead of the renter console.
+      { source: '/marketplace/models', destination: '/models', permanent: true },
       { source: '/marketplace/templates', destination: '/renter/pods', permanent: true },
       // Retired v1 docs sub-pages → the consolidated single-page docs. (Bare
       // /quickstart 308s to /docs and /pricing 308s to home below; bare /status

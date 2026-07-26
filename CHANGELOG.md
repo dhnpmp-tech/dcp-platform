@@ -14,6 +14,32 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `feat(site): add public models and providers routes - PR #967`
+
+**PR:** [#967](https://github.com/dhnpmp-tech/dcp-platform/pull/967) (`agent/codex/task_864e8324c40b-public-route-migration`).
+
+**What:** Continues the public-route migration for marketplace/pricing/models/
+providers by adding the two missing public v2 surfaces and keeping existing
+live marketplace/pricing routes intact.
+
+- **Models route:** `/models` is now a real public model directory backed by
+  `GET /v1/models`, with serveable rows separated from catalog-only rows.
+- **Providers route:** `/providers` is now a public-safe provider network page
+  backed by `/api/providers/models` and `/api/health/detailed` aggregate data.
+- **Privacy boundary:** The provider page displays aggregate model coverage and
+  health gates only; it does not render provider names, provider IDs, WireGuard
+  addresses, endpoints, or private fleet rows.
+- **Redirect cleanup:** `/models` no longer redirects to the renter console, and
+  legacy `/marketplace/models` redirects to `/models`.
+- **Discovery:** Sitemap, mobile menu, and home footer now expose `/models`,
+  `/marketplace`, and `/providers`.
+- **Regression guards:** Static route migration, redirect, and public-honesty
+  tests cover the new pages, live-catalog discipline, public-provider privacy,
+  and retired model redirect behavior.
+- **Safety:** Frontend route/config/test/changelog only. No auth, billing,
+  payments, provider operations, routing, live infrastructure, production
+  environment variables, or private Mission Control APIs changed.
+
 ### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR #961`
 
 **PR:** [#961](https://github.com/dhnpmp-tech/dcp-platform/pull/961) (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).

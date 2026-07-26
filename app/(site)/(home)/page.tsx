@@ -514,7 +514,8 @@ client = OpenAI(
                 />
               </p>
               <ul className="pshow-list">
-                <li><Bi en="You keep 75% of every Riyal your rig earns · paid out in SAR" ar="تحتفظ بـ٧٥٪ من كل ريال يكسبه جهازك · يُدفع بالريال" /></li>
+                <li><Bi en="You keep 85% of every Riyal your rig earns · paid out in SAR" ar="تحتفظ بـ٨٥٪ من كل ريال يكسبه جهازك · يُدفع بالريال" /></li>
+                <li><Bi en="Published split: 85% provider · 15% platform" ar="التقسيم المنشور: ٨٥٪ للمزوّد · ١٥٪ للمنصة" /></li>
                 <li><Bi en="Native installers + signed auto-updates · one codebase, three platforms" ar="مثبّتات أصلية وتحديثات موقّعة تلقائية · قاعدة كود واحدة لثلاث منصات" /></li>
                 <li><Bi en="Paid only while your machine is verified and actually serving" ar="تُدفع فقط ما دام جهازك متحققاً منه ويخدم فعلاً" /></li>
               </ul>
@@ -619,6 +620,8 @@ client = OpenAI(
             <ul>
               <li><Link href="/pods"><Bi en="GPU Pods" ar="حاويات GPU" /></Link></li>
               <li><Link href="/inference"><Bi en="Inference" ar="الاستدلال" /></Link></li>
+              <li><Link href="/models"><Bi en="Models" ar="النماذج" /></Link></li>
+              <li><Link href="/marketplace"><Bi en="Marketplace" ar="السوق" /></Link></li>
               <li><Link href="/fine-tuning"><Bi en="Fine-Tuning" ar="الضبط الدقيق" /></Link></li>
               <li><Link href="/batch"><Bi en="Batch" ar="الدُفعات" /></Link></li>
               <li><Link href="/dedicated-deployments"><Bi en="Deployments" ar="النشر" /></Link></li>
@@ -652,11 +655,12 @@ client = OpenAI(
           <div>
             <h4><Bi en="Providers" ar="المزوّدون" /></h4>
             <ul>
+              <li><Link href="/providers"><Bi en="Provider network" ar="شبكة المزوّدين" /></Link></li>
+              <li><Link href="/provider-setup"><Bi en="Become a provider" ar="كن مزوّداً" /></Link></li>
               <li><Link href="/provider/dashboard"><Bi en="Provider console" ar="لوحة المزوّد" /></Link></li>
               <li><Link href="/provider/rigs"><Bi en="Rigs" ar="الأجهزة" /></Link></li>
               <li><Link href="/provider/earnings"><Bi en="Earnings" ar="الأرباح" /></Link></li>
               <li><Link href="/provider/payouts"><Bi en="Payouts" ar="المدفوعات" /></Link></li>
-              <li><Link href="/pricing"><Bi en="Tiers" ar="الفئات" /></Link></li>
             </ul>
           </div>
 

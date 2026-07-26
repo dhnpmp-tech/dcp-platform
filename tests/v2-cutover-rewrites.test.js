@@ -36,7 +36,11 @@ async function run() {
   assert.strictEqual(redirectMap.get('/v2/admin'), '/admin', 'legacy single-page /v2/admin should 308 to the canonical /admin console');
   assert.strictEqual(redirectMap.get('/v2/renter/:path*'), '/renter/:path*', 'legacy /v2/renter/* should 308 to the root renter console');
   assert.strictEqual(redirectMap.get('/v2/provider/:path*'), '/provider/:path*', 'legacy /v2/provider/* should 308 to the root provider console');
-  assert.strictEqual(redirectMap.get('/v2/:path*'), '/:path*', 'a catch-all should sweep any stray /v2/* to its root twin');
+  assert.strictEqual(
+    redirectMap.get('/v2/:path((?!home$).*)'),
+    '/:path',
+    'a guarded catch-all should sweep stray /v2/* routes to their root twin without shadowing /v2/home'
+  );
 
   // Every /v2/* redirect must be permanent (308) so engines treat root as canonical.
   redirects
@@ -49,7 +53,8 @@ async function run() {
   });
 
   // Retired v1 surfaces now point at clean ROOT destinations.
-  assert.strictEqual(redirectMap.get('/models'), '/renter/playground', 'retired model-browser URLs should land on the root playground');
+  assert(!redirectSources.includes('/models'), '/models is a live public route and must not redirect to the renter console');
+  assert.strictEqual(redirectMap.get('/marketplace/models'), '/models', 'legacy marketplace model URLs should land on the public model directory');
   assert.strictEqual(redirectMap.get('/docs/brand'), '/docs', 'retired brand guideline page should land on the root docs');
   assert.strictEqual(redirectMap.get('/renter/register'), '/setup', 'legacy renter registration should land on the renter signup funnel (/setup)');
   assert.strictEqual(redirectMap.get('/provider-onboarding'), '/earn', 'legacy provider onboarding should land on public /earn');

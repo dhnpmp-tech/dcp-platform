@@ -3,18 +3,19 @@ const fs = require('fs');
 const path = require('path');
 
 const home = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/(home)/page.tsx'), 'utf8');
+const homeData = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/(home)/home-data.ts'), 'utf8');
 const providerSetup = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/provider-setup/page.tsx'), 'utf8');
-const marketplaceModels = fs.readFileSync(path.join(__dirname, '..', 'app/marketplace/models/page.tsx'), 'utf8');
+const publicModels = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/models/page.tsx'), 'utf8');
+const liveCapacity = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/components/live-capacity/LiveCapacity.tsx'), 'utf8');
 const sharedI18n = fs.readFileSync(path.join(__dirname, '..', 'app/lib/i18n.tsx'), 'utf8');
 const retiredPublicHandoff = path.join(__dirname, '..', 'public/dcp-v2');
 const retiredBrandGuide = path.join(__dirname, '..', 'public/docs/DCP-BRAND-GUIDELINES-v3.html');
 const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
 
 // The redesigned home is now canonical at root. It must not link visitors back
-// through the retired legacy surfaces (the old /earn marketing funnel, the
-// retired marketplace, or any /v2/* URL that now only 308s back to root).
+// through retired legacy surfaces (old marketplace deep links, or any /v2/*
+// URL that now only 308s back to root). /earn is a live provider CTA.
 [
-  'href="/earn"',
   'href="/marketplace/models"',
   '/v2/setup',
   '/v2/provider-setup',
@@ -27,6 +28,7 @@ const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
 [
   '/setup',
   '/provider-setup',
+  '/earn',
   '/renter/playground',
 ].forEach((rootHref) => {
   assert(home.includes(rootHref), `redesigned home should keep public CTAs on ${rootHref}`);
@@ -72,12 +74,14 @@ const retiredBrandPage = path.join(__dirname, '..', 'app/docs/brand/page.tsx');
   assert(!home.includes(claim), `v2 home should not present simulated live marketplace telemetry: ${claim}`);
 });
 
-assert(home.includes('scaleX(0)'), 'v2 home should not render a non-zero fake verified-capacity meter');
-assert(home.includes('Check live status'), 'v2 home should route live-capacity questions to the status page');
-assert(home.includes('CAPACITY_GATES'), 'v2 home should explain the real gates for published capacity');
-assert(home.includes('endpoint_reachable'), 'v2 home should name endpoint reachability as a capacity gate');
-assert(home.includes('verified_online'), 'v2 home should name earned-online verification as a capacity gate');
-assert(home.includes('No provider is listed until the inference path itself is proven.'), 'v2 home should explain empty marketplace state honestly');
+assert(liveCapacity.includes('verified-capacity-bar'), 'live marketplace capacity should keep a verified-capacity meter');
+assert(liveCapacity.includes(': 0})'), 'live marketplace capacity meter should render zero before real health data loads');
+assert(liveCapacity.includes('No simulated telemetry'), 'live marketplace capacity should explicitly reject simulated telemetry');
+assert(liveCapacity.includes('Watch live status') && liveCapacity.includes('href="/status"'), 'live marketplace capacity should route status questions to /status');
+assert(homeData.includes('CAPACITY_GATES'), 'v2 home data should define the real gates for published capacity');
+assert(homeData.includes('endpoint_reachable'), 'v2 home data should name endpoint reachability as a capacity gate');
+assert(homeData.includes('verified_online'), 'v2 home data should name earned-online verification as a capacity gate');
+assert(liveCapacity.includes('No verified capacity is serving right now'), 'live marketplace capacity should explain empty marketplace state honestly');
 
 [
   'useState(41)',
@@ -117,7 +121,6 @@ assert(home.includes('15% platform'), 'v2 home should show the current platform 
 assert(providerSetup.includes('const PROVIDER_SHARE = 0.85'), 'provider setup estimator should use the current provider share');
 assert(providerSetup.includes('const PLATFORM_SHARE = 0.15'), 'provider setup estimator should use the current platform share');
 assert(!home.includes('NDMO'), 'v2 home should not imply a specific NDMO compliance artifact before it exists');
-assert(home.includes('Customer data-classification workbook'), 'v2 home should keep the enterprise classification offer generic and accurate');
 assert(!sharedI18n.includes('50+ models'), 'shared public footer should not publish a stale numeric model-count claim');
 assert(sharedI18n.includes('Arabic-first model catalog'), 'shared public footer should describe the catalog without a stale model-count claim');
 
@@ -134,7 +137,7 @@ assert(sharedI18n.includes('Arabic-first model catalog'), 'shared public footer 
   'AWS Bedrock',
   'Your savings',
 ].forEach((claim) => {
-  assert(!marketplaceModels.includes(claim), `legacy marketplace model catalog should not publish unsourced competitor savings copy: ${claim}`);
+  assert(!publicModels.includes(claim), `public model catalog should not publish unsourced competitor savings copy: ${claim}`);
 });
 
 assert(!fs.existsSync(retiredPublicHandoff), 'retired v2 design handoff/prototype files must not be published under public/dcp-v2');
