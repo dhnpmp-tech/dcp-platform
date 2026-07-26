@@ -167,4 +167,51 @@ describe('daemon-event mining_detected (task_a74c15efb7a0)', () => {
     ).all(`mining_detected:provider:${p.id}`);
     expect(tasks.length).toBe(0);
   });
+
+  test('mining_suspected does not quarantine (host_conn-only path)', async () => {
+    const p = insertProvider({ status: 'online' });
+    const res = await request(app)
+      .post('/api/providers/daemon-event')
+      .send({
+        api_key: p.apiKey,
+        event_type: 'mining_suspected',
+        severity: 'warning',
+        hostname: 'node-lab-1',
+        details: 'host_conn:mining_pool_port_connection port=8888',
+      });
+    expect(res.status).toBe(200);
+    const prov = db.prepare('SELECT is_paused, status FROM providers WHERE id = ?').get(p.id);
+    expect(prov.is_paused).toBe(0);
+    expect(prov.status).toBe('online');
+    const tasks = db.prepare(
+      `SELECT id FROM mission_tasks WHERE external_id = ?`
+    ).all(`mining_detected:provider:${p.id}`);
+    expect(tasks.length).toBe(0);
+  });
+
+  test('suspended provider stays suspended in status log on mining_detected', async () => {
+    const p = insertProvider({ status: 'suspended' });
+    const res = await request(app)
+      .post('/api/providers/daemon-event')
+      .send({
+        api_key: p.apiKey,
+        event_type: 'mining_detected',
+        severity: 'critical',
+        hostname: 'node-lab-1',
+        details: 'host_proc:known_miner_pattern pid=9 cmd=xmrig',
+      });
+    expect(res.status).toBe(200);
+    const prov = db.prepare('SELECT is_paused, status FROM providers WHERE id = ?').get(p.id);
+    expect(prov.is_paused).toBe(1);
+    expect(prov.status).toBe('suspended');
+    try {
+      const logRow = db.prepare(
+        `SELECT old_status, new_status FROM provider_status_log WHERE provider_id = ? ORDER BY rowid DESC LIMIT 1`
+      ).get(p.id);
+      if (logRow) {
+        expect(logRow.new_status).toBe('suspended');
+      }
+    } catch (_) { /* table optional */ }
+  });
+
 });

@@ -109,12 +109,18 @@ try:
         cleanup_pod_egress_rules,
         run_host_miner_sweep,
         compute_integrity_baseline,
+        findings_warrant_quarantine,
+        load_integrity_baseline,
+        save_integrity_baseline,
     )
 except ImportError:
     scan_and_kill_miners = None
     setup_pod_egress_rules = None
     cleanup_pod_egress_rules = None
     run_host_miner_sweep = None
+    findings_warrant_quarantine = None
+    load_integrity_baseline = None
+    save_integrity_baseline = None
     compute_integrity_baseline = None
 
 # ─── WINDOWS CONSOLE / SUBPROCESS HARDENING ─────────────────────────────────
@@ -9799,17 +9805,22 @@ def _startup_miner_sweep():
         return
     try:
         import subprocess as _sp
-        miner_names = ['forge', 'xmrig', 'ccminer', 'ethminer', 'minerd', 't-rex', 'lolminer',
+        # Exact process-name kill only — NEVER pkill -f 'forge' (hits Forgejo/cargo-forge).
+        # Ambiguous tokens handled by continuous host sweep with corroboration rules.
+        miner_names = ['xmrig', 'ccminer', 'ethminer', 'minerd', 't-rex', 'lolminer',
                        'gminer', 'nbminer', 'teamredminer', 'srbminer', 'cast-xmr', 'xmr-stak',
-                       'cpuminer', 'cgminer', 'bfgminer', 'claymore', 'phoenixminer']
+                       'cpuminer', 'cgminer', 'bfgminer', 'claymore', 'phoenixminer',
+                       'nicehash', 'kryptex']
         for name in miner_names:
-            r = _sp.run(['pkill', '-f', name], capture_output=True, text=True, timeout=5)
+            # -x = exact comm name; avoids substring collisions
+            r = _sp.run(['pkill', '-x', name], capture_output=True, text=True, timeout=5)
             if r.returncode == 0:
-                log.warning('Startup miner sweep: killed %s', name)
-        for pat in ('kryptex', 'pearlhash'):
+                log.warning('Startup miner sweep: killed exact name %s', name)
+        # High-confidence product substrings only (not 'forge')
+        for pat in ('xmrig', 'pearlhash', 'kryptex.network', 'stratum+tcp://', 'stratum+ssl://'):
             r = _sp.run(['pkill', '-f', pat], capture_output=True, text=True, timeout=5)
             if r.returncode == 0:
-                log.warning('Startup miner sweep: killed %s-related process', pat)
+                log.warning('Startup miner sweep: killed pattern %s', pat)
     except Exception as e:
         log.warning('Startup miner sweep failed: %s', e)
     # Continuous-path functions once at boot
@@ -9819,10 +9830,17 @@ def _startup_miner_sweep():
         log.warning("Startup host miner guard failed: %s", e)
     global _HOST_INTEGRITY_BASELINE
     try:
-        if compute_integrity_baseline is not None:
+        if load_integrity_baseline is not None:
+            _HOST_INTEGRITY_BASELINE = load_integrity_baseline()
+            if _HOST_INTEGRITY_BASELINE:
+                log.info("[host-miner] integrity baseline loaded from disk (%d paths)",
+                         len(_HOST_INTEGRITY_BASELINE or {}))
+        if _HOST_INTEGRITY_BASELINE is None and compute_integrity_baseline is not None:
             _HOST_INTEGRITY_BASELINE = compute_integrity_baseline()
             log.info("[host-miner] integrity baseline captured (%d paths)",
                      len(_HOST_INTEGRITY_BASELINE or {}))
+            if save_integrity_baseline is not None and _HOST_INTEGRITY_BASELINE:
+                save_integrity_baseline(_HOST_INTEGRITY_BASELINE)
     except Exception as e:
         log.debug("[host-miner] integrity baseline failed: %s", e)
 
@@ -9903,11 +9921,35 @@ def _run_host_miner_guard_once(reason="periodic"):
         reason, len(findings), killed, r.get("elapsed_ms"), "\n".join(summary_parts),
     )
 
-    log.warning("[host-miner] DETECTED %s", details[:500])
+    # CRITICAL-2: host_conn port-only (and unknown-GPU first hits) must NOT
+    # fire mining_detected → backend quarantine. Port 8888 = Jupyter default.
     try:
-        report_event("mining_detected", details[:5000], severity="critical")
-    except Exception as e:
-        log.debug("[host-miner] report_event failed: %s", e)
+        warrants_q = False
+        if findings_warrant_quarantine is not None:
+            warrants_q = bool(findings_warrant_quarantine(findings)) or bool(killed)
+        else:
+            # fallback: only known_miner_pattern / persistence / kills
+            warrants_q = bool(killed) or any(
+                (f.get("scope") in ("host_gpu", "host_proc") and f.get("reason") == "known_miner_pattern")
+                or (f.get("scope") == "persistence")
+                for f in findings
+            )
+    except Exception:
+        warrants_q = bool(killed)
+
+    if warrants_q:
+        log.warning("[host-miner] DETECTED (quarantine) %s", details[:500])
+        try:
+            report_event("mining_detected", details[:5000], severity="critical")
+        except Exception as e:
+            log.debug("[host-miner] report_event failed: %s", e)
+    else:
+        # Low-severity signal only — no provider quarantine
+        log.info("[host-miner] suspected (no quarantine) %s", details[:500])
+        try:
+            report_event("mining_suspected", details[:5000], severity="warning")
+        except Exception as e:
+            log.debug("[host-miner] report_event(mining_suspected) failed: %s", e)
 
 
 def host_miner_guard_loop():

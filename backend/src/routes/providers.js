@@ -1998,18 +1998,20 @@ router.post('/:id/benchmark', validateBody(providerBenchmarkSchema), (req, res) 
 function handleMiningDetected(provider, details, hostname) {
     try {
         const oldStatus = provider.status;
+        // Keep suspended as suspended; otherwise flag. Log the REAL new status (HIGH-a).
+        const newStatus = (oldStatus === 'suspended') ? 'suspended' : 'flagged';
         // Quarantine: stop dispatching paid jobs until human clears.
         runStatement(
             `UPDATE providers SET is_paused = 1,
-                status = CASE WHEN status = 'suspended' THEN status ELSE 'flagged' END,
+                status = ?,
                 updated_at = datetime('now')
              WHERE id = ?`,
-            provider.id
+            newStatus, provider.id
         );
         try {
             runStatement(
                 `INSERT INTO provider_status_log (provider_id, old_status, new_status) VALUES (?, ?, ?)`,
-                provider.id, oldStatus || null, 'flagged'
+                provider.id, oldStatus || null, newStatus
             );
         } catch (_) { /* table may not exist in older DBs */ }
 
@@ -2087,6 +2089,7 @@ router.post('/daemon-event', (req, res) => {
         );
 
         // Host miner: quarantine + MC task + alert (critical tier)
+        // mining_suspected (port-only / low-confidence) is logged above but does NOT quarantine.
         if (cleanEventType === 'mining_detected') {
             const fullProvider = db.get('SELECT id, name, status, is_paused FROM providers WHERE id = ?', provider.id) || provider;
             handleMiningDetected(fullProvider, cleanDetails, normalizeString(hostname, { maxLen: 255 }) || null);

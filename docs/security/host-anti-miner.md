@@ -96,3 +96,12 @@ Anything else with meaningful VRAM (≥100 MiB) or matching miner patterns → f
 
 - Should quarantine set `status=suspended` (harder) vs `flagged`+`is_paused` (recoverable)? **This PR uses flagged + is_paused.**
 - Integrity baseline storage: local `~/.dcp/integrity.json` only in v1 (no remote attest yet).
+
+## False-positive policy (PR #963 review)
+
+1. **Definite vs weak tokens.** `xmrig`/`ccminer`/… kill on sight. Tokens like `ruby`, `sha256`, `scrypt`, `nezha`, `stratum`, `forge`, `ethash` are supporting signals only — require mining flags (`--pool`, `--wallet`, `stratum+tcp`, …) before kill.
+2. **host_conn port-only never quarantines.** Ports 8888 (Jupyter) and 5555 (NCCL/MPI) are legitimate. Daemon emits `mining_suspected` (warning), not `mining_detected`.
+3. **Quarantine requires** `known_miner_pattern` on host_gpu/host_proc, corroborated persistence, or an actual kill.
+4. **Startup pkill** uses exact process names (`pkill -x`); never `pkill -f forge` (Forgejo/cargo-forge collision).
+5. **Integrity baseline** persisted to `~/.dcp/integrity_baseline.json` so restart does not lose the reference.
+6. **provider_status_log** records the real post-update status (`suspended` stays `suspended`).
