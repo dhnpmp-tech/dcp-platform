@@ -331,6 +331,11 @@ describe('renterRegisterSchema', () => {
       organization: 'KFUPM',
       use_case: 'Arabic NLP research',
       phone: '+966-50-111-2222',
+      legal_entity_name: 'King Fahd University of Petroleum and Minerals',
+      commercial_registration_number: '1010123456',
+      billing_address: 'Dhahran 31261, Saudi Arabia',
+      vat_number: '310000000000003',
+      expected_monthly_volume: '1M-10M tokens/month',
     });
     expect(result.passed).toBe(true);
   });

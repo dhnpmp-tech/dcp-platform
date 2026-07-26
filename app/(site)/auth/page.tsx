@@ -16,8 +16,34 @@ type AuthTab = 'signin' | 'signup'
 type AuthRole = 'renter' | 'provider'
 type LoginMethod = 'email' | 'apikey'
 type AuthStep = 'email' | 'sent'
+type RenterSignupProfile = {
+  name: string
+  legal_entity_name: string
+  commercial_registration_number: string
+  billing_address: string
+  vat_number: string
+  use_case: string
+  expected_monthly_volume: string
+}
 
 const API_BASE = '/api'
+
+const RENTER_USE_CASES = [
+  { value: 'Arabic customer support', en: 'Arabic customer support', ar: 'دعم العملاء العربي' },
+  { value: 'Document intelligence / OCR', en: 'Document intelligence / OCR', ar: 'فهم المستندات / OCR' },
+  { value: 'Internal copilots and agents', en: 'Internal copilots and agents', ar: 'مساعدون ووكلاء داخليون' },
+  { value: 'Search / RAG', en: 'Search / RAG', ar: 'بحث / RAG' },
+  { value: 'Batch data processing', en: 'Batch data processing', ar: 'معالجة بيانات دفعية' },
+  { value: 'Evaluation / pilot', en: 'Evaluation / pilot', ar: 'تقييم / تجربة' },
+]
+
+const EXPECTED_VOLUME_OPTIONS = [
+  { value: 'Evaluation only', en: 'Evaluation only', ar: 'تقييم فقط' },
+  { value: '<100K tokens/month', en: '<100K tokens / month', ar: 'أقل من 100 ألف رمز / شهر' },
+  { value: '100K-1M tokens/month', en: '100K-1M tokens / month', ar: '100 ألف إلى مليون رمز / شهر' },
+  { value: '1M-10M tokens/month', en: '1M-10M tokens / month', ar: 'مليون إلى 10 ملايين رمز / شهر' },
+  { value: '10M+ tokens/month', en: '10M+ tokens / month', ar: 'أكثر من 10 ملايين رمز / شهر' },
+]
 
 function getSafeRedirect(raw: string | null, fallback: string): string {
   if (!raw) return fallback
@@ -41,6 +67,15 @@ function AuthInner() {
   const [authStep, setAuthStep] = useState<AuthStep>('email')
   const [email, setEmail] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [renterSignup, setRenterSignup] = useState<RenterSignupProfile>({
+    name: '',
+    legal_entity_name: '',
+    commercial_registration_number: '',
+    billing_address: '',
+    vat_number: '',
+    use_case: '',
+    expected_monthly_volume: '',
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -74,6 +109,10 @@ function AuthInner() {
     setSuccess('')
   }
 
+  const updateRenterSignup = (field: keyof RenterSignupProfile, value: string) => {
+    setRenterSignup((current) => ({ ...current, [field]: value }))
+  }
+
   const persistMagicLinkRedirect = useCallback(() => {
     try {
       sessionStorage.setItem('dcp_login_prefer_role', role)
@@ -88,7 +127,8 @@ function AuthInner() {
 
   const sendMagicLink = useCallback(async () => {
     resetFeedback()
-    if (!email.trim()) {
+    const cleanEmail = email.trim()
+    if (!cleanEmail) {
       setError(lang === 'ar' ? 'أدخل بريدك الإلكتروني.' : 'Enter your email.')
       return
     }
@@ -96,24 +136,55 @@ function AuthInner() {
     setIsLoading(true)
     try {
       persistMagicLinkRedirect()
-      const endpoint = role === 'renter' ? 'renters/send-otp' : 'providers/send-otp'
+      const isRenterSignup = tab === 'signup' && role === 'renter'
+      const endpoint = isRenterSignup
+        ? 'renters/register'
+        : role === 'renter' ? 'renters/send-otp' : 'providers/send-otp'
+      const cleanName = renterSignup.name.trim()
+      const cleanLegalEntity = renterSignup.legal_entity_name.trim()
+      if (isRenterSignup && !cleanName) {
+        setError(lang === 'ar' ? 'أدخل اسم جهة الاتصال.' : 'Enter the contact name.')
+        setIsLoading(false)
+        return
+      }
+      const body = isRenterSignup
+        ? {
+            name: cleanName,
+            email: cleanEmail,
+            organization: cleanLegalEntity || cleanName,
+            legal_entity_name: cleanLegalEntity,
+            commercial_registration_number: renterSignup.commercial_registration_number.trim(),
+            billing_address: renterSignup.billing_address.trim(),
+            vat_number: renterSignup.vat_number.trim(),
+            use_case: renterSignup.use_case.trim(),
+            expected_monthly_volume: renterSignup.expected_monthly_volume.trim(),
+          }
+        : { email: cleanEmail }
       const res = await fetch(`${API_BASE}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Failed to send sign-in link.')
 
       setAuthStep('sent')
-      setSuccess(lang === 'ar' ? 'أرسلنا رابط الدخول إلى بريدك.' : 'Check your email. We sent a sign-in link.')
+      setSuccess(
+        isRenterSignup
+          ? lang === 'ar'
+            ? 'حفظنا بيانات الحساب وأرسلنا رابط التحقق إلى بريدك.'
+            : 'We saved the account profile and sent a verification link.'
+          : lang === 'ar'
+            ? 'أرسلنا رابط الدخول إلى بريدك.'
+            : 'Check your email. We sent a sign-in link.'
+      )
       setCountdown(60)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send sign-in link.')
     } finally {
       setIsLoading(false)
     }
-  }, [email, lang, persistMagicLinkRedirect, role])
+  }, [email, lang, persistMagicLinkRedirect, renterSignup, role, tab])
 
   const loginWithApiKey = useCallback(async () => {
     resetFeedback()
@@ -361,6 +432,113 @@ function AuthInner() {
 
             {method === 'email' ? (
               <>
+                {tab === 'signup' && role === 'renter' && authStep === 'email' && (
+                  <div className="signup-profile" aria-label={lang === 'ar' ? 'ملف الحساب' : 'Account profile'}>
+                    <div className="field">
+                      <label htmlFor="signup-name">
+                        <Bi en="Contact name" ar="اسم جهة الاتصال" />
+                      </label>
+                      <input
+                        id="signup-name"
+                        type="text"
+                        value={renterSignup.name}
+                        onChange={(event) => updateRenterSignup('name', event.target.value)}
+                        placeholder={lang === 'ar' ? 'مثال: سارة العتيبي' : 'e.g. Sara Al-Otaibi'}
+                        autoComplete="name"
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="signup-legal-entity">
+                        <Bi en="Legal entity / workspace" ar="الكيان القانوني / مساحة العمل" />
+                      </label>
+                      <input
+                        id="signup-legal-entity"
+                        type="text"
+                        value={renterSignup.legal_entity_name}
+                        onChange={(event) => updateRenterSignup('legal_entity_name', event.target.value)}
+                        placeholder={lang === 'ar' ? 'مثال: شركة نكست ويف للتجارة' : 'e.g. NextWave Commerce LLC'}
+                        autoComplete="organization"
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <div className="field">
+                        <label htmlFor="signup-cr">
+                          <Bi en="CR number" ar="رقم السجل التجاري" />
+                        </label>
+                        <input
+                          id="signup-cr"
+                          type="text"
+                          value={renterSignup.commercial_registration_number}
+                          onChange={(event) => updateRenterSignup('commercial_registration_number', event.target.value)}
+                          placeholder={lang === 'ar' ? 'إن وجد' : 'If applicable'}
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="signup-vat">
+                          <Bi en="VAT number" ar="الرقم الضريبي" />
+                        </label>
+                        <input
+                          id="signup-vat"
+                          type="text"
+                          value={renterSignup.vat_number}
+                          onChange={(event) => updateRenterSignup('vat_number', event.target.value)}
+                          placeholder="310000000000003"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="signup-billing-address">
+                        <Bi en="Billing address" ar="عنوان الفوترة" />
+                      </label>
+                      <textarea
+                        id="signup-billing-address"
+                        rows={3}
+                        value={renterSignup.billing_address}
+                        onChange={(event) => updateRenterSignup('billing_address', event.target.value)}
+                        placeholder={lang === 'ar' ? 'المدينة، الحي، الشارع، الرمز البريدي' : 'City, district, street, postal code'}
+                        autoComplete="street-address"
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <div className="field">
+                        <label htmlFor="signup-use-case">
+                          <Bi en="Primary use case" ar="حالة الاستخدام الأساسية" />
+                        </label>
+                        <select
+                          id="signup-use-case"
+                          value={renterSignup.use_case}
+                          onChange={(event) => updateRenterSignup('use_case', event.target.value)}
+                        >
+                          <option value="">{lang === 'ar' ? 'اختر حالة استخدام' : 'Select a use case'}</option>
+                          {RENTER_USE_CASES.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {lang === 'ar' ? item.ar : item.en}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor="signup-volume">
+                          <Bi en="Expected volume" ar="الحجم المتوقع" />
+                        </label>
+                        <select
+                          id="signup-volume"
+                          value={renterSignup.expected_monthly_volume}
+                          onChange={(event) => updateRenterSignup('expected_monthly_volume', event.target.value)}
+                        >
+                          <option value="">{lang === 'ar' ? 'اختر الحجم' : 'Select volume'}</option>
+                          {EXPECTED_VOLUME_OPTIONS.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {lang === 'ar' ? item.ar : item.en}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="field">
                   <label htmlFor="auth-email">
                     <Bi en="Email" ar="البريد الإلكتروني" />
@@ -390,7 +568,13 @@ function AuthInner() {
                   </div>
                 ) : (
                   <button type="button" className="btn-pri" onClick={submit} disabled={isLoading}>
-                    {isLoading ? <Bi en="Sending…" ar="جارٍ الإرسال…" /> : <Bi en="Send magic link →" ar="أرسل الرابط السحري ←" />}
+                    {isLoading ? (
+                      <Bi en="Sending…" ar="جارٍ الإرسال…" />
+                    ) : tab === 'signup' && role === 'renter' ? (
+                      <Bi en="Create account →" ar="أنشئ الحساب ←" />
+                    ) : (
+                      <Bi en="Send magic link →" ar="أرسل الرابط السحري ←" />
+                    )}
                   </button>
                 )}
               </>
