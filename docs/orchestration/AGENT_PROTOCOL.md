@@ -92,6 +92,12 @@ PATCH as the review transition. The review transition releases the active
 claim, so a later agent-scoped PR-link patch will be rejected unless an admin or
 dispatcher reopens the lease.
 
+Every pull request should also receive the ECC PR review trio comments from
+GitHub Actions. Treat `silent-failure-hunter`, `pr-test-analyzer`, and
+`type-design-analyzer` findings as part of the review packet; critical findings
+must be fixed or explicitly resolved before merge. See
+`docs/orchestration/ecc-pr-review-trio.md` for the workflow contract.
+
 ### 6. Finish means review, not done
 
 Move your task to `review` when work is ready for human eyes:

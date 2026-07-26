@@ -14,6 +14,29 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `ci(pr): add ECC review trio gate - PR #968`
+
+**PR:** [#968](https://github.com/dhnpmp-tech/dcp-platform/pull/968) (`agent/codex/task_b77bcb185e70-ecc-pr-review-trio`).
+
+**What:** Adds the ECC pull request review trio as a standard GitHub Actions
+check for `dhnpmp-tech/dcp-platform` PRs.
+
+- **Workflow:** Added `.github/workflows/ecc-pr-review-trio.yml`, running
+  `silent-failure-hunter`, `pr-test-analyzer`, and `type-design-analyzer` on
+  PR opened/synchronize/reopened/ready-for-review events.
+- **Trusted execution:** The workflow uses `pull_request_target` for PR comment
+  permissions, but runs only trusted base-branch scripts against a separate PR
+  checkout so untrusted PR code does not receive the write token.
+- **Analyzer:** Added dependency-free Node review scripts that inspect changed
+  lines for empty catches, swallowed promise rejections, missing high-risk test
+  coverage, and new TypeScript escape hatches.
+- **Comments:** Each agent maintains one sticky PR comment and uploads its
+  Markdown report as a short-lived workflow artifact.
+- **Docs/tests:** Added orchestration docs, overview updates, and static
+  regression coverage for the workflow contract and analyzer behavior.
+- **Safety:** CI/docs/test/script-only. No production deploy, auth, billing,
+  payments, provider operations, routing, Mission Control API behavior, live
+  infrastructure, or environment variables changed.
 ### Pending - `fix(admin): hide soft-deleted providers from dashboard - PR #965`
 
 **PR:** [#965](https://github.com/dhnpmp-tech/dcp-platform/pull/965) (`agent/codex/task_54cdc6ae7fb2-runpod-cleanup`).
