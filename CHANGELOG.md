@@ -28,6 +28,9 @@ that have been soft-deleted no longer appear in normal provider counts or lists.
   operators who need to inspect tombstoned provider rows.
 - **Proxy parity:** The Next.js `/api/admin/providers` proxy now forwards query
   parameters to the backend instead of silently dropping ops filters.
+- **Dependency gate:** Refreshed backend production dependencies to keep the
+  payout dependency audit green: Express stays on the 4.x line while resolving
+  the patched `body-parser` tree, and optional `sharp` moves to `^0.35.3`.
 - **Regression guard:** Added integration coverage proving soft-deleted
   providers are hidden by default and visible only through `include_deleted=1`.
 - **Production note:** Live read-only inspection on 2026-07-26 found 23
