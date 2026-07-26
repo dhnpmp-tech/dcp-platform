@@ -14,6 +14,25 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `fix(mission): persist task review tier - PR TBD`
+
+**PR:** TBD (`agent/codex/task_6199af435165-mission-tier`).
+
+**What:** Fixes Mission Control task criticality so API-created and API-edited
+tasks can carry the review tier that drives the code-authority ladder.
+
+- **API contract:** `POST /api/mission/tasks` now accepts
+  `tier=low|standard|critical`, defaults invalid create input to `standard`,
+  and persists the value in `mission_tasks.tier`.
+- **Review safety:** `PATCH /api/mission/tasks/:id` now accepts valid tier
+  updates and ignores invalid tier values instead of erasing an existing tier.
+- **Regression guard:** Added route coverage for creating a `critical` task,
+  defaulting invalid create input to `standard`, updating to `low`, and proving
+  an invalid patch does not downgrade the stored tier.
+- **Safety:** Mission Control task metadata only; no inference routing, provider
+  operations, billing, payments, payouts, renter balances, or public site
+  behavior changed.
+
 ### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR #961`
 
 **PR:** [#961](https://github.com/dhnpmp-tech/dcp-platform/pull/961) (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).
