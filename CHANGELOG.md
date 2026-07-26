@@ -14,6 +14,30 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `docs(compliance): add ZATCA Phase 2 readiness audit - PR #960`
+
+**PR:** [#960](https://github.com/dhnpmp-tech/dcp-platform/pull/960) (`agent/codex/task_post_zatca_phase2_audit-zatca-readiness`).
+
+**What:** Audit-only ZATCA Phase 2/FATOORA readiness pass for DCP paid flows.
+
+- **Official-source grounding:** Added a compliance audit that cites ZATCA's
+  e-invoicing portal, detailed guideline, XML implementation standard, security
+  features standard, and Moyasar payment/invoice/refund/payout API docs.
+- **DCP flow mapping:** Identifies renter top-ups, auto top-ups, inference usage
+  invoices, refund requests, and provider payouts as the relevant money/tax
+  surfaces to classify before public enterprise billing.
+- **Readiness result:** Documents that the repo has payment, refund, payout,
+  ledger, and internal invoice evidence rails, but no ZATCA tax-invoice ledger,
+  UBL XML generation, CSID/key lifecycle, FATOORA clearance/reporting,
+  credit-note generation, or immutable XML/PDF-A-3 archive.
+- **Moyasar boundary:** Records that public Moyasar docs prove payment/payout
+  rails, not merchant-side ZATCA clearance/reporting on DCP's behalf.
+- **Safety:** Docs/test/changelog only. No payment, balance, refund, payout,
+  invoice, admin, routing, provider, renter, or production behavior changed.
+  Requires finance/legal review before operational use.
+- **Verification:** `node tests/zatca-readiness-audit-static.test.js`;
+  `git diff --check`.
+
 ### Pending - `docs(orchestration): clarify mission PR-link order - PR #957`
 
 **PR:** [#957](https://github.com/dhnpmp-tech/dcp-platform/pull/957) (`agent/codex/task_a74b6c71d-mission-doc-cleanup`).
