@@ -2946,6 +2946,11 @@ _OLLAMA_REPULL_HISTORY = {}      # name -> last_repull_attempt_ts
 _OLLAMA_REPULL_ACTIVE = set()    # set of names currently being re-pulled (gates accepting_jobs)
 _OLLAMA_REPULL_LOCK = threading.Lock()
 
+PROVIDER_TASK_MAX_CONCURRENT = max(1, int(os.environ.get("DCP_PROVIDER_TASK_MAX_CONCURRENT", "1")))
+_PROVIDER_TASK_LOCK = threading.Lock()
+_PROVIDER_TASK_ACTIVE = set()    # task_id values currently running locally
+_PROVIDER_TASK_UPDATES = []      # queued for the next successful heartbeat
+
 # Tier 4.16 / G47 — remote-pause state mirrored from the heartbeat response.
 # Backend toggles providers.is_paused via POST /api/providers/{pause,resume}
 # and echoes the bit back on every heartbeat response. The daemon mirrors it
@@ -3006,6 +3011,205 @@ def _apply_remote_pause_state(value):
                          severity="info")
         except Exception as _ev_err:
             log.debug(f"report_event(provider_remote_resumed) failed: {_ev_err}")
+
+
+def _queue_provider_task_update(task_id, status, progress_pct=0, progress_message=None, error_reason=None):
+    """Queue a provider task status update for the next heartbeat.
+
+    Updates are acknowledged only after a 200 heartbeat response so a transient
+    network failure cannot drop pull completion state on the floor.
+    """
+    try:
+        clean_task_id = int(task_id)
+    except (TypeError, ValueError):
+        return
+    if clean_task_id <= 0:
+        return
+    if status not in ("in_progress", "completed", "failed"):
+        status = "in_progress"
+    try:
+        pct = int(progress_pct)
+    except (TypeError, ValueError):
+        pct = 0
+    pct = max(0, min(100, pct))
+    update = {
+        "task_id": clean_task_id,
+        "status": status,
+        "progress_pct": pct,
+    }
+    if progress_message:
+        update["progress_message"] = str(progress_message)[:500]
+    if error_reason:
+        update["error_reason"] = str(error_reason)[:500]
+    with _PROVIDER_TASK_LOCK:
+        _PROVIDER_TASK_UPDATES.append(update)
+
+
+def _snapshot_provider_task_updates():
+    with _PROVIDER_TASK_LOCK:
+        return list(_PROVIDER_TASK_UPDATES)
+
+
+def _ack_provider_task_updates(count):
+    if count <= 0:
+        return
+    with _PROVIDER_TASK_LOCK:
+        del _PROVIDER_TASK_UPDATES[:count]
+
+
+def _provider_task_disk_ok(download_size_bytes):
+    """Return True iff local disk has enough room for the requested pull.
+
+    Backend migration 008 asks for size * 1.5. Use the configured model-cache
+    path when it exists; otherwise fall back to the provider home directory so
+    fresh installs can still preflight before /opt/dcp/model-cache is created.
+    """
+    try:
+        size = int(download_size_bytes or 0)
+    except (TypeError, ValueError):
+        size = 0
+    if size <= 0:
+        return True
+    check_path = MODEL_CACHE_PATH if os.path.exists(MODEL_CACHE_PATH) else str(Path.home())
+    try:
+        usage = shutil.disk_usage(check_path)
+        return int(usage.free) >= int(size * 1.5)
+    except Exception as e:
+        log.debug(f"[provider-task] disk preflight failed: {e}")
+        return True
+
+
+def _execute_pull_model_task(task):
+    """Execute one backend-issued pull_model task with Ollama.
+
+    This runs in a background thread. It reports progress through heartbeat
+    task_updates rather than calling a separate task endpoint, matching the
+    Migration 008 channel that the backend already accepts.
+    """
+    task_id = task.get("task_id")
+    params = task.get("params") if isinstance(task.get("params"), dict) else {}
+    model_id = str(params.get("model_id") or "").strip()
+    pull_uri = str(params.get("ollama_pull_uri") or "").strip()
+    download_size = params.get("download_size_bytes")
+
+    if not pull_uri:
+        _queue_provider_task_update(task_id, "failed", 100, "Missing ollama_pull_uri", "missing_ollama_pull_uri")
+        return
+
+    if not _provider_task_disk_ok(download_size):
+        _queue_provider_task_update(
+            task_id,
+            "failed",
+            100,
+            f"Insufficient disk for {pull_uri}",
+            "insufficient_disk",
+        )
+        return
+
+    label = model_id or pull_uri
+    _queue_provider_task_update(task_id, "in_progress", 5, f"Starting ollama pull {label}")
+    try:
+        report_event("provider_task_pull_model_start", f"task_id={task_id} model={label}", severity="info")
+    except Exception as _ev_err:
+        log.debug(f"[provider-task] start event failed: {_ev_err}")
+
+    try:
+        proc = subprocess.run(
+            ["ollama", "pull", pull_uri],
+            capture_output=True,
+            text=True,
+            timeout=OLLAMA_PULL_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        _queue_provider_task_update(
+            task_id,
+            "failed",
+            100,
+            f"Ollama pull timed out after {OLLAMA_PULL_TIMEOUT_SEC}s for {label}",
+            f"timeout_after_{OLLAMA_PULL_TIMEOUT_SEC}s",
+        )
+        return
+    except Exception as e:
+        _queue_provider_task_update(task_id, "failed", 100, f"Ollama pull spawn failed for {label}", str(e)[:200])
+        return
+
+    if getattr(proc, "returncode", 1) != 0:
+        stderr = (getattr(proc, "stderr", "") or getattr(proc, "stdout", "") or "").strip()
+        reason = stderr[:200] or f"ollama_pull_rc_{proc.returncode}"
+        _queue_provider_task_update(task_id, "failed", 100, f"Ollama pull failed for {label}", reason)
+        return
+
+    _queue_provider_task_update(task_id, "in_progress", 90, f"Verifying pulled model {label}")
+    ok, verify_err = verify_ollama_model(pull_uri)
+    if not ok:
+        _queue_provider_task_update(
+            task_id,
+            "failed",
+            100,
+            f"Ollama pull finished but verify failed for {label}",
+            f"verify_failed:{verify_err}",
+        )
+        return
+
+    with _OLLAMA_INTEGRITY_LOCK:
+        _OLLAMA_INTEGRITY["models"][pull_uri] = {
+            "ok": True,
+            "checked_at": time.time(),
+            "error": None,
+            "digest": "",
+        }
+    with _served_models_lock:
+        _SERVED_MODELS_CACHE["data"] = None
+        _SERVED_MODELS_CACHE["timestamp"] = 0.0
+    _queue_provider_task_update(task_id, "completed", 100, f"Pulled and verified {label}")
+    try:
+        report_event("provider_task_pull_model_completed", f"task_id={task_id} model={label}", severity="info")
+    except Exception as _ev_err:
+        log.debug(f"[provider-task] completion event failed: {_ev_err}")
+
+
+def _start_provider_task(task):
+    try:
+        task_id = int(task.get("task_id"))
+    except (TypeError, ValueError):
+        return False
+    if task_id <= 0:
+        return False
+    task_type = task.get("task_type")
+    if task_type != "pull_model":
+        _queue_provider_task_update(task_id, "failed", 100, f"Unsupported task type {task_type}", "unsupported_task_type")
+        return False
+    with _PROVIDER_TASK_LOCK:
+        if task_id in _PROVIDER_TASK_ACTIVE:
+            return False
+        if len(_PROVIDER_TASK_ACTIVE) >= PROVIDER_TASK_MAX_CONCURRENT:
+            return False
+        _PROVIDER_TASK_ACTIVE.add(task_id)
+
+    def _run():
+        try:
+            _execute_pull_model_task(task)
+        finally:
+            with _PROVIDER_TASK_LOCK:
+                _PROVIDER_TASK_ACTIVE.discard(task_id)
+
+    threading.Thread(target=_run, daemon=True, name=f"DCP-ProviderTask-{task_id}").start()
+    return True
+
+
+def _handle_pending_provider_tasks(resp):
+    if not isinstance(resp, dict):
+        return 0
+    tasks = resp.get("pending_tasks")
+    if not isinstance(tasks, list):
+        return 0
+    started = 0
+    for raw in tasks:
+        if isinstance(raw, dict) and _start_provider_task(raw):
+            started += 1
+    if started:
+        log.info(f"[provider-task] started {started} pending task(s)")
+    return started
 
 
 def _ollama_list_installed():
@@ -6635,6 +6839,9 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
             payload["final_heartbeat"] = True
         if status:
             payload["status"] = status
+        task_updates = _snapshot_provider_task_updates()
+        if task_updates:
+            payload["task_updates"] = task_updates
         # Defensive: ensure payload is JSON-safe before sending. Historically
         # we've seen "Circular reference detected" here when a GPU or network
         # stats object contained a back-reference. Sanitize first, then send.
@@ -6657,6 +6864,12 @@ def send_heartbeat(final=False, status=None):  # returns HTTP status code or Non
                     _apply_remote_pause_state(resp.get("is_paused"))
             except Exception as _rp_err:
                 log.debug(f"apply remote pause state failed: {_rp_err}")
+            try:
+                _ack_provider_task_updates(len(task_updates))
+                if not final and status != "draining":
+                    _handle_pending_provider_tasks(resp)
+            except Exception as _task_err:
+                log.debug(f"provider task handling failed: {_task_err}")
         else:
             log.warning(f"Heartbeat HTTP {code}: {resp}")
     except Exception as e:
