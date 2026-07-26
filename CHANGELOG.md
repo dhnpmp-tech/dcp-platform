@@ -14,6 +14,22 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `docs(orchestration): clarify mission PR-link order - PR #957`
+
+**PR:** [#957](https://github.com/dhnpmp-tech/dcp-platform/pull/957) (`agent/codex/task_a74b6c71d-mission-doc-cleanup`).
+
+**What:** Agent-orchestration onboarding cleanup. Clarifies that Mission Control
+agents must set `source_url` before moving a task to `review`, or send
+`source_url` in the same review PATCH through `scripts/mission-agent review
+<task-id> --pr <url>`.
+
+- **Agent protocol:** `docs/orchestration/AGENT_PROTOCOL.md` now calls out that
+  the review transition releases the active claim, so a later agent-scoped
+  PR-link patch can be rejected.
+- **Safety:** Docs/changelog-only; no Mission Control API behavior, routing,
+  billing, payments, provider operations, dispatcher behavior, or auth logic
+  changed.
+
 ### 2026-07-10 05:50 UTC - `feat(pods): add trial founder answer contract - PR #952`
 
 **PR:** [#952](https://github.com/dhnpmp-tech/dcp-platform/pull/952) (`codex/pods-trial-founder-answer-contract-2026-07-10`).

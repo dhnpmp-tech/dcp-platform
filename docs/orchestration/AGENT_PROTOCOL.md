@@ -87,6 +87,11 @@ Content-Type: application/json
 {"source_url": "https://github.com/dhnpmp-tech/dcp-platform/pull/42"}
 ```
 
+Set `source_url` before moving the task to `review`, or send it in the same
+PATCH as the review transition. The review transition releases the active
+claim, so a later agent-scoped PR-link patch will be rejected unless an admin or
+dispatcher reopens the lease.
+
 ### 6. Finish means review, not done
 
 Move your task to `review` when work is ready for human eyes:
@@ -95,6 +100,12 @@ Move your task to `review` when work is ready for human eyes:
 PATCH /api/mission/tasks/:id
 Content-Type: application/json
 {"status": "review"}
+```
+
+Preferred CLI:
+
+```
+scripts/mission-agent review <task-id> --pr https://github.com/dhnpmp-tech/dcp-platform/pull/42
 ```
 
 **Only Peter, Tareq, or Claude move tasks to `done`.** Do not mark your own work done.
