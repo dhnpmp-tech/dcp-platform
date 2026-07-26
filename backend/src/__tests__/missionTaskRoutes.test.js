@@ -419,3 +419,63 @@ describe('mission scope enforcement (route-level)', () => {
     expect(db.get(`SELECT id FROM mission_tasks WHERE id = ?`, id)).toBeTruthy();
   });
 });
+
+
+// --- Comment author attribution (scoped agent vs admin/legacy) ---
+describe('POST /tasks/:id/comments author attribution', () => {
+  let agentKey;
+
+  beforeAll(() => {
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('codex','Codex','agent',1)`);
+    agentKey = keys.issueKey({ assignee_id: 'codex', scopes: 'agent' }).rawKey;
+  });
+
+  beforeEach(() => {
+    db.run(`DELETE FROM mission_task_comments WHERE task_id IN (SELECT id FROM mission_tasks WHERE title = 'RT')`);
+    db.run(`DELETE FROM mission_tasks WHERE title = 'RT'`);
+  });
+
+  it('scoped agent comment forces author_id to key identity (ignores spoofed body.author_id)', async () => {
+    const id = seedTask({ assignee_id: 'codex', status: 'in_progress', claimed_by: 'codex' });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ body: 'checkpoint', author_id: 'peter' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBe('codex');
+    expect(res.body.comment.body).toBe('checkpoint');
+    const row = db.get(`SELECT author_id FROM mission_task_comments WHERE id = ?`, res.body.comment.id);
+    expect(row.author_id).toBe('codex');
+  });
+
+  it('scoped agent comment with omitted author_id still attributes to key identity', async () => {
+    const id = seedTask({ assignee_id: 'codex', status: 'in_progress', claimed_by: 'codex' });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ body: 'started' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBe('codex');
+  });
+
+  it('admin/legacy comment keeps passed author_id', async () => {
+    const id = seedTask();
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set(LEGACY)
+      .send({ body: 'admin note', author_id: 'peter' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBe('peter');
+  });
+
+  it('admin/legacy comment with omitted author_id stays null', async () => {
+    const id = seedTask();
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set(LEGACY)
+      .send({ body: 'anonymous admin note' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBeNull();
+  });
+});
