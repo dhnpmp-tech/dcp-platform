@@ -13,12 +13,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/agents',
     '/pods',
     '/inference',
+    '/models',
+    '/marketplace',
     '/fine-tuning',
     '/batch',
     '/dedicated-deployments',
     '/benchmarks',
     '/models/allam',
     '/models/qwen-arabic',
+    '/providers',
     // Compatibility URL for older GPU Pods links. Keep lower-priority but
     // discoverable while external references migrate to /pods.
     '/containers',
