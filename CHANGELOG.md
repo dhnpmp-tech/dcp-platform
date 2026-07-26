@@ -14,6 +14,33 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `docs(legal): add auto top-up and refund terms - PR #959`
+
+**PR:** [#959](https://github.com/dhnpmp-tech/dcp-platform/pull/959) (`agent/codex/task_post_tos_auto_topup_clause-tos-policy`).
+
+**What:** Legal-review-ready Terms update for recurring saved-card auto top-up
+and payment/refund disputes.
+
+- **Auto top-up consent:** `/terms` and `docs/TERMS.md` now state that enabling
+  saved-card auto top-up authorizes DC Power Solutions Company to charge the
+  saved Moyasar payment token when available credit drops below the renter's
+  configured threshold, limited by the saved amount and monthly cap.
+- **Disable path:** Terms now state that renters can disable auto top-up or
+  remove the saved card, and that removing the saved card disables auto top-up.
+- **Refund/dispute policy:** Terms now distinguish consumed compute from unused
+  paid credit, require a payment reference and reason for refund requests, state
+  that admins review refund requests, and keep a thirty (30) day dispute window.
+- **Repo hygiene:** The Mission task referenced
+  `docs/legal/terms-of-service-2026-05-25.md`, but that path is absent on
+  `origin/main`; the maintained public Terms surfaces are `/terms` and
+  `docs/TERMS.md`.
+- **Safety:** Copy/docs/static-test only. No payment route, auto-top-up route,
+  Moyasar integration, refund approval behavior, balance mutation, billing,
+  provider payout, invoice, or admin money action changed. Requires legal review
+  before public-facing approval.
+- **Verification:** `node tests/terms-auto-topup-policy-static.test.js`;
+  `npm run build`; `git diff --check`.
+
 ### Pending - `docs(orchestration): clarify mission PR-link order - PR #957`
 
 **PR:** [#957](https://github.com/dhnpmp-tech/dcp-platform/pull/957) (`agent/codex/task_a74b6c71d-mission-doc-cleanup`).
