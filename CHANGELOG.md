@@ -59,7 +59,6 @@ migrate transactional email based on stale SES free-tier assumptions.
   `git diff --check`.
 
 ### Pending - `feat(daemon): execute pull-on-demand model tasks - PR #962`
-
 **PR:** [#962](https://github.com/dhnpmp-tech/dcp-platform/pull/962) (`agent/codex/task_48fda7f9a60b-pull-on-demand-daemon`).
 
 **What:** Completes the daemon side of the existing pull-on-demand model task
