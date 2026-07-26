@@ -14,6 +14,26 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR TBD`
+
+**PR:** TBD (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).
+
+**What:** Captures the DCP-specific email-provider decision so the team does not
+migrate transactional email based on stale SES free-tier assumptions.
+
+- **Evaluation:** Added `docs/backend/resend-to-ses-evaluation-2026-07-26.md`
+  with current Resend/AWS SES pricing notes, DCP email-code inventory, migration
+  work required, future acceptance tests, and the recommendation to keep Resend
+  for launch.
+- **Stale assumption guard:** The doc explicitly says the old 62K/month SES
+  free-email assumption is not safe for launch planning without account-specific
+  AWS validation.
+- **Regression guard:** Added `tests/resend-ses-evaluation-static.test.js` so
+  future edits keep the source links, thresholds, affected files, SES sandbox,
+  DKIM, bounce/complaint, and no-flip-now decisions visible.
+- **Safety:** Docs/test-only; no email provider, login, magic-link delivery,
+  notifications, billing, payments, provider operations, routing, or production
+  environment variables changed.
 ### Pending - `docs(compliance): add ZATCA Phase 2 readiness audit - PR #960`
 
 **PR:** [#960](https://github.com/dhnpmp-tech/dcp-platform/pull/960) (`agent/codex/task_post_zatca_phase2_audit-zatca-readiness`).
