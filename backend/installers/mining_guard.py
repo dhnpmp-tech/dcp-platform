@@ -1,16 +1,19 @@
 """
-Mining guard for DCP interactive pods.
+Mining guard for DCP provider hosts and interactive pods.
 
-Two mechanisms:
-1. Process scan: detect and kill GPU processes that are not known inference/training engines
-2. Egress block: iptables rules on the pod container to block mining pool connections
+Mechanisms:
+1. Pod process scan: detect and kill GPU processes that are not known inference/training engines
+2. Pod egress block: iptables rules on the pod container to block mining pool connections
+3. Host-scope continuous scan: GPU processes, miner cmdline/conn heuristics, persistence hunt
 
-Called from the pod hold loop every poll_interval seconds.
+Pod path is called from the pod hold loop. Host path is called from a daemon
+background thread with a hard time budget so heartbeats never wedge.
 """
 import subprocess
 import os
 import time
 import logging
+import re
 
 log = logging.getLogger("dcp-daemon")
 
@@ -341,6 +344,307 @@ def cleanup_pod_egress_rules(container_name):
         pass
 
 
+
+
+# ── Host-scope allowlist (stricter than pod allowlist) ──────────────────
+# GPU compute on the provider HOST should only be DCP inference engines or
+# explicit training tools run by the provider operator — not arbitrary bins.
+ALLOWED_HOST_GPU_KEYWORDS = (
+    "llama-server", "llama.cpp", "ollama", "vllm", "sglang", "tgi", "lmdeploy",
+    "aphrodite", "text-generation-server", "tritonserver",
+    "python", "python3",  # further filtered by is_allowed_host_gpu_process
+    "dcp_daemon", "dcp-daemon",
+    "nvidia-smi", "nv-hostengine", "nvidia-cuda-mps",
+    "dockerd", "containerd", "containerd-shim", "runc", "docker-proxy",
+    "Xorg", "gnome-shell",  # desktop providers
+)
+
+# Training/inference markers required when binary is generic "python"
+HOST_PYTHON_OK_MARKERS = (
+    "torch", "vllm", "transformers", "diffusers", "train", "finetune",
+    "lora", "axolotl", "unsloth", "trl", "deepspeed", "lightning",
+    "jupyter", "ipython", "uvicorn", "gunicorn", "fastapi",
+    "llama", "ollama", "sglang", "comfy", "inference",
+)
+
+
+def is_allowed_host_gpu_process(cmdline):
+    """Stricter allowlist for HOST GPU processes (not pod)."""
+    if not cmdline:
+        return True
+    low = cmdline.lower()
+    # Always block known miners even if they contain an allowed keyword
+    if is_miner_process(cmdline):
+        return False
+    hit = False
+    for keyword in ALLOWED_HOST_GPU_KEYWORDS:
+        if keyword.lower() in low:
+            hit = True
+            break
+    if not hit:
+        return False
+    # Generic python on host GPU must look like ML work
+    if re.search(r"(^|/)python3?(\s|$)", low) or low.strip().startswith("python"):
+        if not any(m in low for m in HOST_PYTHON_OK_MARKERS):
+            # bare python holding VRAM is suspicious on provider hosts
+            return False
+    return True
+
+
+def _read_text(path, max_bytes=256_000):
+    try:
+        with open(path, "r", errors="ignore") as f:
+            return f.read(max_bytes)
+    except Exception:
+        return ""
+
+
+def scan_host_gpu_processes(min_vram_mib=100):
+    """
+    Flag host GPU processes that are not on the host inference allowlist.
+    Returns list of finding dicts (does not kill).
+    """
+    findings = []
+    gpu_pids = get_gpu_process_pids()
+    for pid, vram_mib in gpu_pids.items():
+        if vram_mib < min_vram_mib:
+            continue
+        cmdline = get_process_cmdline(pid)
+        if not cmdline:
+            continue
+        # Skip processes inside docker containers (pod path handles those)
+        try:
+            cg = _read_text(f"/proc/{pid}/cgroup", 8192)
+            if "docker" in cg or "containerd" in cg:
+                continue
+        except Exception:
+            pass
+        if is_miner_process(cmdline):
+            findings.append({
+                "pid": pid, "cmd": cmdline[:200], "vram_mib": vram_mib,
+                "reason": "known_miner_pattern", "scope": "host_gpu",
+            })
+        elif not is_allowed_host_gpu_process(cmdline):
+            findings.append({
+                "pid": pid, "cmd": cmdline[:200], "vram_mib": vram_mib,
+                "reason": "host_gpu_not_allowlisted", "scope": "host_gpu",
+            })
+    return findings
+
+
+def scan_host_process_table():
+    """Scan /proc for miner cmdline patterns (CPU or GPU)."""
+    findings = []
+    try:
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            pid = int(entry)
+            cmdline = get_process_cmdline(pid)
+            if not cmdline:
+                continue
+            if is_miner_process(cmdline):
+                findings.append({
+                    "pid": pid, "cmd": cmdline[:200],
+                    "reason": "known_miner_pattern", "scope": "host_proc",
+                })
+    except Exception as e:
+        log.debug("host process table scan error: %s", e)
+    return findings
+
+
+def scan_host_connections():
+    """
+    Look for established TCP connections to common mining pool ports.
+    Uses /proc/net/tcp (no ss/netstat dependency). Best-effort.
+    """
+    findings = []
+    pool_ports = set(MINING_POOL_PORTS)
+    try:
+        for netf in ("/proc/net/tcp", "/proc/net/tcp6"):
+            data = _read_text(netf, 2_000_000)
+            if not data:
+                continue
+            for line in data.splitlines()[1:]:
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                # state 01 = ESTABLISHED
+                if parts[3] != "01":
+                    continue
+                remote = parts[2]
+                try:
+                    port_hex = remote.rsplit(":", 1)[-1]
+                    port = int(port_hex, 16)
+                except Exception:
+                    continue
+                if port in pool_ports:
+                    findings.append({
+                        "remote": remote, "port": port,
+                        "reason": "mining_pool_port_connection",
+                        "scope": "host_conn",
+                    })
+    except Exception as e:
+        log.debug("host connection scan error: %s", e)
+    return findings
+
+
+def hunt_persistence():
+    """Scan common persistence locations for miner re-launchers."""
+    findings = []
+    paths = []
+    # user + system crontabs
+    paths.append("/etc/crontab")
+    for d in ("/etc/cron.d", "/var/spool/cron/crontabs", "/var/spool/cron"):
+        if os.path.isdir(d):
+            try:
+                for name in os.listdir(d):
+                    paths.append(os.path.join(d, name))
+            except Exception:
+                pass
+    # shell rc / profile
+    home = os.path.expanduser("~")
+    for name in (".bashrc", ".profile", ".bash_profile", ".zshrc"):
+        paths.append(os.path.join(home, name))
+    paths.append("/etc/rc.local")
+    # systemd user + system unit drop-ins (limited)
+    for d in (
+        "/etc/systemd/system",
+        os.path.join(home, ".config/systemd/user"),
+        "/lib/systemd/system",
+    ):
+        if os.path.isdir(d):
+            try:
+                for root, _dirs, files in os.walk(d):
+                    # bound walk
+                    if root.count(os.sep) - d.count(os.sep) > 2:
+                        continue
+                    for fn in files:
+                        if fn.endswith((".service", ".timer", ".sh")):
+                            paths.append(os.path.join(root, fn))
+            except Exception:
+                pass
+
+    seen = set()
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        body = _read_text(path)
+        if not body:
+            continue
+        low = body.lower()
+        hit = None
+        for pattern in KNOWN_MINER_PATTERNS:
+            if pattern in low:
+                hit = pattern
+                break
+        if hit is None:
+            # mining flags combo in a unit/script
+            flags = ["--pool", "--stratum", "stratum+tcp", "stratum+ssl", "--wallet"]
+            if sum(1 for f in flags if f in low) >= 2:
+                hit = "mining_flags"
+        if hit:
+            findings.append({
+                "path": path, "reason": f"persistence:{hit}",
+                "scope": "persistence", "snippet": body[:240].replace("\n", " "),
+            })
+    return findings
+
+
+def kill_host_pid(pid):
+    """Best-effort SIGKILL of a host PID. Returns True if signal sent."""
+    try:
+        os.kill(pid, 9)
+        return True
+    except Exception:
+        return False
+
+
+def run_host_miner_sweep(kill=True, min_vram_mib=100):
+    """
+    Full host-scope sweep. Returns dict with findings + killed list.
+    Designed to be called from a timed daemon thread.
+    """
+    import time as _time
+    started = _time.time()
+    findings = []
+    killed = []
+    try:
+        findings.extend(scan_host_gpu_processes(min_vram_mib=min_vram_mib))
+        findings.extend(scan_host_process_table())
+        findings.extend(scan_host_connections())
+        findings.extend(hunt_persistence())
+    except Exception as e:
+        log.warning("host miner sweep error: %s", e)
+
+    # Dedup by (scope, pid/path, reason)
+    deduped = []
+    seen = set()
+    for f in findings:
+        key = (f.get("scope"), f.get("pid"), f.get("path"), f.get("reason"), f.get("port"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(f)
+    findings = deduped
+
+    if kill:
+        for f in findings:
+            if f.get("scope") in ("host_gpu", "host_proc") and f.get("reason") == "known_miner_pattern":
+                pid = f.get("pid")
+                if pid and kill_host_pid(pid):
+                    killed.append(pid)
+                    log.warning("HOST MINER KILLED pid=%s cmd=%s", pid, str(f.get("cmd", ""))[:100])
+
+    return {
+        "findings": findings,
+        "killed": killed,
+        "elapsed_ms": int((_time.time() - started) * 1000),
+        "finding_count": len(findings),
+    }
+
+
+def integrity_baseline_paths():
+    """Paths to fingerprint for basic tamper signal."""
+    paths = []
+    # self
+    try:
+        paths.append(os.path.abspath(__file__))
+    except Exception:
+        pass
+    # common nvidia driver userspace
+    for p in (
+        "/usr/bin/nvidia-smi",
+        "/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+        "/proc/driver/nvidia/version",
+    ):
+        if os.path.exists(p):
+            paths.append(p)
+    return paths
+
+
+def compute_integrity_baseline():
+    """Return {path: sha256} for integrity_baseline_paths()."""
+    import hashlib
+    out = {}
+    for path in integrity_baseline_paths():
+        try:
+            if path.startswith("/proc/"):
+                out[path] = hashlib.sha256(_read_text(path, 65536).encode()).hexdigest()
+            else:
+                h = hashlib.sha256()
+                with open(path, "rb") as f:
+                    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                        h.update(chunk)
+                out[path] = h.hexdigest()
+        except Exception as e:
+            out[path] = f"error:{e}"
+    return out
+
+
+
+
 def _test_detection():
     """Test the mining detection logic."""
     test_cases = [
@@ -353,6 +657,12 @@ def _test_detection():
         ("python3 -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-30B", False, "vllm serve"),
         ("./t-rex -a ethash -o stratum+tcp://eth.f2pool.com:6688 -u wallet", True, "t-rex miner"),
     ]
+    host_cases = [
+        ("/usr/local/bin/llama-server -m model.gguf --port 8080", True, "llama-server allow"),
+        ("python3 -m vllm.entrypoints.openai.api_server --model x", True, "vllm python allow"),
+        ("python3 /tmp/evil.py", False, "bare python deny"),
+        ("./forge --algorithm pearlhash --pool prl.kryptex.network:7048 --wallet x", False, "forge deny"),
+    ]
     passed = 0
     for cmd, expected, desc in test_cases:
         result = is_miner_process(cmd)
@@ -361,8 +671,17 @@ def _test_detection():
         if ok:
             passed += 1
         print("  [{}] {}: is_miner={} (expected={})".format(status, desc, result, expected))
-    print("\n{}/{} tests passed".format(passed, len(test_cases)))
-    return passed == len(test_cases)
+    for cmd, expected_allowed, desc in host_cases:
+        # for miners expected_allowed=False means is_allowed_host should be False
+        result = is_allowed_host_gpu_process(cmd)
+        ok = result == expected_allowed
+        status = "PASS" if ok else "FAIL"
+        if ok:
+            passed += 1
+        print("  [{}] host {}: allowed={} (expected={})".format(status, desc, result, expected_allowed))
+    total = len(test_cases) + len(host_cases)
+    print("\n{}/{} tests passed".format(passed, total))
+    return passed == total
 
 
 if __name__ == "__main__":

@@ -1993,6 +1993,62 @@ router.post('/:id/benchmark', validateBody(providerBenchmarkSchema), (req, res) 
 });
 
 // ============================================================================
+
+// ── Host mining_detected side-effects (task_a74c15efb7a0) ──────────────
+function handleMiningDetected(provider, details, hostname) {
+    try {
+        const oldStatus = provider.status;
+        // Quarantine: stop dispatching paid jobs until human clears.
+        runStatement(
+            `UPDATE providers SET is_paused = 1,
+                status = CASE WHEN status = 'suspended' THEN status ELSE 'flagged' END,
+                updated_at = datetime('now')
+             WHERE id = ?`,
+            provider.id
+        );
+        try {
+            runStatement(
+                `INSERT INTO provider_status_log (provider_id, old_status, new_status) VALUES (?, ?, ?)`,
+                provider.id, oldStatus || null, 'flagged'
+            );
+        } catch (_) { /* table may not exist in older DBs */ }
+
+        // Auto-create Mission Control task (dedupe 24h via external_id)
+        const externalId = `mining_detected:provider:${provider.id}`;
+        try {
+            const existing = db.get(
+                `SELECT id FROM mission_tasks
+                 WHERE external_id = ?
+                   AND status NOT IN ('done','cancelled')
+                   AND datetime(created_at) > datetime('now', '-1 day')`,
+                externalId
+            );
+            if (!existing) {
+                const taskId = `task_mine_${provider.id}_${Date.now().toString(36)}`;
+                const title = `HOST MINER detected on provider #${provider.id}${provider.name ? ' (' + provider.name + ')' : ''}`;
+                const body = (details || '').toString().slice(0, 4000);
+                // created_by NULL — avoid bogus 'system' assignee; no FK required
+                db.run(
+                    `INSERT INTO mission_tasks
+                     (id, title, description, status, priority, tier, source, external_id, created_by, created_at, updated_at)
+                     VALUES (?, ?, ?, 'todo', 'p0', 'critical', 'security', ?, NULL, datetime('now'), datetime('now'))`,
+                    taskId, title, body, externalId
+                );
+            }
+        } catch (e) {
+            console.warn('[mining_detected] mission task create failed:', e.message);
+        }
+
+        const provName = provider.name || `ID ${provider.id}`;
+        sendAlert(
+            'mining_detected',
+            `🚨 HOST MINER DETECTED\nProvider: ${provName} (ID ${provider.id})\nHost: ${hostname || 'unknown'}\nProvider quarantined (is_paused=1, status=flagged).\n\n${(details || '').toString().slice(0, 800)}`
+        ).catch(() => {});
+    } catch (e) {
+        console.error('[mining_detected] handler error:', e);
+    }
+}
+
 // POST /api/providers/daemon-event - Log daemon events (crashes, job results, etc.)
 // ============================================================================
 router.post('/daemon-event', (req, res) => {
@@ -2030,8 +2086,12 @@ router.post('/daemon-event', (req, res) => {
             cleanTimestamp
         );
 
-        // Log critical events to console for immediate visibility
-        if (cleanSeverity === 'critical' || cleanSeverity === 'error') {
+        // Host miner: quarantine + MC task + alert (critical tier)
+        if (cleanEventType === 'mining_detected') {
+            const fullProvider = db.get('SELECT id, name, status, is_paused FROM providers WHERE id = ?', provider.id) || provider;
+            handleMiningDetected(fullProvider, cleanDetails, normalizeString(hostname, { maxLen: 255 }) || null);
+        } else if (cleanSeverity === 'critical' || cleanSeverity === 'error') {
+            // Log critical events to console for immediate visibility
             console.warn(`[DAEMON EVENT] provider=${provider.id} type=${cleanEventType} severity=${cleanSeverity}: ${cleanDetails.substring(0, 200)}`);
             // Fire async alert — don't block response
             const provName = db.get('SELECT name FROM providers WHERE id = ?', provider.id)?.name || `ID ${provider.id}`;

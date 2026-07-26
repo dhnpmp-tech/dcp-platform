@@ -128,6 +128,32 @@ router.get('/events', (req, res) => {
       });
     }
 
+
+    // 5) Host mining detections from daemon_events (last 7 days)
+    try {
+      const miners = db.all(
+        `SELECT de.id, de.provider_id, de.details, de.event_timestamp, de.hostname, p.name
+         FROM daemon_events de
+         LEFT JOIN providers p ON p.id = de.provider_id
+         WHERE de.event_type = 'mining_detected'
+           AND datetime(de.event_timestamp) > datetime('now', '-7 days')
+         ORDER BY de.event_timestamp DESC LIMIT 50`
+      );
+      for (const m of miners) {
+        events.push({
+          type: 'mining_detected',
+          severity: 'critical',
+          provider_id: m.provider_id,
+          provider_name: m.name || 'Anonymous',
+          description: (m.details || 'Host miner detected').toString().slice(0, 300),
+          timestamp: m.event_timestamp,
+          hostname: m.hostname || null,
+        });
+      }
+    } catch (e) {
+      // daemon_events may not exist
+    }
+
     // Sort by timestamp descending
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
