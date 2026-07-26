@@ -14,9 +14,9 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
-### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR TBD`
+### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR #961`
 
-**PR:** TBD (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).
+**PR:** [#961](https://github.com/dhnpmp-tech/dcp-platform/pull/961) (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).
 
 **What:** Captures the DCP-specific email-provider decision so the team does not
 migrate transactional email based on stale SES free-tier assumptions.
