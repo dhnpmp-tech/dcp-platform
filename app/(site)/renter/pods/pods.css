@@ -966,7 +966,8 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 }
 .pod-stage-hd {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  /* badge track must fit .pod-stage-no (min-width 92px) — hard 72px made it overlap the heading */
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 14px;
   align-items: start;
 }
@@ -1024,7 +1025,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 }
 .pod-stage-accordion-summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);  /* facts track bounded so it wraps instead of starving the copy column to 0 (void-layout bug) */
   gap: 14px 18px;
   align-items: center;
   padding: 15px 16px;
@@ -1259,7 +1260,8 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .pod-stage-folder-peek-list {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* adaptive: 4-up when wide, 2-up in narrow tracks — hard 4-up made 50px tiles that wrapped one word per line */
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   gap: 8px;
 }
 .pod-stage-folder-peek-list button,
@@ -2327,7 +2329,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 .pod-proof-strip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);  /* facts track bounded so it wraps instead of starving the copy column (void-layout bug) */
   gap: 14px 18px;
   align-items: center;
   margin: -6px 0 24px;
@@ -3022,7 +3024,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 .gpu-picker-status {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);  /* facts track bounded so it wraps instead of starving the copy column (void-layout bug) */
   gap: 14px 18px;
   align-items: center;
   margin-bottom: 14px;
