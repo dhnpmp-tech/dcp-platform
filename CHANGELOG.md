@@ -14,6 +14,34 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `feat(mission): import GitHub issues into Mission Control - PR #972`
+
+**PR:** [#972](https://github.com/dhnpmp-tech/dcp-platform/pull/972) (`agent/codex/task_76321b6c3b59-github-issues-import`).
+
+**What:** Adds a safe, gated importer that can turn open GitHub issues into
+Mission Control tasks for agent orchestration.
+
+- **Importer:** Added a GitHub issues import module that filters pull requests,
+  maps each issue to a stable `external_id=github:<owner>/<repo>#<number>`,
+  links `source_url` to the original issue, and skips existing Mission tasks by
+  external ID.
+- **CLI:** Added a dry-run-first backend npm command for local or scheduled
+  imports. Write mode requires `MISSION_DISPATCHER_KEY`; agent-scoped keys are
+  allowed only for dry-run duplicate checks.
+- **Cron gate:** Added an optional hourly GitHub Actions workflow that is
+  disabled until `MISSION_GITHUB_ISSUES_IMPORT_ENABLED=1` is set and remains
+  dry-run by default.
+- **Runbook:** Documented configuration, local dry-run, write enablement, and
+  the canonical `dhnpmp-tech/dcp-platform` repository target.
+- **Regression guard:** Added Mission client/importer Jest coverage plus a
+  static workflow/runbook guard to keep dry-run, idempotency, and secret hygiene
+  visible.
+- **CI audit unblock:** Refreshed backend production dependency ranges and lock
+  entries for `express`/`body-parser`, `dockerode`, and optional `sharp` so the
+  high/critical payout dependency audit passes without changing payment code.
+- **Safety:** No live importer run, no Mission task mutation, no provider
+  routing, no billing, no payments, no production environment changes.
+
 ### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR #961`
 
 **PR:** [#961](https://github.com/dhnpmp-tech/dcp-platform/pull/961) (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).

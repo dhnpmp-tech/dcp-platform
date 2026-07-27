@@ -11,6 +11,7 @@
     "renters:verify-login-email": "node src/scripts/verify-renter-login-email.js",
     "payouts:generate-batch": "node src/scripts/generate-provider-payout-batch.js",
     "providers:export-reactivation": "node src/scripts/export-provider-reactivation-queue.js",
+    "mission:import-github-issues": "node src/scripts/import-github-issues-to-mission.js",
     "verify:v1:latency-gate": "node src/scripts/verify-v1-latency-budget.js",
     "monitor:route-parity": "node src/scripts/run-runtime-route-parity-monitor.js",
     "monitor:provider-activation": "npm run native:ensure:better-sqlite3 && node src/scripts/run-provider-activation-monitor.js",
@@ -86,9 +87,9 @@
     "@supabase/supabase-js": "^2.43.0",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
-    "dockerode": "^4.0.2",
+    "dockerode": "^5.0.1",
     "dotenv": "^17.4.2",
-    "express": "^4.18.2",
+    "express": "^4.22.2",
     "express-rate-limit": "^8.3.0",
     "pdfkit": "^0.15.0",
     "uuid": "^11.1.1",
@@ -101,7 +102,7 @@
     "supertest": "^7.2.2"
   },
   "optionalDependencies": {
-    "sharp": "^0.33.0"
+    "sharp": "^0.35.3"
   },
   "overrides": {
     "ws": "^8.21.0",

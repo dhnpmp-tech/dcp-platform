@@ -185,8 +185,79 @@ describe('MissionClient.resetLease', () => {
 });
 
 // ---------------------------------------------------------------------------
-// createRepairTask
+// createTask / createRepairTask
 // ---------------------------------------------------------------------------
+
+describe('MissionClient.createTask', () => {
+  it('calls POST /api/mission/tasks with external source fields', async () => {
+    const fetch = mockFetch(jsonResponse({ task: { id: 'task_github' } }, 201));
+    const client = new MissionClient({ baseUrl: BASE_URL, agentKey: AGENT_KEY, fetchImpl: fetch });
+
+    await client.createTask({
+      externalId: 'github:dhnpmp-tech/dcp-platform#42',
+      title: 'GitHub issue #42: importer',
+      detail: 'Imported issue details',
+      source: 'github',
+      sourceUrl: 'https://github.com/dhnpmp-tech/dcp-platform/issues/42',
+      priority: 'p3',
+      assigneeId: 'codex',
+      goalId: 'goal_launch',
+      milestoneId: 'milestone_homepage',
+    });
+
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toBe(`${BASE_URL}/api/mission/tasks`);
+    expect(opts.method).toBe('POST');
+    expect(opts.headers['Content-Type']).toMatch(/application\/json/);
+
+    const body = JSON.parse(opts.body);
+    expect(body).toEqual({
+      external_id: 'github:dhnpmp-tech/dcp-platform#42',
+      title: 'GitHub issue #42: importer',
+      description: 'Imported issue details',
+      source: 'github',
+      source_url: 'https://github.com/dhnpmp-tech/dcp-platform/issues/42',
+      priority: 'p3',
+      assignee_id: 'codex',
+      goal_id: 'goal_launch',
+      milestone_id: 'milestone_homepage',
+    });
+  });
+
+  it('omits unset optional fields', async () => {
+    const fetch = mockFetch(jsonResponse({ task: { id: 'task_minimal' } }, 201));
+    const client = new MissionClient({ baseUrl: BASE_URL, agentKey: AGENT_KEY, fetchImpl: fetch });
+
+    await client.createTask({
+      externalId: 'external-1',
+      title: 'Minimal task',
+      description: 'Created from a generic source',
+      sourceUrl: '',
+    });
+
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).toEqual({
+      external_id: 'external-1',
+      title: 'Minimal task',
+      description: 'Created from a generic source',
+      source: 'dispatcher',
+      priority: 'p2',
+    });
+  });
+
+  it('returns the created task object', async () => {
+    const task = { id: 'task_generic', title: 'Generic task' };
+    const client = new MissionClient({ baseUrl: BASE_URL, agentKey: AGENT_KEY, fetchImpl: mockFetch(jsonResponse({ task }, 201)) });
+    const result = await client.createTask({ externalId: 'external-2', title: 'T', detail: 'D' });
+    expect(result).toEqual(task);
+  });
+
+  it('throws on non-2xx without leaking the agent key', async () => {
+    const client = new MissionClient({ baseUrl: BASE_URL, agentKey: AGENT_KEY, fetchImpl: mockFetch(errorResponse(403)) });
+    await expect(client.createTask({ externalId: 'external-3', title: 'T', detail: 'D' })).rejects.toThrow('403');
+    await expect(client.createTask({ externalId: 'external-3', title: 'T', detail: 'D' })).rejects.toThrow(expect.not.stringContaining(AGENT_KEY));
+  });
+});
 
 describe('MissionClient.createRepairTask', () => {
   it('calls POST /api/mission/tasks with correct body', async () => {

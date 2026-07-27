@@ -1,0 +1,34 @@
+name: Mission GitHub Issues Import
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  import:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.MISSION_GITHUB_ISSUES_IMPORT_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Import GitHub issues into Mission Control
+        run: node backend/src/scripts/import-github-issues-to-mission.js
+        env:
+          MISSION_BASE_URL: ${{ vars.MISSION_BASE_URL }}
+          MISSION_DISPATCHER_KEY: ${{ secrets.MISSION_DISPATCHER_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_ISSUES_IMPORT_REPO: ${{ vars.GITHUB_ISSUES_IMPORT_REPO || 'dhnpmp-tech/dcp-platform' }}
+          GITHUB_ISSUES_IMPORT_DRY_RUN: ${{ vars.GITHUB_ISSUES_IMPORT_DRY_RUN || '1' }}
+          GITHUB_ISSUES_IMPORT_LIMIT: ${{ vars.GITHUB_ISSUES_IMPORT_LIMIT || '100' }}
+          GITHUB_ISSUES_IMPORT_PRIORITY: ${{ vars.GITHUB_ISSUES_IMPORT_PRIORITY || 'p3' }}
