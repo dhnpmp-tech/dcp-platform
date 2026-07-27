@@ -498,6 +498,55 @@ describe('Admin API — GET /api/admin/providers', () => {
     });
   });
 
+  it('hides soft-deleted providers from the dashboard list by default', async () => {
+    const active = await registerProvider({
+      name: 'Active Admin Provider',
+      email: `active-${Date.now()}@dc1.test`,
+    });
+    const deleted = await registerProvider({
+      name: 'Deleted RunPod Test Provider',
+      email: `deleted-${Date.now()}@dc1.test`,
+    });
+    expect(active.status).toBe(200);
+    expect(deleted.status).toBe(200);
+
+    db.run(
+      `UPDATE providers SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+      deleted.body.provider_id
+    );
+
+    const res = await request(app)
+      .get('/api/admin/providers')
+      .set('x-admin-token', ADMIN_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.providers.map((p) => p.id)).toContain(active.body.provider_id);
+    expect(res.body.providers.map((p) => p.id)).not.toContain(deleted.body.provider_id);
+    expect(res.body.total).toBe(res.body.providers.length);
+  });
+
+  it('can include soft-deleted providers only through the explicit ops query flag', async () => {
+    const deleted = await registerProvider({
+      name: 'Deleted RunPod Test Provider',
+      email: `deleted-include-${Date.now()}@dc1.test`,
+    });
+    expect(deleted.status).toBe(200);
+
+    db.run(
+      `UPDATE providers SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+      deleted.body.provider_id
+    );
+
+    const res = await request(app)
+      .get('/api/admin/providers?include_deleted=1')
+      .set('x-admin-token', ADMIN_TOKEN);
+
+    expect(res.status).toBe(200);
+    const row = res.body.providers.find((p) => p.id === deleted.body.provider_id);
+    expect(row).toBeDefined();
+    expect(row.deleted_at).toBeTruthy();
+  });
+
   it('returns 401 without token', async () => {
     const res = await request(app).get('/api/admin/providers');
     expect(res.status).toBe(401);

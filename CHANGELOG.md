@@ -39,6 +39,56 @@ without introducing a second docs stack or private handoff content.
 - **Safety:** Frontend docs/config/test/changelog only. No auth, billing,
   payments, routing, provider operations, live infrastructure, or production
   environment variables changed.
+
+### Pending - `ci(pr): add ECC review trio gate - PR #968`
+
+**PR:** [#968](https://github.com/dhnpmp-tech/dcp-platform/pull/968) (`agent/codex/task_b77bcb185e70-ecc-pr-review-trio`).
+
+**What:** Adds the ECC pull request review trio as a standard GitHub Actions
+check for `dhnpmp-tech/dcp-platform` PRs.
+
+- **Workflow:** Added `.github/workflows/ecc-pr-review-trio.yml`, running
+  `silent-failure-hunter`, `pr-test-analyzer`, and `type-design-analyzer` on
+  PR opened/synchronize/reopened/ready-for-review events.
+- **Trusted execution:** The workflow uses `pull_request_target` for PR comment
+  permissions, but runs only trusted base-branch scripts against a separate PR
+  checkout so untrusted PR code does not receive the write token.
+- **Analyzer:** Added dependency-free Node review scripts that inspect changed
+  lines for empty catches, swallowed promise rejections, missing high-risk test
+  coverage, and new TypeScript escape hatches.
+- **Comments:** Each agent maintains one sticky PR comment and uploads its
+  Markdown report as a short-lived workflow artifact.
+- **Docs/tests:** Added orchestration docs, overview updates, and static
+  regression coverage for the workflow contract and analyzer behavior.
+- **Safety:** CI/docs/test/script-only. No production deploy, auth, billing,
+  payments, provider operations, routing, Mission Control API behavior, live
+  infrastructure, or environment variables changed.
+### Pending - `fix(admin): hide soft-deleted providers from dashboard - PR #965`
+
+**PR:** [#965](https://github.com/dhnpmp-tech/dcp-platform/pull/965) (`agent/codex/task_54cdc6ae7fb2-runpod-cleanup`).
+
+**What:** Tightens the admin provider dashboard cleanup path so provider rows
+that have been soft-deleted no longer appear in normal provider counts or lists.
+
+- **Dashboard truth:** `GET /api/admin/providers` now filters
+  `providers.deleted_at IS NULL` by default, so soft-deleted partial/test
+  registrations do not keep showing up as real providers.
+- **Ops escape hatch:** Added explicit `include_deleted=1|true|yes` support for
+  operators who need to inspect tombstoned provider rows.
+- **Proxy parity:** The Next.js `/api/admin/providers` proxy now forwards query
+  parameters to the backend instead of silently dropping ops filters.
+- **Dependency gate:** Refreshed backend production dependencies to keep the
+  payout dependency audit green: Express stays on the 4.x line while resolving
+  the patched `body-parser` tree, and optional `sharp` moves to `^0.35.3`.
+- **Regression guard:** Added integration coverage proving soft-deleted
+  providers are hidden by default and visible only through `include_deleted=1`.
+- **Production note:** Live read-only inspection on 2026-07-26 found 23
+  non-deleted providers and 1 already-deleted provider, not the stale "38 dead"
+  count from the Mission task. No live provider mutation is bundled in this PR.
+- **Safety:** Admin provider-list visibility only; no provider registration,
+  approval, routing, daemon, WireGuard, inference, billing, payment, payout, or
+  renter behavior changed.
+
 ### Pending - `fix(mission): persist task review tier - PR #964`
 
 **PR:** [#964](https://github.com/dhnpmp-tech/dcp-platform/pull/964) (`agent/codex/task_6199af435165-mission-tier`).

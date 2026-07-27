@@ -1369,8 +1369,9 @@ router.get('/providers', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const search = (req.query.search || '').trim().toLowerCase();
     const statusFilter = req.query.status || '';
+    const includeDeleted = ['1', 'true', 'yes'].includes(String(req.query.include_deleted || '').toLowerCase());
 
-    let where = '1=1';
+    let where = includeDeleted ? '1=1' : 'deleted_at IS NULL';
     const wParams = [];
     if (search) {
       where += ` AND (LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR LOWER(gpu_model) LIKE ?)`;
@@ -1399,7 +1400,8 @@ router.get('/providers', (req, res) => {
               status, gpu_status, provider_ip, provider_hostname,
               last_heartbeat, gpu_name_detected, gpu_vram_mib, gpu_driver,
               gpu_compute, total_earnings, total_jobs, uptime_percent,
-              run_mode, is_paused, approval_status, approved_at, rejected_reason, created_at, updated_at
+              run_mode, is_paused, approval_status, approved_at, rejected_reason,
+              deleted_at, created_at, updated_at
        FROM providers WHERE ${where} ORDER BY
          CASE WHEN status = 'online' THEN 0 ELSE 1 END,
          last_heartbeat DESC, created_at DESC ${paginationSql}`,
