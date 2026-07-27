@@ -407,13 +407,45 @@ function hashedDeletedEmail(rawEmail, accountId) {
 //   without double-crediting the balance. See routes/auth.js.
 router.post('/register', registerLimiter, validateBody(renterRegisterSchema), async (req, res) => {
   try {
-    const { name, email, organization, use_case, useCase, phone } = req.body;
+    const {
+      name,
+      email,
+      organization,
+      use_case,
+      useCase,
+      phone,
+      legal_entity_name,
+      legalEntityName,
+      commercial_registration_number,
+      commercialRegistrationNumber,
+      cr_number,
+      crNumber,
+      billing_address,
+      billingAddress,
+      vat_number,
+      vatNumber,
+      expected_monthly_volume,
+      expectedMonthlyVolume,
+      expected_volume,
+      expectedVolume,
+    } = req.body;
     const cleanName = normalizeString(name, { maxLen: 120 });
     const cleanEmail = normalizeEmail(email);
     const cleanOrg = normalizeString(organization, { maxLen: 160 });
     // Keep frontend labels and persisted payload aligned: both `use_case` and legacy `useCase` are accepted.
     const cleanUseCase = normalizeString(use_case ?? useCase, { maxLen: 120 });
     const cleanPhone = normalizeString(phone, { maxLen: 40 });
+    const cleanLegalEntityName = normalizeString(legal_entity_name ?? legalEntityName, { maxLen: 180 });
+    const cleanCommercialRegistrationNumber = normalizeString(
+      commercial_registration_number ?? commercialRegistrationNumber ?? cr_number ?? crNumber,
+      { maxLen: 40 }
+    );
+    const cleanBillingAddress = normalizeString(billing_address ?? billingAddress, { maxLen: 500 });
+    const cleanVatNumber = normalizeString(vat_number ?? vatNumber, { maxLen: 40 });
+    const cleanExpectedMonthlyVolume = normalizeString(
+      expected_monthly_volume ?? expectedMonthlyVolume ?? expected_volume ?? expectedVolume,
+      { maxLen: 120 }
+    );
 
     if (!cleanName || !cleanEmail) {
       return res.status(400).json({ error: 'Missing required fields: name, email' });
@@ -446,9 +478,28 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
         // Refresh the staged row's profile fields — user may have corrected a typo.
         runStatement(
           `UPDATE renters
-              SET name = ?, organization = ?, use_case = ?, phone = ?, updated_at = ?
+              SET name = ?,
+                  organization = ?,
+                  use_case = ?,
+                  phone = ?,
+                  legal_entity_name = ?,
+                  commercial_registration_number = ?,
+                  billing_address = ?,
+                  vat_number = ?,
+                  expected_monthly_volume = ?,
+                  updated_at = ?
             WHERE id = ?`,
-          cleanName, cleanOrg || null, cleanUseCase || null, cleanPhone || null, now, existing.id
+          cleanName,
+          cleanOrg || null,
+          cleanUseCase || null,
+          cleanPhone || null,
+          cleanLegalEntityName || null,
+          cleanCommercialRegistrationNumber || null,
+          cleanBillingAddress || null,
+          cleanVatNumber || null,
+          cleanExpectedMonthlyVolume || null,
+          now,
+          existing.id
         );
         renterId = existing.id;
       } else {
@@ -463,9 +514,35 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
       // it can never be confused with a real key by route auth handlers.
       const pendingPlaceholder = 'pending-renter-' + crypto.randomBytes(16).toString('hex');
       const result = runStatement(
-        `INSERT INTO renters (name, email, api_key, organization, use_case, phone, status, balance_halala, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
-        cleanName, cleanEmail, pendingPlaceholder, cleanOrg || null, cleanUseCase || null, cleanPhone || null, now
+        `INSERT INTO renters (
+           name,
+           email,
+           api_key,
+           organization,
+           use_case,
+           phone,
+           legal_entity_name,
+           commercial_registration_number,
+           billing_address,
+           vat_number,
+           expected_monthly_volume,
+           status,
+           balance_halala,
+           created_at
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
+        cleanName,
+        cleanEmail,
+        pendingPlaceholder,
+        cleanOrg || null,
+        cleanUseCase || null,
+        cleanPhone || null,
+        cleanLegalEntityName || null,
+        cleanCommercialRegistrationNumber || null,
+        cleanBillingAddress || null,
+        cleanVatNumber || null,
+        cleanExpectedMonthlyVolume || null,
+        now
       );
       renterId = result.lastInsertRowid;
     }
@@ -496,6 +573,10 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
     analytics.renter.signupComplete(renterId, {
       organization: cleanOrg || null,
       use_case: cleanUseCase || null,
+      legal_entity_name: cleanLegalEntityName || null,
+      commercial_registration_number: cleanCommercialRegistrationNumber || null,
+      vat_number: cleanVatNumber || null,
+      expected_monthly_volume: cleanExpectedMonthlyVolume || null,
       stage: 'pending_email_verification',
     }).catch(() => {});
     conversionFunnel.trackStage({
@@ -508,6 +589,10 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
       metadata: {
         organization: cleanOrg || null,
         use_case: cleanUseCase || null,
+        legal_entity_name: cleanLegalEntityName || null,
+        commercial_registration_number: cleanCommercialRegistrationNumber || null,
+        vat_number: cleanVatNumber || null,
+        expected_monthly_volume: cleanExpectedMonthlyVolume || null,
         verification_state: 'pending',
       },
     });
@@ -719,6 +804,11 @@ router.get('/me', (req, res) => {
         organization: renter.organization,
         use_case: renter.use_case || null,
         phone: renter.phone || null,
+        legal_entity_name: renter.legal_entity_name || null,
+        commercial_registration_number: renter.commercial_registration_number || null,
+        billing_address: renter.billing_address || null,
+        vat_number: renter.vat_number || null,
+        expected_monthly_volume: renter.expected_monthly_volume || null,
         webhook_url: renter.webhook_url || null,
         balance_halala: renter.balance_halala,
         total_spent_halala: renter.total_spent_halala,
@@ -1619,6 +1709,13 @@ router.post('/verify-otp', loginEmailLimiter, async (req, res) => {
         name: renter.name,
         email: renter.email,
         organization: renter.organization,
+        use_case: renter.use_case || null,
+        phone: renter.phone || null,
+        legal_entity_name: renter.legal_entity_name || null,
+        commercial_registration_number: renter.commercial_registration_number || null,
+        billing_address: renter.billing_address || null,
+        vat_number: renter.vat_number || null,
+        expected_monthly_volume: renter.expected_monthly_volume || null,
         balance_halala: renter.balance_halala,
         total_spent_halala: renter.total_spent_halala,
         total_jobs: renter.total_jobs,
@@ -2062,7 +2159,23 @@ router.get(['/me/data-export', '/me/export'], renterDataExportLimiter, (req, res
     if (!key) return res.status(400).json({ error: 'API key required (x-renter-key header or key query)' });
 
     const renter = db.get(
-      `SELECT id, name, email, organization, status, balance_halala, total_spent_halala, total_jobs, created_at, updated_at
+      `SELECT id,
+              name,
+              email,
+              organization,
+              use_case,
+              phone,
+              legal_entity_name,
+              commercial_registration_number,
+              billing_address,
+              vat_number,
+              expected_monthly_volume,
+              status,
+              balance_halala,
+              total_spent_halala,
+              total_jobs,
+              created_at,
+              updated_at
        FROM renters WHERE api_key = ?`,
       key
     );
@@ -2142,6 +2255,13 @@ router.get(['/me/data-export', '/me/export'], renterDataExportLimiter, (req, res
         name: renter.name,
         email: renter.email,
         organization: renter.organization,
+        use_case: renter.use_case || null,
+        phone: renter.phone || null,
+        legal_entity_name: renter.legal_entity_name || null,
+        commercial_registration_number: renter.commercial_registration_number || null,
+        billing_address: renter.billing_address || null,
+        vat_number: renter.vat_number || null,
+        expected_monthly_volume: renter.expected_monthly_volume || null,
         status: renter.status,
         created_at: renter.created_at,
         updated_at: renter.updated_at || null,

@@ -1537,6 +1537,11 @@ db.exec(`
     organization TEXT,
     use_case TEXT,
     phone TEXT,
+    legal_entity_name TEXT,
+    commercial_registration_number TEXT,
+    billing_address TEXT,
+    vat_number TEXT,
+    expected_monthly_volume TEXT,
     status TEXT DEFAULT 'active',
     balance_halala INTEGER DEFAULT 0,
     total_spent_halala INTEGER DEFAULT 0,
@@ -1569,6 +1574,12 @@ db.exec(`
   'ALTER TABLE renters ADD COLUMN auto_topup_consecutive_failures INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN auto_topup_paused_until TEXT',
   'ALTER TABLE renters ADD COLUMN auto_topup_last_attempt_at TEXT',
+  // Migration 026: renter-entered legal/billing profile captured at signup.
+  'ALTER TABLE renters ADD COLUMN legal_entity_name TEXT',
+  'ALTER TABLE renters ADD COLUMN commercial_registration_number TEXT',
+  'ALTER TABLE renters ADD COLUMN billing_address TEXT',
+  'ALTER TABLE renters ADD COLUMN vat_number TEXT',
+  'ALTER TABLE renters ADD COLUMN expected_monthly_volume TEXT',
   // Agent self-serve onboarding (2026-06): provenance + audit columns so an
   // auto-minted renter (no email click) can be told apart from a human-verified
   // one and revoked/audited. All nullable/defaulted — backfilled NULL on

@@ -72,6 +72,11 @@ function seedSchema(db) {
       organization TEXT,
       use_case TEXT,
       phone TEXT,
+      legal_entity_name TEXT,
+      commercial_registration_number TEXT,
+      billing_address TEXT,
+      vat_number TEXT,
+      expected_monthly_volume TEXT,
       status TEXT DEFAULT 'active',
       balance_halala INTEGER DEFAULT 0,
       total_spent_halala INTEGER DEFAULT 0,
@@ -163,8 +168,37 @@ describe('magic-link renter onboarding (createActiveRenterFromMagicLink)', () =>
   test('finalizes a pre-staged pending renter without double-crediting (register-then-click path)', async () => {
     // POST /api/renters/register pre-stages a pending row with a placeholder key.
     global.__testDb
-      .prepare(`INSERT INTO renters (name, email, api_key, status, balance_halala, created_at) VALUES (?, ?, ?, 'pending', 0, ?)`)
-      .run('Staged', 'staged@dcp.sa', 'pending-renter-abc123', new Date().toISOString());
+      .prepare(`
+        INSERT INTO renters (
+          name,
+          email,
+          api_key,
+          organization,
+          use_case,
+          legal_entity_name,
+          commercial_registration_number,
+          billing_address,
+          vat_number,
+          expected_monthly_volume,
+          status,
+          balance_halala,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?)
+      `)
+      .run(
+        'Staged',
+        'staged@dcp.sa',
+        'pending-renter-abc123',
+        'Staged Workspace',
+        'Arabic customer support',
+        'Staged Legal Entity LLC',
+        '1010123456',
+        'Riyadh, Saudi Arabia',
+        '310000000000003',
+        '1M-10M tokens/month',
+        new Date().toISOString()
+      );
 
     insertToken(global.__testDb, { token: 'tok-r-staged', email: 'staged@dcp.sa', role: 'renter' });
     const res = await request(makeApp()).post('/api/auth/magic-link').send({ token: 'tok-r-staged' });
@@ -173,6 +207,15 @@ describe('magic-link renter onboarding (createActiveRenterFromMagicLink)', () =>
     expect(res.body.role).toBe('renter');
     expect(res.body.api_key).toMatch(/^dcp-renter-/);
     expect(res.body.api_key).not.toBe('pending-renter-abc123');
+    expect(res.body.renter).toMatchObject({
+      organization: 'Staged Workspace',
+      use_case: 'Arabic customer support',
+      legal_entity_name: 'Staged Legal Entity LLC',
+      commercial_registration_number: '1010123456',
+      billing_address: 'Riyadh, Saudi Arabia',
+      vat_number: '310000000000003',
+      expected_monthly_volume: '1M-10M tokens/month',
+    });
     const renter = global.__testDb.prepare('SELECT * FROM renters WHERE email = ?').get('staged@dcp.sa');
     expect(renter.status).toBe('active');
     expect(renter.balance_halala).toBe(10000); // credited exactly once, by finalizePendingRenter

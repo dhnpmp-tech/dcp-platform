@@ -125,6 +125,36 @@ migrate transactional email based on stale SES free-tier assumptions.
 - **Verification:** `node tests/zatca-readiness-audit-static.test.js`;
   `git diff --check`.
 
+### Pending - `feat(renter): capture signup billing profile - PR #958`
+
+**PR:** [#958](https://github.com/dhnpmp-tech/dcp-platform/pull/958) (`agent/codex/task_e3fec3309433-signup-form-expansion`).
+
+**What:** Renter signup now collects the customer-owned account profile Tareq
+requested instead of only name + email.
+
+- **Signup UI:** `/auth` renter signup now captures contact name, legal
+  entity/workspace, commercial registration number, VAT number, billing address,
+  primary use case, expected monthly volume, and email before sending the magic
+  link.
+- **Backend contract:** `POST /api/renters/register` accepts the new fields
+  with snake_case and camelCase aliases, persists them on the pending renter
+  row, and refreshes them when a pending renter resubmits before verification.
+- **Account surfaces:** Renter magic-link/OTP responses, `/api/renters/me`, and
+  renter data export now return the profile fields; `/renter/invoices` renders
+  the stored legal/billing profile instead of the old "not configured" gap.
+- **Database:** Added migration `026_renter_signup_profile.sql` and matching
+  idempotent boot-time column guards for existing SQLite deployments.
+- **Dependency gate:** Updated the backend optional `sharp` dependency to the
+  patched 0.35 line so the production high/critical audit gate stays green.
+- **Safety:** Magic-link finalization, starter-credit timing, balance mutation,
+  payments, provider operations, inference routing, and API-key issuance logic
+  are unchanged. New signup fields are optional except the existing required
+  contact name/email pair.
+- **Verification:** Backend schema/route syntax checks; focused renter signup
+  profile Jest coverage; renter magic-link regression; validation middleware
+  schema tests; `/renter/invoices` static guard; clean Next.js production build;
+  `git diff --check`.
+
 ### Pending - `docs(orchestration): clarify mission PR-link order - PR #957`
 
 **PR:** [#957](https://github.com/dhnpmp-tech/dcp-platform/pull/957) (`agent/codex/task_a74b6c71d-mission-doc-cleanup`).

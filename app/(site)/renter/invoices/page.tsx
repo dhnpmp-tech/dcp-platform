@@ -53,6 +53,11 @@ interface RenterAccount {
   organization?: string
   phone?: string | null
   use_case?: string | null
+  legal_entity_name?: string | null
+  commercial_registration_number?: string | null
+  billing_address?: string | null
+  vat_number?: string | null
+  expected_monthly_volume?: string | null
   balance_halala?: number
   total_spent_halala?: number
 }
@@ -232,8 +237,17 @@ export default function RenterInvoicesPage() {
     }
   }, [])
 
-  const accountName = renter?.organization || renter?.name || renter?.email || 'Renter account'
+  const accountName = renter?.legal_entity_name || renter?.organization || renter?.name || renter?.email || 'Renter account'
   const accountSub = renter?.email || 'Sign in with a renter API key'
+  const billingLines = [
+    renter?.email || 'No renter session loaded',
+    renter?.phone || null,
+    renter?.billing_address || null,
+    renter?.commercial_registration_number ? `CR ${renter.commercial_registration_number}` : null,
+    renter?.vat_number ? `VAT ${renter.vat_number}` : null,
+    renter?.use_case ? `Use case: ${renter.use_case}` : null,
+    renter?.expected_monthly_volume ? `Expected volume: ${renter.expected_monthly_volume}` : null,
+  ].filter((line): line is string => Boolean(line))
   const balanceSar = balance?.balance_sar ?? halalaToSar(balance?.balance_halala ?? renter?.balance_halala)
   const heldSar = balance?.held_sar ?? halalaToSar(balance?.held_halala)
   const invoiceSummary = invoiceTotal || invoices.length
@@ -439,13 +453,12 @@ export default function RenterInvoicesPage() {
                     color: 'var(--ink-2)',
                   }}
                 >
-                  {renter?.email || 'No renter session loaded'}
-                  <br />
-                  {renter?.phone || 'Phone not set'}
-                  <br />
-                  {renter?.use_case || 'Use case not set'}
-                  <br />
-                  Legal billing profile fields are not configured yet.
+                  {billingLines.map((line, index) => (
+                    <span key={line}>
+                      {line}
+                      {index < billingLines.length - 1 && <br />}
+                    </span>
+                  ))}
                 </div>
               </div>
               <div>

@@ -28,6 +28,20 @@ const renterRegisterSchema = z.object({
   use_case: z.string().max(120).optional(),
   useCase: z.string().max(120).optional(),   // legacy alias accepted by the handler
   phone: z.string().max(40).optional(),
+  legal_entity_name: z.string().max(180).optional(),
+  legalEntityName: z.string().max(180).optional(),
+  commercial_registration_number: z.string().max(40).optional(),
+  commercialRegistrationNumber: z.string().max(40).optional(),
+  cr_number: z.string().max(40).optional(),
+  crNumber: z.string().max(40).optional(),
+  billing_address: z.string().max(500).optional(),
+  billingAddress: z.string().max(500).optional(),
+  vat_number: z.string().max(40).optional(),
+  vatNumber: z.string().max(40).optional(),
+  expected_monthly_volume: z.string().max(120).optional(),
+  expectedMonthlyVolume: z.string().max(120).optional(),
+  expected_volume: z.string().max(120).optional(),
+  expectedVolume: z.string().max(120).optional(),
 }).strict();
 
 /**
