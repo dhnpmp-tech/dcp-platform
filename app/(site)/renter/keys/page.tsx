@@ -43,6 +43,13 @@ const NAV = [
 
 const CURRENT_PAGE = 'keys'
 
+const TEXT = {
+  signOut: { en: 'Sign out', ar: 'تسجيل الخروج' },
+  menu: { en: 'Menu', ar: 'القائمة' },
+  toggleLanguage: { en: 'Toggle language', ar: 'تبديل اللغة' },
+  labelPlaceholder: { en: 'production-server', ar: 'خادم الإنتاج' },
+} as const
+
 interface KeyRow {
   id?: string
   name: string
@@ -455,7 +462,7 @@ export default function RenterKeysPage() {
               <Bi en="Renter workspace" ar="مساحة عمل المستأجر" />
             </span>
           </div>
-          <span className="out" title="Sign out" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => { localStorage.removeItem('dc1_renter_key'); window.location.href = '/auth' }}>
+          <span className="out" title={lang === 'ar' ? TEXT.signOut.ar : TEXT.signOut.en} role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => { localStorage.removeItem('dc1_renter_key'); window.location.href = '/auth' }}>
             ↱
           </span>
         </div>
@@ -473,7 +480,7 @@ export default function RenterKeysPage() {
           <button
             className="mb-toggle"
             id="mb-toggle"
-            aria-label="Menu"
+            aria-label={lang === 'ar' ? TEXT.menu.ar : TEXT.menu.en}
             type="button"
             onClick={() => setNavOpen((v) => !v)}
           >
@@ -493,7 +500,7 @@ export default function RenterKeysPage() {
             />{' '}
             <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
           </span>
-          <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
+          <button className="lang-pill" type="button" onClick={toggle} aria-label={lang === 'ar' ? TEXT.toggleLanguage.ar : TEXT.toggleLanguage.en}>
             <span
               style={{
                 background: lang === 'en' ? 'var(--ink)' : 'transparent',
@@ -626,7 +633,7 @@ export default function RenterKeysPage() {
             <div className="create-grid">
               <label>
                 <Bi en="Label" ar="التسمية" />
-                <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="production-server" />
+                <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder={lang === 'ar' ? TEXT.labelPlaceholder.ar : TEXT.labelPlaceholder.en} />
               </label>
               <div className="scope-checks">
                 {['inference', 'compute', 'billing', 'admin'].map((scope) => (

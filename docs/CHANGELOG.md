@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-07-27 15:12 UTC - i18n round 3 funnel literal cleanup (PR #975)
+
+- **PR:** [#975](https://github.com/dhnpmp-tech/dcp-platform/pull/975) (`agent/codex/task_383550b16af8-i18n-round-3`).
+- **Mission Control:** `task_383550b16af8`.
+- **Renter keys:** Localized screen-reader labels and the new-key placeholder on `/renter/keys`, closing the remaining token/API-key page hardcoded literal gap without changing key creation or revocation behavior.
+- **Marketplace models:** Added missing English/Arabic dictionary entries for model browsing filters, tiers, sort options, token units, provider-empty states, and deploy/empty/result labels.
+- **Public marketplace:** Wrapped remaining descriptive model-lineup tags in the V2 bilingual helper while leaving model names, API hosts, and price values literal.
+- **Featured Arabic models:** Localized price-unit text for SAR/USD per-minute rows.
+- **Safety:** Frontend copy/accessibility/i18n-only change; no API, billing, payments, routing, model availability, provider state, renter auth, key creation, or deployment behavior changed.
+- **Verification:** `node tests/i18n-round3-static.test.js`, `npx tsc --noEmit --pretty false`, and `git diff --check`.
+
 ### 2026-07-27 13:10 UTC - ECC review trio CI hardening (PR #973)
 
 - **PR:** [#973](https://github.com/dhnpmp-tech/dcp-platform/pull/973) (`agent/codex/task_9efef75bae1c-ecc-review-ci`).

@@ -89,6 +89,10 @@ function ModelCard({ model, isRTL, showSar }: { model: ArabicModel; isRTL: boole
   const description = isRTL ? model.descriptionAr : model.description
   const badge = isRTL ? model.arabicBadgeAr : model.arabicBadge
   const deployLabel = isRTL ? 'نشر' : 'Deploy'
+  const sarPerMinute = isRTL ? 'ريال/دقيقة' : 'SAR/min'
+  const usdPerMinute = isRTL ? `(${priceUsd.toFixed(2)} دولار/دقيقة)` : `($${priceUsd.toFixed(2)}/min)`
+  const dollarPerMinute = isRTL ? 'دولار/دقيقة' : '/min'
+  const approxSar = isRTL ? `≈ ${priceSar} ريال` : `≈ ${priceSar} SAR`
 
   return (
     <article className="bg-dc1-surface-l2 border border-dc1-border rounded-xl p-5 flex flex-col gap-3 hover:border-dc1-amber/40 hover:shadow-amber transition-all duration-200 group">
@@ -112,14 +116,14 @@ function ModelCard({ model, isRTL, showSar }: { model: ArabicModel; isRTL: boole
           {showSar ? (
             <>
               <span className="text-lg font-bold text-dc1-text-primary">{priceSar}</span>
-              <span className="text-xs text-dc1-text-muted">SAR/min</span>
-              <span className="text-xs text-dc1-text-muted">(${priceUsd.toFixed(2)}/min)</span>
+              <span className="text-xs text-dc1-text-muted">{sarPerMinute}</span>
+              <span className="text-xs text-dc1-text-muted">{usdPerMinute}</span>
             </>
           ) : (
             <>
               <span className="text-lg font-bold text-dc1-text-primary">${priceUsd.toFixed(2)}</span>
-              <span className="text-xs text-dc1-text-muted">/min</span>
-              <span className="text-xs text-dc1-text-muted">≈ {priceSar} SAR</span>
+              <span className="text-xs text-dc1-text-muted">{dollarPerMinute}</span>
+              <span className="text-xs text-dc1-text-muted">{approxSar}</span>
             </>
           )}
         </div>

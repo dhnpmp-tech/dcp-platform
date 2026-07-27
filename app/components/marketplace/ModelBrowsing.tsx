@@ -55,6 +55,12 @@ interface ModelBrowsingProps {
   onSelectModel?: (model: Model) => void
 }
 
+const COMPUTE_TYPE_FALLBACKS: Record<string, string> = {
+  inference: 'Inference',
+  training: 'Training',
+  rendering: 'Rendering',
+}
+
 export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
   const { language, t, dir } = useLanguage()
   const [models, setModels] = useState<Model[]>([])
@@ -167,11 +173,17 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
 
   const vramOptions = [0, 8, 16, 24, 80]
   const computeTypes = ['inference', 'training', 'rendering']
+  const label = (key: string, fallback: string) => {
+    const translated = t(key)
+    return translated === key ? fallback : translated
+  }
+  const tierLabel = (tier: string) => label(`marketplace.${tier}`, tier.replace('_', ' ').toUpperCase())
+  const computeTypeLabel = (type: string) => label(`marketplace.compute_${type}`, COMPUTE_TYPE_FALLBACKS[type] ?? type)
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-gray-400">{t('marketplace.loading') || 'Loading models...'}</div>
+        <div className="text-gray-400">{label('marketplace.loading', 'Loading models...')}</div>
       </div>
     )
   }
@@ -179,7 +191,7 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
   if (error) {
     return (
       <div className="p-4 bg-status-error/10 border border-status-error/20 rounded-lg text-status-error">
-        {t('marketplace.error_loading_models') || 'Error loading models:'} {error}
+        {label('marketplace.error_loading_models', 'Error loading models:')} {error}
       </div>
     )
   }
@@ -191,24 +203,24 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
         {/* Tier Filter */}
         <div>
           <label className="block text-sm font-medium text-dc1-text-secondary mb-2">
-            {t('marketplace.tier') || 'Tier'}
+            {label('marketplace.tier', 'Tier')}
           </label>
           <select
             value={filters.tier || ''}
             onChange={e => setFilters({ ...filters, tier: e.target.value || null })}
             className="input w-full text-sm"
           >
-            <option value="">{t('marketplace.all') || 'All'}</option>
-            <option value="tier_a">Tier A</option>
-            <option value="tier_b">Tier B</option>
-            <option value="tier_c">Tier C</option>
+            <option value="">{label('marketplace.all', 'All')}</option>
+            <option value="tier_a">{tierLabel('tier_a')}</option>
+            <option value="tier_b">{tierLabel('tier_b')}</option>
+            <option value="tier_c">{tierLabel('tier_c')}</option>
           </select>
         </div>
 
         {/* Min VRAM Filter */}
         <div>
           <label className="block text-sm font-medium text-dc1-text-secondary mb-2">
-            {t('marketplace.min_vram') || 'Min VRAM (GB)'}
+            {label('marketplace.min_vram', 'Min VRAM (GB)')}
           </label>
           <select
             value={filters.minVram}
@@ -217,7 +229,7 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
           >
             {vramOptions.map(vram => (
               <option key={vram} value={vram}>
-                {vram === 0 ? t('marketplace.any') || 'Any' : `${vram} GB`}
+                {vram === 0 ? label('marketplace.any', 'Any') : `${vram} GB`}
               </option>
             ))}
           </select>
@@ -226,17 +238,17 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
         {/* Compute Type Filter */}
         <div>
           <label className="block text-sm font-medium text-dc1-text-secondary mb-2">
-            {t('marketplace.compute_type') || 'Compute Type'}
+            {label('marketplace.compute_type', 'Compute Type')}
           </label>
           <select
             value={filters.computeType || ''}
             onChange={e => setFilters({ ...filters, computeType: e.target.value || null })}
             className="input w-full text-sm"
           >
-            <option value="">{t('marketplace.all') || 'All'}</option>
+            <option value="">{label('marketplace.all', 'All')}</option>
             {computeTypes.map(type => (
               <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
+                {computeTypeLabel(type)}
               </option>
             ))}
           </select>
@@ -245,7 +257,7 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
         {/* Arabic Capability */}
         <div>
           <label className="block text-sm font-medium text-dc1-text-secondary mb-2">
-            {t('marketplace.language') || 'Language'}
+            {label('marketplace.language', 'Language')}
           </label>
           <button
             onClick={() => setFilters({ ...filters, arabicCapability: !filters.arabicCapability })}
@@ -255,25 +267,25 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
                 : 'btn-secondary'
             }`}
           >
-            {t('marketplace.arabic_only') || 'Arabic'}
+            {label('marketplace.arabic_only', 'Arabic')}
           </button>
         </div>
 
         {/* Sort */}
         <div>
           <label className="block text-sm font-medium text-dc1-text-secondary mb-2">
-            {t('marketplace.sort_by') || 'Sort By'}
+            {label('marketplace.sort_by', 'Sort By')}
           </label>
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as SortOption)}
             className="input w-full text-sm"
           >
-            <option value="availability">{t('marketplace.sort_availability') || 'Availability'}</option>
-            <option value="price-asc">{t('marketplace.sort_price_low') || 'Price (Low)'}</option>
-            <option value="price-desc">{t('marketplace.sort_price_high') || 'Price (High)'}</option>
-            <option value="latency-asc">{t('marketplace.sort_latency') || 'Latency'}</option>
-            <option value="launch-priority">{t('marketplace.sort_priority') || 'Priority'}</option>
+            <option value="availability">{label('marketplace.sort_availability', 'Availability')}</option>
+            <option value="price-asc">{label('marketplace.sort_price_low', 'Price (Low)')}</option>
+            <option value="price-desc">{label('marketplace.sort_price_high', 'Price (High)')}</option>
+            <option value="latency-asc">{label('marketplace.sort_latency', 'Latency')}</option>
+            <option value="launch-priority">{label('marketplace.sort_priority', 'Priority')}</option>
           </select>
         </div>
       </div>
@@ -299,21 +311,21 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
             {/* Metadata */}
             <div className="space-y-2 mb-3 text-xs">
               <div className="flex justify-between">
-                <span className="text-gray-600">{t('marketplace.vram') || 'VRAM'}:</span>
+                <span className="text-gray-600">{label('marketplace.vram', 'VRAM')}:</span>
                 <span className="font-medium">{model.vram_gb} GB</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">{t('marketplace.price_per_min') || 'Price/min'}:</span>
+                <span className="text-gray-600">{label('marketplace.price_per_min', 'Price/min')}:</span>
                 <span className="font-medium text-green-600">
                   SAR {model.avg_price_sar_per_min.toFixed(4)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">{t('marketplace.context_window') || 'Context'}:</span>
-                <span className="font-medium">{model.context_window} tokens</span>
+                <span className="text-gray-600">{label('marketplace.context_window', 'Context')}:</span>
+                <span className="font-medium">{model.context_window} {label('marketplace.tokens', 'tokens')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">{t('marketplace.providers_online') || 'Providers'}</span>
+                <span className="text-gray-600">{label('marketplace.providers_online', 'Providers')}</span>
                 <span className={`font-medium ${model.providers_online > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {model.providers_online}
                 </span>
@@ -328,7 +340,7 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
                     key={useCase}
                     className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs"
                   >
-                    {useCase}
+                    {computeTypeLabel(useCase)}
                   </span>
                 ))}
               </div>
@@ -338,11 +350,11 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
             <div className="mb-3">
               {model.status === 'available' ? (
                 <span className="inline-block px-2 py-1 bg-status-success/10 text-status-success border border-status-success/20 rounded text-xs font-medium">
-                  {t('marketplace.available') || 'Available'}
+                  {label('marketplace.available', 'Available')}
                 </span>
               ) : (
                 <span className="inline-block px-2 py-1 bg-status-error/10 text-status-error border border-status-error/20 rounded text-xs font-medium">
-                  {t('marketplace.no_providers') || 'No Providers'}
+                  {label('marketplace.no_providers', 'No Providers')}
                 </span>
               )}
             </div>
@@ -353,7 +365,7 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
               disabled={model.status !== 'available'}
               className="btn btn-primary w-full text-sm disabled:cursor-not-allowed"
             >
-              {t('marketplace.deploy_model') || 'Deploy Model'}
+              {label('marketplace.deploy_model', 'Deploy Model')}
             </button>
           </div>
         ))}
@@ -361,13 +373,13 @@ export default function ModelBrowsing({ onSelectModel }: ModelBrowsingProps) {
 
       {filteredAndSorted.length === 0 && (
         <div className="text-center py-8">
-          <p className="text-gray-500">{t('marketplace.no_models') || 'No models found'}</p>
+          <p className="text-gray-500">{label('marketplace.no_models', 'No models found')}</p>
         </div>
       )}
 
       {/* Results Count */}
       <div className="text-sm text-gray-600 text-center">
-        {t('marketplace.showing') || 'Showing'} {filteredAndSorted.length} {t('marketplace.of') || 'of'} {models.length} {t('marketplace.models') || 'models'}
+        {label('marketplace.showing', 'Showing')} {filteredAndSorted.length} {label('marketplace.of', 'of')} {models.length} {label('marketplace.models', 'models')}
       </div>
     </div>
   )
