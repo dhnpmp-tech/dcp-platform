@@ -626,9 +626,14 @@ router.post('/tasks/:id/comments', requireWriteAuth, (req, res) => {
   if (!task) return res.status(404).json({ error: 'task not found' });
   const body = clean(req.body?.body, 8000);
   if (!body) return res.status(400).json({ error: 'body required' });
+  // Scoped agent keys MUST NOT spoof author_id (impersonation risk).
+  // Force attribution to the key identity; honor body.author_id only for admin/legacy.
+  const authorId = (req.missionAgent && req.missionAgent.assignee_id)
+    ? req.missionAgent.assignee_id
+    : (clean(req.body?.author_id, 100) || null);
   const id = addComment(
     req.params.id,
-    clean(req.body?.author_id, 100),
+    authorId,
     body,
     clean(req.body?.kind, 50) || 'comment',
     clean(req.body?.source, 50) || 'ui'
