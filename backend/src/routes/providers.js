@@ -2045,7 +2045,7 @@ function handleMiningDetected(provider, details, hostname) {
         sendAlert(
             'mining_detected',
             `🚨 HOST MINER DETECTED\nProvider: ${provName} (ID ${provider.id})\nHost: ${hostname || 'unknown'}\nProvider quarantined (is_paused=1, status=flagged).\n\n${(details || '').toString().slice(0, 800)}`
-        ).catch(() => {});
+        ).catch((e) => console.error('[mining_detected] alert send failed:', e.message));
     } catch (e) {
         console.error('[mining_detected] handler error:', e);
     }
