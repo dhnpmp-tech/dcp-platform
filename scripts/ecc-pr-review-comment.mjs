@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 
+const MAX_MARKDOWN_COMMENT_CHARS = 60000;
+
 function parseArgs(argv) {
   const args = argv.slice();
   const parsed = {};
@@ -24,13 +26,30 @@ function usage() {
 \n`);
 }
 
-async function githubApi(path, options = {}) {
-  const token = process.env.GITHUB_TOKEN;
-  const repository = process.env.GITHUB_REPOSITORY;
-  if (!token) throw new Error('GITHUB_TOKEN is required');
-  if (!repository) throw new Error('GITHUB_REPOSITORY is required');
+function githubApiUrl(path) {
+  if (/^https:\/\/api\.github\.com\//.test(path)) return path;
 
-  const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
+  const repository = process.env.GITHUB_REPOSITORY;
+  if (!repository) throw new Error('GITHUB_REPOSITORY is required');
+  return `https://api.github.com/repos/${repository}${path}`;
+}
+
+function parseNextLinkHeader(linkHeader) {
+  if (!linkHeader) return null;
+
+  for (const part of linkHeader.split(',')) {
+    const match = part.trim().match(/^<([^>]+)>;\s*rel="next"$/);
+    if (match) return match[1];
+  }
+
+  return null;
+}
+
+async function githubApiWithHeaders(path, options = {}) {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) throw new Error('GITHUB_TOKEN is required');
+
+  const response = await fetch(githubApiUrl(path), {
     ...options,
     headers: {
       Accept: 'application/vnd.github+json',
@@ -46,7 +65,37 @@ async function githubApi(path, options = {}) {
     throw new Error(`GitHub API ${response.status}: ${text}`);
   }
 
-  return text ? JSON.parse(text) : null;
+  return {
+    data: text ? JSON.parse(text) : null,
+    headers: response.headers,
+  };
+}
+
+async function githubApi(path, options = {}) {
+  const response = await githubApiWithHeaders(path, options);
+  return response.data;
+}
+
+async function githubApiAllPages(path) {
+  const items = [];
+  let nextPath = path;
+
+  while (nextPath) {
+    const { data, headers } = await githubApiWithHeaders(nextPath);
+    if (!Array.isArray(data)) throw new Error(`GitHub API pagination expected an array for ${nextPath}`);
+    items.push(...data);
+    nextPath = parseNextLinkHeader(headers.get('link'));
+  }
+
+  return items;
+}
+
+function truncateCommentBody(body, limit = MAX_MARKDOWN_COMMENT_CHARS) {
+  if (body.length <= limit) return body;
+
+  const note = '\n\n_Review output truncated to stay below the GitHub comment size limit._\n';
+  const keep = Math.max(0, limit - note.length);
+  return `${body.slice(0, keep).trimEnd()}${note}`;
 }
 
 function readPullRequestNumber() {
@@ -65,8 +114,8 @@ async function upsertStickyComment(agent, body) {
   }
 
   const marker = `<!-- dcp-ecc-pr-review:${agent} -->`;
-  const nextBody = body.includes(marker) ? body : `${marker}\n${body}`;
-  const comments = await githubApi(`/issues/${issueNumber}/comments?per_page=100`);
+  const nextBody = truncateCommentBody(body.includes(marker) ? body : `${marker}\n${body}`);
+  const comments = await githubApiAllPages(`/issues/${issueNumber}/comments?per_page=100`);
   const existing = comments.find((comment) => (
     comment.user &&
     comment.user.type === 'Bot' &&
@@ -114,7 +163,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export {
+  MAX_MARKDOWN_COMMENT_CHARS,
   parseArgs,
+  parseNextLinkHeader,
   readPullRequestNumber,
+  truncateCommentBody,
   upsertStickyComment,
 };

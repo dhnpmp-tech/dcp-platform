@@ -18,6 +18,9 @@ const SOURCE_EXTENSIONS = new Set([
 
 const TYPE_EXTENSIONS = new Set(['.ts', '.tsx']);
 
+const MAX_MARKDOWN_COMMENT_CHARS = 60000;
+const MAX_REVIEW_FILE_BYTES = 2 * 1024 * 1024;
+
 const IGNORED_PATH_PARTS = new Set([
   '.git',
   '.next',
@@ -189,7 +192,12 @@ function collectAddedLines(base, head, files) {
   return parseAddedLinesFromDiff(diff);
 }
 
+function isOversizedReviewFile(filePath, maxBytes = MAX_REVIEW_FILE_BYTES) {
+  return fs.statSync(filePath).size > maxBytes;
+}
+
 function readFileLines(filePath) {
+  if (isOversizedReviewFile(filePath)) return [];
   return fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
 }
 
@@ -402,6 +410,14 @@ function escapeTableCell(value) {
     .replace(/\r?\n/g, '<br>');
 }
 
+function truncateMarkdownComment(markdown, limit = MAX_MARKDOWN_COMMENT_CHARS) {
+  if (markdown.length <= limit) return markdown;
+
+  const note = '\n\n_Review output truncated to stay below the GitHub comment size limit._\n';
+  const keep = Math.max(0, limit - note.length);
+  return `${markdown.slice(0, keep).trimEnd()}${note}`;
+}
+
 function formatMarkdown(result) {
   const profile = AGENT_PROFILES[result.agent];
   const lines = [
@@ -438,7 +454,7 @@ function formatMarkdown(result) {
   }
 
   lines.push('');
-  return lines.join('\n');
+  return truncateMarkdownComment(lines.join('\n'));
 }
 
 function writeOutput(outputPath, content) {
@@ -492,12 +508,18 @@ if (isDirectRun) {
 
 export {
   AGENT_PROFILES,
+  MAX_MARKDOWN_COMMENT_CHARS,
+  MAX_REVIEW_FILE_BYTES,
   analyzeAgent,
   collectAddedLines,
   collectChangedFiles,
   formatMarkdown,
+  getAddedOrAllLines,
   isHighRiskProductFile,
+  isOversizedReviewFile,
   isProductSourceFile,
   isTestFile,
   parseAddedLinesFromDiff,
+  readFileLines,
+  truncateMarkdownComment,
 };

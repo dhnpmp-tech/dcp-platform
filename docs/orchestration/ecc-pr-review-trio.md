@@ -39,6 +39,20 @@ maintains one sticky pull request comment:
 The workflow fails only on `critical` findings. Warnings are posted for reviewer
 attention but do not block the PR by themselves.
 
+## CI Guardrails
+
+The trio is designed to fail helpfully rather than break the pull request
+comment lane:
+
+- Markdown reports are capped at 60,000 characters, leaving room below
+  GitHub's 65,536-character issue comment limit and adding a truncation note
+  when findings are too large to fit.
+- Sticky comment lookup follows GitHub issue-comment pagination, so the marker
+  is still found on noisy pull requests with more than 100 comments.
+- Full-file fallback scans skip changed files larger than 2 MB. Added-line diff
+  scanning still runs, but the analyzer avoids loading large generated files
+  into runner memory.
+
 ## Local Checks
 
 Run one analyzer against the current branch compared with `origin/main`:
