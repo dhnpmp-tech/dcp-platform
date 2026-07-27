@@ -125,6 +125,15 @@ const nextConfig = {
   // the /v2→root rules below.
   async redirects() {
     return [
+      // docs.dcp.sa should have a clean root entry without publishing a second
+      // docs app. Keep the canonical docs content in the existing /docs route.
+      {
+        source: '/',
+        has: [{ type: 'host', value: 'docs.dcp.sa' }],
+        destination: '/docs',
+        permanent: true,
+      },
+
       // ── /v2/* → canonical ROOT (equity transfer, permanent 308) ─────────
       // Home: the bare /v2 and /v2/home both collapse to "/".
       { source: '/v2', destination: '/', permanent: true },

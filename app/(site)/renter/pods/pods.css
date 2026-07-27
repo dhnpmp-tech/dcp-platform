@@ -1402,7 +1402,11 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 .pod-stage2-priority {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* Copy keeps a real floor and the actions track is bounded so its wide
+     flex-wrap content wraps instead of consuming the whole row and collapsing
+     the copy column to 0 — which made the copy text wrap one glyph per line and
+     blew this card up to ~1900px tall (the empty-void layout bug). */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
   gap: 14px 18px;
   align-items: center;
   margin-bottom: 14px;
@@ -2172,7 +2176,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 .pod-trial-policy {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);  /* actions track bounded so it wraps instead of starving the copy column to 0 (void-layout bug) */
   gap: 14px 18px;
   align-items: center;
   margin: -6px 0 24px;
@@ -2247,7 +2251,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 
 .pod-balance-policy {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);  /* actions track bounded so it wraps instead of starving the copy column to 0 (void-layout bug) */
   gap: 14px 18px;
   align-items: center;
   margin: -10px 0 24px;
@@ -3204,7 +3208,7 @@ pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
 .gpu-selection-strip {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);  /* actions track bounded so it wraps instead of starving the copy column to 0 (void-layout bug) */
   gap: 14px 18px;
   align-items: center;
   padding: 14px 16px;
