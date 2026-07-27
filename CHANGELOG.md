@@ -14,6 +14,32 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `feat(docs): add public docs-site launch map - PR #966`
+
+**PR:** [#966](https://github.com/dhnpmp-tech/dcp-platform/pull/966) (`agent/codex/task_acdd2649a8a4-docs-site`).
+
+**What:** Adds the public docs-site foundation requested for `docs.dcp.sa`
+without introducing a second docs stack or private handoff content.
+
+- **Docs entry point:** `docs.dcp.sa/` now permanently redirects to the
+  canonical `/docs` route.
+- **Launch structure:** The `/docs` page now has explicit sections for
+  Quickstart, OpenAI-compatible API, Provider onboarding, Models, Pricing, and
+  SDKs, with a compact section map at the top.
+- **Provider flow clarity:** Provider docs point to `/earn`, `/provider-setup`,
+  and `/provider/dashboard` instead of mixing provider and renter onboarding.
+- **Catalog honesty:** Model docs tell clients to read `GET /v1/models` and
+  treat empty/degraded capacity as an operational state instead of hardcoding
+  provider availability.
+- **SDK honesty:** SDK guidance uses the official OpenAI SDKs with DCP's base
+  URL; no unshipped DCP-specific SDK package is presented as required.
+- **Regression guards:** Static docs and redirect tests now cover the new
+  anchors, `docs.dcp.sa` redirect, launch copy, and stale `qwen3-4b` example
+  removal.
+- **Safety:** Frontend docs/config/test/changelog only. No auth, billing,
+  payments, routing, provider operations, live infrastructure, or production
+  environment variables changed.
+
 ### Pending - `ci(pr): add ECC review trio gate - PR #968`
 
 **PR:** [#968](https://github.com/dhnpmp-tech/dcp-platform/pull/968) (`agent/codex/task_b77bcb185e70-ecc-pr-review-trio`).
@@ -62,6 +88,7 @@ that have been soft-deleted no longer appear in normal provider counts or lists.
 - **Safety:** Admin provider-list visibility only; no provider registration,
   approval, routing, daemon, WireGuard, inference, billing, payment, payout, or
   renter behavior changed.
+
 ### Pending - `fix(mission): persist task review tier - PR #964`
 
 **PR:** [#964](https://github.com/dhnpmp-tech/dcp-platform/pull/964) (`agent/codex/task_6199af435165-mission-tier`).

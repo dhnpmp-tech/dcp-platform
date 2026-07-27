@@ -31,9 +31,11 @@ export default function DocsPage() {
           <div className="sec"><Bi en="Get started" ar="ابدأ هنا" /></div>
           <a href="#intro" className="on"><Bi en="Introduction" ar="مقدمة" /></a>
           <a href="#quickstart"><Bi en="Quickstart" ar="بداية سريعة" /></a>
+          <a href="#openai-compatible-api"><Bi en="OpenAI-compatible API" ar="واجهة متوافقة مع OpenAI" /></a>
           <a href="#auth"><Bi en="Authentication" ar="المصادقة" /></a>
           <a href="#billing"><Bi en="Billing & tokens" ar="الفوترة والرموز" /></a>
           <div className="sec"><Bi en="API reference" ar="مرجع الواجهة" /></div>
+          <a href="#models"><Bi en="Models" ar="النماذج" /></a>
           <a href="#chat"><Bi en="Chat completions" ar="إكمالات المحادثة" /></a>
           <a href="#embeddings"><Bi en="Embeddings" ar="التضمينات" /></a>
           <a href="#rerank"><Bi en="Reranking" ar="إعادة الترتيب" /></a>
@@ -43,6 +45,8 @@ export default function DocsPage() {
           <a href="#arabic"><Bi en="Working in Arabic" ar="العمل بالعربية" /></a>
           <a href="#rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></a>
           <a href="#residency"><Bi en="Data residency" ar="إقامة البيانات" /></a>
+          <a href="#provider-onboarding"><Bi en="Provider onboarding" ar="انضمام المزوّد" /></a>
+          <a href="#pricing"><Bi en="Pricing" ar="الأسعار" /></a>
           <div className="sec"><Bi en="Compute" ar="الحوسبة" /></div>
           <a href="#pods"><Bi en="GPU pods" ar="حاويات GPU" /></a>
           <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
@@ -53,6 +57,7 @@ export default function DocsPage() {
           <a href="#mcp-tools"><Bi en="Tools" ar="الأدوات" /></a>
           <a href="#mcp-rent-gpu"><Bi en="Agent rents a GPU" ar="وكيل يستأجر معالجاً" /></a>
           <div className="sec"><Bi en="SDKs" ar="حِزم التطوير" /></div>
+          <a href="#sdk-examples"><Bi en="SDK overview" ar="نظرة عامة" /></a>
           <a href="#python-sdk"><Bi en="Python" ar="بايثون" /></a>
           <a href="#node-sdk"><Bi en="Node.js" ar="Node.js" /></a>
           <a href="#curl-rest"><Bi en="cURL / REST" ar="cURL / REST" /></a>
@@ -80,6 +85,33 @@ export default function DocsPage() {
             </p>
           </div>
 
+          <div className="dx-section-map" aria-label={lang === 'ar' ? 'أقسام التوثيق' : 'Documentation sections'}>
+            <a href="#quickstart">
+              <strong><Bi en="Quickstart" ar="بداية سريعة" /></strong>
+              <span><Bi en="First request with cURL, Python, or Node." ar="أول طلب عبر cURL أو Python أو Node." /></span>
+            </a>
+            <a href="#openai-compatible-api">
+              <strong><Bi en="OpenAI-compatible API" ar="واجهة متوافقة مع OpenAI" /></strong>
+              <span><Bi en="Base URL, auth, catalog, chat, and errors." ar="عنوان القاعدة، المصادقة، الكتالوج، المحادثة، والأخطاء." /></span>
+            </a>
+            <a href="#provider-onboarding">
+              <strong><Bi en="Provider onboarding" ar="انضمام المزوّد" /></strong>
+              <span><Bi en="Earn entry, setup wizard, installer, and dashboard." ar="مسار الربح، معالج الإعداد، المثبّت، ولوحة التحكم." /></span>
+            </a>
+            <a href="#models">
+              <strong><Bi en="Models" ar="النماذج" /></strong>
+              <span><Bi en="Discover what is verified online before routing." ar="اكتشف المتاح فعلياً قبل التوجيه." /></span>
+            </a>
+            <a href="#pricing">
+              <strong><Bi en="Pricing" ar="الأسعار" /></strong>
+              <span><Bi en="SAR wallet, token metering, pods, and 402 guard." ar="محفظة بالريال، قياس الرموز، الحاويات، وحماية 402." /></span>
+            </a>
+            <a href="#sdk-examples">
+              <strong><Bi en="SDKs" ar="حزم التطوير" /></strong>
+              <span><Bi en="Use the official OpenAI SDKs with DCP's base URL." ar="استخدم حزم OpenAI الرسمية مع عنوان DCP." /></span>
+            </a>
+          </div>
+
           <h2 id="quickstart"><Bi en="Quickstart" ar="بداية سريعة" /></h2>
           <p>
             <Bi
@@ -98,7 +130,7 @@ export default function DocsPage() {
           <div className={qsTab === 'cli' ? 'code-pane on' : 'code-pane'} data-t="cli">
             <pre className="code">$ <span className="k">npm</span> i -g <span className="s">@dcp/cli</span>
 $ <span className="k">dcp</span> login                       <span className="c">{'# paste your renter key once'}</span>
-$ <span className="k">dcp</span> run qwen3-4b <span className="s">{'"اشرح لي زكاة المال"'}</span>
+$ <span className="k">dcp</span> run qwen2.5:7b <span className="s">{'"اشرح لي زكاة المال"'}</span>
 $ <span className="k">dcp</span> config set sovereign_only <span className="k">true</span>   <span className="c">{'# in-Kingdom only, no cross-border'}</span>
 $ <span className="k">dcp</span> pods launch --gpu rtx4090 --min 60   <span className="c">{'# whole GPU, per-second SAR'}</span>
 $ <span className="k">dcp</span> usage                          <span className="c">{'# spend + tokens, in SAR'}</span></pre>
@@ -109,7 +141,7 @@ $ <span className="k">dcp</span> usage                          <span className=
    <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span> \
    <span className="k">-H</span> <span className="s">{'"Content-Type: application/json"'}</span> \
    <span className="k">-d</span> <span className="s">{`'{
-     "model": "qwen3-4b",
+     "model": "qwen2.5:7b",
      "messages": [{"role": "user", "content": "اشرح لي زكاة المال"}]
    }'`}</span></pre>
           </div>
@@ -124,7 +156,7 @@ client = <span className="n">OpenAI</span>(
 )
 
 resp = client.chat.completions.create(
-    model=<span className="s">{'"qwen3-4b"'}</span>,
+    model=<span className="s">{'"qwen2.5:7b"'}</span>,
     messages=[{`{`}<span className="s">{'"role"'}</span>: <span className="s">{'"user"'}</span>, <span className="s">{'"content"'}</span>: <span className="s">{'"اشرح لي زكاة المال"'}</span>{`}`}],
 )
 <span className="n">print</span>(resp.choices[<span className="k">0</span>].message.content)</pre>
@@ -139,10 +171,23 @@ resp = client.chat.completions.create(
 {`}`});
 
 <span className="k">const</span> resp = <span className="k">await</span> client.chat.completions.create({`{`}
-  model: <span className="s">{'"qwen3-4b"'}</span>,
+  model: <span className="s">{'"qwen2.5:7b"'}</span>,
   messages: [{`{`} role: <span className="s">{'"user"'}</span>, content: <span className="s">{'"اشرح لي زكاة المال"'}</span> {`}`}],
 {`}`});</pre>
           </div>
+
+          <h2 id="openai-compatible-api"><Bi en="OpenAI-compatible API" ar="واجهة متوافقة مع OpenAI" /></h2>
+          <p>
+            <Bi
+              en="DCP exposes an OpenAI-style inference surface at /v1. Production clients should first read the live catalog, select a model that is available now, and then call chat completions with the same request shape used by the official OpenAI SDKs."
+              ar="توفّر DCP واجهة استدلال بأسلوب OpenAI تحت /v1. يجب على عملاء الإنتاج قراءة الكتالوج الحي أولاً، واختيار نموذج متاح الآن، ثم استدعاء إكمالات المحادثة بنفس شكل الطلب المستخدم في حزم OpenAI الرسمية."
+            />
+          </p>
+          <ul>
+            <li><code>GET /v1/models</code> <Bi en="lists verified-online models for OpenAI-compatible clients." ar="يسرد النماذج المتحققة والمتاحة لعملاء OpenAI." /></li>
+            <li><code>POST /v1/chat/completions</code> <Bi en="runs the selected model and settles usage against the renter wallet." ar="يشغّل النموذج المختار ويسوّي الاستخدام من محفظة المستأجر." /></li>
+            <li><code>GET /api/models/catalog</code> <Bi en="adds DCP catalog metadata such as task type, availability, and provider count." ar="يضيف بيانات كتالوج DCP مثل نوع المهمة، التوفر، وعدد المزوّدين." /></li>
+          </ul>
 
           <h2 id="auth"><Bi en="Authentication" ar="المصادقة" /></h2>
           <p>
@@ -185,6 +230,29 @@ resp = client.chat.completions.create(
             </li>
           </ul>
 
+          <h2 id="pricing"><Bi en="Pricing" ar="الأسعار" /></h2>
+          <p>
+            <Bi
+              en="Public pricing lives at "
+              ar="الأسعار العامة موجودة في "
+            />
+            <Link className="ln" href="/pricing"><Bi en="/pricing" ar="/pricing" /></Link>
+            <Bi
+              en=". The docs surface only names the contract: inference is metered per input and output token, pods are prepaid per GPU-second, persistent volumes are monthly, and the API returns 402 insufficient_balance before work starts when the wallet cannot cover the estimate."
+              ar=". تعرض صفحة التوثيق العقد فقط: الاستدلال يُقاس لكل رمز إدخال وإخراج، والحاويات مدفوعة مسبقاً لكل ثانية GPU، ومساحات التخزين شهرية، وتعيد الواجهة 402 insufficient_balance قبل بدء العمل عندما لا يكفي الرصيد للتقدير."
+            />
+          </p>
+
+          <h2 id="models"><Bi en="Models" ar="النماذج" /></h2>
+          <p>
+            <Bi
+              en="Do not hardcode capacity assumptions. The model list is earned from currently reachable providers, so clients should discover models at runtime and handle an empty or degraded catalog as a normal operational state."
+              ar="لا تثبّت افتراضات السعة في الكود. قائمة النماذج مكتسبة من مزوّدين قابلين للوصول حالياً، لذلك يجب على العملاء اكتشاف النماذج وقت التشغيل والتعامل مع كتالوج فارغ أو متدهور كحالة تشغيل طبيعية."
+            />
+          </p>
+          <pre className="code">$ <span className="k">curl</span> <span className="s">https://api.dcp.sa/v1/models</span> \
+   <span className="k">-H</span> <span className="s">{'"Authorization: Bearer $DCP_KEY"'}</span></pre>
+
           <h2 id="chat"><Bi en="Chat completions" ar="إكمالات المحادثة" /></h2>
           <p>
             <code>POST /v1/chat/completions</code>
@@ -207,7 +275,7 @@ resp = client.chat.completions.create(
                 <td className="type">string</td>
                 <td className="desc">
                   <Bi en="The model to use, e.g. " ar="النموذج المراد استخدامه، مثل " />
-                  <code>qwen3-4b</code>
+                  <code>qwen2.5:7b</code>
                   <Bi en=". See the model list in your console." ar=". راجع قائمة النماذج في وحدة التحكم." />
                 </td>
               </tr>
@@ -296,6 +364,14 @@ resp = client.chat.completions.create(
           </p>
           <pre className="code">$ <span className="k">curl</span> <span className="s">https://dcp.sa/api/models/bundles/arabic-rag</span></pre>
 
+          <h2 id="sdk-examples"><Bi en="SDKs" ar="حزم التطوير" /></h2>
+          <p>
+            <Bi
+              en="For launch, use the official OpenAI SDKs directly with DCP's base URL and your DCP renter key. DCP-specific wrappers can be layered later, but production docs should keep the working path simple and vendor-compatible."
+              ar="عند الإطلاق، استخدم حزم OpenAI الرسمية مباشرة مع عنوان DCP ومفتاح مستأجر DCP. يمكن إضافة أغلفة خاصة بـDCP لاحقاً، لكن توثيق الإنتاج يجب أن يبقي المسار العملي بسيطاً ومتوافقاً."
+            />
+          </p>
+
           <h2 id="python-sdk"><Bi en="Python SDK" ar="حزمة Python" /></h2>
           <p>
             <Bi en="Use the official OpenAI Python SDK with DCP's base URL." ar="استخدم حزمة OpenAI الرسمية لـPython مع عنوان DCP." />
@@ -342,6 +418,25 @@ resp = client.chat.completions.create(
               ar="افتراضياً، تبقى مطالباتك وإكمالاتك ومواد RAG المُدارة داخل المملكة. تبقى النماذج الحدودية (العابرة للحدود) معطّلة حتى تشغّلها لكل مساحة عمل — وعند ذلك، يُعلَّم كل طلب من هذا النوع لتعرف دائماً أين ذهبت بياناتك."
             />
           </p>
+
+          <h2 id="provider-onboarding"><Bi en="Provider onboarding" ar="انضمام المزوّد" /></h2>
+          <p>
+            <Bi
+              en="Providers enter from "
+              ar="يدخل المزوّدون من "
+            />
+            <Link className="ln" href="/earn"><Bi en="/earn" ar="/earn" /></Link>
+            <Bi
+              en=", complete the setup wizard, install the daemon from the signed installer URL, and then manage rigs, payouts, and health from "
+              ar="، يكملون معالج الإعداد، يثبتون الوكيل من رابط المثبّت، ثم يديرون الأجهزة والمدفوعات والصحة من "
+            />
+            <Link className="ln" href="/provider/dashboard"><Bi en="/provider/dashboard" ar="/provider/dashboard" /></Link>.
+          </p>
+          <ul>
+            <li><Bi en="Public CTA:" ar="دعوة عامة:" /> <Link className="ln" href="/earn"><Bi en="earn with DCP" ar="اربح مع DCP" /></Link>.</li>
+            <li><Bi en="Setup wizard:" ar="معالج الإعداد:" /> <Link className="ln" href="/provider-setup"><Bi en="provider setup" ar="إعداد المزوّد" /></Link>.</li>
+            <li><Bi en="Operational console:" ar="لوحة التشغيل:" /> <Link className="ln" href="/provider/dashboard"><Bi en="provider dashboard" ar="لوحة المزوّد" /></Link>.</li>
+          </ul>
 
           <span className="dx-eyebrow">§ <Bi en="Compute" ar="الحوسبة" /></span>
           <h2 id="pods"><Bi en="GPU pods" ar="حاويات GPU" /></h2>
@@ -546,8 +641,11 @@ stop_pod({'{ '}<span className="k">pod_id</span>: <span className="s">"pod-..."<
         <aside className="dx-toc">
           <div className="t"><Bi en="On this page" ar="في هذه الصفحة" /></div>
           <a href="#quickstart"><Bi en="Quickstart" ar="بداية سريعة" /></a>
+          <a href="#openai-compatible-api"><Bi en="OpenAI-compatible API" ar="واجهة متوافقة مع OpenAI" /></a>
           <a href="#auth"><Bi en="Authentication" ar="المصادقة" /></a>
           <a href="#billing"><Bi en="Billing & tokens" ar="الفوترة والرموز" /></a>
+          <a href="#pricing"><Bi en="Pricing" ar="الأسعار" /></a>
+          <a href="#models"><Bi en="Models" ar="النماذج" /></a>
           <a href="#chat"><Bi en="Chat completions" ar="إكمالات المحادثة" /></a>
           <a href="#embeddings"><Bi en="Embeddings" ar="التضمينات" /></a>
           <a href="#rerank"><Bi en="Reranking" ar="إعادة الترتيب" /></a>
@@ -556,12 +654,14 @@ stop_pod({'{ '}<span className="k">pod_id</span>: <span className="s">"pod-..."<
           <a href="#arabic"><Bi en="Working in Arabic" ar="العمل بالعربية" /></a>
           <a href="#rag"><Bi en="Build a RAG app" ar="بناء تطبيق RAG" /></a>
           <a href="#residency"><Bi en="Data residency" ar="إقامة البيانات" /></a>
+          <a href="#provider-onboarding"><Bi en="Provider onboarding" ar="انضمام المزوّد" /></a>
           <a href="#pods"><Bi en="GPU pods" ar="حاويات GPU" /></a>
           <a href="#volumes"><Bi en="Persistent volumes" ar="مساحات تخزين" /></a>
           <a href="#agents"><Bi en="Use DCP from an agent" ar="استخدم DCP من وكيل" /></a>
           <a href="#mcp-install"><Bi en="Install (MCP)" ar="التثبيت (MCP)" /></a>
           <a href="#mcp-tools"><Bi en="MCP tools" ar="أدوات MCP" /></a>
           <a href="#mcp-rent-gpu"><Bi en="Agent rents a GPU" ar="وكيل يستأجر معالجاً" /></a>
+          <a href="#sdk-examples"><Bi en="SDKs" ar="حزم التطوير" /></a>
         </aside>
 
       </div>
