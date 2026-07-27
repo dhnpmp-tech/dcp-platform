@@ -103,11 +103,25 @@ from pathlib import Path
 from datetime import datetime
 # Mining guard — detects and kills crypto miners in interactive pods
 try:
-    from mining_guard import scan_and_kill_miners, setup_pod_egress_rules, cleanup_pod_egress_rules
+    from mining_guard import (
+        scan_and_kill_miners,
+        setup_pod_egress_rules,
+        cleanup_pod_egress_rules,
+        run_host_miner_sweep,
+        compute_integrity_baseline,
+        findings_warrant_quarantine,
+        load_integrity_baseline,
+        save_integrity_baseline,
+    )
 except ImportError:
     scan_and_kill_miners = None
     setup_pod_egress_rules = None
     cleanup_pod_egress_rules = None
+    run_host_miner_sweep = None
+    findings_warrant_quarantine = None
+    load_integrity_baseline = None
+    save_integrity_baseline = None
+    compute_integrity_baseline = None
 
 # ─── WINDOWS CONSOLE / SUBPROCESS HARDENING ─────────────────────────────────
 # Without CREATE_NO_WINDOW, every subprocess.run/Popen call (nvidia-smi, docker,
@@ -9774,32 +9788,194 @@ def bootstrap_inference_supervisor() -> None:
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 
+
+# ── Host-level anti-miner (continuous) ──────────────────────────────────
+# Runs in a daemon thread with a hard time budget so heartbeats never wedge.
+# See docs/security/host-anti-miner.md (task_a74c15efb7a0).
+HOST_MINER_INTERVAL_S = float(os.environ.get("DCP_HOST_MINER_INTERVAL_S", "120"))
+HOST_MINER_BUDGET_S = float(os.environ.get("DCP_HOST_MINER_BUDGET_S", "20"))
+HOST_MINER_KILL = os.environ.get("DCP_HOST_MINER_KILL", "1").strip() not in ("0", "false", "False", "")
+_HOST_MINER_PREV_UNKNOWN = set()  # second-hit kill for non-allowlisted GPU procs
+_HOST_INTEGRITY_BASELINE = None
+
+
 def _startup_miner_sweep():
-    """Kill any known mining processes on startup - runs once before main loop."""
-    if scan_and_kill_miners is None:
+    """Kill known mining processes on startup + run one host sweep."""
+    if scan_and_kill_miners is None and run_host_miner_sweep is None:
         return
     try:
         import subprocess as _sp
-        # Kill known miner binaries by name
-        miner_names = ['forge', 'xmrig', 'ccminer', 'ethminer', 'minerd', 't-rex', 'lolminer',
+        # Exact process-name kill only — NEVER pkill -f 'forge' (hits Forgejo/cargo-forge).
+        # Ambiguous tokens handled by continuous host sweep with corroboration rules.
+        miner_names = ['xmrig', 'ccminer', 'ethminer', 'minerd', 't-rex', 'lolminer',
                        'gminer', 'nbminer', 'teamredminer', 'srbminer', 'cast-xmr', 'xmr-stak',
-                       'cpuminer', 'cgminer', 'bfgminer', 'claymore', 'phoenixminer']
+                       'cpuminer', 'cgminer', 'bfgminer', 'claymore', 'phoenixminer',
+                       'nicehash', 'kryptex']
         for name in miner_names:
-            r = _sp.run(['pkill', '-f', name], capture_output=True, text=True, timeout=5)
+            # -x = exact comm name; avoids substring collisions
+            r = _sp.run(['pkill', '-x', name], capture_output=True, text=True, timeout=5)
             if r.returncode == 0:
-                log.warning('Startup miner sweep: killed %s', name)
-        # Also kill by mining pool connection
-        r = _sp.run(['pkill', '-f', 'kryptex'], capture_output=True, text=True, timeout=5)
-        if r.returncode == 0:
-            log.warning('Startup miner sweep: killed kryptex-related process')
-        r = _sp.run(['pkill', '-f', 'pearlhash'], capture_output=True, text=True, timeout=5)
-        if r.returncode == 0:
-            log.warning('Startup miner sweep: killed pearlhash-related process')
+                log.warning('Startup miner sweep: killed exact name %s', name)
+        # High-confidence product substrings only (not 'forge')
+        for pat in ('xmrig', 'pearlhash', 'kryptex.network', 'stratum+tcp://', 'stratum+ssl://'):
+            r = _sp.run(['pkill', '-f', pat], capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                log.warning('Startup miner sweep: killed pattern %s', pat)
     except Exception as e:
         log.warning('Startup miner sweep failed: %s', e)
+    # Continuous-path functions once at boot
+    try:
+        _run_host_miner_guard_once(reason="startup")
+    except Exception as e:
+        log.warning("Startup host miner guard failed: %s", e)
+    global _HOST_INTEGRITY_BASELINE
+    try:
+        if load_integrity_baseline is not None:
+            _HOST_INTEGRITY_BASELINE = load_integrity_baseline()
+            if _HOST_INTEGRITY_BASELINE:
+                log.info("[host-miner] integrity baseline loaded from disk (%d paths)",
+                         len(_HOST_INTEGRITY_BASELINE or {}))
+        if _HOST_INTEGRITY_BASELINE is None and compute_integrity_baseline is not None:
+            _HOST_INTEGRITY_BASELINE = compute_integrity_baseline()
+            log.info("[host-miner] integrity baseline captured (%d paths)",
+                     len(_HOST_INTEGRITY_BASELINE or {}))
+            if save_integrity_baseline is not None and _HOST_INTEGRITY_BASELINE:
+                save_integrity_baseline(_HOST_INTEGRITY_BASELINE)
+    except Exception as e:
+        log.debug("[host-miner] integrity baseline failed: %s", e)
+
+
+def _run_host_miner_guard_once(reason="periodic"):
+    """Single host sweep with wall-clock budget. Never raises to caller."""
+    global _HOST_MINER_PREV_UNKNOWN, _HOST_INTEGRITY_BASELINE
+    if run_host_miner_sweep is None:
+        return
+    import threading
+    result_box = {}
+
+    def _worker():
+        try:
+            result_box["r"] = run_host_miner_sweep(kill=HOST_MINER_KILL)
+        except Exception as e:
+            result_box["err"] = str(e)
+
+    t = threading.Thread(target=_worker, name="host-miner-sweep", daemon=True)
+    t.start()
+    t.join(timeout=max(1.0, HOST_MINER_BUDGET_S))
+    if t.is_alive():
+        log.warning("[host-miner] sweep exceeded budget %.1fs (%s) — abandoning result",
+                    HOST_MINER_BUDGET_S, reason)
+        return
+    if result_box.get("err"):
+        log.warning("[host-miner] sweep error (%s): %s", reason, result_box["err"])
+        return
+    r = result_box.get("r") or {}
+    findings = r.get("findings") or []
+    killed = r.get("killed") or []
+
+    # Second-consecutive-hit kill for unknown host GPU processes
+    unknown_now = set()
+    for f in findings:
+        if f.get("scope") == "host_gpu" and f.get("reason") == "host_gpu_not_allowlisted":
+            key = (f.get("pid"), (f.get("cmd") or "")[:80])
+            unknown_now.add(key)
+            if key in _HOST_MINER_PREV_UNKNOWN and HOST_MINER_KILL and f.get("pid"):
+                try:
+                    os.kill(int(f["pid"]), 9)
+                    killed.append(f["pid"])
+                    log.warning("[host-miner] second-hit kill unknown GPU pid=%s cmd=%s",
+                                f.get("pid"), str(f.get("cmd", ""))[:100])
+                except Exception:
+                    pass
+    _HOST_MINER_PREV_UNKNOWN = unknown_now
+
+    # Integrity drift (report only)
+    try:
+        if _HOST_INTEGRITY_BASELINE and compute_integrity_baseline is not None:
+            now = compute_integrity_baseline()
+            drifted = [p for p, h in _HOST_INTEGRITY_BASELINE.items()
+                       if now.get(p) and now.get(p) != h and not str(h).startswith("error:")]
+            if drifted:
+                findings.append({
+                    "scope": "integrity",
+                    "reason": "baseline_drift",
+                    "paths": drifted[:10],
+                })
+    except Exception:
+        pass
+
+    if not findings and not killed:
+        log.debug("[host-miner] clean (%s) elapsed_ms=%s", reason, r.get("elapsed_ms"))
+        return
+
+    # Build details for backend
+    summary_parts = []
+    for f in findings[:20]:
+        summary_parts.append(
+            "%s:%s pid=%s path=%s port=%s cmd=%s" % (
+                f.get("scope"), f.get("reason"), f.get("pid"),
+                f.get("path"), f.get("port"), str(f.get("cmd", ""))[:80],
+            )
+        )
+    details = "host_miner_guard reason=%s findings=%s killed=%s elapsed_ms=%s\n%s" % (
+        reason, len(findings), killed, r.get("elapsed_ms"), "\n".join(summary_parts),
+    )
+
+    # CRITICAL-2: host_conn port-only (and unknown-GPU first hits) must NOT
+    # fire mining_detected → backend quarantine. Port 8888 = Jupyter default.
+    try:
+        warrants_q = False
+        if findings_warrant_quarantine is not None:
+            warrants_q = bool(findings_warrant_quarantine(findings)) or bool(killed)
+        else:
+            # fallback: only known_miner_pattern / persistence / kills
+            warrants_q = bool(killed) or any(
+                (f.get("scope") in ("host_gpu", "host_proc") and f.get("reason") == "known_miner_pattern")
+                or (f.get("scope") == "persistence")
+                for f in findings
+            )
+    except Exception:
+        warrants_q = bool(killed)
+
+    if warrants_q:
+        log.warning("[host-miner] DETECTED (quarantine) %s", details[:500])
+        try:
+            report_event("mining_detected", details[:5000], severity="critical")
+        except Exception as e:
+            log.debug("[host-miner] report_event failed: %s", e)
+    else:
+        # Low-severity signal only — no provider quarantine
+        log.info("[host-miner] suspected (no quarantine) %s", details[:500])
+        try:
+            report_event("mining_suspected", details[:5000], severity="warning")
+        except Exception as e:
+            log.debug("[host-miner] report_event(mining_suspected) failed: %s", e)
+
+
+def host_miner_guard_loop():
+    """Background loop: continuous host anti-miner. Never dies the process."""
+    import time as _time
+    # stagger after startup sweep
+    _time.sleep(min(60.0, max(5.0, HOST_MINER_INTERVAL_S / 2)))
+    while True:
+        try:
+            _run_host_miner_guard_once(reason="periodic")
+        except Exception as e:
+            log.warning("[host-miner] loop error: %s", e)
+        try:
+            _time.sleep(max(30.0, HOST_MINER_INTERVAL_S))
+        except Exception:
+            _time.sleep(120)
+
 
 def main():
     _startup_miner_sweep()  # Kill any miners before starting
+    try:
+        threading.Thread(target=host_miner_guard_loop, name="host-miner-guard", daemon=True).start()
+        log.info("[host-miner] continuous guard thread started (interval=%ss budget=%ss kill=%s)",
+                 HOST_MINER_INTERVAL_S, HOST_MINER_BUDGET_S, HOST_MINER_KILL)
+    except Exception as _hm_err:
+        log.warning("[host-miner] failed to start guard thread: %s", _hm_err)
     parser = argparse.ArgumentParser(description="DCP Provider Daemon v4.0")
     parser.add_argument("--key", help="Override API key")
     parser.add_argument("--url", help="Override API URL")
