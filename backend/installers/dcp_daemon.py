@@ -102,6 +102,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 # Mining guard — detects and kills crypto miners in interactive pods
+MINING_GUARD_IMPORT_ERROR = None
 try:
     from mining_guard import (
         scan_and_kill_miners,
@@ -113,7 +114,8 @@ try:
         load_integrity_baseline,
         save_integrity_baseline,
     )
-except ImportError:
+except Exception as e:
+    MINING_GUARD_IMPORT_ERROR = str(e)
     scan_and_kill_miners = None
     setup_pod_egress_rules = None
     cleanup_pod_egress_rules = None
@@ -167,6 +169,7 @@ AUTO_UPDATE_CHECK = 300    # Check for updates every 5 minutes
 UPDATE_CRASH_THRESHOLD = 90  # If daemon crashes within 90s of update, rollback
 ROLLBACK_RECHECK_INTERVAL = 600  # After rollback, re-check for updates every 10 min
 CANONICAL_UPDATE_ENDPOINT = "https://api.dcp.sa/api/providers/download/daemon"
+CANONICAL_MINING_GUARD_ENDPOINT = "https://api.dcp.sa/api/providers/download/mining-guard"
 CANONICAL_INSTALLER_DOWNLOAD_URL = "https://api.dcp.sa/installers/daemon"
 CANONICAL_API_BASE_URL = "https://api.dcp.sa"
 
@@ -1373,6 +1376,10 @@ def _legacy_update_endpoint():
     """Legacy update endpoint derived from injected API URL."""
     return f"{API_URL.rstrip('/')}/api/providers/download/daemon"
 
+def _legacy_mining_guard_endpoint():
+    """Mining guard endpoint derived from injected API URL."""
+    return f"{API_URL.rstrip('/')}/api/providers/download/mining-guard"
+
 def _candidate_update_endpoints():
     """Ordered update endpoints: canonical first, legacy fallback second."""
     return [CANONICAL_UPDATE_ENDPOINT, _legacy_update_endpoint()]
@@ -1380,6 +1387,18 @@ def _candidate_update_endpoints():
 def _candidate_download_urls():
     """Ordered daemon download URLs: installer URL first, API fallbacks after."""
     return [CANONICAL_INSTALLER_DOWNLOAD_URL] + _candidate_update_endpoints()
+
+def _candidate_mining_guard_download_urls(preferred_download_url=None):
+    """Ordered mining_guard.py download URLs."""
+    candidates = []
+    if preferred_download_url:
+        candidates.append(preferred_download_url)
+    candidates.extend([CANONICAL_MINING_GUARD_ENDPOINT, _legacy_mining_guard_endpoint()])
+    deduped = []
+    for candidate in candidates:
+        if candidate and candidate not in deduped:
+            deduped.append(candidate)
+    return deduped
 
 def _resolve_download_url(download_url):
     """Normalize download_url from check_only response."""
@@ -1395,6 +1414,80 @@ def _resolve_download_url(download_url):
     if url.startswith("/"):
         return f"{CANONICAL_API_BASE_URL}{url}"
     return None
+
+def _download_text_with_auth(download_url, timeout=30):
+    """Download a text artifact using daemon auth headers."""
+    _dl_auth = _auth_headers()
+    if HAS_REQUESTS:
+        import requests as req_lib
+        r = req_lib.get(download_url, timeout=timeout, headers=_dl_auth)
+        if r.status_code != 200:
+            raise Exception(f"Download HTTP {r.status_code}")
+        return r.text
+    import urllib.request
+    _dl_req = urllib.request.Request(download_url, headers=_dl_auth)
+    with urllib.request.urlopen(_dl_req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8")
+
+def _download_mining_guard_update(mining_guard_manifest):
+    """Fetch and verify the mining_guard.py companion file for a daemon update."""
+    if not isinstance(mining_guard_manifest, dict):
+        return None
+    expected_sha256 = str(mining_guard_manifest.get("sha256") or "").strip().lower()
+    preferred = _resolve_download_url(mining_guard_manifest.get("download_url"))
+    last_error = None
+    for download_url in _candidate_mining_guard_download_urls(preferred):
+        try:
+            candidate_code = _download_text_with_auth(download_url, timeout=30)
+            if "def run_host_miner_sweep" not in candidate_code or "def findings_warrant_quarantine" not in candidate_code:
+                raise Exception("Downloaded file doesn't look like a valid mining guard")
+            if expected_sha256:
+                actual_sha256 = hashlib.sha256(candidate_code.encode("utf-8")).hexdigest()
+                if actual_sha256 != expected_sha256:
+                    raise Exception(
+                        f"sha256 mismatch (expected {expected_sha256[:12]}..., got {actual_sha256[:12]}...)"
+                    )
+            log.info(f"Downloaded mining_guard.py update from: {download_url}")
+            return candidate_code
+        except Exception as e:
+            last_error = e
+            continue
+    raise Exception(f"All mining_guard.py downloads failed: {last_error}")
+
+def _write_mining_guard_update(guard_code):
+    """Atomically write mining_guard.py next to this daemon before daemon swap."""
+    if not guard_code:
+        return
+    current_path = Path(__file__).resolve()
+    guard_path = current_path.with_name("mining_guard.py")
+    tmp_fd, tmp_name = tempfile.mkstemp(
+        prefix=".mining_guard.", suffix=".new",
+        dir=str(current_path.parent), text=True,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            f.write(guard_code)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+        try:
+            if guard_path.exists():
+                os.chmod(tmp_path, guard_path.stat().st_mode)
+            else:
+                os.chmod(tmp_path, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp_path, guard_path)
+        log.info(f"Updated mining_guard.py companion file at {guard_path}")
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise
 
 _WG_MESH_SUBNET_RE = re.compile(r'^10\.[89]\.\d{1,3}\.\d{1,3}$')
 # Match either 10.8.x.x (wg0 / primary) or 10.9.x.x (wg1 / UDP/443 fallback).
@@ -2127,14 +2220,16 @@ def check_for_update():
                 log.info(f"Update available via {endpoint}: {DAEMON_VERSION} → {remote_version}")
                 resolved = _resolve_download_url(resp.get("download_url"))
                 expected_sha256 = resp.get("sha256")  # integrity digest (#13)
+                mining_guard_manifest = resp.get("mining_guard")
                 return perform_update(remote_version, preferred_download_url=resolved,
-                                      expected_sha256=expected_sha256)
+                                      expected_sha256=expected_sha256,
+                                      mining_guard_manifest=mining_guard_manifest)
             return False
         except Exception as e:
             log.debug(f"Update check failed via {endpoint}: {e}")
     return False
 
-def perform_update(new_version, preferred_download_url=None, expected_sha256=None):
+def perform_update(new_version, preferred_download_url=None, expected_sha256=None, mining_guard_manifest=None):
     """Download new daemon, replace current file, and signal restart."""
     report_event("update_start", f"Updating {DAEMON_VERSION} → {new_version}")
     log.info(f"Downloading daemon v{new_version}...")
@@ -2179,6 +2274,17 @@ def perform_update(new_version, preferred_download_url=None, expected_sha256=Non
 
         log.info(f"Downloaded update from: {used_url}")
 
+        guard_code = None
+        if mining_guard_manifest:
+            guard_code = _download_mining_guard_update(mining_guard_manifest)
+        else:
+            log.warning("Update metadata did not include mining_guard.py manifest")
+            report_event(
+                "mining_guard_update_skipped",
+                "backend update metadata omitted mining_guard manifest (older deploy?)",
+                severity="warning",
+            )
+
         # Integrity gate (#13): verify the downloaded bytes match the sha256 the
         # backend published for this version (check_only response). A corrupted,
         # MITM'd, or truncated download that still "looks like a daemon" must NOT
@@ -2199,6 +2305,9 @@ def perform_update(new_version, preferred_download_url=None, expected_sha256=Non
             log.warning("Integrity: backend published no sha256; applying after content-check only")
             report_event("update_integrity_skipped",
                          "backend published no sha256 (older deploy?)", severity="warning")
+
+        if guard_code:
+            _write_mining_guard_update(guard_code)
 
         # Save current as backup
         current_path = Path(__file__).resolve()
@@ -9797,11 +9906,33 @@ HOST_MINER_BUDGET_S = float(os.environ.get("DCP_HOST_MINER_BUDGET_S", "20"))
 HOST_MINER_KILL = os.environ.get("DCP_HOST_MINER_KILL", "1").strip() not in ("0", "false", "False", "")
 _HOST_MINER_PREV_UNKNOWN = set()  # second-hit kill for non-allowlisted GPU procs
 _HOST_INTEGRITY_BASELINE = None
+_MINING_GUARD_UNAVAILABLE_REPORTED = False
+_MINING_GUARD_UNAVAILABLE_LOGGED = False
+
+
+def _report_mining_guard_unavailable(reason=None):
+    """Report a missing companion mining_guard.py once so the backend can alert."""
+    global _MINING_GUARD_UNAVAILABLE_REPORTED, _MINING_GUARD_UNAVAILABLE_LOGGED
+    reason_text = reason or MINING_GUARD_IMPORT_ERROR or "mining_guard import returned no host sweep"
+    details = f"mining_guard.py unavailable; host anti-miner disabled: {reason_text}"
+    if not _MINING_GUARD_UNAVAILABLE_LOGGED:
+        log.error("[host-miner] %s", details)
+        _MINING_GUARD_UNAVAILABLE_LOGGED = True
+    else:
+        log.debug("[host-miner] %s", details)
+    if _MINING_GUARD_UNAVAILABLE_REPORTED:
+        return
+    _MINING_GUARD_UNAVAILABLE_REPORTED = True
+    try:
+        report_event("mining_guard_unavailable", details[:5000], severity="critical")
+    except Exception as e:
+        log.debug("[host-miner] report_event(mining_guard_unavailable) failed: %s", e)
 
 
 def _startup_miner_sweep():
     """Kill known mining processes on startup + run one host sweep."""
     if scan_and_kill_miners is None and run_host_miner_sweep is None:
+        _report_mining_guard_unavailable(MINING_GUARD_IMPORT_ERROR)
         return
     try:
         import subprocess as _sp
@@ -9849,6 +9980,7 @@ def _run_host_miner_guard_once(reason="periodic"):
     """Single host sweep with wall-clock budget. Never raises to caller."""
     global _HOST_MINER_PREV_UNKNOWN, _HOST_INTEGRITY_BASELINE
     if run_host_miner_sweep is None:
+        _report_mining_guard_unavailable(MINING_GUARD_IMPORT_ERROR)
         return
     import threading
     result_box = {}

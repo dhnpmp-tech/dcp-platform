@@ -90,10 +90,12 @@ Write-Host "[3/5] Setting up install directory..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path $INSTALL_DIR | Out-Null
 Write-Host "  Install dir: $INSTALL_DIR" -ForegroundColor Green
 
-# --- Step 4: Download dcp_daemon.py from backend ---
-Write-Host "[4/5] Downloading daemon from DCP backend..." -ForegroundColor Yellow
+# --- Step 4: Download dcp_daemon.py + mining_guard.py from backend ---
+Write-Host "[4/5] Downloading daemon bundle from DCP backend..." -ForegroundColor Yellow
 $daemonUrl = "$ApiUrl/api/providers/download/daemon?key=$ApiKey"
+$guardUrl = "$ApiUrl/api/providers/download/mining-guard?key=$ApiKey"
 $daemonPath = "$INSTALL_DIR\dcp_daemon.py"
+$guardPath = "$INSTALL_DIR\mining_guard.py"
 
 try {
     $response = Invoke-WebRequest -Uri $daemonUrl -OutFile $daemonPath -UseBasicParsing -TimeoutSec 30
@@ -113,6 +115,16 @@ try {
     Write-Host "    1. Check internet connectivity" -ForegroundColor Yellow
     Write-Host "    2. Verify API key is correct" -ForegroundColor Yellow
     Write-Host "    3. Try: Invoke-WebRequest $ApiUrl/health" -ForegroundColor Yellow
+    exit 1
+}
+
+try {
+    $response = Invoke-WebRequest -Uri $guardUrl -OutFile $guardPath -UseBasicParsing -TimeoutSec 30
+    Write-Host "  Mining guard downloaded to: $guardPath" -ForegroundColor Green
+} catch {
+    Write-Host "  ERROR: Failed to download mining_guard.py companion." -ForegroundColor Red
+    Write-Host "  URL: $guardUrl" -ForegroundColor Red
+    Write-Host "  Error: $_" -ForegroundColor Red
     exit 1
 }
 

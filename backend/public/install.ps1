@@ -138,19 +138,29 @@ if (-not $ApiKey -and $Token) {
     Write-Step 4 7 "Using provided API key (skipping token exchange)..."
 }
 
-# ── Step 5: Download daemon ─────────────────────────────────────────────
-Write-Step 5 7 "Downloading DCP daemon..."
+# ── Step 5: Download daemon bundle ──────────────────────────────────────
+Write-Step 5 7 "Downloading DCP daemon bundle..."
 New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
 New-Item -ItemType Directory -Path $LOG_DIR -Force | Out-Null
 
 $daemonUrl = "$API_BASE/api/providers/download/daemon?key=$ApiKey"
+$guardUrl = "$API_BASE/api/providers/download/mining-guard?key=$ApiKey"
+$daemonPath = "$INSTALL_DIR\dcp_daemon.py"
+$guardPath = "$INSTALL_DIR\mining_guard.py"
 try {
-    Invoke-WebRequest -Uri $daemonUrl -OutFile "$INSTALL_DIR\dcp_daemon.py" -UseBasicParsing
+    Invoke-WebRequest -Uri $daemonUrl -OutFile $daemonPath -UseBasicParsing
 } catch {
     # Fallback to the canonical static installer path.
-    Invoke-WebRequest -Uri "$API_BASE/installers/daemon?key=$ApiKey" -OutFile "$INSTALL_DIR\dcp_daemon.py" -UseBasicParsing
+    Invoke-WebRequest -Uri "$API_BASE/installers/daemon?key=$ApiKey" -OutFile $daemonPath -UseBasicParsing
 }
-Write-Host "  Installed to $INSTALL_DIR\dcp_daemon.py"
+Write-Host "  Daemon installed to $daemonPath"
+
+try {
+    Invoke-WebRequest -Uri $guardUrl -OutFile $guardPath -UseBasicParsing
+} catch {
+    Fail "Failed to download mining_guard.py companion from $API_BASE."
+}
+Write-Host "  Mining guard installed to $guardPath"
 
 # ── Step 6: Write config ────────────────────────────────────────────────
 Write-Step 6 7 "Writing config..."
