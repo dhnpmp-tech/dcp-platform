@@ -14,6 +14,32 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `docs(security): add dcp-agent and desktop launch audit - PR #969`
+
+**PR:** [#969](https://github.com/dhnpmp-tech/dcp-platform/pull/969) (`agent/codex/task_0a1f17750f41-cross-repo-audits`).
+
+**What:** Read-only cross-repo launch audit for the provider-side desktop and
+agent chain before public native download links are promoted.
+
+- **Scope:** Added
+  `docs/security/audits/2026-07-26-dcp-agent-desktop-launch-audit.md`, pinned to
+  `DCP-SA/dcp-agent` `origin/main` at
+  `cfb8f29143fcd59493a23861e2c6bac4a1d0c187` and `DCP-SA/dcp-desktop`
+  `origin/main` at `9f56ba469598edeffda1e67409990f618836c9cb`.
+- **Findings:** Captures provider-key process-argument exposure, broad Linux
+  WireGuard privilege boundary, fail-open desktop API-key validation, unsigned
+  shell-installer daemon download, installer key echo/update hygiene, dashboard
+  polling without backoff, desktop version/release drift, stale `hermes-agent`
+  metadata, workflow permission scope, and provider-facing CTA polish.
+- **Next PR order:** Documents the recommended split: desktop credential handoff,
+  WireGuard helper, fail-closed validation, agent daemon verification, installer
+  hygiene, polling backoff, release metadata, then public download buttons.
+- **Regression guard:** Added `tests/dcp-agent-desktop-audit-static.test.js` to
+  keep source SHAs, evidence refs, major findings, changelog coverage, and
+  secret-free audit wording intact.
+- **Safety:** Docs/test/changelog only. No live provider, billing, payment,
+  WireGuard, Node 2, desktop release, production environment, or download-link
+
 ### Pending - `feat(docs): add public docs-site launch map - PR #966`
 
 **PR:** [#966](https://github.com/dhnpmp-tech/dcp-platform/pull/966) (`agent/codex/task_acdd2649a8a4-docs-site`).
