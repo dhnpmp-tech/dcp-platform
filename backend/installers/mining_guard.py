@@ -190,10 +190,10 @@ def is_miner_process(cmdline):
     for pattern in KNOWN_MINER_PATTERNS:
         if pattern in low:
             return True
-    mining_flags = ["--algorithm", "--pool", "--wallet", "--stratum",
+    mining_flags = ["--algorithm", "--pool", "--wallet",
                     "--rig-id", "--cpu-priority", "--no-cpu",
-                    "stratum+tcp", "stratum+ssl",
-                    "--algo", "--url=stry", "--user="]
+                    "stratum+tcp://", "stratum+ssl://",
+                    "--algo", "--url=stry", "--user=wallet"]
     mining_flag_count = sum(1 for flag in mining_flags if flag in low)
     if mining_flag_count >= 2:
         return True
