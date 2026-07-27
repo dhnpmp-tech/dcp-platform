@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-07-27 13:10 UTC - ECC review trio CI hardening (PR #973)
+
+- **PR:** [#973](https://github.com/dhnpmp-tech/dcp-platform/pull/973) (`agent/codex/task_9efef75bae1c-ecc-review-ci`).
+- **Mission Control:** `task_9efef75bae1c`.
+- **Comment cap:** ECC PR review Markdown now truncates near 60,000 characters with a visible note so oversized finding tables do not trip GitHub's issue-comment API limit.
+- **Sticky comment pagination:** ECC sticky-comment lookup now follows GitHub `Link` pagination, preventing duplicate comments when a pull request already has more than 100 comments.
+- **File-size guard:** ECC analyzers skip full-file fallback reads for changed files larger than 2 MB, avoiding runner memory spikes on generated source files while still using diff-added lines.
+- **Safety:** CI/script/docs/test-only hardening; no production runtime, provider routing, billing, payments, deployments, Mission task writes, host rollout, or user-facing page behavior changed.
+- **Verification:** `node tests/ecc-pr-review-trio-static.test.js`, `node --check` for both ECC scripts, and `git diff --check`.
+
 ### 2026-07-10 05:50 UTC - Pods trial founder answer contract (PR #952)
 
 - **PR:** [#952](https://github.com/dhnpmp-tech/dcp-platform/pull/952) (`codex/pods-trial-founder-answer-contract-2026-07-10`).

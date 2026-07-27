@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
@@ -9,12 +10,17 @@ async function loadAnalyzer() {
   return import(pathToFileURL(path.join(root, 'scripts/ecc-pr-review-agent.mjs')).href);
 }
 
+async function loadCommenter() {
+  return import(pathToFileURL(path.join(root, 'scripts/ecc-pr-review-comment.mjs')).href);
+}
+
 function addedLine(line, text) {
   return { line, text };
 }
 
 async function run() {
   const analyzer = await loadAnalyzer();
+  const commenter = await loadCommenter();
 
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/ecc-pr-review-trio.yml'), 'utf8');
   assert(workflow.includes('pull_request_target:'), 'ECC workflow must use pull_request_target for PR comments');
@@ -80,11 +86,58 @@ async function run() {
   assert(markdown.includes('Status: **FAIL**'));
   assert(markdown.includes('backend/src/routes/providers.js:12'));
 
+  const noisyResult = {
+    agent: 'silent-failure-hunter',
+    status: 'warn',
+    base: 'base-sha',
+    head: 'head-sha',
+    scanned_files: 1,
+    findings: Array.from({ length: 2000 }, (_, index) => ({
+      severity: 'warning',
+      location: `app/generated/large-${index}.js:${index + 1}`,
+      issue: 'Large synthetic finding '.repeat(4),
+      impact: 'Impact text that makes the rendered markdown intentionally long. '.repeat(4),
+      recommendation: 'Recommendation text that makes the rendered markdown intentionally long. '.repeat(4),
+    })),
+  };
+  const cappedMarkdown = analyzer.formatMarkdown(noisyResult);
+  assert(cappedMarkdown.length <= analyzer.MAX_MARKDOWN_COMMENT_CHARS, 'formatMarkdown must stay below the GitHub comment cap');
+  assert(cappedMarkdown.includes('Review output truncated'), 'truncated analyzer markdown must explain truncation');
+
+  const cappedComment = commenter.truncateCommentBody('x'.repeat(commenter.MAX_MARKDOWN_COMMENT_CHARS + 100));
+  assert(cappedComment.length <= commenter.MAX_MARKDOWN_COMMENT_CHARS, 'commenter must cap final sticky comment bodies');
+  assert(cappedComment.includes('Review output truncated'), 'truncated sticky comments must explain truncation');
+
+  const nextLink = commenter.parseNextLinkHeader([
+    '<https://api.github.com/repos/dhnpmp-tech/dcp-platform/issues/1/comments?page=2>; rel="next"',
+    '<https://api.github.com/repos/dhnpmp-tech/dcp-platform/issues/1/comments?page=4>; rel="last"',
+  ].join(', '));
+  assert.strictEqual(
+    nextLink,
+    'https://api.github.com/repos/dhnpmp-tech/dcp-platform/issues/1/comments?page=2',
+    'comment lookup must parse GitHub pagination next links',
+  );
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dcp-ecc-review-'));
+  const largeFile = path.join(tmpDir, 'large-generated.js');
+  fs.writeFileSync(largeFile, Buffer.alloc(analyzer.MAX_REVIEW_FILE_BYTES + 1, 'a'));
+  assert.strictEqual(analyzer.isOversizedReviewFile(largeFile), true, 'large generated files must be detected');
+  assert.deepStrictEqual(analyzer.readFileLines(largeFile), [], 'large files must be skipped instead of fully read');
+  assert.deepStrictEqual(
+    analyzer.getAddedOrAllLines(largeFile, new Map()),
+    [],
+    'fallback full-file scans must skip oversized files',
+  );
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+
   const docs = fs.readFileSync(path.join(root, 'docs/orchestration/ecc-pr-review-trio.md'), 'utf8');
   assert(docs.includes('silent-failure-hunter'));
   assert(docs.includes('pr-test-analyzer'));
   assert(docs.includes('type-design-analyzer'));
   assert(docs.includes('pull_request_target'));
+  assert(docs.includes('60,000 characters'));
+  assert(docs.includes('pagination'));
+  assert(docs.includes('2 MB'));
 
   console.log('ECC PR review trio static tests passed');
 }
