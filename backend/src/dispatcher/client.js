@@ -107,26 +107,60 @@ class MissionClient {
 
   /**
    * POST /api/mission/tasks
-   * Creates a dispatcher repair task.
+   * Creates a Mission Control task from an external source.
    * Returns the created task object.
    */
-  async createRepairTask({ externalId, title, detail }) {
+  async createTask({
+    externalId,
+    title,
+    detail,
+    description,
+    source = 'dispatcher',
+    sourceUrl,
+    priority = 'p2',
+    assigneeId,
+    goalId,
+    milestoneId,
+  }) {
     const route = 'POST /api/mission/tasks';
+    const payload = {
+      title,
+      description: description ?? detail,
+      external_id: externalId,
+      source,
+      source_url: sourceUrl,
+      priority,
+      assignee_id: assigneeId,
+      goal_id: goalId,
+      milestone_id: milestoneId,
+    };
+    for (const [key, value] of Object.entries(payload)) {
+      if (value == null || value === '') delete payload[key];
+    }
     const res = await this._fetch(`${this._base}/api/mission/tasks`, {
       method: 'POST',
       headers: this._headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({
-        title,
-        description: detail,
-        external_id: externalId,
-        source: 'dispatcher',
-        priority: 'p1',
-      }),
+      body: JSON.stringify(payload),
       signal: this._signal(),
     });
     if (!res.ok) this._throwForStatus(res, route);
     const body = await res.json();
     return body.task;
+  }
+
+  /**
+   * POST /api/mission/tasks
+   * Creates a dispatcher repair task.
+   * Returns the created task object.
+   */
+  async createRepairTask({ externalId, title, detail }) {
+    return this.createTask({
+      externalId,
+      title,
+      detail,
+      source: 'dispatcher',
+      priority: 'p1',
+    });
   }
 
   /**
