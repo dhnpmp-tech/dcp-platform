@@ -1283,7 +1283,10 @@ router.post('/heartbeat', heartbeatProviderLimiter, enforceHeartbeatHmac, (req, 
         }
 
         runStatement(`UPDATE providers SET
-          gpu_status = ?, provider_ip = ?, provider_hostname = ?, last_heartbeat = ?, status = ?,
+          gpu_status = ?, provider_ip = ?, provider_hostname = ?, last_heartbeat = ?,
+          -- security states are sticky: a quarantined/flagged host must not flip
+          -- back to online just because its daemon keeps heartbeating
+          status = CASE WHEN status IN ('flagged', 'suspended') THEN status ELSE ? END,
           p2p_peer_id = COALESCE(?, p2p_peer_id),
           gpu_name_detected = COALESCE(?, gpu_name_detected),
           gpu_vram_mib = COALESCE(?, gpu_vram_mib),
@@ -1712,7 +1715,8 @@ router.post('/:id/heartbeat', heartbeatProviderLimiter, (req, res) => {
         const now = new Date().toISOString();
 
         // Build provider update — include vram_total and model_loaded when provided (DCP-907)
-        const heartbeatUpdates = ["last_heartbeat = ?", "status = 'online'", "updated_at = ?"];
+        // security states are sticky — never un-flag a quarantined host via heartbeat
+        const heartbeatUpdates = ["last_heartbeat = ?", "status = CASE WHEN status IN ('flagged', 'suspended') THEN status ELSE 'online' END", "updated_at = ?"];
         const heartbeatParams = [now, now];
         if (vramTotalMb != null) {
             heartbeatUpdates.push('vram_mb = ?');
