@@ -14,6 +14,58 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `docs(security): add dcp-agent and desktop launch audit - PR #969`
+
+**PR:** [#969](https://github.com/dhnpmp-tech/dcp-platform/pull/969) (`agent/codex/task_0a1f17750f41-cross-repo-audits`).
+
+**What:** Read-only cross-repo launch audit for the provider-side desktop and
+agent chain before public native download links are promoted.
+
+- **Scope:** Added
+  `docs/security/audits/2026-07-26-dcp-agent-desktop-launch-audit.md`, pinned to
+  `DCP-SA/dcp-agent` `origin/main` at
+  `cfb8f29143fcd59493a23861e2c6bac4a1d0c187` and `DCP-SA/dcp-desktop`
+  `origin/main` at `9f56ba469598edeffda1e67409990f618836c9cb`.
+- **Findings:** Captures provider-key process-argument exposure, broad Linux
+  WireGuard privilege boundary, fail-open desktop API-key validation, unsigned
+  shell-installer daemon download, installer key echo/update hygiene, dashboard
+  polling without backoff, desktop version/release drift, stale `hermes-agent`
+  metadata, workflow permission scope, and provider-facing CTA polish.
+- **Next PR order:** Documents the recommended split: desktop credential handoff,
+  WireGuard helper, fail-closed validation, agent daemon verification, installer
+  hygiene, polling backoff, release metadata, then public download buttons.
+- **Regression guard:** Added `tests/dcp-agent-desktop-audit-static.test.js` to
+  keep source SHAs, evidence refs, major findings, changelog coverage, and
+  secret-free audit wording intact.
+- **Safety:** Docs/test/changelog only. No live provider, billing, payment,
+  WireGuard, Node 2, desktop release, production environment, or download-link
+
+### Pending - `feat(docs): add public docs-site launch map - PR #966`
+
+**PR:** [#966](https://github.com/dhnpmp-tech/dcp-platform/pull/966) (`agent/codex/task_acdd2649a8a4-docs-site`).
+
+**What:** Adds the public docs-site foundation requested for `docs.dcp.sa`
+without introducing a second docs stack or private handoff content.
+
+- **Docs entry point:** `docs.dcp.sa/` now permanently redirects to the
+  canonical `/docs` route.
+- **Launch structure:** The `/docs` page now has explicit sections for
+  Quickstart, OpenAI-compatible API, Provider onboarding, Models, Pricing, and
+  SDKs, with a compact section map at the top.
+- **Provider flow clarity:** Provider docs point to `/earn`, `/provider-setup`,
+  and `/provider/dashboard` instead of mixing provider and renter onboarding.
+- **Catalog honesty:** Model docs tell clients to read `GET /v1/models` and
+  treat empty/degraded capacity as an operational state instead of hardcoding
+  provider availability.
+- **SDK honesty:** SDK guidance uses the official OpenAI SDKs with DCP's base
+  URL; no unshipped DCP-specific SDK package is presented as required.
+- **Regression guards:** Static docs and redirect tests now cover the new
+  anchors, `docs.dcp.sa` redirect, launch copy, and stale `qwen3-4b` example
+  removal.
+- **Safety:** Frontend docs/config/test/changelog only. No auth, billing,
+  payments, routing, provider operations, live infrastructure, or production
+  environment variables changed.
+
 ### Pending - `ci(pr): add ECC review trio gate - PR #968`
 
 **PR:** [#968](https://github.com/dhnpmp-tech/dcp-platform/pull/968) (`agent/codex/task_b77bcb185e70-ecc-pr-review-trio`).
@@ -62,6 +114,7 @@ that have been soft-deleted no longer appear in normal provider counts or lists.
 - **Safety:** Admin provider-list visibility only; no provider registration,
   approval, routing, daemon, WireGuard, inference, billing, payment, payout, or
   renter behavior changed.
+
 ### Pending - `fix(mission): persist task review tier - PR #964`
 
 **PR:** [#964](https://github.com/dhnpmp-tech/dcp-platform/pull/964) (`agent/codex/task_6199af435165-mission-tier`).
