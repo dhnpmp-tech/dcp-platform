@@ -14,6 +14,31 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `fix(admin): hide soft-deleted providers from dashboard - PR #965`
+
+**PR:** [#965](https://github.com/dhnpmp-tech/dcp-platform/pull/965) (`agent/codex/task_54cdc6ae7fb2-runpod-cleanup`).
+
+**What:** Tightens the admin provider dashboard cleanup path so provider rows
+that have been soft-deleted no longer appear in normal provider counts or lists.
+
+- **Dashboard truth:** `GET /api/admin/providers` now filters
+  `providers.deleted_at IS NULL` by default, so soft-deleted partial/test
+  registrations do not keep showing up as real providers.
+- **Ops escape hatch:** Added explicit `include_deleted=1|true|yes` support for
+  operators who need to inspect tombstoned provider rows.
+- **Proxy parity:** The Next.js `/api/admin/providers` proxy now forwards query
+  parameters to the backend instead of silently dropping ops filters.
+- **Dependency gate:** Refreshed backend production dependencies to keep the
+  payout dependency audit green: Express stays on the 4.x line while resolving
+  the patched `body-parser` tree, and optional `sharp` moves to `^0.35.3`.
+- **Regression guard:** Added integration coverage proving soft-deleted
+  providers are hidden by default and visible only through `include_deleted=1`.
+- **Production note:** Live read-only inspection on 2026-07-26 found 23
+  non-deleted providers and 1 already-deleted provider, not the stale "38 dead"
+  count from the Mission task. No live provider mutation is bundled in this PR.
+- **Safety:** Admin provider-list visibility only; no provider registration,
+  approval, routing, daemon, WireGuard, inference, billing, payment, payout, or
+  renter behavior changed.
 ### Pending - `fix(mission): persist task review tier - PR #964`
 
 **PR:** [#964](https://github.com/dhnpmp-tech/dcp-platform/pull/964) (`agent/codex/task_6199af435165-mission-tier`).
