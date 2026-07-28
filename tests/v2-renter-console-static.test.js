@@ -4,6 +4,35 @@ const path = require('path');
 
 const dashboard = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/dashboard/page.tsx'), 'utf8');
 const keys = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/keys/page.tsx'), 'utf8');
+const renterShell = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/RenterShell.tsx'), 'utf8');
+const renterLayout = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter/layout.tsx'), 'utf8');
+const sharedShellCss = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/styles/renter-shell.css'), 'utf8');
+
+const renterPageFiles = [
+  'dashboard/page.tsx',
+  'playground/page.tsx',
+  'keys/page.tsx',
+  'usage/page.tsx',
+  'pods/page.tsx',
+  'fine-tuning/page.tsx',
+  'batches/page.tsx',
+  'wallet/page.tsx',
+  'invoices/page.tsx',
+  'settings/page.tsx',
+];
+
+const renterCssFiles = [
+  'dashboard/dashboard.css',
+  'playground/playground.css',
+  'keys/keys.css',
+  'usage/usage.css',
+  'pods/pods.css',
+  'fine-tuning/fine-tuning.css',
+  'batches/batches.css',
+  'wallet/wallet.css',
+  'invoices/invoices.css',
+  'settings/settings.css',
+];
 
 const prototypeStrings = [
   'NextWave Commerce',
@@ -48,5 +77,34 @@ assert(keys.includes("method: 'POST'"), 'v2 renter keys should create scoped key
 assert(keys.includes("method: 'DELETE'"), 'v2 renter keys should revoke scoped keys through the backend');
 assert(keys.includes('newKeySecret'), 'v2 renter keys should reveal newly created secrets only after creation');
 assert(keys.includes("loadState === 'missing-key'"), 'v2 renter keys should render an explicit missing-key state');
+
+assert(renterLayout.includes("import '../styles/renter-shell.css'"), 'renter route layout should import the single shared shell stylesheet');
+assert(renterLayout.includes('<RenterShell>{children}</RenterShell>'), 'renter route layout should wrap every renter page in the shared shell');
+assert(renterShell.includes('usePathname'), 'renter shell should derive active navigation from the current pathname');
+assert(renterShell.includes("fetch(`${base}/renters/me`"), 'renter shell should load account identity from the canonical renter endpoint');
+assert(renterShell.includes("fetch(`${base}/renters/balance`"), 'renter shell should load credit state from the canonical renter balance endpoint');
+assert(renterShell.includes("label: 'Batch'"), 'shared renter nav should expose Batch on every renter page');
+assert(renterShell.includes("label: 'Credit'"), 'shared renter nav should use Credit, not Wallet SAR, as the wallet label');
+assert(renterShell.includes('en="+ Add credit"'), 'shared renter sidebar should keep the add-credit CTA on every renter page');
+assert(!fs.existsSync(path.join(__dirname, '..', 'app/(site)/renter/pods/PodShell.tsx')), 'legacy pod-local shell module should not remain as a second chrome source');
+
+for (const rel of renterPageFiles) {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter', rel), 'utf8');
+  assert(source.includes('<main className="rt-main'), `${rel} should render only its renter main column`);
+  assert(!source.includes('<aside className={`rt-sb'), `${rel} should not render page-local sidebar markup`);
+  assert(!source.includes('<aside className="rt-sb'), `${rel} should not render page-local sidebar markup`);
+  assert(!source.includes('<nav className="rt-nav"'), `${rel} should not render page-local renter nav markup`);
+  assert(!source.includes('<header className="rt-tb"'), `${rel} should not render page-local topbar markup`);
+  assert(!source.includes('rt-backdrop'), `${rel} should not render page-local mobile drawer backdrop`);
+}
+
+for (const rel of renterCssFiles) {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'app/(site)/renter', rel), 'utf8');
+  assert(!/\.rt-(app|sb|nav|tb|backdrop)\b/.test(source), `${rel} should not define shared renter shell selectors`);
+}
+
+assert(/\.rt-sb\b/.test(sharedShellCss), 'shared shell CSS should define the sidebar once');
+assert(/\.rt-nav\b/.test(sharedShellCss), 'shared shell CSS should define the nav once');
+assert(/\.rt-tb\b/.test(sharedShellCss), 'shared shell CSS should define the topbar once');
 
 console.log('v2 renter console static checks passed');

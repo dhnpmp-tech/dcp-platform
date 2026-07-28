@@ -7,7 +7,6 @@ import { getApiBase, getRenterKey } from '@/lib/api'
 import { displayGpuType } from '@/app/lib/useGpuTypes'
 import WorkspacePanel from '../workspace/WorkspacePanel'
 import { humanBytes, type WorkspaceFile, type WorkspaceVolume } from '../workspace/workspaceApi'
-import { PodSidebar, PodTopbar, initials } from './PodShell'
 import './pods.css'
 
 // ── Pod domain constants (ported verbatim from the v1 pods page) ──────
@@ -787,7 +786,6 @@ function recommendedGpuTypeForContext(
 export default function RenterPodsPage() {
   const { lang, toggle } = useV2()
 
-  const [navOpen, setNavOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [pods, setPods] = useState<Pod[]>([])
   const [providers, setProviders] = useState<AvailableProvider[]>([])
@@ -1648,2037 +1646,2021 @@ export default function RenterPodsPage() {
   const isLive = loadState === 'ready'
 
   return (
-    <div className="rt-app">
-      <PodSidebar navOpen={navOpen} renterName={renterName} renterEmail={renterEmail} />
+    <main className="rt-main">
+      <h1 className="rt-h1">
+        <Bi en="GPU " ar="" />
+        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+          <Bi en="pods." ar="حاويات GPU." />
+        </em>
+      </h1>
+      <div className="rt-h1-sub">
+        <span>
+          <Bi en="Full container · Jupyter + SSH" ar="حاوية كاملة · Jupyter + SSH" />
+        </span>
+        <span>
+          <Bi en="Auto-refresh " ar="تحديث تلقائي " />
+          <b>{POD_REFRESH_MS / 1000}s</b>
+        </span>
+      </div>
 
-      <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
+      {loadState === 'missing-key' && (
+        <div className="dash-state" style={{ marginTop: '28px' }}>
+          <b>
+            <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
+          </b>
+          <span>
+            <Bi
+              en="Sign in or paste a renter API key before v2 can launch GPU pods or show your running containers."
+              ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تتمكن v2 من تشغيل حاويات GPU أو عرض حاوياتك العاملة."
+            />
+          </span>
+          <Link className="text-link" href="/renter/keys" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>
+            <Bi en="Manage API keys →" ar="إدارة مفاتيح API →" />
+          </Link>
+        </div>
+      )}
 
-      <div>
-        <PodTopbar
-          renterName={renterName}
-          isLive={isLive}
-          lang={lang}
-          onToggleLang={toggle}
-          onToggleNav={() => setNavOpen((v) => !v)}
-        />
+      {/* ── Stat tiles ─────────────────────────────────── */}
+      <div className="pod-kpis" style={{ marginTop: '36px' }}>
+        <div className="kpi featured">
+          <div className="k">
+            <Bi en="Total pods" ar="إجمالي الحاويات" />
+          </div>
+          <div className="v">{pods.length}</div>
+          <div className="d flat">
+            <Bi en="Across this renter account" ar="عبر حساب المستأجر هذا" />
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="k">
+            <Bi en="Active" ar="نشطة" />
+          </div>
+          <div className="v" style={{ color: activePods > 0 ? 'var(--teal)' : 'var(--ink)' }}>
+            {activePods}
+          </div>
+          <div className="d up">
+            <Bi en="Running or provisioning" ar="قيد التشغيل أو التجهيز" />
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="k">
+            <Bi en="GPU types available" ar="أنواع المعالجات المتاحة" />
+          </div>
+          <div className="v">{gpuTypeCount}</div>
+          <div className="d flat">
+            <Bi en="Ready to host a pod" ar="جاهزة لاستضافة حاوية" />
+          </div>
+        </div>
+      </div>
 
-        <main className="rt-main">
-          <h1 className="rt-h1">
-            <Bi en="GPU " ar="" />
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="pods." ar="حاويات GPU." />
-            </em>
-          </h1>
-          <div className="rt-h1-sub">
+      <nav className="pod-stage-nav" aria-label={lang === 'ar' ? 'مراحل تشغيل الحاوية' : 'Pod launch stages'}>
+        <a href="#pod-stage-1" className={workspaceVolume ? 'ok' : ''}>
+          <span>Stage 1 of 3</span>
+          <strong><Bi en="Workspace files · collapsible" ar="ملفات مساحة العمل · قابلة للطي" /></strong>
+          <em>
+            <Bi en={workspaceNavStatusLabel} ar={workspaceVolume ? 'قابلة للطي؛ انتقل للمرحلة 2 عند الجاهزية' : 'أنشئ وحدة'} />
+          </em>
+        </a>
+        <a href="#pod-stage-2" className={`primary${selectedType || launch.gpuType === '' ? ' ok' : ''}`}>
+          <span>Stage 2 of 3</span>
+          <strong><Bi en="Actual launch GPU" ar="GPU التشغيل الفعلي" /></strong>
+          <em>
+            <Bi en={stage2NavStatusLabel} ar={selectedType ? 'تم تثبيت بطاقة GPU' : 'اختيار تلقائي · لا توجد بطاقة مثبتة'} />
+          </em>
+        </a>
+        <a href="#pod-stage-3" className="ok">
+          <span>Stage 3 of 3</span>
+          <strong><Bi en="Runtime + launch" ar="البيئة + التشغيل" /></strong>
+          <em>{stage3NavStatusLabel}</em>
+        </a>
+        <div className={`pod-stage-nav-summary ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'قرار التشغيل المثبت' : 'Sticky launch decision'}>
+          <div className="primary">
+            <b><Bi en="Launch request" ar="طلب التشغيل" /></b>
+            <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+            <code>{launchRequestPayloadLabel}</code>
+          </div>
+          <div>
+            <b><Bi en="Workspace" ar="مساحة العمل" /></b>
+            <em><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة'} /></em>
+          </div>
+          <div>
+            <b><Bi en="Runtime" ar="البيئة" /></b>
+            <em>{selectedRuntimeLabel} · {durationLabel}</em>
+          </div>
+          <div>
+            <b><Bi en="Trial route" ar="مسار التجربة" /></b>
+            <em><Bi en={`${trialTagAnswerLabel} · ${trialRouteAnswerLabel}`} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'حسب رصيد المنحة'} /></em>
+          </div>
+        </div>
+      </nav>
+
+      <div className={`pod-command-center ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'مركز أوامر التشغيل' : 'Launch command center'}>
+        <div className="pod-command-primary">
+          <span><Bi en="Main decision · Stage 2 of 3" ar="القرار الرئيسي · المرحلة 2 من 3" /></span>
+          <strong><Bi en={finalGpuRequestHeadline} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي للـ GPU'} /></strong>
+          <em><Bi en={finalGpuRequestDetail} ar={selectedType ? 'بطاقة مثبتة في طلب التشغيل.' : 'لا توجد بطاقة مثبتة؛ تصفية الذاكرة والعمل للتصفح فقط.'} /></em>
+        </div>
+        <div className="pod-command-payload">
+          <span><Bi en="Will send" ar="سيرسل" /></span>
+          <code>{launchRequestPayloadLabel}</code>
+        </div>
+        <div className="pod-command-actions">
+          <a className="primary" href="#pod-stage-2">
+            <Bi en="Review Stage 2 GPU" ar="راجع GPU المرحلة 2" />
+          </a>
+          <button type="button" onClick={() => setWorkspaceStageOpen(false)}>
+            <Bi en="Collapse Stage 1 files" ar="اطوِ ملفات المرحلة 1" />
+          </button>
+          <a href="#pod-stage-3">
+            <Bi en="Stage 3 launch" ar="تشغيل المرحلة 3" />
+          </a>
+        </div>
+        <div className="pod-command-facts">
+          <span>
+            <b>Stage 1</b>
+            <Bi en={commandCenterWorkspaceLabel} ar={workspaceVolume ? 'ملفات المرحلة 1 مطوية' : 'أنشئ مساحة العمل'} />
+          </span>
+          <span>
+            <b>Workspace</b>
+            <Bi en={commandCenterWorkspaceDetail} ar={workspaceStageBodyOpen ? 'ملفات المرحلة 1 مفتوحة' : 'ملفات المرحلة 1 مطوية'} />
+          </span>
+          <span>
+            <b>Trial</b>
+            <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} />
+          </span>
+          <span>
+            <b>Credit</b>
+            <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
+          </span>
+        </div>
+        <div className="pod-command-answers" aria-label={lang === 'ar' ? 'إجابات سياسة التشغيل' : 'Launch policy answers'}>
+          <span>
+            <b><Bi en="Trial tagging" ar="وسم التجربة" /></b>
+            <em><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} /></em>
+          </span>
+          <span>
+            <b><Bi en="Trial capacity" ar="سعة التجربة" /></b>
+            <em><Bi en="Grant credit routes to DCP/community GPUs" ar="رصيد المنحة يذهب إلى وحدات DCP والمجتمع" /></em>
+          </span>
+          <span>
+            <b><Bi en="High-demand" ar="الطلب العالي" /></b>
+            <em><Bi en="Paid credit only" ar="رصيد مدفوع فقط" /></em>
+          </span>
+          <span>
+            <b><Bi en="GPU source" ar="مصدر GPU" /></b>
+            <em><Bi en={gpuSourceAnswerLabel} ar={selectedType ? 'المصدر: البطاقة المحددة' : 'المصدر: اختيار تلقائي عند التشغيل'} /></em>
+          </span>
+        </div>
+      </div>
+
+      <div className="pod-review-map" aria-label={lang === 'ar' ? 'خريطة قرار مساحة العمل' : 'Workspace decision map'}>
+        <div className="pod-review-head">
+          <span><Bi en="Fast review" ar="مراجعة سريعة" /></span>
+          <strong><Bi en="Files, GPU, launch — in order" ar="الملفات، GPU، التشغيل — بالترتيب" /></strong>
+          <em>
+            <Bi
+              en="Use this when the workspace has many files: Stage 1 stays folder-first, Stage 2 is the only GPU decision, and Stage 3 is the final launch."
+              ar="استخدم هذا عند وجود ملفات كثيرة: المرحلة 1 بالمجلدات أولاً، المرحلة 2 قرار GPU الوحيد، والمرحلة 3 التشغيل النهائي."
+            />
+          </em>
+        </div>
+        <div className="pod-review-stage-card">
+          <span>Stage 1</span>
+          <strong><Bi en="Workspace collapsed by folders" ar="مساحة العمل مطوية حسب المجلدات" /></strong>
+          <em><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ مساحة العمل'} /></em>
+          <small><Bi en="Open one folder only when the summary is not enough." ar="افتح مجلداً واحداً فقط عندما لا يكفي الملخص." /></small>
+          <button
+            type="button"
+            onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
+          >
+            <Bi en={workspacePathPrimaryFolder ? `Open ${workspacePathPrimaryFolder.label}` : 'Open Stage 1'} ar="افتح مجلداً واحداً" />
+          </button>
+        </div>
+        <div className="pod-review-stage-card primary">
+          <span>Stage 2</span>
+          <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+          <code>{launchRequestPayloadLabel}</code>
+          <small>
+            <Bi
+              en={recommendedGpuType ? `Suggested: ${recommendedGpuLabel}. Memory chips are browse filters, not a launch slider.` : 'Memory chips are browse filters, not a launch slider.'}
+              ar="شرائح الذاكرة للتصفح وليست منزلق تشغيل."
+            />
+          </small>
+          <div className="pod-review-card-actions">
+            <a href="#pod-stage-2">
+              <Bi en="Review GPU" ar="راجع GPU" />
+            </a>
+            {recommendedGpuType && !recommendationMatchesSelected && (
+              <button
+                type="button"
+                onClick={() => selectGpuType(recommendedGpuType.gpu_model)}
+              >
+                <Bi en="Use suggested GPU" ar="استخدم GPU المقترح" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="pod-review-stage-card">
+          <span>Stage 3</span>
+          <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
+          <em><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></em>
+          <small><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></small>
+          <a href="#pod-stage-3">
+            <Bi en="Confirm launch" ar="أكد التشغيل" />
+          </a>
+        </div>
+      </div>
+
+      <div className={`pod-mobile-launch-dock ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'شريط تشغيل مختصر' : 'Mobile launch dock'}>
+        <div className="pod-mobile-launch-copy">
+          <span><Bi en="Stage 2 launch GPU" ar="GPU تشغيل المرحلة 2" /></span>
+          <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+          <code>{launchRequestPayloadLabel}</code>
+        </div>
+        <div className="pod-mobile-launch-actions">
+          <button
+            type="button"
+            onClick={() => setWorkspaceStageOpen((value) => !value)}
+            aria-expanded={workspaceStageBodyOpen}
+            aria-controls="pod-stage-1-workspace-panel"
+          >
+            <Bi en={workspaceStageBodyOpen ? 'Collapse Stage 1' : 'Open Stage 1'} ar={workspaceStageBodyOpen ? 'اطوِ المرحلة 1' : 'افتح المرحلة 1'} />
+          </button>
+          <a href="#pod-stage-2">
+            <Bi en="Go to Stage 2" ar="اذهب للمرحلة 2" />
+          </a>
+        </div>
+        <div className="pod-mobile-launch-facts">
+          <span><Bi en={mobileDockStage1Label} ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة' : 'المرحلة 1 مطوية'} /></span>
+          <span><Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" /></span>
+          <span><Bi en={highDemandAnswerLabel} ar="الطلب العالي: رصيد مدفوع فقط" /></span>
+        </div>
+      </div>
+
+      <div className="pod-fast-path" aria-label={lang === 'ar' ? 'الانتقال السريع للمرحلة 2' : 'Fast path to Stage 2'}>
+        <a href="#pod-stage-2" className="pod-fast-card primary">
+          <span><Bi en="Main decision" ar="القرار الرئيسي" /></span>
+          <strong><Bi en="Go straight to Stage 2 of 3" ar="اذهب مباشرة للمرحلة 2 من 3" /></strong>
+          <em><Bi en={`${stage2FastPathLabel} ${stage2FastPathDetail}`} ar="القوالب وتصفية الذاكرة للتصفح فقط؛ اختر بطاقة لتثبيت GPU التشغيل." /></em>
+        </a>
+        <a href="#pod-stage-1" className="pod-fast-card">
+          <span>Stage 1 of 3</span>
+          <strong><Bi en="Workspace is collapsible" ar="مساحة العمل قابلة للطي" /></strong>
+          <em><Bi en={`${workspaceFastPathLabel} Skip file-by-file review when the folder summary looks right.`} ar={workspaceVolume ? 'تبقى شجرة الملفات مطوية؛ افتح مجلداً واحداً فقط عند الحاجة.' : 'أنشئ وحدة مساحة عمل ثم تابع للمرحلة 2.'} /></em>
+        </a>
+        <div className="pod-fast-card policy">
+          <span><Bi en="Trial answer" ar="إجابة التجربة" /></span>
+          <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></strong>
+          <em><Bi en={`${trialFounderAnswerLabel}; ${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يذهب إلى سعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
+        </div>
+      </div>
+
+      {/* ── Workspace staging ────────────────────────────── */}
+      <div className="pod-stage" id="pod-stage-1" style={{ marginTop: '28px' }}>
+        <div className="pod-stage-hd">
+          <span className="pod-stage-no">Stage 1 of 3</span>
+          <div>
+            <h2><Bi en="Stage 1: workspace files, collapsible" ar="المرحلة 1: ملفات مساحة العمل، قابلة للطي" /></h2>
+            <p>
+              <Bi
+                en="Use the same /workspace volume that reattaches when a pod starts; expand only when the summary needs inspection."
+                ar="استخدم نفس وحدة /workspace التي تُعاد عند تشغيل الحاوية."
+              />
+            </p>
+          </div>
+        </div>
+        <div className={`pod-stage-accordion ${workspaceStageBodyOpen ? 'open' : 'closed'}`} aria-label={lang === 'ar' ? 'نقطة تحقق مساحة العمل للمرحلة 1' : 'Stage 1 workspace checkpoint'}>
+          <div className="pod-stage-accordion-summary">
+            <div className="pod-stage-accordion-copy">
+              <span>
+                <Bi en={workspaceStageBodyOpen ? 'Workspace details open' : 'Workspace details collapsed'} ar={workspaceStageBodyOpen ? 'تفاصيل مساحة العمل مفتوحة' : 'تفاصيل مساحة العمل مطوية'} />
+              </span>
+              <strong><Bi en={workspaceStageHeadline} ar={workspaceVolume ? 'مساحة العمل جاهزة' : 'أنشئ وحدة مساحة عمل'} /></strong>
+              <em><Bi en={workspaceStageDetail} ar={workspaceFiles.length > 0 ? 'تبقى التفاصيل مطوية؛ افتحها فقط عند الحاجة.' : 'افتح المرحلة 1 لإضافة الملفات.'} /></em>
+            </div>
+            <div className="pod-stage-accordion-facts">
+              <span>
+                <Bi en={workspaceVolume ? `${workspaceVolume.size_gb} GB /workspace` : 'No workspace volume'} ar={workspaceVolume ? `${workspaceVolume.size_gb} غ.ب /workspace` : 'لا توجد وحدة مساحة عمل'} />
+              </span>
+              <span>
+                <Bi en={`${workspaceFiles.length} staged files`} ar={`${workspaceFiles.length} ملفات مجهزة`} />
+              </span>
+              <span>
+                <Bi en={`${workspaceFolderCount} folders`} ar={`${workspaceFolderCount} مجلدات`} />
+              </span>
+              <span>
+                <Bi en="Stage 1 can stay collapsed" ar="يمكن إبقاء المرحلة 1 مطوية" />
+              </span>
+              <a href="#pod-stage-2">
+                <Bi en="Skip to Stage 2" ar="انتقل للمرحلة 2" />
+              </a>
+              <button
+                type="button"
+                aria-expanded={workspaceStageBodyOpen}
+                aria-controls="pod-stage-1-workspace-panel"
+                onClick={() => setWorkspaceStageOpen((value) => !value)}
+              >
+                <Bi en={workspaceStageToggleLabel} ar={workspaceStageBodyOpen ? 'اطوِ مساحة العمل' : 'افتح مساحة العمل'} />
+              </button>
+            </div>
+          </div>
+          <div id="pod-stage-1-workspace-panel" hidden={!workspaceStageBodyOpen}>
+            <WorkspacePanel
+              apiBase={getApiBase()}
+              renterKey={renterKey}
+              context="pod-launch"
+              nextStageHref="#pod-stage-2"
+              folderFocusRequest={workspaceFolderFocusRequest}
+              onVolumeLoaded={setWorkspaceVolume}
+              onFilesLoaded={setWorkspaceFiles}
+            />
+          </div>
+          {!workspaceStageBodyOpen && workspaceFiles.length > 0 && (
+            <div className="pod-stage-folder-peek" aria-label={lang === 'ar' ? 'معاينة مجلدات المرحلة 1' : 'Stage 1 folder preview'}>
+              <div className="pod-stage-folder-peek-copy">
+                <span><Bi en="Folder checkpoint" ar="نقطة تحقق المجلدات" /></span>
+                <strong><Bi en="Top folders, not every file" ar="أهم المجلدات بدلاً من كل ملف" /></strong>
+                <em>
+                  <Bi
+                    en="Use this preview to confirm the workspace shape. Expand only for uploads, deletes, or one-folder inspection."
+                    ar="استخدم هذه المعاينة لتأكيد شكل مساحة العمل. افتحها فقط للرفع أو الحذف أو فحص مجلد واحد."
+                  />
+                </em>
+              </div>
+              <div className="pod-stage-folder-peek-search">
+                <label htmlFor="pod-stage-folder-peek-search">
+                  <span><Bi en="Find folder or file" ar="ابحث عن مجلد أو ملف" /></span>
+                  <input
+                    id="pod-stage-folder-peek-search"
+                    type="search"
+                    value={workspacePeekQuery}
+                    onChange={(event) => setWorkspacePeekQuery(event.target.value)}
+                    placeholder={lang === 'ar' ? 'datasets أو checkpoints' : 'datasets, notebooks, checkpoints'}
+                    autoComplete="off"
+                  />
+                </label>
+                <em>
+                  <Bi
+                    en={`${workspacePeekResultLabel}; Stage 2 stays one click away.`}
+                    ar="تبقى المرحلة 2 بنقرة واحدة."
+                  />
+                </em>
+              </div>
+              <div className="pod-stage-folder-outline" aria-label={lang === 'ar' ? 'مخطط مجلدات المرحلة 1' : 'Stage 1 folder outline'}>
+                <span>
+                  <b><Bi en="Workspace outline" ar="مخطط مساحة العمل" /></b>
+                  <em><Bi en={`${workspaceFolderCount} folders stay collapsed until one needs inspection.`} ar="تبقى المجلدات مطوية حتى يحتاج أحدها للفحص." /></em>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
+                >
+                  <b><Bi en="Open busiest folder" ar="افتح أكثر مجلد نشاطاً" /></b>
+                  <em><Bi en={workspaceOutlinePrimaryLabel} ar="افتح مجلداً واحداً فقط." /></em>
+                </button>
+                <a href="#pod-stage-2">
+                  <b><Bi en="Next stop" ar="الخطوة التالية" /></b>
+                  <em><Bi en="Stage 2 is the actual GPU request." ar="المرحلة 2 هي طلب GPU الفعلي." /></em>
+                </a>
+              </div>
+              <div className="pod-stage-folder-peek-list">
+                {workspaceFolderPeek.map((folder) => (
+                  <button
+                    key={folder.id}
+                    type="button"
+                    onClick={() => focusWorkspaceFolder(folder.id)}
+                    aria-label={
+                      lang === 'ar'
+                        ? `افتح المرحلة 1 مع التركيز على ${folder.label}`
+                        : `Open Stage 1 with ${folder.label} focused`
+                    }
+                  >
+                    <span>{folder.label}</span>
+                    <b>{folder.fileCount} files</b>
+                    <small>{humanBytes(folder.totalBytes)}</small>
+                  </button>
+                ))}
+                {workspacePeekSearch && workspaceFolderPeek.length === 0 && (
+                  <span className="pod-stage-folder-peek-empty">
+                    <Bi en="No collapsed folder matches that search." ar="لا يوجد مجلد مطوي يطابق البحث." />
+                  </span>
+                )}
+                {hiddenWorkspaceFolderCount > 0 && (
+                  <button type="button" onClick={() => setWorkspaceStageOpen(true)}>
+                    <span>+{hiddenWorkspaceFolderCount}</span>
+                    <b><Bi en={workspacePeekSearch ? 'more matches' : 'more folders'} ar="مجلدات أخرى" /></b>
+                    <small><Bi en="expand Stage 1" ar="افتح المرحلة 1" /></small>
+                  </button>
+                )}
+              </div>
+              <div className="pod-stage-folder-path" aria-label={lang === 'ar' ? 'مسار المرحلة 1 المطوية' : 'Collapsed Stage 1 path'}>
+                <span>
+                  <b>1</b>
+                  <strong><Bi en="Summary first" ar="الملخص أولاً" /></strong>
+                  <em><Bi en="Use folder counts instead of scrolling every file." ar="استخدم عدد المجلدات بدلاً من التمرير على كل ملف." /></em>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
+                >
+                  <b>2</b>
+                  <strong><Bi en="Open one folder" ar="افتح مجلداً واحداً" /></strong>
+                  <em>
+                    <Bi
+                      en={workspacePathPrimaryFolder ? `${workspacePathPrimaryFolder.label} opens; other folders stay closed.` : 'Open Stage 1 only when files need changes.'}
+                      ar="افتح مجلداً واحداً فقط؛ تبقى البقية مطوية."
+                    />
+                  </em>
+                </button>
+                <a href="#pod-stage-2">
+                  <b>3</b>
+                  <strong><Bi en="Stage 2 GPU" ar="GPU المرحلة 2" /></strong>
+                  <em><Bi en="Skip file review when the summary is enough." ar="تجاوز مراجعة الملفات عندما يكفي الملخص." /></em>
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Launch panel ───────────────────────────────── */}
+      <section className="panel pod-launch" style={{ marginTop: '28px' }}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Launch GPU pod" ar="تشغيل حاوية GPU" />
+            </h3>
+          </div>
+          <span className="hint">
+            <Bi en="Jupyter notebook + SSH, torn down on duration" ar="دفتر Jupyter + SSH، تُغلق عند انتهاء المدة" />
+          </span>
+        </div>
+
+        <div className="pod-flow-rail" aria-label={lang === 'ar' ? 'خطة التشغيل' : 'Launch plan'}>
+          <div className={`pod-flow-item${workspaceVolume ? ' ok' : ''}`}>
+            <span className="pod-flow-no">Stage 1</span>
+            <span className="pod-flow-k"><Bi en="Workspace" ar="مساحة العمل" /></span>
+            <strong>
+              {workspaceVolume
+                ? `${workspaceVolume.size_gb} GB /workspace`
+                : <Bi en="No volume yet" ar="لا توجد وحدة بعد" />}
+            </strong>
+          </div>
+          <div className={`pod-flow-item${selectedType ? ' ok' : ''}`}>
+            <span className="pod-flow-no">Stage 2</span>
+            <span className="pod-flow-k"><Bi en="GPU decision" ar="قرار GPU" /></span>
+            <strong>
+              {selectedType
+                ? displayGpuType(selectedType.gpu_model)
+                : <Bi en="Auto-pick · no fixed GPU" ar="اختيار تلقائي · بدون GPU محدد" />}
+            </strong>
+          </div>
+          <div className="pod-flow-item ok">
+            <span className="pod-flow-no">Stage 3</span>
+            <span className="pod-flow-k"><Bi en="Runtime" ar="بيئة التشغيل" /></span>
+            <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
+          </div>
+          <div className={`pod-flow-item${selectedQuoteSar != null ? ' ok' : ''}`}>
+            <span className="pod-flow-no">Launch</span>
+            <span className="pod-flow-k"><Bi en="Prepaid quote" ar="تقدير مسبق" /></span>
+            <strong>
+              {selectedQuoteSar != null
+                ? `~SAR ${fmtSar(selectedQuoteSar)}`
+                : <Bi en="After GPU pick" ar="بعد اختيار GPU" />}
+            </strong>
+          </div>
+        </div>
+
+        <div className="pod-launch-checklist" aria-label={lang === 'ar' ? 'قائمة تحقق التشغيل' : 'Launch checklist'}>
+          <a className={workspaceVolume ? 'ready' : 'needs'} href="#pod-stage-1">
+            <span className="pod-launch-check-no">Stage 1</span>
+            <strong><Bi en="Workspace" ar="مساحة العمل" /></strong>
+            <b>{workspaceChecklistLabel}</b>
+            <em><Bi en={workspaceChecklistDetail} ar={workspaceVolume ? 'تبقى المرحلة 1 مطوية؛ افتح مجلداً واحداً فقط عند الحاجة.' : 'أنشئ مساحة عمل دائمة قبل التشغيل.'} /></em>
+          </a>
+          <a className={selectedType ? 'ready' : 'auto'} href="#pod-stage-2">
+            <span className="pod-launch-check-no">Stage 2</span>
+            <strong><Bi en="Actual GPU request" ar="طلب GPU الفعلي" /></strong>
+            <b>{gpuChecklistLabel}</b>
+            <em><Bi en={gpuChecklistDetail} ar={selectedType ? 'طلب GPU محدد عند التشغيل.' : 'التصفية للتصفح فقط؛ التشغيل يختار تلقائياً.'} /></em>
+          </a>
+          <a className={trialRoutingSynced ? 'ready' : 'needs'} href="#pod-stage-2">
+            <span className="pod-launch-check-no">Trial</span>
+            <strong><Bi en="Account route" ar="مسار الحساب" /></strong>
+            <b><Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'وسم تجربة صريح' : 'حسب مصدر رصيد المنحة'} /></b>
+            <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
+          </a>
+          <a className={minimumBalanceSynced ? 'ready' : 'needs'} href="#pod-stage-3">
+            <span className="pod-launch-check-no">Credit</span>
+            <strong><Bi en="Minimum balance" ar="الحد الأدنى للرصيد" /></strong>
+            <b><Bi en={creditChecklistLabel} ar={minimumBalanceSynced ? 'بوابات الرصيد متزامنة' : 'بوابات الرصيد قيد الفحص'} /></b>
+            <em><Bi en={creditChecklistDetail} ar="التشغيل يستخدم بوابات الرصيد في الخلفية." /></em>
+          </a>
+        </div>
+
+        <div className="pod-stage-control-map" aria-label={lang === 'ar' ? 'ما الذي تتحكم به كل مرحلة' : 'What each stage controls'}>
+          <a href="#pod-stage-1">
+            <span>Stage 1</span>
+            <strong><Bi en="Workspace tree" ar="شجرة مساحة العمل" /></strong>
+            <em><Bi en={workspaceStageModeLabel} ar={workspaceVolume ? 'شجرة المجلدات أولاً' : 'وحدة التخزين مطلوبة'} /></em>
+          </a>
+          <a href="#pod-stage-2" className="primary">
+            <span>Stage 2</span>
+            <strong><Bi en="Actual launch GPU" ar="GPU التشغيل الفعلي" /></strong>
+            <em><Bi en={selectedType ? 'A GPU card is pinned' : 'Auto-pick is still active'} ar={selectedType ? 'تم تثبيت بطاقة GPU' : 'الاختيار التلقائي نشط'} /></em>
+          </a>
+          <a href="#pod-stage-3">
+            <span>Stage 3</span>
+            <strong><Bi en="Runtime and launch" ar="البيئة والتشغيل" /></strong>
+            <em>{selectedRuntimeLabel} · {durationLabel}</em>
+          </a>
+        </div>
+
+        <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
+          <span className="pod-stage-no">Stage 2 of 3</span>
+          <div>
+            <h2><Bi en="Stage 2: actual launch GPU and template" ar="المرحلة 2: GPU التشغيل الفعلي والقالب" /></h2>
+            <p>
+              <Bi
+                en="The launch GPU is the Auto-pick toggle or the selected card. Templates, VRAM, search, and sort stay browse-only helpers."
+                ar="اختر قالب العمل، ثم حدد معالج GPU بوضوح أو اترك التشغيل على الاختيار التلقائي."
+              />
+            </p>
+          </div>
+        </div>
+
+        <div className={`pod-stage2-priority ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'قرار GPU الأساسي في المرحلة 2' : 'Stage 2 primary GPU decision'}>
+          <div className="pod-stage2-priority-copy">
+            <span><Bi en="Primary Stage 2 decision" ar="قرار المرحلة 2 الأساسي" /></span>
+            <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد للتشغيل' : 'اختيار تلقائي للتشغيل'} /></strong>
+            <em><Bi en={stage2PrimaryDecisionDetail} ar={selectedType ? 'طلب GPU محدد. لا تستبدل التصفية هذا الاختيار.' : 'الاختيار التلقائي هو طلب التشغيل. التصفية للتصفح فقط.'} /></em>
+          </div>
+          <div className="pod-stage2-priority-actions">
+            <code>{launchRequestPayloadLabel}</code>
+            <a href="#gpu-results">
+              <Bi en="Choose fixed GPU card" ar="اختر بطاقة GPU محددة" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+            >
+              <Bi en="Keep Auto-pick" ar="أبقِ الاختيار التلقائي" />
+            </button>
             <span>
-              <Bi en="Full container · Jupyter + SSH" ar="حاوية كاملة · Jupyter + SSH" />
+              <Bi en="VRAM chips are browse filters only" ar="شرائح الذاكرة للتصفح فقط" />
             </span>
             <span>
-              <Bi en="Auto-refresh " ar="تحديث تلقائي " />
-              <b>{POD_REFRESH_MS / 1000}s</b>
+              <Bi en={trialGrantAnswerLabel} ar="رصيد التجربة من المنحة" />
+            </span>
+            <span>
+              <Bi en={highDemandPaidCreditGateLabel} ar="الطلب العالي يحتاج رصيداً مدفوعاً" />
             </span>
           </div>
+          <div className="pod-stage2-choice-board" aria-label={lang === 'ar' ? 'اختيار طلب GPU في المرحلة 2' : 'Stage 2 GPU request chooser'}>
+            <div className="pod-stage2-choice-head">
+              <span><Bi en="Which GPU will DCP request?" ar="أي GPU سيطلبه DCP؟" /></span>
+              <strong>{launchRequestPayloadLabel}</strong>
+            </div>
+            <button
+              type="button"
+              className={!selectedType ? 'selected' : ''}
+              aria-pressed={!selectedType}
+              onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+            >
+              <span><Bi en="Option A" ar="الخيار أ" /></span>
+              <strong><Bi en={stage2AutoChoiceHeadline} ar={selectedType ? 'العودة للاختيار التلقائي' : 'الاختيار التلقائي محدد'} /></strong>
+              <em><Bi en={stage2AutoChoiceDetail} ar="لا يوجد GPU مثبت؛ يختار DCP نوعاً متاحاً عند التشغيل." /></em>
+            </button>
+            <a href="#gpu-results" className={selectedType ? 'selected' : ''}>
+              <span><Bi en="Option B" ar="الخيار ب" /></span>
+              <strong><Bi en={stage2FixedChoiceHeadline} ar={selectedType ? 'تم اختيار GPU محدد' : 'اختر بطاقة GPU محددة'} /></strong>
+              <em><Bi en={stage2FixedChoiceDetail} ar="اختر بطاقة أدناه. التصفية لا تختار GPU التشغيل." /></em>
+            </a>
+          </div>
+        </div>
 
-          {loadState === 'missing-key' && (
-            <div className="dash-state" style={{ marginTop: '28px' }}>
+        {recommendedGpuType && (
+          <div className={`pod-gpu-recommendation ${recommendationMatchesSelected ? 'selected' : selectedType ? 'pinned-other' : 'auto'}`} aria-label={lang === 'ar' ? 'توصية GPU للمرحلة 2' : 'Stage 2 GPU recommendation'}>
+            <div className="pod-gpu-recommendation-copy">
+              <span><Bi en="Suggested GPU for this setup" ar="GPU مقترح لهذا الإعداد" /></span>
+              <strong>{recommendedGpuLabel}</strong>
+              <em><Bi en={recommendationReasonLabel} ar="اقتراح قابل للتطبيق؛ لا يغيّر طلب التشغيل إلا عند اختياره." /></em>
+            </div>
+            <div className="pod-gpu-recommendation-facts">
+              <span>
+                <b><Bi en="Actual request" ar="الطلب الفعلي" /></b>
+                <code>{launchRequestPayloadLabel}</code>
+              </span>
+              <span>
+                <b><Bi en="Suggestion state" ar="حالة الاقتراح" /></b>
+                <em><Bi en={recommendationStateLabel} ar="الاقتراح لا يستبدل طلب التشغيل إلا عند اختياره." /></em>
+              </span>
+              <span>
+                <b><Bi en="Memory selector" ar="اختيار الذاكرة" /></b>
+                <em><Bi en="Browse chips, not a launch slider" ar="شرائح للتصفح وليست منزلق تشغيل." /></em>
+              </span>
+              <span>
+                <b><Bi en="Trial route" ar="مسار التجربة" /></b>
+                <em><Bi en={trialRouteAnswerLabel} ar="سعة DCP والمجتمع" /></em>
+              </span>
+            </div>
+            <div className="pod-gpu-recommendation-actions">
+              {recommendationMatchesSelected ? (
+                <span className="selected">
+                  <Bi en="Recommendation selected" ar="تم اختيار الاقتراح" />
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => selectGpuType(recommendedGpuType.gpu_model)}
+                >
+                  <Bi en="Use recommended GPU" ar="استخدم GPU المقترح" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+              >
+                <Bi en="Keep Auto-pick request" ar="أبقِ طلب الاختيار التلقائي" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className={`pod-final-gpu-request ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'طلب GPU النهائي' : 'Final GPU request'}>
+          <span><Bi en="Final GPU request" ar="طلب GPU النهائي" /></span>
+          <strong><Bi en={finalGpuRequestHeadline} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي للـ GPU'} /></strong>
+          <code>{launchRequestPayloadLabel}</code>
+          <em><Bi en={finalGpuRequestDetail} ar={selectedType ? 'بطاقة مثبتة في طلب التشغيل.' : 'لا توجد بطاقة مثبتة؛ تصفية الذاكرة والعمل للتصفح فقط.'} /></em>
+        </div>
+
+        <div className="pod-compute-summary" aria-live="polite" aria-label={lang === 'ar' ? 'قرار GPU في المرحلة 2' : 'Stage 2 GPU decision'}>
+          <div className="pod-compute-main">
+            <span className="pod-compute-k">
+              <Bi en="Stage 2 actual launch GPU" ar="قرار المرحلة 2" />
+            </span>
+            {selectedType ? (
+              <>
+                <strong>{displayGpuType(selectedType.gpu_model)}</strong>
+                <span>
+                  <Bi en={launchGpuLine} ar="سيتم طلب نوع GPU المحدد عند التشغيل." /> {selectedType.vram_gb} GB VRAM
+                  {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
+                </span>
+              </>
+            ) : (
+              <>
+                <strong><Bi en="Auto-pick at launch · no GPU pinned" ar="اختيار تلقائي عند التشغيل" /></strong>
+                <span>
+                  <Bi
+                    en={`${launchGpuLine} ${gpuRequestDetail}`}
+                    ar="لم يتم تحديد نوع GPU؛ التصفية أدناه للتصفح فقط."
+                  />
+                </span>
+              </>
+            )}
+            <div className="pod-request-toggle" role="group" aria-label={lang === 'ar' ? 'وضع طلب GPU' : 'GPU request mode'}>
+              <button
+                type="button"
+                className={!selectedType ? 'on' : ''}
+                aria-pressed={!selectedType}
+                onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+              >
+                <Bi en="Auto-pick" ar="اختيار تلقائي" />
+              </button>
+              <button
+                type="button"
+                className={selectedType ? 'on' : ''}
+                aria-pressed={!!selectedType}
+                onClick={() => document.getElementById('gpu-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
+                <Bi en="Fixed GPU" ar="GPU محدد" />
+              </button>
+            </div>
+            <div className={`pod-stage2-mode-card ${selectedType ? 'fixed' : 'auto'}`}>
+              <span>
+                <Bi en="Launch mode" ar="وضع التشغيل" />
+              </span>
+              <strong>
+                <Bi en={launchModeHeadline} ar={selectedType ? 'تم تحديد GPU للتشغيل' : 'الاختيار التلقائي محدد للتشغيل'} />
+              </strong>
+              <em>
+                <Bi en={launchModeDetail} ar={selectedType ? 'سيرسل التشغيل نوع GPU هذا. التصفية أدناه للتصفح فقط.' : 'القوالب وتصفية الذاكرة تضيق البطاقات فقط ولا تثبت GPU حتى تختار بطاقة.'} />
+              </em>
+            </div>
+            <div className={`pod-request-preview ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'معاينة طلب التشغيل' : 'Launch request preview'}>
+              <span>
+                <Bi en="What DCP will send" ar="ما سيرسله DCP" />
+              </span>
+              <code>{launchRequestPayloadLabel}</code>
+              <em>
+                <Bi en={launchRequestPayloadDetail} ar={selectedType ? 'بطاقة GPU المحددة مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة GPU مثبتة؛ التصفية والقوالب للتصفح فقط.'} />
+              </em>
+            </div>
+            <div className="pod-decision-lane" aria-label={lang === 'ar' ? 'ملخص قرارات المرحلة 2' : 'Stage 2 decision summary'}>
+              <span>
+                <b><Bi en="Template" ar="القالب" /></b>
+                {selectedRuntimeLabel}
+              </span>
+              <span>
+                <b><Bi en="Filter" ar="التصفية" /></b>
+                <Bi en={stage2FilterLabel} ar={minVram > 0 ? `تصفية ${minVram} غ.ب+` : 'بدون تصفية تصفح'} />
+              </span>
+              <span className={selectedType ? 'fixed' : 'auto'}>
+                <b><Bi en="Actual GPU" ar="GPU الفعلي" /></b>
+                {stage2GpuDecisionLabel}
+              </span>
+            </div>
+            <div className="pod-stage2-source-grid" aria-label={lang === 'ar' ? 'مصادر قرار GPU' : 'GPU decision source guide'}>
+              <span className="affects">
+                <b><Bi en="Affects launch" ar="يؤثر على التشغيل" /></b>
+                <Bi en="Auto-pick toggle or a selected GPU card" ar="زر الاختيار التلقائي أو بطاقة GPU محددة" />
+              </span>
+              <span>
+                <b><Bi en="Browse only" ar="تصفح فقط" /></b>
+                <Bi en="Template hint, VRAM chips, search, and sort" ar="تلميح القالب وشرائح الذاكرة والبحث والترتيب" />
+              </span>
+              <span>
+                <b><Bi en="Trial accounts" ar="حسابات التجربة" /></b>
+                <Bi en={`${trialFounderAnswerLabel}; ${trialRouteAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يستخدم وحدات DCP والمجتمع." />
+              </span>
+            </div>
+            <div className="pod-stage2-rule" aria-label={lang === 'ar' ? 'قاعدة اختيار GPU في المرحلة 2' : 'Stage 2 launch GPU selection rule'}>
+              <strong>
+                <Bi en="Launch selection rule" ar="قاعدة اختيار التشغيل" />
+              </strong>
+              <span>
+                <Bi
+                  en="Only Auto-pick or a GPU card selected with Use as launch GPU changes what DCP sends. Templates, workload presets, VRAM chips, search, and sort only organize choices."
+                  ar="الاختيار التلقائي أو بطاقة GPU المحددة فقط يغير ما يرسله DCP. القوالب والعمل والذاكرة والبحث والترتيب تنظّم الخيارات فقط."
+                />
+              </span>
+            </div>
+          </div>
+          <div className="pod-compute-facts">
+            <span className={selectedType ? 'pod-request-state fixed' : 'pod-request-state auto'}>
+              {selectedType
+                ? <Bi en={`Request mode: ${gpuRequestModeLabel}`} ar="وضع الطلب: GPU محدد" />
+                : <Bi en={`Request mode: ${gpuRequestModeLabel}`} ar="وضع الطلب: اختيار تلقائي" />}
+            </span>
+            <span className={`pod-policy-state ${trialRoutingStatus === 'loading' ? 'loading' : trialRoutingSynced ? 'ready' : 'fallback'}`}>
+              {trialRoutingStatus === 'loading'
+                ? <Bi en="Credit policy: checking" ar="سياسة الرصيد: جار التحقق" />
+                : trialRoutingSynced
+                  ? <Bi en="Credit policy: synced" ar="سياسة الرصيد: متزامنة" />
+                  : <Bi en="Credit policy: built-in fallback" ar="سياسة الرصيد: نسخة احتياطية" />}
+            </span>
+            {minVram > 0 && (
+              <span>
+                <Bi en={`Browse-only filter: ≥ ${minVram} GB`} ar={`تصفية البطاقات: ≥ ${minVram} غ.ب`} />
+              </span>
+            )}
+            {minVram > 0 && !selectedType && (
+              <span className="pod-filter-note">
+                <Bi en="Filter only; not the launch GPU" ar="تصفية فقط؛ ليست GPU التشغيل" />
+              </span>
+            )}
+            <span className="pod-filter-note">
+              <Bi en="VRAM chips are browse filters, not the selected launch GPU" ar="شرائح الذاكرة للتصفح فقط وليست GPU التشغيل المحددة" />
+            </span>
+            {selectedQuoteSar != null && (
+              <span>
+                <Bi en={`Quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير: ~${fmtSar(selectedQuoteSar)} ﷼`} />
+              </span>
+            )}
+            <span>
+              <Bi en={trialCapacityAnswerLabel} ar="رصيد التجربة: سعة DCP والمجتمع" />
+            </span>
+            <span>
+              <Bi en={highDemandCapacityCopy} ar="السعة عالية الطلب: رصيد مدفوع" />
+            </span>
+            <span>
+              <Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" />
+            </span>
+            <span>
+              <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
+            </span>
+            <span>
+              <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
+            </span>
+            <span>
+              <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
+            </span>
+            <span>
+              <Bi en={trialFounderAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
+            </span>
+            <span>
+              <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
+            </span>
+            {selectedType && (
+              <button
+                type="button"
+                className="pod-auto-pick"
+                onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+              >
+                <Bi en="Use auto-pick" ar="استخدم الاختيار التلقائي" />
+              </button>
+            )}
+            {trialRoutingStatus === 'error' && trialRoutingError && (
+              <span className="pod-policy-note">
+                <Bi en="Launch still uses backend gates." ar="التشغيل لا يزال يستخدم بوابات الخادم." />
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="gpu-selection-strip" aria-label={lang === 'ar' ? 'طلب GPU للتشغيل' : 'Actual launch GPU request'} aria-live="polite">
+          <div className="gpu-selection-copy">
+            <span className="gpu-selection-k">
+              <Bi en="Stage 2 selected launch GPU" ar="GPU التشغيل المحدد في المرحلة 2" />
+            </span>
+            {selectedType ? (
+              <>
+                <strong>{displayGpuType(selectedType.gpu_model)}</strong>
+                <span>
+                  {selectedType.vram_gb} GB VRAM
+                  {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
+                </span>
+              </>
+            ) : (
+              <>
+                <strong><Bi en="Auto-pick: no fixed GPU" ar="اختيار تلقائي: بدون GPU محدد" /></strong>
+                <span>
+                  <Bi
+                    en={gpuRequestDetail}
+                    ar="لم يتم تحديد نوع GPU؛ التصفية تقلل البطاقات أدناه فقط."
+                  />
+                </span>
+              </>
+            )}
+          </div>
+          <div className="gpu-selection-actions">
+            <span className={`gpu-selection-chip ${selectedType ? 'fixed' : 'auto'}`}>
+              {selectedType
+                ? <Bi en="Request: fixed GPU" ar="الطلب: GPU محدد" />
+                : <Bi en="Request: auto-pick" ar="الطلب: اختيار تلقائي" />}
+            </span>
+            <span className={`gpu-selection-chip ${selectedType ? 'fixed' : 'auto'}`}>
+              <Bi en={stage2ModeChipLabel} ar={selectedType ? 'الوضع: GPU محدد' : 'الوضع: اختيار تلقائي'} />
+            </span>
+            <span className="gpu-selection-chip final">
+              <Bi en="Final launch request" ar="طلب التشغيل النهائي" />
+            </span>
+            <span className="gpu-selection-chip request">
+              {launchRequestPayloadLabel}
+            </span>
+            <span className="gpu-selection-chip">
+              {minVram > 0
+                ? <Bi en={`Browse filter ${minVram} GB+`} ar={`تصفية التصفح ${minVram} غ.ب+`} />
+                : <Bi en="Any VRAM" ar="أي ذاكرة" />}
+            </span>
+            {selectedTemplateMinVram && (
+              <span className="gpu-selection-chip">
+                <Bi en={`Template hint ${selectedTemplateMinVram} GB+`} ar={`تلميح القالب ${selectedTemplateMinVram} غ.ب+`} />
+              </span>
+            )}
+            <span className="gpu-selection-chip">
+              {activeWorkloadLabel
+                ? (lang === 'ar' ? activeWorkloadLabel.titleAr : activeWorkloadLabel.titleEn)
+                : <Bi en="No workload filter" ar="لا توجد تصفية عمل" />}
+            </span>
+            <span className="gpu-selection-chip">
+              <Bi en={`${shownCount} shown`} ar={`${shownCount} معروضة`} />
+            </span>
+            {selectedType && (
+              <button
+                type="button"
+                className="gpu-selection-action"
+                onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+              >
+                <Bi en="Back to auto-pick" ar="العودة للاختيار التلقائي" />
+              </button>
+            )}
+            {activeFilterCount > 0 && (
+              <button type="button" className="gpu-selection-action" onClick={clearGpuFilters}>
+                <Bi en="Clear filters" ar="مسح التصفية" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="pod-trial-policy" aria-label={lang === 'ar' ? 'سياسة تجربة الحاويات' : 'Trial routing policy'}>
+          <div className="pod-trial-copy">
+            <span className="pod-trial-k">
+              <Bi en="Trial routing policy" ar="سياسة تجربة الحاويات" />
+            </span>
+            <strong>
+              <Bi en={trialPolicyHeadline} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب مصدر الرصيد'} />
+            </strong>
+            <span>
+              <Bi en={`${trialPolicyDetail} ${trialGrantAnswerLabel}.`} ar="لا يوجد وسم تجربة منفصل؛ رصيد التجربة يستخدم سعة DCP والمجتمع، والسعة عالية الطلب تتطلب رصيدًا مدفوعًا." />
+            </span>
+          </div>
+          <div className="pod-trial-facts">
+            <span className={minimumCreditPolicy ? 'ready' : 'checking'}>
+              <Bi en={creditPolicyContractLabel} ar={minimumCreditPolicy ? 'سياسة الحد الأدنى متزامنة' : 'سياسة الحد الأدنى قيد الفحص'} />
+            </span>
+            <span className={trialRoutingSynced ? 'ready' : 'checking'}>
+              <Bi en={trialPolicySourceLabel} ar={trialRoutingSynced ? 'سياسة الخادم: متزامنة' : 'سياسة الخادم: قيد الفحص'} />
+            </span>
+            <span>
+              <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
+            </span>
+            <span>
+              <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
+            </span>
+            <span>
+              <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
+            </span>
+            <span>
+              <Bi en={trialGrantAnswerLabel} ar="رصيد التجربة من المنحة" />
+            </span>
+            <span className={trialClassification?.mutates_account_classification === false ? 'ready' : 'checking'}>
+              <Bi en={derivedTrialStateLabel} ar="حالة التجربة مشتقة من مصدر الرصيد" />
+            </span>
+            <span>
+              <Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" />
+            </span>
+            <span>
+              <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
+            </span>
+            <span>
+              <Bi en={trialFounderAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
+            </span>
+            <span>
+              <Bi en="Provider identity hidden" ar="هوية المزود مخفية" />
+            </span>
+          </div>
+        </div>
+
+        <div className="pod-balance-policy" aria-label={lang === 'ar' ? 'سياسة الحد الأدنى للرصيد' : 'Minimum balance policy'}>
+          <div className="pod-balance-copy">
+            <span className="pod-balance-k">
+              <Bi en="Minimum balance policy" ar="سياسة الحد الأدنى للرصيد" />
+            </span>
+            <strong>
+              <Bi en="Credit gates are visible before launch" ar="بوابات الرصيد ظاهرة قبل التشغيل" />
+            </strong>
+            <span>
+              <Bi
+                en="Provider/community pods use quote preflight; high-demand pods require paid available credit."
+                ar="حاويات DCP والمجتمع تستخدم فحص التسعير؛ الطلب العالي يحتاج رصيداً مدفوعاً متاحاً."
+              />
+            </span>
+          </div>
+          <div className="pod-balance-facts">
+            <span className={minimumBalanceSynced ? 'ready' : 'checking'}>
+              <Bi en={minimumBalanceSourceLabel} ar={minimumBalanceSynced ? 'الحد الأدنى: متزامن' : 'الحد الأدنى: قيد الفحص'} />
+            </span>
+            <span>
+              <Bi en={providerPodGateLabel} ar="حاويات DCP والمجتمع: فحص التسعير" />
+            </span>
+            <span>
+              <Bi en={onDemandPodGateLabel} ar="حاويات الطلب العالي: فحص الرصيد المدفوع" />
+            </span>
+            <span>
+              <Bi en={`Paid available SAR ${fmtSar(paidAvailableSar)}`} ar={`الرصيد المدفوع المتاح ${fmtSar(paidAvailableSar)} ﷼`} />
+            </span>
+            <span className="blocked">
+              <Bi en="Trial credit does not unlock high-demand GPUs" ar="رصيد التجربة لا يفتح وحدات الطلب العالي" />
+            </span>
+            <span className={minimumBalance?.claim_guards?.changes_trial_accounting ? 'checking' : 'ready'}>
+              <Bi en="No trial-accounting change" ar="لا تغيير في حسابات التجربة" />
+            </span>
+            <span className={minimumBalance?.claim_guards?.changes_paid_credit_policy ? 'checking' : 'ready'}>
+              <Bi en="No paid-credit policy change" ar="لا تغيير في سياسة الرصيد المدفوع" />
+            </span>
+            <span className={minimumBalance?.claim_guards?.changes_enforcement ? 'checking' : 'ready'}>
+              <Bi
+                en={minimumBalance?.claim_guards?.changes_enforcement ? 'Enforcement change: pending' : 'Read-only: no enforcement change'}
+                ar={minimumBalance?.claim_guards?.changes_enforcement ? 'تغيير التنفيذ: معلق' : 'قراءة فقط: لا تغيير في التنفيذ'}
+              />
+            </span>
+            <span>
+              <Bi en={`${futureBillingRailsBlocked} future billing rails blocked`} ar={`${futureBillingRailsBlocked} مسارات فوترة مستقبلية مقيدة`} />
+            </span>
+            {minimumBalanceStatus === 'error' && minimumBalanceError && (
+              <span className="checking">
+                <Bi en="Launch still uses backend credit gates" ar="التشغيل لا يزال يستخدم بوابات الرصيد الخلفية" />
+              </span>
+            )}
+          </div>
+        </div>
+
+        {trialRoutingSynced && (
+          <div className="pod-proof-strip" aria-label={lang === 'ar' ? 'بوابات إثبات الحاويات' : 'Pod proof gates'}>
+            <div className="pod-proof-copy">
+              <span className="pod-proof-k">
+                <Bi en="Pod proof gates" ar="بوابات إثبات الحاوية" />
+              </span>
+              <strong>
+                <Bi en="Workspace and LoRA image evidence" ar="أدلة مساحة العمل وصورة LoRA" />
+              </strong>
+              <span>
+                <Bi
+                  en="CI contracts are visible; live GPU-host acceptance still needs a funded provider window."
+                  ar="عقود CI ظاهرة؛ قبول GPU الحي يحتاج نافذة مزود ممولة."
+                />
+              </span>
+            </div>
+            <div className="pod-proof-facts">
+              <span className="ready">
+                <Bi
+                  en={`Workspace contract: ${workspacePodContractStatus === 'ci_safe' ? 'CI safe' : 'checking'}`}
+                  ar={`عقد مساحة العمل: ${workspacePodContractStatus === 'ci_safe' ? 'آمن CI' : 'قيد الفحص'}`}
+                />
+              </span>
+              <span className="blocked">
+                <Bi
+                  en={`Workspace live: ${workspaceLiveStatus === 'blocked_external' ? 'provider window' : 'checking'}`}
+                  ar={`مساحة العمل الحية: ${workspaceLiveStatus === 'blocked_external' ? 'نافذة مزود' : 'قيد الفحص'}`}
+                />
+              </span>
+              <span className="blocked">
+                <Bi
+                  en={`LoRA image: ${loraPodImageStatus === 'blocked_external' ? 'GPU-host proof' : 'checking'}`}
+                  ar={`صورة LoRA: ${loraPodImageStatus === 'blocked_external' ? 'إثبات GPU' : 'قيد الفحص'}`}
+                />
+              </span>
+            </div>
+          </div>
+        )}
+
+        <section className="pod-template-picker" aria-labelledby="pod-template-heading">
+          <div className="pod-template-hd">
+            <div>
+              <span className="pod-label"><Bi en="Launch template" ar="قالب التشغيل" /></span>
+              <h4 id="pod-template-heading">
+                <Bi en="Choose the pod shape" ar="اختر شكل الحاوية" />
+              </h4>
+            </div>
+            <span className="hint">
+              <Bi en="Backed by /api/templates/catalog where available" ar="مدعومة عبر /api/templates/catalog عند التوفر" />
+            </span>
+          </div>
+          <div className={`pod-template-contract ${templateCatalogStatus}`}>
+            <span className="pod-template-contract-k">
+              <Bi en="Backend catalog" ar="كتالوج الخلفية" />
+            </span>
+            <strong>
+              {templateCatalogStatus === 'ready'
+                ? `${templateCatalog.length} templates${templateCatalogVersion ? ` · ${templateCatalogVersion}` : ''}`
+                : templateCatalogStatus === 'loading'
+                  ? (lang === 'ar' ? 'جارٍ الفحص' : 'Checking')
+                  : templateCatalogStatus === 'error'
+                    ? (templateCatalogError || (lang === 'ar' ? 'غير متاح' : 'Unavailable'))
+                    : (lang === 'ar' ? 'بانتظار الفحص' : 'Pending')}
+            </strong>
+          </div>
+          <div className="pod-template-grid">
+            {LAUNCH_TEMPLATES.map((template) => {
+              const catalogIds = catalogIdsFor(template)
+              const catalogItems = catalogItemsFor(template, templateCatalogById)
+              const catalogMissing =
+                templateCatalogStatus === 'ready' &&
+                catalogIds.length > 0 &&
+                catalogItems.length !== catalogIds.length
+              const disabled = template.disabled || catalogMissing
+              const selected = !disabled && selectedTemplateKey === template.key
+              const minVram = catalogMinVram(template, catalogItems)
+              const duration = catalogDuration(template, catalogItems)
+              const catalogBadge =
+                catalogItems.length === catalogIds.length && catalogIds.length > 0
+                  ? (lang === 'ar' ? 'موثق' : 'Catalog verified')
+                  : templateCatalogStatus === 'loading'
+                    ? (lang === 'ar' ? 'فحص الكتالوج' : 'Checking catalog')
+                    : templateCatalogStatus === 'error'
+                      ? (lang === 'ar' ? 'كتالوج غير متاح' : 'Catalog offline')
+                      : catalogMissing
+                        ? (lang === 'ar' ? 'مفقود من الكتالوج' : 'Missing catalog')
+                        : ''
+              return (
+                <button
+                  key={template.key}
+                  type="button"
+                  className={`pod-template-card${selected ? ' on' : ''}${disabled ? ' disabled' : ''}`}
+                  aria-pressed={selected}
+                  aria-disabled={disabled || undefined}
+                  disabled={disabled || !isLive}
+                  onClick={() => applyLaunchTemplate(template)}
+                >
+                  {(catalogBadge || template.badgeEn || disabled) && (
+                    <span className="pod-template-badge">
+                      {catalogBadge || (lang === 'ar'
+                        ? (template.badgeAr || 'قريباً')
+                        : (template.badgeEn || 'Coming next'))}
+                    </span>
+                  )}
+                  <span className="pod-template-title">{lang === 'ar' ? template.titleAr : template.titleEn}</span>
+                  <span className="pod-template-desc">{lang === 'ar' ? template.descAr : template.descEn}</span>
+                  <span className="pod-template-meta">
+                    {template.image}
+                    {duration ? ` · ${formatDuration(duration)}` : ''}
+                    {minVram ? ` · ≥ ${minVram} GB` : ''}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* ── GPU picker: optional workload helper + toolbar + card grid ── */}
+        <div className="gpu-picker">
+          <div className={`gpu-picker-status ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'حالة GPU المختار للتشغيل' : 'GPU picker selected launch state'}>
+            <div className="gpu-picker-status-copy">
+              <span><Bi en="Actual launch request" ar="طلب التشغيل الفعلي" /></span>
+              <strong><Bi en={gpuPickerLaunchHeadline} ar={selectedType ? 'تم اختيار GPU للتشغيل' : 'المختار للتشغيل: اختيار تلقائي'} /></strong>
+              <em><Bi en={gpuPickerLaunchDetail} ar={selectedType ? 'تغيير التصفية لا يستبدل GPU المثبت.' : 'لا توجد بطاقة مثبتة؛ التصفية تنظم القائمة فقط.'} /></em>
+            </div>
+            <div className="gpu-picker-status-facts">
+              <code>{gpuPickerRequestCode}</code>
+              <span><Bi en="VRAM chips are filters only" ar="شرائح الذاكرة للتصفية فقط" /></span>
+              <a href="#gpu-results"><Bi en="Choose a GPU card" ar="اختر بطاقة GPU" /></a>
+            </div>
+          </div>
+          {/* Optional "Guide me by workload" helper (collapsed by default) */}
+          <section className="gpu-assist" data-open={assistOpen} aria-label={lang === 'ar' ? 'دليل العمل' : 'Workload guide'}>
+            <button
+              type="button"
+              className="gpu-assist-head"
+              aria-expanded={assistOpen}
+              aria-controls="gpu-assist-body"
+              onClick={() => setAssistOpen((v) => !v)}
+            >
+              <span className="ico" aria-hidden="true">◇</span>
+              <span className="gpu-assist-title">
+                <Bi en="Not sure which GPU? Guide me by workload" ar="غير متأكد أي معالج؟ دلّني حسب العمل" />
+              </span>
+              <span className="chev" aria-hidden="true">▾</span>
+            </button>
+            {assistOpen && (
+              <div className="gpu-assist-body" id="gpu-assist-body">
+                <p className="gpu-assist-q">
+                  <Bi en="What are you running?" ar="ماذا تشغّل؟" />
+                </p>
+                <div className="gpu-workloads" role="group" aria-label={lang === 'ar' ? 'نوع العمل' : 'Workload type'}>
+                  {WORKLOADS.map((w) => (
+                    <button
+                      key={w.key}
+                      type="button"
+                      className="gpu-wk"
+                      aria-pressed={activeWorkload === w.key}
+                      onClick={() => applyWorkload(w)}
+                    >
+                      <span className="t">{lang === 'ar' ? w.titleAr : w.titleEn}</span>
+                      <span className="d">{lang === 'ar' ? w.descAr : w.descEn}</span>
+                      <span className="n">{lang === 'ar' ? `≥ ${w.floor} غ.ب` : `≥ ${w.floor} GB`}</span>
+                    </button>
+                  ))}
+                </div>
+                {activeWorkload && (() => {
+                  const w = WORKLOADS.find((x) => x.key === activeWorkload)
+                  if (!w) return null
+                  return (
+                    <div className="gpu-reco" aria-live="polite">
+                      <span className="label">
+                        <Bi en="Filtered for this workload" ar="تمت التصفية لهذا العمل" />
+                      </span>
+                      <p className="why">
+                        <Bi
+                          en={`Workload preset applied: ${w.titleEn}. Showing GPU types with at least ${w.floor} GB of VRAM. ${
+                            workloadSuggestionLabel ? `${workloadSuggestionLabel} is highlighted as a workload match. ` : ''
+                          }Launch remains ${workloadLaunchStateLabel} until you choose Use as launch GPU on a card.`}
+                          ar={`تم تطبيق قالب العمل: ${w.titleAr}. تُعرض المعالجات بذاكرة ${w.floor} غيغابايت على الأقل. يبقى طلب التشغيل كما هو حتى تختار بطاقة GPU.`}
+                        />
+                      </p>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+          </section>
+
+          <div className="gpu-filter-callout" aria-label={lang === 'ar' ? 'مصدر اختيار GPU' : 'GPU selection source of truth'}>
+            <span className="gpu-filter-callout-k">
+              <Bi en="Before filtering" ar="قبل التصفية" />
+            </span>
+            <strong>
+              <Bi en="The launch GPU is only Auto-pick or a card marked Selected launch GPU." ar="GPU التشغيل هو الاختيار التلقائي أو بطاقة محددة فقط." />
+            </strong>
+            <em>
+              <Bi en="VRAM chips, workload guide, search, and sort change the list you see. They do not change the final request until you pick a GPU card." ar="شرائح الذاكرة ودليل العمل والبحث والترتيب تغيّر القائمة فقط ولا تغيّر طلب التشغيل حتى تختار بطاقة." />
+            </em>
+          </div>
+
+          {/* Quiet toolbar: search + min-VRAM + sort + availability chips */}
+          <div className="gpu-toolbar">
+            <div className="gpu-tb-left">
+              <div className="gpu-ctl gpu-search">
+                <span className="mag" aria-hidden="true">⌕</span>
+                <label className="sr-only" htmlFor="gpu-search">
+                  {lang === 'ar' ? 'ابحث عن معالج بالاسم أو الذاكرة' : 'Search GPU by name, brand or VRAM'}
+                </label>
+                <input
+                  id="gpu-search"
+                  type="search"
+                  value={gpuSearch}
+                  onChange={(e) => setGpuSearch(e.target.value)}
+                  placeholder={lang === 'ar' ? 'ابحث عن معالج (مثل 4090، H100)' : 'Search GPU (e.g. 4090, H100, 80GB)'}
+                  autoComplete="off"
+                  disabled={!isLive}
+                />
+              </div>
+              <div className="gpu-ctl gpu-vram">
+                <label id="gpu-vram-filter-label">
+                  <Bi en="Filter list by VRAM (not launch GPU)" ar="صفّ القائمة حسب الذاكرة، وليس GPU التشغيل" />
+                </label>
+                <div className="gpu-vram-options" role="group" aria-labelledby="gpu-vram-filter-label">
+                  {VRAM_FILTER_OPTIONS.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="gpu-vram-chip"
+                      aria-pressed={minVram === value}
+                      onClick={() => setMinVram(value)}
+                      disabled={!isLive}
+                    >
+                      {value === 0
+                        ? <Bi en="Any" ar="أي" />
+                        : <Bi en={`${value} GB+`} ar={`${value} غ.ب+`} />}
+                    </button>
+                  ))}
+                </div>
+                <p className="gpu-filter-disclaimer">
+                  <Bi
+                    en={vramFilterDisclaimer}
+                    ar={selectedType ? 'هذه تصفية تصفح فقط. يبقى GPU التشغيل المثبت كما هو حتى تختار بطاقة أخرى أو تعود للاختيار التلقائي.' : 'هذه تصفية تصفح فقط. يبقى GPU التشغيل على الاختيار التلقائي حتى تختار بطاقة.'}
+                  />
+                </p>
+                <p className={`gpu-filter-state ${selectedType ? 'fixed' : 'auto'}`}>
+                  <span><Bi en="Current launch state" ar="حالة التشغيل الحالية" /></span>
+                  <strong><Bi en={vramFilterLaunchState} ar={selectedType ? 'طلب التشغيل: GPU محدد' : 'طلب التشغيل: اختيار تلقائي'} /></strong>
+                </p>
+              </div>
+              <div className="gpu-ctl">
+                <label htmlFor="gpu-sort">
+                  <Bi en="Sort" ar="ترتيب" />
+                </label>
+                <select
+                  id="gpu-sort"
+                  className="gpu-sort"
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value as SortKey)}
+                  disabled={!isLive}
+                >
+                  <option value="recommended">{lang === 'ar' ? 'موصى به' : 'Recommended'}</option>
+                  <option value="price-asc">{lang === 'ar' ? 'السعر — من الأقل' : 'Price — low to high'}</option>
+                  <option value="price-desc">{lang === 'ar' ? 'السعر — من الأعلى' : 'Price — high to low'}</option>
+                  <option value="vram-desc">{lang === 'ar' ? 'الذاكرة — من الأعلى' : 'VRAM — high to low'}</option>
+                  <option value="vram-asc">{lang === 'ar' ? 'الذاكرة — من الأقل' : 'VRAM — low to high'}</option>
+                  <option value="name">{lang === 'ar' ? 'الاسم أ–ي' : 'Name A–Z'}</option>
+                </select>
+              </div>
+            </div>
+            <div className="gpu-ctl">
+              <label id="gpu-avail-lbl">
+                <Bi en="Availability" ar="التوفر" />
+              </label>
+              <div className="gpu-chips" role="group" aria-labelledby="gpu-avail-lbl">
+                <button
+                  type="button"
+                  className="gpu-chip"
+                  aria-pressed={availFilters.has('available')}
+                  onClick={() => toggleAvailFilter('available')}
+                  disabled={!isLive}
+                >
+                  <Bi en="Available" ar="متاح" />
+                </button>
+                <button
+                  type="button"
+                  className="gpu-chip"
+                  aria-pressed={availFilters.has('priced')}
+                  onClick={() => toggleAvailFilter('priced')}
+                  disabled={!isLive}
+                >
+                  <Bi en="Priced now" ar="مُسعّر الآن" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p className="gpu-summary" aria-live="polite">
+            {lang === 'ar'
+              ? `${shownCount} ${shownCount === 1 ? 'نوع' : 'أنواع'} معروضة · ${gpuTypeCount} متاح${minPrice != null ? ` · من ${fmtSar(minPrice)} ﷼/س` : ''}`
+              : `${shownCount} GPU ${shownCount === 1 ? 'type' : 'types'} shown · ${gpuTypeCount} available${minPrice != null ? ` · from SAR ${fmtSar(minPrice)}/hr` : ''}`}
+          </p>
+
+          {/* ONE radiogroup spanning all bands (a11y: native radio semantics) */}
+          <div id="gpu-results" className="gpu-results" role="radiogroup" aria-label={lang === 'ar' ? 'نوع المعالج' : 'GPU type'}>
+            {!isLive ? (
+              <p className="gpu-empty">
+                <Bi en="Loading GPU types…" ar="جارٍ تحميل أنواع المعالجات…" />
+              </p>
+            ) : shownCount === 0 ? (
+              <p className="gpu-empty">
+                <Bi en="No GPU types match your filters." ar="لا توجد أنواع معالجات تطابق عوامل التصفية." />
+                <button type="button" className="gpu-clear" onClick={clearGpuFilters}>
+                  <Bi en="Clear filters" ar="مسح التصفية" />
+                </button>
+              </p>
+            ) : (
+              BANDS.map((band) => {
+                const inBand = sortGpuTypes(filteredTypes.filter((g) => g.band === band.key), sortKey)
+                if (!inBand.length) return null
+                const collapsed = collapsedBands.has(band.key)
+                return (
+                  <section key={band.key} className="gpu-group" data-collapsed={collapsed}>
+                    <button
+                      type="button"
+                      className="gpu-group-head"
+                      aria-expanded={!collapsed}
+                      onClick={() => toggleBand(band.key)}
+                    >
+                      <span className="chev" aria-hidden="true">▾</span>
+                      <h3>{lang === 'ar' ? band.ar : band.en}</h3>
+                      <span className="meta">{lang === 'ar' ? band.subAr : band.subEn}</span>
+                    </button>
+                    {!collapsed && (
+                      <div className="gpu-grid">
+                        {inBand.map((g, idx) => {
+                          const out = !g.available
+                          const unpriced = g.sar_per_hour == null
+                          const selectable = !out && !unpriced
+                          const selected = launch.gpuType === g.gpu_model
+                          const workloadMatch = !!activeWorkloadPreset &&
+                            selectable &&
+                            g.gpu_model.toLowerCase().includes(activeWorkloadPreset.prefer)
+                          const reco = (isValuePick(g.gpu_model) && selectable) || workloadMatch
+                          const brand = gpuBrand(g.gpu_model)
+                          const name = displayGpuType(g.gpu_model)
+                          const cls = [
+                            'gpu-card',
+                            out ? 'is-out' : '',
+                            reco ? 'is-reco' : '',
+                            workloadMatch ? 'is-workload-match' : '',
+                          ].filter(Boolean).join(' ')
+                          // roving tabindex: the selected radio (or the first
+                          // selectable card) is the single tab stop.
+                          const isFirstSelectable =
+                            selectable && !selectedType && idx === inBand.findIndex((x) => x.available && x.sar_per_hour != null)
+                          const tabIndex = selectable ? (selected || isFirstSelectable ? 0 : -1) : undefined
+                          const availLabel = out
+                            ? lang === 'ar' ? 'غير متوفر' : 'Out of stock'
+                            : lang === 'ar' ? 'متاح' : 'Available'
+                          const ariaLabel = `${name}, ${g.vram_gb} GB VRAM, ${
+                            unpriced ? (lang === 'ar' ? 'السعر عند الطلب' : 'price on request') : `${fmtSar(g.sar_per_hour as number)} SAR/hr`
+                          }, ${availLabel}`
+                          const onSelect = () => selectable && selectGpuType(g.gpu_model)
+                          const onKey = (e: React.KeyboardEvent) => {
+                            if (!selectable) return
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              selectGpuType(g.gpu_model)
+                            }
+                          }
+                          return (
+                            <div
+                              key={g.gpu_model}
+                              className={cls}
+                              role={selectable ? 'radio' : 'group'}
+                              aria-checked={selectable ? selected : undefined}
+                              aria-disabled={selectable ? undefined : true}
+                              aria-label={ariaLabel}
+                              tabIndex={tabIndex}
+                              onClick={onSelect}
+                              onKeyDown={onKey}
+                            >
+                              {reco && (
+                                <span className="gpu-ribbon">
+                                  {workloadMatch
+                                    ? <Bi en="Workload match" ar="مطابق للعمل" />
+                                    : <Bi en="Best value" ar="أفضل قيمة" />}
+                                </span>
+                              )}
+                              {selected && (
+                                <span className="gpu-selected-ribbon">
+                                  <Bi en="Selected launch GPU" ar="GPU التشغيل المحدد" />
+                                </span>
+                              )}
+                              <div className="gpu-card-top">
+                                <div>
+                                  <p className="gpu-card-brand">{brand}</p>
+                                  <h4 className="gpu-card-name">{name}</h4>
+                                </div>
+                                <div className="gpu-price-block">
+                                  {unpriced ? (
+                                    <div className="gpu-price-tba">
+                                      <Bi en="Contact sales" ar="تواصل مع المبيعات" />
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="gpu-price">
+                                        <span className="cur">SAR</span>
+                                        {fmtSar(g.sar_per_hour as number)}
+                                        <span className="unit">/hr</span>
+                                      </div>
+                                      <div className="gpu-price-usd">≈ ${fmtUsd(g.sar_per_hour as number)} USD/hr</div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="gpu-card-specs">
+                                <div className="spec">
+                                  <span className="k">VRAM</span>
+                                  <span className="v">{g.vram_gb} GB</span>
+                                </div>
+                                <div className="spec">
+                                  <span className="k">
+                                    <Bi en="Access" ar="الوصول" />
+                                  </span>
+                                  <span className="v">Jupyter · SSH</span>
+                                </div>
+                                <div className="spec">
+                                  <span className="k">
+                                    <Bi en="Billing" ar="الفوترة" />
+                                  </span>
+                                  <span className="v">
+                                    <Bi en="Per second" ar="بالثانية" />
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="gpu-card-foot">
+                                {/* Availability conveyed by dot SHAPE + LABEL, not color alone. */}
+                                <span className={`gpu-badge ${out ? 'out' : 'ok'}`}>
+                                  <span className="dot" aria-hidden="true" />
+                                  {availLabel}
+                                </span>
+                                {out ? (
+                                  <button
+                                    type="button"
+                                    className="gpu-notify"
+                                    disabled={!!notifyBusy[g.gpu_model] || !!notifyDone[g.gpu_model]}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      notifyMe(g.gpu_model)
+                                    }}
+                                    aria-label={
+                                      lang === 'ar'
+                                        ? `أعلمني عند توفر ${name}`
+                                        : `Notify me when ${name} is back in stock`
+                                    }
+                                  >
+                                    {notifyDone[g.gpu_model] ? (
+                                      <Bi en="✓ Notified" ar="✓ تم" />
+                                    ) : notifyBusy[g.gpu_model] ? (
+                                      <Bi en="…" ar="…" />
+                                    ) : (
+                                      <Bi en="Notify me" ar="أعلمني" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="gpu-card-cta">
+                                    {selected ? (
+                                      <Bi en="Launch GPU selected ✓" ar="تم تحديد GPU للتشغيل ✓" />
+                                    ) : (
+                                      <Bi en="Use as launch GPU →" ar="استخدمه كـ GPU للتشغيل →" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                              {out && notifyErr[g.gpu_model] && (
+                                <span className="gpu-notify-err">{notifyErr[g.gpu_model]}</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )
+              })
+            )}
+          </div>
+
+          {/* Selection summary line — mirrors the mock's sticky-bar pick info. */}
+          <div className="gpu-selection" aria-live="polite">
+            {selectedType ? (
+              <span className="gpu-selection-pick">
+                <b>{displayGpuType(selectedType.gpu_model)}</b> · {selectedType.vram_gb} GB
+                {selectedType.sar_per_hour != null && (
+                  <>
+                    {' · '}
+                    <span className="gpu-selection-price">
+                      SAR {fmtSar(selectedType.sar_per_hour)}/hr · ≈ ${fmtUsd(selectedType.sar_per_hour)}/hr
+                    </span>
+                  </>
+                )}
+              </span>
+            ) : (
+              <span className="gpu-selection-empty">
+                <Bi
+                  en="No GPU selected — pick a card, or launch to auto-pick an available type."
+                  ar="لم يتم اختيار معالج — اختر بطاقة، أو شغّل للاختيار التلقائي لنوع متاح."
+                />
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pod-stage-hd pod-stage-hd--compact pod-stage-hd--runtime" id="pod-stage-3">
+          <span className="pod-stage-no">Stage 3 of 3</span>
+          <div>
+            <h2><Bi en="Stage 3: confirm runtime and launch" ar="المرحلة 3: أكد البيئة وشغّل" /></h2>
+            <p>
+              <Bi
+                en="Set duration, image, and notebook access before the prepaid launch."
+                ar="حدد المدة والصورة ووصول الدفتر قبل التشغيل مسبق الدفع."
+              />
+            </p>
+          </div>
+        </div>
+
+        <div className="pod-form-grid">
+          {/* Duration */}
+          <div className="pod-field">
+            <label htmlFor="pod-duration" className="pod-label">
+              <Bi en="Duration" ar="المدة" />
+            </label>
+            <select
+              id="pod-duration"
+              className="select"
+              value={launch.durationMinutes}
+              onChange={(e) => {
+                setSelectedTemplateKey(null)
+                setLaunch((l) => ({ ...l, durationMinutes: Number(e.target.value) }))
+              }}
+              disabled={!isLive}
+            >
+              {DURATION_OPTIONS.map((d) => (
+                <option key={d.minutes} value={d.minutes}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            <p className="pod-help">
+              <Bi en="The pod is torn down automatically when the duration elapses. The full duration is charged upfront; an early stop refunds the difference." ar="تُغلق الحاوية تلقائيًا عند انتهاء المدة. تُحتسب المدة كاملة مسبقًا، ويُعاد الفرق عند الإيقاف المبكر." />
+            </p>
+            <p className="pod-help pod-help-reserved">
+              <Bi
+                en="Need 10–90 days for a long training run? Reserved capacity isn’t booked on demand — contact us at sales@dcp.sa for multi-day reserved GPUs."
+                ar="تحتاج إلى 10–90 يومًا لتدريب طويل؟ السعة المحجوزة لا تُحجز عند الطلب — تواصل معنا على sales@dcp.sa لحجز معالجات رسومات لعدة أيام."
+              />
+            </p>
+          </div>
+
+          {/* Image */}
+          <div className="pod-field pod-field-wide">
+            <label htmlFor="pod-image" className="pod-label">
+              <Bi en="Image override" ar="تجاوز الصورة" />
+            </label>
+            <div className="pod-image-row">
+              <select
+                id="pod-image"
+                className="select"
+                value={launch.imageChoice}
+                onChange={(e) => onImageChoice(e.target.value)}
+                disabled={!isLive}
+              >
+                {IMAGE_PRESETS.map((img) => (
+                  <option key={img.value} value={img.value}>
+                    {lang === 'ar' ? img.labelAr : img.label}
+                  </option>
+                ))}
+                <option value={CUSTOM_IMAGE_OPTION}>{lang === 'ar' ? 'مخصص…' : 'Custom…'}</option>
+              </select>
+              {isCustom && (
+                <input
+                  id="pod-image-custom"
+                  type="text"
+                  className="input pod-mono-input"
+                  value={launch.customImage}
+                  onChange={(e) => onCustomImage(e.target.value)}
+                  placeholder="e.g. tensorflow/tensorflow:latest-gpu"
+                  spellCheck={false}
+                  autoComplete="off"
+                  disabled={!isLive}
+                />
+              )}
+            </div>
+            <p className="pod-help">
+              <Bi
+                en="Template cards set this automatically. Use Custom only when you need an exact Docker reference; SSH is injected automatically."
+                ar="تضبط بطاقات القوالب هذا تلقائيًا. استخدم مخصص فقط عند الحاجة إلى مرجع Docker محدد؛ يتم حقن SSH تلقائيًا."
+              />
+            </p>
+          </div>
+
+          {/* Notebook token */}
+          <div className="pod-field pod-field-wide">
+            <label htmlFor="pod-token" className="pod-label">
+              <Bi en="Notebook token" ar="رمز الدفتر" />
+            </label>
+            <div className="pod-token-row">
+              <input
+                id="pod-token"
+                type="text"
+                className="input pod-mono-input"
+                value={launch.notebookToken}
+                onChange={(e) => setLaunch((l) => ({ ...l, notebookToken: e.target.value }))}
+                placeholder="strong token used to open Jupyter"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={!isLive}
+              />
+              <button
+                type="button"
+                className="btn-sec"
+                onClick={onRegenerate}
+                title="Generate a new token"
+                disabled={!isLive}
+              >
+                <Bi en="Regenerate" ar="توليد جديد" />
+              </button>
+            </div>
+            <p className="pod-help">
+              <Bi
+                en={`Used to authenticate your Jupyter session. Keep it private — at least ${MIN_TOKEN_LENGTH} characters.`}
+                ar={`يُستخدم للمصادقة على جلسة Jupyter. احتفظ به سريًا — ${MIN_TOKEN_LENGTH} حرفًا على الأقل.`}
+              />
+            </p>
+          </div>
+        </div>
+
+        {isFundingLaunchError(launch.error, launch.creditError) ? (
+          <div className="dash-state error pod-credit-state" style={{ marginTop: '20px' }}>
+            <b>
+              <Bi en="Credit required" ar="الرصيد مطلوب" />
+            </b>
+            <span>
+              {launch.creditError?.code === 'on_demand_requires_prepaid_credit'
+                ? <Bi en="Trial credit covers DCP and community GPUs. Add paid credit to launch this GPU." ar="رصيد التجربة يغطي وحدات DCP والمجتمع. أضف رصيدًا مدفوعًا لتشغيل هذه البطاقة." />
+                : <Bi en="Add credit before launching this pod." ar="أضف رصيدًا قبل تشغيل هذه الحاوية." />}
+              {' '}
+              <Link href="/renter/wallet">
+                <Bi en="Add credit" ar="إضافة رصيد" />
+              </Link>
+            </span>
+            {launch.creditError && (
+              <div className="pod-credit-facts" aria-label="Credit requirement details">
+                {launch.creditError.availableSar != null && (
+                  <span>
+                    <Bi en={`Available credit ${fmtSar(launch.creditError.availableSar)}`} ar={`الرصيد المتاح ${fmtSar(launch.creditError.availableSar)}`} />
+                  </span>
+                )}
+                {launch.creditError.requiredSar != null && (
+                  <span>
+                    <Bi en={`Required credit ${fmtSar(launch.creditError.requiredSar)}`} ar={`الرصيد المطلوب ${fmtSar(launch.creditError.requiredSar)}`} />
+                  </span>
+                )}
+                {launch.creditError.creditShortfallSar != null && launch.creditError.creditShortfallSar > 0 && (
+                  <span className="strong">
+                    <Bi en={`Add ${fmtSar(launch.creditError.creditShortfallSar)} more`} ar={`أضف ${fmtSar(launch.creditError.creditShortfallSar)} إضافية`} />
+                  </span>
+                )}
+                {launch.creditError.minimumPaidCreditSar != null && launch.creditError.minimumPaidCreditSar !== launch.creditError.requiredSar && (
+                  <span>
+                    <Bi en={`Minimum paid credit ${fmtSar(launch.creditError.minimumPaidCreditSar)}`} ar={`الحد الأدنى للرصيد المدفوع ${fmtSar(launch.creditError.minimumPaidCreditSar)}`} />
+                  </span>
+                )}
+                {launch.creditError.durationMinutes != null && (
+                  <span>
+                    <Bi en={`${launch.creditError.durationMinutes} min launch`} ar={`تشغيل ${launch.creditError.durationMinutes} دقيقة`} />
+                  </span>
+                )}
+                {launch.creditError.rateSarPerHour != null && (
+                  <span>
+                    <Bi en={`Rate ${fmtSar(launch.creditError.rateSarPerHour)}/hr`} ar={`السعر ${fmtSar(launch.creditError.rateSarPerHour)}/ساعة`} />
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ) : launch.error ? (
+          <div className="dash-state error" style={{ marginTop: '20px' }}>
+            <span>{launch.error}</span>
+          </div>
+        ) : null}
+
+        <div className={`pod-launch-confirmation ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'تأكيد التشغيل النهائي' : 'Final launch confirmation'}>
+          <div className="pod-launch-confirmation-main">
+            <span><Bi en="Launch button will use" ar="زر التشغيل سيستخدم" /></span>
+            <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+            <code>{launchRequestPayloadLabel}</code>
+            <em>
+              <Bi
+                en={selectedType
+                  ? 'This fixed GPU card is pinned in the final request.'
+                  : 'No fixed GPU card is pinned; DCP will auto-pick an available type at launch.'}
+                ar={selectedType ? 'بطاقة GPU هذه مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة مثبتة؛ سيختار DCP نوعاً متاحاً عند التشغيل.'}
+              />
+            </em>
+          </div>
+          <div className="pod-launch-confirmation-grid">
+            <span className="primary">
+              <b><Bi en="Stage 2 source" ar="مصدر المرحلة 2" /></b>
+              <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
+              <em>{launchRequestPayloadLabel}</em>
+            </span>
+            <span>
+              <b><Bi en="Workspace" ar="مساحة العمل" /></b>
+              <strong><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة مساحة عمل'} /></strong>
+              <em>
+                <Bi
+                  en={workspaceStageBodyOpen ? 'Stage 1 is open; launch still attaches the full /workspace volume.' : 'Stage 1 can stay collapsed; launch still attaches the full /workspace volume.'}
+                  ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة؛ التشغيل يربط كامل /workspace.' : 'يمكن إبقاء المرحلة 1 مطوية؛ التشغيل يربط كامل /workspace.'}
+                />
+              </em>
+            </span>
+            <span>
+              <b><Bi en="Trial policy" ar="سياسة التجربة" /></b>
+              <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة مباشر' : 'لا يوجد وسم تجربة مباشر'} /></strong>
+              <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></em>
+            </span>
+            <span>
+              <b><Bi en="Runtime" ar="البيئة" /></b>
+              <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
+              <em>
+                {selectedQuoteSar != null
+                  ? <Bi en={`Visible quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير الظاهر: ~${fmtSar(selectedQuoteSar)} ﷼`} />
+                  : <Bi en="Quote appears after a fixed GPU card is selected or backend auto-pick resolves." ar="يظهر التقدير بعد اختيار GPU محدد أو عند حل الاختيار التلقائي في الخلفية." />}
+              </em>
+            </span>
+          </div>
+        </div>
+
+        <div className="pod-launch-review" aria-label={lang === 'ar' ? 'مراجعة التشغيل' : 'Launch review'}>
+          <span>
+            <b><Bi en="Stage 1" ar="المرحلة 1" /></b>
+            {workspaceVolume
+              ? `${workspaceVolume.size_gb} GB /workspace`
+              : <Bi en="No workspace volume" ar="لا توجد وحدة مساحة عمل" />}
+          </span>
+          <span>
+            <b><Bi en="Stage 2" ar="المرحلة 2" /></b>
+            {selectedType
+              ? displayGpuType(selectedType.gpu_model)
+              : <Bi en="Auto-pick GPU" ar="اختيار GPU تلقائي" />}
+          </span>
+          <span>
+            <b><Bi en="Stage 3" ar="المرحلة 3" /></b>
+            {selectedRuntimeLabel} · {durationLabel}
+          </span>
+          <span>
+            <b><Bi en="Credit route" ar="مسار الرصيد" /></b>
+            <Bi en={explicitTrialTagLive ? 'Trial tag active' : 'Trial via grant credit · DCP/community GPUs'} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب رصيد المنحة · معالجات DCP والمجتمع'} />
+          </span>
+        </div>
+
+        <div className="action-row">
+          <button
+            type="button"
+            className="btn-pri pod-launch-btn"
+            onClick={submitLaunch}
+            disabled={launch.submitting || noLaunchable || !isLive}
+          >
+            {launch.submitting && <span className="pod-spinner" aria-hidden="true" />}
+            {launch.submitting ? (
+              <Bi en="Launching…" ar="جارٍ التشغيل…" />
+            ) : (
+              <Bi en={launchButtonLabel} ar={selectedType ? 'تشغيل حاوية GPU المحددة' : 'تشغيل حاوية GPU بالاختيار التلقائي'} />
+            )}
+          </button>
+          {noLaunchable && isLive && (
+            <span className="hint">
+              <Bi en="No GPU types are available right now." ar="لا توجد أنواع معالجات متاحة حاليًا." />
+            </span>
+          )}
+        </div>
+
+        {/* ── One-time credentials reveal (shown ONCE per launch) ───── */}
+        {reveal && (reveal.rootPassword || reveal.jupyterToken) && (
+          <div className="pod-access" style={{ marginTop: '20px' }}>
+            <div
+              className="dash-state"
+              style={{
+                borderColor: 'color-mix(in oklab, var(--teal) 40%, var(--hair))',
+                background: 'color-mix(in oklab, var(--teal) 4%, var(--paper))',
+              }}
+            >
               <b>
-                <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
+                <Bi en="Save these credentials now" ar="احفظ بيانات الاعتماد الآن" />
+                {reveal.podId ? ` — Pod #${reveal.podId}` : ''}
               </b>
               <span>
                 <Bi
-                  en="Sign in or paste a renter API key before v2 can launch GPU pods or show your running containers."
-                  ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تتمكن v2 من تشغيل حاويات GPU أو عرض حاوياتك العاملة."
+                  en="Shown only once. They are not stored and cannot be retrieved later — copy them before leaving this page."
+                  ar="تُعرض مرة واحدة فقط. لا يتم تخزينها ولا يمكن استرجاعها لاحقًا — انسخها قبل مغادرة هذه الصفحة."
                 />
               </span>
-              <Link className="text-link" href="/renter/keys" style={{ alignSelf: 'flex-start', marginTop: '4px' }}>
-                <Bi en="Manage API keys →" ar="إدارة مفاتيح API →" />
-              </Link>
             </div>
-          )}
 
-          {/* ── Stat tiles ─────────────────────────────────── */}
-          <div className="pod-kpis" style={{ marginTop: '36px' }}>
-            <div className="kpi featured">
-              <div className="k">
-                <Bi en="Total pods" ar="إجمالي الحاويات" />
-              </div>
-              <div className="v">{pods.length}</div>
-              <div className="d flat">
-                <Bi en="Across this renter account" ar="عبر حساب المستأجر هذا" />
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="k">
-                <Bi en="Active" ar="نشطة" />
-              </div>
-              <div className="v" style={{ color: activePods > 0 ? 'var(--teal)' : 'var(--ink)' }}>
-                {activePods}
-              </div>
-              <div className="d up">
-                <Bi en="Running or provisioning" ar="قيد التشغيل أو التجهيز" />
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="k">
-                <Bi en="GPU types available" ar="أنواع المعالجات المتاحة" />
-              </div>
-              <div className="v">{gpuTypeCount}</div>
-              <div className="d flat">
-                <Bi en="Ready to host a pod" ar="جاهزة لاستضافة حاوية" />
-              </div>
-            </div>
-          </div>
-
-          <nav className="pod-stage-nav" aria-label={lang === 'ar' ? 'مراحل تشغيل الحاوية' : 'Pod launch stages'}>
-            <a href="#pod-stage-1" className={workspaceVolume ? 'ok' : ''}>
-              <span>Stage 1 of 3</span>
-              <strong><Bi en="Workspace files · collapsible" ar="ملفات مساحة العمل · قابلة للطي" /></strong>
-              <em>
-                <Bi en={workspaceNavStatusLabel} ar={workspaceVolume ? 'قابلة للطي؛ انتقل للمرحلة 2 عند الجاهزية' : 'أنشئ وحدة'} />
-              </em>
-            </a>
-            <a href="#pod-stage-2" className={`primary${selectedType || launch.gpuType === '' ? ' ok' : ''}`}>
-              <span>Stage 2 of 3</span>
-              <strong><Bi en="Actual launch GPU" ar="GPU التشغيل الفعلي" /></strong>
-              <em>
-                <Bi en={stage2NavStatusLabel} ar={selectedType ? 'تم تثبيت بطاقة GPU' : 'اختيار تلقائي · لا توجد بطاقة مثبتة'} />
-              </em>
-            </a>
-            <a href="#pod-stage-3" className="ok">
-              <span>Stage 3 of 3</span>
-              <strong><Bi en="Runtime + launch" ar="البيئة + التشغيل" /></strong>
-              <em>{stage3NavStatusLabel}</em>
-            </a>
-            <div className={`pod-stage-nav-summary ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'قرار التشغيل المثبت' : 'Sticky launch decision'}>
-              <div className="primary">
-                <b><Bi en="Launch request" ar="طلب التشغيل" /></b>
-                <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-                <code>{launchRequestPayloadLabel}</code>
-              </div>
-              <div>
-                <b><Bi en="Workspace" ar="مساحة العمل" /></b>
-                <em><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة'} /></em>
-              </div>
-              <div>
-                <b><Bi en="Runtime" ar="البيئة" /></b>
-                <em>{selectedRuntimeLabel} · {durationLabel}</em>
-              </div>
-              <div>
-                <b><Bi en="Trial route" ar="مسار التجربة" /></b>
-                <em><Bi en={`${trialTagAnswerLabel} · ${trialRouteAnswerLabel}`} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'حسب رصيد المنحة'} /></em>
-              </div>
-            </div>
-          </nav>
-
-          <div className={`pod-command-center ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'مركز أوامر التشغيل' : 'Launch command center'}>
-            <div className="pod-command-primary">
-              <span><Bi en="Main decision · Stage 2 of 3" ar="القرار الرئيسي · المرحلة 2 من 3" /></span>
-              <strong><Bi en={finalGpuRequestHeadline} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي للـ GPU'} /></strong>
-              <em><Bi en={finalGpuRequestDetail} ar={selectedType ? 'بطاقة مثبتة في طلب التشغيل.' : 'لا توجد بطاقة مثبتة؛ تصفية الذاكرة والعمل للتصفح فقط.'} /></em>
-            </div>
-            <div className="pod-command-payload">
-              <span><Bi en="Will send" ar="سيرسل" /></span>
-              <code>{launchRequestPayloadLabel}</code>
-            </div>
-            <div className="pod-command-actions">
-              <a className="primary" href="#pod-stage-2">
-                <Bi en="Review Stage 2 GPU" ar="راجع GPU المرحلة 2" />
-              </a>
-              <button type="button" onClick={() => setWorkspaceStageOpen(false)}>
-                <Bi en="Collapse Stage 1 files" ar="اطوِ ملفات المرحلة 1" />
-              </button>
-              <a href="#pod-stage-3">
-                <Bi en="Stage 3 launch" ar="تشغيل المرحلة 3" />
-              </a>
-            </div>
-            <div className="pod-command-facts">
-              <span>
-                <b>Stage 1</b>
-                <Bi en={commandCenterWorkspaceLabel} ar={workspaceVolume ? 'ملفات المرحلة 1 مطوية' : 'أنشئ مساحة العمل'} />
-              </span>
-              <span>
-                <b>Workspace</b>
-                <Bi en={commandCenterWorkspaceDetail} ar={workspaceStageBodyOpen ? 'ملفات المرحلة 1 مفتوحة' : 'ملفات المرحلة 1 مطوية'} />
-              </span>
-              <span>
-                <b>Trial</b>
-                <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} />
-              </span>
-              <span>
-                <b>Credit</b>
-                <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
-              </span>
-            </div>
-            <div className="pod-command-answers" aria-label={lang === 'ar' ? 'إجابات سياسة التشغيل' : 'Launch policy answers'}>
-              <span>
-                <b><Bi en="Trial tagging" ar="وسم التجربة" /></b>
-                <em><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} /></em>
-              </span>
-              <span>
-                <b><Bi en="Trial capacity" ar="سعة التجربة" /></b>
-                <em><Bi en="Grant credit routes to DCP/community GPUs" ar="رصيد المنحة يذهب إلى وحدات DCP والمجتمع" /></em>
-              </span>
-              <span>
-                <b><Bi en="High-demand" ar="الطلب العالي" /></b>
-                <em><Bi en="Paid credit only" ar="رصيد مدفوع فقط" /></em>
-              </span>
-              <span>
-                <b><Bi en="GPU source" ar="مصدر GPU" /></b>
-                <em><Bi en={gpuSourceAnswerLabel} ar={selectedType ? 'المصدر: البطاقة المحددة' : 'المصدر: اختيار تلقائي عند التشغيل'} /></em>
-              </span>
-            </div>
-          </div>
-
-          <div className="pod-review-map" aria-label={lang === 'ar' ? 'خريطة قرار مساحة العمل' : 'Workspace decision map'}>
-            <div className="pod-review-head">
-              <span><Bi en="Fast review" ar="مراجعة سريعة" /></span>
-              <strong><Bi en="Files, GPU, launch — in order" ar="الملفات، GPU، التشغيل — بالترتيب" /></strong>
-              <em>
-                <Bi
-                  en="Use this when the workspace has many files: Stage 1 stays folder-first, Stage 2 is the only GPU decision, and Stage 3 is the final launch."
-                  ar="استخدم هذا عند وجود ملفات كثيرة: المرحلة 1 بالمجلدات أولاً، المرحلة 2 قرار GPU الوحيد، والمرحلة 3 التشغيل النهائي."
-                />
-              </em>
-            </div>
-            <div className="pod-review-stage-card">
-              <span>Stage 1</span>
-              <strong><Bi en="Workspace collapsed by folders" ar="مساحة العمل مطوية حسب المجلدات" /></strong>
-              <em><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ مساحة العمل'} /></em>
-              <small><Bi en="Open one folder only when the summary is not enough." ar="افتح مجلداً واحداً فقط عندما لا يكفي الملخص." /></small>
-              <button
-                type="button"
-                onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
-              >
-                <Bi en={workspacePathPrimaryFolder ? `Open ${workspacePathPrimaryFolder.label}` : 'Open Stage 1'} ar="افتح مجلداً واحداً" />
-              </button>
-            </div>
-            <div className="pod-review-stage-card primary">
-              <span>Stage 2</span>
-              <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-              <code>{launchRequestPayloadLabel}</code>
-              <small>
-                <Bi
-                  en={recommendedGpuType ? `Suggested: ${recommendedGpuLabel}. Memory chips are browse filters, not a launch slider.` : 'Memory chips are browse filters, not a launch slider.'}
-                  ar="شرائح الذاكرة للتصفح وليست منزلق تشغيل."
-                />
-              </small>
-              <div className="pod-review-card-actions">
-                <a href="#pod-stage-2">
-                  <Bi en="Review GPU" ar="راجع GPU" />
-                </a>
-                {recommendedGpuType && !recommendationMatchesSelected && (
-                  <button
-                    type="button"
-                    onClick={() => selectGpuType(recommendedGpuType.gpu_model)}
-                  >
-                    <Bi en="Use suggested GPU" ar="استخدم GPU المقترح" />
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="pod-review-stage-card">
-              <span>Stage 3</span>
-              <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
-              <em><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></em>
-              <small><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></small>
-              <a href="#pod-stage-3">
-                <Bi en="Confirm launch" ar="أكد التشغيل" />
-              </a>
-            </div>
-          </div>
-
-          <div className={`pod-mobile-launch-dock ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'شريط تشغيل مختصر' : 'Mobile launch dock'}>
-            <div className="pod-mobile-launch-copy">
-              <span><Bi en="Stage 2 launch GPU" ar="GPU تشغيل المرحلة 2" /></span>
-              <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-              <code>{launchRequestPayloadLabel}</code>
-            </div>
-            <div className="pod-mobile-launch-actions">
-              <button
-                type="button"
-                onClick={() => setWorkspaceStageOpen((value) => !value)}
-                aria-expanded={workspaceStageBodyOpen}
-                aria-controls="pod-stage-1-workspace-panel"
-              >
-                <Bi en={workspaceStageBodyOpen ? 'Collapse Stage 1' : 'Open Stage 1'} ar={workspaceStageBodyOpen ? 'اطوِ المرحلة 1' : 'افتح المرحلة 1'} />
-              </button>
-              <a href="#pod-stage-2">
-                <Bi en="Go to Stage 2" ar="اذهب للمرحلة 2" />
-              </a>
-            </div>
-            <div className="pod-mobile-launch-facts">
-              <span><Bi en={mobileDockStage1Label} ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة' : 'المرحلة 1 مطوية'} /></span>
-              <span><Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" /></span>
-              <span><Bi en={highDemandAnswerLabel} ar="الطلب العالي: رصيد مدفوع فقط" /></span>
-            </div>
-          </div>
-
-          <div className="pod-fast-path" aria-label={lang === 'ar' ? 'الانتقال السريع للمرحلة 2' : 'Fast path to Stage 2'}>
-            <a href="#pod-stage-2" className="pod-fast-card primary">
-              <span><Bi en="Main decision" ar="القرار الرئيسي" /></span>
-              <strong><Bi en="Go straight to Stage 2 of 3" ar="اذهب مباشرة للمرحلة 2 من 3" /></strong>
-              <em><Bi en={`${stage2FastPathLabel} ${stage2FastPathDetail}`} ar="القوالب وتصفية الذاكرة للتصفح فقط؛ اختر بطاقة لتثبيت GPU التشغيل." /></em>
-            </a>
-            <a href="#pod-stage-1" className="pod-fast-card">
-              <span>Stage 1 of 3</span>
-              <strong><Bi en="Workspace is collapsible" ar="مساحة العمل قابلة للطي" /></strong>
-              <em><Bi en={`${workspaceFastPathLabel} Skip file-by-file review when the folder summary looks right.`} ar={workspaceVolume ? 'تبقى شجرة الملفات مطوية؛ افتح مجلداً واحداً فقط عند الحاجة.' : 'أنشئ وحدة مساحة عمل ثم تابع للمرحلة 2.'} /></em>
-            </a>
-            <div className="pod-fast-card policy">
-              <span><Bi en="Trial answer" ar="إجابة التجربة" /></span>
-              <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'لا يوجد وسم تجربة مباشر'} /></strong>
-              <em><Bi en={`${trialFounderAnswerLabel}; ${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يذهب إلى سعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
-            </div>
-          </div>
-
-          {/* ── Workspace staging ────────────────────────────── */}
-          <div className="pod-stage" id="pod-stage-1" style={{ marginTop: '28px' }}>
-            <div className="pod-stage-hd">
-              <span className="pod-stage-no">Stage 1 of 3</span>
-              <div>
-                <h2><Bi en="Stage 1: workspace files, collapsible" ar="المرحلة 1: ملفات مساحة العمل، قابلة للطي" /></h2>
-                <p>
-                  <Bi
-                    en="Use the same /workspace volume that reattaches when a pod starts; expand only when the summary needs inspection."
-                    ar="استخدم نفس وحدة /workspace التي تُعاد عند تشغيل الحاوية."
-                  />
-                </p>
-              </div>
-            </div>
-            <div className={`pod-stage-accordion ${workspaceStageBodyOpen ? 'open' : 'closed'}`} aria-label={lang === 'ar' ? 'نقطة تحقق مساحة العمل للمرحلة 1' : 'Stage 1 workspace checkpoint'}>
-              <div className="pod-stage-accordion-summary">
-                <div className="pod-stage-accordion-copy">
-                  <span>
-                    <Bi en={workspaceStageBodyOpen ? 'Workspace details open' : 'Workspace details collapsed'} ar={workspaceStageBodyOpen ? 'تفاصيل مساحة العمل مفتوحة' : 'تفاصيل مساحة العمل مطوية'} />
+            {reveal.rootPassword && (
+              <div className="pod-access-block">
+                <div className="pod-access-body">
+                  <span className="pod-access-k">
+                    <Bi en="Root password (SSH)" ar="كلمة مرور الجذر (SSH)" />
                   </span>
-                  <strong><Bi en={workspaceStageHeadline} ar={workspaceVolume ? 'مساحة العمل جاهزة' : 'أنشئ وحدة مساحة عمل'} /></strong>
-                  <em><Bi en={workspaceStageDetail} ar={workspaceFiles.length > 0 ? 'تبقى التفاصيل مطوية؛ افتحها فقط عند الحاجة.' : 'افتح المرحلة 1 لإضافة الملفات.'} /></em>
-                </div>
-                <div className="pod-stage-accordion-facts">
-                  <span>
-                    <Bi en={workspaceVolume ? `${workspaceVolume.size_gb} GB /workspace` : 'No workspace volume'} ar={workspaceVolume ? `${workspaceVolume.size_gb} غ.ب /workspace` : 'لا توجد وحدة مساحة عمل'} />
-                  </span>
-                  <span>
-                    <Bi en={`${workspaceFiles.length} staged files`} ar={`${workspaceFiles.length} ملفات مجهزة`} />
-                  </span>
-                  <span>
-                    <Bi en={`${workspaceFolderCount} folders`} ar={`${workspaceFolderCount} مجلدات`} />
-                  </span>
-                  <span>
-                    <Bi en="Stage 1 can stay collapsed" ar="يمكن إبقاء المرحلة 1 مطوية" />
-                  </span>
-                  <a href="#pod-stage-2">
-                    <Bi en="Skip to Stage 2" ar="انتقل للمرحلة 2" />
-                  </a>
-                  <button
-                    type="button"
-                    aria-expanded={workspaceStageBodyOpen}
-                    aria-controls="pod-stage-1-workspace-panel"
-                    onClick={() => setWorkspaceStageOpen((value) => !value)}
-                  >
-                    <Bi en={workspaceStageToggleLabel} ar={workspaceStageBodyOpen ? 'اطوِ مساحة العمل' : 'افتح مساحة العمل'} />
-                  </button>
-                </div>
-              </div>
-              <div id="pod-stage-1-workspace-panel" hidden={!workspaceStageBodyOpen}>
-                <WorkspacePanel
-                  apiBase={getApiBase()}
-                  renterKey={renterKey}
-                  context="pod-launch"
-                  nextStageHref="#pod-stage-2"
-                  folderFocusRequest={workspaceFolderFocusRequest}
-                  onVolumeLoaded={setWorkspaceVolume}
-                  onFilesLoaded={setWorkspaceFiles}
-                />
-              </div>
-              {!workspaceStageBodyOpen && workspaceFiles.length > 0 && (
-                <div className="pod-stage-folder-peek" aria-label={lang === 'ar' ? 'معاينة مجلدات المرحلة 1' : 'Stage 1 folder preview'}>
-                  <div className="pod-stage-folder-peek-copy">
-                    <span><Bi en="Folder checkpoint" ar="نقطة تحقق المجلدات" /></span>
-                    <strong><Bi en="Top folders, not every file" ar="أهم المجلدات بدلاً من كل ملف" /></strong>
-                    <em>
-                      <Bi
-                        en="Use this preview to confirm the workspace shape. Expand only for uploads, deletes, or one-folder inspection."
-                        ar="استخدم هذه المعاينة لتأكيد شكل مساحة العمل. افتحها فقط للرفع أو الحذف أو فحص مجلد واحد."
-                      />
-                    </em>
-                  </div>
-                  <div className="pod-stage-folder-peek-search">
-                    <label htmlFor="pod-stage-folder-peek-search">
-                      <span><Bi en="Find folder or file" ar="ابحث عن مجلد أو ملف" /></span>
-                      <input
-                        id="pod-stage-folder-peek-search"
-                        type="search"
-                        value={workspacePeekQuery}
-                        onChange={(event) => setWorkspacePeekQuery(event.target.value)}
-                        placeholder={lang === 'ar' ? 'datasets أو checkpoints' : 'datasets, notebooks, checkpoints'}
-                        autoComplete="off"
-                      />
-                    </label>
-                    <em>
-                      <Bi
-                        en={`${workspacePeekResultLabel}; Stage 2 stays one click away.`}
-                        ar="تبقى المرحلة 2 بنقرة واحدة."
-                      />
-                    </em>
-                  </div>
-                  <div className="pod-stage-folder-outline" aria-label={lang === 'ar' ? 'مخطط مجلدات المرحلة 1' : 'Stage 1 folder outline'}>
-                    <span>
-                      <b><Bi en="Workspace outline" ar="مخطط مساحة العمل" /></b>
-                      <em><Bi en={`${workspaceFolderCount} folders stay collapsed until one needs inspection.`} ar="تبقى المجلدات مطوية حتى يحتاج أحدها للفحص." /></em>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
-                    >
-                      <b><Bi en="Open busiest folder" ar="افتح أكثر مجلد نشاطاً" /></b>
-                      <em><Bi en={workspaceOutlinePrimaryLabel} ar="افتح مجلداً واحداً فقط." /></em>
-                    </button>
-                    <a href="#pod-stage-2">
-                      <b><Bi en="Next stop" ar="الخطوة التالية" /></b>
-                      <em><Bi en="Stage 2 is the actual GPU request." ar="المرحلة 2 هي طلب GPU الفعلي." /></em>
-                    </a>
-                  </div>
-                  <div className="pod-stage-folder-peek-list">
-                    {workspaceFolderPeek.map((folder) => (
-                      <button
-                        key={folder.id}
-                        type="button"
-                        onClick={() => focusWorkspaceFolder(folder.id)}
-                        aria-label={
-                          lang === 'ar'
-                            ? `افتح المرحلة 1 مع التركيز على ${folder.label}`
-                            : `Open Stage 1 with ${folder.label} focused`
-                        }
-                      >
-                        <span>{folder.label}</span>
-                        <b>{folder.fileCount} files</b>
-                        <small>{humanBytes(folder.totalBytes)}</small>
-                      </button>
-                    ))}
-                    {workspacePeekSearch && workspaceFolderPeek.length === 0 && (
-                      <span className="pod-stage-folder-peek-empty">
-                        <Bi en="No collapsed folder matches that search." ar="لا يوجد مجلد مطوي يطابق البحث." />
-                      </span>
-                    )}
-                    {hiddenWorkspaceFolderCount > 0 && (
-                      <button type="button" onClick={() => setWorkspaceStageOpen(true)}>
-                        <span>+{hiddenWorkspaceFolderCount}</span>
-                        <b><Bi en={workspacePeekSearch ? 'more matches' : 'more folders'} ar="مجلدات أخرى" /></b>
-                        <small><Bi en="expand Stage 1" ar="افتح المرحلة 1" /></small>
-                      </button>
-                    )}
-                  </div>
-                  <div className="pod-stage-folder-path" aria-label={lang === 'ar' ? 'مسار المرحلة 1 المطوية' : 'Collapsed Stage 1 path'}>
-                    <span>
-                      <b>1</b>
-                      <strong><Bi en="Summary first" ar="الملخص أولاً" /></strong>
-                      <em><Bi en="Use folder counts instead of scrolling every file." ar="استخدم عدد المجلدات بدلاً من التمرير على كل ملف." /></em>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
-                    >
-                      <b>2</b>
-                      <strong><Bi en="Open one folder" ar="افتح مجلداً واحداً" /></strong>
-                      <em>
-                        <Bi
-                          en={workspacePathPrimaryFolder ? `${workspacePathPrimaryFolder.label} opens; other folders stay closed.` : 'Open Stage 1 only when files need changes.'}
-                          ar="افتح مجلداً واحداً فقط؛ تبقى البقية مطوية."
-                        />
-                      </em>
-                    </button>
-                    <a href="#pod-stage-2">
-                      <b>3</b>
-                      <strong><Bi en="Stage 2 GPU" ar="GPU المرحلة 2" /></strong>
-                      <em><Bi en="Skip file review when the summary is enough." ar="تجاوز مراجعة الملفات عندما يكفي الملخص." /></em>
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Launch panel ───────────────────────────────── */}
-          <section className="panel pod-launch" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Launch GPU pod" ar="تشغيل حاوية GPU" />
-                </h3>
-              </div>
-              <span className="hint">
-                <Bi en="Jupyter notebook + SSH, torn down on duration" ar="دفتر Jupyter + SSH، تُغلق عند انتهاء المدة" />
-              </span>
-            </div>
-
-            <div className="pod-flow-rail" aria-label={lang === 'ar' ? 'خطة التشغيل' : 'Launch plan'}>
-              <div className={`pod-flow-item${workspaceVolume ? ' ok' : ''}`}>
-                <span className="pod-flow-no">Stage 1</span>
-                <span className="pod-flow-k"><Bi en="Workspace" ar="مساحة العمل" /></span>
-                <strong>
-                  {workspaceVolume
-                    ? `${workspaceVolume.size_gb} GB /workspace`
-                    : <Bi en="No volume yet" ar="لا توجد وحدة بعد" />}
-                </strong>
-              </div>
-              <div className={`pod-flow-item${selectedType ? ' ok' : ''}`}>
-                <span className="pod-flow-no">Stage 2</span>
-                <span className="pod-flow-k"><Bi en="GPU decision" ar="قرار GPU" /></span>
-                <strong>
-                  {selectedType
-                    ? displayGpuType(selectedType.gpu_model)
-                    : <Bi en="Auto-pick · no fixed GPU" ar="اختيار تلقائي · بدون GPU محدد" />}
-                </strong>
-              </div>
-              <div className="pod-flow-item ok">
-                <span className="pod-flow-no">Stage 3</span>
-                <span className="pod-flow-k"><Bi en="Runtime" ar="بيئة التشغيل" /></span>
-                <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
-              </div>
-              <div className={`pod-flow-item${selectedQuoteSar != null ? ' ok' : ''}`}>
-                <span className="pod-flow-no">Launch</span>
-                <span className="pod-flow-k"><Bi en="Prepaid quote" ar="تقدير مسبق" /></span>
-                <strong>
-                  {selectedQuoteSar != null
-                    ? `~SAR ${fmtSar(selectedQuoteSar)}`
-                    : <Bi en="After GPU pick" ar="بعد اختيار GPU" />}
-                </strong>
-              </div>
-            </div>
-
-            <div className="pod-launch-checklist" aria-label={lang === 'ar' ? 'قائمة تحقق التشغيل' : 'Launch checklist'}>
-              <a className={workspaceVolume ? 'ready' : 'needs'} href="#pod-stage-1">
-                <span className="pod-launch-check-no">Stage 1</span>
-                <strong><Bi en="Workspace" ar="مساحة العمل" /></strong>
-                <b>{workspaceChecklistLabel}</b>
-                <em><Bi en={workspaceChecklistDetail} ar={workspaceVolume ? 'تبقى المرحلة 1 مطوية؛ افتح مجلداً واحداً فقط عند الحاجة.' : 'أنشئ مساحة عمل دائمة قبل التشغيل.'} /></em>
-              </a>
-              <a className={selectedType ? 'ready' : 'auto'} href="#pod-stage-2">
-                <span className="pod-launch-check-no">Stage 2</span>
-                <strong><Bi en="Actual GPU request" ar="طلب GPU الفعلي" /></strong>
-                <b>{gpuChecklistLabel}</b>
-                <em><Bi en={gpuChecklistDetail} ar={selectedType ? 'طلب GPU محدد عند التشغيل.' : 'التصفية للتصفح فقط؛ التشغيل يختار تلقائياً.'} /></em>
-              </a>
-              <a className={trialRoutingSynced ? 'ready' : 'needs'} href="#pod-stage-2">
-                <span className="pod-launch-check-no">Trial</span>
-                <strong><Bi en="Account route" ar="مسار الحساب" /></strong>
-                <b><Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'وسم تجربة صريح' : 'حسب مصدر رصيد المنحة'} /></b>
-                <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي يحتاج رصيداً مدفوعاً." /></em>
-              </a>
-              <a className={minimumBalanceSynced ? 'ready' : 'needs'} href="#pod-stage-3">
-                <span className="pod-launch-check-no">Credit</span>
-                <strong><Bi en="Minimum balance" ar="الحد الأدنى للرصيد" /></strong>
-                <b><Bi en={creditChecklistLabel} ar={minimumBalanceSynced ? 'بوابات الرصيد متزامنة' : 'بوابات الرصيد قيد الفحص'} /></b>
-                <em><Bi en={creditChecklistDetail} ar="التشغيل يستخدم بوابات الرصيد في الخلفية." /></em>
-              </a>
-            </div>
-
-            <div className="pod-stage-control-map" aria-label={lang === 'ar' ? 'ما الذي تتحكم به كل مرحلة' : 'What each stage controls'}>
-              <a href="#pod-stage-1">
-                <span>Stage 1</span>
-                <strong><Bi en="Workspace tree" ar="شجرة مساحة العمل" /></strong>
-                <em><Bi en={workspaceStageModeLabel} ar={workspaceVolume ? 'شجرة المجلدات أولاً' : 'وحدة التخزين مطلوبة'} /></em>
-              </a>
-              <a href="#pod-stage-2" className="primary">
-                <span>Stage 2</span>
-                <strong><Bi en="Actual launch GPU" ar="GPU التشغيل الفعلي" /></strong>
-                <em><Bi en={selectedType ? 'A GPU card is pinned' : 'Auto-pick is still active'} ar={selectedType ? 'تم تثبيت بطاقة GPU' : 'الاختيار التلقائي نشط'} /></em>
-              </a>
-              <a href="#pod-stage-3">
-                <span>Stage 3</span>
-                <strong><Bi en="Runtime and launch" ar="البيئة والتشغيل" /></strong>
-                <em>{selectedRuntimeLabel} · {durationLabel}</em>
-              </a>
-            </div>
-
-            <div className="pod-stage-hd pod-stage-hd--compact" id="pod-stage-2">
-              <span className="pod-stage-no">Stage 2 of 3</span>
-              <div>
-                <h2><Bi en="Stage 2: actual launch GPU and template" ar="المرحلة 2: GPU التشغيل الفعلي والقالب" /></h2>
-                <p>
-                  <Bi
-                    en="The launch GPU is the Auto-pick toggle or the selected card. Templates, VRAM, search, and sort stay browse-only helpers."
-                    ar="اختر قالب العمل، ثم حدد معالج GPU بوضوح أو اترك التشغيل على الاختيار التلقائي."
-                  />
-                </p>
-              </div>
-            </div>
-
-            <div className={`pod-stage2-priority ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'قرار GPU الأساسي في المرحلة 2' : 'Stage 2 primary GPU decision'}>
-              <div className="pod-stage2-priority-copy">
-                <span><Bi en="Primary Stage 2 decision" ar="قرار المرحلة 2 الأساسي" /></span>
-                <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد للتشغيل' : 'اختيار تلقائي للتشغيل'} /></strong>
-                <em><Bi en={stage2PrimaryDecisionDetail} ar={selectedType ? 'طلب GPU محدد. لا تستبدل التصفية هذا الاختيار.' : 'الاختيار التلقائي هو طلب التشغيل. التصفية للتصفح فقط.'} /></em>
-              </div>
-              <div className="pod-stage2-priority-actions">
-                <code>{launchRequestPayloadLabel}</code>
-                <a href="#gpu-results">
-                  <Bi en="Choose fixed GPU card" ar="اختر بطاقة GPU محددة" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
-                >
-                  <Bi en="Keep Auto-pick" ar="أبقِ الاختيار التلقائي" />
-                </button>
-                <span>
-                  <Bi en="VRAM chips are browse filters only" ar="شرائح الذاكرة للتصفح فقط" />
-                </span>
-                <span>
-                  <Bi en={trialGrantAnswerLabel} ar="رصيد التجربة من المنحة" />
-                </span>
-                <span>
-                  <Bi en={highDemandPaidCreditGateLabel} ar="الطلب العالي يحتاج رصيداً مدفوعاً" />
-                </span>
-              </div>
-              <div className="pod-stage2-choice-board" aria-label={lang === 'ar' ? 'اختيار طلب GPU في المرحلة 2' : 'Stage 2 GPU request chooser'}>
-                <div className="pod-stage2-choice-head">
-                  <span><Bi en="Which GPU will DCP request?" ar="أي GPU سيطلبه DCP؟" /></span>
-                  <strong>{launchRequestPayloadLabel}</strong>
+                  <code className="pod-access-ssh">{reveal.rootPassword}</code>
                 </div>
                 <button
                   type="button"
-                  className={!selectedType ? 'selected' : ''}
-                  aria-pressed={!selectedType}
-                  onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
+                  className="btn-sec pod-copy"
+                  onClick={() => copyText('reveal-root', reveal.rootPassword)}
+                  aria-label="Copy root password"
                 >
-                  <span><Bi en="Option A" ar="الخيار أ" /></span>
-                  <strong><Bi en={stage2AutoChoiceHeadline} ar={selectedType ? 'العودة للاختيار التلقائي' : 'الاختيار التلقائي محدد'} /></strong>
-                  <em><Bi en={stage2AutoChoiceDetail} ar="لا يوجد GPU مثبت؛ يختار DCP نوعاً متاحاً عند التشغيل." /></em>
+                  {copied === 'reveal-root' ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
                 </button>
-                <a href="#gpu-results" className={selectedType ? 'selected' : ''}>
-                  <span><Bi en="Option B" ar="الخيار ب" /></span>
-                  <strong><Bi en={stage2FixedChoiceHeadline} ar={selectedType ? 'تم اختيار GPU محدد' : 'اختر بطاقة GPU محددة'} /></strong>
-                  <em><Bi en={stage2FixedChoiceDetail} ar="اختر بطاقة أدناه. التصفية لا تختار GPU التشغيل." /></em>
-                </a>
-              </div>
-            </div>
-
-            {recommendedGpuType && (
-              <div className={`pod-gpu-recommendation ${recommendationMatchesSelected ? 'selected' : selectedType ? 'pinned-other' : 'auto'}`} aria-label={lang === 'ar' ? 'توصية GPU للمرحلة 2' : 'Stage 2 GPU recommendation'}>
-                <div className="pod-gpu-recommendation-copy">
-                  <span><Bi en="Suggested GPU for this setup" ar="GPU مقترح لهذا الإعداد" /></span>
-                  <strong>{recommendedGpuLabel}</strong>
-                  <em><Bi en={recommendationReasonLabel} ar="اقتراح قابل للتطبيق؛ لا يغيّر طلب التشغيل إلا عند اختياره." /></em>
-                </div>
-                <div className="pod-gpu-recommendation-facts">
-                  <span>
-                    <b><Bi en="Actual request" ar="الطلب الفعلي" /></b>
-                    <code>{launchRequestPayloadLabel}</code>
-                  </span>
-                  <span>
-                    <b><Bi en="Suggestion state" ar="حالة الاقتراح" /></b>
-                    <em><Bi en={recommendationStateLabel} ar="الاقتراح لا يستبدل طلب التشغيل إلا عند اختياره." /></em>
-                  </span>
-                  <span>
-                    <b><Bi en="Memory selector" ar="اختيار الذاكرة" /></b>
-                    <em><Bi en="Browse chips, not a launch slider" ar="شرائح للتصفح وليست منزلق تشغيل." /></em>
-                  </span>
-                  <span>
-                    <b><Bi en="Trial route" ar="مسار التجربة" /></b>
-                    <em><Bi en={trialRouteAnswerLabel} ar="سعة DCP والمجتمع" /></em>
-                  </span>
-                </div>
-                <div className="pod-gpu-recommendation-actions">
-                  {recommendationMatchesSelected ? (
-                    <span className="selected">
-                      <Bi en="Recommendation selected" ar="تم اختيار الاقتراح" />
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => selectGpuType(recommendedGpuType.gpu_model)}
-                    >
-                      <Bi en="Use recommended GPU" ar="استخدم GPU المقترح" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
-                  >
-                    <Bi en="Keep Auto-pick request" ar="أبقِ طلب الاختيار التلقائي" />
-                  </button>
-                </div>
               </div>
             )}
 
-            <div className={`pod-final-gpu-request ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'طلب GPU النهائي' : 'Final GPU request'}>
-              <span><Bi en="Final GPU request" ar="طلب GPU النهائي" /></span>
-              <strong><Bi en={finalGpuRequestHeadline} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي للـ GPU'} /></strong>
-              <code>{launchRequestPayloadLabel}</code>
-              <em><Bi en={finalGpuRequestDetail} ar={selectedType ? 'بطاقة مثبتة في طلب التشغيل.' : 'لا توجد بطاقة مثبتة؛ تصفية الذاكرة والعمل للتصفح فقط.'} /></em>
-            </div>
-
-            <div className="pod-compute-summary" aria-live="polite" aria-label={lang === 'ar' ? 'قرار GPU في المرحلة 2' : 'Stage 2 GPU decision'}>
-              <div className="pod-compute-main">
-                <span className="pod-compute-k">
-                  <Bi en="Stage 2 actual launch GPU" ar="قرار المرحلة 2" />
-                </span>
-                {selectedType ? (
-                  <>
-                    <strong>{displayGpuType(selectedType.gpu_model)}</strong>
-                    <span>
-                      <Bi en={launchGpuLine} ar="سيتم طلب نوع GPU المحدد عند التشغيل." /> {selectedType.vram_gb} GB VRAM
-                      {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <strong><Bi en="Auto-pick at launch · no GPU pinned" ar="اختيار تلقائي عند التشغيل" /></strong>
-                    <span>
-                      <Bi
-                        en={`${launchGpuLine} ${gpuRequestDetail}`}
-                        ar="لم يتم تحديد نوع GPU؛ التصفية أدناه للتصفح فقط."
-                      />
-                    </span>
-                  </>
-                )}
-                <div className="pod-request-toggle" role="group" aria-label={lang === 'ar' ? 'وضع طلب GPU' : 'GPU request mode'}>
-                  <button
-                    type="button"
-                    className={!selectedType ? 'on' : ''}
-                    aria-pressed={!selectedType}
-                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
-                  >
-                    <Bi en="Auto-pick" ar="اختيار تلقائي" />
-                  </button>
-                  <button
-                    type="button"
-                    className={selectedType ? 'on' : ''}
-                    aria-pressed={!!selectedType}
-                    onClick={() => document.getElementById('gpu-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                  >
-                    <Bi en="Fixed GPU" ar="GPU محدد" />
-                  </button>
+            {reveal.jupyterToken && (
+              <div className="pod-access-block">
+                <div className="pod-access-body">
+                  <span className="pod-access-k">
+                    <Bi en="Jupyter token" ar="رمز Jupyter" />
+                  </span>
+                  <code className="pod-access-ssh">{reveal.jupyterToken}</code>
                 </div>
-                <div className={`pod-stage2-mode-card ${selectedType ? 'fixed' : 'auto'}`}>
-                  <span>
-                    <Bi en="Launch mode" ar="وضع التشغيل" />
-                  </span>
-                  <strong>
-                    <Bi en={launchModeHeadline} ar={selectedType ? 'تم تحديد GPU للتشغيل' : 'الاختيار التلقائي محدد للتشغيل'} />
-                  </strong>
-                  <em>
-                    <Bi en={launchModeDetail} ar={selectedType ? 'سيرسل التشغيل نوع GPU هذا. التصفية أدناه للتصفح فقط.' : 'القوالب وتصفية الذاكرة تضيق البطاقات فقط ولا تثبت GPU حتى تختار بطاقة.'} />
-                  </em>
-                </div>
-                <div className={`pod-request-preview ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'معاينة طلب التشغيل' : 'Launch request preview'}>
-                  <span>
-                    <Bi en="What DCP will send" ar="ما سيرسله DCP" />
-                  </span>
-                  <code>{launchRequestPayloadLabel}</code>
-                  <em>
-                    <Bi en={launchRequestPayloadDetail} ar={selectedType ? 'بطاقة GPU المحددة مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة GPU مثبتة؛ التصفية والقوالب للتصفح فقط.'} />
-                  </em>
-                </div>
-                <div className="pod-decision-lane" aria-label={lang === 'ar' ? 'ملخص قرارات المرحلة 2' : 'Stage 2 decision summary'}>
-                  <span>
-                    <b><Bi en="Template" ar="القالب" /></b>
-                    {selectedRuntimeLabel}
-                  </span>
-                  <span>
-                    <b><Bi en="Filter" ar="التصفية" /></b>
-                    <Bi en={stage2FilterLabel} ar={minVram > 0 ? `تصفية ${minVram} غ.ب+` : 'بدون تصفية تصفح'} />
-                  </span>
-                  <span className={selectedType ? 'fixed' : 'auto'}>
-                    <b><Bi en="Actual GPU" ar="GPU الفعلي" /></b>
-                    {stage2GpuDecisionLabel}
-                  </span>
-                </div>
-                <div className="pod-stage2-source-grid" aria-label={lang === 'ar' ? 'مصادر قرار GPU' : 'GPU decision source guide'}>
-                  <span className="affects">
-                    <b><Bi en="Affects launch" ar="يؤثر على التشغيل" /></b>
-                    <Bi en="Auto-pick toggle or a selected GPU card" ar="زر الاختيار التلقائي أو بطاقة GPU محددة" />
-                  </span>
-                  <span>
-                    <b><Bi en="Browse only" ar="تصفح فقط" /></b>
-                    <Bi en="Template hint, VRAM chips, search, and sort" ar="تلميح القالب وشرائح الذاكرة والبحث والترتيب" />
-                  </span>
-                  <span>
-                    <b><Bi en="Trial accounts" ar="حسابات التجربة" /></b>
-                    <Bi en={`${trialFounderAnswerLabel}; ${trialRouteAnswerLabel}.`} ar="لا يوجد وسم منفصل؛ رصيد المنحة يستخدم وحدات DCP والمجتمع." />
-                  </span>
-                </div>
-                <div className="pod-stage2-rule" aria-label={lang === 'ar' ? 'قاعدة اختيار GPU في المرحلة 2' : 'Stage 2 launch GPU selection rule'}>
-                  <strong>
-                    <Bi en="Launch selection rule" ar="قاعدة اختيار التشغيل" />
-                  </strong>
-                  <span>
-                    <Bi
-                      en="Only Auto-pick or a GPU card selected with Use as launch GPU changes what DCP sends. Templates, workload presets, VRAM chips, search, and sort only organize choices."
-                      ar="الاختيار التلقائي أو بطاقة GPU المحددة فقط يغير ما يرسله DCP. القوالب والعمل والذاكرة والبحث والترتيب تنظّم الخيارات فقط."
-                    />
-                  </span>
-                </div>
-              </div>
-              <div className="pod-compute-facts">
-                <span className={selectedType ? 'pod-request-state fixed' : 'pod-request-state auto'}>
-                  {selectedType
-                    ? <Bi en={`Request mode: ${gpuRequestModeLabel}`} ar="وضع الطلب: GPU محدد" />
-                    : <Bi en={`Request mode: ${gpuRequestModeLabel}`} ar="وضع الطلب: اختيار تلقائي" />}
-                </span>
-                <span className={`pod-policy-state ${trialRoutingStatus === 'loading' ? 'loading' : trialRoutingSynced ? 'ready' : 'fallback'}`}>
-                  {trialRoutingStatus === 'loading'
-                    ? <Bi en="Credit policy: checking" ar="سياسة الرصيد: جار التحقق" />
-                    : trialRoutingSynced
-                      ? <Bi en="Credit policy: synced" ar="سياسة الرصيد: متزامنة" />
-                      : <Bi en="Credit policy: built-in fallback" ar="سياسة الرصيد: نسخة احتياطية" />}
-                </span>
-                {minVram > 0 && (
-                  <span>
-                    <Bi en={`Browse-only filter: ≥ ${minVram} GB`} ar={`تصفية البطاقات: ≥ ${minVram} غ.ب`} />
-                  </span>
-                )}
-                {minVram > 0 && !selectedType && (
-                  <span className="pod-filter-note">
-                    <Bi en="Filter only; not the launch GPU" ar="تصفية فقط؛ ليست GPU التشغيل" />
-                  </span>
-                )}
-                <span className="pod-filter-note">
-                  <Bi en="VRAM chips are browse filters, not the selected launch GPU" ar="شرائح الذاكرة للتصفح فقط وليست GPU التشغيل المحددة" />
-                </span>
-                {selectedQuoteSar != null && (
-                  <span>
-                    <Bi en={`Quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير: ~${fmtSar(selectedQuoteSar)} ﷼`} />
-                  </span>
-                )}
-                <span>
-                  <Bi en={trialCapacityAnswerLabel} ar="رصيد التجربة: سعة DCP والمجتمع" />
-                </span>
-                <span>
-                  <Bi en={highDemandCapacityCopy} ar="السعة عالية الطلب: رصيد مدفوع" />
-                </span>
-                <span>
-                  <Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" />
-                </span>
-                <span>
-                  <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
-                </span>
-                <span>
-                  <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
-                </span>
-                <span>
-                  <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
-                </span>
-                <span>
-                  <Bi en={trialFounderAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
-                </span>
-                <span>
-                  <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
-                </span>
-                {selectedType && (
-                  <button
-                    type="button"
-                    className="pod-auto-pick"
-                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
-                  >
-                    <Bi en="Use auto-pick" ar="استخدم الاختيار التلقائي" />
-                  </button>
-                )}
-                {trialRoutingStatus === 'error' && trialRoutingError && (
-                  <span className="pod-policy-note">
-                    <Bi en="Launch still uses backend gates." ar="التشغيل لا يزال يستخدم بوابات الخادم." />
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="gpu-selection-strip" aria-label={lang === 'ar' ? 'طلب GPU للتشغيل' : 'Actual launch GPU request'} aria-live="polite">
-              <div className="gpu-selection-copy">
-                <span className="gpu-selection-k">
-                  <Bi en="Stage 2 selected launch GPU" ar="GPU التشغيل المحدد في المرحلة 2" />
-                </span>
-                {selectedType ? (
-                  <>
-                    <strong>{displayGpuType(selectedType.gpu_model)}</strong>
-                    <span>
-                      {selectedType.vram_gb} GB VRAM
-                      {selectedType.sar_per_hour != null && ` · SAR ${fmtSar(selectedType.sar_per_hour)}/hr`}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <strong><Bi en="Auto-pick: no fixed GPU" ar="اختيار تلقائي: بدون GPU محدد" /></strong>
-                    <span>
-                      <Bi
-                        en={gpuRequestDetail}
-                        ar="لم يتم تحديد نوع GPU؛ التصفية تقلل البطاقات أدناه فقط."
-                      />
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="gpu-selection-actions">
-                <span className={`gpu-selection-chip ${selectedType ? 'fixed' : 'auto'}`}>
-                  {selectedType
-                    ? <Bi en="Request: fixed GPU" ar="الطلب: GPU محدد" />
-                    : <Bi en="Request: auto-pick" ar="الطلب: اختيار تلقائي" />}
-                </span>
-                <span className={`gpu-selection-chip ${selectedType ? 'fixed' : 'auto'}`}>
-                  <Bi en={stage2ModeChipLabel} ar={selectedType ? 'الوضع: GPU محدد' : 'الوضع: اختيار تلقائي'} />
-                </span>
-                <span className="gpu-selection-chip final">
-                  <Bi en="Final launch request" ar="طلب التشغيل النهائي" />
-                </span>
-                <span className="gpu-selection-chip request">
-                  {launchRequestPayloadLabel}
-                </span>
-                <span className="gpu-selection-chip">
-                  {minVram > 0
-                    ? <Bi en={`Browse filter ${minVram} GB+`} ar={`تصفية التصفح ${minVram} غ.ب+`} />
-                    : <Bi en="Any VRAM" ar="أي ذاكرة" />}
-                </span>
-                {selectedTemplateMinVram && (
-                  <span className="gpu-selection-chip">
-                    <Bi en={`Template hint ${selectedTemplateMinVram} GB+`} ar={`تلميح القالب ${selectedTemplateMinVram} غ.ب+`} />
-                  </span>
-                )}
-                <span className="gpu-selection-chip">
-                  {activeWorkloadLabel
-                    ? (lang === 'ar' ? activeWorkloadLabel.titleAr : activeWorkloadLabel.titleEn)
-                    : <Bi en="No workload filter" ar="لا توجد تصفية عمل" />}
-                </span>
-                <span className="gpu-selection-chip">
-                  <Bi en={`${shownCount} shown`} ar={`${shownCount} معروضة`} />
-                </span>
-                {selectedType && (
-                  <button
-                    type="button"
-                    className="gpu-selection-action"
-                    onClick={() => setLaunch((l) => ({ ...l, gpuType: '', ...keepFundingLaunchError(l.error, l.creditError) }))}
-                  >
-                    <Bi en="Back to auto-pick" ar="العودة للاختيار التلقائي" />
-                  </button>
-                )}
-                {activeFilterCount > 0 && (
-                  <button type="button" className="gpu-selection-action" onClick={clearGpuFilters}>
-                    <Bi en="Clear filters" ar="مسح التصفية" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="pod-trial-policy" aria-label={lang === 'ar' ? 'سياسة تجربة الحاويات' : 'Trial routing policy'}>
-              <div className="pod-trial-copy">
-                <span className="pod-trial-k">
-                  <Bi en="Trial routing policy" ar="سياسة تجربة الحاويات" />
-                </span>
-                <strong>
-                  <Bi en={trialPolicyHeadline} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب مصدر الرصيد'} />
-                </strong>
-                <span>
-                  <Bi en={`${trialPolicyDetail} ${trialGrantAnswerLabel}.`} ar="لا يوجد وسم تجربة منفصل؛ رصيد التجربة يستخدم سعة DCP والمجتمع، والسعة عالية الطلب تتطلب رصيدًا مدفوعًا." />
-                </span>
-              </div>
-              <div className="pod-trial-facts">
-                <span className={minimumCreditPolicy ? 'ready' : 'checking'}>
-                  <Bi en={creditPolicyContractLabel} ar={minimumCreditPolicy ? 'سياسة الحد الأدنى متزامنة' : 'سياسة الحد الأدنى قيد الفحص'} />
-                </span>
-                <span className={trialRoutingSynced ? 'ready' : 'checking'}>
-                  <Bi en={trialPolicySourceLabel} ar={trialRoutingSynced ? 'سياسة الخادم: متزامنة' : 'سياسة الخادم: قيد الفحص'} />
-                </span>
-                <span>
-                  <Bi en={trialAccountModeLabel} ar={explicitTrialTagLive ? 'حسابات التجربة: وسم صريح' : 'حسابات التجربة: حسب مصدر الرصيد'} />
-                </span>
-                <span>
-                  <Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم حساب التجربة نشط' : 'لا يوجد وسم حساب تجربة مباشر'} />
-                </span>
-                <span>
-                  <Bi en={trialCreditSourceLabel} ar="مصدر التجربة: رصيد المنحة" />
-                </span>
-                <span>
-                  <Bi en={trialGrantAnswerLabel} ar="رصيد التجربة من المنحة" />
-                </span>
-                <span className={trialClassification?.mutates_account_classification === false ? 'ready' : 'checking'}>
-                  <Bi en={derivedTrialStateLabel} ar="حالة التجربة مشتقة من مصدر الرصيد" />
-                </span>
-                <span>
-                  <Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" />
-                </span>
-                <span>
-                  <Bi en={highDemandAnswerLabel} ar="وحدات الطلب العالي: رصيد مدفوع فقط" />
-                </span>
-                <span>
-                  <Bi en={trialFounderAnswerLabel} ar={explicitTrialTagLive ? 'وسم التجربة ظاهر على الحساب' : 'لا يوجد وسم منفصل؛ مصدر الرصيد يحدد المسار'} />
-                </span>
-                <span>
-                  <Bi en="Provider identity hidden" ar="هوية المزود مخفية" />
-                </span>
-              </div>
-            </div>
-
-            <div className="pod-balance-policy" aria-label={lang === 'ar' ? 'سياسة الحد الأدنى للرصيد' : 'Minimum balance policy'}>
-              <div className="pod-balance-copy">
-                <span className="pod-balance-k">
-                  <Bi en="Minimum balance policy" ar="سياسة الحد الأدنى للرصيد" />
-                </span>
-                <strong>
-                  <Bi en="Credit gates are visible before launch" ar="بوابات الرصيد ظاهرة قبل التشغيل" />
-                </strong>
-                <span>
-                  <Bi
-                    en="Provider/community pods use quote preflight; high-demand pods require paid available credit."
-                    ar="حاويات DCP والمجتمع تستخدم فحص التسعير؛ الطلب العالي يحتاج رصيداً مدفوعاً متاحاً."
-                  />
-                </span>
-              </div>
-              <div className="pod-balance-facts">
-                <span className={minimumBalanceSynced ? 'ready' : 'checking'}>
-                  <Bi en={minimumBalanceSourceLabel} ar={minimumBalanceSynced ? 'الحد الأدنى: متزامن' : 'الحد الأدنى: قيد الفحص'} />
-                </span>
-                <span>
-                  <Bi en={providerPodGateLabel} ar="حاويات DCP والمجتمع: فحص التسعير" />
-                </span>
-                <span>
-                  <Bi en={onDemandPodGateLabel} ar="حاويات الطلب العالي: فحص الرصيد المدفوع" />
-                </span>
-                <span>
-                  <Bi en={`Paid available SAR ${fmtSar(paidAvailableSar)}`} ar={`الرصيد المدفوع المتاح ${fmtSar(paidAvailableSar)} ﷼`} />
-                </span>
-                <span className="blocked">
-                  <Bi en="Trial credit does not unlock high-demand GPUs" ar="رصيد التجربة لا يفتح وحدات الطلب العالي" />
-                </span>
-                <span className={minimumBalance?.claim_guards?.changes_trial_accounting ? 'checking' : 'ready'}>
-                  <Bi en="No trial-accounting change" ar="لا تغيير في حسابات التجربة" />
-                </span>
-                <span className={minimumBalance?.claim_guards?.changes_paid_credit_policy ? 'checking' : 'ready'}>
-                  <Bi en="No paid-credit policy change" ar="لا تغيير في سياسة الرصيد المدفوع" />
-                </span>
-                <span className={minimumBalance?.claim_guards?.changes_enforcement ? 'checking' : 'ready'}>
-                  <Bi
-                    en={minimumBalance?.claim_guards?.changes_enforcement ? 'Enforcement change: pending' : 'Read-only: no enforcement change'}
-                    ar={minimumBalance?.claim_guards?.changes_enforcement ? 'تغيير التنفيذ: معلق' : 'قراءة فقط: لا تغيير في التنفيذ'}
-                  />
-                </span>
-                <span>
-                  <Bi en={`${futureBillingRailsBlocked} future billing rails blocked`} ar={`${futureBillingRailsBlocked} مسارات فوترة مستقبلية مقيدة`} />
-                </span>
-                {minimumBalanceStatus === 'error' && minimumBalanceError && (
-                  <span className="checking">
-                    <Bi en="Launch still uses backend credit gates" ar="التشغيل لا يزال يستخدم بوابات الرصيد الخلفية" />
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {trialRoutingSynced && (
-              <div className="pod-proof-strip" aria-label={lang === 'ar' ? 'بوابات إثبات الحاويات' : 'Pod proof gates'}>
-                <div className="pod-proof-copy">
-                  <span className="pod-proof-k">
-                    <Bi en="Pod proof gates" ar="بوابات إثبات الحاوية" />
-                  </span>
-                  <strong>
-                    <Bi en="Workspace and LoRA image evidence" ar="أدلة مساحة العمل وصورة LoRA" />
-                  </strong>
-                  <span>
-                    <Bi
-                      en="CI contracts are visible; live GPU-host acceptance still needs a funded provider window."
-                      ar="عقود CI ظاهرة؛ قبول GPU الحي يحتاج نافذة مزود ممولة."
-                    />
-                  </span>
-                </div>
-                <div className="pod-proof-facts">
-                  <span className="ready">
-                    <Bi
-                      en={`Workspace contract: ${workspacePodContractStatus === 'ci_safe' ? 'CI safe' : 'checking'}`}
-                      ar={`عقد مساحة العمل: ${workspacePodContractStatus === 'ci_safe' ? 'آمن CI' : 'قيد الفحص'}`}
-                    />
-                  </span>
-                  <span className="blocked">
-                    <Bi
-                      en={`Workspace live: ${workspaceLiveStatus === 'blocked_external' ? 'provider window' : 'checking'}`}
-                      ar={`مساحة العمل الحية: ${workspaceLiveStatus === 'blocked_external' ? 'نافذة مزود' : 'قيد الفحص'}`}
-                    />
-                  </span>
-                  <span className="blocked">
-                    <Bi
-                      en={`LoRA image: ${loraPodImageStatus === 'blocked_external' ? 'GPU-host proof' : 'checking'}`}
-                      ar={`صورة LoRA: ${loraPodImageStatus === 'blocked_external' ? 'إثبات GPU' : 'قيد الفحص'}`}
-                    />
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <section className="pod-template-picker" aria-labelledby="pod-template-heading">
-              <div className="pod-template-hd">
-                <div>
-                  <span className="pod-label"><Bi en="Launch template" ar="قالب التشغيل" /></span>
-                  <h4 id="pod-template-heading">
-                    <Bi en="Choose the pod shape" ar="اختر شكل الحاوية" />
-                  </h4>
-                </div>
-                <span className="hint">
-                  <Bi en="Backed by /api/templates/catalog where available" ar="مدعومة عبر /api/templates/catalog عند التوفر" />
-                </span>
-              </div>
-              <div className={`pod-template-contract ${templateCatalogStatus}`}>
-                <span className="pod-template-contract-k">
-                  <Bi en="Backend catalog" ar="كتالوج الخلفية" />
-                </span>
-                <strong>
-                  {templateCatalogStatus === 'ready'
-                    ? `${templateCatalog.length} templates${templateCatalogVersion ? ` · ${templateCatalogVersion}` : ''}`
-                    : templateCatalogStatus === 'loading'
-                      ? (lang === 'ar' ? 'جارٍ الفحص' : 'Checking')
-                      : templateCatalogStatus === 'error'
-                        ? (templateCatalogError || (lang === 'ar' ? 'غير متاح' : 'Unavailable'))
-                        : (lang === 'ar' ? 'بانتظار الفحص' : 'Pending')}
-                </strong>
-              </div>
-              <div className="pod-template-grid">
-                {LAUNCH_TEMPLATES.map((template) => {
-                  const catalogIds = catalogIdsFor(template)
-                  const catalogItems = catalogItemsFor(template, templateCatalogById)
-                  const catalogMissing =
-                    templateCatalogStatus === 'ready' &&
-                    catalogIds.length > 0 &&
-                    catalogItems.length !== catalogIds.length
-                  const disabled = template.disabled || catalogMissing
-                  const selected = !disabled && selectedTemplateKey === template.key
-                  const minVram = catalogMinVram(template, catalogItems)
-                  const duration = catalogDuration(template, catalogItems)
-                  const catalogBadge =
-                    catalogItems.length === catalogIds.length && catalogIds.length > 0
-                      ? (lang === 'ar' ? 'موثق' : 'Catalog verified')
-                      : templateCatalogStatus === 'loading'
-                        ? (lang === 'ar' ? 'فحص الكتالوج' : 'Checking catalog')
-                        : templateCatalogStatus === 'error'
-                          ? (lang === 'ar' ? 'كتالوج غير متاح' : 'Catalog offline')
-                          : catalogMissing
-                            ? (lang === 'ar' ? 'مفقود من الكتالوج' : 'Missing catalog')
-                            : ''
-                  return (
-                    <button
-                      key={template.key}
-                      type="button"
-                      className={`pod-template-card${selected ? ' on' : ''}${disabled ? ' disabled' : ''}`}
-                      aria-pressed={selected}
-                      aria-disabled={disabled || undefined}
-                      disabled={disabled || !isLive}
-                      onClick={() => applyLaunchTemplate(template)}
-                    >
-                      {(catalogBadge || template.badgeEn || disabled) && (
-                        <span className="pod-template-badge">
-                          {catalogBadge || (lang === 'ar'
-                            ? (template.badgeAr || 'قريباً')
-                            : (template.badgeEn || 'Coming next'))}
-                        </span>
-                      )}
-                      <span className="pod-template-title">{lang === 'ar' ? template.titleAr : template.titleEn}</span>
-                      <span className="pod-template-desc">{lang === 'ar' ? template.descAr : template.descEn}</span>
-                      <span className="pod-template-meta">
-                        {template.image}
-                        {duration ? ` · ${formatDuration(duration)}` : ''}
-                        {minVram ? ` · ≥ ${minVram} GB` : ''}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-
-            {/* ── GPU picker: optional workload helper + toolbar + card grid ── */}
-            <div className="gpu-picker">
-              <div className={`gpu-picker-status ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'حالة GPU المختار للتشغيل' : 'GPU picker selected launch state'}>
-                <div className="gpu-picker-status-copy">
-                  <span><Bi en="Actual launch request" ar="طلب التشغيل الفعلي" /></span>
-                  <strong><Bi en={gpuPickerLaunchHeadline} ar={selectedType ? 'تم اختيار GPU للتشغيل' : 'المختار للتشغيل: اختيار تلقائي'} /></strong>
-                  <em><Bi en={gpuPickerLaunchDetail} ar={selectedType ? 'تغيير التصفية لا يستبدل GPU المثبت.' : 'لا توجد بطاقة مثبتة؛ التصفية تنظم القائمة فقط.'} /></em>
-                </div>
-                <div className="gpu-picker-status-facts">
-                  <code>{gpuPickerRequestCode}</code>
-                  <span><Bi en="VRAM chips are filters only" ar="شرائح الذاكرة للتصفية فقط" /></span>
-                  <a href="#gpu-results"><Bi en="Choose a GPU card" ar="اختر بطاقة GPU" /></a>
-                </div>
-              </div>
-              {/* Optional "Guide me by workload" helper (collapsed by default) */}
-              <section className="gpu-assist" data-open={assistOpen} aria-label={lang === 'ar' ? 'دليل العمل' : 'Workload guide'}>
                 <button
                   type="button"
-                  className="gpu-assist-head"
-                  aria-expanded={assistOpen}
-                  aria-controls="gpu-assist-body"
-                  onClick={() => setAssistOpen((v) => !v)}
+                  className="btn-sec pod-copy"
+                  onClick={() => copyText('reveal-token', reveal.jupyterToken)}
+                  aria-label="Copy Jupyter token"
                 >
-                  <span className="ico" aria-hidden="true">◇</span>
-                  <span className="gpu-assist-title">
-                    <Bi en="Not sure which GPU? Guide me by workload" ar="غير متأكد أي معالج؟ دلّني حسب العمل" />
-                  </span>
-                  <span className="chev" aria-hidden="true">▾</span>
+                  {copied === 'reveal-token' ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
                 </button>
-                {assistOpen && (
-                  <div className="gpu-assist-body" id="gpu-assist-body">
-                    <p className="gpu-assist-q">
-                      <Bi en="What are you running?" ar="ماذا تشغّل؟" />
-                    </p>
-                    <div className="gpu-workloads" role="group" aria-label={lang === 'ar' ? 'نوع العمل' : 'Workload type'}>
-                      {WORKLOADS.map((w) => (
-                        <button
-                          key={w.key}
-                          type="button"
-                          className="gpu-wk"
-                          aria-pressed={activeWorkload === w.key}
-                          onClick={() => applyWorkload(w)}
-                        >
-                          <span className="t">{lang === 'ar' ? w.titleAr : w.titleEn}</span>
-                          <span className="d">{lang === 'ar' ? w.descAr : w.descEn}</span>
-                          <span className="n">{lang === 'ar' ? `≥ ${w.floor} غ.ب` : `≥ ${w.floor} GB`}</span>
-                        </button>
-                      ))}
-                    </div>
-                    {activeWorkload && (() => {
-                      const w = WORKLOADS.find((x) => x.key === activeWorkload)
-                      if (!w) return null
-                      return (
-                        <div className="gpu-reco" aria-live="polite">
-                          <span className="label">
-                            <Bi en="Filtered for this workload" ar="تمت التصفية لهذا العمل" />
-                          </span>
-                          <p className="why">
-                            <Bi
-                              en={`Workload preset applied: ${w.titleEn}. Showing GPU types with at least ${w.floor} GB of VRAM. ${
-                                workloadSuggestionLabel ? `${workloadSuggestionLabel} is highlighted as a workload match. ` : ''
-                              }Launch remains ${workloadLaunchStateLabel} until you choose Use as launch GPU on a card.`}
-                              ar={`تم تطبيق قالب العمل: ${w.titleAr}. تُعرض المعالجات بذاكرة ${w.floor} غيغابايت على الأقل. يبقى طلب التشغيل كما هو حتى تختار بطاقة GPU.`}
-                            />
-                          </p>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )}
-              </section>
-
-              <div className="gpu-filter-callout" aria-label={lang === 'ar' ? 'مصدر اختيار GPU' : 'GPU selection source of truth'}>
-                <span className="gpu-filter-callout-k">
-                  <Bi en="Before filtering" ar="قبل التصفية" />
-                </span>
-                <strong>
-                  <Bi en="The launch GPU is only Auto-pick or a card marked Selected launch GPU." ar="GPU التشغيل هو الاختيار التلقائي أو بطاقة محددة فقط." />
-                </strong>
-                <em>
-                  <Bi en="VRAM chips, workload guide, search, and sort change the list you see. They do not change the final request until you pick a GPU card." ar="شرائح الذاكرة ودليل العمل والبحث والترتيب تغيّر القائمة فقط ولا تغيّر طلب التشغيل حتى تختار بطاقة." />
-                </em>
               </div>
-
-              {/* Quiet toolbar: search + min-VRAM + sort + availability chips */}
-              <div className="gpu-toolbar">
-                <div className="gpu-tb-left">
-                  <div className="gpu-ctl gpu-search">
-                    <span className="mag" aria-hidden="true">⌕</span>
-                    <label className="sr-only" htmlFor="gpu-search">
-                      {lang === 'ar' ? 'ابحث عن معالج بالاسم أو الذاكرة' : 'Search GPU by name, brand or VRAM'}
-                    </label>
-                    <input
-                      id="gpu-search"
-                      type="search"
-                      value={gpuSearch}
-                      onChange={(e) => setGpuSearch(e.target.value)}
-                      placeholder={lang === 'ar' ? 'ابحث عن معالج (مثل 4090، H100)' : 'Search GPU (e.g. 4090, H100, 80GB)'}
-                      autoComplete="off"
-                      disabled={!isLive}
-                    />
-                  </div>
-                  <div className="gpu-ctl gpu-vram">
-                    <label id="gpu-vram-filter-label">
-                      <Bi en="Filter list by VRAM (not launch GPU)" ar="صفّ القائمة حسب الذاكرة، وليس GPU التشغيل" />
-                    </label>
-                    <div className="gpu-vram-options" role="group" aria-labelledby="gpu-vram-filter-label">
-                      {VRAM_FILTER_OPTIONS.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className="gpu-vram-chip"
-                          aria-pressed={minVram === value}
-                          onClick={() => setMinVram(value)}
-                          disabled={!isLive}
-                        >
-                          {value === 0
-                            ? <Bi en="Any" ar="أي" />
-                            : <Bi en={`${value} GB+`} ar={`${value} غ.ب+`} />}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="gpu-filter-disclaimer">
-                      <Bi
-                        en={vramFilterDisclaimer}
-                        ar={selectedType ? 'هذه تصفية تصفح فقط. يبقى GPU التشغيل المثبت كما هو حتى تختار بطاقة أخرى أو تعود للاختيار التلقائي.' : 'هذه تصفية تصفح فقط. يبقى GPU التشغيل على الاختيار التلقائي حتى تختار بطاقة.'}
-                      />
-                    </p>
-                    <p className={`gpu-filter-state ${selectedType ? 'fixed' : 'auto'}`}>
-                      <span><Bi en="Current launch state" ar="حالة التشغيل الحالية" /></span>
-                      <strong><Bi en={vramFilterLaunchState} ar={selectedType ? 'طلب التشغيل: GPU محدد' : 'طلب التشغيل: اختيار تلقائي'} /></strong>
-                    </p>
-                  </div>
-                  <div className="gpu-ctl">
-                    <label htmlFor="gpu-sort">
-                      <Bi en="Sort" ar="ترتيب" />
-                    </label>
-                    <select
-                      id="gpu-sort"
-                      className="gpu-sort"
-                      value={sortKey}
-                      onChange={(e) => setSortKey(e.target.value as SortKey)}
-                      disabled={!isLive}
-                    >
-                      <option value="recommended">{lang === 'ar' ? 'موصى به' : 'Recommended'}</option>
-                      <option value="price-asc">{lang === 'ar' ? 'السعر — من الأقل' : 'Price — low to high'}</option>
-                      <option value="price-desc">{lang === 'ar' ? 'السعر — من الأعلى' : 'Price — high to low'}</option>
-                      <option value="vram-desc">{lang === 'ar' ? 'الذاكرة — من الأعلى' : 'VRAM — high to low'}</option>
-                      <option value="vram-asc">{lang === 'ar' ? 'الذاكرة — من الأقل' : 'VRAM — low to high'}</option>
-                      <option value="name">{lang === 'ar' ? 'الاسم أ–ي' : 'Name A–Z'}</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="gpu-ctl">
-                  <label id="gpu-avail-lbl">
-                    <Bi en="Availability" ar="التوفر" />
-                  </label>
-                  <div className="gpu-chips" role="group" aria-labelledby="gpu-avail-lbl">
-                    <button
-                      type="button"
-                      className="gpu-chip"
-                      aria-pressed={availFilters.has('available')}
-                      onClick={() => toggleAvailFilter('available')}
-                      disabled={!isLive}
-                    >
-                      <Bi en="Available" ar="متاح" />
-                    </button>
-                    <button
-                      type="button"
-                      className="gpu-chip"
-                      aria-pressed={availFilters.has('priced')}
-                      onClick={() => toggleAvailFilter('priced')}
-                      disabled={!isLive}
-                    >
-                      <Bi en="Priced now" ar="مُسعّر الآن" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <p className="gpu-summary" aria-live="polite">
-                {lang === 'ar'
-                  ? `${shownCount} ${shownCount === 1 ? 'نوع' : 'أنواع'} معروضة · ${gpuTypeCount} متاح${minPrice != null ? ` · من ${fmtSar(minPrice)} ﷼/س` : ''}`
-                  : `${shownCount} GPU ${shownCount === 1 ? 'type' : 'types'} shown · ${gpuTypeCount} available${minPrice != null ? ` · from SAR ${fmtSar(minPrice)}/hr` : ''}`}
-              </p>
-
-              {/* ONE radiogroup spanning all bands (a11y: native radio semantics) */}
-              <div id="gpu-results" className="gpu-results" role="radiogroup" aria-label={lang === 'ar' ? 'نوع المعالج' : 'GPU type'}>
-                {!isLive ? (
-                  <p className="gpu-empty">
-                    <Bi en="Loading GPU types…" ar="جارٍ تحميل أنواع المعالجات…" />
-                  </p>
-                ) : shownCount === 0 ? (
-                  <p className="gpu-empty">
-                    <Bi en="No GPU types match your filters." ar="لا توجد أنواع معالجات تطابق عوامل التصفية." />
-                    <button type="button" className="gpu-clear" onClick={clearGpuFilters}>
-                      <Bi en="Clear filters" ar="مسح التصفية" />
-                    </button>
-                  </p>
-                ) : (
-                  BANDS.map((band) => {
-                    const inBand = sortGpuTypes(filteredTypes.filter((g) => g.band === band.key), sortKey)
-                    if (!inBand.length) return null
-                    const collapsed = collapsedBands.has(band.key)
-                    return (
-                      <section key={band.key} className="gpu-group" data-collapsed={collapsed}>
-                        <button
-                          type="button"
-                          className="gpu-group-head"
-                          aria-expanded={!collapsed}
-                          onClick={() => toggleBand(band.key)}
-                        >
-                          <span className="chev" aria-hidden="true">▾</span>
-                          <h3>{lang === 'ar' ? band.ar : band.en}</h3>
-                          <span className="meta">{lang === 'ar' ? band.subAr : band.subEn}</span>
-                        </button>
-                        {!collapsed && (
-                          <div className="gpu-grid">
-                            {inBand.map((g, idx) => {
-                              const out = !g.available
-                              const unpriced = g.sar_per_hour == null
-                              const selectable = !out && !unpriced
-                              const selected = launch.gpuType === g.gpu_model
-                              const workloadMatch = !!activeWorkloadPreset &&
-                                selectable &&
-                                g.gpu_model.toLowerCase().includes(activeWorkloadPreset.prefer)
-                              const reco = (isValuePick(g.gpu_model) && selectable) || workloadMatch
-                              const brand = gpuBrand(g.gpu_model)
-                              const name = displayGpuType(g.gpu_model)
-                              const cls = [
-                                'gpu-card',
-                                out ? 'is-out' : '',
-                                reco ? 'is-reco' : '',
-                                workloadMatch ? 'is-workload-match' : '',
-                              ].filter(Boolean).join(' ')
-                              // roving tabindex: the selected radio (or the first
-                              // selectable card) is the single tab stop.
-                              const isFirstSelectable =
-                                selectable && !selectedType && idx === inBand.findIndex((x) => x.available && x.sar_per_hour != null)
-                              const tabIndex = selectable ? (selected || isFirstSelectable ? 0 : -1) : undefined
-                              const availLabel = out
-                                ? lang === 'ar' ? 'غير متوفر' : 'Out of stock'
-                                : lang === 'ar' ? 'متاح' : 'Available'
-                              const ariaLabel = `${name}, ${g.vram_gb} GB VRAM, ${
-                                unpriced ? (lang === 'ar' ? 'السعر عند الطلب' : 'price on request') : `${fmtSar(g.sar_per_hour as number)} SAR/hr`
-                              }, ${availLabel}`
-                              const onSelect = () => selectable && selectGpuType(g.gpu_model)
-                              const onKey = (e: React.KeyboardEvent) => {
-                                if (!selectable) return
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  selectGpuType(g.gpu_model)
-                                }
-                              }
-                              return (
-                                <div
-                                  key={g.gpu_model}
-                                  className={cls}
-                                  role={selectable ? 'radio' : 'group'}
-                                  aria-checked={selectable ? selected : undefined}
-                                  aria-disabled={selectable ? undefined : true}
-                                  aria-label={ariaLabel}
-                                  tabIndex={tabIndex}
-                                  onClick={onSelect}
-                                  onKeyDown={onKey}
-                                >
-                                  {reco && (
-                                    <span className="gpu-ribbon">
-                                      {workloadMatch
-                                        ? <Bi en="Workload match" ar="مطابق للعمل" />
-                                        : <Bi en="Best value" ar="أفضل قيمة" />}
-                                    </span>
-                                  )}
-                                  {selected && (
-                                    <span className="gpu-selected-ribbon">
-                                      <Bi en="Selected launch GPU" ar="GPU التشغيل المحدد" />
-                                    </span>
-                                  )}
-                                  <div className="gpu-card-top">
-                                    <div>
-                                      <p className="gpu-card-brand">{brand}</p>
-                                      <h4 className="gpu-card-name">{name}</h4>
-                                    </div>
-                                    <div className="gpu-price-block">
-                                      {unpriced ? (
-                                        <div className="gpu-price-tba">
-                                          <Bi en="Contact sales" ar="تواصل مع المبيعات" />
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <div className="gpu-price">
-                                            <span className="cur">SAR</span>
-                                            {fmtSar(g.sar_per_hour as number)}
-                                            <span className="unit">/hr</span>
-                                          </div>
-                                          <div className="gpu-price-usd">≈ ${fmtUsd(g.sar_per_hour as number)} USD/hr</div>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="gpu-card-specs">
-                                    <div className="spec">
-                                      <span className="k">VRAM</span>
-                                      <span className="v">{g.vram_gb} GB</span>
-                                    </div>
-                                    <div className="spec">
-                                      <span className="k">
-                                        <Bi en="Access" ar="الوصول" />
-                                      </span>
-                                      <span className="v">Jupyter · SSH</span>
-                                    </div>
-                                    <div className="spec">
-                                      <span className="k">
-                                        <Bi en="Billing" ar="الفوترة" />
-                                      </span>
-                                      <span className="v">
-                                        <Bi en="Per second" ar="بالثانية" />
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="gpu-card-foot">
-                                    {/* Availability conveyed by dot SHAPE + LABEL, not color alone. */}
-                                    <span className={`gpu-badge ${out ? 'out' : 'ok'}`}>
-                                      <span className="dot" aria-hidden="true" />
-                                      {availLabel}
-                                    </span>
-                                    {out ? (
-                                      <button
-                                        type="button"
-                                        className="gpu-notify"
-                                        disabled={!!notifyBusy[g.gpu_model] || !!notifyDone[g.gpu_model]}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          notifyMe(g.gpu_model)
-                                        }}
-                                        aria-label={
-                                          lang === 'ar'
-                                            ? `أعلمني عند توفر ${name}`
-                                            : `Notify me when ${name} is back in stock`
-                                        }
-                                      >
-                                        {notifyDone[g.gpu_model] ? (
-                                          <Bi en="✓ Notified" ar="✓ تم" />
-                                        ) : notifyBusy[g.gpu_model] ? (
-                                          <Bi en="…" ar="…" />
-                                        ) : (
-                                          <Bi en="Notify me" ar="أعلمني" />
-                                        )}
-                                      </button>
-                                    ) : (
-                                      <span className="gpu-card-cta">
-                                        {selected ? (
-                                          <Bi en="Launch GPU selected ✓" ar="تم تحديد GPU للتشغيل ✓" />
-                                        ) : (
-                                          <Bi en="Use as launch GPU →" ar="استخدمه كـ GPU للتشغيل →" />
-                                        )}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {out && notifyErr[g.gpu_model] && (
-                                    <span className="gpu-notify-err">{notifyErr[g.gpu_model]}</span>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </section>
-                    )
-                  })
-                )}
-              </div>
-
-              {/* Selection summary line — mirrors the mock's sticky-bar pick info. */}
-              <div className="gpu-selection" aria-live="polite">
-                {selectedType ? (
-                  <span className="gpu-selection-pick">
-                    <b>{displayGpuType(selectedType.gpu_model)}</b> · {selectedType.vram_gb} GB
-                    {selectedType.sar_per_hour != null && (
-                      <>
-                        {' · '}
-                        <span className="gpu-selection-price">
-                          SAR {fmtSar(selectedType.sar_per_hour)}/hr · ≈ ${fmtUsd(selectedType.sar_per_hour)}/hr
-                        </span>
-                      </>
-                    )}
-                  </span>
-                ) : (
-                  <span className="gpu-selection-empty">
-                    <Bi
-                      en="No GPU selected — pick a card, or launch to auto-pick an available type."
-                      ar="لم يتم اختيار معالج — اختر بطاقة، أو شغّل للاختيار التلقائي لنوع متاح."
-                    />
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="pod-stage-hd pod-stage-hd--compact pod-stage-hd--runtime" id="pod-stage-3">
-              <span className="pod-stage-no">Stage 3 of 3</span>
-              <div>
-                <h2><Bi en="Stage 3: confirm runtime and launch" ar="المرحلة 3: أكد البيئة وشغّل" /></h2>
-                <p>
-                  <Bi
-                    en="Set duration, image, and notebook access before the prepaid launch."
-                    ar="حدد المدة والصورة ووصول الدفتر قبل التشغيل مسبق الدفع."
-                  />
-                </p>
-              </div>
-            </div>
-
-            <div className="pod-form-grid">
-              {/* Duration */}
-              <div className="pod-field">
-                <label htmlFor="pod-duration" className="pod-label">
-                  <Bi en="Duration" ar="المدة" />
-                </label>
-                <select
-                  id="pod-duration"
-                  className="select"
-                  value={launch.durationMinutes}
-                  onChange={(e) => {
-                    setSelectedTemplateKey(null)
-                    setLaunch((l) => ({ ...l, durationMinutes: Number(e.target.value) }))
-                  }}
-                  disabled={!isLive}
-                >
-                  {DURATION_OPTIONS.map((d) => (
-                    <option key={d.minutes} value={d.minutes}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="pod-help">
-                  <Bi en="The pod is torn down automatically when the duration elapses. The full duration is charged upfront; an early stop refunds the difference." ar="تُغلق الحاوية تلقائيًا عند انتهاء المدة. تُحتسب المدة كاملة مسبقًا، ويُعاد الفرق عند الإيقاف المبكر." />
-                </p>
-                <p className="pod-help pod-help-reserved">
-                  <Bi
-                    en="Need 10–90 days for a long training run? Reserved capacity isn’t booked on demand — contact us at sales@dcp.sa for multi-day reserved GPUs."
-                    ar="تحتاج إلى 10–90 يومًا لتدريب طويل؟ السعة المحجوزة لا تُحجز عند الطلب — تواصل معنا على sales@dcp.sa لحجز معالجات رسومات لعدة أيام."
-                  />
-                </p>
-              </div>
-
-              {/* Image */}
-              <div className="pod-field pod-field-wide">
-                <label htmlFor="pod-image" className="pod-label">
-                  <Bi en="Image override" ar="تجاوز الصورة" />
-                </label>
-                <div className="pod-image-row">
-                  <select
-                    id="pod-image"
-                    className="select"
-                    value={launch.imageChoice}
-                    onChange={(e) => onImageChoice(e.target.value)}
-                    disabled={!isLive}
-                  >
-                    {IMAGE_PRESETS.map((img) => (
-                      <option key={img.value} value={img.value}>
-                        {lang === 'ar' ? img.labelAr : img.label}
-                      </option>
-                    ))}
-                    <option value={CUSTOM_IMAGE_OPTION}>{lang === 'ar' ? 'مخصص…' : 'Custom…'}</option>
-                  </select>
-                  {isCustom && (
-                    <input
-                      id="pod-image-custom"
-                      type="text"
-                      className="input pod-mono-input"
-                      value={launch.customImage}
-                      onChange={(e) => onCustomImage(e.target.value)}
-                      placeholder="e.g. tensorflow/tensorflow:latest-gpu"
-                      spellCheck={false}
-                      autoComplete="off"
-                      disabled={!isLive}
-                    />
-                  )}
-                </div>
-                <p className="pod-help">
-                  <Bi
-                    en="Template cards set this automatically. Use Custom only when you need an exact Docker reference; SSH is injected automatically."
-                    ar="تضبط بطاقات القوالب هذا تلقائيًا. استخدم مخصص فقط عند الحاجة إلى مرجع Docker محدد؛ يتم حقن SSH تلقائيًا."
-                  />
-                </p>
-              </div>
-
-              {/* Notebook token */}
-              <div className="pod-field pod-field-wide">
-                <label htmlFor="pod-token" className="pod-label">
-                  <Bi en="Notebook token" ar="رمز الدفتر" />
-                </label>
-                <div className="pod-token-row">
-                  <input
-                    id="pod-token"
-                    type="text"
-                    className="input pod-mono-input"
-                    value={launch.notebookToken}
-                    onChange={(e) => setLaunch((l) => ({ ...l, notebookToken: e.target.value }))}
-                    placeholder="strong token used to open Jupyter"
-                    spellCheck={false}
-                    autoComplete="off"
-                    disabled={!isLive}
-                  />
-                  <button
-                    type="button"
-                    className="btn-sec"
-                    onClick={onRegenerate}
-                    title="Generate a new token"
-                    disabled={!isLive}
-                  >
-                    <Bi en="Regenerate" ar="توليد جديد" />
-                  </button>
-                </div>
-                <p className="pod-help">
-                  <Bi
-                    en={`Used to authenticate your Jupyter session. Keep it private — at least ${MIN_TOKEN_LENGTH} characters.`}
-                    ar={`يُستخدم للمصادقة على جلسة Jupyter. احتفظ به سريًا — ${MIN_TOKEN_LENGTH} حرفًا على الأقل.`}
-                  />
-                </p>
-              </div>
-            </div>
-
-            {isFundingLaunchError(launch.error, launch.creditError) ? (
-              <div className="dash-state error pod-credit-state" style={{ marginTop: '20px' }}>
-                <b>
-                  <Bi en="Credit required" ar="الرصيد مطلوب" />
-                </b>
-                <span>
-                  {launch.creditError?.code === 'on_demand_requires_prepaid_credit'
-                    ? <Bi en="Trial credit covers DCP and community GPUs. Add paid credit to launch this GPU." ar="رصيد التجربة يغطي وحدات DCP والمجتمع. أضف رصيدًا مدفوعًا لتشغيل هذه البطاقة." />
-                    : <Bi en="Add credit before launching this pod." ar="أضف رصيدًا قبل تشغيل هذه الحاوية." />}
-                  {' '}
-                  <Link href="/renter/wallet">
-                    <Bi en="Add credit" ar="إضافة رصيد" />
-                  </Link>
-                </span>
-                {launch.creditError && (
-                  <div className="pod-credit-facts" aria-label="Credit requirement details">
-                    {launch.creditError.availableSar != null && (
-                      <span>
-                        <Bi en={`Available credit ${fmtSar(launch.creditError.availableSar)}`} ar={`الرصيد المتاح ${fmtSar(launch.creditError.availableSar)}`} />
-                      </span>
-                    )}
-                    {launch.creditError.requiredSar != null && (
-                      <span>
-                        <Bi en={`Required credit ${fmtSar(launch.creditError.requiredSar)}`} ar={`الرصيد المطلوب ${fmtSar(launch.creditError.requiredSar)}`} />
-                      </span>
-                    )}
-                    {launch.creditError.creditShortfallSar != null && launch.creditError.creditShortfallSar > 0 && (
-                      <span className="strong">
-                        <Bi en={`Add ${fmtSar(launch.creditError.creditShortfallSar)} more`} ar={`أضف ${fmtSar(launch.creditError.creditShortfallSar)} إضافية`} />
-                      </span>
-                    )}
-                    {launch.creditError.minimumPaidCreditSar != null && launch.creditError.minimumPaidCreditSar !== launch.creditError.requiredSar && (
-                      <span>
-                        <Bi en={`Minimum paid credit ${fmtSar(launch.creditError.minimumPaidCreditSar)}`} ar={`الحد الأدنى للرصيد المدفوع ${fmtSar(launch.creditError.minimumPaidCreditSar)}`} />
-                      </span>
-                    )}
-                    {launch.creditError.durationMinutes != null && (
-                      <span>
-                        <Bi en={`${launch.creditError.durationMinutes} min launch`} ar={`تشغيل ${launch.creditError.durationMinutes} دقيقة`} />
-                      </span>
-                    )}
-                    {launch.creditError.rateSarPerHour != null && (
-                      <span>
-                        <Bi en={`Rate ${fmtSar(launch.creditError.rateSarPerHour)}/hr`} ar={`السعر ${fmtSar(launch.creditError.rateSarPerHour)}/ساعة`} />
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : launch.error ? (
-              <div className="dash-state error" style={{ marginTop: '20px' }}>
-                <span>{launch.error}</span>
-              </div>
-            ) : null}
-
-            <div className={`pod-launch-confirmation ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'تأكيد التشغيل النهائي' : 'Final launch confirmation'}>
-              <div className="pod-launch-confirmation-main">
-                <span><Bi en="Launch button will use" ar="زر التشغيل سيستخدم" /></span>
-                <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-                <code>{launchRequestPayloadLabel}</code>
-                <em>
-                  <Bi
-                    en={selectedType
-                      ? 'This fixed GPU card is pinned in the final request.'
-                      : 'No fixed GPU card is pinned; DCP will auto-pick an available type at launch.'}
-                    ar={selectedType ? 'بطاقة GPU هذه مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة مثبتة؛ سيختار DCP نوعاً متاحاً عند التشغيل.'}
-                  />
-                </em>
-              </div>
-              <div className="pod-launch-confirmation-grid">
-                <span className="primary">
-                  <b><Bi en="Stage 2 source" ar="مصدر المرحلة 2" /></b>
-                  <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-                  <em>{launchRequestPayloadLabel}</em>
-                </span>
-                <span>
-                  <b><Bi en="Workspace" ar="مساحة العمل" /></b>
-                  <strong><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة مساحة عمل'} /></strong>
-                  <em>
-                    <Bi
-                      en={workspaceStageBodyOpen ? 'Stage 1 is open; launch still attaches the full /workspace volume.' : 'Stage 1 can stay collapsed; launch still attaches the full /workspace volume.'}
-                      ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة؛ التشغيل يربط كامل /workspace.' : 'يمكن إبقاء المرحلة 1 مطوية؛ التشغيل يربط كامل /workspace.'}
-                    />
-                  </em>
-                </span>
-                <span>
-                  <b><Bi en="Trial policy" ar="سياسة التجربة" /></b>
-                  <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة مباشر' : 'لا يوجد وسم تجربة مباشر'} /></strong>
-                  <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></em>
-                </span>
-                <span>
-                  <b><Bi en="Runtime" ar="البيئة" /></b>
-                  <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
-                  <em>
-                    {selectedQuoteSar != null
-                      ? <Bi en={`Visible quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير الظاهر: ~${fmtSar(selectedQuoteSar)} ﷼`} />
-                      : <Bi en="Quote appears after a fixed GPU card is selected or backend auto-pick resolves." ar="يظهر التقدير بعد اختيار GPU محدد أو عند حل الاختيار التلقائي في الخلفية." />}
-                  </em>
-                </span>
-              </div>
-            </div>
-
-            <div className="pod-launch-review" aria-label={lang === 'ar' ? 'مراجعة التشغيل' : 'Launch review'}>
-              <span>
-                <b><Bi en="Stage 1" ar="المرحلة 1" /></b>
-                {workspaceVolume
-                  ? `${workspaceVolume.size_gb} GB /workspace`
-                  : <Bi en="No workspace volume" ar="لا توجد وحدة مساحة عمل" />}
-              </span>
-              <span>
-                <b><Bi en="Stage 2" ar="المرحلة 2" /></b>
-                {selectedType
-                  ? displayGpuType(selectedType.gpu_model)
-                  : <Bi en="Auto-pick GPU" ar="اختيار GPU تلقائي" />}
-              </span>
-              <span>
-                <b><Bi en="Stage 3" ar="المرحلة 3" /></b>
-                {selectedRuntimeLabel} · {durationLabel}
-              </span>
-              <span>
-                <b><Bi en="Credit route" ar="مسار الرصيد" /></b>
-                <Bi en={explicitTrialTagLive ? 'Trial tag active' : 'Trial via grant credit · DCP/community GPUs'} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب رصيد المنحة · معالجات DCP والمجتمع'} />
-              </span>
-            </div>
+            )}
 
             <div className="action-row">
-              <button
-                type="button"
-                className="btn-pri pod-launch-btn"
-                onClick={submitLaunch}
-                disabled={launch.submitting || noLaunchable || !isLive}
-              >
-                {launch.submitting && <span className="pod-spinner" aria-hidden="true" />}
-                {launch.submitting ? (
-                  <Bi en="Launching…" ar="جارٍ التشغيل…" />
-                ) : (
-                  <Bi en={launchButtonLabel} ar={selectedType ? 'تشغيل حاوية GPU المحددة' : 'تشغيل حاوية GPU بالاختيار التلقائي'} />
-                )}
+              <button type="button" className="btn-sec" onClick={() => setReveal(null)}>
+                <Bi en="Dismiss" ar="إخفاء" />
               </button>
-              {noLaunchable && isLive && (
-                <span className="hint">
-                  <Bi en="No GPU types are available right now." ar="لا توجد أنواع معالجات متاحة حاليًا." />
-                </span>
-              )}
             </div>
+          </div>
+        )}
+      </section>
 
-            {/* ── One-time credentials reveal (shown ONCE per launch) ───── */}
-            {reveal && (reveal.rootPassword || reveal.jupyterToken) && (
-              <div className="pod-access" style={{ marginTop: '20px' }}>
-                <div
-                  className="dash-state"
-                  style={{
-                    borderColor: 'color-mix(in oklab, var(--teal) 40%, var(--hair))',
-                    background: 'color-mix(in oklab, var(--teal) 4%, var(--paper))',
-                  }}
-                >
-                  <b>
-                    <Bi en="Save these credentials now" ar="احفظ بيانات الاعتماد الآن" />
-                    {reveal.podId ? ` — Pod #${reveal.podId}` : ''}
-                  </b>
-                  <span>
-                    <Bi
-                      en="Shown only once. They are not stored and cannot be retrieved later — copy them before leaving this page."
-                      ar="تُعرض مرة واحدة فقط. لا يتم تخزينها ولا يمكن استرجاعها لاحقًا — انسخها قبل مغادرة هذه الصفحة."
-                    />
-                  </span>
-                </div>
+      {/* ── Pods list ──────────────────────────────────── */}
+      <section className="panel pod-list-panel" style={{ marginTop: '28px' }}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Your pods" ar="حاوياتك" />
+            </h3>
+          </div>
+          <span className="hint">
+            <Bi en={`${activePods} active · ${pods.length} total`} ar={`${activePods} نشطة · ${pods.length} إجمالي`} />
+          </span>
+        </div>
 
-                {reveal.rootPassword && (
-                  <div className="pod-access-block">
-                    <div className="pod-access-body">
-                      <span className="pod-access-k">
-                        <Bi en="Root password (SSH)" ar="كلمة مرور الجذر (SSH)" />
-                      </span>
-                      <code className="pod-access-ssh">{reveal.rootPassword}</code>
+        {pods.length === 0 ? (
+          <div className="pod-empty">
+            <b>
+              <Bi en="No pods yet." ar="لا توجد حاويات بعد." />
+            </b>
+            <span>
+              <Bi
+                en="Launch a GPU pod above to get a Jupyter notebook and SSH access."
+                ar="شغّل حاوية GPU بالأعلى للحصول على دفتر Jupyter ووصول SSH."
+              />
+            </span>
+          </div>
+        ) : (
+          <div className="pod-rows">
+            {pods.map((pod) => {
+              const id = String(pod.id)
+              const active = isActivePod(pod)
+              const accessReady = !!pod.access_url && active
+              const isCopiedSsh = copied === `ssh-${id}`
+              const submitted = formatSubmitted(pod)
+              return (
+                <article key={id} className={`pod-row${active ? ' on' : ' off'}`}>
+                  <div className="pod-row-hd">
+                    <div className="pod-row-id">
+                      <span className="mono">Pod #{id}</span>
+                      <span className={`stat ${statusClass(pod.status)}`}>{pod.status}</span>
                     </div>
-                    <button
-                      type="button"
-                      className="btn-sec pod-copy"
-                      onClick={() => copyText('reveal-root', reveal.rootPassword)}
-                      aria-label="Copy root password"
-                    >
-                      {copied === 'reveal-root' ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
-                    </button>
-                  </div>
-                )}
-
-                {reveal.jupyterToken && (
-                  <div className="pod-access-block">
-                    <div className="pod-access-body">
-                      <span className="pod-access-k">
-                        <Bi en="Jupyter token" ar="رمز Jupyter" />
-                      </span>
-                      <code className="pod-access-ssh">{reveal.jupyterToken}</code>
+                    <div className="pod-row-meta">
+                      {/* GPU TYPE only — never a machine name or provider id. */}
+                      {pod.gpu_type ? `${displayGpuType(pod.gpu_type)} · ` : ''}
+                      {formatDuration(pod.duration_minutes)}
+                      {submitted ? ` · ${submitted}` : ''}
                     </div>
-                    <button
-                      type="button"
-                      className="btn-sec pod-copy"
-                      onClick={() => copyText('reveal-token', reveal.jupyterToken)}
-                      aria-label="Copy Jupyter token"
-                    >
-                      {copied === 'reveal-token' ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
-                    </button>
+                    {active && (
+                      <button
+                        type="button"
+                        className="btn-sec danger pod-stop"
+                        onClick={() => stopPod(pod)}
+                        disabled={!!stopping[id]}
+                        aria-label={`Stop pod ${id}`}
+                      >
+                        {stopping[id] && <span className="pod-spinner dark" aria-hidden="true" />}
+                        {stopping[id] ? <Bi en="Stopping…" ar="جارٍ الإيقاف…" /> : <Bi en="Stop" ar="إيقاف" />}
+                      </button>
+                    )}
                   </div>
-                )}
 
-                <div className="action-row">
-                  <button type="button" className="btn-sec" onClick={() => setReveal(null)}>
-                    <Bi en="Dismiss" ar="إخفاء" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ── Pods list ──────────────────────────────────── */}
-          <section className="panel pod-list-panel" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Your pods" ar="حاوياتك" />
-                </h3>
-              </div>
-              <span className="hint">
-                <Bi en={`${activePods} active · ${pods.length} total`} ar={`${activePods} نشطة · ${pods.length} إجمالي`} />
-              </span>
-            </div>
-
-            {pods.length === 0 ? (
-              <div className="pod-empty">
-                <b>
-                  <Bi en="No pods yet." ar="لا توجد حاويات بعد." />
-                </b>
-                <span>
-                  <Bi
-                    en="Launch a GPU pod above to get a Jupyter notebook and SSH access."
-                    ar="شغّل حاوية GPU بالأعلى للحصول على دفتر Jupyter ووصول SSH."
-                  />
-                </span>
-              </div>
-            ) : (
-              <div className="pod-rows">
-                {pods.map((pod) => {
-                  const id = String(pod.id)
-                  const active = isActivePod(pod)
-                  const accessReady = !!pod.access_url && active
-                  const isCopiedSsh = copied === `ssh-${id}`
-                  const submitted = formatSubmitted(pod)
-                  return (
-                    <article key={id} className={`pod-row${active ? ' on' : ' off'}`}>
-                      <div className="pod-row-hd">
-                        <div className="pod-row-id">
-                          <span className="mono">Pod #{id}</span>
-                          <span className={`stat ${statusClass(pod.status)}`}>{pod.status}</span>
+                  {pod.status === 'running' && typeof pod.seconds_remaining === 'number' && (() => {
+                    // live countdown: recompute from ends_at every tick (nowTick drives re-render)
+                    void nowTick
+                    const left = pod.ends_at
+                      ? Math.max(0, Math.round((Date.parse(pod.ends_at) - Date.now()) / 1000))
+                      : pod.seconds_remaining
+                    const ending = left <= 300
+                    return (
+                      <div className={`pod-clock${ending ? ' warn' : ''}`}>
+                        <span className="pod-clock-t">
+                          <Bi en="Rental ends in" ar="ينتهي الإيجار خلال" /> <b>{formatCountdown(left)}</b>
+                        </span>
+                        <span className="pod-clock-sub">
+                          {ending
+                            ? <Bi en="Save anything outside /workspace now — /workspace is kept and reattaches to your next pod." ar="احفظ أي شيء خارج /workspace الآن — يُحتفظ بـ /workspace ويُعاد ربطه بحاويتك التالية." />
+                            : <Bi en="/workspace is saved and reattaches to your next pod." ar="يُحفظ /workspace ويُعاد ربطه بحاويتك التالية." />}
+                        </span>
+                        <div className="pod-extend">
+                          <span className="pod-extend-lbl"><Bi en="Extend" ar="تمديد" /></span>
+                          {[30, 60, 120].map((mins) => (
+                            <button
+                              key={mins}
+                              type="button"
+                              className="pod-extend-btn"
+                              disabled={!!extending[id]}
+                              onClick={() => extendPod(pod, mins)}
+                            >
+                              {mins >= 60 ? `+${mins / 60}h` : `+${mins}m`}
+                            </button>
+                          ))}
+                          {extending[id] && <span className="pod-extend-msg"><Bi en="charging…" ar="جارٍ الخصم…" /></span>}
+                          {!extending[id] && extendMsg[id] && <span className="pod-extend-msg">{extendMsg[id]}</span>}
                         </div>
-                        <div className="pod-row-meta">
-                          {/* GPU TYPE only — never a machine name or provider id. */}
-                          {pod.gpu_type ? `${displayGpuType(pod.gpu_type)} · ` : ''}
-                          {formatDuration(pod.duration_minutes)}
-                          {submitted ? ` · ${submitted}` : ''}
-                        </div>
-                        {active && (
-                          <button
-                            type="button"
-                            className="btn-sec danger pod-stop"
-                            onClick={() => stopPod(pod)}
-                            disabled={!!stopping[id]}
-                            aria-label={`Stop pod ${id}`}
+                      </div>
+                    )
+                  })()}
+
+                  {accessReady ? (
+                    <div className="pod-access">
+                      <div className="pod-access-block">
+                        <div className="pod-access-body">
+                          <span className="pod-access-k">
+                            <Bi en="Jupyter notebook" ar="دفتر Jupyter" />
+                          </span>
+                          <a
+                            className="pod-access-url"
+                            href={pod.access_url as string}
+                            target="_blank"
+                            rel="noopener noreferrer"
                           >
-                            {stopping[id] && <span className="pod-spinner dark" aria-hidden="true" />}
-                            {stopping[id] ? <Bi en="Stopping…" ar="جارٍ الإيقاف…" /> : <Bi en="Stop" ar="إيقاف" />}
-                          </button>
-                        )}
+                            {pod.access_url}
+                          </a>
+                        </div>
+                        <a
+                          className="btn-pri pod-open"
+                          href={pod.access_url as string}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Bi en="Open →" ar="فتح →" />
+                        </a>
                       </div>
 
-                      {pod.status === 'running' && typeof pod.seconds_remaining === 'number' && (() => {
-                        // live countdown: recompute from ends_at every tick (nowTick drives re-render)
-                        void nowTick
-                        const left = pod.ends_at
-                          ? Math.max(0, Math.round((Date.parse(pod.ends_at) - Date.now()) / 1000))
-                          : pod.seconds_remaining
-                        const ending = left <= 300
-                        return (
-                          <div className={`pod-clock${ending ? ' warn' : ''}`}>
-                            <span className="pod-clock-t">
-                              <Bi en="Rental ends in" ar="ينتهي الإيجار خلال" /> <b>{formatCountdown(left)}</b>
+                      {pod.ssh_command && (
+                        <div className="pod-access-block">
+                          <div className="pod-access-body">
+                            <span className="pod-access-k">
+                              <Bi en="SSH" ar="SSH" />
                             </span>
-                            <span className="pod-clock-sub">
-                              {ending
-                                ? <Bi en="Save anything outside /workspace now — /workspace is kept and reattaches to your next pod." ar="احفظ أي شيء خارج /workspace الآن — يُحتفظ بـ /workspace ويُعاد ربطه بحاويتك التالية." />
-                                : <Bi en="/workspace is saved and reattaches to your next pod." ar="يُحفظ /workspace ويُعاد ربطه بحاويتك التالية." />}
-                            </span>
-                            <div className="pod-extend">
-                              <span className="pod-extend-lbl"><Bi en="Extend" ar="تمديد" /></span>
-                              {[30, 60, 120].map((mins) => (
-                                <button
-                                  key={mins}
-                                  type="button"
-                                  className="pod-extend-btn"
-                                  disabled={!!extending[id]}
-                                  onClick={() => extendPod(pod, mins)}
-                                >
-                                  {mins >= 60 ? `+${mins / 60}h` : `+${mins}m`}
-                                </button>
-                              ))}
-                              {extending[id] && <span className="pod-extend-msg"><Bi en="charging…" ar="جارٍ الخصم…" /></span>}
-                              {!extending[id] && extendMsg[id] && <span className="pod-extend-msg">{extendMsg[id]}</span>}
-                            </div>
+                            <code className="pod-access-ssh">{pod.ssh_command}</code>
                           </div>
-                        )
-                      })()}
-
-                      {accessReady ? (
-                        <div className="pod-access">
-                          <div className="pod-access-block">
-                            <div className="pod-access-body">
-                              <span className="pod-access-k">
-                                <Bi en="Jupyter notebook" ar="دفتر Jupyter" />
-                              </span>
-                              <a
-                                className="pod-access-url"
-                                href={pod.access_url as string}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {pod.access_url}
-                              </a>
-                            </div>
-                            <a
-                              className="btn-pri pod-open"
-                              href={pod.access_url as string}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Bi en="Open →" ar="فتح →" />
-                            </a>
-                          </div>
-
-                          {pod.ssh_command && (
-                            <div className="pod-access-block">
-                              <div className="pod-access-body">
-                                <span className="pod-access-k">
-                                  <Bi en="SSH" ar="SSH" />
-                                </span>
-                                <code className="pod-access-ssh">{pod.ssh_command}</code>
-                              </div>
-                              <button
-                                type="button"
-                                className="btn-sec pod-copy"
-                                onClick={() => copyText(`ssh-${id}`, pod.ssh_command as string)}
-                                aria-label="Copy SSH command"
-                              >
-                                {isCopiedSsh ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ) : active ? (
-                        <div className="pod-provisioning">
-                          <span className="pod-spinner" aria-hidden="true" />
-                          <Bi
-                            en="Provisioning your pod… endpoints appear here once it's ready."
-                            ar="جارٍ تجهيز حاويتك… ستظهر نقاط الوصول هنا عند الجاهزية."
-                          />
-                        </div>
-                      ) : (
-                        <div className="pod-inactive">
-                          <Bi en="This pod is no longer running." ar="هذه الحاوية لم تعد قيد التشغيل." />
+                          <button
+                            type="button"
+                            className="btn-sec pod-copy"
+                            onClick={() => copyText(`ssh-${id}`, pod.ssh_command as string)}
+                            aria-label="Copy SSH command"
+                          >
+                            {isCopiedSsh ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
+                          </button>
                         </div>
                       )}
-                    </article>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-        </main>
-      </div>
-    </div>
+                    </div>
+                  ) : active ? (
+                    <div className="pod-provisioning">
+                      <span className="pod-spinner" aria-hidden="true" />
+                      <Bi
+                        en="Provisioning your pod… endpoints appear here once it's ready."
+                        ar="جارٍ تجهيز حاويتك… ستظهر نقاط الوصول هنا عند الجاهزية."
+                      />
+                    </div>
+                  ) : (
+                    <div className="pod-inactive">
+                      <Bi en="This pod is no longer running." ar="هذه الحاوية لم تعد قيد التشغيل." />
+                    </div>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    </main>
   )
 }

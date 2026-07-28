@@ -35,12 +35,13 @@ for (const text of forbidden) {
   assert(!source.includes(text), `v2 renter usage must not ship prototype data or fake controls: ${text}`);
 }
 
-assert(source.includes('/renters/me?key='), 'v2 renter usage should load renter account data');
-assert(source.includes('/renters/balance?key='), 'v2 renter usage should load wallet balance data');
-assert(source.includes('/renters/me/analytics?key='), 'v2 renter usage should load analytics data');
-assert(source.includes('/renters/me/jobs?key='), 'v2 renter usage should load real job history');
-assert(source.includes('/renters/me/usage?key='), 'v2 renter usage should load v1 API usage history');
-assert(source.includes('/renters/me/jobs/export?key='), 'v2 renter usage should export from the backend CSV route');
+assert(source.includes("const headers = { 'x-renter-key': renterKey }"), 'v2 renter usage should use header-authenticated renter requests');
+assert(source.includes('`${base}/renters/me`'), 'v2 renter usage should load renter account data');
+assert(source.includes('`${base}/renters/balance`'), 'v2 renter usage should load wallet balance data');
+assert(source.includes('`${base}/renters/me/analytics?period=${period}`'), 'v2 renter usage should load analytics data');
+assert(source.includes('`${base}/renters/me/jobs?page=0&limit=50&period=${period}`'), 'v2 renter usage should load real job history');
+assert(source.includes('`${base}/renters/me/usage?limit=50&offset=0&period=${period}`'), 'v2 renter usage should load v1 API usage history');
+assert(source.includes('`${base}/renters/me/usage/export?format=csv&period=${period}`'), 'v2 renter usage should export from the backend CSV route');
 assert(source.includes("loadState === 'missing-key'"), 'v2 renter usage should render an explicit missing-key state');
 assert(source.includes('No jobs match the current account and filters'), 'v2 renter usage should render an honest empty jobs state');
 assert(source.includes('No v1 inference usage has been recorded'), 'v2 renter usage should render an honest empty v1 usage state');

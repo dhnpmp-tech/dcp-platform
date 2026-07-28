@@ -371,487 +371,360 @@ export default function RenterWalletPage() {
   }
 
   return (
-    <div className="rt-app">
-      <aside className={`rt-sb${navOpen ? ' on' : ''}`} id="rt-sb" data-page="wallet">
-        <div className="rt-sb-brand">
-          <span className="wm">
-            DCP<i>∞</i>
-          </span>
-          <span className="ctx">
-            <Bi en="Console" ar="لوحة التحكم" />
+    <main className="rt-main">
+      <h1 className="rt-h1">
+        <Bi en="Your " ar="" />
+        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+          <Bi en="credit." ar="رصيدك." />
+        </em>
+      </h1>
+      <div className="rt-h1-sub">
+        <span>
+          <Bi en="Prepaid DCP credit · halala-precise accounting" ar="رصيد DCP مسبق الدفع · محاسبة دقيقة بالهللة" />
+        </span>
+        <span>
+          <Bi en="Auto top-up " ar="الشحن التلقائي " />
+          <b>
+            <Bi en={autoTopup?.enabled ? 'on' : 'off'} ar={autoTopup?.enabled ? 'مفعّل' : 'متوقف'} />
+          </b>
+        </span>
+      </div>
+
+      {loadState === 'missing-key' && (
+        <div className="dash-state" style={{ marginTop: '28px' }}>
+          <b>
+            <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
+          </b>
+          <span>
+            <Bi
+              en="Sign in or paste a renter API key before v2 can show credit balance, payments, or add-credit controls."
+              ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تعرض v2 الرصيد والمدفوعات وأدوات الشحن."
+            />
           </span>
         </div>
+      )}
 
-        <div className="rt-ws">
-          <button className="rt-ws-btn" title="Current renter account" type="button">
-            <span className="av">{initials(displayName, displayEmail)}</span>
-            <span className="body">
-              <span className="nm">{displayName}</span>
-              <span className="sub">{displaySub}</span>
-            </span>
-          </button>
+      {loadState === 'error' && (
+        <div className="dash-state error" style={{ marginTop: '28px' }}>
+          <b>
+            <Bi en="Credit unavailable" ar="الرصيد غير متاح" />
+          </b>
+          <span>{error}</span>
         </div>
+      )}
 
-        <div className="rt-wallet">
-          <div className="k">
-            <Bi en="Credit" ar="الرصيد" />
+      <div className="balance-card" style={{ marginTop: '36px' }}>
+        <div className="balance-grid">
+          <div>
+            <div className="k">
+              <Bi en="Available credit" ar="الرصيد المتاح" />
+            </div>
+            <div className="v">
+              <Bi en="Credit " ar="رصيد " />{balanceParts.whole}
+              <span className="u">.{balanceParts.frac}</span>
+            </div>
+            <div className="d">
+              <Bi en="Held in active jobs: " ar="محجوز في مهام نشطة: " />
+              <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
+            </div>
           </div>
-          <div className="v">
-            <Bi en="Credit " ar="رصيد " />{balanceParts.whole}
-            <span className="u">.{balanceParts.frac}</span>
-          </div>
-          <div className="row">
-            <span>
-              <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
-            </span>
-            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
-          </div>
-          <div className="row">
-            <span>
+          <div>
+            <div className="k">
               <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
-            </span>
-            <b><Bi en={`${fmtSar(totalSpentSar, false)} credit`} ar={`${fmtSar(totalSpentSar, false)} رصيد`} /></b>
-          </div>
-          <a className="topup" href="#top-up">
-            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
-          </a>
-        </div>
-
-        <nav className="rt-nav">
-          {NAV.map((s) => (
-            <div key={s.sec}>
-              <div className="sec">
-                <Bi en={s.sec} ar={s.secAr} />
-              </div>
-              {s.items.map((it) => {
-                const active = it.k === CURRENT_PAGE
-                return (
-                  <Link
-                    key={it.k}
-                    href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
-                    className={active ? 'on' : ''}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <span className="ic">{it.ic}</span>
-                    <span>
-                      <Bi en={it.label} ar={it.labelAr} />
-                    </span>
-                    <span className="bd">{it.bd || ''}</span>
-                  </Link>
-                )
-              })}
             </div>
-          ))}
-        </nav>
-
-        <div className="rt-sb-foot">
-          <div className="av">{initials(renter?.name, renter?.email)}</div>
-          <div className="who">
-            {renter?.name || 'Renter'}
-            <span className="e">{displayEmail}</span>
+            <div className="v small"><Bi en={`Credit ${fmtSar(totalSpentSar)}`} ar={`رصيد ${fmtSar(totalSpentSar)}`} /></div>
+            <div className="d">
+              <Bi en={`${wholeFmt.format(totalJobs)} completed jobs recorded`} ar={`${wholeFmt.format(totalJobs)} مهام مسجلة`} />
+            </div>
           </div>
-          <span className="out" title="Sign out" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => { localStorage.removeItem('dc1_renter_key'); window.location.href = '/auth' }}>
-            ↱
-          </span>
-        </div>
-      </aside>
-
-      <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
-
-      <div>
-        <header className="rt-tb" id="rt-tb" data-crumb="Credit">
-          <button
-            className="mb-toggle"
-            id="mb-toggle"
-            aria-label="Menu"
-            type="button"
-            onClick={() => setNavOpen((v) => !v)}
-          >
-            ☰
-          </button>
-          <div className="crumb">
-            <span>{displayName}</span>
-            <span className="sep">/</span>
-            <span className="cur">
-              <Bi en="Credit" ar="الرصيد" />
-            </span>
-          </div>
-          <span className="pill">
-            <span
-              className="d"
-              style={loadState === 'ready' ? undefined : { background: 'var(--mut)', animation: 'none' }}
-            />{' '}
-            <Bi en={loadState === 'ready' ? 'API live' : 'Needs renter key'} ar={loadState === 'ready' ? 'الواجهة تعمل' : 'يتطلب مفتاح مستأجر'} />
-          </span>
-          <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
-            <span style={{ background: lang === 'en' ? 'var(--ink)' : 'transparent', color: lang === 'en' ? 'var(--bg)' : 'var(--ink)' }}>
-              EN
-            </span>
-            <span style={{ background: lang === 'ar' ? 'var(--ink)' : 'transparent', color: lang === 'ar' ? 'var(--bg)' : 'var(--ink)' }}>
-              ع
-            </span>
-          </button>
-          <Link className="keys" href="/renter/keys">
-            ⚷ <Bi en="API keys" ar="مفاتيح API" />
-          </Link>
-        </header>
-
-        <main className="rt-main">
-          <h1 className="rt-h1">
-            <Bi en="Your " ar="" />
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="credit." ar="رصيدك." />
-            </em>
-          </h1>
-          <div className="rt-h1-sub">
-            <span>
-              <Bi en="Prepaid DCP credit · halala-precise accounting" ar="رصيد DCP مسبق الدفع · محاسبة دقيقة بالهللة" />
-            </span>
-            <span>
-              <Bi en="Auto top-up " ar="الشحن التلقائي " />
-              <b>
-                <Bi en={autoTopup?.enabled ? 'on' : 'off'} ar={autoTopup?.enabled ? 'مفعّل' : 'متوقف'} />
-              </b>
-            </span>
-          </div>
-
-          {loadState === 'missing-key' && (
-            <div className="dash-state" style={{ marginTop: '28px' }}>
-              <b>
-                <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
-              </b>
-              <span>
+          <div>
+            <div className="k">
+              <Bi en="Auto top-up" ar="الشحن التلقائي" />
+            </div>
+            <div className="v small">{autoTopup?.enabled ? `SAR ${fmtSar(autoTopup.amount_sar || halalaToSar(autoTopup.amount_halala))}` : 'Off'}</div>
+            <div className="d">
+              {autoTopup?.card_on_file ? (
                 <Bi
-                  en="Sign in or paste a renter API key before v2 can show credit balance, payments, or add-credit controls."
-                  ar="سجل الدخول أو أدخل مفتاح مستأجر قبل أن تعرض v2 الرصيد والمدفوعات وأدوات الشحن."
+                  en={`${autoTopup.card_on_file.brand || 'Card'} ending ${autoTopup.card_on_file.last4 || '----'}`}
+                  ar={`${autoTopup.card_on_file.brand || 'بطاقة'} تنتهي بـ ${autoTopup.card_on_file.last4 || '----'}`}
                 />
-              </span>
-            </div>
-          )}
-
-          {loadState === 'error' && (
-            <div className="dash-state error" style={{ marginTop: '28px' }}>
-              <b>
-                <Bi en="Credit unavailable" ar="الرصيد غير متاح" />
-              </b>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="balance-card" style={{ marginTop: '36px' }}>
-            <div className="balance-grid">
-              <div>
-                <div className="k">
-                  <Bi en="Available credit" ar="الرصيد المتاح" />
-                </div>
-                <div className="v">
-                  <Bi en="Credit " ar="رصيد " />{balanceParts.whole}
-                  <span className="u">.{balanceParts.frac}</span>
-                </div>
-                <div className="d">
-                  <Bi en="Held in active jobs: " ar="محجوز في مهام نشطة: " />
-                  <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
-                </div>
-              </div>
-              <div>
-                <div className="k">
-                  <Bi en="Lifetime spend" ar="إجمالي الإنفاق" />
-                </div>
-                <div className="v small"><Bi en={`Credit ${fmtSar(totalSpentSar)}`} ar={`رصيد ${fmtSar(totalSpentSar)}`} /></div>
-                <div className="d">
-                  <Bi en={`${wholeFmt.format(totalJobs)} completed jobs recorded`} ar={`${wholeFmt.format(totalJobs)} مهام مسجلة`} />
-                </div>
-              </div>
-              <div>
-                <div className="k">
-                  <Bi en="Auto top-up" ar="الشحن التلقائي" />
-                </div>
-                <div className="v small">{autoTopup?.enabled ? `SAR ${fmtSar(autoTopup.amount_sar || halalaToSar(autoTopup.amount_halala))}` : 'Off'}</div>
-                <div className="d">
-                  {autoTopup?.card_on_file ? (
-                    <Bi
-                      en={`${autoTopup.card_on_file.brand || 'Card'} ending ${autoTopup.card_on_file.last4 || '----'}`}
-                      ar={`${autoTopup.card_on_file.brand || 'بطاقة'} تنتهي بـ ${autoTopup.card_on_file.last4 || '----'}`}
-                    />
-                  ) : (
-                    <Bi en="No saved card on file" ar="لا توجد بطاقة محفوظة" />
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <form id="top-up" className="panel" style={{ marginTop: '28px' }} onSubmit={submitTopup}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Add credit" ar="إضافة رصيد" />
-                </h3>
-              </div>
-            </div>
-
-            <h4 className="section-kicker">
-              <Bi en="Method" ar="الطريقة" />
-            </h4>
-            <div className="topup-methods">
-              {TOPUP_METHODS.map((m, i) => (
-                <button
-                  key={m.code}
-                  type="button"
-                  className={`topup-method${i === methodIdx ? ' on' : ''}`}
-                  onClick={() => setMethodIdx(i)}
-                  disabled={!paymentsReady}
-                  aria-disabled={!paymentsReady}
-                  style={paymentsReady ? undefined : { opacity: 0.5, cursor: 'not-allowed' }}
-                >
-                  <div className="nm">
-                    <Bi en={m.nm} ar={m.nmAr} />
-                  </div>
-                  <div className="desc">
-                    <Bi en={m.desc} ar={m.descAr} />
-                  </div>
-                  <div className="fee">
-                    <Bi en="Backend contract" ar="عقد الخلفية" /> <b>{m.code}</b>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <h4 className="section-kicker spaced">
-              <Bi en="Amount" ar="المبلغ" />
-            </h4>
-            <div className="amount-pick">
-              {AMOUNTS.map((amount) => (
-                <button
-                  key={amount}
-                  type="button"
-                  className={!customAmount && amount === amountSar ? 'on' : ''}
-                  onClick={() => {
-                    setAmountSar(amount)
-                    setCustomAmount('')
-                  }}
-                >
-                  SAR {wholeFmt.format(amount)}
-                </button>
-              ))}
-              <label className="custom-amount">
-                <span>
-                  <Bi en="Custom SAR" ar="مبلغ مخصص بالريال" />
-                </span>
-                <input
-                  value={customAmount}
-                  onChange={(event) => setCustomAmount(event.target.value)}
-                  inputMode="decimal"
-                  placeholder="1000"
-                  aria-label="Custom SAR amount"
-                />
-              </label>
-            </div>
-
-            {!paymentsReady ? (
-              <div className="dash-state">
-                <b>
-                  <Bi en="Payments are being set up" ar="يتم إعداد المدفوعات" />
-                </b>
-                <span>
-                  <Bi
-                    en="Top-up is unavailable until the DCP payment gateway is configured. No card, Apple Pay, or bank-transfer methods can be started yet."
-                    ar="الشحن غير متاح حتى يتم تهيئة بوابة الدفع في DCP. لا يمكن بدء أي طريقة بطاقة أو Apple Pay أو تحويل بنكي بعد."
-                  />
-                </span>
-              </div>
-            ) : (
-              <div className="action-row">
-                <button className="btn-pri" type="submit" disabled={!canSubmitTopup || saveState === 'submitting'}>
-                  {saveState === 'submitting' ? (
-                    <Bi en="Starting..." ar="جاري البدء..." />
-                  ) : (
-                    <Bi en={`Add SAR ${fmtSar(topupAmount)} as credit`} ar={`إضافة ${fmtSar(topupAmount)} ريال كرصيد`} />
-                  )}
-                </button>
-                <span className="hint">
-                  <Bi
-                    en="Card and Apple Pay open Moyasar checkout; bank transfer returns DCP bank instructions."
-                    ar="البطاقة و Apple Pay تفتحان دفع ميسر؛ التحويل البنكي يعرض تعليمات بنك DCP."
-                  />
-                </span>
-              </div>
-            )}
-
-            {saveState === 'error' && <div className="dash-state error">{error}</div>}
-            {topupResult && (
-              <div className="dash-state success">
-                <b>
-                  <Bi en="Top-up started" ar="بدأ الشحن" />
-                </b>
-                {topupResult.payment_url ? (
-                  <a href={topupResult.payment_url}>
-                    <Bi en="Continue payment" ar="متابعة الدفع" />
-                  </a>
-                ) : topupResult.instructions ? (
-                  <span>
-                    {topupResult.instructions.bank_name} · {topupResult.instructions.account_name} · {topupResult.instructions.reference}
-                  </span>
-                ) : (
-                  <span>{topupResult.payment_id || topupResult.topup_id || topupResult.status}</span>
-                )}
-              </div>
-            )}
-          </form>
-
-          <form className="panel" style={{ marginTop: '28px' }} onSubmit={saveAutoTopup}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Auto top-up" ar="الشحن التلقائي" />
-                </h3>
-              </div>
-            </div>
-            {!autoTopup?.card_on_file && (
-              <div className="dash-state">
-                <b>
-                  <Bi en="Saved card required" ar="بطاقة محفوظة مطلوبة" />
-                </b>
-                <span>
-                  <Bi
-                    en="The backend will not enable auto top-up until a Moyasar card token is saved for this renter."
-                    ar="لن تفعّل الخلفية الشحن التلقائي حتى يتم حفظ رمز بطاقة ميسر لهذا المستأجر."
-                  />
-                </span>
-              </div>
-            )}
-            <div className="form-grid">
-              <div className="lbl">
-                <b>
-                  <Bi en="Enabled" ar="مفعّل" />
-                </b>
-                <Bi en="Read from backend settings" ar="مقروء من إعدادات الخلفية" />
-              </div>
-              <div className="ctl">
-                <label className="switch">
-                  <input type="checkbox" checked={autoEnabled} disabled={!canSaveAutoTopup} onChange={(event) => setAutoEnabled(event.target.checked)} />
-                  <span className="track" />
-                  <span className="lbl-text">
-                    <Bi en={autoEnabled ? 'On' : 'Off'} ar={autoEnabled ? 'مفعّل' : 'متوقف'} />
-                  </span>
-                </label>
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Trigger threshold" ar="حد التفعيل" />
-                </b>
-                <Bi en="Refill below this credit level" ar="إعادة الشحن عند انخفاض الرصيد عن" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="number" min="0" value={autoThresholdSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoThresholdSar(Number(event.target.value))} />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Refill amount" ar="مبلغ إعادة الشحن" />
-                </b>
-                <Bi en="Amount charged per refill" ar="المبلغ في كل إعادة شحن" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="number" min="0" value={autoAmountSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoAmountSar(Number(event.target.value))} />
-              </div>
-              <div className="lbl">
-                <b>
-                  <Bi en="Monthly cap" ar="الحد الشهري" />
-                </b>
-                <Bi en="Backend spending guard" ar="حماية الإنفاق في الخلفية" />
-              </div>
-              <div className="ctl">
-                <input className="input" type="number" min="0" value={autoCapSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoCapSar(Number(event.target.value))} />
-                <span className="hint">
-                  <Bi
-                    en={`Used this month: SAR ${fmtSar(autoTopup?.monthly_used_sar || halalaToSar(autoTopup?.monthly_used_halala))}`}
-                    ar={`المستخدم هذا الشهر: ${fmtSar(autoTopup?.monthly_used_sar || halalaToSar(autoTopup?.monthly_used_halala))} ريال`}
-                  />
-                </span>
-              </div>
-            </div>
-            <div className="action-row">
-              <button className="btn-pri" type="submit" disabled={!canSaveAutoTopup || autoSaveState === 'submitting'}>
-                {autoSaveState === 'submitting' ? <Bi en="Saving..." ar="جاري الحفظ..." /> : <Bi en="Save auto top-up" ar="حفظ الشحن التلقائي" />}
-              </button>
-              {autoSaveState === 'success' && (
-                <span className="hint success-text">
-                  <Bi en="Saved" ar="تم الحفظ" />
-                </span>
+              ) : (
+                <Bi en="No saved card on file" ar="لا توجد بطاقة محفوظة" />
               )}
             </div>
-          </form>
+          </div>
+        </div>
+      </div>
 
-          <div className="panel" style={{ marginTop: '28px' }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Transactions" ar="المعاملات" />
-                </h3>
+      <form id="top-up" className="panel" style={{ marginTop: '28px' }} onSubmit={submitTopup}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Add credit" ar="إضافة رصيد" />
+            </h3>
+          </div>
+        </div>
+
+        <h4 className="section-kicker">
+          <Bi en="Method" ar="الطريقة" />
+        </h4>
+        <div className="topup-methods">
+          {TOPUP_METHODS.map((m, i) => (
+            <button
+              key={m.code}
+              type="button"
+              className={`topup-method${i === methodIdx ? ' on' : ''}`}
+              onClick={() => setMethodIdx(i)}
+              disabled={!paymentsReady}
+              aria-disabled={!paymentsReady}
+              style={paymentsReady ? undefined : { opacity: 0.5, cursor: 'not-allowed' }}
+            >
+              <div className="nm">
+                <Bi en={m.nm} ar={m.nmAr} />
               </div>
-              <Link className="text-link" href="/renter/invoices">
-                <Bi en="Tax invoices →" ar="الفواتير الضريبية →" />
-              </Link>
-            </div>
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>
-                    <Bi en="When" ar="متى" />
-                  </th>
-                  <th>
-                    <Bi en="Description" ar="الوصف" />
-                  </th>
-                  <th>
-                    <Bi en="Method" ar="الطريقة" />
-                  </th>
-                  <th style={{ textAlign: 'end' }}>
-                    <Bi en="Amount" ar="المبلغ" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="tx">
-                {payments.length === 0 ? (
-                  <tr className="empty-row">
-                    <td colSpan={4}>
-                      <Bi en="No credit payments have been recorded for this renter yet." ar="لم يتم تسجيل أي مدفوعات رصيد لهذا المستأجر بعد." />
+              <div className="desc">
+                <Bi en={m.desc} ar={m.descAr} />
+              </div>
+              <div className="fee">
+                <Bi en="Backend contract" ar="عقد الخلفية" /> <b>{m.code}</b>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <h4 className="section-kicker spaced">
+          <Bi en="Amount" ar="المبلغ" />
+        </h4>
+        <div className="amount-pick">
+          {AMOUNTS.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              className={!customAmount && amount === amountSar ? 'on' : ''}
+              onClick={() => {
+                setAmountSar(amount)
+                setCustomAmount('')
+              }}
+            >
+              SAR {wholeFmt.format(amount)}
+            </button>
+          ))}
+          <label className="custom-amount">
+            <span>
+              <Bi en="Custom SAR" ar="مبلغ مخصص بالريال" />
+            </span>
+            <input
+              value={customAmount}
+              onChange={(event) => setCustomAmount(event.target.value)}
+              inputMode="decimal"
+              placeholder="1000"
+              aria-label="Custom SAR amount"
+            />
+          </label>
+        </div>
+
+        {!paymentsReady ? (
+          <div className="dash-state">
+            <b>
+              <Bi en="Payments are being set up" ar="يتم إعداد المدفوعات" />
+            </b>
+            <span>
+              <Bi
+                en="Top-up is unavailable until the DCP payment gateway is configured. No card, Apple Pay, or bank-transfer methods can be started yet."
+                ar="الشحن غير متاح حتى يتم تهيئة بوابة الدفع في DCP. لا يمكن بدء أي طريقة بطاقة أو Apple Pay أو تحويل بنكي بعد."
+              />
+            </span>
+          </div>
+        ) : (
+          <div className="action-row">
+            <button className="btn-pri" type="submit" disabled={!canSubmitTopup || saveState === 'submitting'}>
+              {saveState === 'submitting' ? (
+                <Bi en="Starting..." ar="جاري البدء..." />
+              ) : (
+                <Bi en={`Add SAR ${fmtSar(topupAmount)} as credit`} ar={`إضافة ${fmtSar(topupAmount)} ريال كرصيد`} />
+              )}
+            </button>
+            <span className="hint">
+              <Bi
+                en="Card and Apple Pay open Moyasar checkout; bank transfer returns DCP bank instructions."
+                ar="البطاقة و Apple Pay تفتحان دفع ميسر؛ التحويل البنكي يعرض تعليمات بنك DCP."
+              />
+            </span>
+          </div>
+        )}
+
+        {saveState === 'error' && <div className="dash-state error">{error}</div>}
+        {topupResult && (
+          <div className="dash-state success">
+            <b>
+              <Bi en="Top-up started" ar="بدأ الشحن" />
+            </b>
+            {topupResult.payment_url ? (
+              <a href={topupResult.payment_url}>
+                <Bi en="Continue payment" ar="متابعة الدفع" />
+              </a>
+            ) : topupResult.instructions ? (
+              <span>
+                {topupResult.instructions.bank_name} · {topupResult.instructions.account_name} · {topupResult.instructions.reference}
+              </span>
+            ) : (
+              <span>{topupResult.payment_id || topupResult.topup_id || topupResult.status}</span>
+            )}
+          </div>
+        )}
+      </form>
+
+      <form className="panel" style={{ marginTop: '28px' }} onSubmit={saveAutoTopup}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Auto top-up" ar="الشحن التلقائي" />
+            </h3>
+          </div>
+        </div>
+        {!autoTopup?.card_on_file && (
+          <div className="dash-state">
+            <b>
+              <Bi en="Saved card required" ar="بطاقة محفوظة مطلوبة" />
+            </b>
+            <span>
+              <Bi
+                en="The backend will not enable auto top-up until a Moyasar card token is saved for this renter."
+                ar="لن تفعّل الخلفية الشحن التلقائي حتى يتم حفظ رمز بطاقة ميسر لهذا المستأجر."
+              />
+            </span>
+          </div>
+        )}
+        <div className="form-grid">
+          <div className="lbl">
+            <b>
+              <Bi en="Enabled" ar="مفعّل" />
+            </b>
+            <Bi en="Read from backend settings" ar="مقروء من إعدادات الخلفية" />
+          </div>
+          <div className="ctl">
+            <label className="switch">
+              <input type="checkbox" checked={autoEnabled} disabled={!canSaveAutoTopup} onChange={(event) => setAutoEnabled(event.target.checked)} />
+              <span className="track" />
+              <span className="lbl-text">
+                <Bi en={autoEnabled ? 'On' : 'Off'} ar={autoEnabled ? 'مفعّل' : 'متوقف'} />
+              </span>
+            </label>
+          </div>
+          <div className="lbl">
+            <b>
+              <Bi en="Trigger threshold" ar="حد التفعيل" />
+            </b>
+            <Bi en="Refill below this credit level" ar="إعادة الشحن عند انخفاض الرصيد عن" />
+          </div>
+          <div className="ctl">
+            <input className="input" type="number" min="0" value={autoThresholdSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoThresholdSar(Number(event.target.value))} />
+          </div>
+          <div className="lbl">
+            <b>
+              <Bi en="Refill amount" ar="مبلغ إعادة الشحن" />
+            </b>
+            <Bi en="Amount charged per refill" ar="المبلغ في كل إعادة شحن" />
+          </div>
+          <div className="ctl">
+            <input className="input" type="number" min="0" value={autoAmountSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoAmountSar(Number(event.target.value))} />
+          </div>
+          <div className="lbl">
+            <b>
+              <Bi en="Monthly cap" ar="الحد الشهري" />
+            </b>
+            <Bi en="Backend spending guard" ar="حماية الإنفاق في الخلفية" />
+          </div>
+          <div className="ctl">
+            <input className="input" type="number" min="0" value={autoCapSar} disabled={!canSaveAutoTopup} onChange={(event) => setAutoCapSar(Number(event.target.value))} />
+            <span className="hint">
+              <Bi
+                en={`Used this month: SAR ${fmtSar(autoTopup?.monthly_used_sar || halalaToSar(autoTopup?.monthly_used_halala))}`}
+                ar={`المستخدم هذا الشهر: ${fmtSar(autoTopup?.monthly_used_sar || halalaToSar(autoTopup?.monthly_used_halala))} ريال`}
+              />
+            </span>
+          </div>
+        </div>
+        <div className="action-row">
+          <button className="btn-pri" type="submit" disabled={!canSaveAutoTopup || autoSaveState === 'submitting'}>
+            {autoSaveState === 'submitting' ? <Bi en="Saving..." ar="جاري الحفظ..." /> : <Bi en="Save auto top-up" ar="حفظ الشحن التلقائي" />}
+          </button>
+          {autoSaveState === 'success' && (
+            <span className="hint success-text">
+              <Bi en="Saved" ar="تم الحفظ" />
+            </span>
+          )}
+        </div>
+      </form>
+
+      <div className="panel" style={{ marginTop: '28px' }}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Transactions" ar="المعاملات" />
+            </h3>
+          </div>
+          <Link className="text-link" href="/renter/invoices">
+            <Bi en="Tax invoices →" ar="الفواتير الضريبية →" />
+          </Link>
+        </div>
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>
+                <Bi en="When" ar="متى" />
+              </th>
+              <th>
+                <Bi en="Description" ar="الوصف" />
+              </th>
+              <th>
+                <Bi en="Method" ar="الطريقة" />
+              </th>
+              <th style={{ textAlign: 'end' }}>
+                <Bi en="Amount" ar="المبلغ" />
+              </th>
+            </tr>
+          </thead>
+          <tbody id="tx">
+            {payments.length === 0 ? (
+              <tr className="empty-row">
+                <td colSpan={4}>
+                  <Bi en="No credit payments have been recorded for this renter yet." ar="لم يتم تسجيل أي مدفوعات رصيد لهذا المستأجر بعد." />
+                </td>
+              </tr>
+            ) : (
+              payments.map((payment) => {
+                const when = relTime(payment.created_at)
+                const amount = amountFromPayment(payment)
+                const method = payment.payment_method || payment.source_type || (payment.moyasar_id ? 'moyasar' : 'credit')
+                const description = payment.description || payment.payment_id || payment.id || 'Payment'
+                return (
+                  <tr key={payment.payment_id || payment.id || `${description}-${payment.created_at}`}>
+                    <td>
+                      <span className="mut">
+                        <Bi en={when.en} ar={when.ar} />
+                      </span>
+                    </td>
+                    <td>
+                      <span className="mono">{description}</span>
+                    </td>
+                    <td>
+                      <span className="mono">{method}</span>
+                    </td>
+                    <td>
+                      <span className="sar" style={{ color: payment.status === 'refunded' ? 'var(--ink)' : 'var(--teal)' }}>
+                        {payment.status === 'refunded' ? '-' : '+'}
+                        {fmtSar(amount)}
+                        <span className="u">SAR</span>
+                      </span>
                     </td>
                   </tr>
-                ) : (
-                  payments.map((payment) => {
-                    const when = relTime(payment.created_at)
-                    const amount = amountFromPayment(payment)
-                    const method = payment.payment_method || payment.source_type || (payment.moyasar_id ? 'moyasar' : 'credit')
-                    const description = payment.description || payment.payment_id || payment.id || 'Payment'
-                    return (
-                      <tr key={payment.payment_id || payment.id || `${description}-${payment.created_at}`}>
-                        <td>
-                          <span className="mut">
-                            <Bi en={when.en} ar={when.ar} />
-                          </span>
-                        </td>
-                        <td>
-                          <span className="mono">{description}</span>
-                        </td>
-                        <td>
-                          <span className="mono">{method}</span>
-                        </td>
-                        <td>
-                          <span className="sar" style={{ color: payment.status === 'refunded' ? 'var(--ink)' : 'var(--teal)' }}>
-                            {payment.status === 'refunded' ? '-' : '+'}
-                            {fmtSar(amount)}
-                            <span className="u">SAR</span>
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </main>
+                )
+              })
+            )}
+          </tbody>
+        </table>
       </div>
-    </div>
+    </main>
   )
 }
