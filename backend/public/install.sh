@@ -146,6 +146,22 @@ json_get_number() {
   printf '%s' "$json" | sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\\([0-9][0-9]*\\).*/\\1/p" | head -n 1
 }
 
+extract_json_sha256() {
+  sed -n 's/.*"sha256"[[:space:]]*:[[:space:]]*"\([a-fA-F0-9]\{64\}\)".*/\1/p' | head -n 1 | tr 'A-F' 'a-f'
+}
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$1" | awk '{print $NF}'
+  else
+    fail "No SHA-256 tool found (need sha256sum, shasum, or openssl)."
+  fi
+}
+
 load_config() {
   # If a wizard install token was passed (--token / DCP_INSTALL_TOKEN), the
   # operator wants a *fresh* registration — even if ~/.dcp/config has a
@@ -1129,10 +1145,11 @@ download_daemon() {
   guard_tmp="$(mktemp)"
   trap 'rm -f "${tmp}" "${guard_tmp}"' RETURN
 
-  local primary_url fallback_url guard_url
+  local primary_url fallback_url guard_url guard_manifest_url
   primary_url="${API_BASE}/api/providers/download/daemon?key=${DCP_PROVIDER_KEY}"
   fallback_url="${API_BASE}/daemon?key=${DCP_PROVIDER_KEY}"
   guard_url="${API_BASE}/api/providers/download/mining-guard?key=${DCP_PROVIDER_KEY}"
+  guard_manifest_url="${guard_url}&check_only=true"
 
   if curl -fsSL "${primary_url}" -o "${tmp}"; then
     :
@@ -1150,8 +1167,20 @@ download_daemon() {
     fail "Failed to download mining_guard.py companion from ${API_BASE}."
   fi
 
+  local guard_expected_sha256 guard_actual_sha256
+  guard_expected_sha256="$(curl -fsSL "${guard_manifest_url}" | extract_json_sha256 || true)"
+  if [ -z "${guard_expected_sha256}" ]; then
+    fail "Failed to read mining_guard.py sha256 manifest from ${API_BASE}."
+  fi
+  guard_actual_sha256="$(sha256_file "${guard_tmp}")"
+  if [ "${guard_actual_sha256}" != "${guard_expected_sha256}" ]; then
+    fail "Mining guard sha256 mismatch (expected ${guard_expected_sha256}, got ${guard_actual_sha256})."
+  fi
+
   mv "${guard_tmp}" "${MINING_GUARD_PATH}"
   chmod 600 "${MINING_GUARD_PATH}" || true
+  printf '%s  mining_guard.py\n' "${guard_expected_sha256}" > "${MINING_GUARD_PATH}.sha256"
+  chmod 600 "${MINING_GUARD_PATH}.sha256" || true
   info "Mining guard downloaded to ${MINING_GUARD_PATH}."
 }
 

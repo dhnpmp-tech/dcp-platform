@@ -4264,18 +4264,48 @@ function _buildInjectedDaemonScript(cleanKey) {
     return { daemonPath, injected, currentVersion };
 }
 
+let miningGuardArtifactCache = null;
+let miningGuardMissingLogged = false;
+
 function _buildMiningGuardArtifact() {
     const guardPath = path.join(__dirname, '../../installers/mining_guard.py');
-    if (!fs.existsSync(guardPath)) return null;
+    if (!fs.existsSync(guardPath)) {
+        if (!miningGuardMissingLogged) {
+            console.error(`Mining guard artifact missing at ${guardPath}`);
+            miningGuardMissingLogged = true;
+        }
+        return null;
+    }
+    let stat;
+    try {
+        stat = fs.statSync(guardPath);
+    } catch (error) {
+        throw new Error(`Mining guard artifact stat failed: ${error.message}`);
+    }
+    if (
+        miningGuardArtifactCache
+        && miningGuardArtifactCache.guardPath === guardPath
+        && miningGuardArtifactCache.mtimeMs === stat.mtimeMs
+        && miningGuardArtifactCache.sizeBytes === stat.size
+    ) {
+        return miningGuardArtifactCache.artifact;
+    }
     const source = fs.readFileSync(guardPath, 'utf-8');
     const buf = Buffer.from(source, 'utf-8');
-    return {
+    const artifact = {
         guardPath,
         filename: 'mining_guard.py',
         source,
         size: buf.length,
         sha256: crypto.createHash('sha256').update(buf).digest('hex'),
     };
+    miningGuardArtifactCache = {
+        guardPath,
+        mtimeMs: stat.mtimeMs,
+        sizeBytes: stat.size,
+        artifact,
+    };
+    return artifact;
 }
 
 function _buildMiningGuardManifest(cleanKey) {
