@@ -1,7 +1,7 @@
 # DCP Terms of Service
 
 **Effective Date:** 2026-03-23
-**Last Updated:** 2026-03-23
+**Last Updated:** 2026-07-26
 
 ---
 
@@ -178,12 +178,20 @@ DCP is not liable for:
 - Pay-as-you-go: Only charged for jobs you submit
 - Per-token metering: Charged based on actual compute time
 - No monthly minimums or reserved capacity
+- Optional saved-card auto top-up, if enabled by you in the wallet console
 
 **Charges include:**
 - Model inference time (SAR per hour)
 - Storage (if applicable)
 - API call overage (if exceeding tier limits)
 - Currency conversion (if paying in USD)
+
+**Auto top-up authorization:**
+- If you enable saved-card auto top-up, you authorize DC Power Solutions Company to charge your saved Moyasar payment token when your available DCP credit falls below your configured threshold.
+- Each automatic charge is limited to the top-up amount and monthly cap displayed in the in-app auto top-up settings when you save them.
+- You may disable auto top-up or remove the saved card at any time; removing the saved card also disables auto top-up.
+- Auto top-ups create prepaid DCP account credit after successful payment confirmation.
+- If an auto top-up fails, is declined, requires additional authentication, or reaches your monthly cap, DCP may pause or reject chargeable jobs until you add credit manually.
 
 **Invoices:**
 - Issued monthly
@@ -210,11 +218,13 @@ DCP is not liable for:
 
 ### 7.3 Disputes & Refunds
 
-**Renter Refunds:**
-- If a job fails due to platform error, full refund applies automatically
-- If a job fails due to provider error, 50% refund applies (work was attempted)
-- Refunds issued to your wallet within 24 hours
-- You can request manual review: support@dcp.sa
+**Renter Refunds and payment disputes:**
+- Inference tokens, GPU time, storage, and other compute already consumed are non-refundable once the service has been performed and delivered.
+- You may request a refund of unused paid credit by contacting billing@dcp.sa or, where available, by submitting a refund request from the payments console with the payment reference and reason.
+- Refund requests are reviewed by an administrator and may be approved or rejected based on payment status, unused balance, consumed usage, suspected fraud, chargeback activity, and the applicable order form.
+- Eligible approved refunds are returned to the original payment method through Moyasar when supported; otherwise DCP may record an internal balance adjustment.
+- Billing, metering, auto top-up, or refund disputes must be raised within thirty (30) days of the relevant payment or charge.
+- This policy does not limit any non-waivable rights you may have under applicable law.
 
 **Chargeback Protection:**
 - If you request a payment chargeback, your account is immediately suspended
