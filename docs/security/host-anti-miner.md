@@ -1,7 +1,7 @@
 # Host-level anti-miner security system
 
 **Task:** `task_a74c15efb7a0`  
-**Status:** design + initial implementation  
+**Status:** implemented; daemon distribution now ships the companion guard bundle
 **Tier:** critical (runs on provider hosts; can kill processes + quarantine)
 
 ## Problem
@@ -80,17 +80,34 @@ Anything else with meaningful VRAM (≥100 MiB) or matching miner patterns → f
 
 - `docs/security/host-anti-miner.md` — this note
 - `backend/installers/mining_guard.py` — host-scope functions
-- `backend/installers/dcp_daemon.py` — periodic hook thread
-- `backend/src/routes/providers.js` — mining_detected side-effects
+- `backend/installers/dcp_daemon.py` — periodic hook thread, loud missing-guard event, self-update guard refresh
+- `backend/src/routes/providers.js` — mining_detected side-effects and `/download/mining-guard` distribution route
 - `backend/src/routes/security.js` — surface events in admin feed
 - tests: Python detection unit tests + JS route test
+
+## Distribution contract
+
+`dcp_daemon.py` imports `mining_guard.py` from the same install directory. The
+backend therefore treats the daemon as a two-file bundle:
+
+1. `GET /api/providers/download/daemon?check_only=true` publishes the daemon
+   `sha256` plus a `mining_guard` manifest with `download_url`, `size`, and
+   `sha256`.
+2. `GET /api/providers/download/mining-guard` serves the exact companion file
+   to Unix/macOS and Windows installers.
+3. Daemon self-update downloads and verifies `mining_guard.py` before swapping
+   in a new `dcp_daemon.py`.
+4. If the import fails at runtime, the daemon logs an error and reports
+   `mining_guard_unavailable` once with `critical` severity instead of silently
+   disabling host anti-miner coverage.
 
 ## Rollout
 
 1. Merge after security review.
-2. Canary on Node 1 / lab provider.
-3. Fleet auto-update once canary clean for 24h.
-4. Document clear procedure: admin unflag + `is_paused=0` after forensic wipe.
+2. Deploy backend route before asking providers to reinstall.
+3. Canary on Node 1 / lab provider.
+4. Fleet auto-update once canary clean for 24h.
+5. Document clear procedure: admin unflag + `is_paused=0` after forensic wipe.
 
 ## Open questions
 

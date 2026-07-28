@@ -475,7 +475,7 @@ export default function RenterKeysPage() {
         <div className="create-grid">
           <label>
             <Bi en="Label" ar="التسمية" />
-            <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="production-server" />
+            <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder={lang === 'ar' ? 'خادم الإنتاج' : 'production-server'} />
           </label>
           <div className="scope-checks">
             {['inference', 'compute', 'billing', 'admin'].map((scope) => (

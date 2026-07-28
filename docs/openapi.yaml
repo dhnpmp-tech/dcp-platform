@@ -4635,6 +4635,64 @@ paths:
                     type: string
                   download_url:
                     type: string
+                  sha256:
+                    type: string
+                    pattern: '^[a-f0-9]{64}$'
+                  mining_guard:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                        example: mining_guard.py
+                      download_url:
+                        type: string
+                      size:
+                        type: integer
+                      sha256:
+                        type: string
+                        pattern: '^[a-f0-9]{64}$'
+
+  /api/providers/download/mining-guard:
+    get:
+      tags: [Providers]
+      summary: Download mining_guard.py companion file
+      description: Serves the host anti-miner companion module required by dcp_daemon.py.
+      security:
+        - ProviderApiKey: []
+      parameters:
+        - in: query
+          name: key
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: check_only
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: If "true", return sha256 + size metadata only without downloading
+      responses:
+        '200':
+          description: mining_guard.py source or artifact manifest
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                    example: mining_guard.py
+                  download_url:
+                    type: string
+                  size:
+                    type: integer
+                  sha256:
+                    type: string
+                    pattern: '^[a-f0-9]{64}$'
 
   /api/providers/download-windows-exe:
     get:
