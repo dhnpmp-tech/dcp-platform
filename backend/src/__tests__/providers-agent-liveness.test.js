@@ -42,7 +42,8 @@ function buildDb() {
       last_error_excerpt TEXT, last_error_at TEXT,
       mem_rss_mb INTEGER, log_tail_sha256 TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      wants_logs_at TEXT
+      wants_logs_at TEXT,
+      recover_action TEXT
     );
     CREATE TABLE provider_agent_log_snapshots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -180,7 +181,7 @@ describe('Hermes agent — POST /agent-liveness (upsert)', () => {
     const r1 = mkRes();
     fn(mkReq({ agent: 'hermes', pid: 111, uptime_s: 60, dashboard_port: 4500, gateway_state: 'running' }), r1);
     expect(r1._status).toBeUndefined(); // 200 (no explicit status)
-    expect(r1._body).toEqual({ ok: true, wants_logs_at: null });
+    expect(r1._body).toEqual({ ok: true, wants_logs_at: null, recover: null });
 
     const row1 = db.get('SELECT pid, uptime_s, gateway_state FROM provider_agent_liveness WHERE provider_id = ?', [1]);
     expect(row1.pid).toBe(111);

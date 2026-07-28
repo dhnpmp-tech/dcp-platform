@@ -9049,12 +9049,22 @@ router.post('/:id/agent-liveness', express.json({ limit: '16kb' }), (req, res) =
         );
 
         // Return the pull-trigger so Hermes knows whether to upload its log
-        // tail on the next tick.
+        // tail on the next tick. `recover` is the fleet watcher's out-of-band
+        // recovery channel (survives daemon death because the beacon is an
+        // independent cron): one-shot — cleared on delivery, the beacon script
+        // validates against its own local allowlist before acting.
         const row = db.get(
-            'SELECT wants_logs_at FROM provider_agent_liveness WHERE provider_id = ?',
+            'SELECT wants_logs_at, recover_action FROM provider_agent_liveness WHERE provider_id = ?',
             [providerId]
         );
-        return res.json({ ok: true, wants_logs_at: row?.wants_logs_at || null });
+        if (row?.recover_action) {
+            db.run('UPDATE provider_agent_liveness SET recover_action = NULL WHERE provider_id = ?', [providerId]);
+        }
+        return res.json({
+            ok: true,
+            wants_logs_at: row?.wants_logs_at || null,
+            recover: row?.recover_action ? { action: row.recover_action } : null,
+        });
     } catch (err) {
         console.error('[providers/:id/agent-liveness]', err);
         return res.status(500).json({ error: 'Failed to record agent liveness' });
