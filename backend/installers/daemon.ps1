@@ -32,6 +32,28 @@ param(
 $INSTALLER_VERSION = "2.0.0"
 $INSTALL_DIR = "$env:USERPROFILE\dc1-provider"
 
+function Fail-Install($Message) {
+    Write-Host "  ERROR: $Message" -ForegroundColor Red
+    exit 1
+}
+
+function Get-Sha256Hex($Path) {
+    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+}
+
+function Get-MiningGuardExpectedSha256($GuardUrl) {
+    $guardManifestUrl = "$GuardUrl&check_only=true"
+    try {
+        $manifest = Invoke-RestMethod -Uri $guardManifestUrl -UseBasicParsing -TimeoutSec 30
+    } catch {
+        Fail-Install "Failed to read mining_guard.py sha256 manifest."
+    }
+    if (-not $manifest.sha256 -or $manifest.sha256 -notmatch '^[a-fA-F0-9]{64}$') {
+        Fail-Install "Mining guard manifest did not include a valid sha256."
+    }
+    return $manifest.sha256.ToLowerInvariant()
+}
+
 Write-Host "`n================================================" -ForegroundColor Cyan
 Write-Host "  DCP Provider Daemon - Windows Installer v$INSTALLER_VERSION" -ForegroundColor Cyan
 Write-Host "================================================`n" -ForegroundColor Cyan
@@ -127,6 +149,12 @@ try {
     Write-Host "  Error: $_" -ForegroundColor Red
     exit 1
 }
+$guardExpectedSha256 = Get-MiningGuardExpectedSha256 $guardUrl
+$guardActualSha256 = Get-Sha256Hex $guardPath
+if ($guardActualSha256 -ne $guardExpectedSha256) {
+    Fail-Install "Mining guard sha256 mismatch (expected $guardExpectedSha256, got $guardActualSha256)."
+}
+$guardExpectedSha256 | Out-File "${guardPath}.sha256" -Encoding ascii
 
 # --- Step 5: Register and launch ---
 Write-Host "[5/5] Launching daemon..." -ForegroundColor Yellow

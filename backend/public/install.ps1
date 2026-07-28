@@ -43,6 +43,21 @@ function Fail($msg) {
     Write-Host "  [ERROR] $msg" -ForegroundColor Red
     exit 1
 }
+function Get-Sha256Hex($Path) {
+    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+}
+function Get-MiningGuardExpectedSha256($GuardUrl) {
+    $guardManifestUrl = "$GuardUrl&check_only=true"
+    try {
+        $manifest = Invoke-RestMethod -Uri $guardManifestUrl -UseBasicParsing
+    } catch {
+        Fail "Failed to read mining_guard.py sha256 manifest from $API_BASE."
+    }
+    if (-not $manifest.sha256 -or $manifest.sha256 -notmatch '^[a-fA-F0-9]{64}$') {
+        Fail "Mining guard manifest did not include a valid sha256."
+    }
+    return $manifest.sha256.ToLowerInvariant()
+}
 
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  DCP Provider Setup (Windows)" -ForegroundColor Cyan
@@ -160,6 +175,12 @@ try {
 } catch {
     Fail "Failed to download mining_guard.py companion from $API_BASE."
 }
+$guardExpectedSha256 = Get-MiningGuardExpectedSha256 $guardUrl
+$guardActualSha256 = Get-Sha256Hex $guardPath
+if ($guardActualSha256 -ne $guardExpectedSha256) {
+    Fail "Mining guard sha256 mismatch (expected $guardExpectedSha256, got $guardActualSha256)."
+}
+$guardExpectedSha256 | Out-File "${guardPath}.sha256" -Encoding ascii
 Write-Host "  Mining guard installed to $guardPath"
 
 # ── Step 6: Write config ────────────────────────────────────────────────

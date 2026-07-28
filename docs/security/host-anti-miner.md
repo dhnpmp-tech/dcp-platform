@@ -95,9 +95,13 @@ backend therefore treats the daemon as a two-file bundle:
    `sha256`.
 2. `GET /api/providers/download/mining-guard` serves the exact companion file
    to Unix/macOS and Windows installers.
-3. Daemon self-update downloads and verifies `mining_guard.py` before swapping
-   in a new `dcp_daemon.py`.
-4. If the import fails at runtime, the daemon logs an error and reports
+3. Fresh Unix/macOS and Windows installers fetch the `?check_only=true`
+   mining-guard manifest, hash the downloaded `mining_guard.py` locally, and
+   fail the install if the SHA-256 differs. Installers also write a local
+   `mining_guard.py.sha256` sidecar for operator forensics.
+4. Daemon self-update downloads and verifies `mining_guard.py` before swapping
+   in a new `dcp_daemon.py`; write failures are logged before being re-raised.
+5. If the import fails at runtime, the daemon logs an error and reports
    `mining_guard_unavailable` once with `critical` severity instead of silently
    disabling host anti-miner coverage.
 

@@ -14,6 +14,31 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `fix(security): verify mining guard installer downloads - PR #978`
+
+**PR:** [#978](https://github.com/dhnpmp-tech/dcp-platform/pull/978) (`codex/task-84a43a942146-mining-guard-sha256`).
+
+**What:** Hardens fresh provider installs so the host anti-miner companion file
+cannot be installed if its bytes do not match the backend manifest.
+
+- **Installer integrity:** Unix/macOS `install.sh`, public Windows
+  `install.ps1`, and legacy `backend/installers/daemon.ps1` now fetch the
+  `mining_guard.py?check_only=true` manifest, hash the downloaded
+  `mining_guard.py`, fail closed on SHA-256 mismatch, and write a
+  `mining_guard.py.sha256` sidecar.
+- **Daemon observability:** `_write_mining_guard_update` now logs the failed
+  path and exception before re-raising so update write failures are visible in
+  daemon logs.
+- **Backend efficiency:** The mining-guard download route caches the artifact
+  by mtime/size so manifest and download requests do not reread the same file
+  on every request.
+- **Regression guard:** Extended daemon integrity tests to assert installer
+  hash verification, backend artifact caching, and daemon log-before-reraise
+  behavior.
+- **Safety:** Installer/backend/test/docs/changelog hardening only. No live
+  provider mutation, billing, payments, routing, Mission Control API, or
+  production environment changed.
+
 ### Pending - `refactor(renter): centralize console shell - PR #977`
 
 **PR:** [#977](https://github.com/dhnpmp-tech/dcp-platform/pull/977) (`agent/codex/task_3e63d68f6ec4-renter-console-shell`).

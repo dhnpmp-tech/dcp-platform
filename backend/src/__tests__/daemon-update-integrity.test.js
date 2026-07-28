@@ -116,7 +116,27 @@ describe('daemon self-update integrity (#13)', () => {
     for (const installer of [unixInstaller, windowsInstaller, legacyWindowsInstaller]) {
       expect(installer).toContain('/api/providers/download/mining-guard');
       expect(installer).toContain('mining_guard.py');
+      expect(installer).toContain('check_only=true');
+      expect(installer).toContain('Mining guard sha256 mismatch');
     }
+    expect(unixInstaller).toContain('sha256_file');
+    expect(unixInstaller).toContain('guard_manifest_url="${guard_url}&check_only=true"');
+    expect(windowsInstaller).toContain('Get-FileHash -Algorithm SHA256');
+    expect(windowsInstaller).toContain('$guardManifestUrl = "$GuardUrl&check_only=true"');
+    expect(legacyWindowsInstaller).toContain('Get-FileHash -Algorithm SHA256');
+    expect(legacyWindowsInstaller).toContain('$guardManifestUrl = "$GuardUrl&check_only=true"');
+  });
+
+  it('keeps mining guard serving and self-update failures observable', () => {
+    const backendRoot = path.resolve(__dirname, '../..');
+    const providersRoute = fs.readFileSync(path.join(backendRoot, 'src/routes/providers.js'), 'utf-8');
+    const daemonSource = fs.readFileSync(path.join(backendRoot, 'installers/dcp_daemon.py'), 'utf-8');
+
+    expect(providersRoute).toContain('miningGuardArtifactCache');
+    expect(providersRoute).toContain('Mining guard artifact missing at');
+    expect(providersRoute).toContain('mtimeMs === stat.mtimeMs');
+    expect(providersRoute).toContain('sizeBytes === stat.size');
+    expect(daemonSource).toContain('log.error(f"Failed to write mining_guard.py companion update');
   });
 
   it('rejects the daemon download without a valid provider key', async () => {

@@ -1482,7 +1482,8 @@ def _write_mining_guard_update(guard_code):
             pass
         os.replace(tmp_path, guard_path)
         log.info(f"Updated mining_guard.py companion file at {guard_path}")
-    except Exception:
+    except Exception as e:
+        log.error(f"Failed to write mining_guard.py companion update at {guard_path}: {e}")
         try:
             tmp_path.unlink()
         except OSError:
