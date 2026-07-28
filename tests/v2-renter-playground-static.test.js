@@ -30,8 +30,9 @@ for (const text of forbidden) {
 
 assert(source.includes("fetch('/v1/models'"), 'v2 renter playground should load the live model catalog through the local v1 proxy');
 assert(source.includes('/v1/chat/completions'), 'v2 renter playground should send prompts through the OpenAI-compatible route');
-assert(source.includes('/renters/me?key='), 'v2 renter playground should load the authenticated renter account');
-assert(source.includes('/renters/balance?key='), 'v2 renter playground should load real wallet balances');
+assert(source.includes("const headers = { 'x-renter-key': key }"), 'v2 renter playground should use header-authenticated renter requests');
+assert(source.includes('`${getApiBase()}/renters/me`'), 'v2 renter playground should load the authenticated renter account');
+assert(source.includes('`${getApiBase()}/renters/balance`'), 'v2 renter playground should load real wallet balances');
 assert(source.includes('(m.provider_count ?? 0) > 0'), 'v2 renter playground should only list models with a serving provider');
 assert(source.includes("catalogState === 'empty'"), 'v2 renter playground should render an honest empty-catalog state');
 assert(source.includes('Sign in with a real renter key'), 'v2 renter playground should require a real renter key before inference');

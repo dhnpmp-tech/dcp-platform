@@ -9,7 +9,7 @@ import './playground.css'
 
 const HALALA_PER_SAR = 100
 // Codebase-standard FX anchor (matches app/admin/pricing, app/provider/activate,
-// and the v1 playground). Used only as a client-side fallback when the backend
+// and the v1 playground). Used only as a client-side backup when the backend
 // pricing object does not already carry sar_total.
 const SAR_PER_USD = 3.75
 
@@ -567,7 +567,7 @@ export default function PlaygroundPage() {
     ?? halalaToSar(minimumCreditPolicy?.trial_grant_halala ?? minimumBalanceReadiness?.account?.trial_grant_halala)
   const creditPolicyLabel = minimumCreditPolicy
     ? 'credit policy synced'
-    : 'credit policy fallback'
+    : 'credit policy default'
   const highDemandGateLabel = minimumCreditPolicy?.high_demand_requires_paid_credit === true
     ? 'paid credit only'
     : 'backend gate'
@@ -754,7 +754,7 @@ export default function PlaygroundPage() {
 
       const elapsedSeconds = (performance.now() - startedAt) / 1000
       // Prefer the backend's real prompt_tokens; the char/4 estimate is only a
-      // fallback for responses that omit usage.
+      // backup estimate for responses that omit usage.
       const inputTokens = promptTokens > 0 ? promptTokens : Math.max(1, Math.ceil(text.length / 4))
       setStats((prev) => ({
         inputTokens: prev.inputTokens + inputTokens,
@@ -971,672 +971,551 @@ export default function PlaygroundPage() {
   }
 
   return (
-    <div className="rt-app">
-      {/* ── Sidebar (from renter-shell.js template) ── */}
-      <aside className={`rt-sb${sidebarOpen ? ' on' : ''}`} id="rt-sb" data-page={CURRENT_PAGE}>
-        <div className="rt-sb-brand">
-          <span className="wm">
-            DCP<i>∞</i>
-          </span>
-          <span className="ctx">Console</span>
-        </div>
-        <div className="rt-ws">
-          <button className="rt-ws-btn" title="Switch workspace">
-            <span className="av">{initials(accountName, renter?.email)}</span>
-            <span className="body">
-              <span className="nm">{accountName}</span>
-              <span className="sub">{accountSub}</span>
-            </span>
-            <span className="chev">⌄</span>
-          </button>
-        </div>
-        <div className="rt-wallet">
-          <div className="k">
-            <Bi en="Credit" ar="الرصيد" />
-          </div>
-          <div className="v">
-            <Bi en={`Credit ${fmtSar(balanceSar)}`} ar={`رصيد ${fmtSar(balanceSar)}`} />
-          </div>
-          <div className="row">
-            <span>
-              <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
-            </span>
-            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
-          </div>
-          <div className="row">
-            <span>
-              <Bi en="Total spent" ar="إجمالي الإنفاق" />
-            </span>
-            <b><Bi en={`${fmtSar(totalSpentSar)} credit`} ar={`${fmtSar(totalSpentSar)} رصيد`} /></b>
-          </div>
-          <Link className="topup" href="/renter/wallet">
-            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
-          </Link>
-        </div>
-        <nav className="rt-nav">
-          {NAV.map((s) => (
-            <div key={s.sec}>
-              <div className="sec">{s.sec}</div>
-              {s.items.map((it) => (
-                <Link
-                  key={it.k}
-                  href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
-                  className={CURRENT_PAGE === it.k ? 'on' : ''}
-                  aria-current={CURRENT_PAGE === it.k ? 'page' : undefined}
-                >
-                  <span className="ic">{it.ic}</span>
-                  <span>{it.label}</span>
-                  <span className="bd">{it.bd || ''}</span>
-                </Link>
+    <main className="rt-main">
+      <h1 className="rt-h1">
+        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+          <Bi en="Try it" ar="جرّبه" />
+        </em>{' '}
+        <Bi en="before you ship." ar="قبل أن تطلق." />
+      </h1>
+      <div className="rt-h1-sub">
+        <span>
+          <Bi
+            en="Same API · metered at your app's exact rate · same answer your app would see"
+            ar="نفس الواجهة · بنفس التسعير الذي يدفعه تطبيقك · نفس الإجابة التي سيراها تطبيقك"
+          />
+        </span>
+      </div>
+
+      {/* ── surface tabs: chat playground ↔ workspace file manager ── */}
+      <div className="tabs pg-surface-tabs" role="tablist" aria-label={lang === 'ar' ? 'سطح الساحة' : 'Playground surface'}>
+        <button
+          role="tab"
+          aria-selected={surface === 'playground'}
+          className={surface === 'playground' ? 'on' : ''}
+          onClick={() => selectSurface('playground')}
+        >
+          <Bi en="Playground" ar="الساحة" />
+        </button>
+        <button
+          role="tab"
+          aria-selected={surface === 'workspace'}
+          className={surface === 'workspace' ? 'on' : ''}
+          onClick={() => selectSurface('workspace')}
+        >
+          <Bi en="Workspace" ar="مساحة العمل" />
+        </button>
+      </div>
+
+      {surface === 'workspace' ? (
+        <WorkspacePanel
+          apiBase={getApiBase()}
+          renterKey={getRenterKey()}
+        />
+      ) : (
+      <div className="pg-grid" style={{ marginTop: '36px' }}>
+        {/* Left side: model picker + knobs */}
+        <div className="pg-side">
+          <div className="panel">
+            <h4>
+              <Bi en="Model" ar="النموذج" />
+            </h4>
+            {catalogState === 'loading' && (
+              <div className="pg-empty">
+                <Bi en="Loading live model catalog..." ar="تحميل كتالوج النماذج المباشر..." />
+              </div>
+            )}
+            {catalogState === 'empty' && (
+              <div className="pg-empty">
+                <Bi en="No serving models are available right now." ar="لا توجد نماذج عاملة متاحة حالياً." />
+              </div>
+            )}
+            {catalogState === 'error' && (
+              <div className="pg-error" role="alert">
+                <Bi en="Could not load the live model catalog." ar="تعذر تحميل كتالوج النماذج المباشر." />
+              </div>
+            )}
+            <div className="model-pick">
+              {models.map((m) => (
+                <label key={m.id}>
+                  <input
+                    type="radio"
+                    name="m"
+                    checked={model === m.id}
+                    onChange={() => setModel(m.id)}
+                  />
+                  <span className="dot"></span>
+                  <span className="nm">{m.name}</span>
+                  {m.price ? <span className="price">{m.price}</span> : <span className="price"></span>}
+                </label>
               ))}
             </div>
-          ))}
-        </nav>
-        <div className="rt-sb-foot">
-          <div className="av">{initials(renter?.name || accountName, renter?.email)}</div>
-          <div className="who">
-            {renter?.name || accountName}
-            <span className="e">{renter?.email || 'Renter session required'}</span>
-          </div>
-          <span className="out" title="Sign out" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => { localStorage.removeItem('dc1_renter_key'); window.location.href = '/auth' }}>
-            ↱
-          </span>
-        </div>
-      </aside>
-
-      <div
-        className={`rt-backdrop${sidebarOpen ? ' on' : ''}`}
-        id="rt-backdrop"
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      <div>
-        {/* ── Topbar (from renter-shell.js template) ── */}
-        <header className="rt-tb" id="rt-tb" data-crumb="Playground">
-          <button
-            className="mb-toggle"
-            id="mb-toggle"
-            aria-label="Menu"
-            onClick={() => setSidebarOpen((v) => !v)}
-          >
-            ☰
-          </button>
-          <div className="crumb">
-            <span>{accountName}</span>
-            <span className="sep">/</span>
-            <span className="cur">
-              <Bi en="Playground" ar="ساحة التجربة" />
-            </span>
-          </div>
-          <span
-            className="pill"
-            style={{ color: apiPillColor, borderColor: apiPillColor }}
-            title={apiLive ? 'Live model catalog + renter session ready' : 'Catalog or renter session not ready'}
-          >
-            <span className="d" style={apiLive ? undefined : { background: 'var(--mut)', animation: 'none' }}></span>{' '}
-            {apiLive ? (
-              <Bi en="API live" ar="الواجهة مفعّلة" />
-            ) : apiConnecting ? (
-              <Bi en="API connecting" ar="جارٍ الاتصال" />
-            ) : (
-              <Bi en="API offline" ar="الواجهة غير متصلة" />
-            )}
-          </span>
-          <button className="lang" onClick={toggle} aria-label="Toggle language">
-            {lang === 'ar' ? 'EN' : 'ع'}
-          </button>
-          <Link className="keys" href="/renter/keys">
-            ⚷ <Bi en="API keys" ar="مفاتيح الواجهة" />
-          </Link>
-        </header>
-
-        <main className="rt-main">
-          <h1 className="rt-h1">
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="Try it" ar="جرّبه" />
-            </em>{' '}
-            <Bi en="before you ship." ar="قبل أن تطلق." />
-          </h1>
-          <div className="rt-h1-sub">
-            <span>
-              <Bi
-                en="Same API · metered at your app's exact rate · same answer your app would see"
-                ar="نفس الواجهة · بنفس التسعير الذي يدفعه تطبيقك · نفس الإجابة التي سيراها تطبيقك"
-              />
-            </span>
-          </div>
-
-          {/* ── surface tabs: chat playground ↔ workspace file manager ── */}
-          <div className="tabs pg-surface-tabs" role="tablist" aria-label={lang === 'ar' ? 'سطح الساحة' : 'Playground surface'}>
-            <button
-              role="tab"
-              aria-selected={surface === 'playground'}
-              className={surface === 'playground' ? 'on' : ''}
-              onClick={() => selectSurface('playground')}
-            >
-              <Bi en="Playground" ar="الساحة" />
-            </button>
-            <button
-              role="tab"
-              aria-selected={surface === 'workspace'}
-              className={surface === 'workspace' ? 'on' : ''}
-              onClick={() => selectSurface('workspace')}
-            >
-              <Bi en="Workspace" ar="مساحة العمل" />
-            </button>
-          </div>
-
-          {surface === 'workspace' ? (
-            <WorkspacePanel
-              apiBase={getApiBase()}
-              renterKey={getRenterKey()}
-            />
-          ) : (
-          <div className="pg-grid" style={{ marginTop: '36px' }}>
-            {/* Left side: model picker + knobs */}
-            <div className="pg-side">
-              <div className="panel">
-                <h4>
-                  <Bi en="Model" ar="النموذج" />
-                </h4>
-                {catalogState === 'loading' && (
-                  <div className="pg-empty">
-                    <Bi en="Loading live model catalog..." ar="تحميل كتالوج النماذج المباشر..." />
+            {selectedModel && (
+              <div className="model-contract" aria-label={lang === 'ar' ? 'عقد النموذج المحدد' : 'Selected contract'}>
+                <div className="model-contract-head">
+                  <span><Bi en="Selected contract" ar="عقد النموذج المحدد" /></span>
+                  <b>{formatContractStatus(selectedModel.status || 'available')}</b>
+                </div>
+                <div className="model-facts">
+                  <div>
+                    <span><Bi en="Context" ar="السياق" /></span>
+                    <b>{formatCompactNumber(selectedModel.contextLength)} tok</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Max output" ar="أقصى إخراج" /></span>
+                    <b>{formatCompactNumber(selectedModel.maxOutputTokens)} tok</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Providers" ar="المزودون" /></span>
+                    <b>{selectedModel.providerCount}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Max VRAM" ar="أقصى VRAM" /></span>
+                    <b>{selectedModel.maxVramGb ? `${selectedModel.maxVramGb} GB` : '-'}</b>
+                  </div>
+                </div>
+                <div className="model-rates">
+                  <div>
+                    <span><Bi en="Input / 1M" ar="الإدخال / 1M" /></span>
+                    <b>{formatSarPerMillion(selectedModel.pricing?.sar_per_1m_input_tokens)}</b>
+                  </div>
+                  <div>
+                    <span><Bi en="Output / 1M" ar="الإخراج / 1M" /></span>
+                    <b>{formatSarPerMillion(selectedModel.pricing?.sar_per_1m_output_tokens)}</b>
+                  </div>
+                </div>
+                {selectedCapabilities.length > 0 && (
+                  <div className="model-cap-list">
+                    {selectedCapabilities.map((capability) => (
+                      <span key={capability}>{capability}</span>
+                    ))}
                   </div>
                 )}
-                {catalogState === 'empty' && (
-                  <div className="pg-empty">
-                    <Bi en="No serving models are available right now." ar="لا توجد نماذج عاملة متاحة حالياً." />
-                  </div>
-                )}
-                {catalogState === 'error' && (
-                  <div className="pg-error" role="alert">
-                    <Bi en="Could not load the live model catalog." ar="تعذر تحميل كتالوج النماذج المباشر." />
-                  </div>
-                )}
-                <div className="model-pick">
-                  {models.map((m) => (
-                    <label key={m.id}>
-                      <input
-                        type="radio"
-                        name="m"
-                        checked={model === m.id}
-                        onChange={() => setModel(m.id)}
-                      />
-                      <span className="dot"></span>
-                      <span className="nm">{m.name}</span>
-                      {m.price ? <span className="price">{m.price}</span> : <span className="price"></span>}
-                    </label>
+                <div className="model-feature-list">
+                  {selectedFeatureGates.map(([label, gate]) => (
+                    <div key={label} className={gate?.available ? 'ready' : 'gated'}>
+                      <span>{label}</span>
+                      <b>{formatContractStatus(gate?.status)}</b>
+                    </div>
                   ))}
                 </div>
-                {selectedModel && (
-                  <div className="model-contract" aria-label={lang === 'ar' ? 'عقد النموذج المحدد' : 'Selected contract'}>
-                    <div className="model-contract-head">
-                      <span><Bi en="Selected contract" ar="عقد النموذج المحدد" /></span>
-                      <b>{formatContractStatus(selectedModel.status || 'available')}</b>
-                    </div>
-                    <div className="model-facts">
-                      <div>
-                        <span><Bi en="Context" ar="السياق" /></span>
-                        <b>{formatCompactNumber(selectedModel.contextLength)} tok</b>
-                      </div>
-                      <div>
-                        <span><Bi en="Max output" ar="أقصى إخراج" /></span>
-                        <b>{formatCompactNumber(selectedModel.maxOutputTokens)} tok</b>
-                      </div>
-                      <div>
-                        <span><Bi en="Providers" ar="المزودون" /></span>
-                        <b>{selectedModel.providerCount}</b>
-                      </div>
-                      <div>
-                        <span><Bi en="Max VRAM" ar="أقصى VRAM" /></span>
-                        <b>{selectedModel.maxVramGb ? `${selectedModel.maxVramGb} GB` : '-'}</b>
-                      </div>
-                    </div>
-                    <div className="model-rates">
-                      <div>
-                        <span><Bi en="Input / 1M" ar="الإدخال / 1M" /></span>
-                        <b>{formatSarPerMillion(selectedModel.pricing?.sar_per_1m_input_tokens)}</b>
-                      </div>
-                      <div>
-                        <span><Bi en="Output / 1M" ar="الإخراج / 1M" /></span>
-                        <b>{formatSarPerMillion(selectedModel.pricing?.sar_per_1m_output_tokens)}</b>
-                      </div>
-                    </div>
-                    {selectedCapabilities.length > 0 && (
-                      <div className="model-cap-list">
-                        {selectedCapabilities.map((capability) => (
-                          <span key={capability}>{capability}</span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="model-feature-list">
-                      {selectedFeatureGates.map(([label, gate]) => (
-                        <div key={label} className={gate?.available ? 'ready' : 'gated'}>
-                          <span>{label}</span>
-                          <b>{formatContractStatus(gate?.status)}</b>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="model-contract-note mono">
-                      <Bi
-                        en={`pricing source: ${selectedModel.pricing?.source || 'catalog'} · contract: ${selectedModel.pricing?.contract?.version || 'dcp.model_token_pricing.v1'} · ${selectedModel.pricing?.contract?.usd_display_only ? 'USD display only' : 'SAR source of truth'}`}
-                        ar={`مصدر التسعير: ${selectedModel.pricing?.source || 'catalog'} · العقد: ${selectedModel.pricing?.contract?.version || 'dcp.model_token_pricing.v1'}`}
-                      />
-                    </div>
-                    {selectedModel.pricing?.contract?.source_contract && (
-                      <div className="model-contract-note mono">
-                        <Bi
-                          en={`${selectedModel.pricing.contract.source_contract} · ${selectedModel.pricing.contract.settlement_path || 'usage.pricing'}`}
-                          ar={`${selectedModel.pricing.contract.source_contract} · ${selectedModel.pricing.contract.settlement_path || 'usage.pricing'}`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="panel">
-                <h4>
-                  <Bi en="Parameters" ar="المعاملات" />
-                </h4>
-                <div className="knob">
-                  <div className="label">
-                    <span>
-                      <Bi en="Temperature" ar="درجة الحرارة" />
-                    </span>
-                    <b>{temperature}</b>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={20}
-                    value={tempRaw}
-                    onChange={(e) => setTempRaw(Number(e.target.value))}
+                <div className="model-contract-note mono">
+                  <Bi
+                    en={`pricing source: ${selectedModel.pricing?.source || 'catalog'} · contract: ${selectedModel.pricing?.contract?.version || 'dcp.model_token_pricing.v1'} · ${selectedModel.pricing?.contract?.usd_display_only ? 'USD display only' : 'SAR source of truth'}`}
+                    ar={`مصدر التسعير: ${selectedModel.pricing?.source || 'catalog'} · العقد: ${selectedModel.pricing?.contract?.version || 'dcp.model_token_pricing.v1'}`}
                   />
                 </div>
-                <div className="knob">
-                  <div className="label">
-                    <span>
-                      <Bi en="Max tokens" ar="أقصى عدد للرموز" />
-                    </span>
-                    <b>{maxTokensLabel}</b>
-                  </div>
-                  <input
-                    type="range"
-                    min={128}
-                    max={maxTokenLimit}
-                    step={MAX_TOKEN_STEP}
-                    value={maxTokens}
-                    onChange={(e) => setMaxTokens(Number(e.target.value))}
-                  />
-                </div>
-                <div className="knob">
-                  <div className="label">
-                    <span>
-                      <Bi en="Top-p" ar="Top-p" />
-                    </span>
-                    <b>{topP}</b>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={topPRaw}
-                    onChange={(e) => setTopPRaw(Number(e.target.value))}
-                  />
-                </div>
-                <label className="switch" style={{ marginTop: '16px' }}>
-                  <input
-                    type="checkbox"
-                    checked={stream}
-                    onChange={(e) => setStream(e.target.checked)}
-                  />
-                  <span className="track"></span>
-                  <span className="lbl-text">
-                    <Bi en="Stream response" ar="بث الاستجابة" />
-                  </span>
-                </label>
-                <label className="switch" style={{ marginTop: '12px' }}>
-                  <input
-                    type="checkbox"
-                    checked={showReasoning}
-                    onChange={(e) => setShowReasoning(e.target.checked)}
-                  />
-                  <span className="track"></span>
-                  <span className="lbl-text">
-                    <Bi en="Show reasoning" ar="إظهار الاستدلال" />
-                  </span>
-                </label>
-              </div>
-
-              <div className="panel router-panel">
-                <h4>
-                  <Bi en="Routing" ar="التوجيه" />
-                </h4>
-                {routerPolicyState === 'loading' && (
-                  <div className="pg-empty">
-                    <Bi en="Loading router policy catalog..." ar="تحميل كتالوج سياسات التوجيه..." />
-                  </div>
-                )}
-                {routerPolicyState === 'error' && (
-                  <div className="pg-error" role="alert">
-                    <Bi en="Could not load router policy readiness." ar="تعذر تحميل جاهزية سياسات التوجيه." />
-                  </div>
-                )}
-                {routerPolicyState === 'ready' && (
-                  <>
-                    <div className="route-default">
-                      <span><Bi en="Default" ar="الافتراضي" /></span>
-                      <b>{defaultRouterPolicy?.label || 'Balanced'}</b>
-                      <em>{formatPolicyStatus(defaultRouterPolicy?.status)}</em>
-                    </div>
-                    <div className="route-policy-list">
-                      {(routerPolicies?.data || []).map((policy) => {
-                        const firstGate = policy.proof_gates?.[0]
-                        return (
-                          <div
-                            key={policy.id}
-                            className={`route-policy${policy.id === defaultRouterPolicy?.id ? ' on' : ''}${policy.available ? '' : ' gated'}`}
-                          >
-                            <span>{policy.label}</span>
-                            <b>{formatPolicyStatus(policy.status)}</b>
-                            {firstGate && (
-                              <small>
-                                <Bi en="Gate" ar="البوابة" />: {firstGate.label} · {formatPolicyStatus(firstGate.status)}
-                              </small>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="route-note mono">
-                      <Bi
-                        en={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'read-only routing catalog'}
-                        ar={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'كتالوج توجيه للقراءة فقط'}
-                      />
-                    </div>
-                    <div className="route-proof-note">
-                      <span><Bi en="Proof before selectable" ar="الإثبات قبل الاختيار" /></span>
-                      <b dir="ltr">{routerProofCommand}</b>
-                      {routerLiveSmokeRequired && <em><Bi en="live smoke required" ar="يلزم اختبار حي" /></em>}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="panel router-panel preflight-panel" aria-label={lang === 'ar' ? 'فحص الرصيد للاستدلال' : 'Inference credit preflight'}>
-                <h4>
-                  <Bi en="Credit preflight" ar="فحص الرصيد" />
-                </h4>
-                {minimumBalanceState === 'missing-key' && (
-                  <div className="pg-empty">
-                    <Bi en="Sign in to load inference credit gates." ar="سجّل الدخول لتحميل بوابات رصيد الاستدلال." />
-                  </div>
-                )}
-                {minimumBalanceState === 'loading' && (
-                  <div className="pg-empty">
-                    <Bi en="Loading minimum-balance policy..." ar="تحميل سياسة الحد الأدنى للرصيد..." />
-                  </div>
-                )}
-                {minimumBalanceState === 'error' && (
-                  <div className="pg-error" role="alert">
-                    <Bi en="Could not load minimum-balance policy. Requests still use backend preflight." ar="تعذر تحميل سياسة الرصيد. الطلبات لا تزال تستخدم فحص الخلفية." />
-                  </div>
-                )}
-                {minimumBalanceState === 'ready' && (
-                  <>
-                    <div className="route-default">
-                      <span><Bi en="Minimum balance" ar="الحد الأدنى للرصيد" /></span>
-                      <b>{minimumBalanceSynced ? 'synced read-only' : 'fallback contract'}</b>
-                      <em>{minimumBalanceReadiness?.version || 'dcp.minimum_balance_readiness.v1'}</em>
-                    </div>
-                    <div className="route-policy-list">
-                      <div className={`route-policy${minimumCreditPolicy ? ' on' : ' gated'}`}>
-                        <span><Bi en="Credit policy" ar="سياسة الرصيد" /></span>
-                        <b>{creditPolicyLabel}</b>
-                      </div>
-                      <div className={`route-policy${v1MinimumBalanceRail?.enforcement_live ? ' on' : ' gated'}`}>
-                        <span><Bi en={inferencePreflightLabel} ar="طلبات v1: فحص تقديري" /></span>
-                        <b>{formatContractStatus(v1MinimumBalanceRail?.status)}</b>
-                      </div>
-                      <div className="route-policy on">
-                        <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
-                        <b>SAR {fmtSar(paidAvailableSar)}</b>
-                      </div>
-                      <div className="route-policy on">
-                        <span><Bi en="Trial grant" ar="منحة التجربة" /></span>
-                        <b>SAR {fmtSar(trialGrantSar)}</b>
-                      </div>
-                      <div className="route-policy gated">
-                        <span><Bi en="High-demand gate" ar="بوابة الطلب العالي" /></span>
-                        <b>{highDemandGateLabel}</b>
-                      </div>
-                      <div className="route-policy">
-                        <span><Bi en="Monthly cap remaining" ar="المتبقي من الحد الشهري" /></span>
-                        <b>{typeof v1RemainingCapSar === 'number' ? `SAR ${fmtSar(v1RemainingCapSar)}` : 'unlimited'}</b>
-                      </div>
-                      <div className="route-policy gated">
-                        <span><Bi en="Prompt-cache discounts" ar="خصومات التخزين المؤقت" /></span>
-                        <b>{formatContractStatus(minimumBalanceReadiness?.rails?.prompt_cache_discount?.status)}</b>
-                      </div>
-                      <div className="route-policy gated">
-                        <span><Bi en="Future billing rails blocked" ar="مسارات فوترة مستقبلية مقيدة" /></span>
-                        <b>{blockedFutureBillingRails}</b>
-                      </div>
-                      <div className={noCreditPolicyMutation ? 'route-policy on' : 'route-policy gated'}>
-                        <span><Bi en="Policy guards" ar="حراس السياسة" /></span>
-                        <b>{noCreditPolicyMutation ? 'no trial/paid-credit change' : 'checking'}</b>
-                      </div>
-                    </div>
-                    <div className="route-note mono">
-                      <Bi en="/api/renters/me/minimum-balances · read-only" ar="/api/renters/me/minimum-balances · قراءة فقط" />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="panel router-panel prompt-cache-panel">
-                <h4>
-                  <Bi en="Prompt cache" ar="التخزين المؤقت" />
-                </h4>
-                {promptCacheState === 'loading' && (
-                  <div className="pg-empty">
-                    <Bi en="Loading prompt-cache readiness..." ar="تحميل جاهزية التخزين المؤقت..." />
-                  </div>
-                )}
-                {promptCacheState === 'error' && (
-                  <div className="pg-error" role="alert">
-                    <Bi en="Could not load prompt-cache readiness." ar="تعذر تحميل جاهزية التخزين المؤقت." />
-                  </div>
-                )}
-                {promptCacheState === 'ready' && (
-                  <>
-                    <div className="route-default">
-                      <span><Bi en="Current mode" ar="الوضع الحالي" /></span>
-                      <b>{formatContractStatus(promptCacheReadiness?.current_mode || promptCacheReadiness?.status)}</b>
-                      <em>{promptCacheReadiness?.version || 'dcp.prompt_cache.v1'}</em>
-                    </div>
-                    <div className="route-policy-list">
-                      <div className={`route-policy${promptCacheMeasurement?.hash_only ? ' on' : ' gated'}`}>
-                        <span><Bi en="Hash-only measurement" ar="قياس بالهاش فقط" /></span>
-                        <b>{formatGate(promptCacheMeasurement?.hash_only)}</b>
-                      </div>
-                      <div className={`route-policy${promptCacheMeasurement?.stores_raw_prompt ? ' gated' : ' on'}`}>
-                        <span><Bi en="Raw prompt storage" ar="تخزين الطلب الخام" /></span>
-                        <b>{formatGate(promptCacheMeasurement?.stores_raw_prompt)}</b>
-                      </div>
-                      <div className={`route-policy${promptCacheBilling?.discounts_enabled ? ' on' : ' gated'}`}>
-                        <span><Bi en="Cached-input discounts" ar="خصومات الإدخال المخزن" /></span>
-                        <b>{formatGate(promptCacheBilling?.discounts_enabled, 'enabled', 'gated')}</b>
-                      </div>
-                      <div className={`route-policy${promptCacheClaims?.provider_kv_cache_control ? ' on' : ' gated'}`}>
-                        <span><Bi en="Provider KV cache control" ar="تحكم KV لدى المزود" /></span>
-                        <b>{formatGate(promptCacheClaims?.provider_kv_cache_control)}</b>
-                      </div>
-                      <div className={`route-policy${promptCacheSettlementPolicy?.settlement_discounts_enabled ? ' on' : ' gated'}`}>
-                        <span><Bi en="Settlement discount policy" ar="سياسة خصم التسوية" /></span>
-                        <b>{formatContractStatus(promptCacheSettlementReadiness?.current_mode || promptCacheSettlementPolicy?.discount_policy?.status)}</b>
-                      </div>
-                      <div className="route-policy gated">
-                        <span><Bi en="Provider cache-hit evidence" ar="إثبات إصابة التخزين لدى المزود" /></span>
-                        <b>{formatContractStatus(promptCacheSettlementPolicy?.provider_cache_hit_evidence?.status || 'blocked_external')}</b>
-                      </div>
-                      <div className={`route-policy${promptCacheSettlementReadOnly ? ' on' : ' gated'}`}>
-                        <span><Bi en="Read-only settlement proof" ar="إثبات تسوية للقراءة فقط" /></span>
-                        <b>{promptCacheSettlementReadOnly ? 'safe' : 'checking'}</b>
-                      </div>
-                      <div className={`route-policy${promptCacheSettlementPolicy?.settlement_mutations_enabled ? ' on' : ' gated'}`}>
-                        <span><Bi en="Settlement mutations" ar="تغييرات التسوية" /></span>
-                        <b>{formatGate(promptCacheSettlementPolicy?.settlement_mutations_enabled, 'enabled', 'off')}</b>
-                      </div>
-                    </div>
-                    <div className="route-note mono">
-                      <Bi
-                        en={`/v1/prompt-cache/readiness · ${promptCacheSettlementState === 'error' ? 'settlement readiness unavailable' : '/v1/prompt-cache/settlement/readiness'}`}
-                        ar={`/v1/prompt-cache/readiness · ${promptCacheSettlementState === 'error' ? 'جاهزية التسوية غير متاحة' : '/v1/prompt-cache/settlement/readiness'}`}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Middle: chat */}
-            <div className="chat">
-              <div className="chat-hd">
-                <div className="nm">{selectedModelName || 'No live model'}</div>
-                <div className="meta">
-                  <Bi en="Sample prompts available below" ar="نماذج جاهزة متوفرة أدناه" />
-                </div>
-              </div>
-              <div className="chat-body" id="chat-body">
-                {messages.length === 0 ? (
-                  <div className="pg-empty">
+                {selectedModel.pricing?.contract?.source_contract && (
+                  <div className="model-contract-note mono">
                     <Bi
-                      en="Send a prompt with a live renter key. Responses will appear here."
-                      ar="أرسل طلباً بمفتاح مستأجر مباشر. ستظهر الاستجابات هنا."
+                      en={`${selectedModel.pricing.contract.source_contract} · ${selectedModel.pricing.contract.settlement_path || 'usage.pricing'}`}
+                      ar={`${selectedModel.pricing.contract.source_contract} · ${selectedModel.pricing.contract.settlement_path || 'usage.pricing'}`}
                     />
                   </div>
-                ) : (
-                  messages.map((m) => (
-                    <div key={m.id} className={`msg ${m.role}${m.ar ? ' ar' : ''}`}>
-                      <div className="role">{m.roleLabel}</div>
-                      <div className="content">{m.content}</div>
-                      {showReasoning && m.reasoning ? (
-                        <div className="reasoning">
-                          <span className="reasoning-label">
-                            <Bi en="Reasoning" ar="الاستدلال" />
-                          </span>
-                          {m.reasoning}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))
                 )}
               </div>
-              <div className="chat-input">
-                <textarea
-                  placeholder={lang === 'ar' ? 'اسأل بالعربية أو الإنجليزية…' : 'Ask in English or Arabic…'}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={onTextareaKeyDown}
-                />
-                <div className="row">
-                  <div className="left">
-                    <span>
-                      <Bi en="Markdown supported" ar="يدعم Markdown" />
-                    </span>
-                    <span>·</span>
-                    <span>
-                      <b style={{ color: 'var(--ink)' }}>⌘+↵</b> <Bi en="to send" ar="للإرسال" />
-                    </span>
-                  </div>
-                  <button className="send" onClick={send} disabled={isSending || !model}>
-                    {isSending ? <Bi en="Sending…" ar="جارٍ الإرسال…" /> : <Bi en="Send" ar="إرسال" />}
-                  </button>
-                </div>
-                {requestError && <div className="pg-error" role="alert">{requestError}</div>}
-              </div>
-            </div>
+            )}
+          </div>
 
-            {/* Right: cost + sample prompts */}
-            <div className="pg-side">
-              <div className="panel meter-card">
-                <span className="k">
-                  <Bi en="This session" ar="هذه الجلسة" />
+          <div className="panel">
+            <h4>
+              <Bi en="Parameters" ar="المعاملات" />
+            </h4>
+            <div className="knob">
+              <div className="label">
+                <span>
+                  <Bi en="Temperature" ar="درجة الحرارة" />
                 </span>
-                <div className="v">
-                  SAR {Math.floor(stats.costSar)}
-                  <span className="u">.{Math.round((stats.costSar % 1) * 100).toString().padStart(2, '0')}</span>
-                </div>
-                <div style={{ marginTop: '14px' }}>
-                  <div className="meter-row">
-                    <span>
-                      <Bi en="Input tokens" ar="رموز الإدخال" />
-                    </span>
-                    <b>{stats.inputTokens.toLocaleString('en-US')}</b>
-                  </div>
-                  <div className="meter-row">
-                    <span>
-                      <Bi en="Output tokens" ar="رموز الإخراج" />
-                    </span>
-                    <b>{stats.outputTokens.toLocaleString('en-US')}</b>
-                  </div>
-                  <div className="meter-row">
-                    <span>
-                      <Bi en="Time elapsed" ar="الوقت المنقضي" />
-                    </span>
-                    <b>{stats.elapsedSeconds.toFixed(1)}s</b>
-                  </div>
-                  <div className="meter-row">
-                    <span>
-                      <Bi en="Rate" ar="السعر" />
-                    </span>
-                    <b>
-                      <Bi en="From response usage" ar="من بيانات استخدام الاستجابة" />
-                    </b>
-                  </div>
-                </div>
+                <b>{temperature}</b>
               </div>
-
-              <div className="panel">
-                <h4>
-                  <Bi en="Sample prompts" ar="نماذج جاهزة" />
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {SAMPLE_PROMPTS.map((p) => (
-                    <a
-                      key={p.text}
-                      className="btn-sec"
-                      style={p.rtl ? SAMPLE_RTL_STYLE : SAMPLE_LTR_STYLE}
-                      onClick={() => onSampleClick(p.text)}
-                    >
-                      {p.text}
-                    </a>
-                  ))}
-                </div>
+              <input
+                type="range"
+                min={0}
+                max={20}
+                value={tempRaw}
+                onChange={(e) => setTempRaw(Number(e.target.value))}
+              />
+            </div>
+            <div className="knob">
+              <div className="label">
+                <span>
+                  <Bi en="Max tokens" ar="أقصى عدد للرموز" />
+                </span>
+                <b>{maxTokensLabel}</b>
               </div>
+              <input
+                type="range"
+                min={128}
+                max={maxTokenLimit}
+                step={MAX_TOKEN_STEP}
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(Number(e.target.value))}
+              />
+            </div>
+            <div className="knob">
+              <div className="label">
+                <span>
+                  <Bi en="Top-p" ar="Top-p" />
+                </span>
+                <b>{topP}</b>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={topPRaw}
+                onChange={(e) => setTopPRaw(Number(e.target.value))}
+              />
+            </div>
+            <label className="switch" style={{ marginTop: '16px' }}>
+              <input
+                type="checkbox"
+                checked={stream}
+                onChange={(e) => setStream(e.target.checked)}
+              />
+              <span className="track"></span>
+              <span className="lbl-text">
+                <Bi en="Stream response" ar="بث الاستجابة" />
+              </span>
+            </label>
+            <label className="switch" style={{ marginTop: '12px' }}>
+              <input
+                type="checkbox"
+                checked={showReasoning}
+                onChange={(e) => setShowReasoning(e.target.checked)}
+              />
+              <span className="track"></span>
+              <span className="lbl-text">
+                <Bi en="Show reasoning" ar="إظهار الاستدلال" />
+              </span>
+            </label>
+          </div>
 
-              <div className="panel">
-                <h4>
-                  <Bi en="Ship it" ar="أطلقه" />
-                </h4>
-                <p style={{ margin: '0 0 12px', color: 'var(--ink-2)', fontSize: '13px', lineHeight: 1.6 }}>
+          <div className="panel router-panel">
+            <h4>
+              <Bi en="Routing" ar="التوجيه" />
+            </h4>
+            {routerPolicyState === 'loading' && (
+              <div className="pg-empty">
+                <Bi en="Loading router policy catalog..." ar="تحميل كتالوج سياسات التوجيه..." />
+              </div>
+            )}
+            {routerPolicyState === 'error' && (
+              <div className="pg-error" role="alert">
+                <Bi en="Could not load router policy readiness." ar="تعذر تحميل جاهزية سياسات التوجيه." />
+              </div>
+            )}
+            {routerPolicyState === 'ready' && (
+              <>
+                <div className="route-default">
+                  <span><Bi en="Default" ar="الافتراضي" /></span>
+                  <b>{defaultRouterPolicy?.label || 'Balanced'}</b>
+                  <em>{formatPolicyStatus(defaultRouterPolicy?.status)}</em>
+                </div>
+                <div className="route-policy-list">
+                  {(routerPolicies?.data || []).map((policy) => {
+                    const firstGate = policy.proof_gates?.[0]
+                    return (
+                      <div
+                        key={policy.id}
+                        className={`route-policy${policy.id === defaultRouterPolicy?.id ? ' on' : ''}${policy.available ? '' : ' gated'}`}
+                      >
+                        <span>{policy.label}</span>
+                        <b>{formatPolicyStatus(policy.status)}</b>
+                        {firstGate && (
+                          <small>
+                            <Bi en="Gate" ar="البوابة" />: {firstGate.label} · {formatPolicyStatus(firstGate.status)}
+                          </small>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="route-note mono">
                   <Bi
-                    en="When this prompt works, copy the exact request as cURL, Python, or Node."
-                    ar="عندما يعمل هذا الطلب، انسخ نفس الطلب كـ cURL أو Python أو Node."
+                    en={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'read-only routing catalog'}
+                    ar={shouldSendBalancedPolicy ? 'routing_policy=balanced' : 'كتالوج توجيه للقراءة فقط'}
                   />
-                </p>
-                <Link className="btn-pri" style={{ display: 'block', textAlign: 'center' }} href="/renter/keys">
-                  <Bi en="View code →" ar="عرض الكود →" />
-                </Link>
+                </div>
+                <div className="route-proof-note">
+                  <span><Bi en="Proof before selectable" ar="الإثبات قبل الاختيار" /></span>
+                  <b dir="ltr">{routerProofCommand}</b>
+                  {routerLiveSmokeRequired && <em><Bi en="live smoke required" ar="يلزم اختبار حي" /></em>}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="panel router-panel preflight-panel" aria-label={lang === 'ar' ? 'فحص الرصيد للاستدلال' : 'Inference credit preflight'}>
+            <h4>
+              <Bi en="Credit preflight" ar="فحص الرصيد" />
+            </h4>
+            {minimumBalanceState === 'missing-key' && (
+              <div className="pg-empty">
+                <Bi en="Sign in to load inference credit gates." ar="سجّل الدخول لتحميل بوابات رصيد الاستدلال." />
+              </div>
+            )}
+            {minimumBalanceState === 'loading' && (
+              <div className="pg-empty">
+                <Bi en="Loading minimum-balance policy..." ar="تحميل سياسة الحد الأدنى للرصيد..." />
+              </div>
+            )}
+            {minimumBalanceState === 'error' && (
+              <div className="pg-error" role="alert">
+                <Bi en="Could not load minimum-balance policy. Requests still use backend preflight." ar="تعذر تحميل سياسة الرصيد. الطلبات لا تزال تستخدم فحص الخلفية." />
+              </div>
+            )}
+            {minimumBalanceState === 'ready' && (
+              <>
+                <div className="route-default">
+                  <span><Bi en="Minimum balance" ar="الحد الأدنى للرصيد" /></span>
+                  <b>{minimumBalanceSynced ? 'synced read-only' : 'contract default'}</b>
+                  <em>{minimumBalanceReadiness?.version || 'dcp.minimum_balance_readiness.v1'}</em>
+                </div>
+                <div className="route-policy-list">
+                  <div className={`route-policy${minimumCreditPolicy ? ' on' : ' gated'}`}>
+                    <span><Bi en="Credit policy" ar="سياسة الرصيد" /></span>
+                    <b>{creditPolicyLabel}</b>
+                  </div>
+                  <div className={`route-policy${v1MinimumBalanceRail?.enforcement_live ? ' on' : ' gated'}`}>
+                    <span><Bi en={inferencePreflightLabel} ar="طلبات v1: فحص تقديري" /></span>
+                    <b>{formatContractStatus(v1MinimumBalanceRail?.status)}</b>
+                  </div>
+                  <div className="route-policy on">
+                    <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
+                    <b>SAR {fmtSar(paidAvailableSar)}</b>
+                  </div>
+                  <div className="route-policy on">
+                    <span><Bi en="Trial grant" ar="منحة التجربة" /></span>
+                    <b>SAR {fmtSar(trialGrantSar)}</b>
+                  </div>
+                  <div className="route-policy gated">
+                    <span><Bi en="High-demand gate" ar="بوابة الطلب العالي" /></span>
+                    <b>{highDemandGateLabel}</b>
+                  </div>
+                  <div className="route-policy">
+                    <span><Bi en="Monthly cap remaining" ar="المتبقي من الحد الشهري" /></span>
+                    <b>{typeof v1RemainingCapSar === 'number' ? `SAR ${fmtSar(v1RemainingCapSar)}` : 'unlimited'}</b>
+                  </div>
+                  <div className="route-policy gated">
+                    <span><Bi en="Prompt-cache discounts" ar="خصومات التخزين المؤقت" /></span>
+                    <b>{formatContractStatus(minimumBalanceReadiness?.rails?.prompt_cache_discount?.status)}</b>
+                  </div>
+                  <div className="route-policy gated">
+                    <span><Bi en="Future billing rails blocked" ar="مسارات فوترة مستقبلية مقيدة" /></span>
+                    <b>{blockedFutureBillingRails}</b>
+                  </div>
+                  <div className={noCreditPolicyMutation ? 'route-policy on' : 'route-policy gated'}>
+                    <span><Bi en="Policy guards" ar="حراس السياسة" /></span>
+                    <b>{noCreditPolicyMutation ? 'no trial/paid-credit change' : 'checking'}</b>
+                  </div>
+                </div>
+                <div className="route-note mono">
+                  <Bi en="/api/renters/me/minimum-balances · read-only" ar="/api/renters/me/minimum-balances · قراءة فقط" />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="panel router-panel prompt-cache-panel">
+            <h4>
+              <Bi en="Prompt cache" ar="التخزين المؤقت" />
+            </h4>
+            {promptCacheState === 'loading' && (
+              <div className="pg-empty">
+                <Bi en="Loading prompt-cache readiness..." ar="تحميل جاهزية التخزين المؤقت..." />
+              </div>
+            )}
+            {promptCacheState === 'error' && (
+              <div className="pg-error" role="alert">
+                <Bi en="Could not load prompt-cache readiness." ar="تعذر تحميل جاهزية التخزين المؤقت." />
+              </div>
+            )}
+            {promptCacheState === 'ready' && (
+              <>
+                <div className="route-default">
+                  <span><Bi en="Current mode" ar="الوضع الحالي" /></span>
+                  <b>{formatContractStatus(promptCacheReadiness?.current_mode || promptCacheReadiness?.status)}</b>
+                  <em>{promptCacheReadiness?.version || 'dcp.prompt_cache.v1'}</em>
+                </div>
+                <div className="route-policy-list">
+                  <div className={`route-policy${promptCacheMeasurement?.hash_only ? ' on' : ' gated'}`}>
+                    <span><Bi en="Hash-only measurement" ar="قياس بالهاش فقط" /></span>
+                    <b>{formatGate(promptCacheMeasurement?.hash_only)}</b>
+                  </div>
+                  <div className={`route-policy${promptCacheMeasurement?.stores_raw_prompt ? ' gated' : ' on'}`}>
+                    <span><Bi en="Raw prompt storage" ar="تخزين الطلب الخام" /></span>
+                    <b>{formatGate(promptCacheMeasurement?.stores_raw_prompt)}</b>
+                  </div>
+                  <div className={`route-policy${promptCacheBilling?.discounts_enabled ? ' on' : ' gated'}`}>
+                    <span><Bi en="Cached-input discounts" ar="خصومات الإدخال المخزن" /></span>
+                    <b>{formatGate(promptCacheBilling?.discounts_enabled, 'enabled', 'gated')}</b>
+                  </div>
+                  <div className={`route-policy${promptCacheClaims?.provider_kv_cache_control ? ' on' : ' gated'}`}>
+                    <span><Bi en="Provider KV cache control" ar="تحكم KV لدى المزود" /></span>
+                    <b>{formatGate(promptCacheClaims?.provider_kv_cache_control)}</b>
+                  </div>
+                  <div className={`route-policy${promptCacheSettlementPolicy?.settlement_discounts_enabled ? ' on' : ' gated'}`}>
+                    <span><Bi en="Settlement discount policy" ar="سياسة خصم التسوية" /></span>
+                    <b>{formatContractStatus(promptCacheSettlementReadiness?.current_mode || promptCacheSettlementPolicy?.discount_policy?.status)}</b>
+                  </div>
+                  <div className="route-policy gated">
+                    <span><Bi en="Provider cache-hit evidence" ar="إثبات إصابة التخزين لدى المزود" /></span>
+                    <b>{formatContractStatus(promptCacheSettlementPolicy?.provider_cache_hit_evidence?.status || 'blocked_external')}</b>
+                  </div>
+                  <div className={`route-policy${promptCacheSettlementReadOnly ? ' on' : ' gated'}`}>
+                    <span><Bi en="Read-only settlement proof" ar="إثبات تسوية للقراءة فقط" /></span>
+                    <b>{promptCacheSettlementReadOnly ? 'safe' : 'checking'}</b>
+                  </div>
+                  <div className={`route-policy${promptCacheSettlementPolicy?.settlement_mutations_enabled ? ' on' : ' gated'}`}>
+                    <span><Bi en="Settlement mutations" ar="تغييرات التسوية" /></span>
+                    <b>{formatGate(promptCacheSettlementPolicy?.settlement_mutations_enabled, 'enabled', 'off')}</b>
+                  </div>
+                </div>
+                <div className="route-note mono">
+                  <Bi
+                    en={`/v1/prompt-cache/readiness · ${promptCacheSettlementState === 'error' ? 'settlement readiness unavailable' : '/v1/prompt-cache/settlement/readiness'}`}
+                    ar={`/v1/prompt-cache/readiness · ${promptCacheSettlementState === 'error' ? 'جاهزية التسوية غير متاحة' : '/v1/prompt-cache/settlement/readiness'}`}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Middle: chat */}
+        <div className="chat">
+          <div className="chat-hd">
+            <div className="nm">{selectedModelName || 'No live model'}</div>
+            <div className="meta">
+              <Bi en="Sample prompts available below" ar="نماذج جاهزة متوفرة أدناه" />
+            </div>
+          </div>
+          <div className="chat-body" id="chat-body">
+            {messages.length === 0 ? (
+              <div className="pg-empty">
+                <Bi
+                  en="Send a prompt with a live renter key. Responses will appear here."
+                  ar="أرسل طلباً بمفتاح مستأجر مباشر. ستظهر الاستجابات هنا."
+                />
+              </div>
+            ) : (
+              messages.map((m) => (
+                <div key={m.id} className={`msg ${m.role}${m.ar ? ' ar' : ''}`}>
+                  <div className="role">{m.roleLabel}</div>
+                  <div className="content">{m.content}</div>
+                  {showReasoning && m.reasoning ? (
+                    <div className="reasoning">
+                      <span className="reasoning-label">
+                        <Bi en="Reasoning" ar="الاستدلال" />
+                      </span>
+                      {m.reasoning}
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="chat-input">
+            <textarea
+              placeholder={lang === 'ar' ? 'اسأل بالعربية أو الإنجليزية…' : 'Ask in English or Arabic…'}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onTextareaKeyDown}
+            />
+            <div className="row">
+              <div className="left">
+                <span>
+                  <Bi en="Markdown supported" ar="يدعم Markdown" />
+                </span>
+                <span>·</span>
+                <span>
+                  <b style={{ color: 'var(--ink)' }}>⌘+↵</b> <Bi en="to send" ar="للإرسال" />
+                </span>
+              </div>
+              <button className="send" onClick={send} disabled={isSending || !model}>
+                {isSending ? <Bi en="Sending…" ar="جارٍ الإرسال…" /> : <Bi en="Send" ar="إرسال" />}
+              </button>
+            </div>
+            {requestError && <div className="pg-error" role="alert">{requestError}</div>}
+          </div>
+        </div>
+
+        {/* Right: cost + sample prompts */}
+        <div className="pg-side">
+          <div className="panel meter-card">
+            <span className="k">
+              <Bi en="This session" ar="هذه الجلسة" />
+            </span>
+            <div className="v">
+              SAR {Math.floor(stats.costSar)}
+              <span className="u">.{Math.round((stats.costSar % 1) * 100).toString().padStart(2, '0')}</span>
+            </div>
+            <div style={{ marginTop: '14px' }}>
+              <div className="meter-row">
+                <span>
+                  <Bi en="Input tokens" ar="رموز الإدخال" />
+                </span>
+                <b>{stats.inputTokens.toLocaleString('en-US')}</b>
+              </div>
+              <div className="meter-row">
+                <span>
+                  <Bi en="Output tokens" ar="رموز الإخراج" />
+                </span>
+                <b>{stats.outputTokens.toLocaleString('en-US')}</b>
+              </div>
+              <div className="meter-row">
+                <span>
+                  <Bi en="Time elapsed" ar="الوقت المنقضي" />
+                </span>
+                <b>{stats.elapsedSeconds.toFixed(1)}s</b>
+              </div>
+              <div className="meter-row">
+                <span>
+                  <Bi en="Rate" ar="السعر" />
+                </span>
+                <b>
+                  <Bi en="From response usage" ar="من بيانات استخدام الاستجابة" />
+                </b>
               </div>
             </div>
           </div>
-          )}
-        </main>
+
+          <div className="panel">
+            <h4>
+              <Bi en="Sample prompts" ar="نماذج جاهزة" />
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {SAMPLE_PROMPTS.map((p) => (
+                <a
+                  key={p.text}
+                  className="btn-sec"
+                  style={p.rtl ? SAMPLE_RTL_STYLE : SAMPLE_LTR_STYLE}
+                  onClick={() => onSampleClick(p.text)}
+                >
+                  {p.text}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel">
+            <h4>
+              <Bi en="Ship it" ar="أطلقه" />
+            </h4>
+            <p style={{ margin: '0 0 12px', color: 'var(--ink-2)', fontSize: '13px', lineHeight: 1.6 }}>
+              <Bi
+                en="When this prompt works, copy the exact request as cURL, Python, or Node."
+                ar="عندما يعمل هذا الطلب، انسخ نفس الطلب كـ cURL أو Python أو Node."
+              />
+            </p>
+            <Link className="btn-pri" style={{ display: 'block', textAlign: 'center' }} href="/renter/keys">
+              <Bi en="View code →" ar="عرض الكود →" />
+            </Link>
+          </div>
+        </div>
       </div>
-    </div>
+      )}
+    </main>
   )
 }

@@ -3,8 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
-import { PodSidebar, PodTopbar } from '../pods/PodShell'
-import '../pods/pods.css'
 import './batches.css'
 
 type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
@@ -286,7 +284,6 @@ async function readJson<T>(url: string, headers: HeadersInit): Promise<T> {
 
 export default function RenterBatchesPage() {
   const { lang, toggle } = useV2()
-  const [navOpen, setNavOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [error, setError] = useState('')
@@ -496,339 +493,316 @@ export default function RenterBatchesPage() {
     : '24h'
 
   return (
-    <div className="rt-app bt-page">
-      <PodSidebar
-        navOpen={navOpen}
-        renterName={renterName}
-        renterEmail={renterEmail}
-        currentPage="batches"
-      />
+    <main className="rt-main bt-main">
+      <h1 className="rt-h1">
+        <Bi en="Batch" ar="الدُفعات" />{' '}
+        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+          <Bi en="inference." ar="للاستدلال." />
+        </em>
+      </h1>
+      <div className="rt-h1-sub">
+        <span><Bi en="JSONL validation" ar="تحقق JSONL" /></span>
+        <span>
+          <Bi
+            en={`Line ledger live · execution ${gateText(publicExecutionEnabled)}`}
+            ar={`سجل الأسطر يعمل · التنفيذ ${publicExecutionEnabled ? 'يعمل' : 'مشروط'}`}
+          />
+        </span>
+      </div>
 
-      <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
+      {loadState === 'missing-key' && (
+        <div className="dash-state bt-state">
+          <b><Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" /></b>
+          <span><Bi en="Sign in before reading batch records." ar="سجل الدخول قبل قراءة سجلات الدُفعات." /></span>
+        </div>
+      )}
 
-      <div>
-        <PodTopbar
-          renterName={renterName}
-          isLive={isLive}
-          lang={lang}
-          onToggleLang={toggle}
-          onToggleNav={() => setNavOpen((v) => !v)}
-          pageLabelEn="Batch"
-          pageLabelAr="الدُفعات"
-        />
+      {loadState === 'error' && (
+        <div className="dash-state bt-state">
+          <b><Bi en="Batch console unavailable" ar="لوحة الدُفعات غير متاحة" /></b>
+          <span>{error}</span>
+        </div>
+      )}
 
-        <main className="rt-main bt-main">
-          <h1 className="rt-h1">
-            <Bi en="Batch" ar="الدُفعات" />{' '}
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="inference." ar="للاستدلال." />
-            </em>
-          </h1>
-          <div className="rt-h1-sub">
-            <span><Bi en="JSONL validation" ar="تحقق JSONL" /></span>
-            <span>
-              <Bi
-                en={`Line ledger live · execution ${gateText(publicExecutionEnabled)}`}
-                ar={`سجل الأسطر يعمل · التنفيذ ${publicExecutionEnabled ? 'يعمل' : 'مشروط'}`}
-              />
-            </span>
-          </div>
+      {loadState === 'loading' && (
+        <div className="bt-skeleton-grid" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, i) => <span key={i} />)}
+        </div>
+      )}
 
-          {loadState === 'missing-key' && (
-            <div className="dash-state bt-state">
-              <b><Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" /></b>
-              <span><Bi en="Sign in before reading batch records." ar="سجل الدخول قبل قراءة سجلات الدُفعات." /></span>
+      {loadState === 'ready' && (
+        <>
+          <section className="kpi-row bt-kpis" aria-label="Batch summary">
+            <div className="kpi featured">
+              <span className="k"><Bi en="Batches" ar="الدُفعات" /></span>
+              <span className="v">{formatNumber(batches.length)}</span>
+              <span className="d flat"><Bi en="validated records" ar="سجلات متحققة" /></span>
             </div>
-          )}
-
-          {loadState === 'error' && (
-            <div className="dash-state bt-state">
-              <b><Bi en="Batch console unavailable" ar="لوحة الدُفعات غير متاحة" /></b>
-              <span>{error}</span>
+            <div className="kpi">
+              <span className="k"><Bi en="Requests" ar="الطلبات" /></span>
+              <span className="v">{formatNumber(totals.requests)}</span>
+              <span className="d flat"><Bi en="line ledger rows" ar="صفوف سجل الأسطر" /></span>
             </div>
-          )}
-
-          {loadState === 'loading' && (
-            <div className="bt-skeleton-grid" aria-busy="true">
-              {Array.from({ length: 4 }).map((_, i) => <span key={i} />)}
+            <div className="kpi">
+              <span className="k"><Bi en="Result artifacts" ar="ملفات النتائج" /></span>
+              <span className="v">{formatNumber(totals.ready)}</span>
+              <span className={resultDownloadsConfigured ? 'd up' : 'd flat'}>
+                <Bi en={resultDownloadsConfigured ? 'download signer configured' : 'checksum gated'} ar={resultDownloadsConfigured ? 'موقع التنزيل مضبوط' : 'مشروط بالبصمة'} />
+              </span>
             </div>
-          )}
+            <div className="kpi">
+              <span className="k"><Bi en="Cost" ar="التكلفة" /></span>
+              <span className="v">{(totals.cost / 100).toFixed(2)}<span className="u">SAR</span></span>
+              <span className="d flat"><Bi en={discountsEnabled ? 'batch discount live' : 'batch discount gated'} ar={discountsEnabled ? 'خصم الدفعات يعمل' : 'خصم الدفعات مشروط'} /></span>
+            </div>
+          </section>
 
-          {loadState === 'ready' && (
-            <>
-              <section className="kpi-row bt-kpis" aria-label="Batch summary">
-                <div className="kpi featured">
-                  <span className="k"><Bi en="Batches" ar="الدُفعات" /></span>
-                  <span className="v">{formatNumber(batches.length)}</span>
-                  <span className="d flat"><Bi en="validated records" ar="سجلات متحققة" /></span>
+          <section className="bt-readiness" aria-label="Batch readiness">
+            <div className="bt-section-head compact">
+              <div>
+                <span className="bt-eyebrow"><Bi en="Readiness" ar="الجاهزية" /></span>
+                <h2>{formatMode(readinessMode)}</h2>
+              </div>
+              <span className="bt-contract mono">{readiness?.version || 'dcp.batch_inference_readiness.v1'}</span>
+            </div>
+            <div className="bt-readiness-grid">
+              <div>
+                <span><Bi en="Create" ar="الإنشاء" /></span>
+                <b>{requestCreationEnabled ? 'available' : 'gated'}</b>
+              </div>
+              <div>
+                <span><Bi en="Execute" ar="التنفيذ" /></span>
+                <b>{gateText(publicExecutionEnabled)}</b>
+              </div>
+              <div>
+                <span><Bi en="Downloads" ar="التنزيل" /></span>
+                <b>{featureText(readiness?.features.result_downloads)}</b>
+              </div>
+              <div>
+                <span><Bi en="Settlement" ar="التسوية" /></span>
+                <b>{featureText(readiness?.features.settlement)}</b>
+              </div>
+              <div>
+                <span><Bi en="Discounts" ar="الخصومات" /></span>
+                <b>{discountsEnabled ? 'live' : 'not enabled'}</b>
+              </div>
+              <div>
+                <span><Bi en="Window" ar="المدة" /></span>
+                <b>{completionWindows}</b>
+              </div>
+            </div>
+            <div className="bt-credit-preflight" aria-label={lang === 'ar' ? 'فحص رصيد الدُفعات' : 'Batch credit preflight'}>
+              <div>
+                <span><Bi en="Credit preflight" ar="فحص الرصيد" /></span>
+                <b>{minimumBalanceSynced ? 'minimum balance synced' : minimumBalanceStatus === 'loading' ? 'checking policy' : 'fallback policy'}</b>
+              </div>
+              <div>
+                <span><Bi en="Batch settlement" ar="تسوية الدُفعات" /></span>
+                <b>{formatMode(batchMinimumRail?.status || 'contract_only')}</b>
+              </div>
+              <div>
+                <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
+                <b>SAR {formatSar(paidAvailableSar)}</b>
+              </div>
+              <div>
+                <span><Bi en="v1 cap remaining" ar="المتبقي من حد v1" /></span>
+                <b>{typeof v1RemainingCapSar === 'number' ? `SAR ${formatSar(v1RemainingCapSar)}` : 'unlimited'}</b>
+              </div>
+              <div>
+                <span><Bi en="Blocked billing rails" ar="مسارات فوترة مقيدة" /></span>
+                <b>{blockedFutureBillingRails}</b>
+              </div>
+            </div>
+            {batchLiveGate && (
+              <div className="bt-live-proof" aria-label={lang === 'ar' ? 'بوابة إثبات الدُفعات الحية' : 'Batch live proof gate'}>
+                <div className="bt-live-proof-copy">
+                  <span><Bi en="Live proof gate" ar="بوابة إثبات حي" /></span>
+                  <strong>{formatMode(batchLiveGate.live_acceptance_gate || 'batch_live_execution_discount_smoke')}</strong>
+                  <p>{batchLiveGate.command || 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution'}</p>
                 </div>
-                <div className="kpi">
-                  <span className="k"><Bi en="Requests" ar="الطلبات" /></span>
-                  <span className="v">{formatNumber(totals.requests)}</span>
-                  <span className="d flat"><Bi en="line ledger rows" ar="صفوف سجل الأسطر" /></span>
+                <div className="bt-live-proof-facts">
+                  <span className="blocked">{formatMode(batchLiveGate.status || 'blocked_external')}</span>
+                  {(batchLiveGate.blocked_on || []).slice(0, 4).map((item) => (
+                    <span key={`blocked-${item}`}>{item}</span>
+                  ))}
+                  {(batchLiveGate.verifies || []).slice(0, 2).map((item) => (
+                    <span key={`verifies-${item}`} className="ready">{item}</span>
+                  ))}
                 </div>
-                <div className="kpi">
-                  <span className="k"><Bi en="Result artifacts" ar="ملفات النتائج" /></span>
-                  <span className="v">{formatNumber(totals.ready)}</span>
-                  <span className={resultDownloadsConfigured ? 'd up' : 'd flat'}>
-                    <Bi en={resultDownloadsConfigured ? 'download signer configured' : 'checksum gated'} ar={resultDownloadsConfigured ? 'موقع التنزيل مضبوط' : 'مشروط بالبصمة'} />
-                  </span>
-                </div>
-                <div className="kpi">
-                  <span className="k"><Bi en="Cost" ar="التكلفة" /></span>
-                  <span className="v">{(totals.cost / 100).toFixed(2)}<span className="u">SAR</span></span>
-                  <span className="d flat"><Bi en={discountsEnabled ? 'batch discount live' : 'batch discount gated'} ar={discountsEnabled ? 'خصم الدفعات يعمل' : 'خصم الدفعات مشروط'} /></span>
-                </div>
-              </section>
+              </div>
+            )}
+            <div className="bt-supported">
+              <span><Bi en="Supported URLs" ar="المسارات المدعومة" /></span>
+              <code>{supportedUrls}</code>
+            </div>
+          </section>
 
-              <section className="bt-readiness" aria-label="Batch readiness">
-                <div className="bt-section-head compact">
-                  <div>
-                    <span className="bt-eyebrow"><Bi en="Readiness" ar="الجاهزية" /></span>
-                    <h2>{formatMode(readinessMode)}</h2>
-                  </div>
-                  <span className="bt-contract mono">{readiness?.version || 'dcp.batch_inference_readiness.v1'}</span>
+          <section className="bt-grid">
+            <div className="bt-ledger">
+              <div className="bt-section-head">
+                <div>
+                  <span className="bt-eyebrow"><Bi en="Batch ledger" ar="سجل الدُفعات" /></span>
+                  <h2><Bi en="Validated jobs" ar="المهام المتحققة" /></h2>
                 </div>
-                <div className="bt-readiness-grid">
-                  <div>
-                    <span><Bi en="Create" ar="الإنشاء" /></span>
-                    <b>{requestCreationEnabled ? 'available' : 'gated'}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Execute" ar="التنفيذ" /></span>
-                    <b>{gateText(publicExecutionEnabled)}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Downloads" ar="التنزيل" /></span>
-                    <b>{featureText(readiness?.features.result_downloads)}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Settlement" ar="التسوية" /></span>
-                    <b>{featureText(readiness?.features.settlement)}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Discounts" ar="الخصومات" /></span>
-                    <b>{discountsEnabled ? 'live' : 'not enabled'}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Window" ar="المدة" /></span>
-                    <b>{completionWindows}</b>
-                  </div>
+                <button className="btn-sec" type="button" onClick={() => void refreshBatches(selectedBatchId)}>
+                  <Bi en="Refresh" ar="تحديث" />
+                </button>
+              </div>
+
+              {batches.length === 0 ? (
+                <div className="bt-empty">
+                  <b><Bi en="No batch records" ar="لا توجد سجلات دُفعات" /></b>
+                  <span><Bi en="Submit JSONL to create a validation record." ar="أرسل JSONL لإنشاء سجل تحقق." /></span>
                 </div>
-                <div className="bt-credit-preflight" aria-label={lang === 'ar' ? 'فحص رصيد الدُفعات' : 'Batch credit preflight'}>
-                  <div>
-                    <span><Bi en="Credit preflight" ar="فحص الرصيد" /></span>
-                    <b>{minimumBalanceSynced ? 'minimum balance synced' : minimumBalanceStatus === 'loading' ? 'checking policy' : 'fallback policy'}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Batch settlement" ar="تسوية الدُفعات" /></span>
-                    <b>{formatMode(batchMinimumRail?.status || 'contract_only')}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
-                    <b>SAR {formatSar(paidAvailableSar)}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="v1 cap remaining" ar="المتبقي من حد v1" /></span>
-                    <b>{typeof v1RemainingCapSar === 'number' ? `SAR ${formatSar(v1RemainingCapSar)}` : 'unlimited'}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Blocked billing rails" ar="مسارات فوترة مقيدة" /></span>
-                    <b>{blockedFutureBillingRails}</b>
-                  </div>
-                </div>
-                {batchLiveGate && (
-                  <div className="bt-live-proof" aria-label={lang === 'ar' ? 'بوابة إثبات الدُفعات الحية' : 'Batch live proof gate'}>
-                    <div className="bt-live-proof-copy">
-                      <span><Bi en="Live proof gate" ar="بوابة إثبات حي" /></span>
-                      <strong>{formatMode(batchLiveGate.live_acceptance_gate || 'batch_live_execution_discount_smoke')}</strong>
-                      <p>{batchLiveGate.command || 'DCP_BATCH_LIVE_PROOF_ALLOW=1 npm run proof:batch-live-execution'}</p>
-                    </div>
-                    <div className="bt-live-proof-facts">
-                      <span className="blocked">{formatMode(batchLiveGate.status || 'blocked_external')}</span>
-                      {(batchLiveGate.blocked_on || []).slice(0, 4).map((item) => (
-                        <span key={`blocked-${item}`}>{item}</span>
+              ) : (
+                <div className="bt-table-wrap">
+                  <table className="tbl bt-table">
+                    <thead>
+                      <tr>
+                        <th><Bi en="Batch" ar="الدُفعة" /></th>
+                        <th><Bi en="Status" ar="الحالة" /></th>
+                        <th><Bi en="Requests" ar="الطلبات" /></th>
+                        <th><Bi en="Input proof" ar="إثبات الإدخال" /></th>
+                        <th><Bi en="Updated" ar="آخر تحديث" /></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batches.map((batch) => (
+                        <tr
+                          key={batch.batch_id}
+                          className={batch.batch_id === selectedBatchId ? 'bt-row-selected' : ''}
+                          onClick={() => setSelectedBatchId(batch.batch_id)}
+                        >
+                          <td>
+                            <button className="bt-link-button" type="button">{batch.batch_id}</button>
+                            <span className="bt-table-sub">{String(batch.metadata?.purpose || 'batch')}</span>
+                          </td>
+                          <td><span className={`stat ${statusTone(batch.status)}`}>{batch.status}</span></td>
+                          <td className="mono">{formatNumber(batch.request_count)}</td>
+                          <td className="mono">{shortHash(batch.input_checksum_sha256)}</td>
+                          <td className="mono">{formatDate(batch.updated_at)}</td>
+                        </tr>
                       ))}
-                      {(batchLiveGate.verifies || []).slice(0, 2).map((item) => (
-                        <span key={`verifies-${item}`} className="ready">{item}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="bt-supported">
-                  <span><Bi en="Supported URLs" ar="المسارات المدعومة" /></span>
-                  <code>{supportedUrls}</code>
+                    </tbody>
+                  </table>
                 </div>
-              </section>
+              )}
+            </div>
 
-              <section className="bt-grid">
-                <div className="bt-ledger">
-                  <div className="bt-section-head">
-                    <div>
-                      <span className="bt-eyebrow"><Bi en="Batch ledger" ar="سجل الدُفعات" /></span>
-                      <h2><Bi en="Validated jobs" ar="المهام المتحققة" /></h2>
-                    </div>
-                    <button className="btn-sec" type="button" onClick={() => void refreshBatches(selectedBatchId)}>
-                      <Bi en="Refresh" ar="تحديث" />
-                    </button>
+            <aside className="bt-create">
+              <div className="bt-section-head compact">
+                <div>
+                  <span className="bt-eyebrow"><Bi en="Create" ar="إنشاء" /></span>
+                  <h2><Bi en="JSONL batch" ar="دفعة JSONL" /></h2>
+                </div>
+              </div>
+
+              <form onSubmit={submitBatch} className="bt-form">
+                <label>
+                  <span><Bi en="Purpose" ar="الغرض" /></span>
+                  <input value={purpose} onChange={(event) => setPurpose(event.target.value)} />
+                </label>
+                <label>
+                  <span><Bi en="Input JSONL" ar="إدخال JSONL" /></span>
+                  <textarea value={inputJsonl} onChange={(event) => setInputJsonl(event.target.value)} rows={11} spellCheck={false} />
+                </label>
+                {submitState === 'error' && <p className="bt-error">{submitError}</p>}
+                <button className="btn-pri" type="submit" disabled={submitState === 'submitting' || !requestCreationEnabled}>
+                  <Bi
+                    en={!requestCreationEnabled ? 'Creation gated' : submitState === 'submitting' ? 'Validating' : 'Create batch'}
+                    ar={!requestCreationEnabled ? 'الإنشاء مشروط' : submitState === 'submitting' ? 'جار التحقق' : 'إنشاء دفعة'}
+                  />
+                </button>
+              </form>
+            </aside>
+          </section>
+
+          <section className="bt-detail">
+            <div className="bt-section-head">
+              <div>
+                <span className="bt-eyebrow"><Bi en="Selected batch" ar="الدُفعة المختارة" /></span>
+                <h2>{selectedBatch?.batch_id || <Bi en="No selection" ar="لا يوجد اختيار" />}</h2>
+              </div>
+              {selectedBatch && <span className={`stat ${statusTone(selectedBatch.status)}`}>{selectedBatch.status}</span>}
+            </div>
+
+            {!selectedBatch ? (
+              <div className="bt-empty"><Bi en="Create or select a batch." ar="أنشئ أو اختر دفعة." /></div>
+            ) : (
+              <div className="bt-detail-grid">
+                <div className="bt-lines">
+                  <div className="bt-subhead">
+                    <b><Bi en="Line ledger" ar="سجل الأسطر" /></b>
+                    <span>{detailLoading ? 'loading' : `${lines.length} rows`}</span>
                   </div>
-
-                  {batches.length === 0 ? (
-                    <div className="bt-empty">
-                      <b><Bi en="No batch records" ar="لا توجد سجلات دُفعات" /></b>
-                      <span><Bi en="Submit JSONL to create a validation record." ar="أرسل JSONL لإنشاء سجل تحقق." /></span>
-                    </div>
-                  ) : (
-                    <div className="bt-table-wrap">
-                      <table className="tbl bt-table">
-                        <thead>
-                          <tr>
-                            <th><Bi en="Batch" ar="الدُفعة" /></th>
-                            <th><Bi en="Status" ar="الحالة" /></th>
-                            <th><Bi en="Requests" ar="الطلبات" /></th>
-                            <th><Bi en="Input proof" ar="إثبات الإدخال" /></th>
-                            <th><Bi en="Updated" ar="آخر تحديث" /></th>
+                  {detailError && <p className="bt-error">{detailError}</p>}
+                  <div className="bt-table-wrap">
+                    <table className="tbl bt-line-table">
+                      <thead>
+                        <tr>
+                          <th><Bi en="Custom id" ar="المعرف" /></th>
+                          <th><Bi en="Endpoint" ar="المسار" /></th>
+                          <th><Bi en="Model" ar="النموذج" /></th>
+                          <th><Bi en="Status" ar="الحالة" /></th>
+                          <th><Bi en="Usage" ar="الاستخدام" /></th>
+                          <th><Bi en="Cost" ar="التكلفة" /></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lines.length === 0 ? (
+                          <tr><td colSpan={6} className="bt-muted-cell"><Bi en="No line rows loaded" ar="لم يتم تحميل صفوف" /></td></tr>
+                        ) : lines.map((line) => (
+                          <tr key={line.custom_id}>
+                            <td>
+                              <span className="mono">{line.custom_id}</span>
+                              <span className="bt-table-sub">{shortHash(line.request_checksum_sha256)}</span>
+                            </td>
+                            <td className="mono">{line.url}</td>
+                            <td className="mono">{line.model_id}</td>
+                            <td><span className={`stat ${statusTone(line.status)}`}>{line.status}</span></td>
+                            <td className="mono">{formatNumber(line.usage.total_tokens)}</td>
+                            <td className="sar">{(line.cost_halala / 100).toFixed(2)}<span className="u">SAR</span></td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {batches.map((batch) => (
-                            <tr
-                              key={batch.batch_id}
-                              className={batch.batch_id === selectedBatchId ? 'bt-row-selected' : ''}
-                              onClick={() => setSelectedBatchId(batch.batch_id)}
-                            >
-                              <td>
-                                <button className="bt-link-button" type="button">{batch.batch_id}</button>
-                                <span className="bt-table-sub">{String(batch.metadata?.purpose || 'batch')}</span>
-                              </td>
-                              <td><span className={`stat ${statusTone(batch.status)}`}>{batch.status}</span></td>
-                              <td className="mono">{formatNumber(batch.request_count)}</td>
-                              <td className="mono">{shortHash(batch.input_checksum_sha256)}</td>
-                              <td className="mono">{formatDate(batch.updated_at)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bt-proof">
+                  <div className="bt-subhead">
+                    <b><Bi en="Result proof" ar="إثبات النتيجة" /></b>
+                    <span>{manifest?.next || 'pending'}</span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt><Bi en="Available" ar="متاحة" /></dt>
+                      <dd>{manifest?.results_available ? 'true' : 'false'}</dd>
                     </div>
+                    <div>
+                      <dt><Bi en="Result key" ar="مفتاح النتيجة" /></dt>
+                      <dd>{manifest?.result_storage_key || '-'}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Checksum" ar="البصمة" /></dt>
+                      <dd>{shortHash(manifest?.result_checksum_sha256)}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Download" ar="التنزيل" /></dt>
+                      <dd>{manifest?.download_enabled ? 'signed' : 'gated'}</dd>
+                    </div>
+                  </dl>
+                  {manifest?.download_enabled && manifest.download_url && (
+                    <a className="btn-sec" href={manifest.download_url} rel="noopener noreferrer">
+                      <Bi en="Download JSONL" ar="تنزيل JSONL" />
+                    </a>
                   )}
                 </div>
-
-                <aside className="bt-create">
-                  <div className="bt-section-head compact">
-                    <div>
-                      <span className="bt-eyebrow"><Bi en="Create" ar="إنشاء" /></span>
-                      <h2><Bi en="JSONL batch" ar="دفعة JSONL" /></h2>
-                    </div>
-                  </div>
-
-                  <form onSubmit={submitBatch} className="bt-form">
-                    <label>
-                      <span><Bi en="Purpose" ar="الغرض" /></span>
-                      <input value={purpose} onChange={(event) => setPurpose(event.target.value)} />
-                    </label>
-                    <label>
-                      <span><Bi en="Input JSONL" ar="إدخال JSONL" /></span>
-                      <textarea value={inputJsonl} onChange={(event) => setInputJsonl(event.target.value)} rows={11} spellCheck={false} />
-                    </label>
-                    {submitState === 'error' && <p className="bt-error">{submitError}</p>}
-                    <button className="btn-pri" type="submit" disabled={submitState === 'submitting' || !requestCreationEnabled}>
-                      <Bi
-                        en={!requestCreationEnabled ? 'Creation gated' : submitState === 'submitting' ? 'Validating' : 'Create batch'}
-                        ar={!requestCreationEnabled ? 'الإنشاء مشروط' : submitState === 'submitting' ? 'جار التحقق' : 'إنشاء دفعة'}
-                      />
-                    </button>
-                  </form>
-                </aside>
-              </section>
-
-              <section className="bt-detail">
-                <div className="bt-section-head">
-                  <div>
-                    <span className="bt-eyebrow"><Bi en="Selected batch" ar="الدُفعة المختارة" /></span>
-                    <h2>{selectedBatch?.batch_id || <Bi en="No selection" ar="لا يوجد اختيار" />}</h2>
-                  </div>
-                  {selectedBatch && <span className={`stat ${statusTone(selectedBatch.status)}`}>{selectedBatch.status}</span>}
-                </div>
-
-                {!selectedBatch ? (
-                  <div className="bt-empty"><Bi en="Create or select a batch." ar="أنشئ أو اختر دفعة." /></div>
-                ) : (
-                  <div className="bt-detail-grid">
-                    <div className="bt-lines">
-                      <div className="bt-subhead">
-                        <b><Bi en="Line ledger" ar="سجل الأسطر" /></b>
-                        <span>{detailLoading ? 'loading' : `${lines.length} rows`}</span>
-                      </div>
-                      {detailError && <p className="bt-error">{detailError}</p>}
-                      <div className="bt-table-wrap">
-                        <table className="tbl bt-line-table">
-                          <thead>
-                            <tr>
-                              <th><Bi en="Custom id" ar="المعرف" /></th>
-                              <th><Bi en="Endpoint" ar="المسار" /></th>
-                              <th><Bi en="Model" ar="النموذج" /></th>
-                              <th><Bi en="Status" ar="الحالة" /></th>
-                              <th><Bi en="Usage" ar="الاستخدام" /></th>
-                              <th><Bi en="Cost" ar="التكلفة" /></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {lines.length === 0 ? (
-                              <tr><td colSpan={6} className="bt-muted-cell"><Bi en="No line rows loaded" ar="لم يتم تحميل صفوف" /></td></tr>
-                            ) : lines.map((line) => (
-                              <tr key={line.custom_id}>
-                                <td>
-                                  <span className="mono">{line.custom_id}</span>
-                                  <span className="bt-table-sub">{shortHash(line.request_checksum_sha256)}</span>
-                                </td>
-                                <td className="mono">{line.url}</td>
-                                <td className="mono">{line.model_id}</td>
-                                <td><span className={`stat ${statusTone(line.status)}`}>{line.status}</span></td>
-                                <td className="mono">{formatNumber(line.usage.total_tokens)}</td>
-                                <td className="sar">{(line.cost_halala / 100).toFixed(2)}<span className="u">SAR</span></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="bt-proof">
-                      <div className="bt-subhead">
-                        <b><Bi en="Result proof" ar="إثبات النتيجة" /></b>
-                        <span>{manifest?.next || 'pending'}</span>
-                      </div>
-                      <dl>
-                        <div>
-                          <dt><Bi en="Available" ar="متاحة" /></dt>
-                          <dd>{manifest?.results_available ? 'true' : 'false'}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Result key" ar="مفتاح النتيجة" /></dt>
-                          <dd>{manifest?.result_storage_key || '-'}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Checksum" ar="البصمة" /></dt>
-                          <dd>{shortHash(manifest?.result_checksum_sha256)}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Download" ar="التنزيل" /></dt>
-                          <dd>{manifest?.download_enabled ? 'signed' : 'gated'}</dd>
-                        </div>
-                      </dl>
-                      {manifest?.download_enabled && manifest.download_url && (
-                        <a className="btn-sec" href={manifest.download_url} rel="noopener noreferrer">
-                          <Bi en="Download JSONL" ar="تنزيل JSONL" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </section>
-            </>
-          )}
-        </main>
-      </div>
-    </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </main>
   )
 }

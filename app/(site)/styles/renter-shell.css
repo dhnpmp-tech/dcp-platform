@@ -55,7 +55,7 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
 .rt-ws-btn .av { width: 32px; height: 32px; border-radius: 4px; background: linear-gradient(135deg, var(--teal), var(--orange)); display: grid; place-items: center; font-family: var(--serif); font-size: 14px; color: #0a0b1a; }
 .rt-ws-btn .body { line-height: 1.15; min-width: 0; }
 .rt-ws-btn .body .nm { font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rt-ws-btn .body .sub { font-family: var(--mono); font-size: 10px; color: var(--mut); letter-spacing: .04em; margin-top: 2px; }
+.rt-ws-btn .body .sub { display: block; font-family: var(--mono); font-size: 10px; color: var(--mut); letter-spacing: .04em; margin-top: 2px; }
 .rt-ws-btn .chev { color: var(--mut); font-family: var(--mono); font-size: 14px; }
 
 /* Wallet block in sidebar */
@@ -71,6 +71,7 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
   margin-top: 12px; width: 100%; padding: 9px 0; border: 1px solid var(--rt-accent); color: var(--rt-accent);
   background: transparent; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; border-radius: 2px;
   transition: background .15s, color .15s;
+  display: block; text-align: center; text-decoration: none;
 }
 .rt-wallet .topup:hover { background: var(--rt-accent); color: #0a0b1a; }
 
@@ -101,7 +102,7 @@ body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-font-smoo
   display: grid; place-items: center; font-family: var(--serif); font-size: 16px; color: #0a0b1a; }
 .rt-sb-foot .who { font-size: 13px; color: var(--ink); line-height: 1.2; }
 .rt-sb-foot .who .e { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--mut); margin-top: 2px; letter-spacing: .04em; }
-.rt-sb-foot .out { color: var(--mut); font-family: var(--mono); font-size: 16px; cursor: pointer; }
+.rt-sb-foot .out { color: var(--mut); font-family: var(--mono); font-size: 16px; cursor: pointer; background: transparent; border: 0; padding: 0; }
 .rt-sb-foot .out:hover { color: var(--rt-accent); }
 
 /* ── Topbar ───────────────────────────── */
@@ -224,3 +225,18 @@ pre.code { margin: 0; padding: 16px 18px; background: #04050d; color: #c9c5bd; b
   font-family: var(--mono); font-size: 12.5px; line-height: 1.7; overflow-x: auto; }
 pre.code .k { color: var(--orange); }  pre.code .s { color: var(--teal); }
 pre.code .c { color: var(--mut); }     pre.code .n { color: #9bc8e0; }
+
+.dash-state {
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  padding: 14px 16px;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.dash-state b { display: block; color: var(--ink); font-weight: 500; margin-bottom: 4px; }
+.dash-state a { color: var(--rt-accent); border-bottom: 1px solid var(--rt-accent); text-decoration: none; }
+.dash-state.err,
+.dash-state.error { border-color: color-mix(in oklab, var(--err) 55%, var(--hair)); color: #ffd5dd; }
+.dash-state.success { border-color: color-mix(in oklab, var(--rt-accent) 55%, var(--hair)); color: var(--rt-accent); }
+.dash-state.compact { margin-top: 16px; }

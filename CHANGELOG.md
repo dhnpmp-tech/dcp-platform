@@ -14,6 +14,37 @@ checklists do not belong in this public changelog.
 
 ## [Unreleased]
 
+### Pending - `refactor(renter): centralize console shell - PR #977`
+
+**PR:** [#977](https://github.com/dhnpmp-tech/dcp-platform/pull/977) (`agent/codex/task_3e63d68f6ec4-renter-console-shell`).
+
+**What:** Consolidates the v2 renter console sidebar/topbar into one persistent
+route layout so renter pages no longer drift in navigation, account chrome, or
+credit actions.
+
+- **Shared layout:** Added `app/(site)/renter/layout.tsx` and
+  `app/(site)/renter/RenterShell.tsx` as the single owner of renter sidebar,
+  mobile drawer, topbar, active-route highlighting, language toggle, sign-out,
+  account identity, balance, held-credit, total-spend, and `+ Add credit` CTA.
+- **Navigation parity:** The canonical renter nav now appears on every renter
+  page: Overview, Playground, API keys, Usage, GPU Pods, Fine-Tuning, Batch,
+  Credit, Invoices, Settings, and Docs. The wallet label is consistently
+  `Credit`, and Batch no longer appears only on some product pages.
+- **Page cleanup:** Removed duplicated sidebar/topbar JSX from Dashboard,
+  Playground, API keys, Usage, GPU Pods, Fine-Tuning, Batch, Credit, Invoices,
+  and Settings. Deleted the old pod-local `PodShell.tsx` so there is no second
+  shell source under the pods route.
+- **CSS cleanup:** Promoted shared renter shell/status helpers into
+  `app/(site)/styles/renter-shell.css` and removed folded `.rt-app`, `.rt-sb`,
+  `.rt-nav`, `.rt-tb`, and `.rt-backdrop` blocks from per-page stylesheets.
+- **Regression guard:** Extended `tests/v2-renter-console-static.test.js` to
+  assert that renter pages render only their `rt-main` column, shared shell CSS
+  is canonical, the pod-local shell is gone, and the shared nav/account/credit
+  requirements stay present.
+- **Safety:** Frontend layout/CSS/test/changelog/docs only. No auth,
+  middleware, billing, payments, provider operations, inference routing,
+  Mission Control API, or live infrastructure changed.
+
 ### Pending - `docs(security): add dcp-agent and desktop launch audit - PR #969`
 
 **PR:** [#969](https://github.com/dhnpmp-tech/dcp-platform/pull/969) (`agent/codex/task_0a1f17750f41-cross-repo-audits`).

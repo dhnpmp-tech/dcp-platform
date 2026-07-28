@@ -36,13 +36,14 @@ for (const text of forbidden) {
   assert(!source.includes(text), `v2 renter wallet must not ship prototype data or fake controls: ${text}`);
 }
 
-assert(source.includes('/renters/me?key='), 'v2 renter wallet should load the authenticated renter account');
-assert(source.includes('/renters/balance?key='), 'v2 renter wallet should load real wallet balances');
-assert(source.includes('/renters/me/payments?key='), 'v2 renter wallet should list renter payment history');
+assert(source.includes("const headers = { 'x-renter-key': renterKey }"), 'v2 renter wallet should use header-authenticated renter requests');
+assert(source.includes('`${base}/renters/me`'), 'v2 renter wallet should load the authenticated renter account');
+assert(source.includes('`${base}/renters/balance`'), 'v2 renter wallet should load real wallet balances');
+assert(source.includes('`${base}/renters/me/payments`'), 'v2 renter wallet should list renter payment history');
 assert(source.includes('/payments/topup'), 'v2 renter wallet should initiate real top-ups through the payments route');
 assert(source.includes('/payments/auto-topup-settings'), 'v2 renter wallet should read and save real auto top-up settings');
 assert(source.includes("loadState === 'missing-key'"), 'v2 renter wallet should render an explicit missing-key state');
-assert(source.includes('No wallet payments have been recorded'), 'v2 renter wallet should render an honest empty transaction state');
+assert(source.includes('No credit payments have been recorded'), 'v2 renter wallet should render an honest empty transaction state');
 assert(source.includes('card_on_file'), 'v2 renter wallet should gate auto top-up controls on a saved card');
 assert(source.includes('Idempotency-Key'), 'v2 renter wallet should send an idempotency key for top-up initiation');
 

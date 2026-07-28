@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bi, useV2 } from '@/app/(site)/lib/i18n'
 import { getApiBase, getRenterKey } from '@/lib/api'
-import { PodSidebar, PodTopbar } from '../pods/PodShell'
-import '../pods/pods.css'
 import './fine-tuning.css'
 
 type LoadState = 'loading' | 'ready' | 'missing-key' | 'error'
@@ -583,7 +581,6 @@ function buildDatasetLedgerRows(jobs: TrainingJobRecord[]): DatasetLedgerRow[] {
 
 export default function RenterFineTuningPage() {
   const { lang, toggle } = useV2()
-  const [navOpen, setNavOpen] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [error, setError] = useState('')
   const [renterName, setRenterName] = useState('DCP renter')
@@ -834,877 +831,854 @@ export default function RenterFineTuningPage() {
   }
 
   return (
-    <div className="rt-app ft-page">
-      <PodSidebar
-        navOpen={navOpen}
-        renterName={renterName}
-        renterEmail={renterEmail}
-        currentPage="fine"
-      />
+    <main className="rt-main ft-main">
+      <h1 className="rt-h1">
+        <Bi en="Fine-" ar="" />
+        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+          <Bi en="tuning." ar="الضبط الدقيق." />
+        </em>
+      </h1>
+      <div className="rt-h1-sub">
+        <span>
+          <Bi en="LoRA SFT MVP" ar="نسخة LoRA SFT الأولى" />
+        </span>
+        <span>
+          <Bi en="Contracts ready · serving gated by proof" ar="العقود جاهزة · الخدمة مشروطة بالإثبات" />
+        </span>
+      </div>
 
-      <div className={`rt-backdrop${navOpen ? ' on' : ''}`} id="rt-backdrop" onClick={() => setNavOpen(false)} />
+      {loadState === 'missing-key' && (
+        <div className="dash-state ft-state">
+          <b>
+            <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
+          </b>
+          <span>
+            <Bi
+              en="Sign in or add a renter API key before the console can read adapter registry state."
+              ar="سجل الدخول أو أضف مفتاح مستأجر قبل أن تقرأ اللوحة حالة سجل المحولات."
+            />
+          </span>
+          <Link className="text-link" href="/renter/keys">
+            <Bi en="Manage API keys" ar="إدارة مفاتيح API" />
+          </Link>
+        </div>
+      )}
 
-      <div>
-        <PodTopbar
-          renterName={renterName}
-          isLive={isLive}
-          lang={lang}
-          onToggleLang={toggle}
-          onToggleNav={() => setNavOpen((v) => !v)}
-          pageLabelEn="Fine-Tuning"
-          pageLabelAr="الضبط الدقيق"
-        />
+      {loadState === 'error' && (
+        <div className="dash-state ft-state">
+          <b>
+            <Bi en="Fine-tuning state unavailable" ar="حالة الضبط الدقيق غير متاحة" />
+          </b>
+          <span>{error}</span>
+        </div>
+      )}
 
-        <main className="rt-main ft-main">
-          <h1 className="rt-h1">
-            <Bi en="Fine-" ar="" />
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="tuning." ar="الضبط الدقيق." />
-            </em>
-          </h1>
-          <div className="rt-h1-sub">
-            <span>
-              <Bi en="LoRA SFT MVP" ar="نسخة LoRA SFT الأولى" />
+      <div className="ft-kpis" aria-label={lang === 'ar' ? 'مؤشرات الضبط الدقيق' : 'Fine-tuning indicators'}>
+        <div className="kpi featured">
+          <div className="k">
+            <Bi en="Training jobs" ar="مهام التدريب" />
+          </div>
+          <div className="v">{loadState === 'ready' ? trainingJobs.length : 0}</div>
+          <div className="d flat">
+            <Bi en="Trainer proof still gated" ar="إثبات التدريب ما زال مشروطا" />
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="k">
+            <Bi en="Dataset rows" ar="صفوف البيانات" />
+          </div>
+          <div className="v">{loadState === 'ready' ? formatNumber(totalDatasetRows) : 0}</div>
+          <div className="d flat">
+            <Bi
+              en={loadState === 'ready' ? `${formatNumber(totalEstimatedTokens)} est. tokens` : '0 est. tokens'}
+              ar={loadState === 'ready' ? `${formatNumber(totalEstimatedTokens)} رمز تقديري` : '0 رمز تقديري'}
+            />
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="k">
+            <Bi en="Model cards" ar="بطاقات النماذج" />
+          </div>
+          <div className="v">{loadState === 'ready' ? manifestRows.length : 0}</div>
+          <div className="d up">
+            <Bi en="Metadata only" ar="بيانات وصفية فقط" />
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="k">
+            <Bi en="Deployment intents" ar="نوايا النشر" />
+          </div>
+          <div className="v">{loadState === 'ready' ? deploymentRows.length : 0}</div>
+          <div className="d flat">
+            <Bi
+              en={`Routes off · ${readyAdapters.length} ready adapters`}
+              ar={`المسارات متوقفة · ${readyAdapters.length} محولات جاهزة`}
+            />
+          </div>
+        </div>
+      </div>
+
+      <section className="ft-readiness" aria-label={lang === 'ar' ? 'جاهزية LoRA' : 'LoRA readiness'}>
+        <div className="ft-section-head compact">
+          <div>
+            <span className="pod-label">
+              <Bi en="Readiness" ar="الجاهزية" />
             </span>
+            <h2>{formatContractMode(readinessMode)}</h2>
+          </div>
+          <span className="ft-contract-id mono">{readiness?.version || 'dcp.lora_readiness.v1'}</span>
+        </div>
+
+        <div className="ft-readiness-grid">
+          <div>
+            <span><Bi en="Datasets" ar="البيانات" /></span>
+            <b>{readinessLabel(readiness?.dataset_validation?.status || (readiness?.dataset_validation?.available ? 'available' : undefined))}</b>
+          </div>
+          <div>
+            <span><Bi en="Jobs" ar="المهام" /></span>
+            <b>{readinessLabel(readiness?.training_jobs?.status)}</b>
+          </div>
+          <div>
+            <span><Bi en="Model cards" ar="بطاقات النماذج" /></span>
+            <b>{readinessLabel(readiness?.model_cards?.status)}</b>
+          </div>
+          <div>
+            <span><Bi en="Registry" ar="السجل" /></span>
+            <b>
+              {readinessLabel(readiness?.adapter_registry?.status)}
+              {registryProofStatus ? ` · ${readinessLabel(registryProofStatus)}` : ''}
+            </b>
+          </div>
+          <div>
+            <span><Bi en="Deployments" ar="النشر" /></span>
+            <b>
+              {readinessLabel(readiness?.adapter_deployments?.status)}
+              {deploymentProofStatus ? ` · ${readinessLabel(deploymentProofStatus)}` : ''}
+            </b>
+          </div>
+          <div>
+            <span><Bi en="Route traffic" ar="توجيه الحركة" /></span>
+            <b>{gateLabel(readiness?.adapter_deployments?.route_traffic)}</b>
+          </div>
+        </div>
+
+        <div className="ft-credit-preflight" aria-label={lang === 'ar' ? 'فحص رصيد الضبط الدقيق' : 'Fine-tuning credit preflight'}>
+          <div className="ft-credit-copy">
+            <span><Bi en="Credit preflight" ar="فحص الرصيد" /></span>
+            <b>{minimumBalanceSynced ? 'minimum balance synced' : minimumBalanceStatus === 'loading' ? 'checking policy' : 'fallback policy'}</b>
+            <p>
+              <Bi
+                en="Managed LoRA training and adapter serving stay read-only until their billing and proof rails are approved."
+                ar="يبقى تدريب LoRA المدار وخدمة المحولات للقراءة فقط حتى تعتمد مسارات الفوترة والإثبات."
+              />
+            </p>
+          </div>
+          <div className="ft-credit-facts">
+            <div>
+              <span><Bi en="LoRA training" ar="تدريب LoRA" /></span>
+              <b>{readinessLabel(loraMinimumRail?.status || 'metadata_and_artifact_proof_only')}</b>
+            </div>
+            <div>
+              <span><Bi en="Adapter deployments" ar="نشر المحولات" /></span>
+              <b>{readinessLabel(adapterMinimumRail?.status || 'load_and_billing_policy_required')}</b>
+            </div>
+            <div>
+              <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
+              <b>SAR {formatSar(paidAvailableSar)}</b>
+            </div>
+            <div>
+              <span><Bi en="Blocked billing rails" ar="مسارات فوترة مقيدة" /></span>
+              <b>{blockedFutureBillingRails}</b>
+            </div>
+            <div>
+              <span><Bi en="Enforcement" ar="التنفيذ" /></span>
+              <b>
+                <Bi
+                  en={minimumBalance?.claim_guards?.changes_enforcement ? 'change pending' : 'Read-only: no enforcement change'}
+                  ar={minimumBalance?.claim_guards?.changes_enforcement ? 'تغيير معلق' : 'قراءة فقط: لا تغيير في التنفيذ'}
+                />
+              </b>
+            </div>
+          </div>
+        </div>
+
+        <div className="ft-supported">
+          <span><Bi en="Claim guards" ar="حراس الادعاءات" /></span>
+          <code>{readinessClaims}</code>
+        </div>
+      </section>
+
+      <section className="ft-workspace-preupload" aria-labelledby="ft-workspace-preupload-title">
+        <div className="ft-workspace-copy">
+          <span className="pod-label">
+            <Bi en="Step zero" ar="الخطوة صفر" />
+          </span>
+          <h2 id="ft-workspace-preupload-title">
+            <Bi en="Pre-upload the workspace before fine-tuning" ar="ارفع مساحة العمل قبل الضبط الدقيق" />
+          </h2>
+          <p>
+            <Bi
+              en="The normal DCP path is workspace first: stage files in the renter volume, validate the dataset contract, then launch a proof-gated LoRA pod. Managed training and adapter serving stay gated until GPU-host and load proof land."
+              ar="المسار الطبيعي في DCP يبدأ بمساحة العمل: جهّز الملفات في حجم المستأجر، ثم تحقق من عقد البيانات، ثم شغّل حاوية LoRA المقيدة بالإثبات. يبقى التدريب المدار وخدمة المحولات مقيدين حتى يصل إثبات مضيف GPU وإثبات التحميل."
+            />
+          </p>
+          <div className="ft-workspace-actions">
+            <Link className="btn-pri" href="/renter/playground?surface=workspace">
+              <Bi en="Open Workspace" ar="افتح مساحة العمل" />
+            </Link>
+            <Link className="btn-sec" href="/renter/pods">
+              <Bi en="Open LoRA Pods" ar="افتح حاويات LoRA" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="ft-workspace-steps" aria-label={lang === 'ar' ? 'خطوات التحضير' : 'Workspace preparation steps'}>
+          {WORKSPACE_PREUPLOAD_STEPS.map((step) => (
+            <article key={step.no}>
+              <span>{step.no}</span>
+              <h3>
+                <Bi en={step.titleEn} ar={step.titleAr} />
+              </h3>
+              <p>
+                <Bi en={step.bodyEn} ar={step.bodyAr} />
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="ft-section" aria-labelledby="ft-flow-title">
+        <div className="ft-section-head">
+          <div>
+            <span className="pod-label">
+              <Bi en="Train here, deploy here" ar="درّب هنا، وانشر هنا" />
+            </span>
+            <h2 id="ft-flow-title">
+              <Bi en="LoRA workflow gates" ar="بوابات سير عمل LoRA" />
+            </h2>
+          </div>
+          <Link className="btn-sec" href="/renter/pods">
+            <Bi en="Open GPU Pods" ar="افتح حاويات GPU" />
+          </Link>
+        </div>
+
+        <div className="ft-stage-grid">
+          {STAGES.map((stage) => (
+            <article key={stage.no} className={`ft-stage ${stage.status}`}>
+              <div className="ft-stage-top">
+                <span className="ft-stage-no">{stage.no}</span>
+                <span className="ft-stage-status">
+                  <Bi
+                    en={stage.status === 'blocked' ? 'Proof gate' : 'Contract ready'}
+                    ar={stage.status === 'blocked' ? 'بوابة إثبات' : 'العقد جاهز'}
+                  />
+                </span>
+              </div>
+              <h3>
+                <Bi en={stage.titleEn} ar={stage.titleAr} />
+              </h3>
+              <p>
+                <Bi en={stage.bodyEn} ar={stage.bodyAr} />
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="ft-deploy-planner" aria-labelledby="ft-deploy-planner-title">
+        <div className="ft-section-head compact">
+          <div>
+            <span className="pod-label">
+              <Bi en="Deployment planner" ar="مخطط النشر" />
+            </span>
+            <h2 id="ft-deploy-planner-title">
+              <Bi en="Adapter serving path" ar="مسار خدمة المحول" />
+            </h2>
+          </div>
+          <span className="ft-contract-id mono">POST /api/adapters/:id/deployments</span>
+        </div>
+
+        <div className="ft-deploy-summary" aria-label={lang === 'ar' ? 'ملخص نشر المحولات' : 'Adapter deployment summary'}>
+          <div>
+            <span><Bi en="Ready adapters" ar="المحولات الجاهزة" /></span>
+            <b>{readyAdapters.length}</b>
+          </div>
+          <div>
+            <span><Bi en="Active intents" ar="نوايا نشطة" /></span>
+            <b>{activeDeploymentCount}</b>
+          </div>
+          <div>
+            <span><Bi en="Routes" ar="المسارات" /></span>
+            <b>{routeTrafficCount > 0 ? `${routeTrafficCount} on` : 'off'}</b>
+          </div>
+          <div>
+            <span><Bi en="Load proof" ar="إثبات التحميل" /></span>
+            <b>{pendingLoadProofCount > 0 ? `${pendingLoadProofCount} pending` : 'none pending'}</b>
+          </div>
+        </div>
+
+        {(deploymentNotice || deploymentError) && (
+          <div className={`ft-deploy-message${deploymentError ? ' error' : ''}`} role="status">
+            {deploymentError || deploymentNotice}
+          </div>
+        )}
+
+        {deploymentPlannerRows.length > 0 ? (
+          <div className="ft-deploy-planner-grid">
+            {deploymentPlannerRows.map((row) => {
+              const activeDeployment = row.activeDeployment
+              const latestDeployment = row.latestDeployment
+              const createActionId = `create:${row.adapter.adapter_id}`
+              const stopActionId = activeDeployment ? `stop:${activeDeployment.deployment_id}` : ''
+              return (
+                <article className="ft-deploy-plan-card" key={row.adapter.adapter_id}>
+                  <div className="ft-deploy-plan-top">
+                    <div>
+                      <span className="ft-table-sub mono">{row.adapter.adapter_id}</span>
+                      <h3>{row.adapter.name}</h3>
+                    </div>
+                    <span className={`stat ${statusTone(activeDeployment?.status || row.adapter.status)}`}>
+                      {activeDeployment?.status || row.adapter.status}
+                    </span>
+                  </div>
+
+                  <dl className="ft-deploy-plan-facts">
+                    <div>
+                      <dt><Bi en="Base" ar="الأساس" /></dt>
+                      <dd>{row.adapter.base_model}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Intent" ar="النية" /></dt>
+                      <dd>{activeDeployment?.deployment_id || latestDeployment?.deployment_id || 'not created'}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Endpoint" ar="النقطة" /></dt>
+                      <dd>{activeDeployment?.endpoint_id || latestDeployment?.endpoint_id || 'assigned after proof'}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Proof" ar="الإثبات" /></dt>
+                      <dd>
+                        {activeDeployment?.serving_load_proof
+                          ? 'load proof attached'
+                          : activeDeployment
+                            ? 'load proof pending'
+                            : 'create intent first'}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="ft-deploy-path">
+                    <span><Bi en="1. intent row" ar="١. صف النية" /></span>
+                    <span><Bi en="2. internal vLLM load proof" ar="٢. إثبات تحميل vLLM داخلي" /></span>
+                    <span><Bi en="3. endpoint smoke gate" ar="٣. بوابة دخان النقطة" /></span>
+                    <span><Bi en="4. billing approval" ar="٤. موافقة الفوترة" /></span>
+                  </div>
+
+                  <div className="ft-deploy-actions">
+                    {activeDeployment ? (
+                      <button
+                        type="button"
+                        className="btn-sec ft-action-btn"
+                        disabled={deploymentActionId === stopActionId}
+                        onClick={() => void stopDeploymentIntent(activeDeployment)}
+                      >
+                        <Bi
+                          en={deploymentActionId === stopActionId ? 'Stopping' : 'Stop intent'}
+                          ar={deploymentActionId === stopActionId ? 'جار الإيقاف' : 'أوقف النية'}
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-pri ft-action-btn"
+                        disabled={deploymentActionId === createActionId}
+                        onClick={() => void createDeploymentIntent(row.adapter)}
+                      >
+                        <Bi
+                          en={deploymentActionId === createActionId ? 'Creating' : 'Create gated intent'}
+                          ar={deploymentActionId === createActionId ? 'جار الإنشاء' : 'أنشئ نية مقيدة'}
+                        />
+                      </button>
+                    )}
+                    <span>
+                      <Bi
+                        en="No serving change: load proof and billing stay backend-owned."
+                        ar="لا تغيير في الخدمة: يبقى إثبات التحميل والفوترة في الخلفية."
+                      />
+                    </span>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="ft-empty">
+            <b>
+              <Bi en="No ready adapters to deploy yet" ar="لا توجد محولات جاهزة للنشر بعد" />
+            </b>
             <span>
-              <Bi en="Contracts ready · serving gated by proof" ar="العقود جاهزة · الخدمة مشروطة بالإثبات" />
+              <Bi
+                en="Deploy intents become available after an adapter reaches ready or deployed status. Training, load proof, endpoint smoke, billing, and routing remain gated."
+                ar="تتوفر نوايا النشر بعد أن يصل المحول إلى حالة جاهز أو منشور. يبقى التدريب وإثبات التحميل ودخان النقطة والفوترة والتوجيه مقيدة."
+              />
             </span>
           </div>
+        )}
+      </section>
 
-          {loadState === 'missing-key' && (
-            <div className="dash-state ft-state">
-              <b>
-                <Bi en="Renter key required" ar="مفتاح المستأجر مطلوب" />
-              </b>
-              <span>
-                <Bi
-                  en="Sign in or add a renter API key before the console can read adapter registry state."
-                  ar="سجل الدخول أو أضف مفتاح مستأجر قبل أن تقرأ اللوحة حالة سجل المحولات."
-                />
-              </span>
-              <Link className="text-link" href="/renter/keys">
-                <Bi en="Manage API keys" ar="إدارة مفاتيح API" />
-              </Link>
-            </div>
-          )}
-
-          {loadState === 'error' && (
-            <div className="dash-state ft-state">
-              <b>
-                <Bi en="Fine-tuning state unavailable" ar="حالة الضبط الدقيق غير متاحة" />
-              </b>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="ft-kpis" aria-label={lang === 'ar' ? 'مؤشرات الضبط الدقيق' : 'Fine-tuning indicators'}>
-            <div className="kpi featured">
-              <div className="k">
-                <Bi en="Training jobs" ar="مهام التدريب" />
-              </div>
-              <div className="v">{loadState === 'ready' ? trainingJobs.length : 0}</div>
-              <div className="d flat">
-                <Bi en="Trainer proof still gated" ar="إثبات التدريب ما زال مشروطا" />
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="k">
-                <Bi en="Dataset rows" ar="صفوف البيانات" />
-              </div>
-              <div className="v">{loadState === 'ready' ? formatNumber(totalDatasetRows) : 0}</div>
-              <div className="d flat">
-                <Bi
-                  en={loadState === 'ready' ? `${formatNumber(totalEstimatedTokens)} est. tokens` : '0 est. tokens'}
-                  ar={loadState === 'ready' ? `${formatNumber(totalEstimatedTokens)} رمز تقديري` : '0 رمز تقديري'}
-                />
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="k">
-                <Bi en="Model cards" ar="بطاقات النماذج" />
-              </div>
-              <div className="v">{loadState === 'ready' ? manifestRows.length : 0}</div>
-              <div className="d up">
-                <Bi en="Metadata only" ar="بيانات وصفية فقط" />
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="k">
-                <Bi en="Deployment intents" ar="نوايا النشر" />
-              </div>
-              <div className="v">{loadState === 'ready' ? deploymentRows.length : 0}</div>
-              <div className="d flat">
-                <Bi
-                  en={`Routes off · ${readyAdapters.length} ready adapters`}
-                  ar={`المسارات متوقفة · ${readyAdapters.length} محولات جاهزة`}
-                />
-              </div>
-            </div>
+      <section className="ft-model-cards" aria-labelledby="ft-model-card-title">
+        <div className="ft-section-head compact">
+          <div>
+            <span className="pod-label">
+              <Bi en="Model-card manifest" ar="بيان بطاقة النموذج" />
+            </span>
+            <h2 id="ft-model-card-title">
+              <Bi en="Adapter proof cards" ar="بطاقات إثبات المحولات" />
+            </h2>
           </div>
+          <span className="ft-contract-id mono">dcp.lora_model_card_manifest.v1</span>
+        </div>
 
-          <section className="ft-readiness" aria-label={lang === 'ar' ? 'جاهزية LoRA' : 'LoRA readiness'}>
+        {manifestRows.length > 0 ? (
+          <div className="ft-model-card-grid">
+            {manifestRows.map((job) => {
+              const manifest = job.model_card_manifest as LoraModelCardManifest
+              return (
+                <article className="ft-model-card" key={job.training_job_id}>
+                  <div className="ft-model-card-top">
+                    <div>
+                      <span className="ft-table-sub mono">{manifest.adapter.adapter_id}</span>
+                      <h3>{manifest.adapter.name}</h3>
+                    </div>
+                    <span className={`stat ${statusTone(job.status)}`}>{manifest.status}</span>
+                  </div>
+
+                  <dl className="ft-model-card-facts">
+                    <div>
+                      <dt><Bi en="Base" ar="الأساس" /></dt>
+                      <dd>{manifest.adapter.base_model}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Dataset" ar="البيانات" /></dt>
+                      <dd>{formatNumber(manifest.dataset.row_count)} rows · {manifest.dataset.format}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Artifact" ar="الأثر" /></dt>
+                      <dd>{manifest.artifact.proof_status}</dd>
+                    </div>
+                    <div>
+                      <dt><Bi en="Card key" ar="مفتاح البطاقة" /></dt>
+                      <dd>{manifest.storage_key}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="ft-claim-strip" aria-label={lang === 'ar' ? 'حراس الادعاءات' : 'Claim guards'}>
+                    <span><Bi en={manifest.claims.public_training_enabled ? 'training on' : 'training off'} ar={manifest.claims.public_training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'} /></span>
+                    <span><Bi en={manifest.claims.serving_enabled ? 'serving on' : 'serving off'} ar={manifest.claims.serving_enabled ? 'الخدمة تعمل' : 'الخدمة متوقفة'} /></span>
+                    <span><Bi en={manifest.claims.route_traffic ? 'routes on' : 'routes off'} ar={manifest.claims.route_traffic ? 'المسارات تعمل' : 'المسارات متوقفة'} /></span>
+                    <span><Bi en={manifest.claims.quality_claims ? 'quality claimed' : 'no quality claim'} ar={manifest.claims.quality_claims ? 'ادعاء جودة' : 'لا ادعاء جودة'} /></span>
+                    <span><Bi en={manifest.claims.tinker_compatible ? 'Tinker compatible' : 'Tinker not claimed'} ar={manifest.claims.tinker_compatible ? 'متوافق مع Tinker' : 'لا ادعاء Tinker'} /></span>
+                  </div>
+
+                  <p className="ft-next mono">{manifest.next}</p>
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="ft-empty">
+            <b>
+              <Bi en="No model-card manifests yet" ar="لا توجد بيانات بطاقات نماذج بعد" />
+            </b>
+            <span>
+              <Bi
+                en="Manifest cards appear after a LoRA job reserves or records a model-card storage key."
+                ar="تظهر بطاقات البيان بعد أن تحجز أو تسجل مهمة LoRA مفتاح تخزين بطاقة النموذج."
+              />
+            </span>
+          </div>
+        )}
+      </section>
+
+      <section className="ft-grid" aria-label={lang === 'ar' ? 'حالة السجل والعقود' : 'Registry and contract state'}>
+        <div className="ft-ledger-stack">
+          <div className="ft-ledger">
             <div className="ft-section-head compact">
               <div>
                 <span className="pod-label">
-                  <Bi en="Readiness" ar="الجاهزية" />
+                  <Bi en="Dataset ledger" ar="سجل البيانات" />
                 </span>
-                <h2>{formatContractMode(readinessMode)}</h2>
+                <h2>
+                  <Bi en="Validated datasets" ar="البيانات المتحقق منها" />
+                </h2>
               </div>
-              <span className="ft-contract-id mono">{readiness?.version || 'dcp.lora_readiness.v1'}</span>
+              <span className="ft-contract-id mono">POST /api/lora/datasets/validate</span>
             </div>
 
-            <div className="ft-readiness-grid">
+            <div className="ft-dataset-policy" aria-label={lang === 'ar' ? 'سياسة بيانات LoRA' : 'LoRA dataset policy'}>
               <div>
-                <span><Bi en="Datasets" ar="البيانات" /></span>
+                <span><Bi en="Validation" ar="التحقق" /></span>
                 <b>{readinessLabel(readiness?.dataset_validation?.status || (readiness?.dataset_validation?.available ? 'available' : undefined))}</b>
               </div>
               <div>
-                <span><Bi en="Jobs" ar="المهام" /></span>
-                <b>{readinessLabel(readiness?.training_jobs?.status)}</b>
+                <span><Bi en="Raw rows" ar="الصفوف الخام" /></span>
+                <b><Bi en="not persisted" ar="لا تُخزن" /></b>
               </div>
               <div>
-                <span><Bi en="Model cards" ar="بطاقات النماذج" /></span>
-                <b>{readinessLabel(readiness?.model_cards?.status)}</b>
+                <span><Bi en="Training job" ar="مهمة التدريب" /></span>
+                <b><Bi en="metadata only" ar="بيانات وصفية فقط" /></b>
               </div>
               <div>
-                <span><Bi en="Registry" ar="السجل" /></span>
-                <b>
-                  {readinessLabel(readiness?.adapter_registry?.status)}
-                  {registryProofStatus ? ` · ${readinessLabel(registryProofStatus)}` : ''}
-                </b>
-              </div>
-              <div>
-                <span><Bi en="Deployments" ar="النشر" /></span>
-                <b>
-                  {readinessLabel(readiness?.adapter_deployments?.status)}
-                  {deploymentProofStatus ? ` · ${readinessLabel(deploymentProofStatus)}` : ''}
-                </b>
-              </div>
-              <div>
-                <span><Bi en="Route traffic" ar="توجيه الحركة" /></span>
-                <b>{gateLabel(readiness?.adapter_deployments?.route_traffic)}</b>
+                <span><Bi en="GPU worker" ar="عامل GPU" /></span>
+                <b>{gateLabel(readiness?.training_jobs?.worker_execution_enabled)}</b>
               </div>
             </div>
 
-            <div className="ft-credit-preflight" aria-label={lang === 'ar' ? 'فحص رصيد الضبط الدقيق' : 'Fine-tuning credit preflight'}>
-              <div className="ft-credit-copy">
-                <span><Bi en="Credit preflight" ar="فحص الرصيد" /></span>
-                <b>{minimumBalanceSynced ? 'minimum balance synced' : minimumBalanceStatus === 'loading' ? 'checking policy' : 'fallback policy'}</b>
-                <p>
+            {datasetLedgerRows.length > 0 ? (
+              <div className="ft-table-wrap">
+                <table className="tbl ft-table ft-dataset-table">
+                  <thead>
+                    <tr>
+                      <th><Bi en="Dataset" ar="البيانات" /></th>
+                      <th><Bi en="Rows" ar="الصفوف" /></th>
+                      <th><Bi en="Tokens" ar="الرموز" /></th>
+                      <th><Bi en="Models" ar="النماذج" /></th>
+                      <th><Bi en="Jobs" ar="المهام" /></th>
+                      <th><Bi en="Guards" ar="الحراس" /></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {datasetLedgerRows.map((dataset) => (
+                      <tr key={dataset.id}>
+                        <td>
+                          <span className="mono">{dataset.storage_key}</span>
+                          <span className="ft-table-sub mono">{shortChecksum(dataset.checksum_sha256)}</span>
+                        </td>
+                        <td>
+                          <span>
+                            <Bi en={`${formatNumber(dataset.row_count)} rows`} ar={`${formatNumber(dataset.row_count)} صف`} />
+                          </span>
+                          <span className="ft-table-sub">
+                            <Bi
+                              en={`${dataset.format} · train ${formatNumber(dataset.train_rows)} · val ${formatNumber(dataset.validation_rows)}`}
+                              ar={`${dataset.format} · تدريب ${formatNumber(dataset.train_rows)} · تحقق ${formatNumber(dataset.validation_rows)}`}
+                            />
+                          </span>
+                        </td>
+                        <td className="mono">{formatNumber(dataset.estimated_tokens)}</td>
+                        <td>
+                          <span className="mono">{dataset.base_models[0] || '-'}</span>
+                          {dataset.base_models.length > 1 && (
+                            <span className="ft-table-sub">+{dataset.base_models.length - 1} more</span>
+                          )}
+                          <span className="ft-table-sub mono">{dataset.recipes.join(' · ') || '-'}</span>
+                        </td>
+                        <td>
+                          <span>{dataset.job_count}</span>
+                          <span className="ft-table-sub">{dataset.latest_status} · {formatDate(dataset.latest_created_at)}</span>
+                        </td>
+                        <td>
+                          <span className="ft-gate-list">
+                            <span><Bi en="raw rows not stored" ar="الصفوف الخام لا تُخزن" /></span>
+                            <span>
+                              <Bi
+                                en={dataset.training_enabled ? 'trainer on' : 'trainer off'}
+                                ar={dataset.training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'}
+                              />
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="ft-empty">
+                <b>
+                  <Bi en="No dataset ledger rows yet" ar="لا توجد صفوف بيانات بعد" />
+                </b>
+                <span>
                   <Bi
-                    en="Managed LoRA training and adapter serving stay read-only until their billing and proof rails are approved."
-                    ar="يبقى تدريب LoRA المدار وخدمة المحولات للقراءة فقط حتى تعتمد مسارات الفوترة والإثبات."
+                    en="Validate-only checks return checksum, split, row, and token facts. Ledger rows appear after a metadata training job references the dataset; raw rows are not persisted here."
+                    ar="تعيد فحوصات التحقق فقط البصمة والتقسيم والصفوف والرموز. تظهر صفوف السجل بعد أن تشير مهمة تدريب وصفية إلى البيانات؛ لا تُخزن الصفوف الخام هنا."
                   />
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="ft-ledger">
+            <div className="ft-section-head compact">
+              <div>
+                <span className="pod-label">
+                  <Bi en="Training queue" ar="قائمة التدريب" />
+                </span>
+                <h2>
+                  <Bi en="LoRA training jobs" ar="مهام تدريب LoRA" />
+                </h2>
+              </div>
+            </div>
+
+            {trainingJobRows.length > 0 ? (
+              <div className="ft-table-wrap">
+                <table className="tbl ft-table ft-training-table">
+                  <thead>
+                    <tr>
+                      <th><Bi en="Job" ar="المهمة" /></th>
+                      <th><Bi en="Dataset" ar="البيانات" /></th>
+                      <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
+                      <th><Bi en="Recipe" ar="الوصفة" /></th>
+                      <th><Bi en="Status" ar="الحالة" /></th>
+                      <th><Bi en="Gates" ar="البوابات" /></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trainingJobRows.map((job) => (
+                      <tr key={job.training_job_id}>
+                        <td>
+                          <span className="mono">{job.training_job_id}</span>
+                          <span className="ft-table-sub">{job.output_adapter_name}</span>
+                          <span className="ft-table-sub mono">{job.output_adapter_id}</span>
+                        </td>
+                        <td>
+                          <span>
+                            <Bi
+                              en={`${formatNumber(job.dataset_row_count)} rows`}
+                              ar={`${formatNumber(job.dataset_row_count)} صف`}
+                            />
+                          </span>
+                          <span className="ft-table-sub">
+                            <Bi
+                              en={`${job.dataset_format} · train ${formatNumber(job.train_rows)} · val ${formatNumber(job.validation_rows)}`}
+                              ar={`${job.dataset_format} · تدريب ${formatNumber(job.train_rows)} · تحقق ${formatNumber(job.validation_rows)}`}
+                            />
+                          </span>
+                          <span className="ft-table-sub mono">{shortChecksum(job.dataset_checksum_sha256)}</span>
+                        </td>
+                        <td className="mono">{job.base_model}</td>
+                        <td className="mono">{job.recipe}</td>
+                        <td>
+                          <span className={`stat ${statusTone(job.status)}`}>
+                            {job.status}
+                          </span>
+                          <span className="ft-table-sub">{formatDate(job.created_at)}</span>
+                        </td>
+                        <td>
+                          <span className="ft-gate-list">
+                            <span>
+                              <Bi
+                                en={job.training_enabled ? 'trainer on' : 'trainer off'}
+                                ar={job.training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'}
+                              />
+                            </span>
+                            <span>
+                              <Bi
+                                en={job.adapter_registered ? 'adapter registered' : 'adapter pending'}
+                                ar={job.adapter_registered ? 'المحول مسجل' : 'المحول قيد الانتظار'}
+                              />
+                            </span>
+                            <span>
+                              <Bi
+                                en={job.model_card_manifest ? 'model card manifest' : 'model card pending'}
+                                ar={job.model_card_manifest ? 'بيان بطاقة النموذج' : 'بطاقة النموذج قيد الانتظار'}
+                              />
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="ft-empty">
+                <b>
+                  <Bi en="No training jobs recorded yet" ar="لا توجد مهام تدريب مسجلة بعد" />
+                </b>
+                <span>
+                  <Bi
+                    en="The job API is live for validated LoRA metadata. GPU trainer execution stays blocked until host proof and artifact registration are wired."
+                    ar="واجهة المهام تعمل لبيانات LoRA المحققة. تنفيذ تدريب GPU يبقى متوقفا حتى ربط إثبات المضيف وتسجيل الأثر."
+                  />
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="ft-ledger">
+            <div className="ft-section-head compact">
+              <div>
+                <span className="pod-label">
+                  <Bi en="Adapter registry" ar="سجل المحولات" />
+                </span>
+                <h2>
+                  <Bi en="Latest adapters" ar="آخر المحولات" />
+                </h2>
+              </div>
+            </div>
+
+            {adapterRows.length > 0 ? (
+              <div className="ft-table-wrap">
+                <table className="tbl ft-table">
+                  <thead>
+                    <tr>
+                      <th><Bi en="Adapter" ar="المحول" /></th>
+                      <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
+                      <th><Bi en="Rank" ar="الرتبة" /></th>
+                      <th><Bi en="Status" ar="الحالة" /></th>
+                      <th><Bi en="Checksum" ar="البصمة" /></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adapterRows.map((adapter) => (
+                      <tr key={adapter.adapter_id}>
+                        <td>
+                          <span className="mono">{adapter.adapter_id}</span>
+                          <span className="ft-table-sub">{adapter.name}</span>
+                        </td>
+                        <td className="mono">{adapter.base_model}</td>
+                        <td className="mono">{adapter.rank ?? '-'}</td>
+                        <td>
+                          <span className={`stat ${statusTone(adapter.status)}`}>
+                            {adapter.status}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="mono">{shortChecksum(adapter.checksum_sha256)}</span>
+                          <span className="ft-table-sub">{formatDate(adapter.created_at)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="ft-empty">
+                <b>
+                  <Bi en="No adapters registered yet" ar="لا توجد محولات مسجلة بعد" />
+                </b>
+                <span>
+                  <Bi
+                    en="Adapter records appear here only after a LoRA artifact is registered. Job rows above may exist before any adapter is deployable."
+                    ar="تظهر سجلات المحولات هنا فقط بعد تسجيل أثر LoRA. قد توجد صفوف المهام أعلاه قبل أن يصبح أي محول قابلا للنشر."
+                  />
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="ft-ledger">
+            <div className="ft-section-head compact">
+              <div>
+                <span className="pod-label">
+                  <Bi en="Adapter deployments" ar="نشر المحولات" />
+                </span>
+                <h2>
+                  <Bi en="Deployment intents" ar="نوايا النشر" />
+                </h2>
+              </div>
+            </div>
+
+            {deploymentRows.length > 0 ? (
+              <div className="ft-table-wrap">
+                <table className="tbl ft-table ft-deploy-table">
+                  <thead>
+                    <tr>
+                      <th><Bi en="Deployment" ar="النشر" /></th>
+                      <th><Bi en="Adapter" ar="المحول" /></th>
+                      <th><Bi en="Mode" ar="النمط" /></th>
+                      <th><Bi en="Endpoint" ar="النقطة" /></th>
+                      <th><Bi en="Status" ar="الحالة" /></th>
+                      <th><Bi en="Traffic" ar="الحركة" /></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deploymentRows.map((deployment) => (
+                      <tr key={deployment.deployment_id}>
+                        <td>
+                          <span className="mono">{deployment.deployment_id}</span>
+                          <span className="ft-table-sub">{formatDate(deployment.created_at)}</span>
+                        </td>
+                        <td className="mono">{deployment.adapter_id}</td>
+                        <td className="mono">{deployment.mode}</td>
+                        <td className="mono">{deployment.endpoint_id || '-'}</td>
+                        <td>
+                          <span className={`stat ${statusTone(deployment.status)}`}>{deployment.status}</span>
+                          {deployment.failure_reason && (
+                            <span className="ft-table-sub">{deployment.failure_reason}</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="ft-gate-list">
+                            <span>
+                              <Bi
+                                en={deployment.route_traffic ? 'routes on' : 'routes off'}
+                                ar={deployment.route_traffic ? 'المسارات تعمل' : 'المسارات متوقفة'}
+                              />
+                            </span>
+                            <span>
+                              <Bi
+                                en={deployment.serving_load_proof ? 'load proof attached' : 'load proof pending'}
+                                ar={deployment.serving_load_proof ? 'إثبات التحميل مرفق' : 'إثبات التحميل قيد الانتظار'}
+                              />
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="ft-empty">
+                <b>
+                  <Bi en="No deployment intents yet" ar="لا توجد نوايا نشر بعد" />
+                </b>
+                <span>
+                  <Bi
+                    en="Deployment records appear only after a ready adapter asks for a serving target. Route traffic stays off until vLLM proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum."
+                    ar="تظهر سجلات النشر فقط بعد أن يطلب محول جاهز هدف خدمة. تبقى الحركة متوقفة حتى يرفق إثبات تحميل vLLM مطابق."
+                  />
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <aside className="ft-contract">
+          <span className="pod-label">
+            <Bi en="API snippets" ar="أمثلة API" />
+          </span>
+          <div className="ft-snippet-stack" aria-label={lang === 'ar' ? 'أمثلة API' : 'API snippets'}>
+            {API_SNIPPETS.map((snippet) => (
+              <div className="ft-snippet" key={snippet.id}>
+                <div className="ft-snippet-top">
+                  <div>
+                    <b>
+                      <Bi en={snippet.titleEn} ar={snippet.titleAr} />
+                    </b>
+                    <span>{snippet.meta}</span>
+                  </div>
+                  <button type="button" className="ft-copy" onClick={() => copySnippet(snippet.id, snippet.command)}>
+                    <Bi en={copiedSnippet === snippet.id ? 'Copied' : 'Copy'} ar={copiedSnippet === snippet.id ? 'تم النسخ' : 'نسخ'} />
+                  </button>
+                </div>
+                <pre className="code ft-code">{snippet.command}</pre>
+                <p>
+                  <Bi en={snippet.noteEn} ar={snippet.noteAr} />
                 </p>
               </div>
-              <div className="ft-credit-facts">
-                <div>
-                  <span><Bi en="LoRA training" ar="تدريب LoRA" /></span>
-                  <b>{readinessLabel(loraMinimumRail?.status || 'metadata_and_artifact_proof_only')}</b>
-                </div>
-                <div>
-                  <span><Bi en="Adapter deployments" ar="نشر المحولات" /></span>
-                  <b>{readinessLabel(adapterMinimumRail?.status || 'load_and_billing_policy_required')}</b>
-                </div>
-                <div>
-                  <span><Bi en="Paid available" ar="الرصيد المدفوع المتاح" /></span>
-                  <b>SAR {formatSar(paidAvailableSar)}</b>
-                </div>
-                <div>
-                  <span><Bi en="Blocked billing rails" ar="مسارات فوترة مقيدة" /></span>
-                  <b>{blockedFutureBillingRails}</b>
-                </div>
-                <div>
-                  <span><Bi en="Enforcement" ar="التنفيذ" /></span>
-                  <b>
-                    <Bi
-                      en={minimumBalance?.claim_guards?.changes_enforcement ? 'change pending' : 'Read-only: no enforcement change'}
-                      ar={minimumBalance?.claim_guards?.changes_enforcement ? 'تغيير معلق' : 'قراءة فقط: لا تغيير في التنفيذ'}
-                    />
-                  </b>
-                </div>
-              </div>
-            </div>
-
-            <div className="ft-supported">
-              <span><Bi en="Claim guards" ar="حراس الادعاءات" /></span>
-              <code>{readinessClaims}</code>
-            </div>
-          </section>
-
-          <section className="ft-workspace-preupload" aria-labelledby="ft-workspace-preupload-title">
-            <div className="ft-workspace-copy">
-              <span className="pod-label">
-                <Bi en="Step zero" ar="الخطوة صفر" />
-              </span>
-              <h2 id="ft-workspace-preupload-title">
-                <Bi en="Pre-upload the workspace before fine-tuning" ar="ارفع مساحة العمل قبل الضبط الدقيق" />
-              </h2>
-              <p>
-                <Bi
-                  en="The normal DCP path is workspace first: stage files in the renter volume, validate the dataset contract, then launch a proof-gated LoRA pod. Managed training and adapter serving stay gated until GPU-host and load proof land."
-                  ar="المسار الطبيعي في DCP يبدأ بمساحة العمل: جهّز الملفات في حجم المستأجر، ثم تحقق من عقد البيانات، ثم شغّل حاوية LoRA المقيدة بالإثبات. يبقى التدريب المدار وخدمة المحولات مقيدين حتى يصل إثبات مضيف GPU وإثبات التحميل."
-                />
-              </p>
-              <div className="ft-workspace-actions">
-                <Link className="btn-pri" href="/renter/playground?surface=workspace">
-                  <Bi en="Open Workspace" ar="افتح مساحة العمل" />
-                </Link>
-                <Link className="btn-sec" href="/renter/pods">
-                  <Bi en="Open LoRA Pods" ar="افتح حاويات LoRA" />
-                </Link>
-              </div>
-            </div>
-
-            <div className="ft-workspace-steps" aria-label={lang === 'ar' ? 'خطوات التحضير' : 'Workspace preparation steps'}>
-              {WORKSPACE_PREUPLOAD_STEPS.map((step) => (
-                <article key={step.no}>
-                  <span>{step.no}</span>
-                  <h3>
-                    <Bi en={step.titleEn} ar={step.titleAr} />
-                  </h3>
-                  <p>
-                    <Bi en={step.bodyEn} ar={step.bodyAr} />
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="ft-section" aria-labelledby="ft-flow-title">
-            <div className="ft-section-head">
-              <div>
-                <span className="pod-label">
-                  <Bi en="Train here, deploy here" ar="درّب هنا، وانشر هنا" />
-                </span>
-                <h2 id="ft-flow-title">
-                  <Bi en="LoRA workflow gates" ar="بوابات سير عمل LoRA" />
-                </h2>
-              </div>
-              <Link className="btn-sec" href="/renter/pods">
-                <Bi en="Open GPU Pods" ar="افتح حاويات GPU" />
-              </Link>
-            </div>
-
-            <div className="ft-stage-grid">
-              {STAGES.map((stage) => (
-                <article key={stage.no} className={`ft-stage ${stage.status}`}>
-                  <div className="ft-stage-top">
-                    <span className="ft-stage-no">{stage.no}</span>
-                    <span className="ft-stage-status">
-                      <Bi
-                        en={stage.status === 'blocked' ? 'Proof gate' : 'Contract ready'}
-                        ar={stage.status === 'blocked' ? 'بوابة إثبات' : 'العقد جاهز'}
-                      />
-                    </span>
-                  </div>
-                  <h3>
-                    <Bi en={stage.titleEn} ar={stage.titleAr} />
-                  </h3>
-                  <p>
-                    <Bi en={stage.bodyEn} ar={stage.bodyAr} />
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="ft-deploy-planner" aria-labelledby="ft-deploy-planner-title">
-            <div className="ft-section-head compact">
-              <div>
-                <span className="pod-label">
-                  <Bi en="Deployment planner" ar="مخطط النشر" />
-                </span>
-                <h2 id="ft-deploy-planner-title">
-                  <Bi en="Adapter serving path" ar="مسار خدمة المحول" />
-                </h2>
-              </div>
-              <span className="ft-contract-id mono">POST /api/adapters/:id/deployments</span>
-            </div>
-
-            <div className="ft-deploy-summary" aria-label={lang === 'ar' ? 'ملخص نشر المحولات' : 'Adapter deployment summary'}>
-              <div>
-                <span><Bi en="Ready adapters" ar="المحولات الجاهزة" /></span>
-                <b>{readyAdapters.length}</b>
-              </div>
-              <div>
-                <span><Bi en="Active intents" ar="نوايا نشطة" /></span>
-                <b>{activeDeploymentCount}</b>
-              </div>
-              <div>
-                <span><Bi en="Routes" ar="المسارات" /></span>
-                <b>{routeTrafficCount > 0 ? `${routeTrafficCount} on` : 'off'}</b>
-              </div>
-              <div>
-                <span><Bi en="Load proof" ar="إثبات التحميل" /></span>
-                <b>{pendingLoadProofCount > 0 ? `${pendingLoadProofCount} pending` : 'none pending'}</b>
-              </div>
-            </div>
-
-            {(deploymentNotice || deploymentError) && (
-              <div className={`ft-deploy-message${deploymentError ? ' error' : ''}`} role="status">
-                {deploymentError || deploymentNotice}
-              </div>
-            )}
-
-            {deploymentPlannerRows.length > 0 ? (
-              <div className="ft-deploy-planner-grid">
-                {deploymentPlannerRows.map((row) => {
-                  const activeDeployment = row.activeDeployment
-                  const latestDeployment = row.latestDeployment
-                  const createActionId = `create:${row.adapter.adapter_id}`
-                  const stopActionId = activeDeployment ? `stop:${activeDeployment.deployment_id}` : ''
-                  return (
-                    <article className="ft-deploy-plan-card" key={row.adapter.adapter_id}>
-                      <div className="ft-deploy-plan-top">
-                        <div>
-                          <span className="ft-table-sub mono">{row.adapter.adapter_id}</span>
-                          <h3>{row.adapter.name}</h3>
-                        </div>
-                        <span className={`stat ${statusTone(activeDeployment?.status || row.adapter.status)}`}>
-                          {activeDeployment?.status || row.adapter.status}
-                        </span>
-                      </div>
-
-                      <dl className="ft-deploy-plan-facts">
-                        <div>
-                          <dt><Bi en="Base" ar="الأساس" /></dt>
-                          <dd>{row.adapter.base_model}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Intent" ar="النية" /></dt>
-                          <dd>{activeDeployment?.deployment_id || latestDeployment?.deployment_id || 'not created'}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Endpoint" ar="النقطة" /></dt>
-                          <dd>{activeDeployment?.endpoint_id || latestDeployment?.endpoint_id || 'assigned after proof'}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Proof" ar="الإثبات" /></dt>
-                          <dd>
-                            {activeDeployment?.serving_load_proof
-                              ? 'load proof attached'
-                              : activeDeployment
-                                ? 'load proof pending'
-                                : 'create intent first'}
-                          </dd>
-                        </div>
-                      </dl>
-
-                      <div className="ft-deploy-path">
-                        <span><Bi en="1. intent row" ar="١. صف النية" /></span>
-                        <span><Bi en="2. internal vLLM load proof" ar="٢. إثبات تحميل vLLM داخلي" /></span>
-                        <span><Bi en="3. endpoint smoke gate" ar="٣. بوابة دخان النقطة" /></span>
-                        <span><Bi en="4. billing approval" ar="٤. موافقة الفوترة" /></span>
-                      </div>
-
-                      <div className="ft-deploy-actions">
-                        {activeDeployment ? (
-                          <button
-                            type="button"
-                            className="btn-sec ft-action-btn"
-                            disabled={deploymentActionId === stopActionId}
-                            onClick={() => void stopDeploymentIntent(activeDeployment)}
-                          >
-                            <Bi
-                              en={deploymentActionId === stopActionId ? 'Stopping' : 'Stop intent'}
-                              ar={deploymentActionId === stopActionId ? 'جار الإيقاف' : 'أوقف النية'}
-                            />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn-pri ft-action-btn"
-                            disabled={deploymentActionId === createActionId}
-                            onClick={() => void createDeploymentIntent(row.adapter)}
-                          >
-                            <Bi
-                              en={deploymentActionId === createActionId ? 'Creating' : 'Create gated intent'}
-                              ar={deploymentActionId === createActionId ? 'جار الإنشاء' : 'أنشئ نية مقيدة'}
-                            />
-                          </button>
-                        )}
-                        <span>
-                          <Bi
-                            en="No serving change: load proof and billing stay backend-owned."
-                            ar="لا تغيير في الخدمة: يبقى إثبات التحميل والفوترة في الخلفية."
-                          />
-                        </span>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="ft-empty">
-                <b>
-                  <Bi en="No ready adapters to deploy yet" ar="لا توجد محولات جاهزة للنشر بعد" />
-                </b>
-                <span>
-                  <Bi
-                    en="Deploy intents become available after an adapter reaches ready or deployed status. Training, load proof, endpoint smoke, billing, and routing remain gated."
-                    ar="تتوفر نوايا النشر بعد أن يصل المحول إلى حالة جاهز أو منشور. يبقى التدريب وإثبات التحميل ودخان النقطة والفوترة والتوجيه مقيدة."
-                  />
-                </span>
-              </div>
-            )}
-          </section>
-
-          <section className="ft-model-cards" aria-labelledby="ft-model-card-title">
-            <div className="ft-section-head compact">
-              <div>
-                <span className="pod-label">
-                  <Bi en="Model-card manifest" ar="بيان بطاقة النموذج" />
-                </span>
-                <h2 id="ft-model-card-title">
-                  <Bi en="Adapter proof cards" ar="بطاقات إثبات المحولات" />
-                </h2>
-              </div>
-              <span className="ft-contract-id mono">dcp.lora_model_card_manifest.v1</span>
-            </div>
-
-            {manifestRows.length > 0 ? (
-              <div className="ft-model-card-grid">
-                {manifestRows.map((job) => {
-                  const manifest = job.model_card_manifest as LoraModelCardManifest
-                  return (
-                    <article className="ft-model-card" key={job.training_job_id}>
-                      <div className="ft-model-card-top">
-                        <div>
-                          <span className="ft-table-sub mono">{manifest.adapter.adapter_id}</span>
-                          <h3>{manifest.adapter.name}</h3>
-                        </div>
-                        <span className={`stat ${statusTone(job.status)}`}>{manifest.status}</span>
-                      </div>
-
-                      <dl className="ft-model-card-facts">
-                        <div>
-                          <dt><Bi en="Base" ar="الأساس" /></dt>
-                          <dd>{manifest.adapter.base_model}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Dataset" ar="البيانات" /></dt>
-                          <dd>{formatNumber(manifest.dataset.row_count)} rows · {manifest.dataset.format}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Artifact" ar="الأثر" /></dt>
-                          <dd>{manifest.artifact.proof_status}</dd>
-                        </div>
-                        <div>
-                          <dt><Bi en="Card key" ar="مفتاح البطاقة" /></dt>
-                          <dd>{manifest.storage_key}</dd>
-                        </div>
-                      </dl>
-
-                      <div className="ft-claim-strip" aria-label={lang === 'ar' ? 'حراس الادعاءات' : 'Claim guards'}>
-                        <span><Bi en={manifest.claims.public_training_enabled ? 'training on' : 'training off'} ar={manifest.claims.public_training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'} /></span>
-                        <span><Bi en={manifest.claims.serving_enabled ? 'serving on' : 'serving off'} ar={manifest.claims.serving_enabled ? 'الخدمة تعمل' : 'الخدمة متوقفة'} /></span>
-                        <span><Bi en={manifest.claims.route_traffic ? 'routes on' : 'routes off'} ar={manifest.claims.route_traffic ? 'المسارات تعمل' : 'المسارات متوقفة'} /></span>
-                        <span><Bi en={manifest.claims.quality_claims ? 'quality claimed' : 'no quality claim'} ar={manifest.claims.quality_claims ? 'ادعاء جودة' : 'لا ادعاء جودة'} /></span>
-                        <span><Bi en={manifest.claims.tinker_compatible ? 'Tinker compatible' : 'Tinker not claimed'} ar={manifest.claims.tinker_compatible ? 'متوافق مع Tinker' : 'لا ادعاء Tinker'} /></span>
-                      </div>
-
-                      <p className="ft-next mono">{manifest.next}</p>
-                    </article>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="ft-empty">
-                <b>
-                  <Bi en="No model-card manifests yet" ar="لا توجد بيانات بطاقات نماذج بعد" />
-                </b>
-                <span>
-                  <Bi
-                    en="Manifest cards appear after a LoRA job reserves or records a model-card storage key."
-                    ar="تظهر بطاقات البيان بعد أن تحجز أو تسجل مهمة LoRA مفتاح تخزين بطاقة النموذج."
-                  />
-                </span>
-              </div>
-            )}
-          </section>
-
-          <section className="ft-grid" aria-label={lang === 'ar' ? 'حالة السجل والعقود' : 'Registry and contract state'}>
-            <div className="ft-ledger-stack">
-              <div className="ft-ledger">
-                <div className="ft-section-head compact">
-                  <div>
-                    <span className="pod-label">
-                      <Bi en="Dataset ledger" ar="سجل البيانات" />
-                    </span>
-                    <h2>
-                      <Bi en="Validated datasets" ar="البيانات المتحقق منها" />
-                    </h2>
-                  </div>
-                  <span className="ft-contract-id mono">POST /api/lora/datasets/validate</span>
-                </div>
-
-                <div className="ft-dataset-policy" aria-label={lang === 'ar' ? 'سياسة بيانات LoRA' : 'LoRA dataset policy'}>
-                  <div>
-                    <span><Bi en="Validation" ar="التحقق" /></span>
-                    <b>{readinessLabel(readiness?.dataset_validation?.status || (readiness?.dataset_validation?.available ? 'available' : undefined))}</b>
-                  </div>
-                  <div>
-                    <span><Bi en="Raw rows" ar="الصفوف الخام" /></span>
-                    <b><Bi en="not persisted" ar="لا تُخزن" /></b>
-                  </div>
-                  <div>
-                    <span><Bi en="Training job" ar="مهمة التدريب" /></span>
-                    <b><Bi en="metadata only" ar="بيانات وصفية فقط" /></b>
-                  </div>
-                  <div>
-                    <span><Bi en="GPU worker" ar="عامل GPU" /></span>
-                    <b>{gateLabel(readiness?.training_jobs?.worker_execution_enabled)}</b>
-                  </div>
-                </div>
-
-                {datasetLedgerRows.length > 0 ? (
-                  <div className="ft-table-wrap">
-                    <table className="tbl ft-table ft-dataset-table">
-                      <thead>
-                        <tr>
-                          <th><Bi en="Dataset" ar="البيانات" /></th>
-                          <th><Bi en="Rows" ar="الصفوف" /></th>
-                          <th><Bi en="Tokens" ar="الرموز" /></th>
-                          <th><Bi en="Models" ar="النماذج" /></th>
-                          <th><Bi en="Jobs" ar="المهام" /></th>
-                          <th><Bi en="Guards" ar="الحراس" /></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {datasetLedgerRows.map((dataset) => (
-                          <tr key={dataset.id}>
-                            <td>
-                              <span className="mono">{dataset.storage_key}</span>
-                              <span className="ft-table-sub mono">{shortChecksum(dataset.checksum_sha256)}</span>
-                            </td>
-                            <td>
-                              <span>
-                                <Bi en={`${formatNumber(dataset.row_count)} rows`} ar={`${formatNumber(dataset.row_count)} صف`} />
-                              </span>
-                              <span className="ft-table-sub">
-                                <Bi
-                                  en={`${dataset.format} · train ${formatNumber(dataset.train_rows)} · val ${formatNumber(dataset.validation_rows)}`}
-                                  ar={`${dataset.format} · تدريب ${formatNumber(dataset.train_rows)} · تحقق ${formatNumber(dataset.validation_rows)}`}
-                                />
-                              </span>
-                            </td>
-                            <td className="mono">{formatNumber(dataset.estimated_tokens)}</td>
-                            <td>
-                              <span className="mono">{dataset.base_models[0] || '-'}</span>
-                              {dataset.base_models.length > 1 && (
-                                <span className="ft-table-sub">+{dataset.base_models.length - 1} more</span>
-                              )}
-                              <span className="ft-table-sub mono">{dataset.recipes.join(' · ') || '-'}</span>
-                            </td>
-                            <td>
-                              <span>{dataset.job_count}</span>
-                              <span className="ft-table-sub">{dataset.latest_status} · {formatDate(dataset.latest_created_at)}</span>
-                            </td>
-                            <td>
-                              <span className="ft-gate-list">
-                                <span><Bi en="raw rows not stored" ar="الصفوف الخام لا تُخزن" /></span>
-                                <span>
-                                  <Bi
-                                    en={dataset.training_enabled ? 'trainer on' : 'trainer off'}
-                                    ar={dataset.training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'}
-                                  />
-                                </span>
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="ft-empty">
-                    <b>
-                      <Bi en="No dataset ledger rows yet" ar="لا توجد صفوف بيانات بعد" />
-                    </b>
-                    <span>
-                      <Bi
-                        en="Validate-only checks return checksum, split, row, and token facts. Ledger rows appear after a metadata training job references the dataset; raw rows are not persisted here."
-                        ar="تعيد فحوصات التحقق فقط البصمة والتقسيم والصفوف والرموز. تظهر صفوف السجل بعد أن تشير مهمة تدريب وصفية إلى البيانات؛ لا تُخزن الصفوف الخام هنا."
-                      />
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="ft-ledger">
-                <div className="ft-section-head compact">
-                  <div>
-                    <span className="pod-label">
-                      <Bi en="Training queue" ar="قائمة التدريب" />
-                    </span>
-                    <h2>
-                      <Bi en="LoRA training jobs" ar="مهام تدريب LoRA" />
-                    </h2>
-                  </div>
-                </div>
-
-                {trainingJobRows.length > 0 ? (
-                  <div className="ft-table-wrap">
-                    <table className="tbl ft-table ft-training-table">
-                      <thead>
-                        <tr>
-                          <th><Bi en="Job" ar="المهمة" /></th>
-                          <th><Bi en="Dataset" ar="البيانات" /></th>
-                          <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
-                          <th><Bi en="Recipe" ar="الوصفة" /></th>
-                          <th><Bi en="Status" ar="الحالة" /></th>
-                          <th><Bi en="Gates" ar="البوابات" /></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {trainingJobRows.map((job) => (
-                          <tr key={job.training_job_id}>
-                            <td>
-                              <span className="mono">{job.training_job_id}</span>
-                              <span className="ft-table-sub">{job.output_adapter_name}</span>
-                              <span className="ft-table-sub mono">{job.output_adapter_id}</span>
-                            </td>
-                            <td>
-                              <span>
-                                <Bi
-                                  en={`${formatNumber(job.dataset_row_count)} rows`}
-                                  ar={`${formatNumber(job.dataset_row_count)} صف`}
-                                />
-                              </span>
-                              <span className="ft-table-sub">
-                                <Bi
-                                  en={`${job.dataset_format} · train ${formatNumber(job.train_rows)} · val ${formatNumber(job.validation_rows)}`}
-                                  ar={`${job.dataset_format} · تدريب ${formatNumber(job.train_rows)} · تحقق ${formatNumber(job.validation_rows)}`}
-                                />
-                              </span>
-                              <span className="ft-table-sub mono">{shortChecksum(job.dataset_checksum_sha256)}</span>
-                            </td>
-                            <td className="mono">{job.base_model}</td>
-                            <td className="mono">{job.recipe}</td>
-                            <td>
-                              <span className={`stat ${statusTone(job.status)}`}>
-                                {job.status}
-                              </span>
-                              <span className="ft-table-sub">{formatDate(job.created_at)}</span>
-                            </td>
-                            <td>
-                              <span className="ft-gate-list">
-                                <span>
-                                  <Bi
-                                    en={job.training_enabled ? 'trainer on' : 'trainer off'}
-                                    ar={job.training_enabled ? 'التدريب يعمل' : 'التدريب متوقف'}
-                                  />
-                                </span>
-                                <span>
-                                  <Bi
-                                    en={job.adapter_registered ? 'adapter registered' : 'adapter pending'}
-                                    ar={job.adapter_registered ? 'المحول مسجل' : 'المحول قيد الانتظار'}
-                                  />
-                                </span>
-                                <span>
-                                  <Bi
-                                    en={job.model_card_manifest ? 'model card manifest' : 'model card pending'}
-                                    ar={job.model_card_manifest ? 'بيان بطاقة النموذج' : 'بطاقة النموذج قيد الانتظار'}
-                                  />
-                                </span>
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="ft-empty">
-                    <b>
-                      <Bi en="No training jobs recorded yet" ar="لا توجد مهام تدريب مسجلة بعد" />
-                    </b>
-                    <span>
-                      <Bi
-                        en="The job API is live for validated LoRA metadata. GPU trainer execution stays blocked until host proof and artifact registration are wired."
-                        ar="واجهة المهام تعمل لبيانات LoRA المحققة. تنفيذ تدريب GPU يبقى متوقفا حتى ربط إثبات المضيف وتسجيل الأثر."
-                      />
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="ft-ledger">
-                <div className="ft-section-head compact">
-                  <div>
-                    <span className="pod-label">
-                      <Bi en="Adapter registry" ar="سجل المحولات" />
-                    </span>
-                    <h2>
-                      <Bi en="Latest adapters" ar="آخر المحولات" />
-                    </h2>
-                  </div>
-                </div>
-
-                {adapterRows.length > 0 ? (
-                  <div className="ft-table-wrap">
-                    <table className="tbl ft-table">
-                      <thead>
-                        <tr>
-                          <th><Bi en="Adapter" ar="المحول" /></th>
-                          <th><Bi en="Base model" ar="النموذج الأساسي" /></th>
-                          <th><Bi en="Rank" ar="الرتبة" /></th>
-                          <th><Bi en="Status" ar="الحالة" /></th>
-                          <th><Bi en="Checksum" ar="البصمة" /></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {adapterRows.map((adapter) => (
-                          <tr key={adapter.adapter_id}>
-                            <td>
-                              <span className="mono">{adapter.adapter_id}</span>
-                              <span className="ft-table-sub">{adapter.name}</span>
-                            </td>
-                            <td className="mono">{adapter.base_model}</td>
-                            <td className="mono">{adapter.rank ?? '-'}</td>
-                            <td>
-                              <span className={`stat ${statusTone(adapter.status)}`}>
-                                {adapter.status}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="mono">{shortChecksum(adapter.checksum_sha256)}</span>
-                              <span className="ft-table-sub">{formatDate(adapter.created_at)}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="ft-empty">
-                    <b>
-                      <Bi en="No adapters registered yet" ar="لا توجد محولات مسجلة بعد" />
-                    </b>
-                    <span>
-                      <Bi
-                        en="Adapter records appear here only after a LoRA artifact is registered. Job rows above may exist before any adapter is deployable."
-                        ar="تظهر سجلات المحولات هنا فقط بعد تسجيل أثر LoRA. قد توجد صفوف المهام أعلاه قبل أن يصبح أي محول قابلا للنشر."
-                      />
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="ft-ledger">
-                <div className="ft-section-head compact">
-                  <div>
-                    <span className="pod-label">
-                      <Bi en="Adapter deployments" ar="نشر المحولات" />
-                    </span>
-                    <h2>
-                      <Bi en="Deployment intents" ar="نوايا النشر" />
-                    </h2>
-                  </div>
-                </div>
-
-                {deploymentRows.length > 0 ? (
-                  <div className="ft-table-wrap">
-                    <table className="tbl ft-table ft-deploy-table">
-                      <thead>
-                        <tr>
-                          <th><Bi en="Deployment" ar="النشر" /></th>
-                          <th><Bi en="Adapter" ar="المحول" /></th>
-                          <th><Bi en="Mode" ar="النمط" /></th>
-                          <th><Bi en="Endpoint" ar="النقطة" /></th>
-                          <th><Bi en="Status" ar="الحالة" /></th>
-                          <th><Bi en="Traffic" ar="الحركة" /></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {deploymentRows.map((deployment) => (
-                          <tr key={deployment.deployment_id}>
-                            <td>
-                              <span className="mono">{deployment.deployment_id}</span>
-                              <span className="ft-table-sub">{formatDate(deployment.created_at)}</span>
-                            </td>
-                            <td className="mono">{deployment.adapter_id}</td>
-                            <td className="mono">{deployment.mode}</td>
-                            <td className="mono">{deployment.endpoint_id || '-'}</td>
-                            <td>
-                              <span className={`stat ${statusTone(deployment.status)}`}>{deployment.status}</span>
-                              {deployment.failure_reason && (
-                                <span className="ft-table-sub">{deployment.failure_reason}</span>
-                              )}
-                            </td>
-                            <td>
-                              <span className="ft-gate-list">
-                                <span>
-                                  <Bi
-                                    en={deployment.route_traffic ? 'routes on' : 'routes off'}
-                                    ar={deployment.route_traffic ? 'المسارات تعمل' : 'المسارات متوقفة'}
-                                  />
-                                </span>
-                                <span>
-                                  <Bi
-                                    en={deployment.serving_load_proof ? 'load proof attached' : 'load proof pending'}
-                                    ar={deployment.serving_load_proof ? 'إثبات التحميل مرفق' : 'إثبات التحميل قيد الانتظار'}
-                                  />
-                                </span>
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="ft-empty">
-                    <b>
-                      <Bi en="No deployment intents yet" ar="لا توجد نوايا نشر بعد" />
-                    </b>
-                    <span>
-                      <Bi
-                        en="Deployment records appear only after a ready adapter asks for a serving target. Route traffic stays off until vLLM proof matches deployment id, adapter id, base model, mode, endpoint id, and checksum."
-                        ar="تظهر سجلات النشر فقط بعد أن يطلب محول جاهز هدف خدمة. تبقى الحركة متوقفة حتى يرفق إثبات تحميل vLLM مطابق."
-                      />
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <aside className="ft-contract">
-              <span className="pod-label">
-                <Bi en="API snippets" ar="أمثلة API" />
-              </span>
-              <div className="ft-snippet-stack" aria-label={lang === 'ar' ? 'أمثلة API' : 'API snippets'}>
-                {API_SNIPPETS.map((snippet) => (
-                  <div className="ft-snippet" key={snippet.id}>
-                    <div className="ft-snippet-top">
-                      <div>
-                        <b>
-                          <Bi en={snippet.titleEn} ar={snippet.titleAr} />
-                        </b>
-                        <span>{snippet.meta}</span>
-                      </div>
-                      <button type="button" className="ft-copy" onClick={() => copySnippet(snippet.id, snippet.command)}>
-                        <Bi en={copiedSnippet === snippet.id ? 'Copied' : 'Copy'} ar={copiedSnippet === snippet.id ? 'تم النسخ' : 'نسخ'} />
-                      </button>
-                    </div>
-                    <pre className="code ft-code">{snippet.command}</pre>
-                    <p>
-                      <Bi en={snippet.noteEn} ar={snippet.noteAr} />
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="ft-contract-note">
-                <Bi
-                  en="These snippets use the shipped contract surface. They do not prove managed training or public adapter serving; deployment routing stays disabled until serving proof lands."
-                  ar="تستخدم هذه الأمثلة واجهة العقد المشحونة. لا تثبت التدريب المُدار أو خدمة المحولات العامة؛ يبقى توجيه النشر معطلاً حتى يصل إثبات الخدمة."
-                />
-              </div>
-            </aside>
-          </section>
-        </main>
-      </div>
-    </div>
+            ))}
+          </div>
+          <div className="ft-contract-note">
+            <Bi
+              en="These snippets use the shipped contract surface. They do not prove managed training or public adapter serving; deployment routing stays disabled until serving proof lands."
+              ar="تستخدم هذه الأمثلة واجهة العقد المشحونة. لا تثبت التدريب المُدار أو خدمة المحولات العامة؛ يبقى توجيه النشر معطلاً حتى يصل إثبات الخدمة."
+            />
+          </div>
+        </aside>
+      </section>
+    </main>
   )
 }
