@@ -18,6 +18,8 @@ process.env.SUPABASE_KEY = process.env.SUPABASE_KEY || 'test';
 process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'test';
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 
 const _origSetInterval = global.setInterval;
@@ -42,7 +44,7 @@ afterAll(() => {
 });
 
 describe('daemon self-update integrity (#13)', () => {
-  it('check_only publishes a sha256 that matches the served download bytes', async () => {
+  it('check_only publishes sha256 values that match the served daemon bundle bytes', async () => {
     const check = await request(app)
       .get('/api/providers/download/daemon')
       .query({ key: providerKey, check_only: 'true' });
@@ -52,6 +54,12 @@ describe('daemon self-update integrity (#13)', () => {
     expect(check.body).toHaveProperty('download_url');
     // The integrity digest the daemon will verify against.
     expect(check.body.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(check.body.mining_guard).toEqual(expect.objectContaining({
+      filename: 'mining_guard.py',
+      download_url: expect.stringContaining('/api/providers/download/mining-guard?key='),
+      size: expect.any(Number),
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    }));
 
     const download = await request(app)
       .get('/api/providers/download/daemon')
@@ -65,6 +73,50 @@ describe('daemon self-update integrity (#13)', () => {
     // The published digest MUST equal the hash of what is actually served —
     // otherwise the daemon's fail-closed verification would reject every update.
     expect(check.body.sha256).toBe(actual);
+
+    const guardDownload = await request(app)
+      .get('/api/providers/download/mining-guard')
+      .query({ key: providerKey });
+
+    expect(guardDownload.status).toBe(200);
+    const guardBody = guardDownload.text != null ? guardDownload.text : guardDownload.body.toString('utf-8');
+    const guardActual = crypto.createHash('sha256').update(Buffer.from(guardBody, 'utf-8')).digest('hex');
+    expect(check.body.mining_guard.sha256).toBe(guardActual);
+    expect(guardBody).toContain('def run_host_miner_sweep');
+    expect(guardBody).toContain('def findings_warrant_quarantine');
+
+    const manifest = await request(app)
+      .get('/api/providers/download/daemon/manifest')
+      .query({ key: providerKey });
+
+    expect(manifest.status).toBe(200);
+    expect(manifest.body.sha256).toBe(actual);
+    expect(manifest.body.mining_guard).toEqual(check.body.mining_guard);
+  });
+
+  it('serves a daemon bundle that imports and reports mining guard availability', async () => {
+    const download = await request(app)
+      .get('/api/providers/download/daemon')
+      .query({ key: providerKey });
+
+    expect(download.status).toBe(200);
+    const body = download.text != null ? download.text : download.body.toString('utf-8');
+    expect(body).toContain('from mining_guard import');
+    expect(body).toContain('MINING_GUARD_IMPORT_ERROR');
+    expect(body).toContain('mining_guard_unavailable');
+    expect(body).toContain('def _download_mining_guard_update');
+  });
+
+  it('keeps provider installers fetching mining_guard.py beside dcp_daemon.py', () => {
+    const backendRoot = path.resolve(__dirname, '../..');
+    const unixInstaller = fs.readFileSync(path.join(backendRoot, 'public/install.sh'), 'utf-8');
+    const windowsInstaller = fs.readFileSync(path.join(backendRoot, 'public/install.ps1'), 'utf-8');
+    const legacyWindowsInstaller = fs.readFileSync(path.join(backendRoot, 'installers/daemon.ps1'), 'utf-8');
+
+    for (const installer of [unixInstaller, windowsInstaller, legacyWindowsInstaller]) {
+      expect(installer).toContain('/api/providers/download/mining-guard');
+      expect(installer).toContain('mining_guard.py');
+    }
   });
 
   it('rejects the daemon download without a valid provider key', async () => {
@@ -75,5 +127,13 @@ describe('daemon self-update integrity (#13)', () => {
       .get('/api/providers/download/daemon')
       .query({ key: 'dcp-provider-not-a-real-key', check_only: 'true' });
     expect(badKey.status).toBe(401);
+
+    const noGuardKey = await request(app).get('/api/providers/download/mining-guard');
+    expect(noGuardKey.status).toBe(400);
+
+    const badGuardKey = await request(app)
+      .get('/api/providers/download/mining-guard')
+      .query({ key: 'dcp-provider-not-a-real-key' });
+    expect(badGuardKey.status).toBe(401);
   });
 });

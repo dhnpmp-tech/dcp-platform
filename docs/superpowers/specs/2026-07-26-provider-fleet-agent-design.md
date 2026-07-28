@@ -1,9 +1,9 @@
-# Provider Fleet Agent — Design Notes (PAUSED 2026-07-26)
+# Provider Fleet Agent — Design (Phase 1 BUILT 2026-07-28)
 
-> **Status: PAUSED mid-brainstorm.** Decisions below are settled with Peter.
-> Resume by finishing sections 4–5 (data flow + allowlist, testing), then run
-> the normal spec → plan → subagent-driven-execution flow. This is design
-> capture, not a finished spec.
+> **Status: Phase 1 implemented** (`backend/src/fleet/`). Sections 4–5 below
+> are as-built. Motivating incident for the resume: Node 2's daemon was
+> SIGTERM'd during the July 26 model swap and stayed down ~2 days unnoticed
+> (no watchdog covered the daemon itself).
 
 ## Motivation
 
@@ -61,23 +61,59 @@ third-party hardware.
 - **Comms** — reuses the Mission Control API + Telegram bridge. Incidents →
   Alerts topic; diagnoses/proposals → Mission Control tasks to the right owner.
 
-## OPEN — to finish on resume
+## Section 4 — Data flow + allowlist (AS BUILT)
 
-- **Section 4 — data flow + the allowlist contents.** Enumerate exactly which
-  actions are `auto` (candidates: restart a wedged daemon, retry a failed
-  download, expire a stuck lease, run the anti-miner sweep) vs `propose` (kill a
-  model, quarantine a provider, reboot, disable a systemd unit). This is the
-  crux — get it precise.
-- **Section 5 — testing + rollout.** Fake-clock watcher rules, actuator allowlist
-  enforcement (LLM proposes out-of-allowlist → rejected), dry-run mode default
-  (like the dispatcher), staged rollout on one node (Node 2) first.
-- **Brain model choice** (recommendation-with-flag, not yet decided): Claude API
-  for the emergency brain — reliability matters (if we dogfood DCP inference and
-  the fleet is down, the brain's own model may be down too). Dogfooding DCP
-  inference is the eventual goal per the inference-demand thesis, once reliable.
-- Where the watcher lives: new pm2 process vs. extend `dc1-mission-dispatcher`.
-- Schema: `provider_fleet_state` table shape + incident ledger (dedup like the
-  dispatcher's).
+**Recovery channel insight:** the daemon HMAC channel (`pending_provider_tasks`)
+requires a LIVE daemon — useless for the most important action (restarting a
+dead daemon). The **liveness beacon cron** survives daemon death, so its ack
+now carries a one-shot `recover: {action}` field (route
+`POST /:id/agent-liveness`). The beacon script validates against its OWN local
+allowlist (`start_daemon` only, and only when no daemon process is running).
+Two independent allowlists must agree before anything touches a node.
+
+**AUTO (code allowlist in `fleet/actuator.js`):**
+- `start_daemon` — via beacon ack. Fires deterministically on the
+  `daemon_down_host_alive` rule (daemon heartbeat gap > 10 min AND beacon
+  fresh < 5 min). No LLM required.
+- `retry_download` — via `pending_provider_tasks` (`pull_model`).
+- `expire_stuck_lease` — backend DB only.
+
+**PROPOSE (mission task, never executed):** everything else — kill/swap model,
+quarantine/un-flag a provider, reboot, disable systemd units, any SSH action.
+`miner_quarantine` and `host_unreachable` incidents have NO auto action.
+
+**Rules (`fleet/rules.js`, pure + fake-clock testable):**
+`daemon_down_host_alive` (critical, auto), `host_unreachable` (critical),
+`miner_quarantine` (critical, fires even when paused), `download_stuck`
+(warning, in_progress > 60 min). Graveyard gate: rows silent > 7 days never
+fire (kills the providerHealth log-noise problem).
+
+**Brain (`fleet/brain.js`):** env-gated on `ANTHROPIC_API_KEY`; without it the
+watcher is deterministic-only. `claude-opus-4-7`, adaptive thinking, structured
+decision `{diagnosis, action, proposed_action?, message}`; out-of-enum degrades
+to propose. Woken only on NEW incidents (dedup'd), stateless per wake.
+
+## Section 5 — Testing + rollout (AS BUILT)
+
+- `fleet-rules.test.js` — 12 fake-clock rule tests incl. graveyard suppression
+  and the Node 2 incident shape.
+- `fleet-actuator.test.js` — 6 tests: dry-run default executes nothing;
+  live-list gating; non-allowlisted action NEVER executes (files a proposal);
+  channel correctness.
+- Rollout: `dcp-fleet-watcher` pm2 process (`ecosystem.fleet.config.js`),
+  DRY-RUN default; staged live via `DCP_FLEET_LIVE_PROVIDERS=1774351995321`
+  (Node 2); fleet-wide via `DCP_FLEET_DRYRUN=0` after a clean week.
+- Schema: `provider_fleet_state` + `fleet_incidents` (partial unique index on
+  open dedup_key) + `provider_agent_liveness.recover_action` — all in `db.js`.
+
+## Phase 2 (open)
+
+- Grow the daemon task vocabulary so `antiminer_sweep` can ride the HMAC
+  channel (CHECK constraint currently limits to pull/unload/noop).
+- Version drift + VRAM contention rules (need daemon_version/VRAM telemetry
+  folded into fleet state).
+- Brain memory: feed resolved-incident history into the packet.
+- Dogfood DCP inference for the brain once reliable (inference-demand thesis).
 
 ## Resume checklist
 

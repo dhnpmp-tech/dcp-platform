@@ -4264,6 +4264,31 @@ function _buildInjectedDaemonScript(cleanKey) {
     return { daemonPath, injected, currentVersion };
 }
 
+function _buildMiningGuardArtifact() {
+    const guardPath = path.join(__dirname, '../../installers/mining_guard.py');
+    if (!fs.existsSync(guardPath)) return null;
+    const source = fs.readFileSync(guardPath, 'utf-8');
+    const buf = Buffer.from(source, 'utf-8');
+    return {
+        guardPath,
+        filename: 'mining_guard.py',
+        source,
+        size: buf.length,
+        sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+    };
+}
+
+function _buildMiningGuardManifest(cleanKey) {
+    const artifact = _buildMiningGuardArtifact();
+    if (!artifact) return null;
+    return {
+        filename: artifact.filename,
+        download_url: `/api/providers/download/mining-guard?key=${encodeURIComponent(cleanKey)}`,
+        size: artifact.size,
+        sha256: artifact.sha256,
+    };
+}
+
 // ============================================================================
 // GET /api/providers/download/daemon - Serve dcp_daemon.py with injected key
 // ============================================================================
@@ -4288,11 +4313,14 @@ router.get('/download/daemon', (req, res) => {
         if (check_only === 'true') {
             recordActivationEvent(provider.id, 'daemon_download_check', { route: 'download/daemon' });
             const sha256 = crypto.createHash('sha256').update(Buffer.from(injected, 'utf-8')).digest('hex');
+            const miningGuard = _buildMiningGuardManifest(cleanKey);
+            if (!miningGuard) return res.status(503).json({ error: 'Mining guard artifact not found' });
             return res.json({
                 version: currentVersion,
                 min_version: MIN_DAEMON_VERSION,
-                download_url: `/api/providers/download/daemon?key=${cleanKey}`,
+                download_url: `/api/providers/download/daemon?key=${encodeURIComponent(cleanKey)}`,
                 sha256,
+                mining_guard: miningGuard,
             });
         }
 
@@ -4308,6 +4336,55 @@ router.get('/download/daemon', (req, res) => {
     } catch (error) {
         console.error('Daemon download error:', error);
         res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// ============================================================================
+// GET /api/providers/download/mining-guard - Serve mining_guard.py companion
+// ============================================================================
+router.get('/download/mining-guard', (req, res) => {
+    try {
+        const { check_only } = req.query;
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const cleanKey = resolved.apiKey;
+        const provider = { id: resolved.providerId };
+
+        const artifact = _buildMiningGuardArtifact();
+        if (!artifact) return res.status(404).json({ error: 'Mining guard file not found' });
+
+        if (check_only === 'true') {
+            recordActivationEvent(provider.id, 'mining_guard_download_check', { route: 'download/mining-guard' });
+            return res.json(_buildMiningGuardManifest(cleanKey));
+        }
+
+        recordActivationEvent(provider.id, 'mining_guard_downloaded', {
+            route: 'download/mining-guard',
+            filename: artifact.filename,
+            size_bytes: artifact.size,
+        });
+        res.setHeader('Content-Type', 'text/x-python');
+        res.setHeader('Content-Disposition', 'attachment; filename="mining_guard.py"');
+        res.send(artifact.source);
+    } catch (error) {
+        console.error('Mining guard download error:', error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// ============================================================================
+// GET /api/providers/download/mining-guard/manifest - sha256 + size
+// ============================================================================
+router.get('/download/mining-guard/manifest', (req, res) => {
+    try {
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const manifest = _buildMiningGuardManifest(resolved.apiKey);
+        if (!manifest) return res.status(404).json({ error: 'Mining guard file not found' });
+        return res.json(manifest);
+    } catch (error) {
+        console.error('Mining guard manifest error:', error);
+        res.status(500).json({ error: 'Manifest failed' });
     }
 });
 
@@ -4376,10 +4453,13 @@ router.get('/download/daemon/manifest', (req, res) => {
 
         const buf = Buffer.from(built.injected, 'utf-8');
         const sha256 = crypto.createHash('sha256').update(buf).digest('hex');
+        const miningGuard = _buildMiningGuardManifest(cleanKey);
+        if (!miningGuard) return res.status(503).json({ error: 'Mining guard artifact not found' });
         return res.json({
             version: built.currentVersion,
             size: buf.length,
             sha256,
+            mining_guard: miningGuard,
         });
     } catch (error) {
         console.error('Daemon manifest error:', error);
@@ -9049,12 +9129,22 @@ router.post('/:id/agent-liveness', express.json({ limit: '16kb' }), (req, res) =
         );
 
         // Return the pull-trigger so Hermes knows whether to upload its log
-        // tail on the next tick.
+        // tail on the next tick. `recover` is the fleet watcher's out-of-band
+        // recovery channel (survives daemon death because the beacon is an
+        // independent cron): one-shot — cleared on delivery, the beacon script
+        // validates against its own local allowlist before acting.
         const row = db.get(
-            'SELECT wants_logs_at FROM provider_agent_liveness WHERE provider_id = ?',
+            'SELECT wants_logs_at, recover_action FROM provider_agent_liveness WHERE provider_id = ?',
             [providerId]
         );
-        return res.json({ ok: true, wants_logs_at: row?.wants_logs_at || null });
+        if (row?.recover_action) {
+            db.run('UPDATE provider_agent_liveness SET recover_action = NULL WHERE provider_id = ?', [providerId]);
+        }
+        return res.json({
+            ok: true,
+            wants_logs_at: row?.wants_logs_at || null,
+            recover: row?.recover_action ? { action: row.recover_action } : null,
+        });
     } catch (err) {
         console.error('[providers/:id/agent-liveness]', err);
         return res.status(500).json({ error: 'Failed to record agent liveness' });
