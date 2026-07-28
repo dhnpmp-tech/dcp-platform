@@ -2873,7 +2873,13 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_log_snapshots_provider ON provider
 // ── Fleet watcher (docs/superpowers/specs/2026-07-26-provider-fleet-agent-design.md) ──
 // recover_action: out-of-band recovery channel — the liveness beacon cron
 // survives daemon death, so its ack can carry an allowlisted recovery command.
-try { db.prepare('ALTER TABLE provider_agent_liveness ADD COLUMN recover_action TEXT').run(); } catch (_) {}
+try {
+  db.prepare('ALTER TABLE provider_agent_liveness ADD COLUMN recover_action TEXT').run();
+} catch (e) {
+  // Idempotent column add: only "duplicate column" is expected — anything
+  // else (locked db, disk) must surface, not be swallowed.
+  if (!/duplicate column/i.test(e.message)) throw e;
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS provider_fleet_state (
