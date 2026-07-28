@@ -75,7 +75,7 @@ export default function MarketplacePage() {
             <article className="mg">
               <span className="org">Allam · Q4</span>
               <h3 className="nm">ALLaM-7B</h3>
-              <span className="tag">Arabic-first LLM</span>
+              <span className="tag"><Bi en="Arabic-first LLM" ar="نموذج لغوي عربي أولاً" /></span>
               <p>
                 <Bi
                   en="SDAIA's Arabic-large language model, quantized for fast in-Kingdom serving. The reference Arabic model on DCP."
@@ -91,7 +91,7 @@ export default function MarketplacePage() {
             <article className="mg">
               <span className="org">DeepSeek · V4 Flash</span>
               <h3 className="nm">DeepSeek V4 Flash</h3>
-              <span className="tag">Fast · cheap</span>
+              <span className="tag"><Bi en="Fast · cheap" ar="سريع · اقتصادي" /></span>
               <p>
                 <Bi
                   en="The fast tier. Drop-in OpenAI-compatible chat endpoint, streamed from KSA-resident GPUs."
@@ -107,7 +107,7 @@ export default function MarketplacePage() {
             <article className="mg">
               <span className="org">DeepSeek · V4 Pro</span>
               <h3 className="nm">DeepSeek V4 Pro</h3>
-              <span className="tag">Frontier-class</span>
+              <span className="tag"><Bi en="Frontier-class" ar="فئة متقدمة" /></span>
               <p>
                 <Bi
                   en="The deep-reasoning tier. Higher quality for harder prompts; still in-Kingdom, still SAR-billed."
@@ -121,11 +121,11 @@ export default function MarketplacePage() {
             </article>
 
             <article className="mg frontier">
-              <span className="org">Roadmap</span>
+              <span className="org"><Bi en="Roadmap" ar="خارطة الطريق" /></span>
               <h3 className="nm">
                 <Bi en="More models, opt-in" ar="نماذج أكثر، بإذن" />
               </h3>
-              <span className="tag">Cross-border · opt-in</span>
+              <span className="tag"><Bi en="Cross-border · opt-in" ar="عابر للحدود · بموافقة" /></span>
               <p>
                 <Bi
                   en="Frontier models arrive behind an explicit per-tenant opt-in — never on by default. Your data stays in the Kingdom unless you ask it to leave."
