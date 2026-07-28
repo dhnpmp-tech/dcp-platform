@@ -29,9 +29,20 @@ module.exports = {
 
         DCP_FLEET_TICK_MS: process.env.DCP_FLEET_TICK_MS || '30000',
 
-        // Brain (optional): without a key the watcher runs deterministic-only.
+        // Brain (optional): without any backend the watcher runs
+        // deterministic-only. Two interchangeable backends:
+        //   - OpenAI-compatible (DCP_FLEET_BRAIN_BASE_URL): dogfood DCP
+        //     inference. STOPGAP until Node 3: point at Node 2's in-Kingdom
+        //     Bonsai over the WG mesh. Critical recovery is deterministic, so
+        //     the brain-on-the-node-it-watches circular dep only costs the
+        //     diagnosis narrative if that node is down — never the fix.
+        //   - Anthropic (ANTHROPIC_API_KEY): highest reliability; set this and
+        //     clear BASE_URL to switch back once Node 3 carries inference.
+        DCP_FLEET_BRAIN_BASE_URL: process.env.DCP_FLEET_BRAIN_BASE_URL || 'http://10.8.0.6:8080/v1',
+        DCP_FLEET_BRAIN_MODEL: process.env.DCP_FLEET_BRAIN_MODEL || 'ternary-bonsai-27b',
+        DCP_FLEET_BRAIN_MAX_TOKENS: process.env.DCP_FLEET_BRAIN_MAX_TOKENS || '2048',
+        DCP_FLEET_BRAIN_TIMEOUT_MS: process.env.DCP_FLEET_BRAIN_TIMEOUT_MS || '30000',
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
-        DCP_FLEET_BRAIN_MODEL: process.env.DCP_FLEET_BRAIN_MODEL || 'claude-opus-4-7',
 
         // Alerts ride the existing notifications service (Telegram).
         DCP_TG_BOT_TOKEN: process.env.DCP_TG_BOT_TOKEN || '',

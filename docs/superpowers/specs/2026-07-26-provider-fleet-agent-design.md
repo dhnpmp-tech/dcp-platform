@@ -106,6 +106,29 @@ to propose. Woken only on NEW incidents (dedup'd), stateless per wake.
 - Schema: `provider_fleet_state` + `fleet_incidents` (partial unique index on
   open dedup_key) + `provider_agent_liveness.recover_action` — all in `db.js`.
 
+## Brain backend (2026-07-28): local Bonsai stopgap
+
+The brain is now backend-agnostic (`fleet/brain.js`): set `DCP_FLEET_BRAIN_BASE_URL`
+for any OpenAI-compatible endpoint, or `ANTHROPIC_API_KEY` for Claude. LIVE now:
+Node 2's in-Kingdom **Bonsai** (`ternary-bonsai-27b`, llama.cpp `/v1` over the WG
+mesh at `http://10.8.0.6:8080/v1`) — dogfoods DCP inference, no external key,
+stopgap until Node 3 is onboarded. Switch back to Claude by setting
+`ANTHROPIC_API_KEY` and clearing `DCP_FLEET_BRAIN_BASE_URL`.
+
+Notes:
+- Bonsai is a REASONING model: answer is in `message.content`, chain-of-thought
+  in `message.reasoning_content` (ignored). Needs generous `max_tokens` (2048)
+  or the JSON is truncated. `parseDecision` handles fences/prose/out-of-enum.
+- Observed latency ~28s/decision (Q2 27B). Timeout 45s.
+- Circular-dependency is bounded: critical recovery is deterministic and fires
+  BEFORE the brain call, so a Bonsai-on-Node-2 outage costs only the diagnosis
+  narrative for that incident, never the fix or the alert.
+- **Phase 2 / live-wide TODO:** the brain call is currently awaited inside the
+  watcher tick, so a ~28s Bonsai call delays detection of OTHER providers'
+  incidents in that tick. Fine for the current single-live-node rollout;
+  decouple (queue diagnosis off the tick path) before flipping the whole fleet
+  to live.
+
 ## Phase 2 (open)
 
 - Grow the daemon task vocabulary so `antiminer_sweep` can ride the HMAC
