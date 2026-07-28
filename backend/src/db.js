@@ -2870,6 +2870,48 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_log_snapshots_provider ON provider_agent_log_snapshots(provider_id, captured_at)`);
 
+// ── Fleet watcher (docs/superpowers/specs/2026-07-26-provider-fleet-agent-design.md) ──
+// recover_action: out-of-band recovery channel — the liveness beacon cron
+// survives daemon death, so its ack can carry an allowlisted recovery command.
+try { db.prepare('ALTER TABLE provider_agent_liveness ADD COLUMN recover_action TEXT').run(); } catch (_) {}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_fleet_state (
+    provider_id INTEGER PRIMARY KEY,
+    last_heartbeat TEXT,
+    last_beacon_at TEXT,
+    status TEXT,
+    daemon_version TEXT,
+    gpu_name TEXT,
+    vram_used_mib INTEGER,
+    models_json TEXT,
+    open_incidents INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (provider_id) REFERENCES providers(id)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS fleet_incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_id INTEGER NOT NULL,
+    rule TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+    summary TEXT,
+    dedup_key TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open','resolved')),
+    count INTEGER NOT NULL DEFAULT 1,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    resolved_at TEXT,
+    brain_decision_json TEXT,
+    action_taken TEXT,
+    FOREIGN KEY (provider_id) REFERENCES providers(id)
+  )
+`);
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_fleet_incidents_open_dedup ON fleet_incidents(dedup_key) WHERE state = 'open'`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_fleet_incidents_provider ON fleet_incidents(provider_id, last_seen)`);
+
 // Compatibility wrapper: providers.js uses db.run/get/all (async sqlite3 style)
 // better-sqlite3 uses db.prepare().run/get/all - these wrappers bridge the gap
 function flatParams(params) {
