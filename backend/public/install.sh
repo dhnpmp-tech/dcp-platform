@@ -13,6 +13,7 @@ CONFIG_FILE="${CONFIG_DIR}/config"
 INSTALL_DIR="${HOME}/dcp-provider"
 LOG_DIR="${INSTALL_DIR}/logs"
 DAEMON_PATH="${INSTALL_DIR}/dcp_daemon.py"
+MINING_GUARD_PATH="${INSTALL_DIR}/mining_guard.py"
 PID_FILE="${INSTALL_DIR}/dcp_daemon.pid"
 
 LAUNCHD_LABEL="com.dcp.provider"
@@ -1123,13 +1124,15 @@ detect_endpoint_url() {
 
 download_daemon() {
   mkdir -p "${INSTALL_DIR}" "${LOG_DIR}"
-  local tmp
+  local tmp guard_tmp
   tmp="$(mktemp)"
-  trap 'rm -f "${tmp}"' RETURN
+  guard_tmp="$(mktemp)"
+  trap 'rm -f "${tmp}" "${guard_tmp}"' RETURN
 
-  local primary_url fallback_url
+  local primary_url fallback_url guard_url
   primary_url="${API_BASE}/api/providers/download/daemon?key=${DCP_PROVIDER_KEY}"
   fallback_url="${API_BASE}/daemon?key=${DCP_PROVIDER_KEY}"
+  guard_url="${API_BASE}/api/providers/download/mining-guard?key=${DCP_PROVIDER_KEY}"
 
   if curl -fsSL "${primary_url}" -o "${tmp}"; then
     :
@@ -1142,6 +1145,14 @@ download_daemon() {
   mv "${tmp}" "${DAEMON_PATH}"
   chmod +x "${DAEMON_PATH}"
   info "Daemon downloaded to ${DAEMON_PATH}."
+
+  if ! curl -fsSL "${guard_url}" -o "${guard_tmp}"; then
+    fail "Failed to download mining_guard.py companion from ${API_BASE}."
+  fi
+
+  mv "${guard_tmp}" "${MINING_GUARD_PATH}"
+  chmod 600 "${MINING_GUARD_PATH}" || true
+  info "Mining guard downloaded to ${MINING_GUARD_PATH}."
 }
 
 restart_nohup_daemon() {
